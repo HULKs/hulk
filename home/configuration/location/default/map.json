@@ -1,0 +1,22 @@
+{
+    "field": {
+        "length": 9,
+        "width": 6,
+        "lineWidth": 0.05,
+        "penaltyMarkerSize": 0.1,
+        "penaltyMarkerDistance": 1.3,
+        "penaltyAreaLength": 0.6,
+        "penaltyAreaWidth": 2.2,
+        "centerCircleDiameter": 1.5,
+        "borderStripWidth": 0.7
+    },
+    "goal": {
+        "postDiameter": 0.1,
+        "height": 0.8,
+        "innerWidth": 1.5,
+        "depth": 0.5
+    },
+    "ball": {
+        "diameter": 0.1
+    }
+}

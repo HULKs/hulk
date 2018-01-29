@@ -1,0 +1,87 @@
+#!/bin/bash
+
+# Get base directory for better referencing
+BASEDIR=`cd $(dirname $0); pwd -P`
+BASEDIR=${BASEDIR%/*}
+
+source "${BASEDIR}/scripts/lib/msg.sh"
+source "${BASEDIR}/scripts/lib/naonet.sh"
+source "${BASEDIR}/scripts/lib/numberToIP.sh"
+source "${BASEDIR}/scripts/lib/docker.sh"
+
+function helpMenu {
+  echo "Usage: $0 [OPTIONS] NAO..."
+  echo ""
+  echo "Options"
+  echo " -r, --reboot                      reboot the NAOs instead of shutting them down"
+  echo " -h, --help                        show this help"
+  echo ""
+  echo "Nao"
+  echo " either hostname, IP or number of the NAO"
+}
+
+function run {
+  # whether the NAOs should be rebooted instead of shutted down
+  REBOOT=false
+  # a list of NAOs that are prepared
+  NAOS=()
+  # prepare parameters
+  PARAMETERS=""
+  while [ "$#" -gt 0 ]; do
+    if [[ $1 =~ ^- ]] && [[ ! $1 =~ ^-- ]]; then
+      PARAMETERS+=$(echo "${1:1}" | sed -e "s/\(.\)/ -\1/g")
+    else
+      PARAMETERS+=" $1"
+    fi
+    shift
+  done
+  eval set -- "${PARAMETERS}";
+
+  while [[ "$1" =~ ^- ]]; do
+    case "$1" in
+      "-r" | "--reboot")
+        REBOOT=true
+        ;;
+      "-h" | "--help")
+        helpMenu
+        return 0
+        ;;
+      *)
+        msg -e "Failed to parse \"$1\"!"
+        helpMenu
+        return 1
+        ;;
+    esac
+    shift
+  done
+
+  if [ "$#" -lt 1 ]; then
+    helpMenu
+    return 1
+  fi
+
+  while [ "$#" -gt 0 ]; do
+    NAOS+=($(numberToIP "$1"))
+    shift
+  done
+
+  ERROR=0
+  for NAO in ${NAOS[@]}; do
+    if ${REBOOT}; then
+      msg -n "Rebooting ${NAO}."
+      naocmd "${BASEDIR}" "${NAO}" "sudo shutdown -r now"
+    else
+      msg -n "Shutting down ${NAO}."
+      naocmd "${BASEDIR}" "${NAO}" "sudo shutdown -h now"
+    fi
+    if [ "$?" -ne 0 ]; then
+      msg -e "Failed with ${NAO}!"
+      ERROR=1
+      continue
+    fi
+    msg -s "Finished with ${NAO}!"
+  done
+  return $ERROR
+}
+
+handleDocker "${BASEDIR}" "$@"

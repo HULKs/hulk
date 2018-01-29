@@ -1,0 +1,44 @@
+{
+	"0": {
+		"ch": 0,
+		"mp": "Brain.Projection",
+		"key": "top_ext[0]",
+		"min": -0.5,
+		"max": 0.5
+	},
+	"1": {
+		"ch": 1,
+		"mp": "Brain.Projection",
+		"key": "top_ext[1]",
+		"min": -0.5,
+		"max": 0.5
+	},
+	"2": {
+		"ch": 2,
+		"mp": "Brain.Projection",
+		"key": "top_ext[2]",
+		"min": -0.5,
+		"max": 0.5
+	},
+	"3": {
+		"ch": 3,
+		"mp": "Brain.Projection",
+		"key": "bottom_ext[0]",
+		"min": -0.5,
+		"max": 0.5
+	},
+	"4": {
+		"ch": 4,
+		"mp": "Brain.Projection",
+		"key": "bottom_ext[1]",
+		"min": -0.5,
+		"max": 0.5
+	},
+	"5": {
+		"ch": 5,
+		"mp": "Brain.Projection",
+		"key": "bottom_ext[2]",
+		"min": -0.5,
+		"max": 0.5
+	}
+}

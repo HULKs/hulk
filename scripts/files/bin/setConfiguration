@@ -1,0 +1,140 @@
+#!/bin/bash
+
+function helpMenu {
+  echo "Usage: $0 [OPTIONS] CONFIGURATION"
+  echo ""
+  echo "Options"
+  echo " -c, --configure-only              only enable and disable services without restarting them"
+  echo " -h, --help                        show this help"
+  echo ""
+  echo "Configuration"
+  echo " either soccer or factory"
+}
+
+if [ $(id -u) -ne 0 ]; then
+  exec sudo $0 "$@"
+fi
+
+CONFIG=false
+FACTORY=false
+SOCCER=false
+
+# prepare parameters
+PARAMETERS=""
+while [ "$#" -gt 0 ]; do
+  if [[ $1 =~ ^- ]] && [[ ! $1 =~ ^-- ]]; then
+    PARAMETERS+=$(echo "${1:1}" | sed -e "s/\(.\)/ -\1/g")
+  else
+    PARAMETERS+=" $1"
+  fi
+  shift
+done
+eval set -- "${PARAMETERS}";
+
+while [ "$#" -gt 1 ]; do
+  case "$1" in
+    "-c" | "--configure-only")
+      CONFIG=true
+      ;;
+    "-h" | "--help")
+      helpMenu
+      return 0
+      ;;
+    *)
+      echo "Failed to parse \"$1\"!"
+      helpMenu
+      return 1
+      ;;
+  esac
+  shift
+done
+
+if [ "$#" -ne 1 ]; then
+  helpMenu
+  return 1
+fi
+
+CONFIGURATION="$1"
+
+case "${CONFIGURATION}" in
+  factory)
+    FACTORY=true
+    ;;
+  soccer)
+    SOCCER=true
+    ;;
+  *)
+    echo "Unknown configuration \"${CONFIGURATION}\"!"
+    exit 1
+    ;;
+esac
+
+FACTORY_BOOT_SERVICES=("bootprogress_25" "mtab" "connman" "bootprogress_50" "laser"
+  "bootprogress_75" "bluetooth")
+FACTORY_DEFAULT_SERVICES=("avahi-daemon" "crash-report-uploader" "firewall_mode" "lircd"
+  "naoqi" "naopathe" "netmount" "nginx" "ofono" "qimessaging-json"
+  "vsftpd" "bootprogress_100" "proxydaemon")
+SOCCER_BOOT_SERVICES=("net.eth0" "net.wlan0")
+SOCCER_DEFAULT_SERVICES=("naoqi" "hulk")
+
+if ${FACTORY}; then
+  for SERVICE in ${SOCCER_BOOT_SERVICES[@]}; do
+    rc-update del "${SERVICE}" boot
+    if ! ${CONFIG}; then
+      rc-service "${SERVICE}" stop
+    fi
+  done
+  for SERVICE in ${SOCCER_DEFAULT_SERVICES[@]}; do
+    rc-update del "${SERVICE}" default
+    if ! ${CONFIG}; then
+      rc-service "${SERVICE}" stop
+    fi
+  done
+  cp /etc/naoqi/autoload.ini.factory /etc/naoqi/autoload.ini
+  # It is not good when both our code and Aldebaran code e.g. try to access the camera.
+  # Thus the user autoload.ini is removed.
+  if [ -f /home/nao/naoqi/preferences/autoload.ini ]; then
+    mv /home/nao/naoqi/preferences/autoload.ini /home/nao/naoqi/preferences/autoload.ini.bak
+  fi
+  for SERVICE in ${FACTORY_BOOT_SERVICES[@]}; do
+    rc-update add "${SERVICE}" boot
+    if ! ${CONFIG}; then
+      rc-service "${SERVICE}" start
+    fi
+  done
+  for SERVICE in ${FACTORY_DEFAULT_SERVICES[@]}; do
+    rc-update add "${SERVICE}" default
+    if ! ${CONFIG}; then
+      rc-service "${SERVICE}" start
+    fi
+  done
+elif ${SOCCER}; then
+  for SERVICE in ${FACTORY_BOOT_SERVICES[@]}; do
+    rc-update del "${SERVICE}" boot
+    if ! ${CONFIG}; then
+      rc-service "${SERVICE}" stop
+    fi
+  done
+  for SERVICE in ${FACTORY_DEFAULT_SERVICES[@]}; do
+    rc-update del "${SERVICE}" default
+    if ! ${CONFIG}; then
+      rc-service "${SERVICE}" stop
+    fi
+  done
+  cp /etc/naoqi/autoload.ini.soccer /etc/naoqi/autoload.ini
+  if [ -f /home/nao/naoqi/preferences/autoload.ini.bak ]; then
+    mv /home/nao/naoqi/preferences/autoload.ini.bak /home/nao/naoqi/preferences/autoload.ini
+  fi
+  for SERVICE in ${SOCCER_BOOT_SERVICES[@]}; do
+    rc-update add "${SERVICE}" boot
+    if ! ${CONFIG}; then
+      rc-service "${SERVICE}" start
+    fi
+  done
+  for SERVICE in ${SOCCER_DEFAULT_SERVICES[@]}; do
+    rc-update add "${SERVICE}" default
+    if ! ${CONFIG}; then
+      rc-service "${SERVICE}" start
+    fi
+  done
+fi

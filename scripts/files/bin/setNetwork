@@ -1,0 +1,102 @@
+#!/bin/bash
+
+function helpMenu {
+  echo "Usage: $0 [OPTIONS] NETWORK"
+  echo ""
+  echo "Options"
+  echo " -c, --configure-only              only modify configuration files without restarting network services"
+  echo " -h, --help                        show this help"
+  echo ""
+  echo "NETWORK"
+  echo " a network name (either ETH or the name of a WiFi network)"
+}
+
+if [ $(id -u) -ne 0 ]; then
+  exec sudo $0 "$@"
+fi
+
+CONFIG=false
+ETH=1
+SPL_A=1
+SPL_B=1
+SPL_C=1
+SPL_D=1
+SPL_E=1
+SPL=1
+
+# prepare parameters
+PARAMETERS=""
+while [ "$#" -gt 0 ]; do
+  if [[ $1 =~ ^- ]] && [[ ! $1 =~ ^-- ]]; then
+    PARAMETERS+=$(echo "${1:1}" | sed -e "s/\(.\)/ -\1/g")
+  else
+    PARAMETERS+=" $1"
+  fi
+  shift
+done
+eval set -- "${PARAMETERS}";
+
+while [ "$#" -gt 1 ]; do
+  case "$1" in
+    "-c" | "--configure-only")
+      CONFIG=true
+      ;;
+    "-h" | "--help")
+      helpMenu
+      return 0
+      ;;
+    *)
+      msg -e "Failed to parse \"$1\"!"
+      helpMenu
+      return 1
+      ;;
+  esac
+  shift
+done
+
+if [ "$#" -ne 1 ]; then
+  helpMenu
+  return 1
+fi
+
+NETWORK="$1"
+
+case "${NETWORK}" in
+  "spl_a" | "SPL_A")
+    SPL_A=0
+    ;;
+  "spl_b" | "SPL_B")
+    SPL_B=0
+    ;;
+  "spl_c" | "SPL_C")
+    SPL_C=0
+    ;;
+  "spl_d" | "SPL_D")
+    SPL_D=0
+    ;;
+  "spl_e" | "SPL_E")
+    SPL_E=0
+    ;;
+  "spl" | "SPL")
+    SPL=0
+    ;;
+  "eth" | "ETH")
+    ETH=0
+    ;;
+  *)
+    echo "Unknown network \"${NETWORK}\"!"
+    exit 1
+    ;;
+esac
+
+sed -e s/{spl_a_dis}/${SPL_A}/ -e s/{spl_b_dis}/${SPL_B}/ -e s/{spl_c_dis}/${SPL_C}/ -e s/{spl_d_dis}/${SPL_D}/ -e s/{spl_e_dis}/${SPL_E}/ -e s/{spl_dis}/${SPL}/ /etc/wpa_supplicant/wpa_supplicant.conf.auto > /etc/wpa_supplicant/wpa_supplicant.conf
+
+if [ ${ETH} -ne 1 ]; then
+  sed -e s/^\#routes_eth0/routes_eth0/ -e s/^routes_wlan0/\#routes_wlan0/ -i /etc/conf.d/net
+else
+  sed -e s/^routes_eth0/\#routes_eth0/ -e s/^\#routes_wlan0/routes_wlan0/ -i /etc/conf.d/net
+fi
+
+if ! ${CONFIG}; then
+  /etc/init.d/net.eth0 restart && /etc/init.d/net.wlan0 restart
+fi

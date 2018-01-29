@@ -1,0 +1,9 @@
+{
+  "shootIntoGoal": true,
+  "useOnlyThisFoot": 0,
+  "distanceToBallDribble": 0.13,
+  "angleToBallDribble": 10,
+  "distanceToBallKick": 0.2,
+  "angleToBallKick": 2.86479,
+  "checkIfKeeperWantsToPlayBall": false
+}

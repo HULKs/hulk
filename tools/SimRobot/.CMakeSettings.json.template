@@ -1,0 +1,43 @@
+{
+  "configurations": [
+    {
+      "name": "x64_Debug",
+      "generator": "Visual Studio 15 2017 Win64",
+      "configurationType": "Debug",
+      "buildRoot": "${workspaceRoot}\\build-vc\\${name}",
+      "cmakeCommandArgs": "",
+      "variables": [
+        {
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "VCPKG_PATH_HERE"
+        }
+      ]
+    },
+    {
+      "name": "x64_RelWithDebInfo",
+      "generator": "Visual Studio 15 2017 Win64",
+      "configurationType": "RelWithDebInfo",
+      "buildRoot": "${workspaceRoot}\\build-vc\\${name}",
+      "cmakeCommandArgs": "",
+      "variables": [
+        {
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "VCPKG_PATH_HERE"
+        }
+      ]
+    },
+    {
+      "name": "x64_Release",
+      "generator": "Visual Studio 15 2017 Win64",
+      "configurationType": "Release",
+      "buildRoot": "${workspaceRoot}\\build-vc\\${name}",
+      "cmakeCommandArgs": "",
+      "variables": [
+        {
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "VCPKG_PATH_HERE"
+        }
+      ]
+    },
+ ]
+}

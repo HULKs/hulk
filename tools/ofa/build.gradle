@@ -1,0 +1,46 @@
+plugins {
+  id "com.moowork.node" version "1.1.1"
+}
+
+node {
+  // Version of node to use.
+  version = '7.9.0'
+  // Version of npm to use.
+  npmVersion = '4.5.0'
+  // Base URL for fetching node distributions (change if you have a mirror).
+  distBaseUrl = 'https://nodejs.org/dist'
+  // If true, it will download node using above parameters.
+  // If false, it will try to use globally installed node.
+  download = true
+  // Set the work directory for unpacking node
+  workDir = file("$projectDir/.gradle/nodejs")
+  // Set the work directory for NPM
+  npmWorkDir = file("$projectDir/.gradle/npm")
+  // Set the work directory where node_modules should be located
+  nodeModulesDir = file("${project.projectDir}")
+}
+
+task compileTypeScript(type: Exec, dependsOn: npm_install) {
+    inputs.dir "src"
+    workingDir "$projectDir"
+    commandLine "node_modules/typescript/bin/tsc", "-p", "src/tsconfig.json"
+    environment PATH: ".gradle/nodejs/node-v7.9.0-linux-x64/bin"
+}
+
+task copyAssets(type: Copy) {
+    from "$projectDir/src"
+    exclude "$projectDir/src/**/*.js"
+    exclude "$projectDir/src/**/*.ts"
+    into "$projectDir/build"
+}
+
+task runOfa(type: NodeTask, dependsOn: [compileTypeScript, copyAssets]) {
+  script = file('build/ofa/index.js')
+  execOverrides {
+    it.workingDir = "$projectDir/build/ofa"
+  }
+}
+
+task runDashboard(type: NodeTask, dependsOn: [compileTypeScript, copyAssets]) {
+  script = file('src/dashboard/dashboard.js')
+}

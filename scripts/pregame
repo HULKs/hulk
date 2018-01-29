@@ -1,0 +1,132 @@
+#!/bin/bash
+
+# Get base directory for better referencing
+BASEDIR=`cd $(dirname $0); pwd -P`
+BASEDIR=${BASEDIR%/*}
+
+source "${BASEDIR}/scripts/lib/msg.sh"
+source "${BASEDIR}/scripts/lib/time.sh"
+source "${BASEDIR}/scripts/lib/compile.sh"
+source "${BASEDIR}/scripts/lib/upload.sh"
+source "${BASEDIR}/scripts/lib/naonet.sh"
+source "${BASEDIR}/scripts/lib/numberToIP.sh"
+source "${BASEDIR}/scripts/lib/docker.sh"
+
+function helpMenu {
+  echo "Usage: $0 [OPTIONS] NAO..."
+  echo ""
+  echo "Options"
+  echo " -b, --build-type BUILD_TYPE       use the specified build type (one out of Debug, Develop, Release)"
+  echo " -n, --network NETWORK             the network to which the robots should be set (e.g. ETH or SPL_A)"
+  echo " -h, --help                        show this help"
+  echo ""
+  echo "Nao"
+  echo " either hostname, IP or number of the NAO"
+}
+
+function run {
+  # pregame deployment always happens with target NAO
+  TARGET="nao"
+  # read the build type from a file
+  if [ -f "${BASEDIR}/.current.bt" ]; then
+    BUILD_TYPE=`cat "${BASEDIR}/.current.bt"`
+  else
+    BUILD_TYPE=""
+  fi
+  # a list of NAOs that are prepared
+  NAOS=()
+  # default network is ethernet
+  NETWORK=ETH
+  # prepare parameters
+  PARAMETERS=""
+  while [ "$#" -gt 0 ]; do
+    if [[ $1 =~ ^- ]] && [[ ! $1 =~ ^-- ]]; then
+      PARAMETERS+=$(echo "${1:1}" | sed -e "s/\(.\)/ -\1/g")
+    else
+      PARAMETERS+=" $1"
+    fi
+    shift
+  done
+  eval set -- "${PARAMETERS}";
+
+  while [[ "$1" =~ ^- ]]; do
+    case "$1" in
+      "-b" | "--build-type")
+        shift
+        if [ "$#" -eq 0 ]; then
+          msg -e "--build-type needs a build type as parameter!"
+          helpMenu
+          return 1
+        fi
+        BUILD_TYPE="$1"
+        ;;
+      "-n" | "--network")
+        shift
+        if [ "$#" -eq 0 ]; then
+          msg -e "--network needs a network as parameter!"
+          helpMenu
+          return 1
+        fi
+        NETWORK="$1"
+        ;;
+      "-h" | "--help")
+        helpMenu
+        return 0
+        ;;
+      *)
+        msg -e "Failed to parse \"$1\"!"
+        helpMenu
+        return 1
+        ;;
+    esac
+    shift
+  done
+
+  if [ "$#" -lt 1 ]; then
+    helpMenu
+    return 1
+  fi
+
+  while [ "$#" -gt 0 ]; do
+    NAOS+=($(numberToIP "$1"))
+    shift
+  done
+
+  if [ "${BUILD_TYPE}" == "" ]; then
+    msg -e "It seems you haven't compiled before! You need to specify a build type to this script."
+    return 1
+  fi
+
+  # compile once before uploading
+  msg -n "Compiling with build type ${BUILD_TYPE}."
+  set_start_time
+  compile "${BASEDIR}" "${TARGET}" "${BUILD_TYPE}" false
+  if [ "$?" -ne 0 ]; then
+    msg -e "Compilation failed!"
+    return 1
+  fi
+  get_time_diff
+  msg -s "Compilation finished successfully in ${DIFF}!"
+
+  ERROR=0
+  for NAO in ${NAOS[@]}; do
+    msg -n "Deploying to ${NAO}."
+    # true true is for replacing configuration with own configuration
+    upload "${BASEDIR}" "${NAO}" "${BUILD_TYPE}" true true
+    if [ "$?" -ne 0 ]; then
+      msg -e "Failed to upload to ${NAO}!"
+      ERROR=1
+      continue
+    fi
+    naocmd "${BASEDIR}" "${NAO}" "sudo /etc/init.d/hulk stop; killall -SIGTERM tuhhNao 2>/dev/null; /home/nao/bin/setNetwork ${NETWORK}; sudo /etc/init.d/hulk start"
+    if [ "$?" -ne 0 ]; then
+      msg -e "Failed to restart the hulk service on ${NAO}!"
+      ERROR=1
+      continue
+    fi
+    msg -s "Finished deploying to ${NAO}!"
+  done
+  return $ERROR
+}
+
+handleDocker "${BASEDIR}" "$@"

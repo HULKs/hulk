@@ -1,0 +1,99 @@
+#!/bin/bash
+
+# Get base directory for better referencing
+BASEDIR=`cd $(dirname $0); pwd -P`
+
+
+NAOQI_VERSION=$(naoqi --version | awk 'NR==1{print $2;}')
+if [ ! "${NAOQI_VERSION}" == "2.1.3" ] && [ ! "${NAOQI_VERSION}" == "2.1.4" ]; then
+  echo "This script only supports naoqi 2.1.3 and 2.1.4!"
+  exit 1
+fi
+
+if [ $(id -u) -ne 0 ]; then
+  echo "This script has to be run as root!"
+  exit 1
+fi
+
+# Copy bash init scripts
+install -o nao -g nao -m 644 "${BASEDIR}/bash_profile" /home/nao/.bash_profile
+install -o nao -g nao -m 644 "${BASEDIR}/bashrc" /home/nao/.bashrc
+install -m 644 "${BASEDIR}/bash_profile" /root/.bash_profile
+install -m 644 "${BASEDIR}/bashrc" /root/.bashrc
+
+# Copy nvimrc for backspace in vim
+install -o nao -g nao -m 644 "${BASEDIR}/nvimrc" /home/nao/.nvimrc
+
+# Add ssh key for scripts
+install -d -o nao -g nao -m 755 /home/nao/.ssh
+install -o nao -g nao -m 400 "${BASEDIR}/ssh_key.pub" /home/nao/.ssh/authorized_keys
+
+# Copy bin and lib directories. By the way, what are those for-loops you're always talking about?
+install -d -o nao -g nao -m 755 /home/nao/bin
+install -o nao -g nao -m 755 "${BASEDIR}/bin/connmanctl" /home/nao/bin/connmanctl
+install -o nao -g nao -m 755 "${BASEDIR}/bin/perf" /home/nao/bin/perf
+install -o nao -g nao -m 755 "${BASEDIR}/bin/perf.sh" /home/nao/bin/perf.sh
+install -o nao -g nao -m 755 "${BASEDIR}/bin/setConfiguration" /home/nao/bin/setConfiguration
+install -o nao -g nao -m 755 "${BASEDIR}/bin/setNetwork" /home/nao/bin/setNetwork
+install -o nao -g nao -m 755 "${BASEDIR}/bin/vim" /home/nao/bin/vim
+install -d -o nao -g nao -m 755 /home/nao/lib
+install -o nao -g nao -m 755 "${BASEDIR}/lib/libbfd-2.21.1.so" /home/nao/lib/libbfd-2.21.1.so
+install -o nao -g nao -m 755 "${BASEDIR}/lib/libelf-0.149.so" /home/nao/lib/libelf-0.149.so
+ln -sf libelf-0.149.so /home/nao/lib/libelf.so.1
+ln -sf libelf.so.1 /home/nao/lib/libelf.so
+
+# Create symlinks for terminfo to be able to use e.g. ncurses programs when using tmux or termite
+ln -sf screen /etc/terminfo/s/screen-256color
+ln -sf xterm /etc/terminfo/x/xterm-termite
+
+# Copy special sudoers file that allows nao to do something
+install -m 440 "${BASEDIR}/sudoers" /etc/sudoers
+
+# Copy OpenRC service for HULKs software
+install -m 755 "${BASEDIR}/hulk" /etc/init.d/hulk
+
+# Copy naoqi configuration files
+install -m 644 "${BASEDIR}/autoload.ini.factory" /etc/naoqi/autoload.ini.factory
+install -m 644 "${BASEDIR}/autoload.ini.soccer" /etc/naoqi/autoload.ini.soccer
+
+# This allows a single service to satisfy other's services dependencies when there are multiple providing services.
+sed -e s/#*\\s*rc_depend_strict=\"YES\"/rc_depend_strict=\"NO\"/ -i /etc/rc.conf
+
+# Create new init scripts for network
+ln -sf net.lo /etc/init.d/net.eth0
+ln -sf net.lo /etc/init.d/net.wlan0
+
+# Copy network configuration
+install -m 644 "${BASEDIR}/hostname" /etc/hostname
+install -m 644 "${BASEDIR}/net" /etc/conf.d/net
+install -m 644 "${BASEDIR}/wpa_supplicant.conf.auto" /etc/wpa_supplicant/wpa_supplicant.conf.auto
+# wpa_supplicant.conf is created by the setNetwork script
+
+# Copy new ethernet driver and enable it
+install -m 644 "${BASEDIR}/modules/r8168.ko" /lib/modules/2.6.33.9-rt31-aldebaran-rt/kernel/drivers/net/r8168.ko
+install -m 755 "${BASEDIR}/r8168" /etc/init.d/r8168
+rc-update add r8168 boot
+
+# Copy new camera driver
+install -m 644 "${BASEDIR}/modules/mt9m114.ko" /lib/modules/2.6.33.9-rt31-aldebaran-rt/kernel/drivers/media/video/mt9m114.ko
+
+# Remove checkpart and replace it with fstab
+if [ ! -e /etc/init.d/checkpart.bak ]; then
+  mv /etc/init.d/checkpart /etc/init.d/checkpart.bak
+fi
+install -m 755 "${BASEDIR}/checkpart" /etc/init.d/checkpart
+install -m 644 "${BASEDIR}/fstab" /etc/fstab
+mkdir -p /mnt/usb
+
+# Create wpa_supplicant.conf where all networks are disabled
+/home/nao/bin/setNetwork -c eth
+
+# Enable and disable some services
+/home/nao/bin/setConfiguration -c soccer
+
+# Remove the directory that contains this script.
+rm -rf "${BASEDIR}"
+
+sync
+reboot
+exit 0

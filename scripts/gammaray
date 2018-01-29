@@ -1,0 +1,184 @@
+#!/bin/bash
+
+# Get base directory for better referencing
+BASEDIR=`cd $(dirname $0); pwd -P`
+BASEDIR=${BASEDIR%/*}
+
+source "${BASEDIR}/scripts/lib/msg.sh"
+source "${BASEDIR}/scripts/lib/naonet.sh"
+source "${BASEDIR}/scripts/lib/numberToIP.sh"
+source "${BASEDIR}/scripts/lib/docker.sh"
+source "${BASEDIR}/scripts/lib/dependencies.sh"
+
+function helpMenu {
+  echo "Usage: $0 [OPTIONS] NAO"
+  echo ""
+  echo "Options"
+  echo " -a, --address ADDRESS             connect to the NAO via a special address"
+  echo " -w, --wait                        wait until the NAO is reachable after reboot instead of quitting"
+  echo " -s, --sysroot-only                only install the sysroot"
+  echo " -p, --purge                       remove all other sysroots on the NAO"
+  echo " -h, --help                        show this help"
+  echo ""
+  echo "Nao"
+  echo " the number of the NAO"
+}
+
+function run {
+  # a special address if the NAO has not the usual IP address
+  ADDRESS=""
+  # wait until the NAO is reachable after reboot
+  WAIT=false
+  # whether only the sysroot should be installed
+  SYSROOT_ONLY=false
+  # whether all other sysroots should be removed from the NAO
+  PURGE=false
+  # prepare parameters
+  PARAMETERS=""
+  while [ "$#" -gt 0 ]; do
+    if [[ $1 =~ ^- ]] && [[ ! $1 =~ ^-- ]]; then
+      PARAMETERS+=$(echo "${1:1}" | sed -e "s/\(.\)/ -\1/g")
+    else
+      PARAMETERS+=" $1"
+    fi
+    shift
+  done
+  eval set -- "${PARAMETERS}";
+
+  while [ "$#" -gt 1 ]; do
+    case "$1" in
+      "-a" | "--address")
+        shift
+        ADDRESS="$1"
+        if [[ $1 =~ ^- ]]; then
+          msg -e "--address needs an address as parameter! \"$1\" does not look like that."
+          helpMenu
+          return 1
+        fi
+        ;;
+      "-w" | "--wait")
+        WAIT=true
+        ;;
+      "-s" | "--sysroot-only")
+        SYSROOT_ONLY=true
+        ;;
+      "-p" | "--purge")
+        PURGE=true
+        ;;
+      "-h" | "--help")
+        helpMenu
+        return 0
+        ;;
+      *)
+        msg -e "Failed to parse \"$1\"!"
+        helpMenu
+        return 1
+        ;;
+    esac
+    shift
+  done
+
+  if [ "$#" -ne 1 ]; then
+    helpMenu
+    return 1
+  elif [[ ! $1 =~ ^[0-9]+$ ]]; then
+    msg -e "The last parameter has to be the number of a NAO! \"$1\" does not look like that."
+    helpMenu
+    return 1
+  fi
+
+  assertDependenciesInstallScript
+
+  NAO="$1"
+  if [ "${ADDRESS}" == "" ]; then
+    ADDRESS=$(numberToIP "${NAO}")
+  fi
+
+  if ! ${SYSROOT_ONLY}; then
+    msg -n "Removing old install directory from ${ADDRESS}."
+    naocmdpass "${ADDRESS}" "rm -rf /home/nao/files"
+    if [ "$?" -ne 0 ]; then
+      msg -e "Could not remove old install directory from ${ADDRESS}!"
+      return 1
+    fi
+
+    msg -n "Copying files to temporary directory."
+    INSTALL_DIR=$(mktemp --tmpdir -d naoInstall.XXXXXXXX)
+    if [ "$?" -ne 0 ]; then
+      msg -e "Could not create temporary directory!"
+      return 1
+    fi
+    cp -r "${BASEDIR}"/scripts/files/* "${INSTALL_DIR}"
+    if [ "$?" -ne 0 ]; then
+      rm -rf "${INSTALL_DIR}"
+      msg -e "Could not copy files to temporary directory!"
+      return 1
+    fi
+
+    msg -n "Modifying files for ${NAO}."
+    sed -e s/{wlan0ip}/$(numberToIP "${NAO}w")/ -e s/{eth0ip}/$(numberToIP "${NAO}")/ -i "${INSTALL_DIR}/net"
+    echo "nao${NAO}" > "${INSTALL_DIR}/hostname"
+
+    msg -n "Copying files to ${ADDRESS}."
+    naocppass "${INSTALL_DIR}" "nao@${ADDRESS}:files"
+    if [ "$?" -ne 0 ]; then
+      rm -rf "${INSTALL_DIR}"
+      msg -e "Could not copy files to ${ADDRESS}!"
+      return 1
+    fi
+    rm -rf "${INSTALL_DIR}"
+
+    msg -n "Executing install script on ${ADDRESS}. You will have to enter the root password of the NAO."
+    naocmdpass "${ADDRESS}" "su -c /home/nao/files/install"
+    if [ "$?" -ne 0 ]; then
+      msg -e "Could not execute install script on ${ADDRESS}!"
+      return 1
+    fi
+    msg -s "Install script done on ${ADDRESS}! It will reboot now."
+
+    if ! ${WAIT}; then
+      return 0
+    fi
+
+    # After reboot, the NAO will have its final IP address.
+    ADDRESS=$(numberToIP "${NAO}")
+
+    # This should prevent a successful netcat to the NAO before it shut down.
+    sleep 30
+    until nc -zw 2 "${ADDRESS}" 22; do
+      sleep 2
+    done
+  fi
+
+  if [ ! -f "${BASEDIR}/toolchain/sysroot.tar.bz2" ]; then
+    msg -e "You do not have a sysroot archive installed, therefore you cannot complete the installation!"
+    return 1
+  fi
+
+  if ${PURGE}; then
+    msg -n "Removing all sysroots from ${ADDRESS}."
+    naocmd "${BASEDIR}" "${ADDRESS}" "rm -rf /home/nao/sysroot*"
+    if [ "$?" -ne 0 ]; then
+      msg -e "Could not remove sysroots from ${ADDRESS}."
+      return 1
+    fi
+  fi
+
+  msg -n "Copying sysroot to ${ADDRESS}."
+  naocp "${BASEDIR}" "${BASEDIR}/toolchain/sysroot.tar.bz2" "nao@${ADDRESS}:sysroot.tar.bz2"
+  if [ "$?" -ne 0 ]; then
+    msg -e "Could not copy sysroot archive to ${ADDRESS}!"
+    return 1
+  fi
+
+  msg -n "Extracting sysroot on ${ADDRESS}."
+  naocmd "${BASEDIR}" "${ADDRESS}" "tar xjf sysroot.tar.bz2; rm sysroot.tar.bz2; sync"
+  if [ "$?" -ne 0 ]; then
+    msg -e "Could not extract sysroot archive on ${ADDRESS}!"
+    return 1
+  fi
+
+  msg -s "Successfully installed ${NAO}!"
+}
+
+handleDocker "${BASEDIR}" "$@"

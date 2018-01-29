@@ -1,0 +1,5 @@
+{
+  "minFrequency" : 2000,
+  "maxFrequency" : 4000,
+  "threshold" : 50
+}

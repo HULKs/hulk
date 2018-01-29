@@ -1,0 +1,26 @@
+
+function git_clone
+{
+  NAME=$1
+  URL=$2
+  VERSION=$3
+  FOLDER=${NAME}-${VERSION}
+
+  git clone $URL $FOLDER
+  cd $FOLDER
+  git checkout $VERSION
+  cd ..
+}
+
+function hg_clone
+{
+  NAME=$1
+  URL=$2
+  VERSION=$3
+  FOLDER=${NAME}-${VERSION}
+
+  hg clone $URL $FOLDER
+  cd $FOLDER
+  hg up $VERSION
+  cd ..
+}

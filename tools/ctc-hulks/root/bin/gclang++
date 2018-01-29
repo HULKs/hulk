@@ -1,0 +1,3 @@
+#!/bin/bash
+BASEDIR=`cd "$(dirname "$0")"; pwd -P`
+CTNG_LD_IS="gold" "${BASEDIR}"/clang++ "$@"

@@ -1,0 +1,11 @@
+-Wall
+-Wextra
+-Werror
+-pedantic
+-pedantic-errors
+-fexceptions
+-std=c++14
+-Isrc/tuhhsdk
+-Isrc/motion
+-Isrc/brain
+-Isrc/vision

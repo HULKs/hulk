@@ -1,0 +1,13 @@
+{
+  "enableWalkingModes" : true,
+  "targetAlignDistance" : 0.05,
+  "hybridAlignDistance" : 0.20,
+  "ballOffsetShiftAngle" : 15,
+  "obstacleWeight": 80,
+  "ballDisplacementAngle": 70,
+  "ballAvoidanceRadius" : 0.3,
+  "ballWeight" : 0.1,
+  "sonarDisplacementAngle" : 60,
+  "sonarAvoidanceRadius" : 0.3,
+  "sonarWeight" : 50
+}
