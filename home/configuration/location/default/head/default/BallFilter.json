@@ -1,0 +1,10 @@
+{
+    "ballFrictionMu": 0.0204,
+    "movingHysteresis" : 0.5,
+    "//": "matrices are serialized as a vector of the columns, not rows!",
+    "processCovX": [ [ 0.1, 0 ], [ 0, 0.1 ] ],
+    "processCovDx": [ [ 1, 0 ], [ 0, 1 ] ],
+    "processCovDxX": [ [ 0, 0 ], [ 0, 0 ] ],
+    "measurementCov": [ [ 0.3, 0 ], [ 0, 0.3 ] ],
+    "maxAssociationDistance": 0.8
+}

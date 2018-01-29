@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>OFA Dashboard</title>
+	<style type="text/css">
+		@font-face {
+			font-family: "Open Sans";
+			src: url('style/OpenSans-Regular.ttf')   format('truetype');
+		}
+		@font-face {
+			font-family: "Open Sans";
+			font-weight:600;
+			src: url('style/OpenSans-Semibold.ttf')   format('truetype');
+		}
+		@font-face {
+			font-family: "Open Sans";
+			font-weight:bold;
+			src: url('style/OpenSans-Bold.ttf')   format('truetype');
+		}
+		html, body {
+			margin:0;
+			padding:0;
+			font-family:"Open Sans", sans-serif;
+			font-size: 14px;
+			background: #F5f5f5;
+		}
+
+		.naos {
+			text-align: center;
+			margin: 80px auto;
+			max-width: 1000px;
+		}
+		.naos > div {
+			margin: 1em;
+			display: inline-block;
+			width: 300px;
+			background: white;
+			text-align: left;
+			vertical-align: top;
+		}
+
+		h2 {
+			font-size: 1.6em;
+			font-weight: 600;
+			color: white;
+			background: #404040;
+			padding: 0.625em;
+			margin: 0;
+		}
+		.online h2 {
+			background: green;
+		}
+		.bodyName {
+			font-size: 0.625em;
+			font-weight: normal;
+			margin-left: 0.5em;
+		}
+
+		.infos {
+			padding: 1em;
+		}
+		.ipAddress::before {
+			content: "IP: ";
+		}
+		.battery::before {
+			content: "Akku: ";
+		}
+		.battery::after {
+			content: "%";
+		}
+		textarea {
+			width: 100%;
+			border: 1px solid #ccc;
+			font-family: "Open Sans";
+			font-size: 1em;
+			vertical-align: top;
+			box-sizing: border-box;
+			margin-top: 0.5em;
+		}
+	</style>
+</head>
+<body>
+	<div class="naos">
+	</div>
+	<script src="/socket.io/socket.io.js"></script>
+	<script src="/libs/eventemitter2.js"></script>
+	<script src="/libs/underscore-min.js"></script>
+	<script src="/libs/jquery-2.1.4.min.js"></script>
+
+	<script src="/dashboard.js"></script>
+</body>
+</html>

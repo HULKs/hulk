@@ -1,0 +1,8 @@
+{
+  "maxDistFromLine" : 3,
+  "maxGapOnLine" : 30,
+  "minNumberOfPointsOnLine" : 5,
+  "minPixelLength" : 20,
+  "useDaylightFilter": false,
+  "daylightThreshold": 0.92
+}

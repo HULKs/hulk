@@ -1,0 +1,85 @@
+#!/bin/bash
+
+source versions
+source functions
+
+# Get base directory for better referencing
+BASEDIR=`cd $(dirname $0); pwd -P`
+CT_INSTALL=${BASEDIR}/tools/ct-ng
+
+cd ${BASEDIR}
+mkdir tools
+mkdir x-tools
+mkdir libs
+mkdir tarballs
+
+cd tools
+git clone https://github.com/crosstool-ng/crosstool-ng.git
+cd crosstool-ng
+git checkout ${CROSSTOOL_VERSION}
+
+# Make the ARCH compile to a i686 toolchain
+git apply ${BASEDIR}/patches/crosstool-ng/crosstool-ng.patch
+./bootstrap
+./configure --prefix=${CT_INSTALL}
+make
+make install
+
+# Prepare the crosstool-ng toolchain environment
+cd ${BASEDIR}
+source env.sh
+cd ctc-hulks-config
+ct-ng oldconfig
+
+# Prepare clang
+cd ${BASEDIR}
+mkdir -p ctc-hulks-clang/llvm-build
+cd ctc-hulks-clang
+# Cone LLVM
+git clone https://github.com/llvm-mirror/llvm.git
+cd llvm
+git checkout ${LLVM_VERSION}
+
+# Clone Clang
+cd ${BASEDIR}/ctc-hulks-clang/llvm/tools
+git clone https://github.com/llvm-mirror/clang.git
+cd clang
+git checkout ${CLANG_VERSION}
+
+# Clone Compiler RT
+cd ${BASEDIR}/ctc-hulks-clang/llvm/projects
+git clone https://github.com/llvm-mirror/compiler-rt.git
+cd compiler-rt
+git checkout ${COMPILER_RT_VERSION}
+
+# Prepare libraries
+cd ${BASEDIR}/libs
+
+# Download libraries
+wget http://prdownloads.sourceforge.net/project/boost/boost/${boost_version}/boost_${boost_version//./_}.tar.bz2?download -O boost_${boost_version}.tar.bz2
+wget http://www.bzip.org/${bzip2_version}/bzip2-${bzip2_version}.tar.gz
+wget https://github.com/libjpeg-turbo/libjpeg-turbo/archive/${libjpeg_version}.tar.gz -O libjpeg-turbo-${libjpeg_version}.tar.gz
+wget http://prdownloads.sourceforge.net/libpng/libpng-${libpng_version}.tar.gz?download -O libpng-${libpng_version}.tar.gz
+wget http://prdownloads.sourceforge.net/libpng/zlib-${zlib_version}.tar.gz?download -O zlib-${zlib_version}.tar.gz
+wget ftp://ftp.alsa-project.org/pub/lib/alsa-lib-${alsa_lib_version}.tar.bz2 -O alsa-${alsa_lib_version}.tar.bz2
+wget http://www.portaudio.com/archives/pa_stable_${portaudio_version}.tgz -O portaudio-${portaudio_version}.tgz
+wget http://www.fftw.org/fftw-${fftw_version}.tar.gz -O fftw-${fftw_version}.tar.gz
+wget https://github.com/mariusmuja/flann/archive/${flann_version}.tar.gz -O flann-${flann_version}.tar.gz
+wget http://bitbucket.org/eigen/eigen/get/${eigen_version}.tar.bz2 -O eigen-${eigen_version}.tar.bz2
+wget http://www.mega-nerd.com/libsndfile/files/libsndfile-${sndfile_version}.tar.gz -O libsndfile-${sndfile_version}.tar.gz
+
+# Unpack libraries
+tar xvf boost_${boost_version}.tar.bz2
+tar xvf bzip2-${bzip2_version}.tar.gz
+tar xvf libjpeg-turbo-${libjpeg_version}.tar.gz
+tar xvf libpng-${libpng_version}.tar.gz
+tar xvf zlib-${zlib_version}.tar.gz
+tar xvf alsa-${alsa_lib_version}.tar.bz2
+tar xvf portaudio-${portaudio_version}.tgz
+tar xvf fftw-${fftw_version}.tar.gz
+tar xvf flann-${flann_version}.tar.gz
+tar xvf eigen-${eigen_version}.tar.bz2
+tar xvf libsndfile-${sndfile_version}.tar.gz
+# Rename stupid foler conventions
+mv eigen-eigen-* ${eigen_dir}
+mv portaudio ${portaudio_dir}

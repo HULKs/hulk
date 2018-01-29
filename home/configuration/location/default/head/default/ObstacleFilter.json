@@ -1,0 +1,6 @@
+{
+    "enableSonar" : true,
+    "ballObstacleRadius" : 0.1,
+    "sonarObstacleRadius" : 0.3,
+    "ignoreSonarObstaclesBeyondDistance" : 0.3
+}

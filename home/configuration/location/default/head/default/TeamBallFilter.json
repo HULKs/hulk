@@ -1,0 +1,7 @@
+{
+  "insideFieldTolerance": 0,
+  "maxAddAge": 0.5,
+  "maxBallVelocity": 1,
+  "minRemoveAge": 2,
+  "maxCompatibilityDistance": 1
+}

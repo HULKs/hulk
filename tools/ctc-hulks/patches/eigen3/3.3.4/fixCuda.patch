@@ -1,0 +1,20 @@
+--- a/unsupported/test/CMakeLists.txt   Tue Feb 21 14:36:34 2017 +0100
++++ b/unsupported/test/CMakeLists.txt   Wed Feb 22 02:55:35 2017 +0100
+@@ -194,9 +194,10 @@
+ 
+ endif()
+ 
++if(EIGEN_TEST_CUDA)
+ # These tests needs nvcc
+ find_package(CUDA 7.0)
+-if(CUDA_FOUND AND EIGEN_TEST_CUDA)
++if(CUDA_FOUND)
+   # Make sure to compile without the -pedantic, -Wundef, -Wnon-virtual-dtor
+   # and -fno-check-new flags since they trigger thousands of compilation warnings
+   # in the CUDA runtime
+@@ -255,3 +256,4 @@
+ 
+   unset(EIGEN_ADD_TEST_FILENAME_EXTENSION)
+ endif()
++endif()
+

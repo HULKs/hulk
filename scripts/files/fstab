@@ -1,0 +1,5 @@
+UUID=42424242-1120-1120-1120-424242424242    /                                 ext3    rw,noatime,errors=continue,barrier=1,data=writeback   0 1
+UUID=66666666-1120-1120-1120-666666666666    /var/persistent                   ext3    rw,noatime,errors=continue,barrier=1,data=writeback   0 1
+UUID=66666666-6666-6666-6666-666666666666    /var/persistent/media/internal    ext3    rw,noatime,errors=continue,barrier=1,data=writeback   0 2
+/dev/sdb1                                    /mnt/usb                          ext3    rw,noatime                                            0 0
+tmpfs                                        /var/volatile                     tmpfs   rw,relatime                                           0 0

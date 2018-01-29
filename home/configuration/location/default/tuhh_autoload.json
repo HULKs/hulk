@@ -1,0 +1,12 @@
+{
+	"modules" : [
+		{
+			"sharedObject" : "Motion",
+			"loglevel" : "error"
+		},
+		{
+			"sharedObject" : "Brain",
+			"loglevel" : "error"
+		}
+	]
+}

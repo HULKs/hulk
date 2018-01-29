@@ -1,0 +1,16 @@
+{
+	"rows" : 14,
+	"cols" : 20,
+	"minBallDetectionRange" : 0.2,
+	"maxBallDetectionRange" : 2.0,
+	"maxBallAge" : 5.0,
+	"fovAngle" : 50.0,
+	"minProbabilityToStartSearch" : 0.01,
+	"minProbabilityToForceSearch" : 0.03,
+	"minAgeToStartSearch" : 5000,
+	"minAgeToForceSearch" : 10000,
+	"convolutionKernelCoreWeight" : 992,
+	"minDistanceBetweenSearchPositions" : 3,
+	"confidentBallMultiplier" : 1.04,
+	"unconfidentBallMultiplier" : 1.03
+}

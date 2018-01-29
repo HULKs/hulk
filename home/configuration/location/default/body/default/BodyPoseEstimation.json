@@ -1,0 +1,16 @@
+{
+  "classifyHighByGyro" : false,
+  "movingGyroNormThreshold" : 1.0,
+
+  "xMin": -0.3,
+  "xMax": 0.3,
+  "yMin": -0.39,
+  "yMax": 0.35,
+
+  "xdMin": -0.233,
+  "xdMax": 0.233,
+  "ydMin": -0.610,
+  "ydMax": 0.317,
+
+  "weightThreshold": 0.3
+}

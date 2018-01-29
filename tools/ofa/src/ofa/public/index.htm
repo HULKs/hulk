@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>OFA Webclient</title>
+	<style type="text/css">
+		@font-face {
+			font-family: "Open Sans";
+			src: url('style/OpenSans-Regular.ttf') format('truetype');
+		}
+		@font-face {
+			font-family: "Open Sans";
+			font-weight: 600;
+			src: url('style/OpenSans-Semibold.ttf') format('truetype');
+		}
+		@font-face {
+			font-family: "Open Sans";
+			font-weight: bold;
+			src: url('style/OpenSans-Bold.ttf') format('truetype');
+		}
+		html, body {
+			margin:0;
+			padding:0;
+			font-family:"Open Sans", sans-serif;
+			height: 100%;
+		}
+		#keyList {
+			background:#eee;
+			float:left;
+			font-size:11px;
+			padding:10px;
+		}
+		#keyList div {
+			margin:2px 0;
+		}
+		.panel {
+			position:absolute;
+			display:block;
+			background-color:#eee;
+			vertical-align: top;
+		}
+		.panel .head, .modal .head {
+			background-color:#30ab66;
+			color:white;
+			font-size:16px;
+			font-weight:600;
+			line-height:22px;
+			padding:4px 5px 4px 10px;
+		}
+		.panel .head .btn {
+			display:inline-block;
+			float:right;
+			background-color:white;
+			color:black;
+			font-size:12px;
+			line-height:22px;
+			padding:0 5px;
+			margin:0 0 0 5px;
+			cursor:pointer;
+		}
+		.panel .head .close.btn {
+			font-weight:bold;
+			font-size:16px;
+		}
+		.panel .head .close.btn:before {
+			content:"X";
+		}
+		.panel .head .space.btn {
+			margin-right: 20px;
+		}
+		.panel .resizer {
+			position: absolute;
+			right: 0;
+			bottom: 0;
+			width: 12px;
+			height: 12px;
+			cursor: nwse-resize;
+		}
+
+		.panel .graph canvas {
+			vertical-align:top;
+		}
+		.panel .blob {
+			width: 500px;
+		}
+		.panel .blob textarea {
+			width: 100%;
+		}
+		.panel .blob button {
+			float: left;
+		}
+
+		.modalOverlay {
+			position:absolute;
+			top:0;
+			left:0;
+			width:100%;
+			height:100%;
+			background-color:rgba(255,255,255,0.6);
+			z-index:1000;
+		}
+		.modal {
+			position:absolute;
+			top:120px;
+			left:50%;
+			margin-left:-170px;
+			width:340px;
+			background-color:#eee;
+			box-shadow:0 0 25px rgba(0,0,0,0.3);
+			font-size:12px;
+			z-index:1001;
+		}
+		.modal.medium {
+			width:445px;
+			margin-left:-222px;
+		}
+		.modal .head {
+			/* see .panel .head above! */
+			padding:8px 20px;
+		}
+		.modal .body {
+			padding:20px;
+		}
+
+		select, input, textarea {
+			font-family:"Open Sans", sans-serif;
+			font-size:12px;
+			width:100%;
+			box-sizing:border-box;
+			padding:3px 5px;
+			margin:0 0 5px;
+			border:none;
+		}
+		input[type="checkbox"] {
+			width:auto;
+			box-sizing:border-box;
+			padding:3px 5px;
+			margin:5px 5px 5px;
+			display:block;
+		}
+		select {
+			background-color:#ddd;
+		}
+		.modal label {
+			font-weight:600;
+		}
+		button, .robotBtn {
+			font-family:"Open Sans", sans-serif;
+			font-size:14px;
+			font-weight:600;
+			color:white;
+			background-color:#666;
+			padding:5px 20px;
+			border:none;
+			margin:5px 10px 0 0;
+		}
+		.robotBtn {
+			box-sizing: border-box;
+			padding:5px;
+			margin:0 0 5px;
+			cursor:pointer;
+		}
+		.robotBtn.active {
+			background-color: #30ab66;
+		}
+		.robotBtn .ip {
+			font-weight:normal;
+		}
+		.robotList {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: space-between;
+		}
+		.robotList .robotBtn {
+			width: 200px;
+		}
+		nav {
+			position: absolute;
+			background:#eee;
+		}
+		nav ul {
+			margin:0;
+			padding:0;
+			font-size:16px;
+			line-height: 30px;
+			font-weight:600;
+			list-style-type: none;
+		}
+		nav ul li {
+			padding:0 10px;
+			margin:0;
+			cursor:pointer;
+		}
+		nav ul li:hover {
+			background:#30ab66;
+			color:white;
+		}
+
+		nav.topbar {
+			width: 100%;
+		}
+		nav.topbar ul li {
+			display:inline-block;
+		}
+
+		nav.panelList {
+			right: 30px;
+			bottom: 60px;
+			padding-bottom: 30px;
+		}
+		nav.panelList, nav.viewList {
+			display: none;
+			z-index: 998;
+		}
+		nav.panelList.open, nav.viewList.open {
+			display: block;
+		}
+
+		.addPanelBtn {
+			position: absolute;
+			right: 30px;
+			bottom: 30px;
+			width: 60px;
+			height: 60px;
+			background: #30ab66;
+			border-radius: 100%;
+			border: 2px solid white;
+			box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+			color: white;
+			font-size: 50px;
+			line-height: 58px;
+			text-align: center;
+			z-index: 999;
+			cursor: pointer;
+		}
+		.addPanelBtn:after { content: "+"; }
+
+		.PointsList {
+			width: 640px;
+		}
+		.PointListItem {
+			text-align: center;
+			width: 80px;
+			float: left;
+			padding: 3px;
+			margin: 3px;
+			border-color: #AAAAAA;
+			border-width: 1px;
+			border-style: solid;
+		}
+
+		ul.listbox, .mountDiplay {
+			display:inline-block;
+			height: 400px;
+			margin: 10px;
+			vertical-align: top;
+			font-size: 12px;
+			overflow: auto;
+		}
+		ul.listbox {
+			background-color: white;
+			border: 1px solid #ccc;
+			width: 180px;
+			list-style:none;
+			padding:0;
+		}
+		ul.listbox li {
+			padding: 3px 6px;
+		}
+		ul.listbox li.active {
+			color:white;
+			background: #27438d;
+		}
+		.mountDiplay {
+			width: 550px;
+			margin-left: 0;
+		}
+		.mountDiplay h2 {
+			font-size:14px;
+			font-weight:600;
+			margin-top:0;
+		}
+		.mountDiplay label {
+			display:inline-block;
+			min-width:270px;
+			max-width:450px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space:nowrap;
+		}
+		.mountDiplay input {
+			box-sizing: border-box;
+			width:150px;
+		}
+		.mountDiplay > button {
+			float:right;
+			font-size:12px;
+			padding:3px 15px;
+			margin:0;
+		}
+		.mountDiplay div button {
+			font-size: 12px;
+			padding: 3px;
+			width:45px;
+			margin:0 0 5px 5px;
+		}
+		.ImageControllBtns {
+			padding: 0px 0px 10px 5px;
+		}
+		.ImageControlSelectFrameRate {
+			width: 50px;
+			text-align: right;
+			float: right;
+			padding-right: 5px;
+			margin: 5px;
+		}
+	</style>
+</head>
+<body>
+	<script src="/socket.io/socket.io.js"></script>
+	<script src="/libs/eventemitter2.js"></script>
+	<script src="/libs/underscore-min.js"></script>
+	<script src="/libs/jquery-2.1.4.min.js"></script>
+
+	<script src="/ui.js"></script>
+	<script src="/panel.js"></script>
+	<script src="/panelManager.js"></script>
+	<script src="/debugDisplay.js"></script>
+	<script src="/configEditor.js"></script>
+	<script src="/connection.js"></script>
+	<script src="/graph.js"></script>
+	<script src="/histogram2d.js"></script>
+	<script src="/xyGraph.js"></script>
+	<script src="/map.js"></script>
+	<script src="/relative.js"></script>
+	<script src="/queue.js"></script>
+	<script src="/csvexport.js"></script>
+	<script src="/showImage.js"></script>
+	<script src="/calibrationPoints.js"></script>
+	<script src="/configDialog.js"></script>
+	<script src="/sliderMapper.js"></script>
+	<script src="/viewManager.js"></script>
+	<script src="/ofa.js"></script>
+</body>
+</html>

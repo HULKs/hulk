@@ -1,0 +1,85 @@
+#!/bin/bash
+
+# Get base directory for better referencing
+BASEDIR=`cd $(dirname $0); pwd -P`
+BASEDIR=${BASEDIR%/*}
+
+source "${BASEDIR}/scripts/lib/msg.sh"
+source "${BASEDIR}/scripts/lib/docker.sh"
+source "${BASEDIR}/scripts/lib/dependencies.sh"
+
+function helpMenu {
+  echo "Usage: $0 TARGET [OPTIONS]"
+  echo ""
+  echo "Target"
+  echo " a target for compilation (one out of nao, replay, simrobot, qt-websocket)"
+  echo ""
+  echo "Options"
+  echo " target-specific options"
+}
+
+function run_cmake {
+  if [ "$#" -lt 1 ]; then
+    return 1
+  fi
+  TARGET="$1"
+  shift
+  msg -n "Generating files for ${TARGET}."
+  for BUILD_TYPE in Debug Develop Release; do
+    DIR="${BASEDIR}/build/${TARGET}/${BUILD_TYPE}"
+    rm -rf "${DIR}"
+    mkdir -p "${DIR}"
+    cd "${DIR}"
+    # $@ has to be passed directly because of possible spaces in TOOLCHAIN_DIR.
+    cmake -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" "$@" "${BASEDIR}"
+    if [ "$?" -ne 0 ]; then
+      msg -e "Could not generate files for target ${TARGET} with build type ${BUILD_TYPE}!"
+      return 1
+    fi
+  done
+  msg -s "Finished generating files for ${TARGET}!"
+  return 0
+}
+
+function run {
+  assertDependencies
+
+  if [ "$#" -lt 1 ]; then
+    helpMenu
+    return 1
+  fi
+
+  case "$1" in
+    nao)
+      TOOLCHAIN_DIR="${BASEDIR}/toolchain"
+      if [ ! -e "${TOOLCHAIN_DIR}/hulks" ] || [ ! -e "${TOOLCHAIN_DIR}/naoqi" ]; then
+        msg -e "You need to install a toolchain before compiling for the NAO!"
+        return 1
+      fi
+      run_cmake nao -DNAO=ON -DTOOLCHAIN_DIR="${TOOLCHAIN_DIR}"
+      ;;
+    replay)
+      run_cmake replay -DREPLAY=ON
+      ;;
+    simrobot)
+      SIMROBOT_DIR="${BASEDIR}/tools/SimRobot"
+      if [ ! -d "${SIMROBOT_DIR}/Src/SimRobotCore2" ] || [ ! -e "${SIMROBOT_DIR}/build" ]; then
+        msg -e "Either SimRobot is not installed or not compiled!"
+        return 1
+      fi
+      ln -sf "${BASEDIR}/build/simrobot/current/src/tuhhsdk/libtuhhSimRobot.so" "${SIMROBOT_DIR}/build/libtuhhSimRobot.so"
+      run_cmake simrobot -DSIMROBOT=ON -DSIMROBOT_INCLUDE_DIRS="${SIMROBOT_DIR}/Src/SimRobotCore2"
+      ;;
+    qt-websocket)
+      run_cmake qt-websocket -DQT_WEBSOCKET=ON
+      ;;
+    *)
+      msg -e "Unknown target \"$1\"!"
+      helpMenu
+      return 1
+      ;;
+  esac
+  return 0
+}
+
+handleDocker "${BASEDIR}" "$@"

@@ -1,0 +1,54 @@
+{
+	"angleOffsetLeft": 0,
+	"angleOffsetRight": 0,
+	"gravity": 9,
+	"height": 0.2585,
+	"hipCorrectionY": 0.1,
+	"kalmanQ": [
+		0.1,
+		0.1
+	],
+	"kalmanR": [
+		1500,
+		1500
+	],
+	"kickInWalk": false,
+	"linearVel": 0.18,
+	"lowPassAlphaAnkle": 0.95,
+	"lowPassAlphaDynamicSteps": 0.32,
+	"maxAngleVelY": 0.2,
+	"origin": [
+		0.019,
+		0.055
+	],
+	"originLimit": [
+		0.035,
+		0.005
+	],
+	"periodDuration": 0.32,
+	"positionOffsetLeft": [
+		0,
+		0.007,
+		0
+	],
+	"positionOffsetRight": [
+		0,
+		-0.007,
+		0
+	],
+	"rotationAngleChange": 10,
+	"rotationAngleLimit": 20,
+	"rotationAngleThreshold": 0.01,
+	"scaleAccX": 1,
+	"setDynamicSteps": false,
+	"sideStepHeight": 0.035,
+	"speedCorrection": 0.25,
+	"stepDeadTime": 0.1,
+	"stepHeight": 0.025,
+	"stepLengthChange": 0.02,
+	"stepLengthThreshold": 0.00001,
+	"stepLimitX": 0.1,
+	"swingLimitY": 0.008,
+	"torsoAngle": -4,
+	"walkStiffness": 0.8
+}

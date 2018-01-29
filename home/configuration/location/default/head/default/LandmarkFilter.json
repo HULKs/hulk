@@ -1,0 +1,6 @@
+{
+   "bufferGoalPosts" : false,
+   "goalPostAssociationRadius" : 0.4,
+   "maxGoalPostAge" : 0,
+   "maxGoalPostDistanceDeviation" : 0.2
+}

@@ -1,0 +1,26 @@
+ColumnLimit: 160
+IndentWidth: 2
+ConstructorInitializerIndentWidth: 2
+BreakConstructorInitializersBeforeComma: true
+AllowShortFunctionsOnASingleLine: Empty
+AlwaysBreakTemplateDeclarations: true
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: true
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: true
+  BeforeElse: true
+  IndentBraces: false
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesInParentheses: false
+UseTab: Never
+NamespaceIndentation: All
+PointerAlignment: Left
+IndentCaseLabels: true
+MaxEmptyLinesToKeep: 2

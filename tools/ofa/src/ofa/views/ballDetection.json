@@ -1,0 +1,36 @@
+[
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.BallDetectionNeuralNet.top_image"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": "1",
+			"keepRatio": true
+		},
+		"position": [
+			0,
+			30
+		]
+	},
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.BallDetectionNeuralNet.bottom_image"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": "1",
+			"keepRatio": true
+		},
+		"position": [
+			640,
+			30
+		]
+	}
+]

@@ -1,0 +1,8 @@
+{
+  "reclassifyUnknownObstacles" : true,
+  "goalPostsAreObstacles" : false,
+  "teamPlayersAreObstacles" : false,
+  "robotDetectionGeneratesObstacles" : false,
+  "useOtherRobotsObstacles" : true,
+  "obstacleMergeRadiusSquared" : 0.04
+}

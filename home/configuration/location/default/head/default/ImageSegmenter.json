@@ -1,0 +1,5 @@
+{
+  "draw_full_image": false,
+  "edge_threshold" : 8,
+  "num_scanlines" : 160
+}
