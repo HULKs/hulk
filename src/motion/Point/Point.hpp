@@ -10,9 +10,17 @@
 
 class Motion;
 
+/**
+ * @brief Point A module that provides the joint angles to point somewhere
+ *
+ * This module is used if one wants to point to a specific location on the field.
+ * It was originally used for the 'no WIFI challenge' back in 2016.
+ */
 class Point : public Module<Point, Motion>
 {
 public:
+  /// the name of this module
+  ModuleName name = "Point";
   /**
    * @brief Point initializes members
    * @param manager a reference to motion

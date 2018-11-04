@@ -7,10 +7,12 @@
 class SetPosition : public DataType<SetPosition>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "SetPosition";
   /// the position where the robot should be in SET
-  Vector2f position;
+  Vector2f position = Vector2f::Zero();
   /// whether the position is valid
-  bool valid;
+  bool valid = false;
   /// whether the position is the one nearest to the center circle
   bool isKickoffPosition;
   /**
@@ -18,7 +20,6 @@ public:
    */
   void reset()
   {
-    valid = false;
     isKickoffPosition = false;
   }
 

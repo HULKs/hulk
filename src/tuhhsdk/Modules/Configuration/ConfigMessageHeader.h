@@ -11,22 +11,16 @@
  */
 struct ConfigMessageHeader
 {
-  ConfigMessageHeader()
-  {
-    strncpy(header, "CONF", sizeof header);
-    version = 1;
-  }
-
   //==============
 
-  char header[4]; //"CONF"
+  char header[4] = {'C', 'O', 'N', 'F'};
 
   //=== 32bit ====
 
-  uint8_t version;
+  uint8_t version = 1;
 
-  uint8_t msgType;
-  uint16_t msgLength;
+  uint8_t msgType = 0;
+  uint16_t msgLength = 0;
 
   //=== 32bit ====
 };

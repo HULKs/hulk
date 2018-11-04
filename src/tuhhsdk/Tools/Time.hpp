@@ -67,14 +67,14 @@ public:
    */
   static TimePoint getCurrentTime()
   {
-    if (!baseTime_)
+    if (baseTime_ == 0)
     {
 #ifndef SIMROBOT
       auto duration = std::chrono::system_clock::now().time_since_epoch();
       baseTime_ = static_cast<unsigned int>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count())
         - 15000;
 #else
-      baseTime_ = SimRobotAdapterAdapter::getSimulatedTime() - 15000;
+      baseTime_ = SimRobotAdapterAdapter::getSimulatedTime();
 #endif
     }
 #ifndef SIMROBOT
@@ -127,6 +127,17 @@ public:
   }
 
   /**
+   * @brief Used to subtract and assign a duration to/from a time point
+   * @param subtrahend the duration to be subtracted
+   * @return the difference
+   */
+  TimePoint operator-=(const int subtrahend)
+  {
+    creationTime_ -= subtrahend;
+    return TimePoint(creationTime_);
+  }
+
+  /**
    * @brief Used to add a time period to a time point.
    * @param period time that is added to the given time point
    * @return the sum of given time point and period in ms since boot
@@ -146,6 +157,17 @@ public:
   {
     auto d = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
     return TimePoint(creationTime_ + static_cast<int>(d.count()));
+  }
+
+  /**
+   * @brief Used to add and assign a duration to a time point
+   * @param summand the duration to be added
+   * @return the sum
+   */
+  TimePoint operator+=(const int summand)
+  {
+    creationTime_ += summand;
+    return TimePoint(creationTime_);
   }
 
   /**

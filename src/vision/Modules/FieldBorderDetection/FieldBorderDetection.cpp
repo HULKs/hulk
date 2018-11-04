@@ -1,38 +1,46 @@
 #include "FieldBorderDetection.hpp"
+
 #include "Tools/Chronometer.hpp"
+#include "Tools/Math/ColorConverter.hpp"
+#include "Tools/Math/Geometry.hpp"
+#include "Tools/Math/Random.hpp"
 #include "Tools/Storage/Image.hpp"
-#include "Utils/Algorithms.hpp"
-#include "print.hpp"
 
 #include "Definitions/windows_definition_fix.hpp"
 
 FieldBorderDetection::FieldBorderDetection(const ModuleManagerInterface& manager)
-  : Module(manager, "FieldBorderDetection")
-  , angle_threshold_(*this, "angle_threshold", [] {})
-  , image_data_(*this)
-  , image_regions_(*this)
-  , camera_matrix_(*this)
-  , field_border_(*this)
-  , filtered_regions_(*this)
+  : Module(manager)
+  , angleThreshold_(*this, "angleThreshold", [] {})
+  , minPointsPerLine_(*this, "minPointsPerLine", [] {})
+  , drawVerticalFilteredSegments_(*this, "drawVerticalFilteredSegments", [] {})
+  , drawHorizontalFilteredSegments_(*this, "drawHorizontalFilteredSegments", [] {})
+  , drawVerticalEdges_(*this, "drawVerticalEdges", [] {})
+  , drawHorizontalEdges_(*this, "drawHorizontalEdges", [] {})
+  , imageData_(*this)
+  , imageSegments_(*this)
+  , cameraMatrix_(*this)
+  , fieldBorder_(*this)
+  , filteredSegments_(*this)
 {
 }
 
 bool FieldBorderDetection::isOrthogonal(const Line<int>& l1, const Line<int>& l2)
 {
   Vector2f l1_start, l1_end, l2_start, l2_end;
-  camera_matrix_->pixelToRobot(l1.p1, l1_start);
-  camera_matrix_->pixelToRobot(l2.p1, l2_start);
-  camera_matrix_->pixelToRobot(l1.p2, l1_end);
-  camera_matrix_->pixelToRobot(l2.p2, l2_end);
+  cameraMatrix_->pixelToRobot(l1.p1, l1_start);
+  cameraMatrix_->pixelToRobot(l2.p1, l2_start);
+  cameraMatrix_->pixelToRobot(l1.p2, l1_end);
+  cameraMatrix_->pixelToRobot(l2.p2, l2_end);
 
   Vector2f vec1 = l1_end - l1_start;
   Vector2f vec2 = l2_end - l2_start;
 
   float angle = std::acos(vec1.normalized().dot(vec2.normalized()));
-  float angle_in_deg = angle / TO_RAD;
-  debug().update(mount_ + ".AngleInDeg", angle_in_deg);
+  float angleInDeg = angle / TO_RAD;
+  debug().update(mount_ + ".AngleInDeg", angleInDeg);
   debug().update(mount_ + ".AngleInRad", angle);
-  if (angle > (M_PI_2 - angle_threshold_() * TO_RAD) && angle < (M_PI_2 + angle_threshold_() * TO_RAD) && (vec1.x() != 0 || vec1.y() != 0))
+  if (angle > (M_PI_2 - angleThreshold_() * TO_RAD) &&
+      angle < (M_PI_2 + angleThreshold_() * TO_RAD) && (vec1.x() != 0 || vec1.y() != 0))
   {
     return true;
   }
@@ -45,10 +53,10 @@ bool FieldBorderDetection::isOrthogonal(const Line<int>& l1, const Line<int>& l2
 Vector2i FieldBorderDetection::centerOfGroup(VecVector2i group)
 {
   Vector2i center(0, 0);
-  for (auto it = group.begin(); it != group.end(); it++)
+  for (const auto& point : group)
   {
-    center.x() += it->x();
-    center.y() += it->y();
+    center.x() += point.x();
+    center.y() += point.y();
   }
   center.x() = (center.x() / group.size());
   center.y() = (center.y() / group.size());
@@ -59,24 +67,24 @@ Line<int> FieldBorderDetection::bestFitLine(VecVector2i points)
 {
   // Divide points into two equal groups (sorted from left to right)
   std::size_t const half_size = points.size() / 2;
-  VecVector2i left_group(points.begin(), points.begin() + half_size);
-  VecVector2i right_group(points.begin() + half_size, points.end());
+  VecVector2i leftGroup(points.begin(), points.begin() + half_size);
+  VecVector2i rightGroup(points.begin() + half_size, points.end());
   // Evaluate the center off both groups
-  Vector2i left_center = centerOfGroup(left_group);
-  Vector2i right_center = centerOfGroup(right_group);
+  Vector2i leftCenter = centerOfGroup(leftGroup);
+  Vector2i rightCenter = centerOfGroup(rightGroup);
   // Return line through both centers
-  return Line<int>(left_center, right_center);
+  return Line<int>(leftCenter, rightCenter);
 }
 
 void FieldBorderDetection::findBorderPoints()
 {
-  for (auto& it : image_regions_->scanlines)
+  for (const auto& vScanline : imageSegments_->verticalScanlines)
   {
-    for (auto& it2 : it.regions)
+    for (const auto& segment : vScanline.segments)
     {
-      if (it2.field > 0.5)
+      if (segment.field > 0.5)
       {
-        border_points_.emplace_back(it.x, it2.start);
+        borderPoints_.push_back(segment.start);
         break;
       }
     }
@@ -85,33 +93,34 @@ void FieldBorderDetection::findBorderPoints()
 
 void FieldBorderDetection::findBorderLines()
 {
-  VecVector2i first_line_points, second_line_points, first_unused_points, second_unused_points;
+  VecVector2i firstLinePoints, secondLinePoints, firstUnusedPoints, secondUnusedPoints;
   // Find points for the first line
   Line<int> line; // temporary dummy line
-  if (!Algorithms::ransacLine(line, border_points_, first_line_points, first_unused_points, 20, 2))
+  if (!ransac(line, borderPoints_, firstLinePoints, firstUnusedPoints, 20, 2))
   {
     return;
   }
 
-  if (first_line_points.size() >= 5)
+  if (static_cast<int>(firstLinePoints.size()) >= minPointsPerLine_())
   {
     // Accept line
     Line<int> first;
-    first = bestFitLine(first_line_points);
-    field_border_->border_lines.push_back(first);
+    first = bestFitLine(firstLinePoints);
+    fieldBorder_->borderLines.push_back(first);
 
     // If enough points are left, check if second line exists
-    if (first_unused_points.size() >= 5 && Algorithms::ransacLine(line, first_unused_points, second_line_points, second_unused_points, 20, 4))
+    if (static_cast<int>(firstUnusedPoints.size()) >= minPointsPerLine_() &&
+        ransac(line, firstUnusedPoints, secondLinePoints, secondUnusedPoints, 20, 4))
     {
-      if (second_line_points.size() >= 5)
+      if (static_cast<int>(secondLinePoints.size()) >= minPointsPerLine_())
       {
         Line<int> second;
-        second = bestFitLine(second_line_points);
+        second = bestFitLine(secondLinePoints);
         // Check if second line is orthogonal to first
         if (isOrthogonal(first, second))
         {
           // Accept line
-          field_border_->border_lines.push_back(second);
+          fieldBorder_->borderLines.push_back(second);
           // Two have been found
         }
         else
@@ -127,76 +136,252 @@ void FieldBorderDetection::findBorderLines()
   }
 }
 
-void FieldBorderDetection::createFilteredRegions()
+bool FieldBorderDetection::ransac(Line<int>& bestLine, const VecVector2<int>& points,
+                                  VecVector2<int>& best, VecVector2<int>& unused,
+                                  unsigned int iterations, int max_distance)
 {
-  for (auto& it : image_regions_->scanlines)
+  bool valid = false;
+  Line<int> line;
+  int distance;
+  const int sqr_max_distance = max_distance * max_distance;
+  // Keep a buffer and a back-buffer, if we found the best line,
+  // just swap the buffer and add to the other, until we find a better one.
+  VecVector2<int> current_used_1, current_unused_1;
+  VecVector2<int> current_used_2, current_unused_2;
+
+  VecVector2<int>* current_used = &current_used_1;
+  VecVector2<int>* current_unused = &current_unused_1;
+
+  unsigned int max_score = 0;
+  if (points.size() < 2)
   {
-    Scanline scanline;
-    scanline.id = it.id;
-    scanline.x = it.x;
-    bool below = false;
-    for (auto& it2 : it.regions)
+    best.clear();
+    unused = points;
+    return valid;
+  }
+
+  current_used_1.reserve(points.size());
+  current_used_2.reserve(points.size());
+  current_unused_1.reserve(points.size());
+  current_unused_2.reserve(points.size());
+
+  for (unsigned int i = 0; i < iterations; i++)
+  {
+    line.p1 = points[Random::uniformInt(0, points.size() - 1)];
+    line.p2 = points[Random::uniformInt(0, points.size() - 1)];
+
+    if (line.p1 == line.p2)
     {
-      if (!below && field_border_->isInsideField(Vector2i(it.x, it2.start)))
+      continue;
+    }
+    current_used->clear();
+    current_unused->clear();
+
+    for (const auto& point : points)
+    {
+      distance = Geometry::getSquaredLineDistance(line, point);
+      assert(distance >= 0);
+
+      if (distance <= sqr_max_distance)
+      {
+        current_used->push_back(point);
+      }
+      else
+      {
+        current_unused->push_back(point);
+      }
+    }
+
+    if (current_used->size() > max_score)
+    {
+      max_score = current_used->size();
+      bestLine = line;
+      if (current_used == &current_used_1)
+      {
+        current_used = &current_used_2;
+        current_unused = &current_unused_2;
+      }
+      else
+      {
+        current_used = &current_used_1;
+        current_unused = &current_unused_1;
+      }
+    }
+  }
+
+  best = current_used == &current_used_1 ? current_used_2 : current_used_1;
+  unused = current_unused == &current_unused_1 ? current_unused_2 : current_unused_1;
+
+  if (best.empty() || bestLine.p1 == bestLine.p2)
+  {
+    best.clear();
+    unused = points;
+    return valid;
+  }
+
+  valid = true;
+  return valid;
+}
+
+void FieldBorderDetection::createFilteredSegments()
+{
+  for (const auto& scanline : imageSegments_->verticalScanlines)
+  {
+    bool below = false;
+    for (const auto& segment : scanline.segments)
+    {
+      if (!below && fieldBorder_->isInsideField(segment.start))
       {
         below = true;
       }
-      if (!below || it2.field > 0.5)
+      if (below && segment.field <= .5f)
       {
-        continue;
+        filteredSegments_->vertical.push_back(&segment);
       }
-      scanline.regions.push_back(it2);
     }
-    filtered_regions_->scanlines.push_back(scanline);
   }
-  filtered_regions_->valid = true;
+  for (const auto& scanline : imageSegments_->horizontalScanlines)
+  {
+    bool foundField = false;
+    bool noOtherInterestingSegments = false;
+    for (const auto& segment : scanline.segments)
+    {
+      if (noOtherInterestingSegments)
+      {
+        break;
+      }
+      const bool insideField = fieldBorder_->isInsideField((segment.start)) &&
+                               fieldBorder_->isInsideField((segment.end));
+      if (!foundField && insideField)
+      {
+        foundField = true;
+      }
+      if (foundField)
+      {
+        if (!insideField)
+        {
+          noOtherInterestingSegments = true;
+          break;
+        }
+        if (segment.field <= .5f)
+        {
+          filteredSegments_->horizontal.push_back(&segment);
+        }
+      }
+    }
+  }
+  filteredSegments_->valid = true;
 }
 
 void FieldBorderDetection::cycle()
 {
-  if (!image_regions_->valid)
+  if (!imageSegments_->valid)
   {
     return;
   }
   {
     Chronometer time(debug(), mount_ + ".cycle_time");
     // Reset private members
-    border_points_.clear();
-    field_border_->image_size = image_data_->image.size_;
+    borderPoints_.clear();
+    fieldBorder_->imageSize = imageData_->image422.size;
     // Find border points
     findBorderPoints();
     // Find the border lines
     findBorderLines();
-    createFilteredRegions();
+    createFilteredSegments();
   }
   sendImagesForDebug();
 }
 
 void FieldBorderDetection::sendImagesForDebug()
 {
-  if (!debug().isSubscribed(mount_ + "." + image_data_->identification + "_image"))
+  auto mount = mount_ + "." + imageData_->identification + "_image";
+  if (debug().isSubscribed(mount))
   {
-    return;
+    Image fieldBorderImage(imageData_->image422.to444Image());
+
+    for (const auto& bp : borderPoints_)
+    {
+      fieldBorderImage.circle(Image422::get444From422Vector(bp), 3, Color::BLACK);
+    }
+
+    VecVector2i allBorderPoints = fieldBorder_->getBorderPoints();
+    for (const auto& bp : allBorderPoints)
+    {
+      fieldBorderImage[Image422::get444From422Vector(bp)] = Color::BLUE;
+    }
+    for (const auto& line : fieldBorder_->borderLines)
+    {
+      Line<int> line444;
+      line444.p1 = Image422::get444From422Vector(line.p1);
+      line444.p2 = Image422::get444From422Vector(line.p2);
+      fieldBorderImage.line(line444, Color::RED);
+      fieldBorderImage.line(Vector2i(line444.p1.x(), line444.p1.y() + 1),
+                            Vector2i(line444.p2.x(), line444.p2.y() + 1), Color::RED);
+      fieldBorderImage.line(Vector2i(line444.p1.x(), line444.p1.y() + 1),
+                            Vector2i(line444.p2.x(), line444.p2.y() + 1), Color::RED);
+      fieldBorderImage.line(Vector2i(line444.p1.x(), line444.p1.y() - 1),
+                            Vector2i(line444.p2.x(), line444.p2.y() - 1), Color::RED);
+    }
+    debug().sendImage(mount_ + "." + imageData_->identification + "_image", fieldBorderImage);
   }
 
-  Image fieldBorderImage(image_data_->image);
-
-  for (auto it = border_points_.begin(); it != border_points_.end(); it++)
+  mount = mount_ + "." + imageData_->identification + "_filtered";
+  if (debug().isSubscribed(mount))
   {
-    fieldBorderImage.circle(*it, 3, Color::BLACK);
-  }
+    if (imageSegments_->verticalScanlines.empty())
+    {
+      return;
+    }
+    Image image(imageData_->image422.get444From422Vector(imageData_->image422.size), Color::BLACK);
+    for (const auto& segment : filteredSegments_->vertical)
+    {
+      if (drawVerticalFilteredSegments_())
+      {
 
-  VecVector2i all_border_points = field_border_->getBorderPoints();
-  for (auto it = all_border_points.begin(); it != all_border_points.end(); it++)
-  {
-    fieldBorderImage[*it] = Color::BLUE;
-  }
+        image.line(Image422::get444From422Vector(segment->start),
+                   Image422::get444From422Vector(segment->end),
+                   ColorConverter::colorFromYCbCr422(segment->ycbcr422));
+      }
+      if (drawVerticalEdges_())
+      {
+        image.line(Image422::get444From422Vector(segment->start),
+                   Image422::get444From422Vector(segment->start) + Vector2i(2, 0),
+                   segment->startEdgeType == EdgeType::RISING
+                       ? Color::RED
+                       : segment->startEdgeType == EdgeType::FALLING ? Color::GREEN
+                                                                     : Color::ORANGE);
+        image.line(Image422::get444From422Vector(segment->end),
+                   Image422::get444From422Vector(segment->end) + Vector2i(2, 0),
+                   segment->endEdgeType == EdgeType::RISING
+                       ? Color::RED
+                       : segment->endEdgeType == EdgeType::FALLING ? Color::GREEN : Color::ORANGE);
+      }
+    }
+    for (const auto& segment : filteredSegments_->horizontal)
+    {
+      if (drawHorizontalFilteredSegments_())
+      {
 
-  for (auto it = field_border_->border_lines.begin(); it != field_border_->border_lines.end(); it++)
-  {
-    fieldBorderImage.line(it->p1, it->p2, Color::RED);
-    fieldBorderImage.line(Vector2i(it->p1.x(), it->p1.y() + 1), Vector2i(it->p2.x(), it->p2.y() + 1), Color::RED);
-    fieldBorderImage.line(Vector2i(it->p1.x(), it->p1.y() - 1), Vector2i(it->p2.x(), it->p2.y() - 1), Color::RED);
+        image.line(Image422::get444From422Vector(segment->start),
+                   Image422::get444From422Vector(segment->end),
+                   ColorConverter::colorFromYCbCr422(segment->ycbcr422));
+      }
+      if (drawHorizontalEdges_())
+      {
+        image.line(Image422::get444From422Vector(segment->start),
+                   Image422::get444From422Vector(segment->start) + Vector2i(0, 2),
+                   segment->startEdgeType == EdgeType::RISING
+                       ? Color::RED
+                       : segment->startEdgeType == EdgeType::FALLING ? Color::GREEN
+                                                                     : Color::ORANGE);
+        image.line(Image422::get444From422Vector(segment->end),
+                   Image422::get444From422Vector(segment->end) + Vector2i(0, 2),
+                   segment->endEdgeType == EdgeType::RISING
+                       ? Color::RED
+                       : segment->endEdgeType == EdgeType::FALLING ? Color::GREEN : Color::ORANGE);
+      }
+    }
+    debug().sendImage(mount, image);
   }
-  debug().sendImage(mount_ + "." + image_data_->identification + "_image", fieldBorderImage);
 }

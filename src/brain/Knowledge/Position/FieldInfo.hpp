@@ -20,6 +20,8 @@ public:
   std::vector<Line<float>> lines;
   /// contains all the goal posts on the field
   VecVector2f goalPosts;
+  /// the absolute position of the penalty spots
+  VecVector2f penaltySpots;
 
 private:
   /**

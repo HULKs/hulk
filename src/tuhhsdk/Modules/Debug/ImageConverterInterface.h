@@ -6,7 +6,7 @@ class ImageConverterInterface
 {
 public:
   ImageConverterInterface() {}
-  ~ImageConverterInterface() {}
+  virtual ~ImageConverterInterface() {}
 
-  virtual SharedCVData convert(const Image& img) = 0;
+  virtual void convert(const Image& img, CVData& data) = 0;
 };

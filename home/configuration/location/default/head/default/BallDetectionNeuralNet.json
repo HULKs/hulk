@@ -7,5 +7,6 @@
   "seedRadiusRatioMin" : 0.1,
   "seedDark" : 100,
   "seedBright" : 25,
-  "projectFoundBalls" : true
+  "projectFoundBalls" : false,
+  "candidateMinSeeds": 2
 }

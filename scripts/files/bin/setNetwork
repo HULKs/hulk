@@ -22,6 +22,7 @@ SPL_B=1
 SPL_C=1
 SPL_D=1
 SPL_E=1
+SPL_IO=1
 SPL=1
 
 # prepare parameters
@@ -80,6 +81,9 @@ case "${NETWORK}" in
   "spl" | "SPL")
     SPL=0
     ;;
+  "spl_io" | "SPL_IO")
+    SPL_IO=0
+    ;;
   "eth" | "ETH")
     ETH=0
     ;;
@@ -89,7 +93,7 @@ case "${NETWORK}" in
     ;;
 esac
 
-sed -e s/{spl_a_dis}/${SPL_A}/ -e s/{spl_b_dis}/${SPL_B}/ -e s/{spl_c_dis}/${SPL_C}/ -e s/{spl_d_dis}/${SPL_D}/ -e s/{spl_e_dis}/${SPL_E}/ -e s/{spl_dis}/${SPL}/ /etc/wpa_supplicant/wpa_supplicant.conf.auto > /etc/wpa_supplicant/wpa_supplicant.conf
+sed -e s/{spl_a_dis}/${SPL_A}/ -e s/{spl_b_dis}/${SPL_B}/ -e s/{spl_c_dis}/${SPL_C}/ -e s/{spl_d_dis}/${SPL_D}/ -e s/{spl_e_dis}/${SPL_E}/ -e s/{spl_io_dis}/${SPL_IO}/ -e s/{spl_dis}/${SPL}/ /etc/wpa_supplicant/wpa_supplicant.conf.auto > /etc/wpa_supplicant/wpa_supplicant.conf
 
 if [ ${ETH} -ne 1 ]; then
   sed -e s/^\#routes_eth0/routes_eth0/ -e s/^routes_wlan0/\#routes_wlan0/ -i /etc/conf.d/net

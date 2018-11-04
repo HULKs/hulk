@@ -24,6 +24,8 @@ class Brain;
 class SPLNetworkService : public Module<SPLNetworkService, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "SPLNetworkService";
   /**
    * @brief SPLNetworkService starts a networking thread
    * @param manager reference to brain

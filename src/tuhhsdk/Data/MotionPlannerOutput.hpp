@@ -9,4 +9,7 @@
 
 class MotionPlannerOutput : public DataType<MotionPlannerOutput, MotionRequest>
 {
+public:
+  /// the name of this DataType
+  DataTypeName name = "MotionPlannerOutput";
 };

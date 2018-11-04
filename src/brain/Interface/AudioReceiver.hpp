@@ -10,6 +10,8 @@ class Brain;
 class AudioReceiver : public Module<AudioReceiver, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "AudioReceiver";
   /**
    * @brief AudioReceiver the constructor initializes the AudioReceiver
    * @param manager a ModuleManagerInterface

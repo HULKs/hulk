@@ -7,20 +7,22 @@
 class FSRSensorData : public DataType<FSRSensorData>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "FSRSensorData";
   struct Sensor : public Uni::To, public Uni::From
   {
     /// the weight on the front left sensor
-    float frontLeft;
+    float frontLeft = 0.f;
     /// the weight on the front right sensor
-    float frontRight;
+    float frontRight = 0.f;
     /// the weight on the rear left sensor
-    float rearLeft;
+    float rearLeft = 0.f;
     /// the weight on the rear right sensor
-    float rearRight;
+    float rearRight = 0.f;
     /// the total weight on the FSR
-    float totalWeight;
+    float totalWeight = 0.f;
     /// the center of pressure (should not be used)
-    Vector2f cop;
+    Vector2f cop = Vector2f::Zero();
 
     virtual void toValue(Uni::Value& value) const
     {
@@ -47,11 +49,14 @@ public:
   Sensor left;
   /// sensor data of the right FSR
   Sensor right;
+  /// whether the content is valid
+  bool valid = false;
   /**
-   * @brief reset does nothing
+   * @brief marks the content as invalid
    */
   void reset()
   {
+    valid = false;
   }
 
   virtual void toValue(Uni::Value& value) const
@@ -59,11 +64,13 @@ public:
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["left"] << left;
     value["right"] << right;
+    value["valid"] << valid;
   }
 
   virtual void fromValue(const Uni::Value& value)
   {
     value["left"] >> left;
     value["right"] >> right;
+    value["valid"] >> valid;
   }
 };

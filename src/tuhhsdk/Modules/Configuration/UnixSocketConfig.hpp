@@ -13,6 +13,7 @@ private:
   class Impl;
 
   std::shared_ptr<Impl> pimpl_;
+
 public:
   UnixSocketConfig(const std::string& file, Configuration& config);
   ~UnixSocketConfig();

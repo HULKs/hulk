@@ -23,11 +23,12 @@
 
 // HULKsChange: no namespace and directory prefix
 #include <Definitions/RoboCupGameControlData.h>
+#include "Data/GameControllerState.hpp"
 
 namespace B_HULKs
 {
 #define BHULKS_STANDARD_MESSAGE_STRUCT_HEADER  "BHLK"
-#define BHULKS_STANDARD_MESSAGE_STRUCT_VERSION 8        //< this should be incremented with each change
+#define BHULKS_STANDARD_MESSAGE_STRUCT_VERSION 9        //< this should be incremented with each change
 #define BHULKS_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS 10   //< max teammembers for Mixed-Teams 2017
 #define BHULKS_STANDARD_MESSAGE_MAX_NUM_OF_OBSTACLES 7  //< max send obstacles per messages
 
@@ -78,6 +79,7 @@ namespace B_HULKs
     Queen,        //< Striker        -> running wherever she wants
     Knight,       //< Supporter      -> jumping alongside the Queen and helping her out
     Bishop,       //< Pass Station   -> diagonal movement in front of the Queen
+    Pawn,         //< Replacement keeper -> replaces keeper if player one is striker
     beatenPieces  //< not perceived numbers -> robots staying outside the field carpet
   };
   constexpr Role numOfRoles = Role(6);
@@ -139,6 +141,69 @@ namespace B_HULKs
   };
 
   /**
+   * Structure that compresses the most important game controller data to 2 bytes.
+   * Useful if a gameController message was not received by some team player (he can restore the GCD from this struct).
+   */
+  struct GameStateStruct
+  {
+    // The positions of the single pieces of information inside the 2 byte data field.
+    const int SET_PLAY_POS = 0;
+    const int GAME_STATE_POS = 3;
+    const int GAME_PHASE_POS = 6;
+    const int COMPETITION_TYPE_POS = 8;
+    const int COMPETITION_PHASE_POS = 10;
+    const int FIRST_HALF_POS = 11;
+    const uint16_t SET_PLAY_BITS =          0b0000000000000111;
+    const uint16_t GAME_STATE_BITS =        0b0000000000111000;
+    const uint16_t GAME_PHASE_BITS =        0b0000000011000000;
+    const uint16_t COMPETITION_TYPE_BITS =  0b0000001100000000;
+    const uint16_t COMPETITION_PHASE_BITS = 0b0000010000000000;
+    const uint16_t FIRST_HALF_BITS =        0b0000100000000000;
+
+    // Restored / to be sent data
+    uint16_t competitionPhase;
+    uint16_t competitionType;
+    uint16_t gamePhase;
+    uint16_t gameState;
+    uint16_t setPlay;
+    uint16_t firstHalf;
+
+    /**
+     * @brief the size of the data to be sent / received
+     * @return
+     */
+    static int sizeOf()
+    {
+      return 2;
+    }
+
+    /**
+     * @brief stores all data from this struct into the given data field
+     * @param data pointer to the data field to store this struct in.
+     */
+    void write(void*& data) const;
+
+    /**
+     * @brief stores all content from data into this struct.
+     * @param data The data to be stored.
+     */
+    void read(const void*& data);
+
+    /**
+     * @brief stores all necessary information from the given gst to this struct.
+     * @param gst The game controller state.
+     */
+    void fromGameControllerState(const GameControllerState& gst);
+
+    /**
+     * @brief stores all necessary information from this struct to the given gst.
+     * @param gst The game controller state.
+     */
+    void toGameControllerState(GameControllerState& gst);
+
+  };
+
+  /**
   * The definintion of an ntp message we send - in response to a previously received request
   */
   struct BNTPMessage
@@ -155,7 +220,7 @@ namespace B_HULKs
   */
   struct OwnTeamInfo
   {
-    static_assert(GAMECONTROLLER_STRUCT_VERSION == 10,
+    static_assert(GAMECONTROLLER_STRUCT_VERSION == 11,
       "Please adjust this struct to the newer game controller struct version");
 
     OwnTeamInfo();
@@ -165,11 +230,9 @@ namespace B_HULKs
 
     //values of RoboCup::RoboCupGameControlData
     uint8_t packetNumber;
-    uint8_t gameType;       // < [0..3]
-    uint8_t state;          // < [0..7]
-    uint8_t firstHalf;      // < [0..1]
-    uint8_t kickOffTeam;
-    uint8_t secondaryState; // < [0..3]
+
+    GameStateStruct state;
+    uint8_t kickingTeam;
     uint8_t dropInTeam;
     uint16_t dropInTime;    // < [0..62 (2)]
     uint16_t secsRemaining; // < [0..1023]
@@ -221,7 +284,7 @@ namespace B_HULKs
     OwnTeamInfo gameControlData;
 
     // the current meassurement of head joint: HeadYaw
-    float headYawAngle; // < [-127..127 (1°)]
+    float headYawAngle; // < [-127..127 (1 deg)]
 
     // the role this robot is currently performing 
     Role currentlyPerfomingRole;

@@ -19,7 +19,6 @@ cd crosstool-ng
 git checkout ${CROSSTOOL_VERSION}
 
 # Make the ARCH compile to a i686 toolchain
-git apply ${BASEDIR}/patches/crosstool-ng/crosstool-ng.patch
 ./bootstrap
 ./configure --prefix=${CT_INSTALL}
 make

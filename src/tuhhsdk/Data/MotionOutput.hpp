@@ -7,6 +7,8 @@
  */
 class MotionOutput : public DataType<MotionOutput> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "MotionOutput";
   /// whether it is safe to exit the motion
   bool safeExit;
   /// the angles that the output wants to send

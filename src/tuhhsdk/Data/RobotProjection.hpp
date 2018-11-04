@@ -8,6 +8,8 @@
 class RobotProjection : public DataType<RobotProjection>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "RobotProjection";
   std::vector<Line<int>> lines;
 
   void reset()

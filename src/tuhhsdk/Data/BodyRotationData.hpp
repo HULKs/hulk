@@ -6,6 +6,8 @@
 
 class BodyRotationData : public DataType<BodyRotationData> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "BodyRotationData";
   /// the rotation of the body in terms of roll, pitch and yaw angles (equivalent to IMUSensorData::angle)
   Vector3f rollPitchYaw;
   /// a rotation matrix rotating the body coordinate system into ground coordinates (containing pitch and roll)

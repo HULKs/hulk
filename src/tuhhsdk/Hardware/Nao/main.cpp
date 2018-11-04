@@ -71,7 +71,7 @@ int main()
     {
       sigsuspend(&mask);
     }
-    Log(LogLevel::ERROR) << "Received signal, shutting application down!";
+    Log(LogLevel::INFO) << "Received signal, shutting application down!";
   }
   catch (const std::exception& e)
   {

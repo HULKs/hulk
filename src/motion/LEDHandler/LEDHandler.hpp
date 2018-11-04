@@ -14,8 +14,11 @@
 #include <array>
 #include <vector>
 
+#include "Data/CycleInfo.hpp"
 #include "Data/EyeLEDRequest.hpp"
 #include "Data/GameControllerState.hpp"
+#include "Data/WhistleData.hpp"
+
 #include "Definitions/keys.h"
 #include "Framework/Module.hpp"
 
@@ -25,6 +28,8 @@ class Motion;
 class LEDHandler : public Module<LEDHandler, Motion>
 {
 public:
+  /// the name of this module
+  ModuleName name = "LEDHandler";
   LEDHandler(const ModuleManagerInterface& manager);
   void cycle();
 
@@ -54,14 +59,14 @@ private:
    * @param green a float value specifying the green channel (0.0f-1.0f)
    * @param blue a float value specifying the blue channel (0.0f-1.0f)
    */
-  void setEyeLeftLEDs(const float red, const float green, const float blue);
+  void setEyeLeftLEDsColor(const float red, const float green, const float blue);
   /**
    * @brief setEyeRightLEDs method providing LED setting for the right eye
    * @param red a float value specifying the red channel (0.0f-1.0f)
    * @param green a float value specifying the green channel (0.0f-1.0f)
    * @param blue a float value specifying the blue channel (0.0f-1.0f)
    */
-  void setEyeRightLEDs(const float red, const float green, const float blue);
+  void setEyeRightLEDsColor(const float red, const float green, const float blue);
   /**
    * @brief setFootLeftLEDs method providing LED setting for the left foot
    * @param red a float value specifying the red channel (0.0f-1.0f)
@@ -77,7 +82,17 @@ private:
    */
   void setFootRightLEDs(const float red, const float green, const float blue);
   /**
-   * @brief setEyeRainbow sets the eye LEDs in a fancy rainbow shape
+   * @brief setEarLeftLEDs sets the left ear LEDs to the given brightnesses
+   * @param earSegmentBrightnesses the brightness of each ear led
+   */
+  void setEarLeftLEDs(const float earSegmentBrightnesses[keys::led::EAR_MAX]);
+  /**
+   * @brief setEarRightLEDs sets the right ear LEDs to the given brightnesses
+   * @param earSegmentBrightnesses the brightness of each ear led
+   */
+  void setEarRightLEDs(const float earSegmentBrightnesses[keys::led::EAR_MAX]);
+  /**
+   * @brief setEyeLeftRainbow sets the eye LEDs in a fancy rainbow shape
    *
    * Color scheme:
    * Red on L0 and R0 (Left/45Deg and Right/315Deg)
@@ -93,7 +108,11 @@ private:
    * <a href="http://doc.aldebaran.com/2-1/family/nao_h25/index_h25.html">LED Keys NAO H25</a>
    * <a href="http://www.webriti.com/wp-content/uploads/2012/01/rgb-color-wheel-lg.jpg">RGB Color Wheel</a>
    */
-  void setEyeRainbow();
+  void setEyeLeftRainbow();
+  /**
+   * @brief setEyeRightRainbow see documentation of setEyeLeftRainbow()
+   */
+  void setEyeRightRainbow();
   /**
    * @brief showRobotStateOnChestLEDs calculates and sets the appropriate chest LED values for a given game state
    */
@@ -106,17 +125,23 @@ private:
    * @brief showKickOffTeamOnRightFootLEDs calculates and sets the appropriate right foot LED values for a given game state
    */
   void showKickOffTeamOnRightFootLEDs();
+  /**
+   * @brief showWhistleStatusOnEarLEDs calculates and sets the appropriate ear LED values for a given game state (whistle included)
+   */
+  void showWhistleStatusOnEarLEDs();
 
   /// rainbow colors for left eye
   static std::array<float, keys::led::EYE_MAX> rainbowLeft_;
   /// rainbow colors for right eye
   static std::array<float, keys::led::EYE_MAX> rainbowRight_;
 
+  const Dependency<CycleInfo> cycleInfo_;
   const Dependency<EyeLEDRequest> eyeLEDRequest_;
   const Dependency<GameControllerState> gameControllerState_;
+  const Dependency<WhistleData> whistleData_;
 
   /// the LED command that is assembled (in the order of the LED alias)
   std::vector<float> cmd_;
   /// a cycle counter because LEDs are not sent every cycle
-  unsigned int cycleCount_;
+  unsigned int cycleCount_, rainbowCycle_;
 };

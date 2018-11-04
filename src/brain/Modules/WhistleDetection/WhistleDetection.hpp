@@ -7,21 +7,20 @@
 #include "Framework/Module.hpp"
 #include <Tools/Math/FFT.hpp>
 
+#include <boost/circular_buffer.hpp>
+
 class Brain;
 
 /**
  * @class WhistleDetection can detect whether a whistle was whistled while listening.
- * This module will check the microphones during GameState::SET and will detect if  whistle
+ * This module will check the microphones during GameState::SET and will detect if whistle
  * was whistled.
- *
- * Currently, a band is defined via configuration that is considered the whistle band. In this band
- * the power spectral density (PSD) is calculated and compared to the PSD in the higher frequencies.
- * If the relationship between whistle-power and non-whistle-power exceeds a configured threshold,
- * the whistle is considered detected.
  */
 class WhistleDetection : public Module<WhistleDetection, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "WhistleDetection";
   /**
    * @brief WhistleDetection initializes members
    * @param manager a reference to brain
@@ -43,25 +42,37 @@ private:
   Production<WhistleData> whistleData_;
 
   /// The minimum frequency [Hz] of the whistle band
-  Parameter<double> minFrequency_;
+  const Parameter<double> minFrequency_;
   /// The maximum frequency [Hz] of the whistle band
-  Parameter<double> maxFrequency_;
-  /// The threshold of the quotient of whistle-power divided by non-whistle-power for which the
-  /// whistle is considered detected.
-  Parameter<double> threshold_;
+  const Parameter<double> maxFrequency_;
 
-  /// The buffer size. For performance, this should be a power of two.
-  static constexpr unsigned int BUFFER_SIZE = 8192;
+  /// scale background threshold
+  const Parameter<float> backgroundScaling_;
+  /// scale whistle threshold
+  const Parameter<float> whistleScaling_;
+
+  /// the spectrum is divided into a number of bands to find the whistle band
+  const Parameter<unsigned int> numberOfBands_;
+
+  /// the minimum percentage of found  whistles in the whistle buffer required to actually be considered a detected whistle
+  const Parameter<float> minWhistleCount_;
+
+  /// The fft buffer size. For performance, this should be a power of two.
+  static constexpr unsigned int fftBufferSize_ = 1024;
   /// The sampling rate. Depends on samplingRate of the audio recording.
   static constexpr double samplingRate = 44100;
   /// FFT wich can transform the buffer
   FFT fft_;
-  /// The buffer to store recorded samples until it reaches the BUFFER_SIZE and a detection
-  /// can be made.
-  RealVector buffer_;
+  /// The buffer to store recorded samples until it reaches the fft buffer size and a detection can be made.
+  RealVector fftBuffer_;
   /// the last timestamp when the whistle has been detected
   TimePoint lastTimeWhistleHeard_;
 
+  /// the size of the circular found whistles buffer
+  static constexpr unsigned int foundWhistlesBufferSize_ = 4;
+  /// circular buffer to store history of found whistles
+  boost::circular_buffer<bool> foundWhistlesBuffer_;
+
   /// The main function that checks whether the buffer contains a whistle sound
-  bool bufferContainsWhistle();
+  bool fftBufferContainsWhistle();
 };

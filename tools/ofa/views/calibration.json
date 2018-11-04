@@ -1,0 +1,179 @@
+[
+	{
+		"panel": "Calibration Editor",
+		"config": {
+			"title": "",
+			"keys": [
+				"Brain.CameraCalibration.Camera2Ground_inv_top.posV",
+				"Brain.CameraCalibration.Camera2Ground_inv_top.rotM",
+				"Brain.CameraCalibration.Camera2Ground_inv_bottom.posV",
+				"Brain.CameraCalibration.Camera2Ground_inv_bottom.rotM",
+				"Brain.CameraCalibration.Camera2Ground_top.posV",
+				"Brain.CameraCalibration.Camera2Ground_top.rotM",
+				"Brain.CameraCalibration.Camera2Ground_bottom.posV",
+				"Brain.CameraCalibration.Camera2Ground_bottom.rotM",
+				"Brain.CameraCalibration.Torso2Ground.posV",
+				"Brain.CameraCalibration.Torso2Ground.rotM",
+				"Brain.CameraCalibration.Head2Torso.posV",
+				"Brain.CameraCalibration.Head2Torso.rotM"
+			],
+			"returnType": {},
+			"mapping": "return [{\n  camera2Ground_inv:{top:{posV : key0,\n rotM:key1}, bottom:{posV : key2,\n rotM:key3}}, camera2Ground:{top:{posV : key4,\n rotM:key5},bottom:{posV : key6,\n rotM:key7}}, torso2Ground:{posV:key8, rotM:key9}, head2Torso:{posV:key10, rotM:key11}}]",
+			"arucoBoard3D": {
+				"top": {
+					"orientation": "vertical",
+					"robotToBoardDistX": 395,
+					"robotToBoardDistZ": 470,
+					"markerSize": 50,
+					"markerArr": {
+						"0": {
+							"id": 0,
+							"z": 35,
+							"y": 70,
+							"x": 0
+						},
+						"1": {
+							"id": 1,
+							"z": 35,
+							"y": 0,
+							"x": 0
+						},
+						"2": {
+							"id": 2,
+							"z": 35,
+							"y": -70,
+							"x": 0
+						},
+						"3": {
+							"id": 3,
+							"z": -35,
+							"y": 70,
+							"x": 0
+						},
+						"4": {
+							"id": 4,
+							"z": -35,
+							"y": 0,
+							"x": 0
+						},
+						"5": {
+							"id": 5,
+							"z": -35,
+							"y": -70,
+							"x": 0
+						}
+					}
+				},
+				"bottom": {
+					"orientation": "vertical",
+					"robotToBoardDistX": 395,
+					"robotToBoardDistZ": 200,
+					"markerSize": 50,
+					"markerArr": {
+						"0": {
+							"id": 0,
+							"z": 35,
+							"y": 70,
+							"x": 0
+						},
+						"1": {
+							"id": 1,
+							"z": 35,
+							"y": 0,
+							"x": 0
+						},
+						"2": {
+							"id": 2,
+							"z": 35,
+							"y": -70,
+							"x": 0
+						},
+						"3": {
+							"id": 3,
+							"z": -35,
+							"y": 70,
+							"x": 0
+						},
+						"4": {
+							"id": 4,
+							"z": -35,
+							"y": 0,
+							"x": 0
+						},
+						"5": {
+							"id": 5,
+							"z": -35,
+							"y": -70,
+							"x": 0
+						}
+					}
+				}
+			},
+			"headMotionArr": [
+				{
+					"yaw": -11.45,
+					"pitch": 5.72958
+				},
+				{
+					"yaw": -5.725,
+					"pitch": 5.72958
+				},
+				{
+					"yaw": 0,
+					"pitch": 5.72958
+				},
+				{
+					"yaw": 5.724999999999998,
+					"pitch": 5.72958
+				},
+				{
+					"yaw": -11.45,
+					"pitch": 6.02141
+				},
+				{
+					"yaw": -5.725,
+					"pitch": 6.02141
+				},
+				{
+					"yaw": 0,
+					"pitch": 6.02141
+				},
+				{
+					"yaw": 5.724999999999998,
+					"pitch": 6.02141
+				},
+				{
+					"yaw": -11.45,
+					"pitch": 6.31324
+				},
+				{
+					"yaw": -5.725,
+					"pitch": 6.31324
+				},
+				{
+					"yaw": 0,
+					"pitch": 6.31324
+				},
+				{
+					"yaw": 5.724999999999998,
+					"pitch": 6.31324
+				},
+				{
+					"yaw": 0,
+					"pitch": 0
+				}
+			],
+			"width": 500,
+			"height": 101,
+			"lineColor": "white",
+			"bufferSize": 100,
+			"minValue": -2,
+			"maxValue": 2,
+			"autoScale": true
+		},
+		"position": [
+			0,
+			30
+		]
+	}
+]

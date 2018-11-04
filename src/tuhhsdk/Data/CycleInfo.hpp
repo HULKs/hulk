@@ -1,12 +1,14 @@
 #pragma once
 
-#include "Tools/Time.hpp"
 #include "Framework/DataType.hpp"
+#include "Tools/Time.hpp"
 
 
 class CycleInfo : public DataType<CycleInfo>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "CycleInfo";
   /**
    * @brief getTimeDiff calculates the time difference from this cycle to some other time point
    * @param rhs the other time point
@@ -21,11 +23,14 @@ public:
   TimePoint startTime;
   /// the duration of a cycle [s]
   float cycleTime;
+  /// whether the content is valid
+  bool valid = false;
   /**
    * @brief reset does nothing
    */
   void reset()
   {
+    valid = false;
   }
 
   virtual void toValue(Uni::Value& value) const

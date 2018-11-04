@@ -15,6 +15,7 @@ function helpMenu {
   echo "Options"
   echo " -b, --build-type BUILD_TYPE       use the specified build type (one out of Debug, Develop, Release)"
   echo " -t, --target TARGET               compile for the specified target (one out of nao, replay, simrobot, qt-websocket)"
+  echo " -j, --jobs                        the amount of processes used for compilation. Write the number of jobs to ${BASEDIR}/.njobs to configure default."
   echo " -v, --verbose                     show compilation commands"
   echo " -h, --help                        show this help"
 }
@@ -32,8 +33,10 @@ function run {
   if [ -f "${BASEDIR}/.current.bt" ]; then
     BUILD_TYPE=`cat "${BASEDIR}/.current.bt"`
   else
-    TARGET=""
+    BUILD_TYPE=""
   fi
+  # set default job number to cores + 1
+  JOBS=$(njobs)
   # prepare parameters
   PARAMETERS=""
   while [ "$#" -gt 0 ]; do
@@ -66,6 +69,15 @@ function run {
         fi
         TARGET="$1"
         ;;
+      "-j" | "--jobs")
+        shift
+        if [ "$#" -eq 0 ]; then
+          msg -e "--jobs needs a job number!"
+          helpMenu
+          return 1
+        fi
+        JOBS=$1
+        ;;
       "-v" | "--verbose")
         VERBOSE=true
         ;;
@@ -89,7 +101,7 @@ function run {
 
   msg -n "Compiling for target ${TARGET} with build type ${BUILD_TYPE}."
   set_start_time
-  compile "${BASEDIR}" "${TARGET}" "${BUILD_TYPE}" ${VERBOSE}
+  compile "${BASEDIR}" "${TARGET}" "${BUILD_TYPE}" ${VERBOSE} ${JOBS}
   if [ "$?" -ne 0 ]; then
     msg -e "Compilation failed!"
     return 1

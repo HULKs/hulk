@@ -6,9 +6,10 @@
 
 
 TeamBallFilter::TeamBallFilter(const ModuleManagerInterface& manager)
-  : Module(manager, "TeamBallFilter")
+  : Module(manager)
   // TODO: The values in the config file are currently guessed.
   , maxAddAge_(*this, "maxAddAge", [] {})
+  , minWaitAfterJumpToAddBall_(*this, "minWaitAfterJumpToAddBall", [] {})
   , maxBallVelocity_(*this, "maxBallVelocity", [] {})
   , minRemoveAge_(*this, "minRemoveAge", [] {})
   , maxCompatibilityDistance_(*this, "maxCompatibilityDistance", [] {})
@@ -24,8 +25,9 @@ TeamBallFilter::TeamBallFilter(const ModuleManagerInterface& manager)
 {
 }
 
-void TeamBallFilter::addBallToBuffer(const unsigned int playerNumber, const Pose& pose, const Vector2f& relBallPosition, const Vector2f& relBallVelocity,
-                                     const TimePoint timestamp)
+void TeamBallFilter::addBallToBuffer(const unsigned int playerNumber, const Pose& pose,
+                                     const Vector2f& relBallPosition,
+                                     const Vector2f& relBallVelocity, const TimePoint timestamp)
 {
   for (auto& ball : ballBuffer_)
   {
@@ -53,16 +55,21 @@ void TeamBallFilter::updateBallBuffer()
   for (auto& player : teamPlayers_->players)
   {
     // TODO: check other validity criteria
-    if (player.penalized || cycleInfo_->getTimeDiff(player.timeWhenBallWasSeen) > maxAddAge_() || player.ballVelocity.norm() > maxBallVelocity_())
+    if (!player.isPoseValid || player.penalized ||
+        cycleInfo_->getTimeDiff(player.timeWhenBallWasSeen) > maxAddAge_() ||
+        player.ballVelocity.norm() > maxBallVelocity_() ||
+        cycleInfo_->getTimeDiff(player.timestampLastJumped) < minWaitAfterJumpToAddBall_())
     {
       continue;
     }
-    addBallToBuffer(player.playerNumber, player.pose, player.ballPosition, player.ballVelocity, player.timeWhenBallWasSeen);
+    addBallToBuffer(player.playerNumber, player.pose, player.ballPosition, player.ballVelocity,
+                    player.timeWhenBallWasSeen);
   }
   // add own ball when found and confident like the team player balls
   if (ballState_->found && ballState_->confident)
   {
-    addBallToBuffer(playerConfiguration_->playerNumber, robotPosition_->pose, ballState_->position, ballState_->velocity, ballState_->timeWhenLastSeen);
+    addBallToBuffer(playerConfiguration_->playerNumber, robotPosition_->pose, ballState_->position,
+                    ballState_->velocity, ballState_->timeWhenLastSeen);
   }
   else
   {
@@ -78,21 +85,26 @@ void TeamBallFilter::updateBallBuffer()
   }
   // remove those that are too old
   ballBuffer_.erase(std::remove_if(ballBuffer_.begin(), ballBuffer_.end(),
-                                   [this](const TeamPlayerBall& ball) { return cycleInfo_->getTimeDiff(ball.timestamp) > minRemoveAge_(); }),
+                                   [this](const TeamPlayerBall& ball) {
+                                     return cycleInfo_->getTimeDiff(ball.timestamp) >
+                                            minRemoveAge_();
+                                   }),
                     ballBuffer_.end());
 }
 
 void TeamBallFilter::cycle()
 {
   Chronometer time(debug(), mount_ + ".cycle_time");
-  if ((gameControllerState_->state != GameState::PLAYING && gameControllerState_->state != GameState::READY && gameControllerState_->state != GameState::SET) ||
+  if ((gameControllerState_->gameState != GameState::PLAYING &&
+       gameControllerState_->gameState != GameState::READY &&
+       gameControllerState_->gameState != GameState::SET) ||
       gameControllerState_->penalty != Penalty::NONE)
   {
     ballBuffer_.clear();
     return;
   }
   // In READY, no balls are accepted but a ball on the kickoff spot is anticipated.
-  if (gameControllerState_->state != GameState::READY)
+  if (gameControllerState_->gameState != GameState::READY)
   {
     updateBallBuffer();
     // Now try to establish a consensus on which ball is correct.
@@ -117,19 +129,22 @@ void TeamBallFilter::cycle()
             currentCluster.closestBallDistance = ball.distance;
           }
           currentCluster.balls.push_back(&ball2);
-          currentCluster.containsOwnBall |= ball2.playerNumber == playerConfiguration_->playerNumber;
+          currentCluster.containsOwnBall |=
+              ball2.playerNumber == playerConfiguration_->playerNumber;
         }
       }
       // 1. Take the larger cluster.
-      if (currentCluster.balls.size() > bestCluster.balls.size()
+      if (currentCluster.balls.size() > bestCluster.balls.size() ||
           // This cluster is as large as the best (so it is not smaller).
-          || (currentCluster.balls.size() == bestCluster.balls.size()
-              // 2. The cluster that contains the own ball.
-              // There can be multiple clusters which are equally large and contain the own ball (imagine two balls within a distance of 1m).
-              // But in that case it does not matter which cluster is chosen because the own ball will be selected out of the cluster anyway.
-              && (currentCluster.containsOwnBall
-                  // 3. The cluster with the smaller robot-ball distance.
-                  || (!bestCluster.containsOwnBall && currentCluster.closestBallDistance < bestCluster.closestBallDistance))))
+          (currentCluster.balls.size() == bestCluster.balls.size()
+           // 2. The cluster that contains the own ball.
+           // There can be multiple clusters which are equally large and contain the own ball
+           // (imagine two balls within a distance of 1m). But in that case it does not matter which
+           // cluster is chosen because the own ball will be selected out of the cluster anyway.
+           && (currentCluster.containsOwnBall
+               // 3. The cluster with the smaller robot-ball distance.
+               || (!bestCluster.containsOwnBall &&
+                   currentCluster.closestBallDistance < bestCluster.closestBallDistance))))
       {
         bestCluster = currentCluster;
       }
@@ -137,7 +152,9 @@ void TeamBallFilter::cycle()
     assert(bestCluster.balls.size() <= ballBuffer_.size());
     teamBallModel_->seen = !ballBuffer_.empty();
     teamBallModel_->found = bestCluster.balls.size() > 0.5f * ballBuffer_.size();
-    if (teamBallModel_->found || (teamBallModel_->seen && !ballState_->found))
+    // We can only accept balls that are not seen by ourselfs if we know where we are.
+    if (robotPosition_->valid &&
+        (teamBallModel_->found || (teamBallModel_->seen && !ballState_->found)))
     {
       float minDistance = std::numeric_limits<float>::max();
       for (auto& bestBall : bestCluster.balls)
@@ -162,7 +179,8 @@ void TeamBallFilter::cycle()
     else if (ballState_->found)
     {
       teamBallModel_->position = robotPosition_->pose * ballState_->position;
-      teamBallModel_->velocity = robotPosition_->pose.calculateGlobalOrientation(ballState_->velocity);
+      teamBallModel_->velocity =
+          robotPosition_->pose.calculateGlobalOrientation(ballState_->velocity);
       teamBallModel_->ballType = TeamBallModel::BallType::SELF;
     }
   }
@@ -170,22 +188,33 @@ void TeamBallFilter::cycle()
   {
     ballBuffer_.clear();
   }
-  if ((gameControllerState_->state == GameState::SET && teamBallModel_->ballType == TeamBallModel::BallType::NONE) ||
-      gameControllerState_->state == GameState::READY)
+  if ((gameControllerState_->gameState == GameState::SET &&
+       teamBallModel_->ballType == TeamBallModel::BallType::NONE) ||
+      gameControllerState_->gameState == GameState::READY)
   {
     teamBallModel_->ballType = TeamBallModel::BallType::RULE;
     teamBallModel_->insideField = true;
     teamBallModel_->seen = false;
     teamBallModel_->found = false;
-    teamBallModel_->position = (gameControllerState_->secondary == SecondaryState::PENALTYSHOOT)
-                                   ? Vector2f((fieldDimensions_->fieldLength * 0.5f - fieldDimensions_->fieldPenaltyMarkerDistance) * (gameControllerState_->kickoff ? 1.f : -1.f), 0.f)
-                                   : Vector2f::Zero();
+    if (gameControllerState_->gamePhase == GamePhase::PENALTYSHOOT)
+    {
+      float pmSign = (gameControllerState_->kickingTeam ? 1.f : -1.f);
+      teamBallModel_->position = Vector2f(
+          (fieldDimensions_->fieldLength * 0.5f - fieldDimensions_->fieldPenaltyMarkerDistance) *
+              pmSign,
+          0.f);
+    }
+    else
+    {
+      teamBallModel_->position = Vector2f::Zero();
+    }
     teamBallModel_->velocity = Vector2f::Zero();
   }
   else
   {
     teamBallModel_->insideField =
-        (teamBallModel_->ballType == TeamBallModel::BallType::NONE) || fieldDimensions_->isInsideField(teamBallModel_->position, insideFieldTolerance_());
+        (teamBallModel_->ballType == TeamBallModel::BallType::NONE) ||
+        fieldDimensions_->isInsideField(teamBallModel_->position, insideFieldTolerance_());
   }
   debug().update(mount_ + ".teamBallModel", *teamBallModel_);
 }

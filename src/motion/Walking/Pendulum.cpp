@@ -5,7 +5,7 @@
 #include "print.h"
 
 /** Constructor **/
-Pendulum::Pendulum(const ModuleBase& module, const MotionPlannerOutput& motionPlannerOutput, const IMUSensorData& imuSensorData, Debug& debug)
+Pendulum::Pendulum(const ModuleBase& module, const MotionPlannerOutput& motionPlannerOutput, const IMUSensorData& imuSensorData, DebugDatabase::DebugMap& debug)
   : origin_(module, "origin", [this] { s_->rby = origin_().y() * -s_->support; })
   , periodDuration_(module, "periodDuration", [this] { s_->x0by = s_->support * origin_().y() / cosh(0.5f * periodDuration_() * s_->k); })
   , height_(module, "height", [this] { s_->k = sqrt(gravity_() / height_()); })

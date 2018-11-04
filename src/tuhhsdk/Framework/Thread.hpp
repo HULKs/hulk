@@ -65,10 +65,6 @@ protected:
    * @brief cycle must be overridden to execute recurring tasks
    */
   virtual void cycle() = 0;
-  /**
-   * @brief triggerDebug triggers a debug transport cycle
-   */
-  void triggerDebug();
   /// reference to the thread data for this thread
   ThreadData& tData_;
 private:
@@ -152,12 +148,12 @@ public:
   Thread(ThreadData& tData)
     : ThreadBase(tData)
   {
-    factory_.use();
+    factory.use();
   }
 private:
   /// the static factory
-  static ThreadFactory<T> factory_;
+  static ThreadFactory<T> factory;
 };
 
 template<typename T>
-ThreadFactory<T> Thread<T>::factory_;
+ThreadFactory<T> Thread<T>::factory;

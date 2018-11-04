@@ -1,5 +1,8 @@
 {
   "minFrequency" : 2000,
   "maxFrequency" : 4000,
-  "threshold" : 50
+  "backgroundScaling" : 1.6,
+  "whistleScaling" : 5.12,
+  "numberOfBands" : 16,
+  "minWhistleCount" : 3
 }

@@ -1,9 +1,9 @@
 {
 	"idmap.nao": [
 		{
-			"bodyid": "xxxx",
-			"headid": "yyyy",
-			"name": "hostnameOfYourNAO"
+			"bodyid": "####",
+			"headid": "####",
+			"name": "robotName"
 		}
 	]
 }

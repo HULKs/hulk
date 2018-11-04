@@ -2,17 +2,29 @@
 
 #include <vector>
 
-#include "Tools/Time.hpp"
 #include "Definitions/RoboCupGameControlData.h"
 #include "Framework/DataType.hpp"
+#include "Tools/Time.hpp"
 
 
-enum class GameType
+enum class CompetitionPhase
 {
-  ROUNDROBIN = GAME_ROUNDROBIN,
-  PLAYOFF = GAME_PLAYOFF,
-  MIXEDTEAM_ROUNDROBIN = GAME_MIXEDTEAM_ROUNDROBIN,
-  MIXEDTEAM_PLAYOFF = GAME_MIXEDTEAM_PLAYOFF
+  ROUNDROBIN = COMPETITION_PHASE_ROUNDROBIN,
+  PLAYOFF = COMPETITION_PHASE_PLAYOFF
+};
+
+enum class CompetitionType
+{
+  NORMAL = COMPETITION_TYPE_NORMAL,
+  MIXED_TEAM = COMPETITION_TYPE_MIXEDTEAM,
+  GENERAL_PENALTY_KICK = COMPETITION_TYPE_GENERAL_PENALTY_KICK
+};
+
+enum class SetPlay
+{
+  NONE = SET_PLAY_NONE,
+  GOAL_FREE_KICK = SET_PLAY_GOAL_FREE_KICK,
+  PUSHING_FREE_KICK = SET_PLAY_PUSHING_FREE_KICK
 };
 
 enum class GameState
@@ -24,12 +36,12 @@ enum class GameState
   FINISHED = STATE_FINISHED
 };
 
-enum class SecondaryState
+enum class GamePhase
 {
-  NORMAL = STATE2_NORMAL,
-  PENALTYSHOOT = STATE2_PENALTYSHOOT,
-  OVERTIME = STATE2_OVERTIME,
-  TIMEOUT = STATE2_TIMEOUT
+  NORMAL = GAME_PHASE_NORMAL,
+  PENALTYSHOOT = GAME_PHASE_PENALTYSHOOT,
+  OVERTIME = GAME_PHASE_OVERTIME,
+  TIMEOUT = GAME_PHASE_TIMEOUT
 };
 
 enum class TeamColor
@@ -57,7 +69,7 @@ enum class Penalty
   LEAVING_THE_FIELD = PENALTY_SPL_LEAVING_THE_FIELD,
   KICK_OFF_GOAL = PENALTY_SPL_KICK_OFF_GOAL,
   REQUEST_FOR_PICKUP = PENALTY_SPL_REQUEST_FOR_PICKUP,
-  COACH_MOTION = PENALTY_SPL_COACH_MOTION,
+  LOCAL_GAME_STUCK = PENALTY_SPL_LOCAL_GAME_STUCK,
   SUBSTITUTE = PENALTY_SUBSTITUTE,
   MANUAL = PENALTY_MANUAL
 };
@@ -67,7 +79,7 @@ enum class Penalty
  */
 inline void operator>>(const Uni::Value& in, Penalty& out)
 {
-  out = static_cast<Penalty>(in.asInt());
+  out = static_cast<Penalty>(in.asInt32());
 }
 
 /**
@@ -80,74 +92,89 @@ inline void operator<<(Uni::Value& out, const Penalty in)
 
 /**
  * @brief GameControllerState is a selection of the data that are provided by the GameController
- * If you need something that is sent by the GameController but not exposed by the GameController module,
- * add it here and make the GameController expose it.
+ * If you need something that is sent by the GameController but not exposed by the GameController
+ * module, add it here and make the GameController expose it.
  */
 
 
-class GameControllerState : public DataType<GameControllerState> {
+class GameControllerState : public DataType<GameControllerState>
+{
 public:
+  /// the name of this DataType
+  DataTypeName name = "GameControllerState";
   /// the packet number (wraparound is accepted)
-  unsigned char packetNumber;
+  unsigned char packetNumber = 0;
   /// the timestamp when the last message has been received
   TimePoint timestampOfLastMessage;
   /// the number of players per team (normally 5)
-  unsigned int playersPerTeam;
-  /// the type of the game (round robin, playoff or dropin)
-  GameType type;
+  unsigned int playersPerTeam = 0;
+  /// the type of the competition (Normal, MixedTeam, GeneralPenaltyKick)
+  CompetitionType type = CompetitionType::NORMAL;
+  /// the phase of the competition (Roundrobin, Playoff)
+  CompetitionPhase competitionPhase = CompetitionPhase::PLAYOFF;
   /// primary game state
-  GameState state;
-  /// the last time point, when the GameSate was changed
-  TimePoint stateChanged;
+  GameState gameState = GameState::INITIAL;
+  /// the last time point when the GameState was changed
+  TimePoint gameStateChanged;
+  /// game phase (normal, overtime, penalty shootout, timeout)
+  GamePhase gamePhase = GamePhase::NORMAL;
+  /// the active play set (none, goal free kick, pushing free kick)
+  SetPlay setPlay = SetPlay::NONE;
+  /// the last time point when SetPlay was changed
+  TimePoint setPlayChanged;
   /// whether the game is in the first half
-  bool firstHalf;
-  /// whether the team the robot is in has kickoff
-  bool kickoff;
-  /// the number of the kick off team (needed for BHULKs message)
-  std::uint8_t kickOffTeam;
-  /// secondary game state (overtime, penalty shootout)
-  SecondaryState secondary;
-  // number of seconds shown as secondary time (remaining ready, until free ball, etc)
-  float secondaryTime;
+  bool firstHalf = true;
+  /// whether our team is the kicking team (during freeKick or when SET changes to PLAYING)
+  bool kickingTeam = false;
+  /// the number of the kicking team (needed for BHULKs message)
+  uint8_t kickingTeamNumber = 0;
+  /// number of seconds shown as secondary time (remaining ready, until free ball, etc)
+  float secondaryTime = 0.f;
   /// the number of the team that caused the last drop in
-  unsigned int dropInTeam;
+  unsigned int dropInTeam = 0;
   /// time (seconds) since the last drop in
-  float dropInTime;
+  float dropInTime = 0.f;
   /// time (seconds) until the end of the current half
-  float remainingTime;
+  float remainingTime = 10.f * 60.f;
   /// the jersey color of the team the robot is in
-  TeamColor teamColor;
+  TeamColor teamColor = TeamColor::GRAY;
   /// number of goals scored by the own team
-  unsigned int score;
+  unsigned int score = 0;
   /// the current penalty of this robot
-  Penalty penalty;
+  Penalty penalty = Penalty::NONE;
   /// the penalties of all robots in the team (index 0 is player 1)
   std::vector<Penalty> penalties;
   /// time (seconds) until the penalty on this robot is removed
-  float remainingPenaltyTime;
+  float remainingPenaltyTime = 0.f;
   /// whethter the chest button was already pressed in initial - has no meaning when not in initial
-  bool chestButtonWasPressedInInitial;
+  bool chestButtonWasPressedInInitial = false;
+  /// whether the content is valid
+  bool valid = false;
   /**
    * @brief reset could reset the datastructure if it was necessary
    */
-  void reset()
+  void reset() override
   {
     penalties.clear();
+    valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["packetNumber"] << packetNumber;
     value["timestampOfLastMessage"] << timestampOfLastMessage;
     value["playersPerTeam"] << playersPerTeam;
     value["type"] << static_cast<int>(type);
-    value["state"] << static_cast<int>(state);
-    value["stateChanged"] << stateChanged;
+    value["competitionPhase"] << static_cast<int>(competitionPhase);
+    value["gameState"] << static_cast<int>(gameState);
+    value["gameStateChanged"] << gameStateChanged;
+    value["gamePhase"] << static_cast<int>(gamePhase);
+    value["setPlay"] << static_cast<int>(setPlay);
+    value["setPlayChanged"] << setPlayChanged;
     value["firstHalf"] << firstHalf;
-    value["kickoff"] << kickoff;
-    value["kickOffTeam"] << kickOffTeam;
-    value["secondary"] << static_cast<int>(secondary);
+    value["kickingTeam"] << kickingTeam;
+    value["kickingTeamNumber"] << kickingTeamNumber;
     value["secondaryTime"] << secondaryTime;
     value["dropInTeam"] << dropInTeam;
     value["dropInTime"] << dropInTime;
@@ -158,26 +185,32 @@ public:
     value["penalties"] << penalties;
     value["remainingPenaltyTime"] << remainingPenaltyTime;
     value["chestButtonWasPressedInInitial"] << chestButtonWasPressedInInitial;
+    value["valid"] << valid;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     int numberRead = 0;
     value["packetNumber"] >> numberRead;
-    packetNumber = numberRead;
+    packetNumber = static_cast<unsigned char>(numberRead);
     value["timestampOfLastMessage"] >> timestampOfLastMessage;
     value["playersPerTeam"] >> playersPerTeam;
     value["type"] >> numberRead;
-    type = static_cast<GameType>(numberRead);
-    value["state"] >> numberRead;
-    state = static_cast<GameState>(numberRead);
-    value["stateChanged"] >> stateChanged;
+    type = static_cast<CompetitionType>(numberRead);
+    value["competitionPhase"] >> numberRead;
+    competitionPhase = static_cast<CompetitionPhase>(numberRead);
+    value["gameState"] >> numberRead;
+    gameState = static_cast<GameState>(numberRead);
+    value["gameStateChanged"] >> gameStateChanged;
+    value["gamePhase"] >> numberRead;
+    gamePhase = static_cast<GamePhase>(numberRead);
+    value["setPlay"] >> numberRead;
+    setPlay = static_cast<SetPlay>(numberRead);
+    value["setPlayChanged"] >> setPlayChanged;
     value["firstHalf"] >> firstHalf;
-    value["kickoff"] >> kickoff;
-    value["kickOffTeam"] >> numberRead;
-    kickOffTeam = static_cast<std::uint8_t>(numberRead);
-    value["secondary"] >> numberRead;
-    secondary = static_cast<SecondaryState>(numberRead);
+    value["kickingTeam"] >> kickingTeam;
+    value["kickingTeamNumber"] >> numberRead;
+    kickingTeamNumber = static_cast<uint8_t>(numberRead);
     value["secondaryTime"] >> secondaryTime;
     value["dropInTeam"] >> dropInTeam;
     value["dropInTime"] >> dropInTime;
@@ -190,9 +223,14 @@ public:
     value["penalties"] >> penalties;
     value["remainingPenaltyTime"] >> remainingPenaltyTime;
     value["chestButtonWasPressedInInitial"] >> chestButtonWasPressedInInitial;
+    value["valid"] >> valid;
   }
 };
 
 
-class RawGameControllerState : public DataType<RawGameControllerState, GameControllerState> {
+class RawGameControllerState : public DataType<RawGameControllerState, GameControllerState>
+{
+public:
+  /// the name of this DataType
+  DataTypeName name = "RawGameControllerState";
 };

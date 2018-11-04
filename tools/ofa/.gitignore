@@ -1,3 +1,5 @@
-node_modules
 /build
-.gradle
+/node
+/node_modules
+/package-lock.json
+/.idea

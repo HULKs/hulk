@@ -5,11 +5,12 @@ KickType toMotionKickType(const StrikerAction::KickType kickType)
 {
   switch (kickType)
   {
-    case StrikerAction::KickType::STRAIGHT:
-      return KickType::STRAIGHT;
-    case StrikerAction::KickType::CLASSIC:
+    case StrikerAction::KickType::FORWARD:
+      return KickType::FORWARD;
+    case StrikerAction::KickType::SIDE:
+      return KickType::SIDE;
     default:
-      return KickType::OLD;
+      return KickType::FORWARD;
   }
 }
 
@@ -27,7 +28,7 @@ KickType toMotionKickType(const StrikerAction::KickType kickType)
  */
 ActionCommand walkToBallAndKick(const DataSet& d, const Pose& kickPose, const BallUtils::Kickable kickable, const Vector2f& ballDestination,
                                 const bool absolute = false, const Velocity& velocity = Velocity(),
-                                const StrikerAction::KickType kickType = StrikerAction::KickType::CLASSIC)
+                                const StrikerAction::KickType kickType = StrikerAction::KickType::FORWARD)
 {
   if (d.motionState.bodyMotion == MotionRequest::BodyMotion::KICK)
   {
@@ -44,10 +45,10 @@ ActionCommand walkToBallAndKick(const DataSet& d, const Pose& kickPose, const Ba
 
 ActionCommand kickLeft(const DataSet& d)
 {
-  return ActionCommand::kick(Vector2f(0.17, 0.05), Vector2f(5, 0.05), KickType::OLD);
+  return ActionCommand::kick(Vector2f(0.17, 0.05), Vector2f(5, 0.05), KickType::FORWARD);
 }
 
 ActionCommand kickRight(const DataSet& d)
 {
-  return ActionCommand::kick(Vector2f(0.17, -0.05), Vector2f(5, -0.05), KickType::OLD);
+  return ActionCommand::kick(Vector2f(0.17, -0.05), Vector2f(5, -0.05), KickType::FORWARD);
 }

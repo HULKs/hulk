@@ -1,0 +1,11 @@
+{
+    "odometryScale" : [
+        [
+            0.9,
+            1.0
+        ],
+        1
+    ],
+    "speedScale" : [[1, 1.1], 1.25],
+    "supportSwitchPhaseRange" : [0.5, 3]
+}

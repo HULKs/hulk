@@ -34,6 +34,7 @@ private:
     ::PhysicalObject* physicalObject; /** The physical object were the camera is mounted on */
     Camera* camera;
     unsigned char* imageBuffer; /**< A buffer for rendered image data */
+    unsigned char* newimageBuffer; /**< A buffer for rendered image data */
     unsigned int imageBufferSize;
     Pose3<> offset; /**< Offset of the camera relative to the body it mounted on */
     float projection[16]; /**< The perspective projection matrix */
@@ -44,6 +45,8 @@ private:
     //API
     virtual bool getMinAndMax(float& min, float& max) const {min = 0; max = 0xff; return true;}
     virtual bool renderCameraImages(SimRobotCore2::SensorPort** cameras, unsigned int count);
+  private:
+    void applyMotionBlur(unsigned int bufferSize);
   } sensor;
 
   /** Destructor */

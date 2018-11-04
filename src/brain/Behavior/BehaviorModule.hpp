@@ -13,15 +13,19 @@
 #include "Data/FieldDimensions.hpp"
 #include "Data/GameControllerState.hpp"
 #include "Data/HeadMotionOutput.hpp"
+#include "Data/HeadPositionData.hpp"
 #include "Data/KeeperAction.hpp"
 #include "Data/MotionRequest.hpp"
 #include "Data/MotionState.hpp"
+#include "Data/PenaltyKeeperAction.hpp"
+#include "Data/PenaltyStrikerAction.hpp"
 #include "Data/PlayerConfiguration.hpp"
 #include "Data/PlayingRoles.hpp"
 #include "Data/RobotPosition.hpp"
 #include "Data/SetPosition.hpp"
 #include "Data/StrikerAction.hpp"
 #include "Data/SupportingPosition.hpp"
+#include "Data/ReplacementKeeperAction.hpp"
 #include "Data/TeamBallModel.hpp"
 #include "Data/TeamPlayers.hpp"
 #include "Data/WorldState.hpp"
@@ -35,6 +39,8 @@ class Brain;
 class BehaviorModule : public Module<BehaviorModule, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "BehaviorModule";
   /**
    * @brief BehaviorModule initializes members
    * @param manager a reference to brain
@@ -66,6 +72,8 @@ private:
   const Dependency<PlayingRoles> playingRoles_;
   /// the motion state
   const Dependency<MotionState> motionState_;
+  /// the head command data
+  const Dependency<HeadPositionData> headPositionData_;
   /// the head motion output
   const Dependency<HeadMotionOutput> headMotionOutput_;
   /// the team ball model
@@ -78,8 +86,14 @@ private:
   const Dependency<FieldDimensions> fieldDimensions_;
   /// the striker action
   const Dependency<StrikerAction> strikerAction_;
+  /// the penalty striker action
+  const Dependency<PenaltyStrikerAction> penaltyStrikerAction_;
+  /// the kick configuration
+  const Dependency<KickConfigurationData> kickConfigurationData_;
   /// the keeper action
   const Dependency<KeeperAction> keeperAction_;
+  /// the penalty keeper action
+  const Dependency<PenaltyKeeperAction> penaltyKeeperAction_;
   /// the cycle info
   const Dependency<CycleInfo> cycleInfo_;
   /// the set position
@@ -90,6 +104,8 @@ private:
   const Dependency<BishopPosition> bishopPosition_;
   /// the supporting position
   const Dependency<SupportingPosition> supportingPosition_;
+  /// the replacement keeper action
+  const Dependency<ReplacementKeeperAction> replacementKeeperAction_;
   /// the button data
   const Dependency<ButtonData> buttonData_;
   /// the world state

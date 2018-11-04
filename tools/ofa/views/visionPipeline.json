@@ -1,0 +1,150 @@
+[
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.FieldMarksDetection.top_image"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": 1,
+			"keepRatio": true
+		},
+		"position": [
+			1280,
+			30
+		],
+		"resize": [
+			640,
+			490
+		]
+	},
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.FieldMarksDetection.bottom_image"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": "1",
+			"keepRatio": true
+		},
+		"position": [
+			1280,
+			540
+		],
+		"resize": [
+			640,
+			530
+		]
+	},
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.ImageSegmenter.top_horizontal"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": "1",
+			"keepRatio": true
+		},
+		"position": [
+			640,
+			30
+		],
+		"resize": [
+			640,
+			490
+		]
+	},
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.ImageSegmenter.bottom_horizontal"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": "1",
+			"keepRatio": true
+		},
+		"position": [
+			640,
+			540
+		]
+	},
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.OneMeansFieldColorDetection.top_image"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": "1",
+			"keepRatio": true
+		},
+		"position": [
+			1920,
+			30
+		]
+	},
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.OneMeansFieldColorDetection.bottom_image"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": "1",
+			"keepRatio": true
+		},
+		"position": [
+			1920,
+			540
+		]
+	},
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.ImageSegmenter.top_vertical"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": "1",
+			"keepRatio": true
+		},
+		"position": [
+			0,
+			30
+		]
+	},
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.ImageSegmenter.bottom_vertical"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": "1",
+			"keepRatio": true
+		},
+		"position": [
+			0,
+			540
+		]
+	}
+]

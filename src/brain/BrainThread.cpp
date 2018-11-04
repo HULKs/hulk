@@ -21,12 +21,12 @@ BrainThread::BrainThread(ThreadData& data) :
   catch (const std::exception& e)
   {
     print(e.what(), LogLevel::ERROR);
-    return;
+    throw std::runtime_error("Brain could not be initialized");
   }
   catch (...)
   {
     print("Exception in Brain constructor!", LogLevel::ERROR);
-    return;
+    throw;
   }
 
   print("module_init() ... done", LogLevel::INFO);
@@ -39,6 +39,9 @@ bool BrainThread::init()
     print("brain is NULL and cannot run.", LogLevel::ERROR);
     return false;
   }
+#ifdef ITTNOTIFY_FOUND
+  __itt_thread_set_name("Brain");
+#endif
   return true;
 }
 
@@ -46,7 +49,7 @@ void BrainThread::cycle()
 {
   try
   {
-    brain_->cycle();
+    brain_->runCycle();
   }
   catch (const std::exception& e)
   {

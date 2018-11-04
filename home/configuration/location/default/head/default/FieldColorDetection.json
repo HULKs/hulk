@@ -1,0 +1,6 @@
+{
+	"threshold_uv": 205,
+	"threshold_y": 150,
+	"threshold_uv_distance": 55,
+	"threshold_y_distance": 50
+}

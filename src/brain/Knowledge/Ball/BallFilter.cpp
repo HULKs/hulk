@@ -9,24 +9,45 @@
 
 
 BallFilter::BallFilter(const ModuleManagerInterface& manager)
-  : Module(manager, "BallFilter")
-  , processCovX_(*this, "processCovX", [] {})
-  , processCovDxX_(*this, "processCovDxX", [] {})
-  , processCovDx_(*this, "processCovDx", [] {})
-  , measurementCov_(*this, "measurementCov", [] {})
+  : Module(manager)
+  , restingProcessCovX_(*this, "restingProcessCovX", [] {})
+  , movingProcessCovX_(*this, "movingProcessCovX", [] {})
+  , movingProcessCovDxX_(*this, "movingProcessCovDxX", [] {})
+  , movingProcessCovDx_(*this, "movingProcessCovDx", [] {})
+  , measurementBaseVariance_(*this, "measurementBaseVariance",
+                             [this] {
+                               projectionMeasurementModel_.resetParameters(
+                                   cameraRPYDeviation_(), measurementBaseVariance_());
+                             })
+  , cameraRPYDeviation_(*this, "cameraRPYDeviation",
+                        [this] {
+                          cameraRPYDeviation_() *= TO_RAD;
+                          projectionMeasurementModel_.resetParameters(cameraRPYDeviation_(),
+                                                                      measurementBaseVariance_());
+                        })
   , maxAssociationDistance_(*this, "maxAssociationDistance", [] {})
-  , ballFrictionMu_(*this, "ballFrictionMu", [this] { frictionDeceleration_ = 9.81f * ballFrictionMu_(); })
-  , movingHysteresis_(*this, "movingHysteresis", [] {})
+  , ballFrictionMu_(*this, "ballFrictionMu",
+                    [this] { frictionDeceleration_ = 9.81f * ballFrictionMu_(); })
+  , relativeMovingThreshold_(*this, "relativeMovingThreshold", [] {})
+  , restingErrorLowPassAlpha_(*this, "restingErrorLowPassAlpha", [] {})
+  , movingErrorLowPassAlpha_(*this, "movingErrorLowPassAlpha", [] {})
+  , maxRestingError_(*this, "maxRestingError", [] {})
+  , numOfRestingDeccelerationSteps_(*this, "numOfRestingDeccelerationSteps", [] {})
+  , confidentMeasurementThreshold_(*this, "confidentMeasurementThreshold", [] {})
   , playerConfiguration_(*this)
   , ballData_(*this)
   , fieldDimensions_(*this)
   , odometryOffset_(*this)
+  , cameraMatrix_(*this)
   , cycleInfo_(*this)
   , frictionDeceleration_(9.81f * ballFrictionMu_())
   , ballState_(*this)
   , ballModes_()
   , bestMode_(ballModes_.end())
+  , projectionMeasurementModel_()
 {
+  cameraRPYDeviation_() *= TO_RAD;
+  projectionMeasurementModel_.resetParameters(cameraRPYDeviation_(), measurementBaseVariance_());
 }
 
 void BallFilter::cycle()
@@ -41,13 +62,10 @@ void BallFilter::cycle()
       // If the current NAO is the keeper, filter out ball candidates which
       // are farther away than a third of the length of the field.
       // This specifically avoids false positives which occur in the center circle.
-      /**
-       * @TODO: we cannot depend on the player role here, as the RoleProvider depends on the ball position.
-       * I think we should not need this workaround anyway, especially when HULKs Balls are great again.
-       */
       if (playerConfiguration_->playerNumber == 1)
       {
-        float keeper_threshold = fieldDimensions_->fieldLength / 2 - fieldDimensions_->fieldCenterCircleDiameter / 2;
+        const float keeper_threshold =
+            fieldDimensions_->fieldLength / 2 - fieldDimensions_->fieldCenterCircleDiameter / 2;
         if (position.norm() < keeper_threshold)
         {
           update(position);
@@ -92,13 +110,11 @@ void BallFilter::cycle()
     ballState_->found = true;
     ballState_->moved = !bestMode_->resting;
     ballState_->age = cycleInfo_->getTimeDiff(bestMode_->lastUpdate);
-    ballState_->confident = bestMode_->measurements >= 3;
+    ballState_->confident = bestMode_->measurements >= confidentMeasurementThreshold_();
     ballState_->timeWhenLastSeen = bestMode_->lastUpdate;
     timeWhenBallLost_ = cycleInfo_->startTime;
   }
-
-  debug().update(mount_ + ".ballState", *ballState_);
-  debug().update(mount_ + ".position", ballState_->position);
+  sendDebug();
 }
 
 Vector2f BallFilter::predictBallDestination(const BallMode& ballMode) const
@@ -121,9 +137,12 @@ void BallFilter::predict()
   // Remove old modes.
   ballModes_.erase(std::remove_if(ballModes_.begin(), ballModes_.end(),
                                   [this](const BallMode& mode) {
-                                    // The more measurements there are for a mode, the longer it is allowed to stay in the filter.
+                                    // The more measurements there are for a mode, the longer it is
+                                    // allowed to stay in the filter.
                                     return cycleInfo_->getTimeDiff(mode.lastUpdate) >
-                                           (mode.measurements < 10 ? static_cast<float>(mode.measurements) / 2.f : 5.f);
+                                           (mode.measurements < 10
+                                                ? static_cast<float>(mode.measurements) / 2.f
+                                                : 5.f);
                                   }),
                    ballModes_.end());
 
@@ -149,10 +168,10 @@ void BallFilter::predict()
     // F = m * mu, mu = 0.1 (friction parameter to be determined by experiments)
     // -> dv = F / m * dt = mu * dt
     float vel = mode.movingEquivalent.dx.norm();
-    if (vel <= frictionDeceleration_ * dt)
+    if (vel <= numOfRestingDeccelerationSteps_() * frictionDeceleration_ * dt)
     {
       mode.movingEquivalent.dx = {0, 0};
-      if (mode.measurements > 30)
+      if (!mode.resting && mode.measurements > 30)
       {
         mode.resting = true;
         // Reset the resting ball equivalent to the place the new reseting position is assumed to be
@@ -168,50 +187,61 @@ void BallFilter::predict()
     // This is the Kalman filter equation P := F * P * F' + Q.
     // for the moving ball hypothesis
     mode.movingEquivalent.covX +=
-        ((mode.movingEquivalent.covDxX + mode.movingEquivalent.covDxX.transpose()) + mode.movingEquivalent.covDx * dt) * dt + processCovX_();
-    mode.movingEquivalent.covDxX += mode.movingEquivalent.covDx * dt + processCovDxX_();
-    mode.movingEquivalent.covDx += processCovDx_();
+        ((mode.movingEquivalent.covDxX + mode.movingEquivalent.covDxX.transpose()) +
+         mode.movingEquivalent.covDx * dt) *
+            dt +
+        movingProcessCovX_();
+    mode.movingEquivalent.covDxX += mode.movingEquivalent.covDx * dt + movingProcessCovDxX_();
+    mode.movingEquivalent.covDx += movingProcessCovDx_();
     // for the resting ball hypothesis
-    mode.restingEquivalent.covX += processCovX_();
+    mode.restingEquivalent.covX += restingProcessCovX_();
   }
 }
 
-void BallFilter::updateMovingEquivalent(MovingEquivalent& movingEquivalent, const Vector2f& measurement)
+void BallFilter::updateMovingEquivalent(MovingEquivalent& movingEquivalent,
+                                        const Vector2f& measurementMean,
+                                        const Matrix2f& measurementCov)
 {
-  float newError = (measurement - movingEquivalent.x).norm();
-  movingEquivalent.error = movingEquivalent.error * 0.8f + newError * 0.2f;
+  // compute the new association error
+  const float newError = (measurementMean - movingEquivalent.x).norm();
+  movingEquivalent.error = movingEquivalent.error * movingErrorLowPassAlpha_() +
+                           newError * (1 - movingErrorLowPassAlpha_());
 
   // The comments show which code corresponds to which Kalman filter equation.
   // Be aware that x in the comments denotes the complete state, i.e. the vector [ x y dx dy ]'
   // y := z - H * x (in our case, H draws the first two components of the state vector)
-  Vector2f residual = measurement - movingEquivalent.x;
+  Vector2f residual = measurementMean - movingEquivalent.x;
   // S := H * P * H' + R (in our case, H * P * H' gets the covariance of the position)
   // Since only the inverse of S is needed, it is precomputed.
-  Matrix2f residualCovInv = (movingEquivalent.covX + measurementCov_()).inverse();
+  Matrix2f residualCovInv = (movingEquivalent.covX + measurementCov).inverse();
   // K := P * H' * inv(S) is not computed explicitly.
   // x := x + K * y (splitted into parts for position and velocity)
   movingEquivalent.x += movingEquivalent.covX * residualCovInv * residual;
   movingEquivalent.dx += movingEquivalent.covDxX * residualCovInv * residual;
   // P := (I - K * H) * P
-  // The order of these computations is chosen in a way that each covariance matrix is based on the covariance matrices before the update.
-  // Every other order would break this.
-  movingEquivalent.covDx -= movingEquivalent.covDxX * residualCovInv * movingEquivalent.covDxX.transpose();
+  // The order of these computations is chosen in a way that each covariance matrix is based on the
+  // covariance matrices before the update. Every other order would break this.
+  movingEquivalent.covDx -=
+      movingEquivalent.covDxX * residualCovInv * movingEquivalent.covDxX.transpose();
   movingEquivalent.covDxX -= movingEquivalent.covDxX * residualCovInv * movingEquivalent.covX;
   movingEquivalent.covX -= movingEquivalent.covX * residualCovInv * movingEquivalent.covX;
 }
 
-void BallFilter::updateRestingEquivalent(RestingEquivalent& restingEquivalent, const Vector2f& measurement)
+void BallFilter::updateRestingEquivalent(RestingEquivalent& restingEquivalent,
+                                         const Vector2f& measurementMean,
+                                         const Matrix2f& measurementCov)
 {
-  float newError = (measurement - restingEquivalent.x).norm();
-  restingEquivalent.error = restingEquivalent.error * 0.8f + newError * 0.2f;
+  const float newError = (measurementMean - restingEquivalent.x).norm();
+  restingEquivalent.error = restingEquivalent.error * restingErrorLowPassAlpha_() +
+                            newError * (1 - restingErrorLowPassAlpha_());
 
   // The comments show which code corresponds to which Kalman filter equation.
   // Be aware that x in the comments denotes the complete state, i.e. the vector [ x y ]'
   // y := z - H * x (in our case, H is the identity)
-  Vector2f residual = measurement - restingEquivalent.x;
+  Vector2f residual = measurementMean - restingEquivalent.x;
   // S := H * P * H' + R (in our case, H * P * H' is just P)
   // Since only the inverse of S is needed, it is precomputed.
-  Matrix2f residualCovInv = (restingEquivalent.covX + measurementCov_()).inverse();
+  Matrix2f residualCovInv = (restingEquivalent.covX + measurementCov).inverse();
   // K := P * H' * inv(S) is not computed explicitly.
   // x := x + K * y
   restingEquivalent.x += restingEquivalent.covX * residualCovInv * residual;
@@ -219,29 +249,39 @@ void BallFilter::updateRestingEquivalent(RestingEquivalent& restingEquivalent, c
   restingEquivalent.covX -= restingEquivalent.covX * residualCovInv * restingEquivalent.covX;
 }
 
-void BallFilter::update(const Vector2f& measurement)
+void BallFilter::update(const Vector2f& measurementMean)
 {
+  // estimate the covariance of the measurementMean from the projection uncertainty
+  const auto measurementCov = projectionMeasurementModel_.computePointCovFromPositionFeature(
+      measurementMean, cameraMatrix_->camera2ground);
+
   std::list<BallMode>::iterator nearestMode = ballModes_.end();
-  float nearestDistance = maxAssociationDistance_();
-  // Find the nearest mode that is nearer than 1m to the measurement.
+  // cope for the measurement uncertainty for association. This is a heuristic approach with out
+  // deep mathematical meening.
+  const float uncertaintyRadius =
+      std::pow(std::max(measurementCov(0, 0), measurementCov(1)), 1.f / 8.f);
+  float nearestDistance = uncertaintyRadius;
+  // Find the nearest mode that is nearer than 1m to the measurementMean.
   for (auto mode = ballModes_.begin(); mode != ballModes_.end(); mode++)
   {
-    float distance = (measurement - mode->movingEquivalent.x).norm();
+    float distance = (measurementMean - mode->movingEquivalent.x).norm();
     if (distance < nearestDistance)
     {
       nearestMode = mode;
       nearestDistance = distance;
     }
   }
-  // If such a mode exists, combine prediction and measurement.
+  // If such a mode exists, combine prediction and measurementMean.
   if (nearestMode != ballModes_.end())
   {
     // update the moving part of the equivalent
-    updateMovingEquivalent(nearestMode->movingEquivalent, measurement);
+    updateMovingEquivalent(nearestMode->movingEquivalent, measurementMean, measurementCov);
     // update the resting part of the equivalent
-    updateRestingEquivalent(nearestMode->restingEquivalent, measurement);
+    updateRestingEquivalent(nearestMode->restingEquivalent, measurementMean, measurementCov);
     // if a ball is significantly moving, change the resting state
-    if (nearestMode->restingEquivalent.error > (1.f + movingHysteresis_()) * nearestMode->movingEquivalent.error)
+    if (nearestMode->restingEquivalent.error >
+            relativeMovingThreshold_() * nearestMode->movingEquivalent.error &&
+        nearestMode->restingEquivalent.error > maxRestingError_())
     {
       nearestMode->resting = false;
     }
@@ -252,15 +292,14 @@ void BallFilter::update(const Vector2f& measurement)
   {
     // Create new mode.
     BallMode m;
-    m.movingEquivalent.x = measurement;
+    m.movingEquivalent.x = measurementMean;
     // Assume an initial velocity of 0.
     m.movingEquivalent.dx = Vector2f::Zero();
-    // TODO: Reason about the covariance matrices.
-    m.movingEquivalent.covX = measurementCov_();
+    m.movingEquivalent.covX = measurementBaseVariance_().asDiagonal();
     m.movingEquivalent.covDxX = Matrix2f::Identity();
-    m.movingEquivalent.covDx = measurementCov_();
+    m.movingEquivalent.covDx = measurementBaseVariance_().asDiagonal();
 
-    m.restingEquivalent.x = measurement;
+    m.restingEquivalent.x = measurementMean;
     m.restingEquivalent.covX = Matrix2f::Identity();
     m.measurements = 1;
     m.lastUpdate = ballData_->timestamp;
@@ -287,4 +326,20 @@ void BallFilter::selectBestMode()
       bestMode_ = mode;
     }
   }
+}
+
+void BallFilter::sendDebug() const
+{
+  // debug data for the resting moving classification
+  debug().update(mount_ + ".restingError", bestMode_->restingEquivalent.error);
+  debug().update(mount_ + ".movingError", bestMode_->movingEquivalent.error);
+  debug().update(mount_ + ".classification", (int)(bestMode_->resting));
+  debug().update(mount_ + ".diff",
+                 bestMode_->movingEquivalent.error - bestMode_->restingEquivalent.error);
+  debug().update(mount_ + ".ratio",
+                 bestMode_->restingEquivalent.error / bestMode_->movingEquivalent.error);
+
+  // the final estiamte
+  debug().update(mount_ + ".ballState", *ballState_);
+  debug().update(mount_ + ".position", ballState_->position);
 }

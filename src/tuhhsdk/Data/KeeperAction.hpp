@@ -4,62 +4,108 @@
 #include "Tools/Math/Pose.hpp"
 #include "Tools/Math/Eigen.hpp"
 
+
 class KeeperAction : public DataType<KeeperAction>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "KeeperAction";
+
   /**
    * @enum Type enumerates the possible types of action for a keeper
+   * all values must be powers of two for the permission management to work
    */
-  enum Type
+  enum class Type
   {
-    /// go to default position
-    GO_TO_DEFAULT_POS,
-    /// search for ball
-    SEARCH_FOR_BALL,
-    /// Kick the ball asap away
-    KICK_BALL_ASAP_AWAY,
-    /// Go closer to Ball
-    GO_CLOSER_TO_CLOSE_BALL,
-    /// Do genuflect (sit down and spread legs)
-    GENUFLECT
+    // block as muy of the own goal as possible
+    BLOCK_GOAL = 1,
+    // perform genuflect motion
+    GENUFLECT = 2,
   };
 
-  /// the field coordinates of the ball target
-  Vector2f target;
-  /// the type of the action
-  Type type;
-  /// true iff this struct is valid
-  bool valid;
-  /// the position walk to
-  Pose walkPosition;
-  /// indicate if Keeper wants to play ball
+  // sum all actions the keeper is allowed to perform
+  unsigned int permission = static_cast<unsigned int>(Type::BLOCK_GOAL);
+
+  struct Action : public Uni::To, public Uni::From
+  {
+    /// the type of the action
+    Type type;
+    /// the position walk to
+    Pose pose = Pose();
+    /// true iff this struct is valid
+    bool valid = false;
+
+    Action()
+      : type(Type::BLOCK_GOAL)
+      , pose(Pose())
+      , valid(false)
+    {
+    }
+
+    Action(Type t)
+      : type(t)
+      , pose(Pose())
+      , valid(true)
+    {
+    }
+
+    Action(Type t, Pose p)
+      : type(t)
+      , pose(p)
+      , valid(true)
+    {
+    }
+
+    void toValue(Uni::Value& value) const override
+    {
+      value = Uni::Value(Uni::ValueType::OBJECT);
+      value["type"] << static_cast<int>(type);
+      value["pose"] << pose;
+      value["valid"] << valid;
+    }
+
+    void fromValue(const Uni::Value& value) override
+    {
+      int valueRead;
+      value["type"] >> valueRead;
+      type = static_cast<Type>(valueRead);
+      value["pose"] >> pose;
+      value["valid"] >> valid;
+    }
+  };
+
+  /// vector of all keeper actions produced by the KeeperActionProvider module
+  std::vector<Action> actions;
+
+  /// the action to be performed by the keeper
+  Action action;
+
+  /// indicate if Keeper wants to play ball	
   bool wantsToPlayBall = false;
+
   /**
    * @brief reset does nothing
    */
-  void reset()
+  void reset() override
   {
-    valid = false;
+    actions.clear();
+    action = Action();
     wantsToPlayBall = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
-    value["target"] << target;
-    value["type"] << static_cast<int>(type);
-    value["valid"] << valid;
-    value["walkPosition"] << walkPosition;
+    value["permission"] << permission;
+    value["actions"] << actions;
+    value["action"] << action;
     value["wantsToPlayBall"] << wantsToPlayBall;
   }
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
-    value["target"] >> target;
-    int readNumber = 0;
-    value["type"] >> readNumber;
-    type = static_cast<Type>(readNumber);
-    value["valid"] >> valid;
-    value["walkPosition"] >> walkPosition;
+    value["permission"] >> permission;
+    value["actions"] >> actions;
+    value["action"] >> action;
     value["wantsToPlayBall"] >> wantsToPlayBall;
   }
 };

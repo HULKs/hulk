@@ -8,16 +8,10 @@
 #include "Poses.h"
 
 
-const char* Poses::poseFiles[Poses::POSE_MAX] =
-{
-  "poses/AL_Init.pose",
-  "poses/ArmBack.pose",
-  "poses/Home.pose",
-  "poses/Penalized.pose",
-  "poses/Ready.pose",
-  "poses/TakeAway.pose",
-  "poses/Transport.pose"
-};
+const char* Poses::poseFiles[Poses::POSE_MAX] = {
+    "poses/AL_Init.pose",  "poses/ArmBackStage1.pose", "poses/ArmBackStage2.pose",
+    "poses/Home.pose",     "poses/Penalized.pose",     "poses/Ready.pose",
+    "poses/TakeAway.pose", "poses/Transport.pose"};
 
 std::vector<float> Poses::poses[POSE_MAX];
 

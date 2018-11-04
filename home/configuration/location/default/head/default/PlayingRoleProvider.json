@@ -1,4 +1,10 @@
 {
   "useTeamRole": true,
+  "assignBishop": false,
+  "assignBishopWithLessThanFourFieldPlayers": false,
+  "playerOneCanBecomeStriker": true,
+  "allowReplacementKeeper": true,
+  "playerOneDistanceThreshold": 1.5,
+  "keeperTimeToReachBallPenalty": 0,
   "forceRole": "none"
 }

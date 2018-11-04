@@ -1,0 +1,6 @@
+{
+  "collisionSafetyDistance" : 0.2,
+  "timeHoldState": 2.5,
+  "obstacleRangeOfVision" : 0.4,
+  "sizeOfBuffer": 20
+}

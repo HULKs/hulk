@@ -5,7 +5,7 @@
 
 
 HeadMatrixBufferProvider::HeadMatrixBufferProvider(const ModuleManagerInterface& manager)
-  : Module(manager, "HeadMatrixBufferProvider")
+  : Module(manager)
   , cycleInfo_(*this)
   , robotKinematics_(*this)
   , headMatrixBuffer_(*this)
@@ -24,4 +24,5 @@ void HeadMatrixBufferProvider::cycle()
   index_ %= bufferSize_;
 
   headMatrixBuffer_->buffer.assign(buffer_.begin(), buffer_.end());
+  headMatrixBuffer_->valid = true;
 }

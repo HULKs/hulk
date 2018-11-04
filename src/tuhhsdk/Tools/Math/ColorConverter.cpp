@@ -1,5 +1,8 @@
 #include "ColorConverter.hpp"
 
+#include "Tools/Storage/Image.hpp"
+#include "Tools/Storage/Image422.hpp"
+
 ColorConverter::ColorConverter() {}
 
 /**
@@ -93,4 +96,14 @@ void ColorConverter::YCbCr2BGR(Image& dst, const Image& src)
 Color ColorConverter::RGB2YCbCr(unsigned int R, unsigned int G, unsigned int B)
 {
   return Color(16 + 0.2567890625 * R + 0.49631640625 * G + 0.09790625 * B, 128 - 0.14822265625 * R - 0.2909921875 * G + 0.43921484375 * B, 128 + 0.43921484375* R - 0.3677890625 * G - 0.07142578125 * B);
+}
+
+YCbCr422 ColorConverter::ycbcr422FromColor(const Color& c)
+{
+  return YCbCr422(c.y_, c.cb_, c.y_, c.cr_);
+}
+
+Color ColorConverter::colorFromYCbCr422(const YCbCr422& ycbcr422)
+{
+  return Color(ycbcr422.y1_, ycbcr422.cb_, ycbcr422.cr_);
 }

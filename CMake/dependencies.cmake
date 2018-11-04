@@ -9,6 +9,7 @@ find_package(JPEG REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(PNG REQUIRED)
 find_package(FFTW REQUIRED)
+find_package(ITTNotify)
 # Eigen 3.3 is required because in earlier versions normalize(d) would be NaN when the vector to be normalized is 0.
 find_package(Eigen3 3.3 REQUIRED)
 # This is needed since FindEigen3.cmake does not call find_package_handle_standard_args most of the time.
@@ -30,7 +31,14 @@ set(TUHH_DEPS_LIBRARIES
   ${JPEG_LIBRARIES}
   ${ZLIB_LIBRARIES}
   ${PNG_LIBRARIES}
-  ${FFTW_LIBRARIES})
+  ${FFTW_LIBRARIES}
+  ${CMAKE_DL_LIBS})
+
+if (${ITTNOTIFY_FOUND})
+  add_definitions(-DITTNOTIFY_FOUND)
+  set(TUHH_DEPS_INCLUDE_DIRECTORIES ${TUHH_DEPS_INCLUDE_DIRECTORIES} ${ITTNOTIFY_INCLUDE_DIRS})
+  set(TUHH_DEPS_LIBRARIES ${TUHH_DEPS_LIBRARIES} ${ITTNOTIFY_LIBRARIES})
+endif (${ITTNOTIFY_FOUND})
 
 if(NAO)
   find_package(PORTAUDIO REQUIRED)

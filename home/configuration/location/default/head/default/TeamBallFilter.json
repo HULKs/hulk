@@ -1,6 +1,7 @@
 {
   "insideFieldTolerance": 0,
   "maxAddAge": 0.5,
+  "minWaitAfterJumpToAddBall": 2,
   "maxBallVelocity": 1,
   "minRemoveAge": 2,
   "maxCompatibilityDistance": 1

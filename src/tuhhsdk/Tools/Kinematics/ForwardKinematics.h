@@ -449,7 +449,4 @@ public:
 	 * to the torso space
 	 */
 	static std::vector<KinematicMatrix> getBody(const std::vector<float>& jointAngles, const Vector3f& angle);
-
-
-
 };

@@ -4,17 +4,18 @@
 
 #include "Hardware/RobotInterface.hpp"
 
-// ASIO defines an macro  #define ERROR 0 which failes with our enum LogLevel::ERROR
 #include <boost/asio.hpp>
-#include "Definitions/windows_definition_fix.hpp"
 
 #include <boost/array.hpp>
 #include <boost/bind.hpp>
 #include <boost/system/error_code.hpp>
 
+// ASIO defines an macro  #define ERROR 0 which failes with our enum LogLevel::ERROR
+#include "Definitions/windows_definition_fix.hpp"
+
 #include <thread>
 
-static auto const INTERVAL = boost::posix_time::millisec( 1000 );
+static auto const INTERVAL = boost::posix_time::millisec(1000);
 
 class AlivenessTransmitter::Impl
 {
@@ -22,12 +23,12 @@ private:
   boost::asio::io_service ioService_;
 
   boost::asio::ip::udp::endpoint broadcastEndpoint_;
-  boost::asio::ip::udp::socket   socket_;
+  boost::asio::ip::udp::socket socket_;
 
   std::shared_ptr<std::thread> backgroundThread_;
 
   boost::asio::deadline_timer timer_;
-  boost::array< char, sizeof (AlivenessMessage) > send_; ///< Send buffer.
+  boost::array<char, sizeof(AlivenessMessage)> send_; ///< Send buffer.
 
   NaoInfo naoInfo_;
 
@@ -39,8 +40,6 @@ public:
 
   void startTransmitTimer();
   void startBackgroundThread();
-
-
 };
 
 //================================
@@ -54,41 +53,45 @@ AlivenessTransmitter::Impl::Impl(const uint16_t& port, const NaoInfo& naoInfo)
   , timer_(ioService_)
   , naoInfo_(naoInfo)
 {
-  boost::asio::ip::udp::endpoint localEndpoint(
-         boost::asio::ip::udp::v4(), port );
+  boost::asio::ip::udp::endpoint localEndpoint(boost::asio::ip::udp::v4(), port);
 
   broadcastEndpoint_.address(boost::asio::ip::address_v4::broadcast());
   broadcastEndpoint_.port(port);
 
   socket_.open(localEndpoint.protocol());
-  socket_.set_option( boost::asio::ip::udp::socket::reuse_address(true));
-  socket_.set_option( boost::asio::socket_base::broadcast(true));
-  socket_.bind( localEndpoint );
+  socket_.set_option(boost::asio::ip::udp::socket::reuse_address(true));
+  socket_.set_option(boost::asio::socket_base::broadcast(true));
+  socket_.bind(localEndpoint);
 }
 
-AlivenessTransmitter::Impl::~Impl(){
+AlivenessTransmitter::Impl::~Impl()
+{
   ioService_.stop();
   backgroundThread_->join();
   socket_.close();
 }
 
-void AlivenessTransmitter::Impl::startBackgroundThread(){
-  backgroundThread_ = std::make_shared<std::thread>([this](){
+void AlivenessTransmitter::Impl::startBackgroundThread()
+{
+  backgroundThread_ = std::make_shared<std::thread>([this]() {
     // Run this thread until ioService_.stop() is called.
     //       boost::asio::io_service::work work( ioService_ );
 
     ioService_.run();
-    print( "Shutting down transceiver thread", LogLevel::DEBUG );
+    print("Shutting down transceiver thread", LogLevel::INFO);
   });
 }
 
-void AlivenessTransmitter::Impl::startTransmitTimer(){
-  timer_.expires_from_now( INTERVAL );
-  timer_.async_wait(boost::bind( &Impl::onTimerExpire, this, boost::asio::placeholders::error));
+void AlivenessTransmitter::Impl::startTransmitTimer()
+{
+  timer_.expires_from_now(INTERVAL);
+  timer_.async_wait(boost::bind(&Impl::onTimerExpire, this, boost::asio::placeholders::error));
 }
 
-void AlivenessTransmitter::Impl::onTimerExpire(boost::system::error_code const& error){
-  if(error){
+void AlivenessTransmitter::Impl::onTimerExpire(boost::system::error_code const& error)
+{
+  if (error)
+  {
     print("AlivenessTransmitter timer error.", LogLevel::ERROR);
     return;
   }
@@ -105,7 +108,7 @@ void AlivenessTransmitter::Impl::onTimerExpire(boost::system::error_code const& 
     print("Error sending Aliveness Message!", LogLevel::ERROR);
   }
 
-  //And cycle the timer.
+  // And cycle the timer.
   startTransmitTimer();
 }
 
@@ -120,18 +123,19 @@ AlivenessTransmitter::AlivenessTransmitter(const std::uint16_t& port, const NaoI
   pimpl_.reset(new Impl(port, naoInfo));
 }
 
-AlivenessTransmitter::~AlivenessTransmitter(){
+AlivenessTransmitter::~AlivenessTransmitter() {}
 
-}
-
-void AlivenessTransmitter::startTransmitting(){
-  if ( !isTransmittingStarted_ ){
+void AlivenessTransmitter::startTransmitting()
+{
+  if (!isTransmittingStarted_)
+  {
     isTransmittingStarted_ = true;
 
     pimpl_->startTransmitTimer();
     pimpl_->startBackgroundThread();
-  } else {
+  }
+  else
+  {
     print("Aliveness Transmitter is already started!", LogLevel::WARNING);
   }
 }
-

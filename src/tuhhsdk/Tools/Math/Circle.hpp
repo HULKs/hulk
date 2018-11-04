@@ -21,6 +21,18 @@ public:
     , radius(radius)
   {
   }
+  Circle(const Circle<T>& other)
+    : center(other.center)
+    , radius(other.radius)
+  {
+  }
+  /**
+   * @brief Converts a Circle from YUV422 coordinates into YUV444 coordinates.
+   */
+  void from422to444()
+  {
+    center.x() *= 2;
+  }
   /**
    * @brief fromValue converts a Uni::Value to this
    * @param value the value that should be converted to this class

@@ -18,6 +18,8 @@ class Motion;
 class Keeper : public Module<Keeper, Motion>
 {
 public:
+  /// the name of this module
+  ModuleName name = "Keeper";
   /**
    * @brief Keeper initializes members
    * @param manager a reference to motion

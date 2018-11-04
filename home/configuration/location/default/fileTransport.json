@@ -1,6 +1,5 @@
 {
-  "imageExportFrequency_" : 5000,
-  "threadRunFrequency_" : 9000,
+  "onlyRecordWhilePlaying" : true,
   "subscribedKeys" : [
     "Brain.ImageReceiver.bottom_image",
     "Brain.ImageReceiver.top_image",

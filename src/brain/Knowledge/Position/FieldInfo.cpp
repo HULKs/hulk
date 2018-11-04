@@ -55,13 +55,19 @@ FieldInfo::FieldInfo(const PlayerConfiguration& playerConfiguration, const Field
     lines.push_back({{-fieldLength / 2 - goalDepth, -goalPostDistance / 2}, {-fieldLength / 2 - goalDepth, goalPostDistance / 2}});
   }
 
-  /// home
+  // Goals
+  // home
   goalPosts.emplace_back(-fieldLength / 2, goalPostDistance / 2);
   goalPosts.emplace_back(-fieldLength / 2, -goalPostDistance / 2);
-
-  /// away
+  // away
   goalPosts.emplace_back(fieldLength / 2, goalPostDistance / 2);
   goalPosts.emplace_back(fieldLength / 2, -goalPostDistance / 2);
+
+  // Penalty spots
+  // home
+  penaltySpots.emplace_back(-fieldLength / 2 + fieldDimensions.fieldPenaltyMarkerDistance, 0.f);
+  // away
+  penaltySpots.emplace_back(fieldLength / 2 - fieldDimensions.fieldPenaltyMarkerDistance, 0.f);
 }
 
 Vector2f FieldInfo::polar2cartesian(const Vector2f& polar) const

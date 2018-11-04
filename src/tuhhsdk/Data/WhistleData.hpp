@@ -6,6 +6,8 @@
 
 class WhistleData : public DataType<WhistleData> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "WhistleData";
   /// the last timestamp when a whistle has been detected
   TimePoint lastTimeWhistleHeard;
   /**

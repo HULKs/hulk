@@ -4,14 +4,15 @@
 
  - Qt5 (Core Gui Widgets)
  - LibXml2
- - libode
+ - libode / ode (with double precision math enabled)
+ - eigen
  - Glew
  - OpenGL
 
 ## For Linux
 
 ### Building SimRobot
-
+**You need to be inside ```/nao/tools/SimRobot/``` before executing this script, or later parts of the setup will fail.**
 ```bash
 ./build_simrobot
 ```

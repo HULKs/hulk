@@ -613,6 +613,13 @@ QMenu* SimObjectWidget::createUserMenu() const
   flagsSignalMapper->setMapping(action, SimRobotCore2::Renderer::enableMultisample);
   connect(action, SIGNAL(triggered()), flagsSignalMapper, SLOT(map()));
 
+  action = menu->addAction(tr("Enable M&otionblur"));
+  action->setStatusTip(tr("Enable Motionblur"));
+  action->setCheckable(true);
+  action->setChecked(objectRenderer.getRenderFlags() & SimRobotCore2::Renderer::enableMotionblur);
+  flagsSignalMapper->setMapping(action, SimRobotCore2::Renderer::enableMotionblur);
+  connect(action, SIGNAL(triggered()), flagsSignalMapper, SLOT(map()));
+
   menu->addSeparator();
 
   action = menu->addAction(tr("Show &Coordinate System"));

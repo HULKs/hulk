@@ -1,5 +1,13 @@
 {
-  "draw_full_image": false,
-  "edge_threshold" : 8,
-  "num_scanlines" : 160
+   "drawEdges" : true,
+   "drawFullImage" : false,
+   "edgeThresholdHorizontal" : [
+      16,
+      32
+   ],
+   "edgeThresholdVertical" : [
+      8,
+      8
+   ],
+   "numScanlines" : 160
 }

@@ -8,6 +8,7 @@
 
 #include "SimRobotCore2.h"
 #include "Tools/Vector3.h"
+#include "Simulation/Simulation.h"
 
 class SimObject;
 class Body;
@@ -84,7 +85,7 @@ public:
   virtual void setDrawingsShadeMode(ShadeMode shadeMode) {drawingsShadeMode = shadeMode;}
   virtual ShadeMode getDrawingsShadeMode() const {return drawingsShadeMode;}
   virtual void zoom(float change);
-  virtual void setRenderFlags(unsigned int renderFlags) {this->renderFlags = renderFlags;}
+  virtual void setRenderFlags(unsigned int renderFlags) {this->renderFlags = renderFlags; Simulation::simulation->renderer.renderFlags = renderFlags;}
   virtual unsigned int getRenderFlags() const {return renderFlags;}
   virtual void setCameraMode(CameraMode mode);
   virtual CameraMode getCameraMode() const {return cameraMode;}

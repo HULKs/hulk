@@ -21,6 +21,8 @@ class Brain;
 class TeamBallFilter : public Module<TeamBallFilter, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "TeamBallFilter";
   /**
    * @brief TeamBallFilter creates a model of the ball as seen by the complete team
    * @param manager a reference to brain
@@ -75,6 +77,8 @@ private:
   void updateBallBuffer();
   /// the age that a ball can have at maximum to be added to the buffer
   const Parameter<float> maxAddAge_;
+  /// the minimum wait after accepting a ball of a recently jumped robot
+  const Parameter<float> minWaitAfterJumpToAddBall_;
   /// the velocity that a ball may have to be added to the buffer
   const Parameter<float> maxBallVelocity_;
   /// the age that a ball must have to be removed from the buffer

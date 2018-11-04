@@ -9,9 +9,11 @@
 
 struct HeadMatrixWithTimestamp : public Uni::To, public Uni::From
 {
-  /// a matrix describing the transformation from the head coordinate system to the torso coordinate system
+  /// a matrix describing the transformation from the head coordinate system to the torso coordinate
+  /// system
   KinematicMatrix head2torso;
-  /// a matrix describing the transformation from the torso coordinate system to the robot coordinate system
+  /// a matrix describing the transformation from the torso coordinate system to the robot
+  /// coordinate system
   KinematicMatrix torso2ground;
   /// the time at which the joints for this matrix have been recorded
   TimePoint timestamp;
@@ -35,8 +37,12 @@ struct HeadMatrixWithTimestamp : public Uni::To, public Uni::From
 class HeadMatrixBuffer : public DataType<HeadMatrixBuffer>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "HeadMatrixBuffer";
   /// the buffer of matrices
   std::vector<HeadMatrixWithTimestamp> buffer;
+  /// whether the content is valid
+  bool valid = true;
   /**
    * @brief getBestMatch returns the head matrix that was recorded closest to a given timestamp
    * Callers must ensure that the buffer is not empty!
@@ -46,7 +52,7 @@ public:
   const HeadMatrixWithTimestamp& getBestMatch(const TimePoint timestamp) const
   {
     assert(!buffer.empty());
-    auto minIt = buffer.begin(); // To make sure that there is a valid entry.
+    auto minIt = buffer.begin();                       // To make sure that there is a valid entry.
     float minDiff = std::numeric_limits<float>::max(); // Those are seconds.
     for (auto it = buffer.begin(); it != buffer.end(); it++)
     {
@@ -66,16 +72,19 @@ public:
   void reset()
   {
     buffer.clear();
+    valid = false;
   }
 
   virtual void toValue(Uni::Value& value) const
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["buffer"] << buffer;
+    value["valid"] << valid;
   }
 
   virtual void fromValue(const Uni::Value& value)
   {
     value["buffer"] >> buffer;
+    value["valid"] >> valid;
   }
 };

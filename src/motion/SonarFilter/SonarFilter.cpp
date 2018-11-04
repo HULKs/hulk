@@ -2,69 +2,84 @@
 
 #include "SonarFilter.hpp"
 
-
 SonarFilter::SonarFilter(const ModuleManagerInterface& manager)
-  : Module(manager, "SonarFilter")
+  : Module(manager)
   , sonarSensorData_(*this)
   , sonarData_(*this)
   , confidentDistance_(*this, "confidentDistance", [] {})
-  , oldSonarRight_(1)
-  , oldSonarLeft_(1)
-  , prevRawSonarDataRight_(0)
-  , prevRawSonarDataLeft_(0)
+  , invalidReadingsLimit_(*this, "invalidReadingsLimit", [] {})
+  , smoothingFactor_(*this, "smoothingFactor", [] {})
+  , oldSensorData_{{confidentDistance_(), confidentDistance_()}}
+  , invalidDataCounter_{{0, 0}}
 {
 }
 
 void SonarFilter::cycle()
 {
-  // get latest raw data
-  sonarData_->sonarLeft = sonarSensorData_->sonarLeft;
-  sonarData_->sonarRight = sonarSensorData_->sonarRight;
+  // Use only the first echo from the left and right sonar sensors,
+  // since only the nearest obstacles are relevant for sonar detection.
+  const auto& sensorLeft = keys::sensor::SONAR_LEFT_SENSOR_0;
+  const auto& sensorRight = keys::sensor::SONAR_RIGHT_SENSOR_0;
 
-  // if sensor has new data
-  if (prevRawSonarDataLeft_ != sonarData_->sonarLeft || prevRawSonarDataRight_ != sonarData_->sonarRight)
+  filter(sensorLeft, SONARS::LEFT);
+  filter(sensorRight, SONARS::RIGHT);
+
+  debug().update(mount_ + ".invalidDataCounter", invalidDataCounter_);
+}
+
+void SonarFilter::filter(keys::sensor::sonar sensorKey, SONARS::SONAR side)
+{
+  if (sonarSensorData_->valid[sensorKey])
   {
-    // save previous raw data
-    prevRawSonarDataLeft_ = sonarData_->sonarLeft;
-    prevRawSonarDataRight_ = sonarData_->sonarRight;
-
-    // left
-    filter(sonarData_->sonarLeft, oldSonarLeft_);
-    // right
-    filter(sonarData_->sonarRight, oldSonarRight_);
-
-    // save filtered data for next cycle
-    oldSonarLeft_ = sonarData_->sonarLeft;
-    oldSonarRight_ = sonarData_->sonarRight;
-
-    // send debug data, only if filtering takes place.
-    debug().update(mount_ + ".SonarData", *sonarData_);
+    invalidDataCounter_[side] = 0;
+    // Only filter on new sensor readings
+    if (oldSensorData_[side] != sonarSensorData_->data[sensorKey])
+    {
+      lowpass(sonarSensorData_->data[sensorKey], side);
+      // save previous raw data for next cycle
+      oldSensorData_[side] = sonarSensorData_->data[sensorKey];
+    }
+  }
+  else
+  {
+    // Count subsequent invalid sensor data
+    invalidDataCounter_[side]++;
+    if (invalidDataCounter_[side] > invalidReadingsLimit_())
+    {
+      sonarData_->valid[side] = false;
+    }
   }
 }
 
-void SonarFilter::filter(float& input, float& prevValue)
+void SonarFilter::lowpass(float measurement, SONARS::SONAR side)
 {
-  float factor = 0.25f; // default lowpass factor
-
-  // ignore not valid measurement values according to the nao v5 specs
-  if (input <= 0)
+  const float lastMeasurement = sonarData_->filteredValues[side];
+  // smoothing factor for low-pass using exponential smoothing
+  float alpha = smoothingFactor_();
+  // Changes in the measured distance greater than this threshold are detected as outliers
+  const float outlierThreshold = 0.5;
+  // When coming from previously invalid filter output, reinitialize
+  // the filter output by completely using the current measurement.
+  if (!sonarData_->valid[side])
   {
-    input = prevValue;
+    sonarData_->valid[side] = true;
+    invalidDataCounter_[side] = 0;
+    alpha = 1.f;
   }
-
-  // fast changes (>0.5/cycle) have even lower impact.
-  if (std::abs(input - prevValue) > 0.5f)
+  else if (std::abs(measurement - lastMeasurement) > outlierThreshold) // Simple outliers detection
   {
-    factor = .02f; // This factor can be changed, .02 seems reasonable
+    // Apply stronger low-pass filtering to very large changes (outliers)
+    // This may sometimes introduce unnecessary delay when the measured distance actually
+    // changed that much and not because of noise. Proper outlier detection might want to
+    // look at multiple previous values to determine if a large change wasn't actually an outlier.
+    alpha = .02f; // This factor can be changed, .02 seems reasonable
   }
-
-  // apply low pass
-  input = (factor * input) + ((1 - factor) * prevValue);
-
-
-  // set all values larger than confidentDistance (config parameter) to be confidentDistance_();
-  if (input >= confidentDistance_())
+  // apply low-pass exponential smoothing
+  float filteredOutput = (alpha * measurement) + ((1 - alpha) * lastMeasurement);
+  // Clip maximum filter output to the confidentDistance_();
+  if (filteredOutput >= confidentDistance_())
   {
-    input = confidentDistance_();
+    filteredOutput = confidentDistance_();
   }
+  sonarData_->filteredValues[side] = filteredOutput;
 }

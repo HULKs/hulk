@@ -10,9 +10,9 @@
 #include "Data/FieldBorder.hpp"
 #include "Data/FieldColor.hpp"
 #include "Data/FieldDimensions.hpp"
-#include "Data/FilteredRegions.hpp"
 #include "Data/GameControllerState.hpp"
 #include "Data/ImageData.hpp"
+#include "Data/ImageSegments.hpp"
 #include "Framework/Module.hpp"
 #include "Tools/Math/Circle.hpp"
 #include "Tools/Math/Eigen.hpp"
@@ -22,6 +22,8 @@ class Brain;
 class BallDetectionNeuralNet : public Module<BallDetectionNeuralNet, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "BallDetectionNeuralNet";
   /**
    * @brief BallDetectionNeuralNet initializes members
    * @param manager a reference to brain
@@ -36,15 +38,11 @@ public:
 private:
   typedef unsigned int dim_t;
 
-  template <typename T>
-  T sqr(const T x) const
+  template <typename B>
+  float scaleByte(const B byte) const
   {
-    return x * x;
-  }
-
-  float scaleByte(const unsigned char foo) const
-  {
-    return foo / 128.f - 1.f;
+    float result = static_cast<float>(byte) / 128 - 1;
+    return result;
   }
 
   struct MergedCandidate
@@ -86,16 +84,23 @@ private:
   /// functions for execution CNNs
   void activate(std::vector<float>& img, const int activation) const;
   void normalize(std::vector<float>& img, const std::vector<std::vector<float>>& norm) const;
-  void pool(const std::vector<float>& img, const std::array<dim_t, 3>& inDim, const int poolType, std::vector<float>& result,
-            std::array<dim_t, 3>& outDim) const;
-  void maxPool2x2(const std::vector<float>& img, const std::array<dim_t, 3>& inDim, std::vector<float>& result, std::array<dim_t, 3>& outDim) const;
-  void avgPool2x2(const std::vector<float>& img, const std::array<dim_t, 3>& inDim, std::vector<float>& result, std::array<dim_t, 3>& outDim) const;
-  void execLayer(const std::vector<float>& input, const std::vector<std::vector<float>>& weights, const std::vector<float>& bias, const int activation,
+  void pool(const std::vector<float>& img, const std::array<dim_t, 3>& inDim, const int poolType,
+            std::vector<float>& result, std::array<dim_t, 3>& outDim) const;
+  void maxPool2x2(const std::vector<float>& img, const std::array<dim_t, 3>& inDim,
+                  std::vector<float>& result, std::array<dim_t, 3>& outDim) const;
+  void avgPool2x2(const std::vector<float>& img, const std::array<dim_t, 3>& inDim,
+                  std::vector<float>& result, std::array<dim_t, 3>& outDim) const;
+  void execLayer(const std::vector<float>& input, const std::vector<std::vector<float>>& weights,
+                 const std::vector<float>& bias, const int activation,
                  std::vector<float>& output) const;
-  void convolution(const std::vector<float>& input, const std::array<dim_t, 3>& inDim, const std::vector<std::vector<std::vector<std::vector<float>>>>& mask,
-                   const std::vector<float>& bias, const int activation, const int pooling, std::vector<float>& output, std::array<dim_t, 3>& outDim) const;
+  void convolution(const std::vector<float>& input, const std::array<dim_t, 3>& inDim,
+                   const std::vector<std::vector<std::vector<std::vector<float>>>>& mask,
+                   const std::vector<float>& bias, const int activation, const int pooling,
+                   std::vector<float>& output, std::array<dim_t, 3>& outDim) const;
 
-  bool sampleBoundingBox(const Circle<int>& circle, const dim_t sampleSize, std::vector<float>& colorSampled, std::array<dim_t, 3>& colorSampledDim) const;
+  bool sampleBoundingBox(const Circle<int>& circle, const dim_t sampleSize,
+                         std::vector<float>& colorSampled,
+                         std::array<dim_t, 3>& colorSampledDim) const;
 
   /// applies CNN on candiates
   float filterByCNN(std::vector<float>& sampled, std::array<dim_t, 3>& colorSampledDim);
@@ -115,6 +120,8 @@ private:
   const Parameter<int> seedBright_;
   /// the minimum amount of bright pixels that match seedBright condition
   const Parameter<int> seedBrightScore_;
+  /// the minimum amount of seeds within a candidate
+  const Parameter<unsigned int> candidateMinSeeds_;
   const Parameter<bool> projectFoundBalls_;
 
   dim_t netSampleSize_;
@@ -134,7 +141,7 @@ private:
 
   const Dependency<ImageData> imageData_;
   const Dependency<CameraMatrix> cameraMatrix_;
-  const Dependency<ImageRegions> imageRegions_;
+  const Dependency<ImageSegments> imageSegments_;
   const Dependency<FieldBorder> fieldBorder_;
   const Dependency<FieldDimensions> fieldDimensions_;
   const Dependency<GameControllerState> gameControllerState_;

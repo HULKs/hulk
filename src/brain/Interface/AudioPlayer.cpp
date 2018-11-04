@@ -6,7 +6,7 @@
 
 
 AudioPlayer::AudioPlayer(const ModuleManagerInterface& manager)
-  : Module(manager, "AudioPlayer")
+  : Module(manager)
   , audioInterface_(robotInterface().getAudio())
   , playbackData_(*this)
 {

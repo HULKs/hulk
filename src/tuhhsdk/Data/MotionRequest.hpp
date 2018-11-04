@@ -1,44 +1,46 @@
 #pragma once
 
-#include <string>
 #include <Framework/DataType.hpp>
+#include <string>
 
-#include "Tools/Math/Pose.hpp"
 #include "Tools/Math/Eigen.hpp"
+#include "Tools/Math/Pose.hpp"
 #include "Tools/Math/Velocity.hpp"
 
-enum class InWalkKickType
-{
-  NONE,
-  LEFT_GENTLE,
-  LEFT_STRONG,
-  RIGHT_GENTLE,
-  RIGHT_STRONG
-};
+#include "Data/KickConfigurationData.hpp"
 
 /**
- * Allows specification of different walking modes. Note that currently, walking modes have
+ * Allows specification of different walking modes. Note that currently walking modes have
  * to be enabled in the MotionPlanner config, or all chosen modes will default to the PATH mode.
+ *
+ * \note When adding modes or changing their order, check if you have to adapt the remote controller
+ * code.
  */
 enum class WalkMode
 {
   /**
-   *  PATH our walking as usual: Walk to the specified target and avoid obstacles. Always try facing the target position until near.
-   *  If you don't know which mode to choose (which you should know!), use this as default.
+   *  PATH our walking as usual: Walk to the specified target and avoid obstacles. Always try facing
+   * the target position until near. If you don't know which mode to choose (which you should
+   * know!), use this as default.
    */
   PATH,
   /**
-   * Walk to the specified target and avoid obstacles, but immediately align according to the orientation specified in the target.
-   * Be careful when using this, because it doesn't work well with our current obstacle avoidance! Consider using DIRECT_WITH_ORIENTATION instead.
+   * Walk to the specified target and avoid obstacles, but immediately align according to the
+   * orientation specified in the target. Be careful when using this, because it doesn't work well
+   * with our current obstacle avoidance! Consider using DIRECT_WITH_ORIENTATION instead.
    */
   PATH_WITH_ORIENTATION,
-  /// Directly walk to the specified target and ignore obstacles. Always try facing the target position until near.
+  /// Directly walk to the specified target and ignore obstacles. Always try facing the target
+  /// position until near.
   DIRECT,
-  /// Walk to the specified target and ignore obstacles, but immediately align according to the orientation specified in the target.
+  /// Walk to the specified target and ignore obstacles, but immediately align according to the
+  /// orientation specified in the target.
   DIRECT_WITH_ORIENTATION,
-  /// Walk to a pose from which a ball can be kicked without walking through the ball and without needing to walk too much sideways
+  /// Walk to a pose from which a ball can be kicked without walking through the ball and without
+  /// needing to walk too much sideways
   WALK_BEHIND_BALL,
-  /// Similar to WALK_BEHIND_BALL, but prevent the robot from braking upon reaching the walk target near the ball, which is needed for dribbling
+  /// Similar to WALK_BEHIND_BALL, but prevent the robot from braking upon reaching the walk target
+  /// near the ball, which is needed for dribbling
   DRIBBLE,
   /// Move *only* according to the specified velocity vector (target and obstacles will be ignored).
   VELOCITY
@@ -48,6 +50,7 @@ struct WalkData : public Uni::To, public Uni::From
 {
   Pose target;
   InWalkKickType inWalkKickType = InWalkKickType::NONE;
+  KickFoot kickFoot  = KickFoot::NONE;
   WalkMode mode = WalkMode::PATH;
   /// Velocity specifications for walking (translation and rotation)
   Velocity velocity;
@@ -57,16 +60,19 @@ struct WalkData : public Uni::To, public Uni::From
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["target"] << target;
     value["inWalkKickType"] << static_cast<int>(inWalkKickType);
+    value["kickFoot"] << static_cast<int>(kickFoot);
     value["mode"] << static_cast<int>(mode);
     value["velocity"] << velocity;
   }
 
   virtual void fromValue(const Uni::Value& value)
   {
-    value["target"] >> target;
     int readNumber = 0;
+    value["target"] >> target;
     value["inWalkKickType"] >> readNumber;
     inWalkKickType = static_cast<InWalkKickType>(readNumber);
+    value["kickFoot"] >> readNumber;
+    kickFoot = static_cast<KickFoot>(readNumber);
     value["mode"] >> readNumber;
     mode = static_cast<WalkMode>(readNumber);
     value["velocity"] >> velocity;
@@ -80,15 +86,15 @@ struct WalkStopData
 
 enum class KickType
 {
-  OLD,
-  STRAIGHT
+  FORWARD,
+  SIDE
 };
 
 struct KickData : public Uni::To, public Uni::From
 {
   Vector2f ballDestination;
   Vector2f ballSource;
-  KickType kickType = KickType::OLD;
+  KickType kickType = KickType::FORWARD;
 
   virtual void toValue(Uni::Value& value) const
   {
@@ -132,6 +138,7 @@ struct HeadAngleData : public Uni::To, public Uni::From
   float headPitch;
   float maxHeadYawVelocity;
   float maxHeadPitchVelocity;
+  bool useEffectiveYawVelocity;
 
   virtual void toValue(Uni::Value& value) const
   {
@@ -140,6 +147,7 @@ struct HeadAngleData : public Uni::To, public Uni::From
     value["headPitch"] << headPitch;
     value["maxHeadYawVelocity"] << maxHeadYawVelocity;
     value["maxHeadPitchVelocity"] << maxHeadPitchVelocity;
+    value["useEffectiveYawVelocity"] << useEffectiveYawVelocity;
   }
 
   virtual void fromValue(const Uni::Value& value)
@@ -148,6 +156,7 @@ struct HeadAngleData : public Uni::To, public Uni::From
     value["headPitch"] >> headPitch;
     value["maxHeadYawVelocity"] >> maxHeadYawVelocity;
     value["maxHeadPitchVelocity"] >> maxHeadPitchVelocity;
+    value["useEffectiveYawVelocity"] >> useEffectiveYawVelocity;
   }
 };
 
@@ -182,6 +191,8 @@ struct PointData
 class MotionRequest : public DataType<MotionRequest>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "MotionRequest";
   enum class BodyMotion
   {
     /// the stiffness of the body should be released
@@ -196,6 +207,8 @@ public:
     PENALIZED,
     /// the robot should execute a keeper motion
     KEEPER,
+    /// the robot should manage the fall. THIS MUST NOT HAVE A CORRESPONDING ACTION COMMAND
+    FALL_MANAGER,
     /// the robot should stand up
     STAND_UP,
     /// the robot holds its angles at activation of the motion
@@ -252,21 +265,26 @@ public:
     headMotion = HeadMotion::BODY;
   }
   /**
-   * @brief usesArms indicates whether the body motion uses the arms in a way that they can't be used independently
+   * @brief usesArms indicates whether the body motion uses the arms in a way that they can't be
+   * used independently
    * @return true iff the current motion uses the arms
    */
   bool usesArms() const
   {
-    return bodyMotion == BodyMotion::DEAD || bodyMotion == BodyMotion::WALK || bodyMotion == BodyMotion::KICK || bodyMotion == BodyMotion::PENALIZED ||
-           bodyMotion == BodyMotion::KEEPER || bodyMotion == BodyMotion::STAND_UP || bodyMotion == BodyMotion::HOLD;
+    return bodyMotion == BodyMotion::DEAD || bodyMotion == BodyMotion::WALK ||
+           bodyMotion == BodyMotion::KICK || bodyMotion == BodyMotion::PENALIZED ||
+           bodyMotion == BodyMotion::KEEPER || bodyMotion == BodyMotion::STAND_UP ||
+           bodyMotion == BodyMotion::HOLD;
   }
   /**
-   * @brief usesHead indicates whether the body motion uses the head in a way that it can't be used independently
+   * @brief usesHead indicates whether the body motion uses the head in a way that it can't be used
+   * independently
    * @return true iff the current motion uses the head
    */
   bool usesHead() const
   {
-    return bodyMotion == BodyMotion::DEAD || bodyMotion == BodyMotion::KICK || bodyMotion == BodyMotion::PENALIZED || bodyMotion == BodyMotion::KEEPER ||
+    return bodyMotion == BodyMotion::DEAD || bodyMotion == BodyMotion::KICK ||
+           bodyMotion == BodyMotion::PENALIZED || bodyMotion == BodyMotion::KEEPER ||
            bodyMotion == BodyMotion::STAND_UP || bodyMotion == BodyMotion::HOLD;
   }
 

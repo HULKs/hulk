@@ -11,7 +11,7 @@
 #include "BallDetectionNeuralNet.hpp"
 
 BallDetectionNeuralNet::BallDetectionNeuralNet(const ModuleManagerInterface& manager)
-  : Module(manager, "BallDetectionNeuralNet")
+  : Module(manager)
 
   , seedRadiusRatioMin_(*this, "seedRadiusRatioMin", [] {})
   , seedRadiusRatioMax_(*this, "seedRadiusRatioMax", [] {})
@@ -19,13 +19,14 @@ BallDetectionNeuralNet::BallDetectionNeuralNet(const ModuleManagerInterface& man
   , seedBrightMin_(*this, "seedBrightMin", [] {})
   , seedBright_(*this, "seedBright", [] {})
   , seedBrightScore_(*this, "seedBrightScore", [] {})
+  , candidateMinSeeds_(*this, "candidateMinSeeds", [] {})
   , projectFoundBalls_(*this, "projectFoundBalls", [] {})
 
   , netAccuracy_(*this, "netAccuracy", [] {})
 
   , imageData_(*this)
   , cameraMatrix_(*this)
-  , imageRegions_(*this)
+  , imageSegments_(*this)
   , fieldBorder_(*this)
   , fieldDimensions_(*this)
   , gameControllerState_(*this)
@@ -64,6 +65,7 @@ void BallDetectionNeuralNet::cycle()
         Vector2f pos;
         cameraMatrix_->pixelToRobotWithZ(circle.center, fieldDimensions_->ballDiameter / 2, pos);
         ballData_->positions.push_back(pos);
+        ballData_->imagePositions.push_back(circle);
       }
     }
     ballData_->timestamp = imageData_->timestamp;
@@ -81,9 +83,11 @@ std::vector<Circle<int>> BallDetectionNeuralNet::mergeSeeds(const std::vector<Ci
     bool merged = false;
     for (auto& mergedCandidate : mergedCandidates)
     {
-      const int maxRadius = std::max(candidate.radius, static_cast<int>(mergedCandidate.candidate.radius / mergedCandidate.count));
-      // const int maxRadius = std::max(candidate.radius, mergedCandidate.candidate.radius / mergedCandidate.count);
-      if ((mergedCandidate.candidate.center / mergedCandidate.count - candidate.center).norm() < maxRadius * 2)
+      const int maxRadius =
+          std::max(candidate.radius,
+                   static_cast<int>(mergedCandidate.candidate.radius / mergedCandidate.count));
+      if ((mergedCandidate.candidate.center / mergedCandidate.count - candidate.center).norm() <
+          maxRadius * 2)
       {
         mergedCandidate.candidate.center += candidate.center;
         mergedCandidate.candidate.radius += candidate.radius;
@@ -99,9 +103,9 @@ std::vector<Circle<int>> BallDetectionNeuralNet::mergeSeeds(const std::vector<Ci
     }
   }
   std::vector<Circle<int>> result;
-  for (auto& c : mergedCandidates)
+  for (const auto& c : mergedCandidates)
   {
-    if (c.count > 1)
+    if (c.count >= candidateMinSeeds_())
     {
       result.emplace_back(c.candidate.center / c.count, c.candidate.radius / c.count);
     }
@@ -109,12 +113,14 @@ std::vector<Circle<int>> BallDetectionNeuralNet::mergeSeeds(const std::vector<Ci
   Circle<int> foundBall;
   if (projectFoundBall(foundBall))
   {
+    ballData_->filteredProjectedBall = foundBall;
     result.push_back(foundBall);
   }
   return result;
 }
 
-bool BallDetectionNeuralNet::applyFilter(const std::vector<Circle<int>>& candidates, std::vector<Circle<int>>& best)
+bool BallDetectionNeuralNet::applyFilter(const std::vector<Circle<int>>& candidates,
+                                         std::vector<Circle<int>>& best)
 {
   debugCircles_.clear();
   debugCircles_.reserve(candidates.size() + 1);
@@ -164,7 +170,8 @@ bool BallDetectionNeuralNet::applyFilter(const std::vector<Circle<int>>& candida
       }
       continue;
     }
-    // if it's not near the current best result but has better classification, replace the current best result
+    // if it's not near the current best result but has better classification, replace the current
+    // best result
     if (bestResult < cnnResult)
     {
       best.clear();
@@ -183,7 +190,8 @@ bool BallDetectionNeuralNet::applyFilter(const std::vector<Circle<int>>& candida
   return false;
 }
 
-void BallDetectionNeuralNet::pool(const std::vector<float>& img, const std::array<dim_t, 3>& inDim, const int poolType, std::vector<float>& result,
+void BallDetectionNeuralNet::pool(const std::vector<float>& img, const std::array<dim_t, 3>& inDim,
+                                  const int poolType, std::vector<float>& result,
                                   std::array<dim_t, 3>& outDim) const
 {
   switch (poolType)
@@ -204,7 +212,8 @@ void BallDetectionNeuralNet::pool(const std::vector<float>& img, const std::arra
 }
 
 
-void BallDetectionNeuralNet::normalize(std::vector<float>& img, const std::vector<std::vector<float>>& norm) const
+void BallDetectionNeuralNet::normalize(std::vector<float>& img,
+                                       const std::vector<std::vector<float>>& norm) const
 {
   assert(norm.size() == 4);
   for (dim_t i = 0; i < img.size(); i++)
@@ -218,7 +227,9 @@ void BallDetectionNeuralNet::normalize(std::vector<float>& img, const std::vecto
 }
 
 
-void BallDetectionNeuralNet::maxPool2x2(const std::vector<float>& img, const std::array<dim_t, 3>& inDim, std::vector<float>& result,
+void BallDetectionNeuralNet::maxPool2x2(const std::vector<float>& img,
+                                        const std::array<dim_t, 3>& inDim,
+                                        std::vector<float>& result,
                                         std::array<dim_t, 3>& outDim) const
 {
   outDim = {{(inDim[0] + 1) / 2, (inDim[1] + 1) / 2, inDim[2]}};
@@ -253,7 +264,9 @@ void BallDetectionNeuralNet::maxPool2x2(const std::vector<float>& img, const std
   }
 }
 
-void BallDetectionNeuralNet::avgPool2x2(const std::vector<float>& img, const std::array<dim_t, 3>& inDim, std::vector<float>& result,
+void BallDetectionNeuralNet::avgPool2x2(const std::vector<float>& img,
+                                        const std::array<dim_t, 3>& inDim,
+                                        std::vector<float>& result,
                                         std::array<dim_t, 3>& outDim) const
 {
   outDim = {{(inDim[0] + 1) / 2, (inDim[1] + 1) / 2, inDim[2]}};
@@ -280,15 +293,15 @@ void BallDetectionNeuralNet::avgPool2x2(const std::vector<float>& img, const std
   }
 }
 
-void BallDetectionNeuralNet::convolution(const std::vector<float>& input, const std::array<dim_t, 3>& inDim,
-                                         const std::vector<std::vector<std::vector<std::vector<float>>>>& mask, const std::vector<float>& bias,
-                                         const int activation, const int pooling, std::vector<float>& output, std::array<dim_t, 3>& outDim) const
+void BallDetectionNeuralNet::convolution(
+    const std::vector<float>& input, const std::array<dim_t, 3>& inDim,
+    const std::vector<std::vector<std::vector<std::vector<float>>>>& mask,
+    const std::vector<float>& bias, const int activation, const int pooling,
+    std::vector<float>& output, std::array<dim_t, 3>& outDim) const
 {
-  // Uni::Value v;
-  // v << input;
-  // Log(LogLevel::ERROR) << v;
   assert(mask[0][0].size() == inDim[2]);
-  const std::array<dim_t, 3> convDim = {{(inDim[0]), (inDim[1]), static_cast<dim_t>(mask[0][0][0].size())}};
+  const std::array<dim_t, 3> convDim = {
+      {(inDim[0]), (inDim[1]), static_cast<dim_t>(mask[0][0][0].size())}};
   if (convDim[2] == 0)
   {
     output = input;
@@ -325,8 +338,6 @@ void BallDetectionNeuralNet::convolution(const std::vector<float>& input, const 
       }
     }
   }
-  // v << conv;
-  // Log(LogLevel::ERROR) << v;
   pool(conv, convDim, pooling, output, outDim);
   activate(output, activation);
 }
@@ -352,8 +363,10 @@ void BallDetectionNeuralNet::activate(std::vector<float>& img, const int activat
   }
 }
 
-void BallDetectionNeuralNet::execLayer(const std::vector<float>& input, const std::vector<std::vector<float>>& weights, const std::vector<float>& bias,
-                                       const int activation, std::vector<float>& output) const
+void BallDetectionNeuralNet::execLayer(const std::vector<float>& input,
+                                       const std::vector<std::vector<float>>& weights,
+                                       const std::vector<float>& bias, const int activation,
+                                       std::vector<float>& output) const
 {
   assert(output.size() == bias.size());
   assert(weights.size() == input.size());
@@ -370,25 +383,33 @@ void BallDetectionNeuralNet::execLayer(const std::vector<float>& input, const st
 }
 
 
-bool BallDetectionNeuralNet::sampleBoundingBox(const Circle<int>& circle, const dim_t sampleSize, std::vector<float>& colorSampled,
+bool BallDetectionNeuralNet::sampleBoundingBox(const Circle<int>& circle, const dim_t sampleSize,
+                                               std::vector<float>& colorSampled,
                                                std::array<dim_t, 3>& colorSampledDim) const
 {
-  const int fromx = circle.center.x() - circle.radius;
-  const int fromy = circle.center.y() - circle.radius;
+  const Vector2i from(circle.center.x() * 2 - circle.radius, circle.center.y() - circle.radius);
   const float scale = circle.radius * 2.0f / sampleSize;
 
   colorSampledDim = {{sampleSize, sampleSize, 3}};
   colorSampled.resize(sampleSize * sampleSize * 3);
 
   unsigned int numDark = 0;
+  Vector2i pixel(from);
   for (dim_t y = 0; y < sampleSize; y++)
   {
+    pixel.y() = from.y() + static_cast<int>(y * scale);
     for (dim_t x = 0; x < sampleSize; x++)
     {
-      const int iy = fromy + (int)(y * scale);
-      const int ix = fromx + (int)(x * scale);
+      // First, calculate x position in YUV444 coords
+      pixel.x() = from.x() + static_cast<int>(x * scale);
+      // Check if 444 coord is even
+      const bool xEven = pixel.x() % 2 == 0;
+      // Convert to 422 coordinate
+      pixel.x() /= 2;
+      // Calculate coordinate in sampled array
       const dim_t pos = y * sampleSize * 3 + x * 3;
-      if (iy < 0 || ix < 0 || iy >= imageData_->image.size_.y() || ix >= imageData_->image.size_.x())
+      // Fallback to 128 if pixel is not inside image
+      if (!imageData_->image422.isInside(pixel))
       {
         const float fallback = scaleByte(128);
         colorSampled[pos] = fallback;
@@ -396,25 +417,24 @@ bool BallDetectionNeuralNet::sampleBoundingBox(const Circle<int>& circle, const 
         colorSampled[pos + 2] = fallback;
         continue;
       }
-      const Color& color = imageData_->image.at((unsigned int)iy, (unsigned int)ix);
-      colorSampled[pos] = scaleByte(color.y_);
+      // Get 422 Color
+      const YCbCr422& color = imageData_->image422[pixel];
+      // If 444 coord was even, take the first y value. Otherwise the second
+      const std::uint8_t& yByte = xEven ? color.y1_ : color.y2_;
+      colorSampled[pos] = scaleByte(yByte);
       colorSampled[pos + 1] = scaleByte(color.cb_);
       colorSampled[pos + 2] = scaleByte(color.cr_);
-      if (color.y_ < seedDark_())
+      if (yByte < seedDark_())
       {
         numDark++;
       }
     }
   }
-  const float sampled = sampleSize * sampleSize;
-  if (numDark / sampled < 0.1f)
-  {
-    return false;
-  }
-  return true;
+  return static_cast<float>(numDark) / (sampleSize * sampleSize) >= 0.1f;
 }
 
-float BallDetectionNeuralNet::filterByCNN(std::vector<float>& sampled, std::array<dim_t, 3>& colorSampledDim)
+float BallDetectionNeuralNet::filterByCNN(std::vector<float>& sampled,
+                                          std::array<dim_t, 3>& colorSampledDim)
 {
   const Chronometer time(debug(), mount_ + ".cycle_time.net");
 
@@ -428,8 +448,8 @@ float BallDetectionNeuralNet::filterByCNN(std::vector<float>& sampled, std::arra
   {
     std::vector<float> conv;
     std::array<dim_t, 3> convDim;
-    convolution(convOut, convOutDim, netConvMask_[convLayer], netConvBias_[convLayer], netConvActivation_[convLayer], netConvPooling_[convLayer], conv,
-                convDim);
+    convolution(convOut, convOutDim, netConvMask_[convLayer], netConvBias_[convLayer],
+                netConvActivation_[convLayer], netConvPooling_[convLayer], conv, convDim);
     convOut = conv;
     convOutDim = convDim;
   }
@@ -440,16 +460,13 @@ float BallDetectionNeuralNet::filterByCNN(std::vector<float>& sampled, std::arra
   const std::vector<std::vector<float>>& b = netFCBias_;
   std::vector<float>& x = convOut;
   assert(w.size() == b.size());
-  // std::cout << "net" << std::endl;
   for (dim_t i = 0; i < w.size(); i++)
   {
-    // std::cout << "l" << i << std::endl;
     std::vector<float> out(b[i].size());
     execLayer(x, w[i], b[i], netFCActivation_, out);
     x = out;
   }
   assert(x.size() == 2);
-  // std::cout << x[0] << "|" << x[1] << std::endl;
   return x[0] - x[1] - netAccuracy_();
 }
 
@@ -457,41 +474,49 @@ std::vector<Circle<int>> BallDetectionNeuralNet::getSeeds()
 {
   std::vector<Circle<int>> seeds;
   debugSeeds_.clear();
-  for (auto& scanline : imageRegions_->scanlines)
+  for (auto& scanline : imageSegments_->verticalScanlines)
   {
-    unsigned long regionCount = scanline.regions.size();
+    unsigned long regionCount = scanline.segments.size();
     for (unsigned int i = 0; i < regionCount; i++)
     {
-      if (scanline.regions[i].color.y_ > seedDark_())
+      if (scanline.segments[i].ycbcr422.y1_ > seedDark_())
       {
         continue;
       }
-      if (!fieldBorder_->isInsideField(Vector2i(scanline.x, scanline.regions[i].start)))
+      if (!fieldBorder_->isInsideField(scanline.segments[i].start))
       {
         continue;
       }
-      const Vector2i seed(scanline.x, (scanline.regions[i].start + scanline.regions[i].end) / 2);
+      const Vector2i seed = (scanline.segments[i].start + scanline.segments[i].end) / 2;
       int pixelRadius = 0;
-      cameraMatrix_->getPixelRadius(imageData_->image.size_, seed, fieldDimensions_->ballDiameter / 2, pixelRadius);
+      cameraMatrix_->getPixelRadius(imageData_->image422.size, seed,
+                                    fieldDimensions_->ballDiameter / 2, pixelRadius);
 
-      const float regionSize = static_cast<float>(scanline.regions[i].end - scanline.regions[i].start) / pixelRadius;
+      const float regionSize =
+          static_cast<float>(scanline.segments[i].end.y() - scanline.segments[i].start.y()) /
+          pixelRadius;
       if (regionSize < seedRadiusRatioMin_() || regionSize > seedRadiusRatioMax_())
       {
         continue;
       }
+      const std::array<Vector2i, 8> directions = {
+          {{-1, -2}, {0, -2}, {1, -2}, {-1, 0}, {1, 0}, {-1, 2}, {0, 2}, {1, 2}}};
 
-      int seedY = imageData_->image[seed].y_;
-      const std::array<Vector2i, 8> directions = {{{-1, -1}, {0, -1}, {1, -1}, {-1, 0}, {1, 0}, {-1, 1}, {0, 1}, {1, 1}}};
+      int seedY = imageData_->image422[seed].y1_;
       bool allBrighter = true;
       int score = 0;
       for (auto& d : directions)
       {
-        const Vector2i& point = seed + (d * pixelRadius * 10 / 25);
-        if (!imageData_->image.isInside(point))
+        // Move from seed into direction * pixelRadius * (10/25)
+        // 10/25 is a well working magic number
+        // 422 conversion is done by multiplying d.y with two (see above) and dividing the magic
+        // number
+        const Vector2i& point = seed + (d * pixelRadius * 5 / 25);
+        if (!imageData_->image422.isInside(point))
         {
           continue;
         }
-        const int pointY = imageData_->image[point].y_;
+        const int pointY = imageData_->image422[point].y1_;
         if (pointY - seedY < seedBrightMin_())
         {
           allBrighter = false;
@@ -525,56 +550,69 @@ void BallDetectionNeuralNet::sendDebugImage()
 
   if (debug().isSubscribed(debugImageMount))
   {
-    Image debugImage(imageData_->image);
+    Image debugImage(imageData_->image422.to444Image());
 
-    for (auto& seed : debugSeeds_)
+    for (auto& seed422 : debugSeeds_)
     {
+      const Circle<int> seed(Image422::get444From422Vector(seed422.center), seed422.radius);
       const int radiusHalf = seed.radius * 10 / 25;
-      debugImage.line(Vector2i(seed.center.x() - radiusHalf, seed.center.y()), Vector2i(seed.center.x() + radiusHalf, seed.center.y()), Color::BLUE);
-      debugImage.line(Vector2i(seed.center.x(), seed.center.y() - radiusHalf), Vector2i(seed.center.x(), seed.center.y() + radiusHalf), Color::BLUE);
+      debugImage.line(Vector2i(seed.center.x() - radiusHalf, seed.center.y()),
+                      Vector2i(seed.center.x() + radiusHalf, seed.center.y()), Color::BLUE);
+      debugImage.line(Vector2i(seed.center.x(), seed.center.y() - radiusHalf),
+                      Vector2i(seed.center.x(), seed.center.y() + radiusHalf), Color::BLUE);
       debugImage.line(Vector2i(seed.center.x() - radiusHalf, seed.center.y() - radiusHalf),
-                      Vector2i(seed.center.x() + radiusHalf, seed.center.y() + radiusHalf), Color::BLUE);
+                      Vector2i(seed.center.x() + radiusHalf, seed.center.y() + radiusHalf),
+                      Color::BLUE);
       debugImage.line(Vector2i(seed.center.x() + radiusHalf, seed.center.y() - radiusHalf),
-                      Vector2i(seed.center.x() - radiusHalf, seed.center.y() + radiusHalf), Color::BLUE);
+                      Vector2i(seed.center.x() - radiusHalf, seed.center.y() + radiusHalf),
+                      Color::BLUE);
     }
-    for (auto& circle : debugCircles_)
+    for (auto& debugCircle : debugCircles_)
     {
-      debugImage.cross(circle.circle.center, 3, circle.color);
-      debugImage.circle(circle.circle.center, circle.circle.radius, circle.color);
+      Circle<int> circle(debugCircle.circle);
+      circle.from422to444();
+      debugImage.cross(circle.center, 3, debugCircle.color);
+      debugImage.circle(circle.center, circle.radius, debugCircle.color);
     }
     Circle<int> foundBall;
     if (projectFoundBall(foundBall))
     {
-      debugImage.rectangle(foundBall.center.array() - foundBall.radius, foundBall.center.array() + foundBall.radius, Color::BLACK);
+      foundBall.from422to444();
+      debugImage.rectangle(foundBall.center.array() - foundBall.radius,
+                           foundBall.center.array() + foundBall.radius, Color::BLACK);
     }
     debug().sendImage(debugImageMount, debugImage);
   }
-  if (writeCandidatesToDisk_() && gameControllerState_->state == GameState::PLAYING && gameControllerState_->penalty == Penalty::NONE)
+  if (writeCandidatesToDisk_() && gameControllerState_->gameState == GameState::PLAYING &&
+      gameControllerState_->penalty == Penalty::NONE)
   {
     PngConverter img_conv_;
     for (auto& circle : debugCircles_)
     {
-      const Vector2i from(circle.circle.center.x() - circle.circle.radius, circle.circle.center.y() - circle.circle.radius);
-      const Vector2i to(circle.circle.center.x() + circle.circle.radius, circle.circle.center.y() + circle.circle.radius);
-      Image ball_candidate(to - from);
+      const Vector2i from(circle.circle.center.x() - circle.circle.radius / 2,
+                          circle.circle.center.y() - circle.circle.radius);
+      const Vector2i to(circle.circle.center.x() + circle.circle.radius / 2,
+                        circle.circle.center.y() + circle.circle.radius);
+      Image422 ball_candidate(to - from);
       for (int x = 0; x < to.x() - from.x(); x++)
       {
         for (int y = 0; y < to.y() - from.y(); y++)
         {
           Vector2i point = Vector2i(x, y);
-          if (imageData_->image.isInside(from + point))
+          if (imageData_->image422.isInside(from + point))
           {
-            ball_candidate[point] = imageData_->image[from + point];
+            ball_candidate[point] = imageData_->image422[from + point];
           }
           else
           {
             const uint8_t fallback = 128;
-            ball_candidate[point] = Color(fallback, fallback, fallback);
+            ball_candidate[point] = YCbCr422(fallback, fallback, fallback, fallback);
           }
         }
       }
       std::ofstream fs;
-      auto image = img_conv_.convert(ball_candidate);
+      CVData image;
+      img_conv_.convert(ball_candidate.to444Image(), image);
       std::string fn = mount_;
       if (circle.color == Color::ORANGE)
       {
@@ -588,10 +626,10 @@ void BallDetectionNeuralNet::sendDebugImage()
       {
         continue;
       }
-      fn = robotInterface().getFileRoot() + "filetransport_ball_candidates/" + fn + "." + std::to_string(candidateCount_++) + ".png";
-      // std::cout << "Writing: " << fn << std::endl;
+      fn = robotInterface().getFileRoot() + "filetransport_ball_candidates/" + fn + "." +
+           std::to_string(candidateCount_++) + ".png";
       fs.open(fn, std::ios_base::out | std::ios_base::trunc | std::ios_base::binary);
-      fs.write((const char*)image->data(), image->size());
+      fs.write((const char*)image.data(), image.size());
       fs.close();
     }
   }
@@ -606,10 +644,13 @@ bool BallDetectionNeuralNet::projectFoundBall(Circle<int>& foundBall) const
     {
       position += ballState_->velocity * cycleInfo_->cycleTime;
     }
-    cameraMatrix_->robotWithZToPixel(Vector3f(position.x(), position.y(), fieldDimensions_->ballDiameter / 2), foundBall.center);
-    if (imageData_->image.isInside(foundBall.center) && fieldBorder_->isInsideField(foundBall.center))
+    cameraMatrix_->robotWithZToPixel(
+        Vector3f(position.x(), position.y(), fieldDimensions_->ballDiameter / 2), foundBall.center);
+    if (imageData_->image422.isInside(foundBall.center) &&
+        fieldBorder_->isInsideField(foundBall.center))
     {
-      cameraMatrix_->getPixelRadius(imageData_->image.size_, foundBall.center, fieldDimensions_->ballDiameter / 2, foundBall.radius);
+      cameraMatrix_->getPixelRadius(imageData_->image422.size, foundBall.center,
+                                    fieldDimensions_->ballDiameter / 2, foundBall.radius);
       return true;
     }
   }

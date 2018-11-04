@@ -18,20 +18,22 @@ enum class Role {
 
 class PlayerConfiguration : public DataType<PlayerConfiguration> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "PlayerConfiguration";
   /// the number of the team (in normal games this is 24)
-  unsigned int teamNumber;
+  unsigned int teamNumber = 24;
   /// the number of the player
-  unsigned int playerNumber;
+  unsigned int playerNumber = 0;
   /// the role of the player
-  Role role;
+  Role role = Role::PLAYER;
   /// port for SPL messages
-  std::uint16_t port;
+  std::uint16_t port = 0;
   /// the x coordinates of the initial poses where the NAOs are placed (index is player number - 1) - the y coordinate is determined by the player number
   std::vector<float> initialPoses;
   /// whether the robot is the transmitter robot in the NoWifiChallenge
-  bool isNoWifiTransmitter;
+  bool isNoWifiTransmitter = false;
   /// whether the robot is the receiver robot in the NoWifiChallenge
-  bool isNoWifiReceiver;
+  bool isNoWifiReceiver = false;
   /**
    * @brief reset could reset members if it was necessary
    */
@@ -74,13 +76,13 @@ public:
   {
     config.mount("Brain.Config", "Brain.json", ConfigurationType::HEAD);
 
-    playerNumber = config.get("Brain.Config", "general.playerNumber").asInt();
+    playerNumber = config.get("Brain.Config", "general.playerNumber").asInt32();
     if (playerNumber < 1)
     {
       throw std::runtime_error("Player number must not be < 1.");
     }
-    teamNumber = config.get("Brain.Config", "general.teamNumber").asInt();
-    port = config.get("Brain.Config", "general.port").asInt();
+    teamNumber = config.get("Brain.Config", "general.teamNumber").asInt32();
+    port = config.get("Brain.Config", "general.port").asInt32();
 
     std::string roleString = config.get("Brain.Config", "behavior.playerRole").asString();
     if (roleString == "player")

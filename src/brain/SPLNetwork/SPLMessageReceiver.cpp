@@ -6,12 +6,12 @@
 #include "SPLMessageReceiver.hpp"
 
 SPLMessageReceiver::SPLMessageReceiver(const ModuleManagerInterface& manager)
-  : Module(manager, "SPLMessageReceiver")
+  : Module(manager)
   , playerConfiguration_(*this)
   , splNetworkData_(*this)
   , cycleInfo_(*this)
   , rawGameControllerState_(*this)
-  , teamPlayers_(*this)
+  , rawTeamPlayers_(*this)
   , ntpData_(*this)
 {
 }
@@ -21,12 +21,12 @@ void SPLMessageReceiver::cycle()
   float dt = cycleInfo_->getTimeDiff(lastTime_);
   lastTime_ = cycleInfo_->startTime;
   // increase age and remove too old players
-  for (auto it = internalPlayers_.players.begin(); it != internalPlayers_.players.end();)
+  for (auto it = internalPlayers_.rawPlayers.begin(); it != internalPlayers_.rawPlayers.end();)
   {
     it->age += dt;
     if (it->age > 3.f)
     {
-      it = internalPlayers_.players.erase(it);
+      it = internalPlayers_.rawPlayers.erase(it);
     }
     else
     {
@@ -42,13 +42,11 @@ void SPLMessageReceiver::cycle()
     {
       continue;
     }
-    TeamPlayer p;
+    RawTeamPlayer p;
     p.age = 0.0f;
     p.playerNumber = msg.playerNum;
     p.pose = Pose(msg.pose[0] * 0.001f, msg.pose[1] * 0.001f, msg.pose[2]);
-    p.target = Vector2f(msg.walkingTo[0], msg.walkingTo[1]) * 0.001f;
     p.ballPosition = Vector2f(msg.ball[0], msg.ball[1]) * 0.001f;
-    p.ballVelocity = Vector2f(msg.ballVel[0], msg.ballVel[1]) * 0.001f;
     if (msg.ballAge < 0.f || msg.ballAge * 1000 >= cycleInfo_->startTime.getSystemTime())
     {
       p.timeWhenBallWasSeen = 0;
@@ -59,18 +57,6 @@ void SPLMessageReceiver::cycle()
     }
     p.fallen = (msg.fallen > 0);
     p.penalized = p.playerNumber <= rawGameControllerState_->penalties.size() && rawGameControllerState_->penalties[p.playerNumber - 1] != Penalty::NONE;
-    // static_cast only works because the enum values are exactly the same as the ones from the message
-    p.intention = static_cast<PlayerIntention>(msg.intention);
-    if (playerConfiguration_->playerNumber <= SPL_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS)
-    {
-      p.suggestion = static_cast<PlayerSuggestion>(msg.suggestion[playerConfiguration_->playerNumber - 1]);
-    }
-    else
-    {
-      p.suggestion = PlayerSuggestion::NOTHING;
-    }
-    p.currentSideConfidence = static_cast<uint8_t>(msg.currentSideConfidence);
-    p.currentPositionConfidence = static_cast<uint8_t>(msg.currentPositionConfidence);
 
     B_HULKs::BHULKsStandardMessage bhmsg;
     // This check is not completely safe. bhmsg.sizeOfBHULKsMessage returns the size of a message with no obstacles and no NTP messages.
@@ -100,7 +86,7 @@ void SPLMessageReceiver::cycle()
       }
       // figure out whether robot is a HULK
       p.isHULK = (bhmsg.member == HULKS_MEMBER);
-      // add local obstacles of the robot to the TeamPlayer
+      // add local obstacles of the robot to the RawTeamPlayer
       p.localObstacles = bhmsg.obstacles;
       // convert obstacle centers back to meters because the B-HULKs message is based on millimeters
       for (auto& playerObstacle : p.localObstacles)
@@ -112,7 +98,7 @@ void SPLMessageReceiver::cycle()
       p.penalized = bhmsg.isPenalized;
       p.keeperWantsToPlayBall = bhmsg.kingIsPlayingBall;
       p.currentPassTarget = bhmsg.passTarget;
-      p.currentlyPerfomingRole = B_HULKs::bhulkToPlayingRole(bhmsg.currentlyPerfomingRole);
+      p.currentlyPerformingRole = B_HULKs::bhulkToPlayingRole(bhmsg.currentlyPerfomingRole);
       p.roleAssignments.resize(BHULKS_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS);
       for (unsigned int i = 0; i < BHULKS_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS; i++)
       {
@@ -139,18 +125,31 @@ void SPLMessageReceiver::cycle()
       HULKs::HULKsMessage hulksMessage;
       if (msg.numOfDataBytes >= bhmsg.sizeOfBHULKsMessage() + hulksMessage.sizeOfHULKsMessage() && hulksMessage.read(msg.data + bhmsg.sizeOfBHULKsMessage()))
       {
+        p.isPoseValid = hulksMessage.isPoseValid;
+        p.walkingTo = hulksMessage.walkingTo;
+        p.ballVelocity = Vector2f(hulksMessage.ballVel[0], hulksMessage.ballVel[1]);
         p.currentSearchPosition = hulksMessage.ballSearchData.currentSearchPosition;
-        p.suggestedSearchPositions.resize(hulksMessage.ballSearchData.positionSuggestions.size());
-        for (unsigned int i = 0; i < hulksMessage.ballSearchData.positionSuggestions.size(); i++)
+        p.isAvailableForBallSearch = hulksMessage.ballSearchData.availableForSearch;
+
+        for (uint8_t i = 0; i < MAX_NUM_PLAYERS; i++)
         {
+          p.suggestedSearchPositionsValidity[i] = static_cast<bool>(hulksMessage.ballSearchData.positionSuggestionsValidity & (1 << i));
           p.suggestedSearchPositions[i] = hulksMessage.ballSearchData.positionSuggestions[i];
         }
+
+        if (ntpRobots_.size() >= static_cast<unsigned int>(msg.playerNum) && ntpRobots_[msg.playerNum - 1].valid)
+        {
+          p.timestampBallSearchMapUnreliable = std::max<int>(0,
+            (hulksMessage.ballSearchData.timestampBallSearchMapUnreliable - ntpRobots_[msg.playerNum - 1].offset));
+        }
+
+        p.mostWisePlayerNumber = hulksMessage.ballSearchData.mostWisePlayerNumber;
       }
     }
     else
     {
       p.isHULK = false;
-      p.currentlyPerfomingRole = PlayingRole::DEFENDER;
+      p.currentlyPerformingRole = PlayingRole::DEFENDER;
       p.headYaw = 0;
       p.timeWhenReachBall = cycleInfo_->startTime + 600000;
       p.timeWhenReachBallStriker = cycleInfo_->startTime + 600000;
@@ -159,7 +158,7 @@ void SPLMessageReceiver::cycle()
       p.keeperWantsToPlayBall = false;
     }
     bool merged = false;
-    for (auto& it2 : internalPlayers_.players)
+    for (auto& it2 : internalPlayers_.rawPlayers)
     {
       if (it2.playerNumber == p.playerNumber)
       {
@@ -170,12 +169,12 @@ void SPLMessageReceiver::cycle()
     }
     if (!merged)
     {
-      internalPlayers_.players.push_back(p);
+      internalPlayers_.rawPlayers.push_back(p);
     }
   }
   internalPlayers_.activePlayers = 0;
   internalPlayers_.activeHULKPlayers = 0;
-  for (auto& player : internalPlayers_.players)
+  for (auto& player : internalPlayers_.rawPlayers)
   {
     if (!player.penalized)
     {
@@ -186,7 +185,7 @@ void SPLMessageReceiver::cycle()
       }
     }
   }
-  *teamPlayers_ = internalPlayers_;
+  *rawTeamPlayers_ = internalPlayers_;
 
-  debug().update(mount_ + ".TeamPlayers", *teamPlayers_);
+  debug().update(mount_ + ".RawTeamPlayers", *rawTeamPlayers_);
 }

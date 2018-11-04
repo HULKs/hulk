@@ -27,7 +27,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   endif(GCC_VERSION VERSION_LESS 5)
 
   # Enable as many warnings as possible and handle them as errors unless a release is compiled.
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -pipe")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -pipe -mssse3")
   set(CMAKE_CXX_FLAGS_DEBUG "-Werror -pedantic-errors -g -fno-omit-frame-pointer")
   set(CMAKE_CXX_FLAGS_DEVELOP "-Werror -pedantic-errors -O3 -fomit-frame-pointer")
   set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -fomit-frame-pointer")
@@ -35,10 +35,11 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   message(STATUS "Compiling with Clang")
 
   # Set the same options as with gcc.
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -pipe")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -pipe -mssse3")
   set(CMAKE_CXX_FLAGS_DEBUG "-Werror -pedantic-errors -g -fno-omit-frame-pointer")
   set(CMAKE_CXX_FLAGS_DEVELOP "-Werror -pedantic-errors -O3 -fomit-frame-pointer")
   set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -fomit-frame-pointer")
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -ggdb -DNDEBUG -fomit-frame-pointer")
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   message(STATUS "Compiling with MSVC")
 
@@ -61,6 +62,10 @@ endif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 if(WIN32)
   add_definitions(-D_USE_MATH_DEFINES -DEIGEN_DONT_VECTORIZE -DEIGEN_DISABLE_UNALIGNED_ARRAY_ASSERT)
 endif(WIN32)
+
+if (LINUX_HEADERS)
+  include_directories(SYSTEM ${LINUX_HEADERS})
+endif (LINUX_HEADERS)
 
 if(NAO)
   add_definitions(-DEIGEN_DONT_VECTORIZE -DEIGEN_DISABLE_UNALIGNED_ARRAY_ASSERT)

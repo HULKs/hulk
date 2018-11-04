@@ -2,7 +2,7 @@
 
 
 AudioReceiver::AudioReceiver(const ModuleManagerInterface& manager)
-  : Module(manager, "AudioReceiver")
+  : Module(manager)
   , audioInterface_(robotInterface().getAudio())
   , recordData_(*this)
 {

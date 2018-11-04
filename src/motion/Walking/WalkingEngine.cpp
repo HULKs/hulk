@@ -15,7 +15,7 @@
 
 /** Constructor **/
 WalkingEngine::WalkingEngine(const ModuleManagerInterface& manager)
-  : Module(manager, "WalkingEngine")
+  : Module(manager)
   , positionOffsetLeft_(*this, "positionOffsetLeft", [] {})
   , positionOffsetRight_(*this, "positionOffsetRight", [] {})
   , torsoAngle_(*this, "torsoAngle", [this] { torsoAngle_() *= TO_RAD; })
@@ -24,6 +24,9 @@ WalkingEngine::WalkingEngine(const ModuleManagerInterface& manager)
   hipCorrectionY_(*this, "hipCorrectionY", [] {})
   , angleOffsetLeft_(*this, "angleOffsetLeft", [this] { angleOffsetLeft_() *= TO_RAD; })
   , angleOffsetRight_(*this, "angleOffsetRight", [this] { angleOffsetRight_() *= TO_RAD; })
+  , linearVel_(*this, "linearVel", [] {})
+  , periodDuration_(*this, "periodDuration", [] {})
+  , rotationAngleLimit_(*this, "rotationAngleLimit", [this] {rotationAngleLimit_() *= TO_RAD; })
   , kickInWalk_(*this, "kickInWalk", [] {})
   , kalmanQ_(*this, "kalmanQ")
   , kalmanR_(*this, "kalmanR")
@@ -58,6 +61,7 @@ WalkingEngine::WalkingEngine(const ModuleManagerInterface& manager)
   torsoAngle_() *= TO_RAD;
   angleOffsetLeft_() *= TO_RAD;
   angleOffsetRight_() *= TO_RAD;
+  rotationAngleLimit_() *= TO_RAD;
   Matrix2f kalmanInitA;
   kalmanInitA << 1, TIME_STEP, 0, 1;
   kalmanY_ = KalmanFilter(kalmanInitA,                           // A
@@ -138,6 +142,13 @@ void WalkingEngine::cycle()
     walkingEngineStandOutput_->stiffnesses = std::vector<float>(walkingEngineStandOutput_->angles.size(), walkStiffness_());
   }
   walkingEngineWalkOutput_->safeExit = pendulum_.isAborted();
+
+  // publish max velocities
+  const float rotationalVel = rotationAngleLimit_() / periodDuration_() * 0.5f;
+  walkingEngineWalkOutput_->maxVelocityComponents =
+      Pose(linearVel_(), 0.2f * linearVel_(), rotationalVel);
+  // this relation was found empirically, don't ask.
+  walkingEngineWalkOutput_->walkAroundBallVelocity = rotationalVel * 2.f / 3.f;
 }
 
 void WalkingEngine::pushOdometryUpdate(const Vector2f& torsoShift)

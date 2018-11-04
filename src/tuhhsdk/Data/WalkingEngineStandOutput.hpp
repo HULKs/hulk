@@ -4,6 +4,8 @@
 
 class WalkingEngineStandOutput : public DataType<WalkingEngineStandOutput, MotionOutput> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "WalkingEngineStandOutput";
   virtual void reset()
   {
     MotionOutput::reset();

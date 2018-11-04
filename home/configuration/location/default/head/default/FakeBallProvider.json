@@ -1,0 +1,12 @@
+{
+  "overlap": 300,
+  "enableNoise": false,
+  "pixelNoiseSigma": [
+    5,
+    5
+  ],
+  "enableFieldOfView": true,
+  "limitSight": true,
+  "maxDetectionDistance": 2.5,
+  "enableDetectionRate": false
+}

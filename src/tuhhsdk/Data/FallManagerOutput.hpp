@@ -4,6 +4,8 @@
 
 class FallManagerOutput : public DataType<FallManagerOutput, MotionOutput> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "FallManagerOutput";
   /// whether the FallManager wants to send joint commands
   bool wantToSend;
   /**

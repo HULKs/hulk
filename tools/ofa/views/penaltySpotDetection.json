@@ -1,0 +1,61 @@
+[
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.FieldBorderDetection.bottom_filtered"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": "1",
+			"keepRatio": true
+		},
+		"position": [
+			0,
+			30
+		],
+		"resize": [
+			640,
+			500
+		]
+	},
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.FieldMarksDetection.bottom_image_penaltySpot"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": "1",
+			"keepRatio": true
+		},
+		"position": [
+			0,
+			540
+		],
+		"resize": [
+			640,
+			500
+		]
+	},
+	{
+		"panel": "Image",
+		"config": {
+			"keys": [
+				"Brain.BallDetectionNeuralNet.bottom_image"
+			],
+			"returnType": {},
+			"mapping": "return [key0]",
+			"title": "",
+			"frameSelect": "1",
+			"keepRatio": true
+		},
+		"position": [
+			640,
+			30
+		]
+	}
+]

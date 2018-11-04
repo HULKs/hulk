@@ -1,3 +1,5 @@
 {
-  "confidentDistance" : 1
+  "confidentDistance" : 1,
+  "invalidReadingsLimit" : 100,
+  "smoothingFactor" : 0.25
 }

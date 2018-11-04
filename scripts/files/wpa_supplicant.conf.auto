@@ -9,6 +9,7 @@ network={
 network={
   disabled={spl_b_dis}
   ssid="SPL_B"
+  #psk="Nao?!Nao?!"
   psk=51ddc9d758da4a99d3ad367324eb76abcf4bce7743fab780a01a32596304bf78
 }
 
@@ -28,6 +29,12 @@ network={
   disabled={spl_e_dis}
   ssid="SPL_E"
   psk=2bc7b1a707674039b25e52fa24c4ec98c58545b5f4f1f38efb39f48619014a34
+}
+
+network={
+  disabled={spl_io_dis}
+  ssid="SPL_IO"
+  psk=79561acf748ec4e4736879478f5e76c263c7dcb5fd6991d5e4807a54d82827fd
 }
 
 network={

@@ -5,70 +5,136 @@
 #include "Data/CameraMatrix.hpp"
 #include "Data/FieldColor.hpp"
 #include "Data/ImageData.hpp"
-#include "Data/ImageRegions.hpp"
+#include "Data/ImageSegments.hpp"
 #include "Data/RobotProjection.hpp"
+#include <Modules/Projection/ProjectionCamera.hpp>
+#include <Tools/Kinematics/ForwardKinematics.h>
+#include <set>
+
 
 class Brain;
 
 class ImageSegmenter : public Module<ImageSegmenter, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "ImageSegmenter";
   /**
    * ImageSegmenter constructor
    * @param manager a reference to the brain object
-   *
-   * @author Erik Schröder and Pascal Loth
    */
   ImageSegmenter(const ModuleManagerInterface& manager);
-
   void cycle();
 
 private:
-  struct ScanlineState
+  struct ScanlineStateVertical
   {
-    /// edge detection state
-    int g_min;
-    /// edge detection state
-    int g_max;
-    /// the y coordinate where the edge intensity was highest
-    int y_peak;
-    /// the previous color on the scanline
-    Color last;
-    /// the scanline this state belongs to
-    Scanline* scanline;
+    // edge detection state
+    int gMin;
+    // edge detection state
+    int gMax;
+    // the y coordinate where the edge intensity was highest
+    int yPeak;
+    // The number of sampled points within the last segment.
+    int scanPoints;
+    // the previous color on the scanline
+    const YCbCr422* lastYCbCr422;
+    // the scanline this state belongs to
+    VerticalScanline* scanline;
   };
-  /**
-   * @brief haveEdge is a handler for edges that manages region creation
-   * @param y the y coordinate at which the edge has been found
-   * @param scanline the scanline on which the edge has been found
-   * @param type whether this is a falling or rising edge (or the image border)
-   */
-  void haveEdge(int y, Scanline& scanline, EdgeType type);
-  /**
-   * @brief createScanlines scans the image on vertical scanlines and creates regions of similar color
-   */
-  void createScanlines();
-  /**
-   * @brief sendImageForDebug
-   * @param image the camera image in which to draw the region lines
-   * @author Arne Hasselbring
-   */
-  void sendImageForDebug(const Image& image);
-  /**
-   * @brief Spacing between pixel sampling points
-   *
-   * Specifies the spacing between points of the subsampling grid used for the histogram.
-   *
-   * @author Erik Schröder and Pascal Loth
-   */
-  static const int GRID_SPACING = 4; // 16
 
-  const Parameter<bool> draw_full_image_;
-  const Parameter<int> edge_threshold_;
-  const Parameter<int> num_scanlines_;
-  const Dependency<ImageData> image_data_;
-  const Dependency<CameraMatrix> camera_matrix_;
-  const Dependency<FieldColor> field_color_;
-  const Dependency<RobotProjection> robot_projection_;
-  Production<ImageRegions> image_regions_;
+  struct ScanlineStateHorizontal
+  {
+    // edge detection states
+    int gMin;
+    int gMax;
+    // the x coordinate whre the edge intensity was highest
+    int xPeak;
+    // the number of sampled points within the last segment
+    int scanPoints;
+    // the previous color on the scanline
+    const YCbCr422* lastYCbCr422;
+
+    void reset(const int edgeThreshold, const YCbCr422* ycbcr422)
+    {
+      gMin = edgeThreshold;
+      gMax = -edgeThreshold;
+      xPeak = 0;
+      scanPoints = 1;
+      lastYCbCr422 = ycbcr422;
+    }
+  };
+
+  /**
+   * @brief median computes the median of five elements
+   * http://stackoverflow.com/questions/480960/code-to-calculate-median-of-five-in-c-sharp/2117018#2117018
+   * @param a
+   * @param b
+   * @param c
+   * @param d
+   * @param e
+   */
+  uint8_t median(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint8_t e);
+
+  /**
+   * @brief median computes the median of three elements
+   * http://stackoverflow.com/questions/480960/code-to-calculate-median-of-five-in-c-sharp/2117018#2117018
+   * @param a
+   * @param b
+   * @param c
+   */
+  uint8_t median(uint8_t a, uint8_t b, uint8_t c);
+
+  /**
+   * @brief addSegment is a handler for edges that manages segment creation
+   * @param peak the coordinate at which the edge has been found
+   * @param scanline the scanline on which the edge has been found
+   * @param type whether this is a falling, rising, robot or image border edge
+   * @param scanPoints the number of sampled points within this segment
+   */
+  void addSegment(const Vector2i& peak, Scanline& scanline, EdgeType type, int scanPoints);
+
+  /**
+   * @brief isOnRobot checks whether a pixel is on himself
+   */
+  bool isOnRobot(const Vector2i& pos);
+  /**
+   * @brief createVerticalScanlines scans the image on vertical scanlines and creates segments of
+   * similar color
+   */
+  void createVerticalScanlines();
+  /**
+   * @brief createHorizontalScanlines scans the image on horizontal scanlines and creates segments
+   * of similar color
+   */
+  void createHorizontalScanlines();
+  /// Calculates the lookup tables {@link scanGrids_}.
+  void calculateScanGrids();
+  /**
+   * @brief sendDebug
+   * @param image the camera image in which to draw the segments
+   */
+  void sendDebug();
+
+  bool isRobotCheckNecessary(const int y) const;
+
+  /**
+   * @brief Prevents race condition of in-cycle change of the number of scanlines
+   */
+  bool updateScanlines_;
+  /// @brief whether the scangrid for a camera is valid
+  std::array<bool, 2> scanGridsValid_;
+
+  const Parameter<bool> drawFullImage_;
+  const Parameter<std::array<int, 2>> edgeThresholdHorizontal_;
+  const Parameter<std::array<int, 2>> edgeThresholdVertical_;
+  const Parameter<int> numScanlines_;
+  const Parameter<bool> drawEdges_;
+
+  const Dependency<ImageData> imageData_;
+  const Dependency<CameraMatrix> cameraMatrix_;
+  const Dependency<FieldColor> fieldColor_;
+  const Dependency<RobotProjection> robotProjection_;
+
+  Production<ImageSegments> imageSegments_;
 };

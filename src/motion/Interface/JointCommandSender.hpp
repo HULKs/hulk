@@ -1,7 +1,9 @@
 #pragma once
 
+#include "Data/BodyDamageData.hpp"
 #include "Data/FallManagerOutput.hpp"
 #include "Data/HeadMotionOutput.hpp"
+#include "Data/JointCalibrationData.hpp"
 #include "Data/JointSensorData.hpp"
 #include "Data/KeeperOutput.hpp"
 #include "Data/KickOutput.hpp"
@@ -20,6 +22,8 @@ class Motion;
 class JointCommandSender : public Module<JointCommandSender, Motion>
 {
 public:
+  /// the name of this module
+  ModuleName name = "JointCommandSender";
   /**
    * @brief JointCommandSender initializes members
    * @param manager a reference to motion
@@ -55,10 +59,16 @@ private:
   const Dependency<WalkingEngineStandOutput> walkingEngineStandOutput_;
   /// a reference to the joint sensor data
   const Dependency<JointSensorData> jointSensorData_;
+  /// a reference to the joint calibration data
+  const Dependency<JointCalibrationData> jointCalibrationData_;
+  /// a reference to the damage state
+  const Dependency<BodyDamageData> bodyDamageData_;
   /// a reference to the motion state
   Production<MotionState> motionState_;
   /// the currently sent joint angles
   std::vector<float> angles_;
+  /// the angles containing the calibration offsets
+  std::vector<float> calibratedAngles_;
   /// the currently sent joint stiffnesses
   std::vector<float> stiffnesses_;
   /// the joint angles when interpolation started

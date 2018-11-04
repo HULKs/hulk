@@ -3,5 +3,6 @@
 
 ActionCommand::Head CameraCalibrationLook(const DataSet& d)
 {
-  return ActionCommand::Head::angles(d.parameters.calibrationHeadYaw(), d.parameters.calibrationHeadPitch());
+  return ActionCommand::Head::angles(d.parameters.calibrationHeadYaw(),
+                                     d.parameters.calibrationHeadPitch());
 }

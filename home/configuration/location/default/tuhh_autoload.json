@@ -1,12 +1,13 @@
 {
-	"modules" : [
-		{
-			"sharedObject" : "Motion",
-			"loglevel" : "error"
-		},
-		{
-			"sharedObject" : "Brain",
-			"loglevel" : "error"
-		}
-	]
+  "moduleSetup" : "default", //{default, fullVisionFake, replay, oldWalking}
+  "sharedObjects" : [
+    {
+      "sharedObject" : "Motion",
+      "loglevel" : "info"
+    },
+    {
+      "sharedObject" : "Brain",
+      "loglevel" : "info"
+    }
+  ]
 }

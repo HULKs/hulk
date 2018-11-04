@@ -10,20 +10,17 @@ public:
   Impl();
   ~Impl();
 
-  SharedCVData convert(const Image& img);
+  void convert(const Image& img, CVData& data);
   unsigned long TJBUFSIZE(unsigned long width, unsigned long height);
-  void renewBuffer();
+  void renewBuffer(const Image& img, CVData& data);
 
 private:
   JSAMPROW row_ptr_;
   jpeg_compress_struct cinfo_;
   jpeg_error_mgr jerr_;
-  unsigned char* compressedImage_;
-  unsigned long jpegBufSize_;
+  unsigned char* buffer_;
   unsigned long jpegSize_;
   int jpegQuality_;
-  unsigned long curHeight_;
-  unsigned long curWidth_;
 };
 
 
@@ -32,19 +29,15 @@ JpegConverter::JpegConverter()
 {
 }
 
-SharedCVData JpegConverter::convert(const Image& img)
+void JpegConverter::convert(const Image& img, CVData& data)
 {
-  return pImpl_->convert(img);
+  return pImpl_->convert(img, data);
 }
 
 
 JpegConverter::Impl::Impl()
-  : compressedImage_(NULL)
-  , jpegBufSize_(0)
-  , jpegSize_(0)
+  : jpegSize_(0)
   , jpegQuality_(75)
-  , curHeight_(0)
-  , curWidth_(0)
 {
   cinfo_.err = jpeg_std_error(&jerr_);
   jpeg_create_compress(&cinfo_);
@@ -58,21 +51,18 @@ JpegConverter::Impl::Impl()
 
   cinfo_.image_width = 640;
   cinfo_.image_height = 480;
-  renewBuffer();
 }
 
 JpegConverter::Impl::~Impl()
 {
-  if (compressedImage_ != NULL)
-    delete[] compressedImage_;
-
   jpeg_destroy_compress(&cinfo_);
 }
 
 
 /*
  * @info From the libjpeg-turbo implementation:
- * @url https://github.com/chris-allan/libjpeg-turbo/blob/a91879e159a3ff3cefd6fdd09093f96355d2cb5f/turbojpeg.c
+ * @url
+ * https://github.com/chris-allan/libjpeg-turbo/blob/a91879e159a3ff3cefd6fdd09093f96355d2cb5f/turbojpeg.c
  */
 unsigned long JpegConverter::Impl::TJBUFSIZE(unsigned long width, unsigned long height)
 {
@@ -86,28 +76,22 @@ unsigned long JpegConverter::Impl::TJBUFSIZE(unsigned long width, unsigned long 
   return retval;
 }
 
-void JpegConverter::Impl::renewBuffer()
-{
-  if (curWidth_ < cinfo_.image_width || curHeight_ < cinfo_.image_height)
-  {
-    curWidth_ = cinfo_.image_width;
-    curHeight_ = cinfo_.image_height;
-    delete[] compressedImage_;
-    jpegBufSize_ = TJBUFSIZE(curWidth_, curHeight_);
-    compressedImage_ = new unsigned char[jpegBufSize_];
-  }
-
-  jpegSize_ = jpegBufSize_;
-  jpeg_mem_dest(&cinfo_, &compressedImage_, &jpegSize_);
-}
-
-SharedCVData JpegConverter::Impl::convert(const Image& img)
+void JpegConverter::Impl::renewBuffer(const Image& img, CVData& data)
 {
   cinfo_.image_width = img.size_.x();
   cinfo_.image_height = img.size_.y();
   cinfo_.input_components = 3;
 
-  renewBuffer();
+  jpegSize_ = TJBUFSIZE(img.size_.x(), img.size_.y());
+  data.resize(jpegSize_);
+  buffer_ = data.data();
+
+  jpeg_mem_dest(&cinfo_, &buffer_, &jpegSize_);
+}
+
+void JpegConverter::Impl::convert(const Image& img, CVData& data)
+{
+  renewBuffer(img, data);
 
   jpeg_start_compress(&cinfo_, TRUE);
 
@@ -119,6 +103,5 @@ SharedCVData JpegConverter::Impl::convert(const Image& img)
   }
 
   jpeg_finish_compress(&cinfo_);
-
-  return SharedCVData(new CVData(compressedImage_, compressedImage_ + jpegSize_));
+  data.resize(jpegSize_);
 }

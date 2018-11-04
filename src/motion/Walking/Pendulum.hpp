@@ -5,11 +5,11 @@
 
 #include "FootController.hpp"
 #include "StepPlanner.hpp"
-#include <Data/IMUSensorData.hpp>
-#include <Data/MotionPlannerOutput.hpp>
-#include <Data/MotionRequest.hpp>
-#include <Modules/Debug/Debug.h>
-#include <Tools/Math/Pose.hpp>
+#include "Data/IMUSensorData.hpp"
+#include "Data/MotionPlannerOutput.hpp"
+#include "Data/MotionRequest.hpp"
+#include "Framework/DebugDatabase.hpp"
+#include "Tools/Math/Pose.hpp"
 
 enum WalkingType
 {
@@ -36,7 +36,7 @@ struct ComOffset
 class Pendulum
 {
 public:
-  Pendulum(const ModuleBase& module, const MotionPlannerOutput& motionPlannerOutput, const IMUSensorData& imuSensorData, Debug& debug);
+  Pendulum(const ModuleBase& module, const MotionPlannerOutput& motionPlannerOutput, const IMUSensorData& imuSensorData, DebugDatabase::DebugMap& debug);
   ~Pendulum();
 
 
@@ -76,7 +76,7 @@ private:
   const Parameter<bool> setDynamicSteps_;
 
   const IMUSensorData& imuSensorData_;
-  Debug& debug_;
+  DebugDatabase::DebugMap& debug_;
 
   FootController footController_;
 

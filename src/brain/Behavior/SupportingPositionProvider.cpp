@@ -1,120 +1,73 @@
 #include "Tools/Chronometer.hpp"
+#include "Tools/Math/Angle.hpp"
 
 #include "SupportingPositionProvider.hpp"
 
 
 SupportingPositionProvider::SupportingPositionProvider(const ModuleManagerInterface& manager)
-  : Module(manager, "SupportingPositionProvider")
+  : Module(manager)
   , fieldDimensions_(*this)
   , gameControllerState_(*this)
-  , playerConfiguration_(*this)
   , playingRoles_(*this)
-  , robotPosition_(*this)
   , teamBallModel_(*this)
-  , teamPlayers_(*this)
+  , worldState_(*this)
   , supportingPosition_(*this)
-  , minimumDistance_(*this, "minimumDistance", [] {})
-  , wasObstructing_(false)
+  , minimumAngle_(*this, "minimumAngle", [this] { minimumAngle_() *= TO_RAD; })
+  , distanceToBall_(*this, "distanceToBall", [] {})
+  , aggressiveSupporterLineX_(-fieldDimensions_->fieldLength / 2 + 2.f)
 {
+  minimumAngle_() *= TO_RAD;
 }
 
 void SupportingPositionProvider::cycle()
 {
   Chronometer time(debug(), mount_ + ".cycleTime");
 
-  if (gameControllerState_->state != GameState::PLAYING || playingRoles_->role != PlayingRole::SUPPORT_STRIKER || !teamBallModel_->seen)
+  if (gameControllerState_->gameState != GameState::PLAYING || !teamBallModel_->seen)
   {
     return;
   }
 
-  Vector2f relKickTarget;
-  const TeamPlayer* passTarget = nullptr;
-  findPassTarget(passTarget);
-  if (passTarget != nullptr)
-  {
-    if (passTarget->playerNumber == playerConfiguration_->playerNumber)
-    {
-      supportingPosition_->position = robotPosition_->pose.position; // I'm the pass target; wait at current pose
-      supportingPosition_->valid = true;
-      wasObstructing_ = false;
-      return;
-    }
-    else
-    {
-      relKickTarget = robotPosition_->fieldToRobot(passTarget->pose.position); // the striker wants to pass to another robot
-    }
-  }
-  else
-  {
-    relKickTarget = robotPosition_->fieldToRobot(Vector2f(fieldDimensions_->fieldLength * 0.5f, 0.f)); // the kick target is the goal
-  }
+  // Find the angle of the vector from our own goal to the ball. Ideally, the supporter should stand
+  // on this vector.
+  const Vector2f absBallPosition = teamBallModel_->position;
+  const Vector2f absOwnGoalPosition = Vector2f(-fieldDimensions_->fieldLength / 2, 0);
+  const Vector2f ownGoalToBall = absBallPosition - absOwnGoalPosition;
+  const float angleOwnGoalToBall = std::atan2(ownGoalToBall.y(), ownGoalToBall.x());
 
-  const Vector2f relBallPosition = robotPosition_->fieldToRobot(teamBallModel_->position);
-  const float ballToRobotDistance = 1.0f;
-  // Do NOT remove parentheses
-  const Vector2f ballToRobot = relBallPosition.normalized() * (-ballToRobotDistance);
-  // desired supporting position (may obstruct striker though)
-  const Vector2f relSupportingPosition =
-      std::abs(relBallPosition.squaredNorm() - ballToRobotDistance * ballToRobotDistance) >= 0.1f * 0.1f ? relBallPosition + ballToRobot : Vector2f(0.f, 0.f);
+  // Find the angle of the vector from the ball to our opponent's goal. In most cases, the striker
+  // will stand on this vector.
+  const Vector2f absOpponentsGoalPosition = Vector2f(fieldDimensions_->fieldLength / 2, 0);
+  const Vector2f ballToOpponentsGoal = absOpponentsGoalPosition - absBallPosition;
+  const float angleBallToOpponentsGoal =
+      std::atan2(ballToOpponentsGoal.y(), ballToOpponentsGoal.x());
 
-  // compute the distance of the supporting pose and its projection to the line between ball and kick target
-  const Vector2f ballToKickTarget = relKickTarget - relBallPosition;
-  const Vector2f ballToSupportingPosition = relSupportingPosition - relBallPosition;
-  const Vector2f projectedRelSupportingPosition =
-      relBallPosition + ballToKickTarget * (ballToSupportingPosition.dot(ballToKickTarget)) / (ballToKickTarget.dot(ballToKickTarget));
-  const float distanceToKickLineSquared = (projectedRelSupportingPosition - relSupportingPosition).squaredNorm();
-  const float minimumDistance = wasObstructing_ ? minimumDistance_() + 0.2f : minimumDistance_();
-  const bool tooCloseToKickLine = distanceToKickLineSquared < minimumDistance * minimumDistance;
-  const bool betweenBallAndTarget = relSupportingPosition.x() > relBallPosition.x() && relSupportingPosition.x() < relKickTarget.x();
-  if (tooCloseToKickLine && betweenBallAndTarget) // check if supporter position obstructs striker
-  {
-    // find shortest direction to move away from direct line between ball and kick target (to a position 1 m away from said line)
-    const int sign = (relKickTarget.x() - relBallPosition.x()) * (relSupportingPosition.y() - relBallPosition.y()) >
-                             (relSupportingPosition.x() - relBallPosition.x()) * (relKickTarget.y() - relBallPosition.y())
-                         ? 1
-                         : -1;
-    const Vector2f newRelSupportingPosition =
-        projectedRelSupportingPosition + Vector2f(-ballToKickTarget.y(), ballToKickTarget.x()) / ballToKickTarget.norm() * sign * minimumDistance_();
-    supportingPosition_->position = robotPosition_->robotToField(newRelSupportingPosition);
-    supportingPosition_->valid = true;
-    wasObstructing_ = true;
-  }
-  else
-  {
-    supportingPosition_->position = robotPosition_->robotToField(relSupportingPosition);
-    supportingPosition_->valid = true;
-    wasObstructing_ = false;
-  }
-}
+  // Compute the difference of said angles.
+  const float diff = Angle::angleDiff(angleOwnGoalToBall, angleBallToOpponentsGoal);
 
-void SupportingPositionProvider::findPassTarget(const TeamPlayer*& passTarget)
-{
-  const TeamPlayer* striker = nullptr;
-  for (auto& teamPlayer : teamPlayers_->players)
-  {
-    if (teamPlayer.penalized)
-    {
-      continue;
-    }
-    else if (teamPlayer.currentlyPerfomingRole == PlayingRole::STRIKER)
-    {
-      striker = &teamPlayer;
-      break;
-    }
-  }
-  if (striker != nullptr)
-  {
-    for (auto& teamPlayer : teamPlayers_->players)
-    {
-      if (teamPlayer.penalized)
-      {
-        continue;
-      }
-      else if (striker->currentPassTarget == static_cast<int>(teamPlayer.playerNumber))
-      {
-        passTarget = &teamPlayer;
-        break;
-      }
-    }
-  }
+  // The optimal angle is the angle that covers our goal while allowing the supporter to see the
+  // ball. If the opponent has a free kick the supporter should be directly between ball and own
+  // goal
+  const bool opponentHasFreeKick =
+      gameControllerState_->setPlay != SetPlay::NONE && !gameControllerState_->kickingTeam;
+  const float optimalAngle =
+      std::abs(diff) > minimumAngle_() || opponentHasFreeKick
+          ? angleOwnGoalToBall
+          : angleBallToOpponentsGoal + (worldState_->ballInLeftHalf ? 1 : -1) * minimumAngle_();
+
+  // The supporting position is a specified distance away from the ball with the optimal angle. Logically, this is
+  // behind the ball and towards y = 0.
+  Vector2f supportingPosition =
+      absBallPosition - distanceToBall_() * Vector2f(std::cos(optimalAngle), std::sin(optimalAngle));
+  // the supporting position must not be too close to our own goal
+  supportingPosition.x() = std::max(supportingPosition.x(), aggressiveSupporterLineX_);
+  supportingPosition_->position = supportingPosition;
+
+  // compute orientation to face ball
+  const Vector2f supportingPositionToBall = absBallPosition - supportingPosition_->position;
+  const float angleSupportingPositionToBall =
+      std::atan2(supportingPositionToBall.y(), supportingPositionToBall.x());
+  supportingPosition_->orientation = angleSupportingPositionToBall;
+  supportingPosition_->valid = true;
+  return;
 }

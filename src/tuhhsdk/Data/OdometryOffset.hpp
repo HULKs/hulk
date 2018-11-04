@@ -10,6 +10,8 @@
 class OdometryOffset : public DataType<OdometryOffset>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "OdometryOffset";
   /// the odometry offset in this cycle
   Pose odometryOffset;
   /**

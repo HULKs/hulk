@@ -4,6 +4,8 @@
 
 class StandUpResult : public DataType<StandUpResult> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "StandUpResult";
   /// whether a stand up finished successfully (only true for one cycle)
   bool finishedSuccessfully;
   /**

@@ -16,6 +16,8 @@ class Brain;
 class RobotProjectionProvider : public Module<RobotProjectionProvider, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "RobotProjectionProvider";
   /**
    * @brief RobotProjectionProvider provides the current projection of the robot into the image
    * @param manager a reference to the module manager

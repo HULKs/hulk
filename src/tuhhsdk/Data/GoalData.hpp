@@ -8,12 +8,14 @@
 
 class GoalData : public DataType<GoalData> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "GoalData";
   /// the positions of detected goal postts
   VecVector2f posts;
   /// the timestamp of the image in which they were seen
   TimePoint timestamp;
   /// whether the goal posts are valid
-  bool valid;
+  bool valid = false;
   /**
    * @brief reset sets the goal to a defined state
    */

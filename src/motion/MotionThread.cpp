@@ -20,12 +20,12 @@ MotionThread::MotionThread(ThreadData& data)
   catch (const std::exception& e)
   {
     print(e.what(), LogLevel::ERROR);
-    return;
+    throw std::runtime_error("Motion could not be initialized");
   }
   catch (...)
   {
     print("Exception in Motion constructor!", LogLevel::ERROR);
-    return;
+    throw;
   }
 }
 
@@ -38,6 +38,10 @@ bool MotionThread::init()
     print("motion is NULL and cannot run!", LogLevel::ERROR);
     return false;
   }
+
+#ifdef ITTNOTIFY_FOUND
+  __itt_thread_set_name("Motion");
+#endif
 
 #ifndef WIN32
   // Set a real time priority for motion. 30 is still below the priority of the DCM and HAL threads from naoqi.
@@ -52,8 +56,7 @@ void MotionThread::cycle()
 {
   try
   {
-    motion_->cycle();
-    triggerDebug();
+    motion_->runCycle();
   }
   catch (const std::exception& e)
   {

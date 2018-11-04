@@ -5,6 +5,8 @@
 #include "Framework/DataType.hpp"
 
 
+/// Definition of playing roles. If one changes this, one alsa has to change the BHULKs Role enum
+/// and the BHULKsHelper
 enum class PlayingRole
 {
   NONE = 0,
@@ -12,7 +14,8 @@ enum class PlayingRole
   DEFENDER = 2,
   SUPPORT_STRIKER = 3,
   STRIKER = 4,
-  BISHOP = 5
+  BISHOP = 5,
+  REPLACEMENT_KEEPER = 6
 };
 
 inline void operator>>(const Uni::Value& in, PlayingRole& out)
@@ -30,9 +33,11 @@ inline void operator<<(Uni::Value& out, const PlayingRole& in)
 class PlayingRoles : public DataType<PlayingRoles>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "PlayingRoles";
   /// the role the robot is assigned to
-  PlayingRole role;
-  /// the roles of all players (playerNumber → role)
+  PlayingRole role = PlayingRole::NONE;
+  /// the roles of all players (playerNumber-1 → role)
   std::vector<PlayingRole> playerRoles;
   /**
    * @brief reset sets the ball to a defined state

@@ -1,24 +1,21 @@
 #pragma once
 
-#include <Tools/Storage/UniValue/UniConvertible.hpp>
 #include "Eigen.hpp"
 
-/**
- * @brief The line struct
- *
- * @author Erik Schröder and Pascal Loth
- */
-template<typename T>
-class Line : public Uni::From, public Uni::To {
+#include <Tools/Storage/UniValue/UniConvertible.hpp>
+
+template <typename T>
+class Line : public Uni::From, public Uni::To
+{
 public:
   /**
    * @brief Line constructs a line from (0, 0) to (0, 0)
    * @param p1 start point of the line
    * @param p2 end point of the line
    */
-  Line(const Vector2<T>& p1 = Vector2<T>::Zero(), const Vector2<T>& p2 = Vector2<T>::Zero()) :
-    p1(p1),
-    p2(p2)
+  Line(const Vector2<T>& p1 = Vector2<T>::Zero(), const Vector2<T>& p2 = Vector2<T>::Zero())
+    : p1(p1)
+    , p2(p2)
   {
   }
 
@@ -30,9 +27,23 @@ public:
   T getY(T x) const
   {
     assert(p1.x() != p2.x());
-    return static_cast<float>(p2.y() - p1.y()) / static_cast<float>(p2.x() - p1.x()) * (x - p1.x()) + p1.y();
+    return static_cast<float>(p2.y() - p1.y()) / static_cast<float>(p2.x() - p1.x()) *
+               (x - p1.x()) +
+           p1.y();
   }
 
+  /**
+   * @brief getX can calculate the x coordinate of a given y coordinate
+   * @param y the y coordinate
+   * @return the calculated x coordinate
+   */
+  T getX(T y) const
+  {
+    assert(p1.y() != p2.y());
+    return static_cast<float>(p2.x() - p1.x()) / static_cast<float>(p2.y() - p1.y()) *
+               (y - p1.y()) +
+           p1.x();
+  }
   /**
    * @brief fromValue converts a Uni::Value to this
    * @param value the value that should be converted to this class
@@ -60,3 +71,4 @@ public:
   /// end point of the line
   Vector2<T> p2;
 };
+

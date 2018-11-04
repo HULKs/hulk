@@ -1,56 +1,14 @@
-#include <cmath>
-
 #include <boost/math/special_functions/sign.hpp>
+#include <cmath>
 
 #include "Data/MotionPlannerOutput.hpp"
 #include "Modules/NaoProvider.h"
+#include "Tools/Math/Range.hpp"
 
 #include "StepPlanner.hpp"
 
 
 using boost::math::sign; // Shortens long function calls
-
-struct Range
-{
-  /**
-   * @brief Range constructs a range given its minimum and maximum
-   * @param min the minmum value of the range (inclusive)
-   * @param max the maximum value of the range (inclusive)
-   */
-  Range(const float min, const float max)
-    : min(min)
-    , max(max)
-  {
-  }
-  /**
-   * @brief intersect sets this interval to the intersection with another interval
-   * If the intersection is empty, the minimum and maximum are set to the value that is closes to the other range.
-   * @param min2 the minimum value of the other range (inclusive)
-   * @param max2 the maximum value of the other range (inclusive)
-   */
-  void intersect(float min2, float max2)
-  {
-    if (max2 <= min)
-    {
-      max = min;
-      return;
-    }
-    else if (min2 >= max)
-    {
-      min = max;
-      return;
-    }
-    else
-    {
-      min = std::max(min, min2);
-      max = std::min(max, max2);
-    }
-  }
-  /// the minimum value of the range (inclusive)
-  float min;
-  /// the maximum value of the range (inclusive)
-  float max;
-};
 
 StepPlanner::StepPlanner(const ModuleBase& module, const MotionPlannerOutput& motionPlannerOutput)
   : motionPlannerOutput_(motionPlannerOutput)
@@ -75,7 +33,7 @@ Pose StepPlanner::nextStep(const Pose& currentStep, const supportFoot currentSup
   // early enough in order to properly come to a stop in time.
 
   // 1. Rotation steps must not exceed the maximum angle.
-  Range aRange(-rotationAngleLimit_(), rotationAngleLimit_());
+  Range<float> aRange(-rotationAngleLimit_(), rotationAngleLimit_());
 
   // 2. Get the orientation that should be achieved
   float desiredRotation;

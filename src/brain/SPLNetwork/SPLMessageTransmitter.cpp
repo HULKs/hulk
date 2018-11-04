@@ -9,9 +9,8 @@
 
 
 SPLMessageTransmitter::SPLMessageTransmitter(const ModuleManagerInterface& manager)
-  : Module(manager, "SPLMessageTransmitter")
+  : Module(manager)
   , sendSonarObstacles_(*this, "sendSonarObstacles", [] {})
-  , sendTeamBallAsShootingTo_(*this, "sendTeamBallAsShootingTo", [] {})
   , playerConfiguration_(*this)
   , ballState_(*this)
   , robotPosition_(*this)
@@ -29,6 +28,7 @@ SPLMessageTransmitter::SPLMessageTransmitter(const ModuleManagerInterface& manag
   , obstacleData_(*this)
   , jointSensorData_(*this)
   , teamBallModel_(*this)
+  , ballSearchMap_(*this)
   , ballSearchPosition_(*this)
 {
 }
@@ -36,46 +36,21 @@ SPLMessageTransmitter::SPLMessageTransmitter(const ModuleManagerInterface& manag
 void SPLMessageTransmitter::cycle()
 {
   // copy NTP requests to local buffer in any case
-  bufferedNTPRequests_.insert(bufferedNTPRequests_.begin(), ntpData_->ntpRequests.begin(), ntpData_->ntpRequests.end());
+  bufferedNTPRequests_.insert(bufferedNTPRequests_.begin(), ntpData_->ntpRequests.begin(),
+                              ntpData_->ntpRequests.end());
   // check if message sending is allowed
-  if (cycleInfo_->getTimeDiff(lastTime_) < 0.21f)
+  if (cycleInfo_->getTimeDiff(lastTime_) < 0.34f)
   {
     return;
   }
   SPLStandardMessage msg;
-  msg.playerNum = playerConfiguration_->playerNumber;
-  msg.teamNum = playerConfiguration_->teamNumber;
-  msg.fallen = bodyPose_->fallen;
+  msg.playerNum = static_cast<uint8_t>(playerConfiguration_->playerNumber);
+  msg.teamNum = static_cast<uint8_t>(playerConfiguration_->teamNumber);
+  msg.fallen = static_cast<uint8_t>(bodyPose_->fallen);
 
   msg.pose[0] = robotPosition_->pose.position.x() * 1000.f;
   msg.pose[1] = robotPosition_->pose.position.y() * 1000.f;
   msg.pose[2] = robotPosition_->pose.orientation;
-
-  if (motionRequest_->bodyMotion == MotionRequest::BodyMotion::WALK)
-  {
-    msg.walkingTo[0] = robotPosition_->robotToField(motionRequest_->walkData.target.position).x() * 1000.f;
-    msg.walkingTo[1] = robotPosition_->robotToField(motionRequest_->walkData.target.position).y() * 1000.f;
-  }
-  else
-  {
-    msg.walkingTo[0] = robotPosition_->pose.position.x() * 1000.f;
-    msg.walkingTo[1] = robotPosition_->pose.position.y() * 1000.f;
-  }
-  if (sendTeamBallAsShootingTo_() && teamBallModel_->ballType != TeamBallModel::BallType::NONE)
-  {
-    msg.shootingTo[0] = teamBallModel_->position.x() * 1000.f;
-    msg.shootingTo[1] = teamBallModel_->position.y() * 1000.f;
-  }
-  else if (playingRoles_->role == PlayingRole::STRIKER && strikerAction_->valid)
-  {
-    msg.shootingTo[0] = strikerAction_->target.x() * 1000.f;
-    msg.shootingTo[1] = strikerAction_->target.y() * 1000.f;
-  }
-  else
-  {
-    msg.shootingTo[0] = robotPosition_->pose.position.x() * 1000.f;
-    msg.shootingTo[1] = robotPosition_->pose.position.y() * 1000.f;
-  }
 
   if (ballState_->confident)
   {
@@ -87,18 +62,6 @@ void SPLMessageTransmitter::cycle()
   }
   msg.ball[0] = ballState_->position.x() * 1000.f;
   msg.ball[1] = ballState_->position.y() * 1000.f;
-  msg.ballVel[0] = ballState_->velocity.x() * 1000.f;
-  msg.ballVel[1] = ballState_->velocity.y() * 1000.f;
-
-  for (int i = 0; i < SPL_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS; i++)
-  {
-    msg.suggestion[i] = 0;
-  }
-  msg.intention = 0;
-  msg.averageWalkSpeed = 100;
-  msg.maxKickDistance = 5000;
-  msg.currentPositionConfidence = (robotPosition_->valid ? 50 : 0);
-  msg.currentSideConfidence = 0;
 
   B_HULKs::BHULKsStandardMessage bhmsg;
   bhmsg.member = HULKS_MEMBER;
@@ -108,11 +71,8 @@ void SPLMessageTransmitter::cycle()
   B_HULKs::OwnTeamInfo ownTeamInfo;
   ownTeamInfo.timestampWhenReceived = gameControllerState_->timestampOfLastMessage.getSystemTime();
   ownTeamInfo.packetNumber = gameControllerState_->packetNumber;
-  ownTeamInfo.gameType = static_cast<std::uint8_t>(gameControllerState_->type);
-  ownTeamInfo.state = static_cast<std::uint8_t>(gameControllerState_->state);
-  ownTeamInfo.firstHalf = gameControllerState_->firstHalf;
-  ownTeamInfo.kickOffTeam = gameControllerState_->kickOffTeam;
-  ownTeamInfo.secondaryState = static_cast<std::uint8_t>(gameControllerState_->secondary);
+  ownTeamInfo.state.fromGameControllerState(*gameControllerState_);
+  ownTeamInfo.kickingTeam = gameControllerState_->kickingTeamNumber;
   ownTeamInfo.dropInTeam = gameControllerState_->dropInTeam;
   ownTeamInfo.dropInTime = gameControllerState_->dropInTime;
   ownTeamInfo.secsRemaining = gameControllerState_->remainingTime;
@@ -120,10 +80,13 @@ void SPLMessageTransmitter::cycle()
   ownTeamInfo.score = gameControllerState_->score;
   for (unsigned int i = 0; i < BHULKS_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS; i++)
   {
-    ownTeamInfo.playersArePenalized[i] = (i < gameControllerState_->penalties.size()) ? (gameControllerState_->penalties[i] != Penalty::NONE) : false;
+    ownTeamInfo.playersArePenalized[i] = (i < gameControllerState_->penalties.size())
+                                             ? (gameControllerState_->penalties[i] != Penalty::NONE)
+                                             : false;
   }
   bhmsg.isPenalized = (gameControllerState_->penalty != Penalty::NONE) ||
-                      (gameControllerState_->state == GameState::INITIAL && !gameControllerState_->chestButtonWasPressedInInitial);
+                      (gameControllerState_->gameState == GameState::INITIAL &&
+                       !gameControllerState_->chestButtonWasPressedInInitial);
   bhmsg.headYawAngle = jointSensorData_->angles[JOINTS::HEAD_YAW];
   bhmsg.currentlyPerfomingRole = B_HULKs::playingToBHULKRole(playingRoles_->role);
   for (unsigned int i = 0; i < BHULKS_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS; i++)
@@ -138,20 +101,25 @@ void SPLMessageTransmitter::cycle()
     }
   }
 
-  if (playingRoles_->role == PlayingRole::KEEPER && keeperAction_->valid && keeperAction_->wantsToPlayBall)
+  if (playingRoles_->role == PlayingRole::KEEPER && keeperAction_->action.valid &&
+      keeperAction_->wantsToPlayBall)
   {
     bhmsg.kingIsPlayingBall = true;
   }
 
-  if (playingRoles_->role == PlayingRole::STRIKER && strikerAction_->valid && strikerAction_->type == StrikerAction::PASS)
+  if (playingRoles_->role == PlayingRole::STRIKER && strikerAction_->valid &&
+      strikerAction_->type == StrikerAction::PASS)
   {
     bhmsg.passTarget = strikerAction_->passTarget;
   }
-  // The default initialization of both times is a timepoint that is as far in the future as possible.
+  // The default initialization of both times is a timepoint that is as far in the future as
+  // possible.
   if (timeToReachBall_->valid)
   {
-    bhmsg.timeWhenReachBall = cycleInfo_->startTime.getSystemTime() + timeToReachBall_->timeToReachBall * 1000;
-    bhmsg.timeWhenReachBallQueen = cycleInfo_->startTime.getSystemTime() + timeToReachBall_->timeToReachBallStriker * 1000;
+    bhmsg.timeWhenReachBall =
+        cycleInfo_->startTime.getSystemTime() + timeToReachBall_->timeToReachBall * 1000;
+    bhmsg.timeWhenReachBallQueen =
+        cycleInfo_->startTime.getSystemTime() + timeToReachBall_->timeToReachBallStriker * 1000;
   }
   bhmsg.ballTimeWhenLastSeen = ballState_->timeWhenLastSeen.getSystemTime();
   bhmsg.timestampLastJumped = robotPosition_->lastTimeJumped.getSystemTime();
@@ -159,15 +127,19 @@ void SPLMessageTransmitter::cycle()
   bhmsg.lastTimeWhistleDetected = whistleData_->lastTimeWhistleHeard.getSystemTime();
   for (auto& obstacle : obstacleData_->obstacles)
   {
-    if (obstacle.type == Obstacle::BALL || (obstacle.type == Obstacle::SONAR && !sendSonarObstacles_()))
+    // there can not be INVALID obstacles at this stage anymore
+    assert(obstacle.type != ObstacleType::INVALID);
+    // TODO: Refactor sonar stuff to unknown
+    if (obstacle.type == ObstacleType::BALL ||
+        (obstacle.type == ObstacleType::UNKNOWN && !sendSonarObstacles_()))
     {
       continue;
     }
     B_HULKs::Obstacle bhObstacle;
-    bhObstacle.center[0] = obstacle.position.x() * 1000.f;
-    bhObstacle.center[1] = obstacle.position.y() * 1000.f;
+    bhObstacle.center[0] = obstacle.relativePosition.x() * 1000.f;
+    bhObstacle.center[1] = obstacle.relativePosition.y() * 1000.f;
     bhObstacle.timestampLastSeen = cycleInfo_->startTime.getSystemTime();
-    bhObstacle.type = B_HULKs::ObstacleType::unknown;
+    bhObstacle.type = static_cast<B_HULKs::ObstacleType>(obstacle.type);
     bhmsg.obstacles.push_back(bhObstacle);
   }
   if (cycleInfo_->getTimeDiff(lastNTPRequest_) > 2.0f)
@@ -184,7 +156,8 @@ void SPLMessageTransmitter::cycle()
     ntpMessage.requestReceipt = ntpRequest.receipt;
     bhmsg.ntpMessages.push_back(ntpMessage);
   }
-  // The list is cleared even if the BH message is not sent because otherwise the message could never be sent.
+  // The list is cleared even if the BH message is not sent because otherwise the message could
+  // never be sent.
   bufferedNTPRequests_.clear();
   // This is the last possible time point to set the time of the message.
   // Use getCurrentTime here, because it is better for NTP.
@@ -195,15 +168,46 @@ void SPLMessageTransmitter::cycle()
     msg.numOfDataBytes = bhmsg.sizeOfBHULKsMessage();
 
     HULKs::HULKsMessage hulksmsg;
+    hulksmsg.isPoseValid = robotPosition_->valid;
+
+    if (motionRequest_->bodyMotion == MotionRequest::BodyMotion::WALK)
+    {
+      hulksmsg.walkingTo = robotPosition_->robotToField(motionRequest_->walkData.target);
+    }
+    else
+    {
+      hulksmsg.walkingTo = robotPosition_->pose;
+    }
+
+    hulksmsg.ballVel[0] = ballState_->velocity.x();
+    hulksmsg.ballVel[1] = ballState_->velocity.y();
 
     HULKs::BallSearchData& ballSearchData = hulksmsg.ballSearchData;
 
     ballSearchData.currentSearchPosition = ballSearchPosition_->searchPosition;
-    ballSearchData.positionSuggestions.resize(ballSearchPosition_->suggestedSearchPositions.size());
+    ballSearchData.availableForSearch = ballSearchPosition_->availableForSearch;
+    // std::cout << static_cast<int>(msg.playerNum) << "T is available for search " <<
+    // (ballSearchData.availableForSearch ? "True" : "False") << std::endl;
+
+    assert(ballSearchPosition_->suggestedSearchPositionValid.size() == MAX_NUM_PLAYERS &&
+           "suggestion valid flag array size mismatch");
+    ballSearchData.positionSuggestionsValidity = 0;
+    // Set the valid bit for every position suggestion.
+    for (uint8_t i = 0; i < MAX_NUM_PLAYERS; i++)
+    {
+      ballSearchData.positionSuggestionsValidity |=
+          ballSearchPosition_->suggestedSearchPositionValid[i] << i;
+    }
+
+    ballSearchData.positionSuggestions.resize(MAX_NUM_PLAYERS);
     for (unsigned int i = 0; i < ballSearchPosition_->suggestedSearchPositions.size(); i++)
     {
       ballSearchData.positionSuggestions[i] = ballSearchPosition_->suggestedSearchPositions[i];
     }
+
+    ballSearchData.timestampBallSearchMapUnreliable =
+        ballSearchMap_->timestampBallSearchMapUnreliable_.getSystemTime();
+    ballSearchData.mostWisePlayerNumber = ballSearchPosition_->localMostWisePlayerNumber;
 
     if (msg.numOfDataBytes + hulksmsg.sizeOfHULKsMessage() <= SPL_STANDARD_MESSAGE_DATA_SIZE)
     {

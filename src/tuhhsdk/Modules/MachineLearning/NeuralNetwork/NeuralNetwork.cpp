@@ -13,9 +13,9 @@ NeuralNetwork::NeuralNetwork(Configuration& cfg, std::string filename, int activ
   // Read config from json file
   const std::string mount = "MachineLearning.NeuralNetwork";
   cfg.mount(mount, filename, ConfigurationType::HEAD);
-  number_of_input_neurons_ = cfg.get(mount, "number_of_input_neurons").asInt();
-  number_of_hidden_neurons_ = cfg.get(mount, "number_of_hidden_neurons").asInt();
-  number_of_output_neurons_ = cfg.get(mount, "number_of_output_neurons").asInt();
+  number_of_input_neurons_ = cfg.get(mount, "number_of_input_neurons").asInt32();
+  number_of_hidden_neurons_ = cfg.get(mount, "number_of_hidden_neurons").asInt32();
+  number_of_output_neurons_ = cfg.get(mount, "number_of_output_neurons").asInt32();
 
   // Initialise neurons
   for (int i = 0; i < number_of_input_neurons_; i++)
@@ -141,7 +141,8 @@ void NeuralNetwork::feedForward(std::vector<double>& input)
   {
     *itOutput = 0;
     j = 0;
-    for (auto itHidden = hidden_neurons_.begin(); itHidden != hidden_neurons_.end(); itHidden++, j++)
+    for (auto itHidden = hidden_neurons_.begin(); itHidden != hidden_neurons_.end();
+         itHidden++, j++)
     {
       *itOutput += *itHidden * weights_hidden_output_[j][i];
     }

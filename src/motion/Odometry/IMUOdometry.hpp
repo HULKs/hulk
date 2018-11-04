@@ -14,6 +14,8 @@ class Motion;
 class IMUOdometry : public Module<IMUOdometry, Motion>
 {
 public:
+  /// the name of this module
+  ModuleName name = "IMUOdometry";
   /**
    * @brief IMUOdometry initializes members
    * @param manager a reference to motion

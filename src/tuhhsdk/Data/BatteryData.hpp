@@ -6,6 +6,8 @@
 class BatteryData : public DataType<BatteryData>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "BatteryData";
   /// charge level in [0,1]
   float charge;
   /// battery current (positive is charging) in Ampere

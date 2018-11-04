@@ -13,6 +13,9 @@ class Motion;
 class HeadMatrixBufferProvider : public Module<HeadMatrixBufferProvider, Motion>
 {
 public:
+  /// the name of this module
+  ModuleName name = "HeadMatrixBufferProvider";
+
   HeadMatrixBufferProvider(const ModuleManagerInterface& manager);
   void cycle();
 

@@ -1,5 +1,6 @@
 {
-	"catchFrontMotionFile": "fallingCatch.motion2",
-	"kneeDownMotionFile": "kneedown.motion2",
-	"enabled": true
+    "catchFrontDuration": 100,
+    "catchFrontHipPitch": -5,
+    "kneeDownMotionFile": "kneedown.motion2",
+    "enabled": true
 }

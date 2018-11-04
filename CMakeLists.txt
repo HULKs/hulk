@@ -1,5 +1,14 @@
 cmake_minimum_required(VERSION 3.5)
-if(NAO)
+
+option(NAO "Compile the code for the nao" OFF)
+option(NAOLIB "If compiling for nao, should we build tuhhALModule" ON)
+option(NAONATIVE "If compiling for nao, shall the crosstoolchain be used" ON)
+option(REPLAY "Build for replay" OFF)
+option(SIMROBOT "Build for simrobot" OFF)
+option(QT_WEBSOCKET "Build for qtwebsockets" OFF)
+option(IDE "Include the tools repo into the list of files" OFF)
+
+if(NAO AND NAONATIVE)
   if(NOT TOOLCHAIN_DIR)
     set(TOOLCHAIN_DIR "${CMAKE_SOURCE_DIR}/toolchain")
   endif(NOT TOOLCHAIN_DIR)
@@ -7,9 +16,10 @@ if(NAO)
   set(CMAKE_PREFIX_PATH "${TOOLCHAIN_DIR}/hulks/root")
 elseif(SIMROBOT)
   if(NOT SIMROBOT_INCLUDE_DIRS)
-    message(FATAL_ERROR "The simrobot target needs SIMROBOT_INCLUDE_DIRS defined in CMake.")
+    set(SIMROBOT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/tools/SimRobot/Src/SimRobotCore2")
   endif(NOT SIMROBOT_INCLUDE_DIRS)
-endif(NAO)
+endif(NAO AND NAONATIVE)
+
 project(tuhhnao)
 
 # Set CMAKE_MODULE_PATH to assist cmake in finding our own package definitions

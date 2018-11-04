@@ -32,6 +32,8 @@ class Motion;
 class WalkingEngine : public Module<WalkingEngine, Motion>
 {
 public:
+  /// the name of this module
+  ModuleName name = "WalkingEngine";
   /**
    * @brief Constructor
    */
@@ -82,7 +84,10 @@ private:
   const Parameter<float> hipCorrectionY_;
   Parameter<float> angleOffsetLeft_;
   Parameter<float> angleOffsetRight_;
-  Parameter<bool> kickInWalk_; // Temporary parameter to test in walk kick
+  const Parameter<float> linearVel_;
+  const Parameter<float> periodDuration_;
+  Parameter<float> rotationAngleLimit_;
+  Parameter<bool> kickInWalk_;
   const Parameter<Vector2f> kalmanQ_;
   const Parameter<Vector2f> kalmanR_;
   const Parameter<float> lowPassAlphaAnkle_;

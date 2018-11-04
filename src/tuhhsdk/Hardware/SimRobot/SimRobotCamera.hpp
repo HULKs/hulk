@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <mutex>
 
@@ -7,7 +8,8 @@
 
 #include "Hardware/CameraInterface.hpp"
 
-class SimRobotCamera : public CameraInterface {
+class SimRobotCamera : public CameraInterface
+{
 public:
   /**
    * @brief SimRobotCamera initializes members
@@ -24,7 +26,11 @@ public:
    * @param image is filled with the new image
    * @return the time point at which the first pixel of the image was recorded
    */
-  TimePoint readImage(Image& image);
+  TimePoint readImage(Image422& image);
+  /**
+   * @brief releaseImage is used to possible release the image of a camera
+   */
+  void releaseImage();
   /**
    * @brief startCapture does nothing
    */
@@ -33,6 +39,26 @@ public:
    * @brief stopCapture does nothing
    */
   void stopCapture();
+  /**
+   * @brief getRequiresRenderedImage a method to to check whether the camera requires a renderd
+   * image
+   * @return true if a rendered image is requested
+   */
+  bool getRequiresRenderedImage();
+  /**
+   * @brief getNextCamera returns the camera that needs to be processed next
+   * @param cameras an array of all existing SimRobotCameras
+   * @return returns nullptr if no camera is available, the camera with the oldest image otherwise
+   */
+  static SimRobotCamera* getNextCamera(std::array<SimRobotCamera*, 2> cameras);
+  /**
+   * @brief renderCameras starts the image rendering process if all images where rendered
+   * @param cameras an array of all existing SimobotCameras
+   * @param simrobotCameras an array of all existing SimRobot camera objects
+   * @return whether images where rendered
+   */
+  static bool renderCameras(std::array<SimRobotCamera*, 2> cameras,
+                            SimRobot::Object** simrobotCameras);
   /**
    * @brief getCameraType returns the type of the camera
    * @return the type of the camera
@@ -53,7 +79,8 @@ public:
   /**
    * @brief setShutdownRequest sets the shutdown request
    */
-   void setShutdownRequest();
+  void setShutdownRequest();
+
 private:
   /// the width of the image
   unsigned int width_ = 0;
@@ -62,15 +89,11 @@ private:
   /// the type of the camera
   Camera cameraType_;
   /// whether an image is avialable from this camera
-  bool imageAvailable_ = false;
-  /// mutex to secure access to the image
-  std::mutex mutex_;
-  /// condition variable to wake up readImage
-  std::condition_variable cv_;
+  std::atomic<bool> imageAvailable_;
   /// local copy of the image
-  Image image_;
-  /// shutdown request
-  bool shutdownRequest_;
+  Image422 image_;
+  /// true if images should be rendered
+  bool requiresRenderedImage_;
   /// the timestamp of the image
   TimePoint timestamp_;
 };

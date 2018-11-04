@@ -2,15 +2,17 @@
 
 #include <memory>
 
-#include <boost/interprocess/shared_memory_object.hpp>
 #include <boost/interprocess/mapped_region.hpp>
+#include <boost/interprocess/shared_memory_object.hpp>
 
 #include "Hardware/Nao/SMO.h"
 #include "Hardware/RobotInterface.hpp"
-#include "NaoCamera.hpp"
 #include "NaoAudio.hpp"
+#include "NaoCamera.hpp"
+#include "NaoFakeData.hpp"
 
-class NaoInterface : public RobotInterface {
+class NaoInterface : public RobotInterface
+{
 public:
   /**
    * @brief NaoInterface connects to the shared memory of the ALModule
@@ -56,6 +58,11 @@ public:
    */
   std::string getFileRoot();
   /**
+   * @brief returns the path to the usb device if present, otherwise $HOME/naoqi
+   * @return the path string
+   */
+  std::string getDataRoot();
+  /**
    * @brief getNaoInfo copies the hardware identification
    * @param config a reference to the Configuration instance
    * @param info is filled with the body/head version and name
@@ -68,14 +75,26 @@ public:
    */
   CameraInterface& getCamera(const Camera camera);
   /**
-   * @brief getCurrentCamera
+   * @brief getCurrentCameraType
+   * @return the current camera type
    */
-  CameraInterface& getCurrentCamera();
+  Camera getCurrentCameraType();
+  /**
+   * @brief getNextCamera
+   * @return advance to the next to be processed camera
+   */
+  CameraInterface& getNextCamera();
   /**
    * @brief getAudio provides access to the audio devices of the robot
    * @return a reference to the audio interface
    */
   AudioInterface& getAudio();
+  /**
+   * @brief getFakeData provides access to the fake data of this interface
+   * @return a reference to the requested fake data interface
+   */
+  FakeDataInterface& getFakeData();
+
 private:
   /**
    * @brief initNaoInfo converts IDs and version strings to names and enums
@@ -91,5 +110,8 @@ private:
   NaoCamera topCamera_;
   NaoCamera bottomCamera_;
   NaoAudio audioInterface_;
+  NaoFakeData fakeData_;
   Camera currentCamera_;
+  uint64_t currentUsedImageTimeStamp;
+  uint64_t lastUsedImageTimeStamp;
 };

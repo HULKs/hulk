@@ -4,7 +4,7 @@
 
 
 Keeper::Keeper(const ModuleManagerInterface& manager) :
-  Module(manager, "Keeper"),
+  Module(manager),
   motionActivation_(*this),
   motionRequest_(*this),
   cycleInfo_(*this),

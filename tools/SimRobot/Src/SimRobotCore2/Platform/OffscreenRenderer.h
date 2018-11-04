@@ -26,6 +26,8 @@ public:
     hiddenWindow, /**< Well..., it works at least on some systems */
   };
 
+  unsigned int renderFlags;
+
   /** Default Constructor */
   OffscreenRenderer();
 

@@ -2,38 +2,37 @@
 #include "ConfigMessageHeader.h"
 
 // ASIO defines an macro  #define ERROR 0 which failes with our enum LogLevel::ERROR
-#include <boost/asio.hpp>
 #include "Definitions/windows_definition_fix.hpp"
+#include <boost/asio.hpp>
 
-#include <boost/bind.hpp>
 #include <boost/array.hpp>
+#include <boost/bind.hpp>
 
 #include <Libs/json/json.h>
 
+#include <memory>
 #include <thread>
 #include <vector>
-#include <memory>
 
 #include <Modules/Configuration/Configuration.h>
 #include <Tools/Storage/UniValue/UniValue2Json.hpp>
 
 #include "print.h"
 
-class NetworkConfig::Impl :
-    public std::enable_shared_from_this<NetworkConfig::Impl>
+class NetworkConfig::Impl : public std::enable_shared_from_this<NetworkConfig::Impl>
 {
 private:
   boost::asio::io_service ioService_;
   boost::asio::ip::tcp::endpoint serverEndpoint_;
   boost::asio::ip::tcp::acceptor acceptor_;
-  boost::asio::ip::tcp::socket   socket_;
+  boost::asio::ip::tcp::socket socket_;
 
   std::shared_ptr<std::thread> backgroundThread_;
 
   Configuration& config_;
   bool isConnected_;
-  std::vector< char > headerBuffer_;
-  std::vector< char > bodyBuffer_;
+  std::vector<char> headerBuffer_;
+  std::vector<char> bodyBuffer_;
   ConfigMessageHeader header_;
 
   void startAccept();
@@ -78,32 +77,32 @@ NetworkConfig::Impl::~Impl()
 
 void NetworkConfig::Impl::startBackgroundThread()
 {
-  backgroundThread_ = std::make_shared<std::thread>([this](){
+  backgroundThread_ = std::make_shared<std::thread>([this]() {
     ioService_.run();
-    print( "Shutting down transceiver thread", LogLevel::DEBUG );
+    print("Shutting down transceiver thread", LogLevel::INFO);
   });
 }
 
 void NetworkConfig::Impl::startAccept()
 {
-  if ( isConnected_ ) return;
-  print( "NetworkConfig: Waiting for connection", LogLevel::INFO );
+  if (isConnected_)
+    return;
+  print("NetworkConfig: Waiting for connection", LogLevel::INFO);
   socket_ = boost::asio::ip::tcp::socket(ioService_);
   acceptor_.async_accept(socket_,
-                         boost::bind(&Impl::onConnect, this,
-                                     boost::asio::placeholders::error));
+                         boost::bind(&Impl::onConnect, this, boost::asio::placeholders::error));
 }
 
 void NetworkConfig::Impl::onConnect(const boost::system::error_code& /*error*/)
 {
-  print( "NetworkConfig: connected", LogLevel::INFO );
+  print("NetworkConfig: connected", LogLevel::INFO);
   isConnected_ = true;
   receive();
 }
 
 void NetworkConfig::Impl::onDisonnect()
 {
-  print( "NetworkConfig: disconnect", LogLevel::INFO );
+  print("NetworkConfig: disconnect", LogLevel::INFO);
   isConnected_ = false;
   startAccept();
 }
@@ -111,110 +110,113 @@ void NetworkConfig::Impl::onDisonnect()
 
 void NetworkConfig::Impl::receive()
 {
-  print( "NetworkConfig: receiving header", LogLevel::INFO );
-  boost::asio::async_read(socket_,
-                          boost::asio::buffer(headerBuffer_),
-                          boost::bind(
-                            &Impl::onReceiveHeader, this,
-                            boost::asio::placeholders::error
-                            )
-                          );
+  print("NetworkConfig: receiving header", LogLevel::DEBUG);
+  boost::asio::async_read(
+      socket_, boost::asio::buffer(headerBuffer_),
+      boost::bind(&Impl::onReceiveHeader, this, boost::asio::placeholders::error));
 }
 
 void NetworkConfig::Impl::onReceiveHeader(const boost::system::error_code& error)
 {
-  if ( (boost::asio::error::eof == error) ||
-       (boost::asio::error::connection_reset == error) )
+  if ((boost::asio::error::eof == error) || (boost::asio::error::connection_reset == error))
   {
     onDisonnect();
     return;
   }
-  if ( error )
+  if (error)
   {
-    print( "NetworkConfig: error while receiving header", LogLevel::WARNING );
+    print("NetworkConfig: error while receiving header", LogLevel::ERROR);
     return;
   }
 
-  print( "NetworkConfig: received header", LogLevel::INFO );
-  std::memcpy( &header_, headerBuffer_.data(), sizeof header_ );
+  print("NetworkConfig: received header", LogLevel::DEBUG);
+  std::memcpy(&header_, headerBuffer_.data(), sizeof header_);
 
   bodyBuffer_.resize(header_.msgLength);
 
-  boost::asio::async_read(socket_,
-                          boost::asio::buffer(bodyBuffer_),
-                          boost::bind(
-                            &Impl::onReceiveBody, this,
-                            boost::asio::placeholders::error
-                            )
-                          );
+  boost::asio::async_read(
+      socket_, boost::asio::buffer(bodyBuffer_),
+      boost::bind(&Impl::onReceiveBody, this, boost::asio::placeholders::error));
 }
 
 void NetworkConfig::Impl::onReceiveBody(const boost::system::error_code& error)
 {
-  if ( error )
+  if (error)
   {
-    print( "NetworkConfig: error while receiving body", LogLevel::WARNING );
+    print("NetworkConfig: error while receiving body", LogLevel::ERROR);
     return;
   }
   std::string body(bodyBuffer_.begin(), bodyBuffer_.end());
 
-  if ( header_.msgType == CM_SET )
+  if (header_.msgType == CM_SET)
   {
-    print( "NetworkConfig: received message type CM_SET: "+body, LogLevel::INFO );
+    print("NetworkConfig: received message type CM_SET: " + body, LogLevel::DEBUG);
 
     Json::Reader reader;
     Json::Value root;
 
-    if ( ! reader.parse(body, root) && root.isArray() )
+    if (!reader.parse(body, root) && root.isArray())
     {
-      print( "NetworkConfig: body is not valid json", LogLevel::WARNING );
+      print("NetworkConfig: body is not valid json", LogLevel::WARNING);
       receive();
       return;
     }
 
-    for( auto it = root.begin(); it != root.end(); ++it ) {
+    for (auto it = root.begin(); it != root.end(); ++it)
+    {
       Json::Value item = *it;
-      if ( ! item.isObject() ) {
-        print( "NetworkConfig: set body contains malformed array element", LogLevel::WARNING);
+      if (!item.isObject())
+      {
+        print("NetworkConfig: set body contains malformed array element", LogLevel::WARNING);
         continue;
       }
-      try {
+      try
+      {
         config_.set(item.get("mp", "").asString(), item.get("key", "").asString(),
-          Uni::Converter::toUniValue(item.get("value", "")));
-      } catch (const ConfigurationException& e) {
-        print(std::string("NetworkConfig: Exception from Configuration: ") + e.what(), LogLevel::ERROR);
+                    Uni::Converter::toUniValue(item.get("value", "")));
+      }
+      catch (const ConfigurationException& e)
+      {
+        print(std::string("NetworkConfig: Exception from Configuration: ") + e.what(),
+              LogLevel::ERROR);
       }
     }
   }
-  if ( header_.msgType == CM_GET_MOUNTS )
+  if (header_.msgType == CM_GET_MOUNTS)
   {
-    print( "NetworkConfig: received message type CM_GET_MOUNTS: "+body, LogLevel::INFO );
+    print("NetworkConfig: received message type CM_GET_MOUNTS: " + body, LogLevel::DEBUG);
     transmitMountList();
   }
-  if ( header_.msgType == CM_GET_KEYS )
+  if (header_.msgType == CM_GET_KEYS)
   {
-    print( "NetworkConfig: received message type CM_GET_KEYS: " + body, LogLevel::INFO);
+    print("NetworkConfig: received message type CM_GET_KEYS: " + body, LogLevel::DEBUG);
     transmitKeyList(body);
   }
-  if ( header_.msgType == CM_SAVE )
+  if (header_.msgType == CM_SAVE)
   {
-    print( "NetworkConfig: received message type CM_SAVE: "+body, LogLevel::INFO );
-    try {
+    print("NetworkConfig: received message type CM_SAVE: " + body, LogLevel::DEBUG);
+    try
+    {
       config_.save();
-    } catch (const ConfigurationException& e) {
-      print(std::string("NetworkConfig: Exception from Configuration: ") + e.what(), LogLevel::ERROR);
+    }
+    catch (const ConfigurationException& e)
+    {
+      print(std::string("NetworkConfig: Exception from Configuration: ") + e.what(),
+            LogLevel::ERROR);
     }
   }
 
   receive();
 }
 
-void NetworkConfig::Impl::transmitMountList(){
+void NetworkConfig::Impl::transmitMountList()
+{
   Json::Value root;
   Json::Value jsonArray(Json::arrayValue);
   auto keys = config_.getMountPoints();
 
-  for(auto it = keys.begin(); it != keys.end(); ++it){
+  for (auto it = keys.begin(); it != keys.end(); ++it)
+  {
     Json::Value entry(Json::objectValue);
     entry["key"] = it->first;
     entry["filename"] = it->second;
@@ -239,16 +241,16 @@ void NetworkConfig::Impl::transmitMountList(){
     // send
     auto self(shared_from_this());
     boost::asio::async_write(socket_, sendBuffers,
-      [this, self, json](boost::system::error_code error, std::size_t /*length*/)
-    {
-      if ( error )
-      {
-        Log(LogLevel::WARNING) << "TCPTransport: error while sending List, disconnecting...";
-        return;
-      }
+                             [self, json](boost::system::error_code error, std::size_t /*length*/) {
+                               if (error)
+                               {
+                                 Log(LogLevel::ERROR)
+                                     << "TCPTransport: error while sending List, disconnecting...";
+                                 return;
+                               }
 
-      Log(LogLevel::DEBUG) <<  "TCPTransport: sent List.";
-    });
+                               Log(LogLevel::DEBUG) << "TCPTransport: sent List.";
+                             });
   }
   catch (boost::system::system_error& e)
   {
@@ -260,12 +262,14 @@ void NetworkConfig::Impl::transmitMountList(){
   }
 }
 
-void NetworkConfig::Impl::transmitKeyList(std::string mountPoint){
+void NetworkConfig::Impl::transmitKeyList(std::string mountPoint)
+{
   Json::Value root;
   Json::Value jsonArray(Json::arrayValue);
   auto keys = config_.get(mountPoint);
 
-  for(auto it = keys.objectBegin(); it != keys.objectEnd(); ++it){
+  for (auto it = keys.objectBegin(); it != keys.objectEnd(); ++it)
+  {
     Json::Value entry(Json::objectValue);
     entry["key"] = it->first;
     entry["value"] = Uni::Converter::toJson(it->second);
@@ -291,16 +295,16 @@ void NetworkConfig::Impl::transmitKeyList(std::string mountPoint){
     // send
     auto self(shared_from_this());
     boost::asio::async_write(socket_, sendBuffers,
-      [this, self, json](boost::system::error_code error, std::size_t /*length*/)
-    {
-      if ( error )
-      {
-        Log(LogLevel::WARNING) << "TCPTransport: error while sending List, disconnecting...";
-        return;
-      }
+                             [self, json](boost::system::error_code error, std::size_t /*length*/) {
+                               if (error)
+                               {
+                                 Log(LogLevel::ERROR)
+                                     << "TCPTransport: error while sending List, disconnecting...";
+                                 return;
+                               }
 
-      Log(LogLevel::DEBUG) <<  "TCPTransport: sent List.";
-    });
+                               Log(LogLevel::DEBUG) << "TCPTransport: sent List.";
+                             });
   }
   catch (boost::system::system_error&)
   {
@@ -316,9 +320,7 @@ NetworkConfig::NetworkConfig(const std::uint16_t& port, Configuration& config)
   pimpl_.reset(new Impl(port, config));
 }
 
-NetworkConfig::~NetworkConfig()
-{
-}
+NetworkConfig::~NetworkConfig() {}
 
 void NetworkConfig::run()
 {

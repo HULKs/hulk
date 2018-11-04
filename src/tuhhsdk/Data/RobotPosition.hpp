@@ -8,12 +8,14 @@
 
 class RobotPosition : public DataType<RobotPosition> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "RobotPosition";
   /// the pose of the robot in SPL field coordinates
   Pose pose;
   /// the timestamp of the last time when the robot position jumped (significant changes not matching the odometry)
   TimePoint lastTimeJumped;
   /// whether the pose is valid
-  bool valid;
+  bool valid = false;
   /**
    * @brief fieldToRobot converts field coordinates to robot coordinates
    * @param fieldCoordinates a point in field coordinates

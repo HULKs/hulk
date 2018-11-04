@@ -25,7 +25,7 @@ function run_cmake {
   TARGET="$1"
   shift
   msg -n "Generating files for ${TARGET}."
-  for BUILD_TYPE in Debug Develop Release; do
+  for BUILD_TYPE in Debug Develop Release RelWithDebInfo; do
     DIR="${BASEDIR}/build/${TARGET}/${BUILD_TYPE}"
     rm -rf "${DIR}"
     mkdir -p "${DIR}"
@@ -52,23 +52,27 @@ function run {
   case "$1" in
     nao)
       TOOLCHAIN_DIR="${BASEDIR}/toolchain"
-      if [ ! -e "${TOOLCHAIN_DIR}/hulks" ] || [ ! -e "${TOOLCHAIN_DIR}/naoqi" ]; then
-        msg -e "You need to install a toolchain before compiling for the NAO!"
-        return 1
+      if [ "$2" = "withoutNaoqi" ]; then
+        if [ ! -e "${TOOLCHAIN_DIR}/hulks" ]; then
+          msg -e "You need to install a toolchain before compiling for the NAO!"
+          return 1
+        fi
+        run_cmake nao -DNAO=ON -DNAOLIB=OFF -DTOOLCHAIN_DIR="${TOOLCHAIN_DIR}"
+      else
+        if [ ! -e "${TOOLCHAIN_DIR}/hulks" ] || [ ! -e "${TOOLCHAIN_DIR}/naoqi" ]; then
+          msg -e "You need to install a toolchain before compiling for the NAO!"
+          return 1
+        fi
+      run_cmake nao -DNAO=ON -DNAOLIB=ON -DTOOLCHAIN_DIR="${TOOLCHAIN_DIR}"
       fi
-      run_cmake nao -DNAO=ON -DTOOLCHAIN_DIR="${TOOLCHAIN_DIR}"
       ;;
     replay)
       run_cmake replay -DREPLAY=ON
       ;;
     simrobot)
       SIMROBOT_DIR="${BASEDIR}/tools/SimRobot"
-      if [ ! -d "${SIMROBOT_DIR}/Src/SimRobotCore2" ] || [ ! -e "${SIMROBOT_DIR}/build" ]; then
-        msg -e "Either SimRobot is not installed or not compiled!"
-        return 1
-      fi
       ln -sf "${BASEDIR}/build/simrobot/current/src/tuhhsdk/libtuhhSimRobot.so" "${SIMROBOT_DIR}/build/libtuhhSimRobot.so"
-      run_cmake simrobot -DSIMROBOT=ON -DSIMROBOT_INCLUDE_DIRS="${SIMROBOT_DIR}/Src/SimRobotCore2"
+      run_cmake simrobot -DSIMROBOT=ON
       ;;
     qt-websocket)
       run_cmake qt-websocket -DQT_WEBSOCKET=ON

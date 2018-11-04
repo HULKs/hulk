@@ -1,6 +1,9 @@
 #include <algorithm>
 #include <cassert>
 
+#include "BodyDamageProvider/BodyDamageProvider.hpp"
+#include "Definitions/keys.h"
+#include "Modules/NaoProvider.h"
 #include "Tools/Chronometer.hpp"
 #include "Tools/Kinematics/Com.h"
 #include "Tools/Kinematics/ForwardKinematics.h"
@@ -9,7 +12,9 @@
 
 
 SensorDataProvider::SensorDataProvider(const ModuleManagerInterface& manager)
-  : Module(manager, "SensorDataProvider")
+  : Module(manager)
+  , jointCalibrationData_(*this)
+  , bodyDamageData_(*this)
   , fsrSensorData_(*this)
   , imuSensorData_(*this)
   , jointSensorData_(*this)
@@ -27,6 +32,9 @@ void SensorDataProvider::cycle()
 
   robotInterface().waitAndReadSensorData(sensorData_);
 
+  // This needs to be the first call to debug in the ModuleManager per cycle
+  debug().setUpdateTime(sensorData_.time);
+
   cycleInfo_->cycleTime = 0.01;
   cycleInfo_->startTime = sensorData_.time;
 
@@ -35,14 +43,21 @@ void SensorDataProvider::cycle()
   debug().update(mount_ + ".FSRSensorData", *fsrSensorData_);
 
   imuSensorData_->accelerometer =
-      Vector3f(sensorData_.imu[keys::sensor::IMU_ACC_X], sensorData_.imu[keys::sensor::IMU_ACC_Y], sensorData_.imu[keys::sensor::IMU_ACC_Z]);
-  imuSensorData_->angle =
-      Vector3f(sensorData_.imu[keys::sensor::IMU_ANGLE_X], sensorData_.imu[keys::sensor::IMU_ANGLE_Y], sensorData_.imu[keys::sensor::IMU_ANGLE_Z]);
+      Vector3f(sensorData_.imu[keys::sensor::IMU_ACC_X], sensorData_.imu[keys::sensor::IMU_ACC_Y],
+               sensorData_.imu[keys::sensor::IMU_ACC_Z]);
+  imuSensorData_->angle = Vector3f(sensorData_.imu[keys::sensor::IMU_ANGLE_X],
+                                   sensorData_.imu[keys::sensor::IMU_ANGLE_Y],
+                                   sensorData_.imu[keys::sensor::IMU_ANGLE_Z]);
   imuSensorData_->gyroscope =
-      Vector3f(sensorData_.imu[keys::sensor::IMU_GYR_X], sensorData_.imu[keys::sensor::IMU_GYR_Y], sensorData_.imu[keys::sensor::IMU_GYR_Z]);
+      Vector3f(sensorData_.imu[keys::sensor::IMU_GYR_X], sensorData_.imu[keys::sensor::IMU_GYR_Y],
+               sensorData_.imu[keys::sensor::IMU_GYR_Z]);
   debug().update(mount_ + ".IMUSensorData", *imuSensorData_);
 
-  jointSensorData_->angles = sensorData_.jointSensor;
+  for (unsigned int i = 0; i < sensorData_.jointSensor.size(); i++)
+  {
+    jointSensorData_->angles[i] =
+        sensorData_.jointSensor[i] - jointCalibrationData_->calibrationOffsets[i];
+  }
   jointSensorData_->currents = sensorData_.jointCurrent;
   jointSensorData_->temperatures = sensorData_.jointTemperature;
   jointSensorData_->status = sensorData_.jointStatus;
@@ -71,17 +86,23 @@ void SensorDataProvider::cycle()
   sensorData_.buttonCallbackList.clear();
   debug().update(mount_ + ".ButtonData", *buttonData_);
 
-  fillSonar(sonarSensorData_->sonarLeft, sensorData_.sonar[keys::sensor::SONAR_LEFT_SENSOR_0]);
-  fillSonar(sonarSensorData_->sonarRight, sensorData_.sonar[keys::sensor::SONAR_RIGHT_SENSOR_0]);
-  debug().update(mount_ + ".SonarSensorData", *sonarSensorData_);
-
-  const std::vector<KinematicMatrix> kinematicMatrices = ForwardKinematics::getBody(jointSensorData_->getBodyAngles(), imuSensorData_->angle);
+  sonarSensorData_->data = sensorData_.sonar;
+  setSonarValidity(*sonarSensorData_, sensorData_.sonar);
+  
+  const std::vector<KinematicMatrix> kinematicMatrices =
+      ForwardKinematics::getBody(jointSensorData_->getBodyAngles(), imuSensorData_->angle);
   assert(kinematicMatrices.size() == robotKinematics_->matrices.size());
   std::copy(kinematicMatrices.begin(), kinematicMatrices.end(), robotKinematics_->matrices.begin());
   robotKinematics_->com = Com::getComBody(kinematicMatrices);
+
+  jointSensorData_->valid = true;
+  imuSensorData_->valid = true;
+  fsrSensorData_->valid = true;
+  buttonData_->valid = true;
 }
 
-void SensorDataProvider::fillFSR(FSRSensorData::Sensor& sensor, const std::array<float, keys::sensor::fsr::FSR_MAX>& data)
+void SensorDataProvider::fillFSR(FSRSensorData::Sensor& sensor,
+                                 const std::array<float, keys::sensor::fsr::FSR_MAX>& data)
 {
   sensor.frontLeft = data[keys::sensor::fsr::FSR_FRONT_LEFT];
   sensor.frontRight = data[keys::sensor::fsr::FSR_FRONT_RIGHT];
@@ -92,15 +113,31 @@ void SensorDataProvider::fillFSR(FSRSensorData::Sensor& sensor, const std::array
   sensor.cop.y() = data[keys::sensor::fsr::FSR_COP_Y];
 }
 
-void SensorDataProvider::fillSonar(float& clipped, const float raw)
+void SensorDataProvider::setSonarValidity(SonarSensorData& sonar,
+  std::array<float, keys::sensor::SONAR_MAX> input)
 {
-  // This is old Blackboard functionality which is not removed for safety reasons.
-  if (raw > 0.f && raw < 2.f)
+  // set the unused fields to valid
+  sonar.valid[keys::sensor::SONAR_ACTUATOR] = sonar.valid[keys::sensor::SONAR_SENSOR] = true;
+
+  // Check if sonar sensors are damaged
+  if (!bodyDamageData_->damagedSonars[SONARS::LEFT])
   {
-    clipped = raw;
+    // Set validity for left echoes
+    for (int i = keys::sensor::SONAR_LEFT_SENSOR_0; i <= keys::sensor::SONAR_LEFT_SENSOR_9; i++)
+    {
+      // A value <= 0 less means error, >= MAX_DETECTION_RANGE means no echo. Source:
+      // http://doc.aldebaran.com/2-1/family/nao_dcm/actuator_sensor_names.html#term-us-sensors-m
+      sonar.valid[i] = input[i] > 0 && input[i] < MAX_SONAR_RANGE;
+    }
   }
-  else
+  if (!bodyDamageData_->damagedSonars[SONARS::RIGHT])
   {
-    clipped = -1.f;
+    // Set validity for right echoes
+    for (int i = keys::sensor::SONAR_RIGHT_SENSOR_0; i <= keys::sensor::SONAR_RIGHT_SENSOR_9; i++)
+    {
+      // A value <= 0 less means error, >= MAX_DETECTION_RANGE means no echo. Source:
+      // http://doc.aldebaran.com/2-1/family/nao_dcm/actuator_sensor_names.html#term-us-sensors-m
+      sonar.valid[i] = input[i] > 0 && input[i] < MAX_SONAR_RANGE;
+    }
   }
 }
