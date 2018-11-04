@@ -9,7 +9,7 @@ source "${BASEDIR}/scripts/lib/docker.sh"
 source "${BASEDIR}/scripts/lib/dependencies.sh"
 
 # This should be the only place that needs to be updated when a new toolchain version is available.
-CURRENT_HULKS_VERSION="6.3.0-2"
+CURRENT_HULKS_VERSION="7.3.0-1"
 CURRENT_NAOQI_VERSION="2.1.4.13"
 DEFAULT_TOOLCHAIN_REPO="${HOME}/naotoolchain"
 
@@ -88,7 +88,7 @@ function downloadToolchain {
   local NAME="$4"
   local ARCHIVE_NAME="${NAME}.tar.bz2"
   local SERVER_PATH="toolchains/${CATEGORY}/${VERSION}/${ARCHIVE_NAME}"
-  local SERVER_HOST="bighulk"
+  local SERVER_HOST="bighulk.lan"
   local PRIVILEGED_EXECUTE=""
   if iAmInDocker; then
     msg -e "You are using docker and try to download a new toolchain! This is not possible (or at least not sensible)."
@@ -105,17 +105,20 @@ function downloadToolchain {
   fi
   cd "${TOOLCHAIN_REPO}"
   if [ ! -f "${ARCHIVE_NAME}" ]; then
-    ${PRIVILEGED_EXECUTE} curl -s -o "${ARCHIVE_NAME}" "http://${SERVER_HOST}/${SERVER_PATH}"
+    msg -n "Download via http - http://${SERVER_HOST}/${SERVER_PATH}"
+    ${PRIVILEGED_EXECUTE} curl --progress-bar -o "${ARCHIVE_NAME}" "http://${SERVER_HOST}/${SERVER_PATH}"
     if [ "$?" -ne 0 ]; then
       msg -e "Failed to download toolchain!"
       return 1
     fi
   fi
-  ${PRIVILEGED_EXECUTE} tar xjf "${ARCHIVE_NAME}"
+  msg -e "Extracting ${ARCHIVE_NAME}."
+  ${PRIVILEGED_EXECUTE} tar xjf "${ARCHIVE_NAME}" --checkpoint=.100
   if [ "$?" -ne 0 ]; then
     msg -e "Failed to extract toolchain!"
     return 1
   fi
+  msg -n "\nExtraction of toolchain complete."
   ${PRIVILEGED_EXECUTE} rm "${ARCHIVE_NAME}"
   return 0
 }

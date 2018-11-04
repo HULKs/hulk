@@ -15,6 +15,11 @@ const std::vector<std::type_index>& Sender::getRequested() const
   return requested_;
 }
 
+void Sender::produce(const std::type_index& type)
+{
+  produced_.push_back(type);
+}
+
 Receiver::Receiver(Sender& sender)
   : sender_(sender)
 {
@@ -28,6 +33,11 @@ bool Receiver::receive(Message& msg)
 void Receiver::request(const std::type_index& type)
 {
   sender_.requested_.push_back(type);
+}
+
+const std::vector<std::type_index> Receiver::getProduced() const
+{
+  return sender_.produced_;
 }
 
 DuplexChannel::DuplexChannel()

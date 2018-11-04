@@ -23,7 +23,7 @@
 
     <Compound name="calibCuboid">
       <Body ref="calibCuboid">
-        <Translation x="0" y="-2.68" z="320mm"/>
+        <Translation x="0" y="-2.58" z="320mm"/>
         <Rotation x="90degree"/>
       </Body>
     </Compound>

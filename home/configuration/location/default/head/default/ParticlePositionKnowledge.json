@@ -1,0 +1,20 @@
+{
+   "lineAssociationDistance" : 1,
+   "lineAssociationAngle" : 30,
+   "maxGyroNormWhenMeasuring" : 1.337,
+   "numberOfParticles" : 100,
+   "maxConsideredLineMeasurements" : 10,
+   "sensorResettingFraction" : 0.0,
+   "sigma" : [ 0.005, 0.005, 0.005 ],
+   "sigmaInitial" : [ 0.05, 0.01, 0.01 ],
+   "sigmaPenalized" : [ 0.33, 0.1, 0.1 ],
+   "sigmaPrediction" : [ 0.01, 0.01, 0.001 ],
+   "startAnywhereAtSidelines" : false,
+   "threshold" : 0.1,
+   "transmitParticles" : false,
+   "alwaysUseMultiplePenaltyShootoutPositions" : false,
+   "strikerLocalizeInPSO" : false,
+    // only here to be able to share the PositionProvider.
+    // This value is never actually used.
+   "maxNumberOfHypotheses" : -1
+}

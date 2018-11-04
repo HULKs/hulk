@@ -18,6 +18,8 @@ class Brain;
 class OneMeansFieldColorDetection : public Module<OneMeansFieldColorDetection, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "OneMeansFieldColorDetection";
   OneMeansFieldColorDetection(const ModuleManagerInterface& manager);
   void cycle();
 
@@ -28,7 +30,7 @@ private:
     int yThresh;
   };
   /// determines the initial guess using initialStep() and saves it to config
-  const Parameter<bool> calculateInitialGuess_;
+  Parameter<bool> calculateInitialGuess_;
   /// the initial guess
   const Parameter<Vector2f> initialGuessTop_;
   const Parameter<Vector2f> initialGuessBottom_;
@@ -52,9 +54,10 @@ private:
   bool updateInitialGuessTop_;
   bool updateInitialGuessBottom_;
   /// Calculates the initial guess of (cb,cr)
-  Vector2f initialStep(const Image& image, const int yThresh, const int startY) const;
+  Vector2f initialStep(const Image422& image, const int yThresh, const int startY) const;
   /// Updates the cluster by moving the mean to the mean of the samples within the old cluster
-  FieldColorCluster updateStep(const Image& image, const FieldColorCluster initCluster, const int maxDist, const int startY);
+  FieldColorCluster updateStep(const Image422& image, const FieldColorCluster initCluster,
+                               const int maxDist, const int startY);
   /// Sends debug image and results of (cb,cr)
-  void sendImageForDebug(const Image& image);
+  void sendImageForDebug(const Image422& image);
 };

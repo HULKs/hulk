@@ -4,8 +4,8 @@
 
 #include "Data/CycleInfo.hpp"
 #include "Data/JointSensorData.hpp"
-#include "Tools/Time.hpp"
 #include "Definitions/keys.h"
+#include "Tools/Time.hpp"
 
 #include "MotionFile.hpp"
 
@@ -16,7 +16,8 @@ public:
   /**
    * @struct JointValues
    */
-  struct JointValues {
+  struct JointValues
+  {
     /// all the joint angles in a frame
     std::vector<float> angles = std::vector<float>(keys::joints::JOINTS_MAX);
     /// all the joint stiffnesses in a frame
@@ -40,6 +41,10 @@ public:
    */
   int play();
   /**
+   * @brief stop stops playing of the motion file
+   */
+  void stop();
+  /**
    * @brief cycle proceeds one cycle in the motion
    * @return the joint values that should be sent for this cycle (whole body)
    */
@@ -49,6 +54,7 @@ public:
    * @return true iff the motion is currently playing
    */
   bool isPlaying() const;
+
 private:
   /**
    * @brief precompile constructs the angles, angle times, stiffnesses and stiffness times

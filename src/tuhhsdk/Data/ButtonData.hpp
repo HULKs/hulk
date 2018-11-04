@@ -10,17 +10,22 @@
 class ButtonData : public DataType<ButtonData>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "ButtonData";
   /// sensor values of the buttons (foot bumpers, chest button, head, hands)
   std::array<float, keys::sensor::SWITCH_MAX> buttons;
   /// the last time when the chest button has been single pressed
   TimePoint lastChestButtonSinglePress;
   /// the last time when the chest button has been double pressed
   TimePoint lastChestButtonDoublePress;
+  /// whether the content is valid
+  bool valid = false;
   /**
-   * @brief reset does nothing
+   * @brief marks the content as invalid
    */
   void reset()
   {
+    valid = false;
   }
 
   virtual void toValue(Uni::Value& value) const
@@ -29,6 +34,7 @@ public:
     value["buttons"] << buttons;
     value["lastChestButtonSinglePress"] << lastChestButtonSinglePress;
     value["lastChestButtonDoublePress"] << lastChestButtonDoublePress;
+    value["valid"] << valid;
   }
 
   virtual void fromValue(const Uni::Value& value)
@@ -36,5 +42,6 @@ public:
     value["buttons"] >> buttons;
     value["lastChestButtonSinglePress"] >> lastChestButtonSinglePress;
     value["lastChestButtonDoublePress"] >> lastChestButtonDoublePress;
+    value["valid"] >> valid;
   }
 };

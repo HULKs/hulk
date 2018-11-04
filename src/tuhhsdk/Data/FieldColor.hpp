@@ -5,9 +5,12 @@
 
 #include "Framework/DataType.hpp"
 #include "Tools/Storage/Image.hpp"
+#include "Tools/Storage/Image422.hpp"
 
 class FieldColor : public DataType<FieldColor> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "FieldColor";
   /**
    * @brief Field color threshold for the Y channel
    *
@@ -23,7 +26,7 @@ public:
   int meanCb;
   int meanCr;
   /// whether the field color is valid
-  bool valid;
+  bool valid = false;
 
   /**
    * @brief Return if a pixel falls within the field color range
@@ -36,11 +39,11 @@ public:
    *
    * @author Georg Felbinger
    */
-  bool isFieldColor(const Color &pixel) const
+  bool isFieldColor(const YCbCr422 &pixel) const
   {
     const int cb = (pixel.cb_ - meanCb);
     const int cr = (pixel.cr_ - meanCr);
-    return pixel.y_ < thresholdY && cb * cb + cr * cr * 2 < thresholdUvSquared;
+    return pixel.y1_ < thresholdY && pixel.y2_ < thresholdY && cb * cb + cr * cr * 2 < thresholdUvSquared;
   }
 
   /**

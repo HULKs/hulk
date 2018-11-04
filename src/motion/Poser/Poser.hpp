@@ -13,6 +13,8 @@ class Motion;
 class Poser : public Module<Poser, Motion>
 {
 public:
+  /// the name of this module
+  ModuleName name = "Poser";
   /**
    * @brief Poser initializes members
    * @param manager a reference to motion

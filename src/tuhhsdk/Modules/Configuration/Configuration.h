@@ -158,13 +158,15 @@ public:
   void set(const std::string& mount, const std::string& key, const Uni::Value& value);
 
   /**
-   * @brief save will save all changed configuration values to the respective last-mounted configuration file.
+   * @brief save will save all changed configuration values to the respective last-mounted
+   * configuration file.
    */
   void save();
 
   /**
    * @brief getMountPoints
-   * @return map of string names of mounted mountpoints to string name of the matching configuration file
+   * @return map of string names of mounted mountpoints to string name of the matching
+   * configuration file
    */
   std::map<std::string, std::string> getMountPoints();
 
@@ -180,7 +182,8 @@ public:
    * @param callback
    * @return
    */
-  boost::signals2::connection registerCallback(const std::string& mount, const std::string& key, ConfigurationCallback callback);
+  boost::signals2::connection registerCallback(const std::string& mount, const std::string& key,
+                                               ConfigurationCallback callback);
 };
 
 class ConfigurationException : public std::runtime_error

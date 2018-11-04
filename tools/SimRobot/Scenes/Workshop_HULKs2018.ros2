@@ -9,14 +9,14 @@
 
     <Compound name="robots">
       <Body ref="Nao" name="robot2">
-        <Translation x="3.2" y="-3" z="320mm"/>
+        <Translation x="-3.2" y="-3" z="320mm"/>
         <Rotation z="90degree"/>
       </Body>
     </Compound>
 
     <Compound name="balls">
       <Body ref="redBall">
-        <Translation x="3.2" y="-1" z="1m"/>
+        <Translation x="-3.2" y="-1" z="1m"/>
       </Body>
     </Compound>
 

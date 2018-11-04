@@ -1,11 +1,12 @@
 #pragma once
 
-#include <mutex>
 #include <condition_variable>
+#include <mutex>
 
 #include "Hardware/CameraInterface.hpp"
 
-class ReplayCamera : public CameraInterface {
+class ReplayCamera : public CameraInterface
+{
 public:
   /**
    */
@@ -16,7 +17,7 @@ public:
    * @param camera the camera type of the loaded image
    * @param timestamp the timestamp of the image
    */
-  void setImage(const Image& image, const Camera camera, const TimePoint timestamp);
+  void setImage(const Image422& image, const Camera camera, const TimePoint timestamp);
   /**
    * @brief waitForImage waits until there is a new image available to be processed
    * @return the number of seconds that have been waited
@@ -27,7 +28,11 @@ public:
    * @param image is filled with the new image
    * @return the time point at which the first pixel of the image was recorded
    */
-  TimePoint readImage(Image& image);
+  TimePoint readImage(Image422& image);
+  /**
+   * @brief releaseImage is used to possible release the image of a camera
+   */
+  void releaseImage();
   /**
    * @brief startCapture starts capturing images
    */
@@ -41,9 +46,10 @@ public:
    * @return the camera type
    */
   virtual Camera getCameraType();
+
 private:
   /// the current image that the camera would return
-  Image image_;
+  Image422 image_;
   /// the timestamp of the current image
   TimePoint timestamp_;
   /// lock to prevent races between setImageData and readImage

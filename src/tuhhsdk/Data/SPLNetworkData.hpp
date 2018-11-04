@@ -11,6 +11,8 @@
 
 class SPLNetworkData : public DataType<SPLNetworkData> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "SPLNetworkData";
   /// SPL messages that arrived during the last cycle
   std::vector<std::pair<SPLStandardMessage, TimePoint>> messages;
   /// a function for sending messages

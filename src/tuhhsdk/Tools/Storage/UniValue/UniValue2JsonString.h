@@ -3,10 +3,12 @@
 
 #include <Tools/Storage/UniValue/UniValue.h>
 
-namespace Uni{
-  namespace Converter{
-    std::string toJsonString(const Value &value, bool pretty = true);
+namespace Uni
+{
+  namespace Converter
+  {
+    std::string toJsonString(const Value& value, bool pretty = true);
   }
-}
+} // namespace Uni
 
 #endif

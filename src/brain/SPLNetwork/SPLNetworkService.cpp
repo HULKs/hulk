@@ -3,6 +3,7 @@
 
 // This needs to be here because of windows includes
 #include "Tools/Storage/Image.hpp"
+#include "Tools/Storage/Image422.hpp"
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
@@ -15,7 +16,7 @@
 
 
 SPLNetworkService::SPLNetworkService(const ModuleManagerInterface& manager)
-  : Module(manager, "SPLNetworkService")
+  : Module(manager)
   , useMulticast_(*this, "useMulticast")
   , playerConfiguration_(*this)
   , splNetworkData_(*this)
@@ -155,7 +156,7 @@ void SPLNetworkService::sendMessage(const SPLStandardMessage& message)
   std::shared_ptr<SPLStandardMessage> msg = std::make_shared<SPLStandardMessage>(message);
   socket_.async_send_to(
       boost::asio::buffer(msg.get(), static_cast<unsigned int>(msg->data - reinterpret_cast<unsigned char*>(msg.get())) + message.numOfDataBytes),
-      foreignEndpoint_, [this, msg](const boost::system::error_code& error, std::size_t) {
+      foreignEndpoint_, [msg](const boost::system::error_code& error, std::size_t) {
         if (error)
         {
           print("Error sending team message", LogLevel::ERROR);

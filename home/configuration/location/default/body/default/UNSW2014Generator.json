@@ -1,0 +1,89 @@
+{
+    "accelerationCompensationGain" : 0.0,
+    "accelerometerLowPassRatio" : 0.9,
+    "armLiftDuration" : 1.0,
+    "armPullTightDuration" : 0.2,
+    "armShoulderPitchFactor" : 7,
+    "armShoulderRoll" : 7, // deg
+    "armShoulderRollIncreaseFactor" : 2,
+    "armStiffness" : 0.6,
+    "baseFootLift" : 0.01,
+    "baseWalkPeriod" : 0.26,
+    "emergencyStepSize" : 0.02,
+    "enableCollisionReaction" : true,
+    "enableGyroBalanceInStand" : true,
+    "enableReturnOffset" : false,
+    "enableTorsoCompensation" : true,
+    "footLiftFirstStepFactor" : 0.3,
+    "footLiftIncreaseFactor" : [
+        0.03,
+        0.008
+    ],
+    "gyroBackwardBalanceFactor" : 0.1,
+    "gyroForwardBalanceFactor" : 0.08,
+    "gyroLowPassRatio" : 0.8,
+    "gyroSidewaysBalanceFactor" : 0.1,
+    "headComGain" : 0.0,
+    "armComGain": 0.01,
+    "insideTurnRatio" : 0.33,
+    "maxAcceleration" : [
+        0.03,
+        0.2
+    ],
+    "maxDeceleration" : [
+        0.2,
+        0.2
+    ],
+    "maxSlowWeightShifts" : 2,
+    "maxSpeed" : [
+        [
+            0.25,
+            0.18
+        ],
+        70
+    ], // deg
+    "maxSpeedBackwards" : 0.25,
+    "maxWeightShiftMisses" : 3,
+    "minSlowWeightShiftRatio" : 1.75,
+    "odometryScale" : [
+        [
+            1.0,
+            1.0
+        ],
+        1
+    ],
+    "sidewaysWalkPeriodIncreaseFactor" : 0.15,
+    "slowMaxAcceleration" : [
+        0.05,
+        0.05
+    ],
+    "slowMaxSpeed" :    [
+        [
+            0.2,
+            0.1
+        ],
+        70
+    ], // deg
+    "slowMaxSpeedBackwards" : 0.2,
+    "slowWaitShiftStandDelay" : 0.5,
+    "speedCompensationGain" : 0.0,
+    "speedScale" : [
+        [
+            0.95,
+            0.95
+        ],
+        0.95
+    ],
+    "standLegStiffness" : 0.8,
+    "supportSwitchPhaseRange" : [
+        0.75,
+        3
+    ],
+    "targetModeSpeedFactor" : 2.0,
+    "torsoOffset" : 0.0,
+    "walkHipHeight" : 0.2325,
+    "walkLegStiffness" : 0.8,
+    "walkVolumeRotationExponent" : 2,
+    "triggerDebugCollision": false,
+    "walkVolumeTranslationExponent" : 1.5
+}

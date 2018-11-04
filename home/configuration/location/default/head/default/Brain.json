@@ -1,4 +1,6 @@
 {
+    "general.teamNumber": 89,
+    "general.port": 10089,
     "behavior.playerRole": "player",
     "behavior.initialPoses": [ -3, -2, -1, -1, -2, -3 ]
 }

@@ -2,7 +2,10 @@
 
 #include <Tools/Storage/UniValue/UniConvertible.hpp>
 
-class DataTypeBase : public Uni::To, public Uni::From {
+#define DataTypeName static constexpr const char*
+
+class DataTypeBase : public Uni::To, public Uni::From
+{
 public:
   /**
    * @brief ~DataTypeBase virtual destructor for polymorphism
@@ -21,7 +24,11 @@ public:
    * @brief reset should set the datum to a defined state
    */
   virtual void reset() = 0;
-
+  /**
+   * @brief returns the name of this data type
+   * @return the name of this data type
+   */
+  virtual const char* getName() = 0;
   /**
    * @brief toValue converts the DataType to an Uni::Value. This is to be
    * implemented in derived classes.
@@ -29,17 +36,19 @@ public:
    * the Uni::Value representation of the DataType
    */
   virtual void toValue(Uni::Value& /*value*/) const = 0;
-
   /**
    * @brief fromValue sets the DataType from an Uni::Value. This is to be
    * implemented in derived classes
    * @param value the value to set the DataType's values from
    */
   virtual void fromValue(const Uni::Value& /*value*/) = 0;
+  /// whether this DataType should automatically being sent via debug (if subscribed)
+  bool autoUpdateDebug = true;
 };
 
-template<typename Derived, typename Base = DataTypeBase>
-class DataType : public Base {
+template <typename Derived, typename Base = DataTypeBase>
+class DataType : public Base
+{
 public:
   /**
    * @brief copy creates a copy of a data type
@@ -56,5 +65,13 @@ public:
   void copy(DataTypeBase* p) const
   {
     *static_cast<Derived*>(p) = Derived(static_cast<const Derived&>(*this));
+  }
+  /**
+   * @brief returns the name of this DataType
+   * @return the name of this DataType
+   */
+  const char* getName()
+  {
+    return Derived::name;
   }
 };

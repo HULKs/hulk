@@ -10,6 +10,8 @@
 class FieldDimensions : public DataType<FieldDimensions>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "FieldDimensions";
   /// the length of the field (A) [m]
   float fieldLength = 0.f;
   /// the width of the field (B) [m]
@@ -38,6 +40,10 @@ public:
   float goalDepth = 0.f;
   /// the diameter of the ball [m]
   float ballDiameter = 0.f;
+  /// the length of the imaginary throw in line [m] (as of chapter 3.7 of the SPL rules 2018 (draft))
+  float fieldThrowInLineLength = 0.f;
+  /// the spacing of the imaginary throw in line from the side lines [m] (as of 3.7 of the SPL rules 2018 (draft))
+  float fieldThrowInLineSpacing = 0.f;
   /**
    * @brief reset does nothing
    */
@@ -83,6 +89,8 @@ public:
     value["goalInnerWidth"] << goalInnerWidth;
     value["goalDepth"] << goalDepth;
     value["ballDiameter"] << ballDiameter;
+    value["throwInLineLength"] << fieldThrowInLineLength;
+    value["throwInLineSpacing"] << fieldThrowInLineSpacing;
   }
 
   virtual void fromValue(const Uni::Value& value)
@@ -101,6 +109,8 @@ public:
     value["goalInnerWidth"] >> goalInnerWidth;
     value["goalDepth"] >> goalDepth;
     value["ballDiameter"] >> ballDiameter;
+    value["throwInLineLength"] >> fieldThrowInLineLength;
+    value["throwInLineSpacing"] >> fieldThrowInLineSpacing;
   }
 
   /**
@@ -123,6 +133,8 @@ public:
     group["penaltyMarkerDistance"] >> fieldPenaltyMarkerDistance;
     group["centerCircleDiameter"] >> fieldCenterCircleDiameter;
     group["borderStripWidth"] >> fieldBorderStripWidth;
+    group["throwInLineLength"] >> fieldThrowInLineLength;
+    group["throwInLineSpacing"] >> fieldThrowInLineSpacing;
 
     // read goal parameters
     group = config.get("tuhhSDK.FieldDimensions", "goal");

@@ -1,11 +1,12 @@
 #include <cstdlib>
 #include <cstring>
+#include <linux/videodev2.h>
+#include <poll.h>
 #include <stdexcept>
 #include <sys/fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <x86intrin.h>
 
 #include "Modules/Configuration/Configuration.h"
 #include "print.h"
@@ -13,10 +14,6 @@
 #include "NaoCamera.hpp"
 #include "NaoCameraCommon.hpp"
 
-
-char NaoCamera::shuffle1[16] = {0, 1, 3, 2, 1, 3, 4, 5, 7, 6, 5, 7, 8, 9, 11, 10};
-char NaoCamera::shuffle2[16] = {1, 3, 4, 5, 7, 6, 5, 7, 8, 9, 11, 10, 9, 11, 12, 13};
-char NaoCamera::shuffle3[16] = {7, 6, 5, 7, 8, 9, 11, 10, 9, 11, 12, 13, 15, 14, 13, 15};
 
 NaoCamera::NaoCamera(const Camera camera)
   : camera_(camera)
@@ -26,8 +23,15 @@ NaoCamera::NaoCamera(const Camera camera)
   , bufferMem_(NULL)
   , bufferLength_(NULL)
 {
+  std::memset(&currentBuffer_, 0, sizeof(currentBuffer_));
+  currentBuffer_.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  currentBuffer_.memory = V4L2_MEMORY_MMAP;
+
+  imageValid = false;
+  timestamp = 0;
+
   const char* device = (camera_ == Camera::TOP) ? "/dev/video0" : "/dev/video1";
-  fd_ = open(device, O_RDWR);
+  fd_ = open(device, O_RDWR | O_NONBLOCK);
   if (fd_ < 0)
   {
     throw std::runtime_error("Could not open camera device file!");
@@ -82,7 +86,8 @@ void NaoCamera::configure(Configuration& config)
 
   if ((resolution_.x() % 16) != 0)
   {
-    throw std::runtime_error("The image width has to be divisible by 16 because of SSE-optimized readImage!");
+    throw std::runtime_error(
+        "The image width has to be divisible by 16 because of SSE-optimized readImage!");
   }
 
   setFormat();
@@ -132,77 +137,113 @@ void NaoCamera::configure(Configuration& config)
     onGainChange();
   });
 
-  config.registerCallback(mount_, "whiteBalanceTemperature", boost::bind(&NaoCamera::onWhiteBalanceTemperatureChange, this, _1));
+  config.registerCallback(mount_, "whiteBalanceTemperature",
+                          boost::bind(&NaoCamera::onWhiteBalanceTemperatureChange, this, _1));
   config.registerCallback(mount_, "contrast", boost::bind(&NaoCamera::onContrastChange, this, _1));
   config.registerCallback(mount_, "gamma", boost::bind(&NaoCamera::onGammaChange, this, _1));
   config.registerCallback(mount_, "hue", boost::bind(&NaoCamera::onHueChange, this, _1));
-  config.registerCallback(mount_, "saturation", boost::bind(&NaoCamera::onSaturationChange, this, _1));
-  config.registerCallback(mount_, "sharpness", boost::bind(&NaoCamera::onSharpnessChange, this, _1));
-  config.registerCallback(mount_, "fadeToBlack", boost::bind(&NaoCamera::onFadeToBlackChange, this, _1));
+  config.registerCallback(mount_, "saturation",
+                          boost::bind(&NaoCamera::onSaturationChange, this, _1));
+  config.registerCallback(mount_, "sharpness",
+                          boost::bind(&NaoCamera::onSharpnessChange, this, _1));
+  config.registerCallback(mount_, "fadeToBlack",
+                          boost::bind(&NaoCamera::onFadeToBlackChange, this, _1));
 }
 
 float NaoCamera::waitForImage()
 {
-  fd_set fds;
-  timeval timeout;
-  FD_ZERO(&fds);
-  FD_SET(fd_, &fds);
-  timeout.tv_sec = 0;
-  timeout.tv_usec = 1000000 / fps_;
-  if (select(fd_ + 1, &fds, NULL, NULL, &timeout) < 0)
-  {
-    throw std::runtime_error("select error in NaoCamera!");
-  }
-  // Timeout now contains the remaining time of the original timeout.
-  return (1000000 / fps_ - timeout.tv_usec) / 1000000.f;
+  // The waiting now happens for both cameras at the same time
+  return 0;
 }
 
-TimePoint NaoCamera::readImage(Image& image)
+bool NaoCamera::waitForCameras(std::array<NaoCamera*, 2> cameras, int timeout)
 {
-  unsigned char* src;
-  Color* dst;
-  v4l2_buffer buf;
-  memset(&buf, 0, sizeof(buf));
-  buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  buf.memory = V4L2_MEMORY_MMAP;
-  if (ioctl(fd_, VIDIOC_DQBUF, &buf) < 0)
+  pollfd pollfds[cameras.size()];
+  for (std::size_t i = 0; i < cameras.size(); ++i)
   {
-    throw std::runtime_error("DQBUF error in NaoCamera! Maybe there is already a program using the camera on the NAO?");
+    pollfds[i] = {cameras[i]->fd_, POLLIN | POLLPRI, 0};
   }
-  if (buf.index >= bufferCount_)
-  {
-    throw std::runtime_error("Buffer index greater or equal than the number of buffers in NaoCamera!");
-  }
-  image.resize(resolution_);
-  // Convert the YUYV image to a YUV image by duplicating the U and V channel.
-  __m128i shuffle1mm = _mm_loadu_si128(reinterpret_cast<__m128i*>(shuffle1));
-  __m128i shuffle2mm = _mm_loadu_si128(reinterpret_cast<__m128i*>(shuffle2));
-  __m128i shuffle3mm = _mm_loadu_si128(reinterpret_cast<__m128i*>(shuffle3));
-  src = bufferMem_[buf.index];
-  dst = image.data_;
-  unsigned char* end = src + 2 * resolution_.x() * resolution_.y();
-  for (; src < end; dst += 16, src += 32)
-  {
-    __m128i yuvpixels1 = _mm_loadu_si128(reinterpret_cast<__m128i*>(src));
-    __m128i yuyvpixels1 = _mm_shuffle_epi8(yuvpixels1, shuffle1mm);
 
-    __m128i yuvpixels1point5 = _mm_loadu_si128(reinterpret_cast<__m128i*>(src + 8));
-    __m128i yuyvpixels2 = _mm_shuffle_epi8(yuvpixels1point5, shuffle2mm);
-
-    __m128i yuvpixels2 = _mm_loadu_si128(reinterpret_cast<__m128i*>(src + 16));
-    __m128i yuyvpixels3 = _mm_shuffle_epi8(yuvpixels2, shuffle3mm);
-
-    _mm_storeu_si128(reinterpret_cast<__m128i*>(dst), yuyvpixels1);
-    _mm_storeu_si128(reinterpret_cast<__m128i*>(dst) + 1, yuyvpixels2);
-    _mm_storeu_si128(reinterpret_cast<__m128i*>(dst) + 2, yuyvpixels3);
-  }
-  if (ioctl(fd_, VIDIOC_QBUF, &buf) < 0)
+  int polled = poll(pollfds, cameras.size(), timeout);
+  if (polled < 0)
   {
-    throw std::runtime_error("QBUF error in NaoCamera!");
+    assert(false && "Image poll returned -1");
+    return false;
   }
-  // V4L2 gives the time at which the first pixel of the image was recorded as timeval
-  const unsigned int millisecondsSince1970 = buf.timestamp.tv_sec * 1000 + buf.timestamp.tv_usec / 1000;
+  else if (polled == 0)
+  {
+    std::cerr << "Image poll returned 0 (poll timed out)" << std::endl;
+    return false;
+  }
+
+  for (std::size_t i = 0; i < cameras.size(); ++i)
+  {
+    if (pollfds[i].revents & POLLIN)
+    {
+      v4l2_buffer lastBuffer;
+      bool isFirstImage = true;
+
+      while (ioctl(cameras[i]->fd_, VIDIOC_DQBUF, &cameras[i]->currentBuffer_) == 0)
+      {
+        if (isFirstImage)
+        {
+          isFirstImage = false;
+        }
+        else
+        {
+          // Drop image if there is a newer one
+          if (ioctl(cameras[i]->fd_, VIDIOC_QBUF, &lastBuffer) < 0)
+          {
+            throw std::runtime_error("Could not requeue the buffer");
+          }
+        }
+        lastBuffer = cameras[i]->currentBuffer_;
+      }
+
+      // errno is EAGAIN if the nonblocking VIDIOC_DQBUF returned without an image availabe.
+      // So after removing all waiting images from the queue the queue should be empty
+      // and thus the errno should be EAGAIN
+      if (errno != EAGAIN)
+      {
+        std::cerr << "VIDEOC_DQBUF is != EAGAIN" << std::endl;
+        return false;
+      }
+      else
+      {
+        // V4L2 gives the time at which the first pixel of the image was recorded as timeval
+        cameras[i]->timestamp =
+            static_cast<__u64>(cameras[i]->currentBuffer_.timestamp.tv_sec) * 1000000ll +
+            cameras[i]->currentBuffer_.timestamp.tv_usec;
+        cameras[i]->imageValid = true;
+      }
+    }
+    else if (pollfds[i].revents)
+    {
+      assert(false && "Strange camera error perhaps add automatic camera resetting");
+      return false;
+    }
+  }
+  return true;
+}
+
+TimePoint NaoCamera::readImage(Image422& image)
+{
+  image.setData(reinterpret_cast<YCbCr422*>(bufferMem_[currentBuffer_.index]), resolution_);
+
+  const unsigned int millisecondsSince1970 = timestamp / 1000;
   return TimePoint(millisecondsSince1970 - TimePoint::getBaseTime());
+}
+
+void NaoCamera::releaseImage()
+{
+  if (imageValid)
+  {
+    if (ioctl(fd_, VIDIOC_QBUF, &currentBuffer_) < 0)
+    {
+      throw std::runtime_error("Could not queue buffer");
+    }
+    imageValid = false;
+  }
 }
 
 void NaoCamera::startCapture()
@@ -242,10 +283,12 @@ void NaoCamera::setFormat()
   {
     throw std::runtime_error("Could not set image format in NaoCamera!");
   }
-  if ((fmt.type != V4L2_BUF_TYPE_VIDEO_CAPTURE) || (fmt.fmt.pix.width != (__u32)resolution_.x()) || (fmt.fmt.pix.height != (__u32)resolution_.y()) ||
+  if ((fmt.type != V4L2_BUF_TYPE_VIDEO_CAPTURE) || (fmt.fmt.pix.width != (__u32)resolution_.x()) ||
+      (fmt.fmt.pix.height != (__u32)resolution_.y()) ||
       (fmt.fmt.pix.pixelformat != V4L2_PIX_FMT_YUYV) || (fmt.fmt.pix.field != V4L2_FIELD_NONE))
   {
-    throw std::runtime_error("Could set image format but the driver does not accept the settings in NaoCamera!");
+    throw std::runtime_error(
+        "Could set image format but the driver does not accept the settings in NaoCamera!");
   }
 }
 
@@ -260,9 +303,11 @@ void NaoCamera::setFrameRate()
   {
     throw std::runtime_error("Could not set frame rate in NaoCamera!");
   }
-  if ((fps.type != V4L2_BUF_TYPE_VIDEO_CAPTURE) || (fps.parm.capture.timeperframe.numerator != 1) || (fps.parm.capture.timeperframe.denominator != fps_))
+  if ((fps.type != V4L2_BUF_TYPE_VIDEO_CAPTURE) || (fps.parm.capture.timeperframe.numerator != 1) ||
+      (fps.parm.capture.timeperframe.denominator != fps_))
   {
-    throw std::runtime_error("Could set frame rate but the driver does not accept the settings in NaoCamera!");
+    throw std::runtime_error(
+        "Could set frame rate but the driver does not accept the settings in NaoCamera!");
   }
 }
 
@@ -365,7 +410,8 @@ void NaoCamera::createBuffers()
       throw std::runtime_error("Could not get buffer in NaoCamera!");
     }
     bufferLength_[i] = buf.length;
-    bufferMem_[i] = (unsigned char*)mmap(0, bufferLength_[i], PROT_READ | PROT_WRITE, MAP_SHARED, fd_, buf.m.offset);
+    bufferMem_[i] = (unsigned char*)mmap(0, bufferLength_[i], PROT_READ | PROT_WRITE, MAP_SHARED,
+                                         fd_, buf.m.offset);
     if (bufferMem_[i] == MAP_FAILED)
     {
       for (--i; i < bufferCount_; i--)

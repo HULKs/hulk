@@ -2,6 +2,9 @@
 
 #include <array>
 
+#include "Data/BodyPose.hpp"
+#include "Data/CycleInfo.hpp"
+#include "Data/FallManagerOutput.hpp"
 #include "Data/KeeperOutput.hpp"
 #include "Data/KickOutput.hpp"
 #include "Data/MotionActivation.hpp"
@@ -17,6 +20,8 @@ class Motion;
 class MotionDispatcher : public Module<MotionDispatcher, Motion>
 {
 public:
+  /// the name of this module
+  ModuleName name = "MotionDispatcher";
   /**
    * @brief MotionDispatcher initializes members
    * @param manager a reference to motion
@@ -28,6 +33,12 @@ public:
   void cycle();
 
 private:
+  /// the output of the body pose estimation
+  const Reference<BodyPose> bodyPose_;
+  /// the output of the cycle info
+  const Reference<CycleInfo> cycleInfo_;
+  /// the output of the fall manager
+  const Reference<FallManagerOutput> fallManagerOutput_;
   /// the output of the keeper
   const Reference<KeeperOutput> keeperOutput_;
   /// the output of the kick
@@ -48,4 +59,6 @@ private:
   std::array<float, static_cast<unsigned int>(MotionRequest::BodyMotion::NUM)> activations_;
   /// a local version of the activation of the head motion
   float headMotionActivation_;
+  bool fallManagerActive_;
+  TimePoint timeWhenFallManagerFinished_;
 };

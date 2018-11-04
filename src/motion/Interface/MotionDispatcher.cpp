@@ -2,7 +2,10 @@
 
 
 MotionDispatcher::MotionDispatcher(const ModuleManagerInterface& manager)
-  : Module(manager, "MotionDispatcher")
+  : Module(manager)
+  , bodyPose_(*this)
+  , cycleInfo_(*this)
+  , fallManagerOutput_(*this)
   , keeperOutput_(*this)
   , kickOutput_(*this)
   , poserOutput_(*this)
@@ -12,6 +15,8 @@ MotionDispatcher::MotionDispatcher(const ModuleManagerInterface& manager)
   , motionActivation_(*this)
   , lastActiveMotion_(MotionRequest::BodyMotion::DEAD)
   , headMotionActivation_(0.f)
+  , fallManagerActive_(false)
+  , timeWhenFallManagerFinished_()
 {
   activations_.fill(0.f);
   activations_[static_cast<unsigned int>(MotionRequest::BodyMotion::DEAD)] = 1;
@@ -19,28 +24,49 @@ MotionDispatcher::MotionDispatcher(const ModuleManagerInterface& manager)
 
 void MotionDispatcher::cycle()
 {
-  if (lastActiveMotion_ == MotionRequest::BodyMotion::DEAD                                            //
-      || lastActiveMotion_ == MotionRequest::BodyMotion::STAND                                        //
-      || (lastActiveMotion_ == MotionRequest::BodyMotion::WALK && walkingEngineWalkOutput_->safeExit) //
-      || (lastActiveMotion_ == MotionRequest::BodyMotion::KICK && kickOutput_->safeExit)              //
-      || lastActiveMotion_ == MotionRequest::BodyMotion::PENALIZED                                    //
-      || (lastActiveMotion_ == MotionRequest::BodyMotion::KEEPER && keeperOutput_->safeExit)          //
-      || (lastActiveMotion_ == MotionRequest::BodyMotion::STAND_UP && standUpOutput_->safeExit)       //
-      || lastActiveMotion_ == MotionRequest::BodyMotion::HOLD)
+  /* If fallen all motion requests are discarded until the fall manager is finished.
+   * Once the fall manager is finished the angles are held until a stand up motion request is
+   * received. In any case there is at least 1 s between end of the fall manager and the
+   * initialization of stand up.
+   */
+
+  if (fallManagerOutput_->wantToSend)
   {
+    // we are currently falling. The fallManager's output should be applied to the joints.
+    fallManagerActive_ = true;
+    motionActivation_->activeMotion = MotionRequest::BodyMotion::FALL_MANAGER;
+  }
+  else if (bodyPose_->fallen && fallManagerActive_)
+  {
+    // we started to notice that we are fallen but the fallManager is still active. Save the current
+    // time so we can wait one moment before we start standing up.
+    fallManagerActive_ = false;
+    timeWhenFallManagerFinished_ = cycleInfo_->startTime;
+  }
+  else if ((lastActiveMotion_ == MotionRequest::BodyMotion::FALL_MANAGER &&
+            cycleInfo_->getTimeDiff(timeWhenFallManagerFinished_) > 1.f) ||
+           lastActiveMotion_ == MotionRequest::BodyMotion::DEAD ||
+           lastActiveMotion_ == MotionRequest::BodyMotion::STAND ||
+           (lastActiveMotion_ == MotionRequest::BodyMotion::WALK &&
+            walkingEngineWalkOutput_->safeExit) ||
+           (lastActiveMotion_ == MotionRequest::BodyMotion::KICK && kickOutput_->safeExit) ||
+           lastActiveMotion_ == MotionRequest::BodyMotion::PENALIZED ||
+           (lastActiveMotion_ == MotionRequest::BodyMotion::KEEPER && keeperOutput_->safeExit) ||
+           (lastActiveMotion_ == MotionRequest::BodyMotion::STAND_UP && standUpOutput_->safeExit) ||
+           lastActiveMotion_ == MotionRequest::BodyMotion::HOLD)
+  {
+    // It is safe to start a new motion.
     motionActivation_->startInterpolation = true;
     motionActivation_->activeMotion = motionRequest_->bodyMotion;
   }
-  else
-  {
-    motionActivation_->activeMotion = lastActiveMotion_;
-  }
+
   lastActiveMotion_ = motionActivation_->activeMotion;
   float sum = 0;
   float delta = 0.01;
-  if (lastActiveMotion_ == MotionRequest::BodyMotion::STAND_UP //
-      || lastActiveMotion_ == MotionRequest::BodyMotion::KICK  //
-      || lastActiveMotion_ == MotionRequest::BodyMotion::KEEPER)
+  if (lastActiveMotion_ == MotionRequest::BodyMotion::FALL_MANAGER ||
+      lastActiveMotion_ == MotionRequest::BodyMotion::STAND_UP ||
+      lastActiveMotion_ == MotionRequest::BodyMotion::KICK ||
+      lastActiveMotion_ == MotionRequest::BodyMotion::KEEPER)
   {
     delta = 1;
   }
@@ -68,8 +94,8 @@ void MotionDispatcher::cycle()
     }
   }
 
-  // Handle the head seperately
-  if (motionRequest_->headMotion != MotionRequest::HeadMotion::BODY)
+  // Handle the head separately
+  if (motionRequest_->headMotion != MotionRequest::HeadMotion::BODY && !bodyPose_->fallen)
   {
     headMotionActivation_ = std::min(1.f, headMotionActivation_ + delta);
   }

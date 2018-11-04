@@ -1,6 +1,23 @@
 {
+   "ballCreatesPenaltySpotInPSO" : true,
    "bufferGoalPosts" : false,
    "goalPostAssociationRadius" : 0.4,
+   "maxDistToCenterLineforCircleOrientation" : 0.2,
+   "maxDistToCircleCluster" : 0.1,
    "maxGoalPostAge" : 0,
-   "maxGoalPostDistanceDeviation" : 0.2
+   "maxGoalPostDistanceDeviation" : 0.2,
+   "maxIntersectionDistance" : 0.1,
+   "maxLineLengthForCircleFraction" : 1,
+   "maxLineProjectionDistance" : 3,
+   "maxLineProjectionDistanceForCircle" : 4,
+   "maxLineProjectionDistanceLowNoise" : 4,
+   "minCountPointsInCluster" : 3,
+   "minIntersectionOverlap" : 0.05,
+   "minLineCountClusterable" : 3,
+   "minLineLength" : 0.3,
+   "minLineLengthForCircle" : 0.2,
+   "minLineLengthForCircleOrientation" : 0.3,
+   "orthogonalTolerance" : 0.17,
+   "tolerancePenaltySpotToLineDistance" : 0.1,
+   "useLineIntersections" : false
 }

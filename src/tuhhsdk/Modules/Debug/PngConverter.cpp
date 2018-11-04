@@ -7,14 +7,14 @@
 
 using namespace std;
 
-#define ASSERT_EX(cond, error_message) \
-  do                                   \
-  {                                    \
-    if (!(cond))                       \
-    {                                  \
-      std::cerr << error_message;      \
-      exit(1);                         \
-    }                                  \
+#define ASSERT_EX(cond, error_message)                                                             \
+  do                                                                                               \
+  {                                                                                                \
+    if (!(cond))                                                                                   \
+    {                                                                                              \
+      std::cerr << error_message;                                                                  \
+      exit(1);                                                                                     \
+    }                                                                                              \
   } while (0)
 
 struct mem_encode
@@ -45,7 +45,7 @@ public:
   Impl();
   ~Impl();
 
-  SharedCVData convert(const Image& img);
+  void convert(const Image& img, CVData& data);
 
 private:
   void WritePngToMemory(size_t w, size_t h, const uint8_t* dataRGB);
@@ -58,13 +58,12 @@ private:
 
 PngConverter::Impl::Impl()
 {
-  menc_.buffer = new uint8_t[2 * 1024 * 1024];
+  menc_.buffer = nullptr;
   menc_.size = 0;
 }
 
 PngConverter::Impl::~Impl()
 {
-  delete[] menc_.buffer;
 }
 
 void PngConverter::Impl::PngWriteCallback(png_structp png_ptr, png_bytep data, png_size_t length)
@@ -83,7 +82,8 @@ void PngConverter::Impl::WritePngToMemory(size_t w, size_t h, const uint8_t* dat
   ASSERT_EX(info_ptr_, "png_create_info_struct() failed");
   ASSERT_EX(0 == setjmp(png_jmpbuf(p_)), "setjmp(png_jmpbuf(p) failed");
 
-  png_set_IHDR(p_, info_ptr_, w, h, 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+  png_set_IHDR(p_, info_ptr_, w, h, 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+               PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
   png_set_filter(p_, 0, PNG_FILTER_NONE | PNG_FILTER_VALUE_NONE);
   png_set_compression_level(p_, Z_BEST_SPEED);
   uint8_t** rows = new uint8_t*[h];
@@ -100,11 +100,13 @@ void PngConverter::Impl::WritePngToMemory(size_t w, size_t h, const uint8_t* dat
   delete[] rows;
 }
 
-SharedCVData PngConverter::Impl::convert(const Image& img)
+void PngConverter::Impl::convert(const Image& img, CVData& data)
 {
+  data.resize(2 * 1024 * 1024);
+  menc_.buffer = data.data();
   menc_.size = 0;
   WritePngToMemory(img.size_.x(), img.size_.y(), (uint8_t*)img.data_);
-  return SharedCVData(new CVData(menc_.buffer, menc_.buffer + menc_.size));
+  data.resize(menc_.size);
 }
 
 
@@ -113,7 +115,7 @@ PngConverter::PngConverter()
 {
 }
 
-SharedCVData PngConverter::convert(const Image& img)
+void PngConverter::convert(const Image& img, CVData& data)
 {
-  return pImpl_->convert(img);
+  pImpl_->convert(img, data);
 }

@@ -7,6 +7,8 @@
 
 class MotionActivation : public DataType<MotionActivation> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "MotionActivation";
   /// the motion that the body should execute
   MotionRequest::BodyMotion activeMotion;
   /// the amount of activeness that a motion should have

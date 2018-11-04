@@ -14,27 +14,16 @@
  */
 struct DebugMessageHeader
 {
-  DebugMessageHeader()
-    : version()
-    , msgType()
-    , __padding()
-    , msgLength()
-  {
-    strncpy(header, "DMSG", sizeof header);
-    version = 1;
-    __padding = 0;
-  }
-
   //==============
-  char header[4]; //"DMSG"
+  char header[4] = {'D', 'M', 'S', 'G'};
   //=== 32bit ====
-  uint8_t version;
-  uint8_t msgType;
-  uint16_t __padding;
+  uint8_t version = 1;
+  uint8_t msgType = 0;
+  uint16_t __padding = 0;
   //=== 32bit ====
-  uint32_t msgLength;
+  uint32_t msgLength = 0;
   //=== 32bit ====
-  uint32_t ___padding;
+  uint32_t ___padding = 0;
   //=== 32bit ====
 };
 

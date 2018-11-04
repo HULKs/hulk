@@ -6,22 +6,28 @@
 class WorldState : public DataType<WorldState>
 {
 public:
-  bool ballInOwnHalf;
-  bool ballInLeftHalf;
-  bool robotInOwnHalf;
-  bool robotInLeftHalf;
-  bool ballValid;
-  bool robotValid;
-  bool ballIsFree;
+  /// the name of this DataType
+  DataTypeName name = "WorldState";
+  bool ballInOwnHalf = false;
+  bool ballInLeftHalf = false;
+  bool robotInOwnHalf = false;
+  bool robotInLeftHalf = false;
+  bool ballValid = false;
+  bool robotValid = false;
+  bool ballIsFree = false;
+  bool ballInCorner = false;
+  bool ballInPenaltyArea = false;
+  bool ballIsToMyLeft = false;
+  bool ballInCenterCircle = false;
 
-  void reset()
+  void reset() override
   {
     ballValid = false;
     robotValid = false;
     ballIsFree = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value["ballInOwnHalf"] << ballInOwnHalf;
     value["ballInLeftHalf"] << ballInLeftHalf;
@@ -30,9 +36,13 @@ public:
     value["ballValid"] << ballValid;
     value["robotValid"] << robotValid;
     value["ballIsFree"] << ballIsFree;
+    value["ballInCorner"] << ballInCorner;
+    value["ballInPenaltyArea"] << ballInPenaltyArea;
+    value["ballIsToMyLeft"] << ballIsToMyLeft;
+    value["ballInCenterCircle"] << ballInCenterCircle;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["ballInOwnHalf"] >> ballInOwnHalf;
     value["ballInLeftHalf"] >> ballInLeftHalf;
@@ -41,5 +51,9 @@ public:
     value["ballValid"] >> ballValid;
     value["robotValid"] >> robotValid;
     value["ballIsFree"] >> ballIsFree;
+    value["ballInCorner"] >> ballInCorner;
+    value["ballInPenaltyArea"] >> ballInPenaltyArea;
+    value["ballIsToMyLeft"] >> ballIsToMyLeft;
+    value["ballInCenterCircle"] >> ballInCenterCircle;
   }
 };

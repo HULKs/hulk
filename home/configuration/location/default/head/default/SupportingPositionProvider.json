@@ -1,3 +1,4 @@
 {
-  "minimumDistance" : 0.9
+  "minimumAngle" : 45,
+  "distanceToBall" : 1.3
 }

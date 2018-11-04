@@ -6,6 +6,8 @@
 
 class PointOutput : public DataType<PointOutput> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "PointOutput";
   /// whether Point wants to send joint commands
   bool wantToSend;
   /// the left arm angles that Point wants to send

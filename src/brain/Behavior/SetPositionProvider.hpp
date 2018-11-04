@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "Data/CycleInfo.hpp"
 #include "Data/GameControllerState.hpp"
 #include "Data/PlayerConfiguration.hpp"
 #include "Data/PlayingRoles.hpp"
@@ -16,6 +17,8 @@ class Brain;
 class SetPositionProvider : public Module<SetPositionProvider, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "SetPositionProvider";
   SetPositionProvider(const ModuleManagerInterface& manager);
   void cycle();
 
@@ -40,6 +43,10 @@ private:
   const Parameter<VecVector2f> defensivePositions_;
   const Parameter<VecVector2f> offensivePositions_;
   const Parameter<bool> considerRole_;
+  const Parameter<bool> enableDribbleAroundOpponentAtKickoff_;
+  Parameter<float> dribbleAngle_;
+  float kickoffDribbleSign_;
+  const Dependency<CycleInfo> cycleInfo_;
   const Dependency<GameControllerState> gameControllerState_;
   const Dependency<PlayerConfiguration> playerConfiguration_;
   const Dependency<PlayingRoles> playingRoles_;

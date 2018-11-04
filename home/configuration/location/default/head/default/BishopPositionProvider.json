@@ -1,0 +1,5 @@
+{
+  "minimumAngle" : 30,
+  "distanceToBall" : 1.3,
+  "allowAggressiveBishop": false
+}

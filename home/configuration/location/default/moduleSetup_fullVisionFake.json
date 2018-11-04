@@ -1,0 +1,21 @@
+{
+   "BallDetectionNeuralNet" : false,
+   "CameraCalibration" : false,
+   "FakeBallProvider" : true,
+   "FakeImageReceiver" : true,
+   "FakeRobotPoseProvider" : true,
+   "FieldBorderDetection" : false,
+   "GoalDetection" : false,
+   "HeadMatrixBufferProvider" : false,
+   "ImageReceiver" : false,
+   "ImageSegmenter" : false,
+   "LandmarkFilter" : false,
+   "LineDetection" : false,
+   "OneMeansFieldColorDetection" : false,
+   "ParticlePositionKnowledge" : false,
+   "PenaltySpotDetection" : false,
+   "Projection" : false,
+   "ReplayRecorder" : false,
+   "RobotProjectionProvider" : false,
+   "UKFPositionKnowledge" : false
+}

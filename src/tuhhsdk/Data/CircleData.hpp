@@ -7,6 +7,8 @@
 
 class CircleData : public DataType<CircleData> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "CircleData";
   /// position and radius of the detected circle
   Circle<float> circle;
   /// the timestamp of the image in which it was seen

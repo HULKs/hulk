@@ -1,10 +1,59 @@
 {
     "ballFrictionMu": 0.0204,
-    "movingHysteresis" : 0.5,
-    "//": "matrices are serialized as a vector of the columns, not rows!",
-    "processCovX": [ [ 0.1, 0 ], [ 0, 0.1 ] ],
-    "processCovDx": [ [ 1, 0 ], [ 0, 1 ] ],
-    "processCovDxX": [ [ 0, 0 ], [ 0, 0 ] ],
-    "measurementCov": [ [ 0.3, 0 ], [ 0, 0.3 ] ],
-    "maxAssociationDistance": 0.8
+    "cameraRPYDeviation": [
+        5,
+        5,
+        2
+    ],
+    "confidentMeasurementThreshold" : 3,
+    "maxAssociationDistance": 0.8,
+    "maxRestingError": 0.05,
+    "measurementBaseVariance": [
+        0.5,
+        0.5
+    ],
+    "movingErrorLowPassAlpha": 0.8,
+    "movingProcessCovDx": [
+        [
+            0.1,
+            0
+        ],
+        [
+            0,
+            0.1
+        ]
+    ],
+    "movingProcessCovDxX": [
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ]
+    ],
+    "movingProcessCovX": [
+        [
+            0.0001,
+            0
+        ],
+        [
+            0,
+            0.0001
+        ]
+    ],
+    "numOfRestingDeccelerationSteps": 3,
+    "relativeMovingThreshold": 1.2,
+    "restingErrorLowPassAlpha": 0.9,
+    "restingProcessCovX": [
+        [
+            0.1,
+            0
+        ],
+        [
+            0,
+            0.1
+        ]
+    ]
 }

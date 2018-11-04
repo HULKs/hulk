@@ -4,119 +4,235 @@
 #include "DebugMessageFormat.h"
 #include "Modules/Debug/JpegConverter.h"
 
-#include <Libs/json/json.h>
+#include "Libs/json/json.h"
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
+#include <boost/range.hpp>
 // because boost::asio defines a macro called ERROR we can't use LogLevel::ERROR here directly
 #include "Definitions/windows_definition_fix.hpp"
 
 #include <iostream>
 #include <list>
+#include <numeric>
 #include <set>
 #include <thread>
-#include <unordered_map>
 
 #include "print.h"
 
-// Type definitions
 
-typedef std::unordered_map<std::string, DebugData> DebugDataMap;
-typedef SpscRing<std::string, 256> DebugQueue;
-typedef std::unordered_map<std::string, DebugQueue> DebugQueueMap;
-
-
-// =========================
-
+/**
+ * @brief the implementation of the TCPTransport class
+ */
 class TCPTransport::Impl
 {
+public:
+  /**
+   * @brief Impl initializes members
+   * @param port the tcp port to use for sending debug data
+   * @param debug a reference to debug (to get the transportable debugMap from)
+   */
+  Impl(const uint16_t& port, Debug& debug);
+  /**
+   * @brief destructor
+   */
+  ~Impl();
+  /**
+   * @brief startBackgroundThread starts the underlying ioService thread.
+   */
+  void startBackgroundThread();
+  /**
+   * @brief connected is called when a new client connects
+   * @param session the new session
+   */
+  void connected(std::shared_ptr<TCPTransport::Session> session);
+  /**
+   * @brief disconnected is called when a client disconnects
+   * @param session the session to remove
+   */
+  void disconnected(std::shared_ptr<TCPTransport::Session> session);
+  /**
+   * @brief hook that should be called after a debug source's cycle to transport the debug data.
+   */
+  void transport();
+
 private:
+  /// the ioService (background thread for sending debug data)
   boost::asio::io_service ioService_;
+  /// the ipv4-interface-description/port to listen on
   boost::asio::ip::tcp::endpoint serverEndpoint_;
+  /// acceptor provides async-waiting for new clients to connect
   boost::asio::ip::tcp::acceptor acceptor_;
+  /// the tcp socket to send/receive data on
   boost::asio::ip::tcp::socket socket_;
 
+  /// pointer to this thread (running the ioService.run())
   std::shared_ptr<std::thread> backgroundThread_;
 
+  /// list of all tcp sessions
   std::list<std::shared_ptr<TCPTransport::Session>> sessions_;
+  /// mutex for the sessions list
   std::mutex listMutex_;
+  /// reference to the debug instance.
   Debug& debug_;
 
+  /**
+   * @brief startAccept starts listening for new connections and handles them
+   */
   void startAccept();
-
-  DebugDataMap data_;
-  DebugQueueMap queues_;
-  std::set<std::string> imageKeys_;
-
-  JpegConverter jpegConv_;
-
-public:
-  Impl(const uint16_t& port, Debug& debug);
-  ~Impl();
-
-  DebugDataMap& getData();
-  std::set<std::string>& getImageKeys();
-
-  void startBackgroundThread();
-  void connected(std::shared_ptr<TCPTransport::Session> session);
-  void disconnected(std::shared_ptr<TCPTransport::Session> session);
-
-  void sendImage(const std::string& key, const Image& img);
-
-  void update(const DebugData& data);
-  void pushQueue(const std::string& key, const std::string& message);
-  void transport();
 };
 
-// =========================
 
+/**
+ * @brief class to encapsulate single client sessions
+ */
 class TCPTransport::Session : public std::enable_shared_from_this<TCPTransport::Session>
 {
+public:
+  /**
+   * @brief Session initializes members
+   * @param debug reference to the debug instance to get the debugMap from
+   * @param server the server that is responsible for this session
+   * @param socket the socket on which to send / receive data
+   */
+  Session(Debug& debug, TCPTransport::Impl& server, boost::asio::ip::tcp::socket socket);
+  /**
+   * @brief destructor
+   */
+  ~Session();
+  /**
+   * @brief start starts this session
+   */
+  void start();
+  /**
+   * @brief hook that should be called after a debug source's cycle to transport the debug data.
+   */
+  void transport();
+
 private:
-  Debug& debug_;
-  TCPTransport::Impl& server_;
-  boost::asio::ip::tcp::socket socket_;
-
-  DebugMessageHeader header_;
-  std::vector<char> bodyBuffer_;
-
-  std::set<std::string> subscriptionList_;
-
+  /**
+   * @brief readHeader reads / parses a debug header
+   */
   void readHeader();
+  /**
+   * @brief readBody reads a debug message's body
+   */
   void readBody();
 
+  /**
+   * @brief parseBody parses a debug message's body
+   * @param body the body to parse
+   */
   void parseBody(const std::string& body);
+  /**
+   * @brief subscribe subscribes the given key.
+   * Multiple subscriptions are allowed. It is ensured that a key stayes subscribed until
+   * unsubscribe is called as often as a key was subscribed.
+   * @param key the key to subscribe
+   */
   void subscribe(const std::string& key);
+  /**
+   * @brief subscribeBulk subscribes all given keys (json)
+   * Look at subscribe() for more details
+   * @param json the list of keys to subscribe
+   */
   void subscribeBulk(const std::string& json);
+  /**
+   * @brief unsubscribe unsubscribes the given key.
+   * @param key The key to unsubscribe
+   */
   void unsubscribe(const std::string& key);
-  void transmitList();
+  /**
+   * @brief transmitList sends a list of all keys that are available.
+   * @return bool; true if the list was transmitted successfully
+   */
+  bool transmitList();
 
+  /**
+   * @brief ImageData contains the compressed image
+   */
+  struct ImageData
+  {
+    /// the debug message header
+    DebugMessageHeader hdr;
+    /// the debug key
+    std::string key;
+    /// image width given in pixels
+    uint16_t width;
+    /// image height given in pixels
+    uint16_t height;
+    /// the length of this image data (the whole struct) (given in bytes)
+    uint16_t length;
+    /// the actual image data (compressed image)
+    CVData data;
+  };
+
+  /// reference to the debug instance to get the debugMap from
+  Debug& debug_;
+  /// the server that is responsible for this session
+  TCPTransport::Impl& server_;
+  /// the socket on which to send / receive data
+  boost::asio::ip::tcp::socket socket_;
+
+  /// the received debug message header
+  DebugMessageHeader receivedHeader_;
+  /// a buffer for message bodies
+  std::vector<char> bodyBuffer_;
+
+  /// a list if subscribed keys
+  std::set<std::string> subscriptionList_;
+  /// a mutex to read/write access for the keys
+  std::mutex subscriptionListMutex_;
+
+  /// the json data string that was received / will be sent.
+  std::string jsonData_;
+  /// the debug message header to send.
+  DebugMessageHeader headerToSend_;
+  /// a map of key-image pairs containing pointers to all images to send
+  std::unordered_map<std::string, std::unique_ptr<ImageData>> imagesToSend_;
+
+  /// if it is safe to transmit data
   std::atomic<bool> canTransmit_;
+  /// if the key list was requested by the client
+  std::atomic<bool> sendList_;
 
-public:
-  Session(Debug& debug, TCPTransport::Impl& server, boost::asio::ip::tcp::socket socket);
-  ~Session();
-  void start();
-  void sendImage(const std::string& key, uint16_t width, uint16_t height, uint32_t imgSize, SharedCVData imgData);
-  void transport();
+  /// the sendBuffers for async write
+  std::vector<boost::asio::const_buffer> sendBuffers_;
+  /// the actual list of all keys to send on request
+  Uni::Value transmitList_;
+  /// a map for tracking the status of the serialization of the module manager key lists.
+  std::map<std::string, bool> serializedMMList_;
+
+  /// the jpeg converter
+  JpegConverter jpegConv_;
+
+#ifdef ITTNOTIFY_FOUND
+  /// an event to call while sending data with asio (vtune instrumentation)
+  __itt_event eventTransmission_;
+#endif
 };
 
 //================================
 // TCPDebugSession
 //================================
 
-TCPTransport::Session::Session(Debug& debug, TCPTransport::Impl& server, boost::asio::ip::tcp::socket socket)
+TCPTransport::Session::Session(Debug& debug, TCPTransport::Impl& server,
+                               boost::asio::ip::tcp::socket socket)
   : debug_(debug)
   , server_(server)
   , socket_(std::move(socket))
-  , bodyBuffer_()
-  , subscriptionList_()
   , canTransmit_(true)
+  , sendList_(false)
+  , transmitList_(Uni::ValueType::ARRAY)
 {
+#ifdef ITTNOTIFY_FOUND
+  eventTransmission_ = __itt_event_create("Transmission", 12);
+#endif
 }
 
 TCPTransport::Session::~Session()
 {
+  std::lock_guard<std::mutex> lg(subscriptionListMutex_);
   for (auto& key : subscriptionList_)
   {
     debug_.unsubscribe(key);
@@ -132,51 +248,57 @@ void TCPTransport::Session::start()
 void TCPTransport::Session::readHeader()
 {
   auto self(shared_from_this());
-  boost::asio::async_read(socket_, boost::asio::buffer(&header_, sizeof(DebugMessageHeader)),
-                          [this, self](boost::system::error_code error, std::size_t length) {
-                            if (error)
-                            {
-                              if (!(error == boost::asio::error::eof && length != sizeof(DebugMessageHeader)))
-                              {
-                                Log(LogLevel::WARNING) << "TCPTransport: error while receiving header, disconnecting. Error: " << error.message();
-                                server_.disconnected(self);
-                                return;
-                              }
-                            }
+  boost::asio::async_read(
+      socket_, boost::asio::buffer(&receivedHeader_, sizeof(DebugMessageHeader)),
+      [this, self](boost::system::error_code error, std::size_t length) {
+        if (error)
+        {
+          if (!(error == boost::asio::error::eof && length != sizeof(DebugMessageHeader)))
+          {
+            Log(LogLevel::ERROR)
+                << "TCPTransport: error while receiving header, disconnecting. Error: "
+                << error.message();
+            server_.disconnected(self);
+            return;
+          }
+        }
 
-                            Log(LogLevel::DEBUG) << "TCPTransport: received header";
+        Log(LogLevel::DEBUG) << "TCPTransport: received header";
 
-                            readBody();
-                          });
+        readBody();
+      });
 }
 
 void TCPTransport::Session::readBody()
 {
-  bodyBuffer_.resize(header_.msgLength);
+  bodyBuffer_.resize(receivedHeader_.msgLength);
 
   auto self(shared_from_this());
-  boost::asio::async_read(socket_, boost::asio::buffer(bodyBuffer_), [this, self](boost::system::error_code error, std::size_t /*length*/) {
-    if (error)
-    {
-      Log(LogLevel::WARNING) << "TCPTransport: error while receiving body, disconnecting. Error: " << error.message();
-      server_.disconnected(self);
-      return;
-    }
+  boost::asio::async_read(
+      socket_, boost::asio::buffer(bodyBuffer_),
+      [this, self](boost::system::error_code error, std::size_t /*length*/) {
+        if (error)
+        {
+          Log(LogLevel::ERROR) << "TCPTransport: error while receiving body, disconnecting. Error: "
+                               << error.message();
+          server_.disconnected(self);
+          return;
+        }
 
-    Log(LogLevel::INFO) << "TCPTransport: received body";
+        Log(LogLevel::DEBUG) << "TCPTransport: received body";
 
-    std::string body(bodyBuffer_.begin(), bodyBuffer_.end());
-    parseBody(body);
+        std::string body(bodyBuffer_.begin(), bodyBuffer_.end());
+        parseBody(body);
 
-    Log(LogLevel::DEBUG) << "TCPTransport: Parsed Body!";
+        Log(LogLevel::DEBUG) << "TCPTransport: Parsed Body!";
 
-    readHeader();
-  });
+        readHeader();
+      });
 }
 
 void TCPTransport::Session::parseBody(const std::string& body)
 {
-  switch (header_.msgType)
+  switch (receivedHeader_.msgType)
   {
     case DM_SUBSCRIBE:
     {
@@ -199,7 +321,7 @@ void TCPTransport::Session::parseBody(const std::string& body)
     case DM_REQUEST_LIST:
     {
       Log(LogLevel::DEBUG) << "DM_REQUEST_LIST-Message received.";
-      transmitList();
+      sendList_.store(true);
     }
     break;
     default:
@@ -210,18 +332,21 @@ void TCPTransport::Session::parseBody(const std::string& body)
 
 void TCPTransport::Session::subscribe(const std::string& key)
 {
+  std::lock_guard<std::mutex> lg(subscriptionListMutex_);
   subscriptionList_.insert(key);
   debug_.subscribe(key);
 }
 
 void TCPTransport::Session::unsubscribe(const std::string& key)
 {
+  std::lock_guard<std::mutex> lg(subscriptionListMutex_);
   subscriptionList_.erase(key);
   debug_.unsubscribe(key);
 }
 
 void TCPTransport::Session::subscribeBulk(const std::string& json)
 {
+  std::lock_guard<std::mutex> lg(subscriptionListMutex_);
   Json::Reader reader;
   Json::Value root(Json::ValueType::objectValue);
   reader.parse(json, root, false);
@@ -234,197 +359,330 @@ void TCPTransport::Session::subscribeBulk(const std::string& json)
   }
 }
 
-void TCPTransport::Session::transmitList()
+bool TCPTransport::Session::transmitList()
 {
-  DebugDataMap& data = server_.getData();
+  auto& data = debug_.getDebugSources();
 
   Uni::Value root(Uni::ValueType::OBJECT);
-  Uni::Value uniArray(Uni::ValueType::ARRAY);
+  Uni::Value imageEntry(Uni::ValueType::OBJECT);
 
-  int i = 0;
-  for (auto it = data.begin(); it != data.end(); ++it)
+  int i = transmitList_.size();
+  for (const auto& debugSource : data)
   {
-    uniArray[i++] << it->second;
+    DebugDatabase::DebugMap* debugMap = debugSource.second.currentDebugMap;
+    auto it = serializedMMList_.find(debugSource.first);
+    if (it == serializedMMList_.end())
+    {
+      serializedMMList_[debugSource.first] = false;
+    }
+    else if (serializedMMList_[debugSource.first])
+    {
+      continue;
+    }
+
+    if (debugMap == nullptr)
+    {
+      Log(LogLevel::INFO) << "Unable to compute the complete keylist, waiting for next cycle.";
+      continue;
+    }
+
+    serializedMMList_[debugSource.first] = true;
+
+
+    for (const auto& dataEntry : debugMap->getDebugMap())
+    {
+      if (!dataEntry.second.isImage)
+      {
+        DebugData dat(dataEntry.first, dataEntry.second.data.get());
+        transmitList_[i] << dat;
+      }
+      else
+      {
+        imageEntry["key"] << dataEntry.first;
+        imageEntry["isImage"] << true;
+        transmitList_[i] = imageEntry;
+      }
+      i++;
+    }
   }
 
-  auto images = server_.getImageKeys();
-  for (auto it = images.begin(); it != images.end(); ++it)
+  bool allSerialized = std::accumulate(
+      serializedMMList_.begin(), serializedMMList_.end(), true,
+      [](const auto& current, const auto& it) -> bool { return current && it.second; });
+
+  if (!allSerialized)
   {
-    Uni::Value entry(Uni::ValueType::OBJECT);
-    entry["key"] << *it;
-    entry["isImage"] << true;
-    uniArray[i++] = entry;
+    return false;
   }
 
-  root["keys"] = uniArray;
+  root["keys"] = transmitList_;
 
-  std::shared_ptr<std::string> json = std::make_shared<std::string>(Uni::Converter::toJsonString(root, false));
+  std::shared_ptr<std::string> json =
+      std::make_shared<std::string>(Uni::Converter::toJsonString(root, false));
 
-  DebugMessageHeader hdr;
-  hdr.msgType = DM_LIST;
-  hdr.msgLength = json->length();
+  std::shared_ptr<DebugMessageHeader> hdr = std::make_shared<DebugMessageHeader>();
+  hdr->msgType = DM_LIST;
+  hdr->msgLength = json->length();
 
-  std::vector<boost::asio::const_buffer> sendBuffers;
-
-  sendBuffers.push_back(boost::asio::buffer(&hdr, sizeof(DebugMessageHeader)));
-  sendBuffers.push_back(boost::asio::buffer(*json));
+  sendBuffers_.clear();
+  sendBuffers_.push_back(boost::asio::buffer(hdr.get(), sizeof(DebugMessageHeader)));
+  sendBuffers_.push_back(boost::asio::buffer(*json));
 
   try
   {
     bool expected = true;
     if (canTransmit_.compare_exchange_weak(expected, false))
     {
-      // send
+    // send
+#ifdef NAO
       auto self(shared_from_this());
-      boost::asio::async_write(socket_, sendBuffers, [this, self, json](boost::system::error_code error, std::size_t /*length*/) {
-        canTransmit_.store(true);
-        if (error)
-        {
-          Log(LogLevel::WARNING) << "TCPTransport: error while sending List, disconnecting. Error: " << error.message();
-          server_.disconnected(self);
-          return;
-        }
+#ifdef ITTNOTIFY_FOUND
+      __itt_event_start(this->eventTransmission_);
+#endif
+      boost::asio::async_write(
+          socket_, boost::make_iterator_range(sendBuffers_.begin(), sendBuffers_.end()),
+          [this, self, hdr, json](boost::system::error_code error, std::size_t /*length*/) {
+            canTransmit_.store(true);
+            if (error)
+            {
+              Log(LogLevel::ERROR)
+                  << "TCPTransport: error while sending List, disconnecting. Error: "
+                  << error.message();
+              server_.disconnected(self);
+              return;
+            }
+#ifdef ITTNOTIFY_FOUND
+            __itt_event_end(this->eventTransmission_);
+#endif
 
-        Log(LogLevel::DEBUG) << "TCPTransport: sent List.";
-      });
+            Log(LogLevel::DEBUG) << "TCPTransport: sent List.";
+          });
+#else
+#ifdef ITTNOTIFY_FOUND
+      __itt_event_start(this->eventTransmission_);
+#endif
+      boost::asio::write(socket_,
+                         boost::make_iterator_range(sendBuffers_.begin(), sendBuffers_.end()));
+      canTransmit_.store(true);
+#ifdef ITTNOTIFY_FOUND
+      __itt_event_end(this->eventTransmission_);
+#endif
+#endif
     }
   }
   catch (boost::system::system_error&)
   {
+    canTransmit_.store(true);
     print("Error transmitting debug updates!", LogLevel::ERROR);
   }
+
+  return true;
 }
 
 void TCPTransport::Session::transport()
 {
+  if (sendList_.load())
+  {
+    if (transmitList())
+    {
+      sendList_.store(false);
+    }
+  }
+  else
+  {
+    transmitList_.clearList();
+    serializedMMList_.clear();
+  }
+
+  // return early, when nothing to transmit.
+  if (subscriptionList_.empty())
+    return;
+
+  // check if sending right now...
+  bool expected = true;
+  if (!canTransmit_.compare_exchange_weak(expected, false))
+  {
+    Log(LogLevel::DEBUG) << "Could not transmit debug updates, already transmitting";
+    return;
+  }
+
   try
   {
-    DebugDataMap& data = server_.getData();
-
-    // return early, when nothing to transmit.
-    if (subscriptionList_.empty())
-      return;
-
-    // Serialize all the keys, they subscribed to, but nothing more.
-    Uni::Value root(Uni::ValueType::ARRAY);
-    int i = 0;
-    for (auto key = subscriptionList_.begin(); key != subscriptionList_.end(); ++key)
-    {
-      auto it = data.find(*key);
-      if (it != data.end())
-      {
-        it->second.toValue(root[i++]);
-      }
-    }
-
-    // if array is empty, return more or less early.
-    if (i == 0)
-      return;
-
-    std::shared_ptr<std::string> json = std::make_shared<std::string>(Uni::Converter::toJsonString(root, false));
+    const auto& debugSources = debug_.getDebugSources();
 
     // prepare the buffers.
-    std::vector<boost::asio::const_buffer> sendBuffers;
 
-    // Create a Message Header containing the length of the json etc.
-    DebugMessageHeader header;
-    header.msgLength = json->length();
-    header.msgType = DM_UPDATE;
+    sendBuffers_.clear();
+    jsonData_.clear();
 
-    // concatenate the buffers.
-    sendBuffers.push_back(boost::asio::buffer(&header, sizeof(DebugMessageHeader)));
-    sendBuffers.push_back(boost::asio::buffer(*json));
+    jsonData_ += "[";
+
+    // Serialize all the keys, they subscribed to, but nothing more.
+    bool isFirst = true;
+    std::unique_lock<std::mutex> lg(subscriptionListMutex_);
+
+    for (auto key = subscriptionList_.begin(); key != subscriptionList_.end(); ++key)
+    {
+      const DebugDatabase::DebugMapEntry* debugMapEntry = nullptr;
+      for (const auto& debugSource : debugSources)
+      {
+        auto currentDebugMap = debugSource.second.currentDebugMap;
+        if (currentDebugMap != nullptr)
+        {
+          auto it = currentDebugMap->getDebugMap().find(*key);
+          if (it != currentDebugMap->getDebugMap().end() &&
+              currentDebugMap->getUpdateTime() == it->second.updateTime)
+          {
+            debugMapEntry = &(it->second);
+            break;
+          }
+        }
+      }
+
+      if (debugMapEntry == nullptr)
+      {
+        Log(LogLevel::DEBUG) << "Key might only be available in another debugSource!";
+        continue;
+      }
+
+      if (debugMapEntry->data->type() == Uni::ValueType::NIL &&
+          debugMapEntry->image->size_ == Vector2i::Zero())
+      {
+        continue;
+      }
+
+      if (!debugMapEntry->isImage)
+      {
+        DebugData dat(*key, debugMapEntry->data.get());
+        Uni::Value value;
+        value << dat;
+        if (!isFirst)
+        {
+          jsonData_ += ",";
+        }
+        jsonData_ += Uni::Converter::toJsonString(value, false);
+        isFirst = false;
+      }
+      else
+      {
+        auto imageDataIt = imagesToSend_.find(*key);
+        if (imageDataIt == imagesToSend_.end())
+        {
+          std::unique_ptr<ImageData> data = std::make_unique<ImageData>();
+          data->key = *key;
+          imageDataIt = imagesToSend_.emplace(std::make_pair(*key, std::move(data))).first;
+        }
+
+        auto& imageData = *(imageDataIt->second);
+
+        const auto& img = *debugMapEntry->image.get();
+
+        if (img.size_.x() <= 0 || img.size_.y() <= 0)
+        {
+          continue;
+        }
+
+        jpegConv_.convert(img, imageData.data);
+
+        imageData.width = img.size_.x();
+        imageData.height = img.size_.y();
+        imageData.length = imageData.key.length();
+
+        imageData.hdr.msgType = DM_IMAGE;
+        imageData.hdr.msgLength = sizeof(imageData.width) + sizeof(imageData.height) +
+                                  sizeof(imageData.length) + imageData.length +
+                                  imageData.data.size();
+
+        sendBuffers_.push_back(boost::asio::buffer(&imageData.hdr, sizeof(DebugMessageHeader)));
+        sendBuffers_.push_back(boost::asio::buffer(&imageData.width, sizeof(imageData.width)));
+        sendBuffers_.push_back(boost::asio::buffer(&imageData.height, sizeof(imageData.height)));
+        sendBuffers_.push_back(boost::asio::buffer(&imageData.length, sizeof(imageData.length)));
+        sendBuffers_.push_back(boost::asio::buffer(imageData.key));
+        sendBuffers_.push_back(boost::asio::buffer(imageData.data.data(), imageData.data.size()));
+      }
+    }
+    lg.unlock();
+
+    jsonData_ += "]";
+
+    if (jsonData_.size() > 2)
+    {
+      // Create a Message Header containing the length of the json etc.
+      headerToSend_.msgLength = jsonData_.length();
+      headerToSend_.msgType = DM_UPDATE;
+
+      // concatenate the buffers.
+      sendBuffers_.push_back(boost::asio::buffer(&headerToSend_, sizeof(DebugMessageHeader)));
+      sendBuffers_.push_back(boost::asio::buffer(jsonData_));
+    }
+
+    if (sendBuffers_.empty())
+    {
+      canTransmit_.store(true);
+      return;
+    }
 
     try
     {
-      // check if sending an image right now...
-      bool expected = true;
-      if (canTransmit_.compare_exchange_weak(expected, false))
-      {
-        // and send that stuff to the subscriber
-        auto self(shared_from_this());
-        boost::asio::async_write(socket_, sendBuffers, [this, self, header, json](boost::system::error_code error, std::size_t /*length*/) {
-          canTransmit_.store(true);
-          if (error)
-          {
-            Log(LogLevel::WARNING) << "TCPTransport: error while sending Updates, disconnecting. Error: " << error.message();
-            server_.disconnected(self);
-            return;
-          }
+    // and send that stuff to the subscriber
+#ifdef NAO
+      auto self(shared_from_this());
+#ifdef ITTNOTIFY_FOUND
+      __itt_event_start(this->eventTransmission_);
+#endif
+      boost::asio::async_write(
+          socket_, boost::make_iterator_range(sendBuffers_.begin(), sendBuffers_.end()),
+          [this, self](boost::system::error_code error, std::size_t /*length*/) {
+            canTransmit_.store(true);
+            if (error)
+            {
+              Log(LogLevel::ERROR)
+                  << "TCPTransport: error while sending Updates, disconnecting. Error: "
+                  << error.message();
+              server_.disconnected(self);
+              return;
+            }
+#ifdef ITTNOTIFY_FOUND
+            __itt_event_end(this->eventTransmission_);
+#endif
 
-          // Log(LogLevel::DEBUG) <<  "TCPTransport: sent Updates.";
-        });
-      }
+            Log(LogLevel::DEBUG) << "TCPTransport: sent Updates.";
+          });
+#else
+#ifdef ITTNOTIFY_FOUND
+      __itt_event_start(this->eventTransmission_);
+#endif
+      boost::asio::write(socket_,
+                         boost::make_iterator_range(sendBuffers_.begin(), sendBuffers_.end()));
+      canTransmit_.store(true);
+#ifdef ITTNOTIFY_FOUND
+      __itt_event_end(this->eventTransmission_);
+#endif
+#endif
     }
     catch (boost::system::system_error&)
     {
+      canTransmit_.store(true);
       Log(LogLevel::ERROR) << "Error transmitting debug updates!";
     }
   }
   catch (std::exception& e)
   {
+    canTransmit_.store(true);
     Log(LogLevel::ERROR) << "Exception transmitting debug updates: " << e.what();
   }
 }
 
-void TCPTransport::Session::sendImage(const std::string& key, uint16_t width, uint16_t height, uint32_t imgSize, SharedCVData imgData)
-{
-  if (subscriptionList_.find(key) == subscriptionList_.end())
-  {
-    // no subscription.
-    return;
-  }
-
-  uint16_t length = key.length();
-  std::shared_ptr<std::string> k = std::make_shared<std::string>(key);
-
-  // create the header
-  DebugMessageHeader header;
-  header.msgType = DM_IMAGE;
-  header.msgLength = sizeof(width) + sizeof(height) + sizeof(length) + length + imgSize;
-
-  // combine header, image size and image data into buffers vector
-  std::vector<boost::asio::const_buffer> buffers;
-  buffers.push_back(boost::asio::buffer(&header, sizeof(DebugMessageHeader)));
-  buffers.push_back(boost::asio::buffer(&width, sizeof(width)));
-  buffers.push_back(boost::asio::buffer(&height, sizeof(height)));
-  buffers.push_back(boost::asio::buffer(&length, sizeof(length)));
-  buffers.push_back(boost::asio::buffer(*k, length));
-  buffers.push_back(boost::asio::buffer(*imgData, imgSize));
-
-  // send
-  auto self(shared_from_this());
-  bool expected = true;
-  while (!canTransmit_.compare_exchange_strong(expected, false))
-  {
-    std::this_thread::yield();
-    std::this_thread::sleep_for(std::chrono::microseconds(10));
-    expected = true;
-  }
-  boost::asio::async_write(socket_, buffers, [this, self, header, width, height, length, k, imgData](boost::system::error_code error, std::size_t /*length*/) {
-    canTransmit_.store(true);
-    if (error)
-    {
-      Log(LogLevel::WARNING) << "TCPTransport: error while sending image, disconnecting. Error: " << error.message();
-      server_.disconnected(self);
-      return;
-    }
-    // Log(LogLevel::DEBUG) <<  "TCPTransport: imageSent";
-    // Log(LogLevel::DEBUG) << "imgSize: " << imgSize << " transmitted: " << length;
-  });
-}
-
-
 //================================
 // pimpl
 //================================
+
 TCPTransport::Impl::Impl(const uint16_t& port, Debug& debug)
   : ioService_()
   , serverEndpoint_(boost::asio::ip::tcp::v4(), port)
   , acceptor_(ioService_, serverEndpoint_)
   , socket_(ioService_)
   , debug_(debug)
-  , imageKeys_()
 {
   startAccept();
 }
@@ -435,16 +693,6 @@ TCPTransport::Impl::~Impl()
   ioService_.stop();
   backgroundThread_->join();
   socket_.close();
-}
-
-DebugDataMap& TCPTransport::Impl::getData()
-{
-  return data_;
-}
-
-std::set<std::string>& TCPTransport::Impl::getImageKeys()
-{
-  return imageKeys_;
 }
 
 void TCPTransport::Impl::startBackgroundThread()
@@ -481,46 +729,8 @@ void TCPTransport::Impl::disconnected(std::shared_ptr<TCPTransport::Session> ses
   sessions_.remove(session);
 }
 
-
-void TCPTransport::Impl::sendImage(const std::string& key, const Image& img)
-{
-  auto imgData = jpegConv_.convert(img);
-
-  imageKeys_.insert(key);
-
-  std::lock_guard<std::mutex> lg(listMutex_);
-  for (auto it = sessions_.begin(); it != sessions_.end(); it++)
-  {
-    (*it)->sendImage(key, img.size_.x(), img.size_.y(), imgData->size(), imgData);
-  }
-}
-
-void TCPTransport::Impl::update(const DebugData& data)
-{
-  data_[data.key] = data;
-}
-
-void TCPTransport::Impl::pushQueue(const std::string& key, const std::string& message)
-{
-  queues_[key].push(message);
-}
-
 void TCPTransport::Impl::transport()
 {
-  for (auto it = queues_.begin(); it != queues_.end(); ++it)
-  {
-    DebugData data(it->first);
-    std::string lastMessage;
-
-    int i = 0;
-    while (it->second.pop(lastMessage))
-    {
-      data.value[i++] << lastMessage;
-    }
-
-    data_[it->first] = data;
-  }
-
   std::lock_guard<std::mutex> lg(listMutex_);
   for (auto it = sessions_.begin(); it != sessions_.end(); it++)
   {
@@ -531,29 +741,14 @@ void TCPTransport::Impl::transport()
 //================================
 // TCPTransport
 //================================
+
 TCPTransport::TCPTransport(const std::uint16_t& port, Debug& debug)
 {
-  pimpl_.reset(new Impl(port, debug));
+  pimpl_ = std::make_unique<Impl>(port, debug);
   pimpl_->startBackgroundThread();
 }
 
 TCPTransport::~TCPTransport() {}
-
-// void TCPTransport::sendImage(const std::string &key, uint16_t width, uint16_t height, uint32_t imgSize, SharedCVData imgData)
-void TCPTransport::sendImage(const std::string& key, const Image& img)
-{
-  pimpl_->sendImage(key, img);
-}
-
-void TCPTransport::update(const DebugData& data)
-{
-  pimpl_->update(data);
-}
-
-void TCPTransport::pushQueue(const std::string& key, const std::string& message)
-{
-  pimpl_->pushQueue(key, message);
-}
 
 void TCPTransport::transport()
 {

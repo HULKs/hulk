@@ -16,9 +16,9 @@ class Brain;
 
 class TeamObstacleFilter : public Module<TeamObstacleFilter, Brain>
 {
-  typedef TeamObstacle::Type ObstacleType;
-
 public:
+  /// the name of this module
+  ModuleName name = "TeamObstacleFilter";
   /**
    * @brief TeamObstacleFilter initializes members
    * @param manager a reference to brain
@@ -64,11 +64,13 @@ private:
    */
   void integrateLocalObstacles();
   /**
-   * @brief integrateTeamPlayerKnowledge integrate the knowledge about the team players from TeamPlayer data
+   * @brief integrateTeamPlayerKnowledge integrate the knowledge about
+   * the team players from TeamPlayer data
    */
   void integrateTeamPlayerKnowledge();
   /**
-   * @brief integrateTeamPlayersObstacles updates the filter with the obstacles detected by a given teammate
+   * @brief integrateTeamPlayersObstacles updates the filter with
+   * the obstacles detected by a given teammate
    * @param teamPlayer the teammate who's obstacles are to be integrated
    */
   void integrateTeamPlayersObstacles(const TeamPlayer& teamPlayer);
@@ -84,9 +86,11 @@ private:
    * @brief typeIsAtLeastAsSpecificAndMergable compares two types for mergeability
    * @param first the ObstacleType of the first obstacle
    * @param second the ObstacleType of the second obstacle
-   * @return true if both types are mergable and the first one is the one containing more or equal amount of information
+   * @return true if both types are mergable and the first one is
+   * the one containing more or equal amount of information
    */
-  bool typeIsAtLeastAsSpecificAndMergable(const ObstacleType first, const ObstacleType second) const;
+  bool typeIsAtLeastAsSpecificAndMergable(const ObstacleType first,
+                                          const ObstacleType second) const;
   /**
    * @brief mapToMergedType maps a tuple of ObstacleTypes to the merge result
    * @param t1 the first ObstacleType
@@ -95,7 +99,8 @@ private:
    */
   ObstacleType mapToMergedType(const ObstacleType t1, const ObstacleType t2) const;
   /**
-   * @brief obstacleTypeIsCompatibleWithThisRobot checks wether an obstacle type would be technically mergeable with this robot
+   * @brief obstacleTypeIsCompatibleWithThisRobot checks wether
+   * an obstacle type would be technically mergeable with this robot
    * @return true if this obstacle type could be this robot
    */
   bool obstacleTypeIsCompatibleWithThisRobot(const ObstacleType obstacleType) const;
@@ -104,7 +109,9 @@ private:
    * @param newObstaclePosition the position of the obstacle
    * @param referencePose the pose in whichs coordinates the obstaclePosition is measured
    * @param newType of given obstacle
-   * @param obstacleCouldBeThisRobot defaults to true. Handle the case of other robots potentially detecting this robot
+   * @param obstacleCouldBeThisRobot defaults to true. Handle the case of
+   * other robots potentially detecting this robot
    */
-  void updateObstacle(const Vector2f& newObstaclePosition, const Pose& referencePose, const ObstacleType newType, const bool obstacleCouldBeThisRobot = true);
+  void updateObstacle(const Vector2f& newObstaclePosition, const Pose& referencePose,
+                      const ObstacleType newType, const bool obstacleCouldBeThisRobot = true);
 };

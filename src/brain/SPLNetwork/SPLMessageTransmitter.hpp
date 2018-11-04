@@ -3,6 +3,7 @@
 #include "Framework/Module.hpp"
 #include "Tools/Time.hpp"
 
+#include "Data/BallSearchMap.hpp"
 #include "Data/BallSearchPosition.hpp"
 #include "Data/BallState.hpp"
 #include "Data/BodyPose.hpp"
@@ -27,6 +28,8 @@ class Brain;
 class SPLMessageTransmitter : public Module<SPLMessageTransmitter, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "SPLMessageTransmitter";
   /**
    * @brief SPLMessageTransmitter initializes members
    * @param manager reference to brain
@@ -40,8 +43,6 @@ public:
 private:
   /// whether sonar obstacles should be sent in the B-HULKs message
   const Parameter<bool> sendSonarObstacles_;
-  /// whether the team ball should be sent in the shooting to field of the message (disable during games as this is illegal!!!)
-  const Parameter<bool> sendTeamBallAsShootingTo_;
   /// player and team number are needed for identification
   const Dependency<PlayerConfiguration> playerConfiguration_;
   /// ball state is used for obvious reasons
@@ -76,6 +77,8 @@ private:
   const Dependency<JointSensorData> jointSensorData_;
   /// the team ball
   const Dependency<TeamBallModel> teamBallModel_;
+  /// the ball search map
+  const Dependency<BallSearchMap> ballSearchMap_;
   /// the ball search position
   const Dependency<BallSearchPosition> ballSearchPosition_;
   /// the last time when a message was sent

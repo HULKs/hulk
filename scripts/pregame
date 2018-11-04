@@ -18,25 +18,39 @@ function helpMenu {
   echo "Options"
   echo " -b, --build-type BUILD_TYPE       use the specified build type (one out of Debug, Develop, Release)"
   echo " -n, --network NETWORK             the network to which the robots should be set (e.g. ETH or SPL_A)"
+  echo " -j, --jobs                        the amount of processes used for compilation"
   echo " -h, --help                        show this help"
   echo ""
   echo "Nao"
   echo " either hostname, IP or number of the NAO"
 }
 
+function printErrorMessage {
+  case $1 in
+    0)
+	  msg -s "Finished deploying to $2"
+      ;;
+    1) 
+      msg -e "Failed to upload to nao $2"
+      ;;
+    2)
+      msg -e "Failed to restart the hulks service for nao $2"
+      ;;
+  esac
+}
+
 function run {
   # pregame deployment always happens with target NAO
   TARGET="nao"
-  # read the build type from a file
-  if [ -f "${BASEDIR}/.current.bt" ]; then
-    BUILD_TYPE=`cat "${BASEDIR}/.current.bt"`
-  else
-    BUILD_TYPE=""
-  fi
+  # default pregame build type is Release but it can be overridden
+  BUILD_TYPE="Release"
   # a list of NAOs that are prepared
   NAOS=()
+  ERRORS=()
   # default network is ethernet
   NETWORK=ETH
+  # set default job number to cores + 1
+  JOBS=$(njobs)
   # prepare parameters
   PARAMETERS=""
   while [ "$#" -gt 0 ]; do
@@ -69,6 +83,15 @@ function run {
         fi
         NETWORK="$1"
         ;;
+      "-j" | "--jobs")
+        shift
+        if [ "$#" -eq 0 ]; then
+          msg -e "--jobs needs a job number!"
+          helpMenu
+          return 1
+        fi
+        JOBS=$1
+        ;;
       "-h" | "--help")
         helpMenu
         return 0
@@ -100,7 +123,7 @@ function run {
   # compile once before uploading
   msg -n "Compiling with build type ${BUILD_TYPE}."
   set_start_time
-  compile "${BASEDIR}" "${TARGET}" "${BUILD_TYPE}" false
+  compile "${BASEDIR}" "${TARGET}" "${BUILD_TYPE}" false ${JOBS}
   if [ "$?" -ne 0 ]; then
     msg -e "Compilation failed!"
     return 1
@@ -109,23 +132,36 @@ function run {
   msg -s "Compilation finished successfully in ${DIFF}!"
 
   ERROR=0
-  for NAO in ${NAOS[@]}; do
-    msg -n "Deploying to ${NAO}."
+  for index in ${!NAOS[*]}; do
+    msg -n "Deploying to ${NAOS[index]}."
     # true true is for replacing configuration with own configuration
-    upload "${BASEDIR}" "${NAO}" "${BUILD_TYPE}" true true
+    upload "${BASEDIR}" "${NAOS[index]}" "${BUILD_TYPE}" true true
     if [ "$?" -ne 0 ]; then
-      msg -e "Failed to upload to ${NAO}!"
+      ERRORS[index]=1
+      printErrorMessage 1 ${NAOS[index]}
       ERROR=1
       continue
     fi
-    naocmd "${BASEDIR}" "${NAO}" "sudo /etc/init.d/hulk stop; killall -SIGTERM tuhhNao 2>/dev/null; /home/nao/bin/setNetwork ${NETWORK}; sudo /etc/init.d/hulk start"
+    naocmd "${BASEDIR}" "${NAOS[index]}" "sudo /etc/init.d/hulk stop; killall -SIGTERM tuhhNao 2>/dev/null; sudo /etc/init.d/naoqi restart; /home/nao/bin/setNetwork ${NETWORK}; sudo /etc/init.d/hulk start"
     if [ "$?" -ne 0 ]; then
-      msg -e "Failed to restart the hulk service on ${NAO}!"
+      msg -e "Failed to restart the hulk service on ${NAOS[index]}!"
+      ERRORS[index]=2
+      printErrorMessage 2 ${NAOS[index]}
       ERROR=1
       continue
     fi
-    msg -s "Finished deploying to ${NAO}!"
+    ERRORS[index]=0
+    msg -s "Finished deploying to ${NAOS[index]}!"
   done
+
+  echo "--------------------"
+  echo "Summary for pregame:"
+
+  for index in ${!ERRORS[*]}
+  do
+    printErrorMessage ${ERRORS[index]} ${NAOS[index]}
+  done
+
   return $ERROR
 }
 

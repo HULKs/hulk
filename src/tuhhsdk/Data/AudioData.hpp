@@ -8,6 +8,8 @@
 
 class AudioData : public DataType<AudioData> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "AudioData";
   /// a sequence of samples that should be played back or have been recorded
   Samples samples;
   /// the timestamp at which the first sample has been recorded or shall be played back
@@ -35,7 +37,13 @@ public:
 };
 
 class RecordData : public DataType<RecordData, AudioData> {
+public:
+  /// the name of this DataType
+  DataTypeName name = "RecordData";
 };
 
 class PlaybackData : public DataType<PlaybackData, AudioData> {
+public:
+  /// the name of this DataType
+  DataTypeName name = "PlaybackData";
 };

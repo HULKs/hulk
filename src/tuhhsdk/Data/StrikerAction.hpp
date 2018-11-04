@@ -9,6 +9,8 @@
 class StrikerAction : public DataType<StrikerAction>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "StrikerAction";
   /**
    * @enum Type enumerates the possible types of action for a striker
    */
@@ -27,23 +29,25 @@ public:
   };
   enum KickType
   {
-    /// the plain old schlong kick
-    CLASSIC,
-    /// the fancy new DMP-Kick
-    STRAIGHT,
+    /// forward kick
+    FORWARD,
+    /// side kick
+    SIDE,
     /// the gentle in-walk
     IN_WALK_GENTLE,
     /// the strong in-walk
-    IN_WALK_STRONG
+    IN_WALK_STRONG,
+    /// don't kick
+    NONE
   };
   /// true iff this struct is valid
-  bool valid;
+  bool valid = false;
   /// the type of the action
-  Type type;
+  Type type = Type::DRIBBLE;
   /// the player number of the pass target (for pass action)
-  unsigned int passTarget;
+  unsigned int passTarget = 0;
   /// the field coordinates of the ball target
-  Vector2f target;
+  Vector2f target = Vector2f::Zero();
   /// type of kick we want to do
   KickType kickType;
   /// the relative pose from where we want to kick from
@@ -53,12 +57,12 @@ public:
   /**
    * @brief reset does nothing
    */
-  void reset()
+  void reset() override
   {
     valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["valid"] << valid;
@@ -69,7 +73,7 @@ public:
     value["kickPose"] << kickPose;
     value["kickable"] << static_cast<int>(kickable);
   }
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["valid"] >> valid;
     int readNumber = 0;

@@ -1,0 +1,7 @@
+{
+   "debugEdges" : true,
+   "debugFieldColor" : true,
+   "debugWindows" : true,
+   "minWindowSize" : 40,
+   "samplePointDistance": 0.3
+}

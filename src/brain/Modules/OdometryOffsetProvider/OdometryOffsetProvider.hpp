@@ -11,6 +11,8 @@ class Brain;
 class OdometryOffsetProvider : public Module<OdometryOffsetProvider, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "OdometryOffsetProvider";
   /**
    * @brief OdometryOffsetProvider initializes members
    * @param manager a reference to brain

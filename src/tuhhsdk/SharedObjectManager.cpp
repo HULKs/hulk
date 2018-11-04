@@ -9,7 +9,7 @@ SharedObjectManager::SharedObjectManager(Debug& debug, Configuration& config, Ro
   : debug_(debug)
   , config_(config)
   , robotInterface_(robotInterface)
-  , loadedModules_()
+  , loadedSharedObjects_()
   , conChannels_()
   , threadData_()
 {
@@ -20,12 +20,17 @@ void SharedObjectManager::start()
   Log(LogLevel::INFO) << "Initializing shared objects";
 
   config_.mount("tuhhSDK.autoload", "tuhh_autoload.json", ConfigurationType::HEAD);
+  // load the module setups
+  // first set the default config
+  config_.mount("tuhhSDK.moduleSetup", "moduleSetup_default.json", ConfigurationType::HEAD);
+  // overload this config with the more specific ones (similar to what is done with the locations)
+  config_.mount("tuhhSDK.moduleSetup", "moduleSetup_" + config_.get("tuhhSDK.autoload", "moduleSetup").asString() + ".json", ConfigurationType::HEAD);
 
-  Uni::Value& uvModules = config_.get("tuhhSDK.autoload", "modules");
+  Uni::Value& uvSharedObjects = config_.get("tuhhSDK.autoload", "sharedObjects");
 
   // A kn-Graph has n(n-1)/2 edges
   // So we need number of edges DuplexChannels for Messaging
-  const size_t numVertices = uvModules.size();
+  const size_t numVertices = uvSharedObjects.size();
   const size_t numEdges = (numVertices * (numVertices - 1)) / 2;
   threadData_.resize(numVertices);
   conChannels_.resize(numEdges);
@@ -54,25 +59,25 @@ void SharedObjectManager::start()
     }
   }
 
-  loadedModules_.reserve(uvModules.size());
+  loadedSharedObjects_.reserve(uvSharedObjects.size());
   unsigned int numSharedObjects = 0;
-  auto itS = uvModules.listBegin();
-  auto itE = uvModules.listEnd();
-  for(; itS != itE; itS++)
+  auto itS = uvSharedObjects.listBegin();
+  auto itE = uvSharedObjects.listEnd();
+  for (; itS != itE; itS++)
   {
     std::string sharedObject = (*itS)["sharedObject"].asString();
-    std::string logl         = (*itS)["loglevel"].asString();
+    std::string logl = (*itS)["loglevel"].asString();
 
     ThreadData& tData = threadData_[numSharedObjects];
     tData.loglevel = getLogLevel(logl);
     tData.debug = &debug_;
     tData.configuration = &config_;
     tData.robotInterface = &robotInterface_;
-    Log(LogLevel::INFO) << "Loading module \"" << sharedObject << "\" ...";
+    Log(LogLevel::INFO) << "Loading sharedObject\"" << sharedObject << "\" ...";
 
     try
     {
-      loadedModules_.emplace_back(sharedObject, tData);
+      loadedSharedObjects_.emplace_back(sharedObject, tData);
       Log(LogLevel::INFO) << "... Success";
     }
     catch (const std::exception& e)
@@ -82,23 +87,63 @@ void SharedObjectManager::start()
     }
     numSharedObjects++;
   }
-  for (auto& module : loadedModules_)
+
+  checkAllRequestedDataTypes();
+
+  // If all dependencies are resolved start all threads
+  for (auto& sharedObject : loadedSharedObjects_)
   {
-    module.start();
+    sharedObject.start();
+  }
+}
+
+void SharedObjectManager::checkAllRequestedDataTypes()
+{
+  // Compose a set of all requested datatypes
+  std::unordered_set<std::type_index> unresolvedDependencies;
+  for (auto& threadDatum : threadData_)
+  {
+    for (auto& sender : threadDatum.senders)
+    {
+      auto& requests = sender->getRequested();
+      unresolvedDependencies.insert(requests.begin(), requests.end());
+    }
+  }
+
+  for (auto& threadDatum : threadData_)
+  {
+    for (auto& receiver : threadDatum.receivers)
+    {
+      auto& produced = receiver->getProduced();
+      for (auto& production : produced)
+      {
+        unresolvedDependencies.erase(production);
+      }
+    }
+  }
+
+  if (!unresolvedDependencies.empty())
+  {
+    Log(LogLevel::ERROR) << "Unresolved dependencies:";
+    for (auto& unresolvedDependency : unresolvedDependencies)
+    {
+      Log(LogLevel::ERROR) << unresolvedDependency.name();
+    }
+    throw std::runtime_error("Could not produce all DataTypes!");
   }
 }
 
 void SharedObjectManager::stop()
 {
-  for (auto& module : loadedModules_)
+  for (auto& sharedObject : loadedSharedObjects_)
   {
-    module.stop();
+    sharedObject.stop();
   }
-  for (auto& module : loadedModules_)
+  for (auto& sharedObject : loadedSharedObjects_)
   {
-    module.join();
+    sharedObject.join();
   }
-  loadedModules_.clear();
+  loadedSharedObjects_.clear();
   threadData_.clear();
   conChannels_.clear();
 }

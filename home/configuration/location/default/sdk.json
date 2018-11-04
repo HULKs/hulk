@@ -1,6 +1,7 @@
 {
-    "loglevel": "error",
-    "location": "smd",
+    "loglevel": "info",
+    "location": "default",
+    "loadReplayConfig": true,
     "network.basePort": 12440,
     "network.enableAliveness": true,
     "network.enableDebugTCPTransport": true,

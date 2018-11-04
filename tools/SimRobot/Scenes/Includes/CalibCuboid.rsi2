@@ -1,6 +1,5 @@
 <Simulation>
-
-  <!-- Ball texture by DaveH (http://www.headsub.com/Template/1048/Exploding-Football-Soccer-Ball) -->
+  <!-- Calibration texture - charuco pattern, -->
   <Surface name="calibTexture" diffuseColor="rgb(100%, 100%, 100%)" specularColor="rgb(60%, 60%, 60%)" shininess="30" diffuseTexture="../Textures/calib_pattern_vertical_5pxPermm.jpg"/>
 
   <Material name="calibCuboidMaterial">
@@ -9,10 +8,12 @@
   </Material>
 
   <Body name="calibCuboid">
-    <BoxGeometry width="0.542" depth="0.210" height="0.05">
+    <!-- Actual size of pattern plate is 0.577x0.210x0.05.
+      But 4m added (2cm up and down) to 0.577m to compensate Al channels (2cm) of the actual rig. -->
+    <BoxGeometry width="0.580" depth="0.305" height="0.05">
       <Material ref="calibCuboidMaterial"/>
     </BoxGeometry>
-    <BoxAppearance width="0.542" depth="0.210" height="0.05">
+    <BoxAppearance width="0.580" depth="0.305" height="0.05">
       <Surface ref="calibTexture"/>
     </BoxAppearance>
     <BoxMass value="0.05" width="0.05" height="0.05" depth="0.05"/>

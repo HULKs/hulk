@@ -3,65 +3,72 @@ project(Motion)
 
 #set sources of your project here
 set(HEADERS
-  print.hpp
-  Motion.hpp
-  MotionThread.hpp
-  StandUp/StandUp.hpp
-  Walking/WalkingEngine.hpp
-  Walking/Pendulum.hpp
-  Walking/FootController.hpp
-  Walking/StepPlanner.hpp
-  Safety/FallManager.hpp
-  SensorDataProvider/SensorDataProvider.hpp
-  Utils/DynamicMovementPrimitive/DynamicMovementPrimitive.hpp
-  Utils/MotionFile/MotionFile.hpp
-  Utils/MotionFile/MotionFilePlayer.hpp
-  Utils/Interpolator/Interpolator.hpp
-  Poser/Poser.hpp
-  Kick/Kick.hpp
-  Kick/KickPhase.hpp
-  LEDHandler/LEDHandler.hpp
-  Point/Point.hpp
-  Keeper/Keeper.hpp
+  BodyDamageProvider/BodyDamageProvider.hpp
+  BodyPoseEstimation/BodyPoseEstimation.hpp
   HeadMatrixBufferProvider/HeadMatrixBufferProvider.hpp
   HeadMotion/HeadMotion.hpp
-  BodyPoseEstimation/BodyPoseEstimation.hpp
+  Interface/JointCommandSender.hpp
+  Interface/MotionDispatcher.hpp
+  JointCalibrationProvider/JointCalibrationProvider.hpp
+  Keeper/Keeper.hpp
+  Kick/Kick.hpp
+  KickConfigurationProvider/KickConfigurationProvider.hpp
+  LEDHandler/LEDHandler.hpp
+  Motion.hpp
+  MotionThread.hpp
   Odometry/IMUOdometry.hpp
   Odometry/SensorFusion.hpp
+  Point/Point.hpp
+  Poser/Poser.hpp
+  Safety/FallManager.hpp
+  SensorDataProvider/SensorDataProvider.hpp
+  Sleep/MotionSleep.hpp
   SonarFilter/SonarFilter.hpp
-  Interface/MotionDispatcher.hpp
-  Interface/JointCommandSender.hpp
+  StandUp/StandUp.hpp
+  Utils/DynamicMovementPrimitive/DynamicMovementPrimitive.hpp
+  Utils/Interpolator/Interpolator.hpp
+  Utils/MotionFile/MotionFile.hpp
+  Utils/MotionFile/MotionFilePlayer.hpp
+  Walking/StateHandling/ActiveOption.hpp
+  Walking/StateHandling/InWalkKickOption.hpp
+  Walking/StateHandling/RootOption.hpp
+  Walking/StateHandling/WalkingOption.hpp
+  Walking/StateHandling/WalkManState.hpp
+  Walking/StateHandling/WalkOptionInterface.hpp
+  Walking/UNSWalking/UNSW2014Generator.hpp
+  Walking/WalkManager.hpp
+  print.hpp
 )
 
 set(SOURCES
-  Motion.cpp
-  MotionThread.cpp
-  print.cpp
-  StandUp/StandUp.cpp
-  Safety/FallManager.cpp
-  Walking/WalkingEngine.cpp
-  Walking/Pendulum.cpp
-  Walking/FootController.cpp
-  Walking/StepPlanner.cpp
-  SensorDataProvider/SensorDataProvider.cpp
-  Kick/Kick.cpp
-  Kick/KickPhase.cpp
-  LEDHandler/LEDHandler.cpp
-  Point/Point.cpp
-  Utils/DynamicMovementPrimitive/DynamicMovementPrimitive.cpp
-  Utils/MotionFile/MotionFile.cpp
-  Utils/MotionFile/MotionFilePlayer.cpp
-  Utils/Interpolator/Interpolator.cpp
-  Poser/Poser.cpp
-  Keeper/Keeper.cpp
+  BodyDamageProvider/BodyDamageProvider.cpp
+  BodyPoseEstimation/BodyPoseEstimation.cpp
   HeadMatrixBufferProvider/HeadMatrixBufferProvider.cpp
   HeadMotion/HeadMotion.cpp
-  BodyPoseEstimation/BodyPoseEstimation.cpp
+  Interface/JointCommandSender.cpp
+  Interface/MotionDispatcher.cpp
+  JointCalibrationProvider/JointCalibrationProvider.cpp
+  Keeper/Keeper.cpp
+  Kick/Kick.cpp
+  KickConfigurationProvider/KickConfigurationProvider.cpp
+  LEDHandler/LEDHandler.cpp
+  Motion.cpp
+  MotionThread.cpp
   Odometry/IMUOdometry.cpp
   Odometry/SensorFusion.cpp
+  Point/Point.cpp
+  Poser/Poser.cpp
+  Safety/FallManager.cpp
+  SensorDataProvider/SensorDataProvider.cpp
   SonarFilter/SonarFilter.cpp
-  Interface/MotionDispatcher.cpp
-  Interface/JointCommandSender.cpp
+  StandUp/StandUp.cpp
+  Utils/DynamicMovementPrimitive/DynamicMovementPrimitive.cpp
+  Utils/Interpolator/Interpolator.cpp
+  Utils/MotionFile/MotionFile.cpp
+  Utils/MotionFile/MotionFilePlayer.cpp
+  Walking/UNSWalking/UNSW2014Generator.cpp
+  Walking/WalkManager.cpp
+  print.cpp
 )
 
 

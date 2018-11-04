@@ -1,7 +1,11 @@
 #include "BodyPoseEstimation.hpp"
 
 BodyPoseEstimation::BodyPoseEstimation(const ModuleManagerInterface& manager)
-  : Module(manager, "BodyPoseEstimation")
+  : Module(manager)
+  , minFsrPressure_(*this, "minFsrPressure", [] {})
+  , maxFsrPressure_(*this, "maxFsrPressure", [] {})
+  , outerFsrWeight_(*this, "outerFsrWeight", [] {})
+  , innerFsrWeight_(*this, "innerFsrWeight", [] {})
   , weightThreshold_(*this, "weightThreshold", [] {})
   , classifyHighByGyro_(*this, "classifyHighByGyro", [] {})
   , movingGyroNormThreshold_(*this, "movingGyroNormThreshold", [] {})
@@ -17,9 +21,12 @@ BodyPoseEstimation::BodyPoseEstimation(const ModuleManagerInterface& manager)
   , standUpResult_(*this)
   , imuSensorData_(*this)
   , fsrSensorData_(*this)
+  , motionRequest_(*this)
   , motionState_(*this)
   , bodyPose_(*this)
   , fallen_(false)
+  , fallDirection_(FallDirection::NOT_FALLING)
+  , lastMotionBeforeFallen_(MotionRequest::BodyMotion::DEAD)
   , filteredGyroNorm_(0.f)
   , lastBodyMotionState_(BodyMotion::DEAD)
   , timeWhenFallen_()
@@ -30,12 +37,23 @@ BodyPoseEstimation::BodyPoseEstimation(const ModuleManagerInterface& manager)
   , gyroAccumulator_(0, 0, 0)
 {
   weightBuffer_.fill(0);
+
+  weights_[FSRS::L_FL] = weights_[FSRS::L_RL] = outerFsrWeight_();
+  weights_[FSRS::R_FR] = weights_[FSRS::R_RR] = -outerFsrWeight_();
+  weights_[FSRS::L_FR] = weights_[FSRS::L_RR] = innerFsrWeight_();
+  weights_[FSRS::R_FL] = weights_[FSRS::R_RL] = -innerFsrWeight_();
+
+  for (int i = 0; i < FSRS::FSR_MAX; i++)
+  {
+    highestPressure_[i] = minFsrPressure_();
+  }
 }
 
 void BodyPoseEstimation::cycle()
 {
   detectFalling();
   determineFootContact();
+  determineSupportFoot();
 }
 
 void BodyPoseEstimation::detectFalling()
@@ -52,35 +70,41 @@ void BodyPoseEstimation::detectFalling()
   gyroAccumulator_ = imuSensorData_->gyroscope * alpha + gyroAccumulator_ * (1 - alpha);
 
   // for each direction, check if angle and angular velocity exceed their respective limit
-  if (angleAccumulator_.x() < xMin_() && gyroAccumulator_.x() < xdMin_())
+  if (!fallen_)
   {
-    bodyPose_->fallDirection = FallDirection::LEFT;
-  }
-  else if (angleAccumulator_.x() > xMax_() && gyroAccumulator_.x() > xdMax_())
-  {
-    bodyPose_->fallDirection = FallDirection::RIGHT;
-  }
-  else if (angleAccumulator_.y() < yMin_() && gyroAccumulator_.y() < ydMin_())
-  {
-    bodyPose_->fallDirection = FallDirection::BACK;
-  }
-  else if (angleAccumulator_.y() > yMax_() && gyroAccumulator_.y() > ydMax_())
-  {
-    bodyPose_->fallDirection = FallDirection::FRONT;
-  }
-  else
-  {
-    bodyPose_->fallDirection = FallDirection::NOT_FALLING;
+    if (angleAccumulator_.x() < xMin_() && gyroAccumulator_.x() < xdMin_())
+    {
+      fallDirection_ = FallDirection::LEFT;
+    }
+    else if (angleAccumulator_.x() > xMax_() && gyroAccumulator_.x() > xdMax_())
+    {
+      fallDirection_ = FallDirection::RIGHT;
+    }
+    else if (angleAccumulator_.y() < yMin_() && gyroAccumulator_.y() < ydMin_())
+    {
+      fallDirection_ = FallDirection::BACK;
+    }
+    else if (angleAccumulator_.y() > yMax_() && gyroAccumulator_.y() > ydMax_())
+    {
+      fallDirection_ = FallDirection::FRONT;
+    }
+    else
+    {
+      fallDirection_ = FallDirection::NOT_FALLING;
+    }
+    lastMotionBeforeFallen_ = motionRequest_->bodyMotion;
   }
   // If the robot was not previously fallen but is falling now, it is fallen.
-  if (bodyPose_->fallDirection != FallDirection::NOT_FALLING && !fallen_)
+  if (fallDirection_ != FallDirection::NOT_FALLING && !fallen_)
   {
     fallen_ = true;
     timeWhenFallen_ = cycleInfo_->startTime;
   }
   // Expose the fallen state to other modules.
   bodyPose_->fallen = fallen_;
+  bodyPose_->fallDirection = fallDirection_;
   bodyPose_->timeWhenFallen = timeWhenFallen_;
+  bodyPose_->lastMotionBeforeFallen = lastMotionBeforeFallen_;
 }
 
 void BodyPoseEstimation::determineFootContact()
@@ -93,7 +117,8 @@ void BodyPoseEstimation::determineFootContact()
     filteredGyroNorm_ = 0.f;
   }
   const float lowPassGain = 0.2f;
-  filteredGyroNorm_ = (1.f - lowPassGain) * filteredGyroNorm_ + lowPassGain * imuSensorData_->gyroscope.norm();
+  filteredGyroNorm_ =
+      (1.f - lowPassGain) * filteredGyroNorm_ + lowPassGain * imuSensorData_->gyroscope.norm();
   lastBodyMotionState_ = bodyMotionState;
   if (classifyHighByGyro_())
   {
@@ -107,7 +132,8 @@ void BodyPoseEstimation::determineFootContact()
         bodyPose_->footContact = false;
         return;
       }
-      // if the gyro norm doesn't consider the robot to be high, the usual classification by FSRs is further used
+      // if the gyro norm doesn't consider the robot to be high, the usual classification by FSRs is
+      // further used
     }
   }
   float totalWeight = fsrSensorData_->left.totalWeight + fsrSensorData_->right.totalWeight;
@@ -116,7 +142,8 @@ void BodyPoseEstimation::determineFootContact()
   weightBuffer_[weightBufferPosition_++] = totalWeight;
   weightBufferPosition_ %= weightBufferSize_;
   weightBufferSum_ += totalWeight;
-  // If the average weight on the FSRs exceeds a threshold, the robot is assumed to touch something with at least one foot.
+  // If the average weight on the FSRs exceeds a threshold, the robot is assumed to touch something
+  // with at least one foot.
   bodyPose_->footContact = (weightBufferSum_ / weightBufferSize_) > weightThreshold_();
   debug().update(mount_ + ".fsr_both_feed_sum", (weightBufferSum_ / weightBufferSize_));
 
@@ -125,6 +152,39 @@ void BodyPoseEstimation::determineFootContact()
     timeOfLastFootContact_ = cycleInfo_->startTime;
   }
   bodyPose_->timeOfLastFootContact = timeOfLastFootContact_;
+}
+
+void BodyPoseEstimation::determineSupportFoot()
+{
+  float totalPressure = 0.f;
+  float weightedSum = 0.f;
+
+  float fsrReadings[] = {fsrSensorData_->left.frontLeft,  fsrSensorData_->left.frontRight,
+                         fsrSensorData_->left.rearLeft,   fsrSensorData_->left.rearRight,
+                         fsrSensorData_->right.frontLeft, fsrSensorData_->right.frontRight,
+                         fsrSensorData_->right.rearLeft,  fsrSensorData_->right.rearRight};
+
+  for (int i = 0; i < FSRS::FSR_MAX; i++)
+  {
+    float pressure = std::min(maxFsrPressure_(), fsrReadings[i]);
+    highestPressure_[i] = std::max(highestPressure_[i], pressure);
+    pressure /= highestPressure_[i];
+    totalPressure += pressure;
+    weightedSum += weights_[i] * pressure;
+  }
+
+  if (std::abs(totalPressure) > 0.f)
+  {
+    bodyPose_->supportSide = weightedSum / totalPressure;
+    bodyPose_->supportChanged = lastSupportSide_ * bodyPose_->supportSide < 0.f;
+  }
+  else
+  {
+    bodyPose_->supportSide = 0.f;
+    bodyPose_->supportChanged = false;
+  }
+
+  lastSupportSide_ = bodyPose_->supportSide;
 }
 
 void BodyPoseEstimation::sendAngleExtremes()

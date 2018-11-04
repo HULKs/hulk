@@ -6,9 +6,11 @@ ActionCommand playSoccer(const DataSet& d)
   if (d.parameters.debugTargetEnable())
   {
     // Set a debug target pose which can be set by config/ofa.
-    return ActionCommand::walk(d.parameters.debugTargetRelativePose()).combineHead(trackBall(d)).combineRightLED(ActionCommand::LED::white());
+    return ActionCommand::walk(d.parameters.debugTargetRelativePose())
+        .combineHead(trackBall(d))
+        .combineRightLED(ActionCommand::LED::white());
   }
-  if (d.gameControllerState.secondary == SecondaryState::PENALTYSHOOT)
+  if (d.gameControllerState.gamePhase == GamePhase::PENALTYSHOOT)
   {
     return penaltyShootoutPlaying(d);
   }
@@ -20,7 +22,8 @@ ActionCommand playSoccer(const DataSet& d)
   // Avoid illegal defender
   if (!d.worldState.ballIsFree)
   {
-    // Stand and not rotate because rotating might lead to touching the center circle in certain circumstances.
+    // Stand and not rotate because rotating might lead to touching the center circle in certain
+    // circumstances.
     return ActionCommand::stand().combineHead(trackBall(d));
   }
   // If we are a pass target and no striker, then we want to look at the teamball
@@ -28,16 +31,21 @@ ActionCommand playSoccer(const DataSet& d)
   {
     for (auto& teamPlayer : d.teamPlayers.players)
     {
-      if (!teamPlayer.penalized && teamPlayer.currentPassTarget == static_cast<int>(d.playerConfiguration.playerNumber) &&
-          teamPlayer.currentlyPerfomingRole == PlayingRole::STRIKER && d.cycleInfo.getTimeDiff(teamPlayer.timeWhenReachBallStriker) < 5.29f)
+      if (!teamPlayer.penalized &&
+          teamPlayer.currentPassTarget == static_cast<int>(d.playerConfiguration.playerNumber) &&
+          teamPlayer.currentlyPerformingRole == PlayingRole::STRIKER &&
+          d.cycleInfo.getTimeDiff(teamPlayer.timeWhenReachBallStriker) < 5.29f)
       {
         const Vector2f relBallPosition = d.robotPosition.fieldToRobot(d.teamBallModel.position);
         const float relBallAngle = std::atan2(relBallPosition.y(), relBallPosition.x());
-        return walkToPose(d, Pose(0, 0, relBallAngle), false).combineHead(trackBall(d)).combineRightLED(ActionCommand::LED::lightblue());
+        return walkToPose(d, Pose(0, 0, relBallAngle), false)
+            .combineHead(trackBall(d))
+            .combineRightLED(ActionCommand::LED::off());
       }
     }
   }
-  if (d.teamBallModel.ballType != TeamBallModel::BallType::NONE && d.playingRoles.role != PlayingRole::NONE)
+  if (d.teamBallModel.ballType != TeamBallModel::BallType::NONE &&
+      d.playingRoles.role != PlayingRole::NONE)
   {
     // We know where the Ball is
     switch (d.playingRoles.role)
@@ -50,6 +58,8 @@ ActionCommand playSoccer(const DataSet& d)
         return bishop(d).combineRightLED(ActionCommand::LED::yellow());
       case PlayingRole::SUPPORT_STRIKER:
         return support(d).combineRightLED(ActionCommand::LED::pink());
+      case PlayingRole::REPLACEMENT_KEEPER:
+        return replacementKeeper(d).combineRightLED(ActionCommand::LED::lightblue());
       default:
         assert(false);
         return defender(d);
@@ -66,7 +76,7 @@ ActionCommand playing(const DataSet& d)
   switch (d.playerConfiguration.role)
   {
     case Role::DEMO:
-      return demo(d);
+      return ActionCommand::stand();
     case Role::SHOOT_ON_HEAD_TOUCH:
       return shootOnHeadTouch(d);
     case Role::PLAYER:

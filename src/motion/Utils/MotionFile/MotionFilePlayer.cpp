@@ -3,7 +3,8 @@
 #include "print.hpp"
 
 
-MotionFilePlayer::MotionFilePlayer(const CycleInfo& cycleInfo, const JointSensorData& jointSensorData)
+MotionFilePlayer::MotionFilePlayer(const CycleInfo& cycleInfo,
+                                   const JointSensorData& jointSensorData)
   : cycleInfo_(cycleInfo)
   , jointSensorData_(jointSensorData)
   , startTime_(0)
@@ -33,7 +34,8 @@ int MotionFilePlayer::play()
     }
     if (!stiffnesses_.empty())
     {
-      // Use the stiffnesses from the first frame because interpolation of all the stiffnesses is not necessary.
+      // Use the stiffnesses from the first frame because interpolation of all the stiffnesses is
+      // not necessary.
       startJointValues_.stiffnesses = stiffnesses_[0];
     }
     // If stiffnesses is empty, startJointValues_.stiffnesses won't be used.
@@ -41,8 +43,21 @@ int MotionFilePlayer::play()
   }
   else
   {
-    Log(LogLevel::ERROR) << "MotionFile " << header.title << " already playing! Command discarded.";
+    Log(LogLevel::WARNING) << "MotionFile " << header.title << " already playing! Command discarded.";
     return 0;
+  }
+}
+
+void MotionFilePlayer::stop()
+{
+  if (isPlaying())
+  {
+    Log(LogLevel::DEBUG) << "MotionFile " << header.title << " stopped.";
+    startTime_ -= header.time;
+  }
+  else
+  {
+    Log(LogLevel::WARNING) << "MotionFile " << header.title << " is not playing! Can not stop it.";
   }
 }
 
@@ -84,12 +99,15 @@ MotionFilePlayer::JointValues MotionFilePlayer::cycle()
     }
     else
     {
-      interpolationFactor = static_cast<float>(motionTime - angleTimes_[i]) / (angleTimes_[i + 1] - angleTimes_[i]);
+      interpolationFactor =
+          static_cast<float>(motionTime - angleTimes_[i]) / (angleTimes_[i + 1] - angleTimes_[i]);
       next = angles_[i + 1];
     }
   }
-  for (i = 0; i < header.joints.size(); i++) {
-    result.angles[header.joints[i]] = (1 - interpolationFactor) * last[i] + interpolationFactor * next[i];
+  for (i = 0; i < header.joints.size(); i++)
+  {
+    result.angles[header.joints[i]] =
+        (1 - interpolationFactor) * last[i] + interpolationFactor * next[i];
   }
   // Provide a fallback for motion files that do not have stiffnesses.
   if (stiffnesses_.empty())
@@ -120,17 +138,22 @@ MotionFilePlayer::JointValues MotionFilePlayer::cycle()
         }
       }
       last = stiffnesses_[i];
-      if (i == stiffnessTimes_.size() - 1) {
+      if (i == stiffnessTimes_.size() - 1)
+      {
         interpolationFactor = 0;
         next = stiffnesses_[i];
-      } else {
-        interpolationFactor = static_cast<float>(motionTime - stiffnessTimes_[i]) / (stiffnessTimes_[i + 1] - stiffnessTimes_[i]);
+      }
+      else
+      {
+        interpolationFactor = static_cast<float>(motionTime - stiffnessTimes_[i]) /
+                              (stiffnessTimes_[i + 1] - stiffnessTimes_[i]);
         next = stiffnesses_[i + 1];
       }
     }
     for (i = 0; i < header.joints.size(); i++)
     {
-      result.stiffnesses[header.joints[i]] = (1 - interpolationFactor) * last[i] + interpolationFactor * next[i];
+      result.stiffnesses[header.joints[i]] =
+          (1 - interpolationFactor) * last[i] + interpolationFactor * next[i];
     }
   }
   return result;

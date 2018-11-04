@@ -16,7 +16,7 @@ ThreadBase::ThreadBase(ThreadData& tData)
 void ThreadBase::start()
 {
   shouldStop_ = false;
-  thread_ = std::thread([this]{main();});
+  thread_ = std::thread([this] { main(); });
 }
 
 void ThreadBase::stop()
@@ -30,11 +30,6 @@ void ThreadBase::join()
   {
     thread_.join();
   }
-}
-
-void ThreadBase::triggerDebug()
-{
-  tData_.debug->trigger();
 }
 
 void ThreadBase::main()

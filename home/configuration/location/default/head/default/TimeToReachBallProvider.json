@@ -1,8 +1,5 @@
 {
-  "translationVelocity": 0.18,
-  "rotationVelocity": 36,
-  "walkAroundBallVelocity": 24,
-  "fallenPenalty": 10,
+  "fallenPenalty": 6,
   "strikerBonus": 1,
   "ballNotSeenPenalty": 2
 }

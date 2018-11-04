@@ -6,6 +6,8 @@
 class NTPData : public DataType<NTPData>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "NTPData";
   struct NTPRequest : public Uni::From, public Uni::To
   {
     /// the player number of the request sender

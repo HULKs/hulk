@@ -15,7 +15,8 @@ public:
   enum EnumPose
   {
     AL_INIT,
-    ARMBACK,
+    ARMBACKSTAGE1,
+    ARMBACKSTAGE2,
     HOME,
     PENALIZED,
     READY,

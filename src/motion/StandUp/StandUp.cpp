@@ -14,8 +14,9 @@
 #include "StandUp.hpp"
 #include "print.hpp"
 
+
 StandUp::StandUp(const ModuleManagerInterface& manager)
-  : Module(manager, "StandUp")
+  : Module(manager)
   , angleTolSideCheck_(*this, "angleTolSideCheck")
   , angleTolFmPoseCheck_(*this, "angleTolFmPoseCheck")
   , angleTolSuccessCheck_(*this, "angleTolSuccessCheck")
@@ -27,12 +28,12 @@ StandUp::StandUp(const ModuleManagerInterface& manager)
   , standUpMotionFootSpeed_(*this, "standUpMotionFootSpeed")
   , standUpBackMotionFile_(*this, "standUpBackMotionFile")
   , standUpFrontMotionFile_(*this, "standUpFrontMotionFile")
-  , standUpCrouchedMotionFile_(*this, "standUpCrouchedMotionFile")
   , motionRequest_(*this)
   , motionActivation_(*this)
   , cycleInfo_(*this)
   , imuSensorData_(*this)
   , jointSensorData_(*this)
+  , gameControllerState_(*this)
   , standUpResult_(*this)
   , standUpOutput_(*this)
   , status_(Status::IDLE)
@@ -40,10 +41,8 @@ StandUp::StandUp(const ModuleManagerInterface& manager)
   , numSuccessChecks_(0)
   , timerClock_(0)
   , finalPose_(Poses::getPose(Poses::READY))
-  , homePose_(Poses::getPose(Poses::HOME))
   , standUpMotionBack_(*cycleInfo_, *jointSensorData_)
   , standUpMotionFront_(*cycleInfo_, *jointSensorData_)
-  , standUpFmPoseMotion_(*cycleInfo_, *jointSensorData_)
   , interpolator_()
   , leftArmInterpolatorFirstStage_()
   , leftArmInterpolatorSecondStage_()
@@ -53,9 +52,10 @@ StandUp::StandUp(const ModuleManagerInterface& manager)
   print("standUp: Initializing module...", LogLevel::INFO);
 
   /// \li Read motion player files and add the final pose
-  standUpMotionFront_.loadFromFile(robotInterface().getFileRoot() + "motions/" + standUpFrontMotionFile_());
-  standUpMotionBack_.loadFromFile(robotInterface().getFileRoot() + "motions/" + standUpBackMotionFile_());
-  standUpFmPoseMotion_.loadFromFile(robotInterface().getFileRoot() + "motions/" + standUpCrouchedMotionFile_());
+  standUpMotionFront_.loadFromFile(robotInterface().getFileRoot() + "motions/" +
+                                   standUpFrontMotionFile_());
+  standUpMotionBack_.loadFromFile(robotInterface().getFileRoot() + "motions/" +
+                                  standUpBackMotionFile_());
 }
 
 void StandUp::standUp()
@@ -83,11 +83,13 @@ void StandUp::prepareStandUp()
     }
     else
     {
-      // go to home position in order to flip the Nao to a defined position
+      // go to ready position in order to flip the Nao to a defined position
       std::stringstream str;
-      str << "standUp: CheckLayingSide is UNDEFINED. " << (numSideChecks_ + 1) << ". try to force defined position...";
+      str << "standUp: CheckLayingSide is UNDEFINED. " << (numSideChecks_ + 1)
+          << ". try to force defined position...";
       print(str.str(), LogLevel::INFO);
-      interpolator_.reset(jointSensorData_->getBodyAngles(), homePose_, checkingGroundSideInterval_() * 0.9);
+      interpolator_.reset(jointSensorData_->getBodyAngles(), finalPose_,
+                          checkingGroundSideInterval_() * 0.9);
       timerClock_ = checkingGroundSideInterval_();
     }
   }
@@ -109,15 +111,13 @@ StandUp::Side StandUp::getLayingSide(const float angleTol)
   {
     return Side::FOOT;
   }
-  else if ((fabs(angleData.x()) < angleTol * TO_RAD) && (fabs(angleData.y() - 50 * TO_RAD) < angleTolFmPoseCheck_() * TO_RAD))
-  {
-    return Side::CROUCHED;
-  }
-  else if ((fabs(angleData.x()) < angleTol * TO_RAD) && (fabs(angleData.y() - 90 * TO_RAD) < angleTol * TO_RAD))
+  else if ((fabs(angleData.x()) < angleTol * TO_RAD) &&
+           (fabs(angleData.y() - 90 * TO_RAD) < angleTol * TO_RAD))
   {
     return Side::FRONT;
   }
-  else if ((fabs(angleData.x()) < angleTol * TO_RAD) && (fabs(angleData.y() + 90 * TO_RAD) < angleTol * TO_RAD))
+  else if ((fabs(angleData.x()) < angleTol * TO_RAD) &&
+           (fabs(angleData.y() + 90 * TO_RAD) < angleTol * TO_RAD))
   {
     return Side::BACK;
   }
@@ -146,11 +146,6 @@ void StandUp::startActualStandUp(Side groundSide)
       print("standUp: Motion from FOOT starting...", LogLevel::INFO);
       timerClock_ = standUpMotionFoot() + 1000;
       break;
-    case Side::CROUCHED:
-      print("standUP: Motion from CROUCHED starting...", LogLevel::INFO);
-      timerClock_ = standUpFmPoseMotion_.play() + 1000;
-      gyroAccumulatorY_ = imuSensorData_->gyroscope.y();
-      break;
     default:
       print("standUp: performStandup() called with unknown ground side...", LogLevel::ERROR);
       timerClock_ = 0;
@@ -164,11 +159,21 @@ bool StandUp::isActive()
 
 void StandUp::cycle()
 {
-  if (motionActivation_->activeMotion == MotionRequest::BodyMotion::STAND_UP &&
-      motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND_UP)] > 0.9)
+  if (gameControllerState_->gameState == GameState::INITIAL)
+  {
+    // It does not make any sense to be fallen in the initial state. The robot should stand when it
+    // exits this state anyway.
+    resetStandUp();
+    standUpResult_->finishedSuccessfully = true;
+  }
+  else if (motionActivation_->activeMotion == MotionRequest::BodyMotion::STAND_UP &&
+           motionActivation_
+                   ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND_UP)] >
+               0.9)
   {
     standUp();
   }
+
   standUpOutput_->angles = Poses::getPose(Poses::READY);
   standUpOutput_->stiffnesses = std::vector<float>(JOINTS::JOINTS_MAX, 0.7f);
   switch (status_)
@@ -206,15 +211,6 @@ void StandUp::cycle()
       else if (standUpMotionFront_.isPlaying())
       {
         values = standUpMotionFront_.cycle();
-        send = true;
-      }
-      else if (standUpFmPoseMotion_.isPlaying())
-      {
-        values = standUpFmPoseMotion_.cycle();
-        float alpha = 0.3f;
-        gyroAccumulatorY_ = imuSensorData_->gyroscope.y() * alpha + gyroAccumulatorY_ * (1 - alpha);
-        values.angles[JOINTS::L_ANKLE_PITCH] += gyroAccumulatorY_ / 25;
-        values.angles[JOINTS::R_ANKLE_PITCH] += gyroAccumulatorY_ / 25;
         send = true;
       }
       else if (!interpolator_.finished())
@@ -317,7 +313,8 @@ int StandUp::standUpMotionFoot()
   float sum = 0; // quadratic sum over difference vector
   for (unsigned int i = 0; i < vecDiff.size(); i++)
   {
-    vecDiff.at(i) = finalPose_.at(i) - vecDiff.at(i); // difference vector between current and target pose
+    vecDiff.at(i) =
+        finalPose_.at(i) - vecDiff.at(i); // difference vector between current and target pose
     sum += (vecDiff.at(i)) * (vecDiff.at(i));
   }
   int time = sum * standUpMotionFootSpeed_() * 200; // using time depending on way-length
@@ -342,7 +339,9 @@ int StandUp::standUpMotionFoot()
   return time;
 }
 
-void StandUp::getArmCommandsFromPose(const std::vector<float>& pose, std::vector<float>& rArmCommands, std::vector<float>& lArmCommands)
+void StandUp::getArmCommandsFromPose(const std::vector<float>& pose,
+                                     std::vector<float>& rArmCommands,
+                                     std::vector<float>& lArmCommands)
 {
   for (int i = 0; i < JOINTS_L_ARM::L_ARM_MAX; i++)
   {

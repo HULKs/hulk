@@ -1,9 +1,5 @@
 #include <string>
 
-#ifdef NAO
-#include <mntent.h>
-#endif
-
 #include <fftw3.h>
 
 #include "Modules/Debug/FileTransport.h"
@@ -44,7 +40,8 @@ TUHH::TUHH(RobotInterface& robotInterface)
   config_.setNaoBodyName(info.bodyName);
 
   tuhhprint::print("About to configure interface", LogLevel::FANCY);
-  // At this point, all configuration specifiers (location, body name, head name) will be set correctly.
+  // At this point, all configuration specifiers (location, body name, head name) will be set
+  // correctly.
   interface_.configure(config_);
 
   Poses::init(interface_.getFileRoot());
@@ -57,40 +54,12 @@ TUHH::TUHH(RobotInterface& robotInterface)
 
   if (config_.get("tuhhSDK.base", "local.enableFileTransport").asBool())
   {
-    std::string fileTransportRoot = interface_.getFileRoot();
-
-#ifdef NAO
-    mntent* ent;
-    mntent dummy;
-    char* buf = new char[4096];
-    FILE* aFile = setmntent("/proc/mounts", "r");
-
-    if (aFile != nullptr)
-    {
-      while (nullptr != (ent = getmntent_r(aFile, &dummy, buf, 4096)))
-      {
-        std::string fsname(ent->mnt_fsname);
-        if (fsname == "/dev/sdb1")
-        {
-          fileTransportRoot = std::string(ent->mnt_dir) + "/";
-          tuhhprint::print("Will use " + fileTransportRoot + " as FileTransport directory!", LogLevel::FANCY);
-          break;
-        }
-      }
-      endmntent(aFile);
-    }
-    else
-    {
-      tuhhprint::print("Could not get mountpoints for FileTransport directory!", LogLevel::ERROR);
-    }
-    delete[] buf;
-#endif
-
+    std::string fileTransportRoot = interface_.getDataRoot();
     debug_.addTransport(std::make_shared<FileTransport>(debug_, config_, fileTransportRoot));
   }
 
 #if !defined(SIMROBOT) || defined(WIN32)
-  const std::uint16_t basePort = config_.get("tuhhSDK.base", "network.basePort").asInt();
+  const std::uint16_t basePort = config_.get("tuhhSDK.base", "network.basePort").asInt32();
 
   if (config_.get("tuhhSDK.base", "network.enableConfiguration").asBool())
   {
@@ -103,10 +72,15 @@ TUHH::TUHH(RobotInterface& robotInterface)
     debug_.addTransport(std::make_shared<TCPTransport>(basePort + 1, debug_));
   }
 #else
-  usc_ = std::make_unique<UnixSocketConfig>(config_.get("tuhhSDK.base", "local.unixSocketDirectory").asString() + info.headName + "/config", config_);
+  usc_ = std::make_unique<UnixSocketConfig>(
+      config_.get("tuhhSDK.base", "local.unixSocketDirectory").asString() + info.headName +
+          "/config",
+      config_);
   usc_->run();
-  debug_.addTransport(
-      std::make_shared<UnixSocketTransport>(config_.get("tuhhSDK.base", "local.unixSocketDirectory").asString() + info.headName + "/debug", debug_));
+  debug_.addTransport(std::make_shared<UnixSocketTransport>(
+      config_.get("tuhhSDK.base", "local.unixSocketDirectory").asString() + info.headName +
+          "/debug",
+      debug_));
 #endif
 
   sharedObjectManager_.start();
@@ -119,7 +93,12 @@ TUHH::TUHH(RobotInterface& robotInterface)
   }
 #endif
 
-  // see SoftBank documentation if you want to know where 68 comes from
+  // Aldebaran documentation: "... (value 64) is used to register for a periodic capture.
+  // It means that you need to send the read request to the DCM just once,
+  // then you simply read the values every 100 ms in ALMemory." This is added to:
+  // "... (value 4) means that two captures will be made with only one command, left and right."
+  // Source:
+  // http://doc.aldebaran.com/2-1/family/nao_dcm/actuator_sensor_names.html#term-us-actuator-number
   interface_.setSonar(68);
 
   debug_.start();

@@ -4,7 +4,7 @@
 
 
 IMUOdometry::IMUOdometry(const ModuleManagerInterface& manager)
-  : Module(manager, "IMUOdometry")
+  : Module(manager)
   , sensorFusion_(*this)
   , walkingEngineWalkOutput_(*this)
   , imuSensorData_(*this)

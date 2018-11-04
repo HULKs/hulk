@@ -2,7 +2,7 @@
 
 
 OdometryOffsetProvider::OdometryOffsetProvider(const ModuleManagerInterface& manager)
-  : Module(manager, "OdometryOffsetProvider")
+  : Module(manager)
   , odometryData_(*this)
   , odometryOffset_(*this)
   , initialized_(false)

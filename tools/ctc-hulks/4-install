@@ -42,14 +42,14 @@ mkdir -p ${install_dir_sysroot}
 cp -r ${base_dir}/x-tools/i686-nao-linux-gnu/i686-nao-linux-gnu/sysroot/* ${install_dir_sysroot}
 cp -r ${base_dir}/x-tools/i686-nao-linux-gnu/i686-nao-linux-gnu/debug-root/* ${install_dir_sysroot}
 
+cp -r ${libs_dir}/* ${install_dir_sysroot}
+cp ${base_dir}/patches/alsa/* ${install_dir_sysroot}/usr/share/alsa/
+
 rm -rf ${install_dir_sysroot}/include
 rm -rf ${install_dir_sysroot}/man
 rm -rf ${install_dir_sysroot}/etc
 rm -rf ${install_dir_sysroot}/var
 rm -rf ${install_dir_sysroot}/usr/include
-
-cp -r ${libs_dir}/* ${install_dir_sysroot}
-cp ${base_dir}/patches/alsa/* ${install_dir_sysroot}/usr/share/alsa/
 
 echo "Build the tar.bz2 files"
 

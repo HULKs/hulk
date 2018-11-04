@@ -1,12 +1,10 @@
 #include <string>
 
-#include "Modules/Debug/Debug.h"
-
 #include "Time.hpp"
 #include "Chronometer.hpp"
 
 
-Chronometer::Chronometer(Debug& debug, const std::string& key)
+Chronometer::Chronometer(DebugDatabase::DebugMap& debug, const std::string& key)
   : key_(key)
   , debug_(debug)
   , startTime_(getThreadTime())

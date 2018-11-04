@@ -3,6 +3,7 @@
 #include <string>
 
 #include <Data/CycleInfo.hpp>
+#include <Data/GameControllerState.hpp>
 #include <Data/IMUSensorData.hpp>
 #include <Data/JointSensorData.hpp>
 #include <Data/MotionActivation.hpp>
@@ -28,6 +29,8 @@ class Motion;
 class StandUp : public Module<StandUp, Motion>
 {
 public:
+  /// the name of this module
+  ModuleName name = "StandUp";
   /**
    * @brief StandUp initializes members and loads motion files
    * @param manager a reference to motion
@@ -47,7 +50,6 @@ private:
     FRONT,
     BACK,
     FOOT,
-    CROUCHED,
     UNDEFINED
   };
   /**
@@ -60,7 +62,8 @@ private:
     STANDING_UP
   };
   /**
-   * @brief standUp is called when a stand up command arrives and starts the operation of the StandUp module
+   * @brief standUp is called when a stand up command arrives and starts the operation of the
+   * StandUp module
    */
   void standUp();
   /**
@@ -84,7 +87,8 @@ private:
    */
   void startActualStandUp(Side groundSide);
   /**
-   * @brief standUpMotionFoot does a stand up motion, provided that the NAO is already on its feet and upright
+   * @brief standUpMotionFoot does a stand up motion, provided that the NAO is already on its feet
+   * and upright
    * @return time [ms] until the motion will be finished
    */
   int standUpMotionFoot();
@@ -102,7 +106,8 @@ private:
    * @param rArmCommands the angles for the right arm joints
    * @param lArmCommands the angles for the left arm joints
    */
-  void getArmCommandsFromPose(const std::vector<float>& pose, std::vector<float>& rArmCommands, std::vector<float>& lArmCommands);
+  void getArmCommandsFromPose(const std::vector<float>& pose, std::vector<float>& rArmCommands,
+                              std::vector<float>& lArmCommands);
   /// tolerance of body angle data in degrees when determining ground side
   const Parameter<float> angleTolSideCheck_;
   /// tolerance of body angle data in degrees when determining FmPose
@@ -125,8 +130,6 @@ private:
   const Parameter<std::string> standUpBackMotionFile_;
   /// name of motion file containing the needed motion for standing up from front side
   const Parameter<std::string> standUpFrontMotionFile_;
-  /// name of motion file containing the needed motion for standing up from crouched pose
-  const Parameter<std::string> standUpCrouchedMotionFile_;
   /// a reference to the motion request
   const Dependency<MotionRequest> motionRequest_;
   /// a reference to the motion activation
@@ -137,6 +140,8 @@ private:
   const Dependency<IMUSensorData> imuSensorData_;
   /// a reference to the joint sensor data
   const Dependency<JointSensorData> jointSensorData_;
+  /// gameController state for transitions
+  const Dependency<GameControllerState> gameControllerState_;
   /// a reference to the stand up result
   Production<StandUpResult> standUpResult_;
   /// a reference to the stand up output
@@ -151,14 +156,10 @@ private:
   int timerClock_;
   /// angle-data for final position (defined position after the standup motion)
   std::vector<float> finalPose_;
-  /// angle-data for tuhh-home position
-  std::vector<float> homePose_;
   /// motion-object for whole standup motion if lying on the back side
   MotionFilePlayer standUpMotionBack_;
   /// motion-object for whole standup motion if lying on the front side
   MotionFilePlayer standUpMotionFront_;
-  /// name of motion file containing the needed motion for standing up from the FallManager pose
-  MotionFilePlayer standUpFmPoseMotion_;
   /// an interpolator
   Interpolator interpolator_;
   /// an interpolator
@@ -171,8 +172,6 @@ private:
   Interpolator rightArmInterpolatorSecondStage_;
   // needed because Side is a private type
   friend void operator>>(const Uni::Value& in, StandUp::Side& out);
-
-  float gyroAccumulatorY_;
 };
 
 /**
@@ -180,5 +179,5 @@ private:
  */
 inline void operator>>(const Uni::Value& in, StandUp::Side& out)
 {
-  out = static_cast<StandUp::Side>(in.asInt());
+  out = static_cast<StandUp::Side>(in.asInt32());
 }

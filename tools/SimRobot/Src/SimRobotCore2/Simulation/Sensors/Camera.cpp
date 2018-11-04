@@ -19,6 +19,7 @@ Camera::Camera()
   sensor.camera = this;
   sensor.sensorType = SimRobotCore2::SensorPort::cameraSensor;
   sensor.imageBuffer = 0;
+  sensor.newimageBuffer = 0;
   sensor.imageBufferSize = 0;
 }
 
@@ -26,6 +27,8 @@ Camera::~Camera()
 {
   if(sensor.imageBuffer)
     delete[] sensor.imageBuffer;
+  if(sensor.newimageBuffer)
+    delete[] sensor.newimageBuffer;
 }
 
 void Camera::createPhysics()
@@ -68,6 +71,8 @@ void Camera::CameraSensor::updateValue()
   const unsigned int imageSize = imageWidth * imageHeight * 3;
   if(imageBufferSize < imageSize)
   {
+    if(newimageBuffer)
+      delete[] newimageBuffer;
     if(imageBuffer)
       delete[] imageBuffer;
     imageBuffer = new unsigned char[imageSize];
@@ -107,7 +112,19 @@ void Camera::CameraSensor::updateValue()
   Simulation::simulation->scene->drawAppearances();
 
   // read frame buffer
-  renderer.finishImageRendering(imageBuffer, imageWidth, imageHeight);
+  if (renderer.renderFlags & SimRobotCore2::Renderer::enableMotionblur)
+  {
+    if (!newimageBuffer)
+      newimageBuffer = new unsigned char[imageSize];
+
+    renderer.finishImageRendering(newimageBuffer, imageWidth, imageHeight);
+    // calculate average between this frame and the previous
+    applyMotionBlur(imageBufferSize);
+  }
+  else
+  {
+    renderer.finishImageRendering(imageBuffer, imageWidth, imageHeight);
+  }
   data.byteArray = imageBuffer;
 }
 
@@ -132,6 +149,8 @@ bool Camera::CameraSensor::renderCameraImages(SimRobotCore2::SensorPort** camera
 
   if(imageBufferSize < multiImageBufferSize)
   {
+    if(newimageBuffer)
+      delete[] newimageBuffer;
     if(imageBuffer)
       delete[] imageBuffer;
     imageBuffer = new unsigned char[multiImageBufferSize];
@@ -191,8 +210,49 @@ bool Camera::CameraSensor::renderCameraImages(SimRobotCore2::SensorPort** camera
   }
 
   // read frame buffer
-  renderer.finishImageRendering(imageBuffer, imageWidth, currentHorizontalPos);
+  if (renderer.renderFlags & SimRobotCore2::Renderer::enableMotionblur)
+  {
+    if (!newimageBuffer)
+      newimageBuffer = new unsigned char[multiImageBufferSize];
+
+    renderer.finishImageRendering(newimageBuffer, imageWidth, currentHorizontalPos);
+    // calculate average between this frame and the previous
+    applyMotionBlur(multiImageBufferSize);
+  }
+  else
+  {
+    renderer.finishImageRendering(imageBuffer, imageWidth, currentHorizontalPos);
+  }
   return true;
+}
+
+void Camera::CameraSensor::applyMotionBlur(const unsigned int bufferSize)
+{
+#if __WORDSIZE == 64
+  uint64_t* newimg = reinterpret_cast<uint64_t*>(newimageBuffer);
+  uint64_t* oldimg = reinterpret_cast<uint64_t*>(imageBuffer);
+  static const unsigned int stepsize = 8;
+  static const uint64_t mask = 0xFEFEFEFEFEFEFEFE;
+#else
+  uint32_t* newimg = reinterpret_cast<uint32_t*>(newimageBuffer);
+  uint32_t* oldimg = reinterpret_cast<uint32_t*>(imageBuffer);
+  static const unsigned int stepsize = 4;
+  static const uint64_t mask = 0xFEFEFEFE;
+#endif
+  // process as many bytes in integer batches as possible
+  unsigned int i = 0;
+  while (i<bufferSize / stepsize)
+  {
+    oldimg[i] = ((oldimg[i] & mask) >> 1) + ((newimg[i] & mask) >> 1);
+    i++;
+  }
+  // if there are still bytes left, process them one by one
+  i = i * stepsize;
+  while (i<bufferSize)
+  {
+    imageBuffer[i] = (imageBuffer[i] >> 1) + (newimageBuffer[i] >> 1);
+    i++;
+  }
 }
 
 void Camera::drawPhysics(unsigned int flags) const

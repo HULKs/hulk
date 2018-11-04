@@ -1,4 +1,5 @@
-. .\lib\common.ps1
+. $PSScriptRoot\lib\common.ps1
 
-cd $PSScriptRoot\..
+Push-Location -Path $NaoPath
 & $devEnv .
+Pop-Location

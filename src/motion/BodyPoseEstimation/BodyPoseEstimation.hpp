@@ -8,9 +8,11 @@
 #include "Data/CycleInfo.hpp"
 #include "Data/FSRSensorData.hpp"
 #include "Data/IMUSensorData.hpp"
+#include "Data/MotionRequest.hpp"
 #include "Data/MotionState.hpp"
 #include "Data/StandUpResult.hpp"
 #include "Framework/Module.hpp"
+#include "Modules/NaoProvider.h"
 
 
 class Motion;
@@ -18,6 +20,8 @@ class Motion;
 class BodyPoseEstimation : public Module<BodyPoseEstimation, Motion>
 {
 public:
+  /// the name of this module
+  ModuleName name = "BodyPoseEstimation";
   /**
    * @brief BodyPoseEstimation initializes members and resets buffers
    * @param manager a reference to motion
@@ -39,11 +43,25 @@ private:
    */
   void determineFootContact();
   /**
-   * @brief printAngleExtremes can be used to determine the angles that occur during normal operation
+   * @brief determineSupportFoot determines which of the feet is the support foot and whether the
+   * support foot has changed
+   */
+  void determineSupportFoot();
+  /**
+   * @brief printAngleExtremes can be used to determine the angles that occur during normal
+   * operation
    */
   void sendAngleExtremes();
   /// the number of weights to keep in the buffer
   static constexpr std::size_t weightBufferSize_ = 10;
+  /// the minimum pressure assumed per fsr
+  const Parameter<float> minFsrPressure_;
+  /// the maximum pressure assumed per fsr
+  const Parameter<float> maxFsrPressure_;
+  /// weighting for outer fsrs
+  const Parameter<float> outerFsrWeight_;
+  /// weighting for inner fsrs
+  const Parameter<float> innerFsrWeight_;
   /// the maximum value of the FSR weight if not touching the ground
   const Parameter<float> weightThreshold_;
   /// flag to enable gyro classification for lifted robots
@@ -74,12 +92,18 @@ private:
   const Dependency<IMUSensorData> imuSensorData_;
   /// a reference to the FSR sensor data
   const Dependency<FSRSensorData> fsrSensorData_;
-  /// areference to the motion state
+  /// a reference to the motion request
+  const Dependency<MotionRequest> motionRequest_;
+  /// a reference to the motion state
   const Reference<MotionState> motionState_;
   /// the resulting pose estimation
   Production<BodyPose> bodyPose_;
   /// whether the robot is currently fallen
   bool fallen_;
+  /// the fall direction
+  FallDirection fallDirection_;
+  /// the requested body motion berofe fallen was detected
+  MotionRequest::BodyMotion lastMotionBeforeFallen_;
   /// the filtered norm of the gyro vector
   float filteredGyroNorm_;
   /// the last state of the body motion
@@ -94,6 +118,12 @@ private:
   std::size_t weightBufferPosition_;
   /// the sum of all values in the FSR weight buffer
   float weightBufferSum_;
+  /// weights fo the individual fsrs
+  float weights_[FSRS::FSR_MAX];
+  /// highest preasere measured up to now per fsr
+  float highestPressure_[FSRS::FSR_MAX];
+  /// the side of support (positive if left support)
+  float lastSupportSide_ = 0;
   /// minimum angle around X
   float tempXmin_ = 0;
   /// maximum angle around X

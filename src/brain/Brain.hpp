@@ -5,7 +5,6 @@
 #include "Framework/Messaging.hpp"
 #include "Framework/ModuleManagerInterface.hpp"
 
-
 class Brain : public ModuleManagerInterface
 {
 public:
@@ -22,4 +21,9 @@ public:
    * @brief cycle executes all brain modules
    */
   void cycle();
+
+#ifdef ITTNOTIFY_FOUND
+  __itt_domain* brainTopDomain_;
+  __itt_domain* brainBottomDomain_;
+#endif
 };

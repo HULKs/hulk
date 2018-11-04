@@ -14,6 +14,8 @@ class Brain;
 class Projection : public Module<Projection, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "Projection";
   /**
    * @brief Projection loads configuration values and initializes members
    * @param manager a reference to the module manager
@@ -32,17 +34,21 @@ private:
    */
   void updateTorsoCalibrationMatrix();
   /// contains an angle around the x axis and an angle around the y axis for calibration of the torso matrix
-  const Parameter<Vector2f> torso_calibration_;
+  const Parameter<Vector2f> torsoCalibration_;
+  /// fix cam2ground for both cameras for stand pose
+  const Parameter<std::array<KinematicMatrix, 2>> cam2groundStand_;
+  /// the field of view of the nao: x: horizontal, y: vertical
+  const Parameter<Vector2f> fov_;
   /// the current camera image
-  const Dependency<ImageData> image_data_;
+  const Dependency<ImageData> imageData_;
   /// the buffer of the last few head matrices
-  const Dependency<HeadMatrixBuffer> head_matrix_buffer_;
+  const Dependency<HeadMatrixBuffer> headMatrixBuffer_;
   /// the result of the projection
-  Production<CameraMatrix> camera_matrix_;
+  Production<CameraMatrix> cameraMatrix_;
   /// the parameters and states of the top camera
-  ProjectionCamera top_camera_;
+  ProjectionCamera topCamera_;
   /// the parameters and states of the bottom camera
-  ProjectionCamera bottom_camera_;
+  ProjectionCamera bottomCamera_;
   /// a matrix that represents the transformations of the torso calibration
-  KinematicMatrix torso_calibration_matrix_;
+  KinematicMatrix torsoCalibrationMatrix_;
 };

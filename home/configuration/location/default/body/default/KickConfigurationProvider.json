@@ -1,0 +1,20 @@
+{
+    "inWalkFrontKick" :
+    {
+        "requiresPrestep" : true,
+        "preStep" : [[0.06, 0], 0],
+        "kickStep" : [[0.07, 0], 0],
+        "distanceToBallX" : 0.17,
+        "distanceToBallY" : 0.05,
+        "kickDirectionAngle" : 0
+    },
+    "inWalkTurnKick" :
+    {
+        "requiresPrestep" : true,
+        "preStep" : [[0, 0], -45],
+        "kickStep" : [[0.1, 0], 0],
+        "distanceToBallX" : 0.17,
+        "distanceToBallY" : -0.05,
+        "kickDirectionAngle" : -30
+    }
+}

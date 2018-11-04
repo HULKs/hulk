@@ -4,10 +4,10 @@
 
 #include "Modules/Debug/ImageConverterInterface.h"
 
-struct JpegConverter : ImageConverterInterface
+struct JpegConverter : public ImageConverterInterface
 {
   JpegConverter();
-  virtual SharedCVData convert(const Image& img);
+  void convert(const Image& img, CVData& data);
 
 private:
   class Impl;

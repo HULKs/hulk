@@ -8,6 +8,7 @@
 #include "Data/SupportingPosition.hpp"
 #include "Data/TeamBallModel.hpp"
 #include "Data/TeamPlayers.hpp"
+#include "Data/WorldState.hpp"
 #include "Framework/Module.hpp"
 
 
@@ -16,21 +17,20 @@ class Brain;
 class SupportingPositionProvider : public Module<SupportingPositionProvider, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "SupportingPositionProvider";
   SupportingPositionProvider(const ModuleManagerInterface& manager);
   void cycle();
 
 private:
-  void findPassTarget(const TeamPlayer*& passTarget);
-
   const Dependency<FieldDimensions> fieldDimensions_;
   const Dependency<GameControllerState> gameControllerState_;
-  const Dependency<PlayerConfiguration> playerConfiguration_;
   const Dependency<PlayingRoles> playingRoles_;
-  const Dependency<RobotPosition> robotPosition_;
   const Dependency<TeamBallModel> teamBallModel_;
-  const Dependency<TeamPlayers> teamPlayers_;
+  const Dependency<WorldState> worldState_;
   Production<SupportingPosition> supportingPosition_;
 
-  const Parameter<float> minimumDistance_;
-  bool wasObstructing_;
+  Parameter<float> minimumAngle_;
+  const Parameter<float> distanceToBall_;
+  const float aggressiveSupporterLineX_;
 };

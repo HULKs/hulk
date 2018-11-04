@@ -46,8 +46,10 @@ namespace Uni{
       switch ( node.type() ) {
         case Uni::ValueType::NIL:
         return Json::Value( Json::nullValue );
-        case Uni::ValueType::INT:
-        return Json::Value( node.asInt() );
+        case Uni::ValueType::INT32:
+        return Json::Value( node.asInt32() );
+        case Uni::ValueType::INT64:
+        return Json::Value( static_cast<int32_t>(node.asInt64() ));
         case Uni::ValueType::REAL:
         return Json::Value( node.asDouble() );
         case Uni::ValueType::BOOL:

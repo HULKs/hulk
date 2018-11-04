@@ -4,6 +4,8 @@
 class MirrorableMotionOutput : public DataType<MirrorableMotionOutput, MotionOutput>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "MirrorableMotionOutput";
   /**
    * @brief mirrorAngles mirrors the outputs body angles
    */

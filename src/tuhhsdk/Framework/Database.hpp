@@ -7,7 +7,8 @@
 #include "Messaging.hpp"
 
 
-class Database {
+class Database
+{
 public:
   /**
    * @brief ~Database deletes all stored data
@@ -32,6 +33,11 @@ public:
    */
   void request(const std::type_index& type);
   /**
+   * @brief produce tells all other managers that we produce the this datatype
+   * @param type the type we are going to produce
+   */
+  void produce(const std::type_index& type);
+  /**
    * @brief addSender adds a sender to the database
    * @param sender a sender that will be added to the database
    */
@@ -42,15 +48,30 @@ public:
    */
   void addReceiver(Receiver* receiver);
   /**
+   * @brief get obtains a reference to the DataType for the given type_index
+   * @param type the type_index
+   * @return a reference to the DataType
+   */
+  DataTypeBase& get(const std::type_index& type)
+  {
+    auto it = data_map_.find(type);
+    if (it == data_map_.end())
+    {
+      throw std::runtime_error("Could not find DataType, but should be present here.");
+    }
+    return *(it->second.data);
+  }
+  /**
    * @brief get obtains the datum of a specific data type
    * @return a reference to the object inside the database
    */
-  template<typename T>
+  template <typename T>
   T& get()
   {
     const std::type_index& type = typeid(T);
     auto it = data_map_.find(type);
-    if (it == data_map_.end()) {
+    if (it == data_map_.end())
+    {
       T* new_object = new T;
       new_object->reset();
       DatabaseEntry entry(new_object);
@@ -59,8 +80,10 @@ public:
     }
     return *dynamic_cast<T*>(it->second.data);
   }
+
 private:
-  struct DatabaseEntry {
+  struct DatabaseEntry
+  {
     /**
      * @brief DatabaseEntry creates an (unimported) database entry
      * @param data the pointer to the actual data

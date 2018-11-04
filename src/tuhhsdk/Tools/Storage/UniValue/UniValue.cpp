@@ -1,18 +1,27 @@
-#include "UniValue.h"
 #include "UniConvertible.hpp"
+#include "UniValue.h"
 #include <math.h>
 
 namespace Uni
 {
   Value::Value(int32_t i)
     : value_(i)
-    , type_(ValueType::INT)
+    , type_(ValueType::INT32)
+  {
+  }
+  Value::Value(int64_t i)
+    : value_(i)
+    , type_(ValueType::INT64)
   {
   }
   Value::Value(double d)
-    : value_(d)
-    , type_(ValueType::REAL)
+    : type_(ValueType::REAL)
   {
+    if (!std::isfinite(d))
+    {
+      value_ = 0.;
+    }
+    value_ = d;
   }
   Value::Value(bool b)
     : value_(b)
@@ -41,8 +50,11 @@ namespace Uni
     {
       case ValueType::NIL:
         break;
-      case ValueType::INT:
-        value_ = (int)0;
+      case ValueType::INT32:
+        value_ = (int32_t)0;
+        break;
+      case ValueType::INT64:
+        value_ = (int64_t)0;
         break;
       case ValueType::REAL:
         value_ = (double)0.0;
@@ -134,7 +146,10 @@ namespace Uni
 
   Value& Value::operator=(const Value& rhs)
   {
-    value_ = rhs.value_;
+    if (rhs.type_ != ValueType::NIL)
+    {
+      value_ = rhs.value_;
+    }
     type_ = rhs.type_;
     return *this;
   }
@@ -144,11 +159,11 @@ namespace Uni
     return type_;
   }
 
-  int32_t Value::asInt() const
+  int32_t Value::asInt32() const
   {
     switch (type_)
     {
-      case ValueType::INT:
+      case ValueType::INT32:
         return boost::get<int32_t>(value_);
         break;
       case ValueType::REAL:
@@ -159,12 +174,33 @@ namespace Uni
     }
   }
 
+  int64_t Value::asInt64() const
+  {
+    switch (type_)
+    {
+      case ValueType::INT32:
+        return boost::get<int32_t>(value_);
+        break;
+      case ValueType::INT64:
+        return boost::get<int64_t>(value_);
+        break;
+      case ValueType::REAL:
+        return static_cast<int64_t>(boost::get<double>(value_));
+        break;
+      default:
+        throw std::runtime_error("Value is not convertible to int.");
+    }
+  }
+
   double Value::asDouble() const
   {
     switch (type_)
     {
-      case ValueType::INT:
+      case ValueType::INT32:
         return boost::get<int32_t>(value_) * 1.0f;
+        break;
+      case ValueType::INT64:
+        return boost::get<int64_t>(value_) * 1.0f;
         break;
       case ValueType::REAL:
         return boost::get<double>(value_);
@@ -186,6 +222,26 @@ namespace Uni
     if (type_ != ValueType::STRING)
       throw std::runtime_error("Value not convertible to string!");
     return boost::get<std::string>(value_);
+  }
+
+  void Value::clearList()
+  {
+    if (type_ != ValueType::ARRAY)
+    {
+      throw std::runtime_error("Uni::Value::clearList() "
+                               "is only usefule for arrays (value was not)");
+    }
+    boost::get<valuesList_t>(value_).clear();
+  }
+
+  void Value::clearObjects()
+  {
+    if (type_ != ValueType::OBJECT)
+    {
+      throw std::runtime_error("Uni::Value::clearObjects() "
+                               "is only useful for objects (value was not)");
+    }
+    boost::get<valuesMap_t>(value_).clear();
   }
 
   Value::valuesList_t::size_type Value::size() const

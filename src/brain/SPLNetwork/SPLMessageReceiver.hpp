@@ -8,13 +8,15 @@
 #include "Data/NTPData.hpp"
 #include "Data/PlayerConfiguration.hpp"
 #include "Data/SPLNetworkData.hpp"
-#include "Data/TeamPlayers.hpp"
+#include "Data/RawTeamPlayers.hpp"
 
 class Brain;
 
 class SPLMessageReceiver : public Module<SPLMessageReceiver, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "SPLMessageReceiver";
   /**
    * @brief SPLMessageReceiver initializes members
    * @param manager reference to brain
@@ -43,11 +45,11 @@ private:
   /// the game controller state
   const Dependency<RawGameControllerState> rawGameControllerState_;
   /// the exposed list of players
-  Production<TeamPlayers> teamPlayers_;
+  Production<RawTeamPlayers> rawTeamPlayers_;
   /// the received NTP requests of this cycle
   Production<NTPData> ntpData_;
   /// the internal list of players
-  TeamPlayers internalPlayers_;
+  RawTeamPlayers internalPlayers_;
   /// last time of cycle execution
   TimePoint lastTime_;
   /// a list of the robots which are known via NTP

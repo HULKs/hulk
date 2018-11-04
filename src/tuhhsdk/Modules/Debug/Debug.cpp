@@ -1,74 +1,81 @@
-#include <functional>
-
 #include "Debug.h"
-#include "Tools/Storage/Image.hpp"
+#include "Subscription.h"
 
 
-void Debug::updateHelper(const std::string& key, const Uni::Value& value)
+Debug::Debug()
 {
-  std::lock_guard<std::mutex> l(debugMutex_);
-  DebugData dat(key, value);
-
-  if (transporter_.size())
-  {
-    for (auto it = transporter_.begin(); it != transporter_.end(); it++)
-    {
-      (*it)->update(dat);
-    }
-  }
+#ifdef ITTNOTIFY_FOUND
+  debugDomain_ = __itt_domain_create("Debug");
+  transportString_ = __itt_string_handle_create("transporting");
+#endif
 }
 
 void Debug::subscribe(const std::string& key)
 {
-  std::lock_guard<std::mutex> l(keysMutex_);
-  auto iter = keys_.find(key);
-  if (iter != keys_.end())
+  bool subscriptionSuccessful = false;
+  for (auto& debugSourceIt : debugSources_)
   {
-    (iter->second)++;
+    if (debugSourceIt.second.debugDatabase->subscribe(key))
+    {
+      subscriptionSuccessful = true;
+      break;
+    }
   }
-  else
+
+  if (!subscriptionSuccessful)
   {
-    keys_[key] = 1;
+    auto entry = outstandingSubscriptions_.find(key);
+    if (entry == outstandingSubscriptions_.end())
+    {
+      entry = outstandingSubscriptions_.insert(std::make_pair(key, 0)).first;
+    }
+    entry->second.fetch_add(1);
   }
 }
 
 void Debug::unsubscribe(const std::string& key)
 {
-  std::lock_guard<std::mutex> l(keysMutex_);
-  auto iter = keys_.find(key);
-  assert(iter != keys_.end());
-  assert(iter->second > 0);
-  --(iter->second);
-}
-
-void Debug::pushQueue(const std::string& key, const std::string& message)
-{
-  if (transporter_.size())
+  auto entry = outstandingSubscriptions_.find(key);
+  if (entry != outstandingSubscriptions_.end())
   {
-    for (auto it = transporter_.begin(); it != transporter_.end(); it++)
-    {
-      (*it)->pushQueue(key, message);
-    }
+    entry->second.fetch_sub(1);
+  }
+
+  for (auto& debugSourceIt : debugSources_)
+  {
+    debugSourceIt.second.debugDatabase->unsubscribe(key);
   }
 }
 
-void Debug::sendImage(const std::string& key, const Image& img)
+void Debug::resolveOutstandingSubscriptions()
 {
+  if (outstandingSubscriptions_.empty())
   {
-    std::lock_guard<std::mutex> l(keysMutex_);
-    auto it = keys_.find(key);
-    if (it == keys_.end())
-    {
-      keys_[key] = 0;
-    }
-    else if (it->second == 0)
-    {
-      return;
-    }
+    return;
   }
-  for (auto it = transporter_.begin(); it != transporter_.end(); it++)
+
+  for (auto subscription = outstandingSubscriptions_.begin();
+       subscription != outstandingSubscriptions_.end();)
   {
-    (*it)->sendImage(key, img);
+    bool subscriptionSuccessful = false;
+    for (auto& debugSourceIt : debugSources_)
+    {
+      if (debugSourceIt.second.debugDatabase->subscribe(subscription->first))
+      {
+        subscription->second.fetch_sub(1);
+        subscriptionSuccessful = true;
+        break;
+      }
+    }
+
+    if (subscriptionSuccessful && subscription->second.load() == 0)
+    {
+      subscription = outstandingSubscriptions_.erase(subscription);
+    }
+    else
+    {
+      ++subscription;
+    }
   }
 }
 
@@ -82,6 +89,22 @@ void Debug::removeAllTransports()
   transporter_.clear();
 }
 
+void Debug::addDebugSource(const std::string& debugSourceName, DebugDatabase* debugDatabase)
+{
+  debugSources_.emplace(std::make_pair(debugSourceName, DebugSource(debugDatabase)));
+}
+
+void Debug::removeDebugSource(const std::string& debugSourceName)
+{
+  stop();
+  debugSources_.erase(debugSourceName);
+}
+
+const std::unordered_map<std::string, Debug::DebugSource>& Debug::getDebugSources() const
+{
+  return debugSources_;
+}
+
 void Debug::start()
 {
   if (transporter_.empty())
@@ -89,7 +112,7 @@ void Debug::start()
     return;
   }
   shutdownThread_ = false;
-  transporterThread_ = std::thread(std::bind(&Debug::run, this));
+  transporterThread_ = std::thread([this]() { run(); });
 }
 
 void Debug::stop()
@@ -104,6 +127,10 @@ void Debug::stop()
 
 void Debug::run()
 {
+#ifdef ITTNOTIFY_FOUND
+  __itt_thread_set_name("Debug");
+#endif
+
   while (true)
   {
     {
@@ -115,10 +142,52 @@ void Debug::run()
       }
       trigger_ = false;
     }
-    std::lock_guard<std::mutex> l(debugMutex_);
-    for (auto transporter : transporter_)
+    resolveOutstandingSubscriptions();
+
+    bool running = true;
+    while (running)
     {
-      transporter->transport();
+      running = false;
+      for (auto& debugSource : debugSources_)
+      {
+        DebugDatabase::DebugMap* nextDebugMap =
+            debugSource.second.debugDatabase->nextTransportableMap();
+        if (nextDebugMap == nullptr || nextDebugMap == debugSource.second.currentDebugMap)
+        {
+          debugSource.second.currentDebugMap = nullptr;
+          continue;
+        }
+        debugSource.second.currentDebugMap = nextDebugMap;
+        running = true;
+      }
+
+      // Check whether we need to terminate for a shutdown
+      if (shutdownThread_)
+      {
+        break;
+      }
+
+#ifdef ITTNOTIFY_FOUND
+      __itt_task_begin(debugDomain_, __itt_null, __itt_null, transportString_);
+#endif
+      // Begin with the transporting
+      for (const auto& transporter : transporter_)
+      {
+        transporter->transport();
+      }
+#ifdef ITTNOTIFY_FOUND
+      __itt_task_end(debugDomain_);
+#endif
+
+      // Clean up the DebugMaps
+      for (auto& debugSource : debugSources_)
+      {
+        debugSource.second.debugDatabase->finishTransporting();
+      }
+    }
+    if (shutdownThread_)
+    {
+      break;
     }
   }
 }

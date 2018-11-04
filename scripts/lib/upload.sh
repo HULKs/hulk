@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source "${BASEDIR}/scripts/lib/logs.sh"
+
 function upload {
   if [ "$#" -ne 5 ]; then
     return 1
@@ -50,6 +52,7 @@ function upload {
   local RSYNC_PARAMETERS="-trzKLP ${RSYNC_EXCLUDE}"
   if ${DELETE_FILES}; then
     RSYNC_PARAMETERS+=" --delete --delete-excluded"
+    delete_logs $BASEDIR $RSYNC_TARGET
   fi
 
   # run rsync with prepared parameters

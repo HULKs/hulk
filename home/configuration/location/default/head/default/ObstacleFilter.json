@@ -1,6 +1,11 @@
 {
-    "enableSonar" : true,
-    "ballObstacleRadius" : 0.1,
-    "sonarObstacleRadius" : 0.3,
-    "ignoreSonarObstaclesBeyondDistance" : 0.3
+  "enableSonar" : true,
+   "enableFootBumper" : true,
+  "ignoreSonarObstaclesBeyondDistance" : 0.4,
+  "ballRadius" : 0.05,
+  "freeKickAreaRadius" : 0.5,
+  "goalPostRadius": 0.1,
+  "robotRadius" : 0.3,
+  "fallenRobotRadius" : 0.3,
+  "unknownObstacleRadius" : 0.1
 }

@@ -1,0 +1,57 @@
+global !p
+from vimsnippets import complete
+MODULEBASE = [
+'Brain',
+'Motion'
+]
+endglobal
+
+snippet paramd "Parameter<type> name_;" b
+const Parameter<${1:type}> ${2:name}_;$0
+endsnippet
+
+snippet paramc ", name_(*this, 'name', [] {})" b
+, ${1:name}_(*this, "$1", [] {})
+endsnippet
+
+snippet depd "Dependency<type> name_;" b
+const  Dependency<${1:type}> ${2:name}_;$0
+endsnippet
+
+snippet depc ", name_(*this)" b
+, ${1:name}_(*this)
+endsnippet
+
+snippet tv "value[name] << name;" b
+value["${1:name}"] << $1;$0
+endsnippet
+
+snippet fv "value[name] >> name;" b
+value["${1:name}"] >> $1;$0
+endsnippet
+
+snippet moduled "adds a module declaration" b
+#pragma once
+
+#include "Framework/Module.hpp"
+
+class $2`!p snip.rv = complete(t[2], MODULEBASE)`;
+
+/**
+ * @brief ${0:Module description}
+ */
+class ${1:ModulName} : public Module<$1, ${2:ModuleBase}`!p snip.rv = complete(t[2], MODULEBASE)`>
+{
+public:
+	/// the name of this module
+	ModuleName name = "$1";
+	/**
+   *@brief The constructor of this class
+	 */
+	$1(const ModuleManagerInterface& manager);
+
+	void cycle();
+
+private:
+};
+endsnippet

@@ -7,10 +7,12 @@
 class DefendingPosition : public DataType<DefendingPosition>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "DefendingPosition";
   /// whether the playing position is valid
-  bool valid;
+  bool valid = false;
   /// the position where the robot should be when it has the defender role
-  Vector2f position;
+  Vector2f position = Vector2f::Zero();
   /**
    * @brief invalidates the position
    */

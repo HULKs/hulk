@@ -11,21 +11,25 @@
 
 #include "Definitions/keys.h"
 #include "Hardware/RobotInterface.hpp"
+#include "Tools/Kinematics/KinematicMatrix.h"
 
 #include "SimRobotAudio.hpp"
 #include "SimRobotCamera.hpp"
+#include "SimRobotFakeData.hpp"
 
 
 class TUHH;
 
-enum class HeadButtonType {
+enum class HeadButtonType
+{
   FRONT,
   MIDDLE,
   REAR
 };
 
 
-class SimRobotInterface : public RobotInterface {
+class SimRobotInterface : public RobotInterface
+{
 public:
   /**
    * @brief SimRobotInterface constructs members
@@ -76,6 +80,10 @@ public:
    */
   std::string getFileRoot();
   /**
+   * @brief delegate to getFileRoot
+   */
+  std::string getDataRoot();
+  /**
    * @brief getNaoInfo copies the hardware identification
    * @param info is filled with the body/head version and name
    */
@@ -92,10 +100,20 @@ public:
    */
   AudioInterface& getAudio();
   /**
-   * @brief getCurrentCamera returns the current camera
-   * @return the current camera
+   * @brief getNextCamera returns the next camera
+   * @return the next to be processed camera
    */
-  CameraInterface& getCurrentCamera();
+  CameraInterface& getNextCamera();
+  /**
+   * @brief getCurrentCameraType
+   * @return the current camera type
+   */
+  Camera getCurrentCameraType();
+  /**
+   * @brief getFakeData provides access to the fake data of this interface
+   * @return a reference to the requested fake data interface
+   */
+  FakeDataInterface& getFakeData();
   /**
    * @brief pressChestButton simulates a chest button press
    */
@@ -110,12 +128,29 @@ public:
    * @return the name of this robot
    */
   const std::string& getName() const;
+
 private:
+  /**
+   * @brief updateFSRs update the FSR values
+   */
+  void updateFSRs();
+
+  /**
+   * @brief getKinematicMatrix gets the KinematicMatrix of a given body part
+   * @param object the object to calculate the KinematicMatrix of
+   * @param target out parameter for the KinematicMatrix
+   */
+  void getKinematicMatrix(SimRobot::Object* object, KinematicMatrix& target) const;
+
   typedef std::chrono::high_resolution_clock Clock;
   /// the SimRobot application
   SimRobot::Application& application_;
   /// robot object
   SimRobot::Object* robot_ = nullptr;
+  /// left foot object
+  SimRobot::Object* leftFoot_ = nullptr;
+  /// right foot object
+  SimRobot::Object* rightFoot_ = nullptr;
   /// objects from which joint angle measurements can be obtained
   SimRobot::Object* jointSensors_[keys::joints::JOINTS_MAX];
   /// objects to which joint commands can be sent
@@ -126,6 +161,10 @@ private:
   SimRobot::Object* accelerometer_ = nullptr;
   /// objects from which images can be obtained
   SimRobot::Object* cameras_[2];
+  /// objects from which a ball can be obtained
+  SimRobot::Object* ball_ = nullptr;
+  /// a vector of objects representing all robots in the scene but this one
+  std::vector<SimRobot::Object*> otherRobots_;
   /// lock for joint angles that are set from the motion thread
   std::mutex jointAngleLock_;
   /// the last joint angle commands that were set from the motion thread
@@ -134,6 +173,8 @@ private:
   SimRobotCamera topCamera_;
   /// a camera providing the bottom image
   SimRobotCamera bottomCamera_;
+  /// the fake data provided by simrobot
+  SimRobotFakeData fakeData_;
   /// a dummy audio interface
   SimRobotAudio audio_;
   /// list of callbacks during the last cycle
@@ -164,4 +205,8 @@ private:
   bool shutdownRequest_ = false;
   /// the instance of TUHH (should be the last declared member because it should be destroyed before the condition variables)
   std::unique_ptr<TUHH> tuhh_;
+  /// lock for camera data as they are accessed from the brain thread
+  std::mutex cameraDataLock_;
+  /// condition variable to notify the brain thread of newly rendered images
+  std::condition_variable imagesRendered_;
 };

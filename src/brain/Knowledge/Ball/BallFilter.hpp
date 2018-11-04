@@ -1,12 +1,14 @@
 #pragma once
 
-#include <Tools/Math/Eigen.hpp>
-#include <Tools/Time.hpp>
+#include "Tools/Math/Eigen.hpp"
+#include "Tools/StateEstimation/ProjectionMeasurementModel.hpp"
+#include "Tools/Time.hpp"
 
-#include <Framework/Module.hpp>
+#include "Framework/Module.hpp"
 
 #include "Data/BallData.hpp"
 #include "Data/BallState.hpp"
+#include "Data/CameraMatrix.hpp"
 #include "Data/CycleInfo.hpp"
 #include "Data/FieldDimensions.hpp"
 #include "Data/OdometryOffset.hpp"
@@ -17,6 +19,8 @@ class Brain;
 class BallFilter : public Module<BallFilter, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "BallFilter";
   /**
    * @brief BallFilter initializes filter values and the state
    * @param manager reference to brain
@@ -85,34 +89,60 @@ private:
   /**
    * @brief updateMovingEquivalent updates the moving ball hypothesis of a mode
    * @param movingEquivalent a reference to the moving equivalent
-   * @param measurement a reference to the measurement
+   * @param measurementMean the mean of the measurement (relative position of the ball as detected
+   * by the ball detection)
+   * @param measurementCov the covariance of the measurement as obtained from the measurement model
    */
-  void updateMovingEquivalent(MovingEquivalent& movingEquivalent, const Vector2f& measurement);
+  void updateMovingEquivalent(MovingEquivalent& movingEquivalent, const Vector2f& measurementMean,
+                              const Matrix2f& measurementCov);
   /**
    * @brief updateRestingEquivalent updates the resting ball hypothesis of a mode
    * @param restingEquivalent a reference to the resting equivalent
-   * @param measurement a reference to the measurement
+   * @param measurementMean the mean of the measurement (relative position of the ball as detected
+   * by the ball detection)
+   * @param measurementCov the covariance of the measurement as obtained from the measurement model
    */
-  void updateRestingEquivalent(RestingEquivalent& restingEquivalent, const Vector2f& measurement);
+  void updateRestingEquivalent(RestingEquivalent& restingEquivalent,
+                               const Vector2f& measurementMean, const Matrix2f& measurementCov);
+  /**
+   * @brief sendDebug send all the debug data via the debug protocoll
+   */
+  void sendDebug() const;
 
   /**
    * @brief selectBestMode finds out which of the modes could be the real ball
    */
   void selectBestMode();
-  /// process covariance matrix of the position
-  const Parameter<Matrix2f> processCovX_;
-  /// process cross covariance matrix of the velocity and position
-  const Parameter<Matrix2f> processCovDxX_;
-  /// process covariance matrix of the velocity
-  const Parameter<Matrix2f> processCovDx_;
-  /// measurement covariance matrix
-  const Parameter<Matrix2f> measurementCov_;
+  /// process covariance of the position resting equivalent
+  const Parameter<Matrix2f> restingProcessCovX_;
+  /// process covariance matrix of the position for the moving equivalent
+  const Parameter<Matrix2f> movingProcessCovX_;
+  /// process cross covariance matrix of the velocity and position for the moving equivalent
+  const Parameter<Matrix2f> movingProcessCovDxX_;
+  /// process covariance matrix of the velocity  for the moving equivalent
+  const Parameter<Matrix2f> movingProcessCovDx_;
+  /// the base variance of measurements (added to every error propagation)
+  Parameter<Vector2f> measurementBaseVariance_;
+  /// the basic deviation of the camera matrix roll poitch an yaw in deg
+  Parameter<Vector3f> cameraRPYDeviation_;
   /// the maximal distance in meters that a measurement may be away from a mode to be merged into it
   const Parameter<float> maxAssociationDistance_;
   /// friction parameter to model linear friction of type Fr = mu * N
   const Parameter<float> ballFrictionMu_;
-  /// the hysteresis applied to classify a ball as moving, when resting before
-  const Parameter<float> movingHysteresis_;
+  /// the relative threshold to classify a ball as moving (for relative comparison of the filtered
+  /// association error)
+  const Parameter<float> relativeMovingThreshold_;
+  /// the low pass gain for the resting error filter
+  const Parameter<float> restingErrorLowPassAlpha_;
+  /// the low pass gain for the moving error filter
+  const Parameter<float> movingErrorLowPassAlpha_;
+  /// the absolute threshold to classify a ball as moving (absolute threshold for the filtered
+  /// association error)
+  const Parameter<float> maxRestingError_;
+  /// the number of decceleration steps that need to be left to consider a ball resting
+  const Parameter<int> numOfRestingDeccelerationSteps_;
+  /// the number of measurements needed for a ball in order to make it a confident ball
+  const Parameter<unsigned int> confidentMeasurementThreshold_;
   /// the PlayerConfiguration
   const Dependency<PlayerConfiguration> playerConfiguration_;
   /// the ball data from vision
@@ -121,6 +151,8 @@ private:
   const Dependency<FieldDimensions> fieldDimensions_;
   /// a reference to the odometry offset
   const Dependency<OdometryOffset> odometryOffset_;
+  /// a reference to the camera matrix used for projecion error estimation
+  const Dependency<CameraMatrix> cameraMatrix_;
   /// the cycle info
   const Dependency<CycleInfo> cycleInfo_;
   /// the deceleration of the ball due to friction in m/s²
@@ -131,6 +163,8 @@ private:
   std::list<BallMode> ballModes_;
   /// the accepted ball mode (or end if none is accepted)
   std::list<BallMode>::iterator bestMode_;
+  /// the measurement model to estimate point covariances
+  ProjectionMeasurementModel projectionMeasurementModel_;
   /// time point of the last prediction
   TimePoint lastPrediction_;
   /// the time when the ball was lost

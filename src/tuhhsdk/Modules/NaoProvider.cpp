@@ -7,6 +7,7 @@
 #include "NaoProvider.h"
 
 Vector3f NaoProvider::com_[ELEMENTS::ELEMENTS_MAX];
+Vector2f NaoProvider::fsrPositions_[FSRS::FSR_MAX];
 float NaoProvider::mass_[ELEMENTS::ELEMENTS_MAX];
 float NaoProvider::maxRange_[JOINTS::JOINTS_MAX];
 float NaoProvider::minRange_[JOINTS::JOINTS_MAX];
@@ -84,6 +85,17 @@ void NaoProvider::init(Configuration& config, const NaoInfo& info)
     }
   }
 
+  Uni::Value& fsr_positions = config.get("tuhhSDK.NaoProvider.Body", "fsr_positions");
+  {
+    auto itS = FSRS::fsrMap.begin();
+    auto itE = FSRS::fsrMap.end();
+
+    for (; itS != itE; itS++)
+    {
+      setFSRPosition(fsr_positions[itS->second], itS->first);
+    }
+  }
+
   Uni::Value& body_masses = config.get("tuhhSDK.NaoProvider.Body", "masses");
   {
     auto itS = ELEMENTS::elementsMap.begin();
@@ -114,21 +126,27 @@ void NaoProvider::init(Configuration& config, const NaoInfo& info)
   auto it1 = lookHeadPitch.listBegin();
   for (; it1 != lookHeadPitch.listEnd(); it1++)
   {
-    lookupHeadPitch_.push_back(Vector3f((*it1)["angle"].asDouble() * TO_RAD, (*it1)["min"].asDouble() * TO_RAD, (*it1)["max"].asDouble() * TO_RAD));
+    lookupHeadPitch_.push_back(Vector3f((*it1)["angle"].asDouble() * TO_RAD,
+                                        (*it1)["min"].asDouble() * TO_RAD,
+                                        (*it1)["max"].asDouble() * TO_RAD));
   }
 
   Uni::Value& lookLAnkleRoll = lookuptables["lankleroll"];
   auto it2 = lookLAnkleRoll.listBegin();
   for (; it2 != lookLAnkleRoll.listEnd(); it2++)
   {
-    lookupLAnkleRoll_.push_back(Vector3f((*it2)["angle"].asDouble() * TO_RAD, (*it2)["min"].asDouble() * TO_RAD, (*it2)["max"].asDouble() * TO_RAD));
+    lookupLAnkleRoll_.push_back(Vector3f((*it2)["angle"].asDouble() * TO_RAD,
+                                         (*it2)["min"].asDouble() * TO_RAD,
+                                         (*it2)["max"].asDouble() * TO_RAD));
   }
 
   Uni::Value& lookRAnkleRoll = lookuptables["rankleroll"];
   auto it3 = lookRAnkleRoll.listBegin();
   for (; it3 != lookRAnkleRoll.listEnd(); it3++)
   {
-    lookupRAnkleRoll_.push_back(Vector3f((*it3)["angle"].asDouble() * TO_RAD, (*it3)["min"].asDouble() * TO_RAD, (*it3)["max"].asDouble() * TO_RAD));
+    lookupRAnkleRoll_.push_back(Vector3f((*it3)["angle"].asDouble() * TO_RAD,
+                                         (*it3)["min"].asDouble() * TO_RAD,
+                                         (*it3)["max"].asDouble() * TO_RAD));
   }
 
   /// HEAD
@@ -140,17 +158,23 @@ void NaoProvider::init(Configuration& config, const NaoInfo& info)
   lengths_.foreArmLength = links_[LINKS::LOWER_ARM_LENGTH] + links_[LINKS::HAND_OFFSET_X];
 
   /// maximal arm length (shoulder <-> hand distance)
-  lengths_.maxArmLength = sqrt(pow(links_[LINKS::UPPER_ARM_LENGTH], 2) + pow(lengths_.foreArmLength, 2) -
-                               2 * links_[LINKS::UPPER_ARM_LENGTH] * lengths_.foreArmLength * cos((float)M_PI + maxRange_[JOINTS::L_ELBOW_ROLL]));
+  lengths_.maxArmLength =
+      sqrt(pow(links_[LINKS::UPPER_ARM_LENGTH], 2) + pow(lengths_.foreArmLength, 2) -
+           2 * links_[LINKS::UPPER_ARM_LENGTH] * lengths_.foreArmLength *
+               cos((float)M_PI + maxRange_[JOINTS::L_ELBOW_ROLL]));
 
   /// minimal arm length (shoulder <-> hand distance)
-  lengths_.minArmLength = sqrt(pow(links_[LINKS::UPPER_ARM_LENGTH], 2) + pow(lengths_.foreArmLength, 2) -
-                               2 * links_[LINKS::UPPER_ARM_LENGTH] * lengths_.foreArmLength * cos((float)M_PI + minRange_[JOINTS::L_ELBOW_ROLL]));
+  lengths_.minArmLength =
+      sqrt(pow(links_[LINKS::UPPER_ARM_LENGTH], 2) + pow(lengths_.foreArmLength, 2) -
+           2 * links_[LINKS::UPPER_ARM_LENGTH] * lengths_.foreArmLength *
+               cos((float)M_PI + minRange_[JOINTS::L_ELBOW_ROLL]));
 
 
   /// minimal leg length (hip <-> foot distance)
-  lengths_.minLegLength = sqrt(pow(links_[LINKS::TIBIA_LENGTH], 2) + pow(links_[LINKS::THIGH_LENGTH], 2) -
-                               2 * links_[LINKS::TIBIA_LENGTH] * links_[LINKS::THIGH_LENGTH] * cos((float)M_PI - maxRange_[JOINTS::L_KNEE_PITCH]));
+  lengths_.minLegLength =
+      sqrt(pow(links_[LINKS::TIBIA_LENGTH], 2) + pow(links_[LINKS::THIGH_LENGTH], 2) -
+           2 * links_[LINKS::TIBIA_LENGTH] * links_[LINKS::THIGH_LENGTH] *
+               cos((float)M_PI - maxRange_[JOINTS::L_KNEE_PITCH]));
 
   /// maximal leg length (hip <-> foot distance)
   lengths_.maxLegLength = links_[LINKS::TIBIA_LENGTH] + links_[LINKS::THIGH_LENGTH];
@@ -185,6 +209,12 @@ void NaoProvider::setRanges(Uni::Value& src, JOINTS::JOINT eDst)
   maxRange_[eDst] = src["max"].asDouble() * TO_RAD;
 }
 
+void NaoProvider::setFSRPosition(Uni::Value& src, FSRS::FSR eDst)
+{
+  fsrPositions_[eDst].x() = src["x"].asDouble();
+  fsrPositions_[eDst].y() = src["y"].asDouble();
+}
+
 /** link **/
 float NaoProvider::link(const LINKS::LINK& link)
 {
@@ -194,6 +224,11 @@ float NaoProvider::link(const LINKS::LINK& link)
 Vector3f NaoProvider::com(const ELEMENTS::ELEMENT& element)
 {
   return com_[element];
+}
+
+Vector2f NaoProvider::fsrPosition(const FSRS::FSR& fsr)
+{
+  return fsrPositions_[fsr];
 }
 
 float NaoProvider::minRange(const JOINTS::JOINT& joint)
@@ -267,7 +302,9 @@ float NaoProvider::maxRElbowY()
 }
 
 template <typename T, std::size_t POS>
-T NaoProvider::interpolate(std::vector<Eigen::Matrix<T, 3, 1>, Eigen::aligned_allocator<Eigen::Matrix<T, 3, 1>>>& src, const T& value)
+T NaoProvider::interpolate(
+    std::vector<Eigen::Matrix<T, 3, 1>, Eigen::aligned_allocator<Eigen::Matrix<T, 3, 1>>>& src,
+    const T& value)
 {
 #ifndef NDEBUG
   if (std::isnan(value))
@@ -342,72 +379,85 @@ float NaoProvider::maxRangeLAnkleRoll(const float& anklePitch)
 }
 
 
-const std::map<const enum ELEMENTS::ELEMENT, const std::string> ELEMENTS::elementsMap = boost::assign::map_list_of //
-    (ELEMENTS::HEAD, "head")                                                                                       //
-    (ELEMENTS::NECK, "neck")                                                                                       //
-    (ELEMENTS::TORSO, "torso")                                                                                     //
-    (ELEMENTS::L_SHOULDER, "lshoulder")                                                                            //
-    (ELEMENTS::R_SHOULDER, "rshoulder")                                                                            //
-    (ELEMENTS::L_BICEP, "lbicep")                                                                                  //
-    (ELEMENTS::R_BICEP, "rbicep")                                                                                  //
-    (ELEMENTS::L_ELBOW, "lelbow")                                                                                  //
-    (ELEMENTS::R_ELBOW, "relbow")                                                                                  //
-    (ELEMENTS::L_FOREARM, "lforearm")                                                                              //
-    (ELEMENTS::R_FOREARM, "rforearm")                                                                              //
-    (ELEMENTS::L_HAND, "lhand")                                                                                    //
-    (ELEMENTS::R_HAND, "rhand")                                                                                    //
-    (ELEMENTS::L_PELVIS, "lpelvis")                                                                                //
-    (ELEMENTS::R_PELVIS, "rpelvis")                                                                                //
-    (ELEMENTS::L_HIP, "lhip")                                                                                      //
-    (ELEMENTS::R_HIP, "rhip")                                                                                      //
-    (ELEMENTS::L_THIGH, "lthigh")                                                                                  //
-    (ELEMENTS::R_THIGH, "rthigh")                                                                                  //
-    (ELEMENTS::L_TIBIA, "ltibia")                                                                                  //
-    (ELEMENTS::R_TIBIA, "rtibia")                                                                                  //
-    (ELEMENTS::L_ANKLE, "lankle")                                                                                  //
-    (ELEMENTS::R_ANKLE, "rankle")                                                                                  //
-    (ELEMENTS::L_FOOT, "lfoot")                                                                                    //
+const std::map<const enum ELEMENTS::ELEMENT, const std::string> ELEMENTS::elementsMap =
+    boost::assign::map_list_of          //
+    (ELEMENTS::HEAD, "head")            //
+    (ELEMENTS::NECK, "neck")            //
+    (ELEMENTS::TORSO, "torso")          //
+    (ELEMENTS::L_SHOULDER, "lshoulder") //
+    (ELEMENTS::R_SHOULDER, "rshoulder") //
+    (ELEMENTS::L_BICEP, "lbicep")       //
+    (ELEMENTS::R_BICEP, "rbicep")       //
+    (ELEMENTS::L_ELBOW, "lelbow")       //
+    (ELEMENTS::R_ELBOW, "relbow")       //
+    (ELEMENTS::L_FOREARM, "lforearm")   //
+    (ELEMENTS::R_FOREARM, "rforearm")   //
+    (ELEMENTS::L_HAND, "lhand")         //
+    (ELEMENTS::R_HAND, "rhand")         //
+    (ELEMENTS::L_PELVIS, "lpelvis")     //
+    (ELEMENTS::R_PELVIS, "rpelvis")     //
+    (ELEMENTS::L_HIP, "lhip")           //
+    (ELEMENTS::R_HIP, "rhip")           //
+    (ELEMENTS::L_THIGH, "lthigh")       //
+    (ELEMENTS::R_THIGH, "rthigh")       //
+    (ELEMENTS::L_TIBIA, "ltibia")       //
+    (ELEMENTS::R_TIBIA, "rtibia")       //
+    (ELEMENTS::L_ANKLE, "lankle")       //
+    (ELEMENTS::R_ANKLE, "rankle")       //
+    (ELEMENTS::L_FOOT, "lfoot")         //
     (ELEMENTS::R_FOOT, "rfoot");
 
-const std::map<const enum LINKS::LINK, const std::string> LINKS::offsetMap = boost::assign::map_list_of //
-    (LINKS::NECK_OFFSET_Z, "neck_offset_z")                                                             //
-    (LINKS::SHOULDER_OFFSET_Y, "shoulder_offset_y")                                                     //
-    (LINKS::SHOULDER_OFFSET_Z, "shoulder_offset_z")                                                     //
-    (LINKS::UPPER_ARM_LENGTH, "upper_arm_length")                                                       //
-    (LINKS::LOWER_ARM_LENGTH, "lower_arm_length")                                                       //
-    (LINKS::HAND_OFFSET_X, "hand_offset_x")                                                             //
-    (LINKS::HAND_OFFSET_Z, "hand_offset_z")                                                             //
-    (LINKS::HIP_OFFSET_Y, "hip_offset_y")                                                               //
-    (LINKS::HIP_OFFSET_Z, "hip_offset_z")                                                               //
-    (LINKS::THIGH_LENGTH, "thigh_length")                                                               //
-    (LINKS::TIBIA_LENGTH, "tibia_length")                                                               //
-    (LINKS::FOOT_HEIGHT, "foot_height")                                                                 //
+const std::map<const enum LINKS::LINK, const std::string> LINKS::offsetMap =
+    boost::assign::map_list_of                      //
+    (LINKS::NECK_OFFSET_Z, "neck_offset_z")         //
+    (LINKS::SHOULDER_OFFSET_Y, "shoulder_offset_y") //
+    (LINKS::SHOULDER_OFFSET_Z, "shoulder_offset_z") //
+    (LINKS::UPPER_ARM_LENGTH, "upper_arm_length")   //
+    (LINKS::LOWER_ARM_LENGTH, "lower_arm_length")   //
+    (LINKS::HAND_OFFSET_X, "hand_offset_x")         //
+    (LINKS::HAND_OFFSET_Z, "hand_offset_z")         //
+    (LINKS::HIP_OFFSET_Y, "hip_offset_y")           //
+    (LINKS::HIP_OFFSET_Z, "hip_offset_z")           //
+    (LINKS::THIGH_LENGTH, "thigh_length")           //
+    (LINKS::TIBIA_LENGTH, "tibia_length")           //
+    (LINKS::FOOT_HEIGHT, "foot_height")             //
     (LINKS::ELBOW_OFFSET_Y, "elbow_offset_y");
 
-const std::map<const enum JOINTS::JOINT, const std::string> JOINTS::jointsMap = boost::assign::map_list_of //
-    (JOINTS::HEAD_YAW, "headyaw")                                                                          //
-    (JOINTS::HEAD_PITCH, "headpitch")                                                                      //
-    (JOINTS::L_SHOULDER_PITCH, "lshoulderpitch")                                                           //
-    (JOINTS::R_SHOULDER_PITCH, "rshoulderpitch")                                                           //
-    (JOINTS::L_SHOULDER_ROLL, "lshoulderroll")                                                             //
-    (JOINTS::R_SHOULDER_ROLL, "rshoulderroll")                                                             //
-    (JOINTS::L_ELBOW_YAW, "lelbowyaw")                                                                     //
-    (JOINTS::R_ELBOW_YAW, "relbowyaw")                                                                     //
-    (JOINTS::L_ELBOW_ROLL, "lelbowroll")                                                                   //
-    (JOINTS::R_ELBOW_ROLL, "relbowroll")                                                                   //
-    (JOINTS::L_WRIST_YAW, "lwristyaw")                                                                     //
-    (JOINTS::R_WRIST_YAW, "rwristyaw")                                                                     //
-    (JOINTS::L_HAND, "lhand")                                                                              //
-    (JOINTS::R_HAND, "rhand")                                                                              //
-    (JOINTS::L_HIP_YAW_PITCH, "lhipyawpitch")                                                              //
-    (JOINTS::R_HIP_YAW_PITCH, "rhipyawpitch")                                                              //
-    (JOINTS::L_HIP_ROLL, "lhiproll")                                                                       //
-    (JOINTS::R_HIP_ROLL, "rhiproll")                                                                       //
-    (JOINTS::L_HIP_PITCH, "lhippitch")                                                                     //
-    (JOINTS::R_HIP_PITCH, "rhippitch")                                                                     //
-    (JOINTS::L_KNEE_PITCH, "lkneepitch")                                                                   //
-    (JOINTS::R_KNEE_PITCH, "rkneepitch")                                                                   //
-    (JOINTS::L_ANKLE_PITCH, "lanklepitch")                                                                 //
-    (JOINTS::R_ANKLE_PITCH, "ranklepitch")                                                                 //
-    (JOINTS::L_ANKLE_ROLL, "lankleroll")                                                                   //
+const std::map<const enum JOINTS::JOINT, const std::string> JOINTS::jointsMap =
+    boost::assign::map_list_of                   //
+    (JOINTS::HEAD_YAW, "headyaw")                //
+    (JOINTS::HEAD_PITCH, "headpitch")            //
+    (JOINTS::L_SHOULDER_PITCH, "lshoulderpitch") //
+    (JOINTS::R_SHOULDER_PITCH, "rshoulderpitch") //
+    (JOINTS::L_SHOULDER_ROLL, "lshoulderroll")   //
+    (JOINTS::R_SHOULDER_ROLL, "rshoulderroll")   //
+    (JOINTS::L_ELBOW_YAW, "lelbowyaw")           //
+    (JOINTS::R_ELBOW_YAW, "relbowyaw")           //
+    (JOINTS::L_ELBOW_ROLL, "lelbowroll")         //
+    (JOINTS::R_ELBOW_ROLL, "relbowroll")         //
+    (JOINTS::L_WRIST_YAW, "lwristyaw")           //
+    (JOINTS::R_WRIST_YAW, "rwristyaw")           //
+    (JOINTS::L_HAND, "lhand")                    //
+    (JOINTS::R_HAND, "rhand")                    //
+    (JOINTS::L_HIP_YAW_PITCH, "lhipyawpitch")    //
+    (JOINTS::R_HIP_YAW_PITCH, "rhipyawpitch")    //
+    (JOINTS::L_HIP_ROLL, "lhiproll")             //
+    (JOINTS::R_HIP_ROLL, "rhiproll")             //
+    (JOINTS::L_HIP_PITCH, "lhippitch")           //
+    (JOINTS::R_HIP_PITCH, "rhippitch")           //
+    (JOINTS::L_KNEE_PITCH, "lkneepitch")         //
+    (JOINTS::R_KNEE_PITCH, "rkneepitch")         //
+    (JOINTS::L_ANKLE_PITCH, "lanklepitch")       //
+    (JOINTS::R_ANKLE_PITCH, "ranklepitch")       //
+    (JOINTS::L_ANKLE_ROLL, "lankleroll")         //
     (JOINTS::R_ANKLE_ROLL, "rankleroll");
+
+const std::map<const enum FSRS::FSR, const std::string> FSRS::fsrMap = boost::assign::map_list_of //
+    (FSRS::L_FL, "L_FL")                                                                          //
+    (FSRS::L_FR, "L_FR")                                                                          //
+    (FSRS::L_RL, "L_RL")                                                                          //
+    (FSRS::L_RR, "L_RR")                                                                          //
+    (FSRS::R_FL, "R_FL")                                                                          //
+    (FSRS::R_FR, "R_FR")                                                                          //
+    (FSRS::R_RL, "R_RL")                                                                          //
+    (FSRS::R_RR, "R_RR");

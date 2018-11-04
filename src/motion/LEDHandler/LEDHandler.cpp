@@ -5,23 +5,22 @@
 using namespace keys::led;
 
 std::array<float, EYE_MAX> LEDHandler::rainbowLeft_ = {
-  { 0.7f, 0.0f, 0.0f, 0.0f, 0.3f, 1.0f, 1.0f, 1.0f,
-    0.0f, 0.0f, 0.7f, 1.0f, 1.0f, 1.0f, 0.3f, 0.0f,
-    1.0f, 1.0f, 1.0f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f }
-};
+    {0.7f, 0.0f, 0.0f, 0.0f, 0.3f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.7f, 1.0f,
+     1.0f, 1.0f, 0.3f, 0.0f, 1.0f, 1.0f, 1.0f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f}};
 
 std::array<float, EYE_MAX> LEDHandler::rainbowRight_ = {
-  { 0.7f, 1.0f, 1.0f, 1.0f, 0.3f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.3f, 1.0f, 1.0f, 1.0f, 0.7f, 0.0f,
-    1.0f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f, 1.0f, 1.0f }
-};
+    {0.7f, 1.0f, 1.0f, 1.0f, 0.3f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.3f, 1.0f,
+     1.0f, 1.0f, 0.7f, 0.0f, 1.0f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f, 1.0f, 1.0f}};
 
 LEDHandler::LEDHandler(const ModuleManagerInterface& manager)
-  : Module(manager, "LEDHandler")
+  : Module(manager)
+  , cycleInfo_(*this)
   , eyeLEDRequest_(*this)
   , gameControllerState_(*this)
+  , whistleData_(*this)
   , cmd_(CHEST_MAX + 2 * EAR_MAX + 2 * EYE_MAX + HEAD_MAX + 2 * FOOT_MAX, 0.f)
   , cycleCount_(0)
+  , rainbowCycle_(0)
 {
 }
 
@@ -31,13 +30,38 @@ void LEDHandler::cycle()
 
   if ((cycleCount_ % 20) == 0)
   {
+    rainbowCycle_++;
     setEarLeftLEDsCharge(1.f, 1.f);
     setEarRightLEDsCharge(1.f, 1.f);
-    setEyeLeftLEDs(eyeLEDRequest_->leftR, eyeLEDRequest_->leftG, eyeLEDRequest_->leftB);
-    setEyeRightLEDs(eyeLEDRequest_->rightR, eyeLEDRequest_->rightG, eyeLEDRequest_->rightB);
+    switch (eyeLEDRequest_->leftEyeMode)
+    {
+      case EyeMode::OFF:
+        setEyeLeftLEDsColor(0, 0, 0);
+        break;
+      case EyeMode::COLOR:
+        setEyeLeftLEDsColor(eyeLEDRequest_->leftR, eyeLEDRequest_->leftG, eyeLEDRequest_->leftB);
+        break;
+      case EyeMode::RAINBOW:
+        setEyeLeftRainbow();
+        break;
+    }
+    switch (eyeLEDRequest_->rightEyeMode)
+    {
+      case EyeMode::OFF:
+        setEyeRightLEDsColor(0, 0, 0);
+        break;
+      case EyeMode::COLOR:
+        setEyeRightLEDsColor(eyeLEDRequest_->rightR, eyeLEDRequest_->rightG,
+                             eyeLEDRequest_->rightB);
+        break;
+      case EyeMode::RAINBOW:
+        setEyeRightRainbow();
+        break;
+    }
     showRobotStateOnChestLEDs();
     showTeamColorOnLeftFootLEDs();
     showKickOffTeamOnRightFootLEDs();
+    showWhistleStatusOnEarLEDs();
     robotInterface().setLEDs(cmd_);
   }
   cycleCount_++;
@@ -84,7 +108,7 @@ void LEDHandler::setEarRightLEDsCharge(const float charge, const float value)
   }
 }
 
-void LEDHandler::setEyeLeftLEDs(const float red, const float green, const float blue)
+void LEDHandler::setEyeLeftLEDsColor(const float red, const float green, const float blue)
 {
   const unsigned int base = CHEST_MAX + 2 * EAR_MAX;
   for (unsigned int i = 0; i < 8; i++)
@@ -95,7 +119,7 @@ void LEDHandler::setEyeLeftLEDs(const float red, const float green, const float 
   }
 }
 
-void LEDHandler::setEyeRightLEDs(const float red, const float green, const float blue)
+void LEDHandler::setEyeRightLEDsColor(const float red, const float green, const float blue)
 {
   const unsigned int base = CHEST_MAX + 2 * EAR_MAX + EYE_MAX;
   for (unsigned int i = 0; i < 8; i++)
@@ -122,16 +146,48 @@ void LEDHandler::setFootRightLEDs(const float red, const float green, const floa
   cmd_[base + 2] = red;
 }
 
-void LEDHandler::setEyeRainbow()
+void LEDHandler::setEarLeftLEDs(const float* earSegmentBrightnesses)
+{
+  // the base index for this led group
+  const unsigned int base = CHEST_MAX;
+  // update all ear LEDs
+  for (uint8_t ledIndex = 0; ledIndex < EAR_MAX; ledIndex++)
+  {
+    cmd_[base + ledIndex] = earSegmentBrightnesses[ledIndex];
+  }
+}
+
+void LEDHandler::setEarRightLEDs(const float* earSegmentBrightnesses)
+{
+  // the base index for this led group
+  const unsigned int base = CHEST_MAX + EAR_MAX;
+  // update all ear LEDs
+  for (uint8_t ledIndex = 0; ledIndex < EAR_MAX; ledIndex++)
+  {
+    cmd_[base + ledIndex] = earSegmentBrightnesses[ledIndex];
+  }
+}
+
+void LEDHandler::setEyeLeftRainbow()
 {
   for (unsigned int i = 0; i < 8; i++)
   {
-    cmd_.at(CHEST_MAX + 2 * EAR_MAX + i) = rainbowLeft_[i];
-    cmd_.at(CHEST_MAX + 2 * EAR_MAX + i + 8) = rainbowLeft_[i + 8];
-    cmd_.at(CHEST_MAX + 2 * EAR_MAX + i + 16) = rainbowLeft_[i + 16];
-    cmd_.at(CHEST_MAX + 2 * EAR_MAX + EYE_MAX + i) = rainbowRight_[i];
-    cmd_.at(CHEST_MAX + 2 * EAR_MAX + EYE_MAX + i + 8) = rainbowRight_[i + 8];
-    cmd_.at(CHEST_MAX + 2 * EAR_MAX + EYE_MAX + i + 16) = rainbowRight_[i + 16];
+    const unsigned int rainbowCycleOffset = 1;
+    int l = (rainbowCycle_ + rainbowCycleOffset + i) % 8;
+    cmd_.at(CHEST_MAX + 2 * EAR_MAX + i) = rainbowLeft_[l];
+    cmd_.at(CHEST_MAX + 2 * EAR_MAX + i + 8) = rainbowLeft_[(l + 8)];
+    cmd_.at(CHEST_MAX + 2 * EAR_MAX + i + 16) = rainbowLeft_[(l + 16)];
+  }
+}
+
+void LEDHandler::setEyeRightRainbow()
+{
+  for (unsigned int i = 0; i < 8; i++)
+  {
+    int r = (rainbowCycle_ - i) % 8;
+    cmd_.at(CHEST_MAX + 2 * EAR_MAX + EYE_MAX + i) = rainbowLeft_[r];
+    cmd_.at(CHEST_MAX + 2 * EAR_MAX + EYE_MAX + i + 8) = rainbowLeft_[r + 8];
+    cmd_.at(CHEST_MAX + 2 * EAR_MAX + EYE_MAX + i + 16) = rainbowLeft_[r + 16];
   }
 }
 
@@ -149,7 +205,7 @@ void LEDHandler::showRobotStateOnChestLEDs()
   }
   else
   {
-    switch (gameControllerState_->state)
+    switch (gameControllerState_->gameState)
     {
       case GameState::INITIAL:
         // Off.
@@ -224,9 +280,34 @@ void LEDHandler::showTeamColorOnLeftFootLEDs()
 
 void LEDHandler::showKickOffTeamOnRightFootLEDs()
 {
-  const GameState state = gameControllerState_->state;
-  const bool stateThatRequiresDisplay = GameState::INITIAL == state || GameState::READY == state || GameState::SET == state;
-  const float value = (gameControllerState_->kickoff && stateThatRequiresDisplay) ? 1.0f : 0.0f;
+  const GameState state = gameControllerState_->gameState;
+  const bool stateThatRequiresDisplay =
+      GameState::INITIAL == state || GameState::READY == state || GameState::SET == state;
+  const float value = (gameControllerState_->kickingTeam && stateThatRequiresDisplay) ? 1.0f : 0.0f;
 
   setFootRightLEDs(value, value, value);
+}
+
+void LEDHandler::showWhistleStatusOnEarLEDs()
+{
+  // Check for whistle heard in the last second and turn half of the ear LEDs on.
+  if (cycleInfo_->getTimeDiff(whistleData_->lastTimeWhistleHeard) < 1.f)
+  {
+    const float halfEars[] = {1.f, 1.f, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+    setEarRightLEDs(halfEars);
+    setEarLeftLEDs(halfEars);
+  }
+  // Check if we are in the playing state and turn all ear LEDs on.
+  else if (gameControllerState_->gameState == GameState::PLAYING)
+  {
+    const float fullEars[] = {1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f};
+    setEarRightLEDs(fullEars);
+    setEarLeftLEDs(fullEars);
+  }
+  else
+  {
+    const float minEars[] = {1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+    setEarRightLEDs(minEars);
+    setEarLeftLEDs(minEars);
+  }
 }

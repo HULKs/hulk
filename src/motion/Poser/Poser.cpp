@@ -3,7 +3,7 @@
 #include "Poser.hpp"
 
 Poser::Poser(const ModuleManagerInterface& manager)
-  : Module(manager, "Poser")
+  : Module(manager)
   , motionActivation_(*this)
   , poserOutput_(*this)
 {

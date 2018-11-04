@@ -63,6 +63,14 @@ void Database::request(const std::type_index& type)
   it->second.imported = true;
 }
 
+void Database::produce(const std::type_index& type)
+{
+  for (auto sender : senders_)
+  {
+    sender->produce(type);
+  }
+}
+
 void Database::addSender(Sender* sender)
 {
   senders_.push_back(sender);

@@ -1,9 +1,10 @@
 #include "Modules/NaoProvider.h"
 
 #include "JointCommandSender.hpp"
+#include "Modules/Poses.h"
 
 JointCommandSender::JointCommandSender(const ModuleManagerInterface& manager)
-  : Module(manager, "JointCommandSender")
+  : Module(manager)
   , motionRequest_(*this)
   , motionActivation_(*this)
   , fallManagerOutput_(*this)
@@ -16,8 +17,11 @@ JointCommandSender::JointCommandSender(const ModuleManagerInterface& manager)
   , walkingEngineWalkOutput_(*this)
   , walkingEngineStandOutput_(*this)
   , jointSensorData_(*this)
+  , jointCalibrationData_(*this)
+  , bodyDamageData_(*this)
   , motionState_(*this)
   , angles_(JOINTS::JOINTS_MAX, 0.f)
+  , calibratedAngles_(JOINTS::JOINTS_MAX, 0.f)
   , stiffnesses_(JOINTS::JOINTS_MAX, -1.f)
 {
 }
@@ -40,19 +44,6 @@ void JointCommandSender::cycle()
     motionState_->rightArmMotion = MotionRequest::ArmMotion::BODY;
     motionState_->headMotion = MotionRequest::HeadMotion::BODY;
   }
-  else if (fallManagerOutput_->wantToSend)
-  {
-    for (unsigned int i = 0; i < JOINTS::JOINTS_MAX; i++)
-    {
-      angles_[i] = fallManagerOutput_->angles[i];
-      stiffnesses_[i] = fallManagerOutput_->stiffnesses[i];
-    }
-    // HOLD is a dummy value because the fall manager cannot be requested.
-    motionState_->bodyMotion = MotionRequest::BodyMotion::HOLD;
-    motionState_->leftArmMotion = MotionRequest::ArmMotion::BODY;
-    motionState_->rightArmMotion = MotionRequest::ArmMotion::BODY;
-    motionState_->headMotion = MotionRequest::HeadMotion::BODY;
-  }
   else if (motionRequest_->bodyMotion == MotionRequest::BodyMotion::HOLD)
   {
     // keep the angles from the previous cycle
@@ -68,45 +59,86 @@ void JointCommandSender::cycle()
   else
   {
     // This sum can be < 1 when dead or hold are active.
-    float sum = motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KEEPER)] +
-                motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KICK)] +
-                motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND_UP)] +
-                motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::PENALIZED)] +
-                motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::WALK)] +
-                motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND)];
+    float sum =
+        motionActivation_
+            ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KEEPER)] +
+        motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KICK)] +
+        motionActivation_
+            ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::FALL_MANAGER)] +
+        motionActivation_
+            ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND_UP)] +
+        motionActivation_
+            ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::PENALIZED)] +
+        motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::WALK)] +
+        motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND)];
     for (unsigned int i = 0; i < JOINTS::JOINTS_MAX; i++)
     {
-      angles_[i] = motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KEEPER)] * keeperOutput_->angles[i] +
-                   motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KICK)] * kickOutput_->angles[i] +
-                   motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND_UP)] * standUpOutput_->angles[i] +
-                   motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::PENALIZED)] * poserOutput_->angles[i] +
-                   motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::WALK)] * walkingEngineWalkOutput_->angles[i] +
-                   motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND)] * walkingEngineStandOutput_->angles[i] +
-                   (1 - sum) * startInterpolationAngles_[i]; // This is needed for interpolating from dead or hold.
+      angles_[i] =
+          motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KEEPER)] *
+              keeperOutput_->angles[i] +
+          motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KICK)] *
+              kickOutput_->angles[i] +
+          motionActivation_->activations[static_cast<unsigned int>(
+              MotionRequest::BodyMotion::FALL_MANAGER)] *
+              fallManagerOutput_->angles[i] +
+          motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND_UP)] *
+              standUpOutput_->angles[i] +
+          motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::PENALIZED)] *
+              poserOutput_->angles[i] +
+          motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::WALK)] *
+              walkingEngineWalkOutput_->angles[i] +
+          motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND)] *
+              walkingEngineStandOutput_->angles[i] +
+          (1 - sum) *
+              startInterpolationAngles_[i]; // This is needed for interpolating from dead or hold.
       float stiffness = 0;
       // This gets the highest stiffness of all activated motions.
-      if (motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KEEPER)] > 0 && keeperOutput_->stiffnesses[i] > stiffness)
+      if (motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KEEPER)] > 0 &&
+          keeperOutput_->stiffnesses[i] > stiffness)
       {
         stiffness = keeperOutput_->stiffnesses[i];
       }
-      if (motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KICK)] > 0 && kickOutput_->stiffnesses[i] > stiffness)
+      if (motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KICK)] > 0 &&
+          kickOutput_->stiffnesses[i] > stiffness)
       {
         stiffness = kickOutput_->stiffnesses[i];
       }
-      if (motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND_UP)] > 0 && standUpOutput_->stiffnesses[i] > stiffness)
+      if (motionActivation_->activations[static_cast<unsigned int>(
+              MotionRequest::BodyMotion::FALL_MANAGER)] > 0 &&
+          fallManagerOutput_->stiffnesses[i] > stiffness)
+      {
+        stiffness = fallManagerOutput_->stiffnesses[i];
+      }
+      if (motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND_UP)] >
+              0 &&
+          standUpOutput_->stiffnesses[i] > stiffness)
       {
         stiffness = standUpOutput_->stiffnesses[i];
       }
-      if (motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::PENALIZED)] > 0 && poserOutput_->stiffnesses[i] > stiffness)
+      if (motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::PENALIZED)] >
+              0 &&
+          poserOutput_->stiffnesses[i] > stiffness)
       {
         stiffness = poserOutput_->stiffnesses[i];
       }
-      if (motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::WALK)] > 0 &&
+      if (motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::WALK)] > 0 &&
           walkingEngineWalkOutput_->stiffnesses[i] > stiffness)
       {
         stiffness = walkingEngineWalkOutput_->stiffnesses[i];
       }
-      if (motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND)] > 0 &&
+      if (motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND)] > 0 &&
           walkingEngineStandOutput_->stiffnesses[i] > stiffness)
       {
         stiffness = walkingEngineStandOutput_->stiffnesses[i];
@@ -123,9 +155,10 @@ void JointCommandSender::cycle()
   {
     for (unsigned int i = 0; i < JOINTS_HEAD::HEAD_MAX; i++)
     {
-      angles_[JOINTS::HEAD_YAW + i] = (1.f - motionActivation_->headMotionActivation) * angles_[JOINTS::HEAD_YAW + i] +
-                                      motionActivation_->headMotionActivation * headMotionOutput_->angles[i];
-      stiffnesses_[JOINTS::HEAD_YAW + i] = 0.9f;
+      angles_[JOINTS::HEAD_YAW + i] =
+          (1.f - motionActivation_->headMotionActivation) * angles_[JOINTS::HEAD_YAW + i] +
+          motionActivation_->headMotionActivation * headMotionOutput_->angles[i];
+      stiffnesses_[JOINTS::HEAD_YAW + i] = headMotionOutput_->stiffnesses[i];
     }
     motionState_->headMotion = MotionRequest::HeadMotion::ANGLES;
   }
@@ -137,10 +170,23 @@ void JointCommandSender::cycle()
       angles_[JOINTS::L_SHOULDER_PITCH + i] = pointOutput_->leftAngles[i];
       angles_[JOINTS::R_SHOULDER_PITCH + i] = pointOutput_->rightAngles[i];
       stiffnesses_[JOINTS::L_SHOULDER_PITCH + i] = pointOutput_->stiffnesses[i];
-      stiffnesses_[JOINTS::R_SHOULDER_PITCH + i] = pointOutput_->stiffnesses[JOINTS_L_ARM::L_ARM_MAX + i];
+      stiffnesses_[JOINTS::R_SHOULDER_PITCH + i] =
+          pointOutput_->stiffnesses[JOINTS_L_ARM::L_ARM_MAX + i];
     }
     motionState_->leftArmMotion = MotionRequest::ArmMotion::POINT;
     motionState_->rightArmMotion = MotionRequest::ArmMotion::POINT;
+  }
+  // Add the calibration offsets and remove stiffness of damaged joints
+  for (unsigned int i = 0; i < angles_.size(); i++)
+  {
+    calibratedAngles_[i] = angles_[i] + jointCalibrationData_->calibrationOffsets[i];
+    if (!bodyDamageData_->damagedJoints[i])
+    {
+      continue;
+    }
+    calibratedAngles_[i] =
+        Poses::getPose(Poses::READY)[i] + jointCalibrationData_->calibrationOffsets[i];
+    stiffnesses_[i] = 0.f;
   }
 #ifndef NDEBUG
   for (unsigned int i = 0; i < JOINTS::JOINTS_MAX; i++)
@@ -157,7 +203,7 @@ void JointCommandSender::cycle()
     {
       std::cout << "WalkingengineStandOuput" << i << " was NaN" << '\n';
     }
-    if (fallManagerOutput_->wantToSend && std::isnan(fallManagerOutput_->angles[i]))
+    if (std::isnan(fallManagerOutput_->angles[i]))
     {
       std::cout << "FallManagerOutput_ " << i << " was NaN" << '\n';
     }
@@ -165,15 +211,18 @@ void JointCommandSender::cycle()
     {
       std::cout << "PoserOutput " << i << " was NaN" << '\n';
     }
+    if (std::isnan(fallManagerOutput_->angles[i]))
+    {
+      std::cout << "FallManagerOutput " << i << " was NaN" << '\n';
+    }
     if (std::isnan(standUpOutput_->angles[i]))
     {
       std::cout << "StandUpOutput " << i << " was NaN" << '\n';
     }
-
-    assert(!std::isnan(angles_[i]));
+    assert(!std::isnan(calibratedAngles_[i]));
     assert(!std::isnan(stiffnesses_[i]));
   }
 #endif
-  robotInterface().setJointAngles(angles_);
+  robotInterface().setJointAngles(calibratedAngles_);
   robotInterface().setJointStiffnesses(stiffnesses_);
 }

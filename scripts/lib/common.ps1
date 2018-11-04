@@ -8,13 +8,17 @@ $Configuration = $(Get-Content -Raw -Path $PSScriptRoot\..\..\settings.json | Co
 $QtPath = $Configuration.QtPath
 $VcpkgPath = ($Configuration.VcpkgPath).replace("`${workspaceRoot}", $PSScriptRoot + "\..\..") + "\vcpkg"
 $SimRobotPath = ($Configuration.SimRobotPath).replace("`${workspaceRoot}", $PSScriptRoot + "\..\..")
+$NaoPath = $PSScriptRoot + "\..\.."
 
 $Path = $Env:Path
 
+$DebugBuildType = "RelWithDebInfo"
+
 $NewPath = $QtPath + ";"
+$NewPath += $VcpkgPath + "\installed\x64-windows\debug\bin" + ";"
 $NewPath += $VcpkgPath + "\installed\x64-windows\bin" + ";"
-$NewPath += $SimRobotPath + "\build-vc\x64_RelWithDebInfo\RelWithDebInfo" + ";"
-$NewPath += $PSScriptRoot + "\..\..\build-vc\simrobot_x64_RelWithDebInfo\src\tuhhsdk\RelWithDebInfo" + ";"
+$NewPath += $SimRobotPath + "\build-vc\x64_" + $DebugBuildType + "\" + $DebugBuildType + ";"
+$NewPath += $PSScriptRoot + "\..\..\build-vc\simrobot_x64_" + $DebugBuildType + "\src\tuhhsdk\" + $DebugBuildType + ";"
 
 $Env:Path = $NewPath + $Path
 

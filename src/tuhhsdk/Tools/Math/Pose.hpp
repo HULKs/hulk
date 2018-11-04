@@ -29,6 +29,24 @@ public:
   {
   }
   /**
+   * @brief operator== compares this pose to anothe pose
+   * @param other another pose
+   * @return true if the poses are equal
+   */
+  bool operator==(const Pose& other) const
+  {
+    return position == other.position && orientation == other.orientation;
+  }
+  /**
+   * @brief operator!= compares this pose to anothe pose
+   * @param other another pose
+   * @return false if the poses are equal
+   */
+  bool operator!=(const Pose& other) const
+  {
+    return !(*this == other);
+  }
+  /**
    * @brief operator+= sums another pose to this one.
    * @param pose the position that will be added.
    */

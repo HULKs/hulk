@@ -8,7 +8,9 @@
         "penaltyAreaLength": 0.6,
         "penaltyAreaWidth": 2.2,
         "centerCircleDiameter": 1.5,
-        "borderStripWidth": 0.7
+        "borderStripWidth": 0.7,
+        "throwInLineLength": 7.0,
+        "throwInLineSpacing": 0.4
     },
     "goal": {
         "postDiameter": 0.1,

@@ -7,12 +7,14 @@
 class TimeToReachBall : public DataType<TimeToReachBall>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "TimeToReachBall";
   /// the estimated time (seconds) the robot needs to reach the ball
-  float timeToReachBall;
+  float timeToReachBall = 1337.f;
   /// the estimated time (seconds) the robot needs to reach the ball as striker
-  float timeToReachBallStriker;
+  float timeToReachBallStriker = 1337.f;
   /// whether the time to reach ball is valid
-  bool valid;
+  bool valid = false;
   /**
    * @brief reset invalidates the data
    */

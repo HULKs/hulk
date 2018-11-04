@@ -17,6 +17,8 @@ class Brain;
 class CameraCalibration : public Module<CameraCalibration, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "CameraCalibration";
   /**
    * CameraCalibration constructor
    * @param manager a reference to the brain object

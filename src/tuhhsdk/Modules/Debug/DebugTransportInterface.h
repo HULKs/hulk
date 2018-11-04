@@ -5,11 +5,19 @@
 
 #include "DebugData.h"
 
+/**
+ * @brief DebugTransportInterface the interface for all *Transport classes.
+ */
 class DebugTransportInterface
 {
 public:
-  virtual void update(const DebugData& data) = 0;
-  virtual void pushQueue(const std::string& key, const std::string& message) = 0;
-  virtual void sendImage(const std::string& key, const Image& img) = 0;
+  /**
+   * @brief destructor
+   */
+  virtual ~DebugTransportInterface() {}
+  /**
+   * @brief hook that is called after a debug source's cycle.
+   * Can be used to send/write debug data that was collected during this cycle.
+   */
   virtual void transport() = 0;
 };

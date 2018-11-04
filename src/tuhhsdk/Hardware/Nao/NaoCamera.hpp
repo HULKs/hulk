@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <linux/videodev2.h>
 
 #include "Hardware/CameraInterface.hpp"
@@ -32,11 +33,22 @@ public:
    */
   float waitForImage();
   /**
+   * @brief waitForImage waits for two cameras to get the newest image of the cameras
+   * @param cameras an array of the two cameras to be waited on
+   * @param timeout the timeout of the poll in milliseconds
+   * @return if there is a new image available
+   */
+  static bool waitForCameras(std::array<NaoCamera*, 2> cameras, int timeout);
+  /**
    * @brief readImage copies the next image
    * @param image is filled with the new image
    * @return the time point at which the first pixel of the image was recorded
    */
-  TimePoint readImage(Image& image);
+  TimePoint readImage(Image422& image);
+  /**
+   * @brief releaseImage is used to release the current image of the camera if available
+   */
+  void releaseImage();
   /**
    * @brief startCapture starts capturing images
    */
@@ -50,6 +62,22 @@ public:
    * @return the camera type
    */
   Camera getCameraType();
+  /**
+   * @brief isImageValid returns if the camera has an image ready for use
+   * @return if there is a image waiting to be processed
+   */
+  bool isImageValid()
+  {
+    return imageValid;
+  }
+  /**
+   * @brief getTimeStamp returns when the image was taken only valid if the image is valid
+   * @return the timespamp of the image
+   */
+  __u64 getTimeStamp()
+  {
+    return timestamp;
+  }
 
 private:
   /**
@@ -169,10 +197,12 @@ private:
   __s32 aeMinDGain_;
   /// ae max DGain
   __s32 aeMaxDGain_;
+  /// the currently used buffer
+  v4l2_buffer currentBuffer_;
+  /// is current buffer valid
+  bool imageValid;
+  /// the timestamp of the current buffer
+  __u64 timestamp;
   /// number of iterations for setControlSetting
   static const unsigned int CONTROL_SETTING_TRIES = 5;
-  /// SSE shuffle permutations for readImage
-  static char shuffle1[16];
-  static char shuffle2[16];
-  static char shuffle3[16];
 };

@@ -9,7 +9,6 @@ ActionCommand initial(const DataSet& d)
     {
       return ActionCommand::stand().combineHead(CameraCalibrationLook(d));
     }
-    
     return ActionCommand::penalized();
   }
   else

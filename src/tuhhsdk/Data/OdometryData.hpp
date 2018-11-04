@@ -7,6 +7,8 @@
 class OdometryData : public DataType<OdometryData>
 {
 public:
+  /// the name of this DataType
+  DataTypeName name = "OdometryData";
   /// the pose of the robot relative to the point where it started
   Pose accumulatedOdometry;
   /**

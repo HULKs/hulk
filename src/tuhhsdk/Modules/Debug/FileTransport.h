@@ -1,8 +1,7 @@
 #pragma once
 
-#include <Modules/Debug/DebugTransportInterface.h>
+#include "Modules/Debug/DebugTransportInterface.h"
 
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -16,17 +15,29 @@ typedef std::unordered_map<std::string, DebugData> DebugDataMap;
 class FileTransport : public DebugTransportInterface
 {
 private:
+  /**
+   * @brief Impl the class with the actual implementation
+   */
   class Impl;
-
+  /// The pointer to the implementation
   std::unique_ptr<Impl> pimpl_;
 
 
 public:
-  FileTransport(Debug& debug, Configuration& config, const std::string& fileRoot);
-  ~FileTransport();
+  /**
+   * @brief FileTransport the constructor for filetransport
+   * @param debug A reference to the TUHH global debug module
+   * @param cfg A reference to the TUHH global configuration
+   * @param filePath The file path where to save the filePath
+   */
+  FileTransport(Debug& debug, Configuration& cfg, const std::string& filePath);
+  /**
+   * @brief ~FileTransport the destructor for FileTransport objects
+   */
+  ~FileTransport() override;
 
-  virtual void update(const DebugData& data);
-  virtual void pushQueue(const std::string& key, const std::string& message);
-  virtual void sendImage(const std::string& key, const Image& img);
-  virtual void transport();
+  /**
+   * @brief transport function that is periodically called after a debugSource has finished a cycle.
+   */
+  void transport() override;
 };

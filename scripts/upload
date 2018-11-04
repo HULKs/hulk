@@ -11,6 +11,7 @@ source "${BASEDIR}/scripts/lib/upload.sh"
 source "${BASEDIR}/scripts/lib/naonet.sh"
 source "${BASEDIR}/scripts/lib/numberToIP.sh"
 source "${BASEDIR}/scripts/lib/docker.sh"
+source "${BASEDIR}/scripts/lib/logs.sh"
 
 function helpMenu {
   echo "Usage: $0 [OPTIONS] NAO"
@@ -22,6 +23,7 @@ function helpMenu {
   echo " -n, --no-compile                  do not compile before uploading"
   echo " -r, --restart                     restart the hulk service after uploading"
   echo " -R, --restart-naoqi               restart naoqi after uploading (implies --restart)"
+  echo " -j, --jobs                        the amount of processes used for compilation"
   echo " -l, --logdir LOGDIR               the directory to which the logs from the NAO are downloaded"
   echo " -h, --help                        show this help"
   echo ""
@@ -42,6 +44,8 @@ function run {
   RESTART=false
   # do not restart naoqi by default
   RESTART_NAOQI=false
+  # set default job number to cores + 1
+  JOBS=$(njobs)
   # read the build type from a file
   if [ -f "${BASEDIR}/.current.bt" ]; then
     BUILD_TYPE=`cat "${BASEDIR}/.current.bt"`
@@ -104,6 +108,15 @@ function run {
         RESTART_NAOQI=true
         RESTART=true
         ;;
+      "-j" | "--jobs")
+        shift
+        if [ "$#" -eq 0 ]; then
+          msg -e "--jobs needs a job number!"
+          helpMenu
+          return 1
+        fi
+        JOBS=$1
+        ;;
       "-h" | "--help")
         helpMenu
         return 0
@@ -138,7 +151,7 @@ function run {
   if ${COMPILE}; then
     msg -n "Compiling with build type ${BUILD_TYPE}."
     set_start_time
-    compile "${BASEDIR}" "${TARGET}" "${BUILD_TYPE}" false
+    compile "${BASEDIR}" "${TARGET}" "${BUILD_TYPE}" false ${JOBS}
     if [ "$?" -ne 0 ]; then
       msg -e "Compilation failed!"
       return 1
@@ -147,26 +160,9 @@ function run {
     msg -s "Compilation finished successfully in ${DIFF}!"
   fi
 
-  # download filetransport
+  # download logs
   if [ ! "${LOGDIR}" == "" ]; then
-    mkdir -p "${LOGDIR}/${NAO}"
-
-    naocp "${BASEDIR}" "nao@${NAO}:naoqi/filetransport_*" "${LOGDIR}/${NAO}"
-    if [ "$?" -ne 0 ]; then
-      msg -e "Failed to download logs in home folder from ${NAO}!"
-      ERROR=1
-      continue
-    fi
-    naocp "${BASEDIR}" "nao@${NAO}:/mnt/usb/filetransport_*" "${LOGDIR}/${NAO}"
-    if [ "$?" -ne 0 ]; then
-      msg -e "Failed to download logs on usb stick from ${NAO}!"
-      ERROR=1
-      continue
-    fi
-
-    if [ "$?" -ne 0 ]; then
-      msg -e "Failed to download logs from ${NAO}!"
-    fi
+    download_logs "$BASEDIR" "$NAO" "$LOGDIR"
   fi
 
   msg -n "Stopping ${NAO}."

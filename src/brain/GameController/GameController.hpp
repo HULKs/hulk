@@ -26,6 +26,8 @@ class Brain;
 class GameController : public Module<GameController, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "GameController";
   /**
    * @brief GameController starts the UDP message handler
    * @param manager a reference to brain
@@ -36,7 +38,8 @@ public:
    */
   ~GameController();
   /**
-   * @brief cycle handles the events that may have occured asynchronously and creates the GameControllerState
+   * @brief cycle handles the events that may have occured asynchronously and creates the
+   * GameControllerState
    */
   void cycle();
 
@@ -46,7 +49,8 @@ private:
    */
   void registerForSocketReceive();
   /**
-   * @brief sendReturnDataMessage sends a reply to the GameController, primarily to make it show up in the GameController UI
+   * @brief sendReturnDataMessage sends a reply to the GameController, primarily to make it show up
+   * in the GameController UI
    * @param msg message type
    */
   void sendReturnDataMessage(uint8_t msg);

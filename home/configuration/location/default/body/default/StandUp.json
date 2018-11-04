@@ -10,6 +10,5 @@
 	"standUpMotionFootSpeed": 0.8,
 
 	"standUpBackMotionFile": "standUpBack_dortmund.motion2",
-	"standUpFrontMotionFile": "standUpFront_dortmund.motion2",
-	"standUpCrouchedMotionFile": "Nao_StandUp_Crouched.motion2"
+	"standUpFrontMotionFile": "standUpFront_dortmund.motion2"
 }

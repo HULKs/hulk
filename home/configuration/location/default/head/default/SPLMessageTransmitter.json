@@ -1,4 +1,3 @@
 {
-  "sendSonarObstacles": false,
-  "sendTeamBallAsShootingTo": false
+  "sendSonarObstacles": false
 }

@@ -8,11 +8,15 @@
 using OMFCD = OneMeansFieldColorDetection;
 
 OMFCD::OneMeansFieldColorDetection(const ModuleManagerInterface& manager)
-  : Module(manager, "OneMeansFieldColorDetection")
+  : Module(manager)
   , calculateInitialGuess_(*this, "calculateInitialGuess",
                            [this] {
-                             updateInitialGuessBottom_ = true;
-                             updateInitialGuessTop_ = true;
+                             if (this->calculateInitialGuess_())
+                             {
+                               updateInitialGuessBottom_ = true;
+                               updateInitialGuessTop_ = true;
+                               this->calculateInitialGuess_() = false;
+                             }
                            })
   , initialGuessTop_(*this, "initialGuessTop", [] {})
   , initialGuessBottom_(*this, "initialGuessBottom", [] {})
@@ -30,10 +34,10 @@ OMFCD::OneMeansFieldColorDetection(const ModuleManagerInterface& manager)
 void OMFCD::cycle()
 {
   Chronometer time(debug(), mount_ + ".cycleTime");
-  const Image& image = imageData_->image;
+  const Image422& image = imageData_->image422;
 
   horizonY_ = cameraMatrix_->getHorizonHeight();
-  if (horizonY_ >= image.size_.y())
+  if (horizonY_ >= image.size.y())
   {
     // The ground is not visible at the moment.
     sendImageForDebug(image);
@@ -45,7 +49,7 @@ void OMFCD::cycle()
     if (updateInitialGuessTop_)
     {
       Uni::Value value;
-      value << initialStep(imageData_->image, 200, horizonY_);
+      value << initialStep(imageData_->image422, 200, horizonY_);
       configuration().set(mount_, "initialGuessTop", value);
       updateInitialGuessTop_ = false;
     }
@@ -56,7 +60,7 @@ void OMFCD::cycle()
     if (updateInitialGuessBottom_)
     {
       Uni::Value value;
-      value << initialStep(imageData_->image, 200, horizonY_);
+      value << initialStep(imageData_->image422, 200, horizonY_);
       configuration().set(mount_, "initialGuessBottom", value);
       updateInitialGuessBottom_ = false;
     }
@@ -87,16 +91,16 @@ void OMFCD::cycle()
   sendImageForDebug(image);
 }
 
-Vector2f OMFCD::initialStep(const Image& image, const int yThresh, const int startY) const
+Vector2f OMFCD::initialStep(const Image422& image, const int yThresh, const int startY) const
 {
   std::array<int, 256> histCb = {{}};
   std::array<int, 256> histCr = {{}};
-  for (int y = startY; y < image.size_.y(); y += sampleRate_)
+  for (int y = startY; y < image.size.y(); y += sampleRate_)
   {
-    for (int x = 0; x < image.size_.x(); x += sampleRate_)
+    for (int x = 0; x < image.size.x(); x += sampleRate_ / 2)
     {
       const auto pixel = image.at(y, x);
-      if (pixel.y_ < yThresh)
+      if (pixel.y1_ < yThresh)
       {
         histCb[pixel.cb_]++;
         histCr[pixel.cr_]++;
@@ -123,25 +127,27 @@ Vector2f OMFCD::initialStep(const Image& image, const int yThresh, const int sta
   return initialCluster;
 }
 
-OMFCD::FieldColorCluster OMFCD::updateStep(const Image& image, const FieldColorCluster initCluster, const int maxDist, const int startY)
+OMFCD::FieldColorCluster OMFCD::updateStep(const Image422& image,
+                                           const FieldColorCluster initCluster, const int maxDist,
+                                           const int startY)
 {
   Vector2f mean(0, 0);
   int meanY = 0;
   int count = 0;
-  for (int y = startY; y < image.size_.y(); y += sampleRate_)
+  for (int y = startY; y < image.size.y(); y += sampleRate_)
   {
-    for (int x = 0; x < image.size_.x(); x += sampleRate_)
+    for (int x = 0; x < image.size.x(); x += sampleRate_ / 2)
     {
       auto pixel = image.at(y, x);
-      if (pixel.y_ < initCluster.yThresh)
+      if (pixel.y1_ < initCluster.yThresh)
       {
         const Vector2f pixelColor = Vector2f(pixel.cb_, pixel.cr_);
         const Vector2f colorErr = initCluster.mean - pixelColor;
-        const int dist = (const int)(colorErr.x() * colorErr.x() + colorErr.y() * colorErr.y() * 2);
+        const int dist = static_cast<int>(colorErr.x() * colorErr.x() + colorErr.y() * colorErr.y() * 2);
         if (dist < maxDist)
         {
           mean += pixelColor;
-          meanY += pixel.y_;
+          meanY += pixel.y1_;
           count++;
         }
       }
@@ -154,7 +160,7 @@ OMFCD::FieldColorCluster OMFCD::updateStep(const Image& image, const FieldColorC
   return initCluster;
 }
 
-void OMFCD::sendImageForDebug(const Image& image)
+void OMFCD::sendImageForDebug(const Image422& image)
 {
   if (!debug().isSubscribed(mount_ + "." + imageData_->identification + "_image"))
   {
@@ -167,14 +173,14 @@ void OMFCD::sendImageForDebug(const Image& image)
   if (!(counter_++ % 3))
   { // This only sends every third image because the
     // drawing takes a lot of processing time
-    Image fieldColorImage(image);
-    for (int y = horizonY_; y < image.size_.y(); y++)
+    Image fieldColorImage(image.to444Image());
+    for (int y = horizonY_; y < fieldColorImage.size_.y(); y += 2)
     {
-      for (int x = 0; x < image.size_.x(); x += 2)
+      for (int x = 0; x < fieldColorImage.size_.x(); ++x)
       {
-        if (fieldColor_->isFieldColor(image.at(y, x)))
+        if (fieldColor_->isFieldColor(image.at(y, x / 2)))
         {
-          fieldColorImage.at(y, x) = Color::PINK;
+          fieldColorImage.at(Vector2i(x, y)) = Color::PINK;
         }
       }
     }

@@ -44,7 +44,7 @@ ActionCommand walkToPose(const DataSet& d, const Pose& pose, bool absolute = fal
 
   const bool near = relTarget.position.squaredNorm() < 0.01f && std::abs(relTarget.orientation) < 3 * TO_RAD;
   const bool near2 = relTarget.position.squaredNorm() < 0.01f * hysteresis * hysteresis &&
-                     std::abs(relTarget.orientation) < 3 * hysteresis * TO_RAD; // TODO: make angles great again
+                     std::abs(relTarget.orientation) < 3 * hysteresis * TO_RAD;
 
   if (near || (d.lastActionCommand.body().type() == MotionRequest::BodyMotion::STAND && near2))
   {

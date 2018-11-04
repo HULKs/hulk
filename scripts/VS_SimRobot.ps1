@@ -1,4 +1,5 @@
-. .\lib\common.ps1
+. $PSScriptRoot\lib\common.ps1
 
-cd $SimRobotPath
+Push-Location -Path $SimRobotPath
 & $devEnv .
+Pop-Location

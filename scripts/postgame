@@ -8,6 +8,7 @@ source "${BASEDIR}/scripts/lib/msg.sh"
 source "${BASEDIR}/scripts/lib/naonet.sh"
 source "${BASEDIR}/scripts/lib/numberToIP.sh"
 source "${BASEDIR}/scripts/lib/docker.sh"
+source "${BASEDIR}/scripts/lib/logs.sh"
 
 function helpMenu {
   echo "Usage: $0 [OPTIONS] NAO..."
@@ -21,9 +22,30 @@ function helpMenu {
   echo " either hostname, IP or number of the NAO"
 }
 
+function printErrorMessage {
+  case $1 in
+    0)
+      msg -s "Finised postgame for $2"
+      ;;
+    1)
+      msg -e "Failed to stop the hulk service on $2!"
+      ;;
+    2)
+      msg -e "No logs were downloaded from $2 because the hulk service could not be stopped!"
+      ;;
+    3)
+      msg -e "Failed to download logs in home folder from $2!"
+      ;;
+    4)
+      msg -e "Failed to download logs on usb stick from $2!"
+      ;;
+  esac
+}
+
 function run {
   # a list of NAOs that are prepared
   NAOS=()
+  ERRORS=()
   # default network is ethernet
   NETWORK=ETH
   # empty logdir means that no logs are downloaded
@@ -92,44 +114,38 @@ function run {
   done
 
   ERROR=0
-  for NAO in ${NAOS[@]}; do
-    msg -n "Stopping ${NAO}."
-    naocmd "${BASEDIR}" "${NAO}" "sudo /etc/init.d/hulk stop; /home/nao/bin/setNetwork ${NETWORK}; exit 0"
+  for index in ${!NAOS[*]}; do
+    ERRORS[index]=0
+    msg -n "Stopping ${NAOS[index]}."
+    naocmd "${BASEDIR}" "${NAOS[index]}" "sudo /etc/init.d/hulk stop; /home/nao/bin/setNetwork ${NETWORK}; exit 0"
     if [ "$?" -ne 0 ]; then
-      msg -e "Failed to stop the hulk service on ${NAO}!"
+      ERRORS[index]=1
+      printErrorMessage 1 ${NAOS[index]}
       if [ ! "${LOGDIR}" == "" ]; then
-        msg -e "No logs were downloaded from ${NAO} because the hulk service could not be stopped!"
+        ERRORS[index]=2
+        printErrorMessage 2 ${NAOS[index]}
       fi
       ERROR=1
       continue
     fi
+
+    # download logs
     if [ ! "${LOGDIR}" == "" ]; then
-      msg -n "Downloading logs from ${NAO} to ${LOGDIR}/${NAO}."
-      mkdir -p "${LOGDIR}/${NAO}"
-      naocp "${BASEDIR}" "nao@${NAO}:naoqi/filetransport_*" "${LOGDIR}/${NAO}"
-      if [ "$?" -ne 0 ]; then
-        msg -e "Failed to download logs in home folder from ${NAO}!"
-        ERROR=1
-        continue
-      fi
-      naocp "${BASEDIR}" "nao@${NAO}:/mnt/usb/filetransport_*" "${LOGDIR}/${NAO}"
-      if [ "$?" -ne 0 ]; then
-        msg -e "Failed to download logs on usb stick from ${NAO}!"
-        ERROR=1
-        continue
-      fi
-      msg -n "Deleting logs on ${NAO}."
-      naocmd "${BASEDIR}" "${NAO}" "rm -rf /home/nao/naoqi/filetransport_*"
-      if [ "$?" -ne 0 ]; then
-        msg -e "Failed to remove logs in home folder from ${NAO}!"
-      fi
-      naocmd "${BASEDIR}" "${NAO}" "rm -rf /mnt/usb/filetransport_*"
-      if [ "$?" -ne 0 ]; then
-        msg -e "Failed to remove logs on usb stick from ${NAO}!"
-      fi
+      download_logs "$BASEDIR" "${NAOS[index]}" "$LOGDIR"
+      delete_logs "$BASEDIR" "${NAOS[index]}"
     fi
-    msg -s "Finished with ${NAO}!"
+    msg -s "Finished with ${NAOS[index]}!"
   done
+
+  echo "---------------------"
+  echo "Summary for postgame:"
+ 
+  for index in ${!ERRORS[*]}
+  do
+    printErrorMessage ${ERRORS[index]} ${NAOS[index]}
+  done
+
+
   return ${ERROR}
 }
 

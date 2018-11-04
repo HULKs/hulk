@@ -7,7 +7,7 @@ function naocmd {
   local BASEDIR="$1"
   local NAME="$2"
   local COMMAND="$3"
-  ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=quiet -l nao -i "${BASEDIR}/scripts/ssh_key" -t "${NAME}" "${COMMAND}"
+  ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=quiet -o ConnectTimeout=5 -l nao -i "${BASEDIR}/scripts/ssh_key" -t "${NAME}" "${COMMAND}"
 }
 
 function naossh {
@@ -20,13 +20,15 @@ function naossh {
 }
 
 function naocp {
-  if [ "$#" -ne 3 ]; then
+  if [ "$#" -lt 3 ]; then
     return 1
   fi
   local BASEDIR="$1"
-  local SRC="$2"
-  local DST="$3"
-  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=quiet -i "${BASEDIR}/scripts/ssh_key" -r "${SRC}" "${DST}"
+  # take all arguments from second to penultimate one as source
+  local SRC=${@:2:$(expr $# - 2)}
+  # take last argument as destination
+  local DST=${@:$#}
+  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=quiet -i "${BASEDIR}/scripts/ssh_key" -r ${SRC} "${DST}"
 }
 
 function naocmdpass {

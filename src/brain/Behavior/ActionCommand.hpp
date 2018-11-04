@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Behavior/HeadPositionProvider.hpp"
 #include "Data/EyeLEDRequest.hpp"
 #include "Data/MotionRequest.hpp"
 #include "Tools/Math/Eigen.hpp"
@@ -41,13 +42,16 @@ public:
     /**
      * @brief walk creates a walk action command for the body
      * @param target the (relative) pose where the robot should go
-     * @param walkingMode specifies the mode of operation for the motionplanner like following path with fixed orientation
+     * @param walkingMode specifies the mode of operation for the motionplanner like following path
+     * with fixed orientation
      * @param velocity Desired walking velocities, movement and rotation. [m/s]
      * @param inWalkKickType the type of the in walk kick
      * @return a walk action command for the body
      */
-    static Body walk(const Pose& target, const WalkMode walkingMode = WalkMode::PATH, const Velocity& velocity = Velocity(),
-                     const InWalkKickType inWalkKickType = InWalkKickType::NONE)
+    static Body walk(const Pose& target, const WalkMode walkingMode = WalkMode::PATH,
+                     const Velocity& velocity = Velocity(),
+                     const InWalkKickType inWalkKickType = InWalkKickType::NONE,
+                     const KickFoot kickFoot = KickFoot::NONE)
     {
       Body body;
       body.type_ = MotionRequest::BodyMotion::WALK;
@@ -55,6 +59,7 @@ public:
       body.walkingMode_ = walkingMode;
       body.velocity_ = velocity;
       body.inWalkKickType_ = inWalkKickType;
+      body.kickFoot_ = kickFoot;
       return body;
     }
     /**
@@ -64,7 +69,8 @@ public:
      * @param kickType the type of kick
      * @return a kick action command for the body
      */
-    static Body kick(const Vector2f& ball_position, const Vector2f& ball_target, const KickType kickType)
+    static Body kick(const Vector2f& ball_position, const Vector2f& ball_target,
+                     const KickType kickType)
     {
       Body body;
       body.type_ = MotionRequest::BodyMotion::KICK;
@@ -144,7 +150,9 @@ public:
     /// the KickType of a kick command
     KickType kickType_;
     /// the type of the in walk kick
-    InWalkKickType inWalkKickType_;
+    InWalkKickType inWalkKickType_ = InWalkKickType::NONE;
+    /// the foot used for in walk kicking
+    KickFoot kickFoot_ = KickFoot::NONE;
     /// the keeper type for a keeper command
     MotionKeeper keeperType_;
     friend class ActionCommand;
@@ -217,34 +225,65 @@ public:
      * @brief angles creates an angles action command for the head
      * @param yaw the desired yaw angle
      * @param pitch the desired pitch angle
-     * @param yaw_velocity the maximal angular velocity of the yaw joint to reach the target (zero means maximal possible velocity)
-     * @param pitch_velocity the maximal angular velocity of the pitch joint to reach the target (zero means maximal possible velocity)
+     * @param yawVelocity the maximal angular velocity of the yaw joint to reach the target (zero
+     * means maximal possible velocity)
+     * @param useEffectiveYawVelocity set to true if the yaw velocity is to be achieved with
+     * respect to ground
+     * @param pitchVelocity the maximal angular velocity of the pitch joint to reach the target
+     * (zero means maximal possible velocity)
      * @return an angles action command for the head
      */
-    static Head angles(const float yaw = 0, const float pitch = 0, const float yaw_velocity = 0, const float pitch_velocity = 0)
+    static Head angles(const float yaw = 0, const float pitch = 0, const float yawVelocity = 0,
+                       const bool useEffectiveYawVelocity = false, const float pitchVelocity = 0)
     {
       Head head;
       head.type_ = MotionRequest::HeadMotion::ANGLES;
       head.yaw_ = yaw;
       head.pitch_ = pitch;
+      head.yawVelocity_ = yawVelocity;
+      head.useEffectiveYawVelocity_ = useEffectiveYawVelocity;
+      head.pitchVelocity_ = pitchVelocity;
+      return head;
+    }
+
+    /**
+     * @brief angles creates an angles action command for the head
+     * @param headPosition the desired head position
+     * @param yaw_velocity the maximal angular velocity of the yaw joint to reach the target (zero
+     * means maximal possible velocity)
+     * @param pitch_velocity the maximal angular velocity of the pitch joint to reach the target
+     * (zero means maximal possible velocity)
+     * @return an angles action command for the head
+     */
+    static Head angles(HeadPosition headPosition, const float yaw_velocity = 0,
+                       const float pitch_velocity = 0)
+    {
+      Head head;
+      head.type_ = MotionRequest::HeadMotion::ANGLES;
+      head.yaw_ = headPosition.yaw;
+      head.pitch_ = headPosition.pitch;
       head.yawVelocity_ = yaw_velocity;
       head.pitchVelocity_ = pitch_velocity;
       return head;
     }
     /**
      * @brief lookAt creates a lookAt action command for the head
-     * @param target_position the target position in robot coordinates
-     * @param yaw_velocity the maximal angular velocity of the yaw joint to reach the target (zero means maximal possible velocity)
-     * @param pitch_velocity the maximal angular velocity of the pitch joint to reach the target (zero means maximal possible velocity)
+     * @param targetPosition the target position in robot coordinates
+     * @param yawVelocity the maximal angular velocity of the yaw joint to reach the target (zero
+     * means maximal possible velocity)
+     * @param pitchVelocity the maximal angular velocity of the pitch joint to reach the target
+     * (zero means maximal possible velocity)
      * @return a lookAt action command for the head
      */
-    static Head lookAt(const Vector3f& target_position, const float yaw_velocity = 0, const float pitch_velocity = 0)
+    static Head lookAt(const Vector3f& targetPosition, const float yawVelocity = 0,
+                       const float pitchVelocity = 0)
     {
       Head head;
       head.type_ = MotionRequest::HeadMotion::LOOK_AT;
-      head.yawVelocity_ = yaw_velocity;
-      head.pitchVelocity_ = pitch_velocity;
-      head.target_position_ = target_position;
+      head.yawVelocity_ = yawVelocity;
+      head.useEffectiveYawVelocity_ = false;
+      head.pitchVelocity_ = pitchVelocity;
+      head.targetPosition_ = targetPosition;
       return head;
     }
     /**
@@ -284,9 +323,12 @@ public:
     /// the desired pitch angle
     float pitch_;
     /// the target to look at (in robot coordinates)
-    Vector3f target_position_;
+    Vector3f targetPosition_;
     /// the maximal angular velocity of the yaw joint to reach the target
     float yawVelocity_;
+    /// true if effective velocity is to be requested (heads will move with requested velocity
+    /// relative to ground)
+    bool useEffectiveYawVelocity_;
     /// the maximal angular velocity of the pitch joint to reach the target
     float pitchVelocity_;
     friend class ActionCommand;
@@ -307,6 +349,7 @@ public:
     static LED colors(const float r = 0, const float g = 0, const float b = 0)
     {
       LED led;
+      led.eyeMode_ = EyeMode::COLOR;
       led.r_ = r;
       led.g_ = g;
       led.b_ = b;
@@ -318,7 +361,9 @@ public:
      */
     static LED off()
     {
-      return colors(0, 0, 0);
+      LED led;
+      led.eyeMode_ = EyeMode::OFF;
+      return led;
     }
     /**
      * @brief white creates a white action command for an LED
@@ -377,17 +422,26 @@ public:
       return colors(1, 0.07f, 0.58f);
     }
 
+    static LED rainbow()
+    {
+      LED led;
+      led.eyeMode_ = EyeMode::RAINBOW;
+      return led;
+    }
+
   private:
     /**
      * @brief LED creates an undefined LED action command
      */
     LED() = default;
+    /// The eye mode
+    EyeMode eyeMode_ = EyeMode::OFF;
     /// the red intensity in [0,1]
-    float r_;
+    float r_ = 0.f;
     /// the green intensity in [0,1]
-    float g_;
+    float g_ = 0.f;
     /// the blue intensity in [0,1]
-    float b_;
+    float b_ = 0.f;
     friend class ActionCommand;
   };
   /**
@@ -396,7 +450,8 @@ public:
    */
   static ActionCommand dead()
   {
-    return ActionCommand(Body::dead(), Arm::body(), Arm::body(), Head::body(), LED::colors(), LED::colors());
+    return ActionCommand(Body::dead(), Arm::body(), Arm::body(), Head::body(), LED::colors(),
+                         LED::colors());
   }
   /**
    * @brief stand creates a stand action command
@@ -404,32 +459,48 @@ public:
    */
   static ActionCommand stand()
   {
-    return ActionCommand(Body::stand(), Arm::body(), Arm::body(), Head::angles(), LED::colors(), LED::colors());
+    return ActionCommand(Body::stand(), Arm::body(), Arm::body(), Head::angles(), LED::colors(),
+                         LED::colors());
   }
   /**
    * @brief walk creates a walk action command
    * @param target the (relative) pose where the robot should go
-   * @param walkingMode specifies the mode of operation for the motionplanner like following path with fixed orientation
+   * @param walkingMode specifies the mode of operation for the motionplanner like following path
+   * with fixed orientation
    * @param velocity Desired walking velocities, movement and rotation [percentage of max speed]
    * @param inWalkKickType the type of the in walk kick
+   * @param kickFoot the foot used for kicking
    * @return a walk action command
    */
-  static ActionCommand walk(const Pose& target, const WalkMode walkingMode = WalkMode::PATH, const Velocity& velocity = Velocity(),
-                            const InWalkKickType inWalkKickType = InWalkKickType::NONE)
+  static ActionCommand walk(const Pose& target, const WalkMode walkingMode = WalkMode::PATH,
+                            const Velocity& velocity = Velocity(),
+                            const InWalkKickType inWalkKickType = InWalkKickType::NONE,
+                            const KickFoot kickFoot = KickFoot::NONE)
   {
-    return ActionCommand(Body::walk(target, walkingMode, velocity, inWalkKickType), Arm::body(), Arm::body(), Head::angles(), LED::colors(), LED::colors());
+    // Target pose should not be nan!
+    assert(!std::isnan(target.position.x()) && "Target pose.position.x is nan!");
+    assert(!std::isnan(target.position.y()) && "Target pose.position.y is nan!");
+    assert(!std::isnan(target.orientation) && "Target pose.orientation is nan!");
+
+    return ActionCommand(Body::walk(target, walkingMode, velocity, inWalkKickType, kickFoot),
+                         Arm::body(), Arm::body(), Head::angles(), LED::colors(), LED::colors());
   }
   /**
-   * @brief walkVelocity creates an action command for walking according to the specified velocity, which contains direction and speed
-   * @param velocity defines the translation direction and velocity as well as rotation velocity for walking [percentage of max speed]
+   * @brief walkVelocity creates an action command for walking according to the specified velocity,
+   * which contains direction and speed
+   * @param velocity defines the translation direction and velocity as well as rotation velocity for
+   * walking [percentage of max speed]
    * @param inWalkKickType the type of the in walk kick, set to NONE if no kick is to be performed
+   * @param kickFoot the foot used for kicking
    * return a walk action command for the body using the velocity walking mode
    */
-  static ActionCommand walkVelocity(const Velocity& velocity, const InWalkKickType inWalkKickType = InWalkKickType::NONE)
+  static ActionCommand walkVelocity(const Velocity& velocity,
+                                    const InWalkKickType inWalkKickType = InWalkKickType::NONE,
+                                    const KickFoot kickFoot = KickFoot::NONE)
   {
     // Use an empty pose for the target because it will be ignored in velocity mode
-    return ActionCommand(Body::walk(Pose(), WalkMode::VELOCITY, velocity, inWalkKickType), Arm::body(), Arm::body(), Head::angles(), LED::colors(),
-                         LED::colors());
+    return ActionCommand(Body::walk(Pose(), WalkMode::VELOCITY, velocity, inWalkKickType, kickFoot),
+                         Arm::body(), Arm::body(), Head::angles(), LED::colors(), LED::colors());
   }
   /**
    * @brief kick creates a kick action command
@@ -438,9 +509,11 @@ public:
    * @param kickType the type of kick
    * @return a kick action command
    */
-  static ActionCommand kick(const Vector2f& ball_position, const Vector2f& ball_target, const KickType kickType)
+  static ActionCommand kick(const Vector2f& ball_position, const Vector2f& ball_target,
+                            const KickType kickType)
   {
-    return ActionCommand(Body::kick(ball_position, ball_target, kickType), Arm::body(), Arm::body(), Head::body(), LED::colors(), LED::colors());
+    return ActionCommand(Body::kick(ball_position, ball_target, kickType), Arm::body(), Arm::body(),
+                         Head::body(), LED::colors(), LED::colors());
   }
   /**
    * @brief penalized creates a penalized action command
@@ -448,7 +521,8 @@ public:
    */
   static ActionCommand penalized()
   {
-    return ActionCommand(Body::penalized(), Arm::body(), Arm::body(), Head::body(), LED::colors(), LED::colors());
+    return ActionCommand(Body::penalized(), Arm::body(), Arm::body(), Head::body(), LED::colors(),
+                         LED::colors());
   }
   /**
    * @brief keeper creates a keeper action command
@@ -457,7 +531,8 @@ public:
    */
   static ActionCommand keeper(const MotionKeeper keeper_type)
   {
-    return ActionCommand(Body::keeper(keeper_type), Arm::body(), Arm::body(), Head::body(), LED::colors(), LED::colors());
+    return ActionCommand(Body::keeper(keeper_type), Arm::body(), Arm::body(), Head::body(),
+                         LED::colors(), LED::colors());
   }
   /**
    * @brief standUp creates a stand up action command
@@ -465,7 +540,8 @@ public:
    */
   static ActionCommand standUp()
   {
-    return ActionCommand(Body::standUp(), Arm::body(), Arm::body(), Head::body(), LED::colors(), LED::colors());
+    return ActionCommand(Body::standUp(), Arm::body(), Arm::body(), Head::body(), LED::colors(),
+                         LED::colors());
   }
   /**
    * @brief hold creates a hold action command
@@ -473,7 +549,8 @@ public:
    */
   static ActionCommand hold()
   {
-    return ActionCommand(Body::hold(), Arm::body(), Arm::body(), Head::body(), LED::colors(), LED::colors());
+    return ActionCommand(Body::hold(), Arm::body(), Arm::body(), Head::body(), LED::colors(),
+                         LED::colors());
   }
   /**
    * @brief combineBody replaces the body part of an action command
@@ -544,6 +621,7 @@ public:
     motion_request.bodyMotion = body_.type_;
     motion_request.walkData.target = body_.target_;
     motion_request.walkData.inWalkKickType = body_.inWalkKickType_;
+    motion_request.walkData.kickFoot = body_.kickFoot_;
     motion_request.walkData.mode = body_.walkingMode_;
     motion_request.walkData.velocity = body_.velocity_;
     motion_request.walkStopData.gracefully = false;
@@ -567,10 +645,11 @@ public:
     {
       motion_request.headMotion = head_.type_;
       motion_request.headAngleData.headYaw = head_.yaw_;
+      motion_request.headAngleData.useEffectiveYawVelocity = head_.useEffectiveYawVelocity_;
       motion_request.headAngleData.headPitch = head_.pitch_;
       motion_request.headAngleData.maxHeadYawVelocity = head_.yawVelocity_;
       motion_request.headAngleData.maxHeadPitchVelocity = head_.pitchVelocity_;
-      motion_request.headLookAtData.targetPosition = head_.target_position_;
+      motion_request.headLookAtData.targetPosition = head_.targetPosition_;
       motion_request.headLookAtData.maxHeadYawVelocity = head_.yawVelocity_;
       motion_request.headLookAtData.maxHeadPitchVelocity = head_.pitchVelocity_;
     }
@@ -585,9 +664,11 @@ public:
    */
   void toEyeLEDRequest(EyeLEDRequest& eyeLEDRequest) const
   {
+    eyeLEDRequest.leftEyeMode = leftLed_.eyeMode_;
     eyeLEDRequest.leftR = leftLed_.r_;
     eyeLEDRequest.leftG = leftLed_.g_;
     eyeLEDRequest.leftB = leftLed_.b_;
+    eyeLEDRequest.rightEyeMode = rightLed_.eyeMode_;
     eyeLEDRequest.rightR = rightLed_.r_;
     eyeLEDRequest.rightG = rightLed_.g_;
     eyeLEDRequest.rightB = rightLed_.b_;
@@ -651,7 +732,8 @@ private:
    * @param left_led the command for the left LED
    * @param right_led the command for the right LED
    */
-  ActionCommand(const Body& body, const Arm& left_arm, const Arm& right_arm, const Head& head, const LED& left_led, const LED& right_led)
+  ActionCommand(const Body& body, const Arm& left_arm, const Arm& right_arm, const Head& head,
+                const LED& left_led, const LED& right_led)
     : body_(body)
     , leftArm_(left_arm)
     , rightArm_(right_arm)

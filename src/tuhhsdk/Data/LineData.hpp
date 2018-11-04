@@ -5,41 +5,96 @@
 #include "Framework/DataType.hpp"
 
 #include "Tools/Math/Eigen.hpp"
+#include "Tools/Math/Geometry.hpp"
+#include "Tools/Math/Line.hpp"
 #include "Tools/Time.hpp"
 
-class LineData : public DataType<LineData> {
+struct LineInfo : public Uni::To, public Uni::From
+{
+  // a pointer to a line that is stored somewhere else e.g. LineData.lines
+  const Line<float>* line;
+  // the distance from the robot to the line segment (not infinite long)
+  float projectionDistance;
+  // the length of the line in meters
+  float lineLength;
+  // the position of the line in LineData.lines
+  size_t lineId;
+
+  LineInfo()
+    : line(nullptr)
+    , projectionDistance(-1.f)
+    , lineLength(-1.f)
+    , lineId(-1)
+  {
+  }
+
+  LineInfo(const Line<float>& line, const float projectionDistance, const float lineLength,
+           const int lineId)
+    : line(&line)
+    , projectionDistance(projectionDistance)
+    , lineLength(lineLength)
+    , lineId(lineId)
+  {
+  }
+
+  /**
+   * @see function in DataType
+   */
+  virtual void toValue(Uni::Value& value) const
+  {
+    value = Uni::Value(Uni::ValueType::OBJECT);
+    value["projectionDistance"] << projectionDistance;
+    value["lineLength"] << lineLength;
+    value["lineId"] << lineId;
+  }
+
+  /**
+   * @see function in DataType
+   */
+  virtual void fromValue(const Uni::Value& value)
+  {
+    value["projectionDistance"] >> projectionDistance;
+    value["lineLength"] >> lineLength;
+    value["lineId"] >> lineId;
+  }
+};
+
+class LineData : public DataType<LineData>
+{
 public:
-  /// the positions (robot coordinates) of the vertices of a line grid model
-  VecVector2f vertices;
-  /// the edges of a line grid model - each edge has two vertex indices
-  VecVector2i edges;
+  /// the name of this DataType
+  DataTypeName name = "LineData";
+  /// All lines detected by the LineDetection
+  std::vector<Line<float>> lines;
+  /// All information connected to lines detected by the LineDetection
+  std::vector<LineInfo> lineInfos;
   /// the timestamp of the image in which they were seen
   TimePoint timestamp;
   /// whether the lines are valid
-  bool valid;
+  bool valid = false;
   /**
    * @brief reset sets the lines to a defined state
    */
   void reset()
   {
     valid = false;
-    vertices.clear();
-    edges.clear();
+    lines.clear();
+    lineInfos.clear();
   }
 
   virtual void toValue(Uni::Value& value) const
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
-    value["vertices"] << vertices;
-    value["edges"] << edges;
+    value["lines"] << lines;
+    value["lineInfos"] << lineInfos;
     value["timestamp"] << timestamp;
     value["valid"] << valid;
   }
 
   virtual void fromValue(const Uni::Value& value)
   {
-    value["vertices"] >> vertices;
-    value["edges"] >> edges;
+    value["lines"] >> lines;
+    value["lineInfos"] >> lineInfos;
     value["timestamp"] >> timestamp;
     value["valid"] >> valid;
   }

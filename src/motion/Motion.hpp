@@ -19,4 +19,8 @@ public:
    * @brief cycle runs all motion modules
    */
   void cycle();
+
+#ifdef ITTNOTIFY_FOUND
+  __itt_domain* motionDomain_;
+#endif
 };

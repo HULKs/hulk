@@ -6,6 +6,8 @@
 
 class MotionState : public DataType<MotionState> {
 public:
+  /// the name of this DataType
+  DataTypeName name = "MotionState";
   /// the motion that the body (legs + potentially arms + potentially head) executes
   MotionRequest::BodyMotion bodyMotion;
   /// the motion that the left arm executes

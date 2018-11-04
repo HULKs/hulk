@@ -1,0 +1,10 @@
+{
+  "minBallDetectionRange" : 0.2,
+  "maxBallDetectionRange" : 2.0,
+  "maxBallAge" : 5.0,
+  "minBallOutDistance" : 0.15,
+  "fovAngle" : 50.0,
+  "convolutionKernelCoreWeight" : 992,
+  "confidentBallMultiplier" : 1.04,
+  "minProbOnUpvote" : 0.01
+}

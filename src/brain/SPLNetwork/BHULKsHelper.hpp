@@ -26,6 +26,8 @@ namespace B_HULKs
         return PlayingRole::SUPPORT_STRIKER;
       case Role::Bishop:
         return PlayingRole::BISHOP;
+      case Role::Pawn:
+        return PlayingRole::REPLACEMENT_KEEPER;
       case Role::beatenPieces:
       default:
         return PlayingRole::NONE;
@@ -50,6 +52,8 @@ namespace B_HULKs
         return Role::Knight;
       case PlayingRole::BISHOP:
         return Role::Bishop;
+      case PlayingRole::REPLACEMENT_KEEPER:
+        return Role::Pawn;
       case PlayingRole::NONE:
       default:
         return Role::beatenPieces;

@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import argparse
+import json
+import logging
+import os
+import re
+import sys
+
+logger = logging.getLogger("PlayerNumberChanger")
+logger.setLevel(logging.INFO)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('[%(levelname)s]%(name)s: %(message)s')
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+
+nao_repo_path = os.path.dirname(os.path.realpath(__file__)) + "/.."
+
+
+def parse_arguments():
+    arg_parser = argparse.ArgumentParser(description="Player Number Changer",
+                                         formatter_class=argparse.RawTextHelpFormatter)
+    arg_parser.add_argument("player_numbers", type=str, nargs='+',
+                            help="Nao number:player number e.g.\"12:2 14:2 17:1\"")
+
+    args = arg_parser.parse_args()
+    naonumber_playernumber_strings = args.player_numbers
+
+    naonumber_playernumber_dict = {}
+    for nao_string in naonumber_playernumber_strings:
+        regex_groups = re.match("^(\d+)(?:\:)(\d+)", nao_string).groups()
+        nao_number = regex_groups[0]
+        player_number = regex_groups[1]
+        naonumber_playernumber_dict[nao_number] = player_number
+
+    return naonumber_playernumber_dict
+
+
+def change_player_numbers(naonumber_playernumber_dict):
+    """
+    Change all player numbers as given in dict
+    """
+    # since player number might be set per location, need to find current location first
+    with open(nao_repo_path + "/home/configuration/location/default/sdk.json", 'r') as file:
+        location = json.load(file)["location"]
+
+    # check if there aren't any wrongly set player numbers for current location
+    for nao_number, player_number in naonumber_playernumber_dict.items():
+        brain_json_path = nao_repo_path + \
+            "/home/configuration/location/{}/head/tuhhnao{}/Brain.json".format(location, nao_number)
+
+        # check for player number in current location
+        if os.path.isfile(brain_json_path):
+            with open(brain_json_path, 'r') as file:
+                content = json.load(file)
+                if "general.playerNumber" in content:
+                    logger.error("Player number already set for current location {} in {}.".format(
+                        location, brain_json_path))
+                    logger.error(
+                        "Player number should only ever be set in default location, remove redundant before calling this script.")
+                    sys.exit(1)
+
+    # change the player numbers
+    for nao_number, player_number in naonumber_playernumber_dict.items():
+        # set path to default location
+        brain_json_path = nao_repo_path + \
+            "/home/configuration/location/default/head/tuhhnao{}/Brain.json".format(nao_number)
+
+        with open(brain_json_path, 'r') as file:
+            content = json.load(file)
+
+        with open(brain_json_path, 'w') as file:
+            content["general.playerNumber"] = int(player_number)
+            json.dump(content, file, indent=4)
+            logger.info("Changed player number of nao {} to {}.".format(nao_number, player_number))
+
+
+if __name__ == '__main__':
+    # parse command line arguments
+    naonumber_playernumber_dict = parse_arguments()
+
+    # change player numbers
+    change_player_numbers(naonumber_playernumber_dict)

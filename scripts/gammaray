@@ -117,7 +117,7 @@ function run {
 
     msg -n "Modifying files for ${NAO}."
     sed -e s/{wlan0ip}/$(numberToIP "${NAO}w")/ -e s/{eth0ip}/$(numberToIP "${NAO}")/ -i "${INSTALL_DIR}/net"
-    echo "nao${NAO}" > "${INSTALL_DIR}/hostname"
+    echo "YOUR_TEAM_NAME_HERE${NAO}" > "${INSTALL_DIR}/hostname"
 
     msg -n "Copying files to ${ADDRESS}."
     naocppass "${INSTALL_DIR}" "nao@${ADDRESS}:files"

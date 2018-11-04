@@ -36,8 +36,15 @@ public:
    * @return a list of the types could be sent via this sender (not all of them have to)
    */
   const std::vector<std::type_index>& getRequested() const;
+  /**
+   * @brief produce tell recivers what DataTypes we can produce
+   * @param type DataType we can produce
+   */
+  void produce(const std::type_index& type);
 
 private:
+  /// list of produced types
+  std::vector<std::type_index> produced_;
   /// list of requested types
   std::vector<std::type_index> requested_;
   /// the queue that this sender pushes messages to
@@ -64,6 +71,11 @@ public:
    * @param type the type that is requested
    */
   void request(const std::type_index& type);
+  /**
+   * @brief getProduced returns a list of produced types
+   * @return a list of the types could be received via this receiver (not all of them have to)
+   */
+  const std::vector<std::type_index> getProduced() const;
 
 private:
   /// the sender that sends to this receiver

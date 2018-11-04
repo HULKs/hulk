@@ -3,7 +3,7 @@
 #include "Point.hpp"
 
 Point::Point(const ModuleManagerInterface& manager)
-  : Module(manager, "Point")
+  : Module(manager)
   , motionRequest_(*this)
   , jointSensorData_(*this)
   , robotKinematics_(*this)

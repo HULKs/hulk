@@ -9,6 +9,8 @@ class Brain;
 class AudioPlayer : public Module<AudioPlayer, Brain>
 {
 public:
+  /// the name of this module
+  ModuleName name = "AudioPlayer";
   /**
    * @brief AudioPlayer the constructor initializes the AudioReceiver
    * @param manager a ModuleManagerInterface

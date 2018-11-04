@@ -1,26 +1,29 @@
 #pragma once
 
+#include <array>
 #include <string>
 #include <vector>
-#include <array>
 
-#include "Definitions/keys.h"
-#include "Tools/Time.hpp"
-#include "CameraInterface.hpp"
 #include "AudioInterface.hpp"
+#include "CameraInterface.hpp"
+#include "Definitions/keys.h"
+#include "FakeDataInterface.hpp"
+#include "Tools/Time.hpp"
 
 /**
  * @enum callback_event
  * @brief The callback_event enum provides types of callback events pushed over
  *        the shared memory.
  */
-enum callback_event{
+enum callback_event
+{
   CE_CHESTBUTTON_DOUBLE,
   CE_CHESTBUTTON_SIMPLE,
   __CE_MAX
 };
 
-struct NaoSensorData {
+struct NaoSensorData
+{
   // joint information
   std::array<float, keys::joints::JOINTS_MAX> jointSensor;      ///< Sensor values of all joints
   std::array<float, keys::joints::JOINTS_MAX> jointCurrent;     ///< Current values of all joints
@@ -35,12 +38,13 @@ struct NaoSensorData {
   std::array<float, keys::sensor::SONAR_MAX> sonar;     ///< All sonar key values
   std::array<float, keys::sensor::BATTERY_MAX> battery; ///< All battery key values
 
-  TimePoint time;              ///< Real time when sensor values were sampled
+  TimePoint time; ///< Real time when sensor values were sampled
 
   std::vector<callback_event> buttonCallbackList;
 };
 
-enum class NaoVersion {
+enum class NaoVersion
+{
   /// some unknown or unsupported version
   UNKNOWN,
   /// version 3.3 head or body
@@ -51,7 +55,8 @@ enum class NaoVersion {
   V5
 };
 
-struct NaoInfo {
+struct NaoInfo
+{
   /// the version of the body
   NaoVersion bodyVersion;
   /// the version of the head
@@ -64,14 +69,13 @@ struct NaoInfo {
 
 class Configuration;
 
-class RobotInterface {
+class RobotInterface
+{
 public:
   /**
    * @brief ~RobotInterface a virtual constructor for polymorphism
    */
-  virtual ~RobotInterface()
-  {
-  }
+  virtual ~RobotInterface() {}
   /**
    * @brief configure does things that require configuration files to be loaded for the correct location / NAO
    * This method should be called exactly once.
@@ -109,6 +113,11 @@ public:
    */
   virtual std::string getFileRoot() = 0;
   /**
+   * @brief getDataRoot returns a path where files can be stored during the game, e.g. fileTransport or ReplayRecorder data
+   * @return a path
+   */
+  virtual std::string getDataRoot() = 0;
+  /**
    * @brief getNaoInfo copies the hardware identification
    * @param config a reference to the Configuration instance
    * @param info is filled with the body/head version and name
@@ -120,12 +129,23 @@ public:
    */
   virtual CameraInterface& getCamera(const Camera camera) = 0;
   /**
+   * @brief getFakeData provides access to the fake data of this interface
+   * @return a reference to the requested fake data interface
+   */
+  virtual FakeDataInterface& getFakeData() = 0;
+  /**
    * @brief getAudio provides access to the microphones of the robot
    * @return a reference to the audioInterface
    */
   virtual AudioInterface& getAudio() = 0;
   /**
-  * @brief getCurrentCamera
-  */
-  virtual CameraInterface& getCurrentCamera() = 0;
+   * @brief getNextCamera
+   * @return the current CameraInterface
+   */
+  virtual CameraInterface& getNextCamera() = 0;
+  /**
+   * @brief getCurrentCameraType
+   * @return the current camera type
+   */
+  virtual Camera getCurrentCameraType() = 0;
 };
