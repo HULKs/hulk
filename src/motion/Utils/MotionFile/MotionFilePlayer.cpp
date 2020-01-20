@@ -43,7 +43,8 @@ int MotionFilePlayer::play()
   }
   else
   {
-    Log(LogLevel::WARNING) << "MotionFile " << header.title << " already playing! Command discarded.";
+    Log(LogLevel::WARNING) << "MotionFile " << header.title
+                           << " already playing! Command discarded.";
     return 0;
   }
 }
@@ -161,7 +162,8 @@ MotionFilePlayer::JointValues MotionFilePlayer::cycle()
 
 bool MotionFilePlayer::isPlaying() const
 {
-  return cycleInfo_.getTimeDiff(startTime_, TDT::MILS) < header.time;
+  // assuming initial startTime_ = 0 so the motion was never started
+  return startTime_ != TimePoint(0) && cycleInfo_.getTimeDiff(startTime_, TDT::MILS) < header.time;
 }
 
 void MotionFilePlayer::precompile()

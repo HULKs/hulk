@@ -50,7 +50,7 @@ struct Segment : public Uni::To, public Uni::From
   // The number of sampled points within this segment.
   int scanPoints;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["start"] << start;
@@ -64,7 +64,7 @@ struct Segment : public Uni::To, public Uni::From
     value["endEdgeType"] << static_cast<int>(endEdgeType);
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     int valueRead = 0;
     uint32_t unsignedIntRead = 0;

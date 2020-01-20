@@ -43,9 +43,9 @@ void PenaltyStrikerActionProvider::cycle()
   const bool ballKickable = ballState_->found && (absBallPos - penaltySpot).norm() < 0.5f;
   if (ballKickable)
   {
-    const Vector2f target = robotPosition_->fieldToRobot(
-        Vector2f(fieldDimensions_->fieldLength * 0.5f,
-                 penaltyTargetOffset_ * fieldDimensions_->goalInnerWidth * 0.5f * aimAtCornerFactor_()));
+    const Vector2f target = robotPosition_->fieldToRobot(Vector2f(
+        fieldDimensions_->fieldLength * 0.5f,
+        penaltyTargetOffset_ * fieldDimensions_->goalInnerWidth * 0.5f * aimAtCornerFactor_()));
     int useOnlyThisFoot = 1; // One may want to use useOnlyThisFoot_() here, but especially in
                              // penalty shootouts the left foot seems to be better.
     const bool forceSign = useOnlyThisFoot != 0;
@@ -57,8 +57,8 @@ void PenaltyStrikerActionProvider::cycle()
     const BallUtils::Kickable kickable = BallUtils::kickable(
         kickPose, *ballState_, distanceToBallKick_().x(), angleToBall, distanceToBallKick_().y());
     penaltyStrikerAction_->kickPose = kickPose;
-    penaltyStrikerAction_->type = PenaltyStrikerAction::Type::KICK_INTO_GOAL;
-    penaltyStrikerAction_->kickType = PenaltyStrikerAction::KickType::FORWARD;
+    penaltyStrikerAction_->type = PenaltyStrikerAction::Type::KICK;
+    penaltyStrikerAction_->kickType = KickType::FORWARD;
     penaltyStrikerAction_->target = target;
     penaltyStrikerAction_->kickable = kickable;
     penaltyStrikerAction_->valid = true;

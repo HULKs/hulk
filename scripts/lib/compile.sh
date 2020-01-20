@@ -34,9 +34,9 @@ function compile {
   # compile (currently done with make, but cmake --build is an option)
   cd "${DIR}"
   if ${VERBOSE}; then
-    make -j${JOBS} VERBOSE=1
+    cmake --build . -v -- -j${JOBS}
   else
-    make -j${JOBS}
+    cmake --build . -- -j${JOBS}
   fi
   local RESULT="$?"
   return "${RESULT}"

@@ -157,6 +157,8 @@ private:
     DebugMessageHeader hdr;
     /// the debug key
     std::string key;
+    /// timestamp
+    uint64_t timestamp;
     /// image width given in pixels
     uint16_t width;
     /// image height given in pixels
@@ -433,7 +435,7 @@ bool TCPTransport::Session::transmitList()
     bool expected = true;
     if (canTransmit_.compare_exchange_weak(expected, false))
     {
-    // send
+      // send
 #ifdef NAO
       auto self(shared_from_this());
 #ifdef ITTNOTIFY_FOUND
@@ -490,7 +492,7 @@ void TCPTransport::Session::transport()
   }
   else
   {
-    transmitList_.clearList();
+    transmitList_.clear();
     serializedMMList_.clear();
   }
 
@@ -553,7 +555,7 @@ void TCPTransport::Session::transport()
 
       if (!debugMapEntry->isImage)
       {
-        DebugData dat(*key, debugMapEntry->data.get());
+        DebugData dat(*key, debugMapEntry->data.get(), debugMapEntry->updateTime);
         Uni::Value value;
         value << dat;
         if (!isFirst)
@@ -584,16 +586,19 @@ void TCPTransport::Session::transport()
 
         jpegConv_.convert(img, imageData.data);
 
+        imageData.timestamp = debugMapEntry->updateTime.getSystemTime();
         imageData.width = img.size_.x();
         imageData.height = img.size_.y();
         imageData.length = imageData.key.length();
 
         imageData.hdr.msgType = DM_IMAGE;
-        imageData.hdr.msgLength = sizeof(imageData.width) + sizeof(imageData.height) +
-                                  sizeof(imageData.length) + imageData.length +
-                                  imageData.data.size();
+        imageData.hdr.msgLength = sizeof(imageData.timestamp) + sizeof(imageData.width) +
+                                  sizeof(imageData.height) + sizeof(imageData.length) +
+                                  imageData.length + imageData.data.size();
 
         sendBuffers_.push_back(boost::asio::buffer(&imageData.hdr, sizeof(DebugMessageHeader)));
+        sendBuffers_.push_back(
+            boost::asio::buffer(&imageData.timestamp, sizeof(imageData.timestamp)));
         sendBuffers_.push_back(boost::asio::buffer(&imageData.width, sizeof(imageData.width)));
         sendBuffers_.push_back(boost::asio::buffer(&imageData.height, sizeof(imageData.height)));
         sendBuffers_.push_back(boost::asio::buffer(&imageData.length, sizeof(imageData.length)));
@@ -624,7 +629,7 @@ void TCPTransport::Session::transport()
 
     try
     {
-    // and send that stuff to the subscriber
+      // and send that stuff to the subscriber
 #ifdef NAO
       auto self(shared_from_this());
 #ifdef ITTNOTIFY_FOUND

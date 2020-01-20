@@ -14,11 +14,15 @@
   "obstacleDisplacementAngle": 110,
   "groundLevelAvoidanceDistance" : 0.2,
   "shoulderLevelAvoidanceDistance" : 0.3,
-  "planForUNSWalking" : true,
   "enableCarefulDribbling" : false,
   "carefulDribbleSpeed" : 0.18,
   "carefulDribbleDistanceThreshold" : 0.25,
   "ballOffsetTargetOrientationTolerance" : 25,
   "dribblingAngleTolerance" : 25,
-  "slowBallApproachFactor" : 0.8
+  "slowBallApproachFactor" : 0.8,
+  "dribbleAlignDistance" : 0.2,
+  "footOffset" : 0.03,
+  "maxDistToBallTargetLine" : 0.05,
+  "walkAroundBallDistanceThreshold": 0.28,
+  "walkAroudBallAngleThreshold": 45
 }

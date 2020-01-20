@@ -112,10 +112,9 @@ void ParticlePositionKnowledge::updateState()
     if ((gameControllerState_->gameState == GameState::PLAYING && lastState_ != GameState::PLAYING) ||
         (gameControllerState_->penalty == Penalty::NONE && lastPenalty_ != Penalty::NONE))
     {
-      // we are in multi PSO mode if required by the gamecontroller or configured
-      const bool inMultiPSOMode =
-          alwaysUseMultiplePenaltyShootoutPositions_() ||
-          gameControllerState_->type == CompetitionType::GENERAL_PENALTY_KICK;
+      // multi PSO was a challenge in 2018. It was removed but still can be enabled with this
+      // parameter.
+      const bool inMultiPSOMode = alwaysUseMultiplePenaltyShootoutPositions_();
       // All particles are replaced with particles that correspond to the positions according to the
       // rules.
       for (auto& particle : particles_)
@@ -250,8 +249,7 @@ void ParticlePositionKnowledge::updateState()
                                    motionState_->bodyMotion == MotionRequest::BodyMotion::STAND) &&
                                   imuSensorData_->gyroscope.norm() < maxGyroNormWhenMeasuring_();
 
-  const bool inMultiPSOMode = gameControllerState_->type == CompetitionType::GENERAL_PENALTY_KICK ||
-                              alwaysUseMultiplePenaltyShootoutPositions_();
+  const bool inMultiPSOMode = alwaysUseMultiplePenaltyShootoutPositions_();
 
   const bool localizeInPenaltyShootout =
       gameControllerState_->kickingTeam && (strikerLocalizeInPSO_() || inMultiPSOMode);
@@ -617,7 +615,7 @@ float ParticlePositionKnowledge::weightByLine(const Line<float>& line,
     const float fieldLineLength = fieldLineVector.squaredNorm();
     // Check the orthogonal distance of the endpoints to the line
     float error = 0;
-    float distCenter = Geometry::distPointToLineSegment(fieldLine, lineCenterPoint);
+    float distCenter = Geometry::getLineSegmentDistance(fieldLine, lineCenterPoint);
     // Check if line was associated with center circle
     bool associatedWithCircle =
         (fieldLine.p1.x() != fieldLine.p2.x()) && (fieldLine.p1.y() != fieldLine.p2.y());

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Framework/DataType.hpp"
+#include "Tools/Time.hpp"
 #include "Tools/Math/Eigen.hpp"
 
 
@@ -30,17 +31,19 @@ public:
   Vector2f position = Vector2f::Zero();
   /// the velocity of the common ball in field coordinates
   Vector2f velocity = Vector2f::Zero();
+  /// the last time point the ball was seen
+  TimePoint timeLastUpdated;
   /**
    * @brief reset resets the found state
    */
-  void reset()
+  void reset() override
   {
     ballType = BallType::NONE;
     seen = false;
     found = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["ballType"] << static_cast<int>(ballType);
@@ -49,9 +52,10 @@ public:
     value["found"] << found;
     value["position"] << position;
     value["velocity"] << velocity;
+    value["timeLastUpdated"] << timeLastUpdated;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     int input = 0;
     value["ballType"] >> input;
@@ -61,5 +65,6 @@ public:
     value["found"] >> found;
     value["position"] >> position;
     value["velocity"] >> velocity;
+    value["timeLastUpdated"] >> timeLastUpdated;
   }
 };

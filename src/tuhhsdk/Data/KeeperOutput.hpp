@@ -2,7 +2,8 @@
 
 #include <Data/MirrorableMotionOutput.hpp>
 
-class KeeperOutput : public DataType<KeeperOutput, MirrorableMotionOutput> {
+class KeeperOutput : public DataType<KeeperOutput, MirrorableMotionOutput>
+{
 public:
   /// the name of this DataType
   DataTypeName name = "KeeperOutput";

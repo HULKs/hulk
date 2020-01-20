@@ -10,7 +10,8 @@ set(HEADERS
   Interface/JointCommandSender.hpp
   Interface/MotionDispatcher.hpp
   JointCalibrationProvider/JointCalibrationProvider.hpp
-  Keeper/Keeper.hpp
+  JointDiffProvider/JointDiffProvider.hpp
+  Jump/Jump.hpp
   Kick/Kick.hpp
   KickConfigurationProvider/KickConfigurationProvider.hpp
   LEDHandler/LEDHandler.hpp
@@ -22,6 +23,8 @@ set(HEADERS
   Poser/Poser.hpp
   Safety/FallManager.hpp
   SensorDataProvider/SensorDataProvider.hpp
+  SitDown/SitDown.hpp
+  SitUp/SitUp.hpp
   Sleep/MotionSleep.hpp
   SonarFilter/SonarFilter.hpp
   StandUp/StandUp.hpp
@@ -48,7 +51,8 @@ set(SOURCES
   Interface/JointCommandSender.cpp
   Interface/MotionDispatcher.cpp
   JointCalibrationProvider/JointCalibrationProvider.cpp
-  Keeper/Keeper.cpp
+  JointDiffProvider/JointDiffProvider.cpp
+  Jump/Jump.cpp
   Kick/Kick.cpp
   KickConfigurationProvider/KickConfigurationProvider.cpp
   LEDHandler/LEDHandler.cpp
@@ -60,6 +64,8 @@ set(SOURCES
   Poser/Poser.cpp
   Safety/FallManager.cpp
   SensorDataProvider/SensorDataProvider.cpp
+  SitDown/SitDown.cpp
+  SitUp/SitUp.cpp
   SonarFilter/SonarFilter.cpp
   StandUp/StandUp.cpp
   Utils/DynamicMovementPrimitive/DynamicMovementPrimitive.cpp

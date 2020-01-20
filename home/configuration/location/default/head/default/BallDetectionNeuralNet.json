@@ -1,12 +1,11 @@
 {
-  "seedBrightScore" : 4,
-  "writeCandidatesToDisk" : false,
-  "seedBrightMin" : 8,
-  "seedRadiusRatioMax" : 0.7,
-  "netAccuracy" : 3.5,
-  "seedRadiusRatioMin" : 0.1,
-  "seedDark" : 100,
-  "seedBright" : 25,
-  "projectFoundBalls" : false,
-  "candidateMinSeeds": 2
+  "mergeRadiusFactor": 1.5,
+  "minSeedsInsideCandidateTop": 0,
+  "minSeedsInsideCandidateBottom": 0,
+  "networkPath": "neuralnets/frozen_net_softmax.pb",
+  "softMaxThreshold": 0.8,
+  "writeCandidatesToDisk": false,
+  "drawDebugBallCandidates": false,
+  "drawDebugBoxes": false,
+  "drawDebugSeeds": false
 }

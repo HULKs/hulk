@@ -19,13 +19,13 @@ public:
   /**
    * @brief reset sets the goal to a defined state
    */
-  void reset()
+  void reset() override
   {
     valid = false;
     posts.clear();
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["posts"] << posts;
@@ -33,7 +33,7 @@ public:
     value["valid"] << valid;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["posts"] >> posts;
     value["timestamp"] >> timestamp;

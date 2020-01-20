@@ -36,7 +36,7 @@ public:
   /**
    * @brief reset does nothing
    */
-  void reset()
+  void reset() override
   {
     leftEyeMode = EyeMode::OFF;
     leftR = 0.f;
@@ -49,7 +49,7 @@ public:
     rightB = 0.f;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["leftR"] << leftR;
@@ -60,7 +60,7 @@ public:
     value["rightB"] << rightB;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["leftR"] >> leftR;
     value["leftG"] >> leftG;

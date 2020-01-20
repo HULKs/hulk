@@ -71,7 +71,7 @@ FileTransport::Impl::Impl(Debug& debug, Configuration& cfg, const std::string& f
   // Subscribe all configured keys
   Uni::Value& v = cfg.get(mount, "subscribedKeys");
   assert(v.type() == Uni::ValueType::ARRAY);
-  for (auto it = v.listBegin(); it != v.listEnd(); ++it)
+  for (auto it = v.vectorBegin(); it != v.vectorEnd(); ++it)
   {
     subscriptionList_.insert(it->asString());
     debug_.subscribe(it->asString());

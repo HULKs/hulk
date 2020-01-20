@@ -12,7 +12,8 @@ public:
    * @param wasGreater if the first operand was greater than the second one last time.
    * @return true if the first operand is greater than the second one after hysteresis was applied.
    */
-  static bool greaterThan(const T& first, const T& second, const T& hysteresis, const bool& wasGreater)
+  static bool greaterThan(const T& first, const T& second, const T& hysteresis,
+                          const bool& wasGreater)
   {
     if (wasGreater)
     {
@@ -31,7 +32,8 @@ public:
    * @param wasSmaller if the first operand was smaller than the second one last time.
    * @return true if the first operand is smaller than the second one after hysteresis was applied.
    */
-  static bool smallerThan(const T& first, const T& second, const T& hysteresis, const bool& wasSmaller)
+  static bool smallerThan(const T& first, const T& second, const T& hysteresis,
+                          const bool& wasSmaller)
   {
     if (wasSmaller)
     {
@@ -42,5 +44,17 @@ public:
       return first < second - hysteresis;
     }
   }
+  /**
+   * @brief checks if the first operand is within the boundaries given by the hysteresis
+   * @param first The fist operand
+   * @param second The second operand
+   * @param hysteresis The hysteresis factor
+   * @return true if the first operand is equal than the second one after hysteresis was applied.
+   */
+  static bool equalTo(const T& first, const T& second, const T& hysteresis)
+  {
+    return first < second + hysteresis && first > second - hysteresis;
+  }
+
 private:
 };

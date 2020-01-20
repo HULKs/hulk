@@ -35,7 +35,7 @@ public:
   /// the headmatrix buffer which was available in the frame
   HeadMatrixBuffer headMatrixBuffer;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["jointAngles"] << jointAngles;
@@ -57,7 +57,7 @@ public:
     value["headMatrixBuffer"] << headMatrixBuffer;
   }
 
-  virtual void reset()
+  void reset() override
   {
     jointAngles.fill(0);
     headMatrixBuffer.reset();
@@ -72,7 +72,7 @@ public:
     timestamp = TimePoint::getCurrentTime();
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     saveDeserial(value, "jointAngles", [](auto& v) { v.fill(0); }, jointAngles);
     saveDeserial(value, "headMatrixBuffer", [](auto& v) { v.reset(); }, headMatrixBuffer);
@@ -99,7 +99,7 @@ private:
   inline bool saveDeserial(const Uni::Value& value, const std::string& field, const F fallback,
                            T& target) const
   {
-    if (value.hasProperty(field))
+    if (value.contains(field))
     {
       value[field] >> target;
       return true;
@@ -114,7 +114,7 @@ struct ReplayConfig : public Uni::From, Uni::To
   std::string mount;
   std::string key;
   Uni::Value data;
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["mount"] << mount;
@@ -122,7 +122,7 @@ struct ReplayConfig : public Uni::From, Uni::To
     value["data"] << data;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["mount"] >> mount;
     value["key"] >> key;
@@ -138,18 +138,18 @@ public:
   std::vector<ReplayConfig> data;
 
 private:
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::ARRAY);
     value << data;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value >> data;
   }
 
-  virtual void reset()
+  void reset() override
   {
     data.clear();
   }
@@ -160,19 +160,19 @@ class ReplayData : public DataType<ReplayData>
 public:
   /// the name of this DataType
   DataTypeName name = "ReplayData";
-  void reset() {}
+  void reset() override {}
 
 private:
   ReplayConfigurations config;
   std::vector<ReplayFrame> frames;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["frames"] << frames;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["frames"] >> frames;
   }

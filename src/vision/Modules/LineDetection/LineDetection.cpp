@@ -307,6 +307,9 @@ bool LineDetection::ransac(Line<int>& bestLine, const VecVector2<int>& points,
 
 void LineDetection::createLineData()
 {
+  lineData_->lines.reserve(lines_.size());
+  lineData_->lineInfos.reserve(lines_.size());
+
   unsigned int lineId = 0;
   for (const auto& line : lines_)
   {
@@ -319,7 +322,7 @@ void LineDetection::createLineData()
     lineData_->lines.emplace_back(start, end);
     auto& newLine = lineData_->lines[lineId];
     lineData_->lineInfos.emplace_back(newLine,
-                                      Geometry::distPointToLineSegment(newLine, {0.f, 0.f}),
+                                      Geometry::getLineSegmentDistance(newLine, {0.f, 0.f}),
                                       (newLine.p1 - newLine.p2).norm(), lineId);
     ++lineId;
   }

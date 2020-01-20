@@ -1,0 +1,1 @@
+using gcc : i686 : i686-nao-linux-gnu-g++ : <compileflags>-O2 <compileflags>-march=silvermont <compileflags>-mtune=silvermont <compileflags>-msse4.2 <compileflags>-mfpmath=sse <compileflags>-fomit-frame-pointer <compileflags>-std=c++17 ;

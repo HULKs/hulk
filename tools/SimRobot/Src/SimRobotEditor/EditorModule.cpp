@@ -53,12 +53,12 @@ void EditorModule::openEditor(const QString& filePath)
 
 bool EditorModule::compile()
 {
-  Q_ASSERT((void*)this == (void*)((SimRobotEditor::Editor*)this));
+  Q_ASSERT(static_cast<void*>(this) == static_cast<void*>(static_cast<SimRobotEditor::Editor*>(this)));
 
   application->registerObject(*this, *this, 0, SimRobot::Flag::windowless);
 
   QString filePath = application->getFilePath();
-  addEditor(filePath, "href=(\\\"([ \\\\/a-z0-9\\.\\-_]+\\.rsi2?)\\\"|[\\\\/a-z0-9\\.\\-_]+\\.rsi2?)", true);
+  addEditor(filePath, "href\\s*=\\s*\\\"([ \\\\/a-z0-9\\.\\-_]+\\.rsi2)\\\"", true);
 
   loadFromSettings();
 

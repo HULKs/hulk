@@ -145,8 +145,6 @@ GameController::GameController(const ModuleManagerInterface& manager)
   internalState_.kickingTeam = true;
   internalState_.kickingTeamNumber = static_cast<uint8_t>(playerConfiguration_->teamNumber);
   internalState_.secondaryTime = 0.f;
-  internalState_.dropInTeam = 0;
-  internalState_.dropInTime = -1.f;
   internalState_.remainingTime = 600.f;
   internalState_.teamColor = TeamColor::BLUE;
   internalState_.score = 0;
@@ -239,10 +237,8 @@ void GameController::handleNetwork()
     internalState_.firstHalf = latestData_.firstHalf != 0;
     internalState_.kickingTeam = latestData_.kickingTeam == playerConfiguration_->teamNumber;
     internalState_.kickingTeamNumber = latestData_.kickingTeam;
-    internalState_.secondaryTime = latestData_.secondaryTime;
-    internalState_.dropInTeam = latestData_.dropInTeam;
-    internalState_.dropInTime = latestData_.dropInTime;
-    internalState_.remainingTime = latestData_.secsRemaining;
+    internalState_.secondaryTime = static_cast<float>(latestData_.secondaryTime);
+    internalState_.remainingTime = static_cast<float>(latestData_.secsRemaining);
     internalState_.teamColor = static_cast<TeamColor>(latestData_.teams[teamIndex_].teamColour);
     internalState_.score = latestData_.teams[teamIndex_].score;
     if (playerConfiguration_->playerNumber <= MAX_NUM_PLAYERS)
@@ -285,8 +281,6 @@ void GameController::handleChestButton()
     internalState_.kickingTeam = true;
     internalState_.kickingTeamNumber = static_cast<uint8_t>(playerConfiguration_->teamNumber);
     internalState_.secondaryTime = 0.f;
-    internalState_.dropInTeam = 0;
-    internalState_.dropInTime = -1.f;
     internalState_.remainingTime = 600.f;
     internalState_.teamColor = TeamColor::BLUE;
     internalState_.score = 0;

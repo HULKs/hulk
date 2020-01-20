@@ -11,7 +11,7 @@ public:
   /// the name of this DataType
   DataTypeName name = "ReplacementKeeperAction";
 
-  // sum all actions the replacement keeper is allowed to perform
+  /// sum all actions the replacement keeper is allowed to perform
   unsigned int permission = static_cast<unsigned int>(KeeperAction::Type::BLOCK_GOAL);
 
   /// the action to be performed by the replacement keeper

@@ -26,11 +26,11 @@ public:
 private:
   /// Tolerance value for goalLineHalfWithTolerance_; default +- 0.2m
   const Parameter<float> goalLineLenTolerance_;
-  /// Y-axis distance of ball to robot to determine jump or genuflect.; default 0.2m
-  const Parameter<float> genuflectThreshold_;
+  /// Y-axis distance of ball to robot to determine jump or squat.; default 0.2m
+  const Parameter<float> squatThreshold_;
   /// Default 25cm bias to be safe. destVector is lengthened by this; default 0.25m
   const Parameter<float> ballDestinationTolerance_;
-  /// Minimum x distance from ball dest to robot to calculate genuiflect.; default 0.05m
+  /// Minimum x distance from ball dest to robot to calculate squat.; default 0.05m
   const Parameter<float> minBallDestinationToRobotThresh_;
 
   const Dependency<FieldDimensions> fieldDimensions_;

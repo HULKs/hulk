@@ -1,0 +1,33 @@
+{
+  "disabledJoints": [
+    true,  //  HEAD_YAW
+    true,  //  HEAD_PITCH
+    true,  //  L_SHOULDER_PITCH
+    true,  //  L_SHOULDER_ROLL
+    true,  //  L_ELBOW_YAW
+    true,  //  L_ELBOW_ROLL
+    true,  //  L_WRIST_YAW
+    true,  //  L_HAND
+    true,  //  L_HIP_YAW_PITCH
+    true,  //  L_HIP_ROLL
+    true,  //  L_HIP_PITCH
+    false, //  L_KNEE_PITCH
+    true,  //  L_ANKLE_PITCH
+    true,  //  L_ANKLE_ROLL
+    true,  //  R_HIP_YAW_PITCH
+    true,  //  R_HIP_ROLL
+    true,  //  R_HIP_PITCH
+    false, //  R_KNEE_PITCH
+    true,  //  R_ANKLE_PITCH
+    true,  //  R_ANKLE_ROLL
+    true,  //  R_SHOULDER_PITCH
+    true,  //  R_SHOULDER_ROLL
+    true,  //  R_ELBOW_YAW
+    true,  //  R_ELBOW_ROLL
+    true,  //  R_WRIST_YAW
+    true], //  R_HAND
+  "stiffnessLossAngleThreshold": 80.0,
+  "stiffnessLossCurrentThreshold": 0.01,
+  "maxNumMisses": 4,
+  "numHitsForDetection": 16
+}

@@ -43,6 +43,9 @@ struct SlidingWindow : public Uni::From, public Uni::To
   {
   }
 
+  /**
+   * @brief reset resets the members
+   */
   void reset()
   {
     edgePoints.clear();
@@ -50,7 +53,7 @@ struct SlidingWindow : public Uni::From, public Uni::To
     scanlines = 0;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["window"] << window;
@@ -59,7 +62,7 @@ struct SlidingWindow : public Uni::From, public Uni::To
     value["scanlines"] << scanlines;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["window"] >> window;
     value["edgePoints"] >> edgePoints;
@@ -95,7 +98,7 @@ struct SlidingWindowRow : public Uni::From, public Uni::To
   /// the contained SlidingWindows
   std::vector<SlidingWindow> windows;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["top"] << top;
@@ -103,7 +106,7 @@ struct SlidingWindowRow : public Uni::From, public Uni::To
     value["windows"] << windows;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["top"] >> top;
     value["bottom"] >> bottom;
@@ -125,20 +128,20 @@ public:
   /// Whether the content of this datatype was valid this cycle
   bool valid = false;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["rows"] << rows;
     value["valid"] << valid;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["rows"] >> rows;
     value["valid"] >> valid;
   }
 
-  virtual void reset()
+  void reset() override
   {
     valid = false;
   }

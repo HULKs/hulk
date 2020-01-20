@@ -113,7 +113,7 @@ void UNSW2014Generator::cycle()
 {
   // filter the sensor data that is used for feedback
   filterSensorData();
-  // basically bind this modules funciton to the production
+  // basically bind this module's function to the production
   walkGenerator_->resetGenerator = [this]() { resetGenerator(); };
   walkGenerator_->calcJoints =
       [this](const Pose& speed, const Pose& target, const Pose& walkPathGradient,
@@ -210,7 +210,7 @@ void UNSW2014Generator::calcJoints(
   // 6. Changing Support Foot. Note isLeftPhase means left foot is swing foot.
   // t>0.75*T tries to avoid bounce, especially when side-stepping
   // lastZMPL*ZMPL<0.0 indicates that support foot has changed
-  // t>3*T tires to get out of "stuck" situations
+  // t>3*T tries to get out of "stuck" situations
   const bool supportChangedInTime =
       walkGenerator_->t > supportSwitchPhaseRange_().min * walkGenerator_->stepDuration &&
       bodyPose_->supportChanged;

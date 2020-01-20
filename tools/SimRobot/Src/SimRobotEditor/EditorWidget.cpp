@@ -4,14 +4,18 @@
 * @author Colin Graf
 */
 
-#include <QMenu>
-#include <QSet>
 #include <QFileInfo>
-#include <QTextStream>
+#include <QFormLayout>
+#include <QHBoxLayout>
+#include <QMenu>
 #include <QMessageBox>
-#include <QSettings>
-#include <QScrollBar>
+#include <QRegularExpression>
 #include <QResizeEvent>
+#include <QScrollBar>
+#include <QSet>
+#include <QSettings>
+#include <QTextStream>
+#include <QVBoxLayout>
 
 #include "EditorModule.h"
 #include "EditorWidget.h"
@@ -104,10 +108,10 @@ EditorObject::~EditorObject()
   QSettings& settings = EditorModule::application->getLayoutSettings();
   settings.beginWriteArray(fullName, editors.size());
   int i = 0;
-  foreach(EditorObject* editor, editors)
+  for(const EditorObject* editor : editors)
   {
     settings.setArrayIndex(i++);
-    FileEditorObject* fileEditorObject = dynamic_cast<FileEditorObject*>(editor);
+    const FileEditorObject* fileEditorObject = dynamic_cast<const FileEditorObject*>(editor);
     if(!fileEditorObject)
     {
       settings.setValue("filePath", QString());
@@ -137,7 +141,7 @@ SimRobot::Widget* FileEditorObject::createWidget()
   if(!file.open(QFile::ReadOnly | QFile::Text))
   {
     EditorModule::application->showWarning(QObject::tr("SimRobotEditor"), QObject::tr("Cannot read file %1:\n%2.").arg(filePath).arg(file.errorString()));
-    return 0;
+    return nullptr;
   }
   QTextStream in(&file);
   return new EditorWidget(this, in.readAll());
@@ -146,10 +150,9 @@ SimRobot::Widget* FileEditorObject::createWidget()
 EditorWidget::EditorWidget(FileEditorObject* editorObject, const QString& fileContent) :
   editorObject(editorObject),
   canCopy(false), canUndo(false), canRedo(false),
-  highlighter(0)
+  highlighter(0), editorSettingsDialog(0), findAndReplaceDialog(0)
 {
-  if(editorObject->filePath.endsWith(".ros") || editorObject->filePath.endsWith(".rsi") ||
-    editorObject->filePath.endsWith(".ros2") || editorObject->filePath.endsWith(".rsi2"))
+  if(editorObject->filePath.endsWith(".ros2") || editorObject->filePath.endsWith(".rsi2"))
     highlighter = new SyntaxHighlighter(document());
   setFrameStyle(QFrame::NoFrame);
 
@@ -179,7 +182,11 @@ EditorWidget::EditorWidget(FileEditorObject* editorObject, const QString& fileCo
   }
   verticalScrollBar()->setValue(settings.value("verticalScrollPosition").toInt());
   horizontalScrollBar()->setValue(settings.value("horizontalScrollPosition").toInt());
+  useTabStop = settings.value("useTabStop", false).toBool();
+  tabStopWidth = settings.value("tabStopWidth", 2).toInt();
   settings.endGroup();
+
+  setTabStopWidth(tabStopWidth * QFontMetrics(font).width(' '));
 
   connect(this, SIGNAL(copyAvailable(bool)), this, SLOT(copyAvailable(bool)));
   connect(this, SIGNAL(undoAvailable(bool)), this, SLOT(undoAvailable(bool)));
@@ -196,6 +203,8 @@ EditorWidget::~EditorWidget()
   settings.setValue("selectionEnd", cursor.position());
   settings.setValue("verticalScrollPosition", verticalScrollBar()->value());
   settings.setValue("horizontalScrollPosition", horizontalScrollBar()->value());
+  settings.setValue("useTabStop", useTabStop);
+  settings.setValue("tabStopWidth", tabStopWidth);
   settings.endGroup();
 
   if(!EditorModule::module->application->getFilePath().isEmpty()) // !closingDocument
@@ -250,15 +259,16 @@ void EditorWidget::updateEditMenu(QMenu* menu, bool aboutToShow) const
 
   if(aboutToShow && !editorObject->subFileRegExpPattern.isEmpty())
   {
-    QRegExp rx(editorObject->subFileRegExpPattern, Qt::CaseInsensitive);
+    QRegularExpression rx(editorObject->subFileRegExpPattern, QRegularExpression::CaseInsensitiveOption);
     QString fileContent = toPlainText();
     QStringList includeFiles;
     QSet<QString> inculdeFilesSet;
     QString suffix = QFileInfo(editorObject->name).suffix();
+    QRegularExpressionMatch match;
     int pos = 0;
-    while((pos = rx.indexIn(fileContent, pos)) != -1)
+    while((match = rx.match(fileContent, pos)).hasMatch())
     {
-      QString file = rx.cap(1).remove('\"');
+      QString file = match.captured(1).remove('\"');
       if(QFileInfo(file).suffix().isEmpty())
         (file += '.') += suffix;
       if(!inculdeFilesSet.contains(file))
@@ -266,15 +276,15 @@ void EditorWidget::updateEditMenu(QMenu* menu, bool aboutToShow) const
         includeFiles.append(file);
         inculdeFilesSet.insert(file);
       }
-      pos += rx.matchedLength();
+      pos = match.capturedEnd();
     }
 
     if(includeFiles.count() > 0)
     {
-      foreach(QString str, includeFiles)
+      for(const QString& str : includeFiles)
       {
         QAction* action = menu->addAction(tr("Open \"%1\"").arg(str));
-        const_cast<EditorWidget*>(this)->openFileMapper.setMapping(action, str);
+        openFileMapper.setMapping(action, str);
         connect(action, SIGNAL(triggered()), &openFileMapper, SLOT(map()));
       }
       menu->addSeparator();
@@ -331,6 +341,20 @@ void EditorWidget::updateEditMenu(QMenu* menu, bool aboutToShow) const
   action->setShortcut(QKeySequence(QKeySequence::SelectAll));
   action->setStatusTip(tr("Select the whole document"));
   connect(action, SIGNAL(triggered()), this, SLOT(selectAll()));
+
+  menu->addSeparator();
+
+  action = menu->addAction(tr("&Find and Replace"));
+  action->setShortcut(QKeySequence(QKeySequence::Find));
+  action->setStatusTip(tr("Find and replace text in the document"));
+  connect(action, SIGNAL(triggered()), this, SLOT(openFindAndReplace()));
+
+  menu->addSeparator();
+
+  action = menu->addAction(tr("Editor &Settings"));
+  action->setShortcut(QKeySequence(QKeySequence::Preferences));
+  action->setStatusTip(tr("Open the editor settings"));
+  connect(action, SIGNAL(triggered()), this, SLOT(openSettings()));
 }
 
 void EditorWidget::focusInEvent(QFocusEvent * event)
@@ -341,9 +365,126 @@ void EditorWidget::focusInEvent(QFocusEvent * event)
 
 void EditorWidget::keyPressEvent(QKeyEvent* event)
 {
-  QTextEdit::keyPressEvent(event);
-  if(event->matches(QKeySequence::Copy) || event->matches(QKeySequence::Cut))
-    emit pasteAvailable(canPaste());
+  switch(event->key())
+  {
+    case Qt::Key_Tab:
+    case Qt::Key_Backtab:
+      event->accept();
+      {
+        QTextCursor cursor = textCursor();
+        if(event->key() == Qt::Key_Tab && cursor.position() == cursor.anchor())
+        {
+          if(useTabStop)
+            cursor.insertText("\t");
+          else
+          {
+            cursor.beginEditBlock();
+            const int position = cursor.position();
+            cursor.movePosition(QTextCursor::StartOfLine, QTextCursor::MoveAnchor);
+            const int diff = position - cursor.position();
+            cursor.setPosition(position, QTextCursor::MoveAnchor);
+            cursor.insertText(QString().fill(' ', tabStopWidth - (diff % tabStopWidth)));
+            cursor.endEditBlock();
+          }
+        }
+        else
+        {
+          int anchor = cursor.anchor();
+          int position = cursor.position();
+
+          int delta; // The number of characters that have been added / removed in a line
+
+          cursor.beginEditBlock();
+          cursor.setPosition(std::min(anchor, position), QTextCursor::MoveAnchor);
+          cursor.movePosition(QTextCursor::StartOfLine, QTextCursor::MoveAnchor);
+          do
+          {
+            const int insertionPosition = cursor.position();
+            if(event->key() == Qt::Key_Tab)
+            {
+              cursor.insertText(useTabStop ? "\t" : QString().fill(' ', tabStopWidth));
+              delta = useTabStop ? 1 : tabStopWidth;
+            }
+            else
+            {
+              cursor.movePosition(QTextCursor::EndOfLine, QTextCursor::KeepAnchor);
+              QString line = cursor.selectedText();
+              if(line[0] == '\t')
+              {
+                cursor.insertText(line.mid(1));
+                delta = -1;
+              }
+              else
+              {
+                int width;
+                for(width = 0; width < line.length() && width < tabStopWidth; ++width)
+                  if(line[width] != ' ')
+                    break;
+                cursor.insertText(line.mid(width));
+                delta = -width;
+              }
+            }
+            // Adjust the original selection.
+            // When unindenting, it must not happen that the cursor moves to a line above.
+            if(insertionPosition <= anchor)
+            {
+              anchor += delta;
+              if(anchor < insertionPosition)
+                anchor = insertionPosition;
+            }
+            if(insertionPosition <= position)
+            {
+              position += delta;
+              if(position < insertionPosition)
+                position = insertionPosition;
+            }
+            // Continue with the next line.
+            cursor.movePosition(QTextCursor::Down, QTextCursor::MoveAnchor);
+            cursor.movePosition(QTextCursor::StartOfLine, QTextCursor::MoveAnchor);
+            // Check if the last line has been reached.
+            if(cursor.position() == insertionPosition)
+              break;
+          }
+          while(cursor.position() < std::max(anchor, position));
+          // Restore the original selection.
+          cursor.setPosition(anchor, QTextCursor::MoveAnchor);
+          cursor.setPosition(position, QTextCursor::KeepAnchor);
+          cursor.endEditBlock();
+        }
+        setTextCursor(cursor);
+      }
+      break;
+    case Qt::Key_Return:
+    case Qt::Key_Enter:
+      event->accept();
+      {
+        QTextCursor cursor = textCursor();
+        cursor.beginEditBlock();
+        // Actually insert the new line.
+        cursor.insertText("\n");
+        // Find out how the line above was indented.
+        cursor.movePosition(QTextCursor::Up, QTextCursor::MoveAnchor);
+        cursor.movePosition(QTextCursor::StartOfLine, QTextCursor::MoveAnchor);
+        cursor.movePosition(QTextCursor::EndOfLine, QTextCursor::KeepAnchor);
+        QString indentation = cursor.selectedText();
+        for(int i = 0; i < indentation.length(); ++i)
+          if(indentation[i] != ' ' && indentation[i] != '\t')
+          {
+            indentation.truncate(i);
+            break;
+          }
+        // Insert the indentation.
+        cursor.movePosition(QTextCursor::Down, QTextCursor::MoveAnchor);
+        cursor.insertText(indentation);
+        cursor.endEditBlock();
+        setTextCursor(cursor);
+      }
+      break;
+    default:
+      QTextEdit::keyPressEvent(event);
+      if(event->matches(QKeySequence::Copy) || event->matches(QKeySequence::Cut))
+        emit pasteAvailable(canPaste());
+  }
 }
 
 void EditorWidget::contextMenuEvent(QContextMenuEvent* event)
@@ -402,9 +543,190 @@ void EditorWidget::deleteText()
   insertPlainText(QString());
 }
 
+void EditorWidget::openFindAndReplace()
+{
+  if(!findAndReplaceDialog)
+  {
+    findAndReplaceDialog = new FindAndReplaceDialog(this);
+    findAndReplaceMapper.setMapping(findAndReplaceDialog->nextPushButton, find);
+    findAndReplaceMapper.setMapping(findAndReplaceDialog->previousPushButton, findBackwards);
+    findAndReplaceMapper.setMapping(findAndReplaceDialog->replacePushButton, replace);
+    findAndReplaceMapper.setMapping(findAndReplaceDialog->replaceAllPushButton, replaceAll);
+    connect(findAndReplaceDialog->nextPushButton, SIGNAL(clicked()), &findAndReplaceMapper, SLOT(map()));
+    connect(findAndReplaceDialog->previousPushButton, SIGNAL(clicked()), &findAndReplaceMapper, SLOT(map()));
+    connect(findAndReplaceDialog->replacePushButton, SIGNAL(clicked()), &findAndReplaceMapper, SLOT(map()));
+    connect(findAndReplaceDialog->replaceAllPushButton, SIGNAL(clicked()), &findAndReplaceMapper, SLOT(map()));
+    connect(&findAndReplaceMapper, SIGNAL(mapped(int)), this, SLOT(findAndReplace(int)));
+  }
+
+  findAndReplaceDialog->show();
+  findAndReplaceDialog->raise();
+  findAndReplaceDialog->activateWindow();
+}
+
+void EditorWidget::findAndReplace(int action)
+{
+  const QString& findText = findAndReplaceDialog->findTextEdit->text();
+  const QString& replaceText = findAndReplaceDialog->replaceTextEdit->text();
+  if(findText.isEmpty())
+    return;
+
+  QTextDocument::FindFlags findFlags = 0;
+  if(action == findBackwards)
+    findFlags |= QTextDocument::FindBackward;
+  if(findAndReplaceDialog->caseCheckBox->isChecked())
+    findFlags |= QTextDocument::FindCaseSensitively;
+  if(findAndReplaceDialog->wholeWordsCheckBox->isChecked())
+    findFlags |= QTextDocument::FindWholeWords;
+
+  QTextCursor cursor = textCursor(), originalCursor = cursor;
+  cursor.beginEditBlock();
+  if(action == replaceAll)
+    cursor.movePosition(QTextCursor::Start, QTextCursor::MoveAnchor);
+
+  bool tryAgain = false;
+  while(true)
+  {
+    QTextCursor result;
+
+    if(findAndReplaceDialog->regexCheckBox->isChecked())
+      result = document()->find(QRegularExpression(findText), (action == findBackwards || action == replace) ? cursor.selectionStart() : cursor.selectionEnd(), findFlags);
+    else
+      result = document()->find(findText, (action == findBackwards || action == replace) ? cursor.selectionStart() : cursor.selectionEnd(), findFlags);
+
+    if(result.isNull() || !result.hasSelection())
+    {
+      if(tryAgain || action == replaceAll)
+        break;
+      cursor.movePosition(action == findBackwards ? QTextCursor::End : QTextCursor::Start, QTextCursor::MoveAnchor);
+      tryAgain = true;
+      continue;
+    }
+    else
+      tryAgain = false;
+
+    cursor = result;
+    if(action == find || action == findBackwards)
+      break;
+
+    // If in a replace command the cursor did not previously select something that should be replaced, then this behaves like a find and is done now.
+    if(action == replace && (originalCursor.selectionStart() != cursor.selectionStart() || originalCursor.selectionEnd() != cursor.selectionEnd()))
+      break;
+
+    cursor.insertText(replaceText);
+
+    if(action == replace)
+      action = find;
+  }
+  cursor.endEditBlock();
+  setTextCursor(cursor);
+}
+
+void EditorWidget::openSettings()
+{
+  if(!editorSettingsDialog)
+  {
+    editorSettingsDialog = new EditorSettingsDialog(this);
+    connect(editorSettingsDialog->okayPushButton, SIGNAL(clicked()), this, SLOT(updateSettingsFromDialog()));
+  }
+
+  editorSettingsDialog->useTabStopCheckBox->setChecked(useTabStop);
+  editorSettingsDialog->tabStopWidthSpinBox->setValue(tabStopWidth);
+
+  editorSettingsDialog->show();
+  editorSettingsDialog->raise();
+  editorSettingsDialog->activateWindow();
+}
+
+void EditorWidget::updateSettingsFromDialog()
+{
+  useTabStop = editorSettingsDialog->useTabStopCheckBox->isChecked();
+  tabStopWidth = editorSettingsDialog->tabStopWidthSpinBox->value();
+  setTabStopWidth(tabStopWidth * QFontMetrics(font()).width(' '));
+}
+
 void EditorWidget::openFile(const QString& fileName)
 {
   QString filePath = QFileInfo(editorObject->filePath).path() + "/" + fileName;
   editorObject->addEditor(filePath, editorObject->subFileRegExpPattern, false);
   EditorModule::module->openEditor(filePath);
+}
+
+EditorWidget::EditorSettingsDialog::EditorSettingsDialog(QWidget* parent) :
+  QDialog(parent)
+{
+  useTabStopLabel = new QLabel(tr("Use tab stop"));
+  useTabStopCheckBox = new QCheckBox;
+  useTabStopLabel->setBuddy(useTabStopCheckBox);
+
+  tabStopWidthLabel = new QLabel(tr("Tab stop width"));
+  tabStopWidthSpinBox = new QSpinBox;
+  tabStopWidthSpinBox->setRange(1, 16);
+  tabStopWidthLabel->setBuddy(tabStopWidthSpinBox);
+
+  okayPushButton = new QPushButton(tr("OK"));
+  closePushButton = new QPushButton(tr("Close"));
+
+  connect(okayPushButton, SIGNAL(clicked()), this, SLOT(accept()));
+  connect(closePushButton, SIGNAL(clicked()), this, SLOT(reject()));
+
+  QFormLayout* settingsLayout = new QFormLayout;
+  settingsLayout->addRow(useTabStopLabel, useTabStopCheckBox);
+  settingsLayout->addRow(tabStopWidthLabel, tabStopWidthSpinBox);
+
+  QHBoxLayout* buttonLayout = new QHBoxLayout;
+  buttonLayout->addWidget(okayPushButton);
+  buttonLayout->addWidget(closePushButton);
+
+  QVBoxLayout* mainLayout = new QVBoxLayout;
+  mainLayout->addLayout(settingsLayout);
+  mainLayout->addLayout(buttonLayout);
+
+  setLayout(mainLayout);
+  setWindowTitle(tr("Editor Settings"));
+}
+
+EditorWidget::FindAndReplaceDialog::FindAndReplaceDialog(QWidget* parent) :
+  QDialog(parent)
+{
+  findLabel = new QLabel(tr("Find"));
+  findTextEdit = new QLineEdit;
+  findLabel->setBuddy(findTextEdit);
+
+  replaceLabel = new QLabel(tr("Replace"));
+  replaceTextEdit = new QLineEdit;
+  replaceLabel->setBuddy(replaceTextEdit);
+
+  caseCheckBox = new QCheckBox(tr("Match &case"));
+  wholeWordsCheckBox = new QCheckBox(tr("&Whole words"));
+  regexCheckBox = new QCheckBox(tr("&Regular expression"));
+
+  nextPushButton = new QPushButton(tr("&Next"));
+  nextPushButton->setChecked(true);
+  previousPushButton = new QPushButton(tr("&Previous"));
+  replacePushButton = new QPushButton(tr("Replace"));
+  replaceAllPushButton = new QPushButton(tr("Replace all"));
+
+  QVBoxLayout* buttonLayout = new QVBoxLayout;
+  buttonLayout->addWidget(nextPushButton);
+  buttonLayout->addWidget(previousPushButton);
+  buttonLayout->addWidget(replacePushButton);
+  buttonLayout->addWidget(replaceAllPushButton);
+
+  QFormLayout* textLayout = new QFormLayout;
+  textLayout->addRow(findLabel, findTextEdit);
+  textLayout->addRow(replaceLabel, replaceTextEdit);
+
+  QVBoxLayout* checkboxLayout = new QVBoxLayout;
+  checkboxLayout->addLayout(textLayout);
+  checkboxLayout->addWidget(caseCheckBox);
+  checkboxLayout->addWidget(wholeWordsCheckBox);
+  checkboxLayout->addWidget(regexCheckBox);
+
+  QHBoxLayout* mainLayout = new QHBoxLayout;
+  mainLayout->addLayout(checkboxLayout);
+  mainLayout->addLayout(buttonLayout);
+
+  setLayout(mainLayout);
+  setWindowTitle(tr("Find and Replace"));
 }

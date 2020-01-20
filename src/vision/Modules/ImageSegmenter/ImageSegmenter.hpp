@@ -35,10 +35,10 @@ private:
     int gMax;
     // the y coordinate where the edge intensity was highest
     int yPeak;
-    // The number of sampled points within the last segment.
+    // the number of sampled points within the last segment
     int scanPoints;
-    // the previous color on the scanline
-    const YCbCr422* lastYCbCr422;
+    // the previous y value on the scanline
+    std::uint8_t lastYValue;
     // the scanline this state belongs to
     VerticalScanline* scanline;
   };
@@ -101,7 +101,10 @@ private:
   /**
    * @brief createVerticalScanlines scans the image on vertical scanlines and creates segments of
    * similar color
+   * @tparam useMedian if true the median of the pixel's y value and the y values of the pixel
+   * above and below is evaluated for segmentation instead of simply the pixel's y value
    */
+  template <bool useMedian>
   void createVerticalScanlines();
   /**
    * @brief createHorizontalScanlines scans the image on horizontal scanlines and creates segments
@@ -130,6 +133,8 @@ private:
   const Parameter<std::array<int, 2>> edgeThresholdVertical_;
   const Parameter<int> numScanlines_;
   const Parameter<bool> drawEdges_;
+  const Parameter<bool> useMedianVerticalTop_;
+  const Parameter<bool> useMedianVerticalBottom_;
 
   const Dependency<ImageData> imageData_;
   const Dependency<CameraMatrix> cameraMatrix_;

@@ -13,7 +13,7 @@ namespace Uni{
         return Uni::Value( Uni::ValueType::NIL );
         case Json::intValue:
         case Json::uintValue:
-        return Uni::Value( node.asInt() );
+        return Uni::Value( static_cast<int64_t>(node.asInt64()) );
         case Json::realValue:
         return Uni::Value( node.asDouble() );
         case Json::booleanValue:
@@ -49,7 +49,7 @@ namespace Uni{
         case Uni::ValueType::INT32:
         return Json::Value( node.asInt32() );
         case Uni::ValueType::INT64:
-        return Json::Value( static_cast<int32_t>(node.asInt64() ));
+        return Json::Value( static_cast<long long int>(node.asInt64()) );
         case Uni::ValueType::REAL:
         return Json::Value( node.asDouble() );
         case Uni::ValueType::BOOL:
@@ -60,7 +60,7 @@ namespace Uni{
         {
           Json::Value jsonNode(Json::arrayValue);
           int i = 0;
-          for (auto it = node.listBegin(); it != node.listEnd(); it++, i++)
+          for (auto it = node.vectorBegin(); it != node.vectorEnd(); it++, i++)
           {
             jsonNode[i] = toJson(*it);
           }
@@ -75,7 +75,7 @@ namespace Uni{
           return jsonNode;
         }
         default:
-          throw std::runtime_error("Uni::Converter::toJson unhanled type!!");
+          throw std::runtime_error("Uni::Converter::toJson unhandled type!!");
       }
     }
   }

@@ -19,7 +19,6 @@ StrikerActionProvider::StrikerActionProvider(const ModuleManagerInterface& manag
   , angleToBallKick_(*this, "angleToBallKick", [this] { angleToBallKick_() *= TO_RAD; })
   , asapDeviationAngle_(*this, "asapDeviationAngle", [this] { asapDeviationAngle_() *= TO_RAD; })
   , distanceToBallDribble_(*this, "distanceToBallDribble", [] {})
-  , distanceToBallKick_(*this, "distanceToBallKick", [] {})
   , dribbleMapInterpolationPoints_(*this, "dribbleMapInterpolationPoints", [] {})
   , kickAwayFromGoal_(*this, "kickAwayFromGoal", [] {})
   , kickIntoGoal_(*this, "kickIntoGoal", [] {})
@@ -32,10 +31,16 @@ StrikerActionProvider::StrikerActionProvider(const ModuleManagerInterface& manag
   , kickRatingThreshold_(*this, "kickRatingThreshold", [] {})
   , ownGoalAreaRadius_(*this, "ownGoalAreaRadius", [] {})
   , opponentGoalAreaRadius_(*this, "opponentGoalAreaRadius", [] {})
+  , useInWalkKickAsStrongDribble_(*this, "useInWalkKickAsStrongDribble", [] {})
+  , useInWalkKickInKickOff_(*this, "useInWalkKickInKickOff", [] {})
+  , useInWalkKickToClearBall_(*this, "useInWalkKickToClearBall", [] {})
+  , useInWalkKickToClearBallASAP_(*this, "useInWalkKickToClearBallASAP", [] {})
+  , useInWalkKickToScoreGoal_(*this, "useInWalkKickToScoreGoal", [] {})
   , useOnlyThisFoot_(*this, "useOnlyThisFoot", [] {})
   , useSideKickParam_(*this, "useSideKick", [] {})
   , useStrongDribble_(*this, "useStrongDribble", [] {})
   , useTurnKickParam_(*this, "useTurnKick", [] {})
+  , forceKick_(*this, "forceKick", [] {})
   , ballState_(*this)
   , collisionDetectorData_(*this)
   , cycleInfo_(*this)
@@ -48,7 +53,7 @@ StrikerActionProvider::StrikerActionProvider(const ModuleManagerInterface& manag
   , teamBallModel_(*this)
   , teamPlayers_(*this)
   , worldState_(*this)
-  , lastAction_(StrikerAction::DRIBBLE)
+  , lastAction_(StrikerAction::Type::DRIBBLE)
   , lastIsBallNearOpponentGoal_(false)
   , lastIsBallNearOwnGoal_(false)
   , lastKickRating_(false)
@@ -71,6 +76,7 @@ void StrikerActionProvider::cycle()
        gameControllerState_->gameState != GameState::SET) ||
       gameControllerState_->penalty != Penalty::NONE ||
       gameControllerState_->gamePhase != GamePhase::NORMAL ||
+      gameControllerState_->setPlay == SetPlay::CORNER_KICK ||
       teamBallModel_->ballType == TeamBallModel::BallType::NONE)
   {
     return;
@@ -82,6 +88,13 @@ void StrikerActionProvider::cycle()
   int useOnlyThisFoot = useOnlyThisFoot_();
   const bool forceSign = useOnlyThisFoot_() != 0;
   int& lastSign = forceSign ? useOnlyThisFoot : lastSign_;
+
+  if (forceKick_())
+  {
+    const Vector2f absOpponentGoal(fieldDimensions_->fieldLength / 2.0f, 0.0f);
+    createStrikerAction(KickType::FORWARD, absOpponentGoal, relBallPosition, lastSign, forceSign);
+    return;
+  }
 
   // do kickoff dribbling?
   if (worldState_->ballInCenterCircle && gameControllerState_->kickingTeam &&
@@ -99,17 +112,18 @@ void StrikerActionProvider::cycle()
             ? fieldDimensions_->fieldLength / 2.f * (-1.f * setPosition_->position).normalized()
             : interpolatedBallTarget;
 
-    strikerAction_->type = StrikerAction::Type::DRIBBLE;
     strikerAction_->target = dribbleOffsetTarget;
-    strikerAction_->kickType = StrikerAction::KickType::NONE;
-    strikerAction_->kickPose =
-        BallUtils::kickPose(relBallPosition, robotPosition_->fieldToRobot(dribbleOffsetTarget),
-                            distanceToBallDribble_().x(), lastSign, forceSign, distanceToBallDribble_().y());
-    strikerAction_->kickable =
-        BallUtils::kickable(strikerAction_->kickPose, *ballState_, distanceToBallDribble_().x(),
-                            angleToBallDribble_(), distanceToBallDribble_().y(), strikerAction_->kickable);
-    strikerAction_->valid = true;
-    return;
+
+    if (useInWalkKickInKickOff_())
+    {
+      createStrikerAction(InWalkKickType::FORWARD, dribbleOffsetTarget, relBallPosition);
+      return;
+    }
+    else
+    {
+      createStrikerAction(dribbleOffsetTarget, relBallPosition, lastSign, forceSign);
+      return;
+    }
   }
 
   // is ball near to own goal?
@@ -139,17 +153,18 @@ void StrikerActionProvider::cycle()
         else
         {
           // shoot away from goal ASAP
-          strikerAction_->type = StrikerAction::Type::KICK_INTO_GOAL;
           strikerAction_->target = ballTarget;
-          strikerAction_->kickType = StrikerAction::KickType::FORWARD;
-          strikerAction_->kickPose = BallUtils::kickPose(
-              relBallPosition, robotPosition_->fieldToRobot(ballTarget), distanceToBallKick_().x(),
-              lastSign, forceSign, distanceToBallKick_().y());
-          strikerAction_->kickable = BallUtils::kickable(
-              strikerAction_->kickPose, *ballState_, distanceToBallKick_().x(), angleToBallKick_(),
-              distanceToBallKick_().y(), strikerAction_->kickable);
-          strikerAction_->valid = true;
-          return;
+          if (useInWalkKickToClearBallASAP_())
+          {
+            createStrikerAction(InWalkKickType::FORWARD, ballTarget, relBallPosition);
+            return;
+          }
+          else
+          {
+            createStrikerAction(KickType::FORWARD, ballTarget, relBallPosition,
+                                lastSign, forceSign);
+            return;
+          }
         }
       }
       else
@@ -163,16 +178,7 @@ void StrikerActionProvider::cycle()
         else
         {
           // dribble in interpolated direction
-          strikerAction_->type = StrikerAction::Type::DRIBBLE;
-          strikerAction_->target = ballTarget;
-          strikerAction_->kickType = StrikerAction::KickType::NONE;
-          strikerAction_->kickPose =
-              BallUtils::kickPose(relBallPosition, robotPosition_->fieldToRobot(ballTarget),
-                                  distanceToBallDribble_().x(), lastSign, forceSign, distanceToBallDribble_().y());
-          strikerAction_->kickable =
-              BallUtils::kickable(strikerAction_->kickPose, *ballState_, distanceToBallDribble_().x(),
-                                  angleToBallDribble_(), distanceToBallDribble_().y(), strikerAction_->kickable);
-          strikerAction_->valid = true;
+          createStrikerAction(ballTarget, relBallPosition, lastSign, forceSign);
           return;
         }
       }
@@ -192,18 +198,17 @@ void StrikerActionProvider::cycle()
           // shoot away from goal
           const Vector2f ballTarget(teamBallModel_->position +
                                     getInterpolatedDirection().normalized() * 2.5f);
-          // fill data
-          strikerAction_->type = StrikerAction::Type::KICK_INTO_GOAL;
-          strikerAction_->target = ballTarget;
-          strikerAction_->kickType = StrikerAction::KickType::FORWARD;
-          strikerAction_->kickPose = BallUtils::kickPose(
-              relBallPosition, robotPosition_->fieldToRobot(ballTarget), distanceToBallKick_().x(),
-              lastSign, forceSign, distanceToBallKick_().y());
-          strikerAction_->kickable = BallUtils::kickable(
-              strikerAction_->kickPose, *ballState_, distanceToBallKick_().x(), angleToBallKick_(),
-              distanceToBallKick_().y(), strikerAction_->kickable);
-          strikerAction_->valid = true;
-          return;
+          if (useInWalkKickToClearBall_())
+          {
+            createStrikerAction(InWalkKickType::FORWARD, ballTarget, relBallPosition);
+            return;
+          }
+          else
+          {
+            createStrikerAction(KickType::FORWARD, ballTarget, relBallPosition,
+                                lastSign, forceSign);
+            return;
+          }
         }
       }
       else
@@ -219,18 +224,7 @@ void StrikerActionProvider::cycle()
           // dribble in interpolated direction
           const Vector2f ballTarget =
               absBallPosition + (getInterpolatedDirection().normalized() * 10.f);
-
-          // fill data
-          strikerAction_->type = StrikerAction::Type::DRIBBLE;
-          strikerAction_->target = ballTarget;
-          strikerAction_->kickType = StrikerAction::KickType::NONE;
-          strikerAction_->kickPose =
-              BallUtils::kickPose(relBallPosition, robotPosition_->fieldToRobot(ballTarget),
-                                  distanceToBallDribble_().x(), lastSign, forceSign, distanceToBallDribble_().y());
-          strikerAction_->kickable =
-              BallUtils::kickable(strikerAction_->kickPose, *ballState_, distanceToBallDribble_().x(),
-                                  angleToBallDribble_(), distanceToBallDribble_().y(), strikerAction_->kickable);
-          strikerAction_->valid = true;
+          createStrikerAction(ballTarget, relBallPosition, lastSign, forceSign);
           return;
         }
       }
@@ -256,7 +250,7 @@ void StrikerActionProvider::cycle()
         const float angleRobotToBall = std::atan2(robotToBall.y(), robotToBall.x());
         const float dribbleAngle =
             (worldState_->ballIsToMyLeft ? 1.f : -1.f) *
-            Range<float>::clipToGivenRange(std::abs(angleRobotToBall), 0.f, 30 * TO_RAD);
+            Range<float>::clipToGivenRange(std::abs(angleRobotToBall), 0.f, 30.f * TO_RAD);
         const Line<float> dribbleLine =
             Line<float>(absBallPosition,
                         absBallPosition + Vector2f(std::cos(dribbleAngle), std::sin(dribbleAngle)));
@@ -264,18 +258,8 @@ void StrikerActionProvider::cycle()
                               Range<float>::clipToGivenRange(dribbleLine.getY(ballTarget.x()),
                                                              -fieldDimensions_->goalInnerWidth / 3.f,
                                                              fieldDimensions_->goalInnerWidth / 3.f));
-
-        // fill data
-        strikerAction_->type = StrikerAction::Type::DRIBBLE_INTO_GOAL;
-        strikerAction_->target = ballTarget;
-        strikerAction_->kickType = StrikerAction::KickType::NONE;
-        strikerAction_->kickPose =
-            BallUtils::kickPose(relBallPosition, robotPosition_->fieldToRobot(ballTarget),
-                                distanceToBallDribble_().x(), lastSign, forceSign, distanceToBallDribble_().y());
-        strikerAction_->kickable =
-            BallUtils::kickable(strikerAction_->kickPose, *ballState_, distanceToBallDribble_().x(),
-                                angleToBallDribble_(), distanceToBallDribble_().y(), strikerAction_->kickable);
-        strikerAction_->valid = true;
+        createStrikerAction(ballTarget, relBallPosition, lastSign, forceSign);
+        return;
       }
     }
     else
@@ -284,36 +268,24 @@ void StrikerActionProvider::cycle()
       {
         // shoot into goal
         const Vector2f ballTarget(fieldDimensions_->fieldLength / 2.f, 0.f);
-        // fill data
-        strikerAction_->type = StrikerAction::Type::KICK_INTO_GOAL;
-        strikerAction_->target = ballTarget;
-        strikerAction_->kickType = StrikerAction::KickType::FORWARD;
-        strikerAction_->kickPose = BallUtils::kickPose(
-            relBallPosition, robotPosition_->fieldToRobot(ballTarget), distanceToBallKick_().x(),
-            lastSign, forceSign, distanceToBallKick_().y());
-        strikerAction_->kickable = BallUtils::kickable(
-            strikerAction_->kickPose, *ballState_, distanceToBallKick_().x(), angleToBallKick_(),
-            distanceToBallKick_().y(), strikerAction_->kickable);
-        strikerAction_->valid = true;
-        return;
+        if (useInWalkKickToScoreGoal_())
+        {
+          createStrikerAction(InWalkKickType::FORWARD, ballTarget, relBallPosition);
+          return;
+        }
+        else
+        {
+          createStrikerAction(KickType::FORWARD, ballTarget, relBallPosition,
+                              lastSign, forceSign);
+          return;
+        }
       }
       else
       {
         // dribble in interpolated direction
         const Vector2f ballTarget =
             absBallPosition + (getInterpolatedDirection().normalized() * 10.f);
-
-        // fill data
-        strikerAction_->type = StrikerAction::Type::DRIBBLE;
-        strikerAction_->target = ballTarget;
-        strikerAction_->kickType = StrikerAction::KickType::NONE;
-        strikerAction_->kickPose =
-            BallUtils::kickPose(relBallPosition, robotPosition_->fieldToRobot(ballTarget),
-                                distanceToBallDribble_().x(), lastSign, forceSign, distanceToBallDribble_().y());
-        strikerAction_->kickable =
-            BallUtils::kickable(strikerAction_->kickPose, *ballState_, distanceToBallDribble_().x(),
-                                angleToBallDribble_(), distanceToBallDribble_().y(), strikerAction_->kickable);
-        strikerAction_->valid = true;
+        createStrikerAction(ballTarget, relBallPosition, lastSign, forceSign);
         return;
       }
     }
@@ -326,18 +298,16 @@ void StrikerActionProvider::cycle()
       const Vector2f ballTarget =
           absBallPosition + (getInterpolatedDirection().normalized() * 10.f);
 
-      // fill data
-      strikerAction_->type = StrikerAction::Type::DRIBBLE;
-      strikerAction_->target = ballTarget;
-      strikerAction_->kickType = StrikerAction::KickType::NONE;
-      strikerAction_->kickPose =
-          BallUtils::kickPose(relBallPosition, robotPosition_->fieldToRobot(ballTarget),
-                              distanceToBallDribble_().x(), lastSign, forceSign, distanceToBallDribble_().y());
-      strikerAction_->kickable =
-          BallUtils::kickable(strikerAction_->kickPose, *ballState_, distanceToBallDribble_().x(),
-                              angleToBallDribble_(), distanceToBallDribble_().y(), strikerAction_->kickable);
-      strikerAction_->valid = true;
-      return;
+      if (useInWalkKickAsStrongDribble_())
+      {
+        createStrikerAction(InWalkKickType::FORWARD, ballTarget, relBallPosition);
+        return;
+      }
+      else
+      {
+        createStrikerAction(ballTarget, relBallPosition, lastSign, forceSign);
+        return;
+      }
     }
     else
     {
@@ -351,22 +321,63 @@ void StrikerActionProvider::cycle()
         // dribble in interpolated direction
         const Vector2f ballTarget =
             absBallPosition + (getInterpolatedDirection().normalized() * 10.f);
-
-        // fill data
-        strikerAction_->type = StrikerAction::Type::DRIBBLE;
-        strikerAction_->target = ballTarget;
-        strikerAction_->kickType = StrikerAction::KickType::NONE;
-        strikerAction_->kickPose =
-            BallUtils::kickPose(relBallPosition, robotPosition_->fieldToRobot(ballTarget),
-                                distanceToBallDribble_().x(), lastSign, forceSign, distanceToBallDribble_().y());
-        strikerAction_->kickable =
-            BallUtils::kickable(strikerAction_->kickPose, *ballState_, distanceToBallDribble_().x(),
-                                angleToBallDribble_(), distanceToBallDribble_().y(), strikerAction_->kickable);
-        strikerAction_->valid = true;
+        createStrikerAction(ballTarget, relBallPosition, lastSign, forceSign);
         return;
       }
     }
   }
+}
+
+void StrikerActionProvider::createStrikerAction(const KickType kickType, const Vector2f& absTarget,
+                                                const Vector2f& relBallPosition, int& lastSign,
+                                                const bool forceSign)
+{
+  const auto kick = kickConfigurationData_->kicks[static_cast<int>(kickType)];
+
+  strikerAction_->type = StrikerAction::Type::KICK;
+  strikerAction_->kickType = kickType;
+  strikerAction_->target = absTarget;
+  strikerAction_->kickPose =
+      BallUtils::kickPose(relBallPosition, robotPosition_->fieldToRobot(absTarget),
+                          kick.distanceToBall.x(), lastSign, forceSign, kick.distanceToBall.y());
+  strikerAction_->kickable =
+      BallUtils::kickable(strikerAction_->kickPose, *ballState_, kick.distanceToBall.x(),
+                          angleToBallKick_(), kick.distanceToBall.y(), strikerAction_->kickable);
+  strikerAction_->valid = true;
+}
+
+void StrikerActionProvider::createStrikerAction(const Vector2f& absTarget,
+                                                const Vector2f& relBallPosition, int& lastSign,
+                                                const bool forceSign)
+{
+  strikerAction_->type = StrikerAction::Type::DRIBBLE;
+  strikerAction_->target = absTarget;
+  strikerAction_->kickPose = BallUtils::kickPose(
+      relBallPosition, robotPosition_->fieldToRobot(absTarget), distanceToBallDribble_().x(),
+      lastSign, forceSign, distanceToBallDribble_().y());
+  strikerAction_->kickable = BallUtils::kickable(
+      strikerAction_->kickPose, *ballState_, distanceToBallDribble_().x(), angleToBallDribble_(),
+      distanceToBallDribble_().y(), strikerAction_->kickable);
+  strikerAction_->valid = true;
+}
+
+
+void StrikerActionProvider::createStrikerAction(const InWalkKickType inWalkKickType,
+                                                const Vector2f& absTarget,
+                                                const Vector2f& relBallPosition)
+{
+  const auto inWalkKick = kickConfigurationData_->inWalkKicks[static_cast<int>(inWalkKickType)];
+  const auto kickFoot = KickFoot::LEFT;
+
+  strikerAction_->type = StrikerAction::Type::IN_WALK_KICK;
+  strikerAction_->inWalkKickType = InWalkKickType::FORWARD;
+  strikerAction_->target = absTarget;
+  strikerAction_->kickPose = BallUtils::kickPose(inWalkKick, kickFoot, relBallPosition,
+                                                 robotPosition_->fieldToRobot(absTarget));
+  strikerAction_->kickable =
+      BallUtils::kickable(strikerAction_->kickPose, inWalkKick, kickFoot, *ballState_,
+                          angleToBallKick_(), strikerAction_->kickable);
+  strikerAction_->valid = true;
 }
 
 Vector2f StrikerActionProvider::getInterpolatedDirection() const
@@ -561,11 +572,11 @@ bool StrikerActionProvider::isWayToGoalFree()
   {
     return false;
   }
-  const Vector2f goalCenter(fieldDimensions_->fieldLength / 2.f, 0.f);
-  const Vector2f leftGoalPost(fieldDimensions_->fieldLength / 2.f,
-                              fieldDimensions_->goalInnerWidth / 2.f);
-  const Vector2f rightGoalPost(fieldDimensions_->fieldLength / 2.f,
-                               -fieldDimensions_->goalInnerWidth / 2.f);
+  const Vector2f goalCenter(fieldDimensions_->fieldLength / 2, 0);
+  const Vector2f leftGoalPost(fieldDimensions_->fieldLength / 2,
+                              fieldDimensions_->goalInnerWidth / 2);
+  const Vector2f rightGoalPost(fieldDimensions_->fieldLength / 2,
+                               -fieldDimensions_->goalInnerWidth / 2);
   return rateKick(goalCenter, leftGoalPost, rightGoalPost);
 }
 
@@ -659,7 +670,7 @@ StrikerActionProvider::findPassTarget(const float ballRating) const
       continue;
     }
     const float bonus =
-        (lastAction_ == StrikerAction::PASS && player.playerNumber == lastPassTarget_)
+        (lastAction_ == StrikerAction::Type::PASS && player.playerNumber == lastPassTarget_)
             ? lastTargetBonus_
             : 0.f;
     const float playerRating = ratePosition(player.pose.position) - bonus;

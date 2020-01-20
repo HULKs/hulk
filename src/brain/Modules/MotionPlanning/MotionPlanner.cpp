@@ -13,6 +13,7 @@
 MotionPlanner::MotionPlanner(const ModuleManagerInterface& manager)
   : Module(manager)
   , hybridAlignDistance_(*this, "hybridAlignDistance", [] {})
+  , dribbleAlignDistance_(*this, "dribbleAlignDistance", [] {})
   , targetAlignDistance_(*this, "targetAlignDistance", [] {})
   , ballOffsetShiftAngle_(*this, "ballOffsetShiftAngle",
                           [this] { ballOffsetShiftAngle_() *= TO_RAD; })
@@ -30,15 +31,19 @@ MotionPlanner::MotionPlanner(const ModuleManagerInterface& manager)
                                [this] { obstacleDisplacementAngle_() *= TO_RAD; })
   , strikerUsesOnlyLocalObstacles_(*this, "strikerUsesOnlyLocalObstacles", [] {})
   , ignoreGoalPostObstacles_(*this, "ignoreGoalPostObstacles", [] {})
-  , planForUNSWalking_(*this, "planForUNSWalking", [] {})
   , enableCarefulDribbling_(*this, "enableCarefulDribbling", [] {})
   , carefulDribbleSpeed_(*this, "carefulDribbleSpeed", [] {})
   , carefulDribbleDistanceThreshold_(*this, "carefulDribbleDistanceThreshold", [] {})
+  , footOffset_(*this, "footOffset", [] {})
   , groundLevelAvoidanceDistance_(*this, "groundLevelAvoidanceDistance", [] {})
   , shoulderLevelAvoidanceDistance_(*this, "shoulderLevelAvoidanceDistance", [] {})
   , dribblingAngleTolerance_(*this, "dribblingAngleTolerance",
                              [this] { dribblingAngleTolerance_() *= TO_RAD; })
   , slowBallApproachFactor_(*this, "slowBallApproachFactor", [] {})
+  , maxDistToBallTargetLine_(*this, "maxDistToBallTargetLine", [] {})
+  , walkAroundBallDistanceThreshold_(*this, "walkAroundBallDistanceThreshold", [] {})
+  , walkAroudBallAngleThreshold_(*this, "walkAroudBallAngleThreshold",
+                                 [this] { walkAroudBallAngleThreshold_() *= TO_RAD; })
   , motionRequest_(*this)
   , obstacleData_(*this)
   , teamObstacleData_(*this)
@@ -49,12 +54,16 @@ MotionPlanner::MotionPlanner(const ModuleManagerInterface& manager)
   , motionPlannerOutput_(*this)
   , obstacleWeights_()
   , offsetBallTargetReached_(false)
+  , walkAroundBallTargetReached_(true)
   , ignoreBallObstacle_(false)
+  , ignoreRobotObstacles_(false)
+  , lastfootdecision_(FootDecision::NONE)
 {
   ballOffsetShiftAngle_() *= TO_RAD;
   obstacleDisplacementAngle_() *= TO_RAD;
   ballOffsetTargetOrientationTolerance_() *= TO_RAD;
   dribblingAngleTolerance_() *= TO_RAD;
+  walkAroudBallAngleThreshold_ () *= TO_RAD;
 
   // Initialize obstacle-weight association
   obstacleWeights_.fill(unknownObstacleWeight_()); // Defaults to unknown obstacle weight
@@ -100,6 +109,15 @@ void MotionPlanner::cycle()
       const float dribblingBallOffsetAngle = 2 * TO_RAD;
       setWalkBehindBallPosition(dribblingBallOffsetAngle);
     }
+    else
+    {
+      // Reset these if not calling setWalkBehindBallPosition to prevent non-striker robots from
+      // ignoring ball or robot obstacles or having weird walk targets.
+      ignoreBallObstacle_ = false;
+      ignoreRobotObstacles_ = false;
+      offsetBallTargetReached_ = false;
+      walkAroundBallTargetReached_ = false;
+    }
     // Calculate the orientation the robot shoulder achieve.
     motionPlannerOutput_->walkData.target.orientation = calculateRotation();
     // The length of this vector represents the max. velocity limit, not a distance!
@@ -111,7 +129,7 @@ void MotionPlanner::cycle()
       // Copy the target orientation to the velocity because it is needed in velocity mode
       motionPlannerOutput_->walkData.velocity.rotation =
           motionPlannerOutput_->walkData.target.orientation;
-      if (enableCarefulDribbling_() && planForUNSWalking_() &&
+      if (enableCarefulDribbling_() &&
           ballState_->position.norm() < carefulDribbleDistanceThreshold_())
       {
         // clip the dribbling velocity since the maximum walking speed might be quite fast
@@ -142,10 +160,13 @@ void MotionPlanner::setWalkBehindBallPosition(float offsetRotationAngle)
   // and is interpreted as a kickPose attached to the ball.
   const Pose& kickPose = motionRequest_->walkData.target;
   const Vector2f& ballPosition = ballState_->position;
+  const Vector2f& absballSource = robotPosition_->robotToField(ballState_->position);
+  const Vector2f& absBallTarget = motionPlannerOutput_->kickData.ballDestination;
   // Calculate the angle between the ball/robot-line and the direction
   // where the ball should go (indicated by the walkTarget/kickPose orientation)
   const float robot2BallAngle = std::atan2(ballPosition.y(), ballPosition.x());
-  const float robot2BallTargetAngle = Angle::angleDiff(robot2BallAngle, kickPose.orientation);
+  const float robot2BallTargetAngle =
+      Angle::normalizeAngleDiff(robot2BallAngle - kickPose.orientation);
   // The ballTargetDirection is the direction vector pointing to where the ball should move to.
   const Vector2f ballTargetDirection(std::cos(kickPose.orientation),
                                      std::sin(kickPose.orientation));
@@ -160,16 +181,25 @@ void MotionPlanner::setWalkBehindBallPosition(float offsetRotationAngle)
     // This angle specifies how much the offset target is rotated
     // towards the robot, regardless of the direction that is determined later.
     offsetRotationAngle = std::abs(offsetRotationAngle);
+
+    // Aim for the ball if walking around is required
+    if (std::abs(robot2BallTargetAngle) > walkAroudBallAngleThreshold_())
+    {
+      offsetTarget.position = ballPosition.normalized();
+    }
     // Only if the robot is in a certain angle region, rotate the offset position along
     // the ball radius towards the robot. This decreases excessive detouring.
-    if (robot2BallTargetAngle > offsetRotationAngle)
+    else if (std::abs(robot2BallTargetAngle) > offsetRotationAngle)
     {
+      const float detBallBallTarget =
+          (robotPosition_->pose.position - absballSource).x() *
+              (absBallTarget - robotPosition_->robotToField(ballState_->position)).y() -
+          ((robotPosition_->pose.position - absballSource).y()) *
+              (absBallTarget - robotPosition_->robotToField(ballState_->position)).x();
       // Line that connects robot position and ball position
-      const Vector2f robotToBallVec =
-          robotPosition_->robotToField(ballPosition) - robotPosition_->pose.position;
       // Make sure to correctly rotate the walk target towards the left/right side of the field,
       // depending on how the robot and the ball are positioned relative to each other.
-      if (robotToBallVec.y() < 0)
+      if (detBallBallTarget < 0)
       {
         offsetRotationAngle *= -1;
       }
@@ -186,17 +216,46 @@ void MotionPlanner::setWalkBehindBallPosition(float offsetRotationAngle)
     }
   }
 
+  // WalkAroundBallPose_ is used to walk around a ball in a circle while facing it until the offset
+  // walk target is reached
+  if (!walkAroundBallTargetReached_)
+  {
+    const int sign = robot2BallTargetAngle < 0.f ? 1 : -1;
+    walkAroundBallPose_.orientation = robot2BallAngle + 30 * TO_RAD * static_cast<float>(sign);
+    walkAroundBallPose_.position =
+        Vector2f(ballState_->position.y(), -ballState_->position.x()).normalized() *
+        static_cast<float>(sign);
+  }
+  else
+  {
+    walkAroundBallPose_ = Pose();
+  }
+
   // Determine if the ball obstacle should be ignored.
   // It should be ignored if the robot is on the correct side to avoid complications
   // while dribbling. The robot is on the correct side if it is in the half-plane
   // behind the ball away from the enemy side.
-  if (robot2BallTargetAngle <= 90 * TO_RAD)
+  if (std::abs(robot2BallTargetAngle) <= 90 * TO_RAD)
   {
     ignoreBallObstacle_ = true;
   }
-  else if (robot2BallTargetAngle > 95 * TO_RAD) // Hysteresis
+  else if (std::abs(robot2BallTargetAngle) > 95 * TO_RAD) // Hysteresis
   {
     ignoreBallObstacle_ = false;
+  }
+
+  // When the ball is close to a robot we want to ignore the robot obstacle if we are about to
+  // dribble/kick.
+  const float ignoreRobotObstacleRadius =
+      3.0f * obstacleData_->typeRadius[static_cast<int>(ObstacleType::HOSTILE_ROBOT)];
+  if (ignoreBallObstacle_ && ballPosition.norm() <= ignoreRobotObstacleRadius)
+  {
+    ignoreRobotObstacles_ = true;
+  }
+  else if (!ignoreBallObstacle_ ||
+           ballPosition.norm() > ignoreRobotObstacleRadius)
+  {
+    ignoreRobotObstacles_ = false;
   }
 
   // In the following, determine if the flag should set by checking if the robot is properly
@@ -223,29 +282,80 @@ void MotionPlanner::setWalkBehindBallPosition(float offsetRotationAngle)
   // Set the tolerance for the distance check to the
   // hybridAlignDistance to prevent aligning to the offset target
   const float distanceTolerance = hybridAlignDistance_();
+  // distance of robot to line between ball source and target
+  const float distToBallTargetLine = Geometry::distPointToLine(absballSource, absBallTarget, robotPosition_->pose.position);
   if (!offsetBallTargetReached_)
   {
     if (offsetTarget.position.norm() <= distanceTolerance &&
-        (!planForUNSWalking_() ||
-         (std::abs(kickPose.orientation) < ballOffsetTargetOrientationTolerance_())) &&
+        std::abs(kickPose.orientation) < ballOffsetTargetOrientationTolerance_() &&
         axisAngle <= dribblingAngleTolerance_())
     {
-      offsetBallTargetReached_ = true;
+      if (motionPlannerOutput_->walkData.mode == WalkMode::DRIBBLE)
+      {
+        // only consider distToBallTargetLine if dribbling
+        if (distToBallTargetLine < maxDistToBallTargetLine_())
+        {
+          offsetBallTargetReached_ = true;
+        }
+      }
+      else
+      {
+        offsetBallTargetReached_ = true;
+      }
     }
   }
   else
   {
     // Hysteresis to reset the flag based on angle deviation, specifically for dribbling.
-    const float angleHysteresis = 10 * TO_RAD;
+    const float angleHysteresis = 5 * TO_RAD;
     // Hysteresis to reset the flag based on distance.
     const float distanceHysteresis = 0.1;
     if (offsetTarget.position.norm() > distanceTolerance + distanceHysteresis ||
-        (!planForUNSWalking_() ||
-         std::abs(kickPose.orientation) >
-             ballOffsetTargetOrientationTolerance_() + angleHysteresis ||
-         axisAngle > dribblingAngleTolerance_() + angleHysteresis))
+        std::abs(kickPose.orientation) >
+            ballOffsetTargetOrientationTolerance_() + angleHysteresis ||
+        axisAngle > dribblingAngleTolerance_() + angleHysteresis)
     {
       offsetBallTargetReached_ = false;
+    }
+    if (motionPlannerOutput_->walkData.mode == WalkMode::DRIBBLE)
+    {
+      // only consider distToBallTargetLine if dribbling
+      if (distToBallTargetLine >= maxDistToBallTargetLine_() + distanceHysteresis)
+      {
+        offsetBallTargetReached_ = false;
+      }
+    }
+  }
+
+  // Don't walk around ball if offset target is reached
+  if (offsetBallTargetReached_)
+  {
+    walkAroundBallTargetReached_ = true;
+  }
+  else
+  {
+    // Update walkAroundBallTargetReached_ based on distance to ball and angle between robot-ball
+    // and ball-target direction
+    const float distanceToBall = ballState_->position.norm();
+    if (walkAroundBallTargetReached_)
+    {
+      if (distanceToBall <= walkAroundBallDistanceThreshold_() &&
+          std::abs(robot2BallTargetAngle) >= walkAroudBallAngleThreshold_())
+      {
+        walkAroundBallTargetReached_ = false;
+      }
+    }
+    else
+    {
+      // Hysteresis to reset the flag based on distance.
+      const float distanceHysteresis = 0.1;
+      // Hysteresis to reset the flag based on angle deviation
+      const float angleHysteresis = 5 * TO_RAD;
+      if (distanceToBall > walkAroundBallDistanceThreshold_() + distanceHysteresis ||
+          std::abs(robot2BallTargetAngle) < walkAroudBallAngleThreshold_() - angleHysteresis)
+      {
+        walkAroundBallTargetReached_ = true;
+      }
     }
   }
 }
@@ -259,8 +369,33 @@ float MotionPlanner::calculateRotation() const
     case WalkMode::DIRECT_WITH_ORIENTATION:
       // Use the target orientation during the whole path in these modes
       return Angle::normalized(motionPlannerOutput_->walkData.target.orientation);
+    case WalkMode::WALK_BEHIND_BALL:
+    {
+      if (offsetBallTargetReached_)
+      {
+        return interpolatedAngle(targetAlignDistance_());
+      }
+      if (!walkAroundBallTargetReached_)
+      {
+        return walkAroundBallPose_.orientation;
+      }
+      return interpolatedAngle(targetAlignDistance_());
+    }
+    case WalkMode::DRIBBLE:
+      // While dribbling, align earlier to the real walk target orientation after having reached the
+      // offset target.
+      if (offsetBallTargetReached_)
+      {
+        return interpolatedAngle(dribbleAlignDistance_());
+      }
+      if (!walkAroundBallTargetReached_)
+      {
+        return walkAroundBallPose_.orientation;
+      }
+      return interpolatedAngle(targetAlignDistance_());
+
     default:
-      return interpolatedAngle();
+      return interpolatedAngle(targetAlignDistance_());
   }
 }
 
@@ -284,7 +419,12 @@ Vector2f MotionPlanner::calculateTranslation()
     {
       if (offsetBallTargetReached_)
       {
+        // Walk directly at the ball, ignoring the obstacles.
         return dribblingDirection() * velocityLimit;
+      }
+      if (!walkAroundBallTargetReached_)
+      {
+        return walkAroundBallPose_.position * velocityLimit;
       }
       return obstacleAvoidanceVector() * velocityLimit;
     }
@@ -298,6 +438,10 @@ Vector2f MotionPlanner::calculateTranslation()
         // Factor in the slowBallApproach parameter to avoid overshooting the target pose
         return outputVector * velocityLimit * slowBallApproachFactor_();
       }
+      if (!walkAroundBallTargetReached_)
+      {
+        return walkAroundBallPose_.position * velocityLimit;
+      }
       return obstacleAvoidanceVector() * velocityLimit;
     }
     default:
@@ -307,28 +451,74 @@ Vector2f MotionPlanner::calculateTranslation()
   }
 }
 
-Vector2f MotionPlanner::dribblingDirection() const
+Vector2f MotionPlanner::dribblingDirection()
 {
-  // Walk directly at the ball, ignoring the obstacles.
-  // Also to aim with the foot at the ball that is closest to it.
-  // This is done in similar fashion as seen in the BallUtils.
+  // Calculate to a position 5cm to the side of the ball. Return a normalized vector pointing
+  // to this position, so that the robot hits the ball with one of his feet while walking towards
+  // that position.
+  const Vector2f& relballSource = ballState_->position;
+  const Vector2f& absballSource = robotPosition_->robotToField(ballState_->position);
+  const Vector2f& absBallTarget = motionPlannerOutput_->kickData.ballDestination;
+  const Vector2f& relBallTarget =
+      robotPosition_->fieldToRobot(motionPlannerOutput_->kickData.ballDestination);
 
-  // First, calculate if the ball destination lies right or left from the ball.
-  const Vector2f& ballSource = ballState_->position;
-  const Vector2f& ballTarget = motionPlannerOutput_->kickData.ballDestination;
-  // TODO remove this after Iran Open 2018
-  // The sign of the determinant gives information about the vector alignment
-  // const float sourceTargetOrientation =
-  //  (ballTarget.x() * ballSource.y() -
-  //    ballTarget.y() * ballSource.x()) / sourceToTarget.norm();
-  // int sign = sourceTargetOrientation > 0.f ? 1 : -1;
-  int sign = 1;
+  // Calculate a short vector with the same direction as the line connecting ball and ball-target
+  const Vector2f normalizedBallDirection =
+      (relBallTarget - relballSource).normalized() * footOffset_();
+  // Turn the previous vector to the side so that it is perpendicular to the ball direction
+  const Vector2f footOffset(normalizedBallDirection.y(), -normalizedBallDirection.x());
 
-  // Now choose the correct foot
-  const Vector2f footSelect1 = (ballTarget - ballSource).normalized() * 0.05f;
-  const Vector2f footSelect(sign * footSelect1.y(), -sign * footSelect1.x());
-  // Calculate final foot position
-  return Vector2f(ballSource + footSelect).normalized();
+  // Calculate final position to aim at for dribbling, which is slightly offset to the left or right
+  // side of the ball. counter for reducing update frequency, in order to reduce time standing in
+  // front of the ball
+  if (cycleCounter_ % 10)
+  {
+    const float detBallBallTarget =
+        (robotPosition_->pose.position - absballSource).x() *
+            (absBallTarget - robotPosition_->robotToField(ballState_->position)).y() -
+        ((robotPosition_->pose.position - absballSource).y()) *
+            (absBallTarget - robotPosition_->robotToField(ballState_->position)).x();
+
+    if (lastfootdecision_ == FootDecision::NONE)
+    {
+      // initial check whether the nao is left or right from the ball-target-line
+      if (detBallBallTarget > 0)
+      {
+        lastfootdecision_ = FootDecision::LEFT;
+      }
+      else
+      {
+        lastfootdecision_ = FootDecision::RIGHT;
+      }
+    }
+    else if (lastfootdecision_ == FootDecision::LEFT)
+    {
+      // checking whether the site of nao has changed compared to last time
+      if (detBallBallTarget < 0)
+      {
+        lastfootdecision_ = FootDecision::RIGHT;
+      }
+    }
+    else if (lastfootdecision_ == FootDecision::RIGHT)
+    {
+      // checking whether the site of nao has changed compared to last time
+      if (detBallBallTarget > 0)
+      {
+        lastfootdecision_ = FootDecision::LEFT;
+      }
+    }
+  }
+  cycleCounter_++;
+  // adding or subtract from initial walktarget, in order to make the nao use his left or right foot
+  if (lastfootdecision_ == FootDecision::LEFT)
+  {
+    return Vector2f(relballSource + footOffset).normalized();
+  }
+  if (lastfootdecision_ == FootDecision::RIGHT)
+  {
+    return Vector2f(relballSource - footOffset).normalized();
+  }
+  return Vector2f::Zero();
 }
 
 Vector2f MotionPlanner::obstacleAvoidanceVector() const
@@ -349,7 +539,14 @@ Vector2f MotionPlanner::obstacleAvoidanceVector() const
     // depending on robot/ball-alignment and ignoring goal post obstacles if required by
     // configuration.
     if ((obstacle->type == ObstacleType::BALL && ignoreBallObstacle_) ||
-        (obstacle->type == ObstacleType::GOAL_POST && ignoreGoalPostObstacles_()))
+        (obstacle->type == ObstacleType::GOAL_POST && ignoreGoalPostObstacles_()) ||
+        ((obstacle->type == ObstacleType::ANONYMOUS_ROBOT ||
+          obstacle->type == ObstacleType::HOSTILE_ROBOT ||
+          obstacle->type == ObstacleType::TEAM_ROBOT ||
+          obstacle->type == ObstacleType::FALLEN_ANONYMOUS_ROBOT ||
+          obstacle->type == ObstacleType::FALLEN_HOSTILE_ROBOT ||
+          obstacle->type == ObstacleType::FALLEN_TEAM_ROBOT) &&
+         ignoreRobotObstacles_))
     {
       continue;
     }
@@ -446,9 +643,9 @@ Vector2f MotionPlanner::displacementVector(const Obstacle& obstacle) const
   }
 }
 
-float MotionPlanner::interpolatedAngle() const
+float MotionPlanner::interpolatedAngle(const float targetAlignDistance) const
 {
-  assert(hybridAlignDistance_() > targetAlignDistance_());
+  assert(hybridAlignDistance_() > targetAlignDistance);
   // Interpolate between facing the target and adopting the target orientation in other modes.
   const Pose& targetPose = motionPlannerOutput_->walkData.target;
   // The distance from robot origin to target can directly be obtained
@@ -470,9 +667,9 @@ float MotionPlanner::interpolatedAngle() const
   // If within goalAlignDistance,
   // or if within hybridAlignDistance AND already close to the targetPose orientation,
   // then stop facing the target position and adopt targetPose orientation directly
-  else if ((distanceToTargetPose < targetAlignDistance_()) ||
-           (distanceToTargetPose < targetAlignDistance_() +
-                                       ((hybridAlignDistance_() - targetAlignDistance_()) / 2.f) &&
+  else if ((distanceToTargetPose < targetAlignDistance) ||
+           (distanceToTargetPose <
+                targetAlignDistance + ((hybridAlignDistance_() - targetAlignDistance) / 2.f) &&
             std::abs(targetPose.orientation) < 5 * TO_RAD))
   {
     targetFacingFactor = 0;
@@ -483,8 +680,8 @@ float MotionPlanner::interpolatedAngle() const
   // the closer it gets to the targetPose.
   else
   {
-    targetFacingFactor = (distanceToTargetPose - targetAlignDistance_()) /
-                         (hybridAlignDistance_() - targetAlignDistance_());
+    targetFacingFactor = (distanceToTargetPose - targetAlignDistance) /
+                         (hybridAlignDistance_() - targetAlignDistance);
   }
   // Interpolate between facing the target and adopting the target pose orientation,
   // to calculate the rotation angle to be achieved. To do so, angle deviations

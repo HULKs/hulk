@@ -384,7 +384,8 @@ bool Reader::readValue() {
       currentValue().setOffsetLimit(current_ - begin_);
       break;
     }
-  // Else, fall through...
+    // Else, fall through...
+    [[fallthrough]];
   default:
     currentValue().setOffsetStart(token.start_ - begin_);
     currentValue().setOffsetLimit(token.end_ - begin_);

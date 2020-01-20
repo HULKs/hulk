@@ -1,0 +1,261 @@
+state.PCH {
+	control.1 {
+		iface MIXER
+		name 'Analog Front Playback Volume'
+		value.0 115
+		value.1 115
+		comment {
+			access 'read write'
+			type INTEGER
+			count 2
+			range '0 - 127'
+			dbmin -6350
+			dbmax 0
+			dbvalue.0 -600
+			dbvalue.1 -600
+		}
+	}
+	control.2 {
+		iface MIXER
+		name 'Analog Front Playback Switch'
+		value.0 true
+		value.1 true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 2
+		}
+	}
+	control.3 {
+		iface MIXER
+		name 'Analog Rear Playback Volume'
+		value.0 115
+		value.1 115
+		comment {
+			access 'read write'
+			type INTEGER
+			count 2
+			range '0 - 127'
+			dbmin -6350
+			dbmax 0
+			dbvalue.0 -600
+			dbvalue.1 -600
+		}
+	}
+	control.4 {
+		iface MIXER
+		name 'Analog Rear Playback Switch'
+		value.0 true
+		value.1 true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 2
+		}
+	}
+	control.5 {
+		iface MIXER
+		name 'Analog Rear mics Capture Volume'
+		value.0 29
+		value.1 29
+		comment {
+			access 'read write'
+			type INTEGER
+			count 2
+			range '0 - 48'
+			dbmin -1200
+			dbmax 1200
+			dbvalue.0 250
+			dbvalue.1 250
+		}
+	}
+	control.6 {
+		iface MIXER
+		name 'Analog Rear mics Capture Switch'
+		value.0 true
+		value.1 true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 2
+		}
+	}
+	control.7 {
+		iface MIXER
+		name 'Analog Front mics Capture Volume'
+		value.0 29
+		value.1 29
+		comment {
+			access 'read write'
+			type INTEGER
+			count 2
+			range '0 - 48'
+			dbmin -1200
+			dbmax 1200
+			dbvalue.0 250
+			dbvalue.1 250
+		}
+	}
+	control.8 {
+		iface MIXER
+		name 'Analog Front mics Capture Switch'
+		value.0 true
+		value.1 true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 2
+		}
+	}
+	control.9 {
+		iface MIXER
+		name 'Numeric Left mics Capture Volume'
+		value.0 68
+		value.1 68
+		comment {
+			access 'read write'
+			type INTEGER
+			count 2
+			range '0 - 88'
+			dbmin -1200
+			dbmax 3200
+			dbvalue.0 2200
+			dbvalue.1 2200
+		}
+	}
+	control.10 {
+		iface MIXER
+		name 'Numeric Left mics Capture Switch'
+		value.0 true
+		value.1 true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 2
+		}
+	}
+	control.11 {
+		iface MIXER
+		name 'Numeric Right mics Capture Volume'
+		value.0 69
+		value.1 68
+		comment {
+			access 'read write'
+			type INTEGER
+			count 2
+			range '0 - 88'
+			dbmin -1200
+			dbmax 3200
+			dbvalue.0 2250
+			dbvalue.1 2200
+		}
+	}
+	control.12 {
+		iface MIXER
+		name 'Numeric Right mics Capture Switch'
+		value.0 true
+		value.1 true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 2
+		}
+	}
+	control.13 {
+		iface PCM
+		name 'Playback Channel Map'
+		value.0 3
+		value.1 4
+		comment {
+			access read
+			type INTEGER
+			count 2
+			range '0 - 36'
+		}
+	}
+	control.14 {
+		iface PCM
+		name 'Capture Channel Map'
+		value.0 3
+		value.1 4
+		comment {
+			access read
+			type INTEGER
+			count 2
+			range '0 - 36'
+		}
+	}
+	control.15 {
+		iface PCM
+		name 'Capture Channel Map'
+		index 1
+		value.0 3
+		value.1 4
+		comment {
+			access read
+			type INTEGER
+			count 2
+			range '0 - 36'
+		}
+	}
+	control.16 {
+		iface PCM
+		name 'Capture Channel Map'
+		index 2
+		value.0 0
+		value.1 0
+		comment {
+			access read
+			type INTEGER
+			count 2
+			range '0 - 36'
+		}
+	}
+	control.17 {
+		iface PCM
+		name 'Capture Channel Map'
+		index 3
+		value.0 0
+		value.1 0
+		comment {
+			access read
+			type INTEGER
+			count 2
+			range '0 - 36'
+		}
+	}
+	control.18 {
+		iface MIXER
+		name 'Mic Boost Rear'
+		value.0 154
+		value.1 154
+		comment {
+			access 'read write user'
+			type INTEGER
+			count 2
+			range '0 - 255'
+			tlv '0000000100000008ffffec1400000027'
+			dbmin -5100
+			dbmax 4845
+			dbvalue.0 906
+			dbvalue.1 906
+		}
+	}
+	control.19 {
+		iface MIXER
+		name 'Mic Boost Front'
+		value.0 154
+		value.1 154
+		comment {
+			access 'read write user'
+			type INTEGER
+			count 2
+			range '0 - 255'
+			tlv '0000000100000008ffffec1400000027'
+			dbmin -5100
+			dbmax 4845
+			dbvalue.0 906
+			dbvalue.1 906
+		}
+	}
+}

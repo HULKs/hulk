@@ -49,10 +49,21 @@ public:
   void toValue(Uni::Value& value) const;
 
 private:
+  enum class FootDecision
+  {
+    NONE,
+    LEFT,
+    RIGHT
+  };
+
   /// when within this distance, start interpolating between facing the target and aligning with
   /// target orientation [m]
   const Parameter<float> hybridAlignDistance_;
-  /// when within this distance, align with target orientation [m]
+  /// Only while dribbling and near to the walk target: specifies the distance when the robot should
+  /// be fully aligned with the walk target pose orientation [m].
+  const Parameter<float> dribbleAlignDistance_;
+  /// specifies the distance when the robot should be fully aligned with the walk target pose
+  /// orientation when it is not dribbling or far away from the walk target pose. [m]
   const Parameter<float> targetAlignDistance_;
   /// offset ball walk target will be shifted by this angle along the ball avoidance radius [deg]
   Parameter<float> ballOffsetShiftAngle_;
@@ -83,14 +94,14 @@ private:
   /// set to true to ignore goal post obstacles in motion planning (since they might be dangerous in
   /// cases were they prevent the robot from reaching its target (e.g. ball near goal post)) set to
   const Parameter<bool> ignoreGoalPostObstacles_;
-  /// true to enable some tweaks for the new walking engine
-  const Parameter<bool> planForUNSWalking_;
   /// set to true to use a different walking speed while dribbling
   const Parameter<bool> enableCarefulDribbling_;
   /// the factor applied to the translational velocity when dribbiling carefully
   const Parameter<float> carefulDribbleSpeed_;
   /// the distance to the ball at which we start carefully dribbling more carefully
   const Parameter<float> carefulDribbleDistanceThreshold_;
+  /// Offset of robotfoot to ball while dribbling, in order to assure he hits ball with his foot
+  const Parameter<float> footOffset_;
   /// the minimum distance that we can come close to the outer surface of an obstacle, if we can
   /// collide with this obstacle on foot height
   const Parameter<float> groundLevelAvoidanceDistance_;
@@ -104,6 +115,10 @@ private:
   Parameter<float> dribblingAngleTolerance_;
   /// This is used when not dribbling to approach the ball more slowly (avoids overshoot)
   const Parameter<float> slowBallApproachFactor_;
+  const Parameter<float> maxDistToBallTargetLine_;
+  /// thresholds to decide when to walk around the ball
+  const Parameter<float> walkAroundBallDistanceThreshold_;
+  Parameter<float> walkAroudBallAngleThreshold_;
 
   // Dependencies
   /// The motionRequest is used to get the position of the target
@@ -129,10 +144,20 @@ private:
   // State members
   /// This array associates each obstacle type with a weight
   std::array<float, static_cast<int>(ObstacleType::OBSTACLETYPE_MAX)> obstacleWeights_;
-  // A flag indicating if the offset walk target has been reached
+  /// A flag indicating if the offset walk target has been reached
   bool offsetBallTargetReached_;
-  // A flag indicating if the ball obstace should be ignored during obstacle avoidance.
+  /// A flag indicating if the walk target for walking around the ball has been reached
+  bool walkAroundBallTargetReached_;
+  /// A flag indicating if the ball obstace should be ignored during obstacle avoidance.
   bool ignoreBallObstacle_;
+  /// A flag indicating if robot obstacles should be ignored during obstacle avoidance.
+  bool ignoreRobotObstacles_;
+  /// Documents the last foot decision and is than used to give a margin of error
+  FootDecision lastfootdecision_;
+  /// Counts the amounts of cycle to reduce update of foot decision
+  unsigned int cycleCounter_ = 0;
+  /// a pose used for walking around the ball in a circle while facing it
+  Pose walkAroundBallPose_;
 
   /**
    * @brief Set a waypoint position pulled back from the ball, and after reaching it, set the target
@@ -189,10 +214,10 @@ private:
   Velocity getClippedDribbleVelocity(const Velocity& requestedVelocity) const;
 
   /**
-   * @brief This tries to hit the ball with the center of the nearest foot.
+   * @brief Calculate a vector pointing to a position near the ball for dribbling.
    * @return The direction to walk to while dribbling as normalized vector.
    */
-  Vector2f dribblingDirection() const;
+  Vector2f dribblingDirection();
 
   /**
    * @brief Calculates a final superimposed displacement vector, which represents the repulsive
@@ -211,7 +236,7 @@ private:
    * @brief Interpolate between facing the target and adopting the target orientation.
    * @return interpolatedAngle
    */
-  float interpolatedAngle() const;
+  float interpolatedAngle(const float targetAlignDistance) const;
   /**
    * @brief getMinDistToObstacleCenter figures out how close we can come to an obstacle. This
    * considers the height of the collision (e.g. with ball we can only collide on foot height, not

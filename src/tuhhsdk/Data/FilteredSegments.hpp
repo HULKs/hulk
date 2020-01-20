@@ -10,20 +10,15 @@ public:
   std::vector<const Segment*> vertical;
   std::vector<const Segment*> horizontal;
   bool valid = false;
-  void reset()
+
+  void reset() override
   {
     vertical.clear();
     horizontal.clear();
     valid = false;
   }
 
-  /**
-   * @see function in DataType
-   */
-  virtual void toValue(Uni::Value& /*value*/) const {}
+  void toValue(Uni::Value& /*value*/) const override {}
 
-  /**
-   * @see function in DataType
-   */
-  virtual void fromValue(const Uni::Value& /*value*/) {}
+  void fromValue(const Uni::Value& /*value*/) override {}
 };

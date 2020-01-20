@@ -1,0 +1,11 @@
+{
+    "name": "robotsFilter",
+    "enabled": true,
+    "config": {
+                "center_x": 5.2,
+                "center_y": -3.7,
+                "robotsFilter": {
+                    "key": "Brain.RobotsFilter_robots"
+                }
+            }
+}

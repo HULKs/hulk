@@ -1,8 +1,8 @@
 /**
-* @file SimObjectWidget.cpp
-* Implementation of class SimObjectWidget
-* @author Colin Graf
-*/
+ * @file SimObjectWidget.cpp
+ * Implementation of class SimObjectWidget
+ * @author Colin Graf
+ */
 
 #include <QMouseEvent>
 #include <QApplication>
@@ -19,11 +19,7 @@
 #include "Simulation/Simulation.h"
 #include "Simulation/Scene.h"
 
-#if QT_VERSION < 0x050000
-#define devicePixelRatio() 1
-#endif
-
-SimObjectWidget::SimObjectWidget(SimObject& simObject) : QGLWidget(QGLFormat(QGL::SampleBuffers | QGL::AccumBuffer), 0, Simulation::simulation->renderer.getWidget()),
+SimObjectWidget::SimObjectWidget(SimObject& simObject) : QGLWidget(QGLFormat(QGL::SampleBuffers), 0, Simulation::simulation->renderer.getWidget()),
   object(dynamic_cast<SimRobot::Object&>(simObject)), objectRenderer(simObject),
   wkey(false), akey(false), skey(false), dkey(false)
 {
@@ -77,12 +73,12 @@ SimObjectWidget::~SimObjectWidget()
   float target[3];
   objectRenderer.getCamera(pos, target);
 
-  settings->setValue("cameraPosX", (double)pos[0]);
-  settings->setValue("cameraPosY", (double)pos[1]);
-  settings->setValue("cameraPosZ", (double)pos[2]);
-  settings->setValue("cameraTargetX", (double)target[0]);
-  settings->setValue("cameraTargetY", (double)target[1]);
-  settings->setValue("cameraTargetZ", (double)target[2]);
+  settings->setValue("cameraPosX", pos[0]);
+  settings->setValue("cameraPosY", pos[1]);
+  settings->setValue("cameraPosZ", pos[2]);
+  settings->setValue("cameraTargetX", target[0]);
+  settings->setValue("cameraTargetY", target[1]);
+  settings->setValue("cameraTargetZ", target[2]);
 
   settings->endGroup();
 }
@@ -90,12 +86,6 @@ SimObjectWidget::~SimObjectWidget()
 void SimObjectWidget::initializeGL()
 {
   objectRenderer.init(isSharing());
-#ifdef FIX_MACOS_BROKEN_TEXTURES_ON_NVIDIA_BUG
-  Simulation::simulation->renderer.makeCurrent(8, 8);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glFlush();
-  makeCurrent();
-#endif
 }
 
 void SimObjectWidget::paintGL()
@@ -108,16 +98,11 @@ void SimObjectWidget::resizeGL(int width, int height)
   objectRenderer.resize(fovy, width, height);
 }
 
-void SimObjectWidget::paintEvent(QPaintEvent* event)
-{
-  QGLWidget::paintEvent(event);
-}
-
 void SimObjectWidget::mouseMoveEvent(QMouseEvent* event)
 {
   QGLWidget::mouseMoveEvent(event);
-
-  if(objectRenderer.moveDrag(event->x() * devicePixelRatio(), event->y() * devicePixelRatio()))
+  const Qt::KeyboardModifiers m = QApplication::keyboardModifiers();
+  if(objectRenderer.moveDrag(event->x() * devicePixelRatio(), event->y() * devicePixelRatio(), m & Qt::ShiftModifier ? (m & Qt::ControlModifier ? SimObjectRenderer::dragRotateWorld : SimObjectRenderer::dragRotate) : (m & Qt::ControlModifier ? SimObjectRenderer::dragNormalObject : SimObjectRenderer::dragNormal)))
   {
     event->accept();
     update();
@@ -158,7 +143,7 @@ void SimObjectWidget::mouseDoubleClickEvent(QMouseEvent* event)
   {
     SimRobotCore2::Object* selectedObject = objectRenderer.getDragSelection();
     if(selectedObject)
-        CoreModule::application->selectObject(*selectedObject);
+      CoreModule::application->selectObject(*selectedObject);
   }
 }
 
@@ -175,14 +160,14 @@ void SimObjectWidget::keyPressEvent(QKeyEvent* event)
     case Qt::Key_PageUp:
     case Qt::Key_Plus:
       event->accept();
-      objectRenderer.zoom(-100.);
+      objectRenderer.zoom(-100., -1, -1);
       update();
       break;
 
     case Qt::Key_PageDown:
     case Qt::Key_Minus:
       event->accept();
-      objectRenderer.zoom(100.);
+      objectRenderer.zoom(100., -1, -1);
       update();
       break;
 
@@ -193,10 +178,18 @@ void SimObjectWidget::keyPressEvent(QKeyEvent* event)
       event->accept();
       switch(event->key())
       {
-        case Qt::Key_W: wkey = true; break;
-        case Qt::Key_A: akey = true; break;
-        case Qt::Key_S: skey = true; break;
-        case Qt::Key_D: dkey = true; break;
+        case Qt::Key_W:
+          wkey = true;
+          break;
+        case Qt::Key_A:
+          akey = true;
+          break;
+        case Qt::Key_S:
+          skey = true;
+          break;
+        case Qt::Key_D:
+          dkey = true;
+          break;
       }
       objectRenderer.setCameraMove(akey, dkey, wkey, skey);
       update();
@@ -228,10 +221,18 @@ void SimObjectWidget::keyReleaseEvent(QKeyEvent* event)
       {
         switch(event->key())
         {
-          case Qt::Key_W: wkey = false; break;
-          case Qt::Key_A: akey = false; break;
-          case Qt::Key_S: skey = false; break;
-          case Qt::Key_D: dkey = false; break;
+          case Qt::Key_W:
+            wkey = false;
+            break;
+          case Qt::Key_A:
+            akey = false;
+            break;
+          case Qt::Key_S:
+            skey = false;
+            break;
+          case Qt::Key_D:
+            dkey = false;
+            break;
         }
         objectRenderer.setCameraMove(akey, dkey, wkey, skey);
       }
@@ -254,9 +255,9 @@ bool SimObjectWidget::event(QEvent* event)
       pinch->setLastScaleFactor(1.f);
 #endif
       float change = static_cast<float>(pinch->scaleFactor() > pinch->lastScaleFactor()
-                     ? -pinch->scaleFactor() / pinch->lastScaleFactor()
-                     : pinch->lastScaleFactor() / pinch->scaleFactor());
-      objectRenderer.zoom(change * 100.f);
+                                        ? -pinch->scaleFactor() / pinch->lastScaleFactor()
+                                        : pinch->lastScaleFactor() / pinch->scaleFactor());
+      objectRenderer.zoom(change * 100.f, -1, -1);
       update();
       return true;
     }
@@ -269,7 +270,7 @@ void SimObjectWidget::wheelEvent(QWheelEvent* event)
 #ifndef MACOS
   if(event->orientation() == Qt::Vertical)
   {
-    objectRenderer.zoom(event->delta());
+    objectRenderer.zoom(event->delta(), event->x() * devicePixelRatio(), event->y() * devicePixelRatio());
     update();
     event->accept();
     return;
@@ -373,39 +374,18 @@ QMenu* SimObjectWidget::createUserMenu() const
   menu->addSeparator();
 
   {
-    QMenu* subMenu = menu->addMenu(tr("&Camera"));
-    QAction* action = subMenu->menuAction();
+    QAction* action = menu->menuAction();
+    action = menu->addAction(tr("&Reset Camera"));
     action->setIcon(QIcon(":/Icons/camera.png"));
-    action->setStatusTip(tr("Select different camera modes for displaying the scene"));
-    QActionGroup* actionGroup = new QActionGroup(subMenu);
-    QSignalMapper* signalMapper = new QSignalMapper(subMenu);
-    connect(signalMapper, SIGNAL(mapped(int)), SLOT(setCameraMode(int)));
-    action = subMenu->addAction(tr("&Target Mode"));
-    action->setCheckable(true);
-    actionGroup->addAction(action);
-    signalMapper->setMapping(action, SimRobotCore2::Renderer::targetCam);
-    connect(action, SIGNAL(triggered()), signalMapper, SLOT(map()));
-    action = subMenu->addAction(tr("&Free Mode"));
-    action->setCheckable(true);
-    actionGroup->addAction(action);
-    signalMapper->setMapping(action, SimRobotCore2::Renderer::freeCam);
-    connect(action, SIGNAL(triggered()), signalMapper, SLOT(map()));
-
-    qobject_cast<QAction*>(signalMapper->mapping(objectRenderer.getCameraMode()))->setChecked(true);
-    subMenu->addSeparator();
-    action = subMenu->addAction(tr("&Reset"));
     action->setShortcut(QKeySequence(Qt::Key_R));
     connect(action, SIGNAL(triggered()), this, SLOT(resetCamera()));
-    action = subMenu->addAction(tr("&Toggle"));
-    action->setShortcut(QKeySequence(Qt::Key_T));
-    connect(action, SIGNAL(triggered()), this, SLOT(toggleCameraMode()));
 
     /*
     action = subMenu->addAction(tr("&Fit"));
     action->setShortcut(QKeySequence(Qt::Key_F));
     connect(action, SIGNAL(triggered()), this, SLOT(fitCamera()));
     subMenu->addSeparator();
-    */
+     */
   }
 
   {
@@ -671,7 +651,7 @@ void SimObjectWidget::exportAsImage(int resolution)
 
   QSettings& settings = CoreModule::application->getSettings();
   QString fileName = QFileDialog::getSaveFileName(this,
-    tr("Export as Image"), settings.value("ExportDirectory", "").toString(), tr("Portable Network Graphic (*.png)"));
+                                                  tr("Export as Image"), settings.value("ExportDirectory", "").toString(), tr("Portable Network Graphic (*.png)"));
   if(fileName.isEmpty())
     return;
   settings.setValue("ExportDirectory", QFileInfo(fileName).dir().path());
@@ -685,10 +665,8 @@ void SimObjectWidget::exportAsImage(int resolution)
     QGLFormat format = this->format();
     format.setDoubleBuffer(false);
     QGLWidget widget(format, 0, 0, Qt::CustomizeWindowHint);
-#ifdef MACOS
     widget.setWindowOpacity(0.f);
     widget.show();
-#endif
     widget.setMaximumSize(width / devicePixelRatio(), height / devicePixelRatio());
     widget.resize(width / devicePixelRatio(), height / devicePixelRatio());
     widget.makeCurrent();
@@ -776,7 +754,7 @@ void SimObjectWidget::fitCamera()
   /*
   objectRenderer.fitCamera();
   update();
-  */
+   */
 }
 
 void SimObjectWidget::toggleRenderFlag(int flag)

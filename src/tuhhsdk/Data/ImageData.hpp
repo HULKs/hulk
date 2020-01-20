@@ -27,16 +27,15 @@ public:
   /**
    * @brief reset sets the image to a defined state, does nothing at the moment
    */
-  void reset()
+  void reset() override
   {
-    // THIS MUST BE EMPTY FOR SECURTIY REASONS
+    // THIS MUST BE EMPTY FOR SECURITY REASONS
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value&) const override
   {
-    value = Uni::Value(Uni::ValueType::OBJECT);
     // TODO: May do something here.
   }
 
-  virtual void fromValue(const Uni::Value&) {}
+  void fromValue(const Uni::Value&) override {}
 };

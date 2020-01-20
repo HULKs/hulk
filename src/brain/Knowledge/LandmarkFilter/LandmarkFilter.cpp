@@ -37,6 +37,13 @@ LandmarkFilter::LandmarkFilter(const ModuleManagerInterface& manager)
   , maxLineProjectionDistance_(*this, "maxLineProjectionDistance", [] {})
   , maxLineProjectionDistanceLowNoise_(*this, "maxLineProjectionDistanceLowNoise", [] {})
   , tolerancePenaltySpotToLineDistance_(*this, "tolerancePenaltySpotToLineDistance", [] {})
+  , minLineLengthForPenaltyArea_(*this, "minLineLengthForPenaltyArea", [] {})
+  , maxLineExtensionForPenaltyArea_(*this, "maxLineExtensionForPenaltyArea",
+                                    [this] {
+                                      squaredMaxLineExtensionForPenaltyArea_ =
+                                          maxLineExtensionForPenaltyArea_() *
+                                          maxLineExtensionForPenaltyArea_();
+                                    })
   , useLineIntersections_(*this, "useLineIntersections", [] {})
   , minIntersectionOverlap_(*this, "minIntersectionOverlap",
                             [this] {
@@ -71,6 +78,8 @@ LandmarkFilter::LandmarkFilter(const ModuleManagerInterface& manager)
       maxDistToCenterLineForCircleOrientation_() * maxDistToCenterLineForCircleOrientation_();
   squaredMinIntersectionOverlap_ = minIntersectionOverlap_() * minIntersectionOverlap_();
   squaredMaxIntersectionDistance_ = maxIntersectionDistance_() * maxIntersectionDistance_();
+  squaredMaxLineExtensionForPenaltyArea_ =
+      maxLineExtensionForPenaltyArea_() * maxLineExtensionForPenaltyArea_();
 }
 
 void LandmarkFilter::cycle()
@@ -476,18 +485,43 @@ LandmarkFilter::findPenaltyAreas(const Vector2f& relativePenaltySpotPosition,
   std::vector<size_t> usedLineIds;
 
   // find lines that could work with given penalty spot
+  const float desiredDistance =
+      fieldDimensions_->fieldPenaltyMarkerDistance - fieldDimensions_->fieldPenaltyAreaLength;
   for (auto& lineWithMetaData : linesWithMetaData)
   {
+    // check the length of the line
+    if (lineWithMetaData.lineLength < minLineLengthForPenaltyArea_())
+    {
+      continue;
+    }
+
     // calculate distance between penalty spot and line
     const float distance =
         Geometry::distPointToLine(*lineWithMetaData.line, relativePenaltySpotPosition);
-    const float desiredDistance =
-        fieldDimensions_->fieldPenaltyMarkerDistance - fieldDimensions_->fieldPenaltyAreaLength;
 
     // check if distance is within tolerance
     if (std::abs(desiredDistance - distance) > tolerancePenaltySpotToLineDistance_())
     {
       continue;
+    }
+
+    // check the length by which the line needs to be extended for intersection
+    const Vector2f penaltySpotToIntersection =
+        Geometry::getPointToLineVector(*lineWithMetaData.line, relativePenaltySpotPosition);
+    const Vector2f intersection = relativePenaltySpotPosition + penaltySpotToIntersection;
+
+    const Vector2f vec1 = intersection - lineWithMetaData.line->p1;
+    const Vector2f vec2 = intersection - lineWithMetaData.line->p2;
+    // check if intersection point lies outside line segment
+    if (vec1.dot(vec2) > 0)
+    {
+      // in here the intersection lies outside the line segment
+      // now take the shorter distance and check that against the maximum length allowed
+      const float squaredLength = std::min(vec1.squaredNorm(), vec2.squaredNorm());
+      if (squaredLength > squaredMaxLineExtensionForPenaltyArea_)
+      {
+        continue;
+      }
     }
 
     orientationLineCandidates.push_back(&lineWithMetaData);

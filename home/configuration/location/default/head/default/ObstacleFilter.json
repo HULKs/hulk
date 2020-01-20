@@ -1,6 +1,13 @@
 {
-  "enableSonar" : true,
-   "enableFootBumper" : true,
+  "enableSonarPSOPair" : [
+    true,
+    false
+  ],
+  "enableFootBumperPSOPair" : [
+    true,
+    false
+  ],
+  "enableRobotDetection" : true,
   "ignoreSonarObstaclesBeyondDistance" : 0.4,
   "ballRadius" : 0.05,
   "freeKickAreaRadius" : 0.5,

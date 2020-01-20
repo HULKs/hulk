@@ -5,7 +5,6 @@
    "evalLowPassGain" : 0.2,
    "filterProcessNoise" : [ 0, 0, 0 ],
    "hypothesisSelectionHysteresis" : 0.1,
-   "maxGyroNormWhenMeasuring" : 1.337,
    "maxDistToCircleClusterSquared" : 0.0225,
    "maxPSOPenaltySpotAssociationDistance" : 0.2,
    "minCircleClusterCount" : 4,
@@ -25,5 +24,5 @@
    "ignoreCirclePerceptsNearGoalSupport" : true,
    "ignorePenaltyAreasWithoutOrientation" : false,
    "alwaysUseMultiplePenaltyShootoutPositions" : false,
-   "strikerLocalizeInPSO" : false
+   "strikerLocalizeInPSO" : true
 }

@@ -67,44 +67,43 @@ public:
   /**
    * @brief configure does nothing
    */
-  void configure(Configuration&);
+  void configure(Configuration&, NaoInfo&) override;
   /**
-   * @brief setJointAngles sets the joint angles for the current cycle
-   * @param angles the values of all joint angles
+   * @brief setJointAngles does nothing
    */
-  void setJointAngles(const std::vector<float>& angles);
+  void setJointAngles(const std::vector<float>& angles) override;
   /**
-   * @brief setJointStiffnesses sets the joint stiffnesses for the current cycle
-   * @param stiffnesses the values of all joint stiffnesses
+   * @brief setJointStiffnesses does nothing
    */
-  void setJointStiffnesses(const std::vector<float>& stiffnesses);
+  void setJointStiffnesses(const std::vector<float>& stiffnesses) override;
   /**
-   * @brief setLEDs sets the LED colors and/or brightnesses
-   * @param leds the values of all LEDs
+   * @brief setLEDs does nothing
    */
-  void setLEDs(const std::vector<float>& leds);
+  void setLEDs(const std::vector<float>& leds) override;
   /**
-   * @brief setSonar sets the value of the sonar actuator
-   * @param sonar the value of the sonar actuator (see Soft Bank documentation)
+   * @brief setSonar does nothing
    */
-  void setSonar(const float sonar);
+  void setSonar(const float sonar) override;
   /**
    * @brief waitAndReadSensorData transmits joint commands, simulates a cycle and gets new sensor data
    * @param data is filled with sensor data from the websocket
+   * @return duration between the last and current received sensor data
    */
-  void waitAndReadSensorData(NaoSensorData& data);
+  float waitAndReadSensorData(NaoSensorData& data) override;
   /**
    * @brief getFileRoot returns a path to a directory that contains all files for our program
    * @return a path
    */
-  std::string getFileRoot();
+  std::string getFileRoot() override;
   /**
    * @brief getNaoInfo copies the hardware identification
    * @param info is filled with the body/head version and name
    */
-  void getNaoInfo(Configuration&, NaoInfo& info);
+  void getNaoInfo(Configuration&, NaoInfo& info) override;
 
-  CameraInterface& getCamera(const Camera camera);
+  CameraInterface& getCamera(const Camera camera) override;
+
+  // todo: Missing documentation x3
   CameraInterface& getCurrentCamera();
 
   void updateAccelData(float x, float y, float z);

@@ -1,0 +1,112 @@
+#!/bin/bash
+
+BASEDIR=`cd $(dirname $0); pwd -P`
+BASEDIR=${BASEDIR%/*}
+
+source "${BASEDIR}/scripts/lib/compile.sh"
+source "${BASEDIR}/scripts/lib/msg.sh"
+source "${BASEDIR}/scripts/lib/time.sh"
+
+function helpMenu {
+  echo "Usage: $0 [OPTIONS]"
+  echo ""
+  echo "Options"
+  echo " -b, --build-type BUILD_TYPE       use the specified build type (one out of Debug, Develop, Release)"
+  echo " -t, --target TARGET               compile for the specified target (one out of nao6, replay, simrobot, qt-websocket)"
+  echo " -j, --jobs                        the amount of processes used for compilation. Write the number of jobs to ${BASEDIR}/.njobs to configure default."
+  echo " -v, --verbose                     show compilation commands"
+  echo " -h, --help                        show this help"
+}
+
+# use all targets by default (can be overridden by -t)
+TARGETS=( nao6 simrobot replay )
+# use all build types by default (can be overridden by -b)
+BUILD_TYPES=( Debug Develop DevWithDebInfo Release RelWithDebInfo )
+# not verbose by default
+VERBOSE=false
+# set default job number to cores + 1
+JOBS=$(njobs)
+# prepare parameters
+PARAMETERS=""
+while [ "$#" -gt 0 ]; do
+  if [[ $1 =~ ^- ]] && [[ ! $1 =~ ^-- ]]; then
+    PARAMETERS+=$(echo "${1:1}" | sed -e "s/\(.\)/ -\1/g")
+  else
+    PARAMETERS+=" $1"
+  fi
+  shift
+done
+eval set -- "${PARAMETERS}";
+
+# process parameters
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    "-b" | "--build-type")
+      shift
+      if [ "$#" -eq 0 ]; then
+        msg -e "--build-type needs a build type as parameter!"
+        helpMenu
+        return 1
+      fi
+      BUILD_TYPES=( "$1" )
+      ;;
+    "-t" | "--target")
+      shift
+      if [ "$#" -eq 0 ]; then
+        msg -e "--target needs a target as parameter!"
+        helpMenu
+        return 1
+      fi
+      TARGETS=( "$1" )
+      ;;
+    "-j" | "--jobs")
+      shift
+      if [ "$#" -eq 0 ]; then
+        msg -e "--jobs needs a job number!"
+        helpMenu
+        exit 1
+      fi
+      JOBS=$1
+      ;;
+    "-v" | "--verbose")
+      VERBOSE=true
+      ;;
+    "-h" | "--help")
+      helpMenu
+      exit 0
+      ;;
+    *)
+      msg -e "Failed to parse \"$1\"!"
+      helpMenu
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+# compile for all target/build type combinations
+set_start_time
+ERRORS=()
+for target in "${TARGETS[@]}"; do
+  for build_type in "${BUILD_TYPES[@]}"; do
+    msg -n "Compiling for target "${target}" with build type "${build_type}"."
+    compile "${BASEDIR}" "${target}" "${build_type}" "${VERBOSE}" "${JOBS}"
+    # accumulate compilation errors
+    if [ "$?" -ne 0 ]; then
+      ERRORS+=("Compilation for target "${target}" with build type "${build_type}" failed!")
+    fi
+  done
+done
+get_time_diff
+
+# echo summary
+echo "------------------------"
+echo "Summary for compilation:"
+if [ -z "$ERRORS" ]; then
+  msg -s "All compilations successful!"
+else
+  for index in ${!ERRORS[*]}; do
+    msg -e "${ERRORS[index]}"
+  done
+fi
+msg -n "Finished in ${DIFF}!"

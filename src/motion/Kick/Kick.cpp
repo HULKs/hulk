@@ -10,47 +10,22 @@
 
 Kick::Kick(const ModuleManagerInterface& manager)
   : Module(manager)
-  , motionActivation_(*this)
-  , motionRequest_(*this)
   , cycleInfo_(*this)
   , imuSensorData_(*this)
   , jointSensorData_(*this)
+  , kickConfigurationData_(*this)
+  , motionActivation_(*this)
+  , motionRequest_(*this)
   , kickOutput_(*this)
   , leftKicking_(true)
   , torsoOffsetLeft_(*this, "torsoOffsetLeft", [] {})
   , torsoOffsetRight_(*this, "torsoOffsetRight", [] {})
-  , forwardKickParameters_(*this, "forwardKickParameters",
-                           [this] {
-                             forwardKickParameters_().yawLeft2right *= TO_RAD;
-                             forwardKickParameters_().shoulderRoll *= TO_RAD;
-                             forwardKickParameters_().shoulderPitchAdjustment *= TO_RAD;
-                             forwardKickParameters_().ankleRoll *= TO_RAD;
-                             forwardKickParameters_().anklePitch *= TO_RAD;
-                           })
-  , sideKickParameters_(*this, "sideKickParameters",
-                        [this] {
-                          sideKickParameters_().yawLeft2right *= TO_RAD;
-                          sideKickParameters_().shoulderRoll *= TO_RAD;
-                          sideKickParameters_().shoulderPitchAdjustment *= TO_RAD;
-                          sideKickParameters_().ankleRoll *= TO_RAD;
-                          sideKickParameters_().anklePitch *= TO_RAD;
-                        })
   , currentInterpolatorID_(interpolators_.size())
   , gyroLowPassRatio_(*this, "gyroLowPassRatio", [] {})
   , gyroForwardBalanceFactor_(*this, "gyroForwardBalanceFactor", [] {})
   , gyroSidewaysBalanceFactor_(*this, "gyroSidewaysBalanceFactor", [] {})
   , filteredGyro_(Vector2f::Zero())
 {
-  forwardKickParameters_().yawLeft2right *= TO_RAD;
-  forwardKickParameters_().shoulderRoll *= TO_RAD;
-  forwardKickParameters_().shoulderPitchAdjustment *= TO_RAD;
-  forwardKickParameters_().ankleRoll *= TO_RAD;
-  forwardKickParameters_().anklePitch *= TO_RAD;
-  sideKickParameters_().yawLeft2right *= TO_RAD;
-  sideKickParameters_().shoulderRoll *= TO_RAD;
-  sideKickParameters_().shoulderPitchAdjustment *= TO_RAD;
-  sideKickParameters_().ankleRoll *= TO_RAD;
-  sideKickParameters_().anklePitch *= TO_RAD;
 }
 
 void Kick::cycle()
@@ -68,32 +43,15 @@ void Kick::cycle()
       motionRequest_->bodyMotion == MotionRequest::BodyMotion::KICK;
   if (currentInterpolatorID_ == interpolators_.size() && incomingKickRequest)
   {
-    // select kick parameters based on requested kick type
-    KickParameters kickParameters;
-    switch (motionRequest_->kickData.kickType)
-    {
-      case KickType::FORWARD:
-      {
-        kickParameters = forwardKickParameters_();
-        break;
-      }
-      case KickType::SIDE:
-      {
-        kickParameters = sideKickParameters_();
-        break;
-      }
-      default:
-      {
-        kickParameters = forwardKickParameters_();
-        break;
-      }
-    }
+    // get kick kick configuration based on requested kick type
+    const KickConfiguration& kickConfiguration =
+        kickConfigurationData_->kicks[static_cast<unsigned int>(motionRequest_->kickData.kickType)];
     // check whether left or right foot is to be used
     leftKicking_ = motionRequest_->kickData.ballSource.y() > 0;
     // select appropriate torso offset
     const Vector3f torsoOffset = leftKicking_ ? torsoOffsetLeft_() : torsoOffsetRight_();
     // reset interpolators
-    resetInterpolators(kickParameters, torsoOffset);
+    resetInterpolators(kickConfiguration, torsoOffset);
     // initialize kick
     currentInterpolatorID_ = 0;
   }
@@ -119,7 +77,7 @@ void Kick::cycle()
     // apply gyroscope feedback
     gyroFeedback(outputAngles);
     kickOutput_->angles = outputAngles;
-    kickOutput_->stiffnesses = std::vector<float>(JOINTS::JOINTS_MAX, 1.f);
+    kickOutput_->stiffnesses = std::vector<float>(JOINTS::JOINTS_MAX, 0.7f);
     kickOutput_->safeExit = false;
 
     // mirror output angles if right foot is used
@@ -137,7 +95,7 @@ void Kick::cycle()
   }
 }
 
-void Kick::resetInterpolators(const KickParameters& kickParameters, const Vector3f& torsoOffset)
+void Kick::resetInterpolators(const KickConfiguration& kickConfiguration, const Vector3f& torsoOffset)
 {
   /*
    * wait before start
@@ -145,86 +103,86 @@ void Kick::resetInterpolators(const KickParameters& kickParameters, const Vector
   const std::vector<float> anglesAtKickRequest = jointSensorData_->getBodyAngles();
   const std::vector<float> readyPoseAngles = Poses::getPose(Poses::READY);
   waitBeforeStartInterpolator_.reset(anglesAtKickRequest, readyPoseAngles,
-                                     kickParameters.waitBeforeStartDuration);
+                                     kickConfiguration.waitBeforeStartDuration);
 
   /*
    * weight shift
    */
-  const Vector3f weightShiftCom = kickParameters.weightShiftCom + torsoOffset;
+  const Vector3f weightShiftCom = kickConfiguration.weightShiftCom + torsoOffset;
   std::vector<float> weightShiftAngles(JOINTS::JOINTS_MAX);
   computeWeightShiftAnglesFromReferenceCom(readyPoseAngles, weightShiftCom, weightShiftAngles);
-  weightShiftAngles[JOINTS::L_SHOULDER_ROLL] = kickParameters.shoulderRoll;
-  weightShiftAngles[JOINTS::R_SHOULDER_ROLL] = -kickParameters.shoulderRoll;
+  weightShiftAngles[JOINTS::L_SHOULDER_ROLL] = kickConfiguration.shoulderRoll;
+  weightShiftAngles[JOINTS::R_SHOULDER_ROLL] = -kickConfiguration.shoulderRoll;
   weightShiftInterpolator_.reset(readyPoseAngles, weightShiftAngles,
-                                 kickParameters.weightShiftDuration);
+                                 kickConfiguration.weightShiftDuration);
 
   /*
    * lift foot
    */
-  const float yawLeft2right = kickParameters.yawLeft2right;
+  const float yawLeft2right = kickConfiguration.yawLeft2right;
   const KinematicMatrix liftFootPose = KinematicMatrix(AngleAxisf(yawLeft2right, Vector3f::UnitZ()),
-                                                       kickParameters.liftFootPosition);
+                                                       kickConfiguration.liftFootPosition);
   std::vector<float> liftFootAngles(JOINTS::JOINTS_MAX);
   computeLegAnglesFromFootPose(weightShiftAngles, liftFootPose, liftFootAngles);
-  liftFootAngles[JOINTS::L_SHOULDER_PITCH] -= kickParameters.shoulderPitchAdjustment;
-  liftFootAngles[JOINTS::R_SHOULDER_PITCH] += kickParameters.shoulderPitchAdjustment;
-  liftFootAngles[JOINTS::L_ANKLE_ROLL] = kickParameters.ankleRoll;
-  liftFootInterpolator_.reset(weightShiftAngles, liftFootAngles, kickParameters.liftFootDuration);
+  liftFootAngles[JOINTS::L_SHOULDER_PITCH] -= kickConfiguration.shoulderPitchAdjustment;
+  liftFootAngles[JOINTS::R_SHOULDER_PITCH] += kickConfiguration.shoulderPitchAdjustment;
+  liftFootAngles[JOINTS::L_ANKLE_ROLL] = kickConfiguration.ankleRoll;
+  liftFootInterpolator_.reset(weightShiftAngles, liftFootAngles, kickConfiguration.liftFootDuration);
 
   /*
    * swing foot
    */
   const KinematicMatrix swingFootPose = KinematicMatrix(
-      AngleAxisf(yawLeft2right, Vector3f::UnitZ()), kickParameters.swingFootPosition);
+      AngleAxisf(yawLeft2right, Vector3f::UnitZ()), kickConfiguration.swingFootPosition);
   std::vector<float> swingFootAngles(JOINTS::JOINTS_MAX);
   computeLegAnglesFromFootPose(liftFootAngles, swingFootPose, swingFootAngles);
-  swingFootAngles[JOINTS::L_SHOULDER_PITCH] += kickParameters.shoulderPitchAdjustment;
-  swingFootAngles[JOINTS::R_SHOULDER_PITCH] -= kickParameters.shoulderPitchAdjustment;
-  swingFootAngles[JOINTS::L_ANKLE_PITCH] += kickParameters.anklePitch;
-  swingFootAngles[JOINTS::L_ANKLE_ROLL] = kickParameters.ankleRoll;
-  swingFootInterpolator_.reset(liftFootAngles, swingFootAngles, kickParameters.swingFootDuration);
+  swingFootAngles[JOINTS::L_SHOULDER_PITCH] += kickConfiguration.shoulderPitchAdjustment;
+  swingFootAngles[JOINTS::R_SHOULDER_PITCH] -= kickConfiguration.shoulderPitchAdjustment;
+  swingFootAngles[JOINTS::L_ANKLE_PITCH] += kickConfiguration.anklePitch;
+  swingFootAngles[JOINTS::L_ANKLE_ROLL] = kickConfiguration.ankleRoll;
+  swingFootInterpolator_.reset(liftFootAngles, swingFootAngles, kickConfiguration.swingFootDuration);
 
   /*
    * kick ball
    */
   const KinematicMatrix kickBallPose = KinematicMatrix(AngleAxisf(yawLeft2right, Vector3f::UnitZ()),
-                                                       kickParameters.kickBallPosition);
+                                                       kickConfiguration.kickBallPosition);
   std::vector<float> kickBallAngles(JOINTS::JOINTS_MAX);
   computeLegAnglesFromFootPose(swingFootAngles, kickBallPose, kickBallAngles);
-  kickBallAngles[JOINTS::L_SHOULDER_PITCH] += kickParameters.shoulderPitchAdjustment;
-  kickBallAngles[JOINTS::R_SHOULDER_PITCH] -= kickParameters.shoulderPitchAdjustment;
-  kickBallAngles[JOINTS::L_ANKLE_ROLL] = kickParameters.ankleRoll;
-  kickBallInterpolator_.reset(swingFootAngles, kickBallAngles, kickParameters.kickBallDuration);
+  kickBallAngles[JOINTS::L_SHOULDER_PITCH] += kickConfiguration.shoulderPitchAdjustment;
+  kickBallAngles[JOINTS::R_SHOULDER_PITCH] -= kickConfiguration.shoulderPitchAdjustment;
+  kickBallAngles[JOINTS::L_ANKLE_ROLL] = kickConfiguration.ankleRoll;
+  kickBallInterpolator_.reset(swingFootAngles, kickBallAngles, kickConfiguration.kickBallDuration);
 
   /*
    * pause
    */
-  pauseInterpolator_.reset(kickBallAngles, kickBallAngles, kickParameters.pauseDuration);
+  pauseInterpolator_.reset(kickBallAngles, kickBallAngles, kickConfiguration.pauseDuration);
 
   /*
    * retract foot
    */
   const KinematicMatrix retractFootPose = KinematicMatrix(
-      AngleAxisf(yawLeft2right, Vector3f::UnitZ()), kickParameters.retractFootPosition);
+      AngleAxisf(yawLeft2right, Vector3f::UnitZ()), kickConfiguration.retractFootPosition);
   std::vector<float> retractFootAngles(JOINTS::JOINTS_MAX);
   computeLegAnglesFromFootPose(kickBallAngles, retractFootPose, retractFootAngles);
-  retractFootAngles[JOINTS::L_SHOULDER_PITCH] -= kickParameters.shoulderPitchAdjustment;
-  retractFootAngles[JOINTS::R_SHOULDER_PITCH] += kickParameters.shoulderPitchAdjustment;
-  retractFootAngles[JOINTS::L_ANKLE_ROLL] = kickParameters.ankleRoll;
+  retractFootAngles[JOINTS::L_SHOULDER_PITCH] -= kickConfiguration.shoulderPitchAdjustment;
+  retractFootAngles[JOINTS::R_SHOULDER_PITCH] += kickConfiguration.shoulderPitchAdjustment;
+  retractFootAngles[JOINTS::L_ANKLE_ROLL] = kickConfiguration.ankleRoll;
   retractFootInterpolator_.reset(kickBallAngles, retractFootAngles,
-                                 kickParameters.retractFootDuration);
+                                 kickConfiguration.retractFootDuration);
 
   /*
    * extend foot and center torso
    */
   extendFootAndCenterTorsoInterpolator_.reset(retractFootAngles, readyPoseAngles,
-                                              kickParameters.extendFootAndCenterTorsoDuration);
+                                              kickConfiguration.extendFootAndCenterTorsoDuration);
 
   /*
    * wait before exit
    */
   waitBeforeExitInterpolator_.reset(readyPoseAngles, readyPoseAngles,
-                                    kickParameters.waitBeforeExitDuration);
+                                    kickConfiguration.waitBeforeExitDuration);
 }
 
 void Kick::computeWeightShiftAnglesFromReferenceCom(const std::vector<float>& currentAngles,

@@ -4,7 +4,6 @@
 #include <Framework/Module.hpp>
 #include <Hardware/AudioInterface.hpp>
 
-
 class Brain;
 
 class AudioReceiver : public Module<AudioReceiver, Brain>
@@ -29,6 +28,8 @@ public:
 private:
   /// a reference to the wrapper for the (possibly hardware specific) audio interface
   AudioInterface& audioInterface_;
-  /// the recorded samples will be stored in this Production
-  Production<RecordData> recordData_;
+  /// the recorded samples for each channel will be stored in this Production
+  Production<RecordData<AudioInterface::numChannels>> recordData_;
+  /// a sequence of subsamples
+  Samples subsampledData_[AudioInterface::numChannels];
 };

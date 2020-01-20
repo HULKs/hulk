@@ -75,8 +75,6 @@ private:
   bool iAmFar_;
   /// whether the other defender is far away from our own goal
   bool otherIsFar_;
-  /// whether I am to the left side of the other defender
-  bool iAmLeftOfOther_;
   /// whether the ball is close to our own goal
   bool ballCloseToOwnGoal_;
   /// hysteresis for ball and robot position decisions

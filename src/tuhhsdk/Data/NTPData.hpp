@@ -17,14 +17,14 @@ public:
     /// the timestamp of the receiver at which the message has been received [ms]
     unsigned int receipt;
 
-    virtual void toValue(Uni::Value& out) const
+    void toValue(Uni::Value& out) const override
     {
       out = Uni::Value(Uni::ValueType::OBJECT);
       out["sender"] << sender;
       out["origination"] << origination;
       out["receipt"] << receipt;
     }
-    virtual void fromValue(const Uni::Value& in)
+    void fromValue(const Uni::Value& in) override
     {
       in["sender"] >> sender;
       in["origination"] >> origination;
@@ -36,17 +36,17 @@ public:
   /**
    * ·@brief reset clears the incoming NTP requests
    */
-  void reset()
+  void reset() override
   {
     ntpRequests.clear();
   }
 
-  virtual void toValue(Uni::Value& out) const
+  void toValue(Uni::Value& out) const override
   {
     out = Uni::Value(Uni::ValueType::OBJECT);
     out["ntpRequests"] << ntpRequests;
   }
-  virtual void fromValue(const Uni::Value& in)
+  void fromValue(const Uni::Value& in) override
   {
     in["ntpRequests"] >> ntpRequests;
   }

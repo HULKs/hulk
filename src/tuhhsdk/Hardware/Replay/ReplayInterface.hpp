@@ -20,74 +20,27 @@ public:
    * @param path the path to the file that should be loaded
    */
   ReplayInterface(const std::string& path);
+
+  void configure(Configuration&, NaoInfo&) override;
+  void setJointAngles(const std::vector<float>& angles) override;
+  void setJointStiffnesses(const std::vector<float>& stiffnesses) override;
+  void setLEDs(const std::vector<float>& leds) override;
+  void setSonar(const float sonar) override;
+  float waitAndReadSensorData(NaoSensorData& data) override;
+  std::string getFileRoot() override;
+  std::string getDataRoot() override;
+  void getNaoInfo(Configuration& config, NaoInfo& info) override;
+  CameraInterface& getCamera(const Camera camera) override;
+  AudioInterface& getAudio() override;
+  CameraInterface& getNextCamera() override;
+  Camera getCurrentCameraType() override;
+  FakeDataInterface& getFakeData() override;
+
   /**
-   * @brief configure does nothing
+   * @brief Returns the timestamp the image was generated on the nao
+   * @return the timestamp
    */
-  void configure(Configuration&);
-  /**
-   * @brief setJointAngles sets the joint angles for the current cycle
-   * @param angles the values of all joint angles
-   */
-  void setJointAngles(const std::vector<float>& angles);
-  /**
-   * @brief setJointStiffnesses sets the joint stiffnesses for the current cycle
-   * @param stiffnesses the values of all joint stiffnesses
-   */
-  void setJointStiffnesses(const std::vector<float>& stiffnesses);
-  /**
-   * @brief setLEDs sets the LED colors and/or brightnesses
-   * @param leds the values of all LEDs
-   */
-  void setLEDs(const std::vector<float>& leds);
-  /**
-   * @brief setSonar sets the value of the sonar actuator
-   * @param sonar the value of the sonar actuator (see Soft Bank documentation)
-   */
-  void setSonar(const float sonar);
-  /**
-   * @brief waitAndReadSensorData waits for some time and copies data from the replay frame
-   * @param data is filled with the current replay frame
-   */
-  void waitAndReadSensorData(NaoSensorData& data);
-  /**
-   * @brief getFileRoot returns a path to a directory that contains all files for our program
-   * @return a path
-   */
-  std::string getFileRoot();
-  /**
-   * @brief delegates to getFileRoot
-   */
-  std::string getDataRoot();
-  /**
-   * @brief getNaoInfo copies the hardware identification
-   * @param info is filled with the body/head version and name
-   */
-  void getNaoInfo(Configuration&, NaoInfo& info);
-  /**
-   * @brief getCamera provides access to the cameras of the robot
-   * @param camera an identifier for the camera, i.e. top or bottom camera
-   * @return a reference to the requested camera
-   */
-  CameraInterface& getCamera(const Camera camera);
-  /**
-   * @brief getNextCamera
-   */
-  CameraInterface& getNextCamera();
-  /**
-   * @brief getCurrentCameraType
-   * @return the current camera type
-   */
-  Camera getCurrentCameraType();
-  /**
-   * @brief getAudio provides access to the audio devices of the robot
-   * @return a reference to the audio interface
-   */
-  AudioInterface& getAudio();
-  /**
-   * @brief getFakeData provides access to the fake data of this interface
-   * @return a reference to the requested fake data interface
-   */
-  FakeDataInterface& getFakeData();
+  TimePoint getRealFrameTime();
 
 private:
   /// Replay file path
@@ -96,9 +49,11 @@ private:
    * @brief loadImage uses lodepng to read an image from a file
    * @param path the path to the image file
    * @param result the image that is read from the file
-   * @return whether the image was succesfully loaded
+   * @return whether the image was successfully loaded
    */
   bool loadImage(const std::string& path, Image422& result);
+
+  TimePoint frameTimestamp_;
   /// stores all the frame data
   std::vector<ReplayFrame> frames_;
   std::vector<Image422> images_;
@@ -111,4 +66,6 @@ private:
   ReplayAudio audioInterface_;
   /// the fake data provided by replay
   ReplayFakeData fakeData_;
+  /// the time point this frame was captured on the nao (nao system time)
+  TimePoint realFrameTime_;
 };

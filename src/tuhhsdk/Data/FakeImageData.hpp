@@ -15,9 +15,9 @@ public:
   /// the image size of the faked image.
   Vector2i imageSize = {640, 480};
 
-  void reset() {}
+  void reset() override {}
 
-  virtual void toValue(Uni::Value&) const {}
+  void toValue(Uni::Value&) const override {}
 
-  virtual void fromValue(const Uni::Value&) {}
+  void fromValue(const Uni::Value&) override {}
 };

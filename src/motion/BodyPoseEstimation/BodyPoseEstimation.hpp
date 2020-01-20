@@ -38,6 +38,10 @@ private:
    * @brief detectFalling detects the direction in which the robot is falling
    */
   void detectFalling();
+  /*
+   * @brief detectWonky detects whether the robot is wonky
+   */
+  void detectWonky();
   /**
    * @brief determineFootContact determines whether the robot feet touch the ground
    */
@@ -84,6 +88,8 @@ private:
   const Parameter<float> ydMin_;
   /// the highest y angular velocity that may occur before falling
   const Parameter<float> ydMax_;
+  /// the maximum gyro norm to bo not wonky
+  const Parameter<float> maxGyroNormNotWonky_;
   /// a reference to the cycle info
   const Dependency<CycleInfo> cycleInfo_;
   /// a reference to the stand up result

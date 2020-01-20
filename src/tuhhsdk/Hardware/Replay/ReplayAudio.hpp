@@ -2,7 +2,8 @@
 
 #include <Hardware/AudioInterface.hpp>
 
-class ReplayAudio : public AudioInterface {
+class ReplayAudio : public AudioInterface
+{
 public:
   ReplayAudio();
 
@@ -10,26 +11,34 @@ public:
   /**
    * @see AudioInterface
    */
-  void readAudioData(Samples& samples);
+  void readAudioData(Samples& samples, const AudioInterface::Microphone) override;
   /**
    * @see AudioInterface
    */
-  void playbackAudioData(const Samples& samples);
+  void playbackAudioData(const Samples& samples) override;
   /**
    * @see AudioInterface
    */
-  void startPlayback();
+  void startPlayback() override;
   /**
    * @see AudioInterface
    */
-  void stopPlayback();
+  void stopPlayback() override;
 
   /**
    * @see AudioInterface
    */
-  void startCapture();
+  void startCapture() override;
   /**
    * @see AudioInterface
    */
-  void stopCapture();
+  void stopCapture() override;
+  /**
+   * @see AudioInterface
+   */
+  bool isPlaybackFinished() override;
+  /**
+   * @see AudioInterface
+   */
+  void clearPlaybackBuffer() override;
 };

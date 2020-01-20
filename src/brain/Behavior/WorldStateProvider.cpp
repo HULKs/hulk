@@ -1,8 +1,10 @@
 #include "Tools/Chronometer.hpp"
 #include "Tools/Math/Geometry.hpp"
 #include "Tools/Math/Hysteresis.hpp"
+#include "Tools/PenaltyAreaUtils.hpp"
 
 #include "WorldStateProvider.hpp"
+
 
 WorldStateProvider::WorldStateProvider(const ModuleManagerInterface& manager)
   : Module(manager)
@@ -21,6 +23,7 @@ WorldStateProvider::WorldStateProvider(const ModuleManagerInterface& manager)
   , ballInCenterCircle_(true)
   , robotInOwnHalf_(true)
   , robotInLeftHalf_(true)
+  , robotInPenaltyArea_(false)
   , ballInCornerThreshold_(*this, "ballInCornerThreshold", [] {})
   , ballInCornerXThreshold_(*this, "ballInCornerXThreshold", [] {})
   , ballInCornerYThreshold_(*this, "ballInCornerYThreshold", [] {})
@@ -59,21 +62,15 @@ void WorldStateProvider::cycle()
     ballInLeftHalf_ = Hysteresis<float>::greaterThan(teamBallModel_->position.y(), 0.f, hysteresis_,
                                                      ballInLeftHalf_);
     ballInCorner_ = checkBallInCorner(teamBallModel_->position);
-    ballInPenaltyArea_ =
-        Hysteresis<float>::smallerThan(std::abs(teamBallModel_->position.x()),
-                                       fieldDimensions_->fieldLength / 2 + hysteresis_, hysteresis_,
-                                       ballInPenaltyArea_) &&
-        Hysteresis<float>::greaterThan(std::abs(teamBallModel_->position.x()),
-                                       fieldDimensions_->fieldLength / 2 -
-                                           fieldDimensions_->fieldPenaltyAreaLength - hysteresis_,
-                                       hysteresis_, ballInPenaltyArea_) &&
-        Hysteresis<float>::smallerThan(std::abs(teamBallModel_->position.y()),
-                                       fieldDimensions_->fieldPenaltyAreaWidth / 2 + hysteresis_,
-                                       hysteresis_, ballInPenaltyArea_);
+    ballInPenaltyArea_ = PenaltyAreaUtils::isInPenaltyArea(
+        teamBallModel_->position, fieldDimensions_, hysteresis_, ballInPenaltyArea_);
     ballIsToMyLeft_ = Hysteresis<float>::greaterThan(teamBallModel_->position.y(),
                                                      robotPosition_->pose.position.y(), hysteresis_,
                                                      ballIsToMyLeft_);
-    ballInCenterCircle_ = Hysteresis<float>::smallerThan(teamBallModel_->position.norm(), fieldDimensions_->fieldCenterCircleDiameter / 2, hysteresis_, ballInCenterCircle_);
+    ballInCenterCircle_ = Hysteresis<float>::smallerThan(
+        teamBallModel_->position.norm(), fieldDimensions_->fieldCenterCircleDiameter / 2,
+        hysteresis_, ballInCenterCircle_);
+
     worldState_->ballInOwnHalf = ballInOwnHalf_;
     worldState_->ballInLeftHalf = ballInLeftHalf_;
     worldState_->ballInCorner = ballInCorner_;
@@ -89,8 +86,12 @@ void WorldStateProvider::cycle()
                                                      hysteresis_, robotInOwnHalf_);
     robotInLeftHalf_ = Hysteresis<float>::greaterThan(robotPosition_->pose.position.y(), 0.f,
                                                       hysteresis_, robotInLeftHalf_);
+    robotInPenaltyArea_ = PenaltyAreaUtils::isInPenaltyArea(
+        robotPosition_->pose.position, fieldDimensions_, hysteresis_, robotInPenaltyArea_);
+
     worldState_->robotInOwnHalf = robotInOwnHalf_;
     worldState_->robotInLeftHalf = robotInLeftHalf_;
+    worldState_->robotInPenaltyArea = robotInPenaltyArea_;
     worldState_->robotValid = true;
   }
 }

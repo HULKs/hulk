@@ -1,3 +1,6 @@
 {
-  "sendSonarObstacles": false
+  "sendSonarObstacles": false,
+  "msgPerSecond": 1.0,
+  "fakeMemberFlag": false,
+  "transmitViaEthernet": false
 }

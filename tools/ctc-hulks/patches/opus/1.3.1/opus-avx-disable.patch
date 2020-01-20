@@ -1,0 +1,11 @@
+--- a/opus_functions.cmake	2019-05-22 17:01:33.879705820 +0200
++++ b/opus_functions.cmake	2019-05-22 17:01:41.548768275 +0200
+@@ -159,7 +159,7 @@
+     if(MSVC)
+       check_flag(AVX /arch:AVX)
+     else()
+-      check_and_set_flag(AVX -mavx)
++      #check_and_set_flag(AVX -mavx)
+     endif()
+   else()
+     set(AVX_SUPPORTED 0 PARENT_SCOPE)

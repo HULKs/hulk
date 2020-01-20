@@ -28,6 +28,9 @@ private:
    */
   void updateOutput();
 
+  const Parameter<KickConfiguration> forwardKick_;
+  const Parameter<KickConfiguration> sideKick_;
+
   /// a simple in walk kick to the front (kicking with the left foot)
   const Parameter<InWalkKick> inWalkFrontKick_;
   /// an in walk kick turning (kick with left foot, turning right)

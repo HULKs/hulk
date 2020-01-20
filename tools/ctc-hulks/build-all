@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Get base directory for better referencing
+BASEDIR=`cd $(dirname $0); pwd -P`
+
+${BASEDIR}/1-setup-ctng
+${BASEDIR}/2-setup-libs
+${BASEDIR}/3-build-toolchain
+${BASEDIR}/4-build-libs
+${BASEDIR}/5-install

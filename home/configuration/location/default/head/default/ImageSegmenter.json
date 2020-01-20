@@ -9,5 +9,7 @@
       8,
       8
    ],
-   "numScanlines" : 160
+   "numScanlines" : 160,
+   "useMedianVerticalTop": false,
+   "useMedianVerticalBottom": false
 }

@@ -1,7 +1,6 @@
 {
 	"reset" : false,
 	"accelweight" : 0.01,
-	"sensor_update_rate" : 100.0,
 	"gravity" : 10.5,
 	"gyro_bias_alpha" : 0.01,
 	"acceleration_threshold" : 0.2,

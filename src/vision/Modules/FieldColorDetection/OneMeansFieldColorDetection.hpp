@@ -35,11 +35,17 @@ private:
   const Parameter<Vector2f> initialGuessTop_;
   const Parameter<Vector2f> initialGuessBottom_;
   /// threshold for y, since cb/cr channels are random on high y
-  const Parameter<float> thresholdY_;
+  const Parameter<float> thresholdYParam_;
   /// the maximal distance from (y)uv origin
   const Parameter<int> thresholdUV_;
   /// the stepsize when sampling the image
   const int sampleRate_;
+  /// threshold for the Y channel
+  int thresholdY_;
+  /// threshold for u and v channel
+  int thresholdUvSquared_;
+  int meanCb_;
+  int meanCr_;
   /// the image that is currently being processed
   const Dependency<ImageData> imageData_;
   /// a reference to the camera matrix

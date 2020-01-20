@@ -7,6 +7,8 @@ import os
 import re
 import sys
 
+from hulks.json_utils import comment_remover
+
 logger = logging.getLogger("PlayerNumberChanger")
 logger.setLevel(logging.INFO)
 console_handler = logging.StreamHandler()
@@ -44,7 +46,7 @@ def change_player_numbers(naonumber_playernumber_dict):
     """
     # since player number might be set per location, need to find current location first
     with open(nao_repo_path + "/home/configuration/location/default/sdk.json", 'r') as file:
-        location = json.load(file)["location"]
+        location = json.loads(comment_remover(file.read()))["location"]
 
     # check if there aren't any wrongly set player numbers for current location
     for nao_number, player_number in naonumber_playernumber_dict.items():

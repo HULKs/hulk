@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# Get base directory for better referencing
+base_dir=`cd $(dirname $0); pwd -P`
+cd ${base_dir}
+
+source versions
+
+MACHINE_TYPE=`uname -m`
+GCC_VERSION=`${base_dir}/x-tools/i686-nao-linux-gnu/bin/i686-nao-linux-gnu-gcc -dumpversion`
+install_dir_sysroot="${base_dir}/sysroot-${GCC_VERSION}-${TOOLCHAIN_SUB_VERSION}"
+libs_dir="${base_dir}/libs/sysroot/home/nao/sysroot-${GCC_VERSION}-${TOOLCHAIN_SUB_VERSION}"
+
+case $MACHINE_TYPE in
+  i?86)
+    dir_toolchain="ctc-linux32-hulks-${GCC_VERSION}-${TOOLCHAIN_SUB_VERSION}"
+    install_dir_toolchain="${base_dir}/${dir_toolchain}";;
+  *)
+    dir_toolchain="ctc-linux64-hulks-${GCC_VERSION}-${TOOLCHAIN_SUB_VERSION}"
+    install_dir_toolchain="${base_dir}/${dir_toolchain}";;
+esac
+
+echo ${dir_toolchain}
+echo ${install_dir_toolchain}
+
+# Build final toolchain
+echo "Building toolchain"
+
+mkdir -p ${install_dir_toolchain}/root/libroot
+
+cp -r ${base_dir}/root/* ${install_dir_toolchain}/root/
+cp -r ${base_dir}/x-tools/i686-nao-linux-gnu/* ${install_dir_toolchain}/root
+cp -r ${base_dir}/ctc-hulks-clang/llvm-inst/* ${install_dir_toolchain}/root
+sed -e "s/INSERT_VERSION_HERE/${GCC_VERSION}-${TOOLCHAIN_SUB_VERSION}/" ${base_dir}/toolchain.cmake > ${install_dir_toolchain}/toolchain.cmake
+
+cp -r ${libs_dir}/* ${install_dir_toolchain}/root/libroot/
+cp ${base_dir}/patches/alsa/* ${install_dir_toolchain}/root/libroot/usr/share/alsa/
+
+
+# Build sysroot for nao
+echo "Building sysroot"
+
+mkdir -p ${install_dir_sysroot}
+cp -r ${base_dir}/x-tools/i686-nao-linux-gnu/i686-nao-linux-gnu/sysroot/* ${install_dir_sysroot}
+cp -r ${base_dir}/x-tools/i686-nao-linux-gnu/i686-nao-linux-gnu/debug-root/* ${install_dir_sysroot}
+
+cp -r ${libs_dir}/* ${install_dir_sysroot}
+cp ${base_dir}/patches/alsa/* ${install_dir_sysroot}/usr/share/alsa/
+
+rm -rf ${install_dir_sysroot}/include
+rm -rf ${install_dir_sysroot}/man
+rm -rf ${install_dir_sysroot}/etc
+rm -rf ${install_dir_sysroot}/var
+rm -rf ${install_dir_sysroot}/usr/include
+
+echo "Build the tar.bz2 files"
+
+tar -I pbzip2 -cf sysroot-${GCC_VERSION}-${TOOLCHAIN_SUB_VERSION}.tar.bz2 sysroot-${GCC_VERSION}-${TOOLCHAIN_SUB_VERSION}
+tar -I pbzip2 -cf ${dir_toolchain}.tar.bz2 ${dir_toolchain}

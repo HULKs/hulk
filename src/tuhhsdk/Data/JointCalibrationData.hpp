@@ -13,19 +13,19 @@ public:
   /// measurements)
   std::array<float, JOINTS::JOINTS_MAX> calibrationOffsets;
 
-  void reset()
+  void reset() override
   {
     // This is empty on purpose since the calibration provider does not rewrite the offsets every
     // cycle
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["calibrationOffsets"] << calibrationOffsets;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["calibrationOffsets"] >> calibrationOffsets;
   }

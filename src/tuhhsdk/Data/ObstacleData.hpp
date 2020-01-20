@@ -3,7 +3,6 @@
 #include <cmath>
 #include <vector>
 
-#include "Definitions/BHULKsStandardMessage.h"
 #include "Framework/DataType.hpp"
 #include "Tools/Math/Eigen.hpp"
 #include "Tools/Math/Pose.hpp"
@@ -11,7 +10,7 @@
 /**
  * @enum ObstacleType enumerates different types of obstacles
  * @brief This is enum is used for all obstacles models (local and team).
- *        Note that you may have to add obstacle types in the (B-)HULKs-Message
+ *        Note that you may have to add obstacle types in the HULKs-Message
  *        Attention: don't f***ING change the order
  *        Attention again: When adding types here you have to check both the ObstacleFilter and the
  *        TeamObstacleFilter
@@ -19,21 +18,21 @@
 enum class ObstacleType
 {
   /// an obstacle that is generated from the knowledge where the goal is on the map
-  GOAL_POST = static_cast<int>(B_HULKs::ObstacleType::goalpost),
+  GOAL_POST,
   /// an unknown obstacle
-  UNKNOWN = static_cast<int>(B_HULKs::ObstacleType::unknown),
+  UNKNOWN,
   /// some robot that could not be further classified
-  ANONYMOUS_ROBOT = static_cast<int>(B_HULKs::ObstacleType::someRobot),
+  ANONYMOUS_ROBOT,
   /// a robot of the opponents team
-  HOSTILE_ROBOT = static_cast<int>(B_HULKs::ObstacleType::opponent),
+  HOSTILE_ROBOT,
   /// a robot of the own team
-  TEAM_ROBOT = static_cast<int>(B_HULKs::ObstacleType::teammate),
+  TEAM_ROBOT,
   /// same as above but fallen
-  FALLEN_ANONYMOUS_ROBOT = static_cast<int>(B_HULKs::ObstacleType::fallenSomeRobot),
+  FALLEN_ANONYMOUS_ROBOT,
   /// same as above but fallen
-  FALLEN_HOSTILE_ROBOT = static_cast<int>(B_HULKs::ObstacleType::fallenOpponent),
+  FALLEN_HOSTILE_ROBOT,
   /// same as above but fallen
-  FALLEN_TEAM_ROBOT = static_cast<int>(B_HULKs::ObstacleType::fallenTeammate),
+  FALLEN_TEAM_ROBOT,
   /// the ball as obstacle for walking around the ball
   BALL,
   /// the area to keep clear during a free kick performed by the enemy team
@@ -70,7 +69,7 @@ struct Obstacle : public Uni::From, public Uni::To
   /// the radius of the obstacle
   float radius;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["relativePosition"] << relativePosition;
@@ -78,7 +77,7 @@ struct Obstacle : public Uni::From, public Uni::To
     value["radius"] << radius;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["relativePosition"] >> relativePosition;
     int numberRead;
@@ -99,7 +98,7 @@ public:
    * @brief Holds the preconfigured radius for each obstacle type.
    * Use the function below for a better readable access.
    */
-  std::array<float, static_cast<int>(ObstacleType::OBSTACLETYPE_MAX) > typeRadius;
+  std::array<float, static_cast<int>(ObstacleType::OBSTACLETYPE_MAX)> typeRadius;
   /**
    * @brief Query the preconfigured radius of an obstacle type.
    * This provides a more readable alternative to the direct array access.
@@ -113,18 +112,18 @@ public:
   /**
    * @brief reset clears the obstacles
    */
-  void reset()
+  void reset() override
   {
     obstacles.clear();
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["obstacles"] << obstacles;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["obstacles"] >> obstacles;
   }

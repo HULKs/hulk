@@ -18,12 +18,12 @@ public:
   /**
    * @brief reset sets the circle to a defined state
    */
-  void reset()
+  void reset() override
   {
     found = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["circle"] << circle;
@@ -31,7 +31,7 @@ public:
     value["found"] << found;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["circle"] >> circle;
     value["timestamp"] >> timestamp;

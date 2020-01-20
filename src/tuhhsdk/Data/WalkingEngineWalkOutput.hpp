@@ -19,7 +19,7 @@ public:
   /**
    * @brief reset resets the step offset to 0
    */
-  void reset()
+  void reset() override
   {
     MotionOutput::reset();
     stepOffset = Pose();
@@ -27,14 +27,14 @@ public:
     maxVelocityComponents = Pose(0.18f, 0.1f, 36.f / TO_RAD);
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     MotionOutput::toValue(value);
     value["stepOffset"] << stepOffset;
     value["maxVelocityComponents"] << maxVelocityComponents;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     MotionOutput::fromValue(value);
     value["stepOffset"] >> stepOffset;

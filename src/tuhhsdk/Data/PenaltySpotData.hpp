@@ -11,16 +11,46 @@ struct PenaltySpot : public Uni::From, public Uni::To
 {
   PenaltySpot() = default;
 
-  PenaltySpot(const Vector2i pixelPosition)
+  explicit PenaltySpot(const Vector2i pixelPosition)
     : pixelPosition(pixelPosition)
   {
+  }
+
+  /**
+   * calculates penalty spot bounding box
+   */
+  void toRectangle(Rectangle<int>& rectangle)
+  {
+    rectangle.topLeft.x() = pixelPosition.x() - width / 2;
+    rectangle.topLeft.y() = pixelPosition.y() - height / 2;
+    rectangle.bottomRight.x() = pixelPosition.x() + width / 2;
+    rectangle.bottomRight.y() = pixelPosition.y() + height / 2;
+  }
+
+  /**
+   * @brief adds penalty spots bounding box points to convex polygon in anti clockwise order
+   */
+  void toConvexPolygon(ConvexPolygon<int>& convexPolygon)
+  {
+    // Top left
+    convexPolygon.points.emplace_back(pixelPosition.x() - width / 2,
+                                      pixelPosition.y() - height / 2);
+    // Bottom left
+    convexPolygon.points.emplace_back(pixelPosition.x() - width / 2,
+                                      pixelPosition.y() + height / 2);
+    // Bottom right
+    convexPolygon.points.emplace_back(pixelPosition.x() + width / 2,
+                                      pixelPosition.y() + height / 2);
+    // Top right
+    convexPolygon.points.emplace_back(pixelPosition.x() + width / 2,
+                                      pixelPosition.y() - height / 2);
   }
 
   /**
    * @brief fromValue converts a Uni::Value to this
    * @param value the value that should be converted to this class
    */
-  void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     assert(value.type() == Uni::ValueType::OBJECT);
     value["relativePosition"] >> relativePosition;
@@ -36,7 +66,7 @@ struct PenaltySpot : public Uni::From, public Uni::To
    * @brief toValue converts this to a Uni::Value
    * @param value the value that this class should be converted to
    */
-  void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["relativePosition"] << relativePosition;
@@ -83,12 +113,12 @@ public:
   /**
    * @brief reset invalidates the penalty spot
    */
-  void reset()
+  void reset() override
   {
     valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["penaltySpot"] << penaltySpot;
@@ -96,7 +126,7 @@ public:
     value["valid"] << valid;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["penaltySpot"] >> penaltySpot;
     value["timestamp"] >> timestamp;

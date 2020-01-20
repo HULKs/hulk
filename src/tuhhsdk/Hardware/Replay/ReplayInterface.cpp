@@ -13,6 +13,7 @@
 
 ReplayInterface::ReplayInterface(const std::string& path)
   : path_(path)
+  , frameTimestamp_(0)
 {
 }
 
@@ -46,7 +47,7 @@ bool ReplayInterface::loadImage(const std::string& path, Image422& result)
   return true;
 }
 
-void ReplayInterface::configure(Configuration& c)
+void ReplayInterface::configure(Configuration& c, NaoInfo&)
 {
   Json::Reader reader;
   Json::Value root;
@@ -62,11 +63,11 @@ void ReplayInterface::configure(Configuration& c)
   {
     throw std::runtime_error("Root of file is not an object.");
   }
-  if (!replay.hasProperty("frames"))
+  if (!replay.contains("frames"))
   {
     throw std::runtime_error("The file is valid json but does not contain an array of frames.");
   }
-  if (c.get("tuhhSDK.base", "loadReplayConfig").asBool() && replay.hasProperty("config"))
+  if (c.get("tuhhSDK.base", "loadReplayConfig").asBool() && replay.contains("config"))
   {
     Uni::Value config = replay["config"];
     config >> fakeData_.replayConfig;
@@ -80,7 +81,7 @@ void ReplayInterface::configure(Configuration& c)
   images_.reserve(frames.size());
   ReplayFrame replayFrame;
   Image422 image;
-  for (auto it = frames.listBegin(); it != frames.listEnd(); it++)
+  for (auto it = frames.vectorBegin(); it != frames.vectorEnd(); it++)
   {
     ReplayFrame replayFrame;
     *it >> replayFrame;
@@ -113,7 +114,7 @@ void ReplayInterface::setLEDs(const std::vector<float>&) {}
 
 void ReplayInterface::setSonar(const float) {}
 
-void ReplayInterface::waitAndReadSensorData(NaoSensorData& data)
+float ReplayInterface::waitAndReadSensorData(NaoSensorData& data)
 {
   fakeData_.currentFrame = *frameIter_;
 
@@ -126,11 +127,16 @@ void ReplayInterface::waitAndReadSensorData(NaoSensorData& data)
   data.sonar[keys::sensor::SONAR_LEFT_SENSOR_0] = frameIter_->sonarDist[0];
   data.sonar[keys::sensor::SONAR_RIGHT_SENSOR_0] = frameIter_->sonarDist[1];
   // TODO: battery
-  data.time = frameIter_->timestamp;
+  data.time = frameTimestamp_;
+
+  realFrameTime_ = frameIter_->timestamp;
 
   std::this_thread::sleep_for(std::chrono::microseconds(300000));
 
-  rCamera_.setImage(*imageIter_, frameIter_->camera, frameIter_->timestamp);
+  rCamera_.setImage(*imageIter_, frameIter_->camera, frameTimestamp_);
+  // Since the replayInterface loops the replay images the frameTimestamp read from replay data is
+  // not continuously increasing. This increments the timestamp continuously.
+  frameTimestamp_ += 10;
   // No button callbacks in replay. At least not yet. They could be generated from the switches
   // directly.
 
@@ -141,6 +147,9 @@ void ReplayInterface::waitAndReadSensorData(NaoSensorData& data)
     frameIter_ = frames_.begin();
     imageIter_ = images_.begin();
   }
+
+  // Approximated time since last sensor reading
+  return 0.01f;
 }
 
 std::string ReplayInterface::getFileRoot()
@@ -154,12 +163,17 @@ std::string ReplayInterface::getDataRoot()
   return getFileRoot();
 }
 
-void ReplayInterface::getNaoInfo(Configuration&, NaoInfo& info)
+void ReplayInterface::getNaoInfo(Configuration& config, NaoInfo& info)
 {
   info.bodyVersion = NaoVersion::V3_3;
   info.headVersion = NaoVersion::V4;
   info.bodyName = "webots";
   info.headName = "webots";
+
+  // Export the NaoInfo to provide it in tuhhSDK.base for Export Diff functionality in MATE
+  Uni::Value value = Uni::Value(Uni::ValueType::OBJECT);
+  value << info;
+  config.set("tuhhSDK.base", "NaoInfo", value);
 }
 
 CameraInterface& ReplayInterface::getCamera(const Camera)
@@ -175,6 +189,11 @@ CameraInterface& ReplayInterface::getNextCamera()
 Camera ReplayInterface::getCurrentCameraType()
 {
   return rCamera_.getCameraType();
+}
+
+TimePoint ReplayInterface::getRealFrameTime()
+{
+  return realFrameTime_;
 }
 
 AudioInterface& ReplayInterface::getAudio()

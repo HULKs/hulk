@@ -51,6 +51,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM BOTH)
 # for libraries and headers in the target directories
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
 set(CMAKE_FIND_ROOT_PATH ${CMAKE_FIND_ROOT_PATH} CACHE INTERNAL "" FORCE)
 
@@ -66,20 +67,15 @@ set(CMAKE_OBJCOPY "${CTC_ROOTDIR}/bin/i686-nao-linux-gnu-objcopy${_BUILD_EXT}" C
 set(CMAKE_OBJDUMP "${CTC_ROOTDIR}/bin/i686-nao-linux-gnu-objdump${_BUILD_EXT}" CACHE FILEPATH "" FORCE)
 set(CMAKE_STRIP   "${CTC_ROOTDIR}/bin/i686-nao-linux-gnu-strip${_BUILD_EXT}"   CACHE FILEPATH "" FORCE)
 
+set_escaped(CMAKE_C_COMPILER         "${CTC_ROOTDIR}/bin/gclang${_BUILD_EXT}")
+set_escaped(CMAKE_CXX_COMPILER       "${CTC_ROOTDIR}/bin/gclang++${_BUILD_EXT}")
+
 # If ccache is found, just use it:)
 find_program(CCACHE "ccache")
-if (CCACHE)
-  message( STATUS "Using ccache")
-endif(CCACHE)
-
 if (CCACHE AND NOT FORCE_NO_CCACHE)
-  set(CMAKE_C_COMPILER                 "${CCACHE}" CACHE FILEPATH "" FORCE)
-  set(CMAKE_CXX_COMPILER               "${CCACHE}" CACHE FILEPATH "" FORCE)
-  set_escaped2(CMAKE_C_COMPILER_ARG1   "${CTC_ROOTDIR}/bin/gclang${_BUILD_EXT}")
-  set_escaped2(CMAKE_CXX_COMPILER_ARG1 "${CTC_ROOTDIR}/bin/gclang++${_BUILD_EXT}")
-else(CCACHE AND NOT FORCE_NO_CCACHE)
-  set_escaped(CMAKE_C_COMPILER         "${CTC_ROOTDIR}/bin/gclang${_BUILD_EXT}")
-  set_escaped(CMAKE_CXX_COMPILER       "${CTC_ROOTDIR}/bin/gclang++${_BUILD_EXT}")
+  message( STATUS "Using ccache")
+  set(CMAKE_C_COMPILER_LAUNCHER      "${CCACHE}" CACHE FILEPATH "" FORCE)
+  set(CMAKE_CXX_COMPILER_LAUNCHER    "${CCACHE}" CACHE FILEPATH "" FORCE)
 endif(CCACHE AND NOT FORCE_NO_CCACHE)
 
 ##
@@ -93,7 +89,7 @@ set(CMAKE_C_FLAGS "" CACHE STRING "" FORCE)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -target i686-nao-linux-gnu" CACHE STRING "" FORCE)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --gcc-toolchain=${CTC_ROOTDIR}" CACHE STRING "" FORCE)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --sysroot=${CTC_SYSROOT}" CACHE STRING "" FORCE)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32 -mtune=atom -mssse3 -mfpmath=sse" CACHE STRING "" FORCE)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32 -march=silvermont -mtune=silvermont -msse4.2 -mfpmath=sse" CACHE STRING "" FORCE)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" FORCE)
 

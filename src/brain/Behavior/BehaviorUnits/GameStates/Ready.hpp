@@ -11,7 +11,7 @@ ActionCommand ready(const DataSet& d)
     const float orientation = iAmKickOffStriker ? std::atan2(-d.robotPosition.pose.position.y(),
                                                              -d.robotPosition.pose.position.x())
                                                 : 0;
-    return rotate(d, orientation, true).combineHead(lookAround(d, 40.f * TO_RAD));
+    return rotate(d, orientation, true).combineHead(activeVision(d, VisionMode::LOCALIZATION));
   }
   // The robot that is going to perform the kickoff should face the center of the center circle. All
   // other robots should have orientation zero.
@@ -21,6 +21,6 @@ ActionCommand ready(const DataSet& d)
       d.setPosition.isKickoffPosition ? ActionCommand::LED::red() : ActionCommand::LED::blue();
   return walkToPose(d, Pose(d.setPosition.position, orientation), true, WalkMode::PATH, Velocity(),
                     3.f)
-      .combineHead(lookAround(d, 40.f * TO_RAD))
+      .combineHead(activeVision(d, VisionMode::LOCALIZATION))
       .combineRightLED(ledCommand);
 }

@@ -1,0 +1,13 @@
+---
+eth:
+  ipv4-config-method: manual
+  address: {eth_ip}
+  netmask: 255.255.255.0
+  gateway:
+wifi:
+  ssid: SPL_A
+  password: CHANGE_ME
+  ipv4-config-method: manual
+  address: {wifi_ip}
+  netmask: 255.255.0.0
+  gateway:

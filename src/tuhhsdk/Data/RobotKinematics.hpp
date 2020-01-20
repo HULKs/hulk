@@ -20,18 +20,18 @@ public:
   /**
    * @brief reset does nothing
    */
-  void reset()
+  void reset() override
   {
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["matrices"] << matrices;
     value["com"] << com;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["matrices"] >> matrices;
     value["com"] >> com;

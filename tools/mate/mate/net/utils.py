@@ -66,19 +66,19 @@ class ConfigMessage(Message):
                  type: DebugMsgType,
                  body: str = "",
                  length: int = None,
-                 version: int = 1):
+                 version: int = 2):
         super(ConfigMessage, self).__init__(type, body, length, version)
 
     @staticmethod
     def header_from_bytes(msg):
-        if len(msg) >= 8:
-            fmt = "<4sBBH"
+        if len(msg) >= 12:
+            fmt = "<4sBBxxI"
             (msg_head, raw_version, raw_type, msg_size) = struct.unpack(
-                fmt, msg[:8])
-            return (msg_head, raw_version, ConfigMsgType(raw_type), msg_size)
+                fmt, msg[:12])
+            return msg_head, raw_version, ConfigMsgType(raw_type), msg_size
 
     def toBytes(self):
-        msg_format = "<4sBBH{}s".format(len(self.body))
+        msg_format = "<4sBBxxI{}s".format(len(self.body))
         return struct.pack(msg_format, b'CONF', self.version, self.type.value,
                            self.length, self.body.encode())
 
@@ -113,16 +113,17 @@ class DebugMessage(Message):
 
     @staticmethod
     def get_image(body):
-        fmt = "<HHH"
-        (width, height, key_length) = struct.unpack(fmt, body[:6])
-        return body[6:6 + key_length].decode(), width, height, body[
-            6 + key_length:]
+        fmt = "<QHHH"
+        (timestamp, width, height, key_length) = struct.unpack(fmt, body[:14])
+        return body[14:14 + key_length].decode(), timestamp, width, height, body[
+            14 + key_length:]
 
     @staticmethod
     def parse_data(d: dict) -> Data:
         if d.get("isImage", False):
             return DebugImage(
                 d["key"],
+                d.get("timestamp", 0),
                 d.get("width", 0),
                 d.get("height", 0),
                 d.get("value", b'')

@@ -1,0 +1,10 @@
+[Unit]
+Description=Connman HULKs Service
+
+[Service]
+ExecStart=/bin/bash -c '/home/nao/.local/bin/connman-hulks > >(tee /home/nao/naoqi/connman.out) 2> >(tee /home/nao/naoqi/connman.err >&2)'
+SyslogIdentifier=connman-hulks
+Type=simple
+
+[Install]
+WantedBy=default.target

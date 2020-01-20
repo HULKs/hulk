@@ -20,7 +20,6 @@ UKFPositionKnowledge::UKFPositionKnowledge(const ModuleManagerInterface& manager
   , mergeRadius_(*this, "mergeRadius", [] {})
   , mergeAngle_(*this, "mergeAngle", [] {})
   , maxPSOPenaltySpotAssociationDistance_(*this, "maxPSOPenaltySpotAssociationDistance", [] {})
-  , maxGyroNormWhenMeasuring_(*this, "maxGyroNormWhenMeasuring", [] {})
   , startAnywhereAtSidelines_(*this, "startAnywhereAtSidelines", [] {})
   , maxNumberOfHypotheses_(*this, "maxNumberOfHypotheses", [] {})
   , useSensorResetting_(*this, "useSensorResetting", [] {})
@@ -32,11 +31,9 @@ UKFPositionKnowledge::UKFPositionKnowledge(const ModuleManagerInterface& manager
   , strikerLocalizeInPSO_(*this, "strikerLocalizeInPSO", [] {})
   , cycleInfo_(*this)
   , fieldDimensions_(*this)
-  , IMUSensorData_(*this)
   , odometryOffset_(*this)
   , cameraMatrix_(*this)
   , gameControllerState_(*this)
-  , rawGameControllerState_(*this)
   , playerConfiguration_(*this)
   , landmarkModel_(*this)
   , bodyPose_(*this)
@@ -96,14 +93,14 @@ void UKFPositionKnowledge::updateState()
   {
     // Penalty Shootout requires special handling. The robot is in SET when waiting.
     // It will be switched to PLAYING when the robot should start to move.
-    if ((gameControllerState_->gameState == GameState::PLAYING && lastState_ != GameState::PLAYING) ||
-        (gameControllerState_->penalty == Penalty::NONE && lastPenalty_ != Penalty::NONE))
+    if ((gameControllerState_->gameState == GameState::PLAYING &&
+         lastState_ != GameState::PLAYING) ||
+        (gameControllerState_->penalty == Penalty::NONE && lastPenalty_ != Penalty::NONE) ||
+        gameControllerState_->gameState == GameState::SET)
     {
       // if we are penalty taker and in general PSO-Competition-Mode (5 different PSO positions
       // around the penalty spot, we need 5 hypotheses)
-      if (gameControllerState_->kickingTeam &&
-          (gameControllerState_->type == CompetitionType::GENERAL_PENALTY_KICK ||
-           alwaysUseMultiplePenaltyShootoutPositions_()))
+      if (gameControllerState_->kickingTeam && alwaysUseMultiplePenaltyShootoutPositions_())
       {
         // if we are the kicking team and in general PSO mode, there are 5 positions where we can be
         // (spread around the penalty spot)
@@ -147,7 +144,8 @@ void UKFPositionKnowledge::updateState()
     }
     else if ((gameControllerState_->gameState == GameState::INITIAL &&
               lastState_ != GameState::INITIAL) ||
-             (gameControllerState_->gameState == GameState::READY && lastState_ == GameState::INITIAL))
+             (gameControllerState_->gameState == GameState::READY &&
+              lastState_ == GameState::INITIAL))
     {
       // reset for the next set phase
       wasHighInSet_ = false;
@@ -202,10 +200,9 @@ void UKFPositionKnowledge::updateState()
    */
   const bool sufficientlyStable = (motionState_->bodyMotion == MotionRequest::BodyMotion::WALK ||
                                    motionState_->bodyMotion == MotionRequest::BodyMotion::STAND) &&
-                                  IMUSensorData_->gyroscope.norm() < maxGyroNormWhenMeasuring_();
+                                  !bodyPose_->wonky;
 
-  const bool inMultiPSOMode = gameControllerState_->type == CompetitionType::GENERAL_PENALTY_KICK ||
-                              alwaysUseMultiplePenaltyShootoutPositions_();
+  const bool inMultiPSOMode = alwaysUseMultiplePenaltyShootoutPositions_();
   const bool localizeInPenaltyShootout =
       gameControllerState_->kickingTeam && (strikerLocalizeInPSO_() || inMultiPSOMode);
 
@@ -288,7 +285,7 @@ void UKFPositionKnowledge::measurementUpdate()
     {
       // ignore penalty areas / penalty spots in penalty shoot out if the
       // projected position from the current state mean is too far off the
-      // expected position (penlatySpot[1] is the penalty spot of the opponent)
+      // expected position (penaltySpot[1] is the penalty spot of the opponent)
       if (gameControllerState_->gamePhase == GamePhase::PENALTYSHOOT &&
           (poseHypothesis.getPoseMean() * penaltyArea.position - fieldInfo_.penaltySpots[1])
                   .norm() > maxPSOPenaltySpotAssociationDistance_())
@@ -323,9 +320,18 @@ void UKFPositionKnowledge::publishPoseEstimate()
   robotPosition_->pose = bestPoseHypothesisIt_->getPoseMean();
   // update last time jumped with the selected pose
   robotPosition_->lastTimeJumped = updateLastTimeJumped(robotPosition_->pose);
-  // invalidate pose if we recently jumped or were reset
-  robotPosition_->valid = !(resettedThisCycle_ || jumpedThisCycle_ ||
-                            (wasHighInSet_ && gameControllerState_->gameState == GameState::SET));
+
+  const bool moreThanOneHypothesis = poseHypotheses_.size() > 1;
+  const bool isPenalized = gameControllerState_->penalty != Penalty::NONE;
+  const bool penaltyShootout = gameControllerState_->gamePhase == GamePhase::PENALTYSHOOT;
+  // Check if there was an irregularity that makes the pose unreliable
+  const bool recentIrregularity = resettedThisCycle_ || jumpedThisCycle_ ||
+                          (wasHighInSet_ && gameControllerState_->gameState == GameState::SET);
+  // pose is valid if number of hypotheses is one, the pose was not reset, did not jump, the
+  // robot was not high in set and we don't have a penalty
+  // pose is valid in penalty shoot out if theres only one pose hypothesis
+  const bool invalid = moreThanOneHypothesis || ((recentIrregularity || isPenalized) && !penaltyShootout);
+  robotPosition_->valid = !invalid;
 }
 
 void UKFPositionKnowledge::mergeHypotheses()

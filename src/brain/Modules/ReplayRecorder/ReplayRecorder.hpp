@@ -25,21 +25,32 @@ class ReplayRecorder : public Module<ReplayRecorder, Brain>
 public:
   /// the name of this module
   ModuleName name = "ReplayRecorder";
+
   /**
    * @brief ReplayRecorder initializes members
    * @param manager a reference to brain
    */
-  ReplayRecorder(const ModuleManagerInterface& manager);
-  /// @brief the destructor ompletes the written json file with closing braces
-  ~ReplayRecorder();
-  /// @brief the modules cycle.
-  void cycle();
+  explicit ReplayRecorder(const ModuleManagerInterface& manager);
+  /**
+   * @brief the destructor completes the written json file with closing braces
+   */
+  ~ReplayRecorder() override;
+  /**
+   * @brief the modules cycle.
+   */
+  void cycle() override;
 
 private:
   /// the minimum time difference between recorded frames
   const Parameter<float> minSecBetweenFrames_;
   /// whether frames should only be recorded while PLAYING
   const Parameter<bool> onlyRecordWhilePlaying_;
+  /// the number of frames to collect at once (number of consecutive cycles to record)
+  const Parameter<int> numberOfConsecutiveFrames_;
+  /// whether to record frames from top camera cycle
+  const Parameter<bool> disableTopCameraFrames_;
+  /// whether to record frames from bottom camera cycle
+  const Parameter<bool> disableBottomCameraFrames_;
 
   const Dependency<ImageData> imageData_;
   const Dependency<JointSensorData> jointSensorData_;
@@ -56,7 +67,7 @@ private:
   /// the target file for the replay data
   const std::string replayJson_;
 
-  /// the filestream for the replay.json file
+  /// the file stream for the replay.json file
   std::ofstream frameStream_;
   /// whether the write thread is busy
   std::atomic<bool> writeThreadBusy_;
@@ -65,10 +76,17 @@ private:
   /// the thread which writes the record to disk
   std::thread writeThread_;
 
+  /// list of replay frames to write.
+  std::vector<ReplayFrame> replayFrames_;
+  std::vector<Image> images_;
+
   /// the data of the current frame
   ReplayFrame currentFrame_;
   Image currentImage_;
   CVData currentPngImage_;
+
+  /// The time when the last frame was recorded.
+  TimePoint lastFrameTime_;
 
   /// writes the currentFrame_ to disk
   void writeFrame();

@@ -136,15 +136,15 @@ void StandUp::startActualStandUp(Side groundSide)
   {
     case Side::BACK:
       print("standUp: MotionBack from BACK starting...", LogLevel::INFO);
-      timerClock_ = standUpMotionBack_.play() + 1000;
+      timerClock_ = standUpMotionBack_.play();
       break;
     case Side::FRONT:
       print("standUp: MotionFront from FRONT starting...", LogLevel::INFO);
-      timerClock_ = standUpMotionFront_.play() + 1000;
+      timerClock_ = standUpMotionFront_.play();
       break;
     case Side::FOOT:
       print("standUp: Motion from FOOT starting...", LogLevel::INFO);
-      timerClock_ = standUpMotionFoot() + 1000;
+      timerClock_ = standUpMotionFoot();
       break;
     default:
       print("standUp: performStandup() called with unknown ground side...", LogLevel::ERROR);

@@ -20,7 +20,7 @@ OMFCD::OneMeansFieldColorDetection(const ModuleManagerInterface& manager)
                            })
   , initialGuessTop_(*this, "initialGuessTop", [] {})
   , initialGuessBottom_(*this, "initialGuessBottom", [] {})
-  , thresholdY_(*this, "thresholdY", [] {})
+  , thresholdYParam_(*this, "thresholdY", [] {})
   , thresholdUV_(*this, "thresholdUV", [] {})
   , sampleRate_(10)
   , imageData_(*this)
@@ -29,6 +29,13 @@ OMFCD::OneMeansFieldColorDetection(const ModuleManagerInterface& manager)
   , updateInitialGuessTop_(false)
   , updateInitialGuessBottom_(false)
 {
+  fieldColor_->isFieldColor = [this](const YCbCr422& pixel) -> float {
+    const int cb = (pixel.cb_ - meanCb_);
+    const int cr = (pixel.cr_ - meanCr_);
+    return (pixel.y1_ < thresholdY_ && pixel.y2_ < thresholdY_ &&
+            cb * cb + cr * cr * 2 < thresholdUvSquared_) *
+           1.f;
+  };
 }
 
 void OMFCD::cycle()
@@ -82,10 +89,10 @@ void OMFCD::cycle()
     }
     color = newColor;
   }
-  fieldColor_->thresholdUvSquared = thresholdUVSquared;
-  fieldColor_->thresholdY = color.yThresh;
-  fieldColor_->meanCb = static_cast<int>(color.mean.x());
-  fieldColor_->meanCr = static_cast<int>(color.mean.y());
+  thresholdUvSquared_ = thresholdUVSquared;
+  thresholdY_ = color.yThresh;
+  meanCb_ = static_cast<int>(color.mean.x());
+  meanCr_ = static_cast<int>(color.mean.y());
   fieldColor_->valid = true;
 
   sendImageForDebug(image);
@@ -155,7 +162,7 @@ OMFCD::FieldColorCluster OMFCD::updateStep(const Image422& image,
   }
   if (count > 0)
   {
-    return {mean / count, (int)(meanY / count * thresholdY_())};
+    return {mean / count, (int)(meanY / count * thresholdYParam_())};
   }
   return initCluster;
 }
@@ -166,9 +173,9 @@ void OMFCD::sendImageForDebug(const Image422& image)
   {
     return;
   }
-  debug().update(mount_ + "." + "thresholdY", fieldColor_->thresholdY);
-  debug().update(mount_ + "." + "meanCb." + imageData_->identification, fieldColor_->meanCb);
-  debug().update(mount_ + "." + "meanCr." + imageData_->identification, fieldColor_->meanCr);
+  debug().update(mount_ + "." + "thresholdY", thresholdY_);
+  debug().update(mount_ + "." + "meanCb." + imageData_->identification, meanCb_);
+  debug().update(mount_ + "." + "meanCr." + imageData_->identification, meanCr_);
 
   if (!(counter_++ % 3))
   { // This only sends every third image because the

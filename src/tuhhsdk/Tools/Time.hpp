@@ -41,22 +41,34 @@ public:
    * @brief Creates a TimePoint at time "time", assumes "time" to be time since boot in ms.
    * @param time the time in ms
    */
-  TimePoint(const unsigned int time = 0)
+  explicit TimePoint(const uint32_t time = 0)
     : creationTime_(time)
   {
   }
 
   /**
+   * @brief Copy constructor copies another TimePoint object
+   * @param other the TimePoint to copy
+   */
+  TimePoint(const TimePoint& other) = default;
+
+  /**
    * @brief Returns the time set as base for all TimePoints (boot time).
    * @return the base time in ms
    */
-  static unsigned int getBaseTime()
+  static uint64_t getBaseTime()
   {
+#ifndef SIMROBOT
+    return static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(baseTime_.time_since_epoch())
+            .count());
+#else
     if (!baseTime_)
     {
       getCurrentTime();
     }
-    return baseTime_;
+    return static_cast<uint64_t>(baseTime_);
+#endif
   }
 
   /**
@@ -67,20 +79,19 @@ public:
    */
   static TimePoint getCurrentTime()
   {
+#if defined(NAOV6)
+    auto duration = std::chrono::steady_clock::now() - baseTime_;
+    return TimePoint(static_cast<uint32_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()));
+#elif defined(NAOV5) || defined(REPLAY)
+    auto duration = std::chrono::system_clock::now() - baseTime_;
+    return TimePoint(static_cast<uint32_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()));
+#else // Simrobot
     if (baseTime_ == 0)
     {
-#ifndef SIMROBOT
-      auto duration = std::chrono::system_clock::now().time_since_epoch();
-      baseTime_ = static_cast<unsigned int>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count())
-        - 15000;
-#else
       baseTime_ = SimRobotAdapterAdapter::getSimulatedTime();
-#endif
     }
-#ifndef SIMROBOT
-    auto duration = std::chrono::system_clock::now().time_since_epoch();
-    return TimePoint(static_cast<unsigned int>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()) - baseTime_);
-#else
     return TimePoint(SimRobotAdapterAdapter::getSimulatedTime() - baseTime_);
 #endif
   }
@@ -89,10 +100,17 @@ public:
    * @brief Returns the time passed since base time (time since boot).
    * @return the time since base time in ms since boot
    */
-  unsigned int getSystemTime() const
+  uint32_t getSystemTime() const
   {
     return creationTime_;
   }
+
+  /**
+   * @brief default assignment operator
+   * @param other the other object to assign
+   * @return reference to the the timepoint object
+   */
+  TimePoint& operator=(const TimePoint& other) = default;
 
   /**
    * @brief Used to calculate the time difference between 2 time points.
@@ -119,11 +137,11 @@ public:
    * @param duration the duration that is subtracted from the given time point
    * @return the sum of given time point and duration in ms since boot
    */
-  template<typename T, typename U>
+  template <typename T, typename U>
   TimePoint operator-(const std::chrono::duration<T, U>& duration) const
   {
     auto d = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
-    return TimePoint(creationTime_ - static_cast<int>(d.count()));
+    return TimePoint(creationTime_ - static_cast<uint32_t>(d.count()));
   }
 
   /**
@@ -152,7 +170,7 @@ public:
    * @param duration the duration that is added to the given time point
    * @return the sum of given time point and duration in ms
    */
-  template<typename T, typename U>
+  template <typename T, typename U>
   TimePoint operator+(const std::chrono::duration<T, U>& duration) const
   {
     auto d = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
@@ -183,11 +201,31 @@ public:
   /**
    * @brief Used to compare 2 time points.
    * @param endPoint second time point used for calculation
+   * @return true if endPoint is smaller or equal
+   */
+  bool operator>=(const TimePoint endPoint) const
+  {
+    return (creationTime_ >= endPoint.creationTime_);
+  }
+
+  /**
+   * @brief Used to compare 2 time points.
+   * @param endPoint second time point used for calculation
    * @return true if endPoint is larger
    */
   bool operator<(const TimePoint endPoint) const
   {
     return (creationTime_ < endPoint.creationTime_);
+  }
+
+  /**
+   * @brief Used to compare 2 time points.
+   * @param endPoint second time point used for calculation
+   * @return true if endPoint is larger or equal
+   */
+  bool operator<=(const TimePoint endPoint) const
+  {
+    return (creationTime_ <= endPoint.creationTime_);
   }
 
   /**
@@ -209,11 +247,28 @@ public:
   {
     return (creationTime_ != endPoint.creationTime_);
   }
+
+
 private:
+  // baseTime_ is the moment when the first TimePoint was created (this happens as one of the first
+  // things when our software is started). As all systems (v5, v6, simrobot) use different
+  // timestamps when it comes to camera images (timestamps are determined by kernel), we decided to
+  // handle the base time like the camera image time on every single system. Therefore v5 is using a
+  // chrono system clock timestamp, v6 is using a steady clock time stamp and simrobot uses a
+  // unsigned int (simulation time starts at 0).
+#if defined(NAOV6)
+  /// The base time used for every TimePoint as a chrono steady clock
+  static std::chrono::time_point<std::chrono::steady_clock> baseTime_;
+#elif defined(NAOV5) || defined(REPLAY)
+  /// The base time used for every TimePoint as a chrono system clock
+  static std::chrono::time_point<std::chrono::system_clock> baseTime_;
+#else
   /// The base time used for every TimePoint in ms
-  static unsigned int baseTime_;
+  static uint32_t baseTime_;
+#endif
+
   /// The system time at which this TimePoint was created in ms
-  unsigned int creationTime_;
+  uint32_t creationTime_;
 };
 
 /**
@@ -261,14 +316,14 @@ enum class TDT
  */
 static inline float getTimeDiff(const TimePoint lhs, const TimePoint rhs, const TDT type)
 {
-  unsigned int diff;
+  uint32_t diff;
   if (lhs > rhs)
   {
-    diff = lhs - rhs;
+    diff = static_cast<uint32_t>(lhs - rhs);
   }
   else
   {
-    diff = rhs - lhs;
+    diff = static_cast<uint32_t>(rhs - lhs);
   }
   switch (type)
   {

@@ -18,9 +18,9 @@ public:
   std::array<bool, TACTILEHANDSENSORS::TACTILEHANDSENSORS_MAX> damagedTactileHandSensors;
   std::array<bool, BUMPERS::BUMPERS_MAX> damagedBumpers;
 
-  void reset() {}
+  void reset() override {}
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["damagedJoints"] << damagedJoints;
@@ -32,7 +32,7 @@ public:
     value["damagedBumpers"] << damagedBumpers;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["damagedJoints"] >> damagedJoints;
     value["damagedFSRs"] >> damagedFSRs;

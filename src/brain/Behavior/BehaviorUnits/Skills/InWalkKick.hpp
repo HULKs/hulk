@@ -19,12 +19,12 @@ ActionCommand walkToBallAndInWalkKick(const DataSet& d, const Pose& kickPose,
   if (kickable == BallUtils::Kickable::LEFT)
   {
     return ActionCommand::walk(Pose(), WalkMode::DIRECT, Velocity(), kickType, KickFoot::LEFT)
-        .combineHead(trackBall(d));
+        .combineHead(activeVision(d, VisionMode::BALL_TRACKER));
   }
   else if (kickable == BallUtils::Kickable::RIGHT)
   {
     return ActionCommand::walk(Pose(), WalkMode::DIRECT, Velocity(), kickType, KickFoot::RIGHT)
-        .combineHead(trackBall(d));
+        .combineHead(activeVision(d, VisionMode::BALL_TRACKER));
   }
-  return walkBehindBall(d, kickPose, velocity).combineHead(trackBall(d));
+  return walkBehindBall(d, kickPose, velocity).combineHead(activeVision(d, VisionMode::BALL_TRACKER));
 }

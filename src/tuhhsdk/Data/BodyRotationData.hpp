@@ -15,20 +15,20 @@ public:
   /**
    * @brief reset sets the state to some defaults
    */
-  void reset()
+  void reset() override
   {
     rollPitchYaw = {};
     bodyTilt2ground = {};
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["rollPitchYaw"] << rollPitchYaw;
     value["bodyTilt2ground"] << bodyTilt2ground;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["rollPitchYaw"] >> rollPitchYaw;
     value["bodyTilt2ground"] >> bodyTilt2ground;

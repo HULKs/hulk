@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Tools/Storage/UniValue/UniConvertible.hpp>
+#include <Tools/Storage/UniValue/UniValue.h>
 
 #define DataTypeName static constexpr const char*
 
@@ -10,7 +10,7 @@ public:
   /**
    * @brief ~DataTypeBase virtual destructor for polymorphism
    */
-  virtual ~DataTypeBase() = default;
+  ~DataTypeBase() override = default;
   /**
    * @brief copy creates a copy of the datum
    */
@@ -21,7 +21,7 @@ public:
    */
   virtual void copy(DataTypeBase* p) const = 0;
   /**
-   * @brief reset should set the datum to a defined state
+   * @brief reset sets the datum to a defined state
    */
   virtual void reset() = 0;
   /**
@@ -35,13 +35,13 @@ public:
    * @param value a reference to a Uni::Value that will be filled with
    * the Uni::Value representation of the DataType
    */
-  virtual void toValue(Uni::Value& /*value*/) const = 0;
+  void toValue(Uni::Value& /*value*/) const override = 0;
   /**
    * @brief fromValue sets the DataType from an Uni::Value. This is to be
    * implemented in derived classes
    * @param value the value to set the DataType's values from
    */
-  virtual void fromValue(const Uni::Value& /*value*/) = 0;
+  void fromValue(const Uni::Value& /*value*/) override = 0;
   /// whether this DataType should automatically being sent via debug (if subscribed)
   bool autoUpdateDebug = true;
 };

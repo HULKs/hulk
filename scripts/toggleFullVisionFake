@@ -7,5 +7,5 @@ BASEDIR=${BASEDIR%/*}
 # The tuhh_autoload.json
 tuhh_autoload=${BASEDIR}/home/configuration/location/default/tuhh_autoload.json
 
-# Replace default with fullVisionFake and vice vers 
+# Replace default with fullVisionFake and vice vers
 sed -i -e 's/"default"/"fullVisionFake"/;t;s/"fullVisionFake"/"default"/' $tuhh_autoload

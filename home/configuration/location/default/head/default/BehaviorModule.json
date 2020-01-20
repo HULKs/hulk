@@ -5,6 +5,7 @@
   "lookAroundInnerYaw": 13,
   "lookAroundOuterPosition": [119, 15], // yaw, pitch
   "lookAroundYawVelocity": 57.3,
+  "lookAroundBallYawVelocity": 28.7,
   "debugTargetEnable": false,
   "debugTargetRelativePose": [[0, 0], 0],
   "remoteMotionRequest":
@@ -28,7 +29,7 @@
       "ballSource": [0, 0],
       "kickType": 0
     },
-    "keeperData": 0,
+    "jumpData": 0,
     "headAngleData":
     {
       "headYaw": 0,

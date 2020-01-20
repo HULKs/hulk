@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Data/BodyRotationData.hpp"
+#include "Data/CycleInfo.hpp"
 #include "Data/IMUSensorData.hpp"
 #include "Data/OdometryData.hpp"
 #include "Data/WalkingEngineWalkOutput.hpp"
@@ -31,6 +32,8 @@ private:
   SensorFusion sensorFusion_;
   /// the output of the walking engine for translational odometry
   const Dependency<WalkingEngineWalkOutput> walkingEngineWalkOutput_;
+  /// the cycle data
+  const Dependency<CycleInfo> cycleInfo_;
   /// the IMU sensor data
   const Dependency<IMUSensorData> imuSensorData_;
   /// the roll pitch yaw angles as equivalent to IMUSensorData::angle

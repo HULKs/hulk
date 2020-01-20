@@ -1,0 +1,8 @@
+{
+  "enableScoring": true,
+  "enablePassing": false,
+  "distanceToBallDribble": [0.20, 0.01],
+  "angleToBallDribble": 10,
+  "angleToBallKick": 2.86479,
+  "cornerKickTargetOffset": 1.0
+}

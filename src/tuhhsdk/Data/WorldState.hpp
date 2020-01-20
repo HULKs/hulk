@@ -12,6 +12,7 @@ public:
   bool ballInLeftHalf = false;
   bool robotInOwnHalf = false;
   bool robotInLeftHalf = false;
+  bool robotInPenaltyArea = false;
   bool ballValid = false;
   bool robotValid = false;
   bool ballIsFree = false;
@@ -33,6 +34,7 @@ public:
     value["ballInLeftHalf"] << ballInLeftHalf;
     value["robotInOwnHalf"] << robotInOwnHalf;
     value["robotInLeftHalf"] << robotInLeftHalf;
+    value["robotInPenaltyArea"] << robotInPenaltyArea;
     value["ballValid"] << ballValid;
     value["robotValid"] << robotValid;
     value["ballIsFree"] << ballIsFree;
@@ -48,6 +50,7 @@ public:
     value["ballInLeftHalf"] >> ballInLeftHalf;
     value["robotInOwnHalf"] >> robotInOwnHalf;
     value["robotInLeftHalf"] >> robotInLeftHalf;
+    value["robotInPenaltyArea"] >> robotInPenaltyArea;
     value["ballValid"] >> ballValid;
     value["robotValid"] >> robotValid;
     value["ballIsFree"] >> ballIsFree;

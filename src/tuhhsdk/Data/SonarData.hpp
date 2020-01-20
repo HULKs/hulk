@@ -19,14 +19,14 @@ public:
    */
   void reset() override {}
 
-  virtual void toValue(Uni::Value& value) const override
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["filteredValues"] << filteredValues;
     value["valid"] << valid;
   }
 
-  virtual void fromValue(const Uni::Value& value) override
+  void fromValue(const Uni::Value& value) override
   {
     value["filteredValues"] >> filteredValues;
     value["valid"] >> valid;
@@ -48,7 +48,7 @@ public:
     data.fill(0);
     valid.fill(false);
   }
-  virtual void toValue(Uni::Value& value) const override
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["SONAR_ACTUATOR"] << data[keys::sensor::SONAR_ACTUATOR];
@@ -98,7 +98,7 @@ public:
     value["valid_SONAR_RIGHT_SENSOR_9"] << valid[keys::sensor::SONAR_RIGHT_SENSOR_9];
   }
 
-  virtual void fromValue(const Uni::Value& value) override
+  void fromValue(const Uni::Value& value) override
   {
     value["SONAR_ACTUATOR"] >> data[keys::sensor::SONAR_ACTUATOR];
     value["SONAR_SENSOR"] >> data[keys::sensor::SONAR_SENSOR];

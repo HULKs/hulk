@@ -33,16 +33,19 @@ public:
   Vector2f destination = Vector2f::Zero();
   /// time (seconds) since the last valid ball data arrived
   float age = 1337.f;
-  /// true iff the ball is found
+  /// true iff a ball was found at all
   bool found = false;
-  /// true iff the ball moved significantly during the last cycle
+  /// true iff the ball is assumed to be moving
   bool moved = false;
-  /// true iff the filter is really confident that it is the correct ball
+  /// true iff the filter has seen this ball a couple of times
   bool confident = false;
   /// the time when the ball was lost
   TimePoint timeWhenBallLost;
   /// the time when the ball was seen
   TimePoint timeWhenLastSeen;
+  /// a scalar that represents the validity of this ball (higher is better)
+  float validity;
+
   /**
    * @brief reset invalidates the data
    */
@@ -51,6 +54,7 @@ public:
     moved = false;
     found = false;
     confident = false;
+    validity = 0.f;
   }
 
   void toValue(Uni::Value& value) const override
@@ -65,6 +69,7 @@ public:
     value["confident"] << confident;
     value["timeWhenBallLost"] << timeWhenBallLost;
     value["timeWhenLastSeen"] << timeWhenLastSeen;
+    value["validity"] << validity;
   }
 
   void fromValue(const Uni::Value& value) override
@@ -78,5 +83,6 @@ public:
     value["confident"] >> confident;
     value["timeWhenBallLost"] >> timeWhenBallLost;
     value["timeWhenLastSeen"] >> timeWhenLastSeen;
+    value["validity"] >> validity;
   }
 };

@@ -2,7 +2,8 @@
 
 #include <Framework/DataType.hpp>
 
-class StandUpResult : public DataType<StandUpResult> {
+class StandUpResult : public DataType<StandUpResult>
+{
 public:
   /// the name of this DataType
   DataTypeName name = "StandUpResult";
@@ -11,18 +12,18 @@ public:
   /**
    * @brief reset resets to a default state
    */
-  void reset()
+  void reset() override
   {
     finishedSuccessfully = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["finishedSuccessfully"] << finishedSuccessfully;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["finishedSuccessfully"] >> finishedSuccessfully;
   }

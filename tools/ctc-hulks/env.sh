@@ -17,5 +17,11 @@ else
   echo "No compatible shell!"
 fi
 
+source $BASEDIR/versions
+
+# This is a small thing to ensure ct-ng sanity checks arent obstructed.
+unset LD_LIBRARY_PATH
+unset CPATH
+
 export PATH=${BASEDIR}/x-tools/i686-nao-linux-gnu/bin:${BASEDIR}/tools/ct-ng/bin:$PATH
 

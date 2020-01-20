@@ -73,13 +73,13 @@ void RobotProjectionProvider::addRobotBoundaries(const KinematicMatrix& kinMatri
   Vector2i pixelPoint1 = Vector2i::Zero();
   Vector2i pixelPoint2 = Vector2i::Zero();
   bool p1Valid = false, p2Valid = false;
-  auto pointInTorso =
+  Vector3f pointInTorso =
       (kinMatrix * Vector3f(robotPart[0].x(), robotPart[0].y() * sign, robotPart[0].z())) / 1000.f;
   p1Valid = cameraMatrix_->torsoToPixel(pointInTorso, pixelPoint1);
   for (auto it = std::next(robotPart.begin()); it != robotPart.end(); it++)
   {
     auto& point = *it;
-    auto coord = (kinMatrix * Vector3f(point.x(), point.y() * sign, point.z())) / 1000.f;
+    Vector3f coord = (kinMatrix * Vector3f(point.x(), point.y() * sign, point.z())) / 1000.f;
     p2Valid = cameraMatrix_->torsoToPixel(coord, pixelPoint2);
     if (p1Valid && p2Valid)
     {

@@ -1,0 +1,18 @@
+# EditorConfig is awesome: http://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+[*]
+insert_final_newline = true
+
+# Matches multiple files with brace expansion notation
+# Set default charset
+[*.{cpp,hpp,h,cmake}]
+end_of_line = lf
+charset = utf-8
+indent_style = space
+indent_size = 2
+
+[*.ps1]
+end_of_line = crlf

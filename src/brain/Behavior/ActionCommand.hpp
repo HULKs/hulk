@@ -44,14 +44,16 @@ public:
      * @param target the (relative) pose where the robot should go
      * @param walkingMode specifies the mode of operation for the motionplanner like following path
      * with fixed orientation
-     * @param velocity Desired walking velocities, movement and rotation. [m/s]
+     * @param velocity desired walking velocities, movement and rotation. [m/s]
      * @param inWalkKickType the type of the in walk kick
+     * @param ballTarget absolute field coordinates specifying the desired destination for the ball
      * @return a walk action command for the body
      */
     static Body walk(const Pose& target, const WalkMode walkingMode = WalkMode::PATH,
                      const Velocity& velocity = Velocity(),
                      const InWalkKickType inWalkKickType = InWalkKickType::NONE,
-                     const KickFoot kickFoot = KickFoot::NONE)
+                     const KickFoot kickFoot = KickFoot::NONE,
+                     const Vector2f& ballTarget = Vector2f::Zero())
     {
       Body body;
       body.type_ = MotionRequest::BodyMotion::WALK;
@@ -60,6 +62,7 @@ public:
       body.velocity_ = velocity;
       body.inWalkKickType_ = inWalkKickType;
       body.kickFoot_ = kickFoot;
+      body.ballTarget_ = ballTarget;
       return body;
     }
     /**
@@ -90,15 +93,15 @@ public:
       return body;
     }
     /**
-     * @brief keeper creates a keeper action command for the body
-     * @param keeper_type the type of the keeper motion
-     * @return a keeper action command for the body
+     * @brief jump creates a jump action command for the body
+     * @param jumpType the type of the jump motion
+     * @return a jump action command for the body
      */
-    static Body keeper(const MotionKeeper keeper_type)
+    static Body jump(const MotionJump jumpType)
     {
       Body body;
-      body.type_ = MotionRequest::BodyMotion::KEEPER;
-      body.keeperType_ = keeper_type;
+      body.type_ = MotionRequest::BodyMotion::JUMP;
+      body.jumpType_ = jumpType;
       return body;
     }
     /**
@@ -110,6 +113,26 @@ public:
       Body body;
       body.type_ = MotionRequest::BodyMotion::STAND_UP;
       return body;
+    }
+    /**
+     * @brief sitDown creates a sit down action command for the body
+     * @return a sit down action command for the body
+     */
+    static Body sitDown()
+    {
+        Body body;
+        body.type_ = MotionRequest::BodyMotion::SIT_DOWN;
+        return body;
+    }
+    /**
+     * @brief sitUp creates a sit up action command for the body
+     * @return a sit up action command for the body
+     */
+    static Body sitUp()
+    {
+        Body body;
+        body.type_ = MotionRequest::BodyMotion::SIT_UP;
+        return body;
     }
     /**
      * @brief hold creates a hold action command for the body
@@ -153,8 +176,8 @@ public:
     InWalkKickType inWalkKickType_ = InWalkKickType::NONE;
     /// the foot used for in walk kicking
     KickFoot kickFoot_ = KickFoot::NONE;
-    /// the keeper type for a keeper command
-    MotionKeeper keeperType_;
+    /// the jump type for a jump command
+    MotionJump jumpType_;
     friend class ActionCommand;
   };
   /**
@@ -234,7 +257,7 @@ public:
      * @return an angles action command for the head
      */
     static Head angles(const float yaw = 0, const float pitch = 0, const float yawVelocity = 0,
-                       const bool useEffectiveYawVelocity = false, const float pitchVelocity = 0)
+                       const float pitchVelocity = 0, const bool useEffectiveYawVelocity = true)
     {
       Head head;
       head.type_ = MotionRequest::HeadMotion::ANGLES;
@@ -255,15 +278,16 @@ public:
      * (zero means maximal possible velocity)
      * @return an angles action command for the head
      */
-    static Head angles(HeadPosition headPosition, const float yaw_velocity = 0,
-                       const float pitch_velocity = 0)
+    static Head angles(HeadPosition headPosition, const float yawVelocity = 0,
+                       const float pitchVelocity = 0, const bool useEffectiveYawVelocity = true)
     {
       Head head;
       head.type_ = MotionRequest::HeadMotion::ANGLES;
       head.yaw_ = headPosition.yaw;
       head.pitch_ = headPosition.pitch;
-      head.yawVelocity_ = yaw_velocity;
-      head.pitchVelocity_ = pitch_velocity;
+      head.yawVelocity_ = yawVelocity;
+      head.useEffectiveYawVelocity_ = useEffectiveYawVelocity;
+      head.pitchVelocity_ = pitchVelocity;
       return head;
     }
     /**
@@ -467,23 +491,26 @@ public:
    * @param target the (relative) pose where the robot should go
    * @param walkingMode specifies the mode of operation for the motionplanner like following path
    * with fixed orientation
-   * @param velocity Desired walking velocities, movement and rotation [percentage of max speed]
+   * @param velocity desired walking velocities, movement and rotation [percentage of max speed]
    * @param inWalkKickType the type of the in walk kick
    * @param kickFoot the foot used for kicking
+   * @param ballTarget absolute field coordinates specifying the desired destination for the ball
    * @return a walk action command
    */
   static ActionCommand walk(const Pose& target, const WalkMode walkingMode = WalkMode::PATH,
                             const Velocity& velocity = Velocity(),
                             const InWalkKickType inWalkKickType = InWalkKickType::NONE,
-                            const KickFoot kickFoot = KickFoot::NONE)
+                            const KickFoot kickFoot = KickFoot::NONE,
+                            const Vector2f& ballTarget = Vector2f::Zero())
   {
     // Target pose should not be nan!
     assert(!std::isnan(target.position.x()) && "Target pose.position.x is nan!");
     assert(!std::isnan(target.position.y()) && "Target pose.position.y is nan!");
     assert(!std::isnan(target.orientation) && "Target pose.orientation is nan!");
 
-    return ActionCommand(Body::walk(target, walkingMode, velocity, inWalkKickType, kickFoot),
-                         Arm::body(), Arm::body(), Head::angles(), LED::colors(), LED::colors());
+    return ActionCommand(
+        Body::walk(target, walkingMode, velocity, inWalkKickType, kickFoot, ballTarget),
+        Arm::body(), Arm::body(), Head::angles(), LED::colors(), LED::colors());
   }
   /**
    * @brief walkVelocity creates an action command for walking according to the specified velocity,
@@ -525,13 +552,13 @@ public:
                          LED::colors());
   }
   /**
-   * @brief keeper creates a keeper action command
-   * @param keeper_type the type of the keeper motion
-   * @return a keeper action command
+   * @brief jump creates a jump action command
+   * @param jump the type of the jump motion
+   * @return a jump action command
    */
-  static ActionCommand keeper(const MotionKeeper keeper_type)
+  static ActionCommand jump(const MotionJump jumpType)
   {
-    return ActionCommand(Body::keeper(keeper_type), Arm::body(), Arm::body(), Head::body(),
+    return ActionCommand(Body::jump(jumpType), Arm::body(), Arm::body(), Head::body(),
                          LED::colors(), LED::colors());
   }
   /**
@@ -542,6 +569,24 @@ public:
   {
     return ActionCommand(Body::standUp(), Arm::body(), Arm::body(), Head::body(), LED::colors(),
                          LED::colors());
+  }
+  /**
+   * @brief sitDown creates a sit down action command
+   * @return a sit down action command
+   */
+  static ActionCommand sitDown()
+  {
+      return ActionCommand(Body::sitDown(), Arm::body(), Arm::body(), Head::body(), LED::colors(),
+                             LED::colors());
+  }
+  /**
+   * @brief sitUp creates a sit up action command
+   * @return a sit up action command
+   */
+  static ActionCommand sitUp()
+  {
+      return ActionCommand(Body::sitUp(), Arm::body(), Arm::body(), Head::body(), LED::colors(),
+                             LED::colors());
   }
   /**
    * @brief hold creates a hold action command
@@ -628,7 +673,7 @@ public:
     motion_request.kickData.ballSource = body_.ballPosition_;
     motion_request.kickData.ballDestination = body_.ballTarget_;
     motion_request.kickData.kickType = body_.kickType_;
-    motion_request.keeperData.keep = body_.keeperType_;
+    motion_request.jumpData.keep = body_.jumpType_;
     if (!motion_request.usesArms())
     {
       motion_request.leftArmMotion = leftArm_.type_;

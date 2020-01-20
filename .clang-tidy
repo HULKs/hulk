@@ -1,0 +1,26 @@
+Checks: '-*,readability-identifier-naming,readability-braces-around-statements,readability-inconsistent-declaration-parameter-name,performance-for-range-copy,performance-implicit-conversion-in-loop,performance-inefficient-vector-operation'
+WarningsAsErrors: 'readability-identifier-naming,readability-braces-around-statements'
+CheckOptions:
+  - { key: readability-identifier-naming.NamespaceCase,         value: CamelCase  }
+  - { key: readability-identifier-naming.ClassCase,             value: CamelCase  }
+  - { key: readability-identifier-naming.StructCase,            value: CamelCase  }
+
+  - { key: readability-identifier-naming.ClassMemberCase,       value: camelBack  }
+  - { key: readability-identifier-naming.ClassMemberSuffix,     value: __         }
+  - { key: readability-identifier-naming.ClassConstantCase,     value: camelBack  }
+  - { key: readability-identifier-naming.ClassConstantSuffix,   value: __         }
+
+  - { key: readability-identifier-naming.StaticVariableCase,    value: camelBack  }
+  - { key: readability-identifier-naming.StaticVariableSuffix,  value: __         }
+
+  - { key: readability-identifier-naming.MemberCase,            value: camelBack  }
+  - { key: readability-identifier-naming.PrivateMemberCase,     value: camelBack  }
+  - { key: readability-identifier-naming.PrivateMemberSuffix,   value: _          }
+  - { key: readability-identifier-naming.ProtectedMemberCase,   value: camelBack  }
+  - { key: readability-identifier-naming.ProtectedMemberSuffix, value: _          }
+
+  - { key: readability-identifier-naming.FunctionCase,          value: camelBack  }
+  - { key: readability-identifier-naming.VariableCase,          value: camelBack  }
+  - { key: readability-identifier-naming.ParameterCase,         value: camelBack  }
+  - { key: readability-identifier-naming.GlobalConstantCase,    value: UPPER_CASE }
+  - { key: readability-identifier-naming.EnumConstantCase,      value: UPPER_CASE }

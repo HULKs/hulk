@@ -36,15 +36,15 @@ private:
     unsigned char* imageBuffer; /**< A buffer for rendered image data */
     unsigned char* newimageBuffer; /**< A buffer for rendered image data */
     unsigned int imageBufferSize;
-    Pose3<> offset; /**< Offset of the camera relative to the body it mounted on */
+    Pose3f offset; /**< Offset of the camera relative to the body it mounted on */
     float projection[16]; /**< The perspective projection matrix */
 
     /** Update the sensor value. Is called when required. */
-    virtual void updateValue();
+    void updateValue() override;
 
     //API
-    virtual bool getMinAndMax(float& min, float& max) const {min = 0; max = 0xff; return true;}
-    virtual bool renderCameraImages(SimRobotCore2::SensorPort** cameras, unsigned int count);
+    bool getMinAndMax(float& min, float& max) const override {min = 0; max = 0xff; return true;}
+    bool renderCameraImages(SimRobotCore2::SensorPort** cameras, unsigned int count) override;
   private:
     void applyMotionBlur(unsigned int bufferSize);
   } sensor;
@@ -53,19 +53,19 @@ private:
   ~Camera();
 
   /** Initializes the camera after all attributes have been set */
-  virtual void createPhysics();
+  void createPhysics() override;
 
   /**
   * Registers an element as parent
   * @param element The element to register
   */
-  virtual void addParent(Element& element);
+  void addParent(Element& element) override;
 
   /** Registers this object with children, actuators and sensors at SimRobot's GUI */
-  virtual void registerObjects();
+  void registerObjects() override;
 
   /** Draws physical primitives of the object (including children) on the currently selected OpenGL context
   * @param flags Flags to enable or disable certain features
   */
-  virtual void drawPhysics(unsigned int flags) const;
+  void drawPhysics(unsigned int flags) const override;
 };

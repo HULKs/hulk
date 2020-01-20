@@ -1,0 +1,366 @@
+#!/usr/bin/python -u
+
+#  ---------------------
+#  | trigger Wifi Scan | <-------
+#  ---------------------        |
+#      |          |             |
+#      |          v             |  wifi device is still not_available
+#      |   -----------------    |  means ssid looking for is not found
+#      |   | scan finished | ----
+#      |   -----------------    |
+#      |                        |
+#      v                        |
+#  ---------------              |
+#  | scan failed | --------------
+#  ---------------
+#
+#
+#  -----------------------------
+#  | handle_services_changed() |   <---- entry point
+#  -----------------------------
+#             |
+#             |  an ssid is configured, found
+#             |  and the corresponding service exists (stops scanning)
+#             |
+#             v
+#      ------------------
+#      | configure_wifi |
+#      ------------------
+#             |
+#             |  wifi successfully configured
+#             v
+#      --------------
+#      | connecting |
+#      --------------
+#             |
+#             |  wifi connected
+#             v
+#      -------------
+#      | connected |
+#      -------------
+
+
+import time
+
+import dbus
+import dbus.service
+import logging
+import sys
+import yaml
+from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GLib, Gio, GObject
+
+
+class FileWatcher(GObject.Object):
+    def __init__(self, path):
+        super(FileWatcher, self).__init__()
+        self.path = path
+
+        # member containing the network configuration data
+        self.config = None
+        self.parse_yaml()
+
+        self.file_to_monitor = Gio.file_new_for_path(path)
+        self.file_monitor = self.file_to_monitor.monitor(Gio.FileMonitorFlags.NONE, None)
+        self.file_monitor.connect('changed', self.file_changed)
+
+    def parse_yaml(self):
+        config_file = file(self.path, 'r')
+        self.config = yaml.load(config_file)
+        config_file.close()
+
+    def file_changed(self, file_monitor, file, other_file, event_type):
+        if event_type == Gio.FileMonitorEvent.CHANGES_DONE_HINT:
+            logging.info("Config has changed -> Parsing yaml file")
+            self.parse_yaml()
+            self.emit("config_changed")
+
+    @GObject.Signal(name='config_changed')
+    def config_changed(self):
+        pass
+
+
+class PasswordAgent(dbus.service.Object):
+    def __init__(self, object_path, config):
+        self.bus = dbus.SystemBus()
+        self.config = config
+        dbus.service.Object.__init__(self, self.bus, object_path)
+
+        manager_obj = self.bus.get_object('net.connman', '/')
+        manager = dbus.Interface(manager_obj, 'net.connman.Manager')
+        manager.RegisterAgent(object_path)
+
+    def set_config(self, config):
+        self.config = config
+
+    @dbus.service.method('net.connman.Agent')
+    def Release(self):
+        pass
+
+    @dbus.service.method("net.connman.Agent")
+    def Cancel(self):
+        pass
+
+    @dbus.service.method("net.connman.Agent", in_signature='os')
+    def RequestBrowser(self, path, url):
+        pass
+
+    @dbus.service.method("net.connman.Agent", in_signature='os')
+    def ReportError(self, path, error):
+        logging.error(error)
+
+    @dbus.service.method('net.connman.Agent', in_signature='oa{sv}', out_signature='a{sv}')
+    def RequestInput(self, service, fields):
+        logging.info("RequestedInput")
+        return {"Passphrase": self.config["wifi"]["password"]}
+
+
+class ConnectionState:
+    not_available = 1   # After reset (configuration changed)
+    not_configured = 2  # If respective service is available
+    not_connected = 3   # After configuration of service
+    connecting = 4      # When connection call is started
+    connected = 5       # When service is successfully connected
+    # Note that ethernet currently stays at not_connected after configuring
+
+
+class ConnectionService:
+    def __init__(self, config):
+        self.bus = dbus.SystemBus()
+        self.config = config
+        # Dict to map the service' name to its object path
+        self.services = {}
+        self.wifi_status = ConnectionState.not_available
+        self.eth_status = ConnectionState.not_available
+
+        manager_obj = self.bus.get_object('net.connman', '/')
+        self.manager = dbus.Interface(manager_obj, 'net.connman.Manager')
+        self.manager.connect_to_signal('ServicesChanged', self.handle_services_changed)
+
+        self.update_services()
+
+        wifi_obj = self.bus.get_object('net.connman', '/net/connman/technology/wifi')
+        self.wifi = dbus.Interface(wifi_obj, 'net.connman.Technology')
+
+        self.config_changed()
+
+    def set_config(self, config):
+        self.config = config
+        logging.info("ConnService config changed")
+        self.config_changed()
+
+    def config_changed(self):
+        self.disable_wifis()
+
+        # Reset states to initial not_available
+        self.eth_status = ConnectionState.not_available
+        self.wifi_status = ConnectionState.not_available
+
+        # trigger a services_changed() to update device states
+        self.handle_services_changed([], [])
+        if self.wifi_status == ConnectionState.not_available:
+            # Trigger a scan when the device is still not_available
+            self.scan_wifi()
+
+    def update_services(self):
+        self.services.clear()
+        services = self.manager.GetServices()
+        for service in services:
+            if "Name" in service[1]:
+                self.services[str(service[1]["Name"])] = service[0]
+
+    def scan_wifi(self):
+        logging.info("trigger wifi scan to find {}".format(self.config["wifi"].get("ssid")))
+        self.wifi.Scan(
+            reply_handler=self.scan_finished_handler,
+            error_handler=self.scan_error_handler)
+
+    def scan_finished_handler(self):
+        if self.wifi_status == ConnectionState.not_available:
+            # Trigger a scan when the device is still not_available
+            self.scan_wifi()
+
+    def scan_error_handler(self, e):
+        # log the error message and retry scan
+        logging.error(e)
+        self.scan_wifi()
+
+    def handle_services_changed(self, registered_services, removed_services):
+        configured_ssid = self.config["wifi"].get("ssid")
+        self.update_services()
+
+        logging.info("services changed: {}".format(self.services.keys()))
+
+        if self.eth_status == ConnectionState.not_available and self.services.get("Wired"):
+            logging.info("found wired service")
+            self.eth_status = ConnectionState.not_configured
+
+        if self.wifi_status == ConnectionState.not_available:
+            if configured_ssid is None:
+                logging.info("wifi not configured")
+                self.wifi_status = ConnectionState.not_configured
+            if self.services.get(configured_ssid):
+                logging.info("found configured ssid {}".format(configured_ssid))
+                self.wifi_status = ConnectionState.not_configured
+
+        if self.eth_status == ConnectionState.not_configured:
+            self.configure_eth()
+            self.eth_status = ConnectionState.not_connected
+
+        # If the user configured no ssid we do not need to connect the wifi
+        if self.services.get(configured_ssid) and self.wifi_status == ConnectionState.not_configured:
+            self.configure_wifi()
+            self.wifi_status = ConnectionState.not_connected
+
+        if self.services.get(configured_ssid) and self.wifi_status == ConnectionState.not_connected:
+            logging.info("connecting wifi")
+            wifi_obj = self.bus.get_object('net.connman', self.services[configured_ssid])
+            wifi = dbus.Interface(wifi_obj, 'net.connman.Service')
+            wifi.Connect(
+                reply_handler=self.service_connected_handler,
+                error_handler=self.service_error_handler)
+            self.wifi_status = ConnectionState.connecting
+
+        if self.wifi_status == ConnectionState.connected:
+            self.move_wifi_before_eth()
+
+    def service_connected_handler(self):
+        logging.info("wifi connected")
+        wifi_obj = self.bus.get_object('net.connman', self.services[self.config["wifi"]["ssid"]])
+        wifi = dbus.Interface(wifi_obj, 'net.connman.Service')
+        wifi.SetProperty('AutoConnect', dbus.Boolean(True, variant_level=1))
+
+        self.move_wifi_before_eth()
+
+        self.wifi_status = ConnectionState.connected
+
+    def service_error_handler(self, e):
+        logging.error(e)
+        self.scan_wifi()
+        self.wifi_status = ConnectionState.not_connected
+
+    def configure_wifi(self):
+        logging.info("configure wifi")
+        configured_ssid = self.config["wifi"]["ssid"]
+        wifi_obj = self.bus.get_object('net.connman', self.services[configured_ssid])
+        wifi = dbus.Interface(wifi_obj, 'net.connman.Service')
+
+        dhcp_requested = str.lower(self.config["wifi"]["ipv4-config-method"]) == "dhcp"
+        if dhcp_requested:
+            wifi_on = {"Method": "dhcp"}
+        else:
+            wifi_on = {
+                "Method": "manual",
+                "Address": self.config["wifi"]["address"],
+                "Netmask": self.config["wifi"]["netmask"]
+            }
+            if self.config["wifi"].get("gateway"):
+                wifi_on["Gateway"] = self.config["wifi"]["gateway"]
+            else:
+                wifi_on["Gateway"] = "0.0.0.0"
+
+        wifi_off = {"Method": "off"}
+
+        wifi.SetProperty(
+            'IPv6.Configuration',
+            dbus.Dictionary(wifi_off, signature='sv', variant_level=1))
+        wifi.SetProperty(
+            'IPv4.Configuration',
+            dbus.Dictionary(wifi_on, signature='sv', variant_level=1))
+        nameservers = self.config["wifi"].get("nameservers")
+        if not dhcp_requested and nameservers:
+            wifi.SetProperty(
+                'Nameservers.Configuration',
+                dbus.Array(nameservers, signature='s', variant_level=1))
+
+    def configure_eth(self):
+        logging.info("configure eth")
+        if not self.services.get("Wired"):
+            return
+
+        eth0_obj = self.bus.get_object('net.connman', self.services["Wired"])
+        eth0 = dbus.Interface(eth0_obj, 'net.connman.Service')
+
+        dhcp_requested = str.lower(self.config["eth"]["ipv4-config-method"]) == "dhcp"
+        if dhcp_requested:
+            eth_on = {"Method": "dhcp"}
+        else:
+            eth_on = {
+                "Method": "manual",
+                "Address": self.config["eth"]["address"],
+                "Netmask": self.config["eth"]["netmask"]
+            }
+            if self.config["eth"].get("gateway"):
+                eth_on["Gateway"] = self.config["eth"]["gateway"]
+            else:
+                eth_on["Gateway"] = "0.0.0.0"
+
+        eth_off = {"Method": "off"}
+
+        eth0.SetProperty(
+            'IPv6.Configuration',
+            dbus.Dictionary(eth_off, signature='sv', variant_level=1))
+        eth0.SetProperty(
+            'IPv4.Configuration',
+            dbus.Dictionary(eth_on, signature='sv', variant_level=1))
+        nameservers = self.config["eth"].get("nameservers")
+        if not dhcp_requested and nameservers:
+            eth0.SetProperty(
+                'Nameservers.Configuration',
+                dbus.Array(nameservers, signature='s', variant_level=1))
+
+    def move_wifi_before_eth(self):
+        # The top most service gets the default route -> wifi needs to be the first service
+        configured_ssid = self.config["wifi"]["ssid"]
+        eth_path = self.services.get("Wired")
+
+        if not eth_path:
+            return
+
+        wifi_obj = self.bus.get_object('net.connman', self.services[configured_ssid])
+        wifi = dbus.Interface(wifi_obj, 'net.connman.Service')
+
+        # Wifi seems to be not configured directly, wait 1 sec for this to happen
+        time.sleep(1)
+        logging.info("move wifi before eth")
+        wifi.MoveBefore(eth_path)
+
+    def disable_wifis(self):
+        for ssid, path in self.services.iteritems():
+            if ssid == "Wired":
+                continue
+            wifi_obj = self.bus.get_object('net.connman', path)
+            wifi = dbus.Interface(wifi_obj, 'net.connman.Service')
+
+            try:
+                wifi.SetProperty('AutoConnect', dbus.Boolean(False, variant_level=1))
+            except dbus.exceptions.DBusException:
+                pass
+
+            try:
+                wifi.Disconnect()
+            except dbus.exceptions.DBusException:
+                pass
+
+        self.wifi_status = ConnectionState.not_connected
+
+
+if __name__ == '__main__':
+    # setup logging
+    logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S', level=logging.INFO, stream=sys.stdout)
+    DBusGMainLoop(set_as_default=True)
+
+    # Create FileWatcher to wifi config file
+    fw = FileWatcher('/home/nao/.local/etc/connman-hulks.yaml')
+
+    # Create PasswordAgent to reply to connman password requests
+    password_agent = PasswordAgent('/net/connman/hulksAgent', fw.config)
+
+    # Service to handle network scan/connection/configuration
+    connection_service = ConnectionService(fw.config)
+
+    fw.connect("config_changed", lambda inst: password_agent.set_config(inst.config))
+    fw.connect("config_changed", lambda inst: connection_service.set_config(inst.config))
+
+    loop = GLib.MainLoop()
+    loop.run()

@@ -1,0 +1,18 @@
+{
+    "name": "ballPosition",
+    "enabled": true,
+    "config": {
+        "center_x": 5.2,
+        "center_y": -3.7,
+        "transformation": {
+            "key": "None",
+            "key_lambda": ""
+        },
+        "position": {
+            "key": "Brain.TeamBallModel",
+            "key_lambda": "output = input['position']",
+            "circleDiameter": 0.2,
+            "color": "#ffffff"
+        }
+    }
+}

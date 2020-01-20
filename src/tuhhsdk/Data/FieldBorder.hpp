@@ -83,7 +83,7 @@ public:
   /**
    * @brief reset sets the FieldBorder to a defined state
    */
-  void reset()
+  void reset() override
   {
     valid = false;
     borderLines.clear();
@@ -95,7 +95,7 @@ public:
   /// whether the field border is valid
   bool valid = false;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["borderLines"] << borderLines;
@@ -103,7 +103,7 @@ public:
     value["valid"] << valid;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["borderLines"] >> borderLines;
     value["imageSize"] >> imageSize;

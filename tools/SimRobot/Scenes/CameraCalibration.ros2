@@ -1,6 +1,6 @@
 <Simulation>
 
-  <Include href="Includes/NaoV4H21.rsi2"/>
+  <Include href="Includes/NaoV6H25.rsi2"/>
   <Include href="Includes/Ball2016SPL.rsi2"/>
   <Include href="Includes/CalibCuboid.rsi2"/>
   <Include href="Includes/Field2015SPL.rsi2"/>

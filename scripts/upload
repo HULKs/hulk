@@ -23,6 +23,7 @@ function helpMenu {
   echo " -n, --no-compile                  do not compile before uploading"
   echo " -r, --restart                     restart the hulk service after uploading"
   echo " -R, --restart-naoqi               restart naoqi after uploading (implies --restart)"
+  echo " -t, --target                      choose the target (nao5, nao6)"
   echo " -j, --jobs                        the amount of processes used for compilation"
   echo " -l, --logdir LOGDIR               the directory to which the logs from the NAO are downloaded"
   echo " -h, --help                        show this help"
@@ -33,7 +34,7 @@ function helpMenu {
 
 function run {
   # It only makes sense to upload something compiled for the NAO.
-  TARGET="nao"
+  TARGET="nao6"
   # do not upload configuration by default
   UPLOAD_CONFIG=false
   # delete everything in /home/nao/naoqi before uploading
@@ -108,6 +109,10 @@ function run {
         RESTART_NAOQI=true
         RESTART=true
         ;;
+      "-t" | "--target")
+        shift
+        TARGET="$1"
+        ;;
       "-j" | "--jobs")
         shift
         if [ "$#" -eq 0 ]; then
@@ -166,7 +171,11 @@ function run {
   fi
 
   msg -n "Stopping ${NAO}."
-  naocmd "${BASEDIR}" "${NAO}" "sudo /etc/init.d/hulk stop; killall -SIGTERM tuhhNao 2>/dev/null; exit 0"
+  if [ "${TARGET}" == "nao6" ]; then
+    naocmd "${BASEDIR}" "${NAO}" "systemctl --user stop hulk.service"
+  else
+    naocmd "${BASEDIR}" "${NAO}" "sudo /etc/init.d/hulk stop; killall -SIGTERM tuhhNao 2>/dev/null; exit 0"
+  fi
   if [ "$?" -ne 0 ]; then
     msg -e "Failed to stop ${NAO}!"
     return 1
@@ -184,7 +193,7 @@ function run {
   # real upload
   msg -n "Uploading configuration ${BUILD_TYPE} to ${NAO}."
   set_start_time
-  upload "${BASEDIR}" "${NAO}" "${BUILD_TYPE}" ${UPLOAD_CONFIG} ${DELETE_FILES}
+  upload "${BASEDIR}" "${NAO}" "${BUILD_TYPE}" ${UPLOAD_CONFIG} ${DELETE_FILES} ${TARGET}
   if [ "$?" -ne 0 ]; then
     msg -e "Upload to ${NAO} failed!"
     return 1
@@ -194,7 +203,11 @@ function run {
 
   if ${RESTART}; then
     msg -n "Restarting the hulk service on ${NAO}."
-    naocmd "${BASEDIR}" "${NAO}" "sudo /etc/init.d/hulk start"
+    if [ "${TARGET}" == "nao6" ]; then
+      naocmd "${BASEDIR}" "${NAO}" "systemctl --user start hulk.service"
+    else
+      naocmd "${BASEDIR}" "${NAO}" "sudo /etc/init.d/hulk start"
+    fi
     if [ "$?" -ne 0 ]; then
       msg -e "Failed to restart the hulk service on ${NAO}!"
       return 1

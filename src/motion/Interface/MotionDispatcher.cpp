@@ -6,9 +6,11 @@ MotionDispatcher::MotionDispatcher(const ModuleManagerInterface& manager)
   , bodyPose_(*this)
   , cycleInfo_(*this)
   , fallManagerOutput_(*this)
-  , keeperOutput_(*this)
+  , jumpOutput_(*this)
   , kickOutput_(*this)
   , poserOutput_(*this)
+  , sitDownOutput_(*this)
+  , sitUpOutput_(*this)
   , standUpOutput_(*this)
   , walkingEngineWalkOutput_(*this)
   , motionRequest_(*this)
@@ -43,6 +45,16 @@ void MotionDispatcher::cycle()
     fallManagerActive_ = false;
     timeWhenFallManagerFinished_ = cycleInfo_->startTime;
   }
+  else if (lastActiveMotion_ == MotionRequest::BodyMotion::SIT_DOWN)
+  {
+    if (sitDownOutput_->safeExit)
+    {
+      if (motionRequest_->bodyMotion != MotionRequest::BodyMotion::SIT_DOWN)
+      {
+        motionActivation_->activeMotion = MotionRequest::BodyMotion::SIT_UP;
+      }
+    }
+  }
   else if ((lastActiveMotion_ == MotionRequest::BodyMotion::FALL_MANAGER &&
             cycleInfo_->getTimeDiff(timeWhenFallManagerFinished_) > 1.f) ||
            lastActiveMotion_ == MotionRequest::BodyMotion::DEAD ||
@@ -51,9 +63,10 @@ void MotionDispatcher::cycle()
             walkingEngineWalkOutput_->safeExit) ||
            (lastActiveMotion_ == MotionRequest::BodyMotion::KICK && kickOutput_->safeExit) ||
            lastActiveMotion_ == MotionRequest::BodyMotion::PENALIZED ||
-           (lastActiveMotion_ == MotionRequest::BodyMotion::KEEPER && keeperOutput_->safeExit) ||
+           (lastActiveMotion_ == MotionRequest::BodyMotion::JUMP && jumpOutput_->safeExit) ||
            (lastActiveMotion_ == MotionRequest::BodyMotion::STAND_UP && standUpOutput_->safeExit) ||
-           lastActiveMotion_ == MotionRequest::BodyMotion::HOLD)
+           lastActiveMotion_ == MotionRequest::BodyMotion::HOLD ||
+           (lastActiveMotion_ == MotionRequest::BodyMotion::SIT_UP && sitUpOutput_->safeExit))
   {
     // It is safe to start a new motion.
     motionActivation_->startInterpolation = true;
@@ -66,7 +79,8 @@ void MotionDispatcher::cycle()
   if (lastActiveMotion_ == MotionRequest::BodyMotion::FALL_MANAGER ||
       lastActiveMotion_ == MotionRequest::BodyMotion::STAND_UP ||
       lastActiveMotion_ == MotionRequest::BodyMotion::KICK ||
-      lastActiveMotion_ == MotionRequest::BodyMotion::KEEPER)
+      lastActiveMotion_ == MotionRequest::BodyMotion::JUMP ||
+      lastActiveMotion_ == MotionRequest::BodyMotion::SIT_UP)
   {
     delta = 1;
   }

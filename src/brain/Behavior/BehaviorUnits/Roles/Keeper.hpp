@@ -3,6 +3,7 @@
 #include "Behavior/Units.hpp"
 #include "Tools/SelectWalkMode.hpp"
 
+
 ActionCommand keeper(const DataSet& d)
 {
   // only use keeper action if it is valid
@@ -21,21 +22,21 @@ ActionCommand keeper(const DataSet& d)
             relPlayingPose, distanceThreshold, angleThreshold);
 
         return walkToPose(d, relPlayingPose, false, walkMode)
-            .combineHead(activeVision(d, VisionMode::LookAroundBall));
+            .combineHead(activeVision(d, VisionMode::LOOK_AROUND_BALL));
       }
-      case KeeperAction::Type::GENUFLECT:
+      case KeeperAction::Type::SQUAT:
       {
-        return ActionCommand::keeper(MK_TAKE_FRONT);
+        return ActionCommand::jump(SQUAT);
       }
       default:
       {
-        return ActionCommand::stand().combineHead(lookAround(d));
+        return ActionCommand::stand().combineHead(activeVision(d, VisionMode::LOOK_AROUND));
       }
     }
   }
   else
   {
-    Log(LogLevel::WARNING) << "invalid keeper action";
-    return ActionCommand::stand().combineHead(trackBall(d));
+    Log(LogLevel::WARNING) << "Invalid keeper action";
+    return ActionCommand::stand().combineHead(activeVision(d, VisionMode::LOOK_AROUND));
   }
 }

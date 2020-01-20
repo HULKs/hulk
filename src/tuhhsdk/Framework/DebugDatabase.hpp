@@ -3,11 +3,48 @@
 #include "Tools/Storage/Image.hpp"
 #include "Tools/Storage/UniValue/UniValue.h"
 #include "Tools/Time.hpp"
+#include "Tools/Var/SpscQueue.hpp"
 
 #include <array>
 #include <atomic>
 #include <string>
 #include <unordered_map>
+
+/**
+ * All sounds that can be played
+ */
+enum class AudioSounds
+{
+  OUCH = 0,
+  BALL = 1,
+  DONK = 2,
+  LEFT = 3,
+  RIGHT = 4,
+  FRONT = 5,
+  FRONT_LEFT = 6,
+  FRONT_RIGHT = 7,
+  REAR = 8,
+  REAR_LEFT = 9,
+  REAR_RIGHT = 10,
+  CAMERA_RESET = 11,
+  CENTER_CIRCLE = 12,
+  LOLA_DESYNC = 13,
+  PENALTY_AREA = 14,
+  PENALTY_SPOT = 15,
+  SQUAT = 16,
+  T_JUNCTION = 17,
+  PLAYING_ROLE_STRIKER = 18,
+  PLAYING_ROLE_KEEPER = 19,
+  PLAYING_ROLE_REPLACEMENT_KEEPER = 20,
+  PLAYING_ROLE_SUPPORTER = 21,
+  PLAYING_ROLE_BISHOP = 22,
+  PLAYING_ROLE_DEFENDER = 23,
+  PLAYING_ROLE_DEFENDER_LEFT = 24,
+  PLAYING_ROLE_DEFENDER_RIGHT = 25,
+  FALSE_POSITIVE_DETECTED = 26,
+  FALSE_POSITIVE = 27,
+  WEEEEE = 28
+};
 
 /**
  * @brief DebugDatabase stores a set of debug maps
@@ -24,9 +61,14 @@ public:
     , currentlyTransportedMap_(nullptr)
     , nextDebugMapToTransport_(nullptr)
   {
+    for (auto& debugMap : debugMaps_)
+    {
+      debugMap.debugDatabase_ = this;
+    }
   }
   /// DebugDataBase copy constructor is deleted.
   DebugDatabase(const DebugDatabase&) = delete;
+
   /**
    * @brief DebugMapEntry stores values for the debug map.
    */
@@ -99,6 +141,12 @@ public:
      */
     void sendImage(const std::string& key, const Image& image);
     /**
+     * @brief playAudio sends an audio sound requests
+     * @param key The key of the audio playing
+     * @param aSound The sound to play
+     */
+    void playAudio(const std::string& key, const AudioSounds aSound);
+    /**
      * @brief isSubscribed checks if the given key is subscribed (at least once)
      * @param key the key to check for subscribtions
      * @return bool; true if the key is subscribed at least once
@@ -130,6 +178,8 @@ public:
     std::atomic<bool> inUse_{false};
     /// Time when this map was updated
     TimePoint updateTime_;
+    /// Pointer to the debug database
+    DebugDatabase* debugDatabase_ = nullptr;
 
     friend class DebugDatabase;
   };
@@ -168,6 +218,12 @@ public:
    * @brief finishTransporting returns the map to the pool of updateable maps.
    */
   void finishTransporting();
+  /**
+   * @brief popLastRequestedSound returns the last requested sound that was requested.
+   * @param aSound a reference to the sound
+   * @return if there was a requested sound
+   */
+  bool popLastRequestedSound(AudioSounds& aSound) const;
 
 
 private:
@@ -182,4 +238,8 @@ private:
   TimePoint currentTransportMapUpdateTime_;
   /// the last finished DebugMap
   std::atomic<DebugMap*> nextDebugMapToTransport_;
+  /// audio log requests
+  mutable SpscRing<AudioSounds, 20> requestedSounds_;
+
+  friend class DebugMap;
 };

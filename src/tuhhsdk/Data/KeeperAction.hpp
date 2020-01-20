@@ -19,8 +19,8 @@ public:
   {
     // block as muy of the own goal as possible
     BLOCK_GOAL = 1,
-    // perform genuflect motion
-    GENUFLECT = 2,
+    // perform squat motion
+    SQUAT = 2,
   };
 
   // sum all actions the keeper is allowed to perform
@@ -83,9 +83,6 @@ public:
   /// indicate if Keeper wants to play ball	
   bool wantsToPlayBall = false;
 
-  /**
-   * @brief reset does nothing
-   */
   void reset() override
   {
     actions.clear();

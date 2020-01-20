@@ -104,7 +104,7 @@ QtWebsocketInterface::QtWebsocketInterface(int argc, char** argv)
   });
 }
 
-void QtWebsocketInterface::configure(Configuration&) {}
+void QtWebsocketInterface::configure(Configuration&, NaoInfo&) {}
 
 void QtWebsocketInterface::setJointAngles(const std::vector<float>&) {}
 
@@ -114,7 +114,7 @@ void QtWebsocketInterface::setLEDs(const std::vector<float>&) {}
 
 void QtWebsocketInterface::setSonar(const float) {}
 
-void QtWebsocketInterface::waitAndReadSensorData(NaoSensorData& data)
+float QtWebsocketInterface::waitAndReadSensorData(NaoSensorData& data)
 {
   // std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(10));
   bool isDataAvailable;
@@ -160,6 +160,9 @@ void QtWebsocketInterface::waitAndReadSensorData(NaoSensorData& data)
       data.imu[keys::sensor::IMU_GYR_Z] = 0.;
     }
   }
+
+  // Approximated time since last sensor reading
+  return 0.01f;
 }
 
 std::string QtWebsocketInterface::getFileRoot()

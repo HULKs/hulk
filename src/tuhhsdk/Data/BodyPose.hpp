@@ -23,6 +23,8 @@ public:
   DataTypeName name = "BodyPose";
   /// whether the robot is fallen
   bool fallen;
+  /// whether the robot is wonky
+  bool wonky;
   /// the time at which the robot started to fall down
   TimePoint timeWhenFallen;
   /// the direction in which the robot is falling
@@ -40,9 +42,10 @@ public:
   /**
    * @brief reset sets the state to some defaults
    */
-  void reset()
+  void reset() override
   {
     fallen = false;
+    wonky = false;
     fallDirection = FallDirection::NOT_FALLING;
     footContact = true;
     supportChanged = false;
@@ -50,10 +53,11 @@ public:
     lastMotionBeforeFallen = MotionRequest::BodyMotion::DEAD;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["fallen"] << fallen;
+    value["wonky"] << wonky;
     value["timeWhenFallen"] << timeWhenFallen;
     value["fallDirection"] << static_cast<int>(fallDirection);
     value["footContact"] << footContact;
@@ -63,9 +67,10 @@ public:
     value["lastMotionBeforeFallen"] << static_cast<int>(lastMotionBeforeFallen);
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["fallen"] >> fallen;
+    value["wonky"] >> wonky;
     value["timeWhenFallen"] >> timeWhenFallen;
     int readNumber;
     value["fallDirection"] >> readNumber;

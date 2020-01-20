@@ -2,11 +2,11 @@
     "loglevel": "info",
     "location": "default",
     "loadReplayConfig": true,
+    "replayConfigMountBlacklist": {}, // {"mountXYZ": ["KeyABC"], "mountFoo": ["*"]}
     "network.basePort": 12440,
     "network.enableAliveness": true,
     "network.enableDebugTCPTransport": true,
     "network.enableConfiguration": true,
-    "network.enableEEB": true,
     "local.enableFileTransport": false,
     "local.unixSocketDirectory": "/tmp/simrobot/"
 }

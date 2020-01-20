@@ -18,11 +18,11 @@ ActionCommand bishop(const DataSet& d)
         relPlayingPose, distanceThreshold, angleThreshold);
 
     return walkToPose(d, relPlayingPose, false, walkMode, Velocity(), 5)
-        .combineHead(activeVision(d, VisionMode::LookAroundBall));
+        .combineHead(activeVision(d, VisionMode::LOOK_AROUND_BALL));
   }
   else
   {
-    Log(LogLevel::WARNING) << "invalid replacement keeper position";
-    return ActionCommand::stand().combineHead(trackBall(d));
+    Log(LogLevel::WARNING) << "Invalid replacement keeper position";
+    return ActionCommand::stand().combineHead(activeVision(d, VisionMode::LOOK_AROUND));
   }
 }

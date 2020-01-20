@@ -1,152 +1,238 @@
-#!/bin/bash
+#!/usr/bin/env python3
+import argparse
+import curses
+from pathlib import Path
+import sys
+import traceback
+import time
 
-# Get base directory for better referencing
-BASEDIR=`cd $(dirname $0); pwd -P`
-BASEDIR=${BASEDIR%/*}
+from pssh.clients import ParallelSSHClient
+import pssh
+import gevent
 
-source "${BASEDIR}/scripts/lib/msg.sh"
-source "${BASEDIR}/scripts/lib/naonet.sh"
-source "${BASEDIR}/scripts/lib/numberToIP.sh"
-source "${BASEDIR}/scripts/lib/docker.sh"
-source "${BASEDIR}/scripts/lib/logs.sh"
-
-function helpMenu {
-  echo "Usage: $0 [OPTIONS] NAO..."
-  echo ""
-  echo "Options"
-  echo " -l, --logdir LOGDIR               the directory to which the logs from the NAO are downloaded"
-  echo " -n, --network NETWORK             the network to which the robots should be set (e.g. ETH or SPL_A)"
-  echo " -h, --help                        show this help"
-  echo ""
-  echo "Nao"
-  echo " either hostname, IP or number of the NAO"
-}
-
-function printErrorMessage {
-  case $1 in
-    0)
-      msg -s "Finised postgame for $2"
-      ;;
-    1)
-      msg -e "Failed to stop the hulk service on $2!"
-      ;;
-    2)
-      msg -e "No logs were downloaded from $2 because the hulk service could not be stopped!"
-      ;;
-    3)
-      msg -e "Failed to download logs in home folder from $2!"
-      ;;
-    4)
-      msg -e "Failed to download logs on usb stick from $2!"
-      ;;
-  esac
-}
-
-function run {
-  # a list of NAOs that are prepared
-  NAOS=()
-  ERRORS=()
-  # default network is ethernet
-  NETWORK=ETH
-  # empty logdir means that no logs are downloaded
-  LOGDIR=""
-  # prepare parameters
-  PARAMETERS=""
-  while [ "$#" -gt 0 ]; do
-    if [[ $1 =~ ^- ]] && [[ ! $1 =~ ^-- ]]; then
-      PARAMETERS+=$(echo "${1:1}" | sed -e "s/\(.\)/ -\1/g")
-    else
-      PARAMETERS+=" $1"
-    fi
-    shift
-  done
-  eval set -- "${PARAMETERS}";
-
-  while [[ "$1" =~ ^- ]]; do
-    case "$1" in
-      "-l" | "--logdir")
-        shift
-        if [ "$#" -eq 0 ]; then
-          msg -e "--logdir needs a directory as parameter!"
-          helpMenu
-          return 1
-        fi
-        # If you really need to use the --logdir option, you can comment the following 4 lines.
-        # You have to use a name that is valid inside the container, though, such as
-        # --logdir /nao/logs/Game3
-        if iAmInDocker; then
-          msg -e "Sorry, but the --logdir option is not yet available in docker!"
-          return 1
-        fi
-        LOGDIR="$1"
-        ;;
-      "-n" | "--network")
-        shift
-        if [ "$#" -eq 0 ]; then
-          msg -e "--network needs a network as parameter!"
-          helpMenu
-          return 1
-        fi
-        NETWORK="$1"
-        ;;
-      "-h" | "--help")
-        helpMenu
-        return 0
-        ;;
-      *)
-        msg -e "Failed to parse \"$1\"!"
-        helpMenu
-        return 1
-        ;;
-    esac
-    shift
-  done
-
-  if [ "$#" -lt 1 ]; then
-    helpMenu
-    return 1
-  fi
-
-  NAOS=()
-  while [ "$#" -gt 0 ]; do
-    NAOS+=($(numberToIP "$1"))
-    shift
-  done
-
-  ERROR=0
-  for index in ${!NAOS[*]}; do
-    ERRORS[index]=0
-    msg -n "Stopping ${NAOS[index]}."
-    naocmd "${BASEDIR}" "${NAOS[index]}" "sudo /etc/init.d/hulk stop; /home/nao/bin/setNetwork ${NETWORK}; exit 0"
-    if [ "$?" -ne 0 ]; then
-      ERRORS[index]=1
-      printErrorMessage 1 ${NAOS[index]}
-      if [ ! "${LOGDIR}" == "" ]; then
-        ERRORS[index]=2
-        printErrorMessage 2 ${NAOS[index]}
-      fi
-      ERROR=1
-      continue
-    fi
-
-    # download logs
-    if [ ! "${LOGDIR}" == "" ]; then
-      download_logs "$BASEDIR" "${NAOS[index]}" "$LOGDIR"
-      delete_logs "$BASEDIR" "${NAOS[index]}"
-    fi
-    msg -s "Finished with ${NAOS[index]}!"
-  done
-
-  echo "---------------------"
-  echo "Summary for postgame:"
- 
-  for index in ${!ERRORS[*]}
-  do
-    printErrorMessage ${ERRORS[index]} ${NAOS[index]}
-  done
+from hulks.naocurse import NaoCurse
+from hulks.naossh import NaoSSH
 
 
-  return ${ERROR}
-}
+def postgame(nao, args, naocurse):
+    """Stop hulks service, set network and download logs from a nao
 
-handleDocker "${BASEDIR}" "$@"
+    Arguments:
+    nao      - target nao identifier, only used for display
+    args     - postgame arguments obtained from argparse
+    naocurse - the naocurse window used do display output
+    """
+    start = time.time()
+    exitstatus = ""
+    red = curses.color_pair(2)
+    green = curses.color_pair(3)
+    blue = curses.color_pair(5)
+    yellow = curses.color_pair(4)
+
+    section_header = blue + curses.A_BOLD
+    units = [" bytes", "kiB", "MiB", "GiB", " absolute units"]
+    try:
+        naocurse.title = nao
+        naocurse.queue.put((section_header, f"Connecting..."))
+        client = NaoSSH([nao], user="nao", pkey=Path(__file__).parent/"ssh_key",
+                        num_retries=0, timeout=args.timeout)
+        while True:  # wait for connection
+            try:
+                cmd = client.run_command("uname -a")
+                for line in list(cmd.values())[0].stdout:
+                    naocurse.queue.put(line)
+            except (pssh.exceptions.Timeout, pssh.exceptions.ConnectionErrorException) as e:
+                naocurse.set_status("Waiting for connection",  color=yellow)
+                naocurse.queue.put((yellow, str(e)))
+                continue
+            break
+
+        naocurse.set_status("Working...", animation=True, color=blue)
+
+        # set basic states
+        client.hulk("stop")
+        client.setNetwork(args.network)
+
+        # copy logs
+        if args.logdir:
+            tasks, total_size = client.downloadLogs(
+                args.logdir, naocurse.queue, raise_error=True)
+            unit = 0
+            while total_size > 1024:
+                total_size = total_size / 1024
+                unit += 1
+            unit = min(unit, len(units)-1)
+            sizeString = f"{total_size:.1f}{units[unit]}"
+            naocurse.set_status(f"Copying {sizeString}...")
+            naocurse.queue.put((section_header, f"Copying {sizeString}..."))
+            exitstatus += sizeString
+
+            # wait for all processes to finish
+            try:
+                gevent.joinall(tasks, raise_error=True)
+            except gevent.subprocess.CalledProcessError as e:
+                with open(Path(args.logdir) / f"scp-{e.cmd.pid}.log", "w") as logfile:
+                    for line in e.output:
+                        logfile.write(line)
+                    naocurse.queue.put(f"See {logfile.name} for full scp log")
+                raise e
+
+            # delete logs
+            if not args.keep:
+                naocurse.queue.put("")
+                naocurse.queue.put((section_header, f"Deleting logs on {nao}"))
+                client.join(client.deleteLogs())
+        naocurse.set_status("Done " + exitstatus, animation=False, color=green)
+    except Exception as e:
+        naocurse.queue.put((red, traceback.format_exc()))
+        naocurse.set_status("Error!", animation=False, color=red)
+
+    naocurse.queue.put("")
+    naocurse.queue.put((green, f"Total time: {time.time()-start:.2f}"))
+
+
+def lay_out_windows(windows, height, width, focus):
+    """Align the windows based on the parent windows size and focus
+
+    Arguments:
+    windows - list of naocurse windows
+    height  - height of the parent window
+    width   - width of the parent window
+    focus   - the index of the window to be focused. -1 stacks them vertically
+    """
+    w = width
+    ypos = 0
+    for i, win in enumerate(windows):
+        h = 1
+        if i == focus:
+            h = height - (len(windows) - 1)
+        elif focus == -1:  # if focus is -1, share screen height equally among the windows
+            if i == len(windows) - 1:
+                h = height - ypos
+            else:
+                h = int(height / len(windows))
+        win.box.resize(h, w)
+        win.box.mvwin(ypos, 0)
+        ypos += h
+
+
+def run(stdscr, args, windows):
+    """Main application loop
+
+    Arguments:
+    stdscr  - curses screen to use as root window
+    args    - argparse arguments
+    windows - used to return windows to caller for processing after curses terminates
+    """
+    # init curses
+    curses.curs_set(0)
+    curses.start_color()
+    curses.use_default_colors()
+    for i in range(0, curses.COLORS):
+        curses.init_pair(i + 1, i, -1)
+
+    help_text = """q   Quit
+j   Focus next window
+k   Focus previous window
+J   Scroll focused window down
+K   Scroll focused window up
+End Reset scroll on focused window
+m   Stack windows
+?   Show help""".split("\n")
+    help_height = len(help_text)+2
+    help_width = max([len(s) for s in help_text])+2
+    help_window = curses.newwin(help_height, help_width, curses.LINES //
+                                2 - help_height // 2, curses.COLS // 2 - help_width // 2)
+    help_window.box()
+    help_window.addstr(0, 1, "Keybind help:")
+    for i, line in enumerate(help_text):
+        help_window.addstr(1 + i, 1, line)
+
+    focus = -1
+    workers = []
+    show_help = False
+
+    for nao in args.nao:
+        naocurse = NaoCurse(10, 10)
+        naocurse.set_status("Waiting for connection", animation=True)
+        cmd = gevent.spawn(postgame, nao, args, naocurse)
+        workers.append(cmd)
+        windows.append(naocurse)
+    lay_out_windows(windows, curses.LINES, curses.COLS, focus)
+
+    while True:
+        r = []
+        while not sys.stdin in r:  # wait for stdin to have content
+            if args.nowait and not any(workers):
+                break
+            for w in windows:
+                w.refresh()
+                w.box.overwrite(stdscr)
+            if show_help:
+                help_window.overwrite(stdscr)
+            stdscr.refresh()
+            r, _, _ = gevent.select.select([sys.stdin], [], [], 0.2)
+        if args.nowait and not any(workers):
+            break
+        key = stdscr.getkey()
+        if key == "q":  # exit
+            break
+        if key == "j":  # focus next window
+            focus = (focus + 1) % len(windows)
+            lay_out_windows(windows, curses.LINES, curses.COLS, focus)
+        if key == "k":  # focus previous window
+            focus = (focus - 1) % len(windows)
+            lay_out_windows(windows, curses.LINES, curses.COLS, focus)
+        if key == "J" and focus >= 0:  # scroll down
+            windows[focus].scroll += 1
+        if key == "K" and focus >= 0:  # scroll up
+            windows[focus].scroll -= 1
+        if key == "KEY_END" and focus >= 0:  # reset scroll
+            windows[focus].scroll = 0
+        if key == "m":  # show all windows
+            focus = -1
+            lay_out_windows(windows, curses.LINES, curses.COLS, focus)
+        if key == "?":  # toggle help window
+            show_help = not show_help
+        else:
+            show_help = False  # hide help if a different key was pressed
+
+    for w in windows:
+        w.process_queue()
+    return windows
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Download logs from, change network and stop hulksservice on naos")
+    parser.add_argument(
+        "-l", "--logdir", help="Directory to put downloaded logs")
+    parser.add_argument(
+        "-t", "--timeout", help="SSH timeout. Increase on slow networks (Default 3s)", type=float, default=3)
+    parser.add_argument(
+        "-n", "--network", help="The network to set on the robot (SPL_A, ETH)", default="ETH")
+    parser.add_argument(
+        "-w", "--nowait", help="Exit immediately after all postgames are finished", action="store_true")
+    parser.add_argument(
+        "-k", "--keep", help="Don't delete logs on the nao after downloading", action="store_true")
+    parser.add_argument(
+        "nao", nargs="+", help="Hostname, IP or number of the name")
+    args = parser.parse_args()
+
+    windows = []
+    try:
+        curses.wrapper(run, args, windows)
+    except Exception as e:
+        raise e
+    finally:
+        for w in windows:
+            print(f"\n{w.title}\n")
+            for line in w.buffer:
+                # strip formatting
+                if type(line) is tuple:
+                    _, line = line
+                print(line)
+
+
+if __name__ == "__main__":
+    main()

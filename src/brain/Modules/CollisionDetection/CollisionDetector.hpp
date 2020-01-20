@@ -4,6 +4,7 @@
 #include "Data/BodyDamageData.hpp"
 #include "Data/CollisionDetectorData.hpp"
 #include "Data/CycleInfo.hpp"
+#include "Data/GameControllerState.hpp"
 #include "Data/JointSensorData.hpp"
 #include "Data/MotionRequest.hpp"
 #include "Data/TeamObstacleData.hpp"

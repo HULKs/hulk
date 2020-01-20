@@ -88,12 +88,12 @@ public:
   /**
    * @brief marks the content as invalid
    */
-  void reset()
+  void reset() override
   {
     valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["angles"] << angles;
@@ -102,7 +102,7 @@ public:
     value["status"] << status;
     value["valid"] << valid;
   }
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["angles"] >> angles;
     value["currents"] >> currents;

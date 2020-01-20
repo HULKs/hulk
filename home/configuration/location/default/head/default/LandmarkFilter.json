@@ -19,5 +19,7 @@
    "minLineLengthForCircleOrientation" : 0.3,
    "orthogonalTolerance" : 0.17,
    "tolerancePenaltySpotToLineDistance" : 0.1,
+   "minLineLengthForPenaltyArea" : 0.4,
+   "maxLineExtensionForPenaltyArea" : 0.5,
    "useLineIntersections" : false
 }

@@ -1,6 +1,9 @@
 #include "ImageReceiver.hpp"
 
+#include "print.hpp"
+
 #include <tmmintrin.h>
+
 
 ImageReceiver::ImageReceiver(const ModuleManagerInterface& manager)
   : Module(manager)

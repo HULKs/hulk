@@ -14,5 +14,5 @@
  */
 ActionCommand dribble(const DataSet& d, const Pose kickPose)
 {
-  return walkBehindBallAndDribble(d, kickPose).combineHead(trackBall(d));
+  return walkBehindBallAndDribble(d, kickPose).combineHead(activeVision(d, VisionMode::BALL_TRACKER));
 }

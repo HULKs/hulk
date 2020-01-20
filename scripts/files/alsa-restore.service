@@ -1,0 +1,10 @@
+[Unit]
+Description=Restore alsa configuration
+
+[Service]
+ExecStart=/home/nao/.local/bin/alsa-restore
+RemainAfterExit=true
+Type=oneshot
+
+[Install]
+WantedBy=default.target

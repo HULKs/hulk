@@ -4,6 +4,8 @@
 
 #include <signal.h>
 
+#include "Tools/Backtrace/Backtrace.hpp"
+
 #include "tuhh.hpp"
 #include "ReplayInterface.hpp"
 #include "print.h"
@@ -15,6 +17,10 @@ void intHandler(int)
   keepRunning = 0;
 }
 
+void intErrHandler(int)
+{
+  std::cout << backtrace() << std::endl;
+}
 
 int main(int argc, char *argv[])
 {
@@ -31,6 +37,13 @@ int main(int argc, char *argv[])
   sa.sa_flags = SA_RESTART;
   sigaction(SIGINT, &sa, nullptr);
   sigaction(SIGTERM, &sa, nullptr);
+
+  // Sig action for sigsegv and sigabrt (crashes, asserts, ...)
+  struct sigaction errAction;
+  errAction.sa_handler = &intErrHandler;
+  sigemptyset(&errAction.sa_mask);
+  sigaction(SIGSEGV, &errAction, nullptr);
+  sigaction(SIGABRT, &errAction, nullptr);
 #else
   signal(SIGINT, intHandler);
 #endif

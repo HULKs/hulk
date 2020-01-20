@@ -3,6 +3,9 @@ import typing as ty
 
 import mate.net.utils as netutils
 from mate.net.nao_data import Data
+from mate.debug.colorlog import ColorLog
+
+logger = ColorLog()
 
 
 class NaoProtocol(a.Protocol):
@@ -54,24 +57,40 @@ class NaoProtocol(a.Protocol):
     def subscribe(self, key: str, subscribor: str,
                   callback: ty.Callable[[Data], None]) -> bool:
         if key not in self.data:
+            logger.debug(__name__ + ": Subscribe queue: " + str(key) +
+                         " for " + str(subscribor))
             if key not in self.subscribors_queue:
                 self.subscribors_queue[key] = {}
-            self.subscribors_queue[key][subscribor] = callback
+            if subscribor in self.subscribors_queue[key]:
+                logger.error(__name__ + ": " + subscribor +
+                             " is already subscribed to " + key)
+            else:
+                self.subscribors_queue[key][subscribor] = callback
             return False
         else:
+            logger.debug(__name__ + ": Subscribe: " + str(key) +
+                         " for " + str(subscribor))
             if key not in self.subscribors:
                 self.subscribors[key] = {}
-            self.subscribors[key][subscribor] = callback
+            if subscribor in self.subscribors[key]:
+                logger.error(__name__ + ": " + subscribor +
+                             " is already subscribed to " + key)
+            else:
+                self.subscribors[key][subscribor] = callback
             return True
 
     def subscribe_msg_type(self, msg_type, subscribor: str,
                            callback: ty.Callable[[], None]):
+        logger.debug(__name__ + ": Subscribe msg type: " + str(msg_type) +
+                     " for " + str(subscribor))
         if msg_type not in self.msg_type_subscribors:
             self.msg_type_subscribors[msg_type] = {}
         self.msg_type_subscribors[msg_type][subscribor] = callback
 
     def subscribe_status(self, status_type: netutils.ConnectionStatusType,
                          subscribor: str, callback: ty.Callable):
+        logger.debug(__name__ + ": Subscribe status: " + str(status_type) +
+                     " for " + str(subscribor))
         if status_type not in self.status_subscribors:
             self.status_subscribors[status_type] = {}
         self.status_subscribors[status_type][subscribor] = callback
@@ -79,8 +98,12 @@ class NaoProtocol(a.Protocol):
     def unsubscribe(self, key: str, subscribor: str) -> bool:
         if key in self.subscribors_queue and subscribor in \
                 self.subscribors_queue[key]:
+            logger.debug(__name__ + ": Unsubscribe from queue: " +
+                         str(key) + " for " + str(subscribor))
             self.subscribors_queue[key].pop(subscribor)
         if key in self.subscribors and subscribor in self.subscribors[key]:
+            logger.debug(__name__ + ": Unsubscribe: " +
+                         str(key) + " for " + str(subscribor))
             self.subscribors[key].pop(subscribor)
             if not self.subscribors[key]:
                 self.subscribors.pop(key)
@@ -90,10 +113,16 @@ class NaoProtocol(a.Protocol):
     def unsubscribe_msg_type(self, msg_type, subscribor: str):
         if msg_type in self.msg_type_subscribors and subscribor in \
                 self.msg_type_subscribors[msg_type]:
+            logger.debug(__name__ + ": Unsubscribe msg type: " +
+                         str(msg_type) +
+                         " for " + str(subscribor))
             self.msg_type_subscribors[msg_type].pop(subscribor)
 
     def unsubscribe_status(self, status_type: netutils.ConnectionStatusType,
                            subscribor: str):
         if status_type in self.status_subscribors and subscribor in \
                 self.status_subscribors[status_type]:
+            logger.debug(__name__ + ": Unsubscribe status: " +
+                         str(status_type) +
+                         " for " + str(subscribor))
             self.status_subscribors[status_type].pop(subscribor)

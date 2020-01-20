@@ -16,9 +16,10 @@
 #include "CoreModule.h"
 
 #include "Simulation/Simulation.h"
+#include "Tools/Math/Constants.h"
 
 static inline float toDeg(float angleInRad)
-{ return (angleInRad * 180.f / float(M_PI));}
+{ return (angleInRad * 180.f / pi);}
 
 SensorWidget::SensorWidget(SimRobotCore2::SensorPort* sensor) : pen(QColor::fromRgb(255, 0, 0)), sensor(sensor), mineData(0)
 {
@@ -51,7 +52,7 @@ void SensorWidget::paintEvent(QPaintEvent *event)
       {
         sensorValue -= minValue;
         sensorValue /= (maxValue-minValue);
-        QBrush brush(QColor::fromRgb((int) (sensorValue*255), (int) (sensorValue*255), (int) (sensorValue*255)));
+        QBrush brush(QColor::fromRgb(static_cast<int>(sensorValue * 255), static_cast<int>(sensorValue * 255), static_cast<int>(sensorValue * 255)));
         painter.setBrush(brush);
       }
       else
@@ -156,7 +157,7 @@ void SensorWidget::paintFloatArrayWithLimitsAndWithoutDescriptions()
   pen.setColor(QColor::fromRgb(0,0,0));
   painter.setPen(pen);
   const float* valueArray = sensor->getValue().floatArray;
-  float widthPerValue = this->width()/(float)sensorDimensions[0];
+  float widthPerValue = this->width() / static_cast<float>(sensorDimensions[0]);
   if(widthPerValue < 1.0)
     widthPerValue = 1.0;
   for(int i = 0; i < sensorDimensions[0]; i++)
@@ -184,7 +185,7 @@ void SensorWidget::paint2DFloatArrayWithLimitsAndWithoutDescriptions()
     for(const float* pSrc = vals + xsize * y, * end = pSrc + xsize; pSrc < end; ++pSrc)
     {
       unsigned value = unsigned((*pSrc - minValue) * scale);
-      unsigned char c = (unsigned char) value;
+      unsigned char c = static_cast<unsigned char>(value);
       switch(value >> 8)
       {
         case 0:
@@ -268,8 +269,7 @@ void SensorWidget::copy()
 
 void SensorWidget::setClipboardGraphics(QMimeData& mimeData)
 {
-  QPixmap pixmap(QPixmap::grabWidget(this));
-  mimeData.setImageData(QVariant(pixmap.toImage()));
+  mimeData.setImageData(QVariant(grab().toImage()));
 }
 
 void SensorWidget::setClipboardText(QMimeData& mimeData)
@@ -306,7 +306,7 @@ void SensorWidget::setClipboardText(QMimeData& mimeData)
     }
     case SimRobotCore2::SensorPort::floatArraySensor:
     {
-      pDouble = (float*)sensor->getValue().floatArray;
+      pDouble = const_cast<float*>(sensor->getValue().floatArray);
       break;
     }
     case SimRobotCore2::SensorPort::noSensor:

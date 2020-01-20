@@ -10,6 +10,8 @@
 #include "Modules/Configuration/Configuration.h"
 #include "Modules/Debug/Debug.h"
 
+#include "Tools/Math/MovingAverage.hpp"
+
 #include "Database.hpp"
 #include "DebugDatabase.hpp"
 #include "Module.hpp"
@@ -57,6 +59,11 @@ public:
    * @return the Debug instance
    */
   DebugDatabase::DebugMap*& debug() const;
+  /**
+   * @brief getDebugDatabases returns the debug databases
+   * @return a vector of debug databases
+   */
+  std::vector<const DebugDatabase*> getDebugDatabases() const;
   /**
    * @brief configuration provides access to the Configuration instance
    * @return the Configuration instance
@@ -115,6 +122,8 @@ private:
   Configuration& configuration_;
   /// the RobotInterface instance
   RobotInterface& robotInterface_;
+  /// the time the cycle needed to be executed. Averaged over 60 cycles.
+  SimpleArrayMovingAverage<double, double, 60> averageCycleTime_;
 };
 
 template <typename T>

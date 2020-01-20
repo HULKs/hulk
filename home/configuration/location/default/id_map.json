@@ -1,9 +1,4 @@
 {
-	"idmap.nao": [
-		{
-			"bodyid": "####",
-			"headid": "####",
-			"name": "robotName"
-		}
-	]
+  "idmap.nao": [
+  ]
 }

@@ -40,6 +40,7 @@ private:
   bool ballInCenterCircle_;
   bool robotInOwnHalf_;
   bool robotInLeftHalf_;
+  bool robotInPenaltyArea_;
 
   const float hysteresis_ = 0.25f;
 

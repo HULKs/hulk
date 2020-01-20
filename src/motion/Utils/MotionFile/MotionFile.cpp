@@ -14,6 +14,7 @@ bool MotionFile::loadFromFile(const std::string& filename)
   std::ifstream f(filename);
   if (!f.is_open())
   {
+    Log(LogLevel::ERROR) << "MotionFile " << filename << " could not be opened!";
     return false;
   }
   try
@@ -22,6 +23,7 @@ bool MotionFile::loadFromFile(const std::string& filename)
   }
   catch (...)
   {
+    Log(LogLevel::ERROR) << "Could not parse MotionFile " << filename;
     return false;
   }
   fromValue(Uni::Converter::toUniValue(root));
@@ -43,31 +45,41 @@ bool MotionFile::verify() const
 {
   if (header.time < 0)
   {
+    Log(LogLevel::ERROR) << "MotionFile " << header.title << ": header time is < 0!";
     return false;
   }
   if (header.joints.empty() || header.joints.size() > keys::joints::JOINTS_MAX)
   {
+    Log(LogLevel::ERROR) << "MotionFile " << header.title
+                         << ": invalid number of joints specified in header!";
     return false;
   }
   for (auto joint : header.joints)
   {
     if (joint < 0 || joint >= keys::joints::JOINTS_MAX)
     {
+      Log(LogLevel::ERROR) << "MotionFile " << header.title
+                           << ": invalid joint specified in header";
       return false;
     }
   }
   if (header.version != "2.0")
   {
+    Log(LogLevel::ERROR) << "MotionFile " << header.title << ": version not 2.0!";
     return false;
   }
   for (auto& pos : position)
   {
     if (pos.time < 0)
     {
+      Log(LogLevel::ERROR) << "MotionFile " << header.title << ": position time is < 0!";
       return false;
     }
     if (pos.parameters.size() != header.joints.size())
     {
+      Log(LogLevel::ERROR)
+          << "MotionFile " << header.title
+          << ": number joints in position do not match joints specified in header!";
       return false;
     }
   }
@@ -75,10 +87,14 @@ bool MotionFile::verify() const
   {
     if (stiff.time < 0)
     {
+      Log(LogLevel::ERROR) << "MotionFile " << header.title << ": stiffness time is < 0!";
       return false;
     }
     if (stiff.parameters.size() != header.joints.size())
     {
+      Log(LogLevel::ERROR)
+          << "MotionFile " << header.title
+          << ": number joints in stiffness do not match joints specified in header!";
       return false;
     }
   }

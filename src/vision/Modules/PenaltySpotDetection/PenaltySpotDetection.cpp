@@ -45,6 +45,9 @@ void PenaltySpotDetection::cycle()
 void PenaltySpotDetection::detectPenaltySpot()
 {
   penaltySpotSeeds_.clear();
+  // Determine penalty spots max distance in image coordinates
+  cameraMatrix_->robotToPixel(Vector2f(maxPenaltySpotDetectionDistance_(), 0.f),
+                              maxPenaltySpotDetectionImagePosition_);
   // Search for appropriate horizontal segment
   for (const auto& hSegment : filteredSegments_->horizontal)
   {
@@ -55,11 +58,8 @@ void PenaltySpotDetection::detectPenaltySpot()
     // Calculate the mid
     // 422
     Vector2i seed = (hSegment->end + hSegment->start).unaryExpr([](int c) { return c >> 1; });
-    Vector2f robotCoordinates = Vector2f::Zero();
-    // Project seed to robot coordinates
-    cameraMatrix_->pixelToRobot(seed, robotCoordinates);
-    // Throw seed away if it is to far away
-    if (robotCoordinates.x() >= maxPenaltySpotDetectionDistance_())
+    // Throw seed away if it is too far away
+    if (seed.y() < maxPenaltySpotDetectionImagePosition_.y())
     {
       continue;
     }
@@ -73,6 +73,7 @@ void PenaltySpotDetection::detectPenaltySpot()
     {
       continue;
     }
+    // Filter too small penalty spots (in pixel coordinates)
     if (expectedRadius < minimumPenaltySpotRadius_())
     {
       continue;

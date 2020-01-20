@@ -18,7 +18,7 @@ struct HeadMatrixWithTimestamp : public Uni::To, public Uni::From
   /// the time at which the joints for this matrix have been recorded
   TimePoint timestamp;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["head2torso"] << head2torso;
@@ -26,7 +26,7 @@ struct HeadMatrixWithTimestamp : public Uni::To, public Uni::From
     value["timestamp"] << timestamp;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["head2torso"] >> head2torso;
     value["torso2ground"] >> torso2ground;
@@ -69,20 +69,20 @@ public:
   /**
    * @brief reset clears the buffer
    */
-  void reset()
+  void reset() override
   {
     buffer.clear();
     valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["buffer"] << buffer;
     value["valid"] << valid;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["buffer"] >> buffer;
     value["valid"] >> valid;

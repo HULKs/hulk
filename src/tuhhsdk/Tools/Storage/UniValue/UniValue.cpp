@@ -1,19 +1,52 @@
-#include "UniConvertible.hpp"
 #include "UniValue.h"
-#include <math.h>
+#include "print.h"
+#include <cmath>
 
 namespace Uni
 {
+  Value::Value(ValueType t)
+    : type_(t)
+  {
+    switch (t)
+    {
+      case ValueType::NIL:
+        break;
+      case ValueType::INT32:
+        value_ = int32_t(0);
+        break;
+      case ValueType::INT64:
+        value_ = int64_t(0);
+        break;
+      case ValueType::REAL:
+        value_ = double(0.0);
+        break;
+      case ValueType::BOOL:
+        value_ = false;
+        break;
+      case ValueType::STRING:
+        value_ = std::string();
+        break;
+      case ValueType::ARRAY:
+        value_ = valuesVector_t();
+        break;
+      case ValueType::OBJECT:
+        value_ = valuesStringMap_t();
+        break;
+    }
+  }
+
   Value::Value(int32_t i)
     : value_(i)
     , type_(ValueType::INT32)
   {
   }
+
   Value::Value(int64_t i)
     : value_(i)
     , type_(ValueType::INT64)
   {
   }
+
   Value::Value(double d)
     : type_(ValueType::REAL)
   {
@@ -23,55 +56,28 @@ namespace Uni
     }
     value_ = d;
   }
+
   Value::Value(bool b)
     : value_(b)
     , type_(ValueType::BOOL)
   {
   }
+
   Value::Value(const std::string& s)
     : value_(s)
     , type_(ValueType::STRING)
   {
   }
+
   Value::Value(const char* s)
     : value_(std::string(s))
     , type_(ValueType::STRING)
   {
   }
-  Value::Value(const To& t)
-  {
-    t.toValue(*this);
-  }
 
-  Value::Value(ValueType t)
-    : type_(t)
+  Value::Value(const To& to)
   {
-    switch (t)
-    {
-      case ValueType::NIL:
-        break;
-      case ValueType::INT32:
-        value_ = (int32_t)0;
-        break;
-      case ValueType::INT64:
-        value_ = (int64_t)0;
-        break;
-      case ValueType::REAL:
-        value_ = (double)0.0;
-        break;
-      case ValueType::BOOL:
-        value_ = false;
-        break;
-      case ValueType::STRING:
-        value_ = std::string();
-        break;
-      case ValueType::ARRAY:
-        value_ = valuesList_t();
-        break;
-      case ValueType::OBJECT:
-        value_ = valuesMap_t();
-        break;
-    }
+    to.toValue(*this);
   }
 
   Value& Value::operator[](const char* key)
@@ -79,14 +85,14 @@ namespace Uni
     if (type_ == ValueType::NIL)
     {
       type_ = ValueType::OBJECT;
-      value_ = valuesMap_t();
+      value_ = valuesStringMap_t();
     }
-
-    if (type_ != ValueType::OBJECT)
+    else if (type_ != ValueType::OBJECT)
     {
       throw std::runtime_error("Can not apply eckige klammer string to non object type!");
     }
-    valuesMap_t& map = boost::get<valuesMap_t>(value_);
+    auto& map = std::get<valuesStringMap_t>(value_);
+    // use operator[] here to perform an insertion if such key does not already exist
     return map[key];
   }
 
@@ -96,7 +102,7 @@ namespace Uni
     {
       throw std::runtime_error("Can not apply eckige klammer string to non object type!");
     }
-    const valuesMap_t& map = boost::get<valuesMap_t>(value_);
+    const auto& map = std::get<valuesStringMap_t>(value_);
     return map.at(key);
   }
 
@@ -110,48 +116,42 @@ namespace Uni
     return (*this)[key.c_str()];
   }
 
-  Value& Value::operator[](Value::valuesList_t::size_type pos)
+  Value& Value::operator[](Value::valuesVector_t::size_type pos)
   {
     if (type_ == ValueType::NIL)
     {
       type_ = ValueType::ARRAY;
-      value_ = valuesList_t();
+      value_ = valuesVector_t();
     }
-
-    if (type_ != ValueType::ARRAY)
-      throw std::runtime_error("Uni::Value::operator[] is only useful for arrays (value was not)");
-    valuesList_t& lst = boost::get<valuesList_t>(value_);
-    if (pos >= lst.size())
-      lst.resize(pos + 1);
-    return boost::get<valuesList_t>(value_)[pos];
-  }
-
-  const Value& Value::operator[](Value::valuesList_t::size_type pos) const
-  {
-    if (type_ != ValueType::ARRAY)
-      throw std::runtime_error("Uni::Value::operator[] (const)"
-                               "is only useful for arrays (value was not)");
-    return boost::get<valuesList_t>(value_)[pos];
-  }
-
-  Value& Value::at(Value::valuesList_t::size_type pos)
-  {
-    return (*this)[pos];
-  }
-
-  const Value& Value::at(Value::valuesList_t::size_type pos) const
-  {
-    return (*this)[pos];
-  }
-
-  Value& Value::operator=(const Value& rhs)
-  {
-    if (rhs.type_ != ValueType::NIL)
+    else if (type_ != ValueType::ARRAY)
     {
-      value_ = rhs.value_;
+      throw std::runtime_error("Uni::Value::operator[] is only useful for arrays (value was not)");
     }
-    type_ = rhs.type_;
-    return *this;
+    auto& vector = std::get<valuesVector_t>(value_);
+    if (pos >= vector.size())
+    {
+      vector.resize(pos + 1);
+    }
+    return vector[pos];
+  }
+
+  Value& Value::at(Value::valuesVector_t::size_type pos)
+  {
+    return (*this)[pos];
+  }
+
+  const Value& Value::at(Value::valuesVector_t::size_type pos) const
+  {
+    if (type_ != ValueType::ARRAY)
+    {
+      throw std::runtime_error("Uni::Value::at is only useful for arrays (value was not)");
+    }
+    return std::get<valuesVector_t>(value_).at(pos);
+  }
+
+  const Value& Value::operator[](Value::valuesVector_t::size_type pos) const
+  {
+    return this->at(pos);
   }
 
   ValueType Value::type() const
@@ -164,13 +164,16 @@ namespace Uni
     switch (type_)
     {
       case ValueType::INT32:
-        return boost::get<int32_t>(value_);
+        return std::get<int32_t>(value_);
+        break;
+      case ValueType::INT64:
+        return static_cast<int32_t>(std::get<int64_t>(value_));
         break;
       case ValueType::REAL:
-        return static_cast<int32_t>(boost::get<double>(value_));
+        return static_cast<int32_t>(std::get<double>(value_));
         break;
       default:
-        throw std::runtime_error("Value is not convertible to int.");
+        throw std::runtime_error("Value is not convertible to int32_t.");
     }
   }
 
@@ -179,16 +182,16 @@ namespace Uni
     switch (type_)
     {
       case ValueType::INT32:
-        return boost::get<int32_t>(value_);
+        return static_cast<int64_t>(std::get<int32_t>(value_));
         break;
       case ValueType::INT64:
-        return boost::get<int64_t>(value_);
+        return std::get<int64_t>(value_);
         break;
       case ValueType::REAL:
-        return static_cast<int64_t>(boost::get<double>(value_));
+        return static_cast<int64_t>(std::get<double>(value_));
         break;
       default:
-        throw std::runtime_error("Value is not convertible to int.");
+        throw std::runtime_error("Value is not convertible to int64_t.");
     }
   }
 
@@ -197,13 +200,13 @@ namespace Uni
     switch (type_)
     {
       case ValueType::INT32:
-        return boost::get<int32_t>(value_) * 1.0f;
+        return static_cast<double>(std::get<int32_t>(value_));
         break;
       case ValueType::INT64:
-        return boost::get<int64_t>(value_) * 1.0f;
+        return static_cast<double>(std::get<int64_t>(value_));
         break;
       case ValueType::REAL:
-        return boost::get<double>(value_);
+        return std::get<double>(value_);
         break;
       default:
         throw std::runtime_error("Value ist kein Cabrio to double.");
@@ -213,122 +216,144 @@ namespace Uni
   bool Value::asBool() const
   {
     if (type_ != ValueType::BOOL)
+    {
       throw std::runtime_error("Value not convertible to bool");
-    return boost::get<bool>(value_);
+    }
+    return std::get<bool>(value_);
   }
 
-  const std::string Value::asString() const
+  std::string Value::asString() const
   {
     if (type_ != ValueType::STRING)
-      throw std::runtime_error("Value not convertible to string!");
-    return boost::get<std::string>(value_);
+    {
+      throw std::runtime_error("Value not convertible to std::string!");
+    }
+    return std::get<std::string>(value_);
   }
 
-  void Value::clearList()
+  void Value::clear()
+  {
+    std::visit(
+        [](auto&& v) {
+          using T = std::decay_t<decltype(v)>;
+          if constexpr (std::is_same_v<T, valuesStringMap_t> || std::is_same_v<T, valuesVector_t>)
+          {
+            v.clear();
+            return;
+          }
+          throw std::runtime_error(
+              "Uni::Value::clear() is only useful for OBJECT or ARRAY (value was not)");
+        },
+        value_);
+  }
+
+  std::size_t Value::size() const
+  {
+    return std::visit(
+        [](auto&& arg) -> decltype(this->size()) {
+          using T = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<T, valuesStringMap_t> || std::is_same_v<T, valuesVector_t>)
+          {
+            return arg.size();
+          }
+          throw std::runtime_error(
+              "Uni::Value::size() is only useful for OBJECT or ARRAY (value was not)");
+        },
+        value_);
+  }
+
+  void Value::reserve(valuesVector_t::size_type size)
   {
     if (type_ != ValueType::ARRAY)
     {
-      throw std::runtime_error("Uni::Value::clearList() "
-                               "is only usefule for arrays (value was not)");
+      throw std::runtime_error("Uni::Value::reserve() is only useful for ARRAY (value was not)");
     }
-    boost::get<valuesList_t>(value_).clear();
+    std::get<valuesVector_t>(value_).reserve(size);
   }
 
-  void Value::clearObjects()
+  bool Value::contains(const std::string& key) const
   {
     if (type_ != ValueType::OBJECT)
     {
-      throw std::runtime_error("Uni::Value::clearObjects() "
-                               "is only useful for objects (value was not)");
+      throw std::runtime_error("Uni::Value::contains() is only useful for OBJECT (value was not)");
     }
-    boost::get<valuesMap_t>(value_).clear();
+    return std::get<valuesStringMap_t>(value_).count(key) > 0;
   }
 
-  Value::valuesList_t::size_type Value::size() const
-  {
-    if (type_ != ValueType::ARRAY)
-      throw std::runtime_error("Uni::Value::size() "
-                               "is only useful for arrays (value was not)");
-    return boost::get<valuesList_t>(value_).size();
-  }
-
-  void Value::reserve(valuesList_t::size_type size)
-  {
-    if (type_ != ValueType::ARRAY)
-      throw std::runtime_error("Uni::Value::reserve() "
-                               "is only useful for arrays (value was not)");
-    boost::get<valuesList_t>(value_).reserve(size);
-  }
-
-  bool Value::hasProperty(const std::string& key) const
+  Value::valuesStringMap_t::const_iterator Value::objectBegin() const
   {
     if (type_ != ValueType::OBJECT)
-      throw std::runtime_error("Uni::Value::hasProperty() "
-                               "is only useful for objects (value was not)");
-    return boost::get<valuesMap_t>(value_).count(key) > 0;
+    {
+      throw std::runtime_error(
+          "Uni::Value::objectBegin() is only useful for OBJECT (value was not)");
+    }
+    return std::get<valuesStringMap_t>(value_).begin();
   }
 
-  Value::valuesMap_t::const_iterator Value::objectBegin() const
+  Value::valuesStringMap_t::iterator Value::objectBegin()
   {
     if (type_ != ValueType::OBJECT)
-      throw std::runtime_error("Uni::Value::objectBegin() "
-                               "is only useful for objects (value was not)");
-    return boost::get<valuesMap_t>(value_).begin();
+    {
+      throw std::runtime_error(
+          "Uni::Value::objectBegin() is only useful for OBJECT (value was not)");
+    }
+    return std::get<valuesStringMap_t>(value_).begin();
   }
 
-  Value::valuesMap_t::iterator Value::objectBegin()
+  Value::valuesStringMap_t::const_iterator Value::objectEnd() const
   {
     if (type_ != ValueType::OBJECT)
-      throw std::runtime_error("Uni::Value::objectBegin() "
-                               "is only useful for objects (value was not)");
-    return boost::get<valuesMap_t>(value_).begin();
+    {
+      throw std::runtime_error("Uni::Value::objectEnd() is only useful for OBJECT (value was not)");
+    }
+    return std::get<valuesStringMap_t>(value_).end();
   }
 
-  Value::valuesMap_t::const_iterator Value::objectEnd() const
+  Value::valuesStringMap_t::iterator Value::objectEnd()
   {
     if (type_ != ValueType::OBJECT)
-      throw std::runtime_error("Uni::Value::objectEnd() "
-                               "is only useful for objects (value was not)");
-    return boost::get<valuesMap_t>(value_).end();
+    {
+      throw std::runtime_error(
+          "Uni::Value::objectEnd() is only useful for objects (value was not)");
+    }
+    return std::get<valuesStringMap_t>(value_).end();
   }
 
-  Value::valuesMap_t::iterator Value::objectEnd()
-  {
-    if (type_ != ValueType::OBJECT)
-      throw std::runtime_error("Uni::Value::objectEnd() "
-                               "is only useful for objects (value was not)");
-    return boost::get<valuesMap_t>(value_).end();
-  }
-
-  Value::valuesList_t::const_iterator Value::listBegin() const
+  Value::valuesVector_t::const_iterator Value::vectorBegin() const
   {
     if (type_ != ValueType::ARRAY)
-      throw std::runtime_error("Uni::Value::listBegin() "
-                               "is only useful for arrays (value was not)");
-    return boost::get<valuesList_t>(value_).begin();
+    {
+      throw std::runtime_error(
+          "Uni::Value::vectorBegin() is only useful for ARRAY (value was not)");
+    }
+    return std::get<valuesVector_t>(value_).begin();
   }
 
-  Value::valuesList_t::iterator Value::listBegin()
+  Value::valuesVector_t::iterator Value::vectorBegin()
   {
     if (type_ != ValueType::ARRAY)
-      throw std::runtime_error("Uni::Value::listBegin() "
-                               "is only useful for arrays (value was not)");
-    return boost::get<valuesList_t>(value_).begin();
+    {
+      throw std::runtime_error(
+          "Uni::Value::vectorBegin() is only useful for ARRAY (value was not)");
+    }
+    return std::get<valuesVector_t>(value_).begin();
   }
 
-  Value::valuesList_t::const_iterator Value::listEnd() const
+  Value::valuesVector_t::const_iterator Value::vectorEnd() const
   {
     if (type_ != ValueType::ARRAY)
-      throw std::runtime_error("Uni::Value::listEnd() "
-                               "is only useful for arrays (value was not)");
-    return boost::get<valuesList_t>(value_).end();
+    {
+      throw std::runtime_error("Uni::Value::vectorEnd() is only useful for ARRAY (value was not)");
+    }
+    return std::get<valuesVector_t>(value_).end();
   }
 
-  Value::valuesList_t::iterator Value::listEnd()
+  Value::valuesVector_t::iterator Value::vectorEnd()
   {
     if (type_ != ValueType::ARRAY)
-      throw std::runtime_error("Uni::Value::listEnd() "
-                               "is only useful for arrays (value was not)");
-    return boost::get<valuesList_t>(value_).end();
+    {
+      throw std::runtime_error("Uni::Value::vectorEnd() is only useful for ARRAY (value was not)");
+    }
+    return std::get<valuesVector_t>(value_).end();
   }
-}
+} // namespace Uni

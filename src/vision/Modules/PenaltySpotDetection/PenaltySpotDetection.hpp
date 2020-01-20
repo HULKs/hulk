@@ -37,7 +37,7 @@ private:
    */
   void sendImagesForDebug();
   /// Max distance to look for a penalty spot
-  const Parameter<int> maxPenaltySpotDetectionDistance_;
+  const Parameter<float> maxPenaltySpotDetectionDistance_;
   /// Minimum penalty spot pixel radius
   const Parameter<int> minimumPenaltySpotRadius_;
   /// Whether use the chroma check
@@ -76,4 +76,5 @@ private:
   Production<PenaltySpotData> penaltySpotData_;
   /// all of the detected penalty spots without clustering
   std::vector<PenaltySpot> penaltySpotSeeds_;
+  Vector2i maxPenaltySpotDetectionImagePosition_;
 };

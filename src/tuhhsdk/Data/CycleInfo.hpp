@@ -28,19 +28,19 @@ public:
   /**
    * @brief reset does nothing
    */
-  void reset()
+  void reset() override
   {
     valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["startTime"] << startTime;
     value["cycleTime"] << cycleTime;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["startTime"] >> startTime;
     value["cycleTime"] >> cycleTime;

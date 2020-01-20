@@ -23,7 +23,7 @@ Configuration::~Configuration()
   }
 }
 
-void Configuration::mount(const std::string& mount, const std::string& name, ConfigurationType type)
+bool Configuration::mount(const std::string& mount, const std::string& name, ConfigurationType type)
 {
   bool found = false;
   std::string headBodyDefaultPath =
@@ -68,12 +68,7 @@ void Configuration::mount(const std::string& mount, const std::string& name, Con
     }
   }
 
-  if (!found)
-  {
-    throw ConfigurationException("Configuration file '" + name +
-                                     "' does not exist in any configuration directory.",
-                                 ConfigurationException::FILE_NOT_FOUND);
-  }
+  return found;
 }
 
 bool Configuration::mountFile(const std::string& mount, const std::string& filename)
@@ -107,19 +102,22 @@ bool Configuration::mountFile(const std::string& mount, const std::string& filen
   }
 
 
-  if (mountPts_.find(mount) != mountPts_.end())
   {
-    MountedConfiguration& to = mountPts_[mount];
-    to.filename = from.filename;
-
-    for (auto it = from.root.objectBegin(); it != from.root.objectEnd(); ++it)
+    std::lock_guard<std::recursive_mutex> lg(mountMutex_);
+    if (mountPts_.find(mount) != mountPts_.end())
     {
-      to.root[it->first] = Uni::Value(it->second);
+      MountedConfiguration& to = mountPts_[mount];
+      to.filename = from.filename;
+
+      for (auto it = from.root.objectBegin(); it != from.root.objectEnd(); ++it)
+      {
+        to.root[it->first] = Uni::Value(it->second);
+      }
     }
-  }
-  else
-  {
-    mountPts_[mount] = from;
+    else
+    {
+      mountPts_[mount] = from;
+    }
   }
 
 
@@ -129,9 +127,10 @@ bool Configuration::mountFile(const std::string& mount, const std::string& filen
 
 bool Configuration::hasProperty(const std::string& mount, const std::string& key)
 {
+  std::lock_guard<std::recursive_mutex> lg(mountMutex_);
   if (mountPts_.count(mount) > 0)
   {
-    return mountPts_[mount].root.hasProperty(key);
+    return mountPts_[mount].root.contains(key);
   }
   else
   {
@@ -142,9 +141,10 @@ bool Configuration::hasProperty(const std::string& mount, const std::string& key
 
 Uni::Value& Configuration::get(const std::string& mount, const std::string& key)
 {
+  std::lock_guard<std::recursive_mutex> lg(mountMutex_);
   if (mountPts_.count(mount) > 0)
   {
-    if (!mountPts_[mount].root.hasProperty(key))
+    if (!mountPts_[mount].root.contains(key))
     {
       throw ConfigurationException("Key " + key + " does not exist in mount point " + mount + "!",
                                    ConfigurationException::KEY_NOT_EXISTING);
@@ -160,6 +160,7 @@ Uni::Value& Configuration::get(const std::string& mount, const std::string& key)
 
 Uni::Value& Configuration::get(const std::string& mount)
 {
+  std::lock_guard<std::recursive_mutex> lg(mountMutex_);
   if (mountPts_.count(mount) > 0)
   {
     return mountPts_[mount].root;
@@ -173,6 +174,7 @@ Uni::Value& Configuration::get(const std::string& mount)
 
 void Configuration::set(const std::string& mount, const std::string& key, const Uni::Value& value)
 {
+  std::lock_guard<std::recursive_mutex> lg(mountMutex_);
   if (mountPts_.find(mount) != mountPts_.end())
   {
     // key denotes the key that was received, realKey is the top-level part of the key as it is used
@@ -213,7 +215,7 @@ void Configuration::set(const std::string& mount, const std::string& key, const 
         std::string indexString = key.substr(bracketPos + 1, closingBracketPos - bracketPos - 1);
         // TODO: check that everything is valid between the brackets. But this is something we might
         // not care.
-        Uni::Value::valuesList_t::size_type index = std::stol(indexString);
+        Uni::Value::valuesVector_t::size_type index = std::stol(indexString);
         if (index >= currentValue->size())
         {
           // This is not supported yet because it is a potential security hole.
@@ -255,6 +257,7 @@ void Configuration::save()
   {
     Json::StyledWriter writer;
 
+    std::lock_guard<std::recursive_mutex> lg(mountMutex_);
     for (auto it = mountPts_.begin(); it != mountPts_.end(); ++it)
     {
       if (it->second.changed)
@@ -281,6 +284,7 @@ std::string Configuration::hash(const std::string& mount, const std::string& key
 std::map<std::string, std::string> Configuration::getMountPoints()
 {
   std::map<std::string, std::string> ret;
+  std::lock_guard<std::recursive_mutex> lg(mountMutex_);
 
   for (auto it = mountPts_.begin(); it != mountPts_.end(); it++)
   {
@@ -293,6 +297,7 @@ std::map<std::string, std::string> Configuration::getMountPoints()
 std::list<std::string> Configuration::getKeyList(std::string mountPoint)
 {
   std::list<std::string> ret;
+  std::lock_guard<std::recursive_mutex> lg(mountMutex_);
   Uni::Value& root = mountPts_.at(mountPoint).root;
 
   for (auto it = root.objectBegin(); it != root.objectEnd(); it++)
@@ -308,6 +313,7 @@ boost::signals2::connection Configuration::registerCallback(const std::string& m
                                                             ConfigurationCallback callback)
 {
   std::string h = hash(mount, key);
+  std::lock_guard<std::recursive_mutex> lg(mountMutex_);
   auto it = map_.find(h);
 
   if (it == map_.end())

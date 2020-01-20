@@ -17,11 +17,12 @@ typedef Uni::Value DebugValueType;
 
 struct DebugData : public Uni::To
 {
-  DebugData(const std::string& key, const DebugValueType* value)
-    : key(key)
+  DebugData(const std::string& key, const DebugValueType* value,
+            const TimePoint& timestamp = TimePoint::getCurrentTime())
+    : timestamp(timestamp)
+    , key(key)
     , value(value)
   {
-    timestamp = TimePoint::getCurrentTime();
   }
 
   TimePoint timestamp;

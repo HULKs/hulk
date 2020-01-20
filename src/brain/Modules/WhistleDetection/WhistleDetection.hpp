@@ -5,6 +5,7 @@
 #include "Data/GameControllerState.hpp"
 #include "Data/WhistleData.hpp"
 #include "Framework/Module.hpp"
+#include "Hardware/AudioInterface.hpp"
 #include <Tools/Math/FFT.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -32,8 +33,8 @@ public:
   void cycle();
 
 private:
-  /// audio samples that were collected in the last cycle
-  const Dependency<RecordData> recordData_;
+  /// audio samples from four microphones that were collected in the last cycle
+  const Dependency<RecordData<AudioInterface::numChannels>> recordData_;
   /// the game controller state before whistle integration to run only in SET
   const Dependency<RawGameControllerState> rawGameControllerState_;
   /// the cycle info
@@ -54,16 +55,19 @@ private:
   /// the spectrum is divided into a number of bands to find the whistle band
   const Parameter<unsigned int> numberOfBands_;
 
-  /// the minimum percentage of found  whistles in the whistle buffer required to actually be considered a detected whistle
+  /// the minimum percentage of found  whistles in the whistle buffer required to actually be
+  /// considered a detected whistle
   const Parameter<float> minWhistleCount_;
+
+  /// The selected microphone to use for detecting the whistle.
+  const Parameter<unsigned int> channel_;
 
   /// The fft buffer size. For performance, this should be a power of two.
   static constexpr unsigned int fftBufferSize_ = 1024;
-  /// The sampling rate. Depends on samplingRate of the audio recording.
-  static constexpr double samplingRate = 44100;
   /// FFT wich can transform the buffer
   FFT fft_;
-  /// The buffer to store recorded samples until it reaches the fft buffer size and a detection can be made.
+  /// The buffer to store recorded samples until it reaches the fft buffer size and a detection can
+  /// be made.
   RealVector fftBuffer_;
   /// the last timestamp when the whistle has been detected
   TimePoint lastTimeWhistleHeard_;

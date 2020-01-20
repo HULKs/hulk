@@ -17,8 +17,9 @@ public:
    * @brief update updates the sensorFusion with the current gyro and accel measurement
    * @param extGyro the external gyro measurement (omega vector) in rad/s
    * @param extAccel the external acceleration measurement in m/s²
+   * @param cycleTime the time a cycle needs run
    */
-  void update(const Vector3f& extGyro, const Vector3f& extAccel);
+  void update(const Vector3f& extGyro, const Vector3f& extAccel, const float cycleTime);
   /**
    * @brief setOrientation resets to internal orientation quaternion to a givn roll, pitch, yaw
    * @param orient the orientation to be set in terms of (roll, pitch, yaw)
@@ -50,8 +51,9 @@ private:
   /**
    * @brief updateOrientationGyro integrates the external gyro measurement for on time step
    * @param extGyro the external gyro measurement
+   * @param cycleTime the time a cycle needs run
    */
-  void updateOrientationGyro(const Vector3d& extGyro);
+  void updateOrientationGyro(const Vector3d& extGyro, const float cycleTime);
   /**
    * @brief updateOrientationAccel corrects the orientation with the external acceleration measurement
    * @param extAccel the external accelration measurement
@@ -77,9 +79,6 @@ private:
   Parameter<bool> reset_;
   /// the percentage with which the gravity measurement is respected
   const Parameter<float> accelweight_;
-  /// the update rate of the sensorFusion (inverse of the cycle time)
-  /// TODO: One might want to replace this with an actual measurement
-  const Parameter<float> sensor_update_rate_;
   /// the gravity in m/s²
   const Parameter<float> gravity_;
   /// a factor for the gyro bias

@@ -4,8 +4,11 @@
 #include <thread>
 
 #include <QString>
+#include <QList>
 #include <QVector>
 
+#include "SimRobotNoAudio.hpp"
+#include "SimRobotPortAudio.hpp"
 #include "SimRobotInterface.hpp"
 
 #include "Modules/NaoProvider.h"
@@ -296,7 +299,22 @@ void SimRobotInterface::update()
   }
 }
 
-void SimRobotInterface::configure(Configuration&) {}
+void SimRobotInterface::configure(Configuration& config, NaoInfo&)
+{
+  std::string mount = "SimRobot";
+  config.mount(mount, mount + ".json", ConfigurationType::HEAD);
+
+  auto enablePortaudio = config.get(mount, "enablePortaudio").asBool();
+
+  if (enablePortaudio)
+  {
+    audio_ = std::make_unique<SimRobotPortAudio>();
+  }
+  else
+  {
+    audio_ = std::make_unique<SimRobotNoAudio>();
+  }
+}
 
 void SimRobotInterface::setJointAngles(const std::vector<float>& angles)
 {
@@ -315,12 +333,15 @@ void SimRobotInterface::setLEDs(const std::vector<float>&) {}
 
 void SimRobotInterface::setSonar(const float) {}
 
-void SimRobotInterface::waitAndReadSensorData(NaoSensorData& data)
+float SimRobotInterface::waitAndReadSensorData(NaoSensorData& data)
 {
   std::unique_lock<std::mutex> lock(sensorDataLock_);
   cv_.wait(lock, [this] { return newData_ || shutdownRequest_; });
   data = sensorData_;
   newData_ = false;
+
+  // Approximated time since last sensor reading
+  return 0.012f;
 }
 
 std::string SimRobotInterface::getFileRoot()
@@ -333,12 +354,18 @@ std::string SimRobotInterface::getDataRoot()
   return getFileRoot();
 }
 
-void SimRobotInterface::getNaoInfo(Configuration&, NaoInfo& info)
+void SimRobotInterface::getNaoInfo(Configuration& config, NaoInfo& info)
 {
-  info.bodyVersion = NaoVersion::V4;
-  info.headVersion = NaoVersion::V4;
+  info.bodyVersion = NaoVersion::V6;
+  info.headVersion = NaoVersion::V6;
   info.bodyName = robotName_;
   info.headName = robotName_;
+
+  // Export the NaoInfo to provide it in tuhhSDK.base for Export Diff functionality in MATE
+  // (Not really applicable for SimRobot?)
+  Uni::Value value = Uni::Value(Uni::ValueType::OBJECT);
+  value << info;
+  config.set("tuhhSDK.base", "NaoInfo", value);
 }
 
 CameraInterface& SimRobotInterface::getCamera(const Camera camera)
@@ -353,7 +380,7 @@ FakeDataInterface& SimRobotInterface::getFakeData()
 
 AudioInterface& SimRobotInterface::getAudio()
 {
-  return audio_;
+  return *audio_;
 }
 
 CameraInterface& SimRobotInterface::getNextCamera()

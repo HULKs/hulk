@@ -1,0 +1,31 @@
+diff --git src/tools/common.jam src/tools/common.jam
+index 5b9b3508..b399916c 100644
+--- src/tools/common.jam
++++ src/tools/common.jam
+@@ -974,16 +974,16 @@ local rule toolset-tag ( name : type ? : property-set )
+     }
+ 
+     # From GCC 5, versioning changes and minor becomes patch
+-    if $(tag) = gcc && [ numbers.less 4 $(version[1]) ]
+-    {
+-        version = $(version[1]) ;
+-    }
+-
+-    # Ditto, from Clang 4
+-    if ( $(tag) = clang || $(tag) = clangw ) && [ numbers.less 3 $(version[1]) ]
+-    {
+-        version = $(version[1]) ;
+-    }
++    # if $(tag) = gcc && [ numbers.less 4 $(version[1]) ]
++    # {
++    #     version = $(version[1]) ;
++    # }
++
++    # # Ditto, from Clang 4
++    # if ( $(tag) = clang || $(tag) = clangw ) && [ numbers.less 3 $(version[1]) ]
++    # {
++    #     version = $(version[1]) ;
++    # }
+ 
+     # On intel, version is not added, because it does not matter and it is the
+     # version of vc used as backend that matters. Ideally, we should encode the

@@ -1,52 +1,6 @@
 {
-  "torsoOffsetLeft": [0.0, 0.0, 0.0],
-  "torsoOffsetRight": [0.0, 0.0, 0.0],
-
-  "forwardKickParameters":
-  {
-    "waitBeforeStartDuration": 1000,
-    "weightShiftDuration": 700,
-    "liftFootDuration": 300,
-    "swingFootDuration": 110,
-    "kickBallDuration": 90,
-    "pauseDuration": 150,
-    "retractFootDuration": 100,
-    "extendFootAndCenterTorsoDuration": 300,
-    "waitBeforeExitDuration": 1000,
-    "weightShiftCom": [10.0, 0.0, 260.0],
-    "liftFootPosition": [-110.0, 120.0, 100.0],
-    "swingFootPosition": [50.0, 120.0, 60.0],
-    "kickBallPosition": [180.0, 100.0, 70.0],
-    "retractFootPosition": [40.0, 130.0, 40.0],
-    "yawLeft2right": 0,
-    "shoulderRoll": 20,
-    "shoulderPitchAdjustment": 29,
-    "ankleRoll": -22,
-    "anklePitch": -20
-  },
-
-  "sideKickParameters":
-  {
-    "waitBeforeStartDuration": 1000,
-    "weightShiftDuration": 700,
-    "liftFootDuration": 300,
-    "swingFootDuration": 100,
-    "kickBallDuration": 100,
-    "pauseDuration": 100,
-    "retractFootDuration": 100,
-    "extendFootAndCenterTorsoDuration": 500,
-    "waitBeforeExitDuration": 1000,
-    "weightShiftCom": [10.0, 2.0, 250.0],
-    "liftFootPosition": [0.0, 190.0, 50.0],
-    "swingFootPosition": [100.0, 160.0, 50.0],
-    "kickBallPosition": [150.0, 90.0, 40.0],
-    "retractFootPosition": [40.0, 130.0, 40.0],
-    "yawLeft2right": 0,
-    "shoulderRoll": 25,
-    "shoulderPitchAdjustment": 20,
-    "ankleRoll": -22,
-    "anklePitch": 0
-  },
+  "torsoOffsetLeft": [0.0, 5.0, 0.0],
+  "torsoOffsetRight": [0.0, 5.0, 0.0],
 
   "gyroLowPassRatio" : 0.8,
   "gyroForwardBalanceFactor" : 0.08,

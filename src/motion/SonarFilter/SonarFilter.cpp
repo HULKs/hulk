@@ -9,6 +9,8 @@ SonarFilter::SonarFilter(const ModuleManagerInterface& manager)
   , confidentDistance_(*this, "confidentDistance", [] {})
   , invalidReadingsLimit_(*this, "invalidReadingsLimit", [] {})
   , smoothingFactor_(*this, "smoothingFactor", [] {})
+  , medianWindowSize_(*this, "medianWindowSize", [] {})
+  , useMedian_(*this, "useMedian", [] {})
   , oldSensorData_{{confidentDistance_(), confidentDistance_()}}
   , invalidDataCounter_{{0, 0}}
 {
@@ -35,7 +37,14 @@ void SonarFilter::filter(keys::sensor::sonar sensorKey, SONARS::SONAR side)
     // Only filter on new sensor readings
     if (oldSensorData_[side] != sonarSensorData_->data[sensorKey])
     {
-      lowpass(sonarSensorData_->data[sensorKey], side);
+      if (useMedian_())
+      {
+        median(sonarSensorData_->data[sensorKey], side);
+      }
+      else
+      {
+        lowpass(sonarSensorData_->data[sensorKey], side);
+      }
       // save previous raw data for next cycle
       oldSensorData_[side] = sonarSensorData_->data[sensorKey];
     }
@@ -47,6 +56,8 @@ void SonarFilter::filter(keys::sensor::sonar sensorKey, SONARS::SONAR side)
     if (invalidDataCounter_[side] > invalidReadingsLimit_())
     {
       sonarData_->valid[side] = false;
+      // Set the filtered value anyway for a less confusing debug graph
+      sonarData_->filteredValues[side] = confidentDistance_();
     }
   }
 }
@@ -82,4 +93,33 @@ void SonarFilter::lowpass(float measurement, SONARS::SONAR side)
     filteredOutput = confidentDistance_();
   }
   sonarData_->filteredValues[side] = filteredOutput;
+}
+
+void SonarFilter::median(float measurement, SONARS::SONAR side)
+{
+  if (!sonarData_->valid[side])
+  {
+    sonarData_->valid[side] = true;
+    invalidDataCounter_[side] = 0;
+  }
+  // Keep data window at a maximum size
+  while (medianWindow_[side].size() >= medianWindowSize_())
+  {
+    medianWindow_[side].pop_back();
+  }
+  medianWindow_[side].insert(medianWindow_[side].begin(), measurement);
+  // Get median value
+  std::list<float> tmp = medianWindow_[side];
+  tmp.sort();
+  std::list<float>::iterator median = tmp.begin();
+  std::advance(median, static_cast<size_t>(tmp.size() / 2));
+  // Ignore values above confidentDistance threshold
+  if (*median < confidentDistance_())
+  {
+    sonarData_->filteredValues[side] = *median;
+  }
+  else
+  {
+    sonarData_->filteredValues[side] = confidentDistance_();
+  }
 }

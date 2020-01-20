@@ -44,20 +44,14 @@ public:
     /// relative position of the right post
     Vector2f right;
 
-    /**
-     * @see function in DataType
-     */
-    virtual void toValue(Uni::Value& value) const
+    void toValue(Uni::Value& value) const override
     {
       value = Uni::Value(Uni::ValueType::OBJECT);
       value["left"] << left;
       value["right"] << right;
     }
 
-    /**
-     * @see function in DataType
-     */
-    virtual void fromValue(const Uni::Value& value)
+    void fromValue(const Uni::Value& value) override
     {
       value["left"] >> left;
       value["right"] >> right;
@@ -98,10 +92,8 @@ public:
     /// all line Ids that were used to create this center circle
     /// these correspond to the indicies of the lines in LineData.lines
     std::vector<size_t> usedLineIds;
-    /**
-     * @see function in DataType
-     */
-    virtual void toValue(Uni::Value& value) const
+
+    void toValue(Uni::Value& value) const override
     {
       value = Uni::Value(Uni::ValueType::OBJECT);
       value["position"] << position;
@@ -110,10 +102,7 @@ public:
       value["usedLineIds"] << usedLineIds;
     }
 
-    /**
-     * @see function in DataType
-     */
-    virtual void fromValue(const Uni::Value& value)
+    void fromValue(const Uni::Value& value) override
     {
       value["position"] >> position;
       value["hasOrientation"] >> hasOrientation;
@@ -150,10 +139,7 @@ public:
     /// contains the line used for orientation calculation
     std::vector<size_t> usedLineIds;
 
-    /**
-     * @see function in DataType
-     */
-    virtual void toValue(Uni::Value& value) const
+    void toValue(Uni::Value& value) const override
     {
       value = Uni::Value(Uni::ValueType::OBJECT);
       value["position"] << position;
@@ -162,10 +148,7 @@ public:
       value["usedLineIds"] << usedLineIds;
     }
 
-    /**
-     * @see function in DataType
-     */
-    virtual void fromValue(const Uni::Value& value)
+    void fromValue(const Uni::Value& value) override
     {
       value["position"] >> position;
       value["hasOrientation"] >> hasOrientation;
@@ -217,10 +200,8 @@ public:
       , usedLineIds(usedLineIds)
     {
     }
-    /**
-     * @see function in DataType
-     */
-    virtual void toValue(Uni::Value& value) const
+
+    void toValue(Uni::Value& value) const override
     {
       value = Uni::Value(Uni::ValueType::OBJECT);
       value["position"] << position;
@@ -230,10 +211,7 @@ public:
       value["usedLineIds"] << usedLineIds;
     }
 
-    /**
-     * @see function in DataType
-     */
-    virtual void fromValue(const Uni::Value& value)
+    void fromValue(const Uni::Value& value) override
     {
       value["position"] >> position;
       int intersectionTypeInt = 0;
@@ -264,7 +242,7 @@ public:
   /**
    * @brief reset clears all vectors
    */
-  void reset()
+  void reset() override
   {
     goals.clear();
     centerCircles.clear();
@@ -274,7 +252,7 @@ public:
     filteredLineInfos.clear();
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["goals"] << goals;
@@ -286,7 +264,7 @@ public:
     value["timestamp"] << timestamp;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["goals"] >> goals;
     value["centerCircles"] >> centerCircles;

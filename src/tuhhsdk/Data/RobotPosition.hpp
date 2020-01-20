@@ -2,17 +2,19 @@
 
 #include "Framework/DataType.hpp"
 
-#include "Tools/Time.hpp"
 #include "Tools/Math/Eigen.hpp"
 #include "Tools/Math/Pose.hpp"
+#include "Tools/Time.hpp"
 
-class RobotPosition : public DataType<RobotPosition> {
+class RobotPosition : public DataType<RobotPosition>
+{
 public:
   /// the name of this DataType
   DataTypeName name = "RobotPosition";
   /// the pose of the robot in SPL field coordinates
   Pose pose;
-  /// the timestamp of the last time when the robot position jumped (significant changes not matching the odometry)
+  /// the timestamp of the last time when the robot position jumped (significant changes not
+  /// matching the odometry)
   TimePoint lastTimeJumped;
   /// whether the pose is valid
   bool valid = false;
@@ -53,14 +55,34 @@ public:
     return pose * robotPose;
   }
   /**
+   * @brief rotateFieldToRobot rotates a direction vector from field to robot coordinates (no
+   * translation offset added, e.g. to convert velocities)
+   * @param fieldDirection a direction vector in field coordinates
+   * @return the direction vector in robot coordinates
+   */
+  Vector2f rotateFieldToRobot(const Vector2f& fieldDirection) const
+  {
+    return Rotation2Df(-pose.orientation) * fieldDirection;
+  }
+  /**
+   * @brief rotateRobotToField rotates a direction vector from robot to field coordinates (no
+   * translation offset added, e.g. to convert velocities)
+   * @param robotDirection a direction vector in robot coordinates
+   * @return the direction vector in field coordinates
+   */
+  Vector2f rotateRobotToField(const Vector2f& robotDirection) const
+  {
+    return Rotation2Df(pose.orientation) * robotDirection;
+  }
+  /**
    * @brief reset invalidates the position
    */
-  void reset()
+  void reset() override
   {
     valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["pose"] << pose;
@@ -68,7 +90,7 @@ public:
     value["valid"] << valid;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["pose"] >> pose;
     value["lastTimeJumped"] >> lastTimeJumped;

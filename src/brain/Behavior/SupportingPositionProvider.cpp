@@ -28,8 +28,9 @@ void SupportingPositionProvider::cycle()
     return;
   }
 
-  // Find the angle of the vector from our own goal to the ball. Ideally, the supporter should stand
-  // on this vector.
+
+  // Find the angle of the vector from our own goal to the ball. Ideally, the supporter should
+  // stand on this vector.
   const Vector2f absBallPosition = teamBallModel_->position;
   const Vector2f absOwnGoalPosition = Vector2f(-fieldDimensions_->fieldLength / 2, 0);
   const Vector2f ownGoalToBall = absBallPosition - absOwnGoalPosition;
@@ -46,19 +47,26 @@ void SupportingPositionProvider::cycle()
   const float diff = Angle::angleDiff(angleOwnGoalToBall, angleBallToOpponentsGoal);
 
   // The optimal angle is the angle that covers our goal while allowing the supporter to see the
-  // ball. If the opponent has a free kick the supporter should be directly between ball and own
-  // goal
+  // ball. If the opponent has free kick the striker blocks our goal and the supporter should be
+  // offset.
   const bool opponentHasFreeKick =
       gameControllerState_->setPlay != SetPlay::NONE && !gameControllerState_->kickingTeam;
-  const float optimalAngle =
-      std::abs(diff) > minimumAngle_() || opponentHasFreeKick
-          ? angleOwnGoalToBall
-          : angleBallToOpponentsGoal + (worldState_->ballInLeftHalf ? 1 : -1) * minimumAngle_();
+  const bool sightBlocked = std::abs(diff) < minimumAngle_();
+  float optimalAngle = angleOwnGoalToBall;
+  if (opponentHasFreeKick)
+  {
+    optimalAngle = angleOwnGoalToBall + (worldState_->ballInLeftHalf ? 1 : -1) * minimumAngle_();
+  }
+  else if (sightBlocked)
+  {
+    optimalAngle = angleBallToOpponentsGoal + (worldState_->ballInLeftHalf ? 1 : -1) * minimumAngle_();
+  }
 
-  // The supporting position is a specified distance away from the ball with the optimal angle. Logically, this is
-  // behind the ball and towards y = 0.
+  // The supporting position is a specified distance away from the ball with the optimal angle.
+  // Logically, this is behind the ball and towards y = 0.
   Vector2f supportingPosition =
-      absBallPosition - distanceToBall_() * Vector2f(std::cos(optimalAngle), std::sin(optimalAngle));
+      absBallPosition -
+      distanceToBall_() * Vector2f(std::cos(optimalAngle), std::sin(optimalAngle));
   // the supporting position must not be too close to our own goal
   supportingPosition.x() = std::max(supportingPosition.x(), aggressiveSupporterLineX_);
   supportingPosition_->position = supportingPosition;

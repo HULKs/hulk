@@ -20,23 +20,27 @@ public:
   Circle<int> filteredProjectedBall;
   /// the timestamp of the image in which it was seen
   TimePoint timestamp;
+
+  bool valid = false;
+
   /**
    * @brief reset sets the ball to a defined state
    */
-  void reset()
+  void reset() override
   {
+    valid = false;
     positions.clear();
     imagePositions.clear();
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["positions"] << positions;
     value["timestamp"] << timestamp;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["positions"] >> positions;
     value["timestamp"] >> timestamp;

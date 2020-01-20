@@ -48,9 +48,12 @@ void SetPositionProvider::cycle()
     kickoffDribbleSign_ = 0.f;
   }
 
-  // A SET position is only needed during READY and SET (actually only during READY).
+  // A SET position is only needed during READY and SET (actually only during READY) or if the game
+  // state recently changed to playing (kick-off in-walk-kicks require them)
   if (gameControllerState_->gameState != GameState::READY &&
-      gameControllerState_->gameState != GameState::SET)
+      gameControllerState_->gameState != GameState::SET &&
+      !(gameControllerState_->gameState == GameState::PLAYING &&
+        cycleInfo_->getTimeDiff(gameControllerState_->gameStateChanged) < 30.f))
   {
     return;
   }
@@ -239,5 +242,6 @@ bool SetPositionProvider::roleIsCompatibleWithPosition(const PlayingRole role,
   // Defenders must get one of the first two non-striker positions.
   // This is currently only valid for the mixed team setup because the defender positions are the
   // first two non-striker positions there.
-  return !(role == PlayingRole::DEFENDER && posIndex >= 3);
+  return !((role == PlayingRole::DEFENDER_LEFT || role == PlayingRole::DEFENDER_LEFT) &&
+           posIndex >= 3);
 }

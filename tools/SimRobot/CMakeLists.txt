@@ -38,6 +38,10 @@ elseif (WIN32)
     set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Ox /Ob2 /Oi /Ot /Oy /GT -D NDEBUG")
 endif()
 
+if (LINUX)
+    # Prefer new GLVND OpenGL and GLX Libraries rather than legacy version when on LINUX
+    set(OpenGL_GL_PREFERENCE GLVND)
+endif()
 
 add_subdirectory(Src/SimRobot)
 add_subdirectory(Src/SimRobotCore2)

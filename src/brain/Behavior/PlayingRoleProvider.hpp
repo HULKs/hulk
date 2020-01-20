@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "Data/BallState.hpp"
 #include "Data/BodyPose.hpp"
 #include "Data/CycleInfo.hpp"
 #include "Data/FieldDimensions.hpp"
@@ -12,6 +13,7 @@
 #include "Data/TeamBallModel.hpp"
 #include "Data/TeamPlayers.hpp"
 #include "Data/TimeToReachBall.hpp"
+#include "Data/WalkingEngineWalkOutput.hpp"
 #include "Data/WorldState.hpp"
 #include "Framework/Module.hpp"
 
@@ -23,29 +25,31 @@ class PlayingRoleProvider : public Module<PlayingRoleProvider, Brain>
 public:
   /// the name of this module
   ModuleName name = "PlayingRoleProvider";
-  PlayingRoleProvider(const ModuleManagerInterface& manager);
-  void cycle();
+  explicit PlayingRoleProvider(const ModuleManagerInterface& manager);
+  void cycle() override;
 
 private:
   struct Player
   {
-    Player(const unsigned int playerNumber, const float x)
+    Player(const unsigned int playerNumber, const Vector2f& pos)
       : playerNumber(playerNumber)
-      , x(x)
+      , position(pos)
     {
     }
     unsigned int playerNumber;
-    float x;
+    Vector2f position;
   };
 
   const Parameter<bool> useTeamRole_;
-  const Parameter<bool> assignBishop_;
+  const ConditionalParameter<bool> assignBishop_;
   const Parameter<bool> assignBishopWithLessThanFourFieldPlayers_;
   const Parameter<bool> playerOneCanBecomeStriker_;
   const Parameter<bool> allowReplacementKeeper_;
   const Parameter<float> playerOneDistanceThreshold_;
   const Parameter<float> keeperTimeToReachBallPenalty_;
+  const Parameter<bool> strikeOwnBall_;
   const Parameter<std::string> forceRole_;
+  const Dependency<BallState> ballState_;
   const Dependency<FieldDimensions> fieldDimensions_;
   const Dependency<PlayerConfiguration> playerConfiguration_;
   const Dependency<RobotPosition> robotPosition_;
@@ -55,6 +59,7 @@ private:
   const Dependency<BodyPose> bodyPose_;
   const Dependency<CycleInfo> cycleInfo_;
   const Dependency<TimeToReachBall> timeToReachBall_;
+  const Dependency<WalkingEngineWalkOutput> walkingEngineWalkOutput_;
   const Dependency<WorldState> worldState_;
 
   Production<PlayingRoles> playingRoles_;
@@ -71,8 +76,9 @@ private:
 
   /**
    * @brief assign the keeper role
+   * @return whether a keeper was assigned
    */
-  void assignKeeper();
+  bool assignKeeper();
 
   /**
    * @brief assign the replacement keeper role
@@ -80,12 +86,15 @@ private:
   void assignReplacementKeeper();
 
   /**
-   * @brief
-   * @param position
-   * @param playerNumber
-   * @return
+   * @brief getDistanceToGoal returns the distance from a given position to the own goal
+   *
+   * The distance that is being returned includes a bonus for the player with the player number 1.
+   *
+   * @param position the position to get the distance for
+   * @param playerNumber the player number to get the distance for
+   * @return the distance to the own goal including a bonus for player number 1.
    */
-  float getDistanceToGoal(const Vector2f position, const unsigned int playerNumber) const;
+  float getDistanceToGoal(const Vector2f& position, const unsigned int playerNumber) const;
 
   /**
    * @brief whether robot with player number one is far away form our own goal
@@ -97,6 +106,8 @@ private:
    * @brief Assign remaining players to other roles
    */
   void assignRemainingPlayerRoles();
+
+  void assignDefenders(const Player& firstPlayer, const Player& secondPlayer);
 
   /**
    * @brief set role of player with given number

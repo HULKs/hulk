@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "Tools/Math/Eigen.hpp"
+#include "Tools/Storage/UniValue/UniValue.h"
 
 #include "Data/BallState.hpp"
 #include "Data/CycleInfo.hpp"
@@ -27,32 +28,51 @@ public:
    * @brief TeamBallFilter creates a model of the ball as seen by the complete team
    * @param manager a reference to brain
    */
-  TeamBallFilter(const ModuleManagerInterface& manager);
+  explicit TeamBallFilter(const ModuleManagerInterface& manager);
   /**
    * @brief cycle
    */
-  void cycle();
+  void cycle() override;
 
 private:
-  struct Ball
+  struct Ball : public Uni::To
   {
     /// the position of the ball
     Vector2f position;
     /// the velocity of the ball
     Vector2f velocity;
+
+    void toValue(Uni::Value& value) const override
+    {
+      value = Uni::Value(Uni::ValueType::OBJECT);
+      value["position"] << position;
+      value["velocity"] << velocity;
+    }
   };
-  struct TeamPlayerBall
+  struct TeamPlayerBall : public Uni::To
   {
     /// the time when the ball has been seen
-    TimePoint timestamp;
+    TimePoint timeLastSeen;
+    /// the time when the ball was discovered
+    TimePoint timeFirstSeen;
     /// the number of the player
     unsigned int playerNumber;
     /// shortest distance from where the ball was seen
     float distance;
     /// the absolute position where the teammate saw the ball
     Ball ball;
+
+    void toValue(Uni::Value& value) const override
+    {
+      value = Uni::Value(Uni::ValueType::OBJECT);
+      value["timeLastSeen"] << timeLastSeen;
+      value["timeFirstSeen"] << timeFirstSeen;
+      value["playerNumber"] << playerNumber;
+      value["distance"] << distance;
+      value["ball"] << ball;
+    }
   };
-  struct BallCluster
+  struct BallCluster : public Uni::To
   {
     /// the balls that belong to this cluster (pointers to contents of ballBuffer_)
     std::vector<TeamPlayerBall*> balls;
@@ -60,6 +80,25 @@ private:
     bool containsOwnBall = false;
     /// the closest distance between a robot and the ball in this cluster
     float closestBallDistance = std::numeric_limits<float>::max();
+    /// the time point of the ball that was discovered first inside this cluster
+    TimePoint timeFirstSeen;
+    /// whether this cluster is the "best" cluster (for debug purposes)
+    bool isBestCluster = false;
+
+    void toValue(Uni::Value& value) const override
+    {
+      value = Uni::Value(Uni::ValueType::OBJECT);
+      std::vector<TeamPlayerBall> derefBalls;
+      for (auto& ball : balls)
+      {
+        derefBalls.emplace_back(*ball);
+      }
+      value["balls"] << derefBalls;
+      value["containsOwnBall"] << containsOwnBall;
+      value["closestBallDistance"] << closestBallDistance;
+      value["timeFirstSeen"] << timeFirstSeen;
+      value["isBestCluster"] << isBestCluster;
+    }
   };
   /**
    * @brief addBallToBuffer updates an already existing ball or adds a new ball to the ballBuffer_
@@ -69,7 +108,8 @@ private:
    * @param relBallVelocity relative ball velocity of the seen ball
    * @param timestamp the time when the ball was seen
    */
-  void addBallToBuffer(const unsigned int playerNumber, const Pose& pose, const Vector2f& relBallPosition, const Vector2f& relBallVelocity,
+  void addBallToBuffer(const unsigned int playerNumber, const Pose& pose,
+                       const Vector2f& relBallPosition, const Vector2f& relBallVelocity,
                        const TimePoint timestamp);
   /**
    * @brief updateBallBuffer adds and removes balls to/from the buffer

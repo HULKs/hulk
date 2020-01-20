@@ -1,8 +1,5 @@
 #!/bin/bash
 
-##VAR
-allowedSetups='{default, fullVisionFake, replay, oldWalking}'
-
 # Get base directory for better referencing
 BASEDIR=`cd $(dirname $0); pwd -P`
 BASEDIR=${BASEDIR%/*}
@@ -18,11 +15,11 @@ function helpMsg {
   echo ""
   echo "Options"
   echo "--help  help screen"
-  echo "-s, --set <NameOfModuleSetup | f, d, r, ow>"
+  echo "-s, --set <NameOfModuleSetup | f, d, r>"
   echo "            f - fullvisionfake,"
   echo "            d - default,"
-  echo "            r - replay,"
-  echo "            ow - oldWalking"
+  echo "            r - replay"
+  echo "            o - oldWalking"
   echo ""
   echo "example:"
   echo " \"'$0 -s f\", -> sets moduleSetup to fullVisionFake"
@@ -66,20 +63,19 @@ fi
 if ! [ -z $TARGET ]; then
   case $TARGET in
     "default"|"d")
-    sed -i "/moduleSetup/c\  \"moduleSetup\" : \"default\", //$allowedSetups" $tuhh_autoload
-    ;;
+      sed -i "s/moduleSetup\(.*\)\"\(.*\)\",/moduleSetup\1\"default\",/g" $tuhh_autoload
+      ;;
     "fullVisionFake" | "fullvisionfake" | "f")
-    sed -i "/moduleSetup/c\  \"moduleSetup\" : \"fullVisionFake\", //$allowedSetups" $tuhh_autoload
-    ;;
+      sed -i "s/moduleSetup\(.*\)\"\(.*\)\",/moduleSetup\1\"fullVisionFake\",/g" $tuhh_autoload
+      ;;
     "replay" | "r")
-    sed -i "/moduleSetup/c\  \"moduleSetup\" : \"replay\", //$allowedSetups" $tuhh_autoload
-    ;;
-    "oldWalking" | "ow")
-    sed -i "/moduleSetup/c\  \"moduleSetup\" : \"oldWalking\", //$allowedSetups" $tuhh_autoload
-    ;;
+      sed -i "s/moduleSetup\(.*\)\"\(.*\)\",/moduleSetup\1\"replay\",/g" $tuhh_autoload
+      ;;
+    "oldWalking" | "o")
+      sed -i "s/moduleSetup\(.*\)\"\(.*\)\",/moduleSetup\1\"oldWalking\",/g" $tuhh_autoload
+      ;;
     *)
     echo "Failed to parse argument $TARGET"
-    echo "Valid arguments: $allowedSetups"
     ;;
 esac
 fi

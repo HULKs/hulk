@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Get base directory for better referencing
+BASEDIR=`cd $(dirname $0); pwd -P`
+BASEDIR=${BASEDIR%/*}
+
+source "${BASEDIR}/scripts/lib/msg.sh"
+source "${BASEDIR}/scripts/lib/naonet.sh"
+source "${BASEDIR}/scripts/lib/numberToIP.sh"
+
+function helpMenu {
+    echo "Usage $0 NETWORK NAO..."
+    echo ""
+    echo "Network"
+    echo " a network the nao local setNetwork script can use e.g. SPL_A"
+    echo "Nao"
+    echo " either hostname, IP or number of the NAO"
+}
+
+function run {
+    if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+        helpMenu
+        return
+    fi
+    if [ "$#" -lt 2 ]; then
+        helpMenu
+        return 1
+    fi
+    NETWORK=$1
+    shift
+    # a list of NAOs
+    NAOS=()
+    while [ "$#" -gt 0 ]; do
+      NAOS+=($(numberToIP "$1"))
+      shift
+    done
+
+    for index in ${!NAOS[*]}; do
+        msg -n "Set network ${NETWORK} to ${NAOS[index]}."
+        naocmd "${BASEDIR}" "${NAOS[index]}" "/home/nao/.local/bin/setNetwork ${NETWORK};"
+        if [ "$?" -ne 0 ]; then
+            msg -e "Failed to set network on ${NAOS[index]}!"
+        fi
+    done
+}
+
+run $@

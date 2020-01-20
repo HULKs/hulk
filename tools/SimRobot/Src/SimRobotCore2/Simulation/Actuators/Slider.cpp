@@ -1,7 +1,7 @@
 /**
 * @file Simulation/Joints/Slider.cpp
 * Implementation of class Slider
-* @author <A href="mailto:Tim.Laue@dfki.de">Tim Laue</A>
+* @author <A href="mailto:tlaue@uni-bremen.de">Tim Laue</A>
 * @author <A href="mailto:kspiess@informatik.uni-bremen.de">Kai Spiess</A>
 * @author Colin Graf
 * @author Thomas Röfer
@@ -41,10 +41,10 @@ void Slider::createPhysics()
   joint = dJointCreateSlider(Simulation::simulation->physicalWorld, 0);
   dJointAttach(joint, childBody->body, parentBody ? parentBody->body : 0);
   //set Slider joint parameter
-  Vector3<> globalAxis = pose.rotation * Vector3<>(axis->x, axis->y, axis->z);
-  dJointSetSliderAxis(joint, globalAxis.x, globalAxis.y, globalAxis.z);
+  const Vector3f globalAxis = pose.rotation * Vector3f(axis->x, axis->y, axis->z);
+  dJointSetSliderAxis(joint, globalAxis.x(), globalAxis.y(), globalAxis.z());
   if(axis->cfm != -1.f)
-    dJointSetSliderParam(joint, dParamCFM, dReal(axis->cfm));
+    dJointSetSliderParam(joint, dParamCFM, axis->cfm);
 
   if(axis->deflection)
   {
@@ -61,14 +61,14 @@ void Slider::createPhysics()
       minSliderLimit -= internalTolerance;
       maxSliderLimit += internalTolerance;
     }
-    dJointSetSliderParam(joint, dParamLoStop, dReal(minSliderLimit));
-    dJointSetSliderParam(joint, dParamHiStop, dReal(maxSliderLimit));
+    dJointSetSliderParam(joint, dParamLoStop, minSliderLimit);
+    dJointSetSliderParam(joint, dParamHiStop, maxSliderLimit);
     // this has to be done due to the way ODE sets joint stops
-    dJointSetSliderParam(joint, dParamLoStop, dReal(minSliderLimit));
+    dJointSetSliderParam(joint, dParamLoStop, minSliderLimit);
     if(deflection.stopCFM != -1.f)
-      dJointSetSliderParam(joint, dParamStopCFM, dReal(deflection.stopCFM));
+      dJointSetSliderParam(joint, dParamStopCFM, deflection.stopCFM);
     if(deflection.stopERP != -1.f)
-      dJointSetSliderParam(joint, dParamStopERP, dReal(deflection.stopERP));
+      dJointSetSliderParam(joint, dParamStopERP, deflection.stopERP);
   }
 
   // create motor

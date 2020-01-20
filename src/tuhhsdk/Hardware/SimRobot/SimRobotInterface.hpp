@@ -13,7 +13,6 @@
 #include "Hardware/RobotInterface.hpp"
 #include "Tools/Kinematics/KinematicMatrix.h"
 
-#include "SimRobotAudio.hpp"
 #include "SimRobotCamera.hpp"
 #include "SimRobotFakeData.hpp"
 
@@ -37,83 +36,28 @@ public:
    * @param robot a pointer to the robot object in SimRobot
    */
   SimRobotInterface(SimRobot::Application& application, SimRobot::Object* robot);
-  /**
-   * @brief ~SimRobotInterface destructs the SimRobotInterface
-   */
-  ~SimRobotInterface();
+
+  ~SimRobotInterface() override;
   /**
    * @brief update executes the robot control program for one cycle
    */
   void update();
-  /**
-   * @brief configure is called by the tuhhSDK as soon as all configuration categories are available
-   */
-  void configure(Configuration&);
-  /**
-   * @brief setJointAngles sets the joint angles for the current cycle
-   * @param angles the values of all joint angles
-   */
-  void setJointAngles(const std::vector<float>& angles);
-  /**
-   * @brief setJointStiffnesses sets the joint stiffnesses for the current cycle
-   * @param stiffnesses the values of all joint stiffnesses
-   */
-  void setJointStiffnesses(const std::vector<float>& stiffnesses);
-  /**
-   * @brief setLEDs sets the LED colors and/or brightnesses
-   * @param leds the values of all LEDs
-   */
-  void setLEDs(const std::vector<float>& leds);
-  /**
-   * @brief setSonar sets the value of the sonar actuator
-   * @param sonar the value of the sonar actuator (see Soft Bank documentation)
-   */
-  void setSonar(const float sonar);
-  /**
-   * @brief waitAndReadSensorData copies sensor values
-   * @param sensors is filled with the sensor data from the last cycle
-   */
-  void waitAndReadSensorData(NaoSensorData& data);
-  /**
-   * @brief getFileRoot returns a path to a directory that contains all files for our program
-   * @return a path
-   */
-  std::string getFileRoot();
-  /**
-   * @brief delegate to getFileRoot
-   */
-  std::string getDataRoot();
-  /**
-   * @brief getNaoInfo copies the hardware identification
-   * @param info is filled with the body/head version and name
-   */
-  void getNaoInfo(Configuration&, NaoInfo& info);
-  /**
-   * @brief getCamera provides access to the cameras of the robot
-   * @param camera an identifier for the camera, i.e. top or bottom camera
-   * @return a reference to the requested camera
-   */
-  CameraInterface& getCamera(const Camera camera);
-  /**
-   * @brief getAudio provides access to the microphones of the robot
-   * @return a reference to the audioInterface
-   */
-  AudioInterface& getAudio();
-  /**
-   * @brief getNextCamera returns the next camera
-   * @return the next to be processed camera
-   */
-  CameraInterface& getNextCamera();
-  /**
-   * @brief getCurrentCameraType
-   * @return the current camera type
-   */
-  Camera getCurrentCameraType();
-  /**
-   * @brief getFakeData provides access to the fake data of this interface
-   * @return a reference to the requested fake data interface
-   */
-  FakeDataInterface& getFakeData();
+
+  void configure(Configuration&, NaoInfo&) override;
+  void setJointAngles(const std::vector<float>& angles) override;
+  void setJointStiffnesses(const std::vector<float>& stiffnesses) override;
+  void setLEDs(const std::vector<float>& leds) override;
+  void setSonar(const float sonar) override;
+  float waitAndReadSensorData(NaoSensorData& data) override;
+  std::string getFileRoot() override;
+  std::string getDataRoot() override;
+  void getNaoInfo(Configuration& config, NaoInfo& info) override;
+  CameraInterface& getCamera(const Camera camera) override;
+  AudioInterface& getAudio() override;
+  CameraInterface& getNextCamera() override;
+  Camera getCurrentCameraType() override;
+  FakeDataInterface& getFakeData() override;
+
   /**
    * @brief pressChestButton simulates a chest button press
    */
@@ -176,7 +120,7 @@ private:
   /// the fake data provided by simrobot
   SimRobotFakeData fakeData_;
   /// a dummy audio interface
-  SimRobotAudio audio_;
+  std::unique_ptr<AudioInterface> audio_;
   /// list of callbacks during the last cycle
   std::vector<callback_event> callbacks_;
   /// the current camera
@@ -203,7 +147,8 @@ private:
   bool newJointAngles_ = true;
   /// whether things should shut down
   bool shutdownRequest_ = false;
-  /// the instance of TUHH (should be the last declared member because it should be destroyed before the condition variables)
+  /// the instance of TUHH (should be the last declared member because it should be destroyed before
+  /// the condition variables)
   std::unique_ptr<TUHH> tuhh_;
   /// lock for camera data as they are accessed from the brain thread
   std::mutex cameraDataLock_;

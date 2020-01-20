@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Get base directory for better referencing
+BASEDIR=`cd $(dirname $0); pwd -P`
+CLANG_BASEDIR=${BASEDIR}/ctc-hulks-clang
+
+echo ${BASEDIR}
+cd ${BASEDIR}
+source env.sh
+
+set +e
+
+cd ctc-hulks-config
+BASEDIR=${BASEDIR} KERNEL_VERSION=${KERNEL_VERSION} ct-ng build.$((`nproc` + 1))
+cp ${BASEDIR}/x-tools/i686-nao-linux-gnu/i686-nao-linux-gnu/debug-root/data/x-tools/i686-nao-linux-gnu/i686-nao-linux-gnu/sysroot/usr/include/* ${BASEDIR}/x-tools/i686-nao-linux-gnu/i686-nao-linux-gnu/debug-root/usr/include
+rm -r ${BASEDIR}/x-tools/i686-nao-linux-gnu/i686-nao-linux-gnu/debug-root/data
+
+# Configure project
+GCC_VERSION=`${BASEDIR}/x-tools/i686-nao-linux-gnu/bin/i686-nao-linux-gnu-gcc -dumpversion`
+cd ${CLANG_BASEDIR}
+rm -rf llvm-build
+mkdir llvm-build
+cd llvm-build
+cmake \
+  -G "Ninja" \
+  -DCMAKE_INSTALL_PREFIX=${CLANG_BASEDIR}/llvm-inst \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DLLVM_TARGETS_TO_BUILD="X86" \
+  -DLLVM_BINUTILS_INCDIR=${BASEDIR}/x-tools/i686-nao-linux-gnu/i686-nao-linux-gnu/debug-root/usr/include \
+  -DLLVM_ENABLE_TERMINFO=OFF \
+  ${CLANG_BASEDIR}/llvm
+ninja -j$((`nproc` + 1)) install/strip
+

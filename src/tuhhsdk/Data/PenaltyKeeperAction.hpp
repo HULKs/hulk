@@ -16,8 +16,8 @@ public:
     JUMP_LEFT,
     /// jump right
     JUMP_RIGHT,
-    /// genuflect (a leg spread- sit)
-    GENUFLECT,
+    /// squat (a leg spread- sit)
+    SQUAT,
     /// wait for the striker to play.
     WAIT
   };
@@ -25,21 +25,19 @@ public:
   bool valid = false;
   /// the type of the action
   Type type;
-  /**
-   * @brief reset does nothing
-   */
-  void reset()
+
+  void reset() override
   {
     valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["valid"] << valid;
     value["type"] << static_cast<int>(type);
   }
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["valid"] >> valid;
     int readNumber = 0;

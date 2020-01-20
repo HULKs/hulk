@@ -14,7 +14,7 @@ function helpMenu {
   echo ""
   echo "Options"
   echo " -b, --build-type BUILD_TYPE       use the specified build type (one out of Debug, Develop, Release)"
-  echo " -t, --target TARGET               compile for the specified target (one out of nao, replay, simrobot, qt-websocket)"
+  echo " -t, --target TARGET               compile for the specified target (one out of nao5, nao6, replay, simrobot, qt-websocket)"
   echo " -j, --jobs                        the amount of processes used for compilation. Write the number of jobs to ${BASEDIR}/.njobs to configure default."
   echo " -v, --verbose                     show compilation commands"
   echo " -h, --help                        show this help"

@@ -26,21 +26,27 @@ void CameraCalibration::cycle()
   if (!head_matrix_buffer_->buffer.empty())
   {
     const HeadMatrixWithTimestamp& bufferEntry =
-        head_matrix_buffer_->getBestMatch(image_data_->timestamp);
-    debug().update(mount_ + ".Torso2Ground", bufferEntry.torso2ground);
-    debug().update(mount_ + ".Head2Torso", bufferEntry.head2torso);
-  }
-  // send cam2ground via debug. ex: mount_Camera2Ground
-  debug().update(mount_ + ".Camera2Ground_" + image_data_->identification,
-                 camera_matrix_->camera2ground);
+        head_matrix_buffer_->getBestMatch(image_data_->timestamp
+// Except when in SimRobot because camera images are captured at one exact time point there.
+#ifndef SIMROBOT
+                                          + std::chrono::milliseconds(17)
+#endif
+        );
+    Uni::Value matrixAndImageInfos;
+    matrixAndImageInfos["torso2Head"] = bufferEntry.head2torso.invert();
+    matrixAndImageInfos["ground2Torso"] = bufferEntry.torso2ground.invert();
+    matrixAndImageInfos["imageInfos"] = Uni::Value();
+    matrixAndImageInfos["imageInfos"]["ground2Camera"] << camera_matrix_->camera2ground.invert();
+    matrixAndImageInfos["imageInfos"]["identification"] << image_data_->identification;
 
+    debug().update(mount_ + ".MatrixAndImageInfos", matrixAndImageInfos);
+  }
   const std::string syncImageMount = mount_ + "." + image_data_->identification + "_image";
   if (debug().isSubscribed(syncImageMount))
   {
     /// send raw image. Explicit purpose is to ensure synchronization.
     debug().sendImage(syncImageMount, image_data_->image422.to444Image());
   }
-
   /**
    * If and only if calibration image is requested for penalty area based calibration
    */

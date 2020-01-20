@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <limits>
 
+#include "Tools/Math/Range.hpp"
 #include <Modules/NaoProvider.h>
 #include <Tools/Math/Random.hpp>
 #include <Tools/Time.hpp>
@@ -28,12 +29,18 @@ BallFilter::BallFilter(const ModuleManagerInterface& manager)
   , maxAssociationDistance_(*this, "maxAssociationDistance", [] {})
   , ballFrictionMu_(*this, "ballFrictionMu",
                     [this] { frictionDeceleration_ = 9.81f * ballFrictionMu_(); })
-  , relativeMovingThreshold_(*this, "relativeMovingThreshold", [] {})
+  , relativeMovingThreshold_(*this, "relativeMovingThresholdPSOPair", [] {},
+                             [&]() { return !isPenaltyKeeper(); })
   , restingErrorLowPassAlpha_(*this, "restingErrorLowPassAlpha", [] {})
   , movingErrorLowPassAlpha_(*this, "movingErrorLowPassAlpha", [] {})
-  , maxRestingError_(*this, "maxRestingError", [] {})
-  , numOfRestingDeccelerationSteps_(*this, "numOfRestingDeccelerationSteps", [] {})
+  , maxRestingError_(*this, "maxRestingErrorPSOPair", [] {}, [&]() { return !isPenaltyKeeper(); })
+  , numOfRestingDeccelerationSteps_(*this, "numOfRestingDeccelerationStepsPSOPair", [] {},
+                                    [&]() { return !isPenaltyKeeper(); })
   , confidentMeasurementThreshold_(*this, "confidentMeasurementThreshold", [] {})
+  , validityLowpassAlpha_(*this, "validityLowpassAlpha", [] {})
+  , defaultPerceptValidity_(*this, "defaultPerceptValidity", [] {})
+  , confidentPerceptionRatio_(*this, "confidentPerceptionRatio", [] {})
+  , gameControllerState_(*this)
   , playerConfiguration_(*this)
   , ballData_(*this)
   , fieldDimensions_(*this)
@@ -58,7 +65,6 @@ void BallFilter::cycle()
     lastTimestamp_ = ballData_->timestamp;
     for (auto& position : ballData_->positions)
     {
-
       // If the current NAO is the keeper, filter out ball candidates which
       // are farther away than a third of the length of the field.
       // This specifically avoids false positives which occur in the center circle.
@@ -68,18 +74,20 @@ void BallFilter::cycle()
             fieldDimensions_->fieldLength / 2 - fieldDimensions_->fieldCenterCircleDiameter / 2;
         if (position.norm() < keeper_threshold)
         {
-          update(position);
+          update(position, defaultPerceptValidity_());
         }
       }
       else
       {
         if (position.norm() < 6.f)
         {
-          update(position);
+          update(position, defaultPerceptValidity_());
         }
       }
     }
   }
+
+  updateValidities();
   selectBestMode();
   if (bestMode_ == ballModes_.end())
   {
@@ -92,7 +100,8 @@ void BallFilter::cycle()
     ballState_->moved = false;
     ballState_->confident = false;
     ballState_->timeWhenBallLost = timeWhenBallLost_;
-    ballState_->timeWhenLastSeen = 0;
+    ballState_->timeWhenLastSeen = TimePoint(0);
+    ballState_->validity = 0.f;
   }
   else
   {
@@ -112,6 +121,7 @@ void BallFilter::cycle()
     ballState_->age = cycleInfo_->getTimeDiff(bestMode_->lastUpdate);
     ballState_->confident = bestMode_->measurements >= confidentMeasurementThreshold_();
     ballState_->timeWhenLastSeen = bestMode_->lastUpdate;
+    ballState_->validity = bestMode_->filteredValidity;
     timeWhenBallLost_ = cycleInfo_->startTime;
   }
   sendDebug();
@@ -249,7 +259,7 @@ void BallFilter::updateRestingEquivalent(RestingEquivalent& restingEquivalent,
   restingEquivalent.covX -= restingEquivalent.covX * residualCovInv * restingEquivalent.covX;
 }
 
-void BallFilter::update(const Vector2f& measurementMean)
+void BallFilter::update(const Vector2f& measurementMean, const float perceptValidity)
 {
   // estimate the covariance of the measurementMean from the projection uncertainty
   const auto measurementCov = projectionMeasurementModel_.computePointCovFromPositionFeature(
@@ -271,6 +281,7 @@ void BallFilter::update(const Vector2f& measurementMean)
       nearestDistance = distance;
     }
   }
+
   // If such a mode exists, combine prediction and measurementMean.
   if (nearestMode != ballModes_.end())
   {
@@ -286,12 +297,11 @@ void BallFilter::update(const Vector2f& measurementMean)
       nearestMode->resting = false;
     }
     nearestMode->measurements++;
-    nearestMode->lastUpdate = ballData_->timestamp;
   }
   else
   {
     // Create new mode.
-    BallMode m;
+    BallMode m(*this);
     m.movingEquivalent.x = measurementMean;
     // Assume an initial velocity of 0.
     m.movingEquivalent.dx = Vector2f::Zero();
@@ -302,27 +312,62 @@ void BallFilter::update(const Vector2f& measurementMean)
     m.restingEquivalent.x = measurementMean;
     m.restingEquivalent.covX = Matrix2f::Identity();
     m.measurements = 1;
-    m.lastUpdate = ballData_->timestamp;
     ballModes_.push_back(m);
+    nearestMode = std::prev(ballModes_.end());
+    nearestMode->resetValidityBuffer();
+  }
+
+  // If this is the first update on this mode in this cycle, also update the validity buffer.
+  // This is necessary to have a bounded notion of "percept per second"
+  if (nearestMode->lastUpdate != cycleInfo_->startTime)
+  {
+    nearestMode->lastUpdate = ballData_->timestamp;
+    nearestMode->addPerceptValidity(perceptValidity);
+  }
+}
+
+void BallFilter::updateValidities()
+{
+  for (auto& mode : ballModes_)
+  {
+    // also update the validity buffers of unseen balls. (That is, update with percepts of validity
+    // 0.f).
+    if (mode.lastUpdate != cycleInfo_->startTime)
+    {
+      mode.addPerceptValidity(0.f);
+    }
+
+    // update filtered validity
+    // theoretical frequency in which the ball can be perceived
+    const float maxPerceptsPerSecond = 0.5f / cycleInfo_->cycleTime;
+    const float relativePerceptionFrequency =
+        Range<float>::clipToZeroOne(mode.getPerceptsPerSecond(cycleInfo_->cycleTime) /
+                                    (maxPerceptsPerSecond * confidentPerceptionRatio_()));
+    const float ppsValidity = mode.getMeanValidity() * relativePerceptionFrequency;
+    mode.filteredValidity = validityLowpassAlpha_() * ppsValidity +
+                            (1.f - validityLowpassAlpha_()) * mode.filteredValidity;
+    // increase the validity instantly if the percept/s count is higher to favor new balls
+    mode.filteredValidity = std::max(mode.filteredValidity, ppsValidity);
+    assert(mode.filteredValidity <= 1.f);
+    assert(mode.filteredValidity >= 0.f);
   }
 }
 
 void BallFilter::selectBestMode()
 {
-  float bestScore = std::numeric_limits<float>::max();
+  float bestScore = 0.f;
   bestMode_ = ballModes_.end();
   for (auto mode = ballModes_.begin(); mode != ballModes_.end(); mode++)
   {
+    // if the number of measurements on the mode are smaller than the number of
+    // modes than there is no real "majority" and the ball can be neglected.
     if (mode->measurements < ballModes_.size())
     {
       continue;
     }
-    float movingScore = mode->movingEquivalent.covX(0, 0) + mode->movingEquivalent.covX(1, 1);
-    float restingScore = mode->restingEquivalent.covX(0, 0) + mode->restingEquivalent.covX(1, 1);
-    float score = std::min(movingScore, restingScore);
-    if (score < bestScore)
+    if (mode->filteredValidity > bestScore)
     {
-      bestScore = score;
+      bestScore = mode->filteredValidity;
       bestMode_ = mode;
     }
   }
@@ -342,4 +387,10 @@ void BallFilter::sendDebug() const
   // the final estiamte
   debug().update(mount_ + ".ballState", *ballState_);
   debug().update(mount_ + ".position", ballState_->position);
+}
+
+bool BallFilter::isPenaltyKeeper() const
+{
+  return gameControllerState_->gamePhase == GamePhase::PENALTYSHOOT &&
+         !gameControllerState_->kickingTeam;
 }

@@ -6,23 +6,27 @@
 
 
 /**
- * Writing a Eigen matrix to a Uni::Value.
- * @param Scalar The type of the elements.
- * @param RowsAtCompileTime The number of rows of the matrix.
- * @param ColsAtCompileTime The number of cols of the matrix.
- * @param Options Mainly describes whether the matrix is row major or column major.
- * @param MaxRowsAtCompileTime The maximum rows of the matrix.
- * @param MaxColsAtCompileTime The maximum cols of the matrix.
- * @param out The stream to write to.
- * @param matrix The matrix to write.
+ * @brief writes an Eigen matrix to a Uni::Value
+ * @tparam Scalar The type of the elements
+ * @tparam RowsAtCompileTime The number of rows of the matrix
+ * @tparam ColsAtCompileTime The number of cols of the matrix
+ * @tparam Options Mainly describes whether the matrix is row major or column major
+ * @tparam MaxRowsAtCompileTime The maximum rows of the matrix
+ * @tparam MaxColsAtCompileTime The maximum cols of the matrix
+ * @param out The stream to write to
+ * @param matrix The matrix to write
  */
-template <typename Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options, int MaxRowsAtCompileTime, int MaxColsAtCompileTime>
+template <typename Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options,
+          int MaxRowsAtCompileTime, int MaxColsAtCompileTime>
 inline void operator<<(Uni::Value& out,
-                       const Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options, MaxRowsAtCompileTime, MaxColsAtCompileTime>& matrix)
+                       const Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options,
+                                           MaxRowsAtCompileTime, MaxColsAtCompileTime>& matrix)
 {
 
-  const std::size_t numberOfRows = (RowsAtCompileTime == Eigen::Dynamic) ? matrix.rows() : RowsAtCompileTime;
-  const std::size_t numberOfCols = (ColsAtCompileTime == Eigen::Dynamic) ? matrix.cols() : ColsAtCompileTime;
+  const std::size_t numberOfRows =
+      (RowsAtCompileTime == Eigen::Dynamic) ? matrix.rows() : RowsAtCompileTime;
+  const std::size_t numberOfCols =
+      (ColsAtCompileTime == Eigen::Dynamic) ? matrix.cols() : ColsAtCompileTime;
 
   out = Uni::Value(Uni::ValueType::ARRAY);
   if (Options & Eigen::RowMajor)
@@ -60,23 +64,27 @@ inline void operator<<(Uni::Value& out,
 }
 
 /**
- * Reading a Eigen matrix from a Uni::Value.
- * @param Scalar The type of the elements.
- * @param RowsAtCompileTime The number of rows of the matrix.
- * @param ColsAtCompileTime The number of cols of the matrix.
- * @param Options Mainly describes whether the matrix is row major or column major.
- * @param MaxRowsAtCompileTime The maximum rows of the matrix.
- * @param MaxColsAtCompileTime The maximum cols of the matrix.
- * @param out The stream to read from.
- * @param matrix The matrix to read.
+ * @brief reads an Eigen matrix from a Uni::Value
+ * @tparam Scalar The type of the elements
+ * @tparam RowsAtCompileTime The number of rows of the matrix
+ * @tparam ColsAtCompileTime The number of cols of the matrix
+ * @tparam Options Mainly describes whether the matrix is row major or column major
+ * @tparam MaxRowsAtCompileTime The maximum rows of the matrix
+ * @tparam MaxColsAtCompileTime The maximum cols of the matrix
+ * @param out The stream to read from
+ * @param matrix The matrix to read
  */
-template <typename Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options, int MaxRowsAtCompileTime, int MaxColsAtCompileTime>
+template <typename Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options,
+          int MaxRowsAtCompileTime, int MaxColsAtCompileTime>
 inline void operator>>(const Uni::Value& in,
-                       Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options, MaxRowsAtCompileTime, MaxColsAtCompileTime>& matrix)
+                       Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options,
+                                     MaxRowsAtCompileTime, MaxColsAtCompileTime>& matrix)
 {
 #ifndef NDEBUG
-  const std::size_t numberOfRows = (RowsAtCompileTime == Eigen::Dynamic) ? matrix.rows() : RowsAtCompileTime;
-  const std::size_t numberOfCols = (ColsAtCompileTime == Eigen::Dynamic) ? matrix.cols() : ColsAtCompileTime;
+  const std::size_t numberOfRows =
+      (RowsAtCompileTime == Eigen::Dynamic) ? matrix.rows() : RowsAtCompileTime;
+  const std::size_t numberOfCols =
+      (ColsAtCompileTime == Eigen::Dynamic) ? matrix.cols() : ColsAtCompileTime;
 #endif
 
   assert(in.type() == Uni::ValueType::ARRAY);
@@ -85,15 +93,15 @@ inline void operator>>(const Uni::Value& in,
   {
     assert(in.size() == numberOfRows);
     row = 0;
-    for (auto it = in.listBegin(); it != in.listEnd(); it++)
+    for (auto it = in.vectorBegin(); it != in.vectorEnd(); it++, row++)
     {
       const auto& inRow = *it;
       assert(inRow.type() == Uni::ValueType::ARRAY);
       assert(inRow.size() == numberOfCols);
       col = 0;
-      for (auto it2 = inRow.listBegin(); it2 != inRow.listEnd(); it2++, row++)
+      for (auto it2 = inRow.vectorBegin(); it2 != inRow.vectorEnd(); it2++, col++)
       {
-        *it2 >> matrix(row, col++);
+        *it2 >> matrix(row, col);
       }
     }
   }
@@ -101,33 +109,36 @@ inline void operator>>(const Uni::Value& in,
   {
     assert(in.size() == numberOfCols);
     col = 0;
-    for (auto it = in.listBegin(); it != in.listEnd(); it++, col++)
+    for (auto it = in.vectorBegin(); it != in.vectorEnd(); it++, col++)
     {
       const auto& inCol = *it;
       assert(inCol.type() == Uni::ValueType::ARRAY);
       assert(inCol.size() == numberOfRows);
       row = 0;
-      for (auto it2 = inCol.listBegin(); it2 != inCol.listEnd(); it2++)
+      for (auto it2 = inCol.vectorBegin(); it2 != inCol.vectorEnd(); it2++, row++)
       {
-        *it2 >> matrix(row++, col);
+        *it2 >> matrix(row, col);
       }
     }
   }
 }
 
 /**
- * Writing a vertical Eigen vector to a Uni::Value.
- * @param Scalar The type of the elements.
- * @param RowsAtCompileTime The number of elements of the vector.
- * @param Options Mainly describes whether the matrix is row major or column major.
- * @param MaxRowsAtCompileTime The maximum number of elements of the vector.
- * @param out The stream to write to.
- * @param matrix The vector to write.
+ * @brief write a vertical Eigen vector to a Uni::Value
+ * @tparam Scalar The type of the elements
+ * @tparam RowsAtCompileTime The number of elements of the vector
+ * @tparam Options Mainly describes whether the matrix is row major or column major
+ * @tparam MaxRowsAtCompileTime The maximum number of elements of the vector
+ * @param out The stream to write to
+ * @param matrix The vector to write
  */
 template <typename Scalar, int RowsAtCompileTime, int Options, int MaxRowsAtCompileTime>
-inline void operator<<(Uni::Value& out, const Eigen::Matrix<Scalar, RowsAtCompileTime, 1, Options, MaxRowsAtCompileTime, 1>& matrix)
+inline void operator<<(
+    Uni::Value& out,
+    const Eigen::Matrix<Scalar, RowsAtCompileTime, 1, Options, MaxRowsAtCompileTime, 1>& matrix)
 {
-  const std::size_t numberOfRows = (RowsAtCompileTime == Eigen::Dynamic) ? matrix.cols() : RowsAtCompileTime;
+  const std::size_t numberOfRows =
+      (RowsAtCompileTime == Eigen::Dynamic) ? matrix.cols() : RowsAtCompileTime;
   out = Uni::Value(Uni::ValueType::ARRAY);
   out.reserve(numberOfRows);
 
@@ -138,34 +149,37 @@ inline void operator<<(Uni::Value& out, const Eigen::Matrix<Scalar, RowsAtCompil
 }
 
 /**
- * Reading a vertical Eigen vector from a Uni::Value.
- * @param Scalar The type of the elements.
- * @param RowsAtCompileTime The number of elements of the vector.
- * @param Options Mainly describes whether the matrix is row major or column major.
- * @param MaxRowsAtCompileTime The maximum number of elements of the vector.
- * @param in The stream to read from.
- * @param matrix The vector to read.
+ * @brief reads a vertical Eigen vector from a Uni::Value
+ * @tparam Scalar The type of the elements
+ * @tparam RowsAtCompileTime The number of elements of the vector
+ * @tparam Options Mainly describes whether the matrix is row major or column major
+ * @tparam MaxRowsAtCompileTime The maximum number of elements of the vector
+ * @param in The stream to read from
+ * @param matrix The vector to read
  */
 template <typename Scalar, int RowsAtCompileTime, int Options, int MaxRowsAtCompileTime>
-inline void operator>>(const Uni::Value& in, Eigen::Matrix<Scalar, RowsAtCompileTime, 1, Options, MaxRowsAtCompileTime, 1>& matrix)
+inline void
+operator>>(const Uni::Value& in,
+           Eigen::Matrix<Scalar, RowsAtCompileTime, 1, Options, MaxRowsAtCompileTime, 1>& matrix)
 {
 #ifndef NDEBUG
-  const std::size_t numberOfRows = (RowsAtCompileTime == Eigen::Dynamic) ? matrix.cols() : RowsAtCompileTime;
+  const std::size_t numberOfRows =
+      (RowsAtCompileTime == Eigen::Dynamic) ? matrix.cols() : RowsAtCompileTime;
 #endif
   assert(in.type() == Uni::ValueType::ARRAY);
   assert(in.size() == numberOfRows);
 
   std::size_t i = 0;
-  for (auto it = in.listBegin(); it != in.listEnd(); it++)
+  for (auto it = in.vectorBegin(); it != in.vectorEnd(); it++)
   {
     *it >> matrix[i++];
   }
 }
 
 /**
- * Writing a vertical Eigen vector to a Uni::Value.
- * @param out The stream to write to.
- * @param matrix The vector to write.
+ * @brief writes a vertical Eigen vector to a Uni::Value
+ * @param out The stream to write to
+ * @param matrix The vector to write
  */
 template <typename Scalar>
 inline void operator<<(Uni::Value& out, const Eigen::AngleAxis<Scalar>& axisangle)
@@ -180,10 +194,10 @@ inline void operator<<(Uni::Value& out, const Eigen::AngleAxis<Scalar>& axisangl
 }
 
 /**
- * Reading a vertical Eigen vector from a Uni::Value.
- * @param Scalar The type of the elements.
- * @param in The stream to read from.
- * @param matrix The vector to read.
+ * @brief writes a vertical Eigen vector from a Uni::Value
+ * @tparam Scalar The type of the elements
+ * @param in The stream to read from
+ * @param matrix The vector to read
  */
 template <typename Scalar>
 inline void operator>>(const Uni::Value& in, Eigen::AngleAxis<Scalar>& axisangle)
@@ -191,7 +205,7 @@ inline void operator>>(const Uni::Value& in, Eigen::AngleAxis<Scalar>& axisangle
   assert(in.type() == Uni::ValueType::ARRAY);
   assert(in.size() == 4);
 
-  const Scalar angle = in.at(0).asDouble();
+  const Scalar angle = in.at(std::size_t(0)).asDouble();
   Eigen::Matrix<Scalar, 3, 1> axis(in.at(1).asDouble(), in.at(2).asDouble(), in.at(3).asDouble());
 
   axisangle = Eigen::AngleAxis<Scalar>(angle, axis);
@@ -204,7 +218,7 @@ inline void operator>>(const Uni::Value& in, std::vector<T, Eigen::aligned_alloc
   assert(in.type() == Uni::ValueType::ARRAY);
   out.clear();
   out.reserve(in.size());
-  for (auto it = in.listBegin(); it != in.listEnd(); it++)
+  for (auto it = in.vectorBegin(); it != in.vectorEnd(); it++)
   {
     *it >> value;
     out.push_back(value);
@@ -214,7 +228,7 @@ inline void operator>>(const Uni::Value& in, std::vector<T, Eigen::aligned_alloc
 template <typename T>
 inline void operator<<(Uni::Value& out, const std::vector<T, Eigen::aligned_allocator<T>>& in)
 {
-  Uni::Value::valuesList_t::size_type i = 0;
+  Uni::Value::valuesVector_t::size_type i = 0;
   out = Uni::Value(Uni::ValueType::ARRAY);
   out.reserve(in.size());
   for (auto it = in.begin(); it != in.end(); it++)

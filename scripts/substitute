@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import pathlib
+import subprocess
+import sys
+
+SCRIPT_DESCRIPTION = (
+        "Run pregame, changePlayerNumber, "
+        "postgame in a single command"
+)
+
+def neighbour(filename):
+    return pathlib.Path(__file__).parent \
+        .joinpath(filename)              \
+        .resolve(strict=True)            \
+        .__str__()
+
+def player_number_for(robot_number):
+    number_file_path = [
+        "..",
+        "home",
+        "configuration",
+        "location",
+        "default",
+        "head",
+        "tuhhnao{}".format(robot_number.zfill(2)),
+        "Brain.json"
+    ]
+
+    path = pathlib.Path(__file__).parent \
+            .joinpath(*number_file_path) \
+            .resolve(strict=True)
+
+    with path.open('r') as f:
+        player_info = json.load(f)
+
+    return player_info["general.playerNumber"]
+
+def command_log(func):
+    def log_wrap(*args, **kwargs):
+        print("[substitute]", "Run: `{}`".format(' '.join(*args, **kwargs)), file=sys.stderr)
+        func(*args, **kwargs)
+    return log_wrap
+
+@command_log
+def run(args):
+    subprocess.run(args, universal_newlines=True)
+
+def main(argv):
+    argparser = argparse.ArgumentParser(
+            description=SCRIPT_DESCRIPTION,
+            epilog=(
+                "Specify first the old robot number, "
+                "then the new robot number. Also, the optional "
+                "arguments are not really optional. "
+                "But argparse is stupid."
+            )
+    )
+    argparser.add_argument("-l", "--logdir", action="store",
+            nargs=1, metavar="LOGDIR",
+            help="logdir for postgame (e.g. /tmp/postgame)")
+    argparser.add_argument("-n", "--network", action="store",
+            nargs=1, required=True, metavar="NETWORK",
+            help="network for pregame (e.g. SPL_A)")
+    argparser.add_argument("robots", action="store",
+            nargs=2, metavar="ROBOT_NUMBER",
+            help="old/new robot number (e.g. 25/28)")
+    parsed_args = argparser.parse_args(argv[1:])
+
+    scripts = {
+        "postgame": neighbour("postgame"),
+        "pregame":  neighbour("pregame"),
+        "number":   neighbour("changePlayerNumber")
+    }
+
+    script_args = {
+        "postgame_network": "ETH",
+        "pregame_network": parsed_args.network[0],    # -n
+        "pregame_target": "nao6",
+        "player_old": parsed_args.robots[0],
+        "player_new": parsed_args.robots[1]
+    }
+
+    if parsed_args.logdir is not None:
+        script_args["logdir"] = parsed_args.logdir[0] # -l
+
+    for k, v in scripts.items():
+        print("Located: {} -> {}".format(k, v))
+
+    print(file=sys.stderr)
+
+    # run postgame
+    postgame_argv = [
+            scripts["postgame"],
+            "-n", script_args["postgame_network"]
+    ]
+
+    if "logdir" in script_args:
+        postgame_argv.extend(["-l", script_args["logdir"]])
+
+    postgame_argv.append(script_args["player_old"])
+
+    run(postgame_argv)
+
+    # find out player number
+    player_number = player_number_for(
+            robot_number=script_args["player_old"])
+
+    # run changePlayerNumber
+    number_argv = [
+            scripts["number"],
+            "{}:{}".format(script_args["player_new"], player_number)
+    ]
+    run(number_argv)
+
+    # run pregame
+    pregame_argv = [
+            scripts["pregame"],
+            "-t", script_args["pregame_target"],
+            "-n", script_args["pregame_network"],
+            script_args["player_new"]
+    ]
+    run(pregame_argv)
+
+if __name__ == "__main__":
+    main(sys.argv)

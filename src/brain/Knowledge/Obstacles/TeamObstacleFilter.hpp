@@ -36,8 +36,6 @@ private:
   Parameter<bool> goalPostsAreObstacles_;
   /// flag for using team players as obstacles (based on their localization)
   Parameter<bool> teamPlayersAreObstacles_;
-  /// flag for using obstacles generated from the robot detection
-  Parameter<bool> robotDetectionGeneratesObstacles_;
   /// flag for using obstacles generated from TeamPlayers obstacles
   Parameter<bool> useOtherRobotsObstacles_;
   /// the square of the radius up to which two obsacles can be merged
@@ -78,10 +76,6 @@ private:
    * @brief integrateMapObstacles integrates obstacles that are known from the world model (map)
    */
   void integrateMapObstacles();
-  /**
-   * @brief integrateRobotDetectionObstacles integrates obstacles from the visual robot detection
-   */
-  void integrateRobotDetectionObstacles();
   /**
    * @brief typeIsAtLeastAsSpecificAndMergable compares two types for mergeability
    * @param first the ObstacleType of the first obstacle

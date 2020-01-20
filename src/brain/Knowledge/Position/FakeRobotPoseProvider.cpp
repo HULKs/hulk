@@ -5,6 +5,7 @@
 
 FakeRobotPoseProvider::FakeRobotPoseProvider(const ModuleManagerInterface& manager)
   : Module(manager)
+  , mirrorFakePose_(*this, "mirrorFakePose", [] {})
   , fakeImageData_(*this)
   , cycleInfo_(*this)
   , fakeRobotPose_(*this)
@@ -21,6 +22,12 @@ void FakeRobotPoseProvider::cycle()
   updateLastTimeJumped();
 
   fakeRobotPose_->pose = pose_;
+  if (mirrorFakePose_())
+  {
+    fakeRobotPose_->pose.orientation += 180 * TO_RAD;
+    fakeRobotPose_->pose.position.x() = -fakeRobotPose_->pose.position.x();
+    fakeRobotPose_->pose.position.y() = -fakeRobotPose_->pose.position.y();
+  }
   fakeRobotPose_->valid = fakeDataAvailable;
   fakeRobotPose_->lastTimeJumped = lastTimeJumped_;
 

@@ -73,6 +73,74 @@ struct Color
   }
 };
 
+struct RGBColor
+{
+  /**
+   * @brief RGBColor initializes the channels with 0
+   */
+  RGBColor()
+    : r(0)
+    , g(0)
+    , b(0)
+  {
+  }
+
+  /**
+   * @brief RGBColor initializes the channels with user-defines values
+   * @param R the initial value for the R channel
+   * @param G the initial value for the G channel
+   * @param B the initial value for the B channel
+   */
+  RGBColor(std::uint8_t red, std::uint8_t green, std::uint8_t blue)
+    : r(red)
+    , g(green)
+    , b(blue)
+  {
+  }
+
+  /// Red channel
+  std::uint8_t r;
+  /// Green channel
+  std::uint8_t g;
+  /// Blue channel
+  std::uint8_t b;
+
+  /**
+   * @brief Comparison with another color
+   */
+  bool operator==(const RGBColor& other) const
+  {
+    return r == other.r && g == other.g && b == other.b;
+  }
+
+  /*
+   * @brief determines whether the color is saturated in RGB context
+   * @return true if the color is saturated
+   */
+  bool isSaturated() const
+  {
+    return r == 255 || g == 255 || b == 255;
+  }
+
+  /**
+   * @brief get chromaticity of given channel
+   * @param value The absolute value of a channel
+   * @return the chromaticity of the given value
+   */
+  float getChromaticity(const uint8_t value) const
+  {
+    // avoid division by zero
+    if (value > 0)
+    {
+      return static_cast<float>(value) / static_cast<float>(r + g + b);
+    }
+    else
+    {
+      return 0.f;
+    }
+  }
+};
+
 class Image
 {
 public:

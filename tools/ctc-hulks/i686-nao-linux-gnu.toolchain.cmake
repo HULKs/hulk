@@ -2,8 +2,6 @@ set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_VERSION 1)
 set(CMAKE_SYSTEM_PROCESSOR x86)
 
-set(GCC_COMPILER_VERSION "6.3.0" CACHE STRING "GCC Compiler version")
-
 get_filename_component(BASEDIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 get_filename_component(BASEDIR ${BASEDIR} ABSOLUTE)
 
@@ -20,8 +18,8 @@ set(CMAKE_SHARED_LINKER_FLAGS ""  CACHE STRING "shared linker flags")
 set(CMAKE_MODULE_LINKER_FLAGS ""  CACHE STRING "module linker flags")
 set(CMAKE_EXE_LINKER_FLAGS    ""  CACHE STRING "executable linker flags")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -march=atom -mssse3 -mfpmath=sse -fomit-frame-pointer")
-set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -O2 -march=atom -mssse3 -mfpmath=sse -fomit-frame-pointer")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -march=silvermont -mtune=silvermont -msse4.2 -mfpmath=sse -fomit-frame-pointer")
+set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -O2 -march=silvermont -mtune=silvermont -msse4.2 -mfpmath=sse -fomit-frame-pointer")
 
 set(CMAKE_SYSROOT ${NAO_LINUX_SYSROOT})
 #set(CMAKE_FIND_ROOT_PATH ${CMAKE_FIND_ROOT_PATH} ${NAO_LINUX_SYSROOT})

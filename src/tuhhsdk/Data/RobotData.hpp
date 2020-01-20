@@ -18,19 +18,19 @@ public:
   /**
    * @brief reset resets this datatype by clearing the position vector
    */
-  void reset()
+  void reset() override
   {
     positions.clear();
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["positions"] << positions;
     value["timestamp"] << timestamp;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["positions"] >> positions;
     value["timestamp"] >> timestamp;

@@ -1,30 +1,14 @@
 # LICENSE
 ------------------------------------------------------------------
-Copyright (c) 2018 HULKs.  All rights reserved.
+Copyright (c) 2017 HULKs.  All rights reserved.
 
 Parts of this distribution were not developed by the HULKs.
 This license doesn't apply to these parts, the rights of the
 copyright owners remain.
 
 This product includes software developed by B-Human
-(https://www.b-human.de). This part applies to the tools/SimRobot
+(http://www.b-human.de). This part applies to the tools/SimRobot
 subdirectory and has a copy of the license terms of B-Human included.
-This part also applies to the src/motion/Walking/StateHandling
-subdirectory and has a copy of the license terms of B-Human included.
-
-This product includes software developed by team rUNSWift (2014) and
-modified by B-Human. This part applies to the
-src/motion/Walking/UNSWalking subdirectory. A copy of the license
-terms of team rUNSWift is included.
-
-This product includes software developed by Baptiste Lepilleur
-(http://jsoncpp.sourceforge.net/). This part applies to
-src/tuhhsdk/Libs/jsoncpp.cpp and has a copy of the license terms of
-this software included.
-
-This product includes software developed by Lode Vandevenne. This
-part applies to src/tuhhsdk/Hardware/Replay/lodepng.h and has a
-copy of the license of terms of this software included.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions

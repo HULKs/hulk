@@ -10,13 +10,15 @@
 #include "Tools/Math/Pose.hpp"
 
 
-enum class Role {
+enum class Role
+{
   PLAYER,
   DEMO,
   SHOOT_ON_HEAD_TOUCH
 };
 
-class PlayerConfiguration : public DataType<PlayerConfiguration> {
+class PlayerConfiguration : public DataType<PlayerConfiguration>
+{
 public:
   /// the name of this DataType
   DataTypeName name = "PlayerConfiguration";
@@ -28,20 +30,17 @@ public:
   Role role = Role::PLAYER;
   /// port for SPL messages
   std::uint16_t port = 0;
-  /// the x coordinates of the initial poses where the NAOs are placed (index is player number - 1) - the y coordinate is determined by the player number
+  /// the x coordinates of the initial poses where the NAOs are placed (index is player number - 1)
+  /// - the y coordinate is determined by the player number
   std::vector<float> initialPoses;
   /// whether the robot is the transmitter robot in the NoWifiChallenge
   bool isNoWifiTransmitter = false;
   /// whether the robot is the receiver robot in the NoWifiChallenge
   bool isNoWifiReceiver = false;
-  /**
-   * @brief reset could reset members if it was necessary
-   */
-  void reset()
-  {
-  }
 
-  virtual void toValue(Uni::Value& value) const
+  void reset() override {}
+
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["teamNumber"] << teamNumber;
@@ -53,7 +52,7 @@ public:
     value["isNoWifiReceiver"] << isNoWifiReceiver;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["teamNumber"] >> teamNumber;
     value["playerNumber"] >> playerNumber;
@@ -104,9 +103,9 @@ public:
 
     config.get("Brain.Config", "behavior.initialPoses") >> initialPoses;
 
-    isNoWifiTransmitter =
-        config.hasProperty("Brain.Config", "challenges.isNoWifiTransmitter") && config.get("Brain.Config", "challenges.isNoWifiTransmitter").asBool();
-    isNoWifiReceiver =
-        config.hasProperty("Brain.Config", "challenges.isNoWifiReceiver") && config.get("Brain.Config", "challenges.isNoWifiReceiver").asBool();
+    isNoWifiTransmitter = config.hasProperty("Brain.Config", "challenges.isNoWifiTransmitter") &&
+                          config.get("Brain.Config", "challenges.isNoWifiTransmitter").asBool();
+    isNoWifiReceiver = config.hasProperty("Brain.Config", "challenges.isNoWifiReceiver") &&
+                       config.get("Brain.Config", "challenges.isNoWifiReceiver").asBool();
   }
 };

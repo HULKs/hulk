@@ -3,5 +3,12 @@
 
 ActionCommand finished(const DataSet& d)
 {
-  return ActionCommand::penalized();
+  if (d.gameControllerState.gamePhase == GamePhase::PENALTYSHOOT)
+  {
+    return ActionCommand::penalized();
+  }
+  else
+  {
+    return ActionCommand::sitDown();
+  }
 }

@@ -6,8 +6,13 @@
 
 ObstacleFilter::ObstacleFilter(const ModuleManagerInterface& manager)
   : Module(manager)
-  , enableSonar_(*this, "enableSonar", [] {})
-  , enableFootBumper_(*this, "enableFootBumper", [] {})
+  , enableSonar_(
+        *this, "enableSonarPSOPair", [] {},
+        [this]() { return gameControllerState_->gamePhase != GamePhase::PENALTYSHOOT; })
+  , enableFootBumper_(
+        *this, "enableFootBumperPSOPair", [] {},
+        [this]() { return gameControllerState_->gamePhase != GamePhase::PENALTYSHOOT; })
+  , enableRobotDetection_(*this, "enableRobotDetection", [] {})
   , ballRadius_(*this, "ballRadius", [this] { configChanged_ = true; })
   , freeKickAreaRadius_(*this, "freeKickAreaRadius", [this] { configChanged_ = true; })
   , goalPostRadius_(*this, "goalPostRadius", [this] { configChanged_ = true; })
@@ -21,7 +26,7 @@ ObstacleFilter::ObstacleFilter(const ModuleManagerInterface& manager)
   , gameControllerState_(*this)
   , ballState_(*this)
   , teamBallModel_(*this)
-  , robotData_(*this)
+  , filteredRobots_(*this)
   , robotPosition_(*this)
   , sonarData_(*this)
   , worldState_(*this)
@@ -37,7 +42,7 @@ void ObstacleFilter::cycle()
   processFootBumper();
   processBall();
   processFreeKick();
-  processRobotData();
+  processRobots();
   updateObstacleData();
 }
 
@@ -68,10 +73,14 @@ void ObstacleFilter::processSonar()
   float distanceLeft = sonarData_->filteredValues[SONARS::LEFT];
   float distanceRight = sonarData_->filteredValues[SONARS::RIGHT];
 
-  // If data is invalid or its distance exceeds the trustworthy radius ignore obstacles. Else, calc position.
-  bool hasObstacleLeft = distanceLeft > 0 && distanceLeft <= ignoreSonarObstaclesBeyondDistance_() && sonarData_->valid[SONARS::LEFT];
-  bool hasObstacleRight =
-      distanceRight > 0 && distanceRight <= ignoreSonarObstaclesBeyondDistance_() && sonarData_->valid[SONARS::RIGHT];
+  // If data is invalid or its distance exceeds the trustworthy radius ignore obstacles. Else, calc
+  // position.
+  bool hasObstacleLeft = distanceLeft > 0 &&
+                         distanceLeft <= ignoreSonarObstaclesBeyondDistance_() &&
+                         sonarData_->valid[SONARS::LEFT];
+  bool hasObstacleRight = distanceRight > 0 &&
+                          distanceRight <= ignoreSonarObstaclesBeyondDistance_() &&
+                          sonarData_->valid[SONARS::RIGHT];
 
   // Estimate obstacle positions in front of the sensors which are angled to the sides
   // See http://doc.aldebaran.com/2-1/family/robots/sonar_robot.html for the concrete values
@@ -136,16 +145,30 @@ void ObstacleFilter::processFreeKick()
     debug().update(mount_ + ".GoalFreeKickAreaRight", *(obstacleData_->obstacles.end() - 1));
   }
 
+  if (gameControllerState_->setPlay == SetPlay::CORNER_KICK)
+  {
+    const Vector2f cornerKickBallPos =
+        Vector2f(fieldDimensions_->fieldLength / -2.f, fieldDimensions_->fieldWidth / 2.f);
+
+    obstacleData_->obstacles.emplace_back(robotPosition_->fieldToRobot(cornerKickBallPos),
+                                          freeKickAreaRadius_(), ObstacleType::FREE_KICK_AREA);
+
+    obstacleData_->obstacles.emplace_back(
+        robotPosition_->fieldToRobot(cornerKickBallPos +
+                                     Vector2f(0.f, -1.f * fieldDimensions_->fieldWidth)),
+        freeKickAreaRadius_(), ObstacleType::FREE_KICK_AREA);
+  }
+
+  // Spawns an obstacle around the ball if the enemy has Kick in
+  if (gameControllerState_->setPlay == SetPlay::KICK_IN && !gameControllerState_->kickingTeam)
+  {
+    obstacleData_->obstacles.emplace_back(ballState_->position, freeKickAreaRadius_(),
+                                          ObstacleType::FREE_KICK_AREA);
+  }
+
   if (gameControllerState_->setPlay != SetPlay::NONE && !gameControllerState_->kickingTeam)
   {
     if (!teamBallModel_->seen)
-    {
-      return;
-    }
-
-    // check if the GC made a mistake (giving the enemy a goal free kick while the ball is inside
-    // our half.
-    if (gameControllerState_->setPlay == SetPlay::GOAL_FREE_KICK && worldState_->ballInOwnHalf)
     {
       return;
     }
@@ -166,16 +189,20 @@ void ObstacleFilter::processFreeKick()
   }
 }
 
-void ObstacleFilter::processRobotData()
+void ObstacleFilter::processRobots()
 {
+  if (!enableRobotDetection_() || !filteredRobots_->valid)
+  {
+    return;
+  }
   // for now we simply forward the robot data since it is faked anyway
-  auto numberOfRobots = robotData_->positions.size();
+  auto numberOfRobots = filteredRobots_->robots.size();
   auto currentSize = obstacleData_->obstacles.size();
   obstacleData_->obstacles.reserve(numberOfRobots + currentSize);
   // add the robots to the list of obstacles
-  for (auto& otherRobotPosition : robotData_->positions)
+  for (auto& otherRobot : filteredRobots_->robots)
   {
-    obstacleData_->obstacles.emplace_back(otherRobotPosition, robotRadius_(),
+    obstacleData_->obstacles.emplace_back(otherRobot.position, robotRadius_(),
                                           ObstacleType::ANONYMOUS_ROBOT);
   }
 }

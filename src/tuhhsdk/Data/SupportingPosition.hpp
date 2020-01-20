@@ -18,12 +18,12 @@ public:
   /**
    * @brief invalidates the position
    */
-  void reset()
+  void reset() override
   {
     valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["valid"] << valid;
@@ -31,7 +31,7 @@ public:
     value["orientation"] << orientation;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["valid"] >> valid;
     value["position"] >> position;

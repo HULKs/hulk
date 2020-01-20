@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Tools/Math/Eigen.hpp>
-#include <Tools/Storage/UniValue/UniConvertible.hpp>
+#include <Tools/Storage/UniValue/UniValue.h>
 
 /**
  * @brief The circle struct
@@ -21,11 +21,20 @@ public:
     , radius(radius)
   {
   }
+  /**
+   * @brief Circle copy constructor
+   * @param other Circle object to copy the data from
+   */
   Circle(const Circle<T>& other)
     : center(other.center)
     , radius(other.radius)
   {
   }
+  /**
+   * @brief Circle copy assignment operator
+   * @param Circle object to copy the data from
+   */
+  Circle& operator=(const Circle&) = default;
   /**
    * @brief Converts a Circle from YUV422 coordinates into YUV444 coordinates.
    */

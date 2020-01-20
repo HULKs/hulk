@@ -13,22 +13,22 @@ public:
   /// the name of this DataType
   DataTypeName name = "ButtonData";
   /// sensor values of the buttons (foot bumpers, chest button, head, hands)
-  std::array<float, keys::sensor::SWITCH_MAX> buttons;
+  std::array<float, keys::sensor::SWITCH_MAX> buttons {0};
   /// the last time when the chest button has been single pressed
-  TimePoint lastChestButtonSinglePress;
+  TimePoint lastChestButtonSinglePress {0};
   /// the last time when the chest button has been double pressed
-  TimePoint lastChestButtonDoublePress;
+  TimePoint lastChestButtonDoublePress {0};
   /// whether the content is valid
   bool valid = false;
   /**
    * @brief marks the content as invalid
    */
-  void reset()
+  void reset() override
   {
     valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["buttons"] << buttons;
@@ -37,7 +37,7 @@ public:
     value["valid"] << valid;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["buttons"] >> buttons;
     value["lastChestButtonSinglePress"] >> lastChestButtonSinglePress;

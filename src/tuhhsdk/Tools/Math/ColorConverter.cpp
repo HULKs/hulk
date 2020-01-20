@@ -46,6 +46,20 @@ void ColorConverter::BGR2YCbCr(Image& dst, const Image& src)
   }
 }
 
+
+void ColorConverter::YCbCr2RGB(std::uint8_t (&dst) [3], std::uint8_t y, std::uint8_t cb, std::uint8_t cr)
+{
+  dst[0] = std::min(static_cast<std::uint8_t>(y + 1.402 * (cr - 128)), static_cast<std::uint8_t>(255));
+  dst[1] = std::min(static_cast<std::uint8_t>(y - 0.34414 * (cb - 128) - 0.71414 * (cr - 128)), static_cast<std::uint8_t>(255));
+  dst[2] = std::min(static_cast<std::uint8_t>(y + 1.772 * (cb - 128)), static_cast<std::uint8_t>(255));
+}
+
+void ColorConverter::YCbCr2RGB(std::uint8_t (&dst) [3], YCbCr422& src)
+{
+  std::uint8_t averagedY = src.averagedY();
+  YCbCr2RGB(dst, averagedY, src.cb_, src.cr_);
+}
+
 void ColorConverter::YCbCr2RGB(Image& dst, const Image& src)
 {
   int i, j;
@@ -56,15 +70,7 @@ void ColorConverter::YCbCr2RGB(Image& dst, const Image& src)
   {
     for (j = 0; j < src.size_.x(); j++, out += 3, data++)
     {
-      float R, G, B;
-
-      R = data->y_ + 1.402 * (data->cr_ - 128);
-      G = data->y_ - 0.34414 * (data->cb_ - 128) - 0.71414 * (data->cr_ - 128);
-      B = data->y_ + 1.772 * (data->cb_ - 128);
-
-      out[0] = (R > 255) ? 255 : R;
-      out[1] = (G > 255) ? 255 : G;
-      out[2] = (B > 255) ? 255 : B;
+      YCbCr2RGB((std::uint8_t (&)[3]) out, data->y_, data->cb_, data->cr_);
     }
   }
 }

@@ -52,6 +52,7 @@ void InWalkKickOption::transition(const WalkManState& wmState)
     case InWalkKickState::INIT:
       kickBackupWalkData = wmState.motionPlannerOutput.walkData;
       /*FALLTHROUGH*/
+      [[fallthrough]];
     case InWalkKickState::WAIT:
       if (wmState.walkGenerator.t == 0)
       {

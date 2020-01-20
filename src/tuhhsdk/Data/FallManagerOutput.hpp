@@ -11,19 +11,19 @@ public:
   /**
    * @brief reset resets members
    */
-  void reset()
+  void reset() override
   {
     MotionOutput::reset();
     wantToSend = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     MotionOutput::toValue(value);
     value["wantToSend"] << wantToSend;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     MotionOutput::fromValue(value);
     value["wantToSend"] >> wantToSend;

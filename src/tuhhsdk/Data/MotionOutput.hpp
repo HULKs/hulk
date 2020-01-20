@@ -5,7 +5,8 @@
 /**
  * Motion outputs can inherit the mirrorAngles function in order to compute mirrored angles
  */
-class MotionOutput : public DataType<MotionOutput> {
+class MotionOutput : public DataType<MotionOutput>
+{
 public:
   /// the name of this DataType
   DataTypeName name = "MotionOutput";
@@ -18,20 +19,23 @@ public:
   /**
    * @brief reset resets members
    */
-  virtual void reset() {
+  void reset() override
+  {
     safeExit = false;
     angles.clear();
     stiffnesses.clear();
   }
 
-  virtual void toValue(Uni::Value& value) const {
+  void toValue(Uni::Value& value) const override
+  {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["safeExit"] << safeExit;
     value["angles"] << angles;
     value["stiffnesses"] << stiffnesses;
   }
 
-  virtual void fromValue(const Uni::Value& value) {
+  void fromValue(const Uni::Value& value) override
+  {
     value["safeExit"] >> safeExit;
     value["angles"] >> angles;
     value["stiffnesses"] >> stiffnesses;

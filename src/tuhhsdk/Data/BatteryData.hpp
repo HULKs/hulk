@@ -19,11 +19,11 @@ public:
   /**
    * @brief reset does nothing
    */
-  void reset()
+  void reset() override
   {
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["charge"] << charge;
@@ -32,7 +32,7 @@ public:
     value["status"] << status;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["charge"] >> charge;
     value["current"] >> current;

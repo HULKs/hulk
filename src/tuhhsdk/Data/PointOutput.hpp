@@ -19,7 +19,7 @@ public:
   /**
    * @brief reset resets members
    */
-  void reset()
+  void reset() override
   {
     wantToSend = false;
     leftAngles.clear();
@@ -27,7 +27,7 @@ public:
     stiffnesses.clear();
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["wantToSend"] << wantToSend;
@@ -36,7 +36,7 @@ public:
     value["stiffnesses"] << stiffnesses;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["wantToSend"] >> wantToSend;
     value["leftAngles"] >> leftAngles;

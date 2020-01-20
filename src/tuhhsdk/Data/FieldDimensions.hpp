@@ -40,6 +40,8 @@ public:
   float goalDepth = 0.f;
   /// the diameter of the ball [m]
   float ballDiameter = 0.f;
+  /// the diameter of the robot [m]
+  float robotDiameter = 0.f;
   /// the length of the imaginary throw in line [m] (as of chapter 3.7 of the SPL rules 2018 (draft))
   float fieldThrowInLineLength = 0.f;
   /// the spacing of the imaginary throw in line from the side lines [m] (as of 3.7 of the SPL rules 2018 (draft))
@@ -47,7 +49,7 @@ public:
   /**
    * @brief reset does nothing
    */
-  void reset()
+  void reset() override
   {
   }
   /**
@@ -72,7 +74,7 @@ public:
            (std::abs(position.y()) < (fieldWidth * 0.5f + fieldBorderStripWidth));
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["fieldLength"] << fieldLength;
@@ -93,7 +95,7 @@ public:
     value["throwInLineSpacing"] << fieldThrowInLineSpacing;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["fieldLength"] >> fieldLength;
     value["fieldWidth"] >> fieldWidth;
@@ -147,5 +149,9 @@ public:
     // read ball parameters
     group = config.get("tuhhSDK.FieldDimensions", "ball");
     group["diameter"] >> ballDiameter;
+
+    // read robot parameters
+    group = config.get("tuhhSDK.FieldDimensions", "robot");
+    group["diameter"] >> robotDiameter;
   }
 };

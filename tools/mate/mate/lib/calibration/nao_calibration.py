@@ -13,7 +13,7 @@ __status__ = "Alpha"
 from enum import IntEnum
 import time
 import json
-
+import typing
 import numpy as np
 from scipy.optimize import *
 
@@ -23,125 +23,10 @@ from .calibration import *
 # TODO Move this to calibration.py
 import cv2.aruco as ar
 
+from mate.debug.colorlog import ColorLog
+from mate.lib.calibration.nao_cam_props import NaoCamProps
 
-class NaoCamProps(object):
-    class CamSelect(IntEnum):
-        NONE = 0
-        TOP = 1
-        BOTTOM = 2
-        BOTH = 3
-
-    TOP = "top"
-    BOTTOM = "bottom"
-    TORSO_TO_GROUND = "Torso2Ground"
-    HEAD_TO_TORSO = "Head2Torso"
-    CAM_TO_GROUND = "Camera2Ground"
-
-    INTRINSIC = "intrinsic"
-    EXTRINSIC = "extrinsic"
-
-    CAM_TO_HEAD_UNCALIB = {
-        TOP: Transforms.getHomographyEuler(
-            [0, 0.0209, 0],
-            [58.71, 0, 63.64]
-        ),
-        BOTTOM: Transforms.getHomographyEuler(
-            [0, 0.6929, 0],
-            [50.71, 0, 17.74]
-        )
-    }
-    CAM_TO_HEAD_UNCALIB_INV = {
-        TOP: np.matrix(CAM_TO_HEAD_UNCALIB[TOP]).I,
-        BOTTOM: np.matrix(CAM_TO_HEAD_UNCALIB[BOTTOM]).I
-    }
-
-    def __init__(self, cam_name: CamSelect, image_width=640, image_height=480):
-        super(NaoCamProps, self)
-        self.image_width = image_width
-        self.image_height = image_height
-        self.cam_name = cam_name
-        self.ext = [0.0, 0.0, 0.0]
-        self.fc = [0] * 2
-        self.cc = [0] * 2
-        self.setIntrinsicScaled([0.874765625, 1.1709375], [0.5, 0.5])
-
-    def setExtrinsic(self, val):
-        self.ext = val
-
-    def setIntrinsic(self, fc, cc):
-        self.fc[0] = fc[0]
-        self.cc[0] = cc[0]
-        self.fc[1] = fc[1]
-        self.cc[1] = cc[1]
-
-    def setIntrinsicScaled(self, fc, cc):
-        self.fc[0] = fc[0] * self.image_width
-        self.cc[0] = cc[0] * self.image_width
-        self.fc[1] = fc[1] * self.image_height
-        self.cc[1] = cc[1] * self.image_height
-
-    @staticmethod
-    def getIntrinsicScaled(fc, cc, im_width, im_height):
-        un_fc = [0] * 2
-        un_cc = [0] * 2
-        un_fc[0] = fc[0] / im_width
-        un_cc[0] = cc[0] / im_width
-        un_fc[1] = fc[1] / im_height
-        un_cc[1] = cc[1] / im_height
-        return un_fc, un_cc
-
-    @staticmethod
-    def digestIntrinsicMat(mat):
-        mat = np.matrix(mat)
-        return (mat[0, 0], mat[1, 1]), (mat[0, 2], mat[1, 2])
-
-    def getIntrinsic(self):
-        return self.fc, self.cc
-
-    def getIntrinsicMat(self):
-        '''
-        This give a traditional intrinsic matrix
-        '''
-        return np.matrix(
-            [[self.fc[0], 0, self.cc[0]], [0, self.fc[1], self.cc[1]],
-             [0, 0, 0]],
-            dtype=float)
-
-    @staticmethod
-    def robotToPixel(fc, cc, transform, data):
-        return NaoCamProps.cameraToPixel(
-            fc, cc, Transforms.transformHomography(transform, data))
-
-    @staticmethod
-    def cameraToPixel(fc, cc, data):
-        '''
-        data must be a 3xn matrix
-        Extracted from CameraMatrix.hpp
-        x_img = cc.x - fc.x * Y_3D / X_3D
-        y_img = cc.y - fc.y * Z_3D / X_3D
-        '''
-        data_shape = np.matrix(data).shape
-        if data_shape[0] != 3:
-            raise ValueError(
-                "cameraToPixel -> Input dimensions must be 3xn matrix ",
-                np.matrix(data).shape)
-
-        successes = [False] * data_shape[1]
-
-        for i in range(0, data_shape[1]):
-            if data[0, i] > 0.0:
-                successes[i] = True
-
-        # Divide Y and Z by X
-        stage_1 = data / data[0, :]
-
-        stage_2 = [[fc[0], 0], [0, fc[1]]] * stage_1[1:3, :]
-        output = [[cc[0]], [cc[1]]] - stage_2
-        return output[0:2], successes
-
-    @staticmethod
-    def getExtrinsicMat(val):
-        return Transforms.getRotMatEuler(np.array(val) * -1).transpose()
+logger = ColorLog()
 
 
 class NaoCalibrationResult(object):
@@ -153,26 +38,50 @@ class NaoCalibrationResult(object):
     BOTTOM_CC = "bottom_cc"
     MOUNT = "Brain.Projection"
 
+    EXT_NAMES = {
+        NaoCamProps.TOP: TOP_EXT,
+        NaoCamProps.BOTTOM: BOTTOM_EXT
+    }
+
+    INT_FC_NAME = {
+        NaoCamProps.TOP: TOP_FC,
+        NaoCamProps.BOTTOM: BOTTOM_FC
+    }
+
+    INT_CC_NAME = {
+        NaoCamProps.TOP: TOP_CC,
+        NaoCamProps.BOTTOM: BOTTOM_CC
+    }
+
     def __init__(self):
         super(NaoCalibrationResult, self)
-        self.is_ext_top_done = False
-        self.is_ext_bottom_done = False
-        self.is_int_top_done = False
-        self.is_int_bottom_done = False
-        self.top_ext = [0, 0, 0]
-        self.bottom_ext = [0, 0, 0]
-        self.top_fc = [0, 0]
-        self.top_cc = [0, 0]
-        self.bottom_fc = [0, 0]
-        self.bottom_cc = [0, 0]
+        self.is_ext_done = {
+            NaoCamProps.TOP: False,
+            NaoCamProps.BOTTOM: False
+        }
+        self.is_int_done = {
+            NaoCamProps.TOP: False,
+            NaoCamProps.BOTTOM: False
+        }
+        self.results = {
+            self.TOP_EXT: [0, 0, 0],
+            self.BOTTOM_EXT: [0, 0, 0],
+            self.TOP_FC: [1, 1],
+            self.BOTTOM_FC: [1, 1],
+            self.TOP_CC: [0.5, 0.5],
+            self.BOTTOM_CC: [0.5, 0.5]
+        }
+
+    def getExt(self, cam):
+        return self.results[self.EXT_NAMES[cam]]
 
     def setTopIntrinsics(self, fc, cc):
-        self.top_fc = fc
-        self.top_cc = cc
+        self.results[self.TOP_FC] = fc
+        self.results[self.TOP_CC] = cc
 
     def setBottomIntrinsics(self, fc, cc):
-        self.bottom_fc = fc
-        self.bottom_cc = cc
+        self.results[self.BOTTOM_FC] = fc
+        self.results[self.BOTTOM_CC] = cc
 
     def encodeExtrinsicCalibparams(self, settings, tuning_params):
         '''
@@ -184,7 +93,6 @@ class NaoCalibrationResult(object):
             is_torso
         ]
         '''
-        print(settings)
         # trim the tuning params
         if not settings[2]:  # no top data!
             settings[0] = False
@@ -206,15 +114,15 @@ class NaoCalibrationResult(object):
     def decodeExtrinsicCalibParams(self, settings, extrinsic_output):
         bottom_param_offset = 0
         if settings[0]:
-            self.is_ext_top_done = True
+            self.is_ext_done[NaoCamProps.TOP] = True
             # first 3 values
-            self.top_ext = extrinsic_output[0:3]
+            self.results[self.TOP_EXT] = extrinsic_output[0:3]
             bottom_param_offset = 3
         if settings[1]:
-            self.is_ext_bottom_done = True
+            self.is_ext_done[NaoCamProps.BOTTOM] = True
             # first 3 values
-            self.bottom_ext = extrinsic_output[bottom_param_offset:
-                                               bottom_param_offset + 3]
+            self.results[self.BOTTOM_EXT] = extrinsic_output[bottom_param_offset:
+                                                             bottom_param_offset + 3]
 
         # TORSO stuff.
         if settings[4]:
@@ -231,10 +139,14 @@ class NaoCalibSettings(object):
                  joint_calib: bool = False):
         super(NaoCalibSettings, self).__init__()
 
-        self.is_intrinsic_top = int_top
-        self.is_intrinsic_bottom = int_bot
-        self.is_extrinsic_top = ext_top
-        self.is_extrinsic_bottom = ext_bot
+        self.is_intrinsic = {
+            NaoCamProps.TOP: int_top,
+            NaoCamProps.BOTTOM: int_bot
+        }
+        self.is_extrinsic = {
+            NaoCamProps.TOP: ext_top,
+            NaoCamProps.BOTTOM: ext_bot
+        }
         self.is_joint_calib = joint_calib
         self.is_torso_calib = False
 
@@ -258,40 +170,13 @@ class NaoCalibSettings(object):
                  ext_bot: bool = False,
                  joint_calib: bool = False,
                  torso_calib=False):
-        self.is_intrinsic_top = int_top
-        self.is_intrinsic_bottom = int_bot
-        self.is_extrinsic_top = ext_top
-        self.is_extrinsic_bottom = ext_bot
+
+        self.is_intrinsic[NaoCamProps.TOP] = int_top
+        self.is_intrinsic[NaoCamProps.BOTTOM] = int_bot
+        self.is_extrinsic[NaoCamProps.TOP] = ext_top
+        self.is_extrinsic[NaoCamProps.BOTTOM] = ext_bot
         self.is_joint_calib = joint_calib
         self.is_torso_calib = False
-
-
-class NaoCaptureData(object):
-    '''
-    This is a container for holding information of each snapshot
-    '''
-
-    def __init__(self, cam_name: NaoCamProps.CamSelect):
-        super(NaoCaptureData, self).__init__()
-        if cam_name != NaoCamProps.CamSelect.TOP and cam_name != NaoCamProps.CamSelect.BOTTOM:
-            raise ValueError("Camer name must be either top or bottom!")
-        self.cameraName = cam_name
-        self.torso_to_head = np.empty((4, 4))
-        self.ground_to_torso = np.empty((4, 4))
-        self.camera_to_ground = np.empty((4, 4))
-
-        # In case of charuco, id = charuco point
-        # In case of charuco diamond, id = combination of marker ID's
-        self.marker_ids = []
-        # If aruco or diamond, 3x4n matrix where n = detected markers (or diamonds)
-        # If charuco, 3xn matrix where n = detected charuco (chessboard) corners
-        self.detected_points = []
-
-        # In robot's ground frame
-        self.board_points_3D = []
-
-        # This is to facilitate array slicing between each board when it comes to multiple poses per board
-        self.points_per_board = []
 
 
 class NaoCalibration(object):
@@ -305,26 +190,41 @@ class NaoCalibration(object):
         self.settings = calib_settings
 
         #### capture data ####
-        self.top_data = []  # NaoCaptureData(NaoCamProps.TOP)
-        self.bottom_data = []  # NaoCaptureData(NaoCamProps.BOTTOM)
-        self.top_camera = NaoCamProps(NaoCamProps.CamSelect.TOP, image_width,
-                                      image_height)
-        self.bottom_camera = NaoCamProps(NaoCamProps.CamSelect.BOTTOM,
-                                         image_width, image_height)
+        self.capture_data = {
+            NaoCamProps.TOP: [],
+            NaoCamProps.BOTTOM: []
+        }
+        self.camerasProperties = {
+            NaoCamProps.TOP: NaoCamProps(NaoCamProps.CamSelect.TOP, image_width,
+                                         image_height),
+            NaoCamProps.BOTTOM: NaoCamProps(
+                NaoCamProps.CamSelect.BOTTOM, image_width, image_height)
+        }
 
         self.calibrator = GenericCalibration(self.settings.boards)
 
+    def captureCount(self):
+        return {
+            NaoCamProps.TOP: len(self.capture_data[NaoCamProps.TOP]),
+            NaoCamProps.BOTTOM: len(self.capture_data[NaoCamProps.BOTTOM])
+        }
+
+    def updateConfiguration(self, config):
+        for camera in NaoCamProps.CAMERAS:
+            ext = config[NaoCalibrationResult.EXT_NAMES[camera]]
+            int_cc = config[NaoCalibrationResult.INT_CC_NAME[camera]]
+            int_fc = config[NaoCalibrationResult.INT_FC_NAME[camera]]
+            self.camerasProperties[camera].setIntrinsicScaled(int_fc, int_cc)
+            self.camerasProperties[camera].setExtrinsic(ext)
+
     def clearCapturedData(self):
-        self.top_data = []
-        self.bottom_data = []
+        self.capture_data[NaoCamProps.TOP] = []
+        self.capture_data[NaoCamProps.BOTTOM] = []
 
     def captureDataToJsonFile(self, fileName):
         with open(str(fileName), 'w') as outfile:
             json.dump(
-                {
-                    "top": self.top_data,
-                    "bottom": self.bottom_data
-                },
+                self.capture_data,
                 outfile,
                 indent=2)
 
@@ -349,26 +249,28 @@ class NaoCalibration(object):
             capture_data.marker_ids = all_ids
             capture_data.points_per_board = points_per_board
 
-            if capture_data.cameraName == NaoCamProps.CamSelect.TOP:
-                self.top_data.append(capture_data)
-            elif capture_data.cameraName == NaoCamProps.CamSelect.BOTTOM:
-                self.bottom_data.append(capture_data)
+            if capture_data.camera == NaoCamProps.TOP:
+                self.capture_data[NaoCamProps.TOP].append(capture_data)
+            elif capture_data.camera == NaoCamProps.BOTTOM:
+                self.capture_data[NaoCamProps.BOTTOM].append(capture_data)
             else:
                 raise ValueError("Capture data got incorrect camera name")
-        return len(self.top_data), len(self.bottom_data)
+        return len(self.capture_data[NaoCamProps.TOP]), len(self.capture_data[NaoCamProps.BOTTOM])
 
-    def getGroundToCamera(self, captureData: NaoCaptureData, ext_param):
-        ground2camgen = np.matmul(
-            NaoCamProps.CAM_TO_HEAD_UNCALIB_INV[NaoCamProps.TOP],
-            np.matmul(captureData.torso_to_head, captureData.ground_to_torso))
+    @staticmethod
+    def getGroundToCamera(camera: NaoCamProps.CAMERAS, kinematicCap: NaoKinematicMatrixCapture, extTransform=np.eye(4)):
+        if camera not in NaoCamProps.CAMERAS:
+            raise ValueError("Camera name invalid, provided: " +
+                             str(camera)+" expected one of: " + str(NaoCamProps.CAMERAS))
+        groundToCameraUncalib = NaoCamProps.CAM_TO_HEAD_UNCALIB_INV[
+            camera] @ kinematicCap.torso_to_head @ kinematicCap.ground_to_torso
 
-        return ground2camgen
+        return Transforms.transformHomography(extTransform, groundToCameraUncalib)
 
     def projectBoardPoints(self,
                            capture_data: NaoCaptureData,
                            camera: NaoCamProps,
-                           groundToCamera,
-                           ext=None):
+                           ext_params=[None]):
         '''
         Convenience function. Not to be used in high frequencies
         returns an array of type: (id, detected_pt, proj_pt)
@@ -376,20 +278,17 @@ class NaoCalibration(object):
 
         fc, cc = camera.getIntrinsic()
 
-        if not ext:
-            ext = camera.ext
+        ground2Cam = np.eye(4)
 
-        extrinsicMat = camera.getExtrinsicMat(ext)
-
-        pt_in_cam_uncalib = Transforms.transformHomography(
-            Transforms.kinematicInv(capture_data.camera_to_ground),
-            capture_data.board_points_3D)
-
-        pt_in_cam = Transforms.transformHomography(extrinsicMat,
-                                                   pt_in_cam_uncalib)
+        if (np.array(ext_params).ravel() != None).any():
+            extTransform = camera.getExtrinsicMat(ext_params)
+            ground2Cam = self.getGroundToCamera(
+                camera.camera, capture_data.kinematic_data, extTransform)
+        else:
+            ground2Cam = capture_data.kinematic_data.ground_to_camera
 
         twoDeepts, successes = NaoCamProps.robotToPixel(
-            fc, cc, extrinsicMat, pt_in_cam)
+            fc, cc, ground2Cam, capture_data.board_points_3D)
 
         ids_copy = np.ravel(capture_data.marker_ids)
         data = [None] * len(ids_copy)
@@ -402,7 +301,8 @@ class NaoCalibration(object):
             res = self.calibrator.extractCalibPoints(image)
             return res
         except Exception as e:
-            print("Exception happened :o", e)
+            logger.error(__name__ +
+                         ": Exception while extracting calibration points" + str(e))
 
     # Consider on static or not!
     @staticmethod
@@ -484,24 +384,29 @@ class NaoCalibration(object):
         return residual.ravel()
 
     def verifyValues(self):
-        if (len(self.top_data) + len(self.bottom_data)) <= 0:
+        if (len(self.capture_data[NaoCamProps.TOP]) + len(self.capture_data[NaoCamProps.BOTTOM])) <= 0:
             return False
         return True
 
     def startCalibration(self):
-        print("\nStarting Calibration preperations... \n")
+
+        logger.info(__name__ +
+                    ": Starting Calibration preperations.")
+
         startTime = time.perf_counter()
 
         # TODO Implement this!
         if not self.verifyValues():
-            ...
+            logger.warning(__name__ + "No captures are there.")
         result = NaoCalibrationResult()
 
         #### Intrinsic Calibration ####
 
-        if self.settings.is_intrinsic_top or self.settings.is_intrinsic_bottom:
+        if self.settings.is_intrinsic[NaoCamProps.TOP] or \
+                self.settings.is_intrinsic[NaoCamProps.BOTTOM]:
             # TODO Move the aruco part to calibration.py
-            print("Starting Intrinsic")
+            logger.info(__name__ +
+                        ":Starting Intrinsic")
             # We only bother with the first board :P
             board_idx = next((i for i, board in enumerate(self.settings.boards)
                               if board.pattern_type ==
@@ -515,15 +420,17 @@ class NaoCalibration(object):
                 raise NotImplementedError(
                     "Multiple boards not supported for intrinsic.")
 
-            for i in [NaoCamProps.CamSelect.TOP, NaoCamProps.CamSelect.BOTTOM]:
-                if self.settings.is_intrinsic_top and i == NaoCamProps.CamSelect.TOP:
+            for camera in NaoCamProps.CAMERAS:
+                cameraProperties = self.camerasProperties[camera]
+                if self.settings.is_intrinsic[camera]:
+
                     corners_of_all_frames = []
                     ids_of_all_frames = []
 
-                    im_width = self.top_camera.image_width
-                    im_height = self.top_camera.image_height
+                    im_width = cameraProperties.image_width
+                    im_height = cameraProperties.image_height
 
-                    for v in self.top_data:
+                    for v in self.capture_data[camera]:
                         if not v.points_per_board[board_idx]:
                             continue
                         ids = v.marker_ids[board_idx]
@@ -532,53 +439,30 @@ class NaoCalibration(object):
                         corners_of_all_frames.append(detected_pts)
 
                     if len(ids_of_all_frames):
-                        cam_matrix = self.top_camera.getIntrinsicMat()
+                        intrinsic_matrix = cameraProperties.getIntrinsicMat()
                         dist_coeffs = np.array([0, 0, 0, 0], dtype=float)
+
+                        # ChAruco calibration
                         output = ar.calibrateCameraCharucoExtended(
                             corners_of_all_frames, ids_of_all_frames,
                             self.settings.boards[board_idx].board,
-                            (im_width, im_height), cam_matrix, dist_coeffs)
-                        print("top intrinsic -> retval, matrix", output[0],
-                              output[1], "\n")  # , dist_coeffs, output[2]
-                        result.is_int_top_done = True
+                            (im_width, im_height), intrinsic_matrix, dist_coeffs)
+
+                        logger.debug(__name__ + ": " + str(camera) + " intrinsic -> retval, matrix, dist. coeffs" + str(output[0]) + " "
+                                    + str(output[1]) + str(dist_coeffs))  # output[2]
+
+                        result.is_int_done[camera] = True
                         fc, cc = NaoCamProps.digestIntrinsicMat(output[1])
                         fc, cc = NaoCamProps.getIntrinsicScaled(
                             fc, cc, im_width, im_height)
-                        result.setTopIntrinsics(fc, cc)
+                        if camera == NaoCamProps.TOP:
+                            result.setTopIntrinsics(fc, cc)
+                        else:
+                            result.setBottomIntrinsics(fc, cc)
 
-                if self.settings.is_intrinsic_bottom and i == NaoCamProps.CamSelect.BOTTOM:
-                    corners_of_all_frames = []
-                    ids_of_all_frames = []
+            logger.info(__name__+": Intrinsic Calibration time-> " +
+                        str((time.perf_counter() - startTime) * 1000) + "ms")
 
-                    im_width = self.bottom_camera.image_width
-                    im_height = self.bottom_camera.image_height
-
-                    for v in self.bottom_data:
-                        if not v.points_per_board[board_idx]:
-                            continue
-                        ids = v.marker_ids[board_idx]
-                        detected_pts = v.detected_points[board_idx]
-                        ids_of_all_frames.append(ids)
-                        corners_of_all_frames.append(detected_pts)
-
-                    if len(ids_of_all_frames):
-                        cam_matrix = self.bottom_camera.getIntrinsicMat()
-                        dist_coeffs = np.array([0, 0, 0, 0], dtype=float)
-                        output = ar.calibrateCameraCharucoExtended(
-                            corners_of_all_frames, ids_of_all_frames,
-                            self.settings.boards[board_idx].board,
-                            (im_width, im_height), cam_matrix, dist_coeffs)
-                        print("bottom intrinsic -> retval, matrix", output[0],
-                              output[1], "\n")
-
-                        result.is_int_bottom_done = True
-                        fc, cc = NaoCamProps.digestIntrinsicMat(output[1])
-                        fc, cc = NaoCamProps.getIntrinsicScaled(
-                            fc, cc, im_width, im_height)
-                        result.setBottomIntrinsics(fc, cc)
-
-            print("Intrinsic Calibration time-> ",
-                  (time.perf_counter() - startTime) * 1000, "ms")
         #### Extrinsic Calibration ####
         startTime = time.perf_counter()
         if self.settings.is_torso_calib:
@@ -593,81 +477,75 @@ class NaoCalibration(object):
 
             tpts_sum = 0
             bpts_sum = 0
-            # If ext top
-            if self.settings.is_extrinsic_top:
-                intrinsic_params[0] = self.top_camera.getIntrinsic()
-                tuning_params += self.top_camera.ext
 
-                for v in self.top_data:
-                    ground2camgen = np.matmul(
-                        NaoCamProps.CAM_TO_HEAD_UNCALIB_INV[NaoCamProps.TOP],
-                        np.matmul(v.torso_to_head, v.ground_to_torso))
-                    val_wrt_cam_u = Transforms.transformHomography(
-                        ground2camgen, v.board_points_3D)
-                    independants = np.concatenate(
-                        (independants, val_wrt_cam_u), axis=1)
+            for idx, cameraName in enumerate([NaoCamProps.TOP, NaoCamProps.BOTTOM]):
+                # If ext top
+                if self.settings.is_extrinsic[cameraName]:
+                    cameraProperties = self.camerasProperties[cameraName]
 
-                    for elem in v.detected_points:
-                        measurements = np.append(measurements, elem.ravel())
+                    tuning_params += cameraProperties.ext
 
-                    top_offset += val_wrt_cam_u.shape[1]
-                    tpts_sum += sum(v.points_per_board)
+                    offset = 0
+                    sumPoints = 0
 
-            bottom_offset = int(top_offset)
+                    for v in self.capture_data[cameraName]:
+                        ground2camgen = NaoCamProps.CAM_TO_HEAD_UNCALIB_INV[
+                            cameraName] @ v.kinematic_data.torso_to_head @ v.kinematic_data.ground_to_torso
+                        val_wrt_cam_u = Transforms.transformHomography(
+                            ground2camgen, v.board_points_3D)
+                        independants = np.concatenate(
+                            (independants, val_wrt_cam_u), axis=1)
 
-            # if ext. Bottom
-            if self.settings.is_extrinsic_bottom:
-                intrinsic_params[1] = self.bottom_camera.getIntrinsic()
-                tuning_params += self.bottom_camera.ext
-                for v in self.bottom_data:
-                    ground2camgen = np.matmul(
-                        NaoCamProps.CAM_TO_HEAD_UNCALIB_INV[
-                            NaoCamProps.BOTTOM],
-                        np.matmul(v.torso_to_head, v.ground_to_torso))
-                    val_wrt_cam_u = Transforms.transformHomography(
-                        ground2camgen, v.board_points_3D)
-                    independants = np.concatenate(
-                        (independants, val_wrt_cam_u), axis=1)
+                        for elem in v.detected_points:
+                            measurements = np.append(
+                                measurements, elem.ravel())
 
-                    for elem in v.detected_points:
-                        measurements = np.append(measurements, elem.ravel())
+                        offset += val_wrt_cam_u.shape[1]
+                        tpts_sum += sum(v.points_per_board)
 
-                    # Update by width of the 3xN matrix
-                    bottom_offset += val_wrt_cam_u.shape[1]
-                    bpts_sum += sum(v.points_per_board)
+                    if cameraName == NaoCamProps.TOP:
+                        intrinsic_params[idx] = cameraProperties.getIntrinsic()
+                        top_offset = offset
+                        tpts_sum = sumPoints
+                    elif cameraName == NaoCamProps.BOTTOM:
+                        intrinsic_params[idx] = cameraProperties.getIntrinsic()
+                        bottom_offset = offset + top_offset
+                        bpts_sum = sumPoints
+                    else:
+                        raise ValueError(
+                            "We only support TOP or BOTTOM cameras, not " + cameraName)
 
             # settings for cost func.
             settings = [
-                self.settings.is_extrinsic_top,
-                self.settings.is_extrinsic_bottom, top_offset, bottom_offset,
+                self.settings.is_extrinsic[NaoCamProps.TOP],
+                self.settings.is_extrinsic[NaoCamProps.BOTTOM], top_offset, bottom_offset,
                 self.settings.is_torso_calib
             ]
-            print(settings, tuning_params)
+            logger.debug(__name__+": Calib settings and initial params" + str(settings)
+                         + " " + str(tuning_params))
+
             # Refine settings and tuning params
             settings, tuning_params = result.encodeExtrinsicCalibparams(
                 settings, tuning_params)
 
-            print("Start Extrinsic Phase:\n\tis_ext_top: ", settings[0],
-                  ", is_ext_bot: ", settings[1], ", is_torso: ", settings[4],
-                  settings[2], settings[3])
-
             if len(tuning_params) > 0:
                 # Finally, invoke the solver
-                print("Start minimize")
+                logger.debug(__name__+": Start solving")
 
                 optim_output = leastsq(
                     NaoCalibration.extrinsicCostFunc,
                     tuning_params,
-                    args=(
-                        independants, measurements, intrinsic_params, settings
-                    )  # , method='lm'# , method='Nelder-Mead'  # , method='hybr'
+                    args=(independants, measurements,
+                          intrinsic_params, settings)
                 )
+
                 result.decodeExtrinsicCalibParams(settings,
                                                   list(optim_output[0]))
             else:
-                print("No suitable points, extrinsic skipped")
+                logger.debug(
+                    __name__+": No suitable points, extrinsic skipped")
 
-            print("Extrinsic Calibration time-> ",
-                  (time.perf_counter() - startTime) * 1000, "ms")
+            logger.info(__name__+": Extrinsic Calibration time-> " +
+                        str((time.perf_counter() - startTime) * 1000) + "ms")
 
         return result

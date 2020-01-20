@@ -21,7 +21,7 @@ import cv2.aruco as ar
 import transforms3d
 
 from mate.lib.transforms.transforms import Transforms
-
+from mate.lib.calibration.nao_calib_captures import *
 
 class BoardProperties(object):
     PatternType = Enum('PatternType',

@@ -73,8 +73,8 @@ if args.output == 'text':
     )
 
   results = c.fetchall()
-  pandas.set_option('display.width', 200)
-  pandas.set_option('display.max_rows', 100)
+  pandas.set_option('display.width', None)
+  pandas.set_option('display.max_rows', None)
   print(pandas.DataFrame(results, columns=["min", "max", "avg", "sum", "count", "Modulename", "Threadname"]))
 
 if args.output == 'plot':

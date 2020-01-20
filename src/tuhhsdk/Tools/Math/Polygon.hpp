@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Tools/Storage/UniValue/UniConvertible.hpp>
+#include <Tools/Storage/UniValue/UniValue.h>
 
 template <typename T>
 class Polygon : public Uni::From, public Uni::To
@@ -33,6 +33,30 @@ public:
 
     // Return absolute value
     return std::abs(area / 2);
+  }
+
+  /**
+   * @brief Converts a Polygon from YUV422 coordinates to YUV444 coordinates. Method adds points to
+   * given Polygon.
+   */
+  void from422to444(Polygon<T>& polygon) const
+  {
+    for (const auto& point : points)
+    {
+      polygon.points.emplace_back(point.x() * 2, point.y());
+    }
+  }
+
+  /**
+   * @brief Converts a Polygon from YUV444 coordinates to YUV422 coordinates. Method adds points to
+   * given Polygon.
+   */
+  void from444to422(Polygon<T>& polygon) const
+  {
+    for (const auto& point : points)
+    {
+      polygon.points.emplace_back(point.x() / 2, point.y());
+    }
   }
 
   /**

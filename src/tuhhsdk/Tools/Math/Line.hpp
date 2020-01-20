@@ -2,7 +2,7 @@
 
 #include "Eigen.hpp"
 
-#include <Tools/Storage/UniValue/UniConvertible.hpp>
+#include <Tools/Storage/UniValue/UniValue.h>
 
 template <typename T>
 class Line : public Uni::From, public Uni::To
@@ -44,6 +44,27 @@ public:
                (y - p1.y()) +
            p1.x();
   }
+
+  /**
+   * @brief Converts a Line from YUV422 coordinates into YUV444 coordinates.
+   * @param[out] line the resulting line
+   */
+  void from422to444(Line<T>& line) const
+  {
+    line.p1 = Vector2<T>(p1.x() * 2, p1.y());
+    line.p2 = Vector2<T>(p2.x() * 2, p2.y());
+  }
+
+  /**
+   * @brief Converts a Line from YUV444 coordinates into YUV422 coordinates.
+   * @param[out] line the resulting line
+   */
+  void from444to422(Line<T>& line) const
+  {
+    line.p1 = Vector2<T>(p1.x() / 2, p1.y());
+    line.p2 = Vector2<T>(p2.x() / 2, p2.y());
+  }
+
   /**
    * @brief fromValue converts a Uni::Value to this
    * @param value the value that should be converted to this class
@@ -71,4 +92,3 @@ public:
   /// end point of the line
   Vector2<T> p2;
 };
-

@@ -3,6 +3,7 @@
 #include "Data/BodyPose.hpp"
 #include "Data/GameControllerState.hpp"
 #include "Data/RobotPosition.hpp"
+#include "Data/SetPlayStrikerAction.hpp"
 #include "Data/StrikerAction.hpp"
 #include "Data/TeamBallModel.hpp"
 #include "Data/TimeToReachBall.hpp"
@@ -18,7 +19,7 @@ public:
   /// the name of this module
   ModuleName name = "TimeToReachBallProvider";
   TimeToReachBallProvider(const ModuleManagerInterface& manager);
-  void cycle();
+  void cycle() override;
 
 private:
   /// the time added as a penalty if the robot is fallen
@@ -29,10 +30,17 @@ private:
   const Parameter<float> ballNotSeenPenalty_;
 
   const Dependency<BodyPose> bodyPose_;
+  const Dependency<SetPlayStrikerAction> setPlayStrikerAction_;
   const Dependency<GameControllerState> gameControllerState_;
   const Dependency<RobotPosition> robotPosition_;
   const Dependency<StrikerAction> strikerAction_;
   const Dependency<TeamBallModel> teamBallModel_;
   const Dependency<WalkingEngineWalkOutput> walkingEngineWalkOutput_;
+
+  /*
+   * @brief generates estimateTimeToReachBall for the timeToReachBall_ production.
+   */
+  void generateEstimateTimeToReachBallFunction();
+
   Production<TimeToReachBall> timeToReachBall_;
 };

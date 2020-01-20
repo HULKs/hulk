@@ -20,5 +20,5 @@ ActionCommand searchForBall(const DataSet& d)
                            << ": Own search pose is not valid! Falling back to stand!";
   }
   return walkToPose(d, targetPose, true, WalkMode::PATH, Velocity(), 5)
-      .combineHead(activeVision(d, VisionMode::LookAround));
+      .combineHead(activeVision(d, VisionMode::SEARCH_FOR_BALL));
 }

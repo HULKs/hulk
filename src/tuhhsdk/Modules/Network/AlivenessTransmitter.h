@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <memory>
 
+#include "Modules/Configuration/Configuration.h"
+
 
 struct NaoInfo;
 
@@ -16,7 +18,7 @@ private:
   bool isTransmittingStarted_;
 
 public:
-  AlivenessTransmitter(const std::uint16_t& port, const NaoInfo& naoInfo);
+  AlivenessTransmitter(const std::uint16_t& port, const NaoInfo& naoInfo, Configuration& config);
   ~AlivenessTransmitter();
 
   void startTransmitting();

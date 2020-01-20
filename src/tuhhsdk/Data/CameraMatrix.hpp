@@ -225,12 +225,12 @@ public:
   /**
    * @brief reset sets the camera matrix to a defined state
    */
-  void reset()
+  void reset() override
   {
     valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["camera2ground"] << camera2ground;
@@ -243,7 +243,7 @@ public:
     value["fov"] << fov;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["camera2ground"] >> camera2ground;
     value["camera2groundInv"] >> camera2groundInv;

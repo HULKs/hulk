@@ -16,7 +16,7 @@ struct Edge : public Uni::To, public Uni::From
   Arc<float> arc;
   Line<float> line;
 
-  Edge(const bool isArc = false) : isArc(isArc), arc(), line() {}
+  explicit Edge(const bool isArc = false) : isArc(isArc), arc(), line() {}
 
   void toValue(Uni::Value& value) const override
   {
@@ -48,20 +48,20 @@ public:
   // Vector of edges is the path
   std::vector<Edge> edges;
 
-  Path() {}
+  Path() = default;
 
-  void reset()
+  void reset() override
   {
     edges.clear();
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["edges"] << edges;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["edges"] >> edges;
   }

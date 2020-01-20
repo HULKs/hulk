@@ -9,8 +9,9 @@ source "${BASEDIR}/scripts/lib/docker.sh"
 source "${BASEDIR}/scripts/lib/dependencies.sh"
 
 # This should be the only place that needs to be updated when a new toolchain version is available.
-CURRENT_HULKS_VERSION="7.3.0-1"
-CURRENT_NAOQI_VERSION="2.1.4.13"
+CURRENT_HULKS_V5_VERSION="7.3.0-1"
+CURRENT_HULKS_V6_VERSION="9.2.0-1"
+CURRENT_NAOQI_V5_VERSION="2.1.4.13"
 DEFAULT_TOOLCHAIN_REPO="${HOME}/naotoolchain"
 
 
@@ -30,22 +31,29 @@ function helpMenu {
   echo " The default is ${DEFAULT_TOOLCHAIN_REPO}."
   echo ""
   echo "Category"
-  echo " the toolchain type, i.e. for which part the toolchain is used (one out of naoqi, hulks)"
+  echo " the toolchain type, i.e. for which part the toolchain is used (one out of naoqi-v5, hulks-v5, hulks-v6)"
   echo ""
   echo "Version"
-  echo " a toolchain version such as ${CURRENT_HULKS_VERSION} or ${CURRENT_NAOQI_VERSION}"
+  echo " current hulks-v5 version is ${CURRENT_HULKS_V5_VERSION}"
+  echo " current hulks-v6 version is ${CURRENT_HULKS_V6_VERSION}"
+  echo " current naoqi-v5 version is ${CURRENT_NAOQI_V5_VERSION}"
+  echo " there is no naoqi-v6 toolchain needed!!"
 }
 
 function getToolchainName {
   if [ "$#" -ne 2 ]; then
     return 1
   fi
-  local CATEGORY="$1"
-  case "${CATEGORY}" in
-    "hulks")
+  local CATEGORY_AND_NAO_VERSION="$1"
+  local CATEGORY=""
+  case "${CATEGORY_AND_NAO_VERSION}" in
+    "hulks-v5")
       CATEGORY="hulks"
       ;;
-    "naoqi")
+    "hulks-v6")
+      CATEGORY="hulks"
+      ;;
+    "naoqi-v5")
       CATEGORY="atom"
       ;;
     *)
@@ -124,14 +132,15 @@ function downloadToolchain {
 }
 
 function selectVersion {
-  if [ "$#" -ne 4 ]; then
+  if [ "$#" -ne 5 ]; then
     return 1
   fi
   local TOOLCHAIN_DIR="$1"
   local TOOLCHAIN_REPO="$2"
   local CATEGORY="$3"
-  local NAME="$4"
-  ln -snf "${TOOLCHAIN_REPO}/${NAME}" "${TOOLCHAIN_DIR}/${CATEGORY}"
+  local NAO_VERSION="$4"
+  local NAME="$5"
+  ln -snf "${TOOLCHAIN_REPO}/${NAME}" "${TOOLCHAIN_DIR}/${CATEGORY}-${NAO_VERSION}"
   # return value of selectValue will be return value of ln
 }
 
@@ -139,16 +148,17 @@ function updateToolchain {
   local TOOLCHAIN_DIR="$1"
   local TOOLCHAIN_REPO="$2"
   local CATEGORY="$3"
-  local VERSION="$4"
+  local NAO_VERSION="$4"
+  local VERSION="$5"
   local NAME
-  NAME=`getToolchainName "${CATEGORY}" "${VERSION}"`
+  NAME=`getToolchainName "${CATEGORY}-${NAO_VERSION}" "${VERSION}"`
   if [ -d "${TOOLCHAIN_REPO}/${NAME}" ]; then
     msg -s "The current ${CATEGORY} toolchain is already installed at ${TOOLCHAIN_REPO}/${NAME}!"
   else
     msg -n "Will download ${CATEGORY} toolchain version ${VERSION}."
     downloadToolchain "${TOOLCHAIN_REPO}" "${CATEGORY}" "${VERSION}" "${NAME}"
   fi
-  selectVersion "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "${CATEGORY}" "${NAME}"
+  selectVersion "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "${CATEGORY}" "${NAO_VERSION}" "${NAME}"
   if [ "$?" -ne 0 ]; then
     msg -e "Could not select toolchain version!"
     return 1
@@ -180,8 +190,9 @@ function cmdInit {
     fi
     msg -s "${TOOLCHAIN_REPO} has been created!"
   fi
-  updateToolchain "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "hulks" "${CURRENT_HULKS_VERSION}"
-  updateToolchain "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "naoqi" "${CURRENT_NAOQI_VERSION}"
+  updateToolchain "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "hulks" "v5" "${CURRENT_HULKS_V5_VERSION}"
+  updateToolchain "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "hulks" "v6" "${CURRENT_HULKS_V6_VERSION}"
+  updateToolchain "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "naoqi" "v5" "${CURRENT_NAOQI_V5_VERSION}"
 }
 
 function cmdDocker {
@@ -229,12 +240,15 @@ function cmdSelect {
     helpMenu
     return 1
   fi
-  local CATEGORY="$1"
+  local CATEGORY_AND_NAO_VERSION="$1"
   local VERSION="$2"
+
+  local CATEGORY=${CATEGORY_AND_NAO_VERSION%%-*}
+  local NAO_VERSION=${CATEGORY_AND_NAO_VERSION#*-}
   # This cannot be written as one line because $? would have the value of the
   # local builtin afterwards (and not the return value of getToolchainName).
   local NAME
-  NAME=`getToolchainName "${CATEGORY}" "${VERSION}"`
+  NAME=`getToolchainName "${CATEGORY_AND_NAO_VERSION}" "${VERSION}"`
   if [ "$?" -eq 1 ]; then
     msg -e "Could not assemble toolchain name from category, version and machine!"
     return 1
@@ -243,7 +257,7 @@ function cmdSelect {
     msg -e "The toolchain ${NAME} does not exist!"
     return 1
   fi
-  selectVersion "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "${CATEGORY}" "${NAME}"
+  selectVersion "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "${CATEGORY}" "${NAO_VERSION}" "${NAME}"
   if [ "$?" -ne 0 ]; then
     msg -e "Could not select toolchain version!"
     return 1
@@ -253,8 +267,9 @@ function cmdSelect {
 }
 
 function cmdUpdate {
-  updateToolchain "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "hulks" "${CURRENT_HULKS_VERSION}"
-  updateToolchain "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "naoqi" "${CURRENT_NAOQI_VERSION}"
+  updateToolchain "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "hulks" "v5" "${CURRENT_HULKS_V5_VERSION}"
+  updateToolchain "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "hulks" "v6" "${CURRENT_HULKS_V6_VERSION}"
+  updateToolchain "${TOOLCHAIN_DIR}" "${TOOLCHAIN_REPO}" "naoqi" "v5" "${CURRENT_NAOQI_V5_VERSION}"
 }
 
 function run {

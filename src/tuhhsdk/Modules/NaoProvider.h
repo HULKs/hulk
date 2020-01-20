@@ -55,6 +55,13 @@ namespace JOINTS
     JOINTS_MAX
   };
 
+  const std::vector<std::string> names = {
+      "HeadYaw",     "HeadPitch",  "LShoulderPitch", "LShoulderRoll", "LElbowYaw", "LElbowRoll",
+      "LWristYaw",   "LHand",      "LHipYawPitch",   "LHipRoll",      "LHipPitch", "LKneePitch",
+      "LAnklePitch", "LAnkleRoll", "RHipYawPitch",   "RHipRoll",      "RHipPitch", "RKneePitch",
+      "RAnklePitch", "RAnkleRoll", "RShoulderPitch", "RShoulderRoll", "RElbowYaw", "RElbowRoll",
+      "RWristYaw",   "RHand"};
+
   /// @enum ADDITIONEAL_KINEMATICS Enumeration for additional relevant kinematic information (Feet)
   enum ADDITIONAL_KINEMATICS
   {

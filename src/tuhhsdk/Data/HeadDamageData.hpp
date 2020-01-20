@@ -17,9 +17,9 @@ public:
   std::array<bool, LEDS::LEDS_MAX> damagedLEDs;
   std::array<bool, TACTILEHEADSENSORS::TACTILEHEADSENSORS_MAX> damagedTactileHeadSensors;
 
-  void reset() {}
+  void reset() override {}
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["damagedSpeakers"] << damagedSpeakers;
@@ -30,7 +30,7 @@ public:
     value["damagedTactileHeadSensors"] << damagedTactileHeadSensors;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["damagedSpeakers"] >> damagedSpeakers;
     value["damagedMicrophones"] >> damagedMicrophones;

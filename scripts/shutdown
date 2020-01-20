@@ -69,9 +69,11 @@ function run {
   for NAO in ${NAOS[@]}; do
     if ${REBOOT}; then
       msg -n "Rebooting ${NAO}."
+      naocmd "${BASEDIR}" "${NAO}" "systemctl reboot"
       naocmd "${BASEDIR}" "${NAO}" "sudo shutdown -r now"
     else
       msg -n "Shutting down ${NAO}."
+      naocmd "${BASEDIR}" "${NAO}" "systemctl poweroff"
       naocmd "${BASEDIR}" "${NAO}" "sudo shutdown -h now"
     fi
     if [ "$?" -ne 0 ]; then

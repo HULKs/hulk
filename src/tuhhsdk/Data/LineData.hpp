@@ -37,10 +37,7 @@ struct LineInfo : public Uni::To, public Uni::From
   {
   }
 
-  /**
-   * @see function in DataType
-   */
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["projectionDistance"] << projectionDistance;
@@ -48,10 +45,7 @@ struct LineInfo : public Uni::To, public Uni::From
     value["lineId"] << lineId;
   }
 
-  /**
-   * @see function in DataType
-   */
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["projectionDistance"] >> projectionDistance;
     value["lineLength"] >> lineLength;
@@ -75,14 +69,14 @@ public:
   /**
    * @brief reset sets the lines to a defined state
    */
-  void reset()
+  void reset() override
   {
     valid = false;
     lines.clear();
     lineInfos.clear();
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["lines"] << lines;
@@ -91,7 +85,7 @@ public:
     value["valid"] << valid;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["lines"] >> lines;
     value["lineInfos"] >> lineInfos;

@@ -31,11 +31,12 @@ private:
   boost::array<char, sizeof(AlivenessMessage)> send_; ///< Send buffer.
 
   NaoInfo naoInfo_;
+  Configuration& config_;
 
   void onTimerExpire(boost::system::error_code const& error);
 
 public:
-  Impl(const uint16_t& port, const NaoInfo& naoInfo);
+  Impl(const uint16_t& port, const NaoInfo& naoInfo, Configuration& config);
   ~Impl();
 
   void startTransmitTimer();
@@ -46,12 +47,13 @@ public:
 // Pimpl
 //================================
 
-AlivenessTransmitter::Impl::Impl(const uint16_t& port, const NaoInfo& naoInfo)
+AlivenessTransmitter::Impl::Impl(const uint16_t& port, const NaoInfo& naoInfo, Configuration& config)
   : ioService_()
   , broadcastEndpoint_()
   , socket_(ioService_)
   , timer_(ioService_)
   , naoInfo_(naoInfo)
+  , config_(config)
 {
   boost::asio::ip::udp::endpoint localEndpoint(boost::asio::ip::udp::v4(), port);
 
@@ -96,7 +98,7 @@ void AlivenessTransmitter::Impl::onTimerExpire(boost::system::error_code const& 
     return;
   }
 
-  AlivenessMessage msg(naoInfo_.bodyName, naoInfo_.headName);
+  AlivenessMessage msg(naoInfo_.bodyName, naoInfo_.headName, config_);
   memcpy(send_.data(), &msg, send_.size() * sizeof send_[0]);
 
   try
@@ -117,13 +119,13 @@ void AlivenessTransmitter::Impl::onTimerExpire(boost::system::error_code const& 
 //================================
 
 
-AlivenessTransmitter::AlivenessTransmitter(const std::uint16_t& port, const NaoInfo& naoInfo)
+AlivenessTransmitter::AlivenessTransmitter(const std::uint16_t& port, const NaoInfo& naoInfo, Configuration& config)
   : isTransmittingStarted_(false)
 {
-  pimpl_.reset(new Impl(port, naoInfo));
+  pimpl_ = std::make_unique<Impl>(port, naoInfo, config);
 }
 
-AlivenessTransmitter::~AlivenessTransmitter() {}
+AlivenessTransmitter::~AlivenessTransmitter() = default;
 
 void AlivenessTransmitter::startTransmitting()
 {

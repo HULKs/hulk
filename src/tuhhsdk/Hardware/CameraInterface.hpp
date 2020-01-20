@@ -15,7 +15,7 @@ public:
   /**
    * @brief ~CameraInterface a virtual destructor for polymorphism
    */
-  virtual ~CameraInterface() {}
+  virtual ~CameraInterface() = default;
   /**
    * @brief waitForImage waits until there is a new image available to be processed
    * @return the number of seconds that have been waited

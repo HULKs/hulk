@@ -20,12 +20,11 @@ DefendingPositionProvider::DefendingPositionProvider(const ModuleManagerInterfac
   , defendingPosition_(*this)
   , passiveDefenseLineX_(-fieldDimensions_->fieldLength / 2 +
                          fieldDimensions_->fieldPenaltyMarkerDistance - 0.3f)
-  , neutralDefenseLineX_(passiveDefenseLineX_ + 1.f)
-  , aggressiveDefenseLineX_(neutralDefenseLineX_ + 1.f)
+  , neutralDefenseLineX_(passiveDefenseLineX_ + 1.5f)
+  , aggressiveDefenseLineX_(neutralDefenseLineX_ + 0.5f)
   , passiveDefenseLineY_(fieldDimensions_->fieldPenaltyAreaWidth / 2 + 0.4f)
   , iAmFar_(false)
   , otherIsFar_(false)
-  , iAmLeftOfOther_(true)
   , ballCloseToOwnGoal_(true)
 {
 }
@@ -40,7 +39,9 @@ void DefendingPositionProvider::cycle()
 void DefendingPositionProvider::calculateDefendingPosition()
 {
   if (gameControllerState_->gameState != GameState::PLAYING ||
-    playingRoles_->role != PlayingRole::DEFENDER || !teamBallModel_->seen)
+      (playingRoles_->role != PlayingRole::DEFENDER_LEFT &&
+       playingRoles_->role != PlayingRole::DEFENDER_RIGHT) ||
+      !teamBallModel_->seen)
   {
     return;
   }
@@ -57,40 +58,39 @@ void DefendingPositionProvider::calculateDefendingPosition()
   absBallPosition.x() = std::max(absBallPosition.x(), minPositionX);
   const Vector2f ownGoalToBall = absBallPosition - absOwnGoalPosition;
   const Vector2f orthogonal = fieldDimensions_->goalInnerWidth / 4 *
-    (worldState_->ballInLeftHalf ? 1 : -1) *
-    Vector2f(-ownGoalToBall.y(), ownGoalToBall.x()).normalized();
+                              (playingRoles_->role == PlayingRole::DEFENDER_LEFT ? 1 : -1) *
+                              Vector2f(-ownGoalToBall.y(), ownGoalToBall.x()).normalized();
   // the y position is computed from intersecting lines to make sure the defenders do not block the
   // sight of the keeper
-  const Line<float> keeperSightLineAwayFromBall =
-    Line<float>(absBallPosition - orthogonal, absOwnGoalPosition - orthogonal);
-  const Line<float> keeperSightLineTowardsBall =
-    Line<float>(absBallPosition + orthogonal, absOwnGoalPosition + orthogonal);
+  const Line<float> shiftedKeeperSightLine =
+      Line<float>(absBallPosition + orthogonal, absOwnGoalPosition + orthogonal);
+  const Line<float> ownGoalToBallLine = Line<float>(absBallPosition, absOwnGoalPosition);
 
   ballCloseToOwnGoal_ = Hysteresis<float>::smallerThan(
-    teamBallModel_->position.x(), aggressiveDefenseLineX_, hysteresis_, ballCloseToOwnGoal_);
+      teamBallModel_->position.x(), aggressiveDefenseLineX_, hysteresis_, ballCloseToOwnGoal_);
 
   iAmFar_ = Hysteresis<float>::greaterThan(robotPosition_->pose.position.x(),
-    aggressiveDefenseLineX_, hysteresis_, iAmFar_);
+                                           aggressiveDefenseLineX_, hysteresis_, iAmFar_);
   otherIsFar_ = (otherDefender == nullptr) ||
-    Hysteresis<float>::greaterThan(otherDefender->pose.position.x(),
-      aggressiveDefenseLineX_, hysteresis_, otherIsFar_);
+                Hysteresis<float>::greaterThan(otherDefender->pose.position.x(),
+                                               aggressiveDefenseLineX_, hysteresis_, otherIsFar_);
   // effectively one defender
   if (otherDefender == nullptr || (!iAmFar_ && otherIsFar_))
   {
     if (keeper == nullptr && replacementKeeper == nullptr)
     {
       // if there neither are a keeper and a replacement keeper, I replace the keeper
-      const Line<float> ownGoalToBallLine = Line<float>(absBallPosition, absOwnGoalPosition);
       const float angleThreshold = std::atan2(
-        passiveDefenseLineY_, fieldDimensions_->fieldLength / 2 + passiveDefenseLineX_);
+          passiveDefenseLineY_, fieldDimensions_->fieldLength / 2 + passiveDefenseLineX_);
       const float ownGoalToBallAngle = std::atan2(ownGoalToBall.y(), ownGoalToBall.x());
       if (std::fabs(ownGoalToBallAngle) > angleThreshold)
       {
-        defendingPosition_->position.y() =
-          worldState_->ballInLeftHalf ? passiveDefenseLineY_ : -passiveDefenseLineY_;
+        defendingPosition_->position.y() = playingRoles_->role == PlayingRole::DEFENDER_LEFT
+                                               ? passiveDefenseLineY_
+                                               : -passiveDefenseLineY_;
         defendingPosition_->position.x() =
-          Range<float>::clipToGivenRange(ownGoalToBallLine.getX(defendingPosition_->position.y()),
-            minPositionX, passiveDefenseLineX_);
+            Range<float>::clipToGivenRange(ownGoalToBallLine.getX(defendingPosition_->position.y()),
+                                           minPositionX, passiveDefenseLineX_);
         defendingPosition_->valid = true;
         return;
       }
@@ -98,8 +98,8 @@ void DefendingPositionProvider::calculateDefendingPosition()
       {
         defendingPosition_->position.x() = passiveDefenseLineX_;
         defendingPosition_->position.y() =
-          Range<float>::clipToGivenRange(ownGoalToBallLine.getY(defendingPosition_->position.x()),
-            -passiveDefenseLineY_, passiveDefenseLineY_);
+            Range<float>::clipToGivenRange(ownGoalToBallLine.getY(defendingPosition_->position.x()),
+                                           -passiveDefenseLineY_, passiveDefenseLineY_);
         defendingPosition_->valid = true;
         return;
       }
@@ -108,26 +108,24 @@ void DefendingPositionProvider::calculateDefendingPosition()
     {
       // robot on passive or neutral defense line
       defendingPosition_->position.x() =
-        worldState_->ballInOwnHalf ? passiveDefenseLineX_ : neutralDefenseLineX_;
+          worldState_->ballInOwnHalf ? passiveDefenseLineX_ : neutralDefenseLineX_;
       // position towards the ball and clipped if on passive defense line
       defendingPosition_->position.y() =
-        defendingPosition_->position.x() == passiveDefenseLineX_
-          ? Range<float>::clipToGivenRange(
-          keeperSightLineTowardsBall.getY(defendingPosition_->position.x()),
-          -passiveDefenseLineY_, passiveDefenseLineY_)
-          : keeperSightLineTowardsBall.getY(defendingPosition_->position.x());
+          defendingPosition_->position.x() == passiveDefenseLineX_
+              ? Range<float>::clipToGivenRange(
+                    shiftedKeeperSightLine.getY(defendingPosition_->position.x()),
+                    -passiveDefenseLineY_, passiveDefenseLineY_)
+              : shiftedKeeperSightLine.getY(defendingPosition_->position.x());
       defendingPosition_->valid = true;
       return;
     }
   }
-    // two defenders
+  // two defenders
   else
   {
-    iAmLeftOfOther_ = Hysteresis<float>::greaterThan(robotPosition_->pose.position.y(),
-      otherDefender->pose.position.y(), hysteresis_,
-      iAmLeftOfOther_);
-    const bool ballInMySide = (worldState_->ballInLeftHalf && iAmLeftOfOther_) ||
-      (!worldState_->ballInLeftHalf && !iAmLeftOfOther_);
+    const bool ballInMySide =
+        (worldState_->ballInLeftHalf && playingRoles_->role == PlayingRole::DEFENDER_LEFT) ||
+        (!worldState_->ballInLeftHalf && playingRoles_->role == PlayingRole::DEFENDER_RIGHT);
     if (worldState_->ballInOwnHalf)
     {
       /* the ball is on our half, we need to defend.
@@ -142,16 +140,17 @@ void DefendingPositionProvider::calculateDefendingPosition()
         if (keeper == nullptr && replacementKeeper == nullptr)
         {
           const float angleThreshold = std::atan2(
-            passiveDefenseLineY_, fieldDimensions_->fieldLength / 2 + passiveDefenseLineX_);
+              passiveDefenseLineY_, fieldDimensions_->fieldLength / 2 + passiveDefenseLineX_);
           const float ownGoalToBallAngle = std::atan2(ownGoalToBall.y(), ownGoalToBall.x());
           if (std::fabs(ownGoalToBallAngle) > angleThreshold)
           {
             const float minPositionX = -fieldDimensions_->fieldLength / 2 + 0.5f;
-            defendingPosition_->position.y() =
-              worldState_->ballInLeftHalf ? passiveDefenseLineY_ : -passiveDefenseLineY_;
+            defendingPosition_->position.y() = playingRoles_->role == PlayingRole::DEFENDER_LEFT
+                                                   ? passiveDefenseLineY_
+                                                   : -passiveDefenseLineY_;
             defendingPosition_->position.x() = Range<float>::clipToGivenRange(
-              keeperSightLineTowardsBall.getX(defendingPosition_->position.y()), minPositionX,
-              passiveDefenseLineX_);
+                ownGoalToBallLine.getX(defendingPosition_->position.y()), minPositionX,
+                passiveDefenseLineX_);
             defendingPosition_->valid = true;
             return;
           }
@@ -159,16 +158,16 @@ void DefendingPositionProvider::calculateDefendingPosition()
         // Use neutral defense line if no supporter exists and ball is not close to own goal.
         // Otherwise, use passive defense line.
         defendingPosition_->position.x() =
-          supportStriker != nullptr
-            ? passiveDefenseLineX_
-            : (ballCloseToOwnGoal_ ? passiveDefenseLineX_ : neutralDefenseLineX_);
+            supportStriker != nullptr
+                ? passiveDefenseLineX_
+                : (ballCloseToOwnGoal_ ? passiveDefenseLineX_ : neutralDefenseLineX_);
         // position towards the ball and clipped if on passive defense line
         defendingPosition_->position.y() =
-          defendingPosition_->position.x() == passiveDefenseLineX_
-            ? Range<float>::clipToGivenRange(
-            keeperSightLineTowardsBall.getY(defendingPosition_->position.x()),
-            -passiveDefenseLineY_, passiveDefenseLineY_)
-            : keeperSightLineTowardsBall.getY(defendingPosition_->position.x());
+            defendingPosition_->position.x() == passiveDefenseLineX_
+                ? Range<float>::clipToGivenRange(
+                      shiftedKeeperSightLine.getY(defendingPosition_->position.x()),
+                      -passiveDefenseLineY_, passiveDefenseLineY_)
+                : shiftedKeeperSightLine.getY(defendingPosition_->position.x());
         defendingPosition_->valid = true;
         return;
       }
@@ -178,8 +177,8 @@ void DefendingPositionProvider::calculateDefendingPosition()
         defendingPosition_->position.x() = passiveDefenseLineX_;
         // position away from ball and clip
         defendingPosition_->position.y() = Range<float>::clipToGivenRange(
-          keeperSightLineAwayFromBall.getY(defendingPosition_->position.x()),
-          -passiveDefenseLineY_ / 2, passiveDefenseLineY_ / 2);
+            shiftedKeeperSightLine.getY(defendingPosition_->position.x()),
+            -passiveDefenseLineY_ / 2, passiveDefenseLineY_ / 2);
         defendingPosition_->valid = true;
         return;
       }
@@ -195,10 +194,10 @@ void DefendingPositionProvider::calculateDefendingPosition()
       {
         // if there is a support striker be less aggressive and use the neutral defense line
         defendingPosition_->position.x() =
-          supportStriker != nullptr ? neutralDefenseLineX_ : aggressiveDefenseLineX_;
+            supportStriker != nullptr ? neutralDefenseLineX_ : aggressiveDefenseLineX_;
         // towards the ball
         defendingPosition_->position.y() =
-          keeperSightLineTowardsBall.getY(defendingPosition_->position.x());
+            shiftedKeeperSightLine.getY(defendingPosition_->position.x());
         defendingPosition_->valid = true;
         return;
       }
@@ -208,8 +207,8 @@ void DefendingPositionProvider::calculateDefendingPosition()
         defendingPosition_->position.x() = passiveDefenseLineX_;
         // clip
         defendingPosition_->position.y() = Range<float>::clipToGivenRange(
-          keeperSightLineAwayFromBall.getY(defendingPosition_->position.x()),
-          -passiveDefenseLineY_ / 2, passiveDefenseLineY_);
+            shiftedKeeperSightLine.getY(defendingPosition_->position.x()),
+            -passiveDefenseLineY_ / 2, passiveDefenseLineY_);
         defendingPosition_->valid = true;
         return;
       }
@@ -240,7 +239,8 @@ void DefendingPositionProvider::findRelevantTeamPlayers(const TeamPlayer*& keepe
     {
       supportStriker = &player;
     }
-    if (player.currentlyPerformingRole == PlayingRole::DEFENDER)
+    if (player.currentlyPerformingRole == PlayingRole::DEFENDER_LEFT ||
+        player.currentlyPerformingRole == PlayingRole::DEFENDER_RIGHT)
     {
       otherDefender = &player;
     }
@@ -264,24 +264,17 @@ void DefendingPositionProvider::considerSetPlay()
     return;
   }
 
-  if (worldState_->ballInOwnHalf && gameControllerState_->setPlay == SetPlay::GOAL_FREE_KICK &&
-      !gameControllerState_->kickingTeam)
-  {
-    // ref made a mistake: The ball cannot be in our own half without us being the kicking team
-    // during a GOALFreeKick
-    return;
-  }
-
   // vector to the ball (relative to the robot)
   const Vector2f ballToRobot = robotPosition_->pose.position - teamBallModel_->position;
   // vector from the target position to the ball
-  const Vector2f ballToTarget = defendingPosition_->position - teamBallModel_->position ;
+  const Vector2f ballToTarget = defendingPosition_->position - teamBallModel_->position;
   // set the defending position's y coord to something that is not illegal.
   if (ballToRobot.norm() < 0.9f || ballToTarget.norm() < 0.9f)
   {
     const float side = ballToRobot.y() < 0.f ? -1.f : 1.f;
-    const float newYCoord = teamBallModel_->position.y() +
-                            (side * std::sqrt(abs(0.9f * 0.9f - ballToRobot.x() * ballToRobot.x())));
+    const float newYCoord =
+        teamBallModel_->position.y() +
+        (side * std::sqrt(abs(0.9f * 0.9f - ballToRobot.x() * ballToRobot.x())));
 
     defendingPosition_->position.y() = newYCoord;
 

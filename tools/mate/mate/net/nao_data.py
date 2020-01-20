@@ -15,8 +15,9 @@ class DebugValue(Data):
 
 
 class DebugImage(Data):
-    def __init__(self, key: str, width: int, height: int, data: bytes):
+    def __init__(self, key: str, width: int, height: int, data: bytes, timestamp: int = 0):
         super(DebugImage, self).__init__(key, data)
+        self.timestamp = timestamp
         self.isImage = True
         self.width = width
         self.height = height

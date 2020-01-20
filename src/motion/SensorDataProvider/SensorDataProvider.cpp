@@ -8,6 +8,8 @@
 #include "Tools/Kinematics/Com.h"
 #include "Tools/Kinematics/ForwardKinematics.h"
 
+#include "print.hpp"
+
 #include "SensorDataProvider.hpp"
 
 
@@ -30,13 +32,11 @@ void SensorDataProvider::cycle()
 {
   Chronometer time(debug(), mount_ + ".cycleTime");
 
-  robotInterface().waitAndReadSensorData(sensorData_);
+  cycleInfo_->cycleTime = robotInterface().waitAndReadSensorData(sensorData_);
+  cycleInfo_->startTime = sensorData_.time;
 
   // This needs to be the first call to debug in the ModuleManager per cycle
   debug().setUpdateTime(sensorData_.time);
-
-  cycleInfo_->cycleTime = 0.01;
-  cycleInfo_->startTime = sensorData_.time;
 
   fillFSR(fsrSensorData_->left, sensorData_.fsrLeft);
   fillFSR(fsrSensorData_->right, sensorData_.fsrRight);
@@ -80,6 +80,7 @@ void SensorDataProvider::cycle()
     }
     else if (cb == CE_CHESTBUTTON_DOUBLE)
     {
+      Log(LogLevel::INFO) << "Chest button: Double tap detected";
       buttonData_->lastChestButtonDoublePress = cycleInfo_->startTime;
     }
   }
@@ -88,7 +89,7 @@ void SensorDataProvider::cycle()
 
   sonarSensorData_->data = sensorData_.sonar;
   setSonarValidity(*sonarSensorData_, sensorData_.sonar);
-  
+
   const std::vector<KinematicMatrix> kinematicMatrices =
       ForwardKinematics::getBody(jointSensorData_->getBodyAngles(), imuSensorData_->angle);
   assert(kinematicMatrices.size() == robotKinematics_->matrices.size());

@@ -28,12 +28,18 @@ BallSearchPositionProvider::BallSearchPositionProvider(const ModuleManagerInterf
   , maxBallDetectionRange_(*this, "maxBallDetectionRange", [] {})
   , maxAgeValueContribution_(*this, "maxAgeValueContribution", [] {})
   , probabilityWeight_(*this, "probabilityWeight", [] {})
-  , voronoiSeeds_(*this, "voronoiSeeds", [this] { rebuildSearchAreas(); })
+  , voronoiSeeds_(*this, "voronoiSeeds", [] {})
+  , cornerKickVoronoiSeeds_(*this, "cornerKickVoronoiSeeds", [] {})
+  , keeperReach_(*this, "keeperReach", [] {})
+  , replacementKeeperAdvantage_(*this, "replacementKeeperAdvantage", [] {})
+  , isOnePlayerReplacementKeeper_(*this, "isOnePlayerReplacementKeeper", [] {})
   , searchPosition_(*this)
   , fieldLength_(fieldDimensions_->fieldLength)
   , fieldWidth_(fieldDimensions_->fieldWidth)
 {
+  rebuildSearchAreas();
 }
+
 
 void BallSearchPositionProvider::cycle()
 {
@@ -57,15 +63,25 @@ void BallSearchPositionProvider::cycle()
       explorers_.clear();
 
       generateOwnTeamPlayerData();
+      searchPosition_->availableForSearch = ownTeamPlayerData_.isAvailableForBallSearch;
+      keeperIsInActivePlayers_ = false;
+      keeperIsNearGoal_ = false;
+      keeperPosition_ =
+          Vector2f(fieldDimensions_->fieldLength * 0.5f, fieldDimensions_->fieldWidth * 0.5f);
 
+      // Add myself to active players
       if (!ownTeamPlayerData_.penalized)
       {
         activePlayers_.push_back(&ownTeamPlayerData_);
+        // check whether keeper is in active players and get keeper position
+        if (ownTeamPlayerData_.playerNumber == 1)
+        {
+          keeperIsInActivePlayers_ = true;
+          keeperPosition_ = ownTeamPlayerData_.pose.position;
+        }
       }
-      // Tell other players that we are available for ball search
-      searchPosition_->availableForSearch = ownTeamPlayerData_.isAvailableForBallSearch;
 
-      // Add all team players to active players.
+      // Add all other team players to active players.
       for (auto& teamPlayer : teamPlayers_->players)
       {
         if (teamPlayer.penalized)
@@ -73,11 +89,24 @@ void BallSearchPositionProvider::cycle()
           continue;
         }
         activePlayers_.push_back(&teamPlayer);
+
+        // check whether keeper is in active players and get keeper position
+        if (teamPlayer.playerNumber == 1)
+        {
+          keeperIsInActivePlayers_ = true;
+          keeperPosition_ = teamPlayer.pose.position;
+        }
       }
 
       if (activePlayers_.empty())
       {
         return;
+      }
+
+      // Check whether keeper is near goal
+      if ((keeperPosition_ - goalPosition_).norm() < keeperReach_())
+      {
+        keeperIsNearGoal_ = true;
       }
 
       // Sort player by wisdom to find the player with the oldest, continuously updated map.
@@ -89,20 +118,58 @@ void BallSearchPositionProvider::cycle()
                                     b->timestampBallSearchMapUnreliable);
                 });
 
-      // Find all active players that report themselfs as available for search and add them to the
+      // Check whether replacement keeper is necessary;
+      // if only one player that is keeper is in active players, replacement keeper is not
+      // necessary;
+      // if only one player that is not keeper is in active players, replacement keeper
+      // will only be assigned if parameter "isOnePlayerReplacementKeeper" is true;
+      // in all other cases a replacement keeper is necessary;
+      // then find the best replacement keeper
+      if ((activePlayers_.size() == 1 &&
+           (keeperIsInActivePlayers_ || !isOnePlayerReplacementKeeper_())) ||
+          keeperIsNearGoal_)
+      {
+        searchPosition_->replacementKeeperNumber = 0;
+      }
+      else
+      {
+        float distanceRobotToKeeperPos =
+            ((Vector2f(fieldDimensions_->fieldLength * 0.5f, fieldDimensions_->fieldWidth * 0.5f)) -
+             goalPosition_)
+                .norm();
+
+        for (auto& teamPlayer : activePlayers_)
+        {
+          // Assign replacement keeper to robot closest to goal except keeper
+          if (((goalPosition_ - Vector2f(teamPlayer->pose.position)).norm() <
+               distanceRobotToKeeperPos) &&
+              (teamPlayer->playerNumber != 1))
+          {
+            searchPosition_->replacementKeeperNumber = teamPlayer->playerNumber;
+            distanceRobotToKeeperPos = (goalPosition_ - (teamPlayer->pose.position)).norm();
+          }
+        }
+        assert(searchPosition_->replacementKeeperNumber != 0);
+
+        // if keeper is almost as close to goal as replacement keeper, sending replacement keeper to
+        // goal is unnecessary
+        if (((keeperPosition_ - goalPosition_).norm() - distanceRobotToKeeperPos) <
+            replacementKeeperAdvantage_())
+        {
+          searchPosition_->replacementKeeperNumber = 0;
+        }
+      }
+
+      // Find all active players that report themselves as available for search and add them to the
       // explorers list
       for (auto& teamPlayer : activePlayers_)
       {
         // Check if the robot is ready to search for the ball (he may exclude himself)
-        if (teamPlayer->isAvailableForBallSearch)
+        if (teamPlayer->playerNumber != searchPosition_->replacementKeeperNumber &&
+            teamPlayer->playerNumber != 1 && teamPlayer->isHULK)
         {
           explorers_.push_back(teamPlayer);
         }
-      }
-
-      if (explorers_.empty())
-      {
-        return;
       }
 
       calculateMostWisePlayer();
@@ -110,9 +177,35 @@ void BallSearchPositionProvider::cycle()
       assert(globalMostWisePlayer_.valid && "globalMostWisePlayer needs to be valid");
       ownTeamPlayerData_.mostWisePlayerNumber = localMostWisePlayer_.playerNumber;
 
-      assignSearchAreas();
-      assignSearchPositions();
-      generateOwnSearchPose();
+      if (searchPosition_->replacementKeeperNumber != 0)
+      {
+        assignReplacementKeeperPosition();
+      }
+
+      if (gameControllerState_->setPlay == SetPlay::CORNER_KICK && !searchAreasCleared_)
+      {
+        searchAreas_.clear();
+        searchAreasCleared_ = true;
+      }
+
+      if (gameControllerState_->setPlay != SetPlay::CORNER_KICK && searchAreasCleared_)
+      {
+        searchAreasCleared_ = false;
+      }
+
+
+      if (!explorers_.empty())
+      {
+        assignSearchAreas();
+        assignSearchPositions();
+      }
+
+      // Do not calculate a search pose for a robot that is not available for
+      // search.
+      if (ownTeamPlayerData_.isAvailableForBallSearch)
+      {
+        generateOwnSearchPose();
+      }
     }
   }
   sendDebug();
@@ -334,12 +427,26 @@ void BallSearchPositionProvider::assignSearchPositions()
   }
 }
 
+void BallSearchPositionProvider::assignReplacementKeeperPosition()
+{
+  searchPosition_->replacementKeeperPose = goalPosition_;
+  searchPosition_->suggestedSearchPositions[searchPosition_->replacementKeeperNumber - 1] =
+      goalPosition_;
+  ownTeamPlayerData_.suggestedSearchPositions[searchPosition_->replacementKeeperNumber - 1] =
+      goalPosition_;
+  searchPosition_->suggestedSearchPositionValid[searchPosition_->replacementKeeperNumber - 1] =
+      true;
+  ownTeamPlayerData_
+      .suggestedSearchPositionsValidity[searchPosition_->replacementKeeperNumber - 1] = true;
+}
+
 void BallSearchPositionProvider::generateOwnSearchPose()
 {
-  // Do not calculate a search pose for a robot that is either a keeper or not available for
-  // search.
-  if (playerConfiguration_->playerNumber == 1 || !ownTeamPlayerData_.isAvailableForBallSearch)
+  if (playerConfiguration_->playerNumber == searchPosition_->replacementKeeperNumber)
   {
+    searchPosition_->pose = searchPosition_->replacementKeeperPose;
+    searchPosition_->ownSearchPoseValid = true;
+    searchPosition_->searchPosition = searchPosition_->replacementKeeperPose.position;
     return;
   }
 
@@ -475,8 +582,11 @@ void BallSearchPositionProvider::rebuildSearchAreas()
   {
     return;
   }
+  std::vector<Vector2f> Seeds = gameControllerState_->setPlay == SetPlay::CORNER_KICK
+                                    ? cornerKickVoronoiSeeds_()[explorers_.size() - 1]
+                                    : voronoiSeeds_()[explorers_.size() - 1];
 
-  for (auto& seed : voronoiSeeds_()[explorers_.size() - 1])
+  for (auto& seed : Seeds)
   {
     SearchArea area;
     area.voronoiSeed = {seed.x() * fieldLength_ / 2.f, seed.y() * fieldWidth_ / 2.f};

@@ -6,6 +6,10 @@
 
 #include <iostream>
 
+#ifdef NAOV6
+#include <msgpack.hpp>
+#endif
+
 #include "Definitions/windows_definition_fix.hpp"
 
 enum ModuleCategory : uint8_t
@@ -117,6 +121,36 @@ public:
     return *this;
   }
 
+  LogTemplate& operator<<(const unsigned int& unsignedInteger)
+  {
+    if (loglevel_ >= maxLogLevel_)
+    {
+      std::cout << unsignedInteger;
+    }
+
+    return *this;
+  }
+
+  LogTemplate& operator<<(const long& integer)
+  {
+    if (loglevel_ >= maxLogLevel_)
+    {
+      std::cout << integer;
+    }
+
+    return *this;
+  }
+
+  LogTemplate& operator<<(const unsigned long& unsignedInteger)
+  {
+    if (loglevel_ >= maxLogLevel_)
+    {
+      std::cout << unsignedInteger;
+    }
+
+    return *this;
+  }
+
   LogTemplate& operator<<(const double& real)
   {
     if (loglevel_ >= maxLogLevel_)
@@ -138,6 +172,18 @@ public:
 
     return *this;
   }
+
+#ifdef NAOV6
+  LogTemplate& operator<<(const msgpack::object& object)
+  {
+    if (loglevel_ >= maxLogLevel_)
+    {
+      std::cout << object;
+    }
+
+    return *this;
+  }
+#endif
 
   static LogLevel getLogLevelFromLogLevel(int level)
   {

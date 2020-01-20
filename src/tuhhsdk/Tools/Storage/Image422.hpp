@@ -55,13 +55,31 @@ struct YCbCr422
   }
 
   /**
+   * @brief get RGB values from YCbCr422 pixel data using averagedY
+   * @return The RGB values converted from this YCbCr pixel
+   */
+  RGBColor RGB() const
+  {
+    std::uint8_t y = averagedY();
+    // Conversion from 0-255 ranged YCbCr space to 0-255 ranged rgb color space according to JPEG
+    // conversion (https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion)
+    RGBColor color(
+        std::min(std::max(static_cast<int>(y + 1.40200f * (cr_ - 0x80)), 0), 255),
+        std::min(std::max(static_cast<int>(y - 0.34414f * (cb_ - 0x80) - 0.71414f * (cr_ - 0x80)), 0), 255),
+        std::min(std::max(static_cast<int>(y + 1.77200f * (cb_ - 0x80)), 0), 255));
+    return color;
+  }
+
+  /**
    * @brief Calculates average over luminance
    */
   std::uint8_t averagedY() const
   {
-    return ((uint16_t)y1_ + y2_) >> 1;
+    return static_cast<std::uint8_t>(
+        (static_cast<std::uint16_t>(y1_) + static_cast<std::uint16_t>(y2_)) >> 1);
   }
 };
+
 
 class Image422
 {

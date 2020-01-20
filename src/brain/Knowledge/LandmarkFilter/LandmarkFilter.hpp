@@ -245,6 +245,10 @@ private:
   const Parameter<float> maxLineProjectionDistanceLowNoise_;
   /// the tolerance for the distance between penalty spot and associated line for orientation
   const Parameter<float> tolerancePenaltySpotToLineDistance_;
+  /// the minimum length a line needs to have to be considered for penalty area detection
+  const Parameter<float> minLineLengthForPenaltyArea_;
+  /// the maximum length a line can be extended to find the shortest distance to penalty spot
+  const Parameter<float> maxLineExtensionForPenaltyArea_;
 
   /// parameter that allows to toggle whether to use intersections or not
   Parameter<bool> useLineIntersections_;
@@ -259,6 +263,7 @@ private:
   float squaredMaxDistToCenterLineForCircleOrientation_;
   float squaredMinIntersectionOverlap_;
   float squaredMaxIntersectionDistance_;
+  float squaredMaxLineExtensionForPenaltyArea_;
 
   /// the filtered ball seen by this robot (needed to fake penalty spots in PSO)
   const Dependency<BallState> ballState_;

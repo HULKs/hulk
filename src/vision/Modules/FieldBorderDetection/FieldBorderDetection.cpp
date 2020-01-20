@@ -82,7 +82,7 @@ void FieldBorderDetection::findBorderPoints()
   {
     for (const auto& segment : vScanline.segments)
     {
-      if (segment.field > 0.5)
+      if (segment.field >= 0.5f)
       {
         borderPoints_.push_back(segment.start);
         break;
@@ -234,7 +234,7 @@ void FieldBorderDetection::createFilteredSegments()
       {
         below = true;
       }
-      if (below && segment.field <= .5f)
+      if (below && segment.field < 0.5f)
       {
         filteredSegments_->vertical.push_back(&segment);
       }
@@ -263,7 +263,7 @@ void FieldBorderDetection::createFilteredSegments()
           noOtherInterestingSegments = true;
           break;
         }
-        if (segment.field <= .5f)
+        if (segment.field < 0.5f)
         {
           filteredSegments_->horizontal.push_back(&segment);
         }

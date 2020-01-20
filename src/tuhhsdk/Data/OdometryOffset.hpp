@@ -17,17 +17,17 @@ public:
   /**
    * @brief reset resets the offset to 0
    */
-  void reset()
+  void reset() override
   {
     odometryOffset = Pose();
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["odometryOffset"] << odometryOffset;
   }
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["odometryOffset"] >> odometryOffset;
   }

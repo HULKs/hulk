@@ -2,7 +2,7 @@
 
 #include "Tools/Math/Polygon.hpp"
 
-#include <Tools/Storage/UniValue/UniConvertible.hpp>
+#include <Tools/Storage/UniValue/UniValue.h>
 
 template <typename T>
 class ConvexPolygon : public Polygon<T>
@@ -23,17 +23,10 @@ public:
    * @brief fromValue converts a Uni::Value to this
    * @param value the value that should be converted to this class
    */
-  void fromValue(const Uni::Value& value)
-  {
-    assert(value.type() == Uni::ValueType::ARRAY);
-    assert(value.size() == 1);
-  }
+  void fromValue(const Uni::Value& /*value*/) {}
   /**
    * @brief toValue converts this to a Uni::Value
    * @param value the value that this class should be converted to
    */
-  void toValue(Uni::Value& value) const
-  {
-    value = Uni::Value(Uni::ValueType::ARRAY);
-  }
+  void toValue(Uni::Value& /*value*/) const {}
 };

@@ -50,12 +50,12 @@ struct WalkData : public Uni::To, public Uni::From
 {
   Pose target;
   InWalkKickType inWalkKickType = InWalkKickType::NONE;
-  KickFoot kickFoot  = KickFoot::NONE;
+  KickFoot kickFoot = KickFoot::NONE;
   WalkMode mode = WalkMode::PATH;
   /// Velocity specifications for walking (translation and rotation)
   Velocity velocity;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["target"] << target;
@@ -65,7 +65,7 @@ struct WalkData : public Uni::To, public Uni::From
     value["velocity"] << velocity;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     int readNumber = 0;
     value["target"] >> target;
@@ -84,19 +84,13 @@ struct WalkStopData
   bool gracefully;
 };
 
-enum class KickType
-{
-  FORWARD,
-  SIDE
-};
-
 struct KickData : public Uni::To, public Uni::From
 {
   Vector2f ballDestination;
   Vector2f ballSource;
   KickType kickType = KickType::FORWARD;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["ballDestination"] << ballDestination;
@@ -104,7 +98,7 @@ struct KickData : public Uni::To, public Uni::From
     value["kickType"] << static_cast<int>(kickType);
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["ballDestination"] >> ballDestination;
     value["ballSource"] >> ballSource;
@@ -114,19 +108,19 @@ struct KickData : public Uni::To, public Uni::From
   }
 };
 
-enum MotionKeeper
+enum MotionJump
 {
-  MK_NONE,
-  MK_TAKE_FRONT,
-  MK_TAKE_LEFT,
-  MK_TAKE_RIGHT,
-  MK_JUMP_LEFT,
-  MK_JUMP_RIGHT
+  NONE,
+  SQUAT,
+  TAKE_LEFT,
+  TAKE_RIGHT,
+  JUMP_LEFT,
+  JUMP_RIGHT
 };
 
-struct KeeperData
+struct JumpData
 {
-  MotionKeeper keep;
+  MotionJump keep;
 };
 
 /** Containing data required to move the Head.
@@ -140,7 +134,7 @@ struct HeadAngleData : public Uni::To, public Uni::From
   float maxHeadPitchVelocity;
   bool useEffectiveYawVelocity;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["headYaw"] << headYaw;
@@ -150,7 +144,7 @@ struct HeadAngleData : public Uni::To, public Uni::From
     value["useEffectiveYawVelocity"] << useEffectiveYawVelocity;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["headYaw"] >> headYaw;
     value["headPitch"] >> headPitch;
@@ -167,7 +161,7 @@ struct HeadLookAtData : public Uni::To, public Uni::From
   float maxHeadYawVelocity;
   float maxHeadPitchVelocity;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["targetPosition"] << targetPosition;
@@ -175,7 +169,7 @@ struct HeadLookAtData : public Uni::To, public Uni::From
     value["maxHeadPitchVelocity"] << maxHeadPitchVelocity;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["targetPosition"] >> targetPosition;
     value["maxHeadYawVelocity"] >> maxHeadYawVelocity;
@@ -205,12 +199,16 @@ public:
     KICK,
     /// the robot should stand in an energy saving pose like during the penalized state
     PENALIZED,
-    /// the robot should execute a keeper motion
-    KEEPER,
+    /// the robot should execute a jump motion
+    JUMP,
     /// the robot should manage the fall. THIS MUST NOT HAVE A CORRESPONDING ACTION COMMAND
     FALL_MANAGER,
     /// the robot should stand up
     STAND_UP,
+    /// the robot should sit down
+    SIT_DOWN,
+    /// the robot should sit up
+    SIT_UP,
     /// the robot holds its angles at activation of the motion
     HOLD,
     /// the number of motions
@@ -246,8 +244,8 @@ public:
   WalkStopData walkStopData;
   /// the last kick data received
   KickData kickData;
-  /// the last keeper data received
-  KeeperData keeperData;
+  /// the last jump data received
+  JumpData jumpData;
   /// the last head angle data received
   HeadAngleData headAngleData;
   /// the last head lookAt data received
@@ -257,7 +255,7 @@ public:
   /**
    * @brief reset sets the robot dead
    */
-  void reset()
+  void reset() override
   {
     bodyMotion = BodyMotion::DEAD;
     leftArmMotion = ArmMotion::BODY;
@@ -273,8 +271,9 @@ public:
   {
     return bodyMotion == BodyMotion::DEAD || bodyMotion == BodyMotion::WALK ||
            bodyMotion == BodyMotion::KICK || bodyMotion == BodyMotion::PENALIZED ||
-           bodyMotion == BodyMotion::KEEPER || bodyMotion == BodyMotion::STAND_UP ||
-           bodyMotion == BodyMotion::HOLD;
+           bodyMotion == BodyMotion::JUMP || bodyMotion == BodyMotion::STAND_UP ||
+           bodyMotion == BodyMotion::HOLD || bodyMotion == BodyMotion::SIT_DOWN ||
+           bodyMotion == BodyMotion::SIT_UP;
   }
   /**
    * @brief usesHead indicates whether the body motion uses the head in a way that it can't be used
@@ -284,11 +283,11 @@ public:
   bool usesHead() const
   {
     return bodyMotion == BodyMotion::DEAD || bodyMotion == BodyMotion::KICK ||
-           bodyMotion == BodyMotion::PENALIZED || bodyMotion == BodyMotion::KEEPER ||
+           bodyMotion == BodyMotion::PENALIZED || bodyMotion == BodyMotion::JUMP ||
            bodyMotion == BodyMotion::STAND_UP || bodyMotion == BodyMotion::HOLD;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["bodyMotion"] << static_cast<int>(bodyMotion);
@@ -298,13 +297,13 @@ public:
     value["walkData"] << walkData;
     value["walkStopData"] << walkStopData.gracefully;
     value["kickData"] << kickData;
-    value["keeperData"] << keeperData.keep;
+    value["jumpData"] << jumpData.keep;
     value["headAngleData"] << headAngleData;
     value["headLookAtData"] << headLookAtData;
     value["pointData"] << pointData.relativePoint;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     int readNumber = 0;
     value["bodyMotion"] >> readNumber;
@@ -318,8 +317,8 @@ public:
     value["walkData"] >> walkData;
     value["walkStopData"] >> walkStopData.gracefully;
     value["kickData"] >> kickData;
-    value["keeperData"] >> readNumber;
-    keeperData.keep = static_cast<MotionKeeper>(readNumber);
+    value["jumpData"] >> readNumber;
+    jumpData.keep = static_cast<MotionJump>(readNumber);
     value["headAngleData"] >> headAngleData;
     value["headLookAtData"] >> headLookAtData;
     value["pointData"] >> pointData.relativePoint;

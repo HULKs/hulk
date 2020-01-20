@@ -9,7 +9,6 @@
 #include "Data/CycleInfo.hpp"
 #include "Data/FieldDimensions.hpp"
 #include "Data/GameControllerState.hpp"
-#include "Data/IMUSensorData.hpp"
 #include "Data/ImageData.hpp"
 #include "Data/JointSensorData.hpp"
 #include "Data/LandmarkModel.hpp"
@@ -70,8 +69,6 @@ private:
   const Parameter<float> mergeAngle_;
   /// the maximum association distance of penalty spots in penalty shoout out
   const Parameter<float> maxPSOPenaltySpotAssociationDistance_;
-  /// the max gyro norm when measuring
-  const Parameter<float> maxGyroNormWhenMeasuring_;
   /// if set to true, the hypotheses will be spread along the whole sideline
   const Parameter<bool> startAnywhereAtSidelines_;
   /// the maximum number of hypotheses
@@ -95,16 +92,12 @@ private:
   const Dependency<CycleInfo> cycleInfo_;
   /// the dimensions of the field, as well as some methods to check position in field coordinates
   const Dependency<FieldDimensions> fieldDimensions_;
-  /// the imu data from the imu sensor
-  const Dependency<IMUSensorData> IMUSensorData_;
   /// a reference to the odometry offset
   const Dependency<OdometryOffset> odometryOffset_;
   /// a reference to the camera matrix
   const Dependency<CameraMatrix> cameraMatrix_;
   /// current game controller state
   const Dependency<GameControllerState> gameControllerState_;
-  /// raw game controller state
-  const Dependency<RawGameControllerState> rawGameControllerState_;
   /// configuration for this particular player
   const Dependency<PlayerConfiguration> playerConfiguration_;
   /// landmarks for sensor resetting / pose updates

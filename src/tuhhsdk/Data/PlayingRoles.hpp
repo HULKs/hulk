@@ -11,11 +11,12 @@ enum class PlayingRole
 {
   NONE = 0,
   KEEPER = 1,
-  DEFENDER = 2,
-  SUPPORT_STRIKER = 3,
-  STRIKER = 4,
-  BISHOP = 5,
-  REPLACEMENT_KEEPER = 6
+  DEFENDER_LEFT = 2,
+  DEFENDER_RIGHT = 3,
+  SUPPORT_STRIKER = 4,
+  STRIKER = 5,
+  BISHOP = 6,
+  REPLACEMENT_KEEPER = 7
 };
 
 inline void operator>>(const Uni::Value& in, PlayingRole& out)
@@ -39,23 +40,21 @@ public:
   PlayingRole role = PlayingRole::NONE;
   /// the roles of all players (playerNumber-1 → role)
   std::vector<PlayingRole> playerRoles;
-  /**
-   * @brief reset sets the ball to a defined state
-   */
-  void reset()
+
+  void reset() override
   {
     role = PlayingRole::NONE;
     playerRoles.clear();
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["role"] << role;
     value["playerRoles"] << playerRoles;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["role"] >> role;
     value["playerRoles"] >> playerRoles;

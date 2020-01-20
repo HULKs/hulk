@@ -17,6 +17,7 @@ BodyPoseEstimation::BodyPoseEstimation(const ModuleManagerInterface& manager)
   , xdMax_(*this, "xdMax", [] {})
   , ydMin_(*this, "ydMin", [] {})
   , ydMax_(*this, "ydMax", [] {})
+  , maxGyroNormNotWonky_(*this, "maxGyroNormNotWonky", [] {})
   , cycleInfo_(*this)
   , standUpResult_(*this)
   , imuSensorData_(*this)
@@ -52,6 +53,7 @@ BodyPoseEstimation::BodyPoseEstimation(const ModuleManagerInterface& manager)
 void BodyPoseEstimation::cycle()
 {
   detectFalling();
+  detectWonky();
   determineFootContact();
   determineSupportFoot();
 }
@@ -105,6 +107,11 @@ void BodyPoseEstimation::detectFalling()
   bodyPose_->fallDirection = fallDirection_;
   bodyPose_->timeWhenFallen = timeWhenFallen_;
   bodyPose_->lastMotionBeforeFallen = lastMotionBeforeFallen_;
+}
+
+void BodyPoseEstimation::detectWonky()
+{
+  bodyPose_->wonky = imuSensorData_->gyroscope.norm() > maxGyroNormNotWonky_();
 }
 
 void BodyPoseEstimation::determineFootContact()

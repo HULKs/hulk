@@ -1,13 +1,24 @@
-/.idea/*
+/**/.idea/*
+/**/.venv/*
 /.vs/*
 /cmake-build-*
+/.vscode/*
+/.wiki/
+/.ccls-cache/
+/.python-version
+
+/tools/TextToSpeech/.api_key
+/tools/TextToSpeech/*.ogg
 
 CMakeLists.txt.user
 CMakeSettings.json
+compile_commands.json
 settings.json
 install_manifest.txt
 /build*
 /build/
+/webots/filetransport*
+/webots/replay*
 
 /kdev4/*
 *.kdev4
@@ -23,3 +34,4 @@ install_manifest.txt
 *.bt
 *.pyc
 .DS_Store
+.jobs

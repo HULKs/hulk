@@ -25,21 +25,33 @@ enum callback_event
 struct NaoSensorData
 {
   // joint information
-  std::array<float, keys::joints::JOINTS_MAX> jointSensor;      ///< Sensor values of all joints
-  std::array<float, keys::joints::JOINTS_MAX> jointCurrent;     ///< Current values of all joints
-  std::array<float, keys::joints::JOINTS_MAX> jointTemperature; ///< Temperature values of all joints
-  std::array<float, keys::joints::JOINTS_MAX> jointStatus;      ///< Status values of all joints
+  /// Sensor values of all joints
+  std::array<float, keys::joints::JOINTS_MAX> jointSensor;
+  /// Current values of all joints
+  std::array<float, keys::joints::JOINTS_MAX> jointCurrent;
+  /// Temperature values of all joints
+  std::array<float, keys::joints::JOINTS_MAX> jointTemperature;
+  /// Status values of all joints
+  std::array<float, keys::joints::JOINTS_MAX> jointStatus;
 
   // sensor information
-  std::array<float, keys::sensor::SWITCH_MAX> switches; ///< All switch key values
-  std::array<float, keys::sensor::IMU_MAX> imu;         ///< All imu key values
-  std::array<float, keys::sensor::FSR_MAX> fsrLeft;     ///< All left Force Sensitive Resistors (FSR) key values
-  std::array<float, keys::sensor::FSR_MAX> fsrRight;    ///< All right Force Sensitive Resistors (FSR) key values
-  std::array<float, keys::sensor::SONAR_MAX> sonar;     ///< All sonar key values
-  std::array<float, keys::sensor::BATTERY_MAX> battery; ///< All battery key values
+  /// All switch key values
+  std::array<float, keys::sensor::SWITCH_MAX> switches;
+  /// All imu key values
+  std::array<float, keys::sensor::IMU_MAX> imu;
+  /// All left Force Sensitive Resistors (FSR) key values
+  std::array<float, keys::sensor::FSR_MAX> fsrLeft;
+  /// All right Force Sensitive Resistors (FSR) key values
+  std::array<float, keys::sensor::FSR_MAX> fsrRight;
+  /// All sonar key values
+  std::array<float, keys::sensor::SONAR_MAX> sonar;
+  /// All battery key values
+  std::array<float, keys::sensor::BATTERY_MAX> battery;
 
-  TimePoint time; ///< Real time when sensor values were sampled
+  /// Real time when sensor values were sampled
+  TimePoint time;
 
+  /// List of button events that were detected this cycle
   std::vector<callback_event> buttonCallbackList;
 };
 
@@ -52,10 +64,12 @@ enum class NaoVersion
   /// version 4 head or body
   V4,
   /// version 5 head or body
-  V5
+  V5,
+  /// version 6 head or body
+  V6
 };
 
-struct NaoInfo
+struct NaoInfo : public Uni::To
 {
   /// the version of the body
   NaoVersion bodyVersion;
@@ -65,6 +79,15 @@ struct NaoInfo
   std::string bodyName;
   /// a head name, e.g. tuhhnao03
   std::string headName;
+
+  void toValue(Uni::Value& value) const override
+  {
+    value = Uni::Value(Uni::ValueType::OBJECT);
+    value["bodyVersion"] << static_cast<int>(bodyVersion);
+    value["headVersion"] << static_cast<int>(headVersion);
+    value["bodyName"] << bodyName;
+    value["headName"] << headName;
+  }
 };
 
 class Configuration;
@@ -75,13 +98,15 @@ public:
   /**
    * @brief ~RobotInterface a virtual constructor for polymorphism
    */
-  virtual ~RobotInterface() {}
+  virtual ~RobotInterface() = default;
   /**
-   * @brief configure does things that require configuration files to be loaded for the correct location / NAO
-   * This method should be called exactly once.
+   * @brief configure does things that require configuration files to be loaded for the correct
+   * location / NAO
+   * @note This method should be called exactly once.
    * @param config a reference to the Configuration instance
+   * @param naoInfo head and body version/name
    */
-  virtual void configure(Configuration& config) = 0;
+  virtual void configure(Configuration& config, NaoInfo& naoInfo) = 0;
   /**
    * @brief setJointAngles sets the joint angles for the current cycle
    * @param angles the values of all joint angles
@@ -105,15 +130,17 @@ public:
   /**
    * @brief waitAndReadSensorData copies sensor values
    * @param sensors is filled with the sensor data from the last cycle
+   * @return duration between the last and current received sensor data
    */
-  virtual void waitAndReadSensorData(NaoSensorData& data) = 0;
+  virtual float waitAndReadSensorData(NaoSensorData& data) = 0;
   /**
    * @brief getFileRoot returns a path to a directory that contains all files for our program
    * @return a path
    */
   virtual std::string getFileRoot() = 0;
   /**
-   * @brief getDataRoot returns a path where files can be stored during the game, e.g. fileTransport or ReplayRecorder data
+   * @brief getDataRoot returns a path where files can be stored during the game, e.g. fileTransport
+   * or ReplayRecorder data
    * @return a path
    */
   virtual std::string getDataRoot() = 0;
@@ -139,7 +166,7 @@ public:
    */
   virtual AudioInterface& getAudio() = 0;
   /**
-   * @brief getNextCamera
+   * @brief getNextCamera returns the next camera
    * @return the current CameraInterface
    */
   virtual CameraInterface& getNextCamera() = 0;

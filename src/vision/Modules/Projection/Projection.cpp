@@ -1,6 +1,10 @@
 #include "Framework/Module.hpp"
 #include "Tools/Kinematics/KinematicMatrix.h"
 
+#ifdef REPLAY
+#include "Hardware/Replay/ReplayInterface.hpp"
+#endif
+
 #include "Projection.hpp"
 
 
@@ -26,8 +30,13 @@ void Projection::cycle()
   {
     return;
   }
+#ifndef REPLAY
+  const TimePoint timestamp = imageData_->timestamp;
+#else
+  const TimePoint timestamp = reinterpret_cast<ReplayInterface&>(robotInterface()).getRealFrameTime();
+#endif
   // Get the camera matrix for 17 milliseconds after image recording (17 is approximately 1000/30/2)
-  const HeadMatrixWithTimestamp& bufferEntry = headMatrixBuffer_->getBestMatch(imageData_->timestamp
+  const HeadMatrixWithTimestamp& bufferEntry = headMatrixBuffer_->getBestMatch(timestamp
   // Except when in SimRobot because camera images are captured at one exact time point there.
 #ifndef SIMROBOT
   + std::chrono::milliseconds(17)

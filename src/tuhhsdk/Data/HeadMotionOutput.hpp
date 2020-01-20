@@ -18,13 +18,13 @@ public:
   /**
    * @brief reset resets members
    */
-  virtual void reset()
+  void reset() override
   {
     MotionOutput::reset();
     atTarget = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     MotionOutput::toValue(value);
     value["timeWhenReachedTarget"] << timeWhenReachedTarget;
@@ -32,7 +32,7 @@ public:
     value["target"] << target;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     MotionOutput::fromValue(value);
     value["timeWhenReachedTarget"] >> timeWhenReachedTarget;

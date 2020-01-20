@@ -14,14 +14,18 @@ using PRP = PlayingRoleProvider;
 PRP::PlayingRoleProvider(const ModuleManagerInterface& manager)
   : Module(manager)
   , useTeamRole_(*this, "useTeamRole", [] {})
-  , assignBishop_(*this, "assignBishop", [] {})
+  , assignBishop_(
+        *this, "assignBishop", [] {},
+        [this]() { return gameControllerState_->type != CompetitionType::MIXED_TEAM; })
   , assignBishopWithLessThanFourFieldPlayers_(*this, "assignBishopWithLessThanFourFieldPlayers",
                                               [] {})
   , playerOneCanBecomeStriker_(*this, "playerOneCanBecomeStriker", [] {})
   , allowReplacementKeeper_(*this, "allowReplacementKeeper", [] {})
   , playerOneDistanceThreshold_(*this, "playerOneDistanceThreshold", [] {})
   , keeperTimeToReachBallPenalty_(*this, "keeperTimeToReachBallPenalty", [] {})
+  , strikeOwnBall_(*this, "strikeOwnBall", [] {})
   , forceRole_(*this, "forceRole", [] {})
+  , ballState_(*this)
   , fieldDimensions_(*this)
   , playerConfiguration_(*this)
   , robotPosition_(*this)
@@ -31,6 +35,7 @@ PRP::PlayingRoleProvider(const ModuleManagerInterface& manager)
   , bodyPose_(*this)
   , cycleInfo_(*this)
   , timeToReachBall_(*this)
+  , walkingEngineWalkOutput_(*this)
   , worldState_(*this)
   , playingRoles_(*this)
 {
@@ -71,26 +76,14 @@ void PRP::cycle()
     return;
   }
 
-  // 2. Find striker if there is no ongoing enemy free kick
-
-  // check for referee mistake: If the ball is inside our half AND we are NOT the kickingTeam
-  // AND there is an ongoing GOALFreeKick: The ref most likely clicked the wrong GoalFreeKick
-  // button. We will ignore the GC in this case.
-  const bool forceFreeKickStriker =
-      teamBallModel_->seen && gameControllerState_->setPlay == SetPlay::GOAL_FREE_KICK &&
-      !gameControllerState_->kickingTeam && worldState_->ballInOwnHalf;
-
-  if (gameControllerState_->setPlay == SetPlay::NONE || forceFreeKickStriker ||
-      gameControllerState_->kickingTeam)
-  {
-    assignStriker();
-  }
+  // 2. Assign striker
+  assignStriker();
 
   // 3. Assign keeper
-  assignKeeper();
+  const bool keeperAssigned = assignKeeper();
 
-  // 4. if player one is far away (or nonexistent) assign a replacement keeper
-  if (playerOneIsFarAway() && allowReplacementKeeper_())
+  // 4. if no keeper was assigned or it is far away, assign a replacement keeper
+  if ((!keeperAssigned || playerOneIsFarAway()) && allowReplacementKeeper_())
   {
     assignReplacementKeeper();
   }
@@ -113,7 +106,37 @@ void PRP::cycle()
     }
   }
 
-  // 7. Set last assignment (for hysteresis).
+  // 7. strike the own ball when there is no majority found in TeamBallFilter but an own ball is
+  // confident
+  if (strikeOwnBall_() && !teamBallModel_->found && ballState_->confident)
+  {
+    const Vector2f absBallPosition = robotPosition_->robotToField(ballState_->position);
+    const Vector2f target(fieldDimensions_->fieldLength / 2.f, 0.f);
+    const float ownTimeToReachBall = timeToReachBall_->estimateTimeToReachBall(
+        robotPosition_->pose, absBallPosition, target, bodyPose_->fallen, true,
+        walkingEngineWalkOutput_->maxVelocityComponents,
+        walkingEngineWalkOutput_->walkAroundBallVelocity);
+    bool smallestTimeToReachBall = true;
+    for (const auto& teamPlayer : teamPlayers_->players)
+    {
+      // This is a hack. We use our own maxVelocity as it is hard coded to the same value for all robots anyway.
+      const float teamPlayerTimeToReachBall = timeToReachBall_->estimateTimeToReachBall(
+          teamPlayer.pose, absBallPosition, target, teamPlayer.fallen, true,
+          walkingEngineWalkOutput_->maxVelocityComponents,
+          walkingEngineWalkOutput_->walkAroundBallVelocity);
+      if (teamPlayerTimeToReachBall < ownTimeToReachBall)
+      {
+        smallestTimeToReachBall = false;
+        break;
+      }
+    }
+    if (smallestTimeToReachBall)
+    {
+      playingRoles_->role = PlayingRole::STRIKER;
+    }
+  }
+
+  // 8. Set last assignment (for hysteresis).
   lastAssignment_ = playingRoles_->playerRoles;
 }
 
@@ -124,10 +147,9 @@ void PRP::assignStriker()
                                                       timeToReachBall_->timeToReachBall,
                                                       timeToReachBall_->timeToReachBallStriker)
                               : std::numeric_limits<float>::max();
-  unsigned int strikerNumber =
-      (timeToReachBall_->valid && playingRoles_->role == PlayingRole::NONE)
-          ? playerConfiguration_->playerNumber
-          : 0;
+  unsigned int strikerNumber = (timeToReachBall_->valid && playingRoles_->role == PlayingRole::NONE)
+                                   ? playerConfiguration_->playerNumber
+                                   : 0;
   if (!playerOneCanBecomeStriker_() && playerConfiguration_->playerNumber == 1)
   {
     smallestTimeToReachBall = std::numeric_limits<float>::max();
@@ -159,12 +181,13 @@ void PRP::assignStriker()
   }
 }
 
-void PRP::assignKeeper()
+bool PRP::assignKeeper()
 {
   // the keeper is only assigned to a robot with player number one
   if (playingRoles_->role == PlayingRole::NONE && playerConfiguration_->playerNumber == 1)
   {
     updateRole(1, PlayingRole::KEEPER);
+    return true;
   }
   for (const auto& teamPlayer : teamPlayers_->players)
   {
@@ -176,14 +199,17 @@ void PRP::assignKeeper()
     if (teamPlayer.playerNumber == 1)
     {
       updateRole(1, PlayingRole::KEEPER);
+      return true;
     }
   }
+  return false;
 }
 
 void PRP::assignReplacementKeeper()
 {
   float smallestDistanceToOwnGoal =
-      robotPosition_->valid && playingRoles_->role == PlayingRole::NONE
+      robotPosition_->valid && (playingRoles_->role == PlayingRole::NONE ||
+                                playingRoles_->role == PlayingRole::KEEPER)
           ? getDistanceToGoal(robotPosition_->pose.position, playerConfiguration_->playerNumber)
           : std::numeric_limits<float>::max();
   unsigned int replaceKeeperNumber =
@@ -192,8 +218,10 @@ void PRP::assignReplacementKeeper()
           : 0;
   for (const auto& teamPlayer : teamPlayers_->players)
   {
+    // Skip all players that are penalized or already have a role assigned (except keeper)
     if (teamPlayer.penalized ||
-        playingRoles_->playerRoles[teamPlayer.playerNumber - 1] != PlayingRole::NONE)
+        (playingRoles_->playerRoles[teamPlayer.playerNumber - 1] != PlayingRole::NONE &&
+         playingRoles_->playerRoles[teamPlayer.playerNumber - 1] != PlayingRole::KEEPER))
     {
       continue;
     }
@@ -205,18 +233,21 @@ void PRP::assignReplacementKeeper()
       smallestDistanceToOwnGoal = distanceToOwnGoal;
     }
   }
-  if (replaceKeeperNumber != 0)
+  // only assign replacement keeper if we have a valid candidate.
+  // Note: if replaceKeeperNumber == 1 then the keeper is the nearest player to the goal. No
+  // replacement keeper is assigned then
+  if (replaceKeeperNumber != 0 && replaceKeeperNumber != 1)
   {
     updateRole(replaceKeeperNumber, PlayingRole::REPLACEMENT_KEEPER);
   }
 }
 
-float PRP::getDistanceToGoal(const Vector2f position, const unsigned int playerNumber) const
+float PRP::getDistanceToGoal(const Vector2f& position, const unsigned int playerNumber) const
 {
   float distanceToOwnGoal = (position - Vector2f(-fieldDimensions_->fieldLength / 2, 0.f)).norm();
   if (lastRoleOf(playerNumber) == PlayingRole::KEEPER)
   {
-    distanceToOwnGoal -= 0.2f;
+    distanceToOwnGoal -= 0.5f;
   }
   return distanceToOwnGoal;
 }
@@ -246,7 +277,8 @@ bool PRP::playerOneIsFarAway()
     }
   }
   const float hysteresis = 0.25f;
-  playerOneWasFarAway_ = Hysteresis<float>::greaterThan(playerOneToOwnGoal.norm(), playerOneDistanceThreshold_(), hysteresis, playerOneWasFarAway_);
+  playerOneWasFarAway_ = Hysteresis<float>::greaterThan(
+      playerOneToOwnGoal.norm(), playerOneDistanceThreshold_(), hysteresis, playerOneWasFarAway_);
   return playerOneWasFarAway_;
 }
 
@@ -256,7 +288,7 @@ void PRP::assignRemainingPlayerRoles()
   if (playingRoles_->playerRoles[playerConfiguration_->playerNumber - 1] == PlayingRole::NONE)
   {
     remainingPlayers.emplace_back(playerConfiguration_->playerNumber,
-                                  robotPosition_->pose.position.x());
+                                  robotPosition_->pose.position);
   }
   for (const auto& teamPlayer : teamPlayers_->players)
   {
@@ -265,7 +297,7 @@ void PRP::assignRemainingPlayerRoles()
     {
       continue;
     }
-    remainingPlayers.emplace_back(teamPlayer.playerNumber, teamPlayer.pose.position.x());
+    remainingPlayers.emplace_back(teamPlayer.playerNumber, teamPlayer.pose.position);
   }
   // With no or one remaining robot no hysteresis or fancy selection needs to be done.
   if (remainingPlayers.empty())
@@ -275,7 +307,9 @@ void PRP::assignRemainingPlayerRoles()
   else if (remainingPlayers.size() == 1)
   {
     // One remaining field player should be defender.
-    updateRole(remainingPlayers[0].playerNumber, PlayingRole::DEFENDER);
+    updateRole(remainingPlayers[0].playerNumber, worldState_->ballInLeftHalf
+                                                     ? PlayingRole::DEFENDER_LEFT
+                                                     : PlayingRole::DEFENDER_RIGHT);
     return;
   }
   // The x coordinates are artificially increased/decreased depending on the last role.
@@ -284,21 +318,26 @@ void PRP::assignRemainingPlayerRoles()
   {
     switch (lastRoleOf(player.playerNumber))
     {
-      case PlayingRole::DEFENDER:
-        player.x -= 0.2f;
+      case PlayingRole::DEFENDER_LEFT:
+        player.position.x() -= 0.2f;
+        player.position.y() += 0.2f;
+        break;
+      case PlayingRole::DEFENDER_RIGHT:
+        player.position.x() -= 0.2f;
+        player.position.y() -= 0.2f;
         break;
       case PlayingRole::SUPPORT_STRIKER:
-        player.x += 0.2f;
+        player.position.x() += 0.2f;
         break;
       case PlayingRole::BISHOP:
-        player.x += 0.3f;
+        player.position.x() += 0.3f;
         break;
       default:
         break;
     }
   }
   std::sort(remainingPlayers.begin(), remainingPlayers.end(),
-            [](const Player& p1, const Player& p2) { return p1.x < p2.x; });
+            [](const Player& p1, const Player& p2) { return p1.position.x() < p2.position.x(); });
   auto bishopOrSupporter = [&](unsigned int candidate) -> PlayingRole {
     if (!assignBishop_())
     {
@@ -325,15 +364,25 @@ void PRP::assignRemainingPlayerRoles()
       }
     }
 
-    bool assignBishop;
+    if (gameControllerState_->setPlay != SetPlay::NONE)
+    {
+      // We want a bishop if we are the kicking team. Also, a bishop is assigned if we had one
+      // before to prevent it from crossing the field when we are not the kicking team
+      if (gameControllerState_->kickingTeam || hadBishop)
+      {
+        return PlayingRole::BISHOP;
+      }
+      else
+      {
+        return PlayingRole::SUPPORT_STRIKER;
+      }
+    }
+
+    bool assignBishop = hadBishop;
     if (teamBallModel_->ballType != TeamBallModel::BallType::NONE)
     {
-      const float threshAssignBishop = hadBishop ? 2.f : 1.f;
+      const float threshAssignBishop = hadBishop ? 1.0f : 0.0f;
       assignBishop = (teamBallModel_->position.x() < threshAssignBishop);
-    }
-    else
-    {
-      assignBishop = hadBishop;
     }
     return (assignBishop ? PlayingRole::BISHOP : PlayingRole::SUPPORT_STRIKER);
   };
@@ -341,7 +390,9 @@ void PRP::assignRemainingPlayerRoles()
   {
     // Of two remaining field players one should be defender and the other one should be supporter
     // or bishop.
-    updateRole(remainingPlayers[0].playerNumber, PlayingRole::DEFENDER);
+    updateRole(remainingPlayers[0].playerNumber, worldState_->ballInLeftHalf
+                                                     ? PlayingRole::DEFENDER_LEFT
+                                                     : PlayingRole::DEFENDER_RIGHT);
     updateRole(remainingPlayers[1].playerNumber,
                bishopOrSupporter(remainingPlayers[1].playerNumber));
   }
@@ -349,8 +400,7 @@ void PRP::assignRemainingPlayerRoles()
   {
     // This is the maximum situation in normal games.
     // Two robots should be defender and one should be supporter or bishop.
-    updateRole(remainingPlayers[0].playerNumber, PlayingRole::DEFENDER);
-    updateRole(remainingPlayers[1].playerNumber, PlayingRole::DEFENDER);
+    assignDefenders(remainingPlayers[0], remainingPlayers[1]);
     updateRole(remainingPlayers[2].playerNumber,
                bishopOrSupporter(remainingPlayers[2].playerNumber));
   }
@@ -358,8 +408,7 @@ void PRP::assignRemainingPlayerRoles()
   {
     // This happens only in mixed team games.
     // Full line-up, two defenders, one supporter and one bishop.
-    updateRole(remainingPlayers[0].playerNumber, PlayingRole::DEFENDER);
-    updateRole(remainingPlayers[1].playerNumber, PlayingRole::DEFENDER);
+    assignDefenders(remainingPlayers[0], remainingPlayers[1]);
     updateRole(remainingPlayers[2].playerNumber, PlayingRole::SUPPORT_STRIKER);
     updateRole(remainingPlayers[3].playerNumber, PlayingRole::BISHOP);
   }
@@ -368,6 +417,17 @@ void PRP::assignRemainingPlayerRoles()
     assert(false);
   }
 }
+
+
+void PRP::assignDefenders(const PRP::Player& firstPlayer, const PRP::Player& secondPlayer)
+{
+  const bool firstPlayerLeftOfSecondPlayer = firstPlayer.position.y() > secondPlayer.position.y();
+  updateRole(firstPlayer.playerNumber, firstPlayerLeftOfSecondPlayer ? PlayingRole::DEFENDER_LEFT
+                                                                     : PlayingRole::DEFENDER_RIGHT);
+  updateRole(secondPlayer.playerNumber, firstPlayerLeftOfSecondPlayer ? PlayingRole::DEFENDER_RIGHT
+                                                                      : PlayingRole::DEFENDER_LEFT);
+}
+
 
 void PRP::updateRole(const unsigned int playerNumber, const PlayingRole role)
 {
@@ -384,9 +444,13 @@ PlayingRole PlayingRoleProvider::toRole(const std::string& configRole) const
   {
     return PlayingRole::KEEPER;
   }
-  else if (configRole == "defender")
+  else if (configRole == "defenderLeft")
   {
-    return PlayingRole::DEFENDER;
+    return PlayingRole::DEFENDER_LEFT;
+  }
+  else if (configRole == "defenderRight")
+  {
+    return PlayingRole::DEFENDER_RIGHT;
   }
   else if (configRole == "striker")
   {
@@ -422,7 +486,7 @@ float PRP::actualTimeToReachBall(const unsigned int playerNumber, const float ti
   }
   const bool wasKeeper = lastRoleOf(playerNumber) == PlayingRole::KEEPER;
   const bool wasReplacementKeeper = lastRoleOf(playerNumber) == PlayingRole::REPLACEMENT_KEEPER;
-  if(wasKeeper || wasReplacementKeeper)
+  if (wasKeeper || wasReplacementKeeper)
   {
     // last keeper and replacement keeper get penalty
     return timeToReachBall + keeperTimeToReachBallPenalty_();

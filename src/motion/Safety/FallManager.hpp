@@ -37,10 +37,17 @@ private:
    * @param fallDirection the falling direction tendency
    */
   void prepareFalling(const FallDirection fallDirection);
+  /**
+   * @brief stiffnessController will adjust head joint stiffnesses to rapidly reach destination and
+   * relax once reached.
+   */
+  void stiffnessController();
   /// the name of the motion file for kneeing
   const Parameter<std::string> kneeDownMotionFile_;
   /// whether the FallManager is enabled to do something
   const Parameter<bool> enabled_;
+  /// Head joint rapid reach stiffness
+  const Parameter<float> rapidReachStiffness_;
   /// a reference to the motion activation
   const Dependency<MotionActivation> motionActivation_;
   /// a reference to the motion request
@@ -61,10 +68,16 @@ private:
   const Parameter<unsigned int> catchFrontDuration_;
   /// the catch front hip pitch
   Parameter<float> catchFrontHipPitch_;
+  /// Head yaw stiffness increase threshold
+  Parameter<float> headYawStiffnessThresh_;
+  /// Head pitch stiffness increase threshold
+  Parameter<float> headPitchStiffnessThresh_;
   /// motion file for kneeing
   MotionFilePlayer kneeDown_;
   /// time that the fall prevention motion needs (milliseconds)
   int timerClock_;
   /// the last fall manager output
   std::vector<float> lastAngles_;
+  /// the time catch front last triggered
+  TimePoint timeCatchFrontLastTriggered_;
 };

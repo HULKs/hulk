@@ -2,9 +2,10 @@
 
 #include <list>
 
+#include "Definitions/RoboCupGameControlData.h"
 #include "Data/PlayingRoles.hpp"
-#include "Definitions/BHULKsStandardMessage.h"
 #include "Framework/DataType.hpp"
+#include "Network/SPLNetwork/HULKsMessage.hpp"
 #include "Tools/Math/Eigen.hpp"
 #include "Tools/Math/Pose.hpp"
 #include "Tools/Time.hpp"
@@ -43,13 +44,11 @@ struct RawTeamPlayer : public Uni::To, public Uni::From
   /// time when the robot has seen the ball
   TimePoint timeWhenBallWasSeen;
   /// the obstacles this robot reported (from his local obstacle model) - distances in meters!
-  std::vector<B_HULKs::Obstacle> localObstacles;
+  std::vector<HULKs::Obstacle> localObstacles;
   /// whether the robot is fallen
   bool fallen = true;
   /// whether the robot is penalized
   bool penalized = true;
-  /// if keeper wants to play ball
-  bool keeperWantsToPlayBall = false;
   /// the role the player currently performs
   PlayingRole currentlyPerformingRole = PlayingRole::NONE;
   /// the roles this player would asign to everyone
@@ -78,7 +77,7 @@ struct RawTeamPlayer : public Uni::To, public Uni::From
   std::array<bool, MAX_NUM_PLAYERS> suggestedSearchPositionsValidity;
   /// if the robot is available for searching for the ball.
   bool isAvailableForBallSearch = false;
-  /// player with the oldest, continously updated map
+  /// player with the oldest, continuously updated map
   unsigned int mostWisePlayerNumber = 0;
 
   void toValue(Uni::Value& value) const override
@@ -93,9 +92,9 @@ struct RawTeamPlayer : public Uni::To, public Uni::From
     value["ballPosition"] << ballPosition;
     value["ballVelocity"] << ballVelocity;
     value["timeWhenBallWasSeen"] << timeWhenBallWasSeen;
+    value["localObstacles"] << localObstacles;
     value["fallen"] << fallen;
     value["penalized"] << penalized;
-    value["keeperWantsToPlayBall"] << keeperWantsToPlayBall;
     value["currentlyPerformingRole"] << currentlyPerformingRole;
     value["roleAssignments"] << roleAssignments;
     value["headYaw"] << headYaw;
@@ -125,9 +124,9 @@ struct RawTeamPlayer : public Uni::To, public Uni::From
     value["ballPosition"] >> ballPosition;
     value["ballVelocity"] >> ballVelocity;
     value["timeWhenBallWasSeen"] >> timeWhenBallWasSeen;
+    value["localObstacles"] >> localObstacles;
     value["fallen"] >> fallen;
     value["penalized"] >> penalized;
-    value["keeperWantsToPlayBall"] >> keeperWantsToPlayBall;
     value["currentlyPerformingRole"] >> valueRead;
     currentlyPerformingRole = static_cast<PlayingRole>(valueRead);
     value["roleAssignments"] >> roleAssignments;

@@ -4,7 +4,8 @@ project(tuhh)
 #set sources of your project here
 set(TUHHSDK_SOURCES
   Data/MirrorableMotionOutput.cpp
-  Definitions/BHULKsStandardMessage.cpp
+  Definitions/DevilSmashStandardMessage.cpp
+  Definitions/DevilSmashStandardMessageTest.cpp
   Definitions/keys.cpp
   Framework/Database.cpp
   Framework/DebugDatabase.cpp
@@ -38,16 +39,12 @@ set(TUHHSDK_SOURCES
   Tools/Math/Correlation.cpp
   Tools/Math/FFT.cpp
   Tools/Math/HungarianMethod.cpp
-  Tools/Math/KalmanFilter.cpp
   Tools/Math/Random.cpp
-  Tools/StateEstimation/Covariance.hpp
-  Tools/StateEstimation/ProjectionMeasurementModel.hpp
-  Tools/StateMachine/Option.hpp
   Tools/Storage/Image.cpp
   Tools/Storage/Image422.cpp
-  Tools/Storage/XPMImage.cpp
   Tools/Storage/UniValue/UniValue.cpp
   Tools/Storage/UniValue/UniValue2JsonString.cpp
+  Tools/Storage/XPMImage.cpp
   Tools/Time.cpp
   tuhh.cpp
 )
@@ -56,37 +53,44 @@ set(TUHHSDK_HEADERS
   Data/AudioData.hpp
   Data/BallData.hpp
   Data/BallSearchMap.hpp
+  Data/BallSearchPosition.hpp
   Data/BallState.hpp
+  Data/BallSeeds.hpp
   Data/BatteryData.hpp
+  Data/BoxCandidates.hpp
   Data/BishopPosition.hpp
   Data/BodyPose.hpp
   Data/BodyRotationData.hpp
-  Data/BallSearchPosition.hpp
   Data/ButtonData.hpp
   Data/CameraMatrix.hpp
   Data/CircleData.hpp
   Data/CycleInfo.hpp
+  Data/DefenderAction.hpp
   Data/DefendingPosition.hpp
   Data/EyeLEDRequest.hpp
+  Data/FakeImageData.hpp
   Data/FallManagerOutput.hpp
   Data/FieldBorder.hpp
   Data/FieldColor.hpp
   Data/FieldDimensions.hpp
+  Data/FilteredRobots.hpp
   Data/FilteredSegments.hpp
+  Data/FreeKickPose.hpp
   Data/FSRSensorData.hpp
   Data/GameControllerState.hpp
   Data/GoalData.hpp
   Data/HeadPositionData.hpp
   Data/HeadMatrixBuffer.hpp
   Data/HeadMotionOutput.hpp
-  Data/FakeImageData.hpp
+  Data/IMUSensorData.hpp
   Data/ImageData.hpp
   Data/ImageSegments.hpp
-  Data/IMUSensorData.hpp
+  Data/IntegralImageData.hpp
   Data/JointCalibrationData.hpp
   Data/JointSensorData.hpp
   Data/KeeperAction.hpp
-  Data/KeeperOutput.hpp
+  Data/JumpAction.hpp
+  Data/JumpOutput.hpp
   Data/KickConfigurationData.hpp
   Data/KickOutput.hpp
   Data/LandmarkModel.hpp
@@ -97,6 +101,7 @@ set(TUHHSDK_HEADERS
   Data/MotionPlannerOutput.hpp
   Data/MotionRequest.hpp
   Data/MotionState.hpp
+  Data/NetworkServiceData.hpp
   Data/NTPData.hpp
   Data/ObstacleData.hpp
   Data/OdometryData.hpp
@@ -106,10 +111,11 @@ set(TUHHSDK_HEADERS
   Data/PenaltyKeeperAction.hpp
   Data/PlayerConfiguration.hpp
   Data/PlayingRoles.hpp
+  Data/PointOfInterests.hpp
   Data/PointOutput.hpp
+  Data/PoserOutput.hpp
   Data/RawTeamPlayers.hpp
   Data/ReplayData.hpp
-  Data/PoserOutput.hpp
   Data/RobotData.hpp
   Data/RobotKinematics.hpp
   Data/RobotPosition.hpp
@@ -127,27 +133,28 @@ set(TUHHSDK_HEADERS
   Data/TeamPlayers.hpp
   Data/TimeToReachBall.hpp
   Data/WalkGenerator.hpp
-  Data/WalkingEngineWalkOutput.hpp
   Data/WalkingEngineStandOutput.hpp
+  Data/WalkingEngineWalkOutput.hpp
   Data/WhistleData.hpp
   Data/WorldState.hpp
-  Definitions/BHULKsStandardMessage.h
-  Definitions/keys.h
+  Definitions/DevilSmashStandardMessage.hpp
+  Definitions/DevilSmashStandardMessageTest.hpp
   Definitions/RoboCupGameControlData.h
-  Definitions/SPLStandardMessage.h
   Definitions/SPLCoachMessage.h
-  Definitions/windows_definition_fix.hpp
+  Definitions/SPLStandardMessage.h
   Definitions/XPMImages.h
-  Framework/Database.hpp
+  Definitions/keys.h
+  Definitions/windows_definition_fix.hpp
   Framework/DataType.hpp
   Framework/DebugDatabase.hpp
+  Framework/Database.hpp
   Framework/Messaging.hpp
   Framework/Module.hpp
   Framework/ModuleManagerInterface.hpp
   Framework/Thread.hpp
   Hardware/AudioInterface.hpp
-  Hardware/FakeDataInterface.hpp
   Hardware/CameraInterface.hpp
+  Hardware/FakeDataInterface.hpp
   Hardware/RobotInterface.hpp
   Libs/json/json-forwards.h
   Libs/json/json.h
@@ -173,9 +180,9 @@ set(TUHHSDK_HEADERS
   Modules/Network/AlivenessMessage.h
   Modules/Network/AlivenessTransmitter.h
   Modules/Poses.h
-  print.h
   SharedObject.hpp
   SharedObjectManager.hpp
+  Tools/Backtrace/Backtrace.hpp
   Tools/BallUtils.hpp
   Tools/Chronometer.hpp
   Tools/Kinematics/Com.h
@@ -192,47 +199,83 @@ set(TUHHSDK_HEADERS
   Tools/Math/Geometry.hpp
   Tools/Math/HungarianMethod.hpp
   Tools/Math/Hysteresis.hpp
-  Tools/Math/KalmanFilter.h
   Tools/Math/Line.hpp
+  Tools/Math/MovingAverage.hpp
   Tools/Math/Plane.hpp
   Tools/Math/Polygon.hpp
   Tools/Math/ConvexPolygon.hpp
   Tools/Math/Pose.hpp
-  Tools/Math/Range.hpp
   Tools/Math/Random.hpp
+  Tools/Math/Range.hpp
   Tools/Math/Statistics.hpp
   Tools/Math/Velocity.hpp
+  Tools/StateEstimation/Covariance.hpp
+  Tools/StateEstimation/ProjectionMeasurementModel.hpp
+  Tools/StateEstimation/KalmanFilter.hpp
+  Tools/StateEstimation/KalmanFilter_impl.hpp
+  Tools/StateEstimation/UKF.hpp
+  Tools/StateEstimation/UKF_Impl.hpp
+  Tools/StateMachine/Option.hpp
   Tools/Storage/Image.hpp
   Tools/Storage/Image422.hpp
-  Tools/Storage/UniValue/UniConvertible.hpp
+  Tools/Storage/ObjectCandidate.hpp
+  Tools/Storage/UniValue/EigenStreaming.hpp
   Tools/Storage/UniValue/UniValue.h
   Tools/Storage/UniValue/UniValue2Json.hpp
   Tools/Storage/UniValue/UniValue2JsonString.h
-  Tools/Storage/UniValue/EigenStreaming.hpp
   Tools/Storage/XPMImage.hpp
   Tools/Time.hpp
   Tools/Var/SpscQueue.hpp
+  print.h
   tuhh.hpp
 )
 
 set(NAO_SOURCES
-  Hardware/Nao/main.cpp
-  Hardware/Nao/NaoAudio.cpp
-  Hardware/Nao/NaoCamera.cpp
-  Hardware/Nao/NaoFakeData.cpp
-  Hardware/Nao/NaoInterface.cpp
-  Hardware/Nao/SMO.cpp
+  Hardware/Nao/common/main.cpp
+  Hardware/Nao/common/NaoAudio.cpp
+  Hardware/Nao/common/NaoCamera.cpp
+  Hardware/Nao/common/NaoFakeData.cpp
+  Hardware/Nao/common/BatteryDisplay.cpp
+  Hardware/Nao/common/SMO.cpp
+  Hardware/Nao/common/NaoCamera.cpp
+  Hardware/Nao/common/NaoAudio.cpp
   ${TUHHSDK_SOURCES}
 )
 
 set(NAO_HEADERS
-  Hardware/Nao/NaoAudio.hpp
-  Hardware/Nao/NaoCamera.hpp
-  Hardware/Nao/NaoCameraCommon.hpp
-  Hardware/Nao/NaoFakeData.hpp
-  Hardware/Nao/NaoInterface.hpp
-  Hardware/Nao/SMO.h
+  Hardware/Nao/common/NaoAudio.hpp
+  Hardware/Nao/common/NaoCamera.hpp
+  Hardware/Nao/common/NaoCameraCommon.hpp
+  Hardware/Nao/common/NaoFakeData.hpp
+  Hardware/Nao/v6/Nao6Interface.hpp
+  Hardware/Nao/common/SMO.h
+  Hardware/Nao/common/NaoCamera.hpp
+  Hardware/Nao/common/NaoAudio.hpp
   ${TUHHSDK_HEADERS}
+)
+
+set(NAO5_SOURCES
+  Hardware/Nao/v5/NaoInterface.cpp
+  Hardware/Nao/v5/Nao5Camera.cpp
+  ${NAO_SOURCES}
+)
+
+set(NAO5_HEADERS
+  Hardware/Nao/v5/NaoInterface.hpp
+  Hardware/Nao/v5/Nao5Camera.hpp
+  ${NAO_HEADERS}
+)
+
+set(NAO6_SOURCES
+  Hardware/Nao/v6/Nao6Interface.cpp
+  Hardware/Nao/v6/Nao6Camera.cpp
+  ${NAO_SOURCES}
+)
+
+set(NAO6_HEADERS
+  Hardware/Nao/v6/Nao6Interface.hpp
+  Hardware/Nao/v6/Nao6Camera.hpp
+  ${NAO_HEADERS}
 )
 
 set(QT_WEBSOCKET_SOURCES
@@ -270,48 +313,58 @@ set(REPLAY_HEADERS
 set(SIMROBOT_SOURCES
   Hardware/SimRobot/HULKsMenu.cpp
   Hardware/SimRobot/main.cpp
-  Hardware/SimRobot/SimRobotAudio.cpp
   Hardware/SimRobot/SimRobotAdapter.cpp
   Hardware/SimRobot/SimRobotAdapterAdapter.cpp
   Hardware/SimRobot/SimRobotCamera.cpp
   Hardware/SimRobot/SimRobotFakeData.cpp
   Hardware/SimRobot/SimRobotInterface.cpp
+  Hardware/SimRobot/SimRobotNoAudio.cpp
+  Hardware/SimRobot/SimRobotPortAudio.cpp
   ${TUHHSDK_SOURCES}
 )
 
 set(SIMROBOT_HEADERS
   Hardware/SimRobot/HULKsMenu.hpp
-  Hardware/SimRobot/SimRobotAudio.hpp
   Hardware/SimRobot/SimRobotAdapter.hpp
   Hardware/SimRobot/SimRobotAdapterAdapter.hpp
   Hardware/SimRobot/SimRobotCamera.hpp
   Hardware/SimRobot/SimRobotFakeData.hpp
   Hardware/SimRobot/SimRobotInterface.hpp
+  Hardware/SimRobot/SimRobotNoAudio.hpp
+  Hardware/SimRobot/SimRobotPortAudio.hpp
   ${TUHHSDK_HEADERS}
 )
 
 # Tell local targets where config etc. is located.
-if(NOT NAO)
-  if(WIN32)
-    add_definitions(-DLOCAL_FILE_ROOT="${CMAKE_SOURCE_DIR}/home/")
-  else(WIN32)
-    add_definitions(-DLOCAL_FILE_ROOT="${CMAKE_SOURCE_DIR}/webots/")
-  endif(WIN32)
-endif(NOT NAO)
+if(DEFINED ENV{LOCAL_FILE_ROOT})
+  add_definitions(-DLOCAL_FILE_ROOT="$ENV{LOCAL_FILE_ROOT}")
+else()
+  if(NOT NAO)
+    if(WIN32)
+      add_definitions(-DLOCAL_FILE_ROOT="${CMAKE_SOURCE_DIR}/home/")
+    else(WIN32)
+      add_definitions(-DLOCAL_FILE_ROOT="${CMAKE_SOURCE_DIR}/webots/")
+    endif(WIN32)
+  endif(NOT NAO)
+endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 if(NAO)
-  add_executable(${PROJECT_NAME}Nao ${NAO_SOURCES} ${NAO_HEADERS} $<TARGET_OBJECTS:Brain> $<TARGET_OBJECTS:Vision> $<TARGET_OBJECTS:Motion>)
+  if(NAO_V5)
+    add_executable(${PROJECT_NAME}Nao ${NAO5_SOURCES} ${NAO5_HEADERS} $<TARGET_OBJECTS:Brain> $<TARGET_OBJECTS:Vision> $<TARGET_OBJECTS:Motion>)
+  elseif(NAO_V6)
+    add_executable(${PROJECT_NAME}Nao ${NAO6_SOURCES} ${NAO6_HEADERS} $<TARGET_OBJECTS:Brain> $<TARGET_OBJECTS:Vision> $<TARGET_OBJECTS:Motion>)
+  endif(NAO_V5)
   target_include_directories(${PROJECT_NAME}Nao SYSTEM PUBLIC ${TUHH_DEPS_INCLUDE_DIRECTORIES})
   target_link_libraries(${PROJECT_NAME}Nao ${TUHH_DEPS_LIBRARIES})
 
-  if(NAOLIB)
+  if(NAOLIB AND NAO_V5)
     # subtarget for tuhhALModule as external project because it needs a
     # different toolchain
     include(ExternalProject)
     ExternalProject_Add(${PROJECT_NAME}ALModule
-      SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Hardware/Nao
+      SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Hardware/Nao/v5
       DOWNLOAD_COMMAND ""
       UPDATE_COMMAND ""
       CMAKE_ARGS
@@ -322,14 +375,20 @@ if(NAO)
       INSTALL_COMMAND
         ${CMAKE_COMMAND} -E copy lib${PROJECT_NAME}ALModule.so ${CMAKE_CURRENT_BINARY_DIR})
     add_dependencies(${PROJECT_NAME}Nao ${PROJECT_NAME}ALModule)
-  endif(NAOLIB)
+  endif(NAOLIB AND NAO_V5)
 
   assign_source_group(${NAO_SOURCES} ${NAO_HEADERS})
 
   if(NOT WIN32)
-    add_custom_target(postBuildHook ALL
-      COMMAND ../../../../../scripts/linkBuild -t nao -b ${CMAKE_BUILD_TYPE}
-      DEPENDS ${PROJECT_NAME}Nao)
+    if(NAO_V5)
+      add_custom_target(postBuildHook ALL
+        COMMAND ../../../../../scripts/linkBuild -t nao5 -b ${CMAKE_BUILD_TYPE}
+        DEPENDS ${PROJECT_NAME}Nao)
+    elseif(NAO_V6)
+      add_custom_target(postBuildHook ALL
+        COMMAND ../../../../../scripts/linkBuild -t nao6 -b ${CMAKE_BUILD_TYPE}
+        DEPENDS ${PROJECT_NAME}Nao)
+    endif(NAO_V5)
   endif(NOT WIN32)
 endif(NAO)
 
@@ -394,4 +453,10 @@ if(REPLAY)
   target_link_libraries(${PROJECT_NAME}Replay ${TUHH_DEPS_LIBRARIES})
 
   assign_source_group(${REPLAY_SOURCES} ${REPLAY_HEADERS})
+
+  if(NOT WIN32)
+    add_custom_target(postBuildHook ALL
+      COMMAND ../../../../../scripts/linkBuild -t replay -b ${CMAKE_BUILD_TYPE}
+      DEPENDS ${PROJECT_NAME}Replay)
+  endif(NOT WIN32)
 endif(REPLAY)

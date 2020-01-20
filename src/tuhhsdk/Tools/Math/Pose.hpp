@@ -1,8 +1,9 @@
 #pragma once
 
-#include <Tools/Storage/UniValue/UniConvertible.hpp>
+#include <Tools/Storage/UniValue/UniValue.h>
 
 #include "Tools/Math/Eigen.hpp"
+#include "Tools/Math/Hysteresis.hpp"
 
 class Pose : public Uni::To, public Uni::From
 {
@@ -72,6 +73,20 @@ public:
   Pose operator*(const Pose& other) const
   {
     return Pose(*this * other.position, orientation + other.orientation);
+  }
+  /*
+   * @brief checks if another pose is similar to this one
+   * @param other the Pose that should be checked for equality
+   * @param positionThreshold the difference between the two positions has to be smaller than this
+   * to be similar
+   * @param orientationThreshold the difference between the orientations has to be smaller than this
+   * to be similar
+   * */
+  bool isSimilar(const Pose& other, const float positionThreshold,
+                 const float orientationThreshold) const
+  {
+    return (position - other.position).norm() < positionThreshold &&
+           Hysteresis<float>::equalTo(orientation, other.orientation, orientationThreshold);
   }
   /**
    * @brief calculateGlobalOrientation rotates a Vector2 into global coordinates

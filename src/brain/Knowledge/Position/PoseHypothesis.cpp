@@ -219,7 +219,7 @@ PoseHypothesis::findAssociatedLine(const Line<float>& relativeLine, const Vector
   {
     const float fieldLineLength = (fieldLine.p1 - fieldLine.p2).squaredNorm();
     angle = angularMetric(absoluteLine.p1 - absoluteLine.p2, fieldLine.p1 - fieldLine.p2);
-    centerPointDistance = Geometry::distPointToLineSegment(fieldLine, centerOfLineSegment);
+    centerPointDistance = Geometry::getLineSegmentDistance(fieldLine, centerOfLineSegment);
     if (angle > badAngleThreshold ||
         (centerPointDistance > badDistanceThreshold && pruneByDistanceThreshold) ||
         (lineLength > fieldLineLength && (isFieldLineAlongAxis(fieldLine) || isLongLine)))

@@ -1,6 +1,12 @@
 {
    "targetPositionTolerance" : 0.002,
    "timeToRest" : 0,
-   "yawMax" : 119,
-   "keepTargetOnImageMaxAngle": 25
+   // Specified in RAD for now because Conditional Params
+   // can't handle angles well at the moment.
+   "yawMax" : [
+	   2.07694,
+	   0.698132
+   ],
+   "keepTargetOnImageMaxAngle": 25,
+   "lookAroundPitch" : 18
 }

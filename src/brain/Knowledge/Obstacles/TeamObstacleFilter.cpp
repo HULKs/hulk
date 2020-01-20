@@ -1,5 +1,6 @@
 #include "Tools/Chronometer.hpp"
 
+#include "Network/SPLNetwork/HULKsMessageHelper.hpp"
 #include "TeamObstacleFilter.hpp"
 
 
@@ -8,7 +9,6 @@ TeamObstacleFilter::TeamObstacleFilter(const ModuleManagerInterface& manager)
   , reclassifyUnknownObstacles_(*this, "reclassifyUnknownObstacles", [] {})
   , goalPostsAreObstacles_(*this, "goalPostsAreObstacles", [] {})
   , teamPlayersAreObstacles_(*this, "teamPlayersAreObstacles", [] {})
-  , robotDetectionGeneratesObstacles_(*this, "robotDetectionGeneratesObstacles", [] {})
   , useOtherRobotsObstacles_(*this, "useOtherRobotsObstacles", [] {})
   , obstacleMergeRadiusSquared_(*this, "obstacleMergeRadiusSquared", [] {})
   , bodyPose_(*this)
@@ -32,8 +32,6 @@ void TeamObstacleFilter::cycle()
     integrateLocalObstacles();
     // add the team players as obstacles
     integrateTeamPlayerKnowledge();
-    // add robots detected by the robot detection
-    integrateRobotDetectionObstacles();
   }
   debug().update(mount_ + ".teamObstacleData", *teamObstacleData_);
 }
@@ -73,14 +71,14 @@ void TeamObstacleFilter::integrateTeamPlayersObstacles(const TeamPlayer& teamPla
 {
   for (const auto& remoteObstacle : teamPlayer.localObstacles)
   {
-    ObstacleType teamObstacleType = static_cast<ObstacleType>(remoteObstacle.type);
+    ObstacleType teamObstacleType = HULKs::hmObstacleTypeToObstacleType(remoteObstacle.type);
     if (teamObstacleType == ObstacleType::GOAL_POST)
     {
       // goal posts need to be skipped, because they are being integrated from the map
       continue;
     }
     updateObstacle({remoteObstacle.center[0], remoteObstacle.center[1]}, teamPlayer.pose,
-                   static_cast<ObstacleType>(remoteObstacle.type));
+                   teamObstacleType);
   }
 }
 
@@ -102,12 +100,6 @@ void TeamObstacleFilter::integrateMapObstacles()
   updateObstacle(ownGoalPostR, {0, 0, 0}, ObstacleType::GOAL_POST, false);
   updateObstacle(opponentGoalPostL, {0, 0, 0}, ObstacleType::GOAL_POST, false);
   updateObstacle(opponentGoalPostR, {0, 0, 0}, ObstacleType::GOAL_POST, false);
-}
-
-void TeamObstacleFilter::integrateRobotDetectionObstacles()
-{
-  // TODO: To be implemented as soon as robots can be detected
-  assert(!robotDetectionGeneratesObstacles_() && "robot detecion obstacles can not be handled yet");
 }
 
 bool TeamObstacleFilter::typeIsAtLeastAsSpecificAndMergable(const ObstacleType first,
@@ -219,5 +211,5 @@ void TeamObstacleFilter::updateObstacle(const Vector2f& newObstaclePosition,
   // the Obstacle could not be merged, thus a new one is added to obstacle vector
   const auto newRadius = obstacleData_->typeToRadius(newType);
   teamObstacleData_->obstacles.emplace_back(newRelativePosition, newAbsolutePosition, newRadius,
-                                                newType);
+                                            newType);
 }

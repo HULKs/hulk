@@ -15,13 +15,13 @@ public:
    * @brief TeamPlayersAugmenter initializes members
    * @param manager reference to module manager interface
    */
-  TeamPlayersAugmenter(const ModuleManagerInterface& manager);
+  explicit TeamPlayersAugmenter(const ModuleManagerInterface& manager);
 
   /**
    * @brief cycle augments the TeamPlayers by adding information about whether a player is inside
    * the own penalty area
    */
-  void cycle();
+  void cycle() override;
 
 private:
   const Dependency<FieldDimensions> fieldDimensions_;

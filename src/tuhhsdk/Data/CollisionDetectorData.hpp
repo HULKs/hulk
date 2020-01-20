@@ -18,7 +18,7 @@ public:
   bool collisionRightRigid;
   bool duelRigid;
 
-  void reset()
+  void reset() override
   {
     collisionLeft = false;
     collisionRight = false;
@@ -29,7 +29,7 @@ public:
     duelRigid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["collisionLeft"] << collisionLeft;
@@ -40,7 +40,7 @@ public:
     value["duelRigid"] << duelRigid;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["collisionLeft"] >> collisionLeft;
     value["collisionRight"] >> collisionRight;

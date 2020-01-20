@@ -18,12 +18,13 @@ public:
   /**
    * @brief reset invalidates the data type
    */
-  void reset()
+  void reset() override
   {
     isKickoffPosition = false;
+    valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["position"] << position;
@@ -31,7 +32,7 @@ public:
     value["isKickoffPosition"] << isKickoffPosition;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["position"] >> position;
     value["valid"] >> valid;

@@ -3,7 +3,7 @@
 source "${BASEDIR}/scripts/lib/logs.sh"
 
 function upload {
-  if [ "$#" -ne 5 ]; then
+  if [ "$#" -ne 6 ]; then
     return 1
   fi
   local BASEDIR="$1"
@@ -11,6 +11,7 @@ function upload {
   local BUILD_TYPE="$3"
   local UPLOAD_CONFIG=$4
   local DELETE_FILES=$5
+  local TARGET=$6
   # files that should be excluded
   local RSYNC_EXCLUDE="--exclude=*webots* --exclude=*.gitkeep --exclude=*.touch"
   # ssh login
@@ -34,15 +35,19 @@ function upload {
   if ${UPLOAD_CONFIG}; then
     ln -s "${BASEDIR}/home/preferences" "${TMP_DIR}/naoqi/preferences"
     ln -s "${BASEDIR}/home/configuration" "${TMP_DIR}/naoqi/configuration"
+    ln -s "${BASEDIR}/home/neuralnets" "${TMP_DIR}/naoqi/neuralnets"
   fi
   ln -s "${BASEDIR}/home/motions" "${TMP_DIR}/naoqi/motions"
   ln -s "${BASEDIR}/home/poses"   "${TMP_DIR}/naoqi/poses"
-  ln -s "${BASEDIR}/build/nao/${BUILD_TYPE}/src/tuhhsdk/libtuhhALModule.so" "${TMP_DIR}/naoqi/lib/libtuhhALModule.so"
-  ln -s "${BASEDIR}/build/nao/${BUILD_TYPE}/src/tuhhsdk/tuhhNao" "${TMP_DIR}/naoqi/bin/tuhhNao"
+  ln -s "${BASEDIR}/home/sounds" "${TMP_DIR}/naoqi/sounds"
+  if [ ! "${TARGET}" == "nao6" ]; then
+    ln -s "${BASEDIR}/build/${TARGET}/${BUILD_TYPE}/src/tuhhsdk/libtuhhALModule.so" "${TMP_DIR}/naoqi/lib/libtuhhALModule.so"
+  fi
+  ln -s "${BASEDIR}/build/${TARGET}/${BUILD_TYPE}/src/tuhhsdk/tuhhNao" "${TMP_DIR}/naoqi/bin/tuhhNao"
 
   # ssh wants the key permissions to be like that
   if [ -e "${SSH_KEY}" ]; then
-    chmod 400 "${SSH_KEY}"
+    chmod 600 "${SSH_KEY}"
   fi
 
   # ssh connection command with parameters; check also the top config part

@@ -384,6 +384,10 @@ public:
     return value_;
   }
 
+protected:
+  /// stores the actual value
+  T value_;
+
 private:
   /**
    * @brief onUpdate is called by the Configuration class whenever the value changes (e.g. over
@@ -395,10 +399,36 @@ private:
     value >> value_;
     callback_();
   }
-  /// stores the actual value
-  T value_;
   /// the callback for value changes
   std::function<void()> callback_;
+};
+
+template <typename T>
+class ConditionalParameter : public Parameter<std::pair<T, T>>
+{
+public:
+  ConditionalParameter(const ModuleBase& module, const std::string& key,
+                       std::function<void()> callback = std::function<void()>(),
+                       std::function<bool()> condition = std::function<bool()>())
+    : Parameter<std::pair<T, T>>(module, key, callback)
+    , condition_(condition)
+  {
+  }
+
+  T& operator()()
+  {
+    auto& value = Parameter<std::pair<T, T>>::operator()();
+    return condition_() ? value.first : value.second;
+  }
+
+  const T& operator()() const
+  {
+    const std::pair<T, T>& value = Parameter<std::pair<T, T>>::operator()();
+    return condition_() ? value.first : value.second;
+  }
+
+private:
+  std::function<bool()> condition_;
 };
 
 template <typename T>

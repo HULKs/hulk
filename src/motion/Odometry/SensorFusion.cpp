@@ -8,7 +8,6 @@ SensorFusion::SensorFusion(const ModuleBase& module)
              setOrientation({0, 0, 0});
            })
   , accelweight_(module, "accelweight", [] {})
-  , sensor_update_rate_(module, "sensor_update_rate", [] {})
   , gravity_(module, "gravity", [] {})
   , gyro_bias_alpha_(module, "gyro_bias_alpha", [] {}) /// TODO: Maybe do some sort of auto calibration
   , acceleration_threshold_(module, "acceleration_threshold", [] {})
@@ -20,10 +19,15 @@ SensorFusion::SensorFusion(const ModuleBase& module)
 {
 }
 
-void SensorFusion::update(const Vector3f& extGyro, const Vector3f& extAccel)
+void SensorFusion::update(const Vector3f& extGyro, const Vector3f& extAccel, const float cycleTime)
 {
+#ifdef NAOV6
+  Vector3d eigenExtGyro(extGyro.x(), extGyro.y(), extGyro.z());
+  Vector3d eigenExtAccel(-extAccel.x(), -extAccel.y(), -extAccel.z());
+#else
   Vector3d eigenExtGyro(extGyro.x(), extGyro.y(), -extGyro.z());
   Vector3d eigenExtAccel(-extAccel.x(), +extAccel.y(), -extAccel.z());
+#endif
 
   if (!initialized_ && eigenExtAccel.norm() >= 1.0)
   {
@@ -39,7 +43,7 @@ void SensorFusion::update(const Vector3f& extGyro, const Vector3f& extAccel)
   }
 
   updateGyroBias(eigenExtGyro, eigenExtAccel);
-  updateOrientationGyro(eigenExtGyro);
+  updateOrientationGyro(eigenExtGyro, cycleTime);
   updateOrientationAccel(eigenExtAccel);
 }
 
@@ -103,15 +107,16 @@ void SensorFusion::calculateOrientation(const Vector3d& /*extGyro*/, const Vecto
   global_to_local_ = Quaterniond(q0, q1, q2, q3);
 }
 
-void SensorFusion::updateOrientationGyro(const Vector3d& extGyro)
+void SensorFusion::updateOrientationGyro(const Vector3d& extGyro, const float cycleTime)
 {
   // See paper page 15
+  // https://www.mdpi.com/1424-8220/15/8/19302/pdf
   Vector3d gyro = extGyro - gyro_bias_;
 
   Quaterniond omega(0, gyro(0), gyro(1), gyro(2));
   Quaterniond dq = omega * global_to_local_;
 
-  global_to_local_.coeffs() += dq.coeffs() * -0.5 / sensor_update_rate_();
+  global_to_local_.coeffs() += dq.coeffs() * -0.5 * cycleTime;
 
   // Last thing to do is normalize the quaternion
   global_to_local_.normalize();

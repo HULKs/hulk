@@ -61,8 +61,8 @@ void SharedObjectManager::start()
 
   loadedSharedObjects_.reserve(uvSharedObjects.size());
   unsigned int numSharedObjects = 0;
-  auto itS = uvSharedObjects.listBegin();
-  auto itE = uvSharedObjects.listEnd();
+  auto itS = uvSharedObjects.vectorBegin();
+  auto itE = uvSharedObjects.vectorEnd();
   for (; itS != itE; itS++)
   {
     std::string sharedObject = (*itS)["sharedObject"].asString();

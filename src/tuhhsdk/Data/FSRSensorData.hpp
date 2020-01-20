@@ -24,7 +24,7 @@ public:
     /// the center of pressure (should not be used)
     Vector2f cop = Vector2f::Zero();
 
-    virtual void toValue(Uni::Value& value) const
+    void toValue(Uni::Value& value) const override
     {
       value = Uni::Value(Uni::ValueType::OBJECT);
       value["frontLeft"] << frontLeft;
@@ -34,7 +34,7 @@ public:
       value["totalWeight"] << totalWeight;
       value["cop"] << cop;
     }
-    virtual void fromValue(const Uni::Value& value)
+    void fromValue(const Uni::Value& value) override
     {
       value["frontLeft"] >> frontLeft;
       value["frontRight"] >> frontRight;
@@ -54,12 +54,12 @@ public:
   /**
    * @brief marks the content as invalid
    */
-  void reset()
+  void reset() override
   {
     valid = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["left"] << left;
@@ -67,7 +67,7 @@ public:
     value["valid"] << valid;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["left"] >> left;
     value["right"] >> right;

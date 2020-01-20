@@ -8,7 +8,7 @@
 #include "Data/MotionRequest.hpp"
 #include "Data/ObstacleData.hpp"
 #include "Data/PlayerConfiguration.hpp"
-#include "Data/RobotData.hpp"
+#include "Data/FilteredRobots.hpp"
 #include "Data/RobotPosition.hpp"
 #include "Data/SonarData.hpp"
 #include "Data/TeamBallModel.hpp"
@@ -38,9 +38,11 @@ private:
   // Parameters
   // The obstacle weight parameters determine how much a robot gets "pushed away" by an obstacle.
   /// flag for using sonar receiver/sensor.
-  const Parameter<bool> enableSonar_;
+  const ConditionalParameter<bool> enableSonar_;
   /// flag for using foot bumper.
-  const Parameter<bool> enableFootBumper_;
+  const ConditionalParameter<bool> enableFootBumper_;
+  /// wether the robot detection should be enabled
+  const Parameter<bool> enableRobotDetection_;
   /// The radius of a ball obstacle [m].
   const Parameter<float> ballRadius_;
   /// The radius size of the free kick area obstacle [m].
@@ -70,7 +72,7 @@ private:
   /// The dependency to the team ball model
   const Dependency<TeamBallModel> teamBallModel_;
   /// The dependency to the robot data, containing relative percepts of other robots
-  const Dependency<RobotData> robotData_;
+  const Dependency<FilteredRobots> filteredRobots_;
   /// The dependency to the robot position
   const Dependency<RobotPosition> robotPosition_;
   /// The dependency to filtered sonar data
@@ -113,10 +115,10 @@ private:
    */
   void processFreeKick();
   /**
-   * @brief processRobotData Integrates the percepts of the
+   * @brief processRobots Integrates the percepts of the
    * robot detection into the local obstacle model
    */
-  void processRobotData();
+  void processRobots();
   /**
    * @brief Updates the obstacleData on config values changes.
    */

@@ -52,7 +52,7 @@ namespace Geometry
       arg = std::abs(arg);
     }
     // calculate the angle in radians
-    angle = arg > 1.f ? 0.f : std::acos(arg);
+    angle = arg < -1.f ? M_PI : arg > 1.f ? 0.f : std::acos(arg);
     return true;
   }
 
@@ -144,8 +144,28 @@ namespace Geometry
   }
 
   /**
+   * @brief Calculate on which side of a line a point is
+   * (https://stackoverflow.com/questions/1560492/how-to-tell-whether-a-point-is-to-the-right-or-left-side-of-a-line)
+   * @param linePoint1 point in the line to which the side is to be calculated
+   * @param linePoint2 point in the line to which the side is to be calculated
+   * @param p the point for which the side shall be calculated
+   * @return 1 for left and -1 for right
+   */
+  inline int sideOfLine(const Vector2f& linePoint1, const Vector2f& linePoint2, const Vector2f& p)
+  {
+    return (linePoint2.x() - linePoint1.x()) * (p.y() - linePoint1.y()) -
+                       (linePoint2.y() - linePoint1.y()) * (p.x() - linePoint1.x()) <
+                   0
+               ? -1
+               : 1;
+  }
+
+  /**
    * @brief getSquaredLineDistance returns the shortest distance between a point and an infinite
    * straight line
+   *
+   * Note that this returns std::numeric_limits<int>::max()/min() in case denominator == 0
+   *
    * @param linePoint1 point in the line to which the distance is to be calculated
    * @param linePoint2 point in the line to which the distance is to be calculated
    * @param p the point from which the distance is to be calculated
@@ -157,6 +177,12 @@ namespace Geometry
                               (linePoint2.x() - linePoint1.x()) * p.y() +
                               linePoint2.x() * linePoint1.y() - linePoint2.y() * linePoint1.x();
     long long int denominator = (linePoint2 - linePoint1).squaredNorm();
+    assert(denominator != 0);
+    if (denominator == 0)
+    {
+      // Return min/max int in case we compiled without assertions
+      return nominator >= 0 ? std::numeric_limits<int>::max() : std::numeric_limits<int>::min();
+    }
     return (nominator * nominator) / denominator;
   }
 
@@ -174,6 +200,9 @@ namespace Geometry
   /**
    * @brief getSquaredLineDistance returns the shortest distance between a point and an infinite
    * straight line
+   *
+   * Note that this returns std::numeric_limits<float>::max()/min() in case denominator == 0
+   *
    * @param linePoint1 point in the line to which the distance is to be calculated
    * @param linePoint2 point in the line to which the distance is to be calculated
    * @param p the point from which the distance is to be calculated
@@ -185,6 +214,12 @@ namespace Geometry
                        (linePoint2.x() - linePoint1.x()) * p.y() + linePoint2.x() * linePoint1.y() -
                        linePoint2.y() * linePoint1.x();
     double denominator = (linePoint2 - linePoint1).squaredNorm();
+    assert(denominator != 0.0);
+    if (denominator == 0.0)
+    {
+      // Return min/max float in case we compiled without assertions
+      return nominator >= 0 ? std::numeric_limits<float>::max() : std::numeric_limits<float>::min();
+    }
     return (nominator * nominator) / denominator;
   }
 
@@ -249,38 +284,50 @@ namespace Geometry
 
   /**
    * @brief http://stackoverflow.com/a/1501725/2169988 (find the shortest distance between a point
-   * and a line segment)
-   * @param lineSegement the line segment to get the distance to
-   * @param point a point which distance to a line is to be computed
-   * @return shortest distance between point and line segment
+   * and a line segment) (modified for squared distance)
+   * @param lineSegement the line segment to get the squared distance to
+   * @param point a point of which the squared distance to a line is to be computed
+   * @return shortest squared distance between point and line segment
    */
-  inline float distPointToLineSegment(const Line<float>& lineSegment, const Vector2f& point)
+  template<typename T>
+  inline T getSquaredLineSegmentDistance(const Line<T>& lineSegment, const Vector2<T>& point)
   {
-    const float l2 = (lineSegment.p2 - lineSegment.p1).squaredNorm();
+    const T l2 = (lineSegment.p2 - lineSegment.p1).squaredNorm();
     if (l2 == 0.0)
     {
-      return (point - lineSegment.p1).norm();
+      return (point - lineSegment.p1).squaredNorm();
     }
 
     // Consider the line extending the segment, parameterized as p1 + t * (p2 - p1).
     // We find projection of point "point" onto the line.
     // It falls where t = [(p - p1) . (p2 - p1)] / |p2 - p1|^2
 
-    const float t = (point - lineSegment.p1).dot(lineSegment.p2 - lineSegment.p1) / l2;
+    const T t = (point - lineSegment.p1).dot(lineSegment.p2 - lineSegment.p1) / l2;
 
     if (t < 0.0)
     {
-      return (point - lineSegment.p1).norm();
+      return (point - lineSegment.p1).squaredNorm();
     }
     else if (t > 1.0)
     {
-      return (point - lineSegment.p2).norm();
+      return (point - lineSegment.p2).squaredNorm();
     }
     const Vector2f projection = lineSegment.p1 + (lineSegment.p2 - lineSegment.p1) * t;
 
-    return (point - projection).norm();
+    return (point - projection).squaredNorm();
   }
 
+  /**
+   * @brief find the shortest distance between a point and a line segment
+   * @param lineSegement the line segment to get the distance to
+   * @param point a point which distance to a line is to be computed
+   * @return shortest distance between point and line segment
+   */
+  template<typename T>
+  inline T getLineSegmentDistance(const Line<T>& lineSegment, const Vector2<T>& point)
+  {
+    return std::sqrt(getSquaredLineSegmentDistance(lineSegment, point));
+  }
 
   /**
    * @brief distLineSegmentToLineSegment calculates the shortest distance between two line segments
@@ -400,8 +447,8 @@ namespace Geometry
                               const float objectInEllipseThreshold)
   {
     const Vector2f centerToObject = objectPosition - ellipseCenter;
-    return (Vector2f(centerToObject.x() / semiAxisX, centerToObject.y() / semiAxisY).norm() <
-            objectInEllipseThreshold);
+    return (Vector2f(centerToObject.x() / semiAxisX, centerToObject.y() / semiAxisY).squaredNorm() <
+            objectInEllipseThreshold * objectInEllipseThreshold);
   }
 
   /**
@@ -424,26 +471,29 @@ namespace Geometry
   getCircleIntersection(const Circle<T>& circle1, const Circle<T>& circle2,
                         std::pair<Vector2<T>, Vector2<T>>& intersection)
   {
-    T distance((circle2.center - circle1.center).norm());
-    if (distance > circle1.radius + circle2.radius)
+    const T squaredDistance((circle2.center - circle1.center).squaredNorm());
+    const T radiusSum = circle1.radius + circle2.radius;
+    if (squaredDistance > radiusSum * radiusSum)
     {
       // no solutions, circles are seperate
       return CircleIntersectionType::NO_INTERSECTION;
     }
-    if (distance < std::abs(circle1.radius - circle2.radius))
+    const T radiusDifference = circle1.radius - circle2.radius;
+    if (squaredDistance < radiusDifference * radiusDifference)
     {
       // no solutions, circle is contained within the other
       return CircleIntersectionType::NO_INTERSECTION;
     }
-    if (distance == 0 && circle1.radius == circle2.radius)
+    if (squaredDistance == 0 && circle1.radius == circle2.radius)
     {
       // no solutions circles are coincident -> inifite number of solutions
       return CircleIntersectionType::INF_INTERSECTIONS;
     }
-    T center1ToIntersectionLine(
-        (circle1.radius * circle1.radius - circle2.radius * circle2.radius + distance * distance) /
+    const T distance = std::sqrt(squaredDistance);
+    const T center1ToIntersectionLine(
+        (circle1.radius * circle1.radius - circle2.radius * circle2.radius + squaredDistance) /
         (2 * distance));
-    T intersectionLineHeight(std::sqrt(circle1.radius * circle1.radius -
+    const T intersectionLineHeight(std::sqrt(circle1.radius * circle1.radius -
                                        center1ToIntersectionLine * center1ToIntersectionLine));
     Vector2<T> middleOnIntersectionLine(circle1.center + center1ToIntersectionLine / distance *
                                                              (circle2.center - circle1.center));
@@ -478,14 +528,14 @@ namespace Geometry
                                        const float circleRadius,
                                        std::pair<Vector2<T>, Vector2<T>>& tangentPoints)
   {
-    Vector2f startToCircleCenter(circleCenter - startPoint);
-    if (startToCircleCenter.norm() <= circleRadius)
+    const T squaredDistance = (circleCenter - startPoint).squaredNorm();
+    if (squaredDistance <= circleRadius * circleRadius)
     {
       // no tangent points possible
       return false;
     }
     // Construct two Circles to get the tangent points
-    getCircleIntersection(Circle<T>(startPoint, startToCircleCenter.norm()),
+    getCircleIntersection(Circle<T>(startPoint, std::sqrt(squaredDistance)),
                           Circle<T>(circleCenter, circleRadius), tangentPoints);
     // calculated the tangent points
     return true;
@@ -538,18 +588,19 @@ namespace Geometry
   }
 
   /**
-   * @brief intersect calculates intersection of two polygons.
+   * @brief intersect calculates intersection of two convex polygons.
    * Make sure that the points ordered counterclockwise.
    * https://www.gamedev.net/forums/topic/518779-oriented-bounding-box---finding-overlap-area/?tab=comments#comment-4370201
    * @param A first convex polygon
    * @param B second convex polygon
-   * @param[out] C intersection polygon (convex)
+   * @param[out] intersection intersection polygon (convex)
    * return whether they intersect
    */
   template <typename T>
-  inline bool intersect(const ConvexPolygon<T>& A, const ConvexPolygon<T>& B, ConvexPolygon<T>& C)
+  inline bool intersect(const ConvexPolygon<T>& A, const ConvexPolygon<T>& B,
+                        ConvexPolygon<T>& intersection)
   {
-    C = B; // copy polygon B to result C
+    intersection = B; // copy polygon B to result intersection
 
     for (unsigned int i = 0, j = A.points.size() - 1; i < A.points.size(); j = i, i++)
     {
@@ -559,10 +610,10 @@ namespace Geometry
       Vector2<T> O(A.points[i]); // plane origin
       Plane<T> P(O, N);          // infinite plane passing through edge
 
-      C = clip(C, P); // 'cut' polygon C with plane P
+      intersection = clip(intersection, P); // 'cut' polygon intersection with plane P
     }
 
-    if (C.points.size() != 0)
+    if (intersection.points.size() != 0)
     {
       return true;
     }
@@ -586,4 +637,21 @@ namespace Geometry
     float intersectionArea = intersection.area();
     return intersectionArea / (A.area() + B.area() - intersectionArea);
   }
+
+  /**
+   * @brief Calculates the percentage of the overlapping area to the total area of the second
+   * polygon.
+   * @param firstPolygon first convex polygon
+   * @param secondPolygon second convex polygon
+   * @return percentage share
+   */
+  template <typename T>
+  float percentageOfIntersection(const ConvexPolygon<T>& firstPolygon,
+                                 const ConvexPolygon<T>& secondPolygon)
+  {
+    ConvexPolygon<T> intersection;
+    Geometry::intersect(firstPolygon, secondPolygon, intersection);
+    return intersection.area() / secondPolygon.area();
+  }
+
 } // namespace Geometry

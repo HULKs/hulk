@@ -6,6 +6,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 
 struct MountedConfiguration
@@ -65,6 +66,7 @@ private:
   std::string naoBodyName_;
   std::string locationName_;
 
+  std::recursive_mutex mountMutex_;
 
   friend class TUHH;
   // Hide constructors.
@@ -122,8 +124,9 @@ public:
    * @param mount the name of the mount point
    * @param name the last part of the file name
    * @param type determines whether the file is head or body specific
+   * @return true if the configuration could be mounted
    */
-  void mount(const std::string& mount, const std::string& name, ConfigurationType type);
+  bool mount(const std::string& mount, const std::string& name, ConfigurationType type);
 
   /**
    * @brief checks if the property is available
@@ -193,7 +196,6 @@ public:
   {
     INVALID_JSON_FILE,
     INVALID_KEY,
-    FILE_NOT_FOUND,
     MOUNT_POINT_NOT_EXISTING,
     KEY_NOT_EXISTING,
     ERROR_WHILE_SAVING,

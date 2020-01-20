@@ -16,15 +16,16 @@ enum class CompetitionPhase
 enum class CompetitionType
 {
   NORMAL = COMPETITION_TYPE_NORMAL,
-  MIXED_TEAM = COMPETITION_TYPE_MIXEDTEAM,
-  GENERAL_PENALTY_KICK = COMPETITION_TYPE_GENERAL_PENALTY_KICK
+  MIXED_TEAM = COMPETITION_TYPE_MIXEDTEAM
 };
 
 enum class SetPlay
 {
   NONE = SET_PLAY_NONE,
   GOAL_FREE_KICK = SET_PLAY_GOAL_FREE_KICK,
-  PUSHING_FREE_KICK = SET_PLAY_PUSHING_FREE_KICK
+  PUSHING_FREE_KICK = SET_PLAY_PUSHING_FREE_KICK,
+  CORNER_KICK = SET_PLAY_CORNER_KICK,
+  KICK_IN = SET_PLAY_KICK_IN
 };
 
 enum class GameState
@@ -71,6 +72,7 @@ enum class Penalty
   REQUEST_FOR_PICKUP = PENALTY_SPL_REQUEST_FOR_PICKUP,
   LOCAL_GAME_STUCK = PENALTY_SPL_LOCAL_GAME_STUCK,
   SUBSTITUTE = PENALTY_SUBSTITUTE,
+  ILLEGAL_POSITIONING = PENALTY_SPL_ILLEGAL_POSITIONING,
   MANUAL = PENALTY_MANUAL
 };
 
@@ -90,18 +92,12 @@ inline void operator<<(Uni::Value& out, const Penalty in)
   out << static_cast<int>(in);
 }
 
-/**
- * @brief GameControllerState is a selection of the data that are provided by the GameController
- * If you need something that is sent by the GameController but not exposed by the GameController
- * module, add it here and make the GameController expose it.
- */
 
-
-class GameControllerState : public DataType<GameControllerState>
+class RawGameControllerState : public DataType<RawGameControllerState>
 {
 public:
   /// the name of this DataType
-  DataTypeName name = "GameControllerState";
+  DataTypeName name = "RawGameControllerState";
   /// the packet number (wraparound is accepted)
   unsigned char packetNumber = 0;
   /// the timestamp when the last message has been received
@@ -130,10 +126,6 @@ public:
   uint8_t kickingTeamNumber = 0;
   /// number of seconds shown as secondary time (remaining ready, until free ball, etc)
   float secondaryTime = 0.f;
-  /// the number of the team that caused the last drop in
-  unsigned int dropInTeam = 0;
-  /// time (seconds) since the last drop in
-  float dropInTime = 0.f;
   /// time (seconds) until the end of the current half
   float remainingTime = 10.f * 60.f;
   /// the jersey color of the team the robot is in
@@ -176,8 +168,6 @@ public:
     value["kickingTeam"] << kickingTeam;
     value["kickingTeamNumber"] << kickingTeamNumber;
     value["secondaryTime"] << secondaryTime;
-    value["dropInTeam"] << dropInTeam;
-    value["dropInTime"] << dropInTime;
     value["remainingTime"] << remainingTime;
     value["teamColor"] << static_cast<int>(teamColor);
     value["score"] << score;
@@ -212,8 +202,6 @@ public:
     value["kickingTeamNumber"] >> numberRead;
     kickingTeamNumber = static_cast<uint8_t>(numberRead);
     value["secondaryTime"] >> secondaryTime;
-    value["dropInTeam"] >> dropInTeam;
-    value["dropInTime"] >> dropInTime;
     value["remainingTime"] >> remainingTime;
     value["teamColor"] >> numberRead;
     teamColor = static_cast<TeamColor>(numberRead);
@@ -227,10 +215,20 @@ public:
   }
 };
 
-
-class RawGameControllerState : public DataType<RawGameControllerState, GameControllerState>
+/**
+ * @brief GameControllerState is a selection of the data that are provided by the GameController
+ * If you need something that is sent by the GameController but not exposed by the GameController
+ * module, add it here and make the GameController expose it.
+ */
+class GameControllerState : public DataType<GameControllerState, RawGameControllerState>
 {
 public:
   /// the name of this DataType
-  DataTypeName name = "RawGameControllerState";
+  DataTypeName name = "GameControllerState";
+
+  GameControllerState& operator=(const RawGameControllerState& rgcs)
+  {
+    *static_cast<RawGameControllerState*>(this) = rgcs;
+    return *this;
+  }
 };

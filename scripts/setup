@@ -4,15 +4,25 @@
 BASEDIR=`cd $(dirname $0); pwd -P`
 BASEDIR=${BASEDIR%/*}
 
+if [ -z "$VCPKG_DIR" ]; then
+  VCPKG_DIR="${BASEDIR}/../vcpkg"
+fi
+
+# Set permissions for ssh key
+chmod 600 "${BASEDIR}/scripts/ssh_key"
+
 source "${BASEDIR}/scripts/lib/msg.sh"
 source "${BASEDIR}/scripts/lib/docker.sh"
 source "${BASEDIR}/scripts/lib/dependencies.sh"
 
 function helpMenu {
-  echo "Usage: $0 TARGET [OPTIONS]"
+  echo "Usage: $0 [Ninja|Unix] TARGET [OPTIONS]"
+  echo ""
+  echo "Ninja|Unix"
+  echo " Specify Generator (default Unix)"
   echo ""
   echo "Target"
-  echo " a target for compilation (one out of nao, replay, simrobot, qt-websocket)"
+  echo " a target for compilation (one out of nao5, nao6, replay, simrobot, qt-websocket)"
   echo ""
   echo "Options"
   echo " target-specific options"
@@ -25,7 +35,7 @@ function run_cmake {
   TARGET="$1"
   shift
   msg -n "Generating files for ${TARGET}."
-  for BUILD_TYPE in Debug Develop Release RelWithDebInfo; do
+  for BUILD_TYPE in Debug Develop DevWithDebInfo Release RelWithDebInfo; do
     DIR="${BASEDIR}/build/${TARGET}/${BUILD_TYPE}"
     rm -rf "${DIR}"
     mkdir -p "${DIR}"
@@ -49,33 +59,53 @@ function run {
     return 1
   fi
 
+  GENERATOR="Unix Makefiles"
+
   case "$1" in
-    nao)
+    Unix)
+      shift
+      ;;
+    Ninja)
+      GENERATOR="Ninja"
+      shift
+      ;;
+  esac
+
+  case "$1" in
+    nao5)
       TOOLCHAIN_DIR="${BASEDIR}/toolchain"
       if [ "$2" = "withoutNaoqi" ]; then
-        if [ ! -e "${TOOLCHAIN_DIR}/hulks" ]; then
+        if [ ! -e "${TOOLCHAIN_DIR}/hulks-v5" ]; then
           msg -e "You need to install a toolchain before compiling for the NAO!"
           return 1
         fi
-        run_cmake nao -DNAO=ON -DNAOLIB=OFF -DTOOLCHAIN_DIR="${TOOLCHAIN_DIR}"
+        run_cmake nao5 -G "${GENERATOR}" -DNAO_V5=ON -DNAOLIB=OFF -DTOOLCHAIN_DIR="${TOOLCHAIN_DIR}"
       else
-        if [ ! -e "${TOOLCHAIN_DIR}/hulks" ] || [ ! -e "${TOOLCHAIN_DIR}/naoqi" ]; then
+        if [ ! -e "${TOOLCHAIN_DIR}/hulks-v5" ] || [ ! -e "${TOOLCHAIN_DIR}/naoqi-v5" ]; then
           msg -e "You need to install a toolchain before compiling for the NAO!"
           return 1
         fi
-      run_cmake nao -DNAO=ON -DNAOLIB=ON -DTOOLCHAIN_DIR="${TOOLCHAIN_DIR}"
+      run_cmake nao5 -G "${GENERATOR}" -DNAO_V5=ON -DNAOLIB=ON -DTOOLCHAIN_DIR="${TOOLCHAIN_DIR}"
       fi
       ;;
+    nao6)
+      TOOLCHAIN_DIR="${BASEDIR}/toolchain"
+      if [ ! -e "${TOOLCHAIN_DIR}/hulks-v6" ]; then
+        msg -e "You need to install a toolchain before compiling for the NAO!"
+        return 1
+      fi
+      run_cmake nao6 -G "${GENERATOR}" -DNAO_V6=ON -DTOOLCHAIN_DIR="${TOOLCHAIN_DIR}"
+      ;;
     replay)
-      run_cmake replay -DREPLAY=ON
+      run_cmake replay -G "${GENERATOR}" -DREPLAY=ON -DCMAKE_TOOLCHAIN_FILE=${VCPKG_DIR}/scripts/buildsystems/vcpkg.cmake
       ;;
     simrobot)
       SIMROBOT_DIR="${BASEDIR}/tools/SimRobot"
       ln -sf "${BASEDIR}/build/simrobot/current/src/tuhhsdk/libtuhhSimRobot.so" "${SIMROBOT_DIR}/build/libtuhhSimRobot.so"
-      run_cmake simrobot -DSIMROBOT=ON
+      run_cmake simrobot -G "${GENERATOR}" -DSIMROBOT=ON -DCMAKE_TOOLCHAIN_FILE=${VCPKG_DIR}/scripts/buildsystems/vcpkg.cmake
       ;;
     qt-websocket)
-      run_cmake qt-websocket -DQT_WEBSOCKET=ON
+      run_cmake qt-websocket -G "${GENERATOR}" -DQT_WEBSOCKET=ON
       ;;
     *)
       msg -e "Unknown target \"$1\"!"

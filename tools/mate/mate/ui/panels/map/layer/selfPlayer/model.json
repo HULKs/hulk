@@ -1,0 +1,49 @@
+{
+    "name": "selfPlayer",
+    "enabled": true,
+    "config": {
+                "center_x": 5.2,
+                "center_y": -3.7,
+                "pose": {
+                    "key": "Brain.RobotPosition",
+                    "keyLambda": "output = input['pose']",
+                    "drawPose": true,
+                    "positionCircleDiameter": 0.28,
+                    "orientationLineLength": 0.28,
+                    "drawPlayerNumber": true,
+                    "fixedColor": "#ffffff",
+                    "useFixedColor": false,
+                    "roleKey": "Brain.PlayingRoles",
+                    "roleKeyLambda": "output = input['role']",
+                    "defaultColor": "#ffffff",
+                    "keeperColor": "#0000ff",
+                    "defenderLeftColor": "#00aa00",
+                    "defenderRightColor": "#00ff00",
+                    "supporterColor": "#ff00ff",
+                    "strikerColor": "#ff0000",
+                    "bishopColor": "#ffff00",
+                    "replacement_keeperColor": "#00ffff"
+                },
+                "fov": {
+                    "jointSensorDataKey": "Motion.JointSensorData",
+                    "jointSensorDataKeyLambda": "output = input['angles']",
+                    "drawFOV": true,
+                    "maxDistance": 2.5,
+                    "cameraOpeningAngle": 60.97
+                },
+                "motionPlan": {
+                    "key": "Brain.MotionPlanner",
+                    "keyLambda": "output = input",
+                    "drawMotionPlan": true,
+                    "targetCircleDiameter": 0.28,
+                    "drawTranslation": false,
+                    "translationColor": "#ff0000"
+                },
+                "ballSearch": {
+                    "key": "Brain.BallSearchPosition",
+                    "keyLambda": "output = input['searchPosition']",
+                    "drawSearchTarget": false,
+                    "searchCircleDiameter": 0.60
+                }
+            }
+}

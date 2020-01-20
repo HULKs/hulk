@@ -18,11 +18,11 @@ ActionCommand support(const DataSet& d)
         relPlayingPose, distanceThreshold, angleThreshold);
 
     return walkToPose(d, relPlayingPose, false, walkMode)
-        .combineHead(activeVision(d, VisionMode::LookAroundBall));
+        .combineHead(activeVision(d, VisionMode::LOOK_AROUND_BALL));
   }
   else
   {
-    Log(LogLevel::WARNING) << "invalid support striker position";
-    return ActionCommand::stand().combineHead(trackBall(d));
+    Log(LogLevel::WARNING) << "Invalid support striker position";
+    return ActionCommand::stand().combineHead(activeVision(d, VisionMode::LOOK_AROUND));
   }
 }

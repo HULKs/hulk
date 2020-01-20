@@ -2,10 +2,11 @@
 
 #include <array>
 
-#include "Framework/DataType.hpp"
 #include "Data/MotionRequest.hpp"
+#include "Framework/DataType.hpp"
 
-class MotionActivation : public DataType<MotionActivation> {
+class MotionActivation : public DataType<MotionActivation>
+{
 public:
   /// the name of this DataType
   DataTypeName name = "MotionActivation";
@@ -24,7 +25,7 @@ public:
   /**
    * @brief reset resets the activations
    */
-  void reset()
+  void reset() override
   {
     activations.fill(0.f);
     headMotionActivation = 0.f;
@@ -33,7 +34,7 @@ public:
     startInterpolation = false;
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["activeMotion"] << static_cast<int>(activeMotion);
@@ -44,7 +45,7 @@ public:
     value["startInterpolation"] << startInterpolation;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     int valueRead = 0;
     value["activeMotion"] >> valueRead;

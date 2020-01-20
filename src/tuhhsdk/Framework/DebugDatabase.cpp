@@ -27,6 +27,35 @@ void DebugDatabase::DebugMap::sendImage(const std::string& key, const Image& ima
   it->second.isImage = true;
 }
 
+void DebugDatabase::DebugMap::playAudio(const std::string& key, const AudioSounds aSound)
+{
+  assert(inUse_.load() == true &&
+         "Map to update was not in use (at least we should mark this map as used)");
+
+  // Inform the DebugDatabase about the requested sound
+  debugDatabase_->requestedSounds_.push(aSound);
+
+  // try to find the given key in the map
+  auto it = debugMap_.find(key);
+  if (it == debugMap_.end())
+  {
+    // Key was not found in map
+    it = debugMap_
+             .emplace(std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple())
+             .first;
+  }
+  else if (it->second.subscribedCount.load() == 0)
+  {
+    // Key was found but is not subscribed. Return to reduce overhead
+    return;
+  }
+
+  // Update the given key value pair.
+  *(it->second.data) = Uni::Value(static_cast<int>(aSound));
+  it->second.updateTime = updateTime_;
+  it->second.isImage = false;
+}
+
 bool DebugDatabase::DebugMap::isSubscribed(const std::string& key)
 {
   const auto debugEntry = debugMap_.find(key);
@@ -154,4 +183,9 @@ void DebugDatabase::finishTransporting()
          "You are trying to unlock a non locked debugMap");
   currentTransportMapUpdateTime_ = currentlyTransportedMap_->updateTime_;
   currentlyTransportedMap_->inUse_.store(false);
+}
+
+bool DebugDatabase::popLastRequestedSound(AudioSounds& aSound) const
+{
+  return requestedSounds_.pop(aSound);
 }

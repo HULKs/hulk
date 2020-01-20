@@ -82,7 +82,7 @@ private:
   /**
    * @brief MostWisePlayer the player with the oldest, continously updated map.
    * This struct saves a pointer to the player with the best map as well as it's player number to
-   * check wether a player got dropped from the network / game
+   * check whether a player got dropped from the network / game
    */
   struct MostWisePlayer
   {
@@ -121,6 +121,15 @@ private:
   const Parameter<float> probabilityWeight_;
   /// The voronoi seeds used to divide the field into search areas.
   const Parameter<std::vector<std::vector<Vector2f>>> voronoiSeeds_;
+  /// The voronoi seeds used to divide the field into search areas during corner kick.
+  const Parameter<std::vector<std::vector<Vector2f>>> cornerKickVoronoiSeeds_;
+  /// The maximum distance from keeper to goal before replacement keeper is assigned
+  const Parameter<float> keeperReach_;
+  /// Replacement keeper needs to be this much closer to goal than keeper in order to be assigned as
+  /// replacement keeper
+  const Parameter<float> replacementKeeperAdvantage_;
+  /// Whether a replacement keeper should be assigned if only one active player is playing
+  const Parameter<bool> isOnePlayerReplacementKeeper_;
 
   /// The position to look for a ball.
   Production<BallSearchPosition> searchPosition_;
@@ -151,6 +160,19 @@ private:
   /// Field with in m
   const float fieldWidth_;
 
+  /// True when keeper is not penalized
+  bool keeperIsInActivePlayers_ = false;
+  /// True when keeper is close to the keeper position in goal
+  bool keeperIsNearGoal_ = false;
+  /// indicate if search areas are cleared
+  bool searchAreasCleared_ = false;
+  /// current position of keeper (player 1)
+  Vector2f keeperPosition_{0, 0};
+  /// position in goal in which keeper is supposed to stand
+  Vector2f goalPosition_ = Vector2f((-fieldDimensions_->fieldLength * 0.5f) +
+                                        (fieldDimensions_->fieldPenaltyAreaLength * 0.5f),
+                                    0.f);
+
   /**
    * @brief generateOwnTeamPlayerData fills the ownTeamPlayerData object
    * This will initialize the own team player info with all information needed by the ballSearch so
@@ -174,6 +196,11 @@ private:
    * Assigns the search positions for every robot depending on the area that is was assigned to.
    */
   void assignSearchPositions();
+  /**
+   * @brief Tells replacement keeper to stand in goal
+   * replacement keeper should not participate in ball search, but stand in goal keeper position
+   */
+  void assignReplacementKeeperPosition();
   /**
    * @brief generateOwnSearchPose generates the actual search pose for this very robot.
    */

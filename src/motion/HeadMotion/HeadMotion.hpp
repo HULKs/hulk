@@ -81,6 +81,8 @@ private:
   const Parameter<float> yawThreshold_;
   /// the low pass ratio used to filter the gyroscope
   const Parameter<float> lowPassAlphaGyro_;
+  /// the max yaw angle before the bottom camera gets covered by the shoulder
+  Parameter<float> shoulderCoverYawAngle_;
 
   /// a reference to the motion request
   const Dependency<MotionRequest> motionRequest_;

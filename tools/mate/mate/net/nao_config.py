@@ -5,6 +5,9 @@ import asyncio as a
 import mate.net.utils as netutils
 from mate.net.nao_data import ConfigMount
 from mate.net.nao_protocol import NaoProtocol
+from mate.debug.colorlog import ColorLog
+
+logger = ColorLog()
 
 
 class NaoConfigProtocol(NaoProtocol):
@@ -18,7 +21,7 @@ class NaoConfigProtocol(NaoProtocol):
         self.header_buffer = b''
         self.body_buffer = b''
         self.read_header = True
-        self.receive_length = 8
+        self.receive_length = 12
 
     def data_received(self, data):
         length_to_parse = min(self.receive_length, len(data))
@@ -35,7 +38,8 @@ class NaoConfigProtocol(NaoProtocol):
             msg_head, msg_version, msg_type, msg_size = netutils.ConfigMessage.header_from_bytes(
                 self.header_buffer)
             if msg_head != b'CONF':
-                print("Received invalid debug header: {}".format(msg_head))
+                logger.warning(__name__ + ": Received invalid config header" +
+                               ": {}".format(msg_head))
                 self.transport.close()
                 return
 
@@ -49,7 +53,7 @@ class NaoConfigProtocol(NaoProtocol):
                                        self.receive_length, self.msg_version))
             self.read_header = True
             self.header_buffer = b''
-            self.receive_length = 8
+            self.receive_length = 12
 
         data = data[length_to_parse:]
         if len(data):
@@ -69,8 +73,13 @@ class NaoConfigProtocol(NaoProtocol):
             for d in data["keys"]:
                 if not d["key"].startswith('//'):
                     self.data[mount_name].data[d["key"]] = d["value"]
-            for callback in self.subscribors.get(mount_name, {}).values():
-                callback(self.data[mount_name])
+            try:
+                for callback in self.subscribors.get(mount_name, {}).values():
+                    callback(self.data[mount_name])
+            except RuntimeError as e:
+                logger.warning(__name__ +
+                               ": Exception in handle_message: " +
+                               str(e))
 
     def send_config_msg(self, msg_type: netutils.ConfigMsgType,
                         body: str = ""):
@@ -83,7 +92,10 @@ class NaoConfigProtocol(NaoProtocol):
     def save(self):
         self.send_config_msg(netutils.ConfigMsgType.save)
 
+    def request_keys(self, mount):
+        self.send_config_msg(netutils.ConfigMsgType.get_keys, mount)
+
     def subscribe(self, mount: str, subscribor: str, callback: ty.Callable):
         if super(NaoConfigProtocol, self).subscribe(mount, subscribor,
                                                     callback):
-            self.send_config_msg(netutils.ConfigMsgType.get_keys, mount)
+            self.request_keys(mount)

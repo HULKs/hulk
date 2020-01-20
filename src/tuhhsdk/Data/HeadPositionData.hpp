@@ -8,14 +8,14 @@ struct HeadPosition : public Uni::To, public Uni::From
   float pitch = 0.f;
   float score = 0.f;
 
-  HeadPosition(float y = 0.f, float p = 0.f, float s = 0.f)
+  explicit HeadPosition(float y = 0.f, float p = 0.f, float s = 0.f)
     : yaw(y)
     , pitch(p)
     , score(s)
   {
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["yaw"] << yaw;
@@ -23,7 +23,7 @@ struct HeadPosition : public Uni::To, public Uni::From
     value["score"] << score;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["yaw"] >> yaw;
     value["pitch"] >> pitch;
@@ -51,7 +51,7 @@ public:
   /**
    * @brief reset values to invalid value.
    */
-  void reset()
+  void reset() override
   {
     ballAndLocalizationHeadPosition = HeadPosition();
     localizationHeadPosition = HeadPosition();
@@ -59,7 +59,7 @@ public:
     trackBallHeadPosition = HeadPosition();
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["ballHeadPosition"] << ballAndLocalizationHeadPosition;
@@ -68,7 +68,7 @@ public:
     value["trackBallHeadPosition"] << trackBallHeadPosition;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["ballHeadPosition"] >> ballAndLocalizationHeadPosition;
     value["localizationHeadPosition"] >> localizationHeadPosition;

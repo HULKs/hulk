@@ -7,7 +7,9 @@
 #include "Data/BishopPosition.hpp"
 #include "Data/BodyPose.hpp"
 #include "Data/ButtonData.hpp"
+#include "Data/SetPlayStrikerAction.hpp"
 #include "Data/CycleInfo.hpp"
+#include "Data/DefenderAction.hpp"
 #include "Data/DefendingPosition.hpp"
 #include "Data/EyeLEDRequest.hpp"
 #include "Data/FieldDimensions.hpp"
@@ -21,11 +23,13 @@
 #include "Data/PenaltyStrikerAction.hpp"
 #include "Data/PlayerConfiguration.hpp"
 #include "Data/PlayingRoles.hpp"
+#include "Data/PointOfInterests.hpp"
+#include "Data/ReplacementKeeperAction.hpp"
 #include "Data/RobotPosition.hpp"
 #include "Data/SetPosition.hpp"
+#include "Data/SitDownOutput.hpp"
 #include "Data/StrikerAction.hpp"
 #include "Data/SupportingPosition.hpp"
-#include "Data/ReplacementKeeperAction.hpp"
 #include "Data/TeamBallModel.hpp"
 #include "Data/TeamPlayers.hpp"
 #include "Data/WorldState.hpp"
@@ -76,6 +80,8 @@ private:
   const Dependency<HeadPositionData> headPositionData_;
   /// the head motion output
   const Dependency<HeadMotionOutput> headMotionOutput_;
+  /// the sit down output
+  const Dependency<SitDownOutput> sitDownOutput_;
   /// the team ball model
   const Dependency<TeamBallModel> teamBallModel_;
   /// my homies
@@ -88,6 +94,8 @@ private:
   const Dependency<StrikerAction> strikerAction_;
   /// the penalty striker action
   const Dependency<PenaltyStrikerAction> penaltyStrikerAction_;
+  /// the penalty striker action
+  const Dependency<SetPlayStrikerAction> setPlayStrikerAction_;
   /// the kick configuration
   const Dependency<KickConfigurationData> kickConfigurationData_;
   /// the keeper action
@@ -98,6 +106,8 @@ private:
   const Dependency<CycleInfo> cycleInfo_;
   /// the set position
   const Dependency<SetPosition> setPosition_;
+  /// the defender action
+  const Dependency<DefenderAction> defenderAction_;
   /// the defending position
   const Dependency<DefendingPosition> defendingPosition_;
   /// the bishop position
@@ -106,6 +116,8 @@ private:
   const Dependency<SupportingPosition> supportingPosition_;
   /// the replacement keeper action
   const Dependency<ReplacementKeeperAction> replacementKeeperAction_;
+  /// the point of interests
+  const Dependency<PointOfInterests> pointOfInterests_;
   /// the button data
   const Dependency<ButtonData> buttonData_;
   /// the world state

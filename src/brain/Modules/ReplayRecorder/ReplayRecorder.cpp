@@ -3,10 +3,12 @@
 #include "ReplayRecorder.hpp"
 #include "Tools/Chronometer.hpp"
 #include "Tools/Time.hpp"
+#include "print.h"
+
 #include <Modules/Debug/PngConverter.h>
+#include <Modules/NaoProvider.h>
 #include <Tools/Storage/UniValue/UniValue2JsonString.h>
 #include <thread>
-#include <Modules/NaoProvider.h>
 
 
 ReplayRecorder::ReplayRecorder(const ModuleManagerInterface& manager)
@@ -14,6 +16,9 @@ ReplayRecorder::ReplayRecorder(const ModuleManagerInterface& manager)
 
   , minSecBetweenFrames_(*this, "minSecBetweenFrames", [] {})
   , onlyRecordWhilePlaying_(*this, "onlyRecordWhilePlaying", [] {})
+  , numberOfConsecutiveFrames_(*this, "numberOfConsecutiveFrames", [] {})
+  , disableTopCameraFrames_(*this, "disableTopCameraFrames", [] {})
+  , disableBottomCameraFrames_(*this, "disableBottomCameraFrames", [] {})
 
   , imageData_(*this)
   , jointSensorData_(*this)
@@ -30,7 +35,10 @@ ReplayRecorder::ReplayRecorder(const ModuleManagerInterface& manager)
   , replayJson_(target_ + "/replay.json")
   , writeThreadBusy_(false)
   , firstFrame_(true)
+  , lastFrameTime_()
 {
+  images_.reserve(static_cast<unsigned long>(numberOfConsecutiveFrames_()));
+  replayFrames_.reserve(static_cast<unsigned long>(numberOfConsecutiveFrames_()));
 }
 
 void ReplayRecorder::refreshFileStream(std::ofstream& fs) const
@@ -70,28 +78,35 @@ void ReplayRecorder::writeFrame()
 {
   PngConverter imageConverter;
   std::ofstream imageStream;
-  imageConverter.convert(currentImage_, currentPngImage_);
-  imageStream.open(target_ + "/" + currentFrame_.image,
-                   std::ios_base::out | std::ios_base::trunc | std::ios_base::binary);
-  imageStream.write(reinterpret_cast<const char*>(currentPngImage_.data()),
-                    currentPngImage_.size());
-  imageStream.close();
-
-  Uni::Value frame;
-  frame << currentFrame_;
-  const std::string frameString = Uni::Converter::toJsonString(frame, false);
-
-  refreshFileStream(frameStream_);
-  if (firstFrame_)
+  for (uint16_t i = 0; i < replayFrames_.size(); i++)
   {
-    initReplay(frameStream_);
-    firstFrame_ = false;
+    Uni::Value frame;
+    frame << replayFrames_[i];
+    const std::string frameString = Uni::Converter::toJsonString(frame, false);
+
+    refreshFileStream(frameStream_);
+    if (firstFrame_)
+    {
+      initReplay(frameStream_);
+      firstFrame_ = false;
+    }
+    else
+    {
+      frameStream_ << ",";
+    }
+    frameStream_ << frameString << std::endl;
+
+    imageConverter.convert(images_[i], currentPngImage_);
+    imageStream.open(target_ + "/" + replayFrames_[i].image,
+        std::ios_base::out | std::ios_base::trunc | std::ios_base::binary);
+    imageStream.write(reinterpret_cast<const char*>(currentPngImage_.data()),
+        currentPngImage_.size());
+    imageStream.close();
   }
-  else
-  {
-    frameStream_ << ",";
-  }
-  frameStream_ << frameString << std::endl;
+
+  replayFrames_.clear();
+  images_.clear();
+
   writeThreadBusy_ = false;
 }
 
@@ -104,9 +119,17 @@ bool ReplayRecorder::allDependenciesValid() const
 
 void ReplayRecorder::cycle()
 {
+  // only record when timeDiff to last burst (or single frame) is high enough.
+  bool firstFrameInBurst = replayFrames_.empty();
+  if (firstFrameInBurst && std::abs(getTimeDiff(cycleInfo_->startTime, lastFrameTime_, TDT::SECS)) <
+                               minSecBetweenFrames_())
+  {
+    return;
+  }
   // Only record if the data is available
   if (!allDependenciesValid())
   {
+    Log(LogLevel::DEBUG) << "Replay Recorder: Dependency invalid, skipping a cycle";
     return;
   }
   // Only record when unpenalized
@@ -124,16 +147,20 @@ void ReplayRecorder::cycle()
   {
     return;
   }
-  // Only record when camera is different to last one
-  if (currentFrame_.camera == imageData_->camera)
+  // Check if we want to record this frame according to the camera tye
+  if ((disableTopCameraFrames_() && imageData_->camera == Camera::TOP) ||
+      (disableBottomCameraFrames_() && imageData_->camera == Camera::BOTTOM))
   {
     return;
   }
-  // Only record when timeDiff to last log is high enough
-  const float secsSinceLastFrame =
-      getTimeDiff(currentFrame_.timestamp, imageData_->timestamp, TDT::SECS);
-  if (secsSinceLastFrame < minSecBetweenFrames_())
+  const bool bothCamerasEnabled = !(disableTopCameraFrames_() || disableBottomCameraFrames_());
+  // Only record when camera is different to last one (only relevant when both cameras are enabled
+  // as we can except that the camera identification does not change when only recording top or
+  // bottom images)
+  // This ensures that we capture the same amount of top and bottom frames.
+  if (bothCamerasEnabled && currentFrame_.camera == imageData_->camera)
   {
+    Log(LogLevel::INFO) << "Image not updated, skipping a cycle";
     return;
   }
 
@@ -145,7 +172,7 @@ void ReplayRecorder::cycle()
                                     std::to_string(imageData_->timestamp.getSystemTime()) + ".png";
 
     // Copy the image
-    imageData_->image422.to444Image(currentImage_);
+    images_.emplace_back(imageData_->image422.to444Image());
 
     // Copy the sensor data
     currentFrame_.jointAngles = jointSensorData_->angles;
@@ -162,6 +189,16 @@ void ReplayRecorder::cycle()
     currentFrame_.timestamp = imageData_->timestamp;
     currentFrame_.headMatrixBuffer = (*headMatrixBuffer_);
 
+    replayFrames_.push_back(currentFrame_);
+
+    lastFrameTime_ = cycleInfo_->startTime;
+
+    // wait for more frames.
+    if (replayFrames_.size() < static_cast<unsigned long>(numberOfConsecutiveFrames_()))
+    {
+      return;
+    }
+
     // Set write thread busy
     writeThreadBusy_ = true;
 
@@ -170,16 +207,19 @@ void ReplayRecorder::cycle()
     {
       writeThread_.join();
     }
-    writeThread_ = std::thread([this] {
-      try
-      {
-        writeFrame();
-      }
-      catch (...)
-      {
-        std::cerr << "Something bad happend while recording frame!" << std::endl;
-      }
-    });
+    writeThread_ =
+        std::thread(
+            [this] {
+              try
+              {
+                writeFrame();
+              }
+              catch (...)
+              {
+                Log(LogLevel::ERROR)
+                    << "Unable to write replay frame to disk. Replay file might be broken!";
+              }
+            });
 
 #ifdef NAO
     // Set priority of write thread very low

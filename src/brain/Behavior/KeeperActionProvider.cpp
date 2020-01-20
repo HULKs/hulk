@@ -33,40 +33,51 @@ void KeeperActionProvider::cycle()
     return;
   }
 
-  if (shouldGenuflect())
+  if (shouldSquat())
   {
-    KeeperAction::Action action(KeeperAction::Type::GENUFLECT);
+    KeeperAction::Action action(KeeperAction::Type::SQUAT);
     keeperAction_->actions.push_back(action);
   }
 
-  if (strikerIsInOwnPenaltyArea())
+  if (teamBallModel_->ballType == TeamBallModel::BallType::NONE)
   {
-    // if the striker is inside of our own penalty area the keeper position is adjusted to prevent
-    // obstructing the striker
-    const float minDistanceToBall = 0.75f;
-    const float sign = worldState_->ballIsToMyLeft ? -1.f : 1.f;
-    const Vector2f waitingPosition(keeperPosition_.x(),
-                                   teamBallModel_->position.y() + sign * minDistanceToBall);
-    const Vector2f waitingPositionToBall = teamBallModel_->position - waitingPosition;
-    const float orientation = std::atan2(waitingPositionToBall.y(), waitingPositionToBall.x());
-    KeeperAction::Action action(KeeperAction::Type::BLOCK_GOAL, Pose(waitingPosition, orientation));
+    // fallback to default keeper pose when there is no ball.
+    KeeperAction::Action action(KeeperAction::Type::BLOCK_GOAL, Pose(keeperPosition_));
     keeperAction_->actions.push_back(action);
   }
   else
   {
-    // go to position between own goal and ball
-    const float goalPostPosY = fieldDimensions_->goalInnerWidth / 2.f;
-    const float interceptXCoord = keeperPosition_.x();
-    const float interceptYCoord = Range<float>::clipToGivenRange(
-        teamBallModel_->position.y() /
-            (teamBallModel_->position.x() + fieldDimensions_->fieldLength / 2) *
-            (interceptXCoord + fieldDimensions_->fieldLength / 2),
-        -goalPostPosY, goalPostPosY);
-    const Vector2f interceptVec = Vector2f(interceptXCoord, interceptYCoord);
-    float interceptAngle = std::atan2(teamBallModel_->position.y() - keeperPosition_.y(),
-                                      teamBallModel_->position.x() - keeperPosition_.x());
-    KeeperAction::Action action(KeeperAction::Type::BLOCK_GOAL, Pose(interceptVec, interceptAngle));
-    keeperAction_->actions.push_back(action);
+    if (strikerIsInOwnPenaltyArea())
+    {
+      // if the striker is inside of our own penalty area the keeper position is adjusted to prevent
+      // obstructing the striker
+      const float minDistanceToBall = 0.75f;
+      const float sign = worldState_->ballIsToMyLeft ? -1.f : 1.f;
+      const Vector2f waitingPosition(keeperPosition_.x(),
+          teamBallModel_->position.y() + sign * minDistanceToBall);
+      const Vector2f waitingPositionToBall = teamBallModel_->position - waitingPosition;
+      const float orientation = std::atan2(waitingPositionToBall.y(), waitingPositionToBall.x());
+      KeeperAction::Action action(KeeperAction::Type::BLOCK_GOAL, Pose(waitingPosition, orientation));
+      keeperAction_->actions.push_back(action);
+    }
+    else
+    {
+      // go to position between own goal and ball
+      const float goalPostPosY = fieldDimensions_->goalInnerWidth / 2.f;
+      const float interceptXCoord = keeperPosition_.x();
+      // the keeper y-position is obtained by projecting the x-position on the goal-center to ball line
+      const float interceptYCoord = Range<float>::clipToGivenRange(
+          teamBallModel_->position.y() /
+              // abs to avoid sign flip when ball is behind the own goal line, epsilon to prevent division by zero
+              (std::abs(teamBallModel_->position.x() + fieldDimensions_->fieldLength / 2) + std::numeric_limits<float>::epsilon()) *
+              (interceptXCoord + fieldDimensions_->fieldLength / 2),
+          -goalPostPosY, goalPostPosY);
+      const Vector2f interceptVec = Vector2f(interceptXCoord, interceptYCoord);
+      const float interceptAngle = std::atan2(teamBallModel_->position.y() - keeperPosition_.y(),
+          teamBallModel_->position.x() - keeperPosition_.x());
+      KeeperAction::Action action(KeeperAction::Type::BLOCK_GOAL, Pose(interceptVec, interceptAngle));
+      keeperAction_->actions.push_back(action);
+    }
   }
 
   // find the best action that the keeper is permitted to perform, assuming the actions
@@ -85,14 +96,14 @@ void KeeperActionProvider::cycle()
   }
 }
 
-bool KeeperActionProvider::shouldGenuflect() const
+bool KeeperActionProvider::shouldSquat() const
 {
   /// only trust our own balls
   if (!ballState_->found)
   {
     return false;
   }
-  const float genuflectWidth = 0.4f;
+  const float squatWidth = 0.4f;
   /// ball will come to stop in goal + tolerance
   const bool inGoal = robotPosition_->robotToField(ballState_->destination).x() <
                           (-fieldDimensions_->fieldLength / 2.f + 0.3f) &&
@@ -105,7 +116,7 @@ bool KeeperActionProvider::shouldGenuflect() const
   const bool robotLooksForward =
       Angle::angleDiff(robotPosition_->pose.orientation, 0) <= (100 * TO_RAD);
 
-  if (inGoal && goalDirection && std::abs(ballState_->destination.y()) < genuflectWidth &&
+  if (inGoal && goalDirection && std::abs(ballState_->destination.y()) < squatWidth &&
       robotLooksForward)
   {
     return true;

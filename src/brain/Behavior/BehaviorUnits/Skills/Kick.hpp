@@ -1,19 +1,6 @@
 #pragma once
 #include "Behavior/Units.hpp"
 
-KickType toMotionKickType(const StrikerAction::KickType kickType)
-{
-  switch (kickType)
-  {
-    case StrikerAction::KickType::FORWARD:
-      return KickType::FORWARD;
-    case StrikerAction::KickType::SIDE:
-      return KickType::SIDE;
-    default:
-      return KickType::FORWARD;
-  }
-}
-
 /**
  * @brief walkToBallAndKick creates an action command for walking to the ball and kick it somewhere
  * @pre The team ball has to be seen.
@@ -26,9 +13,10 @@ KickType toMotionKickType(const StrikerAction::KickType kickType)
  * @param kickType the type of kick
  * @return an action command for walking to the ball and kick it somewhere
  */
-ActionCommand walkToBallAndKick(const DataSet& d, const Pose& kickPose, const BallUtils::Kickable kickable, const Vector2f& ballDestination,
+ActionCommand walkToBallAndKick(const DataSet& d, const Pose& kickPose,
+                                const BallUtils::Kickable kickable, const Vector2f& ballDestination,
                                 const bool absolute = false, const Velocity& velocity = Velocity(),
-                                const StrikerAction::KickType kickType = StrikerAction::KickType::FORWARD)
+                                const KickType kickType = KickType::FORWARD)
 {
   if (d.motionState.bodyMotion == MotionRequest::BodyMotion::KICK)
   {
@@ -38,9 +26,9 @@ ActionCommand walkToBallAndKick(const DataSet& d, const Pose& kickPose, const Ba
   if (kickable != BallUtils::Kickable::NOT || d.lastActionCommand.body().type() == MotionRequest::BodyMotion::KICK)
   {
     const Vector2f relBallDestination = absolute ? d.robotPosition.fieldToRobot(ballDestination) : ballDestination;
-    return ActionCommand::kick(d.ballState.position, relBallDestination, toMotionKickType(kickType));
+    return ActionCommand::kick(d.ballState.position, relBallDestination, kickType);
   }
-  return walkBehindBall(d, kickPose, velocity).combineHead(trackBall(d));
+  return walkBehindBall(d, kickPose, velocity).combineHead(activeVision(d, VisionMode::BALL_TRACKER));
 }
 
 ActionCommand kickLeft(const DataSet& d)

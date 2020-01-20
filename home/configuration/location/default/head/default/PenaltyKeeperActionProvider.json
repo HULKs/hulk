@@ -1,6 +1,6 @@
 {
   "goalLineLenTolerance": 0.2,
-  "genuflectThreshold": 0.2,
-  "ballDestinationTolerance": 0.25,
-  "minBallDestinationToRobotThresh": 0.05
+  "squatThreshold": 0.2,
+  "ballDestinationTolerance": 0.8,
+  "minBallDestinationToRobotThresh": 0.3
 }

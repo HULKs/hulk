@@ -22,21 +22,25 @@ BehaviorModule::BehaviorModule(const ModuleManagerInterface& manager)
   , motionState_(*this)
   , headPositionData_(*this)
   , headMotionOutput_(*this)
+  , sitDownOutput_(*this)
   , teamBallModel_(*this)
   , teamPlayers_(*this)
   , ballSearchPosition_(*this)
   , fieldDimensions_(*this)
   , strikerAction_(*this)
   , penaltyStrikerAction_(*this)
+  , setPlayStrikerAction_(*this)
   , kickConfigurationData_(*this)
   , keeperAction_(*this)
   , penaltyKeeperAction_(*this)
   , cycleInfo_(*this)
   , setPosition_(*this)
+  , defenderAction_(*this)
   , defendingPosition_(*this)
   , bishopPosition_(*this)
   , supportingPosition_(*this)
   , replacementKeeperAction_(*this)
+  , pointOfInterests_(*this)
   , buttonData_(*this)
   , worldState_(*this)
   , motionRequest_(*this)
@@ -44,11 +48,12 @@ BehaviorModule::BehaviorModule(const ModuleManagerInterface& manager)
   , actionCommand_(ActionCommand::dead())
   , dataSet_(*this, *gameControllerState_, *ballState_, *robotPosition_, *bodyPose_,
              *playerConfiguration_, *playingRoles_, *motionState_, *headMotionOutput_,
-             *teamBallModel_, *teamPlayers_, *fieldDimensions_, *strikerAction_,
-             *penaltyStrikerAction_, *keeperAction_, *penaltyKeeperAction_, *cycleInfo_,
-             *setPosition_, *defendingPosition_, *bishopPosition_, *supportingPosition_,
-             *replacementKeeperAction_, *buttonData_, *worldState_, *kickConfigurationData_,
-             *ballSearchPosition_, *headPositionData_, actionCommand_)
+             *sitDownOutput_, *teamBallModel_, *teamPlayers_, *fieldDimensions_, *strikerAction_,
+             *penaltyStrikerAction_, *setPlayStrikerAction_, *keeperAction_, *penaltyKeeperAction_,
+             *pointOfInterests_, *cycleInfo_, *setPosition_, *defenderAction_, *defendingPosition_,
+             *bishopPosition_, *supportingPosition_, *replacementKeeperAction_, *buttonData_,
+             *worldState_, *kickConfigurationData_, *ballSearchPosition_, *headPositionData_,
+             actionCommand_)
 {
 
   {

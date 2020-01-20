@@ -1,18 +1,23 @@
 #!/bin/bash
 
+function version_lte() {
+    [ "$1" = "`echo -e '$1\n$2' | sort -V | head -n1`" ]
+}
+
 function helpMenu {
   echo "Usage: $0 [OPTIONS] NETWORK"
   echo ""
   echo "Options"
-  echo " -c, --configure-only              only modify configuration files without restarting network services"
   echo " -h, --help                        show this help"
   echo ""
   echo "NETWORK"
   echo " a network name (either ETH or the name of a WiFi network)"
 }
 
-if [ $(id -u) -ne 0 ]; then
-  exec sudo $0 "$@"
+if [ $(version_lte $DISTRIB_RELEASE 2.8) ]; then
+  if [ $(id -u) -ne 0 ]; then
+    exec sudo $0 "$@"
+  fi
 fi
 
 CONFIG=false
@@ -22,6 +27,25 @@ SPL_B=1
 SPL_C=1
 SPL_D=1
 SPL_E=1
+SPL_F=1
+SPL_G=1
+SPL_H=1
+RC19_SPL_A2G=1
+RC19_SPL_A5G=1
+RC19_SPL_B2G=1
+RC19_SPL_B5G=1
+RC19_SPL_C2G=1
+RC19_SPL_C5G=1
+RC19_SPL_D2G=1
+RC19_SPL_D5G=1
+RC19_SPL_E2G=1
+RC19_SPL_E5G=1
+RC19_SPL_F2G=1
+RC19_SPL_F5G=1
+RC19_SPL_G2G=1
+RC19_SPL_G5G=1
+RC19_SPL_H2G=1
+RC19_SPL_H5G=1
 SPL_IO=1
 SPL=1
 
@@ -39,9 +63,6 @@ eval set -- "${PARAMETERS}";
 
 while [ "$#" -gt 1 ]; do
   case "$1" in
-    "-c" | "--configure-only")
-      CONFIG=true
-      ;;
     "-h" | "--help")
       helpMenu
       return 0
@@ -65,18 +86,99 @@ NETWORK="$1"
 case "${NETWORK}" in
   "spl_a" | "SPL_A")
     SPL_A=0
+    NETWORK="SPL_A"
     ;;
   "spl_b" | "SPL_B")
     SPL_B=0
+    NETWORK="SPL_B"
     ;;
   "spl_c" | "SPL_C")
     SPL_C=0
+    NETWORK="SPL_C"
     ;;
   "spl_d" | "SPL_D")
     SPL_D=0
+    NETWORK="SPL_D"
     ;;
   "spl_e" | "SPL_E")
     SPL_E=0
+    NETWORK="SPL_E"
+    ;;
+  "spl_f" | "SPL_F")
+    SPL_F=0
+    NETWORK="SPL_F"
+    ;;
+  "spl_g" | "SPL_G")
+    SPL_G=0
+    NETWORK="SPL_G"
+    ;;
+  "spl_h" | "SPL_H")
+    SPL_H=0
+    NETWORK="SPL_H"
+    ;;
+  "spl_a2" | "SPL_A2")
+    RC19_SPL_A2G=0
+    NETWORK="SPL_FIELD_2ghz_A"
+    ;;
+  "spl_a5" | "SPL_A5")
+    RC19_SPL_A5G=0
+    NETWORK="SPL_FIELD_5ghz_A"
+    ;;
+  "spl_b2" | "SPL_B2")
+    RC19_SPL_B2G=0
+    NETWORK="SPL_FIELD_2ghz_B"
+    ;;
+  "spl_b5" | "SPL_B5")
+    RC19_SPL_B5G=0
+    NETWORK="SPL_FIELD_5ghz_B"
+    ;;
+  "spl_c2" | "SPL_C2")
+    RC19_SPL_C2G=0
+    NETWORK="SPL_FIELD_2ghz_C"
+    ;;
+  "spl_c5" | "SPL_C5")
+    RC19_SPL_C5G=0
+    NETWORK="SPL_FIELD_5ghz_C"
+    ;;
+  "spl_d2" | "SPL_D2")
+    RC19_SPL_D2G=0
+    NETWORK="SPL_FIELD_2ghz_D"
+    ;;
+  "spl_d5" | "SPL_D5")
+    RC19_SPL_D5G=0
+    NETWORK="SPL_FIELD_5ghz_D"
+    ;;
+  "spl_e2" | "SPL_E2")
+    RC19_SPL_E2G=0
+    NETWORK="SPL_FIELD_2ghz_E"
+    ;;
+  "spl_e5" | "SPL_E5")
+    RC19_SPL_E5G=0
+    NETWORK="SPL_FIELD_5ghz_E"
+    ;;
+  "spl_f2" | "SPL_F2")
+    RC19_SPL_F2G=0
+    NETWORK="SPL_FIELD_2ghz_F"
+    ;;
+  "spl_f5" | "SPL_F5")
+    RC19_SPL_F5G=0
+    NETWORK="SPL_FIELD_5ghz_F"
+    ;;
+  "spl_g2" | "SPL_G2")
+    RC19_SPL_G2G=0
+    NETWORK="SPL_FIELD_2ghz_G"
+    ;;
+  "spl_g5" | "SPL_G5")
+    RC19_SPL_G5G=0
+    NETWORK="SPL_FIELD_5ghz_G"
+    ;;
+  "spl_h2" | "SPL_H2")
+    RC19_SPL_H2G=0
+    NETWORK="SPL_FIELD_2ghz_H"
+    ;;
+  "spl_h5" | "SPL_H5")
+    RC19_SPL_H5G=0
+    NETWORK="SPL_FIELD_5ghz_H"
     ;;
   "spl" | "SPL")
     SPL=0
@@ -93,14 +195,8 @@ case "${NETWORK}" in
     ;;
 esac
 
-sed -e s/{spl_a_dis}/${SPL_A}/ -e s/{spl_b_dis}/${SPL_B}/ -e s/{spl_c_dis}/${SPL_C}/ -e s/{spl_d_dis}/${SPL_D}/ -e s/{spl_e_dis}/${SPL_E}/ -e s/{spl_io_dis}/${SPL_IO}/ -e s/{spl_dis}/${SPL}/ /etc/wpa_supplicant/wpa_supplicant.conf.auto > /etc/wpa_supplicant/wpa_supplicant.conf
-
-if [ ${ETH} -ne 1 ]; then
-  sed -e s/^\#routes_eth0/routes_eth0/ -e s/^routes_wlan0/\#routes_wlan0/ -i /etc/conf.d/net
+if [ ${ETH} -eq 0 ]; then
+  sed -e s/ssid:.*/ssid:/ -i /home/nao/.local/etc/connman-hulks.yaml
 else
-  sed -e s/^routes_eth0/\#routes_eth0/ -e s/^\#routes_wlan0/routes_wlan0/ -i /etc/conf.d/net
-fi
-
-if ! ${CONFIG}; then
-  /etc/init.d/net.eth0 restart && /etc/init.d/net.wlan0 restart
+ sed -e s/ssid:.*/ssid:\ ${NETWORK}/ -i /home/nao/.local/etc/connman-hulks.yaml
 fi

@@ -1,0 +1,5 @@
+{
+    "standingRobotRadius": 0.08,
+    "squattedRobotRadius": 0.25,
+    "jumpedRobotRadius": 0.7
+}

@@ -26,7 +26,7 @@ Eigen::Array2Xi HungarianMethod::findMaximumMatching(Eigen::MatrixXi& cost, bool
   // Hungarian method maximizes by default.
   if (minimize)
   {
-    cost_ *= -1;
+    cost_ = cost_.array().maxCoeff() - cost_.array();
   }
 
   // Step 0
@@ -37,8 +37,8 @@ Eigen::Array2Xi HungarianMethod::findMaximumMatching(Eigen::MatrixXi& cost, bool
   ret.resize(2, n_);
   for (int c = 0; c < ret.cols(); c++)
   {
-    ret(0, c) = xyMatching_[c];
-    ret(1, c) = yxMatching_[c];
+    ret(0, c) = c;
+    ret(1, c) = xyMatching_[c];
   }
 
   return ret;

@@ -6,6 +6,9 @@ import typing as ty
 import mate.net.utils as netutils
 from mate.net.nao_data import DebugImage
 from mate.net.nao_protocol import NaoProtocol
+from mate.debug.colorlog import ColorLog
+
+logger = ColorLog()
 
 
 class NaoDebugProtocol(NaoProtocol):
@@ -36,7 +39,8 @@ class NaoDebugProtocol(NaoProtocol):
             msg_head, msg_version, msg_type, msg_size = netutils.DebugMessage.header_from_bytes(
                 self.header_buffer)
             if msg_head != b'DMSG':
-                print("Received invalid debug header: {}".format(msg_head))
+                logger.warning(__name__ + ": Received invalid debug header" +
+                               ": {}".format(msg_head))
                 self.transport.close()
                 return
 
@@ -63,9 +67,14 @@ class NaoDebugProtocol(NaoProtocol):
                 parsed = netutils.DebugMessage.parse_data(d)
                 self.data[parsed.key] = parsed
             if self.msg_type_subscribors.get(netutils.DebugMsgType.list):
-                for callback in self.msg_type_subscribors[
-                    netutils.DebugMsgType.list].values():
-                    callback()
+                try:
+                    for callback in self.msg_type_subscribors[
+                            netutils.DebugMsgType.list].values():
+                        callback()
+                except RuntimeError as e:
+                    logger.error(__name__ +
+                                 ": Exception in handle_message: " +
+                                 str(e))
 
         if message.type == netutils.DebugMsgType.update:
             data = json.loads(message.body)
@@ -73,17 +82,30 @@ class NaoDebugProtocol(NaoProtocol):
                 parsed = netutils.DebugMessage.parse_data(d)
                 self.data[parsed.key] = parsed
                 parsed_copy = copy.copy(parsed)
-                for callback in self.subscribors.get(parsed.key, {}).values():
-                    callback(parsed_copy)
+                try:
+                    for callback in self.subscribors.get(
+                            parsed.key, {}).values():
+                        callback(parsed_copy)
+                except RuntimeError as e:
+                    logger.error(__name__ +
+                                 ": Exception in handle_message " +
+                                 "(DebugMsgType.update): " +
+                                 str(e))
 
         if message.type == netutils.DebugMsgType.image:
-            key, width, height, data = netutils.DebugMessage.get_image(
+            key, timestamp, width, height, data = netutils.DebugMessage.get_image(
                 message.body)
-            parsed = DebugImage(key, width, height, data)
+            parsed = DebugImage(key, width, height, data, timestamp)
             self.data[key] = parsed
             parsed_copy = copy.copy(parsed)
-            for callback in self.subscribors.get(key, {}).values():
-                callback(parsed_copy)
+            try:
+                for callback in self.subscribors.get(key, {}).values():
+                    callback(parsed_copy)
+            except RuntimeError as e:
+                logger.error(__name__ +
+                             ": Exception in handle_message: " +
+                             "(DebugMsgType.image): " +
+                             str(e))
 
     def subscribe_queued(self):
         filtered, self.subscribors_queue = netutils.split(

@@ -1,5 +1,5 @@
-#include "Module.hpp"
 #include "ModuleManagerInterface.hpp"
+#include "Module.hpp"
 
 
 ModuleManagerInterface::ModuleManagerInterface(const std::string& name,
@@ -36,7 +36,20 @@ ModuleManagerInterface::~ModuleManagerInterface()
 void ModuleManagerInterface::runCycle()
 {
   currentDebugMap_ = debugDatabase_.nextUpdateableMap();
-  cycle();
+  TimePoint startTime(TimePoint::getCurrentTime());
+
+  try
+  {
+    cycle();
+  }
+  catch (...)
+  {
+    debugDatabase_.finishUpdating();
+    throw;
+  }
+
+  averageCycleTime_.put(getTimeDiff(startTime, TimePoint::getCurrentTime(), TDT::SECS));
+  currentDebugMap_->update(getName() + ".measuredCycleTime", averageCycleTime_.getAverage());
   debugDatabase_.finishUpdating();
   debug_.trigger();
 }
@@ -51,6 +64,20 @@ DebugDatabase::DebugMap*& ModuleManagerInterface::debug() const
 {
   // Sorry for the const_cast. | NR
   return const_cast<DebugDatabase::DebugMap*&>(currentDebugMap_);
+}
+
+std::vector<const DebugDatabase*> ModuleManagerInterface::getDebugDatabases() const
+{
+  std::vector<const DebugDatabase*> databases;
+  auto debugSources = debug_.getDebugSources();
+  databases.reserve(debugSources.size());
+
+  for (auto& debugSource : debugSources)
+  {
+    databases.emplace_back(debugSource.second.debugDatabase);
+  }
+
+  return databases;
 }
 
 const std::string& ModuleManagerInterface::getName() const

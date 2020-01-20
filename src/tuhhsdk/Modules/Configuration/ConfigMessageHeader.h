@@ -17,10 +17,11 @@ struct ConfigMessageHeader
 
   //=== 32bit ====
 
-  uint8_t version = 1;
+  uint8_t version = 2;
 
   uint8_t msgType = 0;
-  uint16_t msgLength = 0;
+  uint16_t _padding = 0;
+  uint32_t msgLength = 0;
 
   //=== 32bit ====
 };

@@ -5,11 +5,13 @@
 #include "Data/BodyPose.hpp"
 #include "Data/CycleInfo.hpp"
 #include "Data/FallManagerOutput.hpp"
-#include "Data/KeeperOutput.hpp"
+#include "Data/JumpOutput.hpp"
 #include "Data/KickOutput.hpp"
 #include "Data/MotionActivation.hpp"
 #include "Data/MotionRequest.hpp"
 #include "Data/PoserOutput.hpp"
+#include "Data/SitDownOutput.hpp"
+#include "Data/SitUpOutput.hpp"
 #include "Data/StandUpOutput.hpp"
 #include "Data/WalkingEngineWalkOutput.hpp"
 #include "Framework/Module.hpp"
@@ -39,12 +41,16 @@ private:
   const Reference<CycleInfo> cycleInfo_;
   /// the output of the fall manager
   const Reference<FallManagerOutput> fallManagerOutput_;
-  /// the output of the keeper
-  const Reference<KeeperOutput> keeperOutput_;
+  /// the output of the jump
+  const Reference<JumpOutput> jumpOutput_;
   /// the output of the kick
   const Reference<KickOutput> kickOutput_;
   /// the output of the poser
   const Reference<PoserOutput> poserOutput_;
+  /// the output of the sit down
+  const Reference<SitDownOutput> sitDownOutput_;
+  /// the output of the sit up
+  const Reference<SitUpOutput> sitUpOutput_;
   /// the output of the stand up
   const Reference<StandUpOutput> standUpOutput_;
   /// the output of the walking engine

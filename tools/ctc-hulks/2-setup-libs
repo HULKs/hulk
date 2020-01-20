@@ -1,0 +1,81 @@
+#!/bin/bash
+
+
+# Prepare clang
+echo ""
+echo "++++++++ Prepare Clang ++++++++"
+BASEDIR=`cd $(dirname $0); pwd -P`
+cd ${BASEDIR}
+
+# Source files
+source versions
+source functions
+source env.sh
+
+mkdir -p ctc-hulks-clang/llvm-build
+cd ctc-hulks-clang
+set +e
+# Clone LLVM
+git clone --depth 1 https://github.com/llvm-mirror/llvm.git -b ${LLVM_VERSION}
+
+# Clone Clang
+cd ${BASEDIR}/ctc-hulks-clang/llvm/tools
+git clone --depth 1 https://github.com/llvm-mirror/clang.git -b ${CLANG_VERSION}
+
+## Clone Compiler RT
+cd ${BASEDIR}/ctc-hulks-clang/llvm/projects
+git clone --depth 1 https://github.com/llvm-mirror/compiler-rt.git -b ${COMPILER_RT_VERSION}
+
+# Prepare libraries
+cd ${BASEDIR}/libs
+
+# Download libraries
+echo ""
+echo "++++++++ Downloading libraries ++++++++"
+download https://dl.bintray.com/boostorg/release/${boost_version}/source/boost_${boost_version//./_}.tar.bz2                  boost_${boost_version}.tar.bz2 &
+download https://sourceware.org/pub/bzip2/bzip2-${bzip2_version}.tar.gz                                                       bzip2-${bzip2_version}.tar.gz &
+download https://github.com/libjpeg-turbo/libjpeg-turbo/archive/${libjpeg_version}.tar.gz                                     libjpeg-turbo-${libjpeg_version}.tar.gz &
+download http://prdownloads.sourceforge.net/libpng/libpng-${libpng_version}.tar.gz?download                                   libpng-${libpng_version}.tar.gz &
+download http://prdownloads.sourceforge.net/libpng/zlib-${zlib_version}.tar.gz?download                                       zlib-${zlib_version}.tar.gz &
+download https://www.alsa-project.org/files/pub/lib/alsa-lib-${alsa_lib_version}.tar.bz2                                      alsa-${alsa_lib_version}.tar.bz2 &
+download http://www.portaudio.com/archives/pa_stable_${portaudio_version}.tgz                                                 portaudio-${portaudio_version}.tgz &
+download http://www.fftw.org/fftw-${fftw_version}.tar.gz                                                                      fftw-${fftw_version}.tar.gz &
+download https://github.com/mariusmuja/flann/archive/${flann_version}.tar.gz                                                  flann-${flann_version}.tar.gz &
+download http://bitbucket.org/eigen/eigen/get/${eigen_version}.tar.bz2                                                        eigen-${eigen_version}.tar.bz2 &
+download http://www.mega-nerd.com/libsndfile/files/libsndfile-${sndfile_version}.tar.gz                                       libsndfile-${sndfile_version}.tar.gz &
+download https://github.com/msgpack/msgpack-c/releases/download/cpp-${msgpack_version}/msgpack-${msgpack_version}.tar.gz &
+download https://github.com/opencv/opencv/archive/${opencv_version}.tar.gz                                                    opencv-${opencv_version}.tar.gz &
+download https://github.com/opencv/opencv_contrib/archive/${opencv_version}.tar.gz                                            opencv_contrib-${opencv_version}.tar.gz &
+download https://github.com/xiph/ogg/archive/v${ogg_version}.tar.gz                                                           libogg-${ogg_version}.tar.gz &
+download https://github.com/xiph/opus/archive/v${opus_version}.tar.gz                                                         opus-${opus_version}.tar.gz &
+download https://github.com/xiph/opusfile/releases/download/v${opusfile_version}/opusfile-${opusfile_version}.tar.gz &
+wait
+
+# Unpack libraries
+echo ""
+echo "++++++++ Unpacking libraries ++++++++"
+unpack boost_${boost_version}.tar.bz2 &
+unpack bzip2-${bzip2_version}.tar.gz &
+unpack libjpeg-turbo-${libjpeg_version}.tar.gz &
+unpack libpng-${libpng_version}.tar.gz &
+unpack zlib-${zlib_version}.tar.gz &
+unpack alsa-${alsa_lib_version}.tar.bz2 &
+unpack portaudio-${portaudio_version}.tgz &
+unpack fftw-${fftw_version}.tar.gz &
+unpack flann-${flann_version}.tar.gz &
+unpack eigen-${eigen_version}.tar.bz2 &
+unpack libsndfile-${sndfile_version}.tar.gz &
+unpack msgpack-${msgpack_version}.tar.gz &
+unpack opencv-${opencv_version}.tar.gz &
+unpack opencv_contrib-${opencv_version}.tar.gz &
+unpack libogg-${ogg_version}.tar.gz &
+unpack opus-${opus_version}.tar.gz &
+unpack opusfile-${opusfile_version}.tar.gz &
+wait
+
+# Rename stupid foler conventions
+mv eigen-eigen-* ${eigen_dir}
+mv portaudio ${portaudio_dir}
+
+echo ""
+echo "Setup completed successfully!"

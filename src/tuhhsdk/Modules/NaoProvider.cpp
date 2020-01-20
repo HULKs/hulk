@@ -32,7 +32,12 @@ void NaoProvider::init(Configuration& config, const NaoInfo& info)
   std::string headConfigFile;
 
   /// READ BODY BASE VERSION CONFIG
-  if (info.bodyVersion == NaoVersion::V5)
+  if (info.bodyVersion == NaoVersion::V6)
+  {
+    print("My body is V6.0", LogLevel::INFO);
+    bodyConfigFile = "body_v_6.json";
+  }
+  else if (info.bodyVersion == NaoVersion::V5)
   {
     print("My body is V5.0", LogLevel::INFO);
     bodyConfigFile = "body_v_5.json";
@@ -45,14 +50,17 @@ void NaoProvider::init(Configuration& config, const NaoInfo& info)
   else
   {
     bodyConfigFile = "body_v_3-3.json";
-    print("Please check my body version, it is neither V5.0 nor V3.3!\n"
-          "I will assume V3.3",
-          LogLevel::ERROR);
+    Log(LogLevel::ERROR) << "Please check my body version, it is neither V6.0, V5.0 nor V3.3! I will assume V3.3";
   }
 
 
   /// READ HEAD BASE VERSION CONFIG
-  if (info.headVersion == NaoVersion::V5)
+  if (info.headVersion == NaoVersion::V6)
+  {
+    print("My body is V6.0", LogLevel::INFO);
+    headConfigFile = "head_v_6.json";
+  }
+  else if (info.headVersion == NaoVersion::V5)
   {
     print("My head is V5.0", LogLevel::INFO);
     headConfigFile = "head_v_5.json";
@@ -123,8 +131,8 @@ void NaoProvider::init(Configuration& config, const NaoInfo& info)
   Uni::Value& lookuptables = config.get("tuhhSDK.NaoProvider.Body", "lookuptables");
 
   Uni::Value& lookHeadPitch = lookuptables["headpitch"];
-  auto it1 = lookHeadPitch.listBegin();
-  for (; it1 != lookHeadPitch.listEnd(); it1++)
+  auto it1 = lookHeadPitch.vectorBegin();
+  for (; it1 != lookHeadPitch.vectorEnd(); it1++)
   {
     lookupHeadPitch_.push_back(Vector3f((*it1)["angle"].asDouble() * TO_RAD,
                                         (*it1)["min"].asDouble() * TO_RAD,
@@ -132,8 +140,8 @@ void NaoProvider::init(Configuration& config, const NaoInfo& info)
   }
 
   Uni::Value& lookLAnkleRoll = lookuptables["lankleroll"];
-  auto it2 = lookLAnkleRoll.listBegin();
-  for (; it2 != lookLAnkleRoll.listEnd(); it2++)
+  auto it2 = lookLAnkleRoll.vectorBegin();
+  for (; it2 != lookLAnkleRoll.vectorEnd(); it2++)
   {
     lookupLAnkleRoll_.push_back(Vector3f((*it2)["angle"].asDouble() * TO_RAD,
                                          (*it2)["min"].asDouble() * TO_RAD,
@@ -141,8 +149,8 @@ void NaoProvider::init(Configuration& config, const NaoInfo& info)
   }
 
   Uni::Value& lookRAnkleRoll = lookuptables["rankleroll"];
-  auto it3 = lookRAnkleRoll.listBegin();
-  for (; it3 != lookRAnkleRoll.listEnd(); it3++)
+  auto it3 = lookRAnkleRoll.vectorBegin();
+  for (; it3 != lookRAnkleRoll.vectorEnd(); it3++)
   {
     lookupRAnkleRoll_.push_back(Vector3f((*it3)["angle"].asDouble() * TO_RAD,
                                          (*it3)["min"].asDouble() * TO_RAD,

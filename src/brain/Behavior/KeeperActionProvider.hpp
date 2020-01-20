@@ -54,10 +54,10 @@ private:
   Vector2f keeperPosition_;
 
   /**
-   * @brief whether the keeper should genuflect
-   * @return true if the keeper should genuflect
+   * @brief whether the keeper should squat
+   * @return true if the keeper should squat
    */
-  bool shouldGenuflect() const;
+  bool shouldSquat() const;
   /**
    * @brief whether the striker is in our own penalty area
    * @return true if striker is in our own penalty area

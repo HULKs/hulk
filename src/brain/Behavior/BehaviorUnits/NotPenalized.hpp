@@ -13,13 +13,16 @@ ActionCommand notPenalized(const DataSet& d)
         .combineLeftLED(ActionCommand::LED::rainbow())
         .combineRightLED(ActionCommand::LED::rainbow());
   }
+  else if (d.bodyPose.fallen && isPenaltyWait && !d.sitDownOutput.isSitting)
+  {
+    // we still want to stand up even if the game is finished to be able to sit down correctly.
+    // After finishing sit down we don't want to standUp anymore (even if we detected that we are
+    // fallen).
+    return standUp(d);
+  }
   else if (d.gameControllerState.gameState == GameState::FINISHED)
   {
     return finished(d);
-  }
-  else if (d.bodyPose.fallen && isPenaltyWait)
-  {
-    return standUp(d);
   }
   else
   {

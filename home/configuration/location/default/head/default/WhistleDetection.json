@@ -4,5 +4,6 @@
   "backgroundScaling" : 1.6,
   "whistleScaling" : 5.12,
   "numberOfBands" : 16,
-  "minWhistleCount" : 3
+  "minWhistleCount" : 3,
+  "channel": 0
 }

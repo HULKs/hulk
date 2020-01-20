@@ -213,7 +213,7 @@ private:
   /// the status of the weight shift process (e.g. did it take longer than expected)
   WeightShiftStatus weightShiftStatus_;
   /// The time when slow weight shifts were detected.
-  TimePoint timeWhenSlowWeightShiftsDetected_ = 0;
+  TimePoint timeWhenSlowWeightShiftsDetected_ = TimePoint(0);
   /// How often was the weight not shifted in a row?
   int weightShiftMisses_;
   /// How often took the weight shift significantly longer in a row?

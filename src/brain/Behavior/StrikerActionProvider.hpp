@@ -50,8 +50,6 @@ private:
   Parameter<float> asapDeviationAngle_;
   /// offset (x, y) of the kickPose for dribble
   const Parameter<Vector2f> distanceToBallDribble_;
-  /// offset (x, y) of the kickPose for kick
-  const Parameter<Vector2f> distanceToBallKick_;
   /// direction vectors influencing the dribble direction
   const Parameter<std::vector<std::vector<Vector2f>>> dribbleMapInterpolationPoints_;
   /// kick the ball away from our own goal
@@ -70,6 +68,11 @@ private:
   const Parameter<float> ownGoalAreaRadius_;
   /// radius from opponent goal center that the ball is assumed to be near to the opponent goal
   const Parameter<float> opponentGoalAreaRadius_;
+  const Parameter<bool> useInWalkKickAsStrongDribble_;
+  const Parameter<bool> useInWalkKickInKickOff_;
+  const Parameter<bool> useInWalkKickToClearBall_;
+  const Parameter<bool> useInWalkKickToClearBallASAP_;
+  const Parameter<bool> useInWalkKickToScoreGoal_;
   /// when this is != 0, the kickPose will always lead to a pose to kick with the left (1) or right
   /// (-1) foot
   const Parameter<int> useOnlyThisFoot_;
@@ -77,8 +80,9 @@ private:
   const Parameter<bool> useSideKickParam_;
   /// whether to use the strong dribble in the field center
   const Parameter<bool> useStrongDribble_;
-  /// whether to use the turn kick [NOT IMPLEMENTED]
   const Parameter<bool> useTurnKickParam_;
+  /// always kick no matter what
+  const Parameter<bool> forceKick_;
 
   const Dependency<BallState> ballState_;
   const Dependency<CollisionDetectorData> collisionDetectorData_;
@@ -106,6 +110,41 @@ private:
 
   /// a reference to the striker action
   Production<StrikerAction> strikerAction_;
+
+  /**
+   * @brief set all relevant members of the striker action for a kick
+   * @param kickType the type of the kick
+   * @param absTarget where the ball should be kicked to
+   * @param relBallPosition the relative ball position
+   * @param lastSign the sign of the foot that should kick in the last decision (1 for left, -1 for
+   * right)
+   * @param forceSign whether lastSign must not be changed (can be used to enforce kicking with a
+   * specific foot)
+   */
+  void createStrikerAction(const KickType kickType, const Vector2f& absTarget,
+                           const Vector2f& relBallPosition, int& lastSign, const bool forceSign);
+
+  /**
+   * @brief set all relevant members of the striker action for dribbling
+   * @param absTarget where the ball should be dribbled to
+   * @param relBallPosition the relative ball position
+   * @param relBallPosition the relative ball position
+   * @param lastSign the sign of the foot that should dribble in the last decision (1 for left, -1
+   * for right)
+   * @param forceSign whether lastSign must not be changed (can be used to enforce dribbling with a
+   * specific foot)
+   */
+  void createStrikerAction(const Vector2f& absTarget, const Vector2f& relBallPosition,
+                           int& lastSign, const bool forceSign);
+
+  /**
+   * @brief set all relevant members of the striker action for an in walk kick
+   * @param inWalkKickType the type of the in walk kick
+   * @param absTarget where the ball should be in-walk-kicked to
+   * @param relBallPosition the relative ball position
+   */
+  void createStrikerAction(const InWalkKickType inWalkKickType, const Vector2f& absTarget,
+                           const Vector2f& relBallPosition);
 
   /**
    * @brief

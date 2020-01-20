@@ -13,10 +13,10 @@ FakeImageReceiver::FakeImageReceiver(const ModuleManagerInterface& manager)
   bottomCamera2head_uncalib_ = KinematicMatrix::transZ(17.74) * KinematicMatrix::transX(50.71) *
                                KinematicMatrix::rotY(0.6929);
 
-  configuration().mount("topCamera", "topCamera.json", ConfigurationType::HEAD);
+  configuration().mount("topCamera", "topCamera_v_6.json", ConfigurationType::HEAD);
   configuration().get("topCamera", "resolution") >> topImageSize_;
 
-  configuration().mount("bottomCamera", "bottomCamera.json", ConfigurationType::HEAD);
+  configuration().mount("bottomCamera", "bottomCamera_v_6.json", ConfigurationType::HEAD);
   configuration().get("bottomCamera", "resolution") >> bottomImageSize_;
 
   configuration().mount("Projection", "Projection.json", ConfigurationType::HEAD);

@@ -2,6 +2,7 @@
 
 #include "Modules/NaoProvider.h"
 #include "Tools/Kinematics/ForwardKinematics.h"
+#include "Tools/Math/Angle.hpp"
 #include "Tools/Math/Range.hpp"
 
 #include "HeadMotion.hpp"
@@ -15,6 +16,8 @@ HeadMotion::HeadMotion(const ModuleManagerInterface& manager)
   , innerPitchMax_(*this, "innerPitchMax", [] {})
   , yawThreshold_(*this, "yawThreshold", [] {})
   , lowPassAlphaGyro_(*this, "lowPassAlphaGyro", [] {})
+  , shoulderCoverYawAngle_(*this, "shoulderCoverYawAngle",
+                           [this] { shoulderCoverYawAngle_() *= TO_RAD; })
   , motionRequest_(*this)
   , motionActivation_(*this)
   , cycleInfo_(*this)
@@ -32,6 +35,7 @@ HeadMotion::HeadMotion(const ModuleManagerInterface& manager)
   , wasAtTarget_(false)
   , jointAngles_({0.f, 0.f})
 {
+  shoulderCoverYawAngle_() *= TO_RAD;
 }
 
 void HeadMotion::cycle()
@@ -129,10 +133,16 @@ void HeadMotion::calculateJointAnglesFromRequest()
       yawDirection;
 
   // The negative angular velocity of the torso (yaw) is added to the requested
-  // velocity. Please don't be confused with the signs here. The z-axis of the gyro is pointing
-  // downwards...
+  // velocity.
+  const bool coveredByShoulder =
+      std::abs(jointAngles_[JOINTS_HEAD::HEAD_YAW]) > shoulderCoverYawAngle_();
+  const bool deceleratingCompensation = yawDirection * filteredTorsoYawVelocity_ > 0;
+
   const float torsoVelocityCompensation =
-      useEffectiveYawVelocity_ ? filteredTorsoYawVelocity_ : 0.f;
+      useEffectiveYawVelocity_ && !(coveredByShoulder && deceleratingCompensation)
+          ? -filteredTorsoYawVelocity_
+          : 0.f;
+
   const float compensatedYawVel = Range<float>::clipToGivenRange(
       desiredYawVel + torsoVelocityCompensation, -maxYawVelocity_(), maxYawVelocity_());
 

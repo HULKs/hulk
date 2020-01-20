@@ -2,6 +2,7 @@
 
 #include "JointCommandSender.hpp"
 #include "Modules/Poses.h"
+#include "print.h"
 
 JointCommandSender::JointCommandSender(const ModuleManagerInterface& manager)
   : Module(manager)
@@ -9,11 +10,13 @@ JointCommandSender::JointCommandSender(const ModuleManagerInterface& manager)
   , motionActivation_(*this)
   , fallManagerOutput_(*this)
   , headMotionOutput_(*this)
-  , keeperOutput_(*this)
+  , jumpOutput_(*this)
   , kickOutput_(*this)
   , pointOutput_(*this)
   , poserOutput_(*this)
   , standUpOutput_(*this)
+  , sitDownOutput_(*this)
+  , sitUpOutput_(*this)
   , walkingEngineWalkOutput_(*this)
   , walkingEngineStandOutput_(*this)
   , jointSensorData_(*this)
@@ -61,12 +64,16 @@ void JointCommandSender::cycle()
     // This sum can be < 1 when dead or hold are active.
     float sum =
         motionActivation_
-            ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KEEPER)] +
+            ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::JUMP)] +
         motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KICK)] +
         motionActivation_
             ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::FALL_MANAGER)] +
         motionActivation_
             ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND_UP)] +
+        motionActivation_
+            ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::SIT_DOWN)] +
+        motionActivation_
+            ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::SIT_UP)] +
         motionActivation_
             ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::PENALIZED)] +
         motionActivation_->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::WALK)] +
@@ -75,8 +82,8 @@ void JointCommandSender::cycle()
     {
       angles_[i] =
           motionActivation_
-                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KEEPER)] *
-              keeperOutput_->angles[i] +
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::JUMP)] *
+              jumpOutput_->angles[i] +
           motionActivation_
                   ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KICK)] *
               kickOutput_->angles[i] +
@@ -86,6 +93,12 @@ void JointCommandSender::cycle()
           motionActivation_
                   ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::STAND_UP)] *
               standUpOutput_->angles[i] +
+          motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::SIT_DOWN)] *
+              sitDownOutput_->angles[i] +
+          motionActivation_
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::SIT_UP)] *
+              sitUpOutput_->angles[i] +
           motionActivation_
                   ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::PENALIZED)] *
               poserOutput_->angles[i] +
@@ -100,10 +113,10 @@ void JointCommandSender::cycle()
       float stiffness = 0;
       // This gets the highest stiffness of all activated motions.
       if (motionActivation_
-                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KEEPER)] > 0 &&
-          keeperOutput_->stiffnesses[i] > stiffness)
+                  ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::JUMP)] > 0 &&
+          jumpOutput_->stiffnesses[i] > stiffness)
       {
-        stiffness = keeperOutput_->stiffnesses[i];
+        stiffness = jumpOutput_->stiffnesses[i];
       }
       if (motionActivation_
                   ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::KICK)] > 0 &&
@@ -123,6 +136,20 @@ void JointCommandSender::cycle()
           standUpOutput_->stiffnesses[i] > stiffness)
       {
         stiffness = standUpOutput_->stiffnesses[i];
+      }
+      if (motionActivation_
+            ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::SIT_DOWN)] >
+          0 &&
+          sitDownOutput_->stiffnesses[i] > stiffness)
+      {
+        stiffness = sitDownOutput_->stiffnesses[i];
+      }
+      if (motionActivation_
+            ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::SIT_UP)] >
+          0 &&
+          sitUpOutput_->stiffnesses[i] > stiffness)
+      {
+        stiffness = sitUpOutput_->stiffnesses[i];
       }
       if (motionActivation_
                   ->activations[static_cast<unsigned int>(MotionRequest::BodyMotion::PENALIZED)] >
@@ -188,6 +215,7 @@ void JointCommandSender::cycle()
         Poses::getPose(Poses::READY)[i] + jointCalibrationData_->calibrationOffsets[i];
     stiffnesses_[i] = 0.f;
   }
+  motionState_->angles = calibratedAngles_;
 #ifndef NDEBUG
   for (unsigned int i = 0; i < JOINTS::JOINTS_MAX; i++)
   {
@@ -219,10 +247,32 @@ void JointCommandSender::cycle()
     {
       std::cout << "StandUpOutput " << i << " was NaN" << '\n';
     }
+    if (std::isnan(sitDownOutput_->angles[i]))
+    {
+      std::cout << "SitDownOutput " << i << " was NaN" << '\n';
+    }
+    if (std::isnan(sitUpOutput_->angles[i]))
+    {
+      std::cout << "SitUpOutput " << i << " was NaN" << '\n';
+    }
     assert(!std::isnan(calibratedAngles_[i]));
     assert(!std::isnan(stiffnesses_[i]));
   }
 #endif
+
+  for (const auto& joint : JOINTS::jointsMap)
+  {
+    if (calibratedAngles_[joint.first] < NaoProvider::minRange(joint.first) ||
+        calibratedAngles_[joint.first] > NaoProvider::maxRange(joint.first))
+    {
+      Log(LogLevel::DEBUG) << "Requested angles out of range! Motion "
+                           << static_cast<unsigned int>(motionRequest_->bodyMotion) << " requested "
+                           << joint.second << " to " << calibratedAngles_[joint.first]
+                           << ". Allowed range is [" << NaoProvider::minRange(joint.first) << ", "
+                           << NaoProvider::maxRange(joint.first) << "].";
+    }
+  }
+
   robotInterface().setJointAngles(calibratedAngles_);
   robotInterface().setJointStiffnesses(stiffnesses_);
 }

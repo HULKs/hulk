@@ -39,13 +39,17 @@ public:
   /// If the suggestedSearchPosition is valid
   /// (per player; maps to the suggestedSearchPositions array).
   std::array<bool, MAX_NUM_PLAYERS> suggestedSearchPositionValid;
-  /// If the robot is available for searching for the ball (info for other players)
-  bool availableForSearch = false;
   /// The robot with the oldest, continously updated map (calculated on this robot)
   unsigned int localMostWisePlayerNumber = 0;
   /// The robot with the oldest, continously updated map (which we got from the robot with the
   /// smallest player number)
   unsigned int globalMostWisePlayerNumber = 0;
+  /// the current replacement keeper; will be 0 if there is no replacement keeper
+  unsigned int replacementKeeperNumber = 0;
+  /// position of replacement keeper in goal, looking at enemy team
+  Pose replacementKeeperPose;
+  /// If the robot is available for searching for the ball (info for other players)
+  bool availableForSearch = false;
 
   void reset() override
   {

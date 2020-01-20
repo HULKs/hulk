@@ -5,6 +5,7 @@
 
 #include "Tools/Chronometer.hpp"
 #include "Tools/Math/ColorConverter.hpp"
+#include "Tools/Math/Statistics.hpp"
 #include "Tools/Storage/Image422.hpp"
 
 ImageSegmenter::ImageSegmenter(const ModuleManagerInterface& manager)
@@ -16,6 +17,8 @@ ImageSegmenter::ImageSegmenter(const ModuleManagerInterface& manager)
   , edgeThresholdVertical_(*this, "edgeThresholdVertical", [] {})
   , numScanlines_(*this, "numScanlines", [this] { updateScanlines_ = true; })
   , drawEdges_(*this, "drawEdges", [] {})
+  , useMedianVerticalTop_(*this, "useMedianVerticalTop", [] {})
+  , useMedianVerticalBottom_(*this, "useMedianVerticalBottom", [] {})
   , imageData_(*this)
   , cameraMatrix_(*this)
   , fieldColor_(*this)
@@ -28,7 +31,18 @@ void ImageSegmenter::cycle()
 {
   {
     Chronometer time(debug(), mount_ + "." + imageData_->identification + "_cycle_time");
-    createVerticalScanlines();
+    if ((imageData_->camera == Camera::TOP && useMedianVerticalTop_()) ||
+        (imageData_->camera == Camera::BOTTOM && useMedianVerticalBottom_()))
+    {
+      // create the vertical scanline segments using the median of the pixel's y value and the y
+      // values of the pixel above and below
+      createVerticalScanlines<true>();
+    }
+    else
+    {
+      // use the pixel's y value directly
+      createVerticalScanlines<false>();
+    }
     createHorizontalScanlines();
     imageSegments_->valid = true;
   }
@@ -77,30 +91,6 @@ void ImageSegmenter::calculateScanGrids()
       static_cast<int>(imageSegments_->scanGrids[camera].size()) == imageData_->image422.size.y();
 }
 
-uint8_t ImageSegmenter::median(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint8_t e)
-{
-  return b < a ? d < c ? b < d ? a < e ? a < d ? e < d ? e : d : c < a ? c : a
-                                       : e < d ? a < d ? a : d : c < e ? c : e
-                               : c < e ? b < c ? a < c ? a : c : e < b ? e : b
-                                       : b < e ? a < e ? a : e : c < b ? c : b
-                       : b < c ? a < e ? a < c ? e < c ? e : c : d < a ? d : a
-                                       : e < c ? a < c ? a : c : d < e ? d : e
-                               : d < e ? b < d ? a < d ? a : d : e < b ? e : b : d < b ? d : b
-               : d < c ? a < d ? b < e ? b < d ? e < d ? e : d : c < b ? c : b
-                                       : e < d ? b < d ? b : d : c < e ? c : e
-                               : c < e ? a < c ? b < c ? b : c : e < a ? e : a
-                                       : a < e ? b < e ? b : e : c < a ? c : a
-                       : a < c ? b < e ? b < c ? e < c ? e : c : d < b ? d : b
-                                       : e < c ? b < c ? b : c : d < e ? d : e
-                               : d < e ? a < d ? b < d ? b : d : e < a ? e : a
-                                       : a < e ? b < e ? b : e : d < a ? d : a;
-}
-
-uint8_t ImageSegmenter::median(uint8_t a, uint8_t b, uint8_t c)
-{
-  return a > b ? b > c ? b : a > c ? c : a : a > c ? a : b > c ? c : b;
-}
-
 void ImageSegmenter::addSegment(const Vector2i& peak, Scanline& scanline, EdgeType edgeType,
                                 int scanPoints)
 {
@@ -128,66 +118,32 @@ void ImageSegmenter::addSegment(const Vector2i& peak, Scanline& scanline, EdgeTy
     const YCbCr422& c3 = imageData_->image422.at(segment.start + spacing * 3);
     const YCbCr422& c4 = imageData_->image422.at(segment.start + spacing * 4);
     const YCbCr422& c5 = imageData_->image422.at(segment.start + spacing * 5);
-    segment.ycbcr422 = YCbCr422(median(c1.y1_, c2.y1_, c3.y1_, c4.y1_, c5.y1_),
-                                median(c1.cb_, c2.cb_, c3.cb_, c4.cb_, c5.cb_),
-                                median(c1.y2_, c2.y2_, c3.y2_, c4.y2_, c5.y2_),
-                                median(c1.cr_, c2.cr_, c3.cr_, c4.cr_, c5.cr_));
+    segment.ycbcr422 = YCbCr422(Statistics::median(c1.y1_, c2.y1_, c3.y1_, c4.y1_, c5.y1_),
+                                Statistics::median(c1.cb_, c2.cb_, c3.cb_, c4.cb_, c5.cb_),
+                                Statistics::median(c1.y2_, c2.y2_, c3.y2_, c4.y2_, c5.y2_),
+                                Statistics::median(c1.cr_, c2.cr_, c3.cr_, c4.cr_, c5.cr_));
   }
   else if (scanlineType == ScanlineType::VERTICAL && diff.y() > 2)
   {
     const YCbCr422& c1 = imageData_->image422.at(segment.start);
     const YCbCr422& c2 = imageData_->image422.at((segment.start + segment.end).unaryExpr(shift));
     const YCbCr422& c3 = imageData_->image422.at(segment.end);
-    segment.ycbcr422 = YCbCr422(median(c1.y1_, c2.y1_, c3.y1_), median(c1.cb_, c2.cb_, c3.cb_),
-                                median(c1.y2_, c2.y2_, c3.y2_), median(c1.cr_, c2.cr_, c3.cr_));
+    segment.ycbcr422 = YCbCr422(
+        Statistics::median(c1.y1_, c2.y1_, c3.y1_), Statistics::median(c1.cb_, c2.cb_, c3.cb_),
+        Statistics::median(c1.y2_, c2.y2_, c3.y2_), Statistics::median(c1.cr_, c2.cr_, c3.cr_));
   }
   else
   {
     segment.ycbcr422 = imageData_->image422.at((segment.start + segment.end).unaryExpr(shift));
   }
-  segment.field = fieldColor_->isFieldColor(segment.ycbcr422) * 1.0f;
+  segment.field = fieldColor_->isFieldColor(segment.ycbcr422);
   if (edgeType != EdgeType::BORDER && edgeType != EdgeType::END)
   {
     scanline.segments.emplace_back(peak, edgeType);
   }
 }
 
-bool ImageSegmenter::isOnRobot(const Vector2i& pos)
-{
-  for (auto& line : robotProjection_->lines)
-  {
-    const int minX = std::min(line.p1.x(), line.p2.x());
-    if (minX > pos.x())
-    {
-      continue;
-    }
-    const int maxX = std::max(line.p1.x(), line.p2.x());
-    if (maxX < pos.x())
-    {
-      continue;
-    }
-    const int minY = std::min(line.p1.y(), line.p2.y());
-    if (minY > pos.y())
-    {
-      continue;
-    }
-    const int maxY = std::max(line.p1.y(), line.p2.y());
-    if (maxY < pos.y())
-    {
-      return true;
-    }
-    const float crossProduct =
-        static_cast<float>(line.p2.x() - line.p1.x()) * (line.p2.y() - pos.y()) -
-        (line.p2.y() - line.p1.y()) * (line.p2.x() - pos.x());
-    const int sign = line.p1.x() < line.p2.x() ? 1 : -1;
-    if (sign * crossProduct < 0)
-    {
-      return true;
-    }
-  }
-  return false;
-}
-
+template <bool useMedian>
 void ImageSegmenter::createVerticalScanlines()
 {
   // reinitialize scanlines if the image changes
@@ -263,12 +219,15 @@ void ImageSegmenter::createVerticalScanlines()
         }
       }
     }
-    scanlineState.lastYCbCr422 = &imageData_->image422.at(horizon, scanline.pos);
+    scanlineState.lastYValue = imageData_->image422.at(horizon, scanline.pos).y1_;
     scanlineState.scanline = &scanline;
     scanlineStates.push_back(scanlineState);
   }
-  const YCbCr422* ycbcr422;
-  for (int y = horizon + 2; y < imageData_->image422.size.y(); y += 2)
+  const unsigned int sizeX = imageData_->image422.size.x();
+  std::uint8_t yValue;
+  const int upperBoundY =
+      useMedian ? imageData_->image422.size.y() - 1 : imageData_->image422.size.y();
+  for (int y = horizon + 2; y < upperBoundY; y += 2)
   {
     for (auto& state : scanlineStates)
     {
@@ -277,8 +236,19 @@ void ImageSegmenter::createVerticalScanlines()
         continue;
       }
       state.scanPoints++;
-      ycbcr422 = &imageData_->image422.at(y, state.scanline->pos);
-      int diff = ycbcr422->y1_ - state.lastYCbCr422->y1_;
+      if constexpr (useMedian)
+      {
+        const std::size_t PositionInArray =
+            imageData_->image422.calculateCoordPositionInArray(y - 1, state.scanline->pos);
+        yValue = Statistics::median(imageData_->image422.data[PositionInArray].y1_,
+                                    imageData_->image422.data[PositionInArray + sizeX].y1_,
+                                    imageData_->image422.data[PositionInArray + 2 * sizeX].y1_);
+      }
+      else
+      {
+        yValue = imageData_->image422.at(y, state.scanline->pos).y1_;
+      }
+      int diff = yValue - state.lastYValue;
       if (diff > state.gMax)
       {
         if (state.gMin < -edgeThreshold)
@@ -303,7 +273,7 @@ void ImageSegmenter::createVerticalScanlines()
         state.gMax = -edgeThreshold;
         state.yPeak = y - 1;
       }
-      state.lastYCbCr422 = ycbcr422;
+      state.lastYValue = yValue;
     }
   }
   // Add last segment of each scanline
@@ -386,7 +356,7 @@ void ImageSegmenter::createHorizontalScanlines()
     for (x = startX; x < imageData_->image422.size.x(); x += lookupX)
     {
       pixel.x() = x;
-      if (needsRobotCheck && isOnRobot(pixel))
+      if (needsRobotCheck && robotProjection_->isOnRobot(pixel))
       {
         if (!wasOnRobot)
         {
@@ -604,8 +574,9 @@ void ImageSegmenter::sendDebug()
             if (imageData_->image422.isInside(pixel))
             {
               gridImage.circle(pixel444, 1,
-                               onRobotCheckNecessary && isOnRobot(pixel) ? Color::RED
-                                                                         : Color::BLUE);
+                               onRobotCheckNecessary && robotProjection_->isOnRobot(pixel)
+                                   ? Color::RED
+                                   : Color::BLUE);
             }
           }
         }

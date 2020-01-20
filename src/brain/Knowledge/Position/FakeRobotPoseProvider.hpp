@@ -20,19 +20,21 @@ public:
    * @brief the constructor of this module
    * @param manager the module manager interface
    */
-  FakeRobotPoseProvider(const ModuleManagerInterface& manager);
+  explicit FakeRobotPoseProvider(const ModuleManagerInterface& manager);
   /**
    * @brief cycle writes the fake robot pose from the robot interface to the
    *        RobotPosition production
    */
-  void cycle();
+  void cycle() override;
   /**
    * @brief toValue converts this to a Uni::Value
    * @param value the resulting Uni::Value
    */
-  void toValue(Uni::Value& value) const;
+  void toValue(Uni::Value& value) const override;
 
 private:
+  /// whether the own pose should be mirrored (useful in simrobot for enemy team)
+  const Parameter<bool> mirrorFakePose_;
   /// a dependency to ensure that there is fake data availabe before this module runs
   const Dependency<FakeImageData> fakeImageData_;
   /// some details about the cycle time

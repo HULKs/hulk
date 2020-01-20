@@ -1,8 +1,10 @@
 #include "Tools/Chronometer.hpp"
 #include "Tools/Math/Hysteresis.hpp"
+#include "Tools/PenaltyAreaUtils.hpp"
 #include "print.h"
 
 #include "TeamPlayersAugmenter.hpp"
+
 
 TeamPlayersAugmenter::TeamPlayersAugmenter(const ModuleManagerInterface& manager)
   : Module(manager)
@@ -18,7 +20,7 @@ void TeamPlayersAugmenter::cycle()
   Chronometer time(debug(), mount_ + ".cycle_time");
 
   // forward raw team players
-  *teamPlayers_ = *rawTeamPlayers_;
+  *teamPlayers_ = static_cast<TeamPlayers>(*rawTeamPlayers_);
 
   // set insideOwnPenaltyArea for each team player
   for (auto& player : teamPlayers_->players)
@@ -26,17 +28,9 @@ void TeamPlayersAugmenter::cycle()
     if (player.playerNumber <= playerInOwnPenaltyArea_.size())
     {
       playerInOwnPenaltyArea_[player.playerNumber] =
-          Hysteresis<float>::greaterThan(
-              player.pose.position.x(), -fieldDimensions_->fieldLength / 2 - hysteresis_,
-              hysteresis_, playerInOwnPenaltyArea_[player.playerNumber]) &&
-          Hysteresis<float>::smallerThan(player.pose.position.x(),
-                                         -fieldDimensions_->fieldLength / 2 +
-                                             fieldDimensions_->fieldPenaltyAreaLength + hysteresis_,
-                                         hysteresis_,
-                                         playerInOwnPenaltyArea_[player.playerNumber]) &&
-          Hysteresis<float>::smallerThan(std::abs(player.pose.position.y()),
-                                         fieldDimensions_->fieldPenaltyAreaWidth / 2 + hysteresis_,
-                                         hysteresis_, playerInOwnPenaltyArea_[player.playerNumber]);
+          PenaltyAreaUtils::isInPenaltyArea(player.pose.position, fieldDimensions_, hysteresis_,
+                                            playerInOwnPenaltyArea_[player.playerNumber]) &&
+          (player.pose.position.x() < 0);
       player.insideOwnPenaltyArea = playerInOwnPenaltyArea_[player.playerNumber];
     }
     else

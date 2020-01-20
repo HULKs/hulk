@@ -14,9 +14,6 @@
 #endif
 
 #include "BehaviorUnits/Head/CameraCalibration.hpp"
-#include "BehaviorUnits/Head/LookAround.hpp"
-#include "BehaviorUnits/Head/LookForward.hpp"
-#include "BehaviorUnits/Head/TrackBall.hpp"
 #include "BehaviorUnits/Head/ActiveVision.hpp"
 #include "BehaviorUnits/Skills/WalkToPose.hpp"
 #include "BehaviorUnits/Skills/WalkBehindBall.hpp"

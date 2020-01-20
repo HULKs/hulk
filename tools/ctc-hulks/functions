@@ -24,3 +24,35 @@ function hg_clone
   hg up $VERSION
   cd ..
 }
+
+function download
+{
+  URL=$1
+  OUTPUT_NAME=$2
+
+  if [[ $OUTPUT_NAME == "" ]]; then
+    wget -nc $URL -q --show-progress
+  else
+    wget -nc $URL -O $OUTPUT_NAME -q --show-progress
+  fi
+
+  RETURNCODE=$?
+
+  if [[ $RETURNCODE != 0 ]] && [[ $RETURNCODE != 1 ]]; then
+    echo -e "\033[0;31mDownloading $URL failed!"
+    rm $OUTPUT_NAME
+    exit 1
+  fi
+}
+
+function unpack
+{
+  echo "Unpacking $1"
+
+  tar xkf $1
+
+  if [[ $? != 0 ]]; then
+    echo -e "\033[0;31mUnpacking $1 failed!"
+    exit 1
+  fi
+}

@@ -1,0 +1,316 @@
+#!/bin/bash
+
+# Get base directory for better referencing
+base_dir=`cd $(dirname $0); pwd -P`
+cd ${base_dir}
+
+source env.sh
+source versions
+
+number_jobs=9
+lib_dir="${base_dir}/libs"
+destdir="${lib_dir}/sysroot/"
+gcc_version=`${base_dir}/x-tools/i686-nao-linux-gnu/bin/i686-nao-linux-gnu-gcc -dumpversion`
+prefix="/home/nao/sysroot-${gcc_version}-${TOOLCHAIN_SUB_VERSION}/usr"
+
+export PKG_CONFIG_SYSROOT_DIR=${destdir}
+
+cd libs
+
+#Build bzip2
+cd $bzip2_dir
+make CC="i686-nao-linux-gnu-gcc" AR="i686-nao-linux-gnu-ar" RANLIB="i686-nao-linux-gnu-ranlib" libbz2.a
+install -D -m 644 libbz2.a ${destdir}${prefix}/lib/libbz2.a
+install -D -m 644 bzlib.h ${destdir}${prefix}/include/bzlib.h
+make clean
+make -f Makefile-libbz2_so CC="i686-nao-linux-gnu-gcc" all
+install -D -m 755 libbz2.so.1.0.8 ${destdir}${prefix}/lib/libbz2.so.1.0.8
+ln -sf libbz2.so.1.0.8 ${destdir}${prefix}/lib/libbz2.so.1.0
+cd ${lib_dir}
+continue_install "Finished bzip2."
+
+#Build zlib
+cd $zlib_dir
+CC=i686-nao-linux-gnu-gcc AR=i686-nao-linux-gnu-ar RANLIB=i686-nao-linux-gnu-ranlib ./configure --prefix=${prefix}
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished zlib."
+
+#Build libpng
+cd $libpng_dir
+./configure --host=i686-nao-linux-gnu \
+  CC=i686-nao-linux-gnu-gcc AR=i686-nao-linux-gnu-ar STRIP=i686-nao-linux-gnu-strip RANLIB=i686-nao-linux-gnu-ranlib \
+  CPPFLAGS="-I${destdir}${prefix}/include -O2 -march=atom -mssse3 -mfpmath=sse -fomit-frame-pointer" \
+  LDFLAGS="-L${destdir}${prefix}/lib" --prefix=${prefix}
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished libpng."
+
+#Build libjpeg
+mkdir libjpeg_build
+cd libjpeg_build
+cmake -DCMAKE_TOOLCHAIN_FILE=../../i686-nao-linux-gnu.toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=${prefix} \
+  -DREQUIRE_SIMD=ON -DWITH_JPEG8=ON \
+  ../$libjpeg_dir
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished libjpeg."
+
+#Build Boost.Build
+cd ${boost_dir}/tools/build
+patch -N -p0 < ${base_dir}/patches/boost/1.71.0/cross-compile-fix.patch
+./bootstrap.sh
+./b2 --prefix=${lib_dir}/boost-build --ignore-site-config install
+#Build and install Boost
+cd ../..
+echo "using gcc : i686 : i686-nao-linux-gnu-g++ : <compileflags>-O2 <compileflags>-march=silvermont <compileflags>-mtune=silvermont <compileflags>-msse4.2 <compileflags>-mfpmath=sse <compileflags>-fomit-frame-pointer <compileflags>-std=c++17 ;" > ${base_dir}/user-config.jam
+${lib_dir}/boost-build/bin/b2 --toolchain=gcc-i686 --ignore-site-config --user-config=${base_dir}/user-config.jam \
+  --without-python --prefix=${destdir}${prefix} \
+  -s BZIP2_BINARY=bz2 -s BZIP2_INCLUDE=${destdir}${prefix}/include -s BZIP2_LIBPATH=${destdir}${prefix}/lib \
+  -s ZLIB_BINARY=z -s ZLIB_INCLUDE=${destdir}${prefix}/include -s ZLIB_LIBPATH=${destdir}${prefix}/lib install
+cd ${lib_dir}
+continue_install "Finished boost."
+
+patch -N -p1 < ../patches/flann/1.9.1/cmake-3.11.0.patch
+mkdir flann_build
+cd flann_build
+cmake -DCMAKE_TOOLCHAIN_FILE=../../i686-nao-linux-gnu.toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=${prefix} \
+  -DBUILD_MATLAB_BINDINGS=OFF -DBUILD_PYTHON_BINDINGS=OFF \
+  -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF \
+  -DBUILD_DOC=OFF \
+  -DUSE_MPI=OFF -DUSE_OPENMP=OFF \
+  ../flann-${flann_version}
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished flann."
+
+cd ${eigen_dir}
+patch -N -p1 < ${base_dir}/patches/eigen3/3.3.4/fixCuda.patch
+cd ${lib_dir}
+mkdir eigen_build
+cd eigen_build
+cmake -DCMAKE_TOOLCHAIN_FILE=../../i686-nao-linux-gnu.toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=${prefix} \
+  -DEIGEN_BUILD_PKGCONFIG=OFF \
+  -DEIGEN_TEST_CUDA=OFF \
+  -DBUILD_TESTING=ON \
+  -DEIGEN_TEST_CXX11=ON \
+  ../${eigen_dir}
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished Eigen."
+
+cd $alsa_lib_dir
+
+./configure --host=i686-nao-linux-gnu --disable-python \
+  CC=i686-nao-linux-gnu-gcc AR=i686-nao-linux-gnu-ar STRIP=i686-nao-linux-gnu-strip RANLIB=i686-nao-linux-gnu-ranlib \
+  CPPFLAGS="-O2 -march=atom -mssse3 -mfpmath=sse -fomit-frame-pointer" \
+  --prefix=${prefix}
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished alsa."
+
+mkdir portaudio_build
+cd portaudio_build
+cmake -DCMAKE_TOOLCHAIN_FILE=../../i686-nao-linux-gnu.toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=${prefix} \
+  -DALSA_INCLUDE_DIR=${destdir}${prefix}/include \
+  -DALSA_LIBRARY=${destdir}${prefix}/lib/libasound.so \
+  -DPA_USE_JACK=OFF \
+  ../${portaudio_dir}
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished portaudio."
+
+#Build ogg
+mkdir ogg-build
+cd ogg-build
+cmake -DCMAKE_TOOLCHAIN_FILE=../../i686-nao-linux-gnu.toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=ON \
+  -DCMAKE_INSTALL_PREFIX=${prefix} \
+  ../${ogg_dir}
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished ogg."
+
+# Apply opus patch
+cd ${opus_dir}
+patch -N -p1 < ${base_dir}/patches/opus/1.3.1/opus-avx-disable.patch
+cd ..
+
+#Build opus
+mkdir opus-build
+cd opus-build
+cmake -DCMAKE_TOOLCHAIN_FILE=../../i686-nao-linux-gnu.toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=ON \
+  -DOPUS_X86_MAY_HAVE_AVX=OFF \
+  -DCMAKE_INSTALL_PREFIX=${prefix} \
+  ../${opus_dir}
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished opus."
+
+#Build opusfile
+cp ${base_dir}/patches/opusfile/0.10/CMakeLists.txt ${opusfile_dir}
+mkdir opusfile-build
+cd opusfile-build
+cmake -DCMAKE_TOOLCHAIN_FILE=../../i686-nao-linux-gnu.toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=ON \
+  -DOGG_INCLUDE_DIR=${destdir}${prefix}/include \
+  -DOGG_LIBRARY=${destdir}${prefix}/lib/libogg.so \
+  -DOPUS_INCLUDE_DIR=${destdir}${prefix}/include/opus \
+  -DOPUS_LIBRARY=${destdir}${prefix}/lib/libopus.so \
+  -DCMAKE_INSTALL_PREFIX=${prefix} \
+  ../${opusfile_dir}
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished opus."
+
+cd $sndfile_dir
+./configure --host=i686-nao-linux-gnu \
+  CC=i686-nao-linux-gnu-gcc AR=i686-nao-linux-gnu-ar STRIP=i686-nao-linux-gnu-strip RANLIB=i686-nao-linux-gnu-ranlib \
+  CPPFLAGS="-O2 -march=atom -mssse3 -mfpmath=sse -fomit-frame-pointer" \
+  --prefix=${prefix}
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished libsndfile."
+
+cd $fftw_dir
+./configure --host=i686-nao-linux-gnu \
+  CC=i686-nao-linux-gnu-gcc CXX=i686-nao-linux-gnu-g++ AR=i686-nao-linux-gnu-ar STRIP=i686-nao-linux-gnu-strip RANLIB=i686-nao-linux-gnu-ranlib \
+  CFLAGS="-O2 -march=atom -mssse3 -mfpmath=sse -fomit-frame-pointer" \
+  --prefix=${prefix}
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished fftw."
+
+#Build msgpack-c
+mkdir msgpack-build
+cd msgpack-build
+cmake -DCMAKE_TOOLCHAIN_FILE=../../i686-nao-linux-gnu.toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=${prefix} \
+  ../${msgpack_dir}
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished msgpack."
+
+#Build OpenCV
+cd ${opencv_dir}
+
+mkdir build
+cd build
+
+cmake  -DCMAKE_TOOLCHAIN_FILE=${base_dir}/i686-nao-linux-gnu.toolchain.cmake \
+-DCMAKE_INSTALL_PREFIX=${prefix} \
+-DOPENCV_EXTRA_MODULES_PATH:PATH=${base_dir}/libs/${opencv_contrib_dir}/modules \
+-DBUILD_CUDA_STUBS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_EXAMPLES:BOOL=OFF \
+-DBUILD_FAT_JAVA_LIB:BOOL=OFF -DBUILD_IPP_IW:BOOL=OFF -DBUILD_ITT:BOOL=OFF \
+-DBUILD_JASPER:BOOL=OFF -DBUILD_JAVA:BOOL=OFF -DBUILD_JPEG:BOOL=OFF \
+-DBUILD_OPENEXR:BOOL=OFF -DBUILD_PACKAGE:BOOL=OFF \
+-DBUILD_PERF_TESTS:BOOL=OFF -DBUILD_PNG:BOOL=OFF -DBUILD_PROTOBUF:BOOL=ON \
+-DBUILD_SHARED_LIBS:BOOL=OFF -DBUILD_TBB:BOOL=OFF -DBUILD_TESTS:BOOL=OFF \
+-DBUILD_TIFF:BOOL=OFF -DBUILD_USE_SYMLINKS:BOOL=OFF -DBUILD_WEBP:BOOL=OFF \
+-DBUILD_WITH_DEBUG_INFO:BOOL=OFF -DBUILD_WITH_DYNAMIC_IPP:BOOL=OFF \
+-DBUILD_ZLIB:BOOL=OFF -DBUILD_opencv_apps:BOOL=OFF -DBUILD_opencv_aruco:BOOL=ON \
+-DBUILD_opencv_bgsegm:BOOL=OFF -DBUILD_opencv_bioinspired:BOOL=OFF \
+-DBUILD_opencv_calib3d:BOOL=ON -DBUILD_opencv_ccalib:BOOL=OFF \
+-DBUILD_opencv_core:BOOL=ON -DBUILD_opencv_datasets:BOOL=OFF \
+-DBUILD_opencv_dnn:BOOL=ON -DBUILD_opencv_dnn_objdetect:BOOL=OFF \
+-DBUILD_opencv_dpm:BOOL=OFF -DBUILD_opencv_face:BOOL=OFF \
+-DBUILD_opencv_features2d:BOOL=ON -DBUILD_opencv_flann:BOOL=ON \
+-DBUILD_opencv_freetype:BOOL=OFF -DBUILD_opencv_fuzzy:BOOL=OFF \
+-DBUILD_opencv_gapi:BOOL=OFF -DBUILD_opencv_hdf:BOOL=OFF \
+-DBUILD_opencv_hfs:BOOL=OFF -DBUILD_opencv_highgui:BOOL=OFF \
+-DBUILD_opencv_img_hash:BOOL=OFF -DBUILD_opencv_imgcodecs:BOOL=OFF \
+-DBUILD_opencv_imgproc:BOOL=ON -DBUILD_opencv_java:BOOL=OFF \
+-DBUILD_opencv_java_bindings_generator:BOOL=OFF -DBUILD_opencv_js:BOOL=OFF \
+-DBUILD_opencv_line_descriptor:BOOL=OFF -DBUILD_opencv_ml:BOOL=OFF \
+-DBUILD_opencv_objdetect:BOOL=OFF -DBUILD_opencv_optflow:BOOL=OFF \
+-DBUILD_opencv_phase_unwrapping:BOOL=OFF -DBUILD_opencv_photo:BOOL=OFF \
+-DBUILD_opencv_plot:BOOL=OFF -DBUILD_opencv_python2:BOOL=OFF \
+-DBUILD_opencv_python_bindings_generator:BOOL=OFF -DBUILD_opencv_reg:BOOL=OFF \
+-DBUILD_opencv_rgbd:BOOL=OFF -DBUILD_opencv_saliency:BOOL=OFF \
+-DBUILD_opencv_shape:BOOL=OFF -DBUILD_opencv_stereo:BOOL=OFF \
+-DBUILD_opencv_stitching:BOOL=OFF -DBUILD_opencv_structured_light:BOOL=OFF \
+-DBUILD_opencv_superres:BOOL=OFF -DBUILD_opencv_surface_matching:BOOL=OFF \
+-DBUILD_opencv_text:BOOL=OFF -DBUILD_opencv_tracking:BOOL=OFF \
+-DBUILD_opencv_ts:BOOL=OFF -DBUILD_opencv_video:BOOL=OFF \
+-DBUILD_opencv_videoio:BOOL=OFF -DBUILD_opencv_videostab:BOOL=OFF \
+-DBUILD_opencv_world:BOOL=OFF -DBUILD_opencv_xfeatures2d:BOOL=OFF \
+-DBUILD_opencv_ximgproc:BOOL=OFF -DBUILD_opencv_xobjdetect:BOOL=OFF \
+-DBUILD_opencv_xphoto:BOOL=OFF -DCCACHE_PROGRAM:FILEPATH=/usr/local/bin/ccache \
+-DCMAKE_BUILD_TYPE:STRING=Release \
+-DCPU_BASELINE:STRING=SSE3 \
+-DCPU_DISPATCH:STRING="SSE4_1;SSE4_2;AVX;FP16;AVX2;AVX512_SKX" \
+-DCV_DISABLE_OPTIMIZATION:BOOL=OFF -DCV_ENABLE_INTRINSICS:BOOL=ON \
+-DCV_TRACE:BOOL=ON \
+-DENABLE_BUILD_HARDENING:BOOL=OFF -DENABLE_CCACHE:BOOL=OFF \
+-DENABLE_CONFIG_VERIFICATION:BOOL=OFF -DENABLE_COVERAGE:BOOL=OFF \
+-DENABLE_FAST_MATH:BOOL=OFF -DENABLE_FLAKE8:BOOL=OFF \
+-DENABLE_GNU_STL_DEBUG:BOOL=OFF -DENABLE_IMPL_COLLECTION:BOOL=OFF \
+-DENABLE_INSTRUMENTATION:BOOL=OFF -DENABLE_LTO:BOOL=OFF \
+-DENABLE_NOISY_WARNINGS:BOOL=OFF -DENABLE_OMIT_FRAME_POINTER:BOOL=ON \
+-DENABLE_PIC:BOOL=ON -DENABLE_PRECOMPILED_HEADERS:BOOL=OFF \
+-DENABLE_PROFILING:BOOL=OFF -DENABLE_PYLINT:BOOL=OFF \
+-DENABLE_SOLUTION_FOLDERS:BOOL=OFF -DGENERATE_ABI_DESCRIPTOR:BOOL=OFF \
+-DINSTALL_CREATE_DISTRIB:BOOL=OFF -DINSTALL_C_EXAMPLES:BOOL=OFF \
+-DINSTALL_PYTHON_EXAMPLES:BOOL=OFF -DINSTALL_TESTS:BOOL=OFF \
+-DINSTALL_TO_MANGLED_PATHS:BOOL=OFF \
+-DMKL_INCLUDE_DIRS:PATH=MKL_ROOT_DIR-NOTFOUND/include \
+-DMKL_ROOT_DIR:PATH=MKL_ROOT_DIR-NOTFOUND -DMKL_WITH_OPENMP:BOOL=OFF \
+-DMKL_WITH_TBB:BOOL=OFF -DOGRE_DIR:PATH=OGRE_DIR-NOTFOUND -DOPENCL_FOUND:BOOL=ON \
+-DOPENCV_DNN_OPENCL:BOOL=ON -DOPENCV_DUMP_HOOKS_FLOW:BOOL=OFF \
+-DOPENCV_ENABLE_NONFREE:BOOL=OFF \
+-DOPENCV_FORCE_3RDPARTY_BUILD:BOOL=OFF \
+-DOPENCV_FORCE_PYTHON_LIBS:BOOL=OFF -DOPENCV_GENERATE_PKGCONFIG:BOOL=OFF \
+-DOPENCV_GENERATE_SETUPVARS:BOOL=ON \
+-DOPENCV_PYTHON3_VERSION:BOOL=OFF \
+-DOPENCV_WARNINGS_ARE_ERRORS:BOOL=OFF -DWITH_1394:BOOL=ON -DWITH_ADE:BOOL=ON \
+-DWITH_ARAVIS:BOOL=OFF -DWITH_CLP:BOOL=OFF -DWITH_CUDA:BOOL=OFF \
+-DWITH_EIGEN:BOOL=ON -DWITH_FFMPEG:BOOL=OFF -DWITH_GDAL:BOOL=OFF \
+-DWITH_GDCM:BOOL=OFF -DWITH_GIGEAPI:BOOL=OFF -DWITH_GPHOTO2:BOOL=OFF \
+-DWITH_GSTREAMER:BOOL=OFF -DWITH_GSTREAMER_0_10:BOOL=OFF -DWITH_GTK:BOOL=ON \
+-DWITH_GTK_2_X:BOOL=OFF -DWITH_HALIDE:BOOL=OFF -DWITH_HPX:BOOL=OFF \
+-DWITH_IMGCODEC_HDR:BOOL=OFF -DWITH_IMGCODEC_PFM:BOOL=OFF \
+-DWITH_IMGCODEC_PXM:BOOL=OFF -DWITH_IMGCODEC_SUNRASTER:BOOL=OFF \
+-DWITH_INF_ENGINE:BOOL=OFF -DWITH_IPP:BOOL=OFF -DWITH_ITT:BOOL=OFF \
+-DWITH_JASPER:BOOL=OFF -DWITH_JPEG:BOOL=OFF -DWITH_LAPACK:BOOL=OFF \
+-DWITH_LIBREALSENSE:BOOL=OFF -DWITH_MATLAB:BOOL=OFF -DWITH_MFX:BOOL=OFF \
+-DWITH_OPENCL:BOOL=ON -DWITH_OPENCLAMDBLAS:BOOL=ON -DWITH_OPENCLAMDFFT:BOOL=ON \
+-DWITH_OPENCL_SVM:BOOL=OFF -DWITH_OPENEXR:BOOL=OFF -DWITH_OPENGL:BOOL=OFF \
+-DWITH_OPENMP:BOOL=OFF -DWITH_OPENNI:BOOL=OFF -DWITH_OPENNI2:BOOL=OFF \
+-DWITH_OPENVX:BOOL=OFF -DWITH_PNG:BOOL=OFF -DWITH_PROTOBUF:BOOL=ON \
+-DWITH_PTHREADS_PF:BOOL=ON -DWITH_PVAPI:BOOL=OFF -DWITH_QT:BOOL=OFF \
+-DWITH_QUIRC:BOOL=ON -DWITH_TBB:BOOL=OFF -DWITH_TIFF:BOOL=OFF \
+-DWITH_V4L:BOOL=OFF -DWITH_VA:BOOL=OFF -DWITH_VA_INTEL:BOOL=OFF \
+-DWITH_VTK:BOOL=OFF -DWITH_VULKAN:BOOL=OFF -DWITH_WEBP:BOOL=OFF \
+-DWITH_XIMEA:BOOL=OFF -DWITH_XINE:BOOL=OFF -Dopencv_dnn_PERF_CAFFE:BOOL=OFF \
+-Dopencv_dnn_PERF_CLCAFFE:BOOL=OFF ..
+
+make -j ${number_jobs}
+make DESTDIR=${destdir} install
+cd ${lib_dir}
+continue_install "Finished OpenCV."

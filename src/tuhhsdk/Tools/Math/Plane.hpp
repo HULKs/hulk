@@ -2,7 +2,7 @@
 
 #include "Eigen.hpp"
 
-#include <Tools/Storage/UniValue/UniConvertible.hpp>
+#include <Tools/Storage/UniValue/UniValue.h>
 
 template <typename T>
 class Plane : public Uni::From, public Uni::To

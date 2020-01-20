@@ -31,7 +31,7 @@ struct TeamObstacle : public Obstacle
   /// the position of the center of the obstacle in field coordinates
   Vector2f absolutePosition;
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["relativePosition"] << relativePosition;
@@ -40,7 +40,7 @@ struct TeamObstacle : public Obstacle
     value["type"] << static_cast<int>(type);
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["relativePosition"] >> relativePosition;
     value["absolutePosition"] >> absolutePosition;
@@ -61,18 +61,18 @@ public:
   /**
    * @brief reset clears the obstacles
    */
-  void reset()
+  void reset() override
   {
     obstacles.clear();
   }
 
-  virtual void toValue(Uni::Value& value) const
+  void toValue(Uni::Value& value) const override
   {
     value = Uni::Value(Uni::ValueType::OBJECT);
     value["obstacles"] << obstacles;
   }
 
-  virtual void fromValue(const Uni::Value& value)
+  void fromValue(const Uni::Value& value) override
   {
     value["obstacles"] >> obstacles;
   }

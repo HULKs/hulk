@@ -20,5 +20,8 @@
     },
     "ball": {
         "diameter": 0.1
+    },
+    "robot": {
+        "diameter": 0.18
     }
 }

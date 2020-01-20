@@ -2,8 +2,8 @@
 
 #include "Framework/DataType.hpp"
 #include "Tools/BallUtils.hpp"
-#include "Tools/Math/Pose.hpp"
 #include "Tools/Math/Eigen.hpp"
+#include "Tools/Math/Pose.hpp"
 
 
 class StrikerAction : public DataType<StrikerAction>
@@ -14,30 +14,21 @@ public:
   /**
    * @enum Type enumerates the possible types of action for a striker
    */
-  enum Type
+  enum class Type
   {
-    /// kick the ball into the goal
-    KICK_INTO_GOAL,
-    /// dribble the ball into the goal
-    DRIBBLE_INTO_GOAL,
+    /// search for the ball
+    SEARCH,
+    /// kick the ball
+    KICK,
     /// pass the ball to a teammate
     PASS,
     /// dribble the ball to a position
     DRIBBLE,
-    /// wait for keeper playing the ball
-    WAITING_FOR_KEEPER
-  };
-  enum KickType
-  {
-    /// forward kick
-    FORWARD,
-    /// side kick
-    SIDE,
-    /// the gentle in-walk
-    IN_WALK_GENTLE,
-    /// the strong in-walk
-    IN_WALK_STRONG,
-    /// don't kick
+    /// walk to pose
+    WALK,
+    /// InWalkKick
+    IN_WALK_KICK,
+    /// no action specified
     NONE
   };
   /// true iff this struct is valid
@@ -50,16 +41,23 @@ public:
   Vector2f target = Vector2f::Zero();
   /// type of kick we want to do
   KickType kickType;
+  /// type of in walk kick we want to do
+  InWalkKickType inWalkKickType;
   /// the relative pose from where we want to kick from
   Pose kickPose;
   /// if ball is kickable at the moment and how
   BallUtils::Kickable kickable;
-  /**
-   * @brief reset does nothing
-   */
+
   void reset() override
   {
     valid = false;
+    type = Type::NONE;
+    passTarget = 0;
+    target = Vector2f::Zero();
+    kickType = KickType::NONE;
+    inWalkKickType = InWalkKickType::NONE;
+    kickPose = Pose();
+    kickable = BallUtils::Kickable::NOT;
   }
 
   void toValue(Uni::Value& value) const override
@@ -70,6 +68,7 @@ public:
     value["passTarget"] << passTarget;
     value["target"] << target;
     value["kickType"] << static_cast<int>(kickType);
+    value["inWalkKickType"] << static_cast<int>(inWalkKickType);
     value["kickPose"] << kickPose;
     value["kickable"] << static_cast<int>(kickable);
   }
@@ -83,6 +82,8 @@ public:
     value["target"] >> target;
     value["kickType"] >> readNumber;
     kickType = static_cast<KickType>(readNumber);
+    value["inWalkKickType"] >> readNumber;
+    inWalkKickType = static_cast<InWalkKickType>(readNumber);
     value["kickPose"] >> kickPose;
     value["kickable"] >> readNumber;
     kickable = static_cast<BallUtils::Kickable>(readNumber);
