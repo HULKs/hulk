@@ -1,8 +1,0 @@
-{
-  "minFrequency" : 1000,
-  "maxFrequency" : 3000,
-  "symbolDuration" : 0.02,
-  "samplingRate" : 44100,
-  "guardInterval" : 0.05,
-  "bitsPerPackage" : 16
-}

@@ -1,0 +1,6 @@
+{
+  "fallenPenalty": 6,
+  "strikerBonus": 1.5,
+  "ballNotSeenPenalty": 2,
+  "walkAroundBallVelocityFactor": 0.6
+}

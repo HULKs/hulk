@@ -96,7 +96,7 @@ class Painter(qtg.QPainter):
         else:
             return "#ffffff"
 
-    def setPen(self, arg1, width: float=None):
+    def setPen(self, arg1, width: float = None):
         """Set painter pen to given pen or color with the specified width."""
         if width is None:
             super(Painter, self).setPen(arg1)
@@ -122,7 +122,8 @@ class Painter(qtg.QPainter):
             pose[0][1] + line_length * rot_vector[1]
         )
         if annotation:
-            text_position = qtc.QPointF(pose[0][0] + font_offset[0], pose[0][1] + font_offset[1])
+            text_position = qtc.QPointF(
+                pose[0][0] + font_offset[0], pose[0][1] + font_offset[1])
             self.drawText(text_position, annotation, font_size)
 
     def triangle(

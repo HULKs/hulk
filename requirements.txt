@@ -1,0 +1,29 @@
+# Mate
+pyqt5 >=5.9.2
+setproctitle >=1.1.8,<=1.1.10
+pyqtgraph ==0.10.0
+opencv-contrib-python
+transforms3d
+scipy
+pyopengl
+
+# Aliveness scripts
+pyyaml >=5.1.1,<=5.2
+netifaces ==0.10.6
+twisted >=16.6.0,<=18.4.0
+gitpython
+
+# hardware status
+tabulate >=0.8.1
+
+# shutdownAll script
+termcolor
+
+# TextToSpeachScript (tools/TextToSpeach
+google-api-python-client
+
+# nao_ssh based scripts
+parallel-ssh ==2.5.2
+
+# checkCodingStyle script
+click==8.0.1

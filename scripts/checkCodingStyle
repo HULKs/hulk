@@ -1,0 +1,301 @@
+#!/usr/bin/env python
+
+import concurrent.futures
+import io
+import json
+import os
+import pathlib
+import re
+import subprocess
+import sys
+import typing
+
+import click
+
+
+class UnifiedDiff:
+    def __init__(self, data: str, amount_of_path_components_to_strip: int):
+        self.lines = data.splitlines()
+        self.amount_of_path_components_to_strip = amount_of_path_components_to_strip
+        self._construct_lines()
+        self._parse_hunks()
+        self._apply_line_numbers()
+        self._parse_and_apply_filenames()
+
+    def _construct_lines(self):
+        self.lines = [{'line': line} for line in self.lines]
+
+    def _parse_hunks(self):
+        for line in self.lines:
+            # matches hunk ranges e.g. '@@ -8,13 +14,8 @@ void somefunction()' -> 8, 13, 14, 8
+            match = re.match(r'^@@ -(\d+),(\d+) \+(\d+),(\d+) @@[^ \t\n]*',
+                             line['line'])
+            if match:
+                line['hunk'] = {
+                    'deletions': {
+                        'start': int(match.group(1)),
+                        'lines': int(match.group(2)),
+                    },
+                    'additions': {
+                        'start': int(match.group(3)),
+                        'lines': int(match.group(4)),
+                    },
+                }
+
+    def _apply_line_numbers(self):
+        deletion_lines_left = 0
+        addition_lines_left = 0
+        current_deletion_line_number = 0
+        current_addition_line_number = 0
+        for line in self.lines:
+            if 'hunk' in line:
+                deletion_lines_left = line['hunk']['deletions']['lines']
+                addition_lines_left = line['hunk']['additions']['lines']
+                current_deletion_line_number = line['hunk']['deletions'][
+                    'start']
+                current_addition_line_number = line['hunk']['additions'][
+                    'start']
+                continue
+            if deletion_lines_left > 0 and (line['line'].startswith(' ')
+                                            or line['line'].startswith('-')):
+                line['line_number'] = {
+                    'deletions': current_deletion_line_number,
+                }
+                deletion_lines_left -= 1
+                current_deletion_line_number += 1
+                if line['line'].startswith('-'):
+                    line['is_deletion'] = True
+            if addition_lines_left > 0 and (line['line'].startswith(' ')
+                                            or line['line'].startswith('+')):
+                try:
+                    line['line_number'][
+                        'additions'] = current_addition_line_number
+                except KeyError:
+                    line['line_number'] = {
+                        'additions': current_addition_line_number,
+                    }
+                addition_lines_left -= 1
+                current_addition_line_number += 1
+                if line['line'].startswith('+'):
+                    line['is_addition'] = True
+
+    def _parse_and_apply_filenames(self):
+        last_filename: typing.Optional[pathlib.Path] = None
+        for line in self.lines:
+            if 'hunk' in line or 'line_number' in line:
+                line['filename'] = last_filename
+            else:
+                # matches the filename for additions of this diff e.g. '+++ /path/to/new' -> '/path/to/new'
+                match = re.search(r'^\+\+\+\ "?([^ \t\n"]*)', line['line'])
+                if match:
+                    last_filename = pathlib.Path(
+                        *pathlib.Path(match.group(1)).
+                        parts[self.amount_of_path_components_to_strip:],
+                    ).resolve()
+                    line['filename'] = last_filename
+
+    def files_and_lines_with_additions_or_modifications(
+            self) -> typing.Dict[pathlib.Path, list]:
+        modified_lines = {}
+        last_line_was_addition = False
+        last_filename: typing.Optional[pathlib.Path] = None
+        last_line_number: typing.Optional[int] = None
+        for line in self.lines:
+            if 'is_addition' in line:
+                # entering addition range: this line is begin of range
+                if not last_line_was_addition:
+                    last_filename = line['filename']
+                    if line['filename'] not in modified_lines:
+                        modified_lines[line['filename']] = []
+                    modified_lines[line['filename']].append(
+                        line['line_number']['additions'])
+                # always update last line number
+                last_line_number = line['line_number']['additions']
+            # exiting addition range: previous line was end of range
+            if 'is_addition' not in line and last_line_was_addition:
+                modified_lines[last_filename][-1] = (
+                    modified_lines[last_filename][-1],
+                    last_line_number,
+                )
+            last_line_was_addition = 'is_addition' in line
+        return modified_lines
+
+
+class CompilationDatabase:
+    def __init__(self, compile_commands: io.TextIOWrapper):
+        self.commands: typing.List[dict] = json.load(compile_commands)
+        self.source_files = [
+            self.absolute_file_from_command(command)
+            for command in self.commands
+            if self.absolute_file_from_command(command).exists()
+        ]
+
+    def absolute_file_from_command(self, command: dict) -> pathlib.Path:
+        file_path = pathlib.Path(command['file'])
+        if file_path.is_absolute():
+            return file_path
+        return pathlib.Path(command['directory']) / file_path
+
+
+def absolute_path_to_relative_header_path(
+        root_directory: pathlib.Path,
+        absolute_path: pathlib.Path) -> pathlib.Path:
+    # header paths need to be relative to work correctly (otherwise --header-filter and --line-filter do not work correctly)
+    if absolute_path.suffix in ['.h', '.hpp']:
+        return absolute_path.relative_to(root_directory)
+    return absolute_path
+
+
+@click.command()
+@click.option(
+    '--diff-range',
+    default='origin/main..HEAD',
+    help=
+    'range for generating modified files, will be used in \'git diff RANGE\'',
+    show_default=True,
+)
+@click.option(
+    '--strip',
+    default=1,
+    help='strip NUM leading components from file names of generated patch',
+    show_default=True,
+)
+@click.option(
+    '--clang-format',
+    default='/usr/bin/clang-format',
+    type=click.Path(exists=True, file_okay=True),
+    help='binary PATH of clang-format',
+    show_default=True,
+)
+@click.option(
+    '--clang-tidy',
+    default='/usr/bin/clang-tidy',
+    type=click.Path(exists=True, file_okay=True),
+    help='binary PATH of clang-tidy',
+    show_default=True,
+)
+@click.option(
+    '--compile-commands',
+    default='compile_commands.json',
+    type=click.File(),
+    help='PATH to compile_commands.json',
+    show_default=True,
+)
+@click.option(
+    '--fail-fast',
+    is_flag=True,
+    help='stop execution after first failing check',
+)
+@click.option(
+    '--verbose',
+    is_flag=True,
+    help='output all commands with all output',
+)
+def main(**arguments):
+    root_directory = pathlib.Path(sys.argv[0]).resolve().parent.parent
+    os.chdir(root_directory)
+    git_diff = subprocess.run(
+        args=('git', 'diff', arguments['diff_range']),
+        stdout=subprocess.PIPE,
+        check=True,
+    )
+    unified_diff = UnifiedDiff(git_diff.stdout.decode('utf-8'),
+                               arguments['strip'])
+    compilation_database = CompilationDatabase(arguments['compile_commands'])
+    files_and_lines = {
+        file: filtered_lines
+        for file, filtered_lines in
+        unified_diff.files_and_lines_with_additions_or_modifications().items()
+        if file in compilation_database.source_files
+        or file.suffix in ['.h', '.hpp']
+    }
+    at_least_one_file = len(files_and_lines) > 0
+
+    if not at_least_one_file:
+        click.echo('No changed C++ files have been found, no checks will be run.')
+        sys.exit(0)
+
+    format_command = [arguments['clang_format'], '--dry-run', '--Werror'
+                      ] + [str(file) for file in files_and_lines.keys()]
+    line_filter = json.dumps([{
+        'name':
+        str(absolute_path_to_relative_header_path(root_directory, file)),
+        'lines':
+        filtered_lines,
+    } for file, filtered_lines in files_and_lines.items()])
+    header_filter = '|'.join(
+        re.escape(
+            str(absolute_path_to_relative_header_path(root_directory, file)))
+        for file in files_and_lines.keys() if file.suffix in ['.h', '.hpp'])
+    tidy_commands = [[
+        arguments['clang_tidy'],
+        '--warnings-as-errors=*',
+        '--quiet',
+        f'--line-filter={line_filter}',
+        f'--header-filter={header_filter}',
+        str(source_file),
+    ] for source_file in compilation_database.source_files]
+
+    click.echo(f'Running {1 + len(tidy_commands)} checks...')
+    all_succeeded = True
+    format_process = subprocess.run(
+        format_command,
+        stderr=subprocess.STDOUT,
+        stdout=subprocess.PIPE,
+    )
+    if format_process.returncode != 0 or arguments['verbose']:
+        click.echo()
+        click.echo(f'Check command: {" ".join(format_command)}')
+        click.echo(
+            'Output: ------------------------------------------------------------------------'
+        )
+        for line in format_process.stdout.decode('utf-8').strip().splitlines():
+            click.secho(line,
+                        fg=None if format_process.returncode == 0 else 'red')
+        click.echo(
+            '--------------------------------------------------------------------------------'
+        )
+        if format_process.returncode != 0:
+            all_succeeded = False
+            click.secho(
+                f'The process exited with return code {format_process.returncode}',
+                fg='red')
+            if arguments['fail_fast']:
+                sys.exit(1)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count(
+    )) as executor, click.progressbar(
+            executor.map(
+                lambda command: subprocess.run(
+                    command, stderr=subprocess.STDOUT, stdout=subprocess.PIPE),
+                tidy_commands),
+            length=len(tidy_commands),
+            label=f'Running {len(tidy_commands)} checks...') as bar:
+        for tidy_process in bar:
+            if tidy_process.returncode != 0 or arguments['verbose']:
+                click.echo()
+                click.echo(f'Check command: {" ".join(tidy_process.args)}')
+                click.echo(
+                    'Output: ------------------------------------------------------------------------'
+                )
+                for line in tidy_process.stdout.decode(
+                        'utf-8').strip().splitlines():
+                    click.secho(
+                        line,
+                        fg=None if tidy_process.returncode == 0 else 'red')
+                click.echo(
+                    '--------------------------------------------------------------------------------'
+                )
+                if tidy_process.returncode != 0:
+                    click.secho(
+                        f'The process exited with return code {tidy_process.returncode}',
+                        fg='red')
+                    all_succeeded = False
+                    if arguments['fail_fast']:
+                        executor.shutdown()
+                        sys.exit(1)
+    if not all_succeeded:
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

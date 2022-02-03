@@ -52,10 +52,8 @@ class Config(qtw.QWidget, _LayerConfig):
                         self.edit_defaultColor.text(),
                     "keeperColor":
                         self.edit_keeperColor.text(),
-                    "defenderLeftColor":
-                        self.edit_defenderLeftColor.text(),
-                    "defenderRightColor":
-                        self.edit_defenderRightColor.text(),
+                    "defenderColor":
+                        self.edit_defenderColor.text(),
                     "supporterColor":
                         self.edit_supporterColor.text(),
                     "strikerColor":
@@ -63,7 +61,11 @@ class Config(qtw.QWidget, _LayerConfig):
                     "bishopColor":
                         self.edit_bishopColor.text(),
                     "replacement_keeperColor":
-                        self.edit_replacementKeeperColor.text()},
+                        self.edit_replacementKeeperColor.text(),
+                    "loserColor":
+                        self.edit_loserColor.text(),
+                    "searcherColor":
+                        self.edit_searcherColor.text()},
                 lambda config: [
                     self.cbx_PoseKey.setCurrentText(
                         config["key"]),
@@ -91,11 +93,8 @@ class Config(qtw.QWidget, _LayerConfig):
                         self.edit_keeperColor,
                         config["keeperColor"]),
                     ui_utils.reset_textField_color(
-                        self.edit_defenderLeftColor,
-                        config["defenderLeftColor"]),
-                    ui_utils.reset_textField_color(
-                        self.edit_defenderRightColor,
-                        config["defenderRightColor"]),
+                        self.edit_defenderColor,
+                        config["defenderColor"]),
                     ui_utils.reset_textField_color(
                         self.edit_supporterColor,
                         config["supporterColor"]),
@@ -107,7 +106,13 @@ class Config(qtw.QWidget, _LayerConfig):
                         config["bishopColor"]),
                     ui_utils.reset_textField_color(
                         self.edit_replacementKeeperColor,
-                        config["replacement_keeperColor"])]),
+                        config["replacement_keeperColor"]),
+                    ui_utils.reset_textField_color(
+                        self.edit_loserColor,
+                        config["loserColor"]),
+                    ui_utils.reset_textField_color(
+                        self.edit_searcherColor,
+                        config["searcherColor"])]),
             "fov": (
                 lambda:  {
                     "jointSensorDataKey":
@@ -202,16 +207,20 @@ class Config(qtw.QWidget, _LayerConfig):
                                self.edit_defaultColor)
         ui_utils.init_Color_UI(self.btn_keeperColor,
                                self.edit_keeperColor)
-        ui_utils.init_Color_UI(self.btn_defenderLeftColor,
-                               self.edit_defenderLeftColor)
-        ui_utils.init_Color_UI(self.btn_defenderRightColor,
-                               self.edit_defenderRightColor)
+        ui_utils.init_Color_UI(self.btn_defenderColor,
+                               self.edit_defenderColor)
         ui_utils.init_Color_UI(self.btn_supporterColor,
                                self.edit_supporterColor)
         ui_utils.init_Color_UI(self.btn_strikerColor,
                                self.edit_strikerColor)
         ui_utils.init_Color_UI(self.btn_bishopColor,
                                self.edit_bishopColor)
+        ui_utils.init_Color_UI(self.btn_replacementKeeperColor,
+                               self.edit_replacementKeeperColor)
+        ui_utils.init_Color_UI(self.btn_loserColor,
+                               self.edit_loserColor)
+        ui_utils.init_Color_UI(self.btn_searcherColor,
+                               self.edit_searcherColor)
         ui_utils.init_Color_UI(self.btn_translationColor,
                                self.edit_translationColor)
         self.btnAccept.pressed.connect(self.accept)

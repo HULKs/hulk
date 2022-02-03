@@ -1,0 +1,8 @@
+{
+  "insideTurnRatio": 0.33,
+  "maxForwardAcceleration": 0.015,
+  "maxStepSize": [ [ 0.06, 0.08 ], 40 ],
+  "maxStepSizeBackwards": 0.05,
+  "walkVolumeRotationExponent": 2,
+  "walkVolumeTranslationExponent": 1.5
+}

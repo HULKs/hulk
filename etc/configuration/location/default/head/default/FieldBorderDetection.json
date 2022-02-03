@@ -1,0 +1,9 @@
+{
+   "angleThreshold" : 20,
+   "minPointsPerLine" : 10,
+   "maxBorderPointsNotEnclosed" : 10,
+   "drawVerticalFilteredSegments": true,
+   "drawHorizontalFilteredSegments": true,
+   "drawVerticalEdges": true,
+   "drawHorizontalEdges": true
+}

@@ -1,0 +1,88 @@
+#!/bin/env python3
+
+import hulks
+import click
+import logging
+import os
+import subprocess
+import pathlib
+
+NEWEST_SDK_VERSION = "3.2"
+DEFAULT_SDK_INSTALL_DIR = "/opt/HULKs-OS"
+SDK_SYMLINK_DIR = hulks.PROJECT_ROOT / "sdk"
+SDK_DOWNLOAD_DIR = hulks.PROJECT_ROOT / "sdk/downloads"
+
+
+def installer_name(version: str):
+    return f"HULKs-OS-toolchain-{version}.sh"
+
+
+def download_sdk(sdk_installer_name: str):
+    server_path = "sdk"
+    server_host = "bighulk.hulks.dev"
+    os.makedirs(SDK_DOWNLOAD_DIR, exist_ok=True)
+    sdk_installer = SDK_DOWNLOAD_DIR / sdk_installer_name
+    if not sdk_installer.exists():
+        url = f"http://{server_host}/{server_path}/{sdk_installer_name}"
+        hulks.logger.info(f"Downloading sdk from {url}")
+        command = f"curl --progress-bar -o {sdk_installer} {url}"
+        subprocess.run(
+            command,
+            shell=True,
+            check=True)
+    else:
+        hulks.logger.info(
+            f"installer '{sdk_installer_name}' already exists, skipping download")
+    os.chmod(sdk_installer, 0o744)
+
+
+def select_version(version: str, sdk_install_dir: pathlib.Path):
+    hulks.logger.info(
+        f"Selecting SDK version {version} from {sdk_install_dir}")
+    hulks.force_symlink(sdk_install_dir / version, SDK_SYMLINK_DIR / "current")
+
+
+@click.group()
+@click.option('-v', '--verbose', count=True)
+def main(verbose):
+    hulks.logger.setLevel(logging.INFO if verbose == 0 else logging.DEBUG)
+
+
+@main.command()
+@click.option("--sdk-install-dir", default=DEFAULT_SDK_INSTALL_DIR, show_default=True)
+@click.argument("version", default=NEWEST_SDK_VERSION)
+def install(sdk_install_dir, version):
+    sdk_install_dir = pathlib.Path(sdk_install_dir)
+    sdk_installer_name = installer_name(version)
+    download_sdk(sdk_installer_name)
+    command = f"{SDK_DOWNLOAD_DIR / sdk_installer_name} -d {sdk_install_dir / version}"
+    try:
+        subprocess.run(command, shell=True, check=True)
+    except subprocess.CalledProcessError:
+        hulks.logger.error("Failed to install SDK")
+        exit(1)
+    select_version(version, sdk_install_dir)
+    hulks.logger.success("Successfully installed SDK")
+
+
+@main.command()
+@click.option("--sdk-install-dir", default=DEFAULT_SDK_INSTALL_DIR, show_default=True)
+def list(sdk_install_dir):
+    sdk_install_dir = pathlib.Path(sdk_install_dir)
+    for filename in os.listdir(sdk_install_dir):
+        file = sdk_install_dir / filename
+        if not file.is_dir():
+            continue
+        print(filename)
+
+
+@main.command()
+@click.option("--sdk-install-dir", default=DEFAULT_SDK_INSTALL_DIR, show_default=True)
+@click.argument("version", default=NEWEST_SDK_VERSION)
+def select(sdk_install_dir, version):
+    sdk_install_dir = pathlib.Path(sdk_install_dir)
+    select_version(version, sdk_install_dir)
+
+
+if __name__ == '__main__':
+    main()

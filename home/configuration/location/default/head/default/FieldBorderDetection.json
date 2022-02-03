@@ -1,8 +1,0 @@
-{
-   "angleThreshold" : 20,
-   "minPointsPerLine" : 10,
-   "drawVerticalFilteredSegments": true,
-   "drawHorizontalFilteredSegments": true,
-   "drawVerticalEdges": true,
-   "drawHorizontalEdges": true
-}

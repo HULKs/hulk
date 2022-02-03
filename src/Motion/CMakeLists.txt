@@ -1,0 +1,32 @@
+target_sources(hulk PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/Motion.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Motion.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/MotionThread.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/MotionThread.hpp"
+)
+
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/BodyDamageProvider/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/BodyPoseEstimation/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/HeadMatrixBufferProvider/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/HeadMotion/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Interface/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/JointCalibrationProvider/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/JointDiffProvider/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Jump/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Kick/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/KickConfigurationProvider/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/LEDHandler/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Odometry/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Point/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Puppet/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/RobotKinematicsProvider/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Safety/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/SensorDataProvider/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/SitDown/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/SitUp/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Sleep/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/SonarFilter/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/StandUp/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/StepPlanning/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Utils/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Walking/")

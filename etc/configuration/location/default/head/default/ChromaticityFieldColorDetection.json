@@ -1,0 +1,18 @@
+{
+  "redChromaticityThreshold" : [
+    0.37,
+    0.37
+  ],
+  "lowerGreenChromaticityThreshold" : [
+    0.4,
+    0.4
+  ],
+  "upperGreenChromaticityThreshold" : [
+    0.43,
+    0.43
+  ],
+  "blueChromaticityThreshold" : [
+    0.38,
+    0.38
+  ]
+}

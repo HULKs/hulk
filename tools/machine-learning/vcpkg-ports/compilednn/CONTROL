@@ -1,0 +1,5 @@
+Source: compilednn
+Homepage: https://github.com/bhuman/CompiledNN/
+Version: f785096d243b6892f9f53dc188d3df8c9b601cb0
+Description: A JIT Compiler for Neural Network Inference
+Build-Depends: hdf5, protobuf

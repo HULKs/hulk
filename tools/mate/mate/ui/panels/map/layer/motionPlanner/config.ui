@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>591</width>
-    <height>613</height>
+    <width>969</width>
+    <height>938</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -29,9 +29,9 @@
       <property name="geometry">
        <rect>
         <x>0</x>
-        <y>-89</y>
-        <width>559</width>
-        <height>654</height>
+        <y>0</y>
+        <width>951</width>
+        <height>889</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -205,7 +205,7 @@
        <item>
         <widget class="QGroupBox" name="groupBox_2">
          <property name="title">
-          <string>MotionPlan:</string>
+          <string>targetPosition:</string>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_3">
           <property name="leftMargin">
@@ -238,7 +238,7 @@
              <widget class="QWidget" name="keyLambdaWidget" native="true">
               <layout class="QVBoxLayout" name="verticalLayout_4">
                <item>
-                <widget class="QComboBox" name="cbx_MotionPlannerKey">
+                <widget class="QComboBox" name="cbx_targetPositionKey">
                  <property name="editable">
                   <bool>true</bool>
                  </property>
@@ -252,7 +252,7 @@
                 </widget>
                </item>
                <item>
-                <widget class="QTextEdit" name="edit_MotionPlannerKeyLambda">
+                <widget class="QTextEdit" name="edit_targetPositionKeyLambda">
                  <property name="maximumSize">
                   <size>
                    <width>16777215</width>
@@ -323,6 +323,126 @@
         </widget>
        </item>
        <item>
+        <widget class="QGroupBox" name="groupBox_3">
+         <property name="title">
+          <string>displacementVector:</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_7">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <layout class="QFormLayout" name="formLayout_4">
+            <property name="leftMargin">
+             <number>4</number>
+            </property>
+            <property name="topMargin">
+             <number>4</number>
+            </property>
+            <property name="rightMargin">
+             <number>4</number>
+            </property>
+            <property name="bottomMargin">
+             <number>4</number>
+            </property>
+            <item row="1" column="1">
+             <widget class="QWidget" name="keyLambdaWidget_3" native="true">
+              <layout class="QVBoxLayout" name="verticalLayout_8">
+               <item>
+                <widget class="QComboBox" name="cbx_displacementVectorKey">
+                 <property name="editable">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="label_7">
+                 <property name="text">
+                  <string>def parse(input):</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QTextEdit" name="edit_displacementVectorKeyLambda">
+                 <property name="maximumSize">
+                  <size>
+                   <width>16777215</width>
+                   <height>80</height>
+                  </size>
+                 </property>
+                 <property name="tabStopWidth">
+                  <number>16</number>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="label_8">
+                 <property name="text">
+                  <string>return output</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="lbl_displacementVectorWidth">
+              <property name="text">
+               <string>width:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QDoubleSpinBox" name="spin_lineWidth"/>
+            </item>
+            <item row="3" column="0" colspan="2">
+             <widget class="QWidget" name="targetColorWidget_3" native="true">
+              <layout class="QHBoxLayout" name="horizontalLayout_5">
+               <item>
+                <widget class="QLabel" name="lineColorLabel">
+                 <property name="text">
+                  <string>lineColor:</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="edit_lineColor"/>
+               </item>
+               <item>
+                <widget class="QPushButton" name="btn_lineColor">
+                 <property name="text">
+                  <string>Pick</string>
+                 </property>
+                 <property name="flat">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="KeyLabel_3">
+              <property name="text">
+               <string>Key:</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
         <spacer name="verticalSpacer">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -364,7 +484,7 @@
   <tabstop>spin_center_x</tabstop>
   <tabstop>spin_center_y</tabstop>
   <tabstop>enabledCheckBox</tabstop>
-  <tabstop>edit_MotionPlannerKeyLambda</tabstop>
+  <tabstop>edit_targetPositionKeyLambda</tabstop>
   <tabstop>spin_targetCircleDiameter</tabstop>
   <tabstop>btnAccept</tabstop>
   <tabstop>btnDiscard</tabstop>

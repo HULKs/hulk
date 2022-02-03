@@ -1,15 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Get base directory for better referencing
-BASEDIR=`cd $(dirname $0); pwd -P`
-BASEDIR=${BASEDIR%/*}
+BASE_DIRECTORY=`cd $(dirname $0); pwd -P`
+BASE_DIRECTORY=${BASE_DIRECTORY%/*}
 
 # The tuhh_autoload.json
-tuhh_autoload=${BASEDIR}/home/configuration/location/default/tuhh_autoload.json
+tuhh_autoload=${BASE_DIRECTORY}/etc/configuration/location/default/tuhh_autoload.json
 
 
 # Functions
-function helpMsg {
+function help_menu {
   echo "Usage: $0 [Options]"
   echo "returns string of active moduleSetup."
   echo ""
@@ -20,6 +20,7 @@ function helpMsg {
   echo "            d - default,"
   echo "            r - replay"
   echo "            o - oldWalking"
+  echo "            p - positionFake"
   echo ""
   echo "example:"
   echo " \"'$0 -s f\", -> sets moduleSetup to fullVisionFake"
@@ -48,7 +49,7 @@ case $key in
   ;;
   *) # catch unknown input
   HELP="YES"
-  echo "Unkown argument! - read help menu:"
+  echo "Unkown argument - read help menu:"
   shift
 esac
 done
@@ -56,7 +57,7 @@ done
 ## MAIN
 #check if help tag is set.
 if [ $HELP == "YES" ]; then
-  helpMsg
+  help_menu
   exit
 fi
 
@@ -73,6 +74,9 @@ if ! [ -z $TARGET ]; then
       ;;
     "oldWalking" | "o")
       sed -i "s/moduleSetup\(.*\)\"\(.*\)\",/moduleSetup\1\"oldWalking\",/g" $tuhh_autoload
+      ;;
+    "positionFake" | "p")
+      sed -i "s/moduleSetup\(.*\)\"\(.*\)\",/moduleSetup\1\"positionFake\",/g" $tuhh_autoload
       ;;
     *)
     echo "Failed to parse argument $TARGET"

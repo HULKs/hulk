@@ -1,0 +1,6 @@
+{
+  "general.teamNumber": YOUR_TEAM_NUMBER_HERE,
+  "general.port": 100YOUR_TEAM_NUMBER_HERE,
+  "behavior.playerRole": "player",
+  "behavior.initialPoses": [-3.9, -3.2, -2.325, -1.6, -0.75]
+}

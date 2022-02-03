@@ -318,18 +318,145 @@
               <layout class="QHBoxLayout" name="horizontalLayout_3">
                <item>
                 <layout class="QGridLayout" name="gridLayout_15">
-                 <item row="2" column="0">
-                  <widget class="QLabel" name="defenderLeftColorLabel">
+                 <item row="3" column="2">
+                  <widget class="QPushButton" name="btn_supporterColor">
                    <property name="text">
-                    <string>defenderLeftColor:</string>
+                    <string>Pick</string>
+                   </property>
+                   <property name="flat">
+                    <bool>false</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="5" column="0">
+                  <widget class="QLabel" name="bishopColorLabel">
+                   <property name="text">
+                    <string>bishopColor:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="7" column="0">
+                  <widget class="QLabel" name="loserColorLabel">
+                   <property name="text">
+                    <string>loserColor:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="8" column="0">
+                  <widget class="QLabel" name="searcherColorLabel">
+                   <property name="text">
+                    <string>searcherColor:</string>
                    </property>
                   </widget>
                  </item>
                  <item row="7" column="1">
+                  <widget class="QLineEdit" name="edit_loserColor"/>
+                 </item>
+                 <item row="8" column="1">
+                  <widget class="QLineEdit" name="edit_searcherColor"/>
+                 </item>
+                 <item row="7" column="2">
+                  <widget class="QPushButton" name="btn_loserColor">
+                   <property name="text">
+                    <string>Pick</string>
+                   </property>
+                   <property name="flat">
+                    <bool>false</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="8" column="2">
+                  <widget class="QPushButton" name="btn_searcherColor">
+                   <property name="text">
+                    <string>Pick</string>
+                   </property>
+                   <property name="flat">
+                    <bool>false</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="3" column="1">
+                  <widget class="QLineEdit" name="edit_supporterColor"/>
+                 </item>
+                 <item row="5" column="1">
+                  <widget class="QLineEdit" name="edit_bishopColor"/>
+                 </item>
+                 <item row="1" column="0">
+                  <widget class="QLabel" name="keeperColorLabel">
+                   <property name="text">
+                    <string>keeperColor:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QLineEdit" name="edit_defaultColor"/>
+                 </item>
+                 <item row="6" column="1">
                   <widget class="QLineEdit" name="edit_replacementKeeperColor"/>
                  </item>
-                 <item row="4" column="2">
-                  <widget class="QPushButton" name="btn_supporterColor">
+                 <item row="2" column="0">
+                  <widget class="QLabel" name="defenderColorLabel">
+                   <property name="text">
+                    <string>defenderColor:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="5" column="2">
+                  <widget class="QPushButton" name="btn_bishopColor">
+                   <property name="text">
+                    <string>Pick</string>
+                   </property>
+                   <property name="flat">
+                    <bool>false</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="6" column="0">
+                  <widget class="QLabel" name="replacementKeeperColorLabel">
+                   <property name="text">
+                    <string>replacementKeeperColor:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="2" column="2">
+                  <widget class="QPushButton" name="btn_defenderColor">
+                   <property name="text">
+                    <string>Pick</string>
+                   </property>
+                   <property name="flat">
+                    <bool>false</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="3" column="0">
+                  <widget class="QLabel" name="supporterColorLabel">
+                   <property name="text">
+                    <string>supporterColor:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="defaultColorLabel">
+                   <property name="text">
+                    <string>defaultColor:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="6" column="2">
+                  <widget class="QPushButton" name="btn_replacementKeeperColor">
+                   <property name="text">
+                    <string>Pick</string>
+                   </property>
+                   <property name="flat">
+                    <bool>false</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="2" column="1">
+                  <widget class="QLineEdit" name="edit_defenderColor"/>
+                 </item>
+                 <item row="0" column="2">
+                  <widget class="QPushButton" name="btn_defaultColor">
                    <property name="text">
                     <string>Pick</string>
                    </property>
@@ -348,7 +475,10 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="5" column="2">
+                 <item row="1" column="1">
+                  <widget class="QLineEdit" name="edit_keeperColor"/>
+                 </item>
+                 <item row="4" column="2">
                   <widget class="QPushButton" name="btn_strikerColor">
                    <property name="text">
                     <string>Pick</string>
@@ -358,122 +488,15 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="5" column="0">
+                 <item row="4" column="0">
                   <widget class="QLabel" name="strikerColorLabel">
                    <property name="text">
                     <string>strikerColor:</string>
                    </property>
                   </widget>
                  </item>
-                 <item row="0" column="1">
-                  <widget class="QLineEdit" name="edit_defaultColor"/>
-                 </item>
-                 <item row="6" column="1">
-                  <widget class="QLineEdit" name="edit_bishopColor"/>
-                 </item>
-                 <item row="0" column="0">
-                  <widget class="QLabel" name="defaultColorLabel">
-                   <property name="text">
-                    <string>defaultColor:</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="0">
-                  <widget class="QLabel" name="keeperColorLabel">
-                   <property name="text">
-                    <string>keeperColor:</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="7" column="2">
-                  <widget class="QPushButton" name="btn_replacementKeeperColor">
-                   <property name="text">
-                    <string>Pick</string>
-                   </property>
-                   <property name="flat">
-                    <bool>false</bool>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="6" column="0">
-                  <widget class="QLabel" name="bishopColorLabel">
-                   <property name="text">
-                    <string>bishopColor:</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="2">
-                  <widget class="QPushButton" name="btn_defaultColor">
-                   <property name="text">
-                    <string>Pick</string>
-                   </property>
-                   <property name="flat">
-                    <bool>false</bool>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="1">
-                  <widget class="QLineEdit" name="edit_keeperColor"/>
-                 </item>
                  <item row="4" column="1">
-                  <widget class="QLineEdit" name="edit_supporterColor"/>
-                 </item>
-                 <item row="7" column="0">
-                  <widget class="QLabel" name="replacementKeeperColorLabel">
-                   <property name="text">
-                    <string>replacementKeeperColor:</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="4" column="0">
-                  <widget class="QLabel" name="supporterColorLabel">
-                   <property name="text">
-                    <string>supporterColor:</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="5" column="1">
                   <widget class="QLineEdit" name="edit_strikerColor"/>
-                 </item>
-                 <item row="2" column="2">
-                  <widget class="QPushButton" name="btn_defenderLeftColor">
-                   <property name="text">
-                    <string>Pick</string>
-                   </property>
-                   <property name="flat">
-                    <bool>false</bool>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="2" column="1">
-                  <widget class="QLineEdit" name="edit_defenderLeftColor"/>
-                 </item>
-                 <item row="6" column="2">
-                  <widget class="QPushButton" name="btn_bishopColor">
-                   <property name="text">
-                    <string>Pick</string>
-                   </property>
-                   <property name="flat">
-                    <bool>false</bool>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="3" column="0">
-                  <widget class="QLabel" name="defenderRightColorLabel">
-                   <property name="text">
-                    <string>defenderRightColor:</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="3" column="1">
-                  <widget class="QLineEdit" name="edit_defenderRightColor"/>
-                 </item>
-                 <item row="3" column="2">
-                  <widget class="QPushButton" name="btn_defenderRightColor">
-                   <property name="text">
-                    <string>Pick</string>
-                   </property>
-                  </widget>
                  </item>
                 </layout>
                </item>

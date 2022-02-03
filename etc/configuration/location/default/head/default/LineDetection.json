@@ -1,0 +1,8 @@
+{
+   "checkLineSegmentsProjection" : true,
+   "maxDistFromLine" : 3,
+   "maxGapOnLine" : 30,
+   "maxProjectedLineSegmentLength" : 0.3,
+   "minNumberOfPointsOnLine" : 5,
+   "minPixelLength" : 20
+}

@@ -1,8 +1,0 @@
-version: "3"
-services:
-  ctc:
-    image: ctc
-    build: .
-    command: /data/build-all
-    volumes:
-      - .:/data

@@ -1,82 +1,195 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
+project(
+  hulk
+  LANGUAGES CXX
+)
 
-option(NAO "Compile the code for the nao" OFF)
-option(NAO_V5 "Compile the code for the naov5 and lower" OFF)
-option(NAO_V6 "Compile the code for the naov6" OFF)
-option(NAOLIB "If compiling for nao, should we build tuhhALModule" ON)
-option(NAONATIVE "If compiling for nao, shall the crosstoolchain be used" ON)
-option(REPLAY "Build for replay" OFF)
-option(SIMROBOT "Build for simrobot" OFF)
-option(QT_WEBSOCKET "Build for qtwebsockets" OFF)
-option(IDE "Include the tools repo into the list of files" OFF)
+# Make project modules available
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-if(NAO_V5 OR NAO_V6)
-  set(NAO ON)
-endif(NAO_V5 OR NAO_V6)
+# Register build types Develop and DevWithDebInfo
+if(CMAKE_CONFIGURATION_TYPES)
+  if(NOT "Develop" IN_LIST CMAKE_CONFIGURATION_TYPES)
+    list(APPEND CMAKE_CONFIGURATION_TYPES Develop)
+  endif()
+  if(NOT "DevWithDebInfo" IN_LIST CMAKE_CONFIGURATION_TYPES)
+    list(APPEND CMAKE_CONFIGURATION_TYPES DevWithDebInfo)
+  endif()
+else()
+  set(allowableBuildTypes Debug Develop DevWithDebInfo Release RelWithDebInfo)
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "${allowableBuildTypes}")
+  if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Develop CACHE STRING "" FORCE)
+  elseif(NOT CMAKE_BUILD_TYPE IN_LIST allowableBuildTypes)
+    message(FATAL_ERROR "Invalid build type: ${CMAKE_BUILD_TYPE}")
+  endif()
+endif()
 
-if(NAO_V6)
-  set(NAOLIB OFF)
-endif(NAO_V6)
+# Target for which the build system is generated
+set(HULK_TARGET "" CACHE STRING "Either NAO, Replay, SimRobot, or Webots")
+if(NOT ("${HULK_TARGET}" MATCHES "^(NAO|Replay|SimRobot|Webots)$"))
+  message(FATAL_ERROR "TARGET must be either NAO, Replay, SimRobot, or Webots")
+endif()
 
-if(NAO AND NAONATIVE)
-  if(NOT TOOLCHAIN_DIR)
-    set(TOOLCHAIN_DIR "${CMAKE_SOURCE_DIR}/toolchain")
-  endif(NOT TOOLCHAIN_DIR)
-  if(NAO_V5)
-    set(CMAKE_TOOLCHAIN_FILE "${TOOLCHAIN_DIR}/hulks-v5/toolchain.cmake")
-    set(CMAKE_PREFIX_PATH "${TOOLCHAIN_DIR}/hulks-v5/root")
-  elseif(NAO_V6)
-    set(CMAKE_TOOLCHAIN_FILE "${TOOLCHAIN_DIR}/hulks-v6/toolchain.cmake")
-    set(CMAKE_PREFIX_PATH "${TOOLCHAIN_DIR}/hulks-v6/root")
-  endif(NAO_V5)
-elseif(SIMROBOT)
-  if(NOT SIMROBOT_INCLUDE_DIRS)
-    set(SIMROBOT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/tools/SimRobot/Src/SimRobotCore2")
-  endif(NOT SIMROBOT_INCLUDE_DIRS)
-endif(NAO AND NAONATIVE)
+# Options for features of the code
+if(("${HULK_TARGET}" STREQUAL "SimRobot") OR ("${HULK_TARGET}" STREQUAL "Webots"))
+  option(HULK_UNIX_SOCKET "Enable the implementation of unix sockets for debug communication" ON)
+else()
+  option(HULK_UNIX_SOCKET "Enable the implementation of unix sockets for debug communication" OFF)
+endif()
 
-if(NOT NAO)
-  find_program(CCACHE_FOUND ccache)
-  if(CCACHE_FOUND)
-      set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
-      set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
-  endif(CCACHE_FOUND)
-endif(NOT NAO)
+# Generate compile_commands.json
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(tuhhnao)
+# Find packages that are used in all targets
+find_package(Boost REQUIRED)
+find_package(CompiledNN REQUIRED)
+find_package(Eigen3 3.3 REQUIRED) # 3.3 because earlier normalize(d) would be NaN when the vector to be normalized is 0
+find_package(FFTW3 REQUIRED)
+find_package(JPEG REQUIRED)
+find_package(opusfile REQUIRED)
+find_package(PNG REQUIRED)
+find_package(Threads REQUIRED)
+find_package(ZLIB REQUIRED)
 
-# Set CMAKE_MODULE_PATH to assist cmake in finding our own package definitions
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMake")
-set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+# Find packages for specific targets
+if("${HULK_TARGET}" STREQUAL "NAO")
+  find_package(ITTNotify)
+  find_package(ALSA REQUIRED)
+elseif("${HULK_TARGET}" STREQUAL "SimRobot")
+  find_package(portaudio REQUIRED)
+  find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
+elseif("${HULK_TARGET}" STREQUAL "Webots")
+  find_package(Webots REQUIRED)
+endif()
 
-include(CMake/settings.cmake)
-include(CMake/dependencies.cmake)
+# Register executable/library targets (will be populated via target_sources() in subdirectories)
+if("${HULK_TARGET}" STREQUAL "NAO")
+  add_executable(hulk)
+elseif("${HULK_TARGET}" STREQUAL "Replay")
+  add_executable(hulk)
+  set_target_properties(hulk PROPERTIES OUTPUT_NAME "replay")
+elseif("${HULK_TARGET}" STREQUAL "SimRobot")
+  set(CMAKE_AUTOMOC ON)
+  add_library(hulk SHARED)
+elseif("${HULK_TARGET}" STREQUAL "Webots")
+  add_executable(hulk)
+endif()
 
-# Define some macros so the code has the possibility to find out what it is
-# being compiled for (even though it should not be necessary most times).
-if(NAO)
-  add_definitions(-DNAO)
-  if(NAO_V6)
-    add_definitions(-DNAOV6)
-  elseif(NAO_V5)
-    add_definitions(-DNAOV5)
-  endif(NAO_V6)
-elseif(REPLAY)
-  add_definitions(-DREPLAY)
-elseif(SIMROBOT)
-  add_definitions(-DSIMROBOT)
-  # SimRobot controllers are shared libraries. The object libraries need to
-  # know that.
-  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-elseif(QT_WEBSOCKET)
-  add_definitions(-DQT_WEBSOCKET)
-endif(NAO)
+# Enable CCache
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+  set_property(TARGET hulk PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
+endif()
 
-add_subdirectory(src/tuhhsdk)
-add_subdirectory(src/brain)
-add_subdirectory(src/vision)
-add_subdirectory(src/motion)
+# Compilation flags
+target_compile_options(hulk PRIVATE
+  "$<$<CXX_COMPILER_ID:GNU,Clang>:-Wall>"
+  "$<$<CXX_COMPILER_ID:GNU,Clang>:-Wextra>"
+  "$<$<CXX_COMPILER_ID:GNU,Clang>:-pedantic>"
+  "$<$<CXX_COMPILER_ID:GNU,Clang>:-pipe>"
+  "$<$<CXX_COMPILER_ID:GNU,Clang>:-mssse3>"
+  "$<$<AND:$<CXX_COMPILER_ID:GNU,Clang>,$<OR:$<CONFIG:Debug>,$<CONFIG:DevWithDebInfo>>>:-g>"
+  "$<$<AND:$<CXX_COMPILER_ID:GNU,Clang>,$<OR:$<CONFIG:Debug>,$<CONFIG:Develop>,$<CONFIG:DevWithDebInfo>>>:-pedantic-errors>"
+  "$<$<AND:$<CXX_COMPILER_ID:GNU,Clang>,$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>>:-fomit-frame-pointer>"
+  "$<$<AND:$<CXX_COMPILER_ID:GNU,Clang>,$<OR:$<CONFIG:RelWithDebInfo>>>:-ggdb>"
+  "$<$<AND:$<CXX_COMPILER_ID:GNU,Clang>,$<OR:$<CONFIG:Develop>,$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:DevWithDebInfo>>>:-O3>"
+  "$<$<AND:$<CXX_COMPILER_ID:GNU,Clang>,$<OR:$<CONFIG:Debug>,$<CONFIG:Develop>,$<CONFIG:DevWithDebInfo>>>:-fno-omit-frame-pointer>"
+)
+target_compile_definitions(hulk PRIVATE
+  "HULK_TARGET_${HULK_TARGET}"
+  "$<$<AND:$<CXX_COMPILER_ID:GNU,Clang>,$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>>:NDEBUG>"
+)
+if("${HULK_TARGET}" STREQUAL "NAO")
+  target_compile_definitions(hulk PRIVATE
+    "EIGEN_DONT_VECTORIZE"
+    "EIGEN_DISABLE_UNALIGNED_ARRAY_ASSERT"
+  )
+endif()
 
-if(IDE)
-  add_subdirectory(../tools "${CMAKE_CURRENT_BINARY_DIR}/tools")
-endif(IDE)
+# Use the llvm gold linker
+target_link_options(hulk PRIVATE "-fuse-ld=gold")
+
+# Set C++ standard and disable C++ extensions
+set_property(TARGET hulk PROPERTY CXX_STANDARD 17)
+set_property(TARGET hulk PROPERTY CXX_STANDARD_REQUIRED ON)
+target_compile_features(hulk PRIVATE cxx_std_17)
+set_property(TARGET hulk PROPERTY CXX_EXTENSIONS OFF)
+
+# Compile with unity builds
+set_property(TARGET hulk PROPERTY UNITY_BUILD ON)
+
+# Add SimRobot include directory and enable PIC for shared library
+if("${HULK_TARGET}" STREQUAL "SimRobot")
+  target_include_directories(hulk PRIVATE
+    "${CMAKE_SOURCE_DIR}/tools/SimRobot/Src/SimRobotCore2"
+  )
+  set_property(TARGET hulk PROPERTY CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
+# Make options available as preprocessor defines
+if (HULK_UNIX_SOCKET)
+  target_compile_definitions(hulk PRIVATE
+    "HULK_UNIX_SOCKET"
+  )
+endif()
+
+# Link libraries that are used by all targets
+target_link_libraries(hulk PRIVATE
+  ${CMAKE_DL_LIBS}
+  Boost::headers
+  CompiledNN::CompiledNN
+  Eigen3::Eigen
+  FFTW3::fftw3
+  JPEG::JPEG
+  opusfile::opusfile
+  PNG::PNG
+  Threads::Threads
+  ZLIB::ZLIB
+)
+
+# Link libraries that are only used by specific targets
+if("${HULK_TARGET}" STREQUAL "NAO")
+  target_link_libraries(hulk PRIVATE
+    ALSA::ALSA
+    rt
+  )
+  if(${ITTNOTIFY_FOUND})
+    target_compile_definitions(hulk PRIVATE
+      "ITTNOTIFY_FOUND"
+    )
+    target_link_libraries(hulk PRIVATE
+      "${ITTNOTIFY_LIBRARIES}"
+    )
+    target_include_directories(hulk PRIVATE
+      "${ITTNOTIFY_INCLUDE_DIRS}"
+    )
+  endif()
+elseif("${HULK_TARGET}" STREQUAL "SimRobot")
+  target_link_libraries(hulk PRIVATE
+    portaudio::portaudio
+    Qt5::Core
+    Qt5::Widgets
+  )
+elseif("${HULK_TARGET}" STREQUAL "Webots")
+  target_link_libraries(hulk PRIVATE
+    Webots::Webots
+  )
+  get_target_property(LIBS Webots::Webots INTERFACE_LINK_LIBRARIES)
+endif()
+
+# Setup LOCAL_FILE_ROOT
+if(DEFINED ENV{LOCAL_FILE_ROOT})
+  target_compile_definitions(hulk PRIVATE
+    LOCAL_FILE_ROOT="$ENV{LOCAL_FILE_ROOT}"
+  )
+else()
+  if(("${HULK_TARGET}" STREQUAL "Replay") OR ("${HULK_TARGET}" STREQUAL "SimRobot") OR ("${HULK_TARGET}" STREQUAL "Webots"))
+    target_compile_definitions(hulk PRIVATE
+      LOCAL_FILE_ROOT="${CMAKE_SOURCE_DIR}/webots/"
+    )
+  endif()
+endif()
+
+# Add src/ directory with all of the code
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/src")

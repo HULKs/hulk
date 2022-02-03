@@ -1,114 +1,54 @@
-#!/bin/bash
+#!/bin/env python3
 
-# Get base directory for better referencing
-BASEDIR=`cd $(dirname $0); pwd -P`
-BASEDIR=${BASEDIR%/*}
+import click
+import hulks
+import os
+import logging
 
-source "${BASEDIR}/scripts/lib/msg.sh"
-source "${BASEDIR}/scripts/lib/time.sh"
-source "${BASEDIR}/scripts/lib/compile.sh"
-source "${BASEDIR}/scripts/lib/docker.sh"
 
-function helpMenu {
-  echo "Usage: $0 [OPTIONS]"
-  echo ""
-  echo "Options"
-  echo " -b, --build-type BUILD_TYPE       use the specified build type (one out of Debug, Develop, Release)"
-  echo " -t, --target TARGET               compile for the specified target (one out of nao5, nao6, replay, simrobot, qt-websocket)"
-  echo " -j, --jobs                        the amount of processes used for compilation. Write the number of jobs to ${BASEDIR}/.njobs to configure default."
-  echo " -v, --verbose                     show compilation commands"
-  echo " -h, --help                        show this help"
-}
+def current_target():
+    try:
+        return os.readlink(hulks.PROJECT_ROOT / 'build/current-target')
+    except FileNotFoundError:
+        hulks.logger.error("Current target was not found")
+        exit(1)
 
-function run {
-  # not verbose by default
-  VERBOSE=false
-  # read the target from a file
-  if [ -f "${BASEDIR}/.current.tc" ]; then
-    TARGET=`cat "${BASEDIR}/.current.tc"`
-  else
-    TARGET=""
-  fi
-  # read the build type from a file
-  if [ -f "${BASEDIR}/.current.bt" ]; then
-    BUILD_TYPE=`cat "${BASEDIR}/.current.bt"`
-  else
-    BUILD_TYPE=""
-  fi
-  # set default job number to cores + 1
-  JOBS=$(njobs)
-  # prepare parameters
-  PARAMETERS=""
-  while [ "$#" -gt 0 ]; do
-    if [[ $1 =~ ^- ]] && [[ ! $1 =~ ^-- ]]; then
-      PARAMETERS+=$(echo "${1:1}" | sed -e "s/\(.\)/ -\1/g")
-    else
-      PARAMETERS+=" $1"
-    fi
-    shift
-  done
-  eval set -- "${PARAMETERS}";
 
-  while [ "$#" -gt 0 ]; do
-    case "$1" in
-      "-b" | "--build-type")
-        shift
-        if [ "$#" -eq 0 ]; then
-          msg -e "--build-type needs a build type as parameter!"
-          helpMenu
-          return 1
-        fi
-        BUILD_TYPE="$1"
-        ;;
-      "-t" | "--target")
-        shift
-        if [ "$#" -eq 0 ]; then
-          msg -e "--target needs a target as parameter!"
-          helpMenu
-          return 1
-        fi
-        TARGET="$1"
-        ;;
-      "-j" | "--jobs")
-        shift
-        if [ "$#" -eq 0 ]; then
-          msg -e "--jobs needs a job number!"
-          helpMenu
-          return 1
-        fi
-        JOBS=$1
-        ;;
-      "-v" | "--verbose")
-        VERBOSE=true
-        ;;
-      "-h" | "--help")
-        helpMenu
-        return 0
-        ;;
-      *)
-        msg -e "Failed to parse \"$1\"!"
-        helpMenu
-        return 1
-        ;;
-    esac
-    shift
-  done
+def current_build_type():
+    try:
+        return os.readlink(hulks.PROJECT_ROOT /
+                           'build/current-target/current-buildtype')
+    except FileNotFoundError:
+        hulks.logger.error("Current build_type was not found")
+        exit(1)
 
-  if [ "${TARGET}" == "" ] || [ "${BUILD_TYPE}" == "" ]; then
-    msg -e "It seems you haven't compiled before! You need to specify a target and/or a build type to this script."
-    return 1
-  fi
 
-  msg -n "Compiling for target ${TARGET} with build type ${BUILD_TYPE}."
-  set_start_time
-  compile "${BASEDIR}" "${TARGET}" "${BUILD_TYPE}" ${VERBOSE} ${JOBS}
-  if [ "$?" -ne 0 ]; then
-    msg -e "Compilation failed!"
-    return 1
-  fi
-  get_time_diff
-  msg -s "Compilation finished successfully in ${DIFF}!"
-  return 0
-}
+def compile(verbose: bool, target: str, build_type: str):
+    try:
+        hulks.compile(target, build_type, verbose)
+        hulks.logger.success("Compilation successful")
+    except hulks.CompilationError:
+        hulks.logger.error("Compilation failed!")
+        exit(1)
 
-handleDocker "${BASEDIR}" "$@"
+
+@click.command()
+@click.option('-v', '--verbose', count=True)
+@click.option('-t',
+              '--target',
+              type=click.Choice(['NAO', 'SimRobot', 'Replay', 'Webots'],
+                                case_sensitive=False),
+              default=current_target,
+              show_default="linked current target of previous build")
+@click.option('-b',
+              '--build-type',
+              type=click.Choice(['Release', 'Develop', 'Debug']),
+              default=current_build_type,
+              show_default="linked current build type of previous build")
+def main(verbose, target, build_type):
+    hulks.logger.setLevel(logging.INFO if verbose == 0 else logging.DEBUG)
+    compile(verbose, target, build_type)
+
+
+if __name__ == '__main__':
+    main()

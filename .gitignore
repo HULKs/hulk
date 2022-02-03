@@ -1,11 +1,14 @@
-/**/.idea/*
-/**/.venv/*
-/.vs/*
-/cmake-build-*
-/.vscode/*
+.idea/
+.venv/
+.vs/
+cmake-build-*
+.vscode/
+.ccls-cache/
+.clangd/
+.cache/
+.python-version
+
 /.wiki/
-/.ccls-cache/
-/.python-version
 
 /tools/TextToSpeech/.api_key
 /tools/TextToSpeech/*.ogg
@@ -19,8 +22,9 @@ install_manifest.txt
 /build/
 /webots/filetransport*
 /webots/replay*
+/sdk
 
-/kdev4/*
+/kdev4/
 *.kdev4
 
 *.edited
@@ -35,3 +39,6 @@ install_manifest.txt
 *.pyc
 .DS_Store
 .jobs
+.njobs
+
+target/

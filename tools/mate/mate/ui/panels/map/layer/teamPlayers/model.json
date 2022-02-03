@@ -2,8 +2,8 @@
     "name": "teamPlayers",
     "enabled": true,
     "config": {
-                "center_x": 5.2,
-                "center_y": -3.7,
+                "center_x": 0.0,
+                "center_y": 0.0,
                 "teamPlayers": {
                     "key": "Brain.TeamPlayers",
                     "keyLambda": "output = input['players']",
@@ -16,12 +16,13 @@
                     "cameraOpeningAngle": 60.97,
                     "defaultColor": "#ffffff",
                     "keeperColor": "#0000ff",
-                    "defenderLeftColor": "#00aa00",
-                    "defenderRightColor": "#00ff00",
+                    "defenderColor": "#00aa00",
                     "supporterColor": "#ff00ff",
                     "strikerColor": "#ff0000",
                     "bishopColor": "#ffff00",
                     "replacement_keeperColor" : "#00ffff",
+                    "loserColor": "#ff007f",
+                    "searcherColor": "#7f00ff",
                     "showSearchPosition": false,
                     "searchPositionDiameter": 0.6
                 }

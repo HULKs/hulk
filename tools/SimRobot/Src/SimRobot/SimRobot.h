@@ -26,7 +26,7 @@ namespace SimRobot
     virtual QMenu* createFileMenu() const {return nullptr;}
     virtual QMenu* createEditMenu() const {return nullptr;}
     virtual QMenu* createUserMenu() const {return nullptr;}
-    virtual void paint(QPainter& painter) {}
+    virtual void paint([[maybe_unused]] QPainter& painter) {}
   };
 
   /**
@@ -118,12 +118,12 @@ namespace SimRobot
     /**
     * A handler that will be called when any modules uses \c Application::selectObject
     */
-    virtual void selectedObject(const Object& object) {}
+    virtual void selectedObject([[maybe_unused]] const Object& object) {}
 
     /**
     * A handler that can be used to implement CTRL + SHIFT shortcuts
     */
-    virtual void pressedKey(int key, bool pressed) {}
+    virtual void pressedKey([[maybe_unused]] int key, [[maybe_unused]] bool pressed) {}
 
     /**
     * Create a menu for this module. If 0 is returned, there is no menu.

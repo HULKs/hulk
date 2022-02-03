@@ -59,38 +59,37 @@ class Nao:
             target=make_thread_target(self.__connect_debug()))
         self.debug_thread.start()
         thread_count = threading.active_count()
-        logger.debug(__name__ +
-                     ": A new thread has been started. There are " +
+        logger.debug(__name__ + ": A new thread has been started. There are " +
                      str(thread_count) + " active threads now.")
         self.config_thread = threading.Thread(
             target=make_thread_target(self.__connect_config()))
         self.config_thread.start()
         thread_count = threading.active_count()
-        logger.debug(__name__ +
-                     ": A new thread has been started. There are " +
+        logger.debug(__name__ + ": A new thread has been started. There are " +
                      str(thread_count) + " active threads now.")
 
     async def __connect_debug(self):
         self.debug_loop = asyncio.get_event_loop()
         try:
             if self.nao_address.startswith("/"):
-                self.debug_transport, self.debug_protocol = await asyncio.wait_for(self.debug_loop.create_unix_connection(
-                    lambda: NaoDebugProtocol(self.debug_loop),
-                    self.nao_address + "/debug"), self.timeout)
+                self.debug_transport, self.debug_protocol = await asyncio.wait_for(
+                    self.debug_loop.create_unix_connection(
+                        lambda: NaoDebugProtocol(self.debug_loop),
+                        self.nao_address + "/debug"), self.timeout)
             else:
-                self.debug_transport, self.debug_protocol = await asyncio.wait_for(self.debug_loop.create_connection(
-                    lambda: NaoDebugProtocol(self.debug_loop),
-                    self.nao_address,
-                    self.debug_port), self.timeout)
+                self.debug_transport, self.debug_protocol = await asyncio.wait_for(
+                    self.debug_loop.create_connection(
+                        lambda: NaoDebugProtocol(self.debug_loop),
+                        self.nao_address, self.debug_port), self.timeout)
         except ConnectionRefusedError as e:
             self.connection_failure_hook(e)
             return
         except OSError as e:
             self.connection_failure_hook(e)
             return
-        except asyncio.futures.TimeoutError as e:
+        except asyncio.TimeoutError as e:
             self.connection_failure_hook(
-                asyncio.futures.TimeoutError("Timed out"))
+                asyncio.TimeoutError("Timed out"))
             return
 
         self.connection_lock.acquire()
@@ -111,23 +110,24 @@ class Nao:
         self.config_loop = asyncio.get_event_loop()
         try:
             if self.nao_address.startswith("/"):
-                self.config_transport, self.config_protocol = await asyncio.wait_for(self.config_loop.create_unix_connection(
-                    lambda: NaoConfigProtocol(self.config_loop),
-                    self.nao_address + "/config"), self.timeout)
+                self.config_transport, self.config_protocol = await asyncio.wait_for(
+                    self.config_loop.create_unix_connection(
+                        lambda: NaoConfigProtocol(self.config_loop),
+                        self.nao_address + "/config"), self.timeout)
             else:
-                self.config_transport, self.config_protocol = await asyncio.wait_for(self.config_loop.create_connection(
-                    lambda: NaoConfigProtocol(self.config_loop),
-                    self.nao_address,
-                    self.config_port), self.timeout)
+                self.config_transport, self.config_protocol = await asyncio.wait_for(
+                    self.config_loop.create_connection(
+                        lambda: NaoConfigProtocol(self.config_loop),
+                        self.nao_address, self.config_port), self.timeout)
         except ConnectionRefusedError as e:
             self.connection_failure_hook(e)
             return
         except OSError as e:
             self.connection_failure_hook(e)
             return
-        except asyncio.futures.TimeoutError as e:
+        except asyncio.TimeoutError as e:
             self.connection_failure_hook(
-                asyncio.futures.TimeoutError("Timed out"))
+                asyncio.TimeoutError("Timed out"))
             return
 
         self.connection_lock.acquire()

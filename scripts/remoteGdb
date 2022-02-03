@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+# Get base directory for better referencing
+BASE_DIRECTORY=`cd $(dirname $0); pwd -P`
+BASE_DIRECTORY=${BASE_DIRECTORY%/*}
+
+source "${BASE_DIRECTORY}/scripts/lib/numberToIP.sh"
+source "${BASE_DIRECTORY}/scripts/lib/msg.sh"
+source "${BASE_DIRECTORY}/scripts/lib/naonet.sh"
+
+function help_menu {
+  echo "Usage: $0 NAO BUILD_TYPE"
+}
+
+function run {
+  if [ ! "$#" -eq 2 ]; then
+    msg -e "${0} needs 2 arguments"
+    help_menu
+    exit 1
+  fi
+
+  NAO=$(nao_number_to_ip "$1")
+  BUILD_TYPE=$2
+  PORT=1337
+
+  if [ ! -d "${BASE_DIRECTORY}/sdk/current" ]; then
+    msg -e "Failed to find sdk"
+    return 1
+  fi
+
+  msg -n "Starting gdbserver ${NAO}."
+  nao_cmd "${BASE_DIRECTORY}" "${NAO}" "systemctl start hulk-gdbserver.service"
+
+  gdb ${BASE_DIRECTORY}/build/NAO/${BUILD_TYPE}/hulk \
+    -ex "set sysroot ${BASE_DIRECTORY}/sdk/current/sysroots/corei7-64-poky-linux/" \
+    -ex "target remote ${NAO}:${PORT}"
+}
+
+run "$@"

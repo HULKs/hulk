@@ -45,9 +45,9 @@ def parse_arguments():
 
     parser.add_argument(
         "--default-config-dir",
-        help="Path to nao/home/configuration/",
+        help="Path to nao/etc/configuration/",
         default=os.path.realpath(os.path.dirname(__file__)) +
-        "/../../home/configuration/"
+        "/../../etc/configuration/"
     )
 
     return parser.parse_args()

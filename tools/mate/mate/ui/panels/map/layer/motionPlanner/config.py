@@ -41,36 +41,61 @@ class Config(qtw.QWidget, _LayerConfig):
                         config["key_lambda"])
                 ]
             ),
-            "motionPlan": (
+            "targetPosition": (
                 lambda:  {
-                    "key": self.cbx_MotionPlannerKey.currentText(),
+                    "key": self.cbx_targetPositionKey.currentText(),
                     "key_lambda":
-                        self.edit_MotionPlannerKeyLambda.toPlainText(),
+                        self.edit_targetPositionKeyLambda.toPlainText(),
                     "targetCircleDiameter":
                         self.spin_targetCircleDiameter.value(),
                     "targetColor": self.edit_targetColor.text()},
                 lambda config: [
-                    self.cbx_MotionPlannerKey.setCurrentText(
+                    self.cbx_targetPositionKey.setCurrentText(
                         config["key"]),
-                    self.edit_MotionPlannerKeyLambda.setPlainText(
+                    self.edit_targetPositionKeyLambda.setPlainText(
                         config["key_lambda"]),
                     self.spin_targetCircleDiameter.setValue(
                         config["targetCircleDiameter"]),
                     ui_utils.reset_textField_color(
                         self.edit_targetColor, config["targetColor"])]
+            ),
+            "displacementVector": (
+                lambda:  {
+                    "key": self.cbx_displacementVectorKey.currentText(),
+                    "key_lambda":
+                        self.edit_displacementVectorKeyLambda.toPlainText(),
+                    "lineWidth":
+                        self.spin_lineWidth.value(),
+                    "lineColor": self.edit_lineColor.text()},
+                lambda config: [
+                    self.cbx_displacementVectorKey.setCurrentText(
+                        config["key"]),
+                    self.edit_displacementVectorKeyLambda.setPlainText(
+                        config["key_lambda"]),
+                    self.spin_lineWidth.setValue(
+                        config["lineWidth"]),
+                    ui_utils.reset_textField_color(
+                        self.edit_lineColor, config["lineColor"])]
             )
         }
         self.cbx_TransformationKey.completer().setFilterMode(
             qtc.Qt.MatchContains)
         self.cbx_TransformationKey.completer().setCompletionMode(
             qtw.QCompleter.PopupCompletion)
-        self.cbx_MotionPlannerKey.completer().setFilterMode(
+        self.cbx_targetPositionKey.completer().setFilterMode(
             qtc.Qt.MatchContains)
-        self.cbx_MotionPlannerKey.completer().setCompletionMode(
+        self.cbx_targetPositionKey.completer().setCompletionMode(
             qtw.QCompleter.PopupCompletion)
         ui_utils.init_Color_UI(
             self.btn_targetColor,
             self.edit_targetColor)
+        self.cbx_displacementVectorKey.completer().setFilterMode(
+            qtc.Qt.MatchContains)
+        self.cbx_displacementVectorKey.completer().setCompletionMode(
+            qtw.QCompleter.PopupCompletion)
+        ui_utils.init_Color_UI(
+            self.btn_lineColor,
+            self.edit_lineColor)
         self.btnAccept.pressed.connect(self.accept)
         self.btnDiscard.pressed.connect(self.discard)
         self.reset_widgets()
@@ -94,8 +119,12 @@ class Config(qtw.QWidget, _LayerConfig):
             self.layer_model["config"]["transformation"]["key"],
             self.nao.debug_data)
         ui_utils.init_cbx(
-            self.cbx_MotionPlannerKey,
-            self.layer_model["config"]["motionPlan"]["key"],
+            self.cbx_targetPositionKey,
+            self.layer_model["config"]["targetPosition"]["key"],
+            self.nao.debug_data)
+        ui_utils.init_cbx(
+            self.cbx_displacementVectorKey,
+            self.layer_model["config"]["displacementVector"]["key"],
             self.nao.debug_data)
 
     def reset_widgets(self):

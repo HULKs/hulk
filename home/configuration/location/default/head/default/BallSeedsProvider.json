@@ -1,8 +1,0 @@
-{
-  "minSeedBrightDiff" : 25,
-  "seedBrightMin" : 8,
-  "seedBrightScore" : 4,
-  "seedDark" : 100,
-  "seedRadiusRatioMin" : 0.1,
-  "seedRadiusRatioMax" : 0.7
-}

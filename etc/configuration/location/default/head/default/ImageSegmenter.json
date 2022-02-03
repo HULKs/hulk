@@ -1,0 +1,11 @@
+{
+  "drawEdges": true,
+  "drawFieldYellow": false,
+  "drawFullImage": false,
+  "edgeThresholdHorizontal": [16, 32],
+  "edgeThresholdVertical": [8, 8],
+  "numVerticalScanlines": 160,
+  "samplePointDistance": 0.02,
+  "useMedianVerticalTop": false,
+  "useMedianVerticalBottom": false
+}

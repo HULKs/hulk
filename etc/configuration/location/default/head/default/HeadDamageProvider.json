@@ -1,0 +1,26 @@
+{
+  /// Speaker
+  "leftSpeaker": false,
+  "rightSpeaker": false,
+  /// Microphones
+  "microFront": false,
+  "microRear": false,
+  "microLeft": false,
+  "microRight": false,
+  /// Video cameras
+  "cameraTop": false,
+  "cameraBottom": false,
+  /// Infra-Red
+  "infraRedRight": false,
+  "infraRedLeft": false,
+  /// LEDs
+  "ledLeftEar": false,
+  "ledRightEar": false,
+  "ledLeftEye": false,
+  "ledRightEye": false,
+  "ledSkull": false,
+  /// Contact and tactile sensors - Head
+  "headTouchFront": false,
+  "headTouchMiddle": false,
+  "headTouchRear": false
+}

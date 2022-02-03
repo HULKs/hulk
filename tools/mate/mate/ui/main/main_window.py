@@ -239,7 +239,7 @@ class MainWindow(qtw.QMainWindow):
                     self.statusbar.showMessage("Load Layout from {}".format(
                         self.cbxSelectLayout.currentText()))
                 else:
-                    self.statusbar.showMessage("Loaded empty Layout!")
+                    self.statusbar.showMessage("Loaded empty Layout")
                     logger.warning(__name__ + ": Loaded empty Layout")
                 if layout_settings.value("geometry"):
                     self.restoreGeometry(
@@ -252,7 +252,7 @@ class MainWindow(qtw.QMainWindow):
                              self.cbxSelectLayout.currentText() +
                              " layout took: " + logger.timerLogStr(load_time))
             else:
-                self.statusbar.showMessage("Please specify a layout name!")
+                self.statusbar.showMessage("Please specify a layout name")
         except json.decoder.JSONDecodeError as e:
             self.handle_layout_load_fail(e, "JSON corrupt?")
         except KeyError as e:
@@ -307,7 +307,7 @@ class MainWindow(qtw.QMainWindow):
                          ": Saving " + self.cbxSelectLayout.currentText() +
                          " layout took: " + logger.timerLogStr(save_time))
         else:
-            self.statusbar.showMessage("Please specify a layout name!")
+            self.statusbar.showMessage("Please specify a layout name")
 
     def new_panel(self, name: str,
                   objectName: str = None,
@@ -339,8 +339,6 @@ class MainWindow(qtw.QMainWindow):
         self.settings.setValue("logLevel", logger.level)
         self.settings.setValue("timeout", self.nao.timeout)
         del self.settings
-
-        aliveness.locks.remove_listen_lock("mate")
 
         logger.info(__name__ + ": The end.")
 
@@ -390,7 +388,7 @@ class MainWindow(qtw.QMainWindow):
         self.ui_disconnect()
 
     def _on_connection_lost(self):
-        self.statusbar.showMessage("Connection to {} lost!".format(
+        self.statusbar.showMessage("Connection to {} lost".format(
             self.nao.nao_address))
         logger.error(__name__ +
                      ": Connection to " + self.nao.nao_address + " lost")
@@ -429,7 +427,7 @@ class MainWindow(qtw.QMainWindow):
         self.menuConnection.setEnabled(False)
 
     def set_nao_head_body_number(self, data: nd.ConfigMount):
-        nao_info = data.data["NaoInfo"]
+        nao_info = data.data["RobotInfo"]
         self.nao.nao_head = nao_info["headName"]
         self.nao.nao_body = nao_info["bodyName"]
         self.nao.location = data.data["location"]

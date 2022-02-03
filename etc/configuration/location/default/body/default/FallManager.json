@@ -1,0 +1,9 @@
+{
+   "catchFrontDuration" : 0.1,
+   "catchFrontHipPitch" : -5,
+   "enabled" : true,
+   "headPitchStiffnessThresh" : 15,
+   "headYawStiffnessThresh" : 15,
+   "kneeDownMotionFile" : "kneedown.motion2",
+   "rapidReachStiffness" : 0.9
+}

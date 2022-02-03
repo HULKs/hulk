@@ -1,0 +1,51 @@
+html {
+  overflow-x: hidden;
+}
+
+* {
+  user-select: none;
+}
+
+#box {
+  position: absolute;
+  visibility: hidden;
+  z-index: 2;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+#grid {
+  margin: 10px 0;
+  display: grid;
+  /* 200px controlled by JavaScript */
+  grid-template-columns: repeat(auto-fill, 200px);
+  grid-auto-rows: 200px;
+  justify-content: center;
+  gap: 10px;
+}
+
+#grid>div {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+#grid>div>div {
+  position: relative;
+}
+
+#grid>div>div>svg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+#grid>div>div>svg>* {
+  pointer-events: none;
+}
+
+#grid>div>div>img {
+  z-index: 0;
+  display: block;
+  width: 200px;
+}

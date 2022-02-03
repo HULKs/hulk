@@ -15,12 +15,13 @@ import mate.ui.utils as ui_utils
 class Roles(enum.Enum):
     default = 0
     keeper = 1
-    defenderLeft = 2
-    defenderRight = 3
-    supporter = 4
-    striker = 5
-    bishop = 6
-    replacement_keeper = 7
+    defender = 2
+    supporter = 3
+    striker = 4
+    bishop = 5
+    replacement_keeper = 6
+    loser = 7
+    searcher = 8
 
 
 class Main(_Layer):

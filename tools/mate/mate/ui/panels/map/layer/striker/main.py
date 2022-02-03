@@ -51,7 +51,7 @@ class Main(_Layer):
         self.hitPoints = data.data
 
     def update_teamBallPosition(self, data):
-        self.teamBallPosition = data.data["position"]
+        self.teamBallPosition = data.data["absPosition"]
 
     def update_rateKick(self, data):
         self.rateKick = data.data

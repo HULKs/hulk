@@ -1,0 +1,5 @@
+#!/bin/sh
+
+/opt/aldebaran/bin/reset-cameras toggle
+echo "Camera reset!"
+sleep 3

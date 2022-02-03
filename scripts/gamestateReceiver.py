@@ -81,7 +81,7 @@ class SPLReceiver:
                 # Check whether the last message came from a different sender
                 if not self.lastSender is None and self.lastSender != addr:
                     logging.warning(
-                        f"Different message origin! {self.lastSender} -> {addr}")
+                        f"Different message origin: {self.lastSender} -> {addr}")
                     self.lastConflict = datetime.now()
                 self.lastSender = addr
             except socket.error as e:

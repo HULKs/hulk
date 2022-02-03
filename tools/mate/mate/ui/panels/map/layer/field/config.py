@@ -18,18 +18,21 @@ class Config(qtw.QWidget, _LayerConfig):
 
         self.field_types = {
             "default": {
-                "center_x": 5.2,
-                "center_y": -3.7,
+                "center_x": 0.0,
+                "center_y": 0.0,
                 "field": {
                     "length": 9,
                     "width": 6,
                     "lineWidth": 0.05,
                     "penaltyMarkerSize": 0.1,
                     "penaltyMarkerDistance": 1.3,
-                    "penaltyAreaLength": 0.6,
-                    "penaltyAreaWidth": 2.2,
+                    "goalBoxAreaLength": 0.6,
+                    "goalBoxAreaWidth": 2.2,
+                    "penaltyAreaLength": 1.65,
+                    "penaltyAreaWidth": 4.0,
                     "centerCircleDiameter": 1.5,
-                    "borderStripWidth": 0.7
+                    "borderStripWidth": 0.7,
+                    "hide_background": False
                 },
                 "goal": {
                     "postDiameter": 0.1,
@@ -39,18 +42,21 @@ class Config(qtw.QWidget, _LayerConfig):
                 }
             },
             "smd": {
-                "center_x": 5.2,
-                "center_y": -3.7,
+                "center_x": 0.0,
+                "center_y": 0.0,
                 "field": {
                     "length": 7.5,
                     "width": 5,
                     "lineWidth": 0.05,
                     "penaltyMarkerSize": 0.1,
                     "penaltyMarkerDistance": 1.3,
-                    "penaltyAreaLength": 0.6,
-                    "penaltyAreaWidth": 2.2,
+                    "goalBoxAreaLength": 0.6,
+                    "goalBoxAreaWidth": 2.2,
+                    "penaltyAreaLength": 1.65,
+                    "penaltyAreaWidth": 3.6,
                     "centerCircleDiameter": 1.25,
-                    "borderStripWidth": 0.4
+                    "borderStripWidth": 0.4,
+                    "hide_background": False
                 },
                 "goal": {
                     "postDiameter": 0.1,
@@ -80,6 +86,10 @@ class Config(qtw.QWidget, _LayerConfig):
                         self.spin_field_penaltyMarkerSize.value(),
                     "penaltyMarkerDistance":
                         self.spin_field_penaltyMarkerDistance.value(),
+                    "goalBoxAreaLength":
+                        self.spin_field_goalBoxAreaLength.value(),
+                    "goalBoxAreaWidth":
+                        self.spin_field_goalBoxAreaWidth.value(),
                     "penaltyAreaLength":
                         self.spin_field_penaltyAreaLength.value(),
                     "penaltyAreaWidth":
@@ -87,7 +97,9 @@ class Config(qtw.QWidget, _LayerConfig):
                     "centerCircleDiameter":
                         self.spin_field_centerCircleDiameter.value(),
                     "borderStripWidth":
-                        self.spin_field_borderStripWidth.value()},
+                        self.spin_field_borderStripWidth.value(),
+                    "hide_background":
+                        self.hide_background_check_box.checkState()},
                 lambda config: [
                     self.spin_field_width.setValue(
                         config["width"]),
@@ -99,6 +111,10 @@ class Config(qtw.QWidget, _LayerConfig):
                         config["penaltyMarkerSize"]),
                     self.spin_field_penaltyMarkerDistance.setValue(
                         config["penaltyMarkerDistance"]),
+                    self.spin_field_goalBoxAreaLength.setValue(
+                        config["goalBoxAreaLength"]),
+                    self.spin_field_goalBoxAreaWidth.setValue(
+                        config["goalBoxAreaWidth"]),
                     self.spin_field_penaltyAreaLength.setValue(
                         config["penaltyAreaLength"]),
                     self.spin_field_penaltyAreaWidth.setValue(
@@ -106,7 +122,10 @@ class Config(qtw.QWidget, _LayerConfig):
                     self.spin_field_centerCircleDiameter.setValue(
                         config["centerCircleDiameter"]),
                     self.spin_field_borderStripWidth.setValue(
-                        config["borderStripWidth"])]),
+                        config["borderStripWidth"]),
+                    self.hide_background_check_box.setChecked(
+                        config["hide_background"])
+                ]),
             "goal": (
                 lambda: {
                     "postDiameter": self.spin_goal_postDiameter.value(),

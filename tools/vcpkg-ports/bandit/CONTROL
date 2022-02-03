@@ -1,0 +1,4 @@
+Source: bandit
+Homepage: https://github.com/banditcpp/bandit/
+Version: 2.0.0
+Description: Human-friendly unit testing for C++11

@@ -5,9 +5,9 @@ state=@ByteArray(\0\0\0\xff\0\0\0\0\xfd\0\0\0\x1\0\0\0\x3\0\0\x4U\0\0\x3P\xfc\x1
 [panels]
 1e2b8720-a7a2-4fa6-a29f-bcc94eb12165\model={\"subscribe_key\": \"Brain.FieldBorderDetection.top_image\"}
 1e2b8720-a7a2-4fa6-a29f-bcc94eb12165\type=Image
-5f65895a-3816-4f00-9ac9-a2678de7d1ba\model={\"subscribe_key\": \"Brain.OneMeansFieldColorDetection.bottom_image\"}
+5f65895a-3816-4f00-9ac9-a2678de7d1ba\model={\"subscribe_key\": \"Brain.ChromaticityFieldColorDetection.bottom_image\"}
 5f65895a-3816-4f00-9ac9-a2678de7d1ba\type=Image
-786ac9d8-6d63-46b5-9000-da2302cffc39\model={\"subscribe_key\": \"Brain.OneMeansFieldColorDetection.top_image\"}
+786ac9d8-6d63-46b5-9000-da2302cffc39\model={\"subscribe_key\": \"Brain.ChromaticityFieldColorDetection.top_image\"}
 786ac9d8-6d63-46b5-9000-da2302cffc39\type=Image
 c319c482-0de2-4496-bcb4-57dca3bd87f9\model={\"subscribe_key\": \"Brain.FieldBorderDetection.bottom_image\"}
 c319c482-0de2-4496-bcb4-57dca3bd87f9\type=Image

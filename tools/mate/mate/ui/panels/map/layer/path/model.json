@@ -1,0 +1,17 @@
+{
+  "name": "path",
+  "enabled": true,
+  "config": {
+    "center_x": 0.0,
+    "center_y": 0.0,
+    "path": {
+      "key": "Brain.PathPlannerData"
+    },
+    "pathObstacles": {
+      "key": "Brain.PathPlanner.pathObstacles"
+    },
+    "pathNodes": {
+      "key": "Brain.PathPlanner.pathNodes"
+    }
+  }
+}

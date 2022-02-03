@@ -1,0 +1,18 @@
+[Unit]
+Description=HULK Service
+Requires=lola.service
+After=lola.service
+
+[Service]
+ExecStartPre=/usr/bin/camera-reset
+ExecStart=/usr/bin/launchHULK
+StandardOutput=journal
+Type=simple
+User=nao
+Group=nao
+LimitCORE=infinity
+WorkingDirectory=/home/nao/naoqi
+
+[Install]
+WantedBy=default.target
+

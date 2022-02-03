@@ -93,6 +93,18 @@ def init_cbx(cbx: qtw.QComboBox, cbx_key, debug_data):
     cbx.setCurrentText(cbx_key)
 
 
+def recursive_merge_dicts(base, new):
+    result = base.copy()
+    for key, value in new.items():
+        if isinstance(value, dict):
+            # get node or create one
+            node = result.setdefault(key, {})
+            result[key] = recursive_merge_dicts(node, value)
+        else:
+            result[key] = value
+    return result
+
+
 def load_model(model_file: str, saved_model: typing.Dict = None):
     with open(model_file) as fp:
         json_model = json.load(fp)
@@ -100,10 +112,9 @@ def load_model(model_file: str, saved_model: typing.Dict = None):
     if saved_model is None:
         return json_model
     else:
-        merged_model = {**json_model, **saved_model}
-        if "config" in saved_model and "config" in json_model:
-            if saved_model["config"] is None:
-                merged_model["config"] = json_model["config"]
+        merged_model = recursive_merge_dicts(json_model, saved_model)
+        if "config" in json_model and saved_model.get("config", None) is None:
+            merged_model["config"] = json_model["config"]
         return merged_model
 
 
@@ -145,7 +156,8 @@ def save_dict_to_file(location, data: dict) -> bool:
             f.write("\n")
         return True
     except Exception as e:
-        logger.error(__name__ + ": Exception while saving config to file: " + str(e))
+        logger.error(
+            __name__ + ": Exception while saving config to file: " + str(e))
         return False
 
 
@@ -168,7 +180,8 @@ class ConfigDiffInfoContainer:
         self.location_default_path = "location/default"
         # Get relevant part of mount path
         self.mount_split_path = self.mount.split("/")
-        self.relevant_path = self.mount_split_path[self.mount_split_path.index("location"):]
+        self.relevant_path = self.mount_split_path[self.mount_split_path.index(
+            "location"):]
         # Get filename
         self.filename = self.relevant_path[-1]
         # Get head/body path part

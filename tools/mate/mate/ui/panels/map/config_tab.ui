@@ -107,6 +107,51 @@
         <item row="1" column="1">
          <widget class="QSpinBox" name="spin_fps"/>
         </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="enable_perspective_label">
+          <property name="text">
+           <string>Enable Perspective:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QCheckBox" name="enable_perspective_check_box">
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="flip_x_label">
+          <property name="text">
+           <string>Flip X:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QCheckBox" name="flip_x_check_box">
+          <property name="tristate">
+           <bool>false</bool>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0">
+         <widget class="QLabel" name="flip_y_label">
+          <property name="text">
+           <string>Flip Y:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="1">
+         <widget class="QCheckBox" name="flip_y_check_box">
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
      </layout>

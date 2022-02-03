@@ -1,0 +1,3 @@
+outs:
+- md5: 0574636959598e810d9d31462c803f94
+  path: classifier.hdf5

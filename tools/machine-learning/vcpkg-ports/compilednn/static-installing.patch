@@ -1,0 +1,73 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ad20b77..69285b3 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -212,15 +212,15 @@ set_target_properties(CompiledNN PROPERTIES
+ 
+ if(WITH_KERAS_HDF5)
+   find_package(HDF5 REQUIRED)
+-  if(NOT TARGET hdf5::hdf5-shared)
+-    add_library(hdf5::hdf5-shared INTERFACE IMPORTED)
+-    set_target_properties(hdf5::hdf5-shared PROPERTIES
++  if(NOT TARGET hdf5::hdf5-static)
++    add_library(hdf5::hdf5-static INTERFACE IMPORTED)
++    set_target_properties(hdf5::hdf5-static PROPERTIES
+         INTERFACE_LINK_LIBRARIES "${HDF5_C_LIBRARIES}"
+         INTERFACE_INCLUDE_DIRECTORIES "${HDF5_C_INCLUDE_DIRS}"
+         INTERFACE_COMPILE_OPTIONS "${HDF5_C_DEFINITIONS}"
+     )
+   endif()
+-  target_link_libraries(CompiledNN PRIVATE hdf5::hdf5-shared)
++  target_link_libraries(CompiledNN PRIVATE hdf5::hdf5-static)
+   target_compile_definitions(CompiledNN PRIVATE WITH_KERAS_HDF5)
+   target_sources(CompiledNN PRIVATE
+       Src/CompiledNN/Formats/KerasHDF5.cpp
+@@ -270,9 +270,12 @@ include(CMakePackageConfigHelpers)
+ # install library
+ install(TARGETS CompiledNN
+     EXPORT CompiledNNTargets
++    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+     PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/CompiledNN"
++    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+ )
++
+ # install binaries
+ if(WITH_APPLICATIONS)
+     install(TARGETS Benchmark
+@@ -303,18 +306,18 @@ install(FILES
+ # install targets, configuration and version files
+ install(EXPORT CompiledNNTargets
+     NAMESPACE CompiledNN::
+-    DESTINATION "${CMAKE_INSTALL_DATADIR}/cmake/CompiledNN"
++    DESTINATION "${CMAKE_INSTALL_DATADIR}/cmake/compilednn"
+ )
+-configure_file(CompiledNNConfig.cmake
+-    "${CMAKE_CURRENT_BINARY_DIR}/CompiledNNConfig.cmake"
+-    COPYONLY
++configure_package_config_file(CompiledNNConfig.cmake.in
++    CompiledNNConfig.cmake
++    INSTALL_DESTINATION "${CMAKE_INSTALL_DATADIR}/cmake/compilednn"
+ )
+ write_basic_package_version_file(
+-    "${CMAKE_CURRENT_BINARY_DIR}/CompiledNNConfigVersion.cmake"
++    CompiledNNConfigVersion.cmake
+     COMPATIBILITY AnyNewerVersion
+ )
+ install(FILES
+     "${CMAKE_CURRENT_BINARY_DIR}/CompiledNNConfig.cmake"
+     "${CMAKE_CURRENT_BINARY_DIR}/CompiledNNConfigVersion.cmake"
+-    DESTINATION "${CMAKE_INSTALL_DATADIR}/cmake/CompiledNN"
++    DESTINATION "${CMAKE_INSTALL_DATADIR}/cmake/compilednn"
+ )
+diff --git a/CompiledNNConfig.cmake b/CompiledNNConfig.cmake.in
+similarity index 79%
+rename from CompiledNNConfig.cmake
+rename to CompiledNNConfig.cmake.in
+index 9dfbfac..6262fb2 100644
+--- a/CompiledNNConfig.cmake
++++ b/CompiledNNConfig.cmake.in
+@@ -1 +1,3 @@
++@PACKAGE_INIT@
++
+ include("${CMAKE_CURRENT_LIST_DIR}/CompiledNNTargets.cmake")

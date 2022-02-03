@@ -1,0 +1,5 @@
+*
+!build-predicter.sh
+!predicter/
+predicter/Dockerfile
+!vcpkg-ports/

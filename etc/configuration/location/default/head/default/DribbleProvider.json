@@ -1,0 +1,6 @@
+{
+  "dribbleAngleTolerance": 15,
+  "dribbleSpeed": 0.7,
+  "maxDistanceToDribbleLine": 0.15,
+  "maxDistanceToDribblePosition": 0.1
+}

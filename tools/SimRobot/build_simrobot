@@ -1,6 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make ${1:--j2}
+set -e
+
+cd "$(dirname ${0})"
+
+cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config "Release"

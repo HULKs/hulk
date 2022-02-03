@@ -1,0 +1,14 @@
+[Unit]
+Description=HULA Service
+Requires=dbus.socket lola.service
+After=dbus.socket lola.service
+
+[Service]
+ExecStart=/usr/bin/hula
+StandardOutput=journal
+Type=simple
+User=nao
+Group=nao
+
+[Install]
+WantedBy=default.target

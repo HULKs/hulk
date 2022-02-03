@@ -42,12 +42,20 @@ class LayerTab(qtw.QWidget):
     def add_layer(self, layer_type: str):
         logger.debug(__name__ + ": Adding " + layer_type + " map layer")
         addTime = time.time()
-        self.parent.model["layer"].append(util.create_layer(layer_type))
-        self.layer_selected()
+        current_row = self.listWidget.currentRow()
+        layer = util.create_layer(layer_type)
+        if current_row > 0:
+            self.parent.model["layer"].insert(current_row + 1, layer)
+            current_row = current_row + 1
+        else:
+            self.parent.model["layer"].append(layer)
+            current_row = self.listWidget.count()
         self.update_list()
         logger.debug(__name__ +
                      ": Adding " + layer_type + " map layer took: " +
                      logger.timerLogStr(addTime))
+        self.listWidget.setCurrentRow(current_row)
+        self.layer_selected()
 
     def update_list(self):
         self.listWidget.clear()
@@ -70,6 +78,8 @@ class LayerTab(qtw.QWidget):
             util.swap_layer(self.parent.model["layer"],
                             current_row, current_row - 1)
             self.update_list()
+            self.listWidget.setCurrentRow(current_row - 1)
+            self.layer_selected()
 
     def move_layer_down(self):
         current_row = self.listWidget.currentRow()
@@ -77,6 +87,8 @@ class LayerTab(qtw.QWidget):
             util.swap_layer(self.parent.model["layer"],
                             current_row, current_row + 1)
             self.update_list()
+            self.listWidget.setCurrentRow(current_row + 1)
+            self.layer_selected()
 
     def layer_model_changed(self, new_model: dict):
         for layerIndex in range(len(self.parent.model["layer"])):

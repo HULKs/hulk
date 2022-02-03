@@ -1,7 +1,0 @@
-{
-  "onlyRecordWhilePlaying": true,
-  "minSecBetweenFrames" : 1,
-  "numberOfConsecutiveFrames" : 2,
-  "disableTopCameraFrames" : false,
-  "disableBottomCameraFrames" : false
-}

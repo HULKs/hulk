@@ -2,8 +2,8 @@
     "name": "lineData",
     "enabled": true,
     "config": {
-                "center_x": 5.2,
-                "center_y": -3.7,
+                "center_x": 0.0,
+                "center_y": 0.0,
                 "transformation": {
                     "key": "Brain.RobotPosition",
                     "key_lambda": "output = input['pose']"

@@ -28,7 +28,7 @@ class Main(_Panel):
                                          "/model.json", model)
         self.layer_modules = self.import_layer()
 
-        self.map_tab = MapTab(self, self.nao)
+        self.map_tab = MapTab(self, self.nao, self.model["projection_corners"])
         self.layer_tab = LayerTab(self, self.nao)
         self.config_tab = ConfigTab(self)
 

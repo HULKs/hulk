@@ -1,0 +1,5 @@
+{
+  "minimumAngle" : 45,
+  "distanceToBall" : 1.3,
+  "supporterClipGoalLineOffsetX" : 2.5
+}

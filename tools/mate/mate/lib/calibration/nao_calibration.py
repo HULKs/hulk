@@ -94,15 +94,15 @@ class NaoCalibrationResult(object):
         ]
         '''
         # trim the tuning params
-        if not settings[2]:  # no top data!
+        if not settings[2]:  # no top data
             settings[0] = False
             tuning_params = tuning_params[0:3]
-            if (settings[3] - settings[2] <= 0):  # no bottom data!
+            if (settings[3] - settings[2] <= 0):  # no bottom data
 
                 settings[1] = False
                 tuning_params = []
         else:
-            if (settings[3] - settings[2]) <= 0:  # no bottom data!
+            if (settings[3] - settings[2]) <= 0:  # no bottom data
                 settings[1] = False
                 tuning_params = tuning_params[0:3]
         if settings[4]:
@@ -304,7 +304,7 @@ class NaoCalibration(object):
             logger.error(__name__ +
                          ": Exception while extracting calibration points" + str(e))
 
-    # Consider on static or not!
+    # Consider on static or not
     @staticmethod
     def extrinsicCostFunc(params, *args):
         '''
@@ -334,7 +334,7 @@ class NaoCalibration(object):
         torsoParamEnd = bottomParamEnd + 2 if isTorsoEnabled else bottomParamEnd
 
         if len(params) < torsoParamEnd:
-            raise ValueError("Not enough parameters supplied!!")
+            raise ValueError("Not enough parameters supplied")
 
         residual = np.empty((2, 0))
 
@@ -368,13 +368,13 @@ class NaoCalibration(object):
                 begin_offset_2x = 2 * begin_offset
                 end_offset_2x = 2 * end_offset
 
-                # we need inverse of extrinsic matrix = transpose!
+                # we need inverse of extrinsic matrix = transpose
                 extrinsic = NaoCamProps.getExtrinsicMat(ext_param).transpose()
                 proj_points = NaoCamProps.robotToPixel(
                     int_param[0], int_param[1], extrinsic,
                     boardCorners_wrt_cam_u[:, begin_offset:end_offset])
 
-                # TODO  Do the proj_points part in a more elegant manner!
+                # TODO  Do the proj_points part in a more elegant manner
                 np.subtract(detectedCorners[begin_offset_2x:end_offset_2x],
                             proj_points[0].transpose().ravel().tolist()[0],
                             residual[begin_offset_2x:end_offset_2x, 0])
@@ -395,7 +395,7 @@ class NaoCalibration(object):
 
         startTime = time.perf_counter()
 
-        # TODO Implement this!
+        # TODO Implement this
         if not self.verifyValues():
             logger.warning(__name__ + "No captures are there.")
         result = NaoCalibrationResult()
@@ -414,7 +414,7 @@ class NaoCalibration(object):
 
             if board_idx < 0:
                 raise ValueError(
-                    "A suitable board for intrinsic calib. wasn't found!")
+                    "A suitable board for intrinsic calib. wasn't found")
             # TODO properly handle this later
             if len(self.settings.boards) > 1:
                 raise NotImplementedError(

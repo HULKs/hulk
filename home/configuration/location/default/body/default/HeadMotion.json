@@ -1,9 +1,0 @@
-{
-    "maxYawVelocity": 2.0,
-    "maxPitchVelocity": 1,
-    "outerPitchMax": 11.5,
-    "innerPitchMax": 28.0,
-    "yawThreshold": 32.5,
-    "lowPassAlphaGyro" : 0.95,
-    "shoulderCoverYawAngle": 45
-}

@@ -11,6 +11,8 @@ class _Layer:
         self.config = self.layer_model["config"]
         self.nao = nao
         self.identifier = identifier
+        self.ignore_perspective = False
+        self.ignore_scale = False
 
     def connect(self, nao: Nao):
         raise NotImplementedError("{} method needs to be defined by sub-class (layer)".format(self.connect.__name__))

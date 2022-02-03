@@ -1,0 +1,12 @@
+{
+    "name": "image",
+    "enabled": true,
+    "config": {
+        "center_x": 0.0,
+        "center_y": 0.0,
+        "mode": "",
+        "filepath": "",
+        "subscribe_key": "",
+        "video_device": ""
+    }
+}

@@ -422,7 +422,7 @@ class Main(_Panel):
 
         location = qtw.QFileDialog.getSaveFileName(
             self, "Save file",
-            os.getcwd() + "/../../home/configuration/location/default/head/" +
+            os.getcwd() + "/../../etc/configuration/location/default/head/" +
             n_result.MOUNT + ".json")
 
         if location[0] == '':

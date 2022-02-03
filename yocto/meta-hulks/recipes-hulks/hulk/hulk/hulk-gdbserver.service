@@ -1,0 +1,15 @@
+[Unit]
+Description=HULK gdbserver Service
+Requires=lola.service
+After=lola.service
+Conflicts=hulk.service
+
+[Service]
+ExecStartPre=/usr/bin/camera-reset
+ExecStart=/usr/bin/gdbserver 0.0.0.0:1337 /home/nao/naoqi/bin/hulk
+StandardOutput=journal
+Type=simple
+User=nao
+Group=nao
+LimitCORE=infinity
+WorkingDirectory=/home/nao/naoqi

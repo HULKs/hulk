@@ -1,0 +1,11 @@
+[Unit]
+Description=Configure network initially
+Before=systemd-networkd.service
+After=media-internal.mount
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/configure_network
+
+[Install]
+WantedBy=systemd-networkd.service

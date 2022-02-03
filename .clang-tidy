@@ -1,5 +1,40 @@
-Checks: '-*,readability-identifier-naming,readability-braces-around-statements,readability-inconsistent-declaration-parameter-name,performance-for-range-copy,performance-implicit-conversion-in-loop,performance-inefficient-vector-operation'
-WarningsAsErrors: 'readability-identifier-naming,readability-braces-around-statements'
+Checks:
+    '*,
+    -android-*,
+    -altera-struct-pack-align,
+    -cppcoreguidelines-avoid-goto,
+    -cppcoreguidelines-avoid-magic-numbers,
+    -cppcoreguidelines-no-malloc,
+    -cppcoreguidelines-owning-memory,
+    -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+    -cppcoreguidelines-pro-bounds-constant-array-index,
+    -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+    -cppcoreguidelines-pro-type-const-cast,
+    -cppcoreguidelines-pro-type-cstyle-cast,
+    -cppcoreguidelines-pro-type-reinterpret-cast,
+    -cppcoreguidelines-pro-type-union-access,
+    -cppcoreguidelines-pro-type-vararg,
+    -cppcoreguidelines-special-member-functions,
+    -fuchsia-default-arguments-calls,
+    -fuchsia-overloaded-operator,
+    -fuchsia-default-arguments-declarations,
+    -fuchsia-statically-constructed-objects,
+    -google-readability-todo,
+    -google-runtime-references,
+    -google-global-names-in-headers,
+    -hicpp-uppercase-literal-suffix,
+    -hicpp-no-array-decay,
+    -llvm-header-guard,
+    -llvmlibc-*,
+    -misc-non-private-member-variables-in-classes,
+    -modernize-use-nodiscard,
+    -modernize-use-trailing-return-type,
+    -modernize-use-nodiscard,
+    -readability-magic-numbers,
+    -readability-uppercase-literal-suffix,
+    -bugprone-reserved-identifier,
+    -cert-dcl37-c,
+    -cert-dcl51-cpp'
 CheckOptions:
   - { key: readability-identifier-naming.NamespaceCase,         value: CamelCase  }
   - { key: readability-identifier-naming.ClassCase,             value: CamelCase  }

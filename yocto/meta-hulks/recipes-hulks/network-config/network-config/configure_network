@@ -1,0 +1,37 @@
+#!/bin/sh
+
+set -e
+
+HEAD_ID="$(/opt/aldebaran/bin/head_id)"
+QUERY_STRING=".\"idmap.nao\"[] | select(.headid == \"${HEAD_ID}\") | .name"
+HOSTNAME="$(jq -r "${QUERY_STRING}" /etc/id_map.json)"
+
+if [ -z "${HOSTNAME}" ]; then
+  exit
+fi
+
+NAO_NUMBER="$(echo ${HOSTNAME} | cut -c8-)"
+
+echo "[Match]
+Name=wlan*
+
+[Network]
+Address=10.0.24.${NAO_NUMBER}/16
+
+[Route]
+Gateway=0.0.0.0
+" > /etc/systemd/network/80-wlan.network
+
+echo "[Match]
+Name=en* eth*
+
+[Network]
+Address=10.1.24.${NAO_NUMBER}/16
+
+[Route]
+Gateway=0.0.0.0
+" > /etc/systemd/network/80-wired.network
+
+hostnamectl set-hostname ${HOSTNAME}
+
+systemctl disable network-config

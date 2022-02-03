@@ -62,7 +62,7 @@ class Transforms(object):
         elif data.shape[0] == 4:
             val = np.matmul(transform[0:3, 0:3], data[0:3, :])
         else:
-            raise ValueError("transformHomography -> Invalid dimensions!",
+            raise ValueError("transformHomography -> Invalid dimensions",
                              np.matrix(data).shape)
         return (val + np.array(transform[0:3, 3]).reshape(
             (3, 1))) if transform.shape[1] == 4 else val

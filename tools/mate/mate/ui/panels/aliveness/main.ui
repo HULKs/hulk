@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>500</width>
-    <height>300</height>
+    <width>843</width>
+    <height>482</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -40,24 +40,31 @@
       </column>
       <column>
        <property name="text">
-        <string>IP</string>
+        <string>Team Number</string>
        </property>
       </column>
       <column>
        <property name="text">
-        <string>Last Heartbeat</string>
+        <string>Ethernet</string>
        </property>
       </column>
       <column>
        <property name="text">
-        <string>HULK Service</string>
+        <string>WiFi</string>
        </property>
       </column>
       <column>
        <property name="text">
-        <string>Connect</string>
+        <string>Round Trip Time</string>
        </property>
       </column>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="refresh_button">
+      <property name="text">
+       <string>Refresh</string>
+      </property>
      </widget>
     </item>
    </layout>

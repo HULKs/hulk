@@ -1,119 +1,142 @@
-#!/bin/bash
+#!/bin/env python3
 
-# Get base directory for better referencing
-BASEDIR=`cd $(dirname $0); pwd -P`
-BASEDIR=${BASEDIR%/*}
+import click
+import hulks
+from pathlib import Path
+import typing
+import shutil
+import git
+import logging
+import subprocess
 
-if [ -z "$VCPKG_DIR" ]; then
-  VCPKG_DIR="${BASEDIR}/../vcpkg"
-fi
+VCPKG_TAG = "2021.05.12"
 
-# Set permissions for ssh key
-chmod 600 "${BASEDIR}/scripts/ssh_key"
 
-source "${BASEDIR}/scripts/lib/msg.sh"
-source "${BASEDIR}/scripts/lib/docker.sh"
-source "${BASEDIR}/scripts/lib/dependencies.sh"
+def build_simrobot():
+    command = f'{hulks.PROJECT_ROOT/"tools/SimRobot/build_simrobot"}'
+    subprocess.run(command, shell=True, check=True)
+    hulks.force_symlink(
+        hulks.PROJECT_ROOT / 'build/SimRobot/current-buildtype/libhulk.so',
+        hulks.PROJECT_ROOT / 'tools/SimRobot/build/libhulk.so')
 
-function helpMenu {
-  echo "Usage: $0 [Ninja|Unix] TARGET [OPTIONS]"
-  echo ""
-  echo "Ninja|Unix"
-  echo " Specify Generator (default Unix)"
-  echo ""
-  echo "Target"
-  echo " a target for compilation (one out of nao5, nao6, replay, simrobot, qt-websocket)"
-  echo ""
-  echo "Options"
-  echo " target-specific options"
-}
 
-function run_cmake {
-  if [ "$#" -lt 1 ]; then
-    return 1
-  fi
-  TARGET="$1"
-  shift
-  msg -n "Generating files for ${TARGET}."
-  for BUILD_TYPE in Debug Develop DevWithDebInfo Release RelWithDebInfo; do
-    DIR="${BASEDIR}/build/${TARGET}/${BUILD_TYPE}"
-    rm -rf "${DIR}"
-    mkdir -p "${DIR}"
-    cd "${DIR}"
-    # $@ has to be passed directly because of possible spaces in TOOLCHAIN_DIR.
-    cmake -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" "$@" "${BASEDIR}"
-    if [ "$?" -ne 0 ]; then
-      msg -e "Could not generate files for target ${TARGET} with build type ${BUILD_TYPE}!"
-      return 1
-    fi
-  done
-  msg -s "Finished generating files for ${TARGET}!"
-  return 0
-}
+def clone_vcpkg(vcpkg_dir: Path):
+    git.Repo.clone_from(url='https://github.com/microsoft/vcpkg.git',
+                        to_path=vcpkg_dir,
+                        branch=VCPKG_TAG)
 
-function run {
-  assertDependencies
 
-  if [ "$#" -lt 1 ]; then
-    helpMenu
-    return 1
-  fi
+def update_vcpkg(vcpkg_dir: Path):
+    repo = git.Repo(vcpkg_dir)
+    repo.remotes.origin.fetch()
+    repo.git.checkout(VCPKG_TAG)
 
-  GENERATOR="Unix Makefiles"
 
-  case "$1" in
-    Unix)
-      shift
-      ;;
-    Ninja)
-      GENERATOR="Ninja"
-      shift
-      ;;
-  esac
+def bootstrap_vcpkg(vcpkg_dir: Path):
+    command = f'cd {vcpkg_dir};'
+    command += './bootstrap-vcpkg.sh -disableMetrics'
+    subprocess.run(command, shell=True, check=True)
 
-  case "$1" in
-    nao5)
-      TOOLCHAIN_DIR="${BASEDIR}/toolchain"
-      if [ "$2" = "withoutNaoqi" ]; then
-        if [ ! -e "${TOOLCHAIN_DIR}/hulks-v5" ]; then
-          msg -e "You need to install a toolchain before compiling for the NAO!"
-          return 1
-        fi
-        run_cmake nao5 -G "${GENERATOR}" -DNAO_V5=ON -DNAOLIB=OFF -DTOOLCHAIN_DIR="${TOOLCHAIN_DIR}"
-      else
-        if [ ! -e "${TOOLCHAIN_DIR}/hulks-v5" ] || [ ! -e "${TOOLCHAIN_DIR}/naoqi-v5" ]; then
-          msg -e "You need to install a toolchain before compiling for the NAO!"
-          return 1
-        fi
-      run_cmake nao5 -G "${GENERATOR}" -DNAO_V5=ON -DNAOLIB=ON -DTOOLCHAIN_DIR="${TOOLCHAIN_DIR}"
-      fi
-      ;;
-    nao6)
-      TOOLCHAIN_DIR="${BASEDIR}/toolchain"
-      if [ ! -e "${TOOLCHAIN_DIR}/hulks-v6" ]; then
-        msg -e "You need to install a toolchain before compiling for the NAO!"
-        return 1
-      fi
-      run_cmake nao6 -G "${GENERATOR}" -DNAO_V6=ON -DTOOLCHAIN_DIR="${TOOLCHAIN_DIR}"
-      ;;
-    replay)
-      run_cmake replay -G "${GENERATOR}" -DREPLAY=ON -DCMAKE_TOOLCHAIN_FILE=${VCPKG_DIR}/scripts/buildsystems/vcpkg.cmake
-      ;;
-    simrobot)
-      SIMROBOT_DIR="${BASEDIR}/tools/SimRobot"
-      ln -sf "${BASEDIR}/build/simrobot/current/src/tuhhsdk/libtuhhSimRobot.so" "${SIMROBOT_DIR}/build/libtuhhSimRobot.so"
-      run_cmake simrobot -G "${GENERATOR}" -DSIMROBOT=ON -DCMAKE_TOOLCHAIN_FILE=${VCPKG_DIR}/scripts/buildsystems/vcpkg.cmake
-      ;;
-    qt-websocket)
-      run_cmake qt-websocket -G "${GENERATOR}" -DQT_WEBSOCKET=ON
-      ;;
-    *)
-      msg -e "Unknown target \"$1\"!"
-      helpMenu
-      return 1
-      ;;
-  esac
-  return 0
-}
 
-handleDocker "${BASEDIR}" "$@"
+def upgrade_vcpkg(vcpkg_dir: Path):
+    if not vcpkg_dir.exists():
+        clone_vcpkg(vcpkg_dir)
+        bootstrap_vcpkg(vcpkg_dir)
+    else:
+        repo = git.Repo(vcpkg_dir)
+        if repo.rev_parse(VCPKG_TAG) != repo.rev_parse('HEAD'):
+            update_vcpkg(vcpkg_dir)
+            bootstrap_vcpkg(vcpkg_dir)
+
+
+class CMakeError(Exception):
+    pass
+
+
+def run_cmake(target, build_type, command='', cmake_params=''):
+    hulks.logger.info(f'CMake for {target}:{build_type}')
+    build_directory = hulks.PROJECT_ROOT / f'build/{target}/{build_type}'
+    shutil.rmtree(build_directory, ignore_errors=True)
+    build_directory.mkdir(parents=True, exist_ok=True)
+    command += f'cmake -S "{hulks.PROJECT_ROOT}" -B "{build_directory}" -G "Ninja" -DHULK_TARGET="{target}" -DCMAKE_BUILD_TYPE="{build_type}" {cmake_params}'
+    try:
+        subprocess.run(command, shell=True, check=True)
+        hulks.logger.success(
+            f'Finished generating files for {target}:{build_type}')
+    except subprocess.CalledProcessError:
+        hulks.logger.error(
+            f'Could not generate files for target {target}:{build_type}')
+        raise CMakeError()
+
+
+def setup(target: str, build_types: typing.List[str], vcpkg_dir: Path):
+    try:
+        hulks.logger.info(
+            f'Setting up for \'{target}\' and build types {build_types}')
+        cmake_params_vcpkg = (
+            f'-DCMAKE_TOOLCHAIN_FILE="{vcpkg_dir / "scripts/buildsystems/vcpkg.cmake"}" '
+            f'-DVCPKG_OVERLAY_PORTS="{hulks.PROJECT_ROOT/ "tools/vcpkg-ports"}"'
+        )
+        if target == "NAO":
+            environment_setup = hulks.PROJECT_ROOT / Path(
+                'sdk/current/environment-setup-corei7-64-aldebaran-linux')
+            command = (
+                f'. {environment_setup};'
+                'export CC=$CLANGCC;'
+                'export CXX=$CLANGCXX;'
+            )
+            for build_type in build_types:
+                run_cmake(target, build_type, command=command)
+        elif target == "Replay":
+            upgrade_vcpkg(vcpkg_dir)
+            for build_type in build_types:
+                run_cmake(target,
+                          build_type,
+                          cmake_params=cmake_params_vcpkg)
+        elif target == "SimRobot":
+            build_simrobot()
+            upgrade_vcpkg(vcpkg_dir)
+            for build_type in build_types:
+                run_cmake(target,
+                          build_type,
+                          cmake_params=cmake_params_vcpkg)
+        elif target == "Webots":
+            upgrade_vcpkg(vcpkg_dir)
+            for build_type in build_types:
+                run_cmake(target,
+                          build_type,
+                          cmake_params=cmake_params_vcpkg)
+        hulks.logger.success(f'Finished setup for {target}:{build_types}')
+    except CMakeError:
+        hulks.logger.error('Setup failed')
+        exit(1)
+
+
+BUILD_TYPES = [
+    'Release', 'Develop', 'Debug'
+]
+
+
+@click.command()
+@click.option('-v', '--verbose', count=True)
+@click.option('-t',
+              '--target',
+              type=click.Choice(['NAO', 'SimRobot', 'Replay', 'Webots'],
+                                case_sensitive=False),
+              required=True)
+@click.option('-b',
+              '--build-type',
+              type=click.Choice(BUILD_TYPES),
+              multiple=True,
+              default=BUILD_TYPES,
+              show_default=True)
+@click.option('--vcpkg-dir',
+              default=(hulks.PROJECT_ROOT / '../vcpkg'),
+              show_default=True)
+def main(verbose, target, build_type, vcpkg_dir):
+    hulks.logger.setLevel(logging.INFO if verbose == 0 else logging.DEBUG)
+    setup(target, build_type, Path(vcpkg_dir))
+
+
+if __name__ == '__main__':
+    main()

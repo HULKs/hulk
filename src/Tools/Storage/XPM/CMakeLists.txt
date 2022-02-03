@@ -1,0 +1,6 @@
+target_sources(hulk PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/X11rgb.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/XPMImage.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/XPMImage.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/XPMImages.h"
+)

@@ -1,0 +1,8 @@
+{
+  "torsoOffsetLeft": [0.0, -1.0, 0.0],
+  "torsoOffsetRight": [0.0, -1.0, 0.0],
+
+  "gyroLowPassRatio" : 0.8,
+  "gyroForwardBalanceFactor" : 0.03,
+  "gyroSidewaysBalanceFactor" : 0.03
+}

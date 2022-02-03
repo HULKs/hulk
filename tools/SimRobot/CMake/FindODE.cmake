@@ -9,7 +9,7 @@ find_path(ODE_INCLUDE_DIR NAMES ode.h HINTS /usr/include $ENV{ODE_HOME}/include 
 find_library(ODE_LIBRARY NAMES ode-double HINTS /lib /usr/lib $ENV{ODE_HOME}/lib)
 if(NOT ODE_LIBRARY)
   find_library(ODE_LIBRARY NAMES ode HINTS /lib /usr/lib $ENV{ODE_HOME}/lib)
-endif(NOT ODE_LIBRARY)
+endif()
 
 set(ODE_INCLUDE_DIRS ${ODE_INCLUDE_DIR})
 set(ODE_LIBRARIES ${ODE_LIBRARY})

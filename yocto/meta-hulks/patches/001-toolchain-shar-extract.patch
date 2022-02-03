@@ -1,0 +1,16 @@
+diff --git a/meta/files/toolchain-shar-extract.sh b/meta/files/toolchain-shar-extract.sh
+index dd9342758b..7ccdd84061 100644
+--- a/meta/files/toolchain-shar-extract.sh
++++ b/meta/files/toolchain-shar-extract.sh
+@@ -287,10 +287,7 @@ if [ -e "$post_relocate" ]; then
+ fi
+ 
+ echo "SDK has been successfully set up and is ready to be used."
+-echo "Each time you wish to use the SDK in a new shell session, you need to source the environment setup script e.g."
+-for env_setup_script in `ls $target_sdk_dir/environment-setup-*`; do
+-	echo " \$ . $env_setup_script"
+-done
++echo "You can now use the ./scripts/setup script to setup your environment."
+ 
+ exit 0
+ 

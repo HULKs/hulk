@@ -1,0 +1,15 @@
+{
+  "useTeamRole": true,
+  "assignBishop": false,
+  "assignBishopWithLessThanFourFieldPlayers": false,
+  "playerOneCanBecomeStriker": true,
+  "playerOneDistanceThreshold": 1.5,
+  "keeperTimeToReachBallPenalty": 2,
+  "keeperInGoalDistanceThreshold": 1.0,
+  "strikeOwnBall": true,
+  "allowFastRoleOverride": true,
+  "maxFastRoleOverrideDuration": 5,
+  "forceRole": "none",
+  "shortTermBallSearchDuration": 20,
+  "loserDuration": 8
+}

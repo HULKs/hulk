@@ -1,0 +1,5 @@
+etc/neuralnets/*.hdf5 filter=lfs diff=lfs merge=lfs -text
+webots/protos/**/*.stl filter=lfs diff=lfs merge=lfs -text
+webots/protos/**/*.mesh filter=lfs diff=lfs merge=lfs -text
+webots/protos/**/*.png filter=lfs diff=lfs merge=lfs -text
+webots/protos/**/*.jpg filter=lfs diff=lfs merge=lfs -text

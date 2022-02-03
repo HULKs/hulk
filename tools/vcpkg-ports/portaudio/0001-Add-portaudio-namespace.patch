@@ -1,0 +1,21 @@
+From c454f426ffad900696c324792e57393cacf12ee9 Mon Sep 17 00:00:00 2001
+From: Hendrik <git@h3ndrk.de>
+Date: Fri, 4 Jun 2021 14:58:11 +0200
+Subject: [PATCH] Add portaudio:: namespace
+
+---
+ CMakeLists.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index e4c50f1..3d8c508 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -288,6 +288,7 @@ if(NOT CMAKE_FRAMEWORK)
+     COMPATIBILITY SameMajorVersion
+   )
+   install(EXPORT portaudio-targets FILE "portaudioTargets.cmake"
++    NAMESPACE "portaudio::"
+     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/portaudio")
+   export(TARGETS portaudio
+     FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/portaudio/portaudioTargets.cmake")

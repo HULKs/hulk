@@ -5,5 +5,9 @@
         "viewport": [10.4, 7.4],
         "fps": 30
     },
-    "layer": []
+    "layer": [],
+    "projection_corners": [[0, 0], [1, 0], [1, 1], [0, 1]],
+    "enable_perspective": false,
+    "flip_x": false,
+    "flip_y": false
 }

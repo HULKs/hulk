@@ -1,6 +1,0 @@
-{
-  "enableWhistleIntegration" : true,
-  "enableRefereeMistakeIntegration" : true,
-  "maxWhistleTimeDiff": 5.0,
-  "minNumOfDetectedWhistles" : 1
-}

@@ -299,14 +299,14 @@
               </layout>
              </widget>
             </item>
-            <item row="3" column="0">
+            <item row="4" column="0">
              <widget class="QLabel" name="penaltyAreaLabel">
               <property name="text">
                <string>penaltyArea</string>
               </property>
              </widget>
             </item>
-            <item row="3" column="1">
+            <item row="4" column="1">
              <widget class="QWidget" name="penaltyAreaWidget" native="true">
               <layout class="QHBoxLayout" name="horizontalLayout_4">
                <property name="leftMargin">
@@ -350,25 +350,76 @@
               </layout>
              </widget>
             </item>
-            <item row="4" column="0">
+            <item row="5" column="0">
              <widget class="QLabel" name="centerCircleDiameterLabel">
               <property name="text">
                <string>centerCircleDiameter:</string>
               </property>
              </widget>
             </item>
-            <item row="4" column="1">
+            <item row="5" column="1">
              <widget class="QDoubleSpinBox" name="spin_field_centerCircleDiameter"/>
             </item>
-            <item row="5" column="0">
+            <item row="6" column="0">
              <widget class="QLabel" name="borderStripWidthLabel">
               <property name="text">
                <string>borderStripWidth</string>
               </property>
              </widget>
             </item>
-            <item row="5" column="1">
+            <item row="6" column="1">
              <widget class="QDoubleSpinBox" name="spin_field_borderStripWidth"/>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>goalBoxArea</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <layout class="QHBoxLayout" name="horizontalLayout_6">
+              <item>
+               <widget class="QLabel" name="label_2">
+                <property name="text">
+                 <string>Length:</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QDoubleSpinBox" name="spin_field_goalBoxAreaLength"/>
+              </item>
+              <item>
+               <widget class="QLabel" name="label_3">
+                <property name="text">
+                 <string>Width:</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QDoubleSpinBox" name="spin_field_goalBoxAreaWidth"/>
+              </item>
+             </layout>
+            </item>
+            <item row="7" column="0">
+             <widget class="QLabel" name="hide_background_label">
+              <property name="text">
+               <string>Hide Background:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="1">
+             <widget class="QCheckBox" name="hide_background_check_box">
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+             </widget>
             </item>
            </layout>
           </item>

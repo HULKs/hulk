@@ -1,0 +1,71 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index faa55c4..a618b31 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -7,6 +7,11 @@
+ cmake_minimum_required(VERSION 3.1)
+ project(FOONATHAN_MEMORY)
+ 
++set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
++set(CMAKE_CXX_STANDARD 17)
++set(CMAKE_CXX_STANDARD_REQUIRED ON)
++set(CMAKE_CXX_EXTENSIONS ON)
++
+ set(FOONATHAN_MEMORY_VERSION_MAJOR 0 CACHE STRING "major version of memory" FORCE)
+ set(FOONATHAN_MEMORY_VERSION_MINOR 6 CACHE STRING "minor version of memory" FORCE)
+ set(FOONATHAN_MEMORY_VERSION_PATCH 2 CACHE STRING "patch version of memory" FORCE)
+@@ -27,7 +32,7 @@ if(UNIX OR VXWORKS)
+     set(FOONATHAN_MEMORY_ARCHIVE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}")
+     set(FOONATHAN_MEMORY_FRAMEWORK_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}")
+ 
+-    set(FOONATHAN_MEMORY_CMAKE_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/foonathan_memory/cmake")
++    set(FOONATHAN_MEMORY_CMAKE_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_DATADIR}/foonathan_memory")
+     set(FOONATHAN_MEMORY_ADDITIONAL_FILES_INSTALL_DIR "${CMAKE_INSTALL_DATADIR}/foonathan_memory")
+ 
+     set(FOONATHAN_MEMORY_RUNTIME_INSTALL_DIR "bin") # for the nodesize_dbg, just ignore version and the like
+diff --git a/include/foonathan/memory/config.hpp b/include/foonathan/memory/config.hpp
+index 8c7a620..c2ef9b1 100644
+--- a/include/foonathan/memory/config.hpp
++++ b/include/foonathan/memory/config.hpp
+@@ -12,7 +12,11 @@
+ 
+ #if !defined(DOXYGEN)
+ #define FOONATHAN_MEMORY_IMPL_IN_CONFIG_HPP
+-#include "config_impl.hpp"
++#ifndef NDEBUG
++#include "config_impl_dbg.hpp"
++#else
++#include "config_impl_rel.hpp"
++#endif
+ #undef FOONATHAN_MEMORY_IMPL_IN_CONFIG_HPP
+ #endif
+ 
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 556f34d..7cec06e 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -74,7 +74,13 @@ set(src
+         virtual_memory.cpp)
+ 
+ # configure config file
+-configure_file("config.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/config_impl.hpp")
++if(CMAKE_BUILD_TYPE MATCHES Debug)
++    set(CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/config_impl_dbg.hpp")
++    configure_file("config.hpp.in" ${CONFIG_FILE})
++else()
++    set(CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/config_impl_rel.hpp")
++    configure_file("config.hpp.in" ${CONFIG_FILE})
++endif()
+ 
+ # generate container_node_sizes.hpp
+ # don't run it while cross-compiling and CMAKE_CROSSCOMPILING_EMULATOR is not defined
+@@ -132,8 +138,8 @@ write_basic_package_version_file(${version_file}
+                                  VERSION ${FOONATHAN_MEMORY_VERSION}
+                                  COMPATIBILITY AnyNewerVersion)
+ 
+-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/config_impl.hpp DESTINATION ${FOONATHAN_MEMORY_INC_INSTALL_DIR})
+ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/container_node_sizes_impl.hpp DESTINATION ${FOONATHAN_MEMORY_INC_INSTALL_DIR}/foonathan/memory/detail)
++install(FILES ${CONFIG_FILE}                              DESTINATION ${FOONATHAN_MEMORY_INC_INSTALL_DIR})
+ install(FILES ${header}                                   DESTINATION ${FOONATHAN_MEMORY_INC_INSTALL_DIR}/foonathan/memory)
+ install(FILES ${detail_header}                            DESTINATION ${FOONATHAN_MEMORY_INC_INSTALL_DIR}/foonathan/memory/detail)
+ install(FILES ${version_file}                             DESTINATION ${FOONATHAN_MEMORY_CMAKE_CONFIG_INSTALL_DIR})

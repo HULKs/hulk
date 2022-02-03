@@ -1,8 +1,0 @@
-{
-  "LAN": {
-    "yourNaoIPsHere": "127.0.0.1"
-  },
-  "WLAN": {
-    "yourNaoIPsHere": "127.0.0.1"
-  }
-}
