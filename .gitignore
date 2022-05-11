@@ -1,31 +1,12 @@
 .idea/
 .venv/
 .vs/
-cmake-build-*
 .vscode/
-.ccls-cache/
-.clangd/
-.cache/
-.python-version
 
 /.wiki/
 
-/tools/TextToSpeech/.api_key
-/tools/TextToSpeech/*.ogg
-
-CMakeLists.txt.user
-CMakeSettings.json
-compile_commands.json
 settings.json
-install_manifest.txt
-/build*
-/build/
-/webots/filetransport*
-/webots/replay*
 /sdk
-
-/kdev4/
-*.kdev4
 
 *.edited
 *~
@@ -38,7 +19,10 @@ install_manifest.txt
 *.bt
 *.pyc
 .DS_Store
-.jobs
-.njobs
+.dir-locals.el
 
 target/
+
+.nao_cargo_home
+
+rust-toolchain.toml

@@ -1,7 +1,0 @@
-{
-  "confidentDistance" : 1,
-  "invalidReadingsLimit" : 100,
-  "smoothingFactor" : 0.25,
-  "medianWindowSize" : 5,
-  "useMedian": true
-}

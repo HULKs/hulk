@@ -1,5 +1,0 @@
-include(FindPackageHandleStandardArgs)
-
-find_path(BANDIT_INCLUDE_DIRS NAMES bandit/bandit.h)
-
-find_package_handle_standard_args(BANDIT REQUIRED_VARS BANDIT_INCLUDE_DIRS)

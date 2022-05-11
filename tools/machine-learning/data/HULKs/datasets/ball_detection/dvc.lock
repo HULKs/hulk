@@ -1,0 +1,238 @@
+merge-positives-v1:
+  cmd: transformer ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_firstHalf/full-positives.tfrecord
+    ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_firstHalf/covered-positives.tfrecord
+    ../../events/2019-07-04_SPL_A_HULKs_UPennalizers_firstHalf/full-positives.tfrecord
+    ../../events/2019-07-04_SPL_A_HULKs_UPennalizers_firstHalf/covered-positives.tfrecord
+    ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/full-positives.tfrecord
+    ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/covered-positives.tfrecord
+    ../../events/2019-11-06_testGame/full-positives.tfrecord ../../events/2019-11-06_testGame/covered-positives.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/full-positives.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/covered-positives.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_first_half/full-positives.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_first_half/covered-positives.tfrecord
+    ../../events/2020-02-19_testGame/full-positives.tfrecord ../../events/2020-02-19_testGame/covered-positives.tfrecord
+    ../../events/2019-10-16_testGame/full-positives.tfrecord ../../events/2019-10-16_testGame/covered-positives.tfrecord
+    ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/full-positives.tfrecord
+    ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/covered-positives.tfrecord
+    - 0.1:positives-v1-test.tfrecord positives-v1-train.tfrecord
+  deps:
+  - path: ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/covered-positives.tfrecord
+    md5: bac34931e2fa13965ed9ca66f808532d
+  - path: ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/full-positives.tfrecord
+    md5: 92c853236690afcf11f71557f1551c15
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_first_half/covered-positives.tfrecord
+    md5: 5ecea1e0527cc3c0cf14ee525b0c82ae
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_first_half/full-positives.tfrecord
+    md5: d2d28fb290ddd5e220e23bfc1d4a1a50
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/covered-positives.tfrecord
+    md5: 70c11b5e202742cb3f9a48c4bb93da12
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/full-positives.tfrecord
+    md5: 681f53bb88375f5439f2c4da760052d6
+  - path: ../../events/2019-07-04_SPL_A_HULKs_UPennalizers_firstHalf/covered-positives.tfrecord
+    md5: 7b4a65b1a511eed8be2df79449ba780e
+  - path: ../../events/2019-07-04_SPL_A_HULKs_UPennalizers_firstHalf/full-positives.tfrecord
+    md5: 3f239db0eb08869cce431183a78c718a
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_firstHalf/covered-positives.tfrecord
+    md5: dc4570fa1233629a550b53390836320f
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_firstHalf/full-positives.tfrecord
+    md5: ef2ab014274e2acf8ca31c53907b6543
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/covered-positives.tfrecord
+    md5: fc8aa701c1862e201b1ee1d23920e62c
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/full-positives.tfrecord
+    md5: 3f578492053228e1302cecf30478905c
+  - path: ../../events/2019-10-16_testGame/covered-positives.tfrecord
+    md5: 8275fb332bc3308bd41f9c68faea4682
+  - path: ../../events/2019-10-16_testGame/full-positives.tfrecord
+    md5: dbbb7b8f46b7fb6e1ad9288bad622973
+  - path: ../../events/2019-11-06_testGame/covered-positives.tfrecord
+    md5: cdac424a4b4b875576762197796296cb
+  - path: ../../events/2019-11-06_testGame/full-positives.tfrecord
+    md5: e46496198eca5f088475f057ddf1441b
+  - path: ../../events/2020-02-19_testGame/covered-positives.tfrecord
+    md5: 57f9b4ecab8f6a2993c59394c2ce2759
+  - path: ../../events/2020-02-19_testGame/full-positives.tfrecord
+    md5: d5ad7691f028839792ac2e78e0809aa7
+  outs:
+  - path: positives-v1-test.tfrecord
+    md5: 68208f51688362bf568429e017680a78
+  - path: positives-v1-train.tfrecord
+    md5: d74b7f030227833d3b1740373739b1b1
+merge-all-v1:
+  cmd: transformer ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_firstHalf/negatives.tfrecord
+    ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_firstHalf/random-negatives.tfrecord
+    ../../events/2019-07-04_SPL_A_HULKs_UPennalizers_firstHalf/negatives.tfrecord
+    ../../events/2019-07-04_SPL_A_HULKs_UPennalizers_firstHalf/random-negatives.tfrecord
+    ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/negatives-1.tfrecord ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/random-negatives.tfrecord
+    ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/negatives-0.tfrecord ../../events/2019-11-06_testGame/negatives-1.tfrecord
+    ../../events/2019-11-06_testGame/random-negatives.tfrecord ../../events/2019-11-06_testGame/negatives-0.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/negatives-1.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/random-negatives.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/negatives-0.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_first_half/negatives.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_first_half/random-negatives.tfrecord
+    ../../events/2020-08-30_simRobot_2083/negatives-1.tfrecord ../../events/2020-08-30_simRobot_2083/random-negatives.tfrecord
+    ../../events/2020-08-30_simRobot_2083/negatives-0.tfrecord ../../events/2020-02-19_testGame/negatives-1.tfrecord
+    ../../events/2020-02-19_testGame/negatives-2.tfrecord ../../events/2020-02-19_testGame/random-negatives.tfrecord
+    ../../events/2020-02-19_testGame/negatives-0.tfrecord ../../events/2019-10-16_testGame/negatives.tfrecord
+    ../../events/2019-10-16_testGame/random-negatives.tfrecord ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/negatives-1.tfrecord
+    ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/random-negatives.tfrecord
+    ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/negatives-0.tfrecord
+    ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_firstHalf/full-positives.tfrecord
+    ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_firstHalf/covered-positives.tfrecord
+    ../../events/2019-07-04_SPL_A_HULKs_UPennalizers_firstHalf/full-positives.tfrecord
+    ../../events/2019-07-04_SPL_A_HULKs_UPennalizers_firstHalf/covered-positives.tfrecord
+    ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/full-positives.tfrecord
+    ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/covered-positives.tfrecord
+    ../../events/2019-11-06_testGame/full-positives.tfrecord ../../events/2019-11-06_testGame/covered-positives.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/full-positives.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/covered-positives.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_first_half/full-positives.tfrecord
+    ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_first_half/covered-positives.tfrecord
+    ../../events/2020-02-19_testGame/full-positives.tfrecord ../../events/2020-02-19_testGame/covered-positives.tfrecord
+    ../../events/2019-10-16_testGame/full-positives.tfrecord ../../events/2019-10-16_testGame/covered-positives.tfrecord
+    ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/full-positives.tfrecord
+    ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/covered-positives.tfrecord
+    - 0.1:all-v1-test.tfrecord all-v1-train.tfrecord
+  deps:
+  - path: ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/covered-positives.tfrecord
+    md5: bac34931e2fa13965ed9ca66f808532d
+    size: 26582
+  - path: ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/full-positives.tfrecord
+    md5: 92c853236690afcf11f71557f1551c15
+    size: 60595
+  - path: ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/negatives-0.tfrecord
+    md5: 81cd3a5a77d5ee6ce98e599b6b06e688
+    size: 26041
+  - path: ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/negatives-1.tfrecord
+    md5: 43a8a7a323d9d2ddb51449fe2dee7aab
+    size: 27121
+  - path: ../../events/2018-04_GermanOpen2018/2018-04-29_GO18_Bhuman_3rdPlace_1st_half_onlyOne/random-negatives.tfrecord
+    md5: f1a37b9e95bbe7add632b97b895e54f1
+    size: 87938
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_first_half/covered-positives.tfrecord
+    md5: 5ecea1e0527cc3c0cf14ee525b0c82ae
+    size: 1269249
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_first_half/full-positives.tfrecord
+    md5: d2d28fb290ddd5e220e23bfc1d4a1a50
+    size: 9692840
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_first_half/negatives.tfrecord
+    md5: d651fa3c06a27ce836b48102386dfcf9
+    size: 6067518
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_first_half/random-negatives.tfrecord
+    md5: d3e1cfb8446295bbf5544e6a375d2fab
+    size: 58020886
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/covered-positives.tfrecord
+    md5: 70c11b5e202742cb3f9a48c4bb93da12
+    size: 1081798
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/full-positives.tfrecord
+    md5: 681f53bb88375f5439f2c4da760052d6
+    size: 11043483
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/negatives-0.tfrecord
+    md5: 5425c01f449e92d08045508197d9e6f6
+    size: 11002266
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/negatives-1.tfrecord
+    md5: 6eb60f830fa5110d09da50454468f531
+    size: 28235
+  - path: ../../events/2019-05_GermanOpen2019/2019-05-03_GO19_HULKs_NomadZ_second_half/random-negatives.tfrecord
+    md5: f5375ade6701d468fca75102d0f7ef0f
+    size: 63211361
+  - path: ../../events/2019-07-04_SPL_A_HULKs_UPennalizers_firstHalf/covered-positives.tfrecord
+    md5: 7b4a65b1a511eed8be2df79449ba780e
+    size: 999123
+  - path: ../../events/2019-07-04_SPL_A_HULKs_UPennalizers_firstHalf/full-positives.tfrecord
+    md5: 3f239db0eb08869cce431183a78c718a
+    size: 9877559
+  - path: ../../events/2019-07-04_SPL_A_HULKs_UPennalizers_firstHalf/negatives.tfrecord
+    md5: 7f5e8e561987d4c0605ddd35b7516631
+    size: 4643666
+  - path: ../../events/2019-07-04_SPL_A_HULKs_UPennalizers_firstHalf/random-negatives.tfrecord
+    md5: 9fd9673712a28ebdbdba72fc1075b1fc
+    size: 38977546
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_firstHalf/covered-positives.tfrecord
+    md5: dc4570fa1233629a550b53390836320f
+    size: 1165947
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_firstHalf/full-positives.tfrecord
+    md5: ef2ab014274e2acf8ca31c53907b6543
+    size: 15804861
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_firstHalf/negatives.tfrecord
+    md5: e9c3c888e43ad785e6f77961d4435419
+    size: 7734049
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_firstHalf/random-negatives.tfrecord
+    md5: e4cc66434d8da7e54d429d5a835ccd40
+    size: 95851471
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/covered-positives.tfrecord
+    md5: fc8aa701c1862e201b1ee1d23920e62c
+    size: 1173899
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/full-positives.tfrecord
+    md5: 3f578492053228e1302cecf30478905c
+    size: 11900044
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/negatives-0.tfrecord
+    md5: 00d51047f7d2ed613ec74d887dd6b001
+    size: 6529783
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/negatives-1.tfrecord
+    md5: 818772e1019ddc0e254371ef3926c8a7
+    size: 24843
+  - path: ../../events/2019-07-05_SPL_D_rUNSWift_HULKs_secondHalf/random-negatives.tfrecord
+    md5: e761acd4178051ca0ebe6e75eaf43688
+    size: 75789538
+  - path: ../../events/2019-10-16_testGame/covered-positives.tfrecord
+    md5: 8275fb332bc3308bd41f9c68faea4682
+    size: 596876
+  - path: ../../events/2019-10-16_testGame/full-positives.tfrecord
+    md5: dbbb7b8f46b7fb6e1ad9288bad622973
+    size: 8102043
+  - path: ../../events/2019-10-16_testGame/negatives.tfrecord
+    md5: 5c757438145eb3d47b889e01092edfda
+    size: 2199449
+  - path: ../../events/2019-10-16_testGame/random-negatives.tfrecord
+    md5: 6383c0a7f56a8502bf736f7075e3ed4a
+    size: 25531126
+  - path: ../../events/2019-11-06_testGame/covered-positives.tfrecord
+    md5: cdac424a4b4b875576762197796296cb
+    size: 961599
+  - path: ../../events/2019-11-06_testGame/full-positives.tfrecord
+    md5: e46496198eca5f088475f057ddf1441b
+    size: 13321489
+  - path: ../../events/2019-11-06_testGame/negatives-0.tfrecord
+    md5: ca835934c5fc407b0be333e2062f0333
+    size: 5870323
+  - path: ../../events/2019-11-06_testGame/negatives-1.tfrecord
+    md5: 082ed5fde3f3ce4bfe175ef1324743fb
+    size: 48733
+  - path: ../../events/2019-11-06_testGame/random-negatives.tfrecord
+    md5: f5a7d634f03f25393cd46941a9a5ca8c
+    size: 50299133
+  - path: ../../events/2020-02-19_testGame/covered-positives.tfrecord
+    md5: 57f9b4ecab8f6a2993c59394c2ce2759
+    size: 1302063
+  - path: ../../events/2020-02-19_testGame/full-positives.tfrecord
+    md5: d5ad7691f028839792ac2e78e0809aa7
+    size: 10899641
+  - path: ../../events/2020-02-19_testGame/negatives-0.tfrecord
+    md5: f9fb7d1c3cbe10b3983d464b012cb6bc
+    size: 4464924
+  - path: ../../events/2020-02-19_testGame/negatives-1.tfrecord
+    md5: 5c221e8c96ea3aaddbceaaa96c060d74
+    size: 4461755
+  - path: ../../events/2020-02-19_testGame/negatives-2.tfrecord
+    md5: 064058ba3a8c12179c45b1153f0b77d2
+    size: 4465524
+  - path: ../../events/2020-02-19_testGame/random-negatives.tfrecord
+    md5: 3796cc590fb2df558cba20e48f6f4b6a
+    size: 69938321
+  - path: ../../events/2020-08-30_simRobot_2083/negatives-0.tfrecord
+    md5: b877775cd8aedd1dc895cfa09a89e245
+    size: 2894433
+  - path: ../../events/2020-08-30_simRobot_2083/negatives-1.tfrecord
+    md5: c82645a4b7abb7cd2c1880a4d681023e
+    size: 31377
+  - path: ../../events/2020-08-30_simRobot_2083/random-negatives.tfrecord
+    md5: 45c1b8c9089dda4a41d486e503ca6c96
+    size: 55450827
+  outs:
+  - path: all-v1-test.tfrecord
+    md5: db60631f606eba3170e2fe7567a88a6d
+    size: 69379398
+  - path: all-v1-train.tfrecord
+    md5: b5be1a9459336b6b034d5b145876fd91
+    size: 623577088

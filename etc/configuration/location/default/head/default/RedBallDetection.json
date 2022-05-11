@@ -1,9 +1,0 @@
-{
-    "max_pixel_radius": 200,
-    "min_pixel_radius": 4,
-    "max_color_difference": 30,
-    "min_seed_cr": 150,
-    "max_seed_cb": 130,
-    "max_gap": 3,
-    "ransac_threshold": 4
-}

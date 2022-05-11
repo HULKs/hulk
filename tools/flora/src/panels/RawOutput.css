@@ -1,0 +1,71 @@
+.rawOutput {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: auto;
+  grid-template-rows: min-content auto;
+}
+
+.rawOutput .header {
+  display: grid;
+  grid-template-columns: repeat(5, min-content) auto repeat(2, min-content);
+  grid-template-rows: auto;
+  padding: 0.5rem;
+  column-gap: 0.5rem;
+  box-shadow: inset 0 -0.325rem 0.25rem -0.25rem rgba(0, 0, 0, 0.25);
+  background-color: #ddd;
+  align-items: center;
+}
+
+.rawOutput .header > .panelType {
+  grid-column: 1 / 2;
+  grid-row: 1 / 2;
+  font-family: monospace;
+  opacity: 0.5;
+}
+
+.rawOutput .header > .cycler {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  font-family: monospace;
+}
+
+.rawOutput .header > .outputType {
+  grid-column: 3 / 4;
+  grid-row: 1 / 2;
+  font-family: monospace;
+}
+
+.rawOutput .header > .path {
+  grid-column: 4 / 5;
+  grid-row: 1 / 2;
+  font-family: monospace;
+}
+
+.rawOutput .header > .type {
+  grid-column: 5 / 6;
+  grid-row: 1 / 2;
+  font-family: monospace;
+  opacity: 0.5;
+}
+
+.rawOutput .header > .selector {
+  grid-column: 7 / 8;
+  grid-row: 1 / 2;
+}
+
+.rawOutput .header > .connector {
+  grid-column: 8 / 9;
+  grid-row: 1 / 2;
+}
+
+.rawOutput .content {
+  font-family: monospace;
+  margin: 0;
+  padding: 1rem;
+  overflow: auto;
+}
+
+.rawOutput .content.noData {
+  font-style: italic;
+  opacity: 0.5;
+}

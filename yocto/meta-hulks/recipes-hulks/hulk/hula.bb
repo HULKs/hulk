@@ -87,6 +87,8 @@ LIC_FILES_CHKSUM = " \
 HOMEPAGE = "github.com/HULKs/nao"
 LICENSE = "CLOSED"
 
+inherit pkgconfig
+
 DEPENDS += "dbus"
 RDEPENDS:${PN} += "dbus"
 

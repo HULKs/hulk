@@ -6,10 +6,10 @@ Conflicts=hulk.service
 
 [Service]
 ExecStartPre=/usr/bin/camera-reset
-ExecStart=/usr/bin/gdbserver 0.0.0.0:1337 /home/nao/naoqi/bin/hulk
+ExecStart=/usr/bin/gdbserver 0.0.0.0:1337 /home/nao/bin/hulk
 StandardOutput=journal
 Type=simple
 User=nao
 Group=nao
 LimitCORE=infinity
-WorkingDirectory=/home/nao/naoqi
+WorkingDirectory=/home/nao/hulk

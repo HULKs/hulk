@@ -23,7 +23,7 @@ impl TerminationRequest {
 
     pub fn wait(&self) {
         let (mutex, condition_variable) = &*self.requested;
-        let _ = condition_variable
+        let _termination = condition_variable
             .wait_while(mutex.lock().unwrap(), |is_requested| !*is_requested)
             .unwrap();
     }

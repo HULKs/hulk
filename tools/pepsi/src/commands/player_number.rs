@@ -1,78 +1,57 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use log::info;
-use serde_json::Value;
+use serde_json::{from_slice, to_vec_pretty, Value};
 use tokio::{
-    fs::File,
+    fs::{File, OpenOptions},
     io::{AsyncReadExt, AsyncWriteExt},
 };
 
-use crate::{NaoName, PlayerNumber};
-
-pub async fn get_configured_player_number(
-    head_name: &str,
-    project_root: PathBuf,
-) -> anyhow::Result<PlayerNumber> {
-    let brain_default_config = project_root
-        .join("etc/configuration/location/default/head/")
-        .join(head_name)
-        .join("Brain.json");
-    let brain_configuration: Value = {
-        let mut file = File::open(brain_default_config).await.with_context(|| {
-            format!(
-                "Failed to open default head config for head name '{}'",
-                head_name
-            )
-        })?;
-        let mut contents = vec![];
-        file.read_to_end(&mut contents).await?;
-        serde_json::from_slice(&contents)?
-    };
-    brain_configuration["general.playerNumber"]
-        .as_u64()
-        .map(|n| n as PlayerNumber)
-        .ok_or_else(|| anyhow::anyhow!("No key for playernumber"))
-}
+use crate::PlayerNumber;
 
 pub async fn configure_player_number(
-    head_name: NaoName,
+    head_id: String,
     player_number: PlayerNumber,
     project_root: PathBuf,
 ) -> anyhow::Result<()> {
-    let brain_default_config = project_root
-        .join("etc/configuration/location/default/head/")
-        .join(&head_name)
-        .join("Brain.json");
+    let configuration_file_path =
+        project_root.join(format!("etc/configuration/head.{}.json", head_id));
+    let mut configuration_file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&configuration_file_path)
+        .await
+        .with_context(|| format!("Failed to open {}", configuration_file_path.display()))?;
 
-    let mut brain_configuration: Value = {
-        let mut file = File::open(&brain_default_config).await.with_context(|| {
-            format!(
-                "Failed to open default head config for head name '{}'",
-                head_name
-            )
-        })?;
-        let mut contents = vec![];
-        file.read_to_end(&mut contents).await?;
-        serde_json::from_slice(&contents)?
+    let mut contents = vec![];
+    configuration_file
+        .read_to_end(&mut contents)
+        .await
+        .with_context(|| format!("Failed to read from {}", configuration_file_path.display()))?;
+    let mut configuration: Value = if contents.is_empty() {
+        Value::Object(Default::default())
+    } else {
+        from_slice(&contents)
+            .with_context(|| format!("Failed to parse {}", configuration_file_path.display()))?
     };
-    let previous_player_number = brain_configuration["general.playerNumber"]
-        .as_u64()
-        .unwrap();
-    brain_configuration["general.playerNumber"] = Value::from(player_number);
-    {
-        let mut file = File::create(brain_default_config).await.with_context(|| {
-            format!(
-                "Failed to create default head config for head name '{}'",
-                head_name
-            )
-        })?;
-        let serialized_buffer = serde_json::to_vec_pretty(&brain_configuration)?;
-        file.write(&serialized_buffer).await?;
-    }
-    info!(
-        "Changed player number of {} from {} to {}",
-        head_name, previous_player_number, player_number
-    );
+
+    configuration["player_number"] = player_number.into();
+
+    let mut contents = to_vec_pretty(&configuration).with_context(|| {
+        format!(
+            "Failed to dump configuration for {}",
+            configuration_file_path.display()
+        )
+    })?;
+    contents.push(b'\n');
+    let mut configuration_file = File::create(&configuration_file_path)
+        .await
+        .with_context(|| format!("Failed to create {}", configuration_file_path.display()))?;
+    configuration_file
+        .write_all(&contents)
+        .await
+        .with_context(|| format!("Failed to parse {}", configuration_file_path.display()))?;
+
     Ok(())
 }

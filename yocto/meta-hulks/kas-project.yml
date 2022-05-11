@@ -7,13 +7,12 @@ distro: HULKs-OS
 repos:
     meta-hulks:
     meta-nao:
-        url: "https://github.com/HULKs/meta-nao.git"
-        refspec: main
-  #meta-rust:
-    #url: "https://github.com/meta-rust/meta-rust.git"
+        path: meta-nao
     poky:
         patches:
-            001-toolchain-shar-extract:
+            001-nao-cargo-home:
                 repo: "meta-hulks"
-                path: "patches/001-toolchain-shar-extract.patch"
-
+                path: "patches/001-nao-cargo-home.patch"
+            0001-Rename-thread_local-target-option-and-disable-it:
+                repo: "meta-hulks"
+                path: "patches/0001-Rename-thread_local-target-option-and-disable-it.patch"

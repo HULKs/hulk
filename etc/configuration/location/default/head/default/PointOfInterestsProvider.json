@@ -1,9 +1,0 @@
-{
-  "centerCircleWeight": 5.0,
-  "penaltyAreaWeight": 4.0,
-  "tIntersectionCenterLineWeight": 3.0,
-  "penaltyAreaCornerWeight": 2.0,
-  "cornerWeight": 1.0,
-  "maxPOIDistance": 3.0,
-  "maxPOIAngle": 42.0
-}

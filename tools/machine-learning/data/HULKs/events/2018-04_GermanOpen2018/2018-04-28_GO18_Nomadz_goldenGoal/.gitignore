@@ -1,0 +1,17 @@
+/raw
+/annotations.json
+/remaining.json
+/removed.json
+/completed.json
+/corrected.json
+/completed.json.21e089b49cd54a13d85331f37e8931b2.telemetry
+/completed.json.3f0fde4a8bf36f388c2ef1ca099dc008.telemetry
+/corrected.json.21e089b49cd54a13d85331f37e8931b2.telemetry
+/corrected.json.a877887b520d8a76e18031e50077b8d1.telemetry
+/remaining.json.29894a65d2dc030cd59c994f49f49dbb.telemetry
+/remaining.json.3f0fde4a8bf36f388c2ef1ca099dc008.telemetry
+/corrected-full-positives.json
+/corrected-full-positives.json.e1a43b12548daefebfbcca91f6d3b579.telemetry
+/corrected-covered-positives.json
+/full-positives.tfrecord
+/covered-positives.tfrecord

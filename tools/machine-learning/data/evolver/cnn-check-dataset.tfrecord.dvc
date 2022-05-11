@@ -1,0 +1,3 @@
+outs:
+- md5: 9145dcf85feb44a6401e3ca8fee22a86
+  path: cnn-check-dataset.tfrecord

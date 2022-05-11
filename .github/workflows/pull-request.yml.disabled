@@ -1,0 +1,87 @@
+name: Rust
+on:
+  push:
+    branches:
+      - staging
+      - trying
+  pull_request:
+jobs:
+  build:
+    name: Build
+    strategy:
+      fail-fast: true
+      matrix:
+        target: [NAO, Webots]
+        build_type: [Release, Debug]
+    runs-on:
+      - self-hosted
+      - v2
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          lfs: true
+      - name: Build
+        run: |
+          ln -s /opt/nao/ sdk/current
+          ./pepsi build --target ${{ matrix.target }} --build-type ${{ matrix.build_type }} --no-sdk-installation
+  check:
+    name: Check
+    strategy:
+      matrix:
+        path: [., macros, spl_network, tools/depp, tools/fanta, tools/hula, tools/pepsi, uvcvideo]
+    runs-on:
+      - self-hosted
+      - v2
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          lfs: true
+      - name: Check
+        run: |
+          cd ${{ matrix.path }}
+          cargo fmt --check
+          cargo clippy --all-features -- -D warnings
+  test:
+    name: Test (.)
+    runs-on:
+      - self-hosted
+      - v2
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          lfs: true
+      - name: Test
+        run: |
+          cargo test --all-features
+  build_subprojects:
+    name: Build
+    strategy:
+      matrix:
+        path: [tools/depp, tools/fanta, tools/hula, tools/pepsi]
+    runs-on:
+      - self-hosted
+      - v2
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          lfs: true
+      - name: Build
+        run: |
+          cd ${{ matrix.path }}
+          cargo build --all-features --release
+  build_flora:
+    name: Build (tools/flora)
+    runs-on:
+      - self-hosted
+      - nodejs
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          lfs: true
+      - name: Build
+        env:
+          CI: true
+        run: |
+          cd tools/flora
+          yarn install
+          yarn build

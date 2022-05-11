@@ -1,5 +1,0 @@
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Ball/")
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/LandmarkFilter/")
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Obstacles/")
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Position/")
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/Robots/")

@@ -11,17 +11,17 @@ use tokio::runtime::Runtime;
 
 #[derive(StructOpt)]
 pub enum Arguments {
-    /// delete logs on the nao
+    /// delete logs on the NAO
     Delete {
         /// the naos to execute that command on
         #[structopt(required = true)]
         naos: Vec<NaoAddress>,
     },
-    /// download logs from the nao
+    /// download logs from the NAO
     Download {
         /// location where to download the logs to
         log_dir: PathBuf,
-        /// the naos to execute that command on
+        /// the NAOs to execute that command on
         #[structopt(required = true)]
         naos: Vec<NaoAddress>,
     },

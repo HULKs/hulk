@@ -161,6 +161,7 @@ impl Proxy {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn proxy_thread(
         robot_configuration: Arc<Mutex<Option<RobotConfiguration>>>,
         battery: Arc<Mutex<Option<Battery>>>,
@@ -222,7 +223,7 @@ impl Proxy {
                 }
             }
 
-            if connections.len() == 0 {
+            if connections.is_empty() {
                 zero_control_storage.fill_chest_into(&mut control_message);
                 zero_control_storage.fill_ears_into(&mut control_message);
                 fill_red_eyes_into(&seconds, &mut control_message);
@@ -265,7 +266,7 @@ impl Proxy {
         let received_at = start.elapsed();
         let state_message: LoLAStateMessage =
             from_read_ref(&lola_data).context("Failed to parse MessagePack from LoLA")?;
-        if connections.len() > 0 {
+        if !connections.is_empty() {
             let state_storage = StateStorage::from(received_at, &state_message);
             let state_storage_buffer = unsafe {
                 from_raw_parts(

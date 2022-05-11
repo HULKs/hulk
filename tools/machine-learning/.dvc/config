@@ -1,0 +1,7 @@
+[core]
+    analytics = false
+    remote = bighulk
+[cache]
+    type = "reflink,symlink,hardlink,copy"
+[remote "bighulk"]
+    url = ssh://hulk@bighulk/mnt/raid1-0/data.dvc

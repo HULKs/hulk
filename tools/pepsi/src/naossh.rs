@@ -19,7 +19,7 @@ pub fn address_from_nao_number(number: u8, connection: Connection) -> NaoAddress
                 Connection::Wireless => 0,
                 Connection::Wired => 1,
             },
-            YOUR_TEAM_NUMBER_HERE,
+            24,
             number,
         ),
     }

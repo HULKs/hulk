@@ -1,0 +1,53 @@
+sample-covered-positives:
+  cmd: annotation-sampler --intersection-ratio-threshold 1 corrected-covered-positives.json
+    covered-positives.tfrecord
+  deps:
+  - path: corrected-covered-positives.json
+    md5: dbdb0af2b097dae3f019821d7f65f287
+  - path: raw
+    md5: 361bc876c0be4f0ce91a625205a6411c.dir
+  outs:
+  - path: covered-positives.tfrecord
+    md5: dc4570fa1233629a550b53390836320f
+sample-full-positives:
+  cmd: annotation-sampler corrected-full-positives.json full-positives.tfrecord
+  deps:
+  - path: corrected-full-positives.json
+    md5: bc4671b8b276ea9829c4e5342711d52f
+  - path: raw
+    md5: 361bc876c0be4f0ce91a625205a6411c.dir
+  outs:
+  - path: full-positives.tfrecord
+    md5: ef2ab014274e2acf8ca31c53907b6543
+sample-negatives:
+  cmd: annotation-sampler --label-type negative --avoidance-annotations-file corrected-corrected.json
+    removed.json negatives.tfrecord
+  deps:
+  - path: corrected-corrected.json
+    md5: 8df4b3080e07f06f9ac0521708fc6bdf
+    size: 433008
+  - path: raw
+    md5: 361bc876c0be4f0ce91a625205a6411c.dir
+    size: 3214793752
+    nfiles: 4806
+  - path: removed.json
+    md5: 4952373216fa7760831e7a48ab2aba1b
+    size: 349721
+  outs:
+  - path: negatives.tfrecord
+    md5: e9c3c888e43ad785e6f77961d4435419
+    size: 7734049
+sample-random-negatives:
+  cmd: random-negative-sampler corrected-corrected.json random-negatives.tfrecord
+  deps:
+  - path: corrected-corrected.json
+    md5: 8df4b3080e07f06f9ac0521708fc6bdf
+    size: 433008
+  - path: raw
+    md5: 361bc876c0be4f0ce91a625205a6411c.dir
+    size: 3214793752
+    nfiles: 4806
+  outs:
+  - path: random-negatives.tfrecord
+    md5: e4cc66434d8da7e54d429d5a835ccd40
+    size: 95851471

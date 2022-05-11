@@ -11,10 +11,10 @@ use tokio::runtime::Runtime;
 
 #[derive(StructOpt)]
 pub struct Arguments {
-    /// whether the nao should reboot
+    /// whether the NAO should reboot
     #[structopt(long, short)]
     reboot: bool,
-    /// the naos to execute that command on
+    /// the NAOs to execute that command on
     #[structopt(required = true)]
     naos: Vec<NaoAddress>,
 }

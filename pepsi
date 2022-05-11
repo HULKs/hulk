@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+
+THIS_DIRECTORY=$(dirname "$0")
+PEPSI_TARGET_DIRECTORY=${CARGO_TARGET_DIR:-${THIS_DIRECTORY}/tools/pepsi/target}
+
+pushd ${THIS_DIRECTORY}/tools/pepsi &>/dev/null
+cargo build --release
+popd &>/dev/null
+# cargo sets LD_LIBRARY_PATH which we don't want, so let's call the binary directly
+${PEPSI_TARGET_DIRECTORY}/release/pepsi $@

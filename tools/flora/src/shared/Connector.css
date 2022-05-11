@@ -1,0 +1,54 @@
+.connector button {
+  white-space: nowrap;
+}
+
+.connector .modal {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.25);
+  z-index: 100;
+  top: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: auto min(100%, 640px) auto;
+  grid-template-rows: min-content auto;
+  width: 100vw;
+  height: 100vh;
+}
+
+.connector .modal.hidden {
+  display: none;
+}
+
+.connector .modal .inner {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  display: grid;
+  grid-template-columns: min-content auto min-content;
+  grid-template-rows: min-content;
+  column-gap: 0.5rem;
+  background-color: white;
+  box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.35);
+  padding: 0 0.5rem 0 0.5rem;
+}
+
+.connector .modal .inner label {
+  font-family: sans;
+  white-space: nowrap;
+  align-self: center;
+}
+
+.connector .modal .inner input[type="text"] {
+  background-color: transparent;
+  border: 1px solid #ddd;
+  margin: 0.25rem;
+  padding: 0.25rem;
+  box-sizing: border-box;
+  width: calc(100% - 0.5rem);
+  font-family: monospace;
+  box-shadow: inset 0 0.1rem 0.2rem rgba(0, 0, 0, 0.125);
+}
+
+.connector .modal .inner .connectionState {
+  align-self: center;
+  font-family: sans;
+}

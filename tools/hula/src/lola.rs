@@ -92,14 +92,14 @@ impl From<[&str; 4]> for RobotConfiguration {
         let body_id = source[0].as_bytes();
 
         assert_eq!(source[1].len(), 5, "source[1].len() != 5");
-        let major_version = source[1].chars().nth(0).unwrap().to_digit(10).unwrap();
+        let major_version = source[1].chars().next().unwrap().to_digit(10).unwrap();
         assert_eq!(major_version, 6, "body_version: major_version != 6");
         let body_version = major_version as u8;
 
         let head_id = source[2].as_bytes();
 
         assert_eq!(source[3].len(), 5, "source[3].len() != 5");
-        let major_version = source[3].chars().nth(0).unwrap().to_digit(10).unwrap();
+        let major_version = source[3].chars().next().unwrap().to_digit(10).unwrap();
         assert_eq!(major_version, 6, "head_version: major_version != 6");
         let head_version = major_version as u8;
 
@@ -148,23 +148,23 @@ impl Battery {
         //   back
         // 6 is beginning, clock-wise
         let led_positions = [
-            0.433628318584071,
-            0.349557522123894,
-            0.274336283185841,
-            0.168141592920354,
-            0.0884955752212389,
-            0.0442477876106195,
-            0.955752212389381,
-            0.911504424778761,
-            0.831858407079646,
-            0.725663716814159,
-            0.650442477876106,
-            0.566371681415929,
+            0.433_628_32,
+            0.349_557_52,
+            0.274_336_28,
+            0.168_141_59,
+            0.088_495_575,
+            0.044_247_787,
+            0.955_752_2,
+            0.911_504_45,
+            0.831_858_4,
+            0.725_663_7,
+            0.650_442_5,
+            0.566_371_7,
         ];
-        for led in 0..12 {
-            control_message.skull[led] = if self.charge > led_positions[led] {
+        for (led, led_position) in led_positions.into_iter().enumerate() {
+            control_message.skull[led] = if self.charge > led_position {
                 if self.current > 0.0 {
-                    let offsetted_seconds = seconds - (led_positions[led] as f64);
+                    let offsetted_seconds = seconds - (led_position as f64);
                     let fraction = 1.0 - (offsetted_seconds - offsetted_seconds.floor());
                     ((fraction * 0.8) + 0.2) as f32
                 } else {
@@ -625,14 +625,14 @@ pub fn fill_red_eyes_into(seconds: &f64, control_message: &mut LoLAControlMessag
     //  6     4
     //     5
     let led_positions_left = [
-        0.7154822031355754,
-        0.8333333333333334,
-        0.9511844635310912,
+        0.715_482_2,
+        0.833_333_3,
+        0.951_184_45,
         1.0,
-        0.9511844635310912,
-        0.8333333333333334,
-        0.7154822031355754,
-        0.6666666666666667,
+        0.951_184_45,
+        0.833_333_3,
+        0.715_482_2,
+        0.666_666_7,
     ];
 
     //     0
@@ -641,14 +641,14 @@ pub fn fill_red_eyes_into(seconds: &f64, control_message: &mut LoLAControlMessag
     //  3     5
     //     4
     let led_positions_right = [
-        0.16666666666666666,
-        0.04881553646890875,
+        0.166_666_67,
+        0.048_815_537,
         0.0,
-        0.04881553646890875,
-        0.16666666666666666,
-        0.2845177968644246,
-        0.3333333333333333,
-        0.2845177968644246,
+        0.048_815_537,
+        0.166_666_67,
+        0.284_517_8,
+        0.333_333_34,
+        0.284_517_8,
     ];
 
     let mut intensities_left = [0.0; 24];

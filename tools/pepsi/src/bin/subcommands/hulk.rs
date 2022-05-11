@@ -14,7 +14,7 @@ pub struct Arguments {
     /// the systemctl command to execute
     #[structopt(possible_values = &["stop", "start", "restart", "enable", "disable"])]
     command: Command,
-    /// the naos to exxecute that command on
+    /// the NAOs to execute that command on
     #[structopt(required = true)]
     naos: Vec<NaoAddress>,
 }

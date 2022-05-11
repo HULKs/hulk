@@ -51,13 +51,9 @@ pub fn send_beacon_on_all_interfaces(
     battery: Battery,
 ) -> Result<()> {
     debug!("Send beacon to all interfaces");
-    let active_interfaces = datalink::interfaces().into_iter().filter(|interface| {
-        if interface.is_up() && interface.is_multicast() {
-            true
-        } else {
-            false
-        }
-    });
+    let active_interfaces = datalink::interfaces()
+        .into_iter()
+        .filter(|interface| interface.is_up() && interface.is_multicast());
 
     let body_id = std::str::from_utf8(&robot_configuration.body_id)?;
     let head_id = std::str::from_utf8(&robot_configuration.head_id)?;

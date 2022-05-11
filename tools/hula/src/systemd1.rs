@@ -1,4 +1,3 @@
-use dbus;
 use dbus::arg;
 use dbus::blocking;
 
@@ -30,12 +29,12 @@ impl<'a, T: blocking::BlockingSender, C: ::std::ops::Deref<Target = T>> OrgFreed
             "Get",
             (interface, property),
         )
-        .and_then(|r: (arg::Variant<R0>,)| Ok((r.0).0))
+        .map(|r: (arg::Variant<R0>,)| (r.0).0)
     }
 
     fn get_all(&self, interface: &str) -> Result<arg::PropMap, dbus::Error> {
         self.method_call("org.freedesktop.DBus.Properties", "GetAll", (interface,))
-            .and_then(|r: (arg::PropMap,)| Ok(r.0))
+            .map(|r: (arg::PropMap,)| r.0)
     }
 
     fn set<I2: arg::Arg + arg::Append>(
@@ -61,6 +60,6 @@ impl<'a, T: blocking::BlockingSender, C: ::std::ops::Deref<Target = T>>
 {
     fn get_unit(&self, name: &str) -> Result<dbus::Path<'static>, dbus::Error> {
         self.method_call("org.freedesktop.systemd1.Manager", "GetUnit", (name,))
-            .and_then(|r: (dbus::Path<'static>,)| Ok(r.0))
+            .map(|r: (dbus::Path<'static>,)| r.0)
     }
 }

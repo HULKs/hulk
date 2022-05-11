@@ -1,0 +1,25 @@
+status = [
+  "Build (tools/depp)",
+  "Build (tools/fanta)",
+  "Build (tools/flora)",
+  "Build (tools/hula)",
+  "Build (tools/pepsi)",
+  "Build (NAO, Release)",
+  "Build (NAO, Debug)",
+  "Build (Webots, Release)",
+  "Build (Webots, Debug)",
+  "Check (.)",
+  "Check (macros)",
+  "Check (spl_network)",
+  "Check (tools/depp)",
+  "Check (tools/fanta)",
+  "Check (tools/hula)",
+  "Check (tools/pepsi)",
+  "Check (uvcvideo)",
+  "Test (.)",
+]
+block_labels = [ "blocked" ]
+required_approvals = 1
+cut_body_after = "<details>"
+timeout_sec = 3600 # one hour
+up_to_date_approvals = true

@@ -44,7 +44,7 @@ impl FromStr for NaoAddress {
                     Connection::Wired
                 };
                 let ip =
-                    number_to_ip(number, connection).context("Cannot parse from nao number")?;
+                    number_to_ip(number, connection).context("Cannot parse from NAO number")?;
                 Ok(NaoAddress { ip })
             }
             None => Ok(s.parse().context("Failed to parse NaoAddress")?),

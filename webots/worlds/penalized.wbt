@@ -25,7 +25,7 @@ SPLBall {
   translation -2.5 -1 0.05
 }
 NAO {
-  translation -3 -3 0.345
+  translation -3.2 -3 0.345
   rotation 0 0 1 1.57079632679
   name "webots2"
   controller "hulk"

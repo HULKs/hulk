@@ -1,0 +1,13 @@
+{
+  "player_number": 4,
+  "vision_top":{
+    "camera_matrix_parameters": {
+      "extrinsic_rotations": [0, -6.0, 0]
+    }
+  },
+  "vision_bottom":{
+    "camera_matrix_parameters": {
+      "extrinsic_rotations": [0, -4.7, 0]
+    }
+  }
+}

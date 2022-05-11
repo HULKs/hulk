@@ -1,9 +1,0 @@
-{
-	"reset" : false,
-	"accelweight" : 0.01,
-	"gravity" : 10.5,
-	"gyro_bias_alpha" : 0.01,
-	"acceleration_threshold" : 0.2,
-	"delta_angular_velocity_threshold" : 0.01,
-	"angular_velocity_threshold" : 0.2
-}

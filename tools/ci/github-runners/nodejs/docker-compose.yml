@@ -1,0 +1,14 @@
+version: "3"
+services:
+  instance:
+    container_name: hulks-github-runner-nodejs
+    image: hulks-github-runner-nodejs
+    build:
+      context: .
+      args:
+        - RUNNER_VERSION=2.289.2
+    restart: always
+    volumes:
+      - hulks-github-runner-nodejs:/ci/actions-runner
+volumes:
+  hulks-github-runner-nodejs:

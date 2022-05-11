@@ -11,7 +11,7 @@ Type=simple
 User=nao
 Group=nao
 LimitCORE=infinity
-WorkingDirectory=/home/nao/naoqi
+WorkingDirectory=/home/nao/hulk
 
 [Install]
 WantedBy=default.target

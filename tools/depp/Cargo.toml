@@ -2,7 +2,8 @@
 name = "depp"
 version = "0.1.0"
 edition = "2018"
+license = "GPL-3.0-only"
 
 [dependencies]
-anyhow = "1.0"
-toml = "0.5"
+anyhow = "1.0.56"
+toml = "0.5.9"

@@ -1,0 +1,77 @@
+.imageSegments {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: auto;
+  grid-template-rows: min-content auto;
+}
+
+.imageSegments .header {
+  display: grid;
+  grid-template-columns: repeat(3, min-content) auto repeat(2, min-content);
+  grid-template-rows: auto;
+  padding: 0.5rem;
+  column-gap: 0.5rem;
+  box-shadow: inset 0 -0.325rem 0.25rem -0.25rem rgba(0, 0, 0, 0.25);
+  background-color: #ddd;
+  align-items: center;
+}
+
+.imageSegments .header > .panelType {
+  grid-column: 1 / 2;
+  grid-row: 1 / 2;
+  font-family: monospace;
+  opacity: 0.5;
+}
+
+.imageSegments .header > .cycler {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  font-family: monospace;
+}
+
+.imageSegments .header > .filterToggle {
+  grid-column: 4 / 5;
+  grid-row: 1 / 2;
+}
+
+.imageSegments .header > .selector {
+  grid-column: 5 / 6;
+  grid-row: 1 / 2;
+}
+
+.imageSegments .header > .connector {
+  grid-column: 6 / 7;
+  grid-row: 1 / 2;
+}
+
+.imageSegments .overlay {
+  grid-column: 1 / 2;
+  grid-row: 2 / 3;
+  display: block;
+  box-sizing: border-box;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.imageSegments .content {
+  grid-column: 1 / 2;
+  grid-row: 2 / 3;
+  display: block;
+  box-sizing: border-box;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  object-fit: contain;
+}
+
+.imageSegments .content.noData {
+  font-family: monospace;
+  font-style: italic;
+  opacity: 0.5;
+}
+
+canvas {
+    image-rendering: pixelated;
+}

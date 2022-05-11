@@ -1,0 +1,337 @@
+{
+  "field_dimensions": {
+    "ball_radius": 0.05,
+    "length": 9.0,
+    "width": 6.0,
+    "line_width": 0.05,
+    "penalty_marker_size": 0.1,
+    "goal_box_area_length": 0.6,
+    "goal_box_area_width": 2.2,
+    "penalty_area_length": 1.65,
+    "penalty_area_width": 4.0,
+    "penalty_marker_distance": 1.3,
+    "center_circle_diameter": 1.5,
+    "border_strip_width": 0.7,
+    "goal_inner_width": 1.5,
+    "goal_post_diameter": 0.1,
+    "goal_depth": 0.5
+  },
+  "audio": {
+    "whistle_detection": {
+      "detection_band": {
+        "start": 2000,
+        "end": 4000
+      },
+      "background_noise_scaling": 1.6,
+      "whistle_scaling": 3.8,
+      "number_of_chunks": 16
+    }
+  },
+  "control": {
+    "fall_protection_parameters": {
+      "ground_impact_head_stiffness": 0.2
+    },
+    "ball_filter": {
+      "last_seen_timeout": {
+        "nanos": 0,
+        "secs": 5
+      }
+    },
+    "center_head_position": {
+      "yaw": 0.0,
+      "pitch": 0.4
+    },
+    "step_planner": {
+      "max_step_size": {
+        "forward": 0.06,
+        "left": 0.08,
+        "turn": 0.7
+      },
+      "max_step_size_backwards": 0.05,
+      "translation_exponent": 1.5,
+      "rotation_exponent": 2.0,
+      "inside_turn_ratio": 0.33
+    },
+    "whistle_filter": {
+      "buffer_length": 20,
+      "minimum_detections": 4
+    },
+    "walking_engine": {
+      "walk_hip_height": 0.18,
+      "torso_offset": 0.014,
+      "short_step_duration": 0.8,
+      "long_step_duration": 1.5,
+      "shoulder_pitch_factor": 7,
+      "base_foot_lift": 0.012,
+      "base_step_duration": {
+        "nanos": 300000000,
+        "secs": 0
+      },
+      "first_step_foot_lift_factor": 0.3,
+      "balance_factor": 0.08,
+      "max_forward_acceleration": 0.01
+    },
+    "path_planner": {
+      "hybrid_align_distance": 1.0,
+      "distance_to_be_aligned": 0.05
+    },
+    "pose_estimation": {
+      "line_measurement_noise": [5.0, 0.8],
+      "odometry_noise": [0.005, 0.001, 0.00008],
+      "minimal_line_length": 0.3,
+      "angle_similarity_threshold": 0.4,
+      "maximum_association_distance": 0.4,
+      "maximum_line_distance": 2.0,
+      "use_line_measurements": false,
+      "initial_poses": {
+        "one": {
+          "center_line_offset_x": -3.0,
+          "side": "Left"
+        },
+        "two": {
+          "center_line_offset_x": -2.0,
+          "side": "Right"
+        },
+        "three": {
+          "center_line_offset_x": -2.0,
+          "side": "Left"
+        },
+        "four": {
+          "center_line_offset_x": -1.0,
+          "side": "Right"
+        },
+        "five": {
+          "center_line_offset_x": -1.0,
+          "side": "Left"
+        }
+      }
+    },
+    "orientation_filter": {
+      "acceleration_threshold": 0.2,
+      "delta_angular_velocity_threshold": 0.1,
+      "angular_velocity_bias_weight": 0.01,
+      "acceleration_weight": 0.01,
+      "falling_threshold": 1.0,
+      "force_sensitive_resistor_threshold": 5.0
+    },
+    "fall_state_estimation": {
+      "linear_acceleration_upright_threshold": [6.0, 4.0, 5.0],
+      "low_pass_filter_coefficient": 0.3,
+      "minimum_angle": [-0.5, -0.45],
+      "maximum_angle": [0.5, 0.45],
+      "minimum_angular_velocity": [-0.233, -0.61],
+      "maximum_angular_velocity": [0.233, 0.317],
+      "fallen_timeout": {
+        "nanos": 0,
+        "secs": 1
+      }
+    },
+    "ready_pose": {
+      "head": {
+        "yaw": 0.0,
+        "pitch": 0.0
+      },
+      "left_arm": {
+        "shoulder_pitch": 1.57,
+        "shoulder_roll": 0.2,
+        "elbow_yaw": -1.57,
+        "elbow_roll": -0.008,
+        "wrist_yaw": 0.0,
+        "hand": 0.0
+      },
+      "right_arm": {
+        "shoulder_pitch": 1.57,
+        "shoulder_roll": -0.2,
+        "elbow_yaw": 1.57,
+        "elbow_roll": 0.008,
+        "wrist_yaw": 0.0,
+        "hand": 0.0
+      },
+      "left_leg": {
+        "hip_yaw_pitch": 0.0138,
+        "hip_roll": 0.0,
+        "hip_pitch": -0.3,
+        "knee_pitch": 0.93,
+        "ankle_pitch": -0.6,
+        "ankle_roll": 0.0
+      },
+      "right_leg": {
+        "hip_yaw_pitch": 0.0138,
+        "hip_roll": 0.0,
+        "hip_pitch": -0.3,
+        "knee_pitch": 0.93,
+        "ankle_pitch": -0.6,
+        "ankle_roll": 0.0
+      }
+    },
+    "penalized_pose": {
+      "head": {
+        "yaw": 0.0,
+        "pitch": 0.0
+      },
+      "left_arm": {
+        "shoulder_pitch": 1.57,
+        "shoulder_roll": 0.0,
+        "elbow_yaw": -1.57,
+        "elbow_roll": 0.0,
+        "wrist_yaw": 0.0,
+        "hand": 0.0
+      },
+      "right_arm": {
+        "shoulder_pitch": 1.57,
+        "shoulder_roll": 0.0,
+        "elbow_yaw": 1.57,
+        "elbow_roll": 0.0,
+        "wrist_yaw": 0.0,
+        "hand": 0.0
+      },
+      "left_leg": {
+        "hip_yaw_pitch": 0.0,
+        "hip_roll": 0.0,
+        "hip_pitch": 0.0,
+        "knee_pitch": 0.0,
+        "ankle_pitch": 0.0,
+        "ankle_roll": 0.0
+      },
+      "right_leg": {
+        "hip_yaw_pitch": 0.0,
+        "hip_roll": 0.0,
+        "hip_pitch": 0.0,
+        "knee_pitch": 0.0,
+        "ankle_pitch": 0.0,
+        "ankle_roll": 0.0
+      }
+    },
+    "look_at": {
+      "maximum_yaw": 119.5,
+      "maximum_yaw_velocity": 50.0,
+      "maximum_pitch_velocity": 50.0,
+      "maximum_pitch_at_center": 28.0,
+      "maximum_pitch_at_shoulder": 11.5,
+      "yaw_threshold_for_pitch_limit": 90.0,
+      "bottom_focus_pitch_threshold": 0.0
+    },
+    "look_around": {
+      "maximum_yaw": 119.5,
+      "maximum_yaw_velocity": 120.0,
+      "maximum_pitch_velocity": 50.0,
+      "maximum_pitch_at_center": 28.0,
+      "maximum_pitch_at_shoulder": 11.5,
+      "yaw_threshold_for_pitch_limit": 90.0
+    },
+    "set_positions": {
+      "defender_front_set_position_goal_center_offset": [2.2, 0.0],
+      "defender_left_set_position_goal_center_offset": [1.8, 0.6],
+      "defender_right_set_position_goal_center_offset": [1.8, -0.6],
+      "keeper_set_position_goal_center_offset": [0.25, 0.0],
+      "striker_set_position": [-1.0, 0.0]
+    },
+    "behavior": {
+      "injected_motion_command": null
+    },
+    "game_state_filter": {
+      "max_wait_for_ready_message": 20.0
+    },
+    "high_detector": {
+      "total_pressure_threshold": 1.0
+    }
+  },
+  "player_number": 5,
+  "spl_network": {},
+  "vision_top": {
+    "ball_detection": {
+      "minimal_radius": 42.0,
+      "preclassifier_neural_network": "etc/neural_networks/preclassifier.hdf5",
+      "classifier_neural_network": "etc/neural_networks/classifier.hdf5",
+      "positioner_neural_network": "etc/neural_networks/positioner.hdf5",
+      "maximum_number_of_candidate_evaluations": 75,
+      "preclassifier_confidence_threshold": 0.9,
+      "classifier_confidence_threshold": 0.9,
+      "confidence_merge_factor": 1.0,
+      "correction_proximity_merge_factor": 1.0,
+      "image_containment_merge_factor": 1.0,
+      "cluster_merge_radius_factor": 1.5,
+      "ball_radius_enlargement_factor": 2.0
+    },
+    "camera_matrix_parameters": {
+      "extrinsic_rotations": [0, 0, 0],
+      "focal_lengths": [0.95, 1.27],
+      "cc_optical_center": [0.5, 0.5]
+    },
+    "image_receiver": {
+      "resolution": 42
+    },
+    "image_segmenter": {
+      "horizontal_edge_threshold": 16,
+      "vertical_edge_threshold": 16,
+      "use_vertical_median": true
+    },
+    "line_detection": {
+      "check_line_segments_projection": false,
+      "gradient_alignment": -0.95,
+      "maximum_distance_from_line": 3.0,
+      "maximum_gap_on_line": 30.0,
+      "maximum_projected_segment_length": 0.3,
+      "minimum_number_of_points_on_line": 5,
+      "maximum_number_of_lines": 10
+    },
+    "field_border_detection": {
+      "min_points_per_line": 10,
+      "angle_threshold": 0.35,
+      "first_line_association_distance": 2.0,
+      "second_line_association_distance": 2.0
+    },
+    "perspective_grid_candidates_provider": {
+      "minimum_radius": 3.0,
+      "fallback_radius": 42.0
+    }
+  },
+  "vision_bottom": {
+    "ball_detection": {
+      "minimal_radius": 42.0,
+      "preclassifier_neural_network": "etc/neural_networks/preclassifier.hdf5",
+      "classifier_neural_network": "etc/neural_networks/classifier.hdf5",
+      "positioner_neural_network": "etc/neural_networks/positioner.hdf5",
+      "maximum_number_of_candidate_evaluations": 75,
+      "preclassifier_confidence_threshold": 0.9,
+      "classifier_confidence_threshold": 0.9,
+      "confidence_merge_factor": 1.0,
+      "correction_proximity_merge_factor": 1.0,
+      "image_containment_merge_factor": 1.0,
+      "cluster_merge_radius_factor": 1.5,
+      "ball_radius_enlargement_factor": 2.0
+    },
+    "camera_matrix_parameters": {
+      "extrinsic_rotations": [0, 0, 0],
+      "focal_lengths": [0.95, 1.27],
+      "cc_optical_center": [0.5, 0.5]
+    },
+    "image_receiver": {
+      "resolution": 42
+    },
+    "image_segmenter": {
+      "horizontal_edge_threshold": 16,
+      "vertical_edge_threshold": 16,
+      "use_vertical_median": true
+    },
+    "line_detection": {
+      "check_line_segments_projection": false,
+      "gradient_alignment": -0.95,
+      "maximum_distance_from_line": 3.0,
+      "maximum_gap_on_line": 30.0,
+      "maximum_projected_segment_length": 0.3,
+      "minimum_number_of_points_on_line": 5,
+      "maximum_number_of_lines": 10
+    },
+    "field_border_detection": {
+      "min_points_per_line": 10,
+      "angle_threshold": 0.35,
+      "first_line_association_distance": 2.0,
+      "second_line_association_distance": 2.0
+    },
+    "perspective_grid_candidates_provider": {
+      "minimum_radius": 3.0,
+      "fallback_radius": 42.0
+    }
+  }
+}

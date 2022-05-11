@@ -1,6 +1,6 @@
 use std::{net::Ipv4Addr, path::PathBuf, str::FromStr};
 
-use anyhow::Context;
+use anyhow::{anyhow, bail, Context};
 use log::info;
 
 use crate::naossh;
@@ -36,7 +36,7 @@ impl FromStr for Command {
             "restart" => Ok(Command::Restart),
             "enable" => Ok(Command::Enable),
             "disable" => Ok(Command::Disable),
-            _ => Err(anyhow::anyhow!("cannot parse Command from str")),
+            _ => Err(anyhow!("cannot parse Command from str")),
         }
     }
 }
@@ -47,17 +47,16 @@ pub async fn hulk_service(
     project_root: PathBuf,
 ) -> anyhow::Result<String> {
     let command = command.to_service_call();
-    info!("Sending '{}' to {}", command, nao);
     let output = naossh::command(nao, command, &project_root)
         .await
         .with_context(|| format!("HULK service call '{}' on {} failed", command, nao))?;
     if output.exit_status != Some(0) {
-        anyhow::bail!(
+        bail!(
             "HULK service call on {} failed with {:?}",
             nao,
             output.exit_status
         )
     }
-    info!("Successful '{}' on {}", command, nao);
+    info!("{} successful on {}", command, nao);
     Ok(output.stdout)
 }

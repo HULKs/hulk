@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use pepsi::{
-    commands::wlan::{connect_wireless, disconnect_wireless, get_networks, get_wireless},
+    commands::wlan::{available_networks, connect_wireless, disconnect_wireless, show},
     logging::apply_stdout_logging,
     util::{block_on_tasks, spawn_task_per_element},
     NaoAddress,
@@ -12,12 +12,12 @@ use tokio::runtime::Runtime;
 #[derive(StructOpt)]
 pub enum Arguments {
     Show {
-        /// the naos to execute that command on
+        /// the NAOs to execute that command on
         #[structopt(required = true)]
         naos: Vec<NaoAddress>,
     },
-    GetNetworks {
-        /// the naos to execute that command on
+    AvailableNetworks {
+        /// the NAOs to execute that command on
         #[structopt(required = true)]
         naos: Vec<NaoAddress>,
     },
@@ -26,12 +26,12 @@ pub enum Arguments {
         ssid: String,
         /// the passphrase of the network
         passphrase: Option<String>,
-        /// the naos to execute that command on
+        /// the NAOs to execute that command on
         #[structopt(required = true)]
         naos: Vec<NaoAddress>,
     },
     Disconnect {
-        /// the naos to execute that command on
+        /// the NAOs to execute that command on
         #[structopt(required = true)]
         naos: Vec<NaoAddress>,
     },
@@ -46,17 +46,16 @@ pub fn wlan(
     apply_stdout_logging(is_verbose)?;
     match arguments {
         Arguments::Show { naos } => {
-            let tasks = spawn_task_per_element(&runtime, naos, |nao| {
-                get_wireless(nao.ip, project_root.clone())
-            });
+            let tasks =
+                spawn_task_per_element(&runtime, naos, |nao| show(nao.ip, project_root.clone()));
             let outputs = block_on_tasks(&runtime, tasks)?;
             for output in outputs {
                 println!("{}", output);
             }
         }
-        Arguments::GetNetworks { naos } => {
+        Arguments::AvailableNetworks { naos } => {
             let tasks = spawn_task_per_element(&runtime, naos, |nao| {
-                get_networks(nao.ip, project_root.clone())
+                available_networks(nao.ip, project_root.clone())
             });
             let outputs = block_on_tasks(&runtime, tasks)?;
             for output in outputs {

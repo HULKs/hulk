@@ -1,0 +1,18 @@
+version: "3"
+services:
+  instance:
+    container_name: hulks-github-runner-v2
+    image: hulks-github-runner-v2
+    build:
+      context: .
+      args:
+        - RUNNER_VERSION=2.290.1
+    restart: always
+    volumes:
+      - hulks-github-runner-v2:/ci/actions-runner
+    environment:
+      - CARGO_HOME=/ci/actions-runner/cargo
+      - CARGO_TARGET_DIR=/ci/actions-runner/target
+      - NAO_CARGO_HOME=/ci/actions-runner/nao_cargo_home
+volumes:
+  hulks-github-runner-v2:

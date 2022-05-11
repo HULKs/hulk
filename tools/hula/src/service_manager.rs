@@ -10,32 +10,33 @@ use crate::systemd1::{OrgFreedesktopDBusProperties, OrgFreedesktopSystemd1Manage
 
 #[derive(Debug, Serialize)]
 pub enum Service {
-    LOLA,
-    HAL,
-    HULK,
+    Hal,
+    Hula,
+    Hulk,
+    Lola,
 }
 
 #[derive(Copy, Clone, Debug, Serialize)]
 pub enum ActiveState {
-    Active,
-    Reloading,
-    Inactive,
-    Failed,
     Activating,
+    Active,
     Deactivating,
+    Failed,
+    Inactive,
     NotLoaded,
+    Reloading,
     Unknown,
 }
 
 impl From<String> for ActiveState {
     fn from(string: String) -> Self {
         match string.as_ref() {
-            "active" => ActiveState::Active,
-            "reloading" => ActiveState::Reloading,
-            "inactive" => ActiveState::Inactive,
-            "failed" => ActiveState::Failed,
             "activating" => ActiveState::Activating,
+            "active" => ActiveState::Active,
             "deactivating" => ActiveState::Deactivating,
+            "failed" => ActiveState::Failed,
+            "inactive" => ActiveState::Inactive,
+            "reloading" => ActiveState::Reloading,
             _ => ActiveState::Unknown,
         }
     }
@@ -43,17 +44,19 @@ impl From<String> for ActiveState {
 
 #[derive(Copy, Clone, Debug, Serialize)]
 pub struct SystemServices {
-    lola_state: ActiveState,
     hal_state: ActiveState,
+    hula_state: ActiveState,
     hulk_state: ActiveState,
+    lola_state: ActiveState,
 }
 
 impl SystemServices {
     pub fn query(manager: &ServiceManager) -> anyhow::Result<Self> {
         Ok(Self {
-            lola_state: manager.get_service_state(Service::LOLA)?,
-            hal_state: manager.get_service_state(Service::HAL)?,
-            hulk_state: manager.get_service_state(Service::HULK)?,
+            hal_state: manager.get_service_state(Service::Hal)?,
+            hula_state: manager.get_service_state(Service::Hula)?,
+            hulk_state: manager.get_service_state(Service::Hulk)?,
+            lola_state: manager.get_service_state(Service::Lola)?,
         })
     }
 }
@@ -79,9 +82,10 @@ impl<'a> ServiceManager {
 
     fn get_unit_path(&self, service: Service) -> Result<Path<'static>, dbus::Error> {
         let service_name = match service {
-            Service::LOLA => "lola.service",
-            Service::HAL => "hal.service",
-            Service::HULK => "hulk.service",
+            Service::Hal => "hal.service",
+            Service::Hula => "hula.service",
+            Service::Hulk => "hulk.service",
+            Service::Lola => "lola.service",
         };
         self.get_system_bus().get_unit(service_name)
     }

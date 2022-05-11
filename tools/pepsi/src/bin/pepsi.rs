@@ -2,10 +2,12 @@ use pepsi::util::get_project_root;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use subcommands::{
+    build::{self, build},
     connect::{self, connect},
     hulk::{self, hulk},
     logs::{self, logs},
     player_number::{self, player_number},
+    sdk::{self, sdk},
     shutdown::{self, shutdown},
     upload::{self, upload},
     wlan::{self, wlan},
@@ -20,19 +22,23 @@ fn construct_async_runtime() -> Runtime {
 
 #[derive(StructOpt)]
 enum SubCommand {
-    /// Connect to a nao via ssh
+    /// Build the code for a target
+    Build(build::Arguments),
+    /// Connect to a NAO via ssh
     Connect(connect::Arguments),
     /// Control the HULK service
     Hulk(hulk::Arguments),
-    /// Logging on the nao
+    /// Logging on the NAO
     Logs(logs::Arguments),
     /// Change player numbers of the naos in local configuration
-    Playernumber(player_number::Arguments),
-    /// Shutdown the nao
+    PlayerNumber(player_number::Arguments),
+    /// Manage the NAO SDK
+    Sdk(sdk::Arguments),
+    /// Shutdown the NAO
     Shutdown(shutdown::Arguments),
-    /// Upload hulk to naos
+    /// Upload hulk to NAOs
     Upload(upload::Arguments),
-    /// Control wireless network on the nao
+    /// Control wireless network on the NAO
     Wlan(wlan::Arguments),
     /// Dump shell completions and exit
     DumpCompletions {
@@ -64,6 +70,9 @@ fn main() -> Result<(), anyhow::Error> {
     };
 
     match arguments.command {
+        SubCommand::Build(sub_arguments) => {
+            build(sub_arguments, runtime, arguments.verbose, project_root)
+        }
         SubCommand::Connect(sub_arguments) => {
             connect(sub_arguments, arguments.verbose, project_root)
         }
@@ -73,8 +82,11 @@ fn main() -> Result<(), anyhow::Error> {
         SubCommand::Logs(sub_arguments) => {
             logs(sub_arguments, runtime, arguments.verbose, project_root)
         }
-        SubCommand::Playernumber(sub_arguments) => {
+        SubCommand::PlayerNumber(sub_arguments) => {
             player_number(sub_arguments, runtime, arguments.verbose, project_root)
+        }
+        SubCommand::Sdk(sub_arguments) => {
+            sdk(sub_arguments, runtime, arguments.verbose, project_root)
         }
         SubCommand::Shutdown(sub_arguments) => {
             shutdown(sub_arguments, runtime, arguments.verbose, project_root)

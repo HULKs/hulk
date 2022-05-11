@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use anyhow::anyhow;
 use serde_json::Value;
 use tokio::{fs::File, io::AsyncReadExt};
 
@@ -15,12 +16,12 @@ pub async fn head_name_from_id(head_id: &str, project_root: &Path) -> anyhow::Re
     };
     match id_map["idmap.nao"]
         .as_array()
-        .ok_or_else(|| anyhow::anyhow!("Expected array in id_map.json"))?
+        .ok_or_else(|| anyhow!("Expected array in id_map.json"))?
         .iter()
         .find(|entry| entry["headid"].as_str().unwrap() == head_id)
     {
         Some(entry) => Ok(entry["name"].as_str().unwrap().to_string()),
-        None => Err(anyhow::anyhow!("cannot find head_id in id_map.json")),
+        None => Err(anyhow!("cannot find head_id in id_map.json")),
     }
 }
 
@@ -36,11 +37,11 @@ pub async fn body_name_from_id(body_id: &str, project_root: &Path) -> anyhow::Re
     };
     match id_map["idmap.nao"]
         .as_array()
-        .ok_or_else(|| anyhow::anyhow!("Expected array in id_map.json"))?
+        .ok_or_else(|| anyhow!("Expected array in id_map.json"))?
         .iter()
         .find(|entry| entry["bodyid"].as_str().unwrap() == body_id)
     {
         Some(entry) => Ok(entry["name"].as_str().unwrap().to_string()),
-        None => Err(anyhow::anyhow!("cannot find body_id in id_map.json")),
+        None => Err(anyhow!("cannot find body_id in id_map.json")),
     }
 }

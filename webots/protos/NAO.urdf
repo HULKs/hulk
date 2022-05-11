@@ -123,6 +123,7 @@
   <link name="LFoot/FSR/FrontRight" />
   <link name="LFoot/FSR/RearLeft" />
   <link name="LFoot/FSR/RearRight" />
+  <link name="LFoot/Sole" />
   <link name="LHand/Touch/Back" />
   <link name="LHand/Touch/Left" />
   <link name="LHand/Touch/Right" />
@@ -295,6 +296,7 @@
   <link name="RFoot/FSR/FrontRight" />
   <link name="RFoot/FSR/RearLeft" />
   <link name="RFoot/FSR/RearRight" />
+  <link name="RFoot/Sole" />
   <link name="RHand/Touch/Back" />
   <link name="RHand/Touch/Left" />
   <link name="RHand/Touch/Right" />
@@ -1436,6 +1438,12 @@
     <parent link="LAnkleRoll_link" />
     <child link="LFoot/FSR/RearRight" />
   </joint>
+  <joint name="LFoot/Sole_fixedjoint" type="fixed">
+    <origin xyz="-0.04519 0.0 0.0" rpy="0 -1.5708 3.14159" />
+    <axis xyz="0 0 0" />
+    <parent link="LAnkleRoll_link" />
+    <child link="LFoot/Sole" />
+  </joint>
   <joint name="LHand" type="revolute">
     <origin xyz="0 -0.01231 0.05775" rpy="1.5708 -1.5708 -3.14159" />
     <axis xyz="1 0 0" />
@@ -1708,6 +1716,12 @@
     <axis xyz="0 0 0" />
     <parent link="RAnkleRoll_link" />
     <child link="RFoot/FSR/RearRight" />
+  </joint>
+  <joint name="RFoot/Sole_fixedjoint" type="fixed">
+    <origin xyz="-0.04519 0.0 0.0" rpy="0 -1.5708 3.14159" />
+    <axis xyz="0 0 0" />
+    <parent link="RAnkleRoll_link" />
+    <child link="RFoot/Sole" />
   </joint>
   <joint name="RHand" type="revolute">
     <origin xyz="0 -0.01231 0.05775" rpy="1.5708 -1.5708 -3.14159" />

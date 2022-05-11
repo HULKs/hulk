@@ -1,8 +1,0 @@
-{
-  "additionalObstacleOffset": 0.01,
-  "hybridAlignDistance": 0.8,
-  "ignoreRobotObstacleDistance": 1.0,
-  "maxObstacleDistance": 4,
-  "minPathEdgeLength": 0.05,
-  "obstacleInflation": 0.4
-}

@@ -1,0 +1,21 @@
+sample-covered-positives:
+  cmd: annotation-sampler --intersection-ratio-threshold 1 corrected-covered-positives.json
+    covered-positives.tfrecord
+  deps:
+  - path: corrected-covered-positives.json
+    md5: bb0e5a035e805e4c4899edded1813dce
+  - path: raw
+    md5: 1666599f7bbeb842df6e9deae8cc981d.dir
+  outs:
+  - path: covered-positives.tfrecord
+    md5: 37c36911aa78f6406eb5af3e12fe404e
+sample-full-positives:
+  cmd: annotation-sampler corrected-full-positives.json full-positives.tfrecord
+  deps:
+  - path: corrected-full-positives.json
+    md5: c27d11fc621d31344b148b48a776bca0
+  - path: raw
+    md5: 1666599f7bbeb842df6e9deae8cc981d.dir
+  outs:
+  - path: full-positives.tfrecord
+    md5: aec924814e86014f1f14978fee260cf6

@@ -1,12 +1,12 @@
 use std::{path::PathBuf, process::Command};
 
-use log::{error, info};
+use anyhow::{bail, Context};
 use pepsi::{logging::apply_stdout_logging, NaoAddress};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
 pub struct Arguments {
-    /// The nao to connect to
+    /// The NAO to connect to
     nao: NaoAddress,
 }
 
@@ -16,8 +16,7 @@ pub fn connect(
     project_root: PathBuf,
 ) -> anyhow::Result<()> {
     apply_stdout_logging(is_verbose)?;
-    info!("Connecting to {}", arguments.nao);
-    let mut process = Command::new("ssh")
+    let exit_status = Command::new("ssh")
         .arg("-oUserKnownHostsFile=/dev/null")
         .arg("-oStrictHostKeyChecking=no")
         .arg("-oLogLevel=quiet")
@@ -27,11 +26,10 @@ pub fn connect(
             project_root.join("scripts/ssh_key").to_str().unwrap()
         ))
         .arg(arguments.nao.to_string())
-        .spawn()
-        .expect("failed to spawn ssh process");
-    let exit_status = process.wait()?;
+        .status()
+        .context("Failed to spawn ssh process")?;
     if !exit_status.success() {
-        error!("ssh exited with {}", exit_status);
+        bail!("ssh exited with {}", exit_status);
     }
     Ok(())
 }

@@ -1,8 +1,0 @@
-{
-  "onlyRecordWhilePlaying" : true,
-  "subscribedKeys" : [
-    "Brain.ImageReceiver.bottom_image",
-    "Brain.ImageReceiver.top_image",
-    "Motion.SensorDataProvider.JointSensorData"
-  ]
-}

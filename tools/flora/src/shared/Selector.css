@@ -1,0 +1,64 @@
+.selector button {
+  white-space: nowrap;
+}
+
+.selector .modal {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.25);
+  z-index: 100;
+  top: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: auto min(100%, 640px) auto;
+  grid-template-rows: min-content auto;
+  width: 100vw;
+  height: 100vh;
+}
+
+.selector .modal.hidden {
+  display: none;
+}
+
+.selector .modal .inner {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  display: grid;
+  grid-template-columns: auto;
+  grid-template-rows: min-content auto;
+  background-color: white;
+  box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.35);
+  max-height: 100vh;
+}
+
+.selector .modal .inner input {
+  background-color: transparent;
+  border: 1px solid #ddd;
+  margin: 0.25rem;
+  padding: 0.25rem;
+  box-sizing: border-box;
+  width: calc(100% - 0.5rem);
+  font-family: monospace;
+  box-shadow: inset 0 0.1rem 0.2rem rgba(0, 0, 0, 0.125);
+}
+
+.selector .modal .inner .suggestions {
+  overflow-y: auto;
+}
+
+.selector .modal .inner .suggestions .suggestion {
+  padding: 0.25rem 0.5rem;
+  font-family: monospace;
+  cursor: pointer;
+}
+
+.selector .modal .inner .suggestions .suggestion.selected {
+  background-color: #ddd;
+}
+
+.selector .modal .inner .suggestions:hover .suggestion.selected {
+  background-color: inherit;
+}
+
+.selector .modal .inner .suggestions:hover .suggestion:hover {
+  background-color: #ddd;
+}

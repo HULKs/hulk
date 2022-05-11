@@ -44,7 +44,7 @@ impl Aliveness {
     ) -> Result<()> {
         info!("Starting beacon service");
         while !termination_request.is_requested() {
-            let system_services = SystemServices::query(&service_manager)
+            let system_services = SystemServices::query(service_manager)
                 .context("Failed to query system service states")?;
             let robot_configuration = robot_configuration
                 .lock()

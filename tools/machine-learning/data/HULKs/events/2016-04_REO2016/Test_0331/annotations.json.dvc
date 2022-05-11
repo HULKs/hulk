@@ -1,0 +1,3 @@
+outs:
+- md5: 5ca1a720e90092353375dbb6878d8c9d
+  path: annotations.json

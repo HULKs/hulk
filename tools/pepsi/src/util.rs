@@ -5,6 +5,7 @@ use std::{
     path::PathBuf,
 };
 
+use anyhow::bail;
 use futures::Future;
 use log::error;
 use tokio::{fs::read_dir, runtime::Runtime, task::JoinHandle};
@@ -37,7 +38,7 @@ where
         let result = runtime.block_on(task)?;
         match result {
             Ok(output) => outputs.push(output),
-            Err(e) => error!("{:#}", e),
+            Err(e) => error!("{:?}", e),
         }
     }
     Ok(outputs)
@@ -45,24 +46,17 @@ where
 
 pub fn number_to_ip(nao_number: NaoNumber, connection: Connection) -> anyhow::Result<Ipv4Addr> {
     if nao_number == 0 || nao_number > 254 {
-        anyhow::bail!("NAO number not in 8bit")
+        bail!("NAO number not in 8bit")
     }
     let subnet = match connection {
         Connection::Wireless => 0,
         Connection::Wired => 1,
     };
-    Ok(Ipv4Addr::new(10, subnet, YOUR_TEAM_NUMBER_HERE, nao_number))
+    Ok(Ipv4Addr::new(10, subnet, 24, nao_number))
 }
 
 pub fn number_to_headname(nao_number: NaoNumber) -> NaoName {
     format!("tuhhnao{}", nao_number)
-}
-
-pub fn number_from_nao_name(nao_name: &str) -> anyhow::Result<NaoNumber> {
-    match regex::Regex::new(r"\D*(\d*)").unwrap().captures(nao_name) {
-        Some(captures) => Ok(captures.get(1).unwrap().as_str().parse()?),
-        None => Err(anyhow::anyhow!("cannot match headname regex")),
-    }
 }
 
 pub fn is_wireless_interface(interface_name: &str) -> bool {

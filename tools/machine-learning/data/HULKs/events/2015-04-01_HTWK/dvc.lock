@@ -1,0 +1,10 @@
+sample-full-positives:
+  cmd: annotation-sampler --image-color-space RGB completed.json full-positives.tfrecord
+  deps:
+  - path: completed.json
+    md5: 5381a5a6ece53ee8ca97d12eedfe1724
+  - path: raw
+    md5: 1be71d963427d54597725f87d2974664.dir
+  outs:
+  - path: full-positives.tfrecord
+    md5: d0c97123a66c8c228cc4a170bd88976b

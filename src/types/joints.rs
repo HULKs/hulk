@@ -1,0 +1,347 @@
+use std::{
+    iter::Sum,
+    ops::{Add, Mul},
+};
+
+use approx::{AbsDiffEq, RelativeEq};
+use macros::SerializeHierarchy;
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct HeadJoints {
+    pub yaw: f32,
+    pub pitch: f32,
+}
+
+impl HeadJoints {
+    pub fn fill(value: f32) -> Self {
+        Self {
+            yaw: value,
+            pitch: value,
+        }
+    }
+}
+
+impl From<Joints> for HeadJoints {
+    fn from(joints: Joints) -> Self {
+        Self {
+            yaw: joints.head.yaw,
+            pitch: joints.head.pitch,
+        }
+    }
+}
+
+impl Mul<f32> for HeadJoints {
+    type Output = HeadJoints;
+
+    fn mul(self, scale_factor: f32) -> Self::Output {
+        Self::Output {
+            yaw: self.yaw * scale_factor,
+            pitch: self.pitch * scale_factor,
+        }
+    }
+}
+
+impl Add for HeadJoints {
+    type Output = HeadJoints;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            yaw: self.yaw + rhs.yaw,
+            pitch: self.pitch + rhs.pitch,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct ArmJoints {
+    pub shoulder_pitch: f32,
+    pub shoulder_roll: f32,
+    pub elbow_yaw: f32,
+    pub elbow_roll: f32,
+    pub wrist_yaw: f32,
+    pub hand: f32,
+}
+
+impl ArmJoints {
+    pub fn fill(value: f32) -> Self {
+        Self {
+            shoulder_pitch: value,
+            shoulder_roll: value,
+            elbow_yaw: value,
+            elbow_roll: value,
+            wrist_yaw: value,
+            hand: value,
+        }
+    }
+}
+
+impl Mul<f32> for ArmJoints {
+    type Output = ArmJoints;
+
+    fn mul(self, scale_factor: f32) -> Self::Output {
+        Self::Output {
+            shoulder_pitch: self.shoulder_pitch * scale_factor,
+            shoulder_roll: self.shoulder_roll * scale_factor,
+            elbow_yaw: self.elbow_yaw * scale_factor,
+            elbow_roll: self.elbow_roll * scale_factor,
+            wrist_yaw: self.wrist_yaw * scale_factor,
+            hand: self.hand * scale_factor,
+        }
+    }
+}
+
+impl Add for ArmJoints {
+    type Output = ArmJoints;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            shoulder_pitch: self.shoulder_pitch + rhs.shoulder_pitch,
+            shoulder_roll: self.shoulder_roll + rhs.shoulder_roll,
+            elbow_yaw: self.elbow_yaw + rhs.elbow_yaw,
+            elbow_roll: self.elbow_roll + rhs.elbow_roll,
+            wrist_yaw: self.wrist_yaw + rhs.wrist_yaw,
+            hand: self.hand + rhs.hand,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct LegJoints {
+    pub hip_yaw_pitch: f32,
+    pub hip_roll: f32,
+    pub hip_pitch: f32,
+    pub knee_pitch: f32,
+    pub ankle_pitch: f32,
+    pub ankle_roll: f32,
+}
+
+impl LegJoints {
+    pub fn fill(value: f32) -> Self {
+        Self {
+            hip_yaw_pitch: value,
+            hip_roll: value,
+            hip_pitch: value,
+            knee_pitch: value,
+            ankle_pitch: value,
+            ankle_roll: value,
+        }
+    }
+}
+
+impl Mul<f32> for LegJoints {
+    type Output = LegJoints;
+
+    fn mul(self, scale_factor: f32) -> Self::Output {
+        Self::Output {
+            hip_yaw_pitch: self.hip_yaw_pitch * scale_factor,
+            hip_roll: self.hip_roll * scale_factor,
+            hip_pitch: self.hip_pitch * scale_factor,
+            knee_pitch: self.knee_pitch * scale_factor,
+            ankle_pitch: self.ankle_pitch * scale_factor,
+            ankle_roll: self.ankle_roll * scale_factor,
+        }
+    }
+}
+
+impl Add for LegJoints {
+    type Output = LegJoints;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            hip_yaw_pitch: self.hip_yaw_pitch + rhs.hip_yaw_pitch,
+            hip_roll: self.hip_roll + rhs.hip_roll,
+            hip_pitch: self.hip_pitch + rhs.hip_pitch,
+            knee_pitch: self.knee_pitch + rhs.knee_pitch,
+            ankle_pitch: self.ankle_pitch + rhs.ankle_pitch,
+            ankle_roll: self.ankle_roll + rhs.ankle_roll,
+        }
+    }
+}
+impl AbsDiffEq for LegJoints {
+    type Epsilon = f32;
+
+    fn default_epsilon() -> f32 {
+        f32::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
+        f32::abs_diff_eq(&self.hip_yaw_pitch, &other.hip_yaw_pitch, epsilon)
+            && f32::abs_diff_eq(&self.hip_roll, &other.hip_roll, epsilon)
+            && f32::abs_diff_eq(&self.hip_pitch, &other.hip_pitch, epsilon)
+            && f32::abs_diff_eq(&self.knee_pitch, &other.knee_pitch, epsilon)
+            && f32::abs_diff_eq(&self.ankle_pitch, &other.ankle_pitch, epsilon)
+            && f32::abs_diff_eq(&self.ankle_roll, &other.ankle_roll, epsilon)
+    }
+}
+
+impl RelativeEq for LegJoints {
+    fn default_max_relative() -> f32 {
+        f32::default_max_relative()
+    }
+
+    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
+        f32::relative_eq(
+            &self.hip_yaw_pitch,
+            &other.hip_yaw_pitch,
+            epsilon,
+            max_relative,
+        ) && f32::relative_eq(&self.hip_roll, &other.hip_roll, epsilon, max_relative)
+            && f32::relative_eq(&self.hip_pitch, &other.hip_pitch, epsilon, max_relative)
+            && f32::relative_eq(&self.knee_pitch, &other.knee_pitch, epsilon, max_relative)
+            && f32::relative_eq(&self.ankle_pitch, &other.ankle_pitch, epsilon, max_relative)
+            && f32::relative_eq(&self.ankle_roll, &other.ankle_roll, epsilon, max_relative)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct BodyJoints {
+    pub left_arm: ArmJoints,
+    pub right_arm: ArmJoints,
+    pub left_leg: LegJoints,
+    pub right_leg: LegJoints,
+}
+
+impl BodyJoints {
+    pub fn fill(value: f32) -> Self {
+        Self {
+            left_arm: ArmJoints::fill(value),
+            right_arm: ArmJoints::fill(value),
+            left_leg: LegJoints::fill(value),
+            right_leg: LegJoints::fill(value),
+        }
+    }
+}
+
+impl From<Joints> for BodyJoints {
+    fn from(joints: Joints) -> Self {
+        Self {
+            left_arm: joints.left_arm,
+            right_arm: joints.right_arm,
+            left_leg: joints.left_leg,
+            right_leg: joints.right_leg,
+        }
+    }
+}
+
+impl Mul<f32> for BodyJoints {
+    type Output = BodyJoints;
+
+    fn mul(self, scale_factor: f32) -> Self::Output {
+        Self::Output {
+            left_arm: self.left_arm * scale_factor,
+            right_arm: self.right_arm * scale_factor,
+            left_leg: self.left_leg * scale_factor,
+            right_leg: self.right_leg * scale_factor,
+        }
+    }
+}
+
+impl Add for BodyJoints {
+    type Output = BodyJoints;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            left_arm: self.left_arm + rhs.left_arm,
+            right_arm: self.right_arm + rhs.right_arm,
+            left_leg: self.left_leg + rhs.left_leg,
+            right_leg: self.right_leg + rhs.right_leg,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct Joints {
+    pub head: HeadJoints,
+    pub left_arm: ArmJoints,
+    pub right_arm: ArmJoints,
+    pub left_leg: LegJoints,
+    pub right_leg: LegJoints,
+}
+
+impl Joints {
+    pub fn from_angles(angles: [f32; 26]) -> Self {
+        Self {
+            head: HeadJoints {
+                yaw: angles[0],
+                pitch: angles[1],
+            },
+            left_arm: ArmJoints {
+                shoulder_pitch: angles[2],
+                shoulder_roll: angles[3],
+                elbow_yaw: angles[4],
+                elbow_roll: angles[5],
+                wrist_yaw: angles[6],
+                hand: angles[7],
+            },
+            right_arm: ArmJoints {
+                shoulder_pitch: angles[14],
+                shoulder_roll: angles[15],
+                elbow_yaw: angles[16],
+                elbow_roll: angles[17],
+                wrist_yaw: angles[18],
+                hand: angles[19],
+            },
+            left_leg: LegJoints {
+                hip_yaw_pitch: angles[8],
+                hip_roll: angles[9],
+                hip_pitch: angles[10],
+                knee_pitch: angles[11],
+                ankle_pitch: angles[12],
+                ankle_roll: angles[13],
+            },
+            right_leg: LegJoints {
+                hip_yaw_pitch: angles[20],
+                hip_roll: angles[21],
+                hip_pitch: angles[22],
+                knee_pitch: angles[23],
+                ankle_pitch: angles[24],
+                ankle_roll: angles[25],
+            },
+        }
+    }
+
+    pub fn from_head_and_body(head: HeadJoints, body: BodyJoints) -> Self {
+        Self {
+            head,
+            left_arm: body.left_arm,
+            right_arm: body.right_arm,
+            left_leg: body.left_leg,
+            right_leg: body.right_leg,
+        }
+    }
+}
+
+impl Mul<f32> for Joints {
+    type Output = Joints;
+
+    fn mul(self, scale_factor: f32) -> Self::Output {
+        Self::Output {
+            head: self.head * scale_factor,
+            left_arm: self.left_arm * scale_factor,
+            right_arm: self.right_arm * scale_factor,
+            left_leg: self.left_leg * scale_factor,
+            right_leg: self.right_leg * scale_factor,
+        }
+    }
+}
+
+impl Add for Joints {
+    type Output = Joints;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            head: self.head + rhs.head,
+            left_arm: self.left_arm + rhs.left_arm,
+            right_arm: self.right_arm + rhs.right_arm,
+            left_leg: self.left_leg + rhs.left_leg,
+            right_leg: self.right_leg + rhs.right_leg,
+        }
+    }
+}
+
+impl Sum for Joints {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Joints::default(), |acc, x| acc + x)
+    }
+}

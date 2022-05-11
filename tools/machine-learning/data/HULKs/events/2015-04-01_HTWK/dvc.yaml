@@ -1,0 +1,8 @@
+stages:
+  sample-full-positives:
+    cmd: annotation-sampler --image-color-space RGB completed.json full-positives.tfrecord
+    deps:
+    - completed.json
+    - raw
+    outs:
+    - full-positives.tfrecord

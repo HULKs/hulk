@@ -1,0 +1,28 @@
+diff --git a/meta/recipes-devtools/cargo/cargo-cross-canadian.inc b/meta/recipes-devtools/cargo/cargo-cross-canadian.inc
+index 840793c50b..6494ae7ae4 100644
+--- a/meta/recipes-devtools/cargo/cargo-cross-canadian.inc
++++ b/meta/recipes-devtools/cargo/cargo-cross-canadian.inc
+@@ -53,7 +53,12 @@ do_install () {
+     mkdir "${ENV_SETUP_DIR}"
+     ENV_SETUP_SH="${ENV_SETUP_DIR}/cargo.sh"
+     cat <<- EOF > "${ENV_SETUP_SH}"
+-	export CARGO_HOME="\$OECORE_TARGET_SYSROOT/home/cargo"
++	if [ ! -z \${NAO_CARGO_HOME+x} ]; then
++		export CARGO_HOME="\$NAO_CARGO_HOME"
++	else
++		echo "\\\$NAO_CARGO_HOME is not set, assuming '\$OECORE_TARGET_SYSROOT/home/cargo'"
++		export CARGO_HOME="\$OECORE_TARGET_SYSROOT/home/cargo"
++	fi
+ 	mkdir -p "\$CARGO_HOME"
+         # Init the default target once, it might be otherwise user modified.
+ 	if [ ! -f "\$CARGO_HOME/config" ]; then
+@@ -66,6 +71,9 @@ do_install () {
+ 	export CARGO_HTTP_MULTIPLEXING=false
+ 
+ 	export CARGO_HTTP_CAINFO="\$OECORE_NATIVE_SYSROOT/etc/ssl/certs/ca-certificates.crt"
++	export CARGO_CUSTOM_BUILD_DYNAMIC_LINKER="\$OECORE_NATIVE_SYSROOT/lib/ld-linux-x86-64.so.2"
++	export LIBCLANG_PATH="\$OECORE_NATIVE_SYSROOT/usr/lib"
++	export BINDGEN_EXTRA_CLANG_ARGS_${@d.getVar('TARGET_SYS').replace('-', '_')}="--sysroot=\$OECORE_TARGET_SYSROOT"
+ 	EOF
+ }
+ 

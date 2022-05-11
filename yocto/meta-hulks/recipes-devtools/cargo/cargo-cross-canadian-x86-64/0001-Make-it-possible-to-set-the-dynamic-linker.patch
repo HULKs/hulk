@@ -1,0 +1,43 @@
+From 6f52ae44c5420bdcba385f903674a539f3190b64 Mon Sep 17 00:00:00 2001
+From: Nicolas Riebesel <nicolas.riebesel@gmx.com>
+Date: Tue, 19 Apr 2022 22:11:10 +0200
+Subject: [PATCH] Make it possible to set the dynamic linker
+
+---
+ .../src/cargo/core/compiler/custom_build.rs     | 14 ++++++++++++++++-
+ 1 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/src/cargo/core/compiler/custom_build.rs b/src/cargo/core/compiler/custom_build.rs
+index 8fa6cb8b1..86496dd5b 100644
+--- a/src/cargo/core/compiler/custom_build.rs
++++ b/src/cargo/core/compiler/custom_build.rs
+@@ -13,6 +13,7 @@ use std::collections::hash_map::{Entry, HashMap};
+ use std::collections::{BTreeSet, HashSet};
+ use std::path::{Path, PathBuf};
+ use std::str;
++use std::env;
+ use std::sync::{Arc, Mutex};
+
+ const CARGO_WARNING: &str = "cargo:warning=";
+@@ -175,6 +176,11 @@ fn build_work(cx: &mut Context<'_, '_>, unit: &Unit) -> CargoResult<Job> {
+     // Building the command to execute
+     let to_exec = script_dir.join(unit.target.name());
+
++    let (to_exec, arg) = match env::var("CARGO_CUSTOM_BUILD_DYNAMIC_LINKER") {
++        Ok(var) => (PathBuf::from(var), to_exec),
++        _ => (to_exec, PathBuf::from("")),
++    };
++
+     // Start preparing the process to execute, starting out with some
+     // environment variables. Note that the profile-related environment
+     // variables are not set with this the build script's profile but rather the
+@@ -185,7 +191,8 @@ fn build_work(cx: &mut Context<'_, '_>, unit: &Unit) -> CargoResult<Job> {
+     let to_exec = to_exec.into_os_string();
+     let mut cmd = cx.compilation.host_process(to_exec, &unit.pkg)?;
+     let debug = unit.profile.debuginfo.unwrap_or(0) != 0;
+-    cmd.env("OUT_DIR", &script_out_dir)
++    cmd.arg(arg.into_os_string())
++        .env("OUT_DIR", &script_out_dir)
+         .env("CARGO_MANIFEST_DIR", unit.pkg.root())
+         .env("NUM_JOBS", &bcx.jobs().to_string())
+         .env("TARGET", bcx.target_data.short_name(&unit.kind))
