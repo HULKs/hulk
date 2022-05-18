@@ -1,5 +1,4 @@
 use proc_macro_error::abort;
-use quote::format_ident;
 use syn::{
     parenthesized,
     parse::{Parse, ParseStream},
@@ -10,7 +9,7 @@ use syn::{
 pub struct InputAttribute {
     pub path: Vec<Ident>,
     pub data_type: TypePath,
-    pub cycler: Ident,
+    pub cycler: Option<Ident>,
     pub name: Ident,
 }
 
@@ -53,7 +52,6 @@ impl Parse for InputAttribute {
             path.unwrap_or_else(|| abort!(content.span(), "missing required `path` argument"));
         let data_type = data_type
             .unwrap_or_else(|| abort!(content.span(), "missing required `data_type` argument"));
-        let cycler = cycler.unwrap_or_else(|| format_ident!("this"));
         let name = identifier_name.unwrap_or_else(|| path.last().unwrap().clone());
         Ok(Self {
             path,

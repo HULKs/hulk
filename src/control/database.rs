@@ -10,7 +10,7 @@ use crate::types::{
     StandUpFrontPositions, StepPlan, SupportFoot, WalkCommand, WalkPositions, WorldState,
 };
 
-use super::modules::{PoseEstimation, WalkingEngine};
+use super::modules::{motion::walking_engine::WalkingEngine, pose_estimation::PoseEstimation};
 
 #[derive(Clone, Debug, Default, SerializeHierarchy)]
 pub struct MainOutputs {

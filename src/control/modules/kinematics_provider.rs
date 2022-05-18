@@ -25,8 +25,8 @@ pub struct KinematicsProvider;
 impl KinematicsProvider {}
 
 impl KinematicsProvider {
-    pub fn new() -> Self {
-        Self
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
     }
 
     fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {

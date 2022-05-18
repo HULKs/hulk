@@ -20,13 +20,13 @@ pub struct MotionSelector {
 impl MotionSelector {}
 
 impl MotionSelector {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             current_head_motion: HeadMotionType::Unstiff,
             current_body_motion: BodyMotionType::Unstiff,
             dispatching_head_motion: None,
             dispatching_body_motion: None,
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

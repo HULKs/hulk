@@ -20,7 +20,7 @@ pub struct StandUpFront {
 impl StandUpFront {}
 
 impl StandUpFront {
-    pub fn new() -> anyhow::Result<Self> {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {
             interpolator: MotionFile::from_path("etc/motions/stand_up_front.json")?.into(),
         })

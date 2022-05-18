@@ -3,7 +3,7 @@ use nalgebra::{Isometry2, UnitComplex};
 
 use crate::types::{Motion, MotionCommand, PlannedPath};
 
-pub struct PathPlanner {}
+pub struct PathPlanner;
 
 #[module(control)]
 #[input(path = motion_command, data_type = MotionCommand)]
@@ -13,8 +13,8 @@ pub struct PathPlanner {}
 impl PathPlanner {}
 
 impl PathPlanner {
-    pub fn new() -> Self {
-        Self {}
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

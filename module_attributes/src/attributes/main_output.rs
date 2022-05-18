@@ -5,7 +5,7 @@ use syn::{
     Ident, Token, TypePath,
 };
 
-use crate::module::to_snake_case;
+use crate::to_snake_case;
 
 #[derive(Debug)]
 pub struct MainOutputAttribute {

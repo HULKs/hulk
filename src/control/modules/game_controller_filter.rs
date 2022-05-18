@@ -18,11 +18,11 @@ pub struct GameControllerFilter {
 impl GameControllerFilter {}
 
 impl GameControllerFilter {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             game_controller_state: None,
             last_game_state_change: None,
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

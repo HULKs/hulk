@@ -6,7 +6,6 @@ use crate::types::{
     YCbCr444,
 };
 
-#[derive(Default)]
 pub struct ImageSegmenter;
 
 #[module(vision)]
@@ -19,6 +18,10 @@ pub struct ImageSegmenter;
 impl ImageSegmenter {}
 
 impl ImageSegmenter {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
+    }
+
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
         let field_color = require_some!(context.field_color);
 

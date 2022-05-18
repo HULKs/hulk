@@ -32,12 +32,12 @@ pub struct DispatchingBodyInterpolator {
 impl DispatchingBodyInterpolator {}
 
 impl DispatchingBodyInterpolator {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             interpolator: Default::default(),
             last_currently_active: false,
             last_dispatching_motion: BodyMotionType::Unstiff,
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {

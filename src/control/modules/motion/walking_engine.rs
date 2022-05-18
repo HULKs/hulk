@@ -125,11 +125,11 @@ pub struct WalkingEngine {
 impl WalkingEngine {}
 
 impl WalkingEngine {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             filtered_gyro_y: LowPassFilter::with_alpha(0.0, 0.1),
             ..Default::default()
-        }
+        })
     }
 
     fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {

@@ -4,7 +4,7 @@ use crate::types::{
     BodyMotionType, Motion, MotionCommand, MotionSelection, StepPlan, WalkAction, WalkCommand,
 };
 
-pub struct WalkManager {}
+pub struct WalkManager;
 
 #[module(control)]
 #[input(data_type = StepPlan, path = step_plan)]
@@ -14,8 +14,8 @@ pub struct WalkManager {}
 impl WalkManager {}
 
 impl WalkManager {
-    pub fn new() -> Self {
-        Self {}
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

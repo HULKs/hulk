@@ -3,11 +3,14 @@ use crate::data_type::{
     robot_projection::RobotProjection,
 };
 
-#[derive(Default)]
 pub struct RobotProjectionProvider;
 
 impl RobotProjectionProvider {
-    pub fn cycle(
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
+    }
+
+    fn cycle(
         &mut self,
         image_data: &ImageData,
         camera_matrix: &CameraMatrix,

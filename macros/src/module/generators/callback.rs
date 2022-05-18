@@ -1,7 +1,6 @@
+use module_attributes::ParameterAttribute;
 use proc_macro2::TokenStream;
 use quote::quote;
-
-use crate::module::attributes::ParameterAttribute;
 
 pub fn generate_change_callback_invokation(attribute: &ParameterAttribute) -> TokenStream {
     if let Some(change_callback_name) = &attribute.change_callback_name {

@@ -14,6 +14,7 @@ import {
   SelectablePanels,
   Parameter,
   Localization,
+  Behavior,
   AudioSpectrums,
   MotionDispatching,
 } from "../useSelectablePanels";
@@ -63,6 +64,10 @@ function highlightBallCandidates(parameters: BallCandidates): JSX.Element {
 
 function highlightLocalization(parameters: Localization): JSX.Element {
   return <>Localization</>;
+}
+
+function highlightBehavior(parameters: Behavior): JSX.Element {
+  return <>Behavior</>;
 }
 
 function highlightMotionDispatching(
@@ -139,6 +144,8 @@ export default function Selector({
           return highlightBallCandidates(item.obj.selectablePanel);
         case PanelType.Localization:
           return highlightLocalization(item.obj.selectablePanel);
+        case PanelType.Behavior:
+          return highlightBehavior(item.obj.selectablePanel);
         case PanelType.MotionDispatching:
           return highlightMotionDispatching(item.obj.selectablePanel);
         case PanelType.AudioSpectrums:

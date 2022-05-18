@@ -9,6 +9,10 @@ pub struct FieldColorDetection;
 impl FieldColorDetection {}
 
 impl FieldColorDetection {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
+    }
+
     fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
         Ok(MainOutputs {
             field_color: Some(FieldColor {

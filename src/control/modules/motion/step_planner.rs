@@ -2,7 +2,7 @@ use macros::{module, require_some};
 
 use crate::types::{MotionCommand, PlannedPath, SensorData, Side, Step, StepPlan, SupportFoot};
 
-pub struct StepPlanner {}
+pub struct StepPlanner;
 
 #[module(control)]
 #[input(path = sensor_data, data_type = SensorData)]
@@ -18,8 +18,8 @@ pub struct StepPlanner {}
 impl StepPlanner {}
 
 impl StepPlanner {
-    pub fn new() -> Self {
-        Self {}
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

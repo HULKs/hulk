@@ -12,6 +12,10 @@ pub struct SegmentFilter;
 impl SegmentFilter {}
 
 impl SegmentFilter {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
+    }
+
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
         let image_segments = require_some!(context.image_segments);
         let field_border = require_some!(context.field_border);

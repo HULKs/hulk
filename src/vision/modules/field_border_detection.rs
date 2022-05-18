@@ -8,7 +8,6 @@ use crate::{
     Ransac,
 };
 
-#[derive(Default)]
 pub struct FieldBorderDetection;
 
 #[module(vision)]
@@ -23,6 +22,10 @@ pub struct FieldBorderDetection;
 impl FieldBorderDetection {}
 
 impl FieldBorderDetection {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
+    }
+
     fn cycle(&mut self, mut context: CycleContext) -> anyhow::Result<MainOutputs> {
         let image_segments = require_some!(context.image_segments);
         let camera_matrix = require_some!(context.camera_matrix);

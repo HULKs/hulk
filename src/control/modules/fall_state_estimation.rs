@@ -25,13 +25,13 @@ pub struct FallStateEstimation {
 impl FallStateEstimation {}
 
 impl FallStateEstimation {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             fallen_time: SystemTime::UNIX_EPOCH,
             filtered_angle: Vector2::zeros(),
             filtered_angular_velocity: Vector3::zeros(),
             previous_fall_state: FallState::Upright,
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

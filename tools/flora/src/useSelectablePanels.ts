@@ -19,6 +19,7 @@ export enum PanelType {
   FieldBorder = "FieldBorder",
   BallCandidates = "BallCandidates",
   Localization = "Localization",
+  Behavior = "Behavior",
   AudioSpectrums = "AudioSpectrums",
   MotionDispatching = "MotionDispatching",
 }
@@ -65,6 +66,9 @@ export type BallCandidates = {
 export type Localization = {
   panelType: PanelType.Localization;
 };
+export type Behavior = {
+  panelType: PanelType.Behavior;
+};
 export type AudioSpectrums = {
   panelType: PanelType.AudioSpectrums;
 };
@@ -78,6 +82,7 @@ export type SelectablePanel =
   | Horizon
   | BallCandidates
   | Localization
+  | Behavior
   | AudioSpectrums
   | LineDetection
   | ProjectedFieldLines
@@ -240,6 +245,14 @@ function localization(): SelectablePanels {
   };
 }
 
+function behavior(): SelectablePanels {
+  return {
+    Behavior: {
+      panelType: PanelType.Behavior,
+    },
+  };
+}
+
 function motionDispatching(): SelectablePanels {
   return {
     MotionDispatching: {
@@ -272,6 +285,7 @@ export default function useSelectablePanels(
       ...fieldBorder(),
       ...ballCandidates(),
       ...localization(),
+      ...behavior(),
       ...audioSpectrums(),
       ...motionDispatching(),
     };

@@ -3,7 +3,7 @@ use std::{
     thread::{Builder, JoinHandle},
 };
 
-use anyhow::Result;
+use anyhow::Context;
 use log::error;
 use tokio_util::sync::CancellationToken;
 
@@ -19,15 +19,14 @@ use crate::{
     CommunicationChannelsForCyclerWithImage,
 };
 
-use super::{
-    database::MainOutputs,
-    image_receiver::receive_image,
-    modules::{
-        BallDetection, CameraMatrixProvider, FieldBorderDetection, FieldColorDetection,
-        ImageSegmenter, LineDetection, PerspectiveGridCandidatesProvider, SegmentFilter,
-    },
-    Database,
-};
+use super::{database::MainOutputs, image_receiver::receive_image, Database};
+
+include!(concat!(env!("OUT_DIR"), "/vision_cycler_modules_struct.rs"));
+
+include!(concat!(
+    env!("OUT_DIR"),
+    "/vision_cycler_modules_initializer.rs"
+));
 
 #[allow(dead_code)]
 pub struct Vision<Hardware>
@@ -41,14 +40,7 @@ where
     vision_producer: Producer<MainOutputs>,
     communication_channels: CommunicationChannelsForCyclerWithImage,
 
-    ball_detection: BallDetection,
-    field_border_detection: FieldBorderDetection,
-    field_color_detection: FieldColorDetection,
-    image_segmenter: ImageSegmenter,
-    line_detection: LineDetection,
-    perspective_grid_candidates_provider: PerspectiveGridCandidatesProvider,
-    projection: CameraMatrixProvider,
-    segment_filter: SegmentFilter,
+    modules: VisionModules,
 }
 
 impl<Hardware> Vision<Hardware>
@@ -64,6 +56,11 @@ where
         vision_producer: Producer<MainOutputs>,
         communication_channels: CommunicationChannelsForCyclerWithImage,
     ) -> anyhow::Result<Self> {
+        let configuration = communication_channels.configuration.next().clone();
+        let cycler_configuration = match instance {
+            CameraPosition::Top => &configuration.vision_top,
+            CameraPosition::Bottom => &configuration.vision_bottom,
+        };
         Ok(Self {
             instance,
             hardware_interface,
@@ -72,14 +69,8 @@ where
             vision_producer,
             communication_channels,
 
-            ball_detection: BallDetection::default(),
-            field_border_detection: FieldBorderDetection,
-            field_color_detection: FieldColorDetection,
-            image_segmenter: ImageSegmenter,
-            line_detection: LineDetection,
-            perspective_grid_candidates_provider: PerspectiveGridCandidatesProvider,
-            projection: CameraMatrixProvider,
-            segment_filter: SegmentFilter,
+            modules: VisionModules::new(&configuration, cycler_configuration)
+                .context("Failed to create vision modules")?,
         })
     }
 
@@ -104,7 +95,7 @@ where
             .expect("Failed to spawn thread")
     }
 
-    fn cycle(&mut self) -> Result<()> {
+    fn cycle(&mut self) -> anyhow::Result<()> {
         {
             let mut vision_database = self.vision_writer.next();
 
@@ -134,93 +125,7 @@ where
             }
 
             // process
-            self.projection.run_cycle(
-                &image,
-                self.instance,
-                &mut vision_database,
-                &control_database,
-                &configuration,
-                cycler_configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-            )?;
-
-            self.field_color_detection.run_cycle(
-                &image,
-                self.instance,
-                &mut vision_database,
-                &control_database,
-                &configuration,
-                cycler_configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-            )?;
-
-            self.image_segmenter.run_cycle(
-                &image,
-                self.instance,
-                &mut vision_database,
-                &control_database,
-                &configuration,
-                cycler_configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-            )?;
-
-            self.field_border_detection.run_cycle(
-                &image,
-                self.instance,
-                &mut vision_database,
-                &control_database,
-                &configuration,
-                cycler_configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-            )?;
-
-            self.segment_filter.run_cycle(
-                &image,
-                self.instance,
-                &mut vision_database,
-                &control_database,
-                &configuration,
-                cycler_configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-            )?;
-
-            self.line_detection.run_cycle(
-                &image,
-                self.instance,
-                &mut vision_database,
-                &control_database,
-                &configuration,
-                cycler_configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-            )?;
-
-            self.perspective_grid_candidates_provider.run_cycle(
-                &image,
-                self.instance,
-                &mut vision_database,
-                &control_database,
-                &configuration,
-                cycler_configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-            )?;
-
-            self.ball_detection.run_cycle(
-                &image,
-                self.instance,
-                &mut vision_database,
-                &control_database,
-                &configuration,
-                cycler_configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-            )?;
+            include!(concat!(env!("OUT_DIR"), "/vision_cycler_run_cycles.rs"));
 
             self.vision_producer
                 .finalize(vision_database.main_outputs.clone());

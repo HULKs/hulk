@@ -13,7 +13,6 @@ struct Row {
     center_y: f32,
 }
 
-#[derive(Default)]
 pub struct PerspectiveGridCandidatesProvider;
 
 #[module(vision)]
@@ -27,6 +26,10 @@ pub struct PerspectiveGridCandidatesProvider;
 impl PerspectiveGridCandidatesProvider {}
 
 impl PerspectiveGridCandidatesProvider {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
+    }
+
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
         let camera_matrix = require_some!(context.camera_matrix);
         let vertical_scanlines = &require_some!(context.filtered_segments)

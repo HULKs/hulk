@@ -16,10 +16,10 @@ pub struct PrimaryStateFilter {
 impl PrimaryStateFilter {}
 
 impl PrimaryStateFilter {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             last_primary_state: PrimaryState::Unstiff,
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

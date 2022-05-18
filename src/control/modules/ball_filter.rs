@@ -23,11 +23,11 @@ pub struct BallFilter {
 impl BallFilter {}
 
 impl BallFilter {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             ball_position: LowPassFilter::with_alpha(Vector2::zeros(), 0.8),
             last_seen: None,
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

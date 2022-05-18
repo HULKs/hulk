@@ -16,6 +16,7 @@ import ProjectedFieldLines from "./panels/ProjectedFieldLines";
 import FieldBorder from "./panels/FieldBorder";
 import BallCandidates from "./panels/BallCandidates";
 import Localization from "./panels/Localization";
+import Behavior from "./panels/Behavior";
 import { Cycler } from "./Connection/Connection";
 import Parameter from "./panels/Parameter";
 import AudioSpectrums from "./panels/AudioSpectrums";
@@ -148,6 +149,15 @@ export default function Application() {
   if (selectedPanel.panelType === PanelType.Localization) {
     return (
       <Localization
+        selector={selector}
+        connector={connector}
+        connection={connection}
+      />
+    );
+  }
+  if (selectedPanel.panelType === PanelType.Behavior) {
+    return (
+      <Behavior
         selector={selector}
         connector={connector}
         connection={connection}

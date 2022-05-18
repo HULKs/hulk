@@ -18,7 +18,7 @@ pub struct SitDown {
 impl SitDown {}
 
 impl SitDown {
-    pub fn new() -> anyhow::Result<Self> {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {
             interpolator: MotionFile::from_path("etc/motions/sit_down.json")?.into(),
         })

@@ -21,10 +21,10 @@ pub struct OrientationFilter {
 impl OrientationFilter {}
 
 impl OrientationFilter {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             orientation_filter: filtering::OrientationFilter::default(),
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {

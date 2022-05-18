@@ -1,13 +1,9 @@
+use module_attributes::{
+    AdditionalOutputAttribute, HistoricInputAttribute, InputAttribute, ModuleInformation,
+    ParameterAttribute, PerceptionInputAttribute, PersistentStateAttribute,
+};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-
-use crate::module::{
-    attributes::{
-        AdditionalOutputAttribute, HistoricInputAttribute, InputAttribute, ParameterAttribute,
-        PerceptionInputAttribute, PersistentStateAttribute,
-    },
-    module_information::ModuleInformation,
-};
 
 pub trait GenerateContextField {
     fn generate(&self) -> TokenStream;
@@ -100,7 +96,10 @@ impl GenerateContextInitializer for InputAttribute {
     fn generate(&self) -> TokenStream {
         let name = &self.name;
         let cycler = &self.cycler;
-        let cycler_database = format_ident!("{}_database", cycler);
+        let cycler_database = match cycler {
+            Some(cycler) => format_ident!("{}_database", cycler),
+            None => format_ident!("this_database"),
+        };
         let path = &self.path;
         quote! { #name: &#cycler_database.main_outputs.#(#path).* }
     }
@@ -186,13 +185,23 @@ where
     }
 }
 
-pub fn generate_context_initializers(cycle_method: &ModuleInformation) -> TokenStream {
-    let additional_outputs = GenerateContextInitializer::generate(&cycle_method.additional_outputs);
-    let inputs = GenerateContextInitializer::generate(&cycle_method.inputs);
-    let persistent_states = GenerateContextInitializer::generate(&cycle_method.persistent_states);
-    let parameters = GenerateContextInitializer::generate(&cycle_method.parameters);
-    let historic_inputs = GenerateContextInitializer::generate(&cycle_method.historic_inputs);
-    let perception_inputs = GenerateContextInitializer::generate(&cycle_method.perception_inputs);
+pub fn generate_new_context_initializers(module_information: &ModuleInformation) -> TokenStream {
+    let parameters = GenerateContextInitializer::generate(&module_information.parameters);
+    quote! {
+        #parameters
+    }
+}
+
+pub fn generate_cycle_context_initializers(module_information: &ModuleInformation) -> TokenStream {
+    let additional_outputs =
+        GenerateContextInitializer::generate(&module_information.additional_outputs);
+    let inputs = GenerateContextInitializer::generate(&module_information.inputs);
+    let persistent_states =
+        GenerateContextInitializer::generate(&module_information.persistent_states);
+    let parameters = GenerateContextInitializer::generate(&module_information.parameters);
+    let historic_inputs = GenerateContextInitializer::generate(&module_information.historic_inputs);
+    let perception_inputs =
+        GenerateContextInitializer::generate(&module_information.perception_inputs);
     quote! {
         #additional_outputs
         #inputs

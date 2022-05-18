@@ -2,7 +2,6 @@ use macros::{module, require_some};
 
 use crate::types::{CameraMatrices, CameraMatrix, CameraPosition};
 
-#[derive(Default)]
 pub struct CameraMatrixProvider;
 
 #[module(vision)]
@@ -11,6 +10,10 @@ pub struct CameraMatrixProvider;
 impl CameraMatrixProvider {}
 
 impl CameraMatrixProvider {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
+    }
+
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
         let camera_matrices = require_some!(context.camera_matrices);
         let camera_matrix = match context.camera_position {

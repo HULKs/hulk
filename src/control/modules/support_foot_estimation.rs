@@ -12,10 +12,10 @@ pub struct SupportFootEstimation {
 impl SupportFootEstimation {}
 
 impl SupportFootEstimation {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             last_support_side: Side::Left,
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

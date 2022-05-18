@@ -21,13 +21,13 @@ pub struct LedStatus {
 impl LedStatus {}
 
 impl LedStatus {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             blink_state: true,
             last_blink_toggle: UNIX_EPOCH,
             last_ball_data_top: UNIX_EPOCH,
             last_ball_data_bottom: UNIX_EPOCH,
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {

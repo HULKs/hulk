@@ -10,6 +10,7 @@ status = [
   "Build (Webots, Debug)",
   "Check (.)",
   "Check (macros)",
+  "Check (module_attributes)",
   "Check (spl_network)",
   "Check (tools/depp)",
   "Check (tools/fanta)",

@@ -4,11 +4,16 @@ use crate::data_type::{
     penalty_spot_data::PenaltySpotData,
 };
 
-#[derive(Default)]
 pub struct PenaltySpotDetection;
 
 impl PenaltySpotDetection {
-    pub fn cycle(
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
+            neural_networks: Default::default(),
+        })
+    }
+
+    fn cycle(
         &mut self,
         image_data: &ImageData,
         field_dimensions: &FieldDimensions,

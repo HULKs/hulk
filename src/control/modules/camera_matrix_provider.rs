@@ -9,7 +9,6 @@ use crate::{
     },
 };
 
-#[derive(Default)]
 pub struct CameraMatrixProvider;
 
 #[module(control)]
@@ -23,8 +22,8 @@ pub struct CameraMatrixProvider;
 impl CameraMatrixProvider {}
 
 impl CameraMatrixProvider {
-    pub fn new() -> Self {
-        Self
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
     }
 
     fn cycle(&mut self, mut context: CycleContext) -> anyhow::Result<MainOutputs> {

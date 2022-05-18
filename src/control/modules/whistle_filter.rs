@@ -20,12 +20,12 @@ pub struct WhistleFilter {
 impl WhistleFilter {}
 
 impl WhistleFilter {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             detection_buffer: Default::default(),
             was_detected_last_cycle: false,
             last_detection: None,
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {

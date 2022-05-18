@@ -11,7 +11,6 @@ use crate::types::{
 
 use crate::framework::configuration::{CameraMatrixParameters, LookAt as LookAtConfiguration};
 
-#[derive(Default)]
 pub struct LookAt {
     last_request: HeadJoints,
 }
@@ -29,10 +28,10 @@ pub struct LookAt {
 impl LookAt {}
 
 impl LookAt {
-    pub fn new() -> Self {
-        Self {
-            last_request: HeadJoints::default(),
-        }
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
+            last_request: Default::default(),
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

@@ -4,11 +4,14 @@ use crate::data_type::{
     robot_data::RobotData,
 };
 
-#[derive(Default)]
 pub struct RobotDetection;
 
 impl RobotDetection {
-    pub fn cycle(
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
+    }
+
+    fn cycle(
         &mut self,
         body_pose: &BodyPose,
         camera_matrix: &CameraMatrix,

@@ -26,7 +26,6 @@ struct BallCluster<'a> {
     members: Vec<&'a CandidateEvaluation>,
 }
 
-#[derive(Default)]
 pub struct BallDetection {
     neural_networks: Option<NeuralNetworks>,
 }
@@ -41,6 +40,12 @@ pub struct BallDetection {
 impl BallDetection {}
 
 impl BallDetection {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
+            neural_networks: Default::default(),
+        })
+    }
+
     fn cycle(&mut self, mut context: CycleContext) -> anyhow::Result<MainOutputs> {
         let candidates = &require_some!(context.perspective_grid_candidates).candidates;
         let camera_matrix = require_some!(context.camera_matrix);
@@ -494,7 +499,9 @@ mod tests {
             image: &image,
             perspective_grid_candidates: &Some(perspective_grid_candidates),
         };
-        let mut ball_detection_neural_net = BallDetection::default();
+        let mut ball_detection_neural_net = BallDetection {
+            neural_networks: Default::default(),
+        };
         let balls = ball_detection_neural_net
             .cycle(context)?
             .balls

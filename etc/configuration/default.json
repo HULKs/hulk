@@ -220,7 +220,7 @@
       "yaw_threshold_for_pitch_limit": 90.0
     },
     "set_positions": {
-      "defender_front_set_position_goal_center_offset": [2.2, 0.0],
+      "defender_front_set_position_goal_center_offset": [2.3, -1.1],
       "defender_left_set_position_goal_center_offset": [1.8, 0.6],
       "defender_right_set_position_goal_center_offset": [1.8, -0.6],
       "keeper_set_position_goal_center_offset": [0.25, 0.0],

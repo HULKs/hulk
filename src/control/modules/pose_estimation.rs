@@ -36,14 +36,14 @@ pub struct PoseEstimation {
 impl PoseEstimation {}
 
 impl PoseEstimation {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             hypotheses: vec![PoseFilter::new(
                 vector![-3.2, -3.0, PI / 2.0],
                 0.001 * SMatrix::<f32, 3, 3>::identity(),
                 10.0,
             )],
-        }
+        })
     }
 
     fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {

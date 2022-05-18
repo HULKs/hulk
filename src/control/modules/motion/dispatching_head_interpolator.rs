@@ -29,12 +29,12 @@ pub struct DispatchingHeadInterpolator {
 impl DispatchingHeadInterpolator {}
 
 impl DispatchingHeadInterpolator {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             interpolator: Default::default(),
             last_currently_active: false,
             last_dispatching_motion: HeadMotionType::Unstiff,
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {

@@ -1,8 +1,7 @@
+use module_attributes::{MainOutputAttribute, ModuleInformation};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Ident;
-
-use crate::module::{attributes::MainOutputAttribute, module_information::ModuleInformation};
 
 fn generate_main_outputs_field(attribute: &MainOutputAttribute) -> TokenStream {
     let name = &attribute.name;

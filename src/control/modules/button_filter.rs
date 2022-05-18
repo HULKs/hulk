@@ -15,10 +15,10 @@ pub struct ButtonFilter {
 impl ButtonFilter {}
 
 impl ButtonFilter {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             chest_button_tap_detector: TapDetector::new(),
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

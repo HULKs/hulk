@@ -17,11 +17,11 @@ pub struct Odometry {
 impl Odometry {}
 
 impl Odometry {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             last_left_sole_to_right_sole: Vector2::zeros(),
             last_orientation: UnitComplex::default(),
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {

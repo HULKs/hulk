@@ -32,8 +32,8 @@ pub struct JointCommandSender;
 impl JointCommandSender {}
 
 impl JointCommandSender {
-    pub fn new() -> Self {
-        Self
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

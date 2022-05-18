@@ -9,82 +9,41 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     audio,
-    framework::{
-        buffer::Writer, future_queue::Consumer, util::collect_changed_parameters,
-        HistoricDatabases, PerceptionDatabases,
-    },
+    framework::{buffer::Writer, future_queue::Consumer, util::collect_changed_parameters},
     hardware::HardwareInterface,
     spl_network, vision, CommunicationChannelsForCycler,
 };
 
-use super::{
-    database::PersistentState,
-    modules::{
-        BallFilter, Behavior, ButtonFilter, CameraMatrixProvider, CenterOfMassProvider,
-        DispatchingBodyInterpolator, DispatchingHeadInterpolator, FallProtection,
-        FallStateEstimation, GameControllerFilter, GameStateFilter, GroundContactDetector,
-        GroundProvider, JointCommandSender, KinematicsProvider, LedStatus, LookAround, LookAt,
-        MotionSelector, Odometry, OrientationFilter, PathPlanner, PoseEstimation,
-        PrimaryStateFilter, SitDown, SolePressureFilter, StandUpBack, StandUpFront, StepPlanner,
-        SupportFootEstimation, WalkManager, WalkingEngine, WhistleFilter, WorldStateComposer,
-        ZeroAnglesHead,
-    },
-    sensor_data_receiver::receive_sensor_data,
-    Database,
-};
+use super::{sensor_data_receiver::receive_sensor_data, Database};
+
+include!(concat!(
+    env!("OUT_DIR"),
+    "/control_cycler_modules_struct.rs"
+));
+
+include!(concat!(
+    env!("OUT_DIR"),
+    "/control_cycler_modules_initializer.rs"
+));
 
 pub struct Control<Hardware>
 where
-    Hardware: HardwareInterface + Sync + Send,
+    Hardware: crate::hardware::HardwareInterface + Sync + Send,
 {
-    hardware_interface: Arc<Hardware>,
-    control_writer: Writer<Database>,
-    spl_network_consumer: Consumer<spl_network::MainOutputs>,
-    vision_top_consumer: Consumer<vision::MainOutputs>,
-    vision_bottom_consumer: Consumer<vision::MainOutputs>,
-    audio_consumer: Consumer<audio::MainOutputs>,
-    communication_channels: CommunicationChannelsForCycler,
+    hardware_interface: std::sync::Arc<Hardware>,
+    control_writer: crate::framework::buffer::Writer<Database>,
+    spl_network_consumer: crate::framework::future_queue::Consumer<spl_network::MainOutputs>,
+    vision_top_consumer: crate::framework::future_queue::Consumer<vision::MainOutputs>,
+    vision_bottom_consumer: crate::framework::future_queue::Consumer<vision::MainOutputs>,
+    audio_consumer: crate::framework::future_queue::Consumer<audio::MainOutputs>,
+    communication_channels: crate::CommunicationChannelsForCycler,
 
-    historic_databases: HistoricDatabases,
-    perception_databases: PerceptionDatabases,
+    historic_databases: crate::framework::HistoricDatabases,
+    perception_databases: crate::framework::PerceptionDatabases,
 
-    persistent_state: PersistentState,
+    persistent_state: super::PersistentState,
 
-    ball_filter: BallFilter,
-    behavior: Behavior,
-    button_filter: ButtonFilter,
-    camera_matrix_provider: CameraMatrixProvider,
-    center_of_mass_provider: CenterOfMassProvider,
-    dispatching_body_interpolator: DispatchingBodyInterpolator,
-    dispatching_head_interpolator: DispatchingHeadInterpolator,
-    fall_state_estimation: FallStateEstimation,
-    game_controller_filter: GameControllerFilter,
-    game_state_filter: GameStateFilter,
-    ground_contact_detector: GroundContactDetector,
-    ground_provider: GroundProvider,
-    joint_command_sender: JointCommandSender,
-    kinematics_provider: KinematicsProvider,
-    led_status: LedStatus,
-    look_around: LookAround,
-    look_at: LookAt,
-    motion_dispatcher: MotionSelector,
-    odometry: Odometry,
-    orientation_filter: OrientationFilter,
-    path_planner: PathPlanner,
-    pose_estimation: PoseEstimation,
-    primary_state_filter: PrimaryStateFilter,
-    sit_down: SitDown,
-    sole_pressure_filter: SolePressureFilter,
-    stand_up_back: StandUpBack,
-    stand_up_front: StandUpFront,
-    step_planner: StepPlanner,
-    support_foot_estimation: SupportFootEstimation,
-    walk_manager: WalkManager,
-    walking_engine: WalkingEngine,
-    whistle_filter: WhistleFilter,
-    world_state_composer: WorldStateComposer,
-    zero_angles_head: ZeroAnglesHead,
-    fall_protection: FallProtection,
+    modules: ControlModules,
 }
 
 impl<Hardware> Control<Hardware>
@@ -101,6 +60,7 @@ where
         audio_consumer: Consumer<audio::MainOutputs>,
         communication_channels: CommunicationChannelsForCycler,
     ) -> anyhow::Result<Self> {
+        let configuration = communication_channels.configuration.next().clone();
         Ok(Self {
             hardware_interface,
             control_writer,
@@ -115,41 +75,8 @@ where
 
             persistent_state: Default::default(),
 
-            ball_filter: BallFilter::new(),
-            behavior: Behavior::new(),
-            button_filter: ButtonFilter::new(),
-            camera_matrix_provider: CameraMatrixProvider::new(),
-            center_of_mass_provider: CenterOfMassProvider::new(),
-            dispatching_body_interpolator: DispatchingBodyInterpolator::new(),
-            dispatching_head_interpolator: DispatchingHeadInterpolator::new(),
-            fall_state_estimation: FallStateEstimation::new(),
-            game_controller_filter: GameControllerFilter::new(),
-            game_state_filter: GameStateFilter::new(),
-            ground_contact_detector: GroundContactDetector::new(),
-            ground_provider: GroundProvider::new(),
-            joint_command_sender: JointCommandSender::new(),
-            kinematics_provider: KinematicsProvider::new(),
-            led_status: LedStatus::new(),
-            look_at: LookAt::new(),
-            look_around: LookAround::new(),
-            motion_dispatcher: MotionSelector::new(),
-            odometry: Odometry::new(),
-            orientation_filter: OrientationFilter::new(),
-            path_planner: PathPlanner::new(),
-            pose_estimation: PoseEstimation::new(),
-            primary_state_filter: PrimaryStateFilter::new(),
-            sit_down: SitDown::new()?,
-            sole_pressure_filter: SolePressureFilter::new(),
-            stand_up_back: StandUpBack::new()?,
-            stand_up_front: StandUpFront::new()?,
-            step_planner: StepPlanner::new(),
-            support_foot_estimation: SupportFootEstimation::new(),
-            walk_manager: WalkManager::new(),
-            walking_engine: WalkingEngine::new(),
-            whistle_filter: WhistleFilter::new(),
-            world_state_composer: WorldStateComposer::new(),
-            zero_angles_head: ZeroAnglesHead::new(),
-            fall_protection: FallProtection::new(),
+            modules: ControlModules::new(&configuration)
+                .context("Failed to create control modules")?,
         })
     }
 
@@ -208,390 +135,7 @@ where
                 collect_changed_parameters(&mut self.communication_channels.changed_parameters)?;
 
             // process
-            self.kinematics_provider.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.center_of_mass_provider.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.sole_pressure_filter.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.ground_contact_detector.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.support_foot_estimation.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.ground_provider.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.camera_matrix_provider.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.orientation_filter.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.odometry.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.button_filter.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.whistle_filter.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.game_controller_filter.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.game_state_filter.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.primary_state_filter.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.fall_state_estimation.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.pose_estimation.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.ball_filter.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.world_state_composer.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.behavior.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.path_planner.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.motion_dispatcher.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.stand_up_back.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.stand_up_front.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.sit_down.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.step_planner.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.walk_manager.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.walking_engine.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.zero_angles_head.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.look_at.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.look_around.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.fall_protection.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.dispatching_body_interpolator.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.dispatching_head_interpolator.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.joint_command_sender.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
-
-            self.led_status.run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &self.historic_databases,
-                &self.perception_databases,
-                &configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )?;
+            include!(concat!(env!("OUT_DIR"), "/control_cycler_run_cycles.rs"));
 
             let positions = match control_database.main_outputs.positions {
                 Some(joints) => joints,

@@ -13,8 +13,8 @@ pub struct ZeroAnglesHead;
 impl ZeroAnglesHead {}
 
 impl ZeroAnglesHead {
-    pub fn new() -> Self {
-        Self
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
     }
 
     fn cycle(&self, context: CycleContext) -> Result<MainOutputs> {

@@ -9,7 +9,6 @@ use crate::{
     Ransac, RansacResult,
 };
 
-#[derive(Default)]
 pub struct LineDetection;
 
 #[module(vision)]
@@ -27,6 +26,10 @@ pub struct LineDetection;
 impl LineDetection {}
 
 impl LineDetection {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
+    }
+
     fn cycle(&mut self, mut context: CycleContext) -> anyhow::Result<MainOutputs> {
         let camera_matrix = require_some!(context.camera_matrix);
         let filtered_segments = require_some!(context.filtered_segments);

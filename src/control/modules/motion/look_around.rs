@@ -21,7 +21,6 @@ impl Default for Mode {
     }
 }
 
-#[derive(Default)]
 pub struct LookAround {
     last_request: HeadJoints,
     mode: Mode,
@@ -38,8 +37,13 @@ pub struct LookAround {
 impl LookAround {}
 
 impl LookAround {
-    pub fn new() -> Self {
-        Default::default()
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
+            last_request: Default::default(),
+            mode: Default::default(),
+            yaw_limit: Default::default(),
+            waited_at_end: Default::default(),
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

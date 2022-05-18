@@ -46,11 +46,11 @@ pub struct WorldStateComposer {
 impl WorldStateComposer {}
 
 impl WorldStateComposer {
-    pub fn new() -> Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
         let (game_controller_return_message_sender, game_controller_return_message_receiver) =
             unbounded_channel();
         let (_spl_message_sender, spl_message_receiver) = unbounded_channel();
-        Self {
+        Ok(Self {
             last_transmitted_messages: None,
             game_controller_return_message_sender,
             game_controller_return_message_receiver: Arc::new(Mutex::new(
@@ -59,7 +59,7 @@ impl WorldStateComposer {
             _spl_message_sender,
             spl_message_receiver: Arc::new(Mutex::new(spl_message_receiver)),
             world_state: WorldState::new(),
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {

@@ -28,7 +28,7 @@ jobs:
     name: Check
     strategy:
       matrix:
-        path: [., macros, spl_network, tools/depp, tools/fanta, tools/hula, tools/pepsi, uvcvideo]
+        path: [., macros, module_attributes, spl_network, tools/depp, tools/fanta, tools/hula, tools/pepsi, uvcvideo]
     runs-on:
       - self-hosted
       - v2

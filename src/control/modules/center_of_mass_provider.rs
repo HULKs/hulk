@@ -3,7 +3,7 @@ use nalgebra::{Point, Point3};
 
 use crate::types::{RobotKinematics, RobotMass};
 
-pub struct CenterOfMassProvider {}
+pub struct CenterOfMassProvider;
 
 #[module(control)]
 #[input(path = robot_kinematics, data_type = RobotKinematics)]
@@ -11,8 +11,8 @@ pub struct CenterOfMassProvider {}
 impl CenterOfMassProvider {}
 
 impl CenterOfMassProvider {
-    pub fn new() -> Self {
-        Self {}
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self)
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

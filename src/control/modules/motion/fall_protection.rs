@@ -25,10 +25,10 @@ pub struct FallProtection {
 impl FallProtection {}
 
 impl FallProtection {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             start_time: SystemTime::now(),
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

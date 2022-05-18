@@ -16,11 +16,11 @@ pub struct SolePressureFilter {
 impl SolePressureFilter {}
 
 impl SolePressureFilter {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             left_sole_pressure: LowPassFilter::with_alpha(0.0, 0.8),
             right_sole_pressure: LowPassFilter::with_alpha(0.0, 0.8),
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {

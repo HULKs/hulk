@@ -20,10 +20,10 @@ pub struct GameStateFilter {
 impl GameStateFilter {}
 
 impl GameStateFilter {
-    pub fn new() -> Self {
-        Self {
+    fn new(_context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
             game_state: FilteredGameState::Initial,
-        }
+        })
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
