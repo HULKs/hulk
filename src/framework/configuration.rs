@@ -41,6 +41,7 @@ pub struct Control {
     pub fall_state_estimation: FallStateEstimation,
     pub game_state_filter: GameStateFilter,
     pub high_detector: HighDetector,
+    pub head_motion_limits: HeadMotionLimits,
     pub look_at: LookAt,
     pub look_around: LookAround,
     pub orientation_filter: OrientationFilter,
@@ -112,24 +113,26 @@ pub struct WalkingEngine {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct LookAt {
+pub struct HeadMotionLimits {
     pub maximum_yaw: f32,
-    pub maximum_yaw_velocity: f32,
-    pub maximum_pitch_velocity: f32,
     pub maximum_pitch_at_center: f32,
     pub maximum_pitch_at_shoulder: f32,
-    pub yaw_threshold_for_pitch_limit: f32,
+    pub shoulder_yaw_position: f32,
+    pub ear_shoulder_avoidance_width: f32,
+    pub ear_shoulder_avoidance_pitch_penalty: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct LookAt {
+    pub maximum_yaw_velocity: f32,
+    pub maximum_pitch_velocity: f32,
     pub bottom_focus_pitch_threshold: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct LookAround {
-    pub maximum_yaw: f32,
     pub maximum_yaw_velocity: f32,
     pub maximum_pitch_velocity: f32,
-    pub maximum_pitch_at_center: f32,
-    pub maximum_pitch_at_shoulder: f32,
-    pub yaw_threshold_for_pitch_limit: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

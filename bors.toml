@@ -4,6 +4,8 @@ status = [
   "Build (tools/flora)",
   "Build (tools/hula)",
   "Build (tools/pepsi)",
+  "Build (tools/sprite)",
+  "Build (behavior_simulator)",
   "Build (NAO, Release)",
   "Build (NAO, Debug)",
   "Build (Webots, Release)",

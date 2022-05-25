@@ -9,6 +9,7 @@ use pepsi::{
         upload::create_upload_directory,
     },
     logging::apply_stdout_logging,
+    naossh::fix_ssh_key_permissions,
     util::{block_on_tasks, spawn_task_per_element},
     NaoAddress,
 };
@@ -69,6 +70,8 @@ pub fn upload(
         arguments.no_configuration,
         project_root.clone(),
     ))?);
+
+    fix_ssh_key_permissions(project_root.clone())?;
 
     let tasks = spawn_task_per_element(&runtime, arguments.naos, |nao| {
         commands::upload::upload(

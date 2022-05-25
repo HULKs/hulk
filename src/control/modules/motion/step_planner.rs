@@ -1,6 +1,8 @@
 use macros::{module, require_some};
 
-use crate::types::{MotionCommand, PlannedPath, SensorData, Side, Step, StepPlan, SupportFoot};
+use crate::types::{
+    Motion, MotionCommand, PlannedPath, SensorData, Side, Step, StepPlan, SupportFoot,
+};
 
 pub struct StepPlanner;
 
@@ -27,7 +29,7 @@ impl StepPlanner {
         let support_side = require_some!(context.support_foot).support_side;
 
         let target_pose = match motion_command.motion {
-            crate::types::Motion::Walk { .. } => require_some!(context.planned_path).end_pose,
+            Motion::Walk { .. } => require_some!(context.planned_path).end_pose,
             _ => {
                 return Ok(MainOutputs {
                     step_plan: Some(StepPlan {

@@ -15,7 +15,7 @@ async fn create_symlink(
     installation_directory: PathBuf,
 ) -> anyhow::Result<()> {
     let symlink_path = sdk_directory.join("current");
-    if symlink_path.exists() {
+    if symlink_path.read_link().is_ok() {
         remove_file(&symlink_path)
             .await
             .context("Failed to remove current SDK symlink")?;

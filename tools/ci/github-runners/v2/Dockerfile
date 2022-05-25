@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
   libasound2-dev \
   libdbus-1-dev \
   libhdf5-dev \
+  libluajit-5.1-dev \
   ninja-build \
   python3 \
   python3-click \

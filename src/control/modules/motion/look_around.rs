@@ -6,7 +6,7 @@ use macros::{module, require_some};
 
 use crate::types::{HeadJoints, HeadMotionSafeExits, HeadMotionType, MotionSelection, SensorData};
 
-use crate::framework::configuration::LookAround as LookAroundConfiguration;
+use crate::framework::configuration::{HeadMotionLimits, LookAround as LookAroundConfiguration};
 
 #[derive(Debug)]
 pub enum Mode {
@@ -32,6 +32,7 @@ pub struct LookAround {
 #[input(path = motion_selection, data_type = MotionSelection)]
 #[input(path = sensor_data, data_type = SensorData)]
 #[parameter(path = control.look_around, data_type = LookAroundConfiguration)]
+#[parameter(path = control.head_motion_limits, data_type = HeadMotionLimits)]
 #[persistent_state(path = head_motion_safe_exits, data_type = HeadMotionSafeExits)]
 #[main_output(name = look_around, data_type = HeadJoints)]
 impl LookAround {}
@@ -50,6 +51,7 @@ impl LookAround {
         let motion_selection = require_some!(context.motion_selection);
         let sensor_data = require_some!(context.sensor_data);
         let current_head_angles = sensor_data.positions.head;
+        let head_motion_limits = context.head_motion_limits;
         let configuration = context.look_around;
 
         let default_output = Ok(MainOutputs {
@@ -67,9 +69,9 @@ impl LookAround {
             * sensor_data.cycle_info.last_cycle_duration.as_secs_f32();
 
         self.yaw_limit = match motion_selection.dispatching_head_motion {
-            Some(HeadMotionType::LookAround) => configuration.maximum_yaw.to_radians(),
+            Some(HeadMotionType::LookAround) => head_motion_limits.maximum_yaw.to_radians(),
             Some(_) => 0.0,
-            _ => configuration.maximum_yaw.to_radians(),
+            _ => head_motion_limits.maximum_yaw.to_radians(),
         };
         let yaw = match self.mode {
             Mode::Idle => {
@@ -109,31 +111,12 @@ impl LookAround {
             ),
         };
         let request = self.last_request + movement_request;
-
-        let interpolation_factor = 0.5 * ((request.yaw * 2.0).cos() + 1.0);
-        let upper_pitch_limit = if request.yaw.abs()
-            > configuration.yaw_threshold_for_pitch_limit.to_radians()
-        {
-            configuration.maximum_pitch_at_shoulder.to_radians()
-        } else {
-            (configuration.maximum_pitch_at_shoulder
-                + (configuration.maximum_pitch_at_center - configuration.maximum_pitch_at_shoulder)
-                    * interpolation_factor)
-                .to_radians()
-        };
-
-        let clamped_request = HeadJoints {
-            yaw: request
-                .yaw
-                .clamp(-configuration.maximum_yaw, configuration.maximum_yaw),
-            pitch: request.pitch.clamp(f32::NEG_INFINITY, upper_pitch_limit),
-        };
-        self.last_request = clamped_request;
+        self.last_request = request;
 
         context.head_motion_safe_exits[HeadMotionType::LookAround] = true;
 
         Ok(MainOutputs {
-            look_around: Some(clamped_request),
+            look_around: Some(request),
         })
     }
 }

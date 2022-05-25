@@ -4,8 +4,12 @@ use anyhow::anyhow;
 use serde_json::Value;
 use tokio::{fs::File, io::AsyncReadExt};
 
-pub async fn head_name_from_id(head_id: &str, project_root: &Path) -> anyhow::Result<String> {
+pub async fn head_name_from_id<P>(head_id: &str, project_root: P) -> anyhow::Result<String>
+where
+    P: AsRef<Path>,
+{
     let id_map_json = project_root
+        .as_ref()
         .join("etc/configuration/location/default/")
         .join("id_map.json");
     let id_map: Value = {
@@ -25,8 +29,12 @@ pub async fn head_name_from_id(head_id: &str, project_root: &Path) -> anyhow::Re
     }
 }
 
-pub async fn body_name_from_id(body_id: &str, project_root: &Path) -> anyhow::Result<String> {
+pub async fn body_name_from_id<P>(body_id: &str, project_root: P) -> anyhow::Result<String>
+where
+    P: AsRef<Path>,
+{
     let id_map_json = project_root
+        .as_ref()
         .join("etc/configuration/location/default/")
         .join("id_map.json");
     let id_map: Value = {

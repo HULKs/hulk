@@ -1,0 +1,56 @@
+html, body {
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: green;
+  font-family: monospace;
+  color: white;
+}
+
+.Application {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: auto 330px;
+  grid-template-rows: auto min-content;
+}
+
+.Application svg {
+  display: block;
+  grid-column: 1 / 2;
+  grid-row: 1 / 2;
+  box-sizing: border-box;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.Application .output {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  margin: 0.5rem;
+}
+
+.Application .output div {
+  padding-left: 2rem;
+  text-indent: -2rem;
+}
+
+.Application .time {
+  grid-column: 1 / 3;
+  grid-row: 2 / 3;
+  margin: 0.5rem;
+  display: grid;
+  grid-template-columns: auto repeat(7, min-content);
+  grid-template-rows: min-content;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.Application .time .frameLabel {
+  white-space: nowrap;
+}
+
+.Application .time .timeLabel {
+  white-space: nowrap;
+}

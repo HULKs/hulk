@@ -1,5 +1,6 @@
 use macros::SerializeHierarchy;
 use nalgebra::{Isometry2, Isometry3, Point3, UnitComplex};
+use serde::Serialize;
 
 use crate::types::{
     BallPosition, BodyMotionSafeExits, Buttons, CameraMatrices, DispatchingBodyPositions,
@@ -12,7 +13,7 @@ use crate::types::{
 
 use super::modules::{motion::walking_engine::WalkingEngine, pose_estimation::PoseEstimation};
 
-#[derive(Clone, Debug, Default, SerializeHierarchy)]
+#[derive(Clone, Debug, Default, Serialize, SerializeHierarchy)]
 pub struct MainOutputs {
     pub fall_protection: Option<FallProtection>,
     pub ball_position: Option<BallPosition>,
@@ -29,11 +30,11 @@ pub struct MainOutputs {
     pub filtered_game_state: Option<FilteredGameState>,
     #[leaf]
     pub game_controller_state: Option<GameControllerState>,
-
     pub ground_to_robot: Option<Isometry3<f32>>,
     pub has_ground_contact: Option<bool>,
     pub positions: Option<Joints>,
     #[dont_serialize]
+    #[serde(skip)]
     pub message_receivers: Option<MessageReceivers>,
     pub motion_command: Option<MotionCommand>,
     pub motion_selection: Option<MotionSelection>,
@@ -63,14 +64,14 @@ pub struct MainOutputs {
     pub zero_angles_head: Option<HeadJoints>,
 }
 
-#[derive(Clone, Debug, Default, SerializeHierarchy)]
+#[derive(Clone, Debug, Default, Serialize, SerializeHierarchy)]
 pub struct AdditionalOutputs {
     pub walking_engine: Option<WalkingEngine>,
     pub pose_estimation: Option<PoseEstimation>,
     pub projected_field_lines: Option<ProjectedFieldLines>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct Database {
     pub main_outputs: MainOutputs,
     pub additional_outputs: AdditionalOutputs,

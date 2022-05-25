@@ -49,6 +49,7 @@ pub async fn upload(
     hulk_service(nao, hulk::Command::Stop, project_root.clone())
         .await
         .context("Failed to stop HULKs service")?;
+
     let mut command = Command::new("rsync");
     command.args([
         "--times",

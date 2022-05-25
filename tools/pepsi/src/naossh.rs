@@ -1,11 +1,13 @@
 use std::{
+    fs::set_permissions,
     net::{Ipv4Addr, SocketAddrV4},
+    os::unix::prelude::PermissionsExt,
     path::Path,
     sync::Arc,
 };
 
 use anyhow::Context;
-use log::debug;
+use log::{debug, info};
 use thrussh::client;
 use thrussh_keys::*;
 
@@ -52,15 +54,18 @@ impl client::Handler for Client {
     }
 }
 
-async fn create_session(
+async fn create_session<P>(
     nao: Ipv4Addr,
-    project_root: &Path,
+    project_root: P,
     client_handler: Client,
-) -> anyhow::Result<client::Handle<Client>> {
+) -> anyhow::Result<client::Handle<Client>>
+where
+    P: AsRef<Path>,
+{
     debug!("naossh connecting to {}", nao);
     let config = Arc::new(thrussh::client::Config::default());
-    let privkey_path = project_root.join("scripts/ssh_key");
-    let key = Arc::new(thrussh_keys::load_secret_key(privkey_path, None)?);
+    let ssh_key = project_root.as_ref().join("scripts/ssh_key");
+    let key = Arc::new(thrussh_keys::load_secret_key(ssh_key, None)?);
     let mut session =
         thrussh::client::connect(config, SocketAddrV4::new(nao, 22), client_handler).await?;
     if session.authenticate_publickey("nao", key).await? {
@@ -70,7 +75,10 @@ async fn create_session(
     }
 }
 
-pub async fn command(nao: Ipv4Addr, command: &str, project_root: &Path) -> anyhow::Result<Output> {
+pub async fn command<P>(nao: Ipv4Addr, command: &str, project_root: P) -> anyhow::Result<Output>
+where
+    P: AsRef<Path>,
+{
     let mut session = create_session(nao, project_root, Client {})
         .await
         .with_context(|| format!("Failed to create ssh session for {}", nao))?;
@@ -105,4 +113,23 @@ pub async fn command(nao: Ipv4Addr, command: &str, project_root: &Path) -> anyho
         stderr: String::from_utf8(stderr)?,
         exit_status,
     })
+}
+
+pub fn fix_ssh_key_permissions<P>(project_root: P) -> anyhow::Result<()>
+where
+    P: AsRef<Path>,
+{
+    let ssh_key = project_root.as_ref().join("scripts/ssh_key");
+    let metadata = ssh_key
+        .metadata()
+        .context("Failed to get metadata of SSH key")?;
+    let mut permissions = metadata.permissions();
+    let read_write_for_owner_only = 0o600;
+    if permissions.mode() != read_write_for_owner_only {
+        permissions.set_mode(read_write_for_owner_only);
+        info!("Changed SSH key permissions to {:o}", permissions.mode());
+        set_permissions(ssh_key, permissions).context("Failed to set permissions on SSH key")?;
+    }
+
+    Ok(())
 }

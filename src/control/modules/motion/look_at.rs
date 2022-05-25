@@ -108,30 +108,12 @@ impl LookAt {
         };
         let request = self.last_request + movement_request;
 
-        let interpolation_factor = 0.5 * ((request.yaw * 2.0).cos() + 1.0);
-        let upper_pitch_limit = if request.yaw.abs()
-            > configuration.yaw_threshold_for_pitch_limit.to_radians()
-        {
-            configuration.maximum_pitch_at_shoulder.to_radians()
-        } else {
-            (configuration.maximum_pitch_at_shoulder
-                + (configuration.maximum_pitch_at_center - configuration.maximum_pitch_at_shoulder)
-                    * interpolation_factor)
-                .to_radians()
-        };
-
-        let clamped_request = HeadJoints {
-            yaw: request
-                .yaw
-                .clamp(-configuration.maximum_yaw, configuration.maximum_yaw),
-            pitch: request.pitch.clamp(f32::NEG_INFINITY, upper_pitch_limit),
-        };
-        self.last_request = clamped_request;
+        self.last_request = request;
 
         context.head_motion_safe_exits[HeadMotionType::LookAt] = true;
 
         Ok(MainOutputs {
-            look_at: Some(clamped_request),
+            look_at: Some(request),
         })
     }
 }

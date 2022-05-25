@@ -1,5 +1,8 @@
+use std::f32::consts::PI;
+
 use macros::{module, require_some};
 
+use crate::framework::configuration::HeadMotionLimits;
 use crate::types::{
     BodyMotionType, DispatchingHeadPositions, FallProtection, HeadMotionType, SensorData,
     SitDownPositions, StandUpBackPositions, StandUpFrontPositions,
@@ -27,6 +30,7 @@ pub struct JointCommandSender;
 #[parameter(path = control.penalized_pose, data_type = Joints)]
 #[parameter(path = control.ready_pose, data_type = Joints)]
 #[parameter(path = control.center_head_position, data_type = HeadJoints)]
+#[parameter(path = control.head_motion_limits, data_type = HeadMotionLimits)]
 #[main_output(name = positions, data_type = Joints)]
 #[main_output(name = stiffnesses, data_type = Joints)]
 impl JointCommandSender {}
@@ -53,19 +57,63 @@ impl JointCommandSender {
         let zero_angles_head = require_some!(context.zero_angles_head);
         let fall_protection_head_position = require_some!(context.fall_protection).head_position;
         let fall_protection_head_stiffness = require_some!(context.fall_protection).head_stiffness;
+        let head_motion_limits = context.head_motion_limits;
 
-        let (head_positions, head_stiffnesses) = match motion_selection.current_head_motion {
-            HeadMotionType::Center => (*context.center_head_position, HeadJoints::fill(0.8)),
+        let (mut head_positions, head_stiffnesses, clamp_head_angles) = match motion_selection
+            .current_head_motion
+        {
+            HeadMotionType::Center => (*context.center_head_position, HeadJoints::fill(0.8), true),
             HeadMotionType::FallProtection => (
                 fall_protection_head_position,
                 HeadJoints::fill(fall_protection_head_stiffness),
+                true, // TODO: Do we want to clamp the angles here?
             ),
-            HeadMotionType::Dispatching => (dispatching_head_positions, HeadJoints::fill(0.8)),
-            HeadMotionType::LookAround => (*look_around, HeadJoints::fill(0.8)),
-            HeadMotionType::LookAt => (*look_at, HeadJoints::fill(0.8)),
-            HeadMotionType::Unstiff => (current_positions.into(), HeadJoints::fill(0.0)),
-            HeadMotionType::ZeroAngles => (*zero_angles_head, HeadJoints::fill(0.8)),
+            HeadMotionType::Dispatching => {
+                (dispatching_head_positions, HeadJoints::fill(0.8), true)
+            }
+            HeadMotionType::LookAround => (*look_around, HeadJoints::fill(0.8), true),
+            HeadMotionType::LookAt => (*look_at, HeadJoints::fill(0.8), true),
+            HeadMotionType::Unstiff => (current_positions.into(), HeadJoints::fill(0.0), false),
+            HeadMotionType::ZeroAngles => (*zero_angles_head, HeadJoints::fill(0.8), true),
         };
+
+        if clamp_head_angles {
+            let pitch_at_center = head_motion_limits.maximum_pitch_at_center.to_radians();
+            let pitch_at_shoulder = head_motion_limits.maximum_pitch_at_shoulder.to_radians();
+            let pitch_difference = pitch_at_center - pitch_at_shoulder;
+
+            let ear_distance_to_shoulder = (head_positions.yaw.abs()
+                - head_motion_limits.shoulder_yaw_position.to_radians())
+            .abs();
+
+            let shoulder_avoidance_intensity = if head_positions.yaw.abs() < PI / 2.0 {
+                (head_positions.yaw * 2.0).cos() / 2.0 + 0.5
+            } else {
+                0.0
+            };
+
+            let ear_avoidance_width = head_motion_limits.ear_shoulder_avoidance_width.to_radians();
+            let ear_avoidance_penalty = if ear_distance_to_shoulder < ear_avoidance_width {
+                let cosine_argument = ear_distance_to_shoulder / ear_avoidance_width * PI;
+                head_motion_limits
+                    .ear_shoulder_avoidance_pitch_penalty
+                    .to_radians()
+                    * (cosine_argument.cos() / 2.0 + 0.5)
+            } else {
+                0.0
+            };
+
+            let maximum_pitch = pitch_at_shoulder + shoulder_avoidance_intensity * pitch_difference
+                - ear_avoidance_penalty;
+
+            head_positions = HeadJoints {
+                yaw: head_positions.yaw.clamp(
+                    -head_motion_limits.maximum_yaw.to_radians(),
+                    head_motion_limits.maximum_yaw.to_radians(),
+                ),
+                pitch: head_positions.pitch.min(maximum_pitch),
+            };
+        }
 
         let (body_positions, body_stiffnesses) = match motion_selection.current_body_motion {
             BodyMotionType::Dispatching => (dispatching_body_positions, BodyJoints::fill(0.8)),

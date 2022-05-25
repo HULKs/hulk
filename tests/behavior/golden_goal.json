@@ -1,0 +1,70 @@
+{
+  "time_step": { "nanos": 100000000, "secs": 0 },
+  "robot_ball_bounce_radius": 0.15,
+  "ball_velocity_decay_factor": 0.9,
+  "maximum_walk_angle_per_second": 0.785398163,
+  "maximum_walk_translation_distance_per_second": 0.3,
+  "robot_ids": [
+    "simulated_behavior_1",
+    "simulated_behavior_2",
+    "simulated_behavior_3",
+    "simulated_behavior_4",
+    "simulated_behavior_5"
+  ],
+  "rules": [
+    {
+      "event": "frame_index >= 100",
+      "action": "StopSimulation"
+    },
+    {
+      "event": "frame_index == 3",
+      "action": {
+        "SetRobotToField": {
+          "robot_index": 0,
+          "robot_to_field": {
+            "rotation": [1.0, 0.0],
+            "translation": [-0.5, 1.0]
+          }
+        }
+      }
+    },
+    {
+      "event": "frame_index == 3",
+      "action": {
+        "SetPenalized": {
+          "robot_index": 0,
+          "is_penalized": true
+        }
+      }
+    },
+    {
+      "event": "frame_index == 5",
+      "action": {
+        "SetGameState": {
+          "game_state": "Playing"
+        }
+      }
+    },
+    {
+      "event": "frame_index == 10",
+      "action": {
+        "SetPenalized": {
+          "robot_index": 0,
+          "is_penalized": false
+        }
+      }
+    },
+    {
+      "event": "frame_index == 3",
+      "action": {
+        "SetRobotToField": {
+          "robot_index": 2,
+          "robot_to_field": {
+            "rotation": [1.0, 0.0],
+            "translation": [-0.5, 0.0]
+          }
+        }
+      }
+    }
+  ]
+}

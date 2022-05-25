@@ -66,6 +66,7 @@ pub fn from_game_state(game_state: &GameState, changed_time: SystemTime) -> Filt
         GameState::Finished => FilteredGameState::Finished,
     }
 }
+
 fn next_game_state(
     previous_game_state: FilteredGameState,
     whistle_started_this_cycle: bool,

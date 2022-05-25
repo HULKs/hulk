@@ -569,7 +569,7 @@ fn generate_field_lines(field_dimensions: &FieldDimensions) -> Vec<(LineType, Li
     lines
 }
 
-fn generate_initial_isometry2(
+pub fn generate_initial_isometry2(
     initial_pose: &InitialPose,
     field_dimensions: &FieldDimensions,
 ) -> Isometry2<f32> {

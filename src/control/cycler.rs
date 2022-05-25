@@ -9,12 +9,15 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     audio,
-    framework::{buffer::Writer, future_queue::Consumer, util::collect_changed_parameters},
+    framework::{
+        buffer::Writer, future_queue::Consumer, util::collect_changed_parameters,
+        HistoricDatabases, PerceptionDatabases,
+    },
     hardware::HardwareInterface,
     spl_network, vision, CommunicationChannelsForCycler,
 };
 
-use super::{sensor_data_receiver::receive_sensor_data, Database};
+use super::{sensor_data_receiver::receive_sensor_data, Database, PersistentState};
 
 include!(concat!(
     env!("OUT_DIR"),
@@ -30,18 +33,18 @@ pub struct Control<Hardware>
 where
     Hardware: crate::hardware::HardwareInterface + Sync + Send,
 {
-    hardware_interface: std::sync::Arc<Hardware>,
-    control_writer: crate::framework::buffer::Writer<Database>,
-    spl_network_consumer: crate::framework::future_queue::Consumer<spl_network::MainOutputs>,
-    vision_top_consumer: crate::framework::future_queue::Consumer<vision::MainOutputs>,
-    vision_bottom_consumer: crate::framework::future_queue::Consumer<vision::MainOutputs>,
-    audio_consumer: crate::framework::future_queue::Consumer<audio::MainOutputs>,
-    communication_channels: crate::CommunicationChannelsForCycler,
+    hardware_interface: Arc<Hardware>,
+    control_writer: Writer<Database>,
+    spl_network_consumer: Consumer<spl_network::MainOutputs>,
+    vision_top_consumer: Consumer<vision::MainOutputs>,
+    vision_bottom_consumer: Consumer<vision::MainOutputs>,
+    audio_consumer: Consumer<audio::MainOutputs>,
+    communication_channels: CommunicationChannelsForCycler,
 
-    historic_databases: crate::framework::HistoricDatabases,
-    perception_databases: crate::framework::PerceptionDatabases,
+    historic_databases: HistoricDatabases,
+    perception_databases: PerceptionDatabases,
 
-    persistent_state: super::PersistentState,
+    persistent_state: PersistentState,
 
     modules: ControlModules,
 }

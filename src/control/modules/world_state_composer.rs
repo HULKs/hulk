@@ -15,7 +15,7 @@ use tokio::sync::{
 };
 
 use crate::{
-    framework::configuration::{self, SetPositions},
+    framework::configuration::SetPositions,
     types::{
         BallPosition, FallState, FieldDimensions, MessageReceivers, PrimaryState, Role, SensorData,
         WorldState,
@@ -38,7 +38,8 @@ pub struct WorldStateComposer {
 #[input(path = robot_to_field, data_type = Isometry2<f32>)]
 #[input(path = sensor_data, data_type = SensorData)]
 #[input(path = primary_state, data_type = PrimaryState)]
-#[parameter(path = control.set_positions, data_type = configuration::SetPositions)]
+#[perception_input(path = spl_message, data_type = SplMessage, cycler = spl_network)]
+#[parameter(path = control.set_positions, data_type = SetPositions)]
 #[parameter(path = field_dimensions, data_type = FieldDimensions)]
 #[parameter(path = player_number, data_type = usize)]
 #[main_output(data_type = MessageReceivers)]

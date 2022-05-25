@@ -2,7 +2,7 @@ use parking_lot::Mutex;
 
 use crate::types::{CameraPosition, CycleInfo, Image422, Joints, Leds, SensorData};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HardwareIds {
     pub body_id: String,
     pub head_id: String,

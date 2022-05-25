@@ -47,7 +47,9 @@ impl FromStr for NaoAddress {
                     number_to_ip(number, connection).context("Cannot parse from NAO number")?;
                 Ok(NaoAddress { ip })
             }
-            None => Ok(s.parse().context("Failed to parse NaoAddress")?),
+            None => Ok(Self {
+                ip: s.parse().context("Failed to parse NaoAddress")?,
+            }),
         }
     }
 }

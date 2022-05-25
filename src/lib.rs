@@ -1,4 +1,6 @@
 mod audio;
+#[cfg(feature = "behavior_simulator")]
+pub mod behavior_simulator;
 mod control;
 mod framework;
 pub mod hardware;
