@@ -24,6 +24,8 @@ pub struct DispatchingHeadInterpolator {
 #[input(path = look_at, data_type = HeadJoints)]
 #[input(path = zero_angles_head, data_type = HeadJoints)]
 #[parameter(path = control.center_head_position, data_type = HeadJoints)]
+#[parameter(path = control.dispatching_head_interpolator.maximum_yaw_velocity,  data_type = f32)]
+#[parameter(path = control.dispatching_head_interpolator.maximum_pitch_velocity ,data_type = f32)]
 #[persistent_state(path = head_motion_safe_exits, data_type = HeadMotionSafeExits)]
 #[main_output(data_type = DispatchingHeadPositions)]
 impl DispatchingHeadInterpolator {}
@@ -63,34 +65,26 @@ impl DispatchingHeadInterpolator {
         self.last_currently_active = currently_active;
 
         if interpolator_reset_required {
-            self.interpolator = match dispatching_head_motion {
-                HeadMotionType::Center => LinearInterpolator::new(
-                    HeadJoints::from(sensor_data.positions),
-                    *context.center_head_position,
-                    Duration::from_secs(1),
-                ),
+            let start_position = HeadJoints::from(sensor_data.positions);
+            let target_position = match dispatching_head_motion {
+                HeadMotionType::Center => *context.center_head_position,
                 HeadMotionType::Dispatching => panic!("Dispatching cannot dispatch itself"),
-                HeadMotionType::LookAround => LinearInterpolator::new(
-                    HeadJoints::from(sensor_data.positions),
-                    *look_around,
-                    Duration::from_secs(1),
-                ),
-                HeadMotionType::LookAt => LinearInterpolator::new(
-                    HeadJoints::from(sensor_data.positions),
-                    *look_at,
-                    Duration::from_secs(1),
-                ),
+                HeadMotionType::LookAround => *look_around,
+                HeadMotionType::LookAt => *look_at,
                 HeadMotionType::FallProtection => {
                     panic!("FallProtection shouldn't be interpolated, but executed immediately")
                 }
 
                 HeadMotionType::Unstiff => panic!("Dispatching Unstiff is not supported"),
-                HeadMotionType::ZeroAngles => LinearInterpolator::new(
-                    HeadJoints::from(sensor_data.positions),
-                    *zero_angles_head,
-                    Duration::from_secs_f32(0.3),
-                ),
+                HeadMotionType::ZeroAngles => *zero_angles_head,
             };
+            let duration = time_required_for_transition(
+                start_position,
+                target_position,
+                *context.maximum_yaw_velocity,
+                *context.maximum_pitch_velocity,
+            );
+            self.interpolator = LinearInterpolator::new(start_position, target_position, duration);
         }
 
         self.interpolator
@@ -105,4 +99,17 @@ impl DispatchingHeadInterpolator {
             }),
         })
     }
+}
+
+fn time_required_for_transition(
+    current_position: HeadJoints,
+    target_position: HeadJoints,
+    maximum_yaw_velocity: f32,
+    maximum_pitch_velocity: f32,
+) -> Duration {
+    let pitch_time =
+        (current_position.pitch - target_position.pitch).abs() / maximum_pitch_velocity;
+    let yaw_time = (current_position.yaw - target_position.yaw).abs() / maximum_yaw_velocity;
+
+    Duration::from_secs_f32(f32::max(pitch_time, yaw_time))
 }

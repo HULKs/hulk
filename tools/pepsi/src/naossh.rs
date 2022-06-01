@@ -115,6 +115,17 @@ where
     })
 }
 
+#[allow(clippy::unusual_byte_groupings)]
+const PERMISSION_BITS_MASK: u32 = 0b111_111_111;
+
+fn extract_permission_bits(mode: u32) -> u32 {
+    mode & PERMISSION_BITS_MASK
+}
+
+fn compose_mode(old_mode: u32, new_permissions: u32) -> u32 {
+    (old_mode & !PERMISSION_BITS_MASK) | (new_permissions & PERMISSION_BITS_MASK)
+}
+
 pub fn fix_ssh_key_permissions<P>(project_root: P) -> anyhow::Result<()>
 where
     P: AsRef<Path>,
@@ -125,10 +136,14 @@ where
         .context("Failed to get metadata of SSH key")?;
     let mut permissions = metadata.permissions();
     let read_write_for_owner_only = 0o600;
-    if permissions.mode() != read_write_for_owner_only {
-        permissions.set_mode(read_write_for_owner_only);
-        info!("Changed SSH key permissions to {:o}", permissions.mode());
+    let permission_bits = extract_permission_bits(permissions.mode());
+    if permission_bits != read_write_for_owner_only {
+        permissions.set_mode(compose_mode(permissions.mode(), read_write_for_owner_only));
         set_permissions(ssh_key, permissions).context("Failed to set permissions on SSH key")?;
+        info!(
+            "Changed SSH key permissions from {:o} to {:o}",
+            permission_bits, read_write_for_owner_only
+        );
     }
 
     Ok(())

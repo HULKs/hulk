@@ -78,13 +78,12 @@ impl JointCommandSender {
         };
 
         if clamp_head_angles {
-            let pitch_at_center = head_motion_limits.maximum_pitch_at_center.to_radians();
-            let pitch_at_shoulder = head_motion_limits.maximum_pitch_at_shoulder.to_radians();
+            let pitch_at_center = head_motion_limits.maximum_pitch_at_center;
+            let pitch_at_shoulder = head_motion_limits.maximum_pitch_at_shoulder;
             let pitch_difference = pitch_at_center - pitch_at_shoulder;
 
-            let ear_distance_to_shoulder = (head_positions.yaw.abs()
-                - head_motion_limits.shoulder_yaw_position.to_radians())
-            .abs();
+            let ear_distance_to_shoulder =
+                (head_positions.yaw.abs() - head_motion_limits.shoulder_yaw_position).abs();
 
             let shoulder_avoidance_intensity = if head_positions.yaw.abs() < PI / 2.0 {
                 (head_positions.yaw * 2.0).cos() / 2.0 + 0.5
@@ -92,12 +91,10 @@ impl JointCommandSender {
                 0.0
             };
 
-            let ear_avoidance_width = head_motion_limits.ear_shoulder_avoidance_width.to_radians();
+            let ear_avoidance_width = head_motion_limits.ear_shoulder_avoidance_width;
             let ear_avoidance_penalty = if ear_distance_to_shoulder < ear_avoidance_width {
                 let cosine_argument = ear_distance_to_shoulder / ear_avoidance_width * PI;
-                head_motion_limits
-                    .ear_shoulder_avoidance_pitch_penalty
-                    .to_radians()
+                head_motion_limits.ear_shoulder_avoidance_pitch_penalty
                     * (cosine_argument.cos() / 2.0 + 0.5)
             } else {
                 0.0
@@ -108,8 +105,8 @@ impl JointCommandSender {
 
             head_positions = HeadJoints {
                 yaw: head_positions.yaw.clamp(
-                    -head_motion_limits.maximum_yaw.to_radians(),
-                    head_motion_limits.maximum_yaw.to_radians(),
+                    -head_motion_limits.maximum_yaw,
+                    head_motion_limits.maximum_yaw,
                 ),
                 pitch: head_positions.pitch.min(maximum_pitch),
             };

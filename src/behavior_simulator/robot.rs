@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context};
-use nalgebra::{distance, Isometry2, Point2, Vector2};
+use nalgebra::{distance, Isometry2, Point2, Rotation2, Vector2};
 use serde::Serialize;
 use spl_network::{GameState, SplMessage};
 
@@ -90,8 +90,7 @@ impl Robot {
             NextAction::DoNothing => {}
             NextAction::WalkTo { end_pose } => {
                 let end_pose_in_field = self.robot_to_field * end_pose;
-                let angle_difference =
-                    end_pose_in_field.rotation.angle() - self.robot_to_field.rotation.angle();
+                let angle_difference = end_pose.rotation.angle();
                 let translation_difference =
                     end_pose_in_field.translation.vector - self.robot_to_field.translation.vector;
                 let translation_difference_distance = translation_difference.norm();
@@ -102,16 +101,20 @@ impl Robot {
                                 * state.configuration.time_step.as_secs_f32(),
                             angle_difference.abs(),
                         );
-                let translation = self.robot_to_field.translation.vector
-                    + translation_difference.normalize()
+                let translation = if translation_difference_distance == 0.0 {
+                    Vector2::zeros()
+                } else {
+                    translation_difference.normalize()
                         * f32::min(
                             state
                                 .configuration
                                 .maximum_walk_translation_distance_per_second
                                 * state.configuration.time_step.as_secs_f32(),
                             translation_difference_distance,
-                        );
-                self.robot_to_field = Isometry2::new(translation, angle);
+                        )
+                };
+                self.robot_to_field =
+                    Isometry2::new(self.robot_to_field.translation.vector + translation, angle);
             }
         }
     }
@@ -139,7 +142,11 @@ impl Robot {
         };
 
         let ball_position = BallPosition {
-            position: Some(self.robot_to_field.inverse() * state.ball_position),
+            position: limit_ball_visibility(
+                self.robot_to_field.inverse() * state.ball_position,
+                state.configuration.maximum_field_of_view_angle,
+                state.configuration.maximum_field_of_view_distance,
+            ),
             last_seen: state.now,
         };
 
@@ -221,4 +228,21 @@ impl Robot {
 
         Ok((database, spl_messages, ball_bounce_direction))
     }
+}
+
+fn limit_ball_visibility(
+    ball_position: Point2<f32>,
+    field_of_view_angle_limit: f32,
+    field_of_view_distance_limit: f32,
+) -> Option<Point2<f32>> {
+    if distance(&Point2::origin(), &ball_position) > field_of_view_distance_limit {
+        return None;
+    }
+
+    let rotation_to_ball = Rotation2::rotation_between(&Vector2::x(), &ball_position.coords);
+    if rotation_to_ball.angle().abs() > field_of_view_angle_limit {
+        return None;
+    }
+
+    Some(ball_position)
 }

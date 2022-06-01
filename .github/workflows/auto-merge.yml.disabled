@@ -1,0 +1,22 @@
+name: Enable Auto-Merge by Default
+on:
+  pull_request:
+    types: [opened]
+jobs:
+  enable_auto_merge:
+    runs-on: ubuntu-latest
+    name: Enable Auto-Merge
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: octokit/graphql-action@v2.x
+        with:
+          query: |
+            mutation enable_auto_merge($pull_request_id: ID!) {
+              enablePullRequestAutoMerge(input: { pullRequestId: $pull_request_id }) {
+                clientMutationId
+              }
+            }
+          pull_request_id: ${{ github.event.pull_request.node_id }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

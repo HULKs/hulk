@@ -1,0 +1,48 @@
+site_name: HULKs Documentation
+theme:
+  name: material
+  logo: logo.svg
+  features:
+    - navigation.indexes
+    - navigation.tabs
+    - navigation.tracking
+  palette:
+    - media: "(prefers-color-scheme: light)" 
+      primary: green
+      scheme: default
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)" 
+      primary: green
+      scheme: slate
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+nav:
+  - Overview: index.md
+  - Setup:
+    - Overview: setup/overview.md
+  - Framework:
+    - Overview: framework/overview.md
+    - Directory Structure: framework/directory_structure.md
+    - Process Entrypoint: framework/process_entrypoint.md
+    - Runtime: framework/runtime.md
+    - Cyclers: framework/cyclers.md
+    - Modules: framework/modules.md
+    - Databases & Types: framework/databases_and_types.md
+    - Configuration: framework/configuration.md
+    - Communication: framework/communication.md
+    - Hardware Interface: framework/hardware_interface.md
+    - Thread Communication: framework/thread_communication.md
+    - Filtering: framework/filtering.md
+    - Macros: framework/macros.md
+    - Error Handling: framework/error_handling.md
+  - Tooling:
+    - Overview: tooling/overview.md
+  - Operating System:
+    - Overview: operating_system/overview.md
+  - Robotics:
+    - Overview: robotics/overview.md
+  - Workflow:
+    - Overview: workflow/overview.md

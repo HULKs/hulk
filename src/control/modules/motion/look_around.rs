@@ -63,15 +63,15 @@ impl LookAround {
             return default_output;
         }
 
-        let maximum_yaw_movement_next_cycle = configuration.maximum_yaw_velocity.to_radians()
+        let maximum_yaw_movement_next_cycle = configuration.maximum_yaw_velocity
             * sensor_data.cycle_info.last_cycle_duration.as_secs_f32();
-        let maximum_pitch_movement_next_cycle = configuration.maximum_pitch_velocity.to_radians()
+        let maximum_pitch_movement_next_cycle = configuration.maximum_pitch_velocity
             * sensor_data.cycle_info.last_cycle_duration.as_secs_f32();
 
         self.yaw_limit = match motion_selection.dispatching_head_motion {
-            Some(HeadMotionType::LookAround) => head_motion_limits.maximum_yaw.to_radians(),
+            Some(HeadMotionType::LookAround) => head_motion_limits.maximum_yaw,
             Some(_) => 0.0,
-            _ => head_motion_limits.maximum_yaw.to_radians(),
+            _ => head_motion_limits.maximum_yaw,
         };
         let yaw = match self.mode {
             Mode::Idle => {

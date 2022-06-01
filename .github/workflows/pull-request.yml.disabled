@@ -2,8 +2,7 @@ name: Rust
 on:
   push:
     branches:
-      - staging
-      - trying
+      - gh-readonly-queue/main/**
   pull_request:
 jobs:
   build:
@@ -40,7 +39,7 @@ jobs:
     name: Check
     strategy:
       matrix:
-        path: [., macros, module_attributes, spl_network, tools/depp, tools/fanta, tools/hula, tools/pepsi, uvcvideo]
+        path: [., macros, module_attributes, spl_network, tools/camera_matrix_extractor, tools/depp, tools/fanta, tools/hula, tools/pepsi, uvcvideo]
     runs-on:
       - self-hosted
       - v2
@@ -69,7 +68,7 @@ jobs:
     name: Build
     strategy:
       matrix:
-        path: [tools/depp, tools/fanta, tools/hula, tools/pepsi]
+        path: [tools/camera_matrix_extractor, tools/depp, tools/fanta, tools/hula, tools/pepsi]
     runs-on:
       - self-hosted
       - v2

@@ -53,9 +53,9 @@ impl LookAt {
             return default_output;
         }
 
-        let maximum_yaw_movement_next_cycle = configuration.maximum_yaw_velocity.to_radians()
+        let maximum_yaw_movement_next_cycle = configuration.maximum_yaw_velocity
             * sensor_data.cycle_info.last_cycle_duration.as_secs_f32();
-        let maximum_pitch_movement_next_cycle = configuration.maximum_pitch_velocity.to_radians()
+        let maximum_pitch_movement_next_cycle = configuration.maximum_pitch_velocity
             * sensor_data.cycle_info.last_cycle_duration.as_secs_f32();
 
         let head_motion = match motion_command.motion {

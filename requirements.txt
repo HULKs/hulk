@@ -7,9 +7,6 @@ gitpython
 # hardware status
 tabulate >=0.8.1
 
-# shutdownAll script
-termcolor
-
 # TextToSpeachScript (tools/TextToSpeach
 google-api-python-client
 

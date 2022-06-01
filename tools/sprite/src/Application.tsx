@@ -68,6 +68,7 @@ export function Application() {
               <Robot
                 configuration={recording.robot_configurations[robotIndex]}
                 database={robot.database}
+                simulation_configuration={recording.simulation_configuration}
               />
             </Transform>
           ))}
@@ -75,6 +76,14 @@ export function Application() {
       </svg>
       <div className="output">
         <div>GameState: {frame.game_state}</div>
+        <div>
+          Role:{" "}
+          {frame.robots
+            .map((robot) => {
+              return robot.database.main_outputs.world_state.robot.role;
+            })
+            .join(", ")}
+        </div>
         <div>
           MotionCommand:{" "}
           {frame.robots
@@ -204,6 +213,25 @@ function drawCircle(
   );
 }
 
+function drawFieldOfView(
+  maximum_angle: number,
+  maximum_distance: number,
+  strokeColor: string,
+  strokeWidth: number
+): JSX.Element {
+  const x = maximum_distance * Math.cos(maximum_angle);
+  const y = maximum_distance * Math.sin(maximum_angle);
+  return (
+    <path
+      d={`M 0 0 L ${x} ${y} A ${maximum_distance} ${maximum_distance} 0 0 0 ${x} ${-y} L 0 0 Z`}
+      fill="transparent"
+      stroke={strokeColor}
+      strokeOpacity={0.15}
+      strokeWidth={strokeWidth}
+    />
+  );
+}
+
 type Isometry = {
   rotation: number[];
   translation: number[];
@@ -233,9 +261,11 @@ function toAngle(rotation: number[]): number {
 function Robot({
   configuration,
   database,
+  simulation_configuration,
 }: {
   configuration: any;
   database: any;
+  simulation_configuration: any;
 }): JSX.Element {
   const motion = database.main_outputs.motion_command.motion;
   let walkTarget = null;
@@ -262,6 +292,12 @@ function Robot({
   }
   return (
     <>
+      {drawFieldOfView(
+        simulation_configuration.maximum_field_of_view_angle,
+        simulation_configuration.maximum_field_of_view_distance,
+        "yellow",
+        0.0125
+      )}
       {drawCircle(
         { type: "Circle", center: [0, 0], radius: 0.15 },
         "black",

@@ -15,27 +15,32 @@
   ],
   "rules": [
     {
-      "event": "frame_index >= 350",
+      "event": "frame_index >= 100",
       "action": "StopSimulation"
     },
     {
+      "event": "frame_index == 3",
+      "action": {
+        "SetRobotToField": {
+          "robot_index": 0,
+          "robot_to_field": {
+            "rotation": [1.0, 0.0],
+            "translation": [-0.5, 1.0]
+          }
+        }
+      }
+    },
+    {
+      "event": "frame_index == 3",
+      "action": {
+        "SetPenalized": {
+          "robot_index": 0,
+          "is_penalized": true
+        }
+      }
+    },
+    {
       "event": "frame_index == 5",
-      "action": {
-        "SetGameState": {
-          "game_state": "Ready"
-        }
-      }
-    },
-    {
-      "event": "frame_index == 100",
-      "action": {
-        "SetGameState": {
-          "game_state": "Set"
-        }
-      }
-    },
-    {
-      "event": "frame_index == 105",
       "action": {
         "SetGameState": {
           "game_state": "Playing"
@@ -43,10 +48,23 @@
       }
     },
     {
-      "event": "frame_index == 285",
+      "event": "frame_index == 10",
       "action": {
-        "SetGameState": {
-          "game_state": "Ready"
+        "SetPenalized": {
+          "robot_index": 0,
+          "is_penalized": false
+        }
+      }
+    },
+    {
+      "event": "frame_index == 3",
+      "action": {
+        "SetRobotToField": {
+          "robot_index": 2,
+          "robot_to_field": {
+            "rotation": [1.0, 0.0],
+            "translation": [-0.5, 0.0]
+          }
         }
       }
     }

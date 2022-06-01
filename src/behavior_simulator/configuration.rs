@@ -12,6 +12,8 @@ pub struct Configuration {
     pub time_step: Duration,
     pub robot_ball_bounce_radius: f32,
     pub ball_velocity_decay_factor: f32,
+    pub maximum_field_of_view_angle: f32,
+    pub maximum_field_of_view_distance: f32,
     pub maximum_walk_angle_per_second: f32,
     pub maximum_walk_translation_distance_per_second: f32,
     pub robot_ids: Vec<String>,

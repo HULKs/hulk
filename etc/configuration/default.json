@@ -203,21 +203,25 @@
       }
     },
     "head_motion_limits": {
-      "maximum_yaw": 119.5,
-      "maximum_pitch_at_center": 28.0,
-      "maximum_pitch_at_shoulder": 11.5,
-      "shoulder_yaw_position": 23.0,
-      "ear_shoulder_avoidance_width": 20.0,
-      "ear_shoulder_avoidance_pitch_penalty": 11.0
+      "maximum_yaw": 2.076941809873252,
+      "maximum_pitch_at_center": 0.4886921905584123,
+      "maximum_pitch_at_shoulder": 0.2007128639793479,
+      "shoulder_yaw_position": 0.4014257279586958,
+      "ear_shoulder_avoidance_width": 0.3490658503988659,
+      "ear_shoulder_avoidance_pitch_penalty": 0.19198621771937624
+    },
+    "dispatching_head_interpolator": {
+      "maximum_yaw_velocity": 6.283185307179586,
+      "maximum_pitch_velocity": 3.141592653589793
     },
     "look_at": {
-      "maximum_yaw_velocity": 50.0,
-      "maximum_pitch_velocity": 50.0,
+      "maximum_yaw_velocity": 0.8726646259971648,
+      "maximum_pitch_velocity": 0.8726646259971648,
       "bottom_focus_pitch_threshold": 0.0
     },
     "look_around": {
-      "maximum_yaw_velocity": 120.0,
-      "maximum_pitch_velocity": 50.0
+      "maximum_yaw_velocity": 2.0943951023931953,
+      "maximum_pitch_velocity": 0.8726646259971648
     },
     "set_positions": {
       "defender_front_set_position_goal_center_offset": [2.3, -1.1],

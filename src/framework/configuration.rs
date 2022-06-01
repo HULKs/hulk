@@ -42,6 +42,7 @@ pub struct Control {
     pub game_state_filter: GameStateFilter,
     pub high_detector: HighDetector,
     pub head_motion_limits: HeadMotionLimits,
+    pub dispatching_head_interpolator: DispatchingHeadInterpolator,
     pub look_at: LookAt,
     pub look_around: LookAround,
     pub orientation_filter: OrientationFilter,
@@ -120,6 +121,12 @@ pub struct HeadMotionLimits {
     pub shoulder_yaw_position: f32,
     pub ear_shoulder_avoidance_width: f32,
     pub ear_shoulder_avoidance_pitch_penalty: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct DispatchingHeadInterpolator {
+    pub maximum_yaw_velocity: f32,
+    pub maximum_pitch_velocity: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
