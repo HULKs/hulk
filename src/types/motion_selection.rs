@@ -38,13 +38,15 @@ impl Default for BodyMotionType {
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 pub enum HeadMotionType {
-    ZeroAngles,
     Center,
     Dispatching,
     FallProtection,
     LookAround,
     LookAt,
+    StandUpBack,
+    StandUpFront,
     Unstiff,
+    ZeroAngles,
 }
 
 impl Default for HeadMotionType {
@@ -130,9 +132,11 @@ pub struct HeadMotionSafeExits {
     dispatching: bool,
     look_around: bool,
     look_at: bool,
+    protect: bool,
+    stand_up_back: bool,
+    stand_up_front: bool,
     unstiff: bool,
     zero_angles: bool,
-    protect: bool,
 }
 
 impl Default for HeadMotionSafeExits {
@@ -142,9 +146,11 @@ impl Default for HeadMotionSafeExits {
             dispatching: false,
             look_around: false,
             look_at: false,
+            protect: true,
+            stand_up_back: false,
+            stand_up_front: false,
             unstiff: true,
             zero_angles: false,
-            protect: true,
         }
     }
 }
@@ -156,11 +162,13 @@ impl Index<HeadMotionType> for HeadMotionSafeExits {
         match motion_type {
             HeadMotionType::Center => &self.center,
             HeadMotionType::Dispatching => &self.dispatching,
+            HeadMotionType::FallProtection => &self.protect,
             HeadMotionType::LookAround => &self.look_around,
             HeadMotionType::LookAt => &self.look_at,
+            HeadMotionType::StandUpBack => &self.stand_up_back,
+            HeadMotionType::StandUpFront => &self.stand_up_front,
             HeadMotionType::Unstiff => &self.unstiff,
             HeadMotionType::ZeroAngles => &self.zero_angles,
-            HeadMotionType::FallProtection => &self.protect,
         }
     }
 }
@@ -170,11 +178,13 @@ impl IndexMut<HeadMotionType> for HeadMotionSafeExits {
         match motion_type {
             HeadMotionType::Center => &mut self.center,
             HeadMotionType::Dispatching => &mut self.dispatching,
+            HeadMotionType::FallProtection => &mut self.protect,
             HeadMotionType::LookAround => &mut self.look_around,
             HeadMotionType::LookAt => &mut self.look_at,
+            HeadMotionType::StandUpBack => &mut self.stand_up_back,
+            HeadMotionType::StandUpFront => &mut self.stand_up_front,
             HeadMotionType::Unstiff => &mut self.unstiff,
             HeadMotionType::ZeroAngles => &mut self.zero_angles,
-            HeadMotionType::FallProtection => &mut self.protect,
         }
     }
 }

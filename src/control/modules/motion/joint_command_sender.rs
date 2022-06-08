@@ -42,37 +42,49 @@ impl JointCommandSender {
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
         let current_positions = require_some!(context.sensor_data).positions;
-        let motion_selection = require_some!(context.motion_selection);
         let dispatching_body_positions =
             require_some!(context.dispatching_body_positions).positions;
         let dispatching_head_positions =
             require_some!(context.dispatching_head_positions).positions;
-        let sit_down_positions = require_some!(context.sit_down_positions).positions;
-        let sit_down_stiffnesses = require_some!(context.sit_down_positions).stiffnesses;
-        let stand_up_back_positions = require_some!(context.stand_up_back_positions).positions;
-        let stand_up_front_positions = require_some!(context.stand_up_front_positions).positions;
-        let walk_positions = require_some!(context.walk_positions).positions;
-        let look_around = require_some!(context.look_around);
-        let look_at = require_some!(context.look_at);
-        let zero_angles_head = require_some!(context.zero_angles_head);
         let fall_protection_head_position = require_some!(context.fall_protection).head_position;
         let fall_protection_head_stiffness = require_some!(context.fall_protection).head_stiffness;
         let head_motion_limits = context.head_motion_limits;
+        let look_around = require_some!(context.look_around);
+        let look_at = require_some!(context.look_at);
+        let motion_selection = require_some!(context.motion_selection);
+        let sit_down_positions = require_some!(context.sit_down_positions).positions;
+        let sit_down_stiffnesses = require_some!(context.sit_down_positions).stiffnesses;
+        let stand_up_back_body_positions =
+            require_some!(context.stand_up_back_positions).body_positions;
+        let stand_up_front_body_positions =
+            require_some!(context.stand_up_front_positions).body_positions;
+        let stand_up_back_head_positions =
+            require_some!(context.stand_up_back_positions).head_positions;
+        let stand_up_front_head_positions =
+            require_some!(context.stand_up_front_positions).head_positions;
+        let walk_positions = require_some!(context.walk_positions).positions;
+        let zero_angles_head = require_some!(context.zero_angles_head);
 
         let (mut head_positions, head_stiffnesses, clamp_head_angles) = match motion_selection
             .current_head_motion
         {
             HeadMotionType::Center => (*context.center_head_position, HeadJoints::fill(0.8), true),
-            HeadMotionType::FallProtection => (
-                fall_protection_head_position,
-                HeadJoints::fill(fall_protection_head_stiffness),
-                true, // TODO: Do we want to clamp the angles here?
-            ),
             HeadMotionType::Dispatching => {
                 (dispatching_head_positions, HeadJoints::fill(0.8), true)
             }
+            HeadMotionType::FallProtection => (
+                fall_protection_head_position,
+                HeadJoints::fill(fall_protection_head_stiffness),
+                false,
+            ),
             HeadMotionType::LookAround => (*look_around, HeadJoints::fill(0.8), true),
             HeadMotionType::LookAt => (*look_at, HeadJoints::fill(0.8), true),
+            HeadMotionType::StandUpBack => {
+                (stand_up_back_head_positions, HeadJoints::fill(0.8), true)
+            }
+            HeadMotionType::StandUpFront => {
+                (stand_up_front_head_positions, HeadJoints::fill(0.8), true)
+            }
             HeadMotionType::Unstiff => (current_positions.into(), HeadJoints::fill(0.0), false),
             HeadMotionType::ZeroAngles => (*zero_angles_head, HeadJoints::fill(0.8), true),
         };
@@ -123,8 +135,8 @@ impl JointCommandSender {
             ),
             BodyMotionType::SitDown => (sit_down_positions, sit_down_stiffnesses),
             BodyMotionType::Stand => (BodyJoints::from(*context.ready_pose), BodyJoints::fill(0.8)),
-            BodyMotionType::StandUpBack => (stand_up_back_positions, BodyJoints::fill(0.8)),
-            BodyMotionType::StandUpFront => (stand_up_front_positions, BodyJoints::fill(0.8)),
+            BodyMotionType::StandUpBack => (stand_up_back_body_positions, BodyJoints::fill(0.8)),
+            BodyMotionType::StandUpFront => (stand_up_front_body_positions, BodyJoints::fill(0.8)),
             BodyMotionType::Unstiff => (current_positions.into(), BodyJoints::fill(0.0)),
             BodyMotionType::Walk => (walk_positions, BodyJoints::fill(0.8)),
         };

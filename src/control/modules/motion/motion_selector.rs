@@ -41,7 +41,6 @@ impl MotionSelector {
         } else {
             None
         };
-
         let is_active_body_motion_safe_to_exit =
             context.body_motion_safe_exits[self.current_body_motion];
         self.current_body_motion =
@@ -65,9 +64,16 @@ impl MotionSelector {
     fn transition_head_motion(&self, motion: Motion, is_safe_to_exit: bool) -> HeadMotionType {
         let from = self.current_head_motion;
         let to = head_motion_type_from_motion(motion);
+
         match (from, is_safe_to_exit, to) {
             (_, _, HeadMotionType::Unstiff) => HeadMotionType::Unstiff,
-            (_, _, HeadMotionType::FallProtection) => HeadMotionType::FallProtection,
+            (_, _, HeadMotionType::FallProtection)
+                if (from != HeadMotionType::StandUpFront
+                    && from != HeadMotionType::StandUpBack)
+                    || is_safe_to_exit =>
+            {
+                HeadMotionType::FallProtection
+            }
             (HeadMotionType::Dispatching, true, _) => to,
             (from, true, to) if from != to => HeadMotionType::Dispatching,
             _ => from,
@@ -79,7 +85,15 @@ impl MotionSelector {
         let to = body_motion_type_from_motion(motion);
         match (from, is_safe_to_exit, to) {
             (_, _, BodyMotionType::Unstiff) => BodyMotionType::Unstiff,
-            (_, _, BodyMotionType::FallProtection) => BodyMotionType::FallProtection,
+            (_, _, BodyMotionType::FallProtection) => {
+                if self.current_body_motion == BodyMotionType::StandUpBack {
+                    BodyMotionType::StandUpBack
+                } else if self.current_body_motion == BodyMotionType::StandUpFront {
+                    BodyMotionType::StandUpFront
+                } else {
+                    BodyMotionType::FallProtection
+                }
+            }
             (BodyMotionType::Dispatching, true, _) => to,
             (from, true, to) if from != to => BodyMotionType::Dispatching,
             _ => from,
@@ -105,7 +119,10 @@ fn head_motion_type_from_motion(motion: Motion) -> HeadMotionType {
         Motion::Penalized => HeadMotionType::Center,
         Motion::SitDown { head } => head_motion_type_from_head_motion(head),
         Motion::Stand { head, .. } => head_motion_type_from_head_motion(head),
-        Motion::StandUp { .. } => HeadMotionType::ZeroAngles,
+        Motion::StandUp { facing } => match facing {
+            Facing::Down => HeadMotionType::StandUpFront,
+            Facing::Up => HeadMotionType::StandUpBack,
+        },
         Motion::Unstiff => HeadMotionType::Unstiff,
         Motion::Walk { head, .. } => head_motion_type_from_head_motion(head),
     }

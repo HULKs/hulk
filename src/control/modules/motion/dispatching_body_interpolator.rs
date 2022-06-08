@@ -22,8 +22,8 @@ pub struct DispatchingBodyInterpolator {
 #[input(path = sensor_data, data_type = SensorData)]
 #[input(path = motion_selection, data_type = MotionSelection)]
 #[input(path = stand_up_back_positions, data_type = StandUpBackPositions)]
-#[input(path = sit_down_positions, data_type = SitDownPositions)]
 #[input(path = stand_up_front_positions, data_type = StandUpFrontPositions)]
+#[input(path = sit_down_positions, data_type = SitDownPositions)]
 #[input(path = walk_positions, data_type = WalkPositions)]
 #[persistent_state(path = body_motion_safe_exits, data_type = BodyMotionSafeExits)]
 #[parameter(path = control.penalized_pose, data_type = Joints)]
@@ -57,8 +57,8 @@ impl DispatchingBodyInterpolator {
         }
 
         let dispatching_body_motion = require_some!(motion_selection.dispatching_body_motion);
-        let stand_up_back_positions = require_some!(context.stand_up_back_positions).positions;
-        let stand_up_front_positions = require_some!(context.stand_up_front_positions).positions;
+        let stand_up_back_positions = require_some!(context.stand_up_back_positions);
+        let stand_up_front_positions = require_some!(context.stand_up_front_positions);
         let walk_positions = require_some!(context.walk_positions).positions;
         let sit_down_positions = require_some!(context.sit_down_positions).positions;
 
@@ -69,10 +69,8 @@ impl DispatchingBodyInterpolator {
 
         if interpolator_reset_required {
             self.interpolator = match dispatching_body_motion {
-                BodyMotionType::Dispatching => panic!("Dispatching motion cannot be Dispatching"),
-                BodyMotionType::FallProtection => {
-                    panic!("FallProtection shouldn't be interpolated, but executed immediately")
-                }
+                BodyMotionType::Dispatching => panic!("Dispatching cannot dispatch itself"),
+                BodyMotionType::FallProtection => panic!("Is executed immediately"),
                 BodyMotionType::Jump => todo!(),
                 BodyMotionType::Kick => todo!(),
                 BodyMotionType::Penalized => LinearInterpolator::new(
@@ -92,17 +90,15 @@ impl DispatchingBodyInterpolator {
                 ),
                 BodyMotionType::StandUpBack => LinearInterpolator::new(
                     BodyJoints::from(sensor_data.positions),
-                    stand_up_back_positions,
+                    stand_up_back_positions.body_positions,
                     Duration::from_secs(1),
                 ),
                 BodyMotionType::StandUpFront => LinearInterpolator::new(
                     BodyJoints::from(sensor_data.positions),
-                    stand_up_front_positions,
+                    stand_up_front_positions.body_positions,
                     Duration::from_secs(1),
                 ),
-                BodyMotionType::Unstiff => {
-                    panic!("Unstiffing shouln't be interpolated, but executed immediately")
-                }
+                BodyMotionType::Unstiff => panic!("Dispatching Unstiff doesn't make sense"),
                 BodyMotionType::Walk => LinearInterpolator::new(
                     BodyJoints::from(sensor_data.positions),
                     walk_positions,

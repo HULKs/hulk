@@ -15,6 +15,14 @@ enum MotionType {
   Walk = "Walk",
 }
 
+enum HeadMotionType {
+  Center = "Center",
+  LookAround = "LookAround",
+  LookAt = "LookAt",
+  Unstiff = "Unstiff",
+  ZeroAngles = "ZeroAngles",
+}
+
 export default function MotionDispatching({
   selector,
   connector,
@@ -27,6 +35,9 @@ export default function MotionDispatching({
   const [motionData, setMotionData] = useState(undefined);
   const [motionSelectionData, setMotionSelectionData] = useState(undefined);
   const [motionType, setMotionType] = useState(MotionType.DoNotInject);
+  const [standHeadMotionType, setStandHeadMotionType] = useState(
+    HeadMotionType.Unstiff
+  );
   useEffect(() => {
     if (connection === null) {
       return;
@@ -79,9 +90,23 @@ export default function MotionDispatching({
         );
         break;
       case MotionType.Stand:
+        const headMotion = ((headMotionType) => {
+          switch (headMotionType) {
+            case HeadMotionType.Center:
+              return "Center";
+            case HeadMotionType.LookAround:
+              return "LookAround";
+            case HeadMotionType.LookAt:
+              return { LookAt: { target: [1, 1] } };
+            case HeadMotionType.Unstiff:
+              return "Unstiff";
+            case HeadMotionType.ZeroAngles:
+              return "ZeroAngles";
+          }
+        })(standHeadMotionType);
         connection.updateParameter(
           "control.behavior.injected_motion_command",
-          { motion: { Stand: { head: "Unstiff" } } },
+          { motion: { Stand: { head: headMotion } } },
           () => {},
           (error) => {
             alert(`Error: ${error}`);
@@ -132,7 +157,7 @@ export default function MotionDispatching({
         );
         break;
     }
-  }, [connection, motionType]);
+  }, [connection, motionType, standHeadMotionType]);
   useEffect(() => {
     if (connection === null) {
       return;
@@ -250,6 +275,18 @@ export default function MotionDispatching({
               }}
             />
             <label htmlFor="motionTypeStand">Stand</label>
+            <select
+              value={standHeadMotionType}
+              onChange={(event) =>
+                setStandHeadMotionType(event.target.value as HeadMotionType)
+              }
+            >
+              <option value={HeadMotionType.Center}>Center</option>
+              <option value={HeadMotionType.LookAround}>LookAround</option>
+              <option value={HeadMotionType.LookAt}>LookAt</option>
+              <option value={HeadMotionType.Unstiff}>Unstiff</option>
+              <option value={HeadMotionType.ZeroAngles}>ZeroAngles</option>
+            </select>
           </div>
           <div className="motionType">
             <input

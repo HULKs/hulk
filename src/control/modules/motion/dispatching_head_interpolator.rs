@@ -7,7 +7,7 @@ use crate::{
     control::linear_interpolator::LinearInterpolator,
     types::{
         DispatchingHeadPositions, HeadJoints, HeadMotionSafeExits, HeadMotionType, MotionSelection,
-        SensorData,
+        SensorData, StandUpBackPositions, StandUpFrontPositions,
     },
 };
 
@@ -18,10 +18,12 @@ pub struct DispatchingHeadInterpolator {
 }
 
 #[module(control)]
-#[input(path = sensor_data, data_type = SensorData)]
-#[input(path = motion_selection, data_type = MotionSelection)]
 #[input(path = look_around, data_type = HeadJoints)]
 #[input(path = look_at, data_type = HeadJoints)]
+#[input(path = motion_selection, data_type = MotionSelection)]
+#[input(path = sensor_data, data_type = SensorData)]
+#[input(path = stand_up_back_positions, data_type = StandUpBackPositions)]
+#[input(path = stand_up_front_positions, data_type = StandUpFrontPositions)]
 #[input(path = zero_angles_head, data_type = HeadJoints)]
 #[parameter(path = control.center_head_position, data_type = HeadJoints)]
 #[parameter(path = control.dispatching_head_interpolator.maximum_yaw_velocity,  data_type = f32)]
@@ -42,11 +44,13 @@ impl DispatchingHeadInterpolator {
     fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let look_around = require_some!(context.look_around);
         let look_at = require_some!(context.look_at);
-        let zero_angles_head = require_some!(context.zero_angles_head);
-        context.head_motion_safe_exits[HeadMotionType::Dispatching] = false;
-
-        let sensor_data = require_some!(context.sensor_data);
         let motion_selection = require_some!(context.motion_selection);
+        let sensor_data = require_some!(context.sensor_data);
+        let stand_up_back_positions = require_some!(context.stand_up_back_positions);
+        let stand_up_front_positions = require_some!(context.stand_up_front_positions);
+        let zero_angles_head = require_some!(context.zero_angles_head);
+
+        context.head_motion_safe_exits[HeadMotionType::Dispatching] = false;
 
         let currently_active = motion_selection.current_head_motion == HeadMotionType::Dispatching;
         if !currently_active {
@@ -69,13 +73,12 @@ impl DispatchingHeadInterpolator {
             let target_position = match dispatching_head_motion {
                 HeadMotionType::Center => *context.center_head_position,
                 HeadMotionType::Dispatching => panic!("Dispatching cannot dispatch itself"),
+                HeadMotionType::FallProtection => panic!("Is executed immediately"),
                 HeadMotionType::LookAround => *look_around,
                 HeadMotionType::LookAt => *look_at,
-                HeadMotionType::FallProtection => {
-                    panic!("FallProtection shouldn't be interpolated, but executed immediately")
-                }
-
-                HeadMotionType::Unstiff => panic!("Dispatching Unstiff is not supported"),
+                HeadMotionType::StandUpBack => stand_up_back_positions.head_positions,
+                HeadMotionType::StandUpFront => stand_up_front_positions.head_positions,
+                HeadMotionType::Unstiff => panic!("Dispatching Unstiff doesn't make sense"),
                 HeadMotionType::ZeroAngles => *zero_angles_head,
             };
             let duration = time_required_for_transition(
