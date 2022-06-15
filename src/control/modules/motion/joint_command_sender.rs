@@ -134,7 +134,7 @@ impl JointCommandSender {
                 BodyJoints::fill(0.8),
             ),
             BodyMotionType::SitDown => (sit_down_positions, sit_down_stiffnesses),
-            BodyMotionType::Stand => (BodyJoints::from(*context.ready_pose), BodyJoints::fill(0.8)),
+            BodyMotionType::Stand => (walk_positions, BodyJoints::fill(0.8)),
             BodyMotionType::StandUpBack => (stand_up_back_body_positions, BodyJoints::fill(0.8)),
             BodyMotionType::StandUpFront => (stand_up_front_body_positions, BodyJoints::fill(0.8)),
             BodyMotionType::Unstiff => (current_positions.into(), BodyJoints::fill(0.0)),

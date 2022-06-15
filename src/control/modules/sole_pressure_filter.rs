@@ -18,8 +18,8 @@ impl SolePressureFilter {}
 impl SolePressureFilter {
     fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {
-            left_sole_pressure: LowPassFilter::with_alpha(0.0, 0.8),
-            right_sole_pressure: LowPassFilter::with_alpha(0.0, 0.8),
+            left_sole_pressure: LowPassFilter::with_alpha(0.0, 0.5),
+            right_sole_pressure: LowPassFilter::with_alpha(0.0, 0.5),
         })
     }
 

@@ -14,6 +14,7 @@ pub struct RobotState {
     #[leaf]
     pub fall_state: FallState,
     pub walk_target_pose: Isometry2<f32>,
+    pub has_ground_contact: bool,
 }
 
 impl Default for RobotState {
@@ -24,6 +25,7 @@ impl Default for RobotState {
             primary_state: PrimaryState::Unstiff,
             fall_state: FallState::Upright,
             walk_target_pose: Isometry2::identity(),
+            has_ground_contact: false,
         }
     }
 }

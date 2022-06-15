@@ -38,7 +38,6 @@ impl LookAt {
         let motion_selection = require_some!(context.motion_selection);
         let motion_command = require_some!(context.motion_command);
         let sensor_data = require_some!(context.sensor_data);
-        let robot_to_ground = require_some!(context.robot_to_ground);
         let current_head_angles = sensor_data.positions.head;
         let configuration = context.look_at;
 
@@ -47,6 +46,11 @@ impl LookAt {
         let default_output = Ok(MainOutputs {
             look_at: Some(current_head_angles),
         });
+
+        let robot_to_ground = match context.robot_to_ground {
+            Some(robot_to_ground) => robot_to_ground,
+            None => return default_output,
+        };
 
         if motion_selection.current_head_motion != HeadMotionType::LookAt {
             self.last_request = current_head_angles;

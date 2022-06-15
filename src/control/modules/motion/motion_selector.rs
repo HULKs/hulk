@@ -85,16 +85,16 @@ impl MotionSelector {
         let to = body_motion_type_from_motion(motion);
         match (from, is_safe_to_exit, to) {
             (_, _, BodyMotionType::Unstiff) => BodyMotionType::Unstiff,
-            (_, _, BodyMotionType::FallProtection) => {
-                if self.current_body_motion == BodyMotionType::StandUpBack {
-                    BodyMotionType::StandUpBack
-                } else if self.current_body_motion == BodyMotionType::StandUpFront {
-                    BodyMotionType::StandUpFront
-                } else {
-                    BodyMotionType::FallProtection
-                }
+            (BodyMotionType::StandUpFront, _, BodyMotionType::FallProtection) => {
+                BodyMotionType::StandUpFront
             }
+            (BodyMotionType::StandUpBack, _, BodyMotionType::FallProtection) => {
+                BodyMotionType::StandUpBack
+            }
+            (_, _, BodyMotionType::FallProtection) => BodyMotionType::FallProtection,
             (BodyMotionType::Dispatching, true, _) => to,
+            (BodyMotionType::Stand, _, BodyMotionType::Walk) => BodyMotionType::Walk,
+            (BodyMotionType::Walk, _, BodyMotionType::Stand) => BodyMotionType::Stand,
             (from, true, to) if from != to => BodyMotionType::Dispatching,
             _ => from,
         }

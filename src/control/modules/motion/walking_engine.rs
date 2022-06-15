@@ -3,23 +3,24 @@ use std::{f32::consts::PI, time::Duration};
 use anyhow::Result;
 use log::warn;
 use macros::{module, require_some, SerializeHierarchy};
-use nalgebra::{geometry::Isometry3, Vector3};
+use nalgebra::{geometry::Isometry3, Point3, Vector3};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     control::filtering::LowPassFilter,
     kinematics,
     types::{
-        ArmJoints, BodyJoints, BodyMotionSafeExits, BodyMotionType, LegJoints, RobotDimensions,
-        SensorData, Side, Step, SupportFoot, WalkAction, WalkCommand, WalkPositions,
+        ArmJoints, BodyJoints, BodyMotionSafeExits, BodyMotionType, GroundContact, Joints,
+        LegJoints, RobotDimensions, SensorData, Side, Step, SupportFoot, WalkCommand,
+        WalkPositions,
     },
 };
 
-#[derive(PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum WalkState {
     Standing,
-    Starting,
-    Walking,
+    Starting(Step),
+    Walking(Step),
     Stopping,
 }
 
@@ -30,19 +31,17 @@ impl Default for WalkState {
 }
 
 impl WalkState {
-    fn next_walk_state(&mut self, requested_walk_action: WalkAction) {
-        *self = match self {
-            WalkState::Standing => match requested_walk_action {
-                WalkAction::Walk => WalkState::Starting,
-                _ => WalkState::Standing,
-            },
-            WalkState::Starting => WalkState::Walking,
-            WalkState::Walking => match requested_walk_action {
-                WalkAction::Stand => WalkState::Stopping,
-                _ => WalkState::Walking,
-            },
-            WalkState::Stopping => WalkState::Standing,
-        };
+    fn next_walk_state(self, requested_walk_action: WalkCommand) -> Self {
+        match (self, requested_walk_action) {
+            (WalkState::Standing, WalkCommand::Stand) => WalkState::Standing,
+            (WalkState::Standing, WalkCommand::Walk(step)) => WalkState::Starting(step),
+            (WalkState::Starting(_), WalkCommand::Stand) => WalkState::Standing,
+            (WalkState::Starting(_), WalkCommand::Walk(step)) => WalkState::Walking(step),
+            (WalkState::Walking(_), WalkCommand::Stand) => WalkState::Stopping,
+            (WalkState::Walking(_), WalkCommand::Walk(step)) => WalkState::Walking(step),
+            (WalkState::Stopping, WalkCommand::Stand) => WalkState::Standing,
+            (WalkState::Stopping, WalkCommand::Walk(step)) => WalkState::Walking(step),
+        }
     }
 }
 
@@ -63,15 +62,15 @@ pub struct WalkingEngine {
     walk_state: WalkState,
 
     /// the step request from planning the engine is currently executing
-    current_step: Step,
+    requested_step: Step,
     /// the lift (z-offset) the swing foot will have at its apex
     max_swing_foot_lift: f32,
 
-    /// current offset of the left foot
+    /// current planned offset of the left foot
     left_foot: FootOffsets,
-    /// current offset of the left foot
+    /// current planned offset of the left foot
     right_foot: FootOffsets,
-    /// current turn component
+    /// current planned turn component
     turn: f32,
 
     /// FootOffsets of the left foot when the support foot changed, t == 0 at the start of each
@@ -99,27 +98,38 @@ pub struct WalkingEngine {
     step_duration: Duration,
     /// Fix the side of the swing foot for an entire walk phase
     #[leaf]
-    swing_foot: Side,
+    swing_side: Side,
     #[leaf]
     /// Low pass filter the gyro for balance adjustment
     filtered_gyro_y: LowPassFilter<f32>,
+    #[leaf]
+    /// Low pass filter the torso for step adjustments
+    filtered_torso_offset: LowPassFilter<f32>,
 }
 
 #[module(control)]
 #[input(path = sensor_data, data_type = SensorData)]
 #[input(path = support_foot, data_type = SupportFoot)]
 #[input(path = walk_command, data_type = WalkCommand)]
+#[input(path = ground_contact, data_type = GroundContact)]
+#[input(path = robot_to_ground, data_type = Isometry3<f32>)]
 #[persistent_state(path = body_motion_safe_exits, data_type = BodyMotionSafeExits)]
 #[parameter(path = control.walking_engine.walk_hip_height, data_type = f32)]
 #[parameter(path = control.walking_engine.torso_offset, data_type = f32)]
-#[parameter(path = control.walking_engine.short_step_duration, data_type = f32)]
-#[parameter(path = control.walking_engine.long_step_duration, data_type = f32)]
+#[parameter(path = control.walking_engine.minimal_step_duration, data_type = Duration)]
 #[parameter(path = control.walking_engine.shoulder_pitch_factor, data_type = f32)]
 #[parameter(path = control.walking_engine.base_foot_lift, data_type = f32)]
 #[parameter(path = control.walking_engine.base_step_duration, data_type = Duration)]
-#[parameter(path = control.walking_engine.first_step_foot_lift_factor, data_type = f32)]
-#[parameter(path = control.walking_engine.balance_factor, data_type = f32)]
+#[parameter(path = control.walking_engine.step_duration_increase, data_type = Step)]
+#[parameter(path = control.walking_engine.starting_step_duration, data_type = Duration)]
+#[parameter(path = control.walking_engine.starting_step_foot_lift, data_type = f32)]
+#[parameter(path = control.walking_engine.gyro_balance_factor, data_type = f32)]
+#[parameter(path = control.walking_engine.swing_foot_leveling_factor, data_type = f32)]
 #[parameter(path = control.walking_engine.max_forward_acceleration, data_type = f32)]
+#[parameter(path = control.walking_engine.forward_foot_support_offset, data_type = f32)]
+#[parameter(path = control.walking_engine.backward_foot_support_offset, data_type = f32)]
+#[parameter(path = control.walking_engine.max_step_adjustment, data_type = f32)]
+#[parameter(path = control.ready_pose, data_type = Joints)]
 #[additional_output(path = walking_engine, data_type = WalkingEngine)]
 #[main_output(data_type = WalkPositions)]
 impl WalkingEngine {}
@@ -128,56 +138,84 @@ impl WalkingEngine {
     fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {
             filtered_gyro_y: LowPassFilter::with_alpha(0.0, 0.1),
+            filtered_torso_offset: LowPassFilter::with_alpha(0.0, 0.1),
             ..Default::default()
         })
     }
 
     fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let sensor_data = require_some!(context.sensor_data);
-        let walk_command = require_some!(context.walk_command);
+        let ground_contact = require_some!(context.ground_contact);
         let support_foot = require_some!(context.support_foot);
-
-        if self.t.is_zero() {
-            self.walk_state.next_walk_state(walk_command.action);
-            self.initialize_step_states_from_request(
-                walk_command.step,
-                support_foot.support_side,
-                *context.base_step_duration,
-                *context.base_foot_lift,
-                *context.first_step_foot_lift_factor,
-                *context.max_forward_acceleration,
-            );
-        }
-
-        context.body_motion_safe_exits[BodyMotionType::Walk] =
-            self.walk_state == WalkState::Standing;
-
-        if self.walk_state != WalkState::Standing {
-            self.walk_cycle(
-                sensor_data.cycle_info.last_cycle_duration,
-                support_foot.support_side,
-                *context.short_step_duration,
-                *context.long_step_duration,
-            );
-        }
-        let (left_leg, right_leg) =
-            self.calculate_leg_joints(*context.torso_offset, *context.walk_hip_height);
-        let (left_arm, right_arm) = self.calculate_arm_joints(*context.shoulder_pitch_factor);
+        let walk_command = require_some!(context.walk_command);
 
         self.filtered_gyro_y
             .update(sensor_data.inertial_measurement_unit.angular_velocity.y);
-        let left_leg = balance_adjustment(
-            left_leg,
+        if let Some(robot_to_ground) = *context.robot_to_ground {
+            let torso_projected_onto_ground =
+                (robot_to_ground * Point3::origin()).x - *context.torso_offset;
+            self.filtered_torso_offset
+                .update(torso_projected_onto_ground);
+        } else {
+            self.filtered_torso_offset.reset(0.0);
+        }
+
+        if self.t.is_zero() {
+            self.initialize_step_states_from_request(
+                *walk_command,
+                support_foot.support_side,
+                *context.base_step_duration,
+                *context.step_duration_increase,
+                *context.starting_step_duration,
+                *context.base_foot_lift,
+                *context.starting_step_foot_lift,
+                *context.max_forward_acceleration,
+            );
+        }
+        if let WalkState::Starting(_) | WalkState::Walking(_) | WalkState::Stopping =
+            self.walk_state
+        {
+            let planned_step = self.step_adjustment(
+                *context.forward_foot_support_offset,
+                *context.backward_foot_support_offset,
+                *context.max_step_adjustment,
+            );
+            self.walk_cycle(
+                planned_step,
+                sensor_data.cycle_info.last_cycle_duration,
+                support_foot.support_side,
+                *context.minimal_step_duration,
+            );
+        }
+
+        let (left_arm, right_arm) = self.calculate_arm_joints(*context.shoulder_pitch_factor);
+
+        let (mut left_leg, mut right_leg) =
+            self.calculate_leg_joints(*context.torso_offset, *context.walk_hip_height);
+
+        if let WalkState::Walking(_) = self.walk_state {
+            swing_foot_leveling(
+                &mut left_leg,
+                &mut right_leg,
+                sensor_data.positions.left_leg,
+                sensor_data.positions.right_leg,
+                self.swing_side,
+                *context.swing_foot_leveling_factor,
+            );
+        }
+
+        balance_adjustment(
+            &mut left_leg,
+            &mut right_leg,
+            ground_contact,
             self.filtered_gyro_y.state(),
-            *context.balance_factor,
-        );
-        let right_leg = balance_adjustment(
-            right_leg,
-            self.filtered_gyro_y.state(),
-            *context.balance_factor,
+            *context.gyro_balance_factor,
         );
 
         context.walking_engine.on_subscription(|| self.clone());
+
+        context.body_motion_safe_exits[BodyMotionType::Walk] =
+            matches!(self.walk_state, WalkState::Standing);
 
         Ok(MainOutputs {
             walk_positions: Some(WalkPositions {
@@ -191,56 +229,68 @@ impl WalkingEngine {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn initialize_step_states_from_request(
         &mut self,
-        requested_step: Step,
-        support_side: Side,
+        walk_command: WalkCommand,
+        support_side: Option<Side>,
         base_step_duration: Duration,
+        step_duration_increase: Step,
+        starting_step_duration: Duration,
         base_foot_lift: f32,
-        first_step_foot_lift_factor: f32,
+        starting_step_foot_lift: f32,
         max_forward_acceleration: f32,
     ) {
-        self.swing_foot = support_side.opposite();
-        self.max_swing_foot_lift = base_foot_lift;
+        self.walk_state = self.walk_state.next_walk_state(walk_command);
+        let last_step = self.requested_step;
 
-        let last_step = self.current_step;
-
-        match self.walk_state {
-            WalkState::Standing => {
-                self.current_step = Step::zero();
+        match (self.walk_state, support_side) {
+            (WalkState::Standing, _) | (_, None) => {
+                self.requested_step = Step::zero();
                 self.step_duration = Duration::ZERO;
+                self.swing_side = Side::Left;
+                self.max_swing_foot_lift = 0.0;
             }
-            WalkState::Starting => {
-                self.current_step = Step::zero();
-                self.step_duration = base_step_duration;
+            (WalkState::Starting(requested_step), Some(_)) => {
+                self.requested_step = Step::zero();
+                self.step_duration = starting_step_duration;
                 let request_walk_to_left = requested_step.left > 0.0;
-                self.swing_foot = if request_walk_to_left {
+                self.swing_side = if request_walk_to_left {
                     Side::Right
                 } else {
                     Side::Left
                 };
-                self.max_swing_foot_lift = first_step_foot_lift_factor * base_foot_lift;
+                self.max_swing_foot_lift = starting_step_foot_lift;
             }
-            WalkState::Walking => {
-                self.current_step = requested_step;
-                self.step_duration = base_step_duration;
+            (WalkState::Walking(requested_step), Some(support_side)) => {
+                self.requested_step = requested_step;
+                let duration_increase = Duration::from_secs_f32(
+                    requested_step.forward.abs() * step_duration_increase.forward
+                        + requested_step.left.abs() * step_duration_increase.left
+                        + requested_step.turn.abs() * step_duration_increase.turn,
+                );
+                self.step_duration = base_step_duration + duration_increase;
+                self.swing_side = support_side.opposite();
+                self.max_swing_foot_lift = base_foot_lift;
             }
-            WalkState::Stopping => {
-                self.current_step = Step::zero();
+            (WalkState::Stopping, Some(support_side)) => {
+                self.requested_step = Step::zero();
                 self.step_duration = base_step_duration;
+                self.swing_side = support_side.opposite();
+                self.max_swing_foot_lift = base_foot_lift;
             }
         }
 
-        let forward_accleration = self.current_step.forward - last_step.forward;
-        self.current_step.forward =
+        let forward_accleration = self.requested_step.forward - last_step.forward;
+        self.requested_step.forward =
             last_step.forward + forward_accleration.min(max_forward_acceleration);
     }
 
-    fn next_foot_offsets(&mut self) {
-        match self.swing_foot {
+    fn next_foot_offsets(&mut self, planned_step: Step) {
+        match self.swing_side {
             Side::Left => {
-                let (support_foot, swing_foot, turn, support_foot_lift, swing_foot_lift) =
-                    self.calculate_foot_offsets(self.right_foot_t0, self.left_foot_t0);
+                let (support_foot, swing_foot, turn, support_foot_lift, swing_foot_lift) = self
+                    .calculate_foot_offsets(planned_step, self.right_foot_t0, self.left_foot_t0);
                 self.left_foot = swing_foot;
                 self.right_foot = support_foot;
                 self.turn = turn;
@@ -248,8 +298,8 @@ impl WalkingEngine {
                 self.right_foot_lift = support_foot_lift;
             }
             Side::Right => {
-                let (support_foot, swing_foot, turn, support_foot_lift, swing_foot_lift) =
-                    self.calculate_foot_offsets(self.left_foot_t0, self.right_foot_t0);
+                let (support_foot, swing_foot, turn, support_foot_lift, swing_foot_lift) = self
+                    .calculate_foot_offsets(planned_step, self.left_foot_t0, self.right_foot_t0);
                 self.left_foot = support_foot;
                 self.right_foot = swing_foot;
                 self.turn = turn;
@@ -261,6 +311,7 @@ impl WalkingEngine {
 
     fn calculate_foot_offsets(
         &self,
+        planned_step: Step,
         support_foot_t0: FootOffsets,
         swing_foot_t0: FootOffsets,
     ) -> (FootOffsets, FootOffsets, f32, f32, f32) {
@@ -269,22 +320,22 @@ impl WalkingEngine {
 
         let support_foot = FootOffsets {
             forward: support_foot_t0.forward
-                + (-self.current_step.forward / 2.0 - support_foot_t0.forward) * linear_time,
+                + (-planned_step.forward / 2.0 - support_foot_t0.forward) * linear_time,
             left: support_foot_t0.left
-                + (-self.current_step.left / 2.0 - support_foot_t0.left) * linear_time,
+                + (-planned_step.left / 2.0 - support_foot_t0.left) * linear_time,
         };
 
         let swing_foot = FootOffsets {
             forward: swing_foot_t0.forward
-                + (self.current_step.forward / 2.0 - swing_foot_t0.forward) * parabolic_time,
+                + (planned_step.forward / 2.0 - swing_foot_t0.forward) * parabolic_time,
             left: swing_foot_t0.left
-                + (self.current_step.left / 2.0 - swing_foot_t0.left) * parabolic_time,
+                + (planned_step.left / 2.0 - swing_foot_t0.left) * parabolic_time,
         };
 
-        let turn_left_right = if self.swing_foot == Side::Left {
-            self.current_step.turn
+        let turn_left_right = if self.swing_side == Side::Left {
+            planned_step.turn
         } else {
-            -1.0 * self.current_step.turn
+            -1.0 * planned_step.turn
         };
         let turn = self.turn_t0 + (turn_left_right / 2.0 - self.turn_t0) * linear_time;
 
@@ -313,21 +364,42 @@ impl WalkingEngine {
         self.turn_t0 = self.turn;
     }
 
+    fn step_adjustment(
+        &self,
+        forward_foot_support: f32,
+        backward_foot_support: f32,
+        max_adjustment: f32,
+    ) -> Step {
+        let filtered_torso_offset = self.filtered_torso_offset.state();
+
+        let adjustment = if filtered_torso_offset > forward_foot_support {
+            filtered_torso_offset - forward_foot_support
+        } else if filtered_torso_offset < backward_foot_support {
+            filtered_torso_offset - backward_foot_support
+        } else {
+            0.0
+        };
+        Step {
+            forward: self.requested_step.forward
+                + adjustment.clamp(-max_adjustment, max_adjustment),
+            ..self.requested_step
+        }
+    }
+
     fn walk_cycle(
         &mut self,
+        planned_step: Step,
         cycle_duration: Duration,
-        support_side: Side,
-        short_step_duration: f32,
-        long_step_duration: f32,
+        support_side: Option<Side>,
+        minimal_step_duration: Duration,
     ) {
         self.t += cycle_duration;
-        self.next_foot_offsets();
-        let support_foot_changed = support_side == self.swing_foot;
-        let support_changed_in_time = support_foot_changed
-            && self.t.as_secs_f32() > short_step_duration * self.step_duration.as_secs_f32();
-        let step_took_too_long =
-            self.t.as_secs_f32() > long_step_duration * self.step_duration.as_secs_f32();
-        if support_changed_in_time || step_took_too_long {
+        self.next_foot_offsets(planned_step);
+        let support_changed = match support_side {
+            Some(support_side) => self.swing_side.opposite() != support_side,
+            None => true,
+        };
+        if support_changed && self.t > minimal_step_duration {
             self.end_step_phase();
             self.t = Duration::ZERO;
         }
@@ -428,10 +500,41 @@ fn parabolic_step(x: f32) -> f32 {
     }
 }
 
-fn balance_adjustment(leg: LegJoints, gyro_y: f32, balance_factor: f32) -> LegJoints {
-    let balance_adjusted_pitch = leg.ankle_pitch + balance_factor * gyro_y;
-    LegJoints {
-        ankle_pitch: balance_adjusted_pitch,
-        ..leg
+fn balance_adjustment(
+    left_leg: &mut LegJoints,
+    right_leg: &mut LegJoints,
+    ground_contact: &GroundContact,
+    gyro_y: f32,
+    gyro_balance_factor: f32,
+) {
+    // gyro balancing to compensate the wobble
+    let gyro_adjustment = gyro_balance_factor * gyro_y;
+
+    if ground_contact.left_foot {
+        left_leg.ankle_pitch += gyro_adjustment
     }
+    if ground_contact.right_foot {
+        right_leg.ankle_pitch += gyro_adjustment
+    }
+}
+
+fn swing_foot_leveling(
+    left_leg: &mut LegJoints,
+    right_leg: &mut LegJoints,
+    measured_left_leg: LegJoints,
+    measured_right_leg: LegJoints,
+    swing_side: Side,
+    swing_foot_leveling_factor: f32,
+) {
+    let (swing_leg, support_leg) = match swing_side {
+        Side::Left => (left_leg, right_leg),
+        Side::Right => (right_leg, left_leg),
+    };
+    let (_measured_swing_leg, measured_support_leg) = match swing_side {
+        Side::Left => (measured_left_leg, measured_right_leg),
+        Side::Right => (measured_right_leg, measured_left_leg),
+    };
+
+    let support_foot_pitch_error = measured_support_leg.ankle_pitch - support_leg.ankle_pitch;
+    swing_leg.ankle_pitch += swing_foot_leveling_factor * support_foot_pitch_error;
 }

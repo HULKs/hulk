@@ -85,7 +85,7 @@ impl DispatchingBodyInterpolator {
                 ),
                 BodyMotionType::Stand => LinearInterpolator::new(
                     BodyJoints::from(sensor_data.positions),
-                    BodyJoints::from(*context.ready_pose),
+                    walk_positions,
                     Duration::from_secs(1),
                 ),
                 BodyMotionType::StandUpBack => LinearInterpolator::new(

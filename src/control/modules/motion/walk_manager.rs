@@ -1,7 +1,7 @@
 use macros::{module, require_some};
 
 use crate::types::{
-    BodyMotionType, Motion, MotionCommand, MotionSelection, StepPlan, WalkAction, WalkCommand,
+    BodyMotionType, GroundContact, Motion, MotionCommand, MotionSelection, StepPlan, WalkCommand,
 };
 
 pub struct WalkManager;
@@ -9,6 +9,7 @@ pub struct WalkManager;
 #[module(control)]
 #[input(data_type = StepPlan, path = step_plan)]
 #[input(path = motion_command, data_type = MotionCommand)]
+#[input(path = ground_contact, data_type = GroundContact)]
 #[input(path = motion_selection, data_type = MotionSelection)]
 #[main_output(data_type = WalkCommand)]
 impl WalkManager {}
@@ -19,23 +20,21 @@ impl WalkManager {
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
-        let step_plan = require_some!(context.step_plan);
         let motion_command = require_some!(context.motion_command);
         let motion_selection = require_some!(context.motion_selection);
 
-        let action = if let (BodyMotionType::Walk, Motion::Walk { .. }) =
-            (motion_selection.current_body_motion, motion_command.motion)
-        {
-            WalkAction::Walk
+        let command = if let (BodyMotionType::Walk, Motion::Walk { .. }, Some(StepPlan { step })) = (
+            motion_selection.current_body_motion,
+            motion_command.motion,
+            context.step_plan,
+        ) {
+            WalkCommand::Walk(*step)
         } else {
-            WalkAction::Stand
+            WalkCommand::Stand
         };
 
         Ok(MainOutputs {
-            walk_command: Some(WalkCommand {
-                step: step_plan.step,
-                action,
-            }),
+            walk_command: Some(command),
         })
     }
 }

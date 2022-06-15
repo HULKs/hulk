@@ -5,10 +5,11 @@ use serde::Serialize;
 use crate::types::{
     BallPosition, BodyMotionSafeExits, Buttons, CameraMatrices, DispatchingBodyPositions,
     DispatchingHeadPositions, FallProtection, FallState, FilteredGameState, FilteredWhistle,
-    GameControllerState, HeadJoints, HeadMotionSafeExits, Joints, Leds, MessageReceivers,
-    MotionCommand, MotionSelection, PlannedPath, PrimaryState, ProjectedFieldLines,
-    RobotKinematics, SensorData, SitDownPositions, SolePressure, StandUpBackPositions,
-    StandUpFrontPositions, StepPlan, SupportFoot, WalkCommand, WalkPositions, WorldState,
+    GameControllerState, GroundContact, HeadJoints, HeadMotionSafeExits, Joints, Leds,
+    MessageReceivers, MotionCommand, MotionSelection, PlannedPath, PrimaryState,
+    ProjectedFieldLines, RobotKinematics, SensorData, SitDownPositions, SolePressure,
+    StandUpBackPositions, StandUpFrontPositions, StepPlan, SupportFoot, WalkCommand, WalkPositions,
+    WorldState,
 };
 
 use super::modules::{motion::walking_engine::WalkingEngine, pose_estimation::PoseEstimation};
@@ -31,7 +32,7 @@ pub struct MainOutputs {
     #[leaf]
     pub game_controller_state: Option<GameControllerState>,
     pub ground_to_robot: Option<Isometry3<f32>>,
-    pub has_ground_contact: Option<bool>,
+    pub ground_contact: Option<GroundContact>,
     pub positions: Option<Joints>,
     #[dont_serialize]
     #[serde(skip)]
@@ -55,6 +56,7 @@ pub struct MainOutputs {
     pub stiffnesses: Option<Joints>,
     pub support_foot: Option<SupportFoot>,
     pub robot_to_ground: Option<Isometry3<f32>>,
+    #[leaf]
     pub walk_command: Option<WalkCommand>,
     pub walk_positions: Option<WalkPositions>,
     pub world_state: Option<WorldState>,

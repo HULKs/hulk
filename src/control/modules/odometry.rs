@@ -60,7 +60,8 @@ fn calculate_offset_to_last_position(
     last_left_sole_to_right_sole: &Vector2<f32>,
 ) -> Vector2<f32> {
     match support_foot.support_side {
-        Side::Left => (left_sole_to_right_sole - last_left_sole_to_right_sole) / 2.0,
-        Side::Right => (-left_sole_to_right_sole + last_left_sole_to_right_sole) / 2.0,
+        Some(Side::Left) => (left_sole_to_right_sole - last_left_sole_to_right_sole) / 2.0,
+        Some(Side::Right) => (-left_sole_to_right_sole + last_left_sole_to_right_sole) / 2.0,
+        None => Vector2::zeros(),
     }
 }

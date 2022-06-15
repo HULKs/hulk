@@ -11,6 +11,7 @@ pub struct StepPlanner;
 #[input(path = motion_command, data_type = MotionCommand)]
 #[input(path = support_foot, data_type = SupportFoot)]
 #[input(path = planned_path, data_type = PlannedPath)]
+#[parameter(path = control.step_planner.injected_step, data_type = Option<Step>)]
 #[parameter(path = control.step_planner.max_step_size, data_type = Step)]
 #[parameter(path = control.step_planner.max_step_size_backwards, data_type = f32)]
 #[parameter(path = control.step_planner.translation_exponent, data_type = f32)]
@@ -26,7 +27,13 @@ impl StepPlanner {
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
         let motion_command = require_some!(context.motion_command);
-        let support_side = require_some!(context.support_foot).support_side;
+        let support_side = require_some!(require_some!(context.support_foot).support_side);
+
+        if let Some(step) = context.injected_step {
+            return Ok(MainOutputs {
+                step_plan: Some(StepPlan { step: *step }),
+            });
+        }
 
         let target_pose = match motion_command.motion {
             Motion::Walk { .. } => require_some!(context.planned_path).end_pose,

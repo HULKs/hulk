@@ -25,6 +25,6 @@ impl Default for Side {
 #[derive(Clone, Debug, Default, Serialize, SerializeHierarchy, Deserialize)]
 pub struct SupportFoot {
     #[leaf]
-    pub support_side: Side,
+    pub support_side: Option<Side>,
     pub changed_this_cycle: bool,
 }

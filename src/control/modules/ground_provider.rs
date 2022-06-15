@@ -41,16 +41,16 @@ impl GroundProvider {
         let left_sole_to_ground =
             0.5 * vector![left_sole_to_right_sole.x, left_sole_to_right_sole.y, 0.0];
 
-        let robot_to_ground = match support_foot.support_side {
+        let robot_to_ground = support_foot.support_side.map(|side| match side {
             Side::Left => Translation::from(-left_sole_to_ground) * imu_adjusted_robot_to_left_sole,
             Side::Right => {
                 Translation::from(left_sole_to_ground) * imu_adjusted_robot_to_right_sole
             }
-        };
+        });
 
         Ok(MainOutputs {
-            robot_to_ground: Some(robot_to_ground),
-            ground_to_robot: Some(robot_to_ground.inverse()),
+            robot_to_ground,
+            ground_to_robot: robot_to_ground.map(|isometry| isometry.inverse()),
         })
     }
 }

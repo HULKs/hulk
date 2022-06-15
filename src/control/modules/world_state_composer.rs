@@ -17,8 +17,8 @@ use tokio::sync::{
 use crate::{
     framework::configuration::SetPositions,
     types::{
-        BallPosition, FallState, FieldDimensions, MessageReceivers, PrimaryState, Role, SensorData,
-        WorldState,
+        BallPosition, FallState, FieldDimensions, GroundContact, MessageReceivers, PrimaryState,
+        Role, SensorData, WorldState,
     },
 };
 
@@ -38,6 +38,7 @@ pub struct WorldStateComposer {
 #[input(path = robot_to_field, data_type = Isometry2<f32>)]
 #[input(path = sensor_data, data_type = SensorData)]
 #[input(path = primary_state, data_type = PrimaryState)]
+#[input(path = ground_contact, data_type = GroundContact)]
 #[perception_input(path = spl_message, data_type = SplMessage, cycler = spl_network)]
 #[parameter(path = control.set_positions, data_type = SetPositions)]
 #[parameter(path = field_dimensions, data_type = FieldDimensions)]
@@ -69,6 +70,7 @@ impl WorldStateComposer {
         let fall_state = require_some!(context.fall_state);
         let pose = *require_some!(context.robot_to_field);
         let primary_state = require_some!(context.primary_state);
+        let ground_contact = require_some!(context.ground_contact);
 
         let role = match context.player_number {
             1 => Role::Keeper,
@@ -92,6 +94,7 @@ impl WorldStateComposer {
         self.world_state.robot.pose = pose;
         self.world_state.robot.primary_state = *primary_state;
         self.world_state.robot.walk_target_pose = walk_target_pose.unwrap_or_default();
+        self.world_state.robot.has_ground_contact = ground_contact.any_foot();
 
         if self.last_transmitted_messages.is_none()
             || cycle_start_time.duration_since(self.last_transmitted_messages.unwrap())?

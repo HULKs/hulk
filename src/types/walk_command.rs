@@ -1,25 +1,15 @@
-use macros::SerializeHierarchy;
 use serde::{Deserialize, Serialize};
 
 use super::Step;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum WalkAction {
-    #[allow(dead_code)]
+pub enum WalkCommand {
     Stand,
-    Walk,
-    Reset,
+    Walk(Step),
 }
 
-impl Default for WalkAction {
+impl Default for WalkCommand {
     fn default() -> Self {
-        WalkAction::Reset
+        WalkCommand::Stand
     }
-}
-
-#[derive(Clone, Debug, Default, Serialize, SerializeHierarchy, Deserialize)]
-pub struct WalkCommand {
-    pub step: Step,
-    #[leaf]
-    pub action: WalkAction,
 }

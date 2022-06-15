@@ -40,7 +40,7 @@ pub struct Control {
     pub center_head_position: HeadJoints,
     pub fall_state_estimation: FallStateEstimation,
     pub game_state_filter: GameStateFilter,
-    pub high_detector: HighDetector,
+    pub ground_contact_detector: HighDetector,
     pub head_motion_limits: HeadMotionLimits,
     pub dispatching_head_interpolator: DispatchingHeadInterpolator,
     pub look_at: LookAt,
@@ -52,6 +52,7 @@ pub struct Control {
     pub ready_pose: Joints,
     pub set_positions: SetPositions,
     pub step_planner: StepPlanner,
+    pub support_foot_estimation: SupportFootEstimation,
     pub walking_engine: WalkingEngine,
     pub whistle_filter: WhistleFilter,
     pub fall_protection_parameters: FallProtectionParameters,
@@ -77,6 +78,7 @@ pub struct PathPlanner {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct StepPlanner {
+    pub injected_step: Option<Step>,
     pub max_step_size: Step,
     pub max_step_size_backwards: f32,
     pub translation_exponent: f32,
@@ -85,8 +87,14 @@ pub struct StepPlanner {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct SupportFootEstimation {
+    pub hysteresis: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct HighDetector {
-    pub total_pressure_threshold: f32,
+    pub pressure_threshold: f32,
+    pub hysteresis: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -103,14 +111,19 @@ pub struct GameStateFilter {
 pub struct WalkingEngine {
     pub walk_hip_height: f32,
     pub torso_offset: f32,
-    pub short_step_duration: f32,
-    pub long_step_duration: f32,
+    pub minimal_step_duration: Duration,
     pub shoulder_pitch_factor: f32,
     pub base_foot_lift: f32,
     pub base_step_duration: Duration,
-    pub first_step_foot_lift_factor: f32,
-    pub balance_factor: f32,
+    pub starting_step_duration: Duration,
+    pub starting_step_foot_lift: f32,
+    pub gyro_balance_factor: f32,
+    pub swing_foot_leveling_factor: f32,
     pub max_forward_acceleration: f32,
+    pub forward_foot_support_offset: f32,
+    pub backward_foot_support_offset: f32,
+    pub max_step_adjustment: f32,
+    pub step_duration_increase: Step,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

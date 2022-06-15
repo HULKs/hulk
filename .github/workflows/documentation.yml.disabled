@@ -1,0 +1,22 @@
+name: Publish Documentation
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - mkdocs.yml
+      - 'docs/**'
+jobs:
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          lfs: true
+      - run: |
+          rm requirements.txt
+      - uses: mhausenblas/mkdocs-deploy-gh-pages@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXTRA_PACKAGES: git-lfs

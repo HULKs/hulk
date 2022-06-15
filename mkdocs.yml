@@ -1,4 +1,5 @@
 site_name: HULKs Documentation
+remote_branch: docs
 theme:
   name: material
   logo: logo.svg

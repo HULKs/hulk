@@ -42,6 +42,7 @@
       "pitch": 0.4
     },
     "step_planner": {
+      "injected_step": null,
       "max_step_size": {
         "forward": 0.06,
         "left": 0.08,
@@ -59,17 +60,32 @@
     "walking_engine": {
       "walk_hip_height": 0.18,
       "torso_offset": 0.014,
-      "short_step_duration": 0.8,
-      "long_step_duration": 1.5,
+      "minimal_step_duration": {
+        "nanos": 200000000,
+        "secs": 0
+      },
       "shoulder_pitch_factor": 7,
       "base_foot_lift": 0.012,
       "base_step_duration": {
-        "nanos": 300000000,
+        "nanos": 280000000,
         "secs": 0
       },
-      "first_step_foot_lift_factor": 0.3,
-      "balance_factor": 0.08,
-      "max_forward_acceleration": 0.01
+      "step_duration_increase": {
+        "forward": 0.5,
+        "left": 0.5,
+        "turn": 0.0
+      },
+      "starting_step_duration": {
+        "nanos": 150000000,
+        "secs": 0
+      },
+      "starting_step_foot_lift": 0.004,
+      "gyro_balance_factor": 0.08,
+      "swing_foot_leveling_factor": 0.9,
+      "max_forward_acceleration": 0.01,
+      "forward_foot_support_offset": 0.04,
+      "backward_foot_support_offset": 0.0,
+      "max_step_adjustment": 0.1
     },
     "path_planner": {
       "hybrid_align_distance": 1.0,
@@ -236,8 +252,12 @@
     "game_state_filter": {
       "max_wait_for_ready_message": 20.0
     },
-    "high_detector": {
-      "total_pressure_threshold": 1.0
+    "ground_contact_detector": {
+      "pressure_threshold": 0.6,
+      "hysteresis": 0.3
+    },
+    "support_foot_estimation": {
+      "hysteresis": 0.3
     }
   },
   "player_number": 5,

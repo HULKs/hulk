@@ -44,10 +44,11 @@ impl Actions {
             Self::Stand => {
                 let relative_pose =
                     world_state.robot.pose.inverse() * world_state.robot.walk_target_pose;
-                relative_pose
-                    .translation
-                    .relative_eq(&Translation2::identity(), 0.05, 0.05)
-                    && relative_pose.rotation.angle().relative_eq(&0.0, 0.3, 0.3)
+                !world_state.robot.has_ground_contact
+                    || relative_pose
+                        .translation
+                        .relative_eq(&Translation2::identity(), 0.05, 0.05)
+                        && relative_pose.rotation.angle().relative_eq(&0.0, 0.3, 0.3)
             }
             Self::StandUp => matches!(world_state.robot.fall_state, FallState::Fallen { .. }),
             Self::WalkToPose => true,
