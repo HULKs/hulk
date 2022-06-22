@@ -318,11 +318,8 @@ mod tests {
         }
 
         let image = create_image(10, 500);
-        let mut camera_matrix = CameraMatrix::matrix_from_parameters(
-            vector![2.0, 2.0],
-            point![1.0, 1.0],
-            vector![45.0, 45.0],
-        );
+        let mut camera_matrix =
+            CameraMatrix::from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
         camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.5]);
         camera_matrix.camera_to_ground.rotation =
             UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0);
@@ -355,11 +352,8 @@ mod tests {
 
     #[test]
     fn check_fixed_segment_size() {
-        let mut camera_matrix = CameraMatrix::matrix_from_parameters(
-            vector![2.0, 2.0],
-            point![1.0, 1.0],
-            vector![45.0, 45.0],
-        );
+        let mut camera_matrix =
+            CameraMatrix::from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
         camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.5]);
         camera_matrix.camera_to_ground.rotation =
             UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0);

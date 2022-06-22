@@ -50,7 +50,7 @@ impl BallFilter {
             // cycles. Fix after GORE
             let ball_of_last_cycle = self.ball_position.state();
             self.ball_position
-                .reset(current_odometry_to_last_odometry * ball_of_last_cycle);
+                .reset(current_odometry_to_last_odometry.inverse() * ball_of_last_cycle);
 
             for balls in balls_in_control_cycle {
                 for ball in balls {

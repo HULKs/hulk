@@ -13,6 +13,7 @@ pub struct CameraMatrices {
 
 #[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CameraMatrix {
+    pub camera_to_head: Isometry3<f32>,
     pub camera_to_ground: Isometry3<f32>,
     pub ground_to_camera: Isometry3<f32>,
     pub camera_to_robot: Isometry3<f32>,
@@ -26,6 +27,7 @@ pub struct CameraMatrix {
 impl Default for CameraMatrix {
     fn default() -> Self {
         Self {
+            camera_to_head: Isometry3::identity(),
             camera_to_ground: Isometry3::identity(),
             ground_to_camera: Isometry3::identity(),
             camera_to_robot: Isometry3::identity(),
@@ -39,24 +41,6 @@ impl Default for CameraMatrix {
 }
 
 impl CameraMatrix {
-    #[allow(dead_code)]
-    pub fn matrix_from_parameters(
-        focal_length: Vector2<f32>,
-        optical_center: Point2<f32>,
-        field_of_view: Vector2<f32>,
-    ) -> Self {
-        Self {
-            camera_to_ground: Isometry3::identity(),
-            ground_to_camera: Isometry3::identity(),
-            camera_to_robot: Isometry3::identity(),
-            robot_to_camera: Isometry3::identity(),
-            focal_length,
-            optical_center,
-            field_of_view,
-            horizon: Default::default(),
-        }
-    }
-
     pub fn pixel_to_camera(&self, pixel_coordinates: &Point2<f32>) -> Vector3<f32> {
         vector![
             1.0,
@@ -166,18 +150,14 @@ pub struct ProjectedFieldLines {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    use approx::assert_relative_eq;
-    use nalgebra::{Translation, UnitQuaternion};
-
-    pub fn matrix_from_parameters(
+impl CameraMatrix {
+    pub fn from_parameters(
         focal_length: Vector2<f32>,
         optical_center: Point2<f32>,
         field_of_view: Vector2<f32>,
     ) -> CameraMatrix {
         CameraMatrix {
+            camera_to_head: Isometry3::identity(),
             camera_to_ground: Isometry3::identity(),
             ground_to_camera: Isometry3::identity(),
             camera_to_robot: Isometry3::identity(),
@@ -188,14 +168,19 @@ mod tests {
             horizon: Default::default(),
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use approx::assert_relative_eq;
+    use nalgebra::{Translation, UnitQuaternion};
 
     #[test]
     fn pixel_to_camera_default_center() {
-        let camera_matrix = CameraMatrix::matrix_from_parameters(
-            vector![2.0, 2.0],
-            point![1.0, 1.0],
-            vector![45.0, 45.0],
-        );
+        let camera_matrix =
+            CameraMatrix::from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
 
         assert_relative_eq!(
             camera_matrix.pixel_to_camera(&point![1.0, 1.0]),
@@ -205,11 +190,8 @@ mod tests {
 
     #[test]
     fn pixel_to_camera_default_top_left() {
-        let camera_matrix = CameraMatrix::matrix_from_parameters(
-            vector![2.0, 2.0],
-            point![1.0, 1.0],
-            vector![45.0, 45.0],
-        );
+        let camera_matrix =
+            CameraMatrix::from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
 
         assert_relative_eq!(
             camera_matrix.pixel_to_camera(&point![0.0, 0.0]),
@@ -219,7 +201,7 @@ mod tests {
 
     #[test]
     fn pixel_to_camera_sample_camera_center() {
-        let camera_matrix = CameraMatrix::matrix_from_parameters(
+        let camera_matrix = CameraMatrix::from_parameters(
             vector![0.95 * 640.0, 1.27 * 480.0],
             point![0.5 * 640.0, 0.5 * 480.0],
             vector![56.3, 43.7],
@@ -233,7 +215,7 @@ mod tests {
 
     #[test]
     fn pixel_to_camera_sample_camera_top_left() {
-        let camera_matrix = CameraMatrix::matrix_from_parameters(
+        let camera_matrix = CameraMatrix::from_parameters(
             vector![0.95 * 640.0, 1.27 * 480.0],
             point![0.5 * 640.0, 0.5 * 480.0],
             vector![56.3, 43.7],
@@ -247,11 +229,8 @@ mod tests {
 
     #[test]
     fn camera_to_pixel_default_center() -> Result<()> {
-        let camera_matrix = CameraMatrix::matrix_from_parameters(
-            vector![2.0, 2.0],
-            point![1.0, 1.0],
-            vector![45.0, 45.0],
-        );
+        let camera_matrix =
+            CameraMatrix::from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
 
         assert_relative_eq!(
             camera_matrix.camera_to_pixel(&vector![1.0, 0.0, 0.0])?,
@@ -263,11 +242,8 @@ mod tests {
 
     #[test]
     fn camera_to_pixel_default_top_left() -> Result<()> {
-        let camera_matrix = CameraMatrix::matrix_from_parameters(
-            vector![2.0, 2.0],
-            point![1.0, 1.0],
-            vector![45.0, 45.0],
-        );
+        let camera_matrix =
+            CameraMatrix::from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
 
         assert_relative_eq!(
             camera_matrix.camera_to_pixel(&vector![1.0, 0.5, 0.5])?,
@@ -279,7 +255,7 @@ mod tests {
 
     #[test]
     fn camera_to_pixel_sample_camera_center() -> Result<()> {
-        let camera_matrix = CameraMatrix::matrix_from_parameters(
+        let camera_matrix = CameraMatrix::from_parameters(
             vector![0.95 * 640.0, 1.27 * 480.0],
             point![0.5 * 640.0, 0.5 * 480.0],
             vector![56.3, 43.7],
@@ -295,7 +271,7 @@ mod tests {
 
     #[test]
     fn camera_to_pixel_sample_camera_top_left() -> Result<()> {
-        let camera_matrix = CameraMatrix::matrix_from_parameters(
+        let camera_matrix = CameraMatrix::from_parameters(
             vector![0.95 * 640.0, 1.27 * 480.0],
             point![0.5 * 640.0, 0.5 * 480.0],
             vector![56.3, 43.7],
@@ -312,7 +288,7 @@ mod tests {
 
     #[test]
     fn pixel_to_camera_reversible() -> Result<()> {
-        let camera_matrix = CameraMatrix::matrix_from_parameters(
+        let camera_matrix = CameraMatrix::from_parameters(
             vector![0.95 * 640.0, 1.27 * 480.0],
             point![0.5 * 640.0, 0.5 * 480.0],
             vector![56.3, 43.7],
@@ -328,11 +304,8 @@ mod tests {
 
     #[test]
     fn pixel_to_robot_with_z_only_elevation() -> Result<()> {
-        let mut camera_matrix = CameraMatrix::matrix_from_parameters(
-            vector![2.0, 2.0],
-            point![1.0, 1.0],
-            vector![45.0, 45.0],
-        );
+        let mut camera_matrix =
+            CameraMatrix::from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
         camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.5]);
 
         assert_relative_eq!(
@@ -344,11 +317,8 @@ mod tests {
 
     #[test]
     fn pixel_to_robot_with_z_pitch_45_degree_down() -> Result<()> {
-        let mut camera_matrix = CameraMatrix::matrix_from_parameters(
-            vector![2.0, 2.0],
-            point![1.0, 1.0],
-            vector![45.0, 45.0],
-        );
+        let mut camera_matrix =
+            CameraMatrix::from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
         camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.5]);
         camera_matrix.camera_to_ground.rotation =
             UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0);
@@ -363,7 +333,7 @@ mod tests {
     #[test]
     fn ground_to_pixel_only_elevation() -> Result<()> {
         let mut camera_matrix =
-            matrix_from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
+            CameraMatrix::from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
         camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.75]);
         camera_matrix.ground_to_camera = camera_matrix.camera_to_ground.inverse();
 
@@ -377,7 +347,7 @@ mod tests {
     #[test]
     fn ground_to_pixel_pitch_45_degree_down() -> Result<()> {
         let mut camera_matrix =
-            matrix_from_parameters(vector![1.0, 1.0], point![0.5, 0.5], vector![45.0, 45.0]);
+            CameraMatrix::from_parameters(vector![1.0, 1.0], point![0.5, 0.5], vector![45.0, 45.0]);
         camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 1.0]);
         camera_matrix.camera_to_ground.rotation =
             UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0);
@@ -393,7 +363,7 @@ mod tests {
     #[test]
     fn robot_to_pixel_only_elevation() -> Result<()> {
         let mut camera_matrix =
-            matrix_from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
+            CameraMatrix::from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
         camera_matrix.camera_to_robot.translation = Translation::from(point![0.0, 0.0, 0.75]);
         camera_matrix.robot_to_camera = camera_matrix.camera_to_robot.inverse();
 
@@ -407,7 +377,7 @@ mod tests {
     #[test]
     fn robot_to_pixel_pitch_45_degree_down() -> Result<()> {
         let mut camera_matrix =
-            matrix_from_parameters(vector![1.0, 1.0], point![0.5, 0.5], vector![45.0, 45.0]);
+            CameraMatrix::from_parameters(vector![1.0, 1.0], point![0.5, 0.5], vector![45.0, 45.0]);
         camera_matrix.camera_to_robot.translation = Translation::from(point![0.0, 0.0, 1.0]);
         camera_matrix.camera_to_robot.rotation =
             UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0);
@@ -422,7 +392,7 @@ mod tests {
 
     #[test]
     fn get_pixel_radius_only_elevation() -> Result<()> {
-        let mut camera_matrix = CameraMatrix::matrix_from_parameters(
+        let mut camera_matrix = CameraMatrix::from_parameters(
             vector![640.0, 480.0],
             point![320.0, 240.0],
             vector![45.0, 45.0].map(|a: f32| a.to_radians()),
@@ -438,7 +408,7 @@ mod tests {
 
     #[test]
     fn get_pixel_radius_pitch_45_degree_down() -> Result<()> {
-        let mut camera_matrix = CameraMatrix::matrix_from_parameters(
+        let mut camera_matrix = CameraMatrix::from_parameters(
             vector![640.0, 480.0],
             point![320.0, 240.0],
             vector![45.0, 45.0].map(|a: f32| a.to_radians()),

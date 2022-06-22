@@ -1,8 +1,7 @@
 use macros::{module, require_some};
 
 use crate::types::{
-    BodyMotionSafeExits, BodyMotionType, Facing, HeadMotionSafeExits, HeadMotionType, Motion,
-    MotionCommand, MotionSelection, SensorData, StandUpFrontPositions,
+    Facing, Joints, Motion, MotionCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
 use super::motion_file::{MotionFile, MotionFileInterpolator};
@@ -15,9 +14,8 @@ pub struct StandUpFront {
 #[input(path = sensor_data, data_type = SensorData)]
 #[input(path = motion_selection, data_type = MotionSelection)]
 #[input(path = motion_command, data_type = MotionCommand)]
-#[persistent_state(path = body_motion_safe_exits, data_type = BodyMotionSafeExits)]
-#[persistent_state(path = head_motion_safe_exits, data_type = HeadMotionSafeExits)]
-#[main_output(data_type = StandUpFrontPositions)]
+#[persistent_state(path = motion_safe_exits, data_type = MotionSafeExits)]
+#[main_output(name = stand_up_front_positions, data_type = Joints)]
 impl StandUpFront {}
 
 impl StandUpFront {
@@ -34,31 +32,26 @@ impl StandUpFront {
         let motion_selection = require_some!(context.motion_selection);
         let motion_command = require_some!(context.motion_command);
 
-        if motion_selection.current_body_motion == BodyMotionType::StandUpFront {
+        if motion_selection.current_motion == MotionType::StandUpFront {
             self.interpolator.step(last_cycle_duration);
         } else {
             self.interpolator.reset();
         }
 
-        context.body_motion_safe_exits[BodyMotionType::StandUpFront] = false;
-        context.head_motion_safe_exits[HeadMotionType::StandUpFront] = false;
+        context.motion_safe_exits[MotionType::StandUpFront] = false;
         if self.interpolator.is_finished() {
             match motion_command.motion {
                 Motion::StandUp {
                     facing: Facing::Down,
                 } => self.interpolator.reset(),
                 _ => {
-                    context.body_motion_safe_exits[BodyMotionType::StandUpFront] = true;
-                    context.head_motion_safe_exits[HeadMotionType::StandUpFront] = true;
+                    context.motion_safe_exits[MotionType::StandUpFront] = true;
                 }
             };
         }
 
         Ok(MainOutputs {
-            stand_up_front_positions: Some(StandUpFrontPositions {
-                body_positions: self.interpolator.value().into(),
-                head_positions: self.interpolator.value().into(),
-            }),
+            stand_up_front_positions: Some(self.interpolator.value()),
         })
     }
 }

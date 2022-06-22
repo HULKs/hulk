@@ -4,7 +4,6 @@ Requires=lola.service
 After=lola.service
 
 [Service]
-ExecStartPre=/usr/bin/camera-reset
 ExecStart=/usr/bin/launchHULK
 StandardOutput=journal
 Type=simple

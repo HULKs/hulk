@@ -1,84 +1,11 @@
 import fuzzysort from "fuzzysort";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Horizon,
-  ImageSegments,
-  LineDetection,
-  ProjectedFieldLines,
-  FieldBorder,
-  BallCandidates,
   PanelType,
-  RawImage,
-  RawOutput,
   SelectablePanel,
   SelectablePanels,
-  Parameter,
-  Localization,
-  Behavior,
-  AudioSpectrums,
-  MotionDispatching,
 } from "../useSelectablePanels";
 import "./Selector.css";
-
-function highlightRawOutput(parameters: RawOutput): JSX.Element {
-  return (
-    <>
-      RawOutput.{parameters.cycler}.{parameters.outputType}.{parameters.path}
-    </>
-  );
-}
-
-function highlightRawImage(parameters: RawImage): JSX.Element {
-  return <>RawImage.{parameters.cycler}</>;
-}
-
-function highlightParameter(parameters: Parameter): JSX.Element {
-  return <>Parameter.{parameters.path}</>;
-}
-
-function highlightHorizon(parameters: Horizon): JSX.Element {
-  return <>Horizon.{parameters.cycler}</>;
-}
-
-function highlightImageSegments(parameters: ImageSegments): JSX.Element {
-  return <>ImageSegments.{parameters.cycler}</>;
-}
-
-function highlightLineDetection(parameters: LineDetection): JSX.Element {
-  return <>LineDetection.{parameters.cycler}</>;
-}
-
-function highlightProjectedFieldLines(
-  parameters: ProjectedFieldLines
-): JSX.Element {
-  return <>ProjectedFieldLines.{parameters.cycler}</>;
-}
-
-function highlightFieldBorder(parameters: FieldBorder): JSX.Element {
-  return <>FieldBorder.{parameters.cycler}</>;
-}
-
-function highlightBallCandidates(parameters: BallCandidates): JSX.Element {
-  return <>BallCandidates.{parameters.cycler}</>;
-}
-
-function highlightLocalization(parameters: Localization): JSX.Element {
-  return <>Localization</>;
-}
-
-function highlightBehavior(parameters: Behavior): JSX.Element {
-  return <>Behavior</>;
-}
-
-function highlightMotionDispatching(
-  parameters: MotionDispatching
-): JSX.Element {
-  return <>MotionDispatching</>;
-}
-
-function highlightAudioSpectrums(parameters: AudioSpectrums): JSX.Element {
-  return <>AudioSpectrums</>;
-}
 
 export default function Selector({
   selectablePanels,
@@ -125,31 +52,41 @@ export default function Selector({
     const highlighted = (() => {
       switch (item.obj.selectablePanel.panelType) {
         case PanelType.RawOutput:
-          return highlightRawOutput(item.obj.selectablePanel);
+          return (
+            <>
+              RawOutput.{item.obj.selectablePanel.cycler}.
+              {item.obj.selectablePanel.outputType}.
+              {item.obj.selectablePanel.path}
+            </>
+          );
         case PanelType.RawImage:
-          return highlightRawImage(item.obj.selectablePanel);
+          return <>RawImage.{item.obj.selectablePanel.cycler}</>;
         case PanelType.Parameter:
-          return highlightParameter(item.obj.selectablePanel);
+          return <>Parameter.{item.obj.selectablePanel.path}</>;
         case PanelType.Horizon:
-          return highlightHorizon(item.obj.selectablePanel);
+          return <>Horizon.{item.obj.selectablePanel.cycler}</>;
         case PanelType.ImageSegments:
-          return highlightImageSegments(item.obj.selectablePanel);
+          return <>ImageSegments.{item.obj.selectablePanel.cycler}</>;
         case PanelType.LineDetection:
-          return highlightLineDetection(item.obj.selectablePanel);
+          return <>LineDetection.{item.obj.selectablePanel.cycler}</>;
         case PanelType.ProjectedFieldLines:
-          return highlightProjectedFieldLines(item.obj.selectablePanel);
+          return <>ProjectedFieldLines.{item.obj.selectablePanel.cycler}</>;
         case PanelType.FieldBorder:
-          return highlightFieldBorder(item.obj.selectablePanel);
+          return <>FieldBorder.{item.obj.selectablePanel.cycler}</>;
         case PanelType.BallCandidates:
-          return highlightBallCandidates(item.obj.selectablePanel);
+          return <>BallCandidates.{item.obj.selectablePanel.cycler}</>;
         case PanelType.Localization:
-          return highlightLocalization(item.obj.selectablePanel);
+          return <>Localization</>;
         case PanelType.Behavior:
-          return highlightBehavior(item.obj.selectablePanel);
+          return <>Behavior</>;
         case PanelType.MotionDispatching:
-          return highlightMotionDispatching(item.obj.selectablePanel);
+          return <>MotionDispatching</>;
         case PanelType.AudioSpectrums:
-          return highlightAudioSpectrums(item.obj.selectablePanel);
+          return <>AudioSpectrums</>;
+        case PanelType.Odometry:
+          return <>Odometry</>;
+        case PanelType.ProjectedLimbs:
+          return <>ProjectedLimbs.{item.obj.selectablePanel.cycler}</>;
       }
     })();
     return (

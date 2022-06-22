@@ -34,11 +34,10 @@ impl CameraMatrixProvider {
             CameraPosition::Top,
             context.top_camera_matrix_parameters.extrinsic_rotations,
         );
-        let top_camera_to_robot = robot_kinematics.head_to_robot * top_camera_to_head;
-        let top_camera_to_ground = robot_to_ground * top_camera_to_robot;
         let top_camera_matrix = camera_matrix_for_camera(
-            top_camera_to_robot,
-            top_camera_to_ground,
+            top_camera_to_head,
+            robot_kinematics.head_to_robot,
+            *robot_to_ground,
             context.top_camera_matrix_parameters.focal_lengths,
             context.top_camera_matrix_parameters.cc_optical_center,
         );
@@ -46,11 +45,10 @@ impl CameraMatrixProvider {
             CameraPosition::Bottom,
             context.bottom_camera_matrix_parameters.extrinsic_rotations,
         );
-        let bottom_camera_to_robot = robot_kinematics.head_to_robot * bottom_camera_to_head;
-        let bottom_camera_to_ground = robot_to_ground * bottom_camera_to_robot;
         let bottom_camera_matrix = camera_matrix_for_camera(
-            bottom_camera_to_robot,
-            bottom_camera_to_ground,
+            bottom_camera_to_head,
+            robot_kinematics.head_to_robot,
+            *robot_to_ground,
             context.bottom_camera_matrix_parameters.focal_lengths,
             context.bottom_camera_matrix_parameters.cc_optical_center,
         );
@@ -98,11 +96,14 @@ pub fn camera_to_head(
 }
 
 fn camera_matrix_for_camera(
-    camera_to_robot: Isometry3<f32>,
-    camera_to_ground: Isometry3<f32>,
+    camera_to_head: Isometry3<f32>,
+    head_to_robot: Isometry3<f32>,
+    robot_to_ground: Isometry3<f32>,
     focal_length: Vector2<f32>,
     optical_center: Vector2<f32>,
 ) -> CameraMatrix {
+    let camera_to_robot = head_to_robot * camera_to_head;
+    let camera_to_ground = robot_to_ground * camera_to_robot;
     // Calculate FOV using;
     // fov_x = 2 * atan(image_width/ (2 * focal_lengths_x)) -> same for fov_y.
     // https://www.edmundoptics.eu/knowledge-center/application-notes/imaging/understanding-focal-length-and-field-of-view/
@@ -144,6 +145,7 @@ fn camera_matrix_for_camera(
     };
 
     CameraMatrix {
+        camera_to_head,
         camera_to_ground,
         ground_to_camera: camera_to_ground.inverse(),
         camera_to_robot,

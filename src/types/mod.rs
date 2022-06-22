@@ -6,8 +6,6 @@ mod camera_matrix;
 mod camera_position;
 mod color;
 mod cycle_info;
-mod dispatching_positions;
-mod fall_protection;
 mod fall_state;
 mod field_border;
 mod field_color;
@@ -24,6 +22,7 @@ mod image_segments;
 mod initial_pose;
 mod joints;
 mod led;
+mod limb;
 mod line;
 mod line_data;
 mod message_event;
@@ -39,14 +38,11 @@ mod robot_data;
 mod robot_dimensions;
 mod robot_kinematics;
 mod robot_masses;
-mod robot_projection;
 mod robot_state;
 mod roles;
 mod sensor_data;
 mod sit_down_positions;
 mod sole_pressure;
-mod stand_up_back_positions;
-mod stand_up_front_positions;
 mod step_plan;
 mod support_foot;
 mod team_state;
@@ -64,8 +60,6 @@ pub use camera_matrix::{CameraMatrices, CameraMatrix, Horizon, ProjectedFieldLin
 pub use camera_position::CameraPosition;
 pub use color::{Intensity, Rgb, RgbChannel, YCbCr422, YCbCr444};
 pub use cycle_info::CycleInfo;
-pub use dispatching_positions::{DispatchingBodyPositions, DispatchingHeadPositions};
-pub use fall_protection::FallProtection;
 pub use fall_state::FallState;
 pub use field_border::FieldBorder;
 pub use field_color::FieldColor;
@@ -79,8 +73,12 @@ pub use goal_data::GoalData;
 pub use ground_contact::GroundContact;
 pub use image_segments::{EdgeType, ImageSegments, ScanGrid, ScanLine, Segment};
 pub use initial_pose::InitialPose;
-pub use joints::{ArmJoints, BodyJoints, HeadJoints, Joints, LegJoints};
+pub use joints::{
+    ArmJoints, BodyJoints, BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand,
+    LegJoints,
+};
 pub use led::{Ear, Eye, Leds};
+pub use limb::Limb;
 pub use line::{Line, Line2};
 pub use line_data::{ImageLines, LineData};
 pub use message_event::MessageEvent;
@@ -89,9 +87,7 @@ pub use motion_command::{
     ArmMotion, Facing, FallDirection, HeadMotion, InWalkKick, JumpDirection, KickDirection, Motion,
     MotionCommand, SitDirection,
 };
-pub use motion_selection::{
-    BodyMotionSafeExits, BodyMotionType, HeadMotionSafeExits, HeadMotionType, MotionSelection,
-};
+pub use motion_selection::{MotionSafeExits, MotionSelection, MotionType};
 pub use penalty_spot_data::PenaltySpotData;
 pub use perspective_grid_candidates::PerspectiveGridCandidates;
 pub use planned_path::PlannedPath;
@@ -101,17 +97,14 @@ pub use robot_data::RobotData;
 pub use robot_dimensions::RobotDimensions;
 pub use robot_kinematics::RobotKinematics;
 pub use robot_masses::RobotMass;
-pub use robot_projection::RobotProjection;
 pub use robot_state::RobotState;
 pub use roles::Role;
 pub use sensor_data::{
     Foot, ForceSensitiveResistors, InertialMeasurementUnitData, SensorData, SonarSensors,
     TouchSensors,
 };
-pub use sit_down_positions::SitDownPositions;
+pub use sit_down_positions::SitDownJoints;
 pub use sole_pressure::SolePressure;
-pub use stand_up_back_positions::StandUpBackPositions;
-pub use stand_up_front_positions::StandUpFrontPositions;
 pub use step_plan::{Step, StepPlan};
 pub use support_foot::{Side, SupportFoot};
 pub use team_state::TeamState;

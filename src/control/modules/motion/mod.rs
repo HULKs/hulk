@@ -1,6 +1,6 @@
-pub mod dispatching_body_interpolator;
-pub mod dispatching_head_interpolator;
-pub mod fall_protection;
+pub mod dispatching_interpolator;
+pub mod fall_protector;
+pub mod head_motion;
 pub mod joint_command_sender;
 pub mod look_around;
 pub mod look_at;
@@ -12,4 +12,3 @@ pub mod stand_up_front;
 pub mod step_planner;
 pub mod walk_manager;
 pub mod walking_engine;
-pub mod zero_angles_head;

@@ -1,11 +1,17 @@
-use libc;
-use std::time::Duration;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+    thread::sleep,
+    time::Duration,
+};
 
-use anyhow::{anyhow, Context};
-use log::{debug, warn};
-use polling::{Event, Poller};
+use anyhow::{bail, Context};
+use i2cdev::{core::I2CDevice, linux::LinuxI2CDevice};
+use log::{debug, info, warn};
+use parking_lot::Mutex;
 use v4l::{
     buffer::Type,
+    device::{OpenFlags, WaitError},
     io::{
         mmap,
         traits::{CaptureStream, Stream},
@@ -27,12 +33,13 @@ use crate::{
 pub const UVC_EXTENSION_UNIT: u8 = 0x03;
 
 pub struct NaoCamera {
-    stream: mmap::Stream<'static>,
     device: Device,
-    polling_key: usize,
-    poller: Poller,
+    stream: mmap::Stream<'static>,
     last_sequence_number: u32,
     last_image_timestamp: Duration,
+    camera_position: CameraPosition,
+    device_path: PathBuf,
+    i2c_head_mutex: Arc<Mutex<()>>,
 }
 
 impl NaoCamera {
@@ -41,56 +48,25 @@ impl NaoCamera {
     const IMAGE_WIDTH: u32 = 640;
     const IMAGE_HEIGHT: u32 = 480;
 
-    pub fn new(device_path: &str, camera_position: CameraPosition) -> anyhow::Result<Self> {
-        let device = Device::with_path_and_flags(device_path, libc::O_NONBLOCK | libc::O_RDWR)
-            .with_context(|| format!("Failed to open camera device {}", device_path))?;
-        let applied_format =
-            Self::configure_device(&device).context("Failed to configure device")?;
-        debug!("Applied format to camera:\n{}", applied_format);
-        let controls = V4L2Controls {
-            exposure_mode: ExposureMode::Auto,
-            white_balance_mode: WhiteBalanceMode::Auto,
-            brightness: 0,
-            contrast: 32,
-            gain: 16,
-            hue: 0,
-            saturation: 64,
-            sharpness: 4,
-            white_balance_temperature: 2500,
-            exposure_absolute: 512,
-            hue_mode: HueMode::Auto,
-            focus_mode: FocusMode::Manual,
-            focus_absolute: 0,
-        };
-        apply_v4l2_settings(&device, controls)?;
-        if let CameraPosition::Top = camera_position {
-            flip_sensor(&device)?
-        }
-        disable_digital_effects(&device)?;
-        set_aec_weights(&device, [1; 16])?;
-        let stream =
-            mmap::Stream::with_buffers(&device, Type::VideoCapture, Self::BUFFER_COUNT as u32)
-                .context("Failed to create buffered stream")?;
-        let polling_key = 1;
-        let poller = Poller::new()?;
-        poller.add(device.handle().fd(), Event::readable(polling_key))?;
+    pub fn new<P: Into<PathBuf>>(
+        device_path: P,
+        camera_position: CameraPosition,
+        i2c_head_mutex: Arc<Mutex<()>>,
+    ) -> anyhow::Result<Self> {
+        let device_path: PathBuf = device_path.into();
+        Self::reset_camera_device(camera_position, &device_path, &i2c_head_mutex)
+            .context("Reset of camera device failed")?;
+        let (device, stream) = Self::create_device_and_stream(&device_path, camera_position)
+            .context("Creating device and stream failed")?;
         Ok(Self {
-            stream,
             device,
-            polling_key,
-            poller,
+            stream,
             last_sequence_number: 0,
             last_image_timestamp: Duration::ZERO,
+            camera_position,
+            device_path,
+            i2c_head_mutex,
         })
-    }
-
-    fn configure_device(device: &Device) -> anyhow::Result<Format> {
-        let format = Format::new(Self::IMAGE_WIDTH, Self::IMAGE_HEIGHT, Self::FOURCC);
-        let actual_format = device.set_format(&format)?;
-        let mut parameters = device.params()?;
-        parameters.interval = Fraction::new(1, 30);
-        device.set_params(&parameters)?;
-        Ok(actual_format)
     }
 
     pub fn start(&mut self) -> anyhow::Result<()> {
@@ -105,26 +81,41 @@ impl NaoCamera {
         Ok(())
     }
 
+    pub fn stop(&mut self) -> anyhow::Result<()> {
+        self.stream.stop().context("Stopping stream failed")?;
+        self.device.close();
+        Ok(())
+    }
+
     pub fn get_next_image(&mut self) -> anyhow::Result<Image422> {
-        let mut events = Vec::new();
-        self.poller.wait(&mut events, None)?;
-        self.poller
-            .modify(self.device.handle().fd(), Event::readable(self.polling_key))?;
-        let is_readable = events.iter().fold(true, |acc, event| match event {
-            Event {
-                key,
-                readable: true,
-                writable: false,
-            } => acc && key == &self.polling_key,
-            _ => false,
-        });
-        if !is_readable || events.is_empty() {
-            return Err(anyhow!("Could not poll event"));
+        const MAXIMUM_NUMBER_OF_RETRIES: i32 = 10;
+        for i in (0..MAXIMUM_NUMBER_OF_RETRIES).rev() {
+            if i <= 0 {
+                bail!("Timed out trying to restart camera device");
+            }
+
+            const IMAGE_CAPTURE_TIMEOUT: usize = 1000;
+            match self.device.wait(Some(IMAGE_CAPTURE_TIMEOUT)) {
+                Err(WaitError::Timeout) => {
+                    info!(
+                        "Reinitializing {:?} camera device. Please wait.",
+                        self.camera_position
+                    );
+                    self.reinitialize_camera()
+                        .context("Reinitializing camera failed")?;
+                    continue;
+                }
+                result => result.context("Failed to retrieve an image")?,
+            }
+            break;
         }
+        // if more than 1 image has been captured in the previous cycle,
+        // discard all images except for the newest one
         let mut buffer_index = None;
         while let Ok(index) = self.stream.dequeue() {
             if let Some(previous_buffer_index) = buffer_index {
-                self.release_image(previous_buffer_index)?;
+                self.release_image(previous_buffer_index)
+                    .context("Failed to release image")?;
             };
             buffer_index = Some(index);
         }
@@ -159,13 +150,146 @@ impl NaoCamera {
             (Self::IMAGE_WIDTH / 2) as usize,
             Self::IMAGE_HEIGHT as usize,
         );
-        self.release_image(buffer_index)?;
+        self.release_image(buffer_index)
+            .context("Failed to release image")?;
         Ok(image)
+    }
+
+    fn configure_device(device: &Device) -> anyhow::Result<Format> {
+        let format = Format::new(Self::IMAGE_WIDTH, Self::IMAGE_HEIGHT, Self::FOURCC);
+        let format = device.set_format(&format).context("Failed to set format")?;
+        let mut parameters = device.params().context("Failed to get parameters")?;
+        parameters.interval = Fraction::new(1, 30);
+        device
+            .set_params(&parameters)
+            .context("Failed to set parameters")?;
+        Ok(format)
+    }
+
+    fn reinitialize_camera(&mut self) -> anyhow::Result<()> {
+        self.stop().context("Failed to stop camera device")?;
+        Self::reset_camera_device(
+            self.camera_position,
+            &self.device_path,
+            &self.i2c_head_mutex,
+        )
+        .context("Failed to reset camera device")?;
+        (self.device, self.stream) =
+            Self::create_device_and_stream(&self.device_path, self.camera_position)
+                .context("Failed to create device and stream")?;
+        self.start().context("Failed to start camera device")?;
+        Ok(())
+    }
+
+    fn create_device_and_stream(
+        device_path: &Path,
+        camera_position: CameraPosition,
+    ) -> anyhow::Result<(Device, mmap::Stream<'static>)> {
+        let device = Device::with_path_and_flags(device_path, OpenFlags::Nonblocking)
+            .with_context(|| format!("Failed to open camera device {}", device_path.display()))?;
+
+        let applied_format =
+            Self::configure_device(&device).context("Failed to configure device")?;
+        debug!("Applied format to camera:\n{}", applied_format);
+        let controls = V4L2Controls {
+            exposure_mode: ExposureMode::Auto,
+            white_balance_mode: WhiteBalanceMode::Auto,
+            brightness: 0,
+            contrast: 32,
+            gain: 16,
+            hue: 0,
+            saturation: 64,
+            sharpness: 4,
+            white_balance_temperature: 2500,
+            exposure_absolute: 512,
+            hue_mode: HueMode::Auto,
+            focus_mode: FocusMode::Manual,
+            focus_absolute: 0,
+        };
+        apply_v4l2_settings(&device, controls).context("Failed to apply v4l2 settings")?;
+        if let CameraPosition::Top = camera_position {
+            flip_sensor(&device).context("Failed to flip sensor")?
+        }
+        disable_digital_effects(&device).context("Failed to disable digital effects")?;
+        set_aec_weights(&device, [1; 16]).context("Failed to set aec weights")?;
+        let stream =
+            mmap::Stream::with_buffers(&device, Type::VideoCapture, Self::BUFFER_COUNT as u32)
+                .context("Failed to create buffered stream")?;
+        Ok((device, stream))
+    }
+
+    fn reset_camera_device(
+        camera_position: CameraPosition,
+        device_path: &Path,
+        i2c_head_mutex: &Mutex<()>,
+    ) -> anyhow::Result<()> {
+        let _lock = i2c_head_mutex.lock();
+        const SLAVE_ADDRESS: u16 = 0x41;
+        let mut device = LinuxI2CDevice::new("/dev/i2c-head", SLAVE_ADDRESS)
+            .context("Failed to create new LinuxI2CDevice")?;
+        // make sure reset lines of the cameras are configured as outputs on GPIO chip
+        if device
+            .smbus_read_byte_data(0x3)
+            .context("Failed to read i2c data")?
+            & 0xc
+            != 0x0
+        {
+            device
+                .smbus_write_byte_data(0x1, 0x0)
+                .context("Failed to write i2c data")?;
+            device
+                .smbus_write_byte_data(0x3, 0xf3)
+                .context("Failed to write i2c data")?;
+        }
+        // GPIO pin layout:
+        // - pin 0 (usb hub reset): input
+        // - pin 1 (reserved):      input
+        // - pin 2 (CX3 top camera reset): output (high -> running)
+        // - pin 3 (CX3 bottom camera reset): output (high -> running)
+        let i2c_set_value = match camera_position {
+            CameraPosition::Top => 0x8,
+            CameraPosition::Bottom => 0x4,
+        };
+        // disconnect this camera
+        device
+            .smbus_write_byte_data(0x1, i2c_set_value)
+            .context("Failed to write i2c data")?;
+        // wait until USB disconnect has been registered by linux
+        let path_buffer = PathBuf::from(device_path);
+        let error_message = "Timeout while waiting for camera to disconnect during reset";
+        let sleep_time = Duration::from_millis(50);
+        poll_condition(&|| !path_buffer.exists(), 20, sleep_time, error_message)?;
+        // connect both cameras (if not already connected)
+        device
+            .smbus_write_byte_data(0x1, 0xc)
+            .context("Failed to write i2c data")?;
+        // wait until USB disconnect has been registered by linux
+        let error_message = "Timeout while waiting for camera to connect during reset";
+        poll_condition(&|| path_buffer.exists(), 40, sleep_time, error_message)?;
+        Ok(())
     }
 
     fn release_image(&mut self, buffer_index: usize) -> std::io::Result<()> {
         self.stream.queue(buffer_index)
     }
+}
+
+fn poll_condition<F>(
+    condition: F,
+    maximum_iteration_count: u32,
+    sleep_time: Duration,
+    error_message: &'static str,
+) -> anyhow::Result<()>
+where
+    F: Fn() -> bool,
+{
+    for _ in 0..maximum_iteration_count {
+        if condition() {
+            return Ok(());
+        }
+        sleep(sleep_time);
+    }
+    bail!(error_message);
 }
 
 fn set_aec_weights(device: &Device, weights: [u8; 16]) -> anyhow::Result<()> {
@@ -185,7 +309,7 @@ fn set_aec_weights(device: &Device, weights: [u8; 16]) -> anyhow::Result<()> {
 
 fn disable_digital_effects(device: &Device) -> anyhow::Result<()> {
     debug!("Disabling digital effects");
-    write_register(device, 0x5001, 0b00100011)?;
+    write_register(device, 0x5001, 0b00100011).context("Failed to write register")?;
     Ok(())
 }
 

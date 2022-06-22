@@ -6,12 +6,12 @@ use macros::{module, require_some};
 use crate::{
     framework::configuration::FallProtectionParameters,
     types::{
-        FallDirection, FallProtection as FallProtectionData, HeadJoints, HeadMotionType, Motion,
-        MotionCommand, MotionSelection, SensorData,
+        BodyJoints, FallDirection, HeadJoints, Joints, JointsCommand, Motion, MotionCommand,
+        MotionSelection, MotionType, SensorData,
     },
 };
 
-pub struct FallProtection {
+pub struct FallProtector {
     start_time: SystemTime,
 }
 
@@ -20,11 +20,11 @@ pub struct FallProtection {
 #[input(path = sensor_data, data_type = SensorData)]
 #[input(path = motion_selection, data_type = MotionSelection)]
 #[input(path = motion_command, data_type = MotionCommand)]
-#[main_output(data_type = FallProtectionData, name = fall_protection)]
+#[main_output(name = fall_protection_command, data_type = JointsCommand)]
 
-impl FallProtection {}
+impl FallProtector {}
 
-impl FallProtection {
+impl FallProtector {
     fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {
             start_time: SystemTime::now(),
@@ -34,18 +34,18 @@ impl FallProtection {
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
         let motion_selection = require_some!(context.motion_selection);
         let motion_command = require_some!(context.motion_command);
-        let current_head_angles = require_some!(context.sensor_data).positions.head;
+        let current_positions = require_some!(context.sensor_data).positions;
 
         let mut head_stiffness = 1.0;
 
         let default_output = Ok(MainOutputs {
-            fall_protection: Some(FallProtectionData {
-                head_position: current_head_angles,
-                head_stiffness,
+            fall_protection_command: Some(JointsCommand {
+                positions: current_positions,
+                stiffnesses: Joints::fill(0.8),
             }),
         });
 
-        if motion_selection.current_head_motion != HeadMotionType::FallProtection {
+        if motion_selection.current_motion != MotionType::FallProtection {
             self.start_time = SystemTime::now();
             return default_output;
         }
@@ -57,8 +57,8 @@ impl FallProtection {
             Motion::FallProtection {
                 direction: FallDirection::Forward,
             } => {
-                if relative_eq!(current_head_angles.pitch, -0.672, epsilon = 0.05)
-                    && relative_eq!(current_head_angles.yaw.abs(), 0.0, epsilon = 0.05)
+                if relative_eq!(current_positions.head.pitch, -0.672, epsilon = 0.05)
+                    && relative_eq!(current_positions.head.yaw.abs(), 0.0, epsilon = 0.05)
                 {
                     head_stiffness = context
                         .fall_protection_parameters
@@ -66,8 +66,8 @@ impl FallProtection {
                 }
             }
             Motion::FallProtection { .. } => {
-                if relative_eq!(current_head_angles.pitch, 0.5149, epsilon = 0.05)
-                    && relative_eq!(current_head_angles.yaw.abs(), 0.0, epsilon = 0.05)
+                if relative_eq!(current_positions.head.pitch, 0.5149, epsilon = 0.05)
+                    && relative_eq!(current_positions.head.yaw.abs(), 0.0, epsilon = 0.05)
                 {
                     head_stiffness = context
                         .fall_protection_parameters
@@ -81,27 +81,36 @@ impl FallProtection {
             }
         }
 
-        let fall_protection_data = match motion_command.motion {
+        let stiffnesses =
+            Joints::from_head_and_body(HeadJoints::fill(head_stiffness), BodyJoints::fill(0.0));
+
+        let fall_protection_command = match motion_command.motion {
             Motion::FallProtection {
                 direction: FallDirection::Forward,
-            } => Some(FallProtectionData {
-                head_position: HeadJoints {
-                    yaw: 0.0,
-                    pitch: -0.672,
-                },
-                head_stiffness,
+            } => Some(JointsCommand {
+                positions: Joints::from_head_and_body(
+                    HeadJoints {
+                        yaw: 0.0,
+                        pitch: -0.672,
+                    },
+                    current_positions.into(),
+                ),
+                stiffnesses,
             }),
-            _ => Some(FallProtectionData {
-                head_position: HeadJoints {
-                    yaw: 0.0,
-                    pitch: 0.5149,
-                },
-                head_stiffness,
+            _ => Some(JointsCommand {
+                positions: Joints::from_head_and_body(
+                    HeadJoints {
+                        yaw: 0.0,
+                        pitch: 0.5149,
+                    },
+                    current_positions.into(),
+                ),
+                stiffnesses,
             }),
         };
 
         Ok(MainOutputs {
-            fall_protection: fall_protection_data,
+            fall_protection_command,
         })
     }
 }

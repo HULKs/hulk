@@ -21,6 +21,8 @@ import { Cycler } from "./Connection/Connection";
 import Parameter from "./panels/Parameter";
 import AudioSpectrums from "./panels/AudioSpectrums";
 import MotionDispatching from "./panels/MotionDispatching";
+import Odometry from "./panels/Odometry";
+import ProjectedLimbs from "./panels/ProjectedLimbs";
 
 export default function Application() {
   const [
@@ -179,6 +181,25 @@ export default function Application() {
         selector={selector}
         connector={connector}
         connection={connection}
+      />
+    );
+  }
+  if (selectedPanel.panelType === PanelType.Odometry) {
+    return (
+      <Odometry
+        selector={selector}
+        connector={connector}
+        connection={connection}
+      />
+    );
+  }
+  if (selectedPanel.panelType === PanelType.ProjectedLimbs) {
+    return (
+      <ProjectedLimbs
+        selector={selector}
+        connector={connector}
+        connection={connection}
+        cycler={selectedPanel.cycler}
       />
     );
   }

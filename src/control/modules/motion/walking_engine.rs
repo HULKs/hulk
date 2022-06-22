@@ -10,9 +10,8 @@ use crate::{
     control::filtering::LowPassFilter,
     kinematics,
     types::{
-        ArmJoints, BodyJoints, BodyMotionSafeExits, BodyMotionType, GroundContact, Joints,
-        LegJoints, RobotDimensions, SensorData, Side, Step, SupportFoot, WalkCommand,
-        WalkPositions,
+        ArmJoints, BodyJoints, GroundContact, Joints, LegJoints, MotionSafeExits, MotionType,
+        RobotDimensions, SensorData, Side, Step, SupportFoot, WalkCommand, WalkPositions,
     },
 };
 
@@ -113,7 +112,7 @@ pub struct WalkingEngine {
 #[input(path = walk_command, data_type = WalkCommand)]
 #[input(path = ground_contact, data_type = GroundContact)]
 #[input(path = robot_to_ground, data_type = Isometry3<f32>)]
-#[persistent_state(path = body_motion_safe_exits, data_type = BodyMotionSafeExits)]
+#[persistent_state(path = motion_safe_exits, data_type = MotionSafeExits)]
 #[parameter(path = control.walking_engine.walk_hip_height, data_type = f32)]
 #[parameter(path = control.walking_engine.torso_offset, data_type = f32)]
 #[parameter(path = control.walking_engine.minimal_step_duration, data_type = Duration)]
@@ -214,7 +213,7 @@ impl WalkingEngine {
 
         context.walking_engine.on_subscription(|| self.clone());
 
-        context.body_motion_safe_exits[BodyMotionType::Walk] =
+        context.motion_safe_exits[MotionType::Walk] =
             matches!(self.walk_state, WalkState::Standing);
 
         Ok(MainOutputs {

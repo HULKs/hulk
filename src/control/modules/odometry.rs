@@ -7,6 +7,7 @@ use crate::types::{RobotKinematics, Side, SupportFoot};
 pub struct Odometry {
     last_orientation: UnitComplex<f32>,
     last_left_sole_to_right_sole: Vector2<f32>,
+    last_accumulated_odometry: Isometry2<f32>,
 }
 
 #[module(control)]
@@ -14,6 +15,7 @@ pub struct Odometry {
 #[input(path = support_foot, data_type = SupportFoot)]
 #[input(path = robot_orientation, data_type = UnitComplex<f32>)]
 #[main_output(name = current_odometry_to_last_odometry, data_type = Isometry2<f32>)]
+#[additional_output(path = accumulated_odometry, data_type = Isometry2<f32>)]
 impl Odometry {}
 
 impl Odometry {
@@ -21,15 +23,15 @@ impl Odometry {
         Ok(Self {
             last_left_sole_to_right_sole: Vector2::zeros(),
             last_orientation: UnitComplex::default(),
+            last_accumulated_odometry: Isometry2::identity(),
         })
     }
 
-    fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let robot_kinematics = require_some!(context.robot_kinematics);
         let support_foot = require_some!(context.support_foot);
         let &robot_orientation = require_some!(context.robot_orientation);
 
-        // measured odometry
         let left_sole_to_right_sole = (robot_kinematics.right_sole_to_robot.translation.vector
             - robot_kinematics.left_sole_to_robot.translation.vector)
             .xy();
@@ -47,6 +49,12 @@ impl Odometry {
             Translation2::from(offset_to_last_position),
             orientation_offset,
         );
+        let accumulated_odometry =
+            current_odometry_to_last_odometry * self.last_accumulated_odometry;
+        context
+            .accumulated_odometry
+            .on_subscription(|| accumulated_odometry);
+        self.last_accumulated_odometry = accumulated_odometry;
 
         Ok(MainOutputs {
             current_odometry_to_last_odometry: Some(current_odometry_to_last_odometry),

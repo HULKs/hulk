@@ -180,11 +180,8 @@ mod tests {
 
     #[test]
     fn rows_spaced_correctly() {
-        let mut camera_matrix = CameraMatrix::matrix_from_parameters(
-            vector![1.0, 1.0],
-            point![0.5, 0.5],
-            vector![45.0, 45.0],
-        );
+        let mut camera_matrix =
+            CameraMatrix::from_parameters(vector![1.0, 1.0], point![0.5, 0.5], vector![45.0, 45.0]);
         camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.5]);
         camera_matrix.camera_to_ground.rotation =
             UnitQuaternion::from_euler_angles(0.0, PI / 4.0, 0.0);

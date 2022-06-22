@@ -3,7 +3,7 @@ use nalgebra::Point2;
 
 use crate::types::{
     Ball, CameraMatrix, CandidateEvaluation, CycleInfo, FieldBorder, FieldColor, FilteredSegments,
-    Image422, ImageLines, ImageSegments, LineData, PerspectiveGridCandidates,
+    Image422, ImageLines, ImageSegments, Limb, LineData, PerspectiveGridCandidates,
 };
 
 #[derive(Clone, Debug, Default, SerializeHierarchy)]
@@ -17,6 +17,7 @@ pub struct MainOutputs {
     pub image_segments: Option<ImageSegments>,
     pub line_data: Option<LineData>,
     pub perspective_grid_candidates: Option<PerspectiveGridCandidates>,
+    pub projected_limbs: Option<Vec<Limb>>,
 }
 
 #[derive(Debug, Default, Clone, SerializeHierarchy)]

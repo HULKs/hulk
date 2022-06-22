@@ -4,6 +4,7 @@ theme:
   name: material
   logo: logo.svg
   features:
+    - content.code.annotate
     - navigation.indexes
     - navigation.tabs
     - navigation.tracking
@@ -47,3 +48,9 @@ nav:
     - Overview: robotics/overview.md
   - Workflow:
     - Overview: workflow/overview.md
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences

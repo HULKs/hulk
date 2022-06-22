@@ -2,7 +2,7 @@ use std::ops::Range;
 use std::{path::PathBuf, time::Duration};
 
 use macros::SerializeHierarchy;
-use nalgebra::{Vector2, Vector3};
+use nalgebra::{Point3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
@@ -43,6 +43,7 @@ pub struct Control {
     pub ground_contact_detector: HighDetector,
     pub head_motion_limits: HeadMotionLimits,
     pub dispatching_head_interpolator: DispatchingHeadInterpolator,
+    pub head_motion: HeadMotion,
     pub look_at: LookAt,
     pub look_around: LookAround,
     pub orientation_filter: OrientationFilter,
@@ -144,15 +145,25 @@ pub struct DispatchingHeadInterpolator {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct LookAt {
-    pub maximum_yaw_velocity: f32,
-    pub maximum_pitch_velocity: f32,
-    pub bottom_focus_pitch_threshold: f32,
+    pub minimum_bottom_focus_pitch: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct HeadMotion {
+    pub outer_maximum_pitch: f32,
+    pub inner_maximum_pitch: f32,
+    pub outer_yaw: f32,
+    pub maximum_velocity: HeadJoints,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct LookAround {
-    pub maximum_yaw_velocity: f32,
-    pub maximum_pitch_velocity: f32,
+    pub time_at_each_position: Duration,
+    pub middle_positions: HeadJoints,
+    pub left_positions: HeadJoints,
+    pub right_positions: HeadJoints,
+    pub halfway_left_positions: HeadJoints,
+    pub halfway_right_positions: HeadJoints,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -173,6 +184,7 @@ pub struct Vision {
     pub field_border_detection: FieldBorderDetection,
     pub perspective_grid_candidates_provider: PerspectiveGridCandidatesProvider,
     pub camera_matrix_parameters: CameraMatrixParameters,
+    pub projected_limbs: ProjectedLimbs,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -273,4 +285,13 @@ pub struct CameraMatrixParameters {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct FallProtectionParameters {
     pub ground_impact_head_stiffness: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct ProjectedLimbs {
+    pub torso_bounding_polygon: Vec<Point3<f32>>,
+    pub lower_arm_bounding_polygon: Vec<Point3<f32>>,
+    pub upper_arm_bounding_polygon: Vec<Point3<f32>>,
+    pub knee_bounding_polygon: Vec<Point3<f32>>,
+    pub foot_bounding_polygon: Vec<Point3<f32>>,
 }

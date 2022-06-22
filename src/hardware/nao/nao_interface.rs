@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use alsa::{
     pcm::{Access, Format, HwParams},
@@ -33,13 +36,22 @@ impl NaoInterface {
         let interface = HulaInterface::new()?;
         let ids = interface.get_ids();
         let audio_device = Self::new_audio_device().context("Failed to initialize audio device")?;
+        let i2c_head_mutex = Arc::new(Mutex::new(()));
 
         Ok(Self {
             interface: Mutex::new(interface),
             ids,
-            top_camera: Mutex::new(NaoCamera::new("/dev/video-top", CameraPosition::Top)?),
+            top_camera: Mutex::new(NaoCamera::new(
+                "/dev/video-top",
+                CameraPosition::Top,
+                i2c_head_mutex.clone(),
+            )?),
             top_image: Mutex::new(Image422::zero(0, 0)),
-            bottom_camera: Mutex::new(NaoCamera::new("/dev/video-bottom", CameraPosition::Bottom)?),
+            bottom_camera: Mutex::new(NaoCamera::new(
+                "/dev/video-bottom",
+                CameraPosition::Bottom,
+                i2c_head_mutex,
+            )?),
             bottom_image: Mutex::new(Image422::zero(0, 0)),
             audio_device: Mutex::new(audio_device),
             audio_buffer: Mutex::new([[0.0; NUMBER_OF_AUDIO_SAMPLES]; NUMBER_OF_AUDIO_CHANNELS]),

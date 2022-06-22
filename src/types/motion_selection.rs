@@ -6,17 +6,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, Serialize, SerializeHierarchy, Deserialize)]
 pub struct MotionSelection {
     #[leaf]
-    pub current_body_motion: BodyMotionType,
+    pub current_motion: MotionType,
     #[leaf]
-    pub current_head_motion: HeadMotionType,
-    #[leaf]
-    pub dispatching_body_motion: Option<BodyMotionType>,
-    #[leaf]
-    pub dispatching_head_motion: Option<HeadMotionType>,
+    pub dispatching_motion: Option<MotionType>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
-pub enum BodyMotionType {
+pub enum MotionType {
     Dispatching,
     FallProtection,
     Jump,
@@ -30,33 +26,14 @@ pub enum BodyMotionType {
     Walk,
 }
 
-impl Default for BodyMotionType {
-    fn default() -> Self {
-        Self::Unstiff
-    }
-}
-
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
-pub enum HeadMotionType {
-    Center,
-    Dispatching,
-    FallProtection,
-    LookAround,
-    LookAt,
-    StandUpBack,
-    StandUpFront,
-    Unstiff,
-    ZeroAngles,
-}
-
-impl Default for HeadMotionType {
+impl Default for MotionType {
     fn default() -> Self {
         Self::Unstiff
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct BodyMotionSafeExits {
+pub struct MotionSafeExits {
     dispatching: bool,
     fall_protection: bool,
     jump: bool,
@@ -70,7 +47,7 @@ pub struct BodyMotionSafeExits {
     walk: bool,
 }
 
-impl Default for BodyMotionSafeExits {
+impl Default for MotionSafeExits {
     fn default() -> Self {
         Self {
             dispatching: false,
@@ -88,103 +65,40 @@ impl Default for BodyMotionSafeExits {
     }
 }
 
-impl Index<BodyMotionType> for BodyMotionSafeExits {
+impl Index<MotionType> for MotionSafeExits {
     type Output = bool;
 
-    fn index(&self, motion_type: BodyMotionType) -> &Self::Output {
+    fn index(&self, motion_type: MotionType) -> &Self::Output {
         match motion_type {
-            BodyMotionType::Dispatching => &self.dispatching,
-            BodyMotionType::FallProtection => &self.fall_protection,
-            BodyMotionType::Jump => &self.jump,
-            BodyMotionType::Kick => &self.kick,
-            BodyMotionType::Penalized => &self.penalized,
-            BodyMotionType::SitDown => &self.sit_down,
-            BodyMotionType::Stand => &self.stand,
-            BodyMotionType::StandUpBack => &self.stand_up_back,
-            BodyMotionType::StandUpFront => &self.stand_up_front,
-            BodyMotionType::Unstiff => &self.unstiff,
-            BodyMotionType::Walk => &self.walk,
+            MotionType::Dispatching => &self.dispatching,
+            MotionType::FallProtection => &self.fall_protection,
+            MotionType::Jump => &self.jump,
+            MotionType::Kick => &self.kick,
+            MotionType::Penalized => &self.penalized,
+            MotionType::SitDown => &self.sit_down,
+            MotionType::Stand => &self.stand,
+            MotionType::StandUpBack => &self.stand_up_back,
+            MotionType::StandUpFront => &self.stand_up_front,
+            MotionType::Unstiff => &self.unstiff,
+            MotionType::Walk => &self.walk,
         }
     }
 }
 
-impl IndexMut<BodyMotionType> for BodyMotionSafeExits {
-    fn index_mut(&mut self, motion_type: BodyMotionType) -> &mut Self::Output {
+impl IndexMut<MotionType> for MotionSafeExits {
+    fn index_mut(&mut self, motion_type: MotionType) -> &mut Self::Output {
         match motion_type {
-            BodyMotionType::Dispatching => &mut self.dispatching,
-            BodyMotionType::FallProtection => &mut self.fall_protection,
-            BodyMotionType::Jump => &mut self.jump,
-            BodyMotionType::Kick => &mut self.kick,
-            BodyMotionType::Penalized => &mut self.penalized,
-            BodyMotionType::SitDown => &mut self.sit_down,
-            BodyMotionType::Stand => &mut self.stand,
-            BodyMotionType::StandUpBack => &mut self.stand_up_back,
-            BodyMotionType::StandUpFront => &mut self.stand_up_front,
-            BodyMotionType::Unstiff => &mut self.unstiff,
-            BodyMotionType::Walk => &mut self.walk,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct HeadMotionSafeExits {
-    center: bool,
-    dispatching: bool,
-    look_around: bool,
-    look_at: bool,
-    protect: bool,
-    stand_up_back: bool,
-    stand_up_front: bool,
-    unstiff: bool,
-    zero_angles: bool,
-}
-
-impl Default for HeadMotionSafeExits {
-    fn default() -> Self {
-        Self {
-            center: true,
-            dispatching: false,
-            look_around: false,
-            look_at: false,
-            protect: true,
-            stand_up_back: false,
-            stand_up_front: false,
-            unstiff: true,
-            zero_angles: false,
-        }
-    }
-}
-
-impl Index<HeadMotionType> for HeadMotionSafeExits {
-    type Output = bool;
-
-    fn index(&self, motion_type: HeadMotionType) -> &Self::Output {
-        match motion_type {
-            HeadMotionType::Center => &self.center,
-            HeadMotionType::Dispatching => &self.dispatching,
-            HeadMotionType::FallProtection => &self.protect,
-            HeadMotionType::LookAround => &self.look_around,
-            HeadMotionType::LookAt => &self.look_at,
-            HeadMotionType::StandUpBack => &self.stand_up_back,
-            HeadMotionType::StandUpFront => &self.stand_up_front,
-            HeadMotionType::Unstiff => &self.unstiff,
-            HeadMotionType::ZeroAngles => &self.zero_angles,
-        }
-    }
-}
-
-impl IndexMut<HeadMotionType> for HeadMotionSafeExits {
-    fn index_mut(&mut self, motion_type: HeadMotionType) -> &mut Self::Output {
-        match motion_type {
-            HeadMotionType::Center => &mut self.center,
-            HeadMotionType::Dispatching => &mut self.dispatching,
-            HeadMotionType::FallProtection => &mut self.protect,
-            HeadMotionType::LookAround => &mut self.look_around,
-            HeadMotionType::LookAt => &mut self.look_at,
-            HeadMotionType::StandUpBack => &mut self.stand_up_back,
-            HeadMotionType::StandUpFront => &mut self.stand_up_front,
-            HeadMotionType::Unstiff => &mut self.unstiff,
-            HeadMotionType::ZeroAngles => &mut self.zero_angles,
+            MotionType::Dispatching => &mut self.dispatching,
+            MotionType::FallProtection => &mut self.fall_protection,
+            MotionType::Jump => &mut self.jump,
+            MotionType::Kick => &mut self.kick,
+            MotionType::Penalized => &mut self.penalized,
+            MotionType::SitDown => &mut self.sit_down,
+            MotionType::Stand => &mut self.stand,
+            MotionType::StandUpBack => &mut self.stand_up_back,
+            MotionType::StandUpFront => &mut self.stand_up_front,
+            MotionType::Unstiff => &mut self.unstiff,
+            MotionType::Walk => &mut self.walk,
         }
     }
 }

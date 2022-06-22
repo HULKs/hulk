@@ -310,6 +310,10 @@ impl Joints {
             right_leg: body.right_leg,
         }
     }
+
+    pub fn fill(value: f32) -> Self {
+        Self::from_head_and_body(HeadJoints::fill(value), BodyJoints::fill(value))
+    }
 }
 
 impl Mul<f32> for Joints {
@@ -344,4 +348,22 @@ impl Sum for Joints {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Joints::default(), |acc, x| acc + x)
     }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct JointsCommand {
+    pub positions: Joints,
+    pub stiffnesses: Joints,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct HeadJointsCommand {
+    pub positions: HeadJoints,
+    pub stiffnesses: HeadJoints,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct BodyJointsCommand {
+    pub positions: BodyJoints,
+    pub stiffnesses: BodyJoints,
 }

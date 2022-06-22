@@ -92,8 +92,15 @@
       "distance_to_be_aligned": 0.05
     },
     "pose_estimation": {
-      "line_measurement_noise": [5.0, 0.8],
-      "odometry_noise": [0.005, 0.001, 0.00008],
+      "line_measurement_noise": [
+        5.0,
+        0.8
+      ],
+      "odometry_noise": [
+        0.005,
+        0.001,
+        0.00008
+      ],
       "minimal_line_length": 0.3,
       "angle_similarity_threshold": 0.4,
       "maximum_association_distance": 0.4,
@@ -131,12 +138,28 @@
       "force_sensitive_resistor_threshold": 5.0
     },
     "fall_state_estimation": {
-      "linear_acceleration_upright_threshold": [6.0, 4.0, 5.0],
+      "linear_acceleration_upright_threshold": [
+        6.0,
+        4.0,
+        5.0
+      ],
       "low_pass_filter_coefficient": 0.3,
-      "minimum_angle": [-0.5, -0.45],
-      "maximum_angle": [0.5, 0.45],
-      "minimum_angular_velocity": [-0.233, -0.61],
-      "maximum_angular_velocity": [0.233, 0.317],
+      "minimum_angle": [
+        -0.5,
+        -0.45
+      ],
+      "maximum_angle": [
+        0.5,
+        0.45
+      ],
+      "minimum_angular_velocity": [
+        -0.233,
+        -0.61
+      ],
+      "maximum_angular_velocity": [
+        0.233,
+        0.317
+      ],
       "fallen_timeout": {
         "nanos": 0,
         "secs": 1
@@ -230,21 +253,65 @@
       "maximum_yaw_velocity": 6.283185307179586,
       "maximum_pitch_velocity": 3.141592653589793
     },
+    "head_motion": {
+      "maximum_velocity": {
+        "yaw": 4.0,
+        "pitch": 1.5
+      },
+      "outer_maximum_pitch": 0.0,
+      "inner_maximum_pitch": 0.61,
+      "outer_yaw": 1.5
+    },
     "look_at": {
-      "maximum_yaw_velocity": 0.8726646259971648,
-      "maximum_pitch_velocity": 0.8726646259971648,
-      "bottom_focus_pitch_threshold": 0.0
+      "minimum_bottom_focus_pitch": 0.2
     },
     "look_around": {
-      "maximum_yaw_velocity": 2.0943951023931953,
-      "maximum_pitch_velocity": 0.8726646259971648
+      "time_at_each_position": {
+        "nanos": 0,
+        "secs": 1
+      },
+      "middle_positions": {
+        "yaw": 0.0,
+        "pitch": 0.4
+      },
+      "left_positions": {
+        "yaw": -2.1,
+        "pitch": 0.0
+      },
+      "right_positions": {
+        "yaw": 2.1,
+        "pitch": 0.0
+      },
+      "halfway_left_positions": {
+        "yaw": -0.9,
+        "pitch": 0.0
+      },
+      "halfway_right_positions": {
+        "yaw": 0.9,
+        "pitch": 0.0
+      }
     },
     "set_positions": {
-      "defender_front_set_position_goal_center_offset": [2.3, -1.1],
-      "defender_left_set_position_goal_center_offset": [1.8, 0.6],
-      "defender_right_set_position_goal_center_offset": [1.8, -0.6],
-      "keeper_set_position_goal_center_offset": [0.25, 0.0],
-      "striker_set_position": [-1.0, 0.0]
+      "defender_front_set_position_goal_center_offset": [
+        2.3,
+        -1.1
+      ],
+      "defender_left_set_position_goal_center_offset": [
+        1.8,
+        0.6
+      ],
+      "defender_right_set_position_goal_center_offset": [
+        1.8,
+        -0.6
+      ],
+      "keeper_set_position_goal_center_offset": [
+        0.25,
+        0.0
+      ],
+      "striker_set_position": [
+        -1.0,
+        0.0
+      ]
     },
     "behavior": {
       "injected_motion_command": null
@@ -263,6 +330,13 @@
   "player_number": 5,
   "spl_network": {},
   "vision_top": {
+    "projected_limbs": {
+      "torso_bounding_polygon": [],
+      "lower_arm_bounding_polygon": [],
+      "upper_arm_bounding_polygon": [],
+      "knee_bounding_polygon": [],
+      "foot_bounding_polygon": []
+    },
     "ball_detection": {
       "minimal_radius": 42.0,
       "preclassifier_neural_network": "etc/neural_networks/preclassifier.hdf5",
@@ -278,9 +352,19 @@
       "ball_radius_enlargement_factor": 2.0
     },
     "camera_matrix_parameters": {
-      "extrinsic_rotations": [0, 0, 0],
-      "focal_lengths": [0.95, 1.27],
-      "cc_optical_center": [0.5, 0.5]
+      "extrinsic_rotations": [
+        0,
+        0,
+        0
+      ],
+      "focal_lengths": [
+        0.95,
+        1.27
+      ],
+      "cc_optical_center": [
+        0.5,
+        0.5
+      ]
     },
     "image_receiver": {
       "resolution": 42
@@ -311,6 +395,83 @@
     }
   },
   "vision_bottom": {
+    "projected_limbs": {
+      "torso_bounding_polygon": [
+        [0, -0.09799999743700027, 0.23499999940395355],
+        [-0.03500000014901161, -0.09799999743700027, 0.2199999988079071],
+        [-0.05999999865889549, -0.09799999743700027, 0.17000000178813934],
+        [-0.05000000074505806, -0.07000000029802322, 0.17000000178813934],
+        [-0.05000000074505806, -0.05000000074505806, 0.17000000178813934],
+        [-0.05000000074505806, -0.029999999329447743, 0.17000000178813934],
+        [-0.05000000074505806, 0, 0.17000000178813934],
+        [-0.05000000074505806, 0.029999999329447743, 0.17000000178813934],
+        [-0.05000000074505806, 0.05000000074505806, 0.17000000178813934],
+        [-0.05000000074505806, 0.07000000029802322, 0.17000000178813934],
+        [-0.05999999865889549, 0.09799999743700027, 0.17000000178813934],
+        [-0.03500000014901161, 0.09799999743700027, 0.2199999988079071],
+        [0, 0.09799999743700027, 0.23499999940395355],
+        [0.03500000014901161, 0.09799999743700027, 0.2199999988079071],
+        [0.05999999865889549, 0.09799999743700027, 0.17000000178813934],
+        [0.03650000074505806, 0.06000000029802322, 0.1850000059604645],
+        [0.06000000029802322, 0.03500000014901161, 0.15000000596046448],
+        [0.06300000029802322, 0, 0.15000000596046448],
+        [0.06000000029802322, -0.03500000014901161, 0.15000000596046448],
+        [0.05000000074505806, -0.07000000029802322, 0.15000000596046448],
+        [0.05999999865889549, -0.09799999743700027, 0.17000000178813934],
+        [0.03500000014901161, -0.09799999743700027, 0.2199999988079071],
+        [0, -0.09799999743700027, 0.23499999940395355]
+      ],
+      "lower_arm_bounding_polygon": [
+        [-0.06, 0.03, 0],
+        [-0.06, 0.0225, 0.0225],
+        [-0.06, 0, 0.03],
+        [-0.06, -0.0225, 0.0225],
+        [-0.06, -0.03, 0],
+        [-0.06, -0.0225, -0.0225],
+        [-0.06, 0, -0.03],
+        [-0.06, 0.0225, -0.0225],
+        [-0.06, 0.03, 0],
+        [0.085, 0.045, 0],
+        [0.085, 0.0325, 0.0325],
+        [0.085, 0, 0.045],
+        [0.085, -0.0325, 0.0325],
+        [0.085, -0.045, 0],
+        [0.085, -0.0325, -0.0325],
+        [0.085, 0, -0.045],
+        [0.085, 0.0325, -0.0325],
+        [0.085, 0.045, 0]
+      ],
+      "upper_arm_bounding_polygon": [
+        [0, 0.029999999329447746, 0],
+        [0, 0.02250000089406967, 0.02250000089406967],
+        [0, 0, 0.029999999329447746],
+        [0, -0.02250000089406967, 0.02250000089406967],
+        [0, -0.029999999329447746, 0],
+        [0, -0.02250000089406967, -0.02250000089406967],
+        [0, 0, -0.029999999329447746],
+        [0, 0.02250000089406967, -0.02250000089406967],
+        [0, 0.029999999329447746, 0],
+        [-0.12, 0.029999999329447746, 0],
+        [-0.12, 0.02250000089406967, 0.02250000089406967],
+        [-0.12, 0, 0.029999999329447746],
+        [-0.12, -0.02250000089406967, 0.02250000089406967],
+        [-0.12, -0.029999999329447746, 0],
+        [-0.12, -0.02250000089406967, -0.02250000089406967],
+        [-0.12, 0, -0.029999999329447746],
+        [-0.12, 0.02250000089406967, -0.02250000089406967],
+        [-0.12, 0.029999999329447746, 0]
+      ],
+      "knee_bounding_polygon": [
+        [0.05, 0.05, -0.1],
+        [0.08, 0, -0.1],
+        [0.05, -0.05, -0.1]
+      ],
+      "foot_bounding_polygon": [
+        [0.1, 0.06, 0.02],
+        [0.12, 0, 0.02],
+        [0.1, -0.06, 0.02]
+      ]
+    },
     "ball_detection": {
       "minimal_radius": 42.0,
       "preclassifier_neural_network": "etc/neural_networks/preclassifier.hdf5",
@@ -326,9 +487,19 @@
       "ball_radius_enlargement_factor": 2.0
     },
     "camera_matrix_parameters": {
-      "extrinsic_rotations": [0, 0, 0],
-      "focal_lengths": [0.95, 1.27],
-      "cc_optical_center": [0.5, 0.5]
+      "extrinsic_rotations": [
+        0,
+        0,
+        0
+      ],
+      "focal_lengths": [
+        0.95,
+        1.27
+      ],
+      "cc_optical_center": [
+        0.5,
+        0.5
+      ]
     },
     "image_receiver": {
       "resolution": 42

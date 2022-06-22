@@ -481,7 +481,7 @@ mod tests {
         ];
 
         let mut camera_matrix =
-            CameraMatrix::matrix_from_parameters(focal_length, optical_center, field_of_view_rad);
+            CameraMatrix::from_parameters(focal_length, optical_center, field_of_view_rad);
 
         camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.75]);
         camera_matrix.camera_to_ground.rotation =

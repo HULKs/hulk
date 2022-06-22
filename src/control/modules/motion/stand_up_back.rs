@@ -1,8 +1,7 @@
 use macros::{module, require_some};
 
 use crate::types::{
-    BodyMotionSafeExits, BodyMotionType, Facing, HeadMotionSafeExits, HeadMotionType, Motion,
-    MotionCommand, MotionSelection, SensorData, StandUpBackPositions,
+    Facing, Joints, Motion, MotionCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
 use super::motion_file::{MotionFile, MotionFileInterpolator};
@@ -15,9 +14,8 @@ pub struct StandUpBack {
 #[input(path = sensor_data, data_type = SensorData)]
 #[input(path = motion_selection, data_type = MotionSelection)]
 #[input(path = motion_command, data_type = MotionCommand)]
-#[persistent_state(path = body_motion_safe_exits, data_type = BodyMotionSafeExits)]
-#[persistent_state(path = head_motion_safe_exits, data_type = HeadMotionSafeExits)]
-#[main_output(data_type = StandUpBackPositions)]
+#[persistent_state(path = motion_safe_exits, data_type = MotionSafeExits)]
+#[main_output(name = stand_up_back_positions, data_type = Joints)]
 impl StandUpBack {}
 
 impl StandUpBack {
@@ -34,29 +32,24 @@ impl StandUpBack {
         let motion_selection = require_some!(context.motion_selection);
         let motion_command = require_some!(context.motion_command);
 
-        if motion_selection.current_body_motion == BodyMotionType::StandUpBack {
+        if motion_selection.current_motion == MotionType::StandUpBack {
             self.interpolator.step(last_cycle_duration);
         } else {
             self.interpolator.reset();
         }
 
-        context.body_motion_safe_exits[BodyMotionType::StandUpBack] = false;
-        context.head_motion_safe_exits[HeadMotionType::StandUpBack] = false;
+        context.motion_safe_exits[MotionType::StandUpBack] = false;
         if self.interpolator.is_finished() {
             match motion_command.motion {
                 Motion::StandUp { facing: Facing::Up } => self.interpolator.reset(),
                 _ => {
-                    context.body_motion_safe_exits[BodyMotionType::StandUpBack] = true;
-                    context.head_motion_safe_exits[HeadMotionType::StandUpBack] = true;
+                    context.motion_safe_exits[MotionType::StandUpBack] = true;
                 }
             };
         }
 
         Ok(MainOutputs {
-            stand_up_back_positions: Some(StandUpBackPositions {
-                body_positions: self.interpolator.value().into(),
-                head_positions: self.interpolator.value().into(),
-            }),
+            stand_up_back_positions: Some(self.interpolator.value()),
         })
     }
 }

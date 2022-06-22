@@ -22,6 +22,8 @@ export enum PanelType {
   Behavior = "Behavior",
   AudioSpectrums = "AudioSpectrums",
   MotionDispatching = "MotionDispatching",
+  Odometry = "Odometry",
+  ProjectedLimbs = "ProjectedLimbs",
 }
 export type RawOutput = {
   panelType: PanelType.RawOutput;
@@ -46,19 +48,19 @@ export type Horizon = {
 export type ImageSegments = {
   panelType: PanelType.ImageSegments;
   cycler: Cycler;
-}
+};
 export type LineDetection = {
   panelType: PanelType.LineDetection;
   cycler: Cycler;
-}
+};
 export type ProjectedFieldLines = {
   panelType: PanelType.ProjectedFieldLines;
   cycler: Cycler;
-}
+};
 export type FieldBorder = {
   panelType: PanelType.FieldBorder;
   cycler: Cycler;
-}
+};
 export type BallCandidates = {
   panelType: PanelType.BallCandidates;
   cycler: Cycler;
@@ -75,6 +77,13 @@ export type AudioSpectrums = {
 export type MotionDispatching = {
   panelType: PanelType.MotionDispatching;
 };
+export type Odometry = {
+  panelType: PanelType.Odometry;
+};
+export type ProjectedLimbs = {
+  panelType: PanelType.ProjectedLimbs;
+  cycler: Cycler;
+};
 export type SelectablePanel =
   | RawOutput
   | RawImage
@@ -89,7 +98,9 @@ export type SelectablePanel =
   | ImageSegments
   | Parameter
   | FieldBorder
-  | MotionDispatching;
+  | MotionDispatching
+  | Odometry
+  | ProjectedLimbs;
 export type SelectablePanels = { [sortPath: string]: SelectablePanel };
 
 function rawOutputsFromOutputHierarchy(
@@ -269,6 +280,27 @@ function audioSpectrums(): SelectablePanels {
   };
 }
 
+function odometry(): SelectablePanels {
+  return {
+    Odometry: {
+      panelType: PanelType.Odometry,
+    },
+  };
+}
+
+function projectedLimbs(): SelectablePanels {
+  return {
+    "ProjectedLimbs.VisionTop": {
+      panelType: PanelType.ProjectedLimbs,
+      cycler: Cycler.VisionTop,
+    },
+    "ProjectedLimbs.VisionBottom": {
+      panelType: PanelType.ProjectedLimbs,
+      cycler: Cycler.VisionBottom,
+    },
+  };
+}
+
 export default function useSelectablePanels(
   outputHierarchy: OutputHierarchy,
   parameterHierarchy: ParameterHierarchy
@@ -288,6 +320,8 @@ export default function useSelectablePanels(
       ...behavior(),
       ...audioSpectrums(),
       ...motionDispatching(),
+      ...odometry(),
+      ...projectedLimbs(),
     };
   }, [outputHierarchy, parameterHierarchy]);
 }

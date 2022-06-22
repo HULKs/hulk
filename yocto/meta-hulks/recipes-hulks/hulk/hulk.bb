@@ -3,7 +3,6 @@ HOMEPAGE = "https://hulks.de"
 LICENSE = "CLOSED"
 
 SRC_URI = " \
-            file://camera-reset \
             file://hulk.service \
             file://hulk-gdbserver.service \
             file://launchHULK \
@@ -17,7 +16,6 @@ inherit systemd
 
 do_install() {
   install -d ${D}${bindir}
-  install -m 755 ${WORKDIR}/camera-reset ${D}${bindir}
   install -m 755 ${WORKDIR}/launchHULK ${D}${bindir}
   install -m 755 ${WORKDIR}/hulk ${D}${bindir}
 

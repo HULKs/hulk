@@ -1,7 +1,7 @@
 use macros::{module, require_some};
 
 use crate::types::{
-    BodyMotionType, GroundContact, Motion, MotionCommand, MotionSelection, StepPlan, WalkCommand,
+    GroundContact, Motion, MotionCommand, MotionSelection, MotionType, StepPlan, WalkCommand,
 };
 
 pub struct WalkManager;
@@ -23,8 +23,8 @@ impl WalkManager {
         let motion_command = require_some!(context.motion_command);
         let motion_selection = require_some!(context.motion_selection);
 
-        let command = if let (BodyMotionType::Walk, Motion::Walk { .. }, Some(StepPlan { step })) = (
-            motion_selection.current_body_motion,
+        let command = if let (MotionType::Walk, Motion::Walk { .. }, Some(StepPlan { step })) = (
+            motion_selection.current_motion,
             motion_command.motion,
             context.step_plan,
         ) {
