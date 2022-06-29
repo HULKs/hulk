@@ -15,7 +15,7 @@
   ],
   "rules": [
     {
-      "event": "frame_index >= 100",
+      "event": "frame_index >= 20",
       "action": "StopSimulation"
     },
     {

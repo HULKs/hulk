@@ -1,0 +1,62 @@
+{
+  "time_step": { "nanos": 100000000, "secs": 0 },
+  "robot_ball_bounce_radius": 0.15,
+  "ball_velocity_decay_factor": 0.9,
+  "maximum_field_of_view_angle": 0.532,
+  "maximum_field_of_view_distance": 3.0,
+  "maximum_walk_angle_per_second": 0.785398163,
+  "maximum_walk_translation_distance_per_second": 0.3,
+  "robot_ids": [
+    "simulated_behavior_1",
+    "simulated_behavior_2",
+    "simulated_behavior_3",
+    "simulated_behavior_4",
+    "simulated_behavior_5"
+  ],
+  "rules": [
+    {
+      "event": "frame_index >= 350",
+      "action": "StopSimulation"
+    },
+    {
+      "event": "frame_index == 5",
+      "action": {
+        "SetGameState": {
+          "game_state": "Ready"
+        }
+      }
+    },
+    {
+      "event": "frame_index == 100",
+      "action": {
+        "SetGameState": {
+          "game_state": "Set"
+        }
+      }
+    },
+    {
+      "event": "frame_index == 105",
+      "action": {
+        "SetGameState": {
+          "game_state": "Playing"
+        }
+      }
+    },
+    {
+      "event": "frame_index == 180",
+      "action": {
+        "SetBallPosition": {
+          "position": [100.0, 0.0]
+        }
+      }
+    },
+    {
+      "event": "frame_index == 250",
+      "action": {
+        "SetBallPosition": {
+          "position": [2.0, -2.0]
+        }
+      }
+    }
+  ]
+}

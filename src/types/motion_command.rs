@@ -1,15 +1,16 @@
-use macros::SerializeHierarchy;
-use nalgebra::{Isometry2, Point2};
+use nalgebra::{Point2, UnitComplex};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Default, SerializeHierarchy, Serialize, Deserialize)]
-pub struct MotionCommand {
-    #[leaf]
-    pub motion: Motion,
+use super::{PathSegment, Side};
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum OrientationMode {
+    AlignWithPath,
+    Override(UnitComplex<f32>),
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
-pub enum Motion {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum MotionCommand {
     FallProtection {
         direction: FallDirection,
     },
@@ -33,17 +34,14 @@ pub enum Motion {
     Unstiff,
     Walk {
         head: HeadMotion,
-        in_walk_kick: InWalkKick,
-        left_arm: ArmMotion,
-        right_arm: ArmMotion,
-        target_pose: Isometry2<f32>,
+        path: Vec<PathSegment>,
+        orientation_mode: OrientationMode,
     },
-}
-
-impl Default for Motion {
-    fn default() -> Self {
-        Self::Unstiff
-    }
+    InWalkKick {
+        head: HeadMotion,
+        kick: KickVariant,
+        kicking_side: Side,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
@@ -64,18 +62,9 @@ pub enum KickDirection {
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
-pub enum InWalkKick {
-    None,
-    Left,
-    Right,
-    TurnLeft,
-    TurnRight,
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
-pub enum ArmMotion {
-    PullBack,
-    Swing,
+pub enum KickVariant {
+    Forward,
+    Turn,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]

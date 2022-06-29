@@ -115,7 +115,7 @@ fn next_y_from_current_y(
 
     let center_point_at_y = point![(image.width() / 2) as f32, y];
     let center_point_in_robot_coordinates =
-        camera_matrix.pixel_to_robot(&center_point_at_y).ok()?;
+        camera_matrix.pixel_to_ground(&center_point_at_y).ok()?;
 
     let x_in_robot_coordinates = center_point_in_robot_coordinates[0];
     let y_in_robot_coordinates = center_point_in_robot_coordinates[1];

@@ -34,7 +34,7 @@ where
         .map(|configuration| {
             let player_number = configuration.player_number;
             Robot::try_from(configuration).with_context(|| {
-                format!("Failed to initialize robot with player number {player_number}")
+                format!("Failed to initialize robot with player number {player_number:?}")
             })
         })
         .collect::<Result<Vec<_>, _>>()

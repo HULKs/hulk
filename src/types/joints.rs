@@ -211,6 +211,15 @@ impl BodyJoints {
             right_leg: LegJoints::fill(value),
         }
     }
+
+    pub fn selective_fill(value_arm: f32, value_leg: f32) -> Self {
+        Self {
+            left_arm: ArmJoints::fill(value_arm),
+            right_arm: ArmJoints::fill(value_arm),
+            left_leg: LegJoints::fill(value_leg),
+            right_leg: LegJoints::fill(value_leg),
+        }
+    }
 }
 
 impl From<Joints> for BodyJoints {
@@ -313,6 +322,13 @@ impl Joints {
 
     pub fn fill(value: f32) -> Self {
         Self::from_head_and_body(HeadJoints::fill(value), BodyJoints::fill(value))
+    }
+
+    pub fn selectively_fill(value: f32, value_arm: f32, value_leg: f32) -> Self {
+        Self::from_head_and_body(
+            HeadJoints::fill(value),
+            BodyJoints::selective_fill(value_arm, value_leg),
+        )
     }
 }
 

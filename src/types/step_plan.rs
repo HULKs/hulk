@@ -1,3 +1,5 @@
+use std::ops::Sub;
+
 use macros::SerializeHierarchy;
 use serde::{Deserialize, Serialize};
 
@@ -9,16 +11,31 @@ pub struct Step {
 }
 
 impl Step {
-    pub fn zero() -> Step {
-        Step {
+    pub fn zero() -> Self {
+        Self {
             forward: 0.0,
             left: 0.0,
             turn: 0.0,
         }
     }
+
+    pub fn mirrored(&self) -> Self {
+        Self {
+            forward: self.forward,
+            left: -self.left,
+            turn: -self.turn,
+        }
+    }
 }
 
-#[derive(Clone, Debug, Default, Serialize, SerializeHierarchy, Deserialize)]
-pub struct StepPlan {
-    pub step: Step,
+impl Sub<Step> for Step {
+    type Output = Step;
+
+    fn sub(self, rhs: Step) -> Self::Output {
+        Self {
+            forward: self.forward - rhs.forward,
+            left: self.left - rhs.left,
+            turn: self.turn - rhs.turn,
+        }
+    }
 }

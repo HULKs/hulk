@@ -1,11 +1,13 @@
 use std::{f32::consts::PI, ops::Mul};
 
 use approx::{AbsDiffEq, RelativeEq};
-use nalgebra::{Isometry, Point, Point2, UnitComplex};
+use nalgebra::{
+    center, distance, distance_squared, point, vector, Isometry, Point, Point2, UnitComplex,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize)]
-pub struct Line<const D: usize>(pub Point<f32, D>, pub Point<f32, D>);
+pub struct Line<const DIMENSION: usize>(pub Point<f32, DIMENSION>, pub Point<f32, DIMENSION>);
 
 pub type Line2 = Line<2>;
 
@@ -23,10 +25,47 @@ impl Line2 {
         let rise = (point.x - self.0.x) * self.slope();
         point.y >= rise + self.0.y
     }
+
+    pub fn signed_distance_to_point(&self, point: Point2<f32>) -> f32 {
+        let line_vector = self.1 - self.0;
+        let normal_versor = vector![-line_vector.y, line_vector.x].normalize();
+        normal_versor.dot(&point.coords) - normal_versor.dot(&self.0.coords)
+    }
+
+    pub fn project_onto_segment(&self, point: Point2<f32>) -> Point2<f32> {
+        let difference_on_line = self.1 - self.0;
+        let difference_to_point = point - self.0;
+        let t = difference_to_point.dot(&difference_on_line) / difference_on_line.norm_squared();
+        if t <= 0.0 {
+            self.0
+        } else if t >= 1.0 {
+            self.1
+        } else {
+            self.0 + difference_on_line * t
+        }
+    }
+
+    pub fn intersection(&self, other: &Line2) -> Point2<f32> {
+        let x1 = self.0.coords[0];
+        let y1 = self.0.coords[1];
+        let x2 = self.1.coords[0];
+        let y2 = self.1.coords[1];
+        let x3 = other.0.coords[0];
+        let y3 = other.0.coords[1];
+        let x4 = other.1.coords[0];
+        let y4 = other.1.coords[1];
+
+        point!(
+            ((((x1 * y2) - (y1 * x2)) * (x3 - x4)) - ((x1 - x2) * ((x3 * y4) - (y3 * x4))))
+                / (((x1 - x2) * (y3 - y4)) - ((y1 - y2) * (x3 - x4))),
+            ((((x1 * y2) - (y1 * x2)) * (y3 - y4)) - ((y1 - y2) * ((x3 * y4) - (y3 * x4))))
+                / (((x1 - x2) * (y3 - y4)) - ((y1 - y2) * (x3 - x4)))
+        )
+    }
 }
 
-impl<const D: usize> Line<D> {
-    pub fn project_point(&self, point: Point<f32, D>) -> Point<f32, D> {
+impl<const DIMENSION: usize> Line<DIMENSION> {
+    pub fn project_point(&self, point: Point<f32, DIMENSION>) -> Point<f32, DIMENSION> {
         let difference_on_line = self.1 - self.0;
         let difference_to_point = point - self.0;
         self.0
@@ -34,7 +73,7 @@ impl<const D: usize> Line<D> {
                 / difference_on_line.norm_squared())
     }
 
-    pub fn squared_distance_to_segment(&self, point: Point<f32, D>) -> f32 {
+    pub fn squared_distance_to_segment(&self, point: Point<f32, DIMENSION>) -> f32 {
         let difference_on_line = self.1 - self.0;
         let difference_to_point = point - self.0;
         let t = difference_to_point.dot(&difference_on_line) / difference_on_line.norm_squared();
@@ -47,44 +86,49 @@ impl<const D: usize> Line<D> {
         }
     }
 
-    pub fn squared_distance_to_point(&self, point: Point<f32, D>) -> f32 {
+    pub fn squared_distance_to_point(&self, point: Point<f32, DIMENSION>) -> f32 {
         let closest_point = self.project_point(point);
-        (closest_point - point).norm_squared()
+        distance_squared(&closest_point, &point)
     }
 
-    pub fn distance_to_point(&self, point: Point<f32, D>) -> f32 {
+    pub fn distance_to_point(&self, point: Point<f32, DIMENSION>) -> f32 {
         self.squared_distance_to_point(point).sqrt()
     }
 
-    pub fn is_orthogonal(&self, other: &Line<D>, epsilon: f32) -> bool {
+    pub fn is_orthogonal(&self, other: &Line<DIMENSION>, epsilon: f32) -> bool {
         let self_direction = (self.1 - self.0).normalize();
         let other_direction = (other.1 - other.0).normalize();
         (self_direction.dot(&other_direction).acos().abs() - PI / 2.0).abs() < epsilon
     }
 
     pub fn length(&self) -> f32 {
-        (self.1 - self.0).norm()
+        distance(&self.0, &self.1)
+    }
+
+    pub fn center(&self) -> Point<f32, DIMENSION> {
+        center(&self.0, &self.1)
     }
 }
 
-impl<const D: usize> Mul<Line<D>> for Isometry<f32, UnitComplex<f32>, D>
+impl<const DIMENSION: usize> Mul<Line<DIMENSION>> for Isometry<f32, UnitComplex<f32>, DIMENSION>
 where
-    Isometry<f32, UnitComplex<f32>, D>: Mul<Point<f32, D>, Output = Point<f32, D>>,
+    Isometry<f32, UnitComplex<f32>, DIMENSION>:
+        Mul<Point<f32, DIMENSION>, Output = Point<f32, DIMENSION>>,
 {
-    type Output = Line<D>;
+    type Output = Line<DIMENSION>;
 
-    fn mul(self, rhs: Line<D>) -> Self::Output {
+    fn mul(self, rhs: Line<DIMENSION>) -> Self::Output {
         Line(self * rhs.0, self * rhs.1)
     }
 }
 
-impl<const D: usize> PartialEq for Line<D> {
+impl<const DIMENSION: usize> PartialEq for Line<DIMENSION> {
     fn eq(&self, other: &Self) -> bool {
         (self.0 == other.0 && self.1 == other.1) || (self.0 == other.1 && self.1 == other.0)
     }
 }
 
-impl<const D: usize> AbsDiffEq for Line<D> {
+impl<const DIMENSION: usize> AbsDiffEq for Line<DIMENSION> {
     type Epsilon = <f32 as AbsDiffEq>::Epsilon;
 
     fn default_epsilon() -> Self::Epsilon {
@@ -96,7 +140,7 @@ impl<const D: usize> AbsDiffEq for Line<D> {
     }
 }
 
-impl<const D: usize> RelativeEq for Line<D> {
+impl<const DIMENSION: usize> RelativeEq for Line<DIMENSION> {
     fn default_max_relative() -> Self::Epsilon {
         <f32 as RelativeEq>::default_max_relative()
     }

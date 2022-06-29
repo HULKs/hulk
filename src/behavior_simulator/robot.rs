@@ -4,14 +4,17 @@ use std::{
 };
 
 use anyhow::{anyhow, Context};
-use nalgebra::{distance, Isometry2, Point2, Rotation2, Vector2};
+use nalgebra::{distance, Isometry2, Point2, Rotation2, UnitComplex, Vector, Vector2};
 use serde::Serialize;
 use spl_network::{GameState, SplMessage};
 
 use crate::{
-    control::{generate_initial_isometry2, BehaviorCycler, Database},
+    control::{generate_initial_pose, BehaviorCycler, Database},
     framework::Configuration,
-    types::{BallPosition, CycleInfo, FallState, Motion, PrimaryState, SensorData},
+    types::{
+        BallPosition, CycleInfo, FallState, GameControllerState, HeadMotion, MotionCommand,
+        OrientationMode, PathSegment, PrimaryState, SensorData,
+    },
 };
 
 use super::state::State;
@@ -23,6 +26,7 @@ pub struct Robot {
     pub cycler: BehaviorCycler,
     pub is_penalized: bool,
     pub robot_to_field: Isometry2<f32>,
+    pub head_yaw: UnitComplex<f32>,
     #[serde(skip)]
     last_step: SystemTime,
     #[serde(skip)]
@@ -31,7 +35,13 @@ pub struct Robot {
 
 enum NextAction {
     DoNothing,
-    WalkTo { end_pose: Isometry2<f32> },
+    Stand {
+        head_yaw: UnitComplex<f32>,
+    },
+    WalkTo {
+        end_pose: Isometry2<f32>,
+        head_yaw: UnitComplex<f32>,
+    },
 }
 
 impl TryFrom<Configuration> for Robot {
@@ -41,14 +51,14 @@ impl TryFrom<Configuration> for Robot {
         let cycler =
             BehaviorCycler::new(&configuration).context("Failed to construct BahaviorCycler")?;
         let initial_pose =
-            &configuration.control.pose_estimation.initial_poses[configuration.player_number];
-        let initial_pose =
-            generate_initial_isometry2(initial_pose, &configuration.field_dimensions);
+            &configuration.control.localization.initial_poses[configuration.player_number];
+        let initial_pose = generate_initial_pose(initial_pose, &configuration.field_dimensions);
         Ok(Self {
             configuration,
             cycler,
             is_penalized: false,
             robot_to_field: initial_pose,
+            head_yaw: UnitComplex::identity(),
             last_step: UNIX_EPOCH,
             next_action: NextAction::DoNothing,
         })
@@ -62,7 +72,14 @@ impl Robot {
     ) -> anyhow::Result<(Database, Vec<SplMessage>, Option<Vector2<f32>>)> {
         self.apply_action(state);
 
-        let (sensor_data, ball_position, fall_state, primary_state) = self.inputs_from_state(state);
+        let (
+            sensor_data,
+            ball_position,
+            fall_state,
+            primary_state,
+            game_controller_state,
+            has_ground_contact,
+        ) = self.inputs_from_state(state);
 
         let database = self
             .cycler
@@ -75,6 +92,8 @@ impl Robot {
                 sensor_data,
                 primary_state,
                 state.broadcasted_spl_messages.clone(),
+                game_controller_state,
+                has_ground_contact,
             )
             .context("Failed to run cycle")?;
 
@@ -88,7 +107,10 @@ impl Robot {
     fn apply_action(&mut self, state: &State) {
         match self.next_action {
             NextAction::DoNothing => {}
-            NextAction::WalkTo { end_pose } => {
+            NextAction::Stand { head_yaw } => {
+                self.head_yaw = head_yaw;
+            }
+            NextAction::WalkTo { end_pose, head_yaw } => {
                 let end_pose_in_field = self.robot_to_field * end_pose;
                 let angle_difference = end_pose.rotation.angle();
                 let translation_difference =
@@ -115,6 +137,7 @@ impl Robot {
                 };
                 self.robot_to_field =
                     Isometry2::new(self.robot_to_field.translation.vector + translation, angle);
+                self.head_yaw = head_yaw;
             }
         }
     }
@@ -122,7 +145,14 @@ impl Robot {
     fn inputs_from_state(
         &mut self,
         state: &State,
-    ) -> (SensorData, BallPosition, FallState, PrimaryState) {
+    ) -> (
+        SensorData,
+        Option<BallPosition>,
+        FallState,
+        PrimaryState,
+        GameControllerState,
+        bool,
+    ) {
         let cycle_info = CycleInfo {
             start_time: state.now,
             last_cycle_duration: state
@@ -141,14 +171,16 @@ impl Robot {
             touch_sensors: Default::default(),
         };
 
-        let ball_position = BallPosition {
-            position: limit_ball_visibility(
-                self.robot_to_field.inverse() * state.ball_position,
-                state.configuration.maximum_field_of_view_angle,
-                state.configuration.maximum_field_of_view_distance,
-            ),
+        let ball_position = limit_ball_visibility(
+            self.head_yaw,
+            self.robot_to_field.inverse() * state.ball_position,
+            state.configuration.maximum_field_of_view_angle,
+            state.configuration.maximum_field_of_view_distance,
+        )
+        .map(|position| BallPosition {
+            position,
             last_seen: state.now,
-        };
+        });
 
         let fall_state = FallState::Upright;
         let primary_state = match (self.is_penalized, state.game_state) {
@@ -160,30 +192,115 @@ impl Robot {
             (false, GameState::Finished) => PrimaryState::Finished,
         };
 
-        (sensor_data, ball_position, fall_state, primary_state)
+        let has_ground_contact = true;
+
+        (
+            sensor_data,
+            ball_position,
+            fall_state,
+            primary_state,
+            state.game_controller_state,
+            has_ground_contact,
+        )
     }
 
     fn apply_outputs_and_set_next_action(&mut self, database: &Database) -> anyhow::Result<()> {
         let motion_command = database
             .main_outputs
             .motion_command
+            .as_ref()
             .ok_or_else(|| anyhow!("MotionCommand is None"))?;
-        self.next_action = match motion_command.motion {
-            Motion::FallProtection { .. } => NextAction::DoNothing,
-            Motion::Jump { .. } => NextAction::DoNothing,
-            Motion::Kick { .. } => NextAction::DoNothing,
-            Motion::Penalized => NextAction::DoNothing,
-            Motion::SitDown { .. } => NextAction::DoNothing,
-            Motion::Stand { .. } => NextAction::DoNothing,
-            Motion::StandUp { .. } => NextAction::DoNothing,
-            Motion::Unstiff => NextAction::DoNothing,
-            Motion::Walk { .. } => {
-                let end_pose = database
-                    .main_outputs
-                    .planned_path
-                    .ok_or_else(|| anyhow!("PlannedPath is None"))?
-                    .end_pose;
-                NextAction::WalkTo { end_pose }
+        self.next_action = match motion_command {
+            MotionCommand::FallProtection { .. } => NextAction::DoNothing,
+            MotionCommand::Jump { .. } => NextAction::DoNothing,
+            MotionCommand::Kick { .. } => NextAction::DoNothing,
+            MotionCommand::Penalized => NextAction::DoNothing,
+            MotionCommand::SitDown { .. } => NextAction::DoNothing,
+            MotionCommand::Stand { head, .. } => {
+                let head_yaw = match head {
+                    HeadMotion::LookAt { target } => {
+                        UnitComplex::rotation_between(&Vector::x(), &target.coords)
+                    }
+                    _ => UnitComplex::identity(),
+                };
+                NextAction::Stand { head_yaw }
+            }
+            MotionCommand::StandUp { .. } => NextAction::DoNothing,
+            MotionCommand::Unstiff => NextAction::DoNothing,
+            MotionCommand::InWalkKick { head, .. } => {
+                let head_yaw = match head {
+                    HeadMotion::LookAt { target } => {
+                        UnitComplex::rotation_between(&Vector::x(), &target.coords)
+                    }
+                    _ => UnitComplex::identity(),
+                };
+                NextAction::WalkTo {
+                    end_pose: Isometry2::translation(0.1, 0.0),
+                    head_yaw,
+                }
+            }
+            MotionCommand::Walk {
+                path,
+                orientation_mode,
+                head,
+                ..
+            } => {
+                let head_yaw = match head {
+                    HeadMotion::LookAt { target } => {
+                        UnitComplex::rotation_between(&Vector::x(), &target.coords)
+                    }
+                    _ => UnitComplex::identity(),
+                };
+                let max_step_size = 0.1;
+
+                let segment = path
+                    .iter()
+                    .scan(0.0f32, |distance, segment| {
+                        let result = if *distance < max_step_size {
+                            Some(segment)
+                        } else {
+                            None
+                        };
+                        *distance += segment.length();
+                        result
+                    })
+                    .last()
+                    .ok_or_else(|| anyhow::anyhow!("Empty path provided"))?;
+
+                let next_target_pose = match segment {
+                    PathSegment::LineSegment(line_segment) => Isometry2::<f32>::from_parts(
+                        line_segment.1.into(),
+                        match orientation_mode {
+                            OrientationMode::AlignWithPath => {
+                                let direction = line_segment.1;
+                                if direction.coords.norm_squared() < f32::EPSILON {
+                                    UnitComplex::identity()
+                                } else {
+                                    UnitComplex::from_cos_sin_unchecked(direction.x, direction.y)
+                                }
+                            }
+                            OrientationMode::Override(orientation) => *orientation,
+                        },
+                    ),
+                    PathSegment::Arc(arc, arc_orientation) => {
+                        let direction = arc_orientation
+                            .rotate_vector_90_degrees(arc.start - arc.circle.center)
+                            .normalize();
+                        Isometry2::<f32>::from_parts(
+                            (arc.start + direction * max_step_size).into(),
+                            match orientation_mode {
+                                OrientationMode::AlignWithPath => {
+                                    UnitComplex::from_cos_sin_unchecked(direction.x, direction.y)
+                                }
+                                OrientationMode::Override(orientation) => *orientation,
+                            },
+                        )
+                    }
+                };
+                NextAction::WalkTo {
+                    end_pose: next_target_pose,
+                    head_yaw,
+                }
             }
         };
 
@@ -231,6 +348,7 @@ impl Robot {
 }
 
 fn limit_ball_visibility(
+    head_yaw: UnitComplex<f32>,
     ball_position: Point2<f32>,
     field_of_view_angle_limit: f32,
     field_of_view_distance_limit: f32,
@@ -239,7 +357,8 @@ fn limit_ball_visibility(
         return None;
     }
 
-    let rotation_to_ball = Rotation2::rotation_between(&Vector2::x(), &ball_position.coords);
+    let rotation_to_ball =
+        Rotation2::rotation_between(&(head_yaw * Vector2::x()), &ball_position.coords);
     if rotation_to_ball.angle().abs() > field_of_view_angle_limit {
         return None;
     }

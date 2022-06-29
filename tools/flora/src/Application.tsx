@@ -16,6 +16,8 @@ import ProjectedFieldLines from "./panels/ProjectedFieldLines";
 import FieldBorder from "./panels/FieldBorder";
 import BallCandidates from "./panels/BallCandidates";
 import Localization from "./panels/Localization";
+import BallFilter from "./panels/BallFilter";
+import PathPlanning from "./panels/PathPlanning";
 import Behavior from "./panels/Behavior";
 import { Cycler } from "./Connection/Connection";
 import Parameter from "./panels/Parameter";
@@ -23,6 +25,7 @@ import AudioSpectrums from "./panels/AudioSpectrums";
 import MotionDispatching from "./panels/MotionDispatching";
 import Odometry from "./panels/Odometry";
 import ProjectedLimbs from "./panels/ProjectedLimbs";
+import LineFitting from "./panels/LineFitting";
 
 export default function Application() {
   const [
@@ -157,6 +160,24 @@ export default function Application() {
       />
     );
   }
+  if (selectedPanel.panelType === PanelType.BallFilter) {
+    return (
+      <BallFilter
+        selector={selector}
+        connector={connector}
+        connection={connection}
+      />
+    );
+  }
+  if (selectedPanel.panelType === PanelType.PathPlanning) {
+    return (
+      <PathPlanning
+        selector={selector}
+        connector={connector}
+        connection={connection}
+      />
+    );
+  }
   if (selectedPanel.panelType === PanelType.Behavior) {
     return (
       <Behavior
@@ -200,6 +221,15 @@ export default function Application() {
         connector={connector}
         connection={connection}
         cycler={selectedPanel.cycler}
+      />
+    );
+  }
+  if (selectedPanel.panelType === PanelType.LineFitting) {
+    return (
+      <LineFitting
+        selector={selector}
+        connector={connector}
+        connection={connection}
       />
     );
   }

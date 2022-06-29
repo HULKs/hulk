@@ -1,24 +1,13 @@
-import React, { useEffect, useState } from "react";
 import Connection, { Cycler, OutputType } from "../Connection/Connection";
+import { FieldDimensions } from "../FieldDimensions";
+import { Isometry2 } from "../Isometry2";
+import Field from "../shared/Field";
+import Transform from "../shared/Transform";
+import {
+  useOutputSubscription,
+  useParameterSubscription,
+} from "../useSubscription";
 import "./Localization.css";
-
-type FieldDimensions = {
-  ball_radius: number;
-  length: number;
-  width: number;
-  line_width: number;
-  penalty_marker_size: number;
-  goal_box_area_length: number;
-  goal_box_area_width: number;
-  penalty_area_length: number;
-  penalty_area_width: number;
-  penalty_marker_distance: number;
-  center_circle_diameter: number;
-  border_strip_width: number;
-  goal_inner_width: number;
-  goal_post_diameter: number;
-  goal_depth: number;
-};
 
 export default function Localization({
   selector,
@@ -29,157 +18,172 @@ export default function Localization({
   connector: JSX.Element;
   connection: Connection | null;
 }) {
-  const [poseEstimation, setPoseEstimation] = useState<
+  const hypotheses = useOutputSubscription<
     | {
-        hypotheses: {
-          score: number;
-          state_mean: number[];
-          state_covariance: number[];
-        }[];
-      }
-    | undefined
-  >(undefined);
-  const [lineInfosTop, setLineDataTop] = useState<
-    Array<Array<Array<number>>> | undefined
-  >(undefined);
-  const [robotToField, setRobotToField] = useState<Isometry | undefined>(
-    undefined
+        pose_filter: {
+          mean: number[];
+          covariance: number[];
+        };
+        score: number;
+      }[]
+    | null
+  >(
+    connection,
+    Cycler.Control,
+    OutputType.Additional,
+    "localization.pose_hypotheses"
   );
-  const [lineInfosBottom, setLineDataBottom] = useState<
-    Array<Array<Array<number>>> | undefined
-  >(undefined);
-  const [fieldDimensions, setFieldDimensions] = useState<
-    FieldDimensions | undefined
-  >(undefined);
+  const correspondenceLines = useOutputSubscription<number[][][] | null>(
+    connection,
+    Cycler.Control,
+    OutputType.Additional,
+    "localization.correspondence_lines"
+  );
+  const measuredLinesInField = useOutputSubscription<number[][][] | null>(
+    connection,
+    Cycler.Control,
+    OutputType.Additional,
+    "localization.measured_lines_in_field"
+  );
+  const localizationUpdates = useOutputSubscription<
+    | {
+        robot_to_field: Isometry2;
+        line_center_point: number[];
+        fit_error: number;
+        line_distance_to_robot: number;
+        line_length_weight: number;
+      }[][]
+    | null
+  >(connection, Cycler.Control, OutputType.Additional, "localization.updates");
+  const fieldDimensions = useParameterSubscription<FieldDimensions>(
+    connection,
+    "field_dimensions"
+  );
 
-  useEffect(() => {
-    if (connection === null) {
-      return;
-    }
-    const unsubscribePoseEstimation = connection.subscribeOutput(
-      Cycler.Control,
-      OutputType.Additional,
-      "pose_estimation",
-      (pose_estimation) => {
-        setPoseEstimation(pose_estimation);
-      },
-      (error) => {
-        alert(`Error: ${error}`);
-      }
-    );
-    const unsubscribeRobotToField = connection.subscribeOutput(
-      Cycler.Control,
-      OutputType.Main,
-      "robot_to_field",
-      (robotToField) => {
-        setRobotToField(robotToField);
-      },
-      (error) => {
-        alert(`Error: ${error}`);
-      }
-    );
-    const unsubscribeLineDataTop = connection.subscribeOutput(
-      Cycler.VisionTop,
-      OutputType.Main,
-      "line_data.lines_in_robot",
-      (lineData) => {
-        setLineDataTop(lineData);
-      },
-      (error) => {
-        alert(`Error: ${error}`);
-      }
-    );
-    const unsubscribeLineDataBottom = connection.subscribeOutput(
-      Cycler.VisionBottom,
-      OutputType.Main,
-      "line_data.lines_in_robot",
-      (lineData) => {
-        setLineDataBottom(lineData);
-      },
-      (error) => {
-        alert(`Error: ${error}`);
-      }
-    );
-    const unsubscribeFieldDimensions = connection.subscribeParameter(
-      "field_dimensions",
-      (fieldDimensions) => {
-        setFieldDimensions(fieldDimensions);
-      },
-      (error) => {
-        alert(`Error: ${error}`);
-      }
-    );
-
-    return () => {
-      unsubscribePoseEstimation();
-      unsubscribeRobotToField();
-      unsubscribeLineDataTop();
-      unsubscribeLineDataBottom();
-      unsubscribeFieldDimensions();
+  const state = (() => {
+    const states = {
+      hypotheses: hypotheses,
+      correspondenceLines: correspondenceLines,
+      measuredLinesInField: measuredLinesInField,
+      localizationUpdates: localizationUpdates,
+      fieldDimensions: fieldDimensions,
     };
-  }, [connection]);
+    const undefinedStates = Object.entries(states)
+      .filter(([_stateName, state]) => state === undefined)
+      .map(([stateName, _state]) => stateName);
+    const nullStates = Object.entries(states)
+      .filter(([_stateName, state]) => state === null)
+      .map(([stateName, _state]) => stateName);
+    if (undefinedStates.length > 0 || nullStates.length > 0) {
+      const stateStringParts = [];
+      if (undefinedStates.length > 0) {
+        stateStringParts.push(
+          `${undefinedStates.join(", ")} ${
+            undefinedStates.length === 1 ? "is" : "are"
+          } undefined`
+        );
+      }
+      if (nullStates.length > 0) {
+        stateStringParts.push(
+          `${nullStates.join(", ")} ${
+            nullStates.length === 1 ? "is" : "are"
+          } null`
+        );
+      }
+      return `${stateStringParts.join(", ")}`;
+    }
+    return `${hypotheses!.length} hypotheses (${hypotheses!
+      .map((hypothesis) => hypothesis.score.toFixed(2))
+      .join(", ")}), ${measuredLinesInField!.length} measured lines (red)`;
+  })();
   const header = (
     <div className="header">
-      <div className="panelType">Localization</div>
-      <div className="outputType"></div>
-      <div className="path"></div>
-      <div className="type"></div>
+      <div className="panelType">Localization:</div>
+      <div className="state">{state}</div>
       {selector}
       {connector}
     </div>
   );
-  let robotHypotheses = undefined;
-  let perceivedLines = undefined;
-  let content = undefined;
-  if (
-    poseEstimation === undefined ||
-    robotToField === undefined ||
-    lineInfosTop === undefined ||
-    lineInfosBottom === undefined ||
-    fieldDimensions === undefined
-  ) {
-    content = (
-      <div className="content noData">NAO has not sent all data yet</div>
+  let renderedCorrespondenceLines = null;
+  if (correspondenceLines !== undefined && correspondenceLines !== null) {
+    renderedCorrespondenceLines = correspondenceLines.map(
+      (correspondenceLine) => (
+        <line
+          x1={correspondenceLine[0][0]}
+          y1={correspondenceLine[0][1]}
+          x2={correspondenceLine[1][0]}
+          y2={correspondenceLine[1][1]}
+          stroke="yellow"
+          strokeWidth="0.025"
+        />
+      )
     );
-  } else {
-    let linesTop = lineInfosTop.map((lineInfo) => (
-      <line
-        x1={`${lineInfo[0][0]}`}
-        y1={`${lineInfo[0][1]}`}
-        x2={`${lineInfo[1][0]}`}
-        y2={`${lineInfo[1][1]}`}
-        stroke="red"
-        strokeWidth={fieldDimensions.line_width}
-      />
-    ));
-    let linesBottom = lineInfosBottom.map((lineInfo) => (
-      <line
-        x1={`${lineInfo[0][0]}`}
-        y1={`${lineInfo[0][1]}`}
-        x2={`${lineInfo[1][0]}`}
-        y2={`${lineInfo[1][1]}`}
-        stroke="red"
-        strokeWidth={fieldDimensions.line_width}
-      />
-    ));
-    perceivedLines = (
-      <Transform isometry={robotToField}>
-        {linesTop}
-        {linesBottom}
-      </Transform>
+  }
+  let renderedMeasuredLinesInField = null;
+  if (measuredLinesInField !== undefined && measuredLinesInField !== null) {
+    renderedMeasuredLinesInField = measuredLinesInField.map(
+      (measuredLineInField) => (
+        <line
+          x1={measuredLineInField[0][0]}
+          y1={measuredLineInField[0][1]}
+          x2={measuredLineInField[1][0]}
+          y2={measuredLineInField[1][1]}
+          stroke="red"
+          strokeWidth="0.025"
+        />
+      )
     );
-    robotHypotheses = poseEstimation.hypotheses.map((hypothesis) => {
+  }
+  let renderedLocalizationUpdates = null;
+  if (localizationUpdates !== undefined && localizationUpdates !== null) {
+    renderedLocalizationUpdates = localizationUpdates.map(
+      (LocalizationUpdate) =>
+        LocalizationUpdate.map((localizationUpdate) => (
+          <>
+            <Transform isometry={localizationUpdate.robot_to_field}>
+              <line
+                x1="0"
+                y1="0"
+                x2="0.3"
+                y2="0"
+                stroke="blue"
+                strokeWidth="0.01"
+              />
+            </Transform>
+            <text
+              x={0}
+              y={0}
+              fontSize={0.15}
+              transform={`scale(1, -1) translate(${
+                localizationUpdate.line_center_point[0]
+              }, ${-localizationUpdate.line_center_point[1]}) rotate(10)`}
+            >{`${localizationUpdate.fit_error.toFixed(
+              3
+            )}, ${localizationUpdate.line_distance_to_robot.toFixed(
+              3
+            )}, ${localizationUpdate.line_length_weight.toFixed(3)}, ${(
+              localizationUpdate.fit_error *
+              localizationUpdate.line_distance_to_robot *
+              localizationUpdate.line_length_weight
+            ).toFixed(10)}`}</text>
+          </>
+        ))
+    );
+  }
+  let renderedHypotheses = null;
+  if (hypotheses !== undefined && hypotheses !== null) {
+    renderedHypotheses = hypotheses.map((hypothesis) => {
       let positionCovariance = [
-        hypothesis.state_covariance[0],
-        hypothesis.state_covariance[1],
-        hypothesis.state_covariance[3],
-        hypothesis.state_covariance[4],
+        hypothesis.pose_filter.covariance[0],
+        hypothesis.pose_filter.covariance[1],
+        hypothesis.pose_filter.covariance[3],
+        hypothesis.pose_filter.covariance[4],
       ];
       return (
         <g
-          transform={`translate(${hypothesis.state_mean[0]},${
-            hypothesis.state_mean[1]
-          })rotate(${(180 / Math.PI) * hypothesis.state_mean[2]}) `}
+          transform={`translate(${hypothesis.pose_filter.mean[0]},${
+            hypothesis.pose_filter.mean[1]
+          }) rotate(${(180 / Math.PI) * hypothesis.pose_filter.mean[2]}) `}
         >
           {ellipseFromCovariance(positionCovariance)}
           <circle
@@ -200,180 +204,22 @@ export default function Localization({
         </g>
       );
     });
-    content = (
-      <svg
-        className="overlay"
-        viewBox={`${
-          -(fieldDimensions.length + fieldDimensions.border_strip_width) / 2
-        } ${
-          -(fieldDimensions.width + fieldDimensions.border_strip_width) / 2
-        } ${fieldDimensions.length + fieldDimensions.border_strip_width} ${
-          fieldDimensions.width + fieldDimensions.border_strip_width
-        }`}
-      >
-        <g transform="scale(1,-1)">
-          <rect
-            x={-fieldDimensions.length / 2}
-            y={-fieldDimensions.width / 2}
-            width={fieldDimensions.length}
-            height={fieldDimensions.width}
-            stroke="white"
-            fill="none"
-            strokeWidth={fieldDimensions.line_width}
-          />
-          <rect
-            x={-fieldDimensions.length / 2}
-            y={-fieldDimensions.penalty_area_width / 2}
-            width={fieldDimensions.penalty_area_length}
-            height={fieldDimensions.penalty_area_width}
-            stroke="white"
-            fill="none"
-            strokeWidth={fieldDimensions.line_width}
-          />
-          <rect
-            x={-fieldDimensions.length / 2}
-            y={-fieldDimensions.goal_box_area_width / 2}
-            width={fieldDimensions.goal_box_area_length}
-            height={fieldDimensions.goal_box_area_width}
-            stroke="white"
-            fill="none"
-            strokeWidth={fieldDimensions.line_width}
-          />
-          <rect
-            x={fieldDimensions.length / 2 - fieldDimensions.penalty_area_length}
-            y={-fieldDimensions.penalty_area_width / 2}
-            width={fieldDimensions.penalty_area_length}
-            height={fieldDimensions.penalty_area_width}
-            stroke="white"
-            fill="none"
-            strokeWidth={fieldDimensions.line_width}
-          />
-          <rect
-            x={
-              fieldDimensions.length / 2 - fieldDimensions.goal_box_area_length
-            }
-            y={-fieldDimensions.goal_box_area_width / 2}
-            width={fieldDimensions.goal_box_area_length}
-            height={fieldDimensions.goal_box_area_width}
-            stroke="white"
-            fill="none"
-            strokeWidth={fieldDimensions.line_width}
-          />
-          <line
-            x1="0"
-            y1={-fieldDimensions.width / 2}
-            x2="0"
-            y2={fieldDimensions.width / 2}
-            stroke="white"
-            strokeWidth={fieldDimensions.line_width}
-          />
-          <circle
-            cx="0"
-            cy="0"
-            r={fieldDimensions.center_circle_diameter / 2}
-            stroke="white"
-            strokeWidth={fieldDimensions.line_width}
-            fill="none"
-          />
-          <line
-            x1={
-              fieldDimensions.length / 2 -
-              fieldDimensions.penalty_marker_distance -
-              fieldDimensions.penalty_marker_size / 2
-            }
-            y1="0"
-            x2={
-              fieldDimensions.length / 2 -
-              fieldDimensions.penalty_marker_distance +
-              fieldDimensions.penalty_marker_size / 2
-            }
-            y2="0"
-            stroke="white"
-            strokeWidth={fieldDimensions.line_width * 0.5}
-          />
-          <line
-            x1={
-              fieldDimensions.length / 2 -
-              fieldDimensions.penalty_marker_distance
-            }
-            y1={fieldDimensions.penalty_marker_size / 2}
-            x2={
-              fieldDimensions.length / 2 -
-              fieldDimensions.penalty_marker_distance
-            }
-            y2={-fieldDimensions.penalty_marker_size / 2}
-            stroke="white"
-            strokeWidth={fieldDimensions.line_width * 0.5}
-          />
-
-          <line
-            x1={
-              -fieldDimensions.length / 2 +
-              fieldDimensions.penalty_marker_distance -
-              fieldDimensions.penalty_marker_size / 2
-            }
-            y1="0"
-            x2={
-              -fieldDimensions.length / 2 +
-              fieldDimensions.penalty_marker_distance +
-              fieldDimensions.penalty_marker_size / 2
-            }
-            y2="0"
-            stroke="white"
-            strokeWidth={fieldDimensions.line_width * 0.5}
-          />
-          <line
-            x1={
-              -fieldDimensions.length / 2 +
-              fieldDimensions.penalty_marker_distance
-            }
-            y1={fieldDimensions.penalty_marker_size / 2}
-            x2={
-              -fieldDimensions.length / 2 +
-              fieldDimensions.penalty_marker_distance
-            }
-            y2={-fieldDimensions.penalty_marker_size / 2}
-            stroke="white"
-            strokeWidth={fieldDimensions.line_width * 0.5}
-          />
-          {perceivedLines}
-          {robotHypotheses}
-        </g>
-      </svg>
-    );
   }
+  let content = (
+    <Field fieldDimensions={fieldDimensions}>
+      {renderedCorrespondenceLines}
+      {renderedMeasuredLinesInField}
+      {renderedLocalizationUpdates}
+      {renderedHypotheses}
+    </Field>
+  );
+
   return (
-    <div className="candidates">
+    <div className="localization">
       {header}
       {content}
     </div>
   );
-}
-
-type Isometry = {
-  rotation: Array<number>;
-  translation: Array<number>;
-};
-
-function Transform({
-  isometry,
-  children,
-}: {
-  isometry: Isometry;
-  children: React.ReactNode | React.ReactNode[];
-}) {
-  let angle = toAngle(isometry.rotation);
-  return (
-    <g
-      transform={`translate(${isometry.translation[0]},${isometry.translation[1]})rotate(${angle}) `}
-    >
-      {children}
-    </g>
-  );
-}
-
-function toAngle(rotation: Array<number>): number {
-  return (180 / Math.PI) * Math.atan2(rotation[1], rotation[0]);
 }
 
 function ellipseFromCovariance(covariance: Array<number>) {
@@ -397,9 +243,10 @@ function ellipseFromCovariance(covariance: Array<number>) {
     <ellipse
       rx={radiusX}
       ry={radiusY}
-      transform={`rotate${angle}`}
-      color=""
-      opacity="0.5"
+      transform={`rotate(${angle})`}
+      fill="none"
+      stroke="purple"
+      strokeWidth={0.01}
     />
   );
 }

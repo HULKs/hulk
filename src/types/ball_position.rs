@@ -6,14 +6,15 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Serialize, Deserialize, SerializeHierarchy, Debug)]
 pub struct BallPosition {
-    pub position: Option<Point2<f32>>,
+    pub position: Point2<f32>,
+    #[leaf]
     pub last_seen: SystemTime,
 }
 
 impl Default for BallPosition {
     fn default() -> Self {
         Self {
-            position: None,
+            position: Default::default(),
             last_seen: UNIX_EPOCH,
         }
     }

@@ -53,7 +53,7 @@ impl GameControllerFilter {
             });
         }
         Ok(MainOutputs {
-            game_controller_state: self.game_controller_state.clone(),
+            game_controller_state: self.game_controller_state,
         })
     }
 }

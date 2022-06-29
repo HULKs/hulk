@@ -77,6 +77,10 @@ export default function Selector({
           return <>BallCandidates.{item.obj.selectablePanel.cycler}</>;
         case PanelType.Localization:
           return <>Localization</>;
+        case PanelType.BallFilter:
+          return <>BallFilter</>;
+        case PanelType.PathPlanning:
+          return <>PathPlanning</>;
         case PanelType.Behavior:
           return <>Behavior</>;
         case PanelType.MotionDispatching:
@@ -87,6 +91,8 @@ export default function Selector({
           return <>Odometry</>;
         case PanelType.ProjectedLimbs:
           return <>ProjectedLimbs.{item.obj.selectablePanel.cycler}</>;
+        case PanelType.LineFitting:
+          return <>LineFitting</>;
       }
     })();
     return (

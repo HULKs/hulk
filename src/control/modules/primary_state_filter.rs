@@ -1,6 +1,7 @@
 use macros::{module, require_some};
+use spl_network::PlayerNumber;
 
-use crate::types::{Buttons, FilteredGameState, GameControllerState, GroundContact, PrimaryState};
+use crate::types::{Buttons, FilteredGameState, GameControllerState, PrimaryState};
 
 pub struct PrimaryStateFilter {
     last_primary_state: PrimaryState,
@@ -8,10 +9,10 @@ pub struct PrimaryStateFilter {
 
 #[module(control)]
 #[input(path = buttons, data_type = Buttons)]
-#[parameter(path = player_number, data_type = usize)]
+#[parameter(path = player_number, data_type = PlayerNumber)]
 #[input(path = game_controller_state, data_type = GameControllerState)]
 #[input(path = filtered_game_state, data_type = FilteredGameState)]
-#[input(path = ground_contact, data_type = GroundContact)]
+#[input(path = has_ground_contact, data_type = bool)]
 #[main_output(data_type = PrimaryState)]
 impl PrimaryStateFilter {}
 
@@ -23,7 +24,7 @@ impl PrimaryStateFilter {
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
-        let ground_contact = require_some!(context.ground_contact);
+        let has_ground_contact = require_some!(context.has_ground_contact);
         let buttons = require_some!(context.buttons);
         let is_penalized = match context.game_controller_state {
             Some(game_controller_state) => {
@@ -37,7 +38,7 @@ impl PrimaryStateFilter {
             buttons.are_all_head_elements_touched,
             buttons.is_chest_button_pressed,
             context.filtered_game_state,
-            ground_contact.any_foot(),
+            has_ground_contact,
         ) {
             // Unstiff transitions (entering and exiting)
             (_, true, _, _, true) => PrimaryState::Finished,

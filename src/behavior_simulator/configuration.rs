@@ -2,7 +2,7 @@ use std::{fs::File, path::Path, time::Duration};
 
 use anyhow::Context;
 use mlua::Lua;
-use nalgebra::Isometry2;
+use nalgebra::{Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use serde_json::from_reader;
 use spl_network::GameState;
@@ -53,6 +53,12 @@ impl Rule {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Action {
     StopSimulation,
+    SetBallPosition {
+        position: Point2<f32>,
+    },
+    SetBallVelocity {
+        velocity: Vector2<f32>,
+    },
     SetGameState {
         game_state: GameState,
     },

@@ -49,9 +49,10 @@ export default function Behavior({
   const [primaryState, setPrimaryState] = useState<Object | undefined>(
     undefined
   );
-  const [robotPose, setRobotPose] = useState<Isometry | undefined>(undefined);
+  const [robotToField, setRobotToField] = useState<Isometry | null | undefined>(
+    undefined
+  );
   const [role, setRole] = useState<string | undefined>(undefined);
-  const [walkTarget, setWalkTarget] = useState<Isometry | undefined>(undefined);
 
   useEffect(() => {
     if (connection === null) {
@@ -131,7 +132,7 @@ export default function Behavior({
     const unsubscribeMotionCommand = connection.subscribeOutput(
       Cycler.Control,
       OutputType.Main,
-      "motion_command.motion",
+      "motion_command",
       (motionCommand) => {
         setMotionCommand(motionCommand);
       },
@@ -152,12 +153,12 @@ export default function Behavior({
       }
     );
 
-    const unsubscribeRobotPose = connection.subscribeOutput(
+    const unsubscribeRobotToField = connection.subscribeOutput(
       Cycler.Control,
       OutputType.Main,
-      "world_state.robot.pose",
-      (robotPose) => {
-        setRobotPose(robotPose);
+      "world_state.robot.robot_to_field",
+      (robotToField) => {
+        setRobotToField(robotToField);
       },
       (error) => {
         alert(`Error: ${error}`);
@@ -176,18 +177,6 @@ export default function Behavior({
       }
     );
 
-    const unsubscribeWalkTarget = connection.subscribeOutput(
-      Cycler.Control,
-      OutputType.Main,
-      "world_state.robot.walk_target_pose",
-      (walkTarget) => {
-        setWalkTarget(walkTarget);
-      },
-      (error) => {
-        alert(`Error: ${error}`);
-      }
-    );
-
     return () => {
       unsubscribeBall();
       unsubscribeFallState();
@@ -197,9 +186,8 @@ export default function Behavior({
       unsubscribeHeadYaw();
       unsubscribeMotionCommand();
       unsubscribePrimaryState();
-      unsubscribeRobotPose();
+      unsubscribeRobotToField();
       unsubscribeRole();
-      unsubscribeWalkTarget();
     };
   }, [connection]);
 
@@ -223,9 +211,8 @@ export default function Behavior({
     headYaw === undefined ||
     motionCommand === undefined ||
     primaryState === undefined ||
-    robotPose === undefined ||
-    role === undefined ||
-    walkTarget === undefined
+    robotToField === undefined ||
+    role === undefined
   ) {
     content = (
       <div className="content noData">NAO has not sent all data yet</div>
@@ -275,47 +262,34 @@ export default function Behavior({
       );
     }
 
-    const robotMarker = (
-      <Transform isometry={robotPose}>
-        <g transform={`rotate(${28.15 + (headYaw * 180.0) / Math.PI}) `}>
-          <line
-            x1="0"
-            y1="0"
-            x2="1.5"
-            y2="0"
-            stroke="yellow"
-            strokeWidth="0.01"
-          />
-        </g>
-        <g transform={`rotate(${-28.15 + (headYaw * 180.0) / Math.PI}) `}>
-          <line
-            x1="0"
-            y1="0"
-            x2="1.5"
-            y2="0"
-            stroke="yellow"
-            strokeWidth="0.01"
-          />
-        </g>
-        <circle
-          r="0.13665"
-          fill="red"
-          fillOpacity="1.0"
-          stroke="black"
-          strokeWidth="0.01"
-        />
-        <line x1="0" y1="0" x2="0.2" y2="0" stroke="black" strokeWidth="0.01" />
-      </Transform>
-    );
-
-    let walkTargetPose = undefined;
-    if (motionCommandText === "Walk") {
-      walkTargetPose = (
-        <Transform isometry={walkTarget}>
+    let robotMarker = undefined;
+    if (robotToField !== null) {
+      robotMarker = (
+        <Transform isometry={robotToField}>
+          <g transform={`rotate(${28.15 + (headYaw * 180.0) / Math.PI}) `}>
+            <line
+              x1="0"
+              y1="0"
+              x2="1.5"
+              y2="0"
+              stroke="yellow"
+              strokeWidth="0.01"
+            />
+          </g>
+          <g transform={`rotate(${-28.15 + (headYaw * 180.0) / Math.PI}) `}>
+            <line
+              x1="0"
+              y1="0"
+              x2="1.5"
+              y2="0"
+              stroke="yellow"
+              strokeWidth="0.01"
+            />
+          </g>
           <circle
             r="0.13665"
             fill="red"
-            fillOpacity="0.3"
+            fillOpacity="1.0"
             stroke="black"
             strokeWidth="0.01"
           />
@@ -332,9 +306,9 @@ export default function Behavior({
     }
 
     let ball = undefined;
-    if (ballPosition !== null) {
+    if (ballPosition !== null && robotToField !== null) {
       ball = (
-        <Transform isometry={robotPose}>
+        <Transform isometry={robotToField}>
           <g transform={`translate(${ballPosition[0]},${ballPosition[1]}) `}>
             <circle
               r={fieldDimensions.ball_radius}
@@ -484,7 +458,6 @@ export default function Behavior({
             stroke="white"
             strokeWidth={fieldDimensions.line_width * 0.5}
           />
-          {walkTargetPose}
           {robotMarker}
           {ball}
         </g>

@@ -1,15 +1,12 @@
 use macros::{module, require_some};
 
-use crate::types::{
-    GroundContact, Motion, MotionCommand, MotionSelection, MotionType, StepPlan, WalkCommand,
-};
+use crate::types::{MotionCommand, MotionSelection, MotionType, Step, WalkCommand};
 
 pub struct WalkManager;
 
 #[module(control)]
-#[input(data_type = StepPlan, path = step_plan)]
+#[input(data_type = Step, path = step_plan)]
 #[input(path = motion_command, data_type = MotionCommand)]
-#[input(path = ground_contact, data_type = GroundContact)]
 #[input(path = motion_selection, data_type = MotionSelection)]
 #[main_output(data_type = WalkCommand)]
 impl WalkManager {}
@@ -23,14 +20,18 @@ impl WalkManager {
         let motion_command = require_some!(context.motion_command);
         let motion_selection = require_some!(context.motion_selection);
 
-        let command = if let (MotionType::Walk, Motion::Walk { .. }, Some(StepPlan { step })) = (
-            motion_selection.current_motion,
-            motion_command.motion,
-            context.step_plan,
-        ) {
-            WalkCommand::Walk(*step)
-        } else {
-            WalkCommand::Stand
+        let command = match (motion_command, motion_selection.current_motion) {
+            (MotionCommand::Walk { .. }, MotionType::Walk) => match context.step_plan {
+                Some(step) => WalkCommand::Walk(*step),
+                None => WalkCommand::Stand,
+            },
+            (
+                MotionCommand::InWalkKick {
+                    kick, kicking_side, ..
+                },
+                MotionType::Walk,
+            ) => WalkCommand::Kick(*kick, *kicking_side),
+            _ => WalkCommand::Stand,
         };
 
         Ok(MainOutputs {

@@ -6,8 +6,8 @@ use macros::{module, require_some};
 use crate::{
     control::linear_interpolator::LinearInterpolator,
     types::{
-        HeadJoints, Joints, MotionSafeExits, MotionSelection, MotionType, SensorData,
-        SitDownJoints, WalkPositions,
+        BodyJointsCommand, HeadJoints, Joints, JointsCommand, MotionSafeExits, MotionSelection,
+        MotionType, SensorData,
     },
 };
 
@@ -22,8 +22,8 @@ pub struct DispatchingInterpolator {
 #[input(path = motion_selection, data_type = MotionSelection)]
 #[input(path = stand_up_back_positions, data_type = Joints)]
 #[input(path = stand_up_front_positions, data_type = Joints)]
-#[input(path = sit_down_joints, data_type = SitDownJoints)]
-#[input(path = walk_positions, data_type = WalkPositions)]
+#[input(path = sit_down_joints_command, data_type = JointsCommand)]
+#[input(path = walk_joints_command, data_type = BodyJointsCommand)]
 #[persistent_state(path = motion_safe_exits, data_type = MotionSafeExits)]
 #[parameter(path = control.penalized_pose, data_type = Joints)]
 #[parameter(path = control.ready_pose, data_type = Joints)]
@@ -56,8 +56,8 @@ impl DispatchingInterpolator {
         let dispatching_motion = require_some!(motion_selection.dispatching_motion);
         let stand_up_back_positions = require_some!(context.stand_up_back_positions);
         let stand_up_front_positions = require_some!(context.stand_up_front_positions);
-        let walk_positions = require_some!(context.walk_positions).positions;
-        let sit_down_positions = require_some!(context.sit_down_joints).positions;
+        let walk_positions = require_some!(context.walk_joints_command).positions;
+        let sit_down_positions = require_some!(context.sit_down_joints_command).positions;
 
         let interpolator_reset_required =
             self.last_dispatching_motion != dispatching_motion || !self.last_currently_active;

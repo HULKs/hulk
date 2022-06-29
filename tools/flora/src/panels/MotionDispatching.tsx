@@ -165,7 +165,7 @@ export default function MotionDispatching({
     const unsubscribeMotion = connection.subscribeOutput(
       Cycler.Control,
       OutputType.Main,
-      "motion_command.motion",
+      "motion_command",
       (data) => {
         setMotionData(data);
       },

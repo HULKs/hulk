@@ -4,6 +4,7 @@ import "./Application.css";
 import { useFieldDimensions } from "./useFieldDimensions";
 import { Circle, Line, useMarks } from "./useMarks";
 import { State, useAnimation } from "./useAnimation";
+import { Vector } from 'vecti'
 
 export function Application() {
   const [frameIndex, setFrameIndex] = useState(0);
@@ -34,13 +35,10 @@ export function Application() {
   return (
     <div className="Application">
       <svg
-        viewBox={`${
-          -(fieldDimensions.length + fieldDimensions.border_strip_width) / 2
-        } ${
-          -(fieldDimensions.width + fieldDimensions.border_strip_width) / 2
-        } ${fieldDimensions.length + fieldDimensions.border_strip_width} ${
-          fieldDimensions.width + fieldDimensions.border_strip_width
-        }`}
+        viewBox={`${-(fieldDimensions.length + fieldDimensions.border_strip_width) / 2
+          } ${-(fieldDimensions.width + fieldDimensions.border_strip_width) / 2
+          } ${fieldDimensions.length + fieldDimensions.border_strip_width} ${fieldDimensions.width + fieldDimensions.border_strip_width
+          }`}
       >
         <g transform="scale(1, -1)">
           {marks.map((mark) => {
@@ -69,10 +67,21 @@ export function Application() {
                 configuration={recording.robot_configurations[robotIndex]}
                 database={robot.database}
                 simulation_configuration={recording.simulation_configuration}
+                angle={toAngle(robot.robot_to_field.rotation)}
+                head_yaw={toAngle(robot.head_yaw)}
               />
             </Transform>
           ))}
         </g>
+        <text x={-4.5} y={-3.1} fontSize={0.15}>
+          Messages: {frame.broadcasted_spl_message_counter} total. Amounting to{" "}
+          {(
+            frame.broadcasted_spl_message_counter /
+            (frame.now.secs_since_epoch +
+              frame.now.nanos_since_epoch / 1000000000)
+          ).toFixed(2)}{" "}
+          msg/sec on average.
+        </text>
       </svg>
       <div className="output">
         <div>GameState: {frame.game_state}</div>
@@ -88,7 +97,7 @@ export function Application() {
           MotionCommand:{" "}
           {frame.robots
             .map((robot) => {
-              const motion = robot.database.main_outputs.motion_command.motion;
+              const motion = robot.database.main_outputs.motion_command;
               if (typeof motion === "string") {
                 return motion;
               } else if (typeof motion === "object") {
@@ -214,6 +223,7 @@ function drawCircle(
 }
 
 function drawFieldOfView(
+  head_yaw: number,
   maximum_angle: number,
   maximum_distance: number,
   strokeColor: string,
@@ -222,6 +232,7 @@ function drawFieldOfView(
   const x = maximum_distance * Math.cos(maximum_angle);
   const y = maximum_distance * Math.sin(maximum_angle);
   return (
+    <g transform={`rotate(${head_yaw})`}>
     <path
       d={`M 0 0 L ${x} ${y} A ${maximum_distance} ${maximum_distance} 0 0 0 ${x} ${-y} L 0 0 Z`}
       fill="transparent"
@@ -229,6 +240,7 @@ function drawFieldOfView(
       strokeOpacity={0.15}
       strokeWidth={strokeWidth}
     />
+    </g>
   );
 }
 
@@ -254,45 +266,76 @@ function Transform({
   );
 }
 
+type Point = [number, number];
+type LineSegment = { LineSegment: Array<Point> };
+type Direction = "Clockwise" | "Counterclockwise";
+type Arc = { circle: Circle, start: Point, end: Point };
+type ArcSegment = { Arc: [Arc, Direction] };
+type PathSegment = LineSegment | ArcSegment;
+
 function toAngle(rotation: number[]): number {
   return (180 / Math.PI) * Math.atan2(rotation[1], rotation[0]);
+}
+
+function determine_long_arc_flag(arc: Arc, sweep: number): number {
+  const center = Vector.of(arc.circle.center);
+  const start = Vector.of(arc.start).subtract(center);
+  const end = Vector.of(arc.end).subtract(center);
+  const long_arc = start.rotateByDegrees(90).dot(end) > 0 ? 0 : 1;
+  return sweep === 1 ? long_arc : 1 - long_arc;
 }
 
 function Robot({
   configuration,
   database,
   simulation_configuration,
+  angle,
+  head_yaw,
 }: {
   configuration: any;
   database: any;
   simulation_configuration: any;
+  angle: any;
+  head_yaw: any,
 }): JSX.Element {
-  const motion = database.main_outputs.motion_command.motion;
-  let walkTarget = null;
+  const motion = database.main_outputs.motion_command;
   let plannedPathTarget = null;
   if (typeof motion === "object" && "Walk" in motion) {
-    walkTarget = drawLine(
-      {
-        type: "Line",
-        point0: [0, 0],
-        point1: motion.Walk.target_pose.translation,
-      },
-      "red",
-      0.0125
-    );
-    plannedPathTarget = drawLine(
-      {
-        type: "Line",
-        point0: [0, 0],
-        point1: database.main_outputs.planned_path.end_pose.translation,
-      },
-      "blue",
-      0.0125
-    );
+    plannedPathTarget = motion.Walk.path?.map((segment: PathSegment) => {
+      if ("LineSegment" in segment) {
+        const line_segment = segment.LineSegment;
+        return (
+          <line
+            x1={`${line_segment[0][0]}`}
+            y1={`${line_segment[0][1]}`}
+            x2={`${line_segment[1][0]}`}
+            y2={`${line_segment[1][1]}`}
+            stroke="orange"
+            strokeWidth="0.0125"
+          />);
+      }
+      if ("Arc" in segment) {
+        const [arc, direction] = segment.Arc;
+        const x_axis_rotation = 0;
+        const sweep_flag = direction === "Clockwise" ? 0 : 1;
+        const long_arc_flag = determine_long_arc_flag(arc, sweep_flag);
+        return (<path d={`
+            M ${arc.start[0]} ${arc.start[1]}
+            A ${arc.circle.radius} ${arc.circle.radius} ${x_axis_rotation} ${long_arc_flag} ${sweep_flag}  ${arc.end[0]} ${arc.end[1]}
+          `}
+          fill="none"
+          stroke="red"
+          strokeWidth="0.0125"
+          strokeLinecap="round"
+        />);
+      }
+      return null;
+    });
   }
   return (
     <>
       {drawFieldOfView(
+        head_yaw,
         simulation_configuration.maximum_field_of_view_angle,
         simulation_configuration.maximum_field_of_view_distance,
         "yellow",
@@ -309,16 +352,14 @@ function Robot({
         "black",
         0.0125
       )}
-      {walkTarget}
       {plannedPathTarget}
-      <g transform="scale(-1, 1)">
+
+      <g transform={`scale(1, -1) rotate(${angle})`}>
         <text x={0} y={-0.025} fontSize={0.15} textAnchor="middle">
           {configuration.player_number}
         </text>
-      </g>
-      <g transform="scale(1, -1)">
-        <text x={0} y={-0.025} fontSize={0.15} textAnchor="middle">
-          {configuration.player_number}
+        <text x={0} y={0.1} fontSize={0.15} textAnchor="middle">
+          {database.main_outputs.world_state.robot.role}
         </text>
       </g>
     </>

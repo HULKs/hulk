@@ -17,6 +17,7 @@ fern = {version = "0.6.1", features = ["colored"]}
 futures-util = "0.3.21"
 i2cdev = "0.5.1"
 image = "0.23.14"
+itertools = "0.10.3"
 log = "0.4.16"
 macros = {path = "macros"}
 mlua = {version = "0.7.4", features = ["luajit", "serialize"], optional = true}
@@ -29,6 +30,7 @@ rand_distr = "0.4.3"
 rustfft = "6.0.1"
 serde = {version = "1.0.136", features = ["derive"]}
 serde_json = "1.0.79"
+smallvec = "1.8.1"
 spl_network = {path = "spl_network"}
 structopt = "0.3.26"
 tokio = {version = "1.17.0", features = ["full"]}

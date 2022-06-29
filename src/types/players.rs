@@ -1,19 +1,43 @@
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 
-use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use spl_network::{Penalty, TeamState};
+use spl_network::{Penalty, PlayerNumber, TeamState};
 
-use crate::framework::SerializeHierarchy;
+use crate::framework;
 
-#[derive(Clone, Default, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Default, Debug, Deserialize, Serialize)]
 pub struct Players<T> {
     pub one: T,
     pub two: T,
     pub three: T,
     pub four: T,
     pub five: T,
+}
+
+impl<T> Index<PlayerNumber> for Players<T> {
+    type Output = T;
+
+    fn index(&self, index: PlayerNumber) -> &Self::Output {
+        match index {
+            PlayerNumber::One => &self.one,
+            PlayerNumber::Two => &self.two,
+            PlayerNumber::Three => &self.three,
+            PlayerNumber::Four => &self.four,
+            PlayerNumber::Five => &self.five,
+        }
+    }
+}
+
+impl<T> IndexMut<PlayerNumber> for Players<T> {
+    fn index_mut(&mut self, index: PlayerNumber) -> &mut Self::Output {
+        match index {
+            PlayerNumber::One => &mut self.one,
+            PlayerNumber::Two => &mut self.two,
+            PlayerNumber::Three => &mut self.three,
+            PlayerNumber::Four => &mut self.four,
+            PlayerNumber::Five => &mut self.five,
+        }
+    }
 }
 
 impl From<TeamState> for Players<Option<Penalty>> {
@@ -28,11 +52,12 @@ impl From<TeamState> for Players<Option<Penalty>> {
     }
 }
 
-impl<T> SerializeHierarchy for Players<T>
+impl<T> crate::framework::SerializeHierarchy for Players<T>
 where
-    T: Serialize + for<'de> Deserialize<'de> + SerializeHierarchy,
+    T: Serialize + for<'de> Deserialize<'de> + framework::SerializeHierarchy,
 {
-    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
+    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<serde_json::Value> {
+        use anyhow::Context;
         let split = field_path.split_once('.');
         match split {
             Some((field_name, suffix)) => match field_name {
@@ -74,11 +99,13 @@ where
             },
         }
     }
+
     fn deserialize_hierarchy(
         &mut self,
         field_path: &str,
         data: serde_json::Value,
     ) -> anyhow::Result<()> {
+        use anyhow::Context;
         let split = field_path.split_once('.');
         match split {
             Some((field_name, suffix)) => match field_name {
@@ -134,6 +161,7 @@ where
             },
         }
     }
+
     fn exists(field_path: &str) -> bool {
         let split = field_path.split_once('.');
         match split {
@@ -148,6 +176,7 @@ where
             None => matches!(field_path, "one" | "two" | "three" | "four" | "five"),
         }
     }
+
     fn get_hierarchy() -> crate::framework::HierarchyType {
         let mut fields = std::collections::BTreeMap::new();
         fields.insert("one".to_string(), T::get_hierarchy());
@@ -156,20 +185,5 @@ where
         fields.insert("four".to_string(), T::get_hierarchy());
         fields.insert("five".to_string(), T::get_hierarchy());
         crate::framework::HierarchyType::Struct { fields }
-    }
-}
-
-impl<T> Index<usize> for Players<T> {
-    type Output = T;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        match index {
-            1 => &self.one,
-            2 => &self.two,
-            3 => &self.three,
-            4 => &self.four,
-            5 => &self.five,
-            _ => panic!("Unknown player number"),
-        }
     }
 }

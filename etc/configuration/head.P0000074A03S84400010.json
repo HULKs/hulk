@@ -1,5 +1,5 @@
 {
-  "player_number": 1,
+  "player_number": "One",
   "vision_top": {
     "camera_matrix_parameters": {
       "extrinsic_rotations": [0, -3.8, 0]

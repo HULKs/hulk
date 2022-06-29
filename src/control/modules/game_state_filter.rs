@@ -1,9 +1,13 @@
 use std::time::{Duration, SystemTime};
 
 use macros::{module, require_some};
-use spl_network::{GamePhase, GameState, Penalty};
+use nalgebra::{Isometry2, Vector2};
+use spl_network::{GamePhase, GameState, Penalty, PlayerNumber};
 
-use crate::types::{Buttons, FilteredGameState, FilteredWhistle, GameControllerState, SensorData};
+use crate::types::{
+    BallPosition, Buttons, FieldDimensions, FilteredGameState, FilteredWhistle,
+    GameControllerState, SensorData,
+};
 
 pub struct GameStateFilter {
     game_state: FilteredGameState,
@@ -13,8 +17,12 @@ pub struct GameStateFilter {
 #[input(path = sensor_data, data_type = SensorData)]
 #[input(path = filtered_whistle, data_type = FilteredWhistle)]
 #[input(path = buttons, data_type = Buttons)]
-#[parameter(path = player_number, data_type = usize)]
+#[input(path = ball_position, data_type = BallPosition)]
+#[persistent_state(path = robot_to_field, data_type = Isometry2<f32>)]
+#[parameter(path = player_number, data_type = PlayerNumber)]
+#[parameter(path = field_dimensions, data_type = FieldDimensions)]
 #[parameter(path = control.game_state_filter.max_wait_for_ready_message, data_type = f32)]
+#[parameter(path = control.game_state_filter.whistle_acceptance_goal_distance, data_type = Vector2<f32>)]
 #[input(path = game_controller_state, data_type = GameControllerState)]
 #[main_output(data_type = FilteredGameState)]
 impl GameStateFilter {}
@@ -49,6 +57,12 @@ impl GameStateFilter {
             illegal_motion_in_set,
             cycle_start_time,
             Duration::from_secs_f32(*context.max_wait_for_ready_message),
+            ball_is_near_goal(
+                *context.robot_to_field,
+                *context.ball_position,
+                context.field_dimensions,
+                *context.whistle_acceptance_goal_distance,
+            ),
         );
 
         Ok(MainOutputs {
@@ -74,6 +88,7 @@ fn next_game_state(
     illegal_motion_in_set: bool,
     cycle_start_time: SystemTime,
     max_wait_for_ready_message: Duration,
+    ball_is_near_goal: Option<bool>,
 ) -> FilteredGameState {
     let previous_game_state = if illegal_motion_in_set {
         FilteredGameState::Set
@@ -92,8 +107,18 @@ fn next_game_state(
                 changed_time: cycle_start_time,
             }
         }
-        (FilteredGameState::Playing { .. }, true, GameState::Playing, GamePhase::Normal)
-        | (FilteredGameState::Ready { .. }, true, GameState::Playing, GamePhase::Normal) => {
+        (FilteredGameState::Playing { .. }, true, GameState::Playing, GamePhase::Normal) => {
+            if let Some(false) = ball_is_near_goal {
+                FilteredGameState::Playing {
+                    changed_time: cycle_start_time,
+                }
+            } else {
+                FilteredGameState::Ready {
+                    changed_time: cycle_start_time,
+                }
+            }
+        }
+        (FilteredGameState::Ready { .. }, true, GameState::Playing, GamePhase::Normal) => {
             FilteredGameState::Ready {
                 changed_time: cycle_start_time,
             }
@@ -119,4 +144,18 @@ fn next_game_state(
             game_controller_state.last_game_state_change,
         ),
     }
+}
+
+fn ball_is_near_goal(
+    robot_to_field: Isometry2<f32>,
+    ball_position: Option<BallPosition>,
+    field_dimensions: &FieldDimensions,
+    whistle_acceptance_goal_distance: Vector2<f32>,
+) -> Option<bool> {
+    let ball_on_field = robot_to_field * ball_position?.position;
+    Some(
+        ball_on_field.x.abs() > field_dimensions.length / 2.0 - whistle_acceptance_goal_distance.x
+            && ball_on_field.y.abs()
+                < field_dimensions.goal_inner_width / 2.0 + whistle_acceptance_goal_distance.y,
+    )
 }

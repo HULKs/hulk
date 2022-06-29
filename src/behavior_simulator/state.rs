@@ -1,15 +1,16 @@
 use std::{
     convert::TryFrom,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{bail, Context};
 use mlua::Lua;
 use nalgebra::{Point2, Vector2};
 use serde::Serialize;
-use spl_network::{GameState, SplMessage};
+use spl_network::{GamePhase, GameState, Penalty, SplMessage};
 
 use crate::control::Database;
+use crate::types::{GameControllerState, Players};
 
 use super::{
     configuration::{Action, Configuration as SimulationConfiguration},
@@ -20,9 +21,11 @@ use super::{
 pub struct State {
     pub configuration: SimulationConfiguration,
     pub now: SystemTime,
+    pub game_controller_state: GameControllerState,
     pub game_state: GameState,
     pub ball_position: Point2<f32>,
     pub ball_velocity: Vector2<f32>,
+    pub broadcasted_spl_message_counter: usize,
     pub broadcasted_spl_messages: Vec<SplMessage>,
 }
 
@@ -33,9 +36,22 @@ impl TryFrom<SimulationConfiguration> for State {
         Ok(Self {
             configuration,
             now: UNIX_EPOCH,
+            game_controller_state: GameControllerState {
+                game_state: GameState::Initial,
+                game_phase: GamePhase::Normal,
+                last_game_state_change: UNIX_EPOCH,
+                penalties: Players {
+                    one: None,
+                    two: None,
+                    three: None,
+                    four: None,
+                    five: None,
+                },
+            },
             game_state: GameState::Initial,
             ball_position: Point2::origin(),
             ball_velocity: Vector2::zeros(),
+            broadcasted_spl_message_counter: 0,
             broadcasted_spl_messages: vec![],
         })
     }
@@ -74,18 +90,37 @@ impl State {
 
             match rule.action {
                 Action::StopSimulation => return Ok(true),
+                Action::SetBallPosition { position } => {
+                    self.ball_position = position;
+                }
+                Action::SetBallVelocity { velocity } => {
+                    self.ball_velocity = velocity;
+                }
                 Action::SetGameState { game_state } => {
+                    self.game_controller_state.game_state = game_state;
                     self.game_state = game_state;
                 }
                 Action::SetPenalized {
                     robot_index,
                     is_penalized,
-                } => match robots.get_mut(robot_index) {
-                    Some(robot) => {
-                        robot.is_penalized = is_penalized;
+                } => {
+                    match robots.get_mut(robot_index) {
+                        Some(robot) => {
+                            robot.is_penalized = is_penalized;
+                        }
+                        None => bail!("Robot index {} out of range", robot_index),
+                    };
+                    let player_number =
+                        robots.get(robot_index).unwrap().configuration.player_number;
+                    if is_penalized {
+                        self.game_controller_state.penalties[player_number] =
+                            Some(Penalty::PlayerPushing {
+                                remaining: Duration::from_secs(60),
+                            })
+                    } else {
+                        self.game_controller_state.penalties[player_number] = None
                     }
-                    None => bail!("Robot index {} out of range", robot_index),
-                },
+                }
                 Action::SetRobotToField {
                     robot_index,
                     robot_to_field,
@@ -112,7 +147,7 @@ impl State {
             let (database, mut spl_messages, ball_bounce_direction) =
                 robot.step(self).with_context(|| {
                     format!(
-                        "Failed to step robot with player number {}",
+                        "Failed to step robot with player number {:?}",
                         robot.configuration.player_number
                     )
                 })?;
@@ -127,6 +162,7 @@ impl State {
         }
 
         self.broadcasted_spl_messages = new_broadcasted_spl_messages;
+        self.broadcasted_spl_message_counter += self.broadcasted_spl_messages.len();
 
         if new_ball_velocity != Vector2::zeros() {
             self.ball_velocity = new_ball_velocity;

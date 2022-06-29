@@ -1,0 +1,17 @@
+pub enum Action {
+    Unstiff,
+    SitDown,
+    Penalize,
+    FallSafely,
+    StandUp,
+    Stand,
+    InWalkKick,
+    Dribble,
+    WalkBehindBall,
+    DefendGoal,
+    DefendLeft,
+    DefendRight,
+    SupportStriker,
+    Search,
+    WalkBackwards,
+}

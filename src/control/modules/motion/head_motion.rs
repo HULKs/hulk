@@ -5,8 +5,8 @@ use macros::{module, require_some};
 use nalgebra::Isometry3;
 
 use crate::types::{
-    HeadJoints, HeadJointsCommand, HeadMotion as HeadMotionCommand, Motion, MotionCommand,
-    MotionSelection, SensorData,
+    HeadJoints, HeadJointsCommand, HeadMotion as HeadMotionCommand, MotionCommand, MotionSelection,
+    SensorData,
 };
 
 pub struct HeadMotion {
@@ -43,22 +43,23 @@ impl HeadMotion {
 
         let current_head_angles = sensor_data.positions.head;
 
-        let raw_request = match motion_command.motion {
-            Motion::FallProtection { .. } => Default::default(),
-            Motion::Jump { .. } => todo!(),
-            Motion::Kick { .. } => todo!(),
-            Motion::Penalized => Default::default(),
-            Motion::StandUp { .. } => Default::default(),
-            Motion::Unstiff => current_head_angles,
-            Motion::SitDown { head } | Motion::Stand { head } | Motion::Walk { head, .. } => {
-                match head {
-                    HeadMotionCommand::ZeroAngles => Default::default(),
-                    HeadMotionCommand::Center => *context.center_head_position,
-                    HeadMotionCommand::LookAround => *look_around,
-                    HeadMotionCommand::LookAt { .. } => *look_at,
-                    HeadMotionCommand::Unstiff => current_head_angles,
-                }
-            }
+        let raw_request = match motion_command {
+            MotionCommand::FallProtection { .. } => Default::default(),
+            MotionCommand::Jump { .. } => todo!(),
+            MotionCommand::Kick { .. } => todo!(),
+            MotionCommand::Penalized => Default::default(),
+            MotionCommand::StandUp { .. } => Default::default(),
+            MotionCommand::Unstiff => current_head_angles,
+            MotionCommand::SitDown { head }
+            | MotionCommand::Stand { head }
+            | MotionCommand::Walk { head, .. }
+            | MotionCommand::InWalkKick { head, .. } => match head {
+                HeadMotionCommand::ZeroAngles => Default::default(),
+                HeadMotionCommand::Center => *context.center_head_position,
+                HeadMotionCommand::LookAround => *look_around,
+                HeadMotionCommand::LookAt { .. } => *look_at,
+                HeadMotionCommand::Unstiff => current_head_angles,
+            },
         };
         let maximum_movement =
             *context.maximum_velocity * sensor_data.cycle_info.last_cycle_duration.as_secs_f32();

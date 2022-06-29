@@ -154,10 +154,10 @@ impl PerspectiveGridCandidatesProvider {
 
 #[cfg(test)]
 mod tests {
-    use std::{f32::consts::PI, iter::FromIterator};
+    use std::iter::FromIterator;
 
     use approx::assert_relative_eq;
-    use nalgebra::{vector, Translation, UnitQuaternion};
+    use nalgebra::{vector, Isometry3, Point, Translation, UnitQuaternion};
 
     use crate::types::{CameraMatrix, EdgeType, Intensity, ScanLine, Segment, YCbCr444};
 
@@ -180,16 +180,23 @@ mod tests {
 
     #[test]
     fn rows_spaced_correctly() {
-        let mut camera_matrix =
-            CameraMatrix::from_parameters(vector![1.0, 1.0], point![0.5, 0.5], vector![45.0, 45.0]);
-        camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.5]);
-        camera_matrix.camera_to_ground.rotation =
-            UnitQuaternion::from_euler_angles(0.0, PI / 4.0, 0.0);
+        let image_size = vector![512, 512];
+        let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+            vector![1.0, 1.0],
+            point![0.5, 0.5],
+            image_size.map(|element| element as f32),
+            Isometry3 {
+                rotation: UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0),
+                translation: Translation::from(point![0.0, 0.0, 0.5]),
+            },
+            Isometry3::identity(),
+            Isometry3::identity(),
+        );
         let minimum_radius = 5.0;
 
         let circles = PerspectiveGridCandidatesProvider::generate_rows(
             &camera_matrix,
-            point![512, 512],
+            Point::from(image_size),
             minimum_radius,
             42.0,
             0.05,

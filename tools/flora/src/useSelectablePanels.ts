@@ -19,11 +19,14 @@ export enum PanelType {
   FieldBorder = "FieldBorder",
   BallCandidates = "BallCandidates",
   Localization = "Localization",
+  BallFilter = "BallFilter",
+  PathPlanning = "PathPlanning",
   Behavior = "Behavior",
   AudioSpectrums = "AudioSpectrums",
   MotionDispatching = "MotionDispatching",
   Odometry = "Odometry",
   ProjectedLimbs = "ProjectedLimbs",
+  LineFitting = "LineFitting",
 }
 export type RawOutput = {
   panelType: PanelType.RawOutput;
@@ -68,6 +71,12 @@ export type BallCandidates = {
 export type Localization = {
   panelType: PanelType.Localization;
 };
+export type BallFilter = {
+  panelType: PanelType.BallFilter;
+};
+export type PathPlanning = {
+  panelType: PanelType.PathPlanning;
+};
 export type Behavior = {
   panelType: PanelType.Behavior;
 };
@@ -84,6 +93,9 @@ export type ProjectedLimbs = {
   panelType: PanelType.ProjectedLimbs;
   cycler: Cycler;
 };
+export type LineFitting = {
+  panelType: PanelType.LineFitting;
+};
 export type SelectablePanel =
   | RawOutput
   | RawImage
@@ -91,6 +103,8 @@ export type SelectablePanel =
   | Horizon
   | BallCandidates
   | Localization
+  | BallFilter
+  | PathPlanning
   | Behavior
   | AudioSpectrums
   | LineDetection
@@ -100,7 +114,8 @@ export type SelectablePanel =
   | FieldBorder
   | MotionDispatching
   | Odometry
-  | ProjectedLimbs;
+  | ProjectedLimbs
+  | LineFitting;
 export type SelectablePanels = { [sortPath: string]: SelectablePanel };
 
 function rawOutputsFromOutputHierarchy(
@@ -256,6 +271,22 @@ function localization(): SelectablePanels {
   };
 }
 
+function ballFilter(): SelectablePanels {
+  return {
+    BallFilter: {
+      panelType: PanelType.BallFilter,
+    },
+  };
+}
+
+function pathPlanning(): SelectablePanels {
+  return {
+    PathPlanning: {
+      panelType: PanelType.PathPlanning,
+    },
+  };
+}
+
 function behavior(): SelectablePanels {
   return {
     Behavior: {
@@ -301,6 +332,14 @@ function projectedLimbs(): SelectablePanels {
   };
 }
 
+function lineFitting(): SelectablePanels {
+  return {
+    LineFitting: {
+      panelType: PanelType.LineFitting,
+    },
+  };
+}
+
 export default function useSelectablePanels(
   outputHierarchy: OutputHierarchy,
   parameterHierarchy: ParameterHierarchy
@@ -317,11 +356,14 @@ export default function useSelectablePanels(
       ...fieldBorder(),
       ...ballCandidates(),
       ...localization(),
+      ...ballFilter(),
+      ...pathPlanning(),
       ...behavior(),
       ...audioSpectrums(),
       ...motionDispatching(),
       ...odometry(),
       ...projectedLimbs(),
+      ...lineFitting(),
     };
   }, [outputHierarchy, parameterHierarchy]);
 }

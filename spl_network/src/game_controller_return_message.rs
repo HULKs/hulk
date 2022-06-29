@@ -8,12 +8,12 @@ use crate::{
         RoboCupGameControlReturnData, GAMECONTROLLER_RETURN_STRUCT_HEADER,
         GAMECONTROLLER_RETURN_STRUCT_VERSION,
     },
-    BallPosition, HULKS_TEAM_NUMBER,
+    BallPosition, PlayerNumber, HULKS_TEAM_NUMBER,
 };
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct GameControllerReturnMessage {
-    pub player_number: u8,
+    pub player_number: PlayerNumber,
     pub fallen: bool,
     pub robot_to_field: Isometry2<f32>,
     pub ball_position: Option<BallPosition>,
@@ -52,7 +52,13 @@ impl From<GameControllerReturnMessage> for RoboCupGameControlReturnData {
                 GAMECONTROLLER_RETURN_STRUCT_HEADER[3] as i8,
             ],
             version: GAMECONTROLLER_RETURN_STRUCT_VERSION,
-            playerNum: message.player_number,
+            playerNum: match message.player_number {
+                PlayerNumber::One => 1,
+                PlayerNumber::Two => 2,
+                PlayerNumber::Three => 3,
+                PlayerNumber::Four => 4,
+                PlayerNumber::Five => 5,
+            },
             teamNum: HULKS_TEAM_NUMBER,
             fallen: if message.fallen { 1 } else { 0 },
             pose: [

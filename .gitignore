@@ -26,3 +26,5 @@ target/
 .nao_cargo_home
 
 rust-toolchain.toml
+
+site/

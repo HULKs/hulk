@@ -1,7 +1,7 @@
 use std::{fs::File, path::Path, time::SystemTime};
 
 use anyhow::Context;
-use nalgebra::{Isometry2, Point2, Vector2};
+use nalgebra::{Isometry2, Point2, UnitComplex, Vector2};
 use serde::Serialize;
 use serde_json::to_writer;
 use spl_network::{GameState, SplMessage};
@@ -42,6 +42,7 @@ impl Recording {
             game_state: state.game_state,
             ball_position: state.ball_position,
             ball_velocity: state.ball_velocity,
+            broadcasted_spl_message_counter: state.broadcasted_spl_message_counter,
             broadcasted_spl_messages: state.broadcasted_spl_messages.clone(),
             robots: robots
                 .iter()
@@ -49,6 +50,7 @@ impl Recording {
                 .map(|(robot, database)| Robot {
                     is_penalized: robot.is_penalized,
                     robot_to_field: robot.robot_to_field,
+                    head_yaw: robot.head_yaw,
                     database,
                 })
                 .collect(),
@@ -77,6 +79,7 @@ pub struct Frame {
     pub game_state: GameState,
     pub ball_position: Point2<f32>,
     pub ball_velocity: Vector2<f32>,
+    pub broadcasted_spl_message_counter: usize,
     pub broadcasted_spl_messages: Vec<SplMessage>,
     pub robots: Vec<Robot>,
 }
@@ -85,5 +88,6 @@ pub struct Frame {
 pub struct Robot {
     pub is_penalized: bool,
     pub robot_to_field: Isometry2<f32>,
+    pub head_yaw: UnitComplex<f32>,
     pub database: Database,
 }

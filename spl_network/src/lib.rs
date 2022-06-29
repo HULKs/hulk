@@ -15,10 +15,25 @@ pub use game_controller_state_message::{
 };
 pub use spl_message::SplMessage;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct BallPosition {
     pub relative_position: Point2<f32>,
     pub age: Duration,
 }
 
 pub const HULKS_TEAM_NUMBER: u8 = 24;
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum PlayerNumber {
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+}
+
+impl Default for PlayerNumber {
+    fn default() -> Self {
+        PlayerNumber::Five
+    }
+}

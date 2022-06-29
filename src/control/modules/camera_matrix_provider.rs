@@ -1,10 +1,10 @@
 use macros::{module, require_some};
-use nalgebra::{point, vector, Isometry3, UnitQuaternion, Vector2, Vector3};
+use nalgebra::{point, vector, Isometry3, UnitQuaternion, Vector3};
 
 use crate::{
     framework::configuration::CameraMatrixParameters,
     types::{
-        CameraMatrices, CameraMatrix, CameraPosition, FieldDimensions, Horizon, Line, Line2,
+        CameraMatrices, CameraMatrix, CameraPosition, FieldDimensions, Line, Line2,
         ProjectedFieldLines, RobotDimensions, RobotKinematics,
     },
 };
@@ -29,34 +29,38 @@ impl CameraMatrixProvider {
     fn cycle(&mut self, mut context: CycleContext) -> anyhow::Result<MainOutputs> {
         let robot_kinematics = require_some!(context.robot_kinematics);
         let robot_to_ground = require_some!(context.robot_to_ground);
+        let image_size = vector![640.0, 480.0];
 
         let top_camera_to_head = camera_to_head(
             CameraPosition::Top,
             context.top_camera_matrix_parameters.extrinsic_rotations,
         );
-        let top_camera_matrix = camera_matrix_for_camera(
+        let top_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+            context.top_camera_matrix_parameters.focal_lengths,
+            context.top_camera_matrix_parameters.cc_optical_center,
+            image_size,
             top_camera_to_head,
             robot_kinematics.head_to_robot,
             *robot_to_ground,
-            context.top_camera_matrix_parameters.focal_lengths,
-            context.top_camera_matrix_parameters.cc_optical_center,
         );
+
         let bottom_camera_to_head = camera_to_head(
             CameraPosition::Bottom,
             context.bottom_camera_matrix_parameters.extrinsic_rotations,
         );
-        let bottom_camera_matrix = camera_matrix_for_camera(
+        let bottom_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+            context.bottom_camera_matrix_parameters.focal_lengths,
+            context.bottom_camera_matrix_parameters.cc_optical_center,
+            image_size,
             bottom_camera_to_head,
             robot_kinematics.head_to_robot,
             *robot_to_ground,
-            context.bottom_camera_matrix_parameters.focal_lengths,
-            context.bottom_camera_matrix_parameters.cc_optical_center,
         );
 
         let field_dimensions = context.field_dimensions;
         context
             .projected_field_lines
-            .on_subscription(|| ProjectedFieldLines {
+            .fill_on_subscription(|| ProjectedFieldLines {
                 top: project_penalty_area_on_images(field_dimensions, &top_camera_matrix)
                     .unwrap_or_default(),
                 bottom: project_penalty_area_on_images(field_dimensions, &bottom_camera_matrix)
@@ -93,68 +97,6 @@ pub fn camera_to_head(
     Isometry3::from(neck_to_camera)
         * Isometry3::rotation(Vector3::y() * camera_pitch)
         * extrinsic_rotation
-}
-
-fn camera_matrix_for_camera(
-    camera_to_head: Isometry3<f32>,
-    head_to_robot: Isometry3<f32>,
-    robot_to_ground: Isometry3<f32>,
-    focal_length: Vector2<f32>,
-    optical_center: Vector2<f32>,
-) -> CameraMatrix {
-    let camera_to_robot = head_to_robot * camera_to_head;
-    let camera_to_ground = robot_to_ground * camera_to_robot;
-    // Calculate FOV using;
-    // fov_x = 2 * atan(image_width/ (2 * focal_lengths_x)) -> same for fov_y.
-    // https://www.edmundoptics.eu/knowledge-center/application-notes/imaging/understanding-focal-length-and-field-of-view/
-    // focal_lengths & cc_optical_center in [0, 1] range & assuming image_size -> 1.0
-    let field_of_view = focal_length.map(|f| 2.0 * (0.5 / f).atan());
-
-    let image_width = 640;
-    let image_height = 480;
-    let focal_length = vector![
-        focal_length.x * (image_width as f32),
-        focal_length.y * (image_height as f32)
-    ];
-    let optical_center = point![
-        optical_center.x * (image_width as f32),
-        optical_center.y * (image_height as f32)
-    ];
-
-    let rotation_matrix = camera_to_ground.rotation.to_rotation_matrix();
-    let horizon_slope_is_infinite = rotation_matrix[(2, 2)] == 0.0;
-    let horizon = if horizon_slope_is_infinite {
-        Horizon {
-            left_horizon_y: 0.0,
-            right_horizon_y: 0.0,
-        }
-    } else {
-        let left_horizon_y = optical_center.y
-            + focal_length.y
-                * (rotation_matrix[(2, 0)]
-                    + optical_center.x * rotation_matrix[(2, 1)] / focal_length.x)
-                / rotation_matrix[(2, 2)];
-        let slope =
-            -focal_length.y * rotation_matrix[(2, 1)] / (focal_length.x * rotation_matrix[(2, 2)]);
-        let right_horizon_y = left_horizon_y + (slope * ((image_width - 1) as f32));
-
-        Horizon {
-            left_horizon_y,
-            right_horizon_y,
-        }
-    };
-
-    CameraMatrix {
-        camera_to_head,
-        camera_to_ground,
-        ground_to_camera: camera_to_ground.inverse(),
-        camera_to_robot,
-        robot_to_camera: camera_to_robot.inverse(),
-        focal_length,
-        optical_center,
-        field_of_view,
-        horizon,
-    }
 }
 
 fn project_penalty_area_on_images(

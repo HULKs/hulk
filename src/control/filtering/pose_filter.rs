@@ -1,119 +1,160 @@
 use anyhow::{Context, Result};
 use macros::SerializeHierarchy;
-use nalgebra::{vector, Isometry2, SMatrix, SVector, Vector2, Vector3};
+use nalgebra::{
+    vector, Complex, ComplexField, Isometry2, Matrix2, Matrix3, Matrix3x2, UnitComplex, Vector2,
+    Vector3,
+};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+pub struct ScoredPoseFilter {
+    pub pose_filter: PoseFilter,
+    pub score: f32,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct PoseFilter {
-    score: f32,
-    state_mean: Vector3<f32>,
-    state_covariance: SMatrix<f32, 3, 3>,
+    mean: Vector3<f32>,
+    covariance: Matrix3<f32>,
 }
 
 impl PoseFilter {
-    pub fn new(
-        initial_state: Vector3<f32>,
-        inital_state_covariance: SMatrix<f32, 3, 3>,
-        initial_score: f32,
-    ) -> Self {
+    pub fn new(initial_state: Vector3<f32>, inital_state_covariance: Matrix3<f32>) -> Self {
         Self {
-            score: initial_score,
-            state_mean: initial_state,
-            state_covariance: inital_state_covariance,
+            mean: initial_state,
+            covariance: inital_state_covariance,
         }
-    }
-
-    pub fn add_score(&mut self, score: f32) {
-        self.score += score;
-    }
-
-    pub fn score(&self) -> f32 {
-        self.score
     }
 
     pub fn predict<StatePredictionFunction>(
         &mut self,
         state_prediction_function: StatePredictionFunction,
-        process_noise: SMatrix<f32, 3, 3>,
+        process_noise: Matrix3<f32>,
     ) -> Result<()>
     where
-        StatePredictionFunction: Fn(&Vector3<f32>) -> Vector3<f32>,
+        StatePredictionFunction: Fn(Vector3<f32>) -> Vector3<f32>,
     {
-        let sigma_points = sample_sigma_points(&self.state_mean, &self.state_covariance)?;
-        let predicted_sigma_points: Vec<_> =
-            sigma_points.iter().map(state_prediction_function).collect();
+        let sigma_points = sample_sigma_points(self.mean, self.covariance)?;
+        let predicted_sigma_points: Vec<_> = sigma_points
+            .iter()
+            .copied()
+            .map(state_prediction_function)
+            .collect();
         let state_mean = mean_from_3d_sigma_points(&predicted_sigma_points);
-        let state_covariance = covariance_from_sigma_points(&state_mean, &predicted_sigma_points);
-        self.state_mean = state_mean;
-        self.state_covariance = into_symmetric(state_covariance + process_noise);
-        self.score *= 0.5;
+        let state_covariance = covariance_from_3d_sigma_points(state_mean, &predicted_sigma_points);
+        self.mean = state_mean;
+        self.covariance = into_symmetric(state_covariance + process_noise);
 
         Ok(())
     }
 
-    pub fn update<MeasurementPredictionFunction>(
+    pub fn update_with_1d_translation_and_rotation<MeasurementPredictionFunction>(
         &mut self,
-        measurement: SVector<f32, 2>,
-        measurement_noise: SMatrix<f32, 2, 2>,
+        measurement: Vector2<f32>,
+        measurement_noise: Matrix2<f32>,
         measurement_prediction_function: MeasurementPredictionFunction,
     ) -> Result<()>
     where
-        MeasurementPredictionFunction: Fn(&Vector3<f32>) -> Vector2<f32>,
+        MeasurementPredictionFunction: Fn(Vector3<f32>) -> Vector2<f32>,
     {
-        let sigma_points = sample_sigma_points(&self.state_mean, &self.state_covariance)?;
+        let sigma_points = sample_sigma_points(self.mean, self.covariance)?;
         let predicted_measurements: Vec<_> = sigma_points
             .iter()
+            .copied()
             .map(measurement_prediction_function)
             .collect();
-        let predicted_measurement_mean = mean_from_2d_sigma_points(&predicted_measurements);
+        let predicted_measurement_mean =
+            mean_from_1d_translation_and_rotation_sigma_points(&predicted_measurements);
         let predicted_measurement_covariance =
-            covariance_from_sigma_points(&predicted_measurement_mean, &predicted_measurements);
+            covariance_from_1d_translation_and_rotation_sigma_points(
+                predicted_measurement_mean,
+                &predicted_measurements,
+            );
 
-        let predicted_measurements_cross_covariance = cross_covariance_from_sigma_points(
-            &self.state_mean,
-            &sigma_points,
-            &predicted_measurement_mean,
-            &predicted_measurements,
-        );
+        let predicted_measurements_cross_covariance =
+            cross_covariance_from_1d_translation_and_rotation_sigma_points(
+                self.mean,
+                &sigma_points,
+                &predicted_measurement_mean,
+                &predicted_measurements,
+            );
         let kalman_gain = predicted_measurements_cross_covariance
             * (predicted_measurement_covariance + measurement_noise)
                 .try_inverse()
                 .context("Failed to invert measurement covariance matrix")?;
 
         let residuum = measurement - predicted_measurement_mean;
-        self.state_mean += kalman_gain * residuum;
-        let updated_state_covariance = self.state_covariance
+        self.mean += kalman_gain * residuum;
+        let updated_state_covariance = self.covariance
             - kalman_gain * predicted_measurement_covariance * kalman_gain.transpose();
-        self.state_covariance = into_symmetric(updated_state_covariance);
+        self.covariance = into_symmetric(updated_state_covariance);
+
         Ok(())
     }
 
-    pub fn state_mean(&self) -> Vector3<f32> {
-        self.state_mean
+    // TODO: reduce code duplication
+    pub fn update_with_2d_translation<MeasurementPredictionFunction>(
+        &mut self,
+        measurement: Vector2<f32>,
+        measurement_noise: Matrix2<f32>,
+        measurement_prediction_function: MeasurementPredictionFunction,
+    ) -> Result<()>
+    where
+        MeasurementPredictionFunction: Fn(Vector3<f32>) -> Vector2<f32>,
+    {
+        let sigma_points = sample_sigma_points(self.mean, self.covariance)?;
+        let predicted_measurements: Vec<_> = sigma_points
+            .iter()
+            .copied()
+            .map(measurement_prediction_function)
+            .collect();
+        let predicted_measurement_mean =
+            mean_from_2d_translation_sigma_points(&predicted_measurements);
+        let predicted_measurement_covariance = covariance_from_2d_translation_sigma_points(
+            predicted_measurement_mean,
+            &predicted_measurements,
+        );
+
+        let predicted_measurements_cross_covariance =
+            cross_covariance_from_2d_translation_sigma_points(
+                self.mean,
+                &sigma_points,
+                &predicted_measurement_mean,
+                &predicted_measurements,
+            );
+        let kalman_gain = predicted_measurements_cross_covariance
+            * (predicted_measurement_covariance + measurement_noise)
+                .try_inverse()
+                .context("Failed to invert measurement covariance matrix")?;
+
+        let residuum = measurement - predicted_measurement_mean;
+        self.mean += kalman_gain * residuum;
+        let updated_state_covariance = self.covariance
+            - kalman_gain * predicted_measurement_covariance * kalman_gain.transpose();
+        self.covariance = into_symmetric(updated_state_covariance);
+
+        Ok(())
+    }
+
+    pub fn mean(&self) -> Vector3<f32> {
+        self.mean
     }
 
     pub fn isometry(&self) -> Isometry2<f32> {
-        Isometry2::new(
-            vector![self.state_mean.x, self.state_mean.y],
-            self.state_mean.z,
-        )
+        Isometry2::new(vector![self.mean.x, self.mean.y], self.mean.z)
     }
 
-    pub fn state_covariance(&self) -> SMatrix<f32, 3, 3> {
-        self.state_covariance
+    #[allow(dead_code)]
+    pub fn covariance(&self) -> Matrix3<f32> {
+        self.covariance
     }
 }
 
-fn into_symmetric<const DIMENSION: usize>(
-    matrix: SMatrix<f32, DIMENSION, DIMENSION>,
-) -> SMatrix<f32, DIMENSION, DIMENSION> {
+fn into_symmetric(matrix: Matrix3<f32>) -> Matrix3<f32> {
     0.5 * (matrix + matrix.transpose())
 }
 
-fn sample_sigma_points(
-    &mean: &Vector3<f32>,
-    covariance: &SMatrix<f32, 3, 3>,
-) -> Result<[Vector3<f32>; 7]> {
+fn sample_sigma_points(mean: Vector3<f32>, covariance: Matrix3<f32>) -> Result<[Vector3<f32>; 7]> {
     let covariance_cholesky = covariance.cholesky().with_context(|| {
         format!(
             "Failed to decompose covariance matrix via Cholesky decomposition. Matrix was: {}",
@@ -134,58 +175,126 @@ fn sample_sigma_points(
     Ok(sigma_points)
 }
 
-fn covariance_from_sigma_points<const DIMENSION: usize>(
-    &mean: &SVector<f32, DIMENSION>,
-    sigma_points: &[SVector<f32, DIMENSION>],
-) -> SMatrix<f32, DIMENSION, DIMENSION> {
+fn mean_from_3d_sigma_points(points: &[Vector3<f32>]) -> Vector3<f32> {
+    let mut mean = Vector2::zeros();
+    let mut mean_angle = Complex::new(0.0, 0.0);
+    for point in points {
+        mean += point.xy();
+        mean_angle += Complex::new(point.z.cos(), point.z.sin());
+    }
+    mean *= 1.0 / 7.0;
+    vector![mean.x, mean.y, mean_angle.argument()]
+}
+
+fn mean_from_1d_translation_and_rotation_sigma_points(points: &[Vector2<f32>]) -> Vector2<f32> {
+    let mut mean_x = 0.0;
+    let mut mean_angle = Complex::new(0.0, 0.0);
+    for point in points {
+        mean_x += point.x;
+        mean_angle += Complex::new(point.y.cos(), point.y.sin());
+    }
+    mean_x *= 1.0 / 7.0;
+    vector![mean_x, mean_angle.argument()]
+}
+
+fn mean_from_2d_translation_sigma_points(points: &[Vector2<f32>]) -> Vector2<f32> {
+    let mut mean = Vector2::zeros();
+    for point in points {
+        mean += point;
+    }
+    mean *= 1.0 / 7.0;
+    mean
+}
+
+fn covariance_from_3d_sigma_points(
+    mean: Vector3<f32>,
+    sigma_points: &[Vector3<f32>],
+) -> Matrix3<f32> {
+    sigma_points
+        .iter()
+        .map(|point| {
+            vector![
+                point.x - mean.x,
+                point.y - mean.y,
+                (UnitComplex::new(point.z) / UnitComplex::new(mean.z)).angle()
+            ]
+        })
+        .map(|normalized_point| normalized_point * normalized_point.transpose())
+        .sum::<Matrix3<f32>>()
+        * (1.0 / 6.0)
+}
+
+fn covariance_from_1d_translation_and_rotation_sigma_points(
+    mean: Vector2<f32>,
+    sigma_points: &[Vector2<f32>],
+) -> Matrix2<f32> {
+    sigma_points
+        .iter()
+        .map(|point| {
+            vector![
+                point.x - mean.x,
+                (UnitComplex::new(point.y) / UnitComplex::new(mean.y)).angle()
+            ]
+        })
+        .map(|normalized_point| normalized_point * normalized_point.transpose())
+        .sum::<Matrix2<f32>>()
+        * (1.0 / 6.0)
+}
+
+fn covariance_from_2d_translation_sigma_points(
+    mean: Vector2<f32>,
+    sigma_points: &[Vector2<f32>],
+) -> Matrix2<f32> {
     sigma_points
         .iter()
         .map(|point| point - mean)
         .map(|normalized_point| normalized_point * normalized_point.transpose())
-        .sum::<SMatrix<f32, DIMENSION, DIMENSION>>()
-        * 0.5
+        .sum::<Matrix2<f32>>()
+        * (1.0 / 6.0)
 }
 
-fn cross_covariance_from_sigma_points(
-    &state_mean: &Vector3<f32>,
+fn cross_covariance_from_1d_translation_and_rotation_sigma_points(
+    state_mean: Vector3<f32>,
     state_sigma_points: &[Vector3<f32>],
-    &measurement_mean: &SVector<f32, 2>,
-    measurement_sigma_points: &[SVector<f32, 2>],
-) -> SMatrix<f32, 3, 2> {
+    &measurement_mean: &Vector2<f32>,
+    measurement_sigma_points: &[Vector2<f32>],
+) -> Matrix3x2<f32> {
     assert!(state_sigma_points.len() == measurement_sigma_points.len());
     state_sigma_points
         .iter()
         .zip(measurement_sigma_points.iter())
         .map(|(state, measurement)| {
-            (state - state_mean) * (measurement - measurement_mean).transpose()
+            vector![
+                state.x - state_mean.x,
+                state.y - state_mean.y,
+                (UnitComplex::new(state.z) / UnitComplex::new(state_mean.z)).angle()
+            ] * vector![
+                measurement.x - measurement_mean.x,
+                (UnitComplex::new(measurement.y) / UnitComplex::new(measurement_mean.y)).angle()
+            ]
+            .transpose()
         })
-        .sum::<SMatrix<f32, 3, 2>>()
-        * 0.5
+        .sum::<Matrix3x2<f32>>()
+        * (1.0 / 6.0)
 }
 
-fn mean_from_2d_sigma_points(points: &[SVector<f32, 2>]) -> SVector<f32, 2> {
-    let mut mean_x = 0.0;
-    let mut mean_direction = vector![0.0, 0.0];
-    for point in points {
-        mean_x += point.x;
-        mean_direction += vector![point.y.cos(), point.y.sin()];
-    }
-    mean_x *= 1.0 / 7.0;
-    mean_direction *= 1.0 / 7.0;
-    vector![mean_x, mean_direction.y.atan2(mean_direction.x)]
-}
-
-fn mean_from_3d_sigma_points(points: &[SVector<f32, 3>]) -> SVector<f32, 3> {
-    let mut mean_x = 0.0;
-    let mut mean_y = 0.0;
-    let mut mean_direction = vector![0.0, 0.0];
-    for point in points {
-        mean_x += point.x;
-        mean_y += point.y;
-        mean_direction += vector![point.z.cos(), point.z.sin()];
-    }
-    mean_x *= 1.0 / 7.0;
-    mean_y *= 1.0 / 7.0;
-    mean_direction *= 1.0 / 7.0;
-    vector![mean_x, mean_y, mean_direction.y.atan2(mean_direction.x)]
+fn cross_covariance_from_2d_translation_sigma_points(
+    state_mean: Vector3<f32>,
+    state_sigma_points: &[Vector3<f32>],
+    &measurement_mean: &Vector2<f32>,
+    measurement_sigma_points: &[Vector2<f32>],
+) -> Matrix3x2<f32> {
+    assert!(state_sigma_points.len() == measurement_sigma_points.len());
+    state_sigma_points
+        .iter()
+        .zip(measurement_sigma_points.iter())
+        .map(|(state, measurement)| {
+            vector![
+                state.x - state_mean.x,
+                state.y - state_mean.y,
+                (UnitComplex::new(state.z) / UnitComplex::new(state_mean.z)).angle()
+            ] * (measurement - measurement_mean).transpose()
+        })
+        .sum::<Matrix3x2<f32>>()
+        * (1.0 / 6.0)
 }

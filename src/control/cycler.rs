@@ -144,7 +144,7 @@ where
                 Some(joints) => joints,
                 None => {
                     error!(
-                        "Joint angles were None. MainOutputs: {:?}",
+                        "Joint angles were None. MainOutputs: {:#?}",
                         control_database.main_outputs
                     );
                     panic!()

@@ -1,7 +1,8 @@
 use macros::{module, require_some};
+use nalgebra::{Isometry2, UnitComplex};
 
 use crate::types::{
-    Motion, MotionCommand, PlannedPath, SensorData, Side, Step, StepPlan, SupportFoot,
+    MotionCommand, OrientationMode, PathSegment, SensorData, Side, Step, SupportFoot,
 };
 
 pub struct StepPlanner;
@@ -10,14 +11,14 @@ pub struct StepPlanner;
 #[input(path = sensor_data, data_type = SensorData)]
 #[input(path = motion_command, data_type = MotionCommand)]
 #[input(path = support_foot, data_type = SupportFoot)]
-#[input(path = planned_path, data_type = PlannedPath)]
+#[persistent_state(path = walk_return_offset, data_type = Step)]
 #[parameter(path = control.step_planner.injected_step, data_type = Option<Step>)]
 #[parameter(path = control.step_planner.max_step_size, data_type = Step)]
 #[parameter(path = control.step_planner.max_step_size_backwards, data_type = f32)]
 #[parameter(path = control.step_planner.translation_exponent, data_type = f32)]
 #[parameter(path = control.step_planner.rotation_exponent, data_type = f32)]
 #[parameter(path = control.step_planner.inside_turn_ratio, data_type = f32)]
-#[main_output(data_type = StepPlan)]
+#[main_output(name = step_plan, data_type = Step)]
 impl StepPlanner {}
 
 impl StepPlanner {
@@ -31,32 +32,72 @@ impl StepPlanner {
 
         if let Some(step) = context.injected_step {
             return Ok(MainOutputs {
-                step_plan: Some(StepPlan { step: *step }),
+                step_plan: Some(*step),
             });
         }
-
-        let target_pose = match motion_command.motion {
-            Motion::Walk { .. } => require_some!(context.planned_path).end_pose,
+        let (path, orientation_mode) = match motion_command {
+            MotionCommand::Walk {
+                path,
+                orientation_mode,
+                ..
+            } => (path, orientation_mode),
             _ => {
                 return Ok(MainOutputs {
-                    step_plan: Some(StepPlan {
-                        step: Step {
-                            forward: 0.0,
-                            left: 0.0,
-                            turn: 0.0,
-                        },
+                    step_plan: Some(Step {
+                        forward: 0.0,
+                        left: 0.0,
+                        turn: 0.0,
                     }),
                 })
+            }
+        };
+
+        let segment = path
+            .iter()
+            .scan(0.0f32, |distance, segment| {
+                let result = if *distance < context.max_step_size.forward {
+                    Some(segment)
+                } else {
+                    None
+                };
+                *distance += segment.length();
+                result
+            })
+            .last()
+            .ok_or_else(|| anyhow::anyhow!("Empty path provided"))?;
+
+        let target_pose = match segment {
+            PathSegment::LineSegment(line_segment) => {
+                let direction = line_segment.1;
+                let rotation = if direction.coords.norm_squared() < f32::EPSILON {
+                    UnitComplex::identity()
+                } else {
+                    UnitComplex::from_cos_sin_unchecked(direction.x, direction.y)
+                };
+                Isometry2::<f32>::from_parts(line_segment.1.into(), rotation)
+            }
+            PathSegment::Arc(arc, orientation) => {
+                let direction = orientation
+                    .rotate_vector_90_degrees(arc.start - arc.circle.center)
+                    .normalize();
+                Isometry2::<f32>::from_parts(
+                    (arc.start + direction * context.max_step_size.forward).into(),
+                    UnitComplex::from_cos_sin_unchecked(direction.x, direction.y),
+                )
             }
         };
 
         let step = Step {
             forward: target_pose.translation.x,
             left: target_pose.translation.y,
-            turn: target_pose.rotation.angle(),
+            turn: match orientation_mode {
+                OrientationMode::AlignWithPath => target_pose.rotation,
+                OrientationMode::Override(orientation) => *orientation,
+            }
+            .angle(),
         };
 
-        // TODO : compensate_with_return_offset
+        let step = compensate_with_return_offset(step, *context.walk_return_offset);
 
         // clamp_step_to_walk_volume
         let step = clamp_step_to_walk_volume(
@@ -71,9 +112,13 @@ impl StepPlanner {
         let step = clamp_to_anatomic_constraints(step, support_side, *context.inside_turn_ratio);
 
         Ok(MainOutputs {
-            step_plan: Some(StepPlan { step }),
+            step_plan: Some(step),
         })
     }
+}
+
+fn compensate_with_return_offset(step: Step, walk_return_offset: Step) -> Step {
+    step - walk_return_offset
 }
 
 fn clamp_step_to_walk_volume(
@@ -131,7 +176,7 @@ fn calculate_walk_volume(
     let x = request.forward / max_forward;
     let y = request.left / max_step_size.left;
     let angle = request.turn / max_step_size.turn;
-    assert!(angle.abs() <= 1.0);
+    assert!(angle.abs() <= 1.0, "angle was {}", angle);
     (x.abs().powf(translation_exponent) + y.abs().powf(translation_exponent))
         .powf(rotation_exponent / translation_exponent)
         + angle.abs().powf(rotation_exponent)

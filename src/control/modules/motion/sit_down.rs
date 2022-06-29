@@ -1,7 +1,7 @@
 use macros::{module, require_some};
 
 use crate::types::{
-    Joints, MotionSafeExits, MotionSelection, MotionType, SensorData, SitDownJoints,
+    Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
 use super::motion_file::{MotionFile, MotionFileInterpolator};
@@ -14,7 +14,7 @@ pub struct SitDown {
 #[input(path = sensor_data, data_type = SensorData)]
 #[input(path = motion_selection, data_type = MotionSelection)]
 #[persistent_state(path = motion_safe_exits, data_type = MotionSafeExits)]
-#[main_output(data_type = SitDownJoints)]
+#[main_output(name = sit_down_joints_command, data_type = JointsCommand)]
 impl SitDown {}
 
 impl SitDown {
@@ -39,7 +39,7 @@ impl SitDown {
         context.motion_safe_exits[MotionType::SitDown] = self.interpolator.is_finished();
 
         Ok(MainOutputs {
-            sit_down_joints: Some(SitDownJoints {
+            sit_down_joints_command: Some(JointsCommand {
                 positions: self.interpolator.value(),
                 stiffnesses: Joints::fill(if self.interpolator.is_finished() {
                     0.0

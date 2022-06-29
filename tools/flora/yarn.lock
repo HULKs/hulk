@@ -8317,6 +8317,11 @@ vary@~1.1.2:
   resolved "https://registry.yarnpkg.com/vary/-/vary-1.1.2.tgz#2299f02c6ded30d4a5961b0b9f74524a18f634fc"
   integrity sha1-IpnwLG3tMNSllhsLn3RSShj2NPw=
 
+vecti@^2.0.21:
+  version "2.0.21"
+  resolved "https://registry.yarnpkg.com/vecti/-/vecti-2.0.21.tgz#88b2f09f8bb41b15789aba32bbea9eb1dfd57bbe"
+  integrity sha512-zTb8YXCFTc/muhV5NUuh/VhvM6Vk6coRUN0NUWBr3uR/MVW6vz3cVhb0tpIoihof32i6ZVBgu8ib7yDk3d8B8A==
+
 w3c-hr-time@^1.0.2:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/w3c-hr-time/-/w3c-hr-time-1.0.2.tgz#0a89cdf5cc15822df9c360543676963e0cc308cd"

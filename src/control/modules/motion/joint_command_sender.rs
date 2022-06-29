@@ -1,10 +1,9 @@
 use macros::{module, require_some};
 
 use crate::types::{
-    BodyJoints, HeadJointsCommand, JointsCommand, MotionType, SensorData, SitDownJoints,
+    BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand, MotionSelection,
+    MotionType, SensorData,
 };
-
-use crate::types::{HeadJoints, Joints, MotionSelection, WalkPositions};
 
 pub struct JointCommandSender;
 
@@ -12,10 +11,10 @@ pub struct JointCommandSender;
 #[input(path = sensor_data, data_type = SensorData)]
 #[input(path = motion_selection, data_type = MotionSelection)]
 #[input(path = dispatching_positions, data_type = Joints)]
-#[input(path = sit_down_joints, data_type = SitDownJoints)]
+#[input(path = sit_down_joints_command, data_type = JointsCommand)]
 #[input(path = stand_up_back_positions, data_type = Joints)]
 #[input(path = stand_up_front_positions, data_type = Joints)]
-#[input(path = walk_positions, data_type = WalkPositions)]
+#[input(path = walk_joints_command, data_type = BodyJointsCommand)]
 #[input(path = head_joints_command, data_type = HeadJointsCommand)]
 #[input(path = fall_protection_command, data_type = JointsCommand)]
 #[parameter(path = control.penalized_pose, data_type = Joints)]
@@ -38,11 +37,10 @@ impl JointCommandSender {
             require_some!(context.fall_protection_command).stiffnesses;
         let head_joints_command = require_some!(context.head_joints_command);
         let motion_selection = require_some!(context.motion_selection);
-        let sit_down_positions = require_some!(context.sit_down_joints).positions;
-        let sit_down_stiffnesses = require_some!(context.sit_down_joints).stiffnesses;
+        let sit_down = require_some!(context.sit_down_joints_command);
         let stand_up_back_positions = require_some!(context.stand_up_back_positions);
         let stand_up_front_positions = require_some!(context.stand_up_front_positions);
-        let walk_positions = require_some!(context.walk_positions).positions;
+        let walk = require_some!(context.walk_joints_command);
 
         let (positions, stiffnesses) = match motion_selection.current_motion {
             MotionType::Dispatching => (*dispatching_positions, Joints::fill(0.8)),
@@ -50,17 +48,17 @@ impl JointCommandSender {
             MotionType::Jump => todo!(),
             MotionType::Kick => todo!(),
             MotionType::Penalized => (*context.penalized_pose, Joints::fill(0.8)),
-            MotionType::SitDown => (sit_down_positions, sit_down_stiffnesses),
+            MotionType::SitDown => (sit_down.positions, sit_down.stiffnesses),
             MotionType::Stand => (
-                Joints::from_head_and_body(head_joints_command.positions, walk_positions),
-                Joints::from_head_and_body(head_joints_command.stiffnesses, BodyJoints::fill(0.8)),
+                Joints::from_head_and_body(head_joints_command.positions, walk.positions),
+                Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),
             ),
             MotionType::StandUpBack => (*stand_up_back_positions, Joints::fill(0.8)),
             MotionType::StandUpFront => (*stand_up_front_positions, Joints::fill(0.8)),
             MotionType::Unstiff => (current_positions, Joints::fill(0.0)),
             MotionType::Walk => (
-                Joints::from_head_and_body(head_joints_command.positions, walk_positions),
-                Joints::from_head_and_body(head_joints_command.stiffnesses, BodyJoints::fill(0.8)),
+                Joints::from_head_and_body(head_joints_command.positions, walk.positions),
+                Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),
             ),
         };
 

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, ops::Range};
 
 use macros::{module, require_some};
 use nalgebra::{distance, point, vector, Point2, Vector2};
@@ -14,13 +14,17 @@ pub struct LineDetection;
 #[module(vision)]
 #[input(path = camera_matrix, data_type = CameraMatrix)]
 #[input(path = filtered_segments, data_type = FilteredSegments)]
+#[parameter(path = $this_cycler.line_detection.allowed_line_length_in_field, data_type = Range<f32>)]
 #[parameter(path = $this_cycler.line_detection.check_line_segments_projection, data_type = bool)]
+#[parameter(path = $this_cycler.line_detection.check_line_length, data_type = bool)]
+#[parameter(path = $this_cycler.line_detection.check_line_distance, data_type = bool)]
 #[parameter(path = $this_cycler.line_detection.gradient_alignment, data_type = f32)]
-#[parameter(path = $this_cycler.line_detection.maximum_distance_from_line, data_type = f32)]
+#[parameter(path = $this_cycler.line_detection.maximum_distance_to_robot, data_type = f32)]
+#[parameter(path = $this_cycler.line_detection.maximum_fit_distance_in_pixels, data_type = f32)]
 #[parameter(path = $this_cycler.line_detection.maximum_gap_on_line, data_type = f32)]
+#[parameter(path = $this_cycler.line_detection.maximum_number_of_lines, data_type = usize)]
 #[parameter(path = $this_cycler.line_detection.maximum_projected_segment_length, data_type = f32)]
 #[parameter(path = $this_cycler.line_detection.minimum_number_of_points_on_line, data_type = usize)]
-#[parameter(path = $this_cycler.line_detection.maximum_number_of_lines, data_type = usize)]
 #[additional_output(path = lines_in_image, data_type = ImageLines)]
 #[main_output(data_type = LineData)]
 impl LineDetection {}
@@ -40,7 +44,7 @@ impl LineDetection {
         };
 
         let (line_points, used_vertical_filtered_segments) =
-            detect_line_points(camera_matrix, filtered_segments, &context);
+            filter_segments_for_lines(camera_matrix, filtered_segments, &context);
         if context.lines_in_image.is_subscribed() {
             lines_in_image.points = line_points.clone();
         }
@@ -53,7 +57,7 @@ impl LineDetection {
             let RansacResult {
                 line: ransac_line,
                 used_points,
-            } = ransac.next_line(20, *context.maximum_distance_from_line);
+            } = ransac.next_line(20, *context.maximum_fit_distance_in_pixels);
             let ransac_line =
                 ransac_line.expect("Insufficient number of line points. Cannot fit line.");
             if used_points.len() < *context.minimum_number_of_points_on_line {
@@ -82,33 +86,51 @@ impl LineDetection {
                 // just drop and ignore this line
                 continue;
             }
-            let (start_point_in_image, start_point) = match points_with_projection_onto_line
-                .iter()
-                .find_map(|(point, projected_point)| {
-                    let projected_point_444 = point![projected_point.x * 2.0, projected_point.y];
-                    Some((
-                        *point,
-                        camera_matrix.pixel_to_robot(&projected_point_444).ok()?,
-                    ))
-                }) {
-                Some(start) => start,
-                None => break,
-            };
-            let (end_point_in_image, end_point) = match points_with_projection_onto_line
+            let (start_point_in_image, start_point_in_robot) =
+                match points_with_projection_onto_line.iter().find_map(
+                    |(point, projected_point)| {
+                        let projected_point_444 =
+                            point![projected_point.x * 2.0, projected_point.y];
+                        Some((
+                            *point,
+                            camera_matrix.pixel_to_ground(&projected_point_444).ok()?,
+                        ))
+                    },
+                ) {
+                    Some(start) => start,
+                    None => break,
+                };
+            let (end_point_in_image, end_point_in_robot) = match points_with_projection_onto_line
                 .iter()
                 .rev()
                 .find_map(|(point, projected_point)| {
                     let projected_point_444 = point![projected_point.x * 2.0, projected_point.y];
                     Some((
                         *point,
-                        camera_matrix.pixel_to_robot(&projected_point_444).ok()?,
+                        camera_matrix.pixel_to_ground(&projected_point_444).ok()?,
                     ))
                 }) {
                 Some(end) => end,
                 None => break,
             };
-            let line_robot_coordinates = Line(start_point, end_point);
-            lines_in_robot.push(line_robot_coordinates);
+
+            let line_in_robot = Line(start_point_in_robot, end_point_in_robot);
+            let line_length_in_robot = line_in_robot.length();
+            let is_too_short = *context.check_line_length
+                && line_length_in_robot < context.allowed_line_length_in_field.start;
+            let is_too_long = *context.check_line_length
+                && line_length_in_robot > context.allowed_line_length_in_field.end;
+            if is_too_short || is_too_long {
+                continue;
+            }
+
+            let is_too_far = *context.check_line_distance
+                && line_in_robot.center().coords.norm() > *context.maximum_distance_to_robot;
+            if is_too_far {
+                continue;
+            }
+
+            lines_in_robot.push(line_in_robot);
             if context.lines_in_image.is_subscribed() {
                 lines_in_image
                     .lines
@@ -119,7 +141,9 @@ impl LineDetection {
             lines_in_robot,
             used_vertical_filtered_segments,
         };
-        context.lines_in_image.on_subscription(|| lines_in_image);
+        context
+            .lines_in_image
+            .fill_on_subscription(|| lines_in_image);
         Ok(MainOutputs {
             line_data: Some(line_data),
         })
@@ -162,7 +186,7 @@ fn get_gradient(image: &Image422, point: Point2<u16>) -> Vector2<f32> {
         .unwrap_or_else(Vector2::zeros)
 }
 
-fn detect_line_points(
+fn filter_segments_for_lines(
     camera_matrix: &CameraMatrix,
     filtered_segments: &FilteredSegments,
     context: &CycleContext,
@@ -236,8 +260,8 @@ fn is_segment_shorter_than(
     segment_end: Point2<f32>,
     maximum_projected_segment_length: f32,
 ) -> Option<bool> {
-    let start_robot_coordinates = camera_matrix.pixel_to_robot(&segment_start).ok()?;
-    let end_robot_coordinates = camera_matrix.pixel_to_robot(&segment_end).ok()?;
+    let start_robot_coordinates = camera_matrix.pixel_to_ground(&segment_start).ok()?;
+    let end_robot_coordinates = camera_matrix.pixel_to_ground(&segment_end).ok()?;
     Some(
         distance(&start_robot_coordinates, &end_robot_coordinates)
             <= maximum_projected_segment_length,
@@ -253,7 +277,7 @@ mod tests {
 
     use super::*;
 
-    use nalgebra::{vector, Translation, UnitQuaternion};
+    use nalgebra::{vector, Isometry3, Translation, UnitQuaternion};
 
     #[test]
     fn check_correct_number_of_line_points() {
@@ -317,12 +341,21 @@ mod tests {
             image
         }
 
-        let image = create_image(10, 500);
-        let mut camera_matrix =
-            CameraMatrix::from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
-        camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.5]);
-        camera_matrix.camera_to_ground.rotation =
-            UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0);
+        let image_size = vector![10.0, 500.0];
+
+        let image = create_image(image_size.x as usize, image_size.y as usize);
+        // let mut camera_matrix = CameraMatrix::matrix_from_parameters(
+        let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+            vector![2.0, 2.0],
+            point![1.0, 1.0],
+            image_size,
+            Isometry3 {
+                rotation: UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0),
+                translation: Translation::from(point![0.0, 0.0, 0.5]),
+            },
+            Isometry3::identity(),
+            Isometry3::identity(),
+        );
         let filtered_segments =
             create_filtered_segments(10, YCbCr444 { y: 0, cb: 0, cr: 0 }, 10, 10);
         let mut dummy_data = None;
@@ -330,19 +363,23 @@ mod tests {
         let context = CycleContext {
             image: &image,
             camera_position: CameraPosition::Top,
+            lines_in_image,
             camera_matrix: &Some(camera_matrix),
             filtered_segments: &Some(filtered_segments),
+            allowed_line_length_in_field: &(0.3..3.0),
+            check_line_distance: &false,
+            check_line_length: &false,
             check_line_segments_projection: &false,
             gradient_alignment: &-0.95,
-            maximum_distance_from_line: &3.0,
+            maximum_distance_to_robot: &0.3,
+            maximum_fit_distance_in_pixels: &3.0,
             maximum_gap_on_line: &30.0,
+            maximum_number_of_lines: &10,
             maximum_projected_segment_length: &0.3,
             minimum_number_of_points_on_line: &5,
-            lines_in_image,
-            maximum_number_of_lines: &10,
         };
 
-        let (line_points, _) = detect_line_points(
+        let (line_points, _) = filter_segments_for_lines(
             context.camera_matrix.as_ref().unwrap(),
             context.filtered_segments.as_ref().unwrap(),
             &context,
@@ -352,11 +389,18 @@ mod tests {
 
     #[test]
     fn check_fixed_segment_size() {
-        let mut camera_matrix =
-            CameraMatrix::from_parameters(vector![2.0, 2.0], point![1.0, 1.0], vector![45.0, 45.0]);
-        camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.5]);
-        camera_matrix.camera_to_ground.rotation =
-            UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0);
+        let image_size = vector![1.0, 1.0];
+        let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+            vector![2.0, 2.0],
+            point![1.0, 1.0],
+            image_size,
+            Isometry3 {
+                rotation: UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0),
+                translation: Translation::from(point![0.0, 0.0, 0.5]),
+            },
+            Isometry3::identity(),
+            Isometry3::identity(),
+        );
         let start = point![40.0, 2.0];
         let end = point![40.0, 202.0];
         assert!(!is_segment_shorter_than(&camera_matrix, start, end, 0.3).unwrap_or(false));

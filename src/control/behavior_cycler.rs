@@ -7,12 +7,13 @@ use spl_network::SplMessage;
 use crate::{
     framework::{future_queue::Data, Configuration, PerceptionDatabases},
     spl_network::MainOutputs,
-    types::{BallPosition, FallState, PrimaryState, SensorData},
+    types::{BallPosition, FallState, GameControllerState, PrimaryState, SensorData},
 };
 
 use super::{
     modules::{
-        behavior::Behavior, path_planner::PathPlanner, world_state_composer::WorldStateComposer,
+        behavior::module::Behavior, obstacle_composer::ObstacleComposer,
+        role_assignment::RoleAssignment, world_state_composer::WorldStateComposer,
     },
     Database, PersistentState,
 };
@@ -20,9 +21,10 @@ use super::{
 pub struct BehaviorCycler {
     persistent_state: PersistentState,
 
+    obstacle_composer: ObstacleComposer,
+    role_assignment: RoleAssignment,
     world_state_composer: WorldStateComposer,
     behavior: Behavior,
-    path_planner: PathPlanner,
 }
 
 impl BehaviorCycler {
@@ -30,12 +32,14 @@ impl BehaviorCycler {
         Ok(Self {
             persistent_state: Default::default(),
 
+            obstacle_composer: ObstacleComposer::run_new(configuration)
+                .context("Failed to initialize module RoleAssignment")?,
+            role_assignment: RoleAssignment::run_new(configuration)
+                .context("Failed to initialize module RoleAssignment")?,
             world_state_composer: WorldStateComposer::run_new(configuration)
                 .context("Failed to initialize module WorldStateComposer")?,
             behavior: Behavior::run_new(configuration)
                 .context("Failed to initialize module Behavior")?,
-            path_planner: PathPlanner::run_new(configuration)
-                .context("Failed to initialize module PathPlanner")?,
         })
     }
 
@@ -44,19 +48,23 @@ impl BehaviorCycler {
         &mut self,
         configuration: &Configuration,
         cycle_start_time: SystemTime,
-        ball_position: BallPosition,
+        ball_position: Option<BallPosition>,
         fall_state: FallState,
         robot_to_field: Isometry2<f32>,
         sensor_data: SensorData,
         primary_state: PrimaryState,
         broadcasted_spl_messages: Vec<SplMessage>,
+        game_controller_state: GameControllerState,
+        has_ground_contact: bool,
     ) -> anyhow::Result<Database> {
         let mut control_database = Database::default();
-        control_database.main_outputs.ball_position = Some(ball_position);
+        control_database.main_outputs.ball_position = ball_position;
         control_database.main_outputs.fall_state = Some(fall_state);
         control_database.main_outputs.robot_to_field = Some(robot_to_field);
         control_database.main_outputs.sensor_data = Some(sensor_data);
         control_database.main_outputs.primary_state = Some(primary_state);
+        control_database.main_outputs.game_controller_state = Some(game_controller_state);
+        control_database.main_outputs.has_ground_contact = Some(has_ground_contact);
 
         let historic_databases = Default::default();
         let mut perception_databases = PerceptionDatabases::default();
@@ -83,6 +91,30 @@ impl BehaviorCycler {
         let subscribed_additional_outputs = Default::default();
         let changed_parameters = Default::default();
 
+        self.obstacle_composer
+            .run_cycle(
+                cycle_start_time,
+                &mut control_database,
+                &historic_databases,
+                &perception_databases,
+                configuration,
+                &subscribed_additional_outputs,
+                &changed_parameters,
+                &mut self.persistent_state,
+            )
+            .context("Failed to run cycle of module ObstacleComposer")?;
+        self.role_assignment
+            .run_cycle(
+                cycle_start_time,
+                &mut control_database,
+                &historic_databases,
+                &perception_databases,
+                configuration,
+                &subscribed_additional_outputs,
+                &changed_parameters,
+                &mut self.persistent_state,
+            )
+            .context("Failed to run cycle of module RoleAssignment")?;
         self.world_state_composer
             .run_cycle(
                 cycle_start_time,
@@ -107,18 +139,6 @@ impl BehaviorCycler {
                 &mut self.persistent_state,
             )
             .context("Failed to run cycle of module Behavior")?;
-        self.path_planner
-            .run_cycle(
-                cycle_start_time,
-                &mut control_database,
-                &historic_databases,
-                &perception_databases,
-                configuration,
-                &subscribed_additional_outputs,
-                &changed_parameters,
-                &mut self.persistent_state,
-            )
-            .context("Failed to run cycle of module PathPlanner")?;
 
         Ok(control_database)
     }

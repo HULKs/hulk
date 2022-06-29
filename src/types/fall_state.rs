@@ -8,3 +8,9 @@ pub enum FallState {
     Falling { direction: FallDirection },
     Fallen { facing: Facing },
 }
+
+impl Default for FallState {
+    fn default() -> Self {
+        Self::Upright
+    }
+}

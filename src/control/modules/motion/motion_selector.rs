@@ -1,6 +1,6 @@
 use macros::{module, require_some};
 
-use crate::types::{Facing, Motion, MotionCommand, MotionSafeExits, MotionSelection, MotionType};
+use crate::types::{Facing, MotionCommand, MotionSafeExits, MotionSelection, MotionType};
 
 pub struct MotionSelector {
     current_motion: MotionType,
@@ -22,7 +22,7 @@ impl MotionSelector {
     }
 
     fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
-        let motion = require_some!(context.motion_command).motion;
+        let motion = require_some!(context.motion_command);
 
         let is_active_motion_safe_to_exit = context.motion_safe_exits[self.current_motion];
         let requested_motion = motion_type_from_command(motion);
@@ -46,20 +46,21 @@ impl MotionSelector {
     }
 }
 
-fn motion_type_from_command(command: Motion) -> MotionType {
+fn motion_type_from_command(command: &MotionCommand) -> MotionType {
     match command {
-        Motion::FallProtection { .. } => MotionType::FallProtection,
-        Motion::Jump { .. } => MotionType::Jump,
-        Motion::Kick { .. } => MotionType::Kick,
-        Motion::Penalized => MotionType::Penalized,
-        Motion::SitDown { .. } => MotionType::SitDown,
-        Motion::Stand { .. } => MotionType::Stand,
-        Motion::StandUp { facing } => match facing {
+        MotionCommand::FallProtection { .. } => MotionType::FallProtection,
+        MotionCommand::Jump { .. } => MotionType::Jump,
+        MotionCommand::Kick { .. } => MotionType::Kick,
+        MotionCommand::Penalized => MotionType::Penalized,
+        MotionCommand::SitDown { .. } => MotionType::SitDown,
+        MotionCommand::Stand { .. } => MotionType::Stand,
+        MotionCommand::StandUp { facing } => match facing {
             Facing::Down => MotionType::StandUpFront,
             Facing::Up => MotionType::StandUpBack,
         },
-        Motion::Unstiff => MotionType::Unstiff,
-        Motion::Walk { .. } => MotionType::Walk,
+        MotionCommand::Unstiff => MotionType::Unstiff,
+        MotionCommand::Walk { .. } => MotionType::Walk,
+        MotionCommand::InWalkKick { .. } => MotionType::Walk,
     }
 }
 

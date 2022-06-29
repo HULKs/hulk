@@ -90,10 +90,10 @@ pub fn is_whistle_detected_in_buffer(
     }
     additional_outputs
         .audio_spectrums
-        .on_subscription(move || audio_spectrums);
+        .fill_on_subscription(move || audio_spectrums);
     additional_outputs
         .detection_infos
-        .on_subscription(move || detection_infos);
+        .fill_on_subscription(move || detection_infos);
 
     Ok(is_detected)
 }

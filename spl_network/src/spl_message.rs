@@ -16,12 +16,12 @@ use crate::{
         SPLStandardMessage, SPL_STANDARD_MESSAGE_DATA_SIZE, SPL_STANDARD_MESSAGE_STRUCT_HEADER,
         SPL_STANDARD_MESSAGE_STRUCT_VERSION,
     },
-    BallPosition, HULKS_TEAM_NUMBER,
+    BallPosition, PlayerNumber, HULKS_TEAM_NUMBER,
 };
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct SplMessage {
-    pub player_number: u8,
+    pub player_number: PlayerNumber,
     pub fallen: bool,
     pub robot_to_field: Isometry2<f32>,
     pub ball_position: Option<BallPosition>,
@@ -66,7 +66,14 @@ impl TryFrom<SPLStandardMessage> for SplMessage {
             bail!("Unexpected team number != {}", HULKS_TEAM_NUMBER);
         }
         Ok(Self {
-            player_number: message.playerNum,
+            player_number: match message.playerNum {
+                1 => PlayerNumber::One,
+                2 => PlayerNumber::Two,
+                3 => PlayerNumber::Three,
+                4 => PlayerNumber::Four,
+                5 => PlayerNumber::Five,
+                _ => bail!("Unexpected player number {}", message.playerNum),
+            },
             fallen: match message.fallen {
                 1 => true,
                 0 => false,
@@ -122,7 +129,13 @@ impl From<SplMessage> for SPLStandardMessage {
                 SPL_STANDARD_MESSAGE_STRUCT_HEADER[3] as i8,
             ],
             version: SPL_STANDARD_MESSAGE_STRUCT_VERSION,
-            playerNum: message.player_number,
+            playerNum: match message.player_number {
+                PlayerNumber::One => 1,
+                PlayerNumber::Two => 2,
+                PlayerNumber::Three => 3,
+                PlayerNumber::Four => 4,
+                PlayerNumber::Five => 5,
+            },
             teamNum: HULKS_TEAM_NUMBER,
             fallen: if message.fallen { 1 } else { 0 },
             pose: [

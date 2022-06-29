@@ -5,7 +5,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use nalgebra::{Isometry2, Isometry3, Point2, Point3, SMatrix, Vector2, Vector3};
+use nalgebra::{Isometry2, Isometry3, Point2, Point3, SMatrix, Vector2, Vector3, Vector4};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -62,114 +62,6 @@ where
     }
 }
 
-impl SerializeHierarchy for bool {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access bool with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access bool with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary { name: "bool" }
-    }
-}
-
-impl SerializeHierarchy for f32 {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access f32 with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access f32 with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary { name: "f32" }
-    }
-}
-
-impl SerializeHierarchy for i16 {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access i16 with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access i16 with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary { name: "i16" }
-    }
-}
-
-impl SerializeHierarchy for i32 {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access i32 with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access i32 with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary { name: "i32" }
-    }
-}
-
-impl SerializeHierarchy for u8 {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access u8 with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access u8 with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary { name: "u8" }
-    }
-}
-
-impl SerializeHierarchy for usize {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access usize with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access usize with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary { name: "usize" }
-    }
-}
-
 impl<T> SerializeHierarchy for Vec<T> {
     fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
         anyhow::bail!("Cannot access Vec with path: {}", field_path)
@@ -188,232 +80,59 @@ impl<T> SerializeHierarchy for Vec<T> {
     }
 }
 
-impl SerializeHierarchy for Point2<f32> {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access Point2<f32> with path: {}", field_path)
-    }
+macro_rules! serialize_hierarchy_primary_impl {
+    ($type:ty) => {
+        impl SerializeHierarchy for $type {
+            fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
+                anyhow::bail!(
+                    "Cannot access {} with path: {}",
+                    stringify!($type),
+                    field_path
+                )
+            }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access Point2<f32> with path: {}", field_path)
-    }
+            fn deserialize_hierarchy(
+                &mut self,
+                field_path: &str,
+                _data: Value,
+            ) -> anyhow::Result<()> {
+                anyhow::bail!(
+                    "Cannot access {} with path: {}",
+                    stringify!($type),
+                    field_path
+                )
+            }
 
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
+            fn exists(_field_path: &str) -> bool {
+                true
+            }
 
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary {
-            name: "Point2<f32>",
+            fn get_hierarchy() -> HierarchyType {
+                HierarchyType::Primary {
+                    name: stringify!($type),
+                }
+            }
         }
-    }
+    };
 }
 
-impl SerializeHierarchy for Point3<f32> {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access Point3<f32> with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access Point3<f32> with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary {
-            name: "Point3<f32>",
-        }
-    }
-}
-
-impl SerializeHierarchy for Vector2<f32> {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access Vector2<f32> with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access Vector2<f32> with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary {
-            name: "Vector2<f32>",
-        }
-    }
-}
-
-impl SerializeHierarchy for Vector3<f32> {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access Vector3<f32> with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access Vector3<f32> with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary {
-            name: "Vector3<f32>",
-        }
-    }
-}
-
-impl SerializeHierarchy for SMatrix<f32, 3, 3> {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access SMatrix<f32, 3,3> with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access SMatrix<f32, 3,3> with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary {
-            name: "SMatrix<f32, 3,3>",
-        }
-    }
-}
-
-impl SerializeHierarchy for Isometry2<f32> {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access Isometry2<f32> with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access Isometry2<f32> with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary {
-            name: "Isometry2<f32>",
-        }
-    }
-}
-
-impl SerializeHierarchy for Isometry3<f32> {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access Isometry3<f32> with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access Isometry3<f32> with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary {
-            name: "Isometry3<f32>",
-        }
-    }
-}
-
-impl SerializeHierarchy for SystemTime {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access SystemTime with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access SystemTime with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary { name: "SystemTime" }
-    }
-}
-
-impl SerializeHierarchy for Duration {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access Duration with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access Duration with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary { name: "Duration" }
-    }
-}
-
-impl SerializeHierarchy for String {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access String with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access String with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary { name: "String" }
-    }
-}
-
-impl SerializeHierarchy for Range<f32> {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access Range<f32> with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access Range<f32> with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary { name: "Range<f32>" }
-    }
-}
-
-impl SerializeHierarchy for PathBuf {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access PathBuf with path: {}", field_path)
-    }
-
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access PathBuf with path: {}", field_path)
-    }
-
-    fn exists(_field_path: &str) -> bool {
-        true
-    }
-
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Primary { name: "PathBuf" }
-    }
-}
+serialize_hierarchy_primary_impl!(bool);
+serialize_hierarchy_primary_impl!(f32);
+serialize_hierarchy_primary_impl!(i16);
+serialize_hierarchy_primary_impl!(i32);
+serialize_hierarchy_primary_impl!(u8);
+serialize_hierarchy_primary_impl!(u64);
+serialize_hierarchy_primary_impl!(usize);
+serialize_hierarchy_primary_impl!(Point2<f32>);
+serialize_hierarchy_primary_impl!(Point3<f32>);
+serialize_hierarchy_primary_impl!(Vector2<f32>);
+serialize_hierarchy_primary_impl!(Vector3<f32>);
+serialize_hierarchy_primary_impl!(Vector4<f32>);
+serialize_hierarchy_primary_impl!(SMatrix<f32, 3, 3>);
+serialize_hierarchy_primary_impl!(Isometry2<f32>);
+serialize_hierarchy_primary_impl!(Isometry3<f32>);
+serialize_hierarchy_primary_impl!(SystemTime);
+serialize_hierarchy_primary_impl!(Duration);
+serialize_hierarchy_primary_impl!(String);
+serialize_hierarchy_primary_impl!(Range<f32>);
+serialize_hierarchy_primary_impl!(PathBuf);

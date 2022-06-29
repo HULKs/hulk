@@ -28,27 +28,58 @@
     }
   },
   "control": {
-    "fall_protection_parameters": {
-      "ground_impact_head_stiffness": 0.2
+    "fall_protection": {
+      "ground_impact_head_stiffness": 0.2,
+      "left_arm_positions": {
+        "shoulder_pitch": 1.57,
+        "shoulder_roll": 0.3,
+        "elbow_yaw": 0.0,
+        "elbow_roll": 0.0,
+        "wrist_yaw": 0.0,
+        "hand": 0.0
+      },
+      "right_arm_positions": {
+        "shoulder_pitch": 1.57,
+        "shoulder_roll": -0.3,
+        "elbow_yaw": 0.0,
+        "elbow_roll": 0.0,
+        "wrist_yaw": 0.0,
+        "hand": 0.0
+      },
+      "arm_stiffness": 0.8,
+      "leg_stiffness": 0.0
     },
     "ball_filter": {
-      "last_seen_timeout": {
+      "hypothesis_timeout": {
         "nanos": 0,
         "secs": 5
-      }
+      },
+      "measurement_matching_distance": 1.0,
+      "hypothesis_merge_distance": 1.0,
+      "process_noise": [0.005, 0.005, 0.025, 0.025],
+      "measurement_noise": [3.0, 5.0],
+      "initial_covariance": [0.5, 0.5, 0.5, 0.5],
+      "validity_exponential_decay_factor": 0.999
     },
     "center_head_position": {
       "yaw": 0.0,
       "pitch": 0.4
     },
+    "role_assignment": {
+      "forced_role": null
+    },
+    "stand_up": {
+      "gyro_low_pass_filter_coefficient": 0.1,
+      "gyro_low_pass_filter_tolerance": 0.005
+    },
     "step_planner": {
       "injected_step": null,
       "max_step_size": {
-        "forward": 0.06,
-        "left": 0.08,
+        "forward": 0.05,
+        "left": 0.1,
         "turn": 0.7
       },
-      "max_step_size_backwards": 0.05,
+      "max_step_size_backwards": 0.02,
       "translation_exponent": 1.5,
       "rotation_exponent": 2.0,
       "inside_turn_ratio": 0.33
@@ -58,54 +89,262 @@
       "minimum_detections": 4
     },
     "walking_engine": {
-      "walk_hip_height": 0.18,
+      "walk_hip_height": 0.185,
       "torso_offset": 0.014,
       "minimal_step_duration": {
         "nanos": 200000000,
         "secs": 0
       },
       "shoulder_pitch_factor": 7,
-      "base_foot_lift": 0.012,
+      "base_foot_lift": 0.015,
       "base_step_duration": {
-        "nanos": 280000000,
+        "nanos": 260000000,
         "secs": 0
       },
       "step_duration_increase": {
-        "forward": 0.5,
-        "left": 0.5,
+        "forward": 0.0,
+        "left": 1.0,
         "turn": 0.0
       },
       "starting_step_duration": {
-        "nanos": 150000000,
+        "nanos": 200000000,
         "secs": 0
       },
-      "starting_step_foot_lift": 0.004,
-      "gyro_balance_factor": 0.08,
-      "swing_foot_leveling_factor": 0.9,
-      "max_forward_acceleration": 0.01,
+      "starting_step_foot_lift": 0.006,
+      "gyro_balance_factor": 0.05,
+      "swing_foot_pitch_error_leveling_factor": 0.9,
+      "swing_foot_backwards_imu_leveling_factor": 1.0,
+      "max_level_adjustment_velocity": 0.02,
+      "max_forward_acceleration": 0.005,
       "forward_foot_support_offset": 0.04,
-      "backward_foot_support_offset": 0.0,
-      "max_step_adjustment": 0.1
-    },
-    "path_planner": {
-      "hybrid_align_distance": 1.0,
-      "distance_to_be_aligned": 0.05
-    },
-    "pose_estimation": {
-      "line_measurement_noise": [
-        5.0,
-        0.8
+      "backward_foot_support_offset": -0.03,
+      "max_step_adjustment": 0.003,
+      "leg_stiffness_stand": 0.6,
+      "leg_stiffness_walk": 1.0,
+      "arm_stiffness": 0.8,
+      "gyro_low_pass_factor": 0.8,
+      "forward_kick_steps": [
+        {
+          "base_step": {
+            "forward": 0.04,
+            "left": 0.0,
+            "turn": 0.0
+          },
+          "hip_pitch_overrides": null,
+          "ankle_pitch_overrides": null
+        },
+        {
+          "base_step": {
+            "forward": 0.08,
+            "left": 0.0,
+            "turn": 0.0
+          },
+          "hip_pitch_overrides": [
+            {
+              "value": 0.0,
+              "timepoint": {
+                "nanos": 0,
+                "secs": 0
+              }
+            },
+            {
+              "value": 0.0,
+              "timepoint": {
+                "nanos": 100000000,
+                "secs": 0
+              }
+            },
+            {
+              "value": -0.4,
+              "timepoint": {
+                "nanos": 150000000,
+                "secs": 0
+              }
+            },
+            {
+              "value": 0.0,
+              "timepoint": {
+                "nanos": 240000000,
+                "secs": 0
+              }
+            }
+          ],
+          "ankle_pitch_overrides": [
+            {
+              "value": 0.0,
+              "timepoint": {
+                "nanos": 0,
+                "secs": 0
+              }
+            },
+            {
+              "value": 0.0,
+              "timepoint": {
+                "nanos": 50000000,
+                "secs": 0
+              }
+            },
+            {
+              "value": 0.2,
+              "timepoint": {
+                "nanos": 150000000,
+                "secs": 0
+              }
+            },
+            {
+              "value": 0.0,
+              "timepoint": {
+                "nanos": 200000000,
+                "secs": 0
+              }
+            }
+          ]
+        },
+        {
+          "base_step": {
+            "forward": 0.0,
+            "left": 0.0,
+            "turn": 0.0
+          },
+          "hip_pitch_overrides": null,
+          "ankle_pitch_overrides": null
+        },
+        {
+          "base_step": {
+            "forward": 0.0,
+            "left": 0.0,
+            "turn": 0.0
+          },
+          "hip_pitch_overrides": null,
+          "ankle_pitch_overrides": null
+        }
       ],
-      "odometry_noise": [
-        0.005,
-        0.001,
-        0.00008
-      ],
-      "minimal_line_length": 0.3,
+      "turn_kick_steps": [
+        {
+          "base_step": {
+            "forward": 0.0,
+            "left": 0.0,
+            "turn": 0.0
+          },
+          "hip_pitch_overrides": null,
+          "ankle_pitch_overrides": null
+        },
+        {
+          "base_step": {
+            "forward": 0.0,
+            "left": 0.0,
+            "turn": 0.0
+          },
+          "hip_pitch_overrides": null,
+          "ankle_pitch_overrides": null
+        },
+        {
+          "base_step": {
+            "forward": 0.0,
+            "left": 0.0,
+            "turn": 0.0
+          },
+          "hip_pitch_overrides": null,
+          "ankle_pitch_overrides": null
+        },
+        {
+          "base_step": {
+            "forward": 0.0,
+            "left": 0.0,
+            "turn": 0.8
+          },
+          "hip_pitch_overrides": null,
+          "ankle_pitch_overrides": null
+        },
+        {
+          "base_step": {
+            "forward": 0.06,
+            "left": 0.0,
+            "turn": 0.2
+          },
+          "hip_pitch_overrides": [
+            {
+              "value": 0.0,
+              "timepoint": {
+                "nanos": 0,
+                "secs": 0
+              }
+            },
+            {
+              "value": 0.0,
+              "timepoint": {
+                "nanos": 100000000,
+                "secs": 0
+              }
+            },
+            {
+              "value": -0.4,
+              "timepoint": {
+                "nanos": 150000000,
+                "secs": 0
+              }
+            },
+            {
+              "value": 0.0,
+              "timepoint": {
+                "nanos": 240000000,
+                "secs": 0
+              }
+            }
+          ],
+          "ankle_pitch_overrides": [
+            {
+              "value": 0.0,
+              "timepoint": {
+                "nanos": 0,
+                "secs": 0
+              }
+            },
+            {
+              "value": 0.0,
+              "timepoint": {
+                "nanos": 50000000,
+                "secs": 0
+              }
+            },
+            {
+              "value": 0.2,
+              "timepoint": {
+                "nanos": 150000000,
+                "secs": 0
+              }
+            },
+            {
+              "value": 0.0,
+              "timepoint": {
+                "nanos": 200000000,
+                "secs": 0
+              }
+            }
+          ]
+        },
+        {
+          "base_step": {
+            "forward": 0.0,
+            "left": 0.0,
+            "turn": 0.0
+          },
+          "hip_pitch_overrides": null,
+          "ankle_pitch_overrides": null
+        }
+      ]
+    },
+    "localization": {
       "angle_similarity_threshold": 0.4,
-      "maximum_association_distance": 0.4,
-      "maximum_line_distance": 2.0,
-      "use_line_measurements": false,
+      "circle_measurement_noise": [500.0, 500.0],
+      "gradient_convergence_threshold": 1e-2,
+      "gradient_descent_step_size": 0.01,
+      "hypothesis_prediction_score_reduction_factor": 0.9,
+      "hypothesis_retain_factor": 0.05,
+      "initial_hypothesis_covariance": [
+        0.001, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.001
+      ],
+      "initial_hypothesis_score": 10.0,
       "initial_poses": {
         "one": {
           "center_line_offset_x": -3.0,
@@ -127,7 +366,19 @@
           "center_line_offset_x": -1.0,
           "side": "Left"
         }
-      }
+      },
+      "line_length_acceptance_factor": 1.5,
+      "line_measurement_noise": [500.0, 160.0],
+      "maximum_amount_of_gradient_descent_iterations": 20,
+      "maximum_amount_of_outer_iterations": 10,
+      "maximum_association_distance": 0.4,
+      "maximum_line_distance": 2.0,
+      "maximum_line_point_distance": 3.0,
+      "minimal_line_length": 0.3,
+      "minimum_fit_error": 0.001,
+      "minimum_line_length": 0.15,
+      "odometry_noise": [0.05, 0.01, 0.008],
+      "use_line_measurements": true
     },
     "orientation_filter": {
       "acceleration_threshold": 0.2,
@@ -138,28 +389,12 @@
       "force_sensitive_resistor_threshold": 5.0
     },
     "fall_state_estimation": {
-      "linear_acceleration_upright_threshold": [
-        6.0,
-        4.0,
-        5.0
-      ],
+      "linear_acceleration_upright_threshold": [6.0, 4.0, 5.0],
       "low_pass_filter_coefficient": 0.3,
-      "minimum_angle": [
-        -0.5,
-        -0.45
-      ],
-      "maximum_angle": [
-        0.5,
-        0.45
-      ],
-      "minimum_angular_velocity": [
-        -0.233,
-        -0.61
-      ],
-      "maximum_angular_velocity": [
-        0.233,
-        0.317
-      ],
+      "minimum_angle": [-0.5, -0.45],
+      "maximum_angle": [0.5, 0.45],
+      "minimum_angular_velocity": [-0.233, -0.61],
+      "maximum_angular_velocity": [0.233, 0.317],
       "fallen_timeout": {
         "nanos": 0,
         "secs": 1
@@ -291,44 +526,61 @@
         "pitch": 0.0
       }
     },
-    "set_positions": {
-      "defender_front_set_position_goal_center_offset": [
-        2.3,
-        -1.1
-      ],
-      "defender_left_set_position_goal_center_offset": [
-        1.8,
-        0.6
-      ],
-      "defender_right_set_position_goal_center_offset": [
-        1.8,
-        -0.6
-      ],
-      "keeper_set_position_goal_center_offset": [
-        0.25,
-        0.0
-      ],
-      "striker_set_position": [
-        -1.0,
-        0.0
-      ]
-    },
     "behavior": {
-      "injected_motion_command": null
+      "injected_motion_command": null,
+      "role_positions": {
+        "defender_aggressive_ring_radius": 2.0,
+        "defender_passive_ring_radius": 1.5,
+        "defender_y_offset": 0.6,
+        "striker_supporter_minimum_x": -1.1,
+        "keeper_x_offset": 0.1,
+        "striker_set_position": [-1.0, 0.0]
+      },
+      "dribble_pose": {
+        "offset": [-0.2, 0.035]
+      },
+      "walk_to_pose": {
+        "target_reached_threshold": [0.02, 0.1],
+        "robot_radius": 0.3,
+        "hybrid_align_distance": 1.0,
+        "distance_to_be_aligned": 0.05
+      }
     },
     "game_state_filter": {
-      "max_wait_for_ready_message": 20.0
+      "max_wait_for_ready_message": 20.0,
+      "whistle_acceptance_goal_distance": [0.5, 0.5]
     },
     "ground_contact_detector": {
       "pressure_threshold": 0.6,
-      "hysteresis": 0.3
+      "hysteresis": 0.3,
+      "timeout": {
+        "nanos": 500000000,
+        "secs": 0
+      }
     },
     "support_foot_estimation": {
-      "hysteresis": 0.3
+      "hysteresis": 0.2
     }
   },
-  "player_number": 5,
-  "spl_network": {},
+  "player_number": "Five",
+  "spl_network": {
+    "game_controller_return_message_interval": {
+      "nanos": 0,
+      "secs": 1
+    },
+    "spl_striker_message_receive_timeout": {
+      "nanos": 0,
+      "secs": 3
+    },
+    "spl_striker_message_send_interval": {
+      "nanos": 0,
+      "secs": 2
+    },
+    "striker_trusts_team_ball": {
+      "nanos": 0,
+      "secs": 1
+    }
+  },
   "vision_top": {
     "projected_limbs": {
       "torso_bounding_polygon": [],
@@ -352,19 +604,9 @@
       "ball_radius_enlargement_factor": 2.0
     },
     "camera_matrix_parameters": {
-      "extrinsic_rotations": [
-        0,
-        0,
-        0
-      ],
-      "focal_lengths": [
-        0.95,
-        1.27
-      ],
-      "cc_optical_center": [
-        0.5,
-        0.5
-      ]
+      "extrinsic_rotations": [0, 0, 0],
+      "focal_lengths": [0.95, 1.27],
+      "cc_optical_center": [0.5, 0.5]
     },
     "image_receiver": {
       "resolution": 42
@@ -375,13 +617,20 @@
       "use_vertical_median": true
     },
     "line_detection": {
-      "check_line_segments_projection": false,
+      "allowed_line_length_in_field": {
+        "start": 0.15,
+        "end": 3.0
+      },
+      "check_line_distance": true,
+      "check_line_length": true,
+      "check_line_segments_projection": true,
       "gradient_alignment": -0.95,
-      "maximum_distance_from_line": 3.0,
+      "maximum_distance_to_robot": 3.0,
+      "maximum_fit_distance_in_pixels": 3.0,
       "maximum_gap_on_line": 30.0,
+      "maximum_number_of_lines": 10,
       "maximum_projected_segment_length": 0.3,
-      "minimum_number_of_points_on_line": 5,
-      "maximum_number_of_lines": 10
+      "minimum_number_of_points_on_line": 5
     },
     "field_border_detection": {
       "min_points_per_line": 10,
@@ -487,19 +736,9 @@
       "ball_radius_enlargement_factor": 2.0
     },
     "camera_matrix_parameters": {
-      "extrinsic_rotations": [
-        0,
-        0,
-        0
-      ],
-      "focal_lengths": [
-        0.95,
-        1.27
-      ],
-      "cc_optical_center": [
-        0.5,
-        0.5
-      ]
+      "extrinsic_rotations": [0, 0, 0],
+      "focal_lengths": [0.95, 1.27],
+      "cc_optical_center": [0.5, 0.5]
     },
     "image_receiver": {
       "resolution": 42
@@ -510,13 +749,20 @@
       "use_vertical_median": true
     },
     "line_detection": {
-      "check_line_segments_projection": false,
+      "allowed_line_length_in_field": {
+        "start": 0.15,
+        "end": 3.0
+      },
+      "check_line_distance": true,
+      "check_line_length": true,
+      "check_line_segments_projection": true,
       "gradient_alignment": -0.95,
-      "maximum_distance_from_line": 3.0,
+      "maximum_distance_to_robot": 3.0,
+      "maximum_fit_distance_in_pixels": 3.0,
       "maximum_gap_on_line": 30.0,
+      "maximum_number_of_lines": 10,
       "maximum_projected_segment_length": 0.3,
-      "minimum_number_of_points_on_line": 5,
-      "maximum_number_of_lines": 10
+      "minimum_number_of_points_on_line": 5
     },
     "field_border_detection": {
       "min_points_per_line": 10,

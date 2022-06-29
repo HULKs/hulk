@@ -5,7 +5,7 @@ use spl_network::{GamePhase, GameState, Penalty};
 
 use super::Players;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct GameControllerState {
     pub game_state: GameState,
     pub game_phase: GamePhase,

@@ -36,7 +36,14 @@ pub async fn configure_player_number(
             .with_context(|| format!("Failed to parse {}", configuration_file_path.display()))?
     };
 
-    configuration["player_number"] = player_number.into();
+    configuration["player_number"] = match player_number {
+        1 => "One".into(),
+        2 => "Two".into(),
+        3 => "Three".into(),
+        4 => "Four".into(),
+        5 => "Five".into(),
+        _ => panic!("Unexpected player number"),
+    };
 
     let mut contents = to_vec_pretty(&configuration).with_context(|| {
         format!(

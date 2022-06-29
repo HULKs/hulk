@@ -6,8 +6,7 @@ use crate::{
     kinematics::head_to_neck,
     kinematics::neck_to_robot,
     types::{
-        CameraMatrices, HeadJoints, HeadMotion, Joints, Motion, MotionCommand, RobotKinematics,
-        SensorData,
+        CameraMatrices, HeadJoints, HeadMotion, Joints, MotionCommand, RobotKinematics, SensorData,
     },
 };
 
@@ -47,17 +46,11 @@ impl LookAt {
             None => return default_output,
         };
 
-        let head_motion = match motion_command.motion {
-            Motion::Kick { head, direction: _ } => head,
-            Motion::SitDown { head } => head,
-            Motion::Stand { head } => head,
-            Motion::Walk {
-                head,
-                in_walk_kick: _,
-                left_arm: _,
-                right_arm: _,
-                target_pose: _,
-            } => head,
+        let head_motion = match motion_command {
+            MotionCommand::Kick { head, direction: _ } => head,
+            MotionCommand::SitDown { head } => head,
+            MotionCommand::Stand { head } => head,
+            MotionCommand::Walk { head, .. } => head,
             _ => return default_output,
         };
 
@@ -75,7 +68,7 @@ impl LookAt {
             ground_to_zero_head,
             camera_matrices.top.camera_to_head,
             camera_matrices.bottom.camera_to_head,
-            target,
+            *target,
             *context.minimum_bottom_focus_pitch,
         );
 

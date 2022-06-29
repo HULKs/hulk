@@ -64,7 +64,7 @@ impl BallDetection {
         );
         context
             .ball_candidates
-            .on_subscription(|| evaluations.clone());
+            .fill_on_subscription(|| evaluations.clone());
 
         let mut detected_balls = evaluations
             .iter()
@@ -312,7 +312,7 @@ impl BallDetection {
             .iter()
             .filter_map(|cluster| {
                 let position_422 = point![cluster.circle.center.x, cluster.circle.center.y];
-                match camera_matrix.pixel_to_robot_with_z(&position_422, ball_radius) {
+                match camera_matrix.pixel_to_ground_with_z(&position_422, ball_radius) {
                     Ok(position) => Some(Ball {
                         position,
                         image_location: cluster.circle,
@@ -330,7 +330,7 @@ mod tests {
 
     use anyhow::anyhow;
     use approx::assert_relative_eq;
-    use nalgebra::{Translation, UnitQuaternion};
+    use nalgebra::{Isometry3, Translation, UnitQuaternion};
 
     use crate::{
         framework::AdditionalOutput,
@@ -469,23 +469,19 @@ mod tests {
 
         let focal_length = vector![0.95, 1.27];
         let optical_center = point![0.5, 0.5];
-        let field_of_view_rad = vector![56.3, 43.7].map(|a: f32| a.to_radians());
 
-        let focal_length = vector![
-            focal_length.x * (image.width() as f32),
-            focal_length.y * (image.height() as f32)
-        ];
-        let optical_center = point![
-            optical_center.x * (image.width() as f32),
-            optical_center.y * (image.height() as f32)
-        ];
+        let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+            focal_length,
+            optical_center,
+            vector![image.width() as f32, image.height() as f32],
+            Isometry3 {
+                rotation: UnitQuaternion::from_euler_angles(0.0, 39.7_f32.to_radians(), 0.0),
+                translation: Translation::from(point![0.0, 0.0, 0.75]),
+            },
+            Isometry3::identity(),
+            Isometry3::identity(),
+        );
 
-        let mut camera_matrix =
-            CameraMatrix::from_parameters(focal_length, optical_center, field_of_view_rad);
-
-        camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.75]);
-        camera_matrix.camera_to_ground.rotation =
-            UnitQuaternion::from_euler_angles(0.0, 39.7_f32.to_radians(), 0.0);
         let mut additional_output_buffer = None;
         let context = CycleContext {
             ball_candidates: AdditionalOutput::<Vec<CandidateEvaluation>>::new(

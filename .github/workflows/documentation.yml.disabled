@@ -8,6 +8,7 @@ on:
       - 'docs/**'
 jobs:
   deploy:
+    if: github.repository_owner == "HULKs"
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     steps:

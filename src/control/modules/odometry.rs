@@ -53,7 +53,7 @@ impl Odometry {
             current_odometry_to_last_odometry * self.last_accumulated_odometry;
         context
             .accumulated_odometry
-            .on_subscription(|| accumulated_odometry);
+            .fill_on_subscription(|| accumulated_odometry);
         self.last_accumulated_odometry = accumulated_odometry;
 
         Ok(MainOutputs {
