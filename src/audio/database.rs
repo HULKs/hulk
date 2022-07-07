@@ -1,6 +1,6 @@
-use crate::types::Whistle;
-use macros::SerializeHierarchy;
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
+use types::Whistle;
 
 #[derive(Clone, Debug, Default, SerializeHierarchy)]
 pub struct MainOutputs {

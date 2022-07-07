@@ -3,14 +3,13 @@ use futures_util::{stream::SplitSink, SinkExt};
 use log::error;
 use serde::Serialize;
 use serde_json::{to_string, Value};
+use serialize_hierarchy::HierarchyType;
 use tokio::{net::TcpStream, sync::mpsc::Receiver};
 use tokio_tungstenite::{
     tungstenite::{self, protocol::CloseFrame},
     WebSocketStream,
 };
 use tokio_util::sync::CancellationToken;
-
-use crate::framework::HierarchyType;
 
 use super::{database_subscription_manager::OutputHierarchy, Cycler, Output};
 

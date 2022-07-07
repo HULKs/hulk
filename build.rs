@@ -91,6 +91,7 @@ fn modules_from_cycler(cycler: Cycler) -> HashMap<String, Module> {
             module_name.clone(),
         );
         let inputs = inputs_from_module_information(&module_information);
+        let historic_inputs = historic_inputs_from_module_information(&module_information);
         let main_outputs = main_outputs_from_module_information(&module_information);
         modules.insert(
             module_name,
@@ -99,6 +100,7 @@ fn modules_from_cycler(cycler: Cycler) -> HashMap<String, Module> {
                 module_path_components,
                 inputs: inputs
                     .into_iter()
+                    .chain(historic_inputs)
                     .filter(|input| input != "sensor_data")
                     .collect(),
                 main_outputs,
@@ -184,6 +186,17 @@ fn inputs_from_module_information(module_information: &ModuleInformation) -> Vec
                 return None;
             }
             Some(input.path.first().unwrap().to_string())
+        })
+        .collect()
+}
+
+fn historic_inputs_from_module_information(module_information: &ModuleInformation) -> Vec<String> {
+    module_information
+        .historic_inputs
+        .iter()
+        .map(|input| {
+            assert_eq!(input.path.len(), 1);
+            input.path.first().unwrap().to_string()
         })
         .collect()
 }

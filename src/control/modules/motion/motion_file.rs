@@ -3,8 +3,9 @@ use std::{fs::File, path::Path, time::Duration};
 use anyhow::Context;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::from_reader;
+use types::Joints;
 
-use crate::{control::linear_interpolator::LinearInterpolator, types::Joints};
+use crate::control::linear_interpolator::LinearInterpolator;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct MotionFile {

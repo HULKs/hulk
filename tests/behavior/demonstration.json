@@ -40,10 +40,10 @@
       }
     },
     {
-      "event": "frame_index == 5",
+      "event": "frame_index == 105",
       "action": {
-        "SetGameState": {
-          "game_state": "Playing"
+        "SetFilteredGameState": {
+          "filtered_game_state": { "Playing": { "ball_is_free": true } }
         }
       }
     },

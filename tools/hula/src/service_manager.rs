@@ -65,7 +65,7 @@ pub struct ServiceManager {
     connection: Connection,
 }
 
-impl<'a> ServiceManager {
+impl ServiceManager {
     pub fn new() -> anyhow::Result<Self> {
         Ok(Self {
             connection: Connection::new_system()?,

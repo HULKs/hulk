@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import Connection, { Cycler, OutputType } from "../Connection/Connection";
 import "./ProjectedLimbs.css";
 
+type Limb = { pixel_polygon: Array<[number, number]> };
+
 export default function ProjectedLimbs({
   selector,
   connector,
@@ -15,7 +17,7 @@ export default function ProjectedLimbs({
 }) {
   const [imageData, setImageData] = useState<Blob | undefined>(undefined);
   const [projectedLimbsData, setProjectedLimbsData] = useState<
-    { pixel_polygon: number[][] }[] | null | undefined
+    { top: Array<Limb>, bottom: Array<Limb> } | null | undefined
   >(undefined);
   useEffect(() => {
     if (connection === null) {
@@ -31,7 +33,7 @@ export default function ProjectedLimbs({
       }
     );
     const unsubscribeProjectedLimbs = connection.subscribeOutput(
-      cycler,
+      Cycler.Control,
       OutputType.Main,
       "projected_limbs",
       (data) => {
@@ -58,7 +60,7 @@ export default function ProjectedLimbs({
   }, [imageData]);
   const projectedLimbs =
     projectedLimbsData !== undefined && projectedLimbsData !== null
-      ? projectedLimbsData.map(drawLimb)
+      ? (cycler === Cycler.VisionTop ? projectedLimbsData.top : projectedLimbsData.bottom).map(drawLimb)
       : null;
   return (
     <div className="projectedLimbs">

@@ -1,6 +1,8 @@
+use types::{LegJoints, Side};
+
 use crate::{
-    framework::configuration,
-    types::{LegJoints, Side},
+    control::database::StepAdjustment,
+    framework::{configuration, AdditionalOutput},
 };
 
 use super::foot_offsets::FootOffsets;
@@ -73,6 +75,7 @@ pub fn step_adjustment(
     forward_foot_support: f32,
     backward_foot_support: f32,
     max_adjustment: f32,
+    step_adjustment_output: &mut AdditionalOutput<StepAdjustment>,
 ) -> (FootOffsets, FootOffsets) {
     let next_left_forward =
         current_left_foot.forward + next_left_walk_request.forward - last_left_walk_request.forward;
@@ -85,12 +88,13 @@ pub fn step_adjustment(
         Side::Left => (next_left_forward, next_right_forward),
         Side::Right => (next_right_forward, next_left_forward),
     };
-    let adjustment =
-        if torso_tilt_shift < backward_balance_limit || torso_tilt_shift > forward_balance_limit {
-            next_swing_forward - torso_tilt_shift
-        } else {
-            0.0
-        };
+    let adjustment = if torso_tilt_shift < backward_balance_limit {
+        next_swing_forward - torso_tilt_shift - backward_balance_limit
+    } else if torso_tilt_shift > forward_balance_limit {
+        next_swing_forward - torso_tilt_shift - forward_balance_limit
+    } else {
+        0.0
+    };
     let limited_adjustment = adjustment.clamp(-max_adjustment, max_adjustment);
     let adjusted_swing_forward = next_swing_forward - limited_adjustment;
     let adjusted_support_forward = next_support_forward + 0.5 * limited_adjustment;
@@ -98,6 +102,13 @@ pub fn step_adjustment(
         Side::Left => (adjusted_swing_forward, adjusted_support_forward),
         Side::Right => (adjusted_support_forward, adjusted_swing_forward),
     };
+    step_adjustment_output.fill_on_subscription(|| StepAdjustment {
+        adjustment,
+        limited_adjustment,
+        torso_tilt_shift,
+        forward_balance_limit,
+        backward_balance_limit,
+    });
     (
         FootOffsets {
             forward: adjusted_left_forward,

@@ -93,6 +93,8 @@ export default function Selector({
           return <>ProjectedLimbs.{item.obj.selectablePanel.cycler}</>;
         case PanelType.LineFitting:
           return <>LineFitting</>;
+        case PanelType.RobotDetection:
+          return <>RobotDetection.{item.obj.selectablePanel.cycler}</>;
       }
     })();
     return (

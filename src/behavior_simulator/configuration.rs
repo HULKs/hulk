@@ -5,7 +5,8 @@ use mlua::Lua;
 use nalgebra::{Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use serde_json::from_reader;
-use spl_network::GameState;
+use spl_network::SetPlay;
+use types::FilteredGameState;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Configuration {
@@ -53,14 +54,17 @@ impl Rule {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Action {
     StopSimulation,
+    SetBallIsFree {
+        ball_is_free: bool,
+    },
     SetBallPosition {
         position: Point2<f32>,
     },
     SetBallVelocity {
         velocity: Vector2<f32>,
     },
-    SetGameState {
-        game_state: GameState,
+    SetFilteredGameState {
+        filtered_game_state: FilteredGameState,
     },
     SetPenalized {
         robot_index: usize,
@@ -69,5 +73,8 @@ pub enum Action {
     SetRobotToField {
         robot_index: usize,
         robot_to_field: Isometry2<f32>,
+    },
+    SetSetPlay {
+        set_play: Option<SetPlay>,
     },
 }

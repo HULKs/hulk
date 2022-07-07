@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
-use macros::{module, require_some};
-use nalgebra::{point, Point2};
+use module_derive::{module, require_some};
+use nalgebra::{point, vector, Point2, Vector2};
 
-use crate::types::{
+use types::{
     CameraMatrix, Circle, FilteredSegments, LineData, PerspectiveGridCandidates, ScanLine, Segment,
 };
 
@@ -36,7 +36,7 @@ impl PerspectiveGridCandidatesProvider {
             .scan_grid
             .vertical_scan_lines;
         let skip_segments = &require_some!(context.line_data).used_vertical_filtered_segments;
-        let image_size = point![context.image.width(), context.image.height()];
+        let image_size = vector![context.image.width(), context.image.height()];
 
         let rows = Self::generate_rows(
             camera_matrix,
@@ -54,7 +54,7 @@ impl PerspectiveGridCandidatesProvider {
 
     fn generate_rows(
         camera_matrix: &CameraMatrix,
-        image_size: Point2<usize>,
+        image_size: Vector2<usize>,
         minimum_radius: f32,
         fallback_radius: f32,
         ball_radius: f32,
@@ -79,9 +79,9 @@ impl PerspectiveGridCandidatesProvider {
         {
             radius444 = camera_matrix
                 .get_pixel_radius(
-                    &image_size,
-                    &point![higher_horizon_point.x, row_vertical_center],
                     ball_radius,
+                    &point![higher_horizon_point.x, row_vertical_center],
+                    &image_size,
                 )
                 .unwrap_or(radius444);
             if radius444 < minimum_radius {
@@ -157,9 +157,8 @@ mod tests {
     use std::iter::FromIterator;
 
     use approx::assert_relative_eq;
-    use nalgebra::{vector, Isometry3, Point, Translation, UnitQuaternion};
-
-    use crate::types::{CameraMatrix, EdgeType, Intensity, ScanLine, Segment, YCbCr444};
+    use nalgebra::{vector, Isometry3, Translation, UnitQuaternion};
+    use types::{CameraMatrix, EdgeType, Intensity, ScanLine, Segment, YCbCr444};
 
     use super::*;
 
@@ -170,7 +169,7 @@ mod tests {
 
         assert!(!PerspectiveGridCandidatesProvider::generate_rows(
             &camera_matrix,
-            point![512, 512],
+            vector![512, 512],
             minimum_radius,
             42.0,
             0.05,
@@ -196,7 +195,7 @@ mod tests {
 
         let circles = PerspectiveGridCandidatesProvider::generate_rows(
             &camera_matrix,
-            Point::from(image_size),
+            image_size,
             minimum_radius,
             42.0,
             0.05,
@@ -236,8 +235,8 @@ mod tests {
             segments: vec![Segment {
                 start: 20,
                 end: 50,
-                start_edge_type: EdgeType::Border,
-                end_edge_type: EdgeType::Border,
+                start_edge_type: EdgeType::ImageBorder,
+                end_edge_type: EdgeType::ImageBorder,
                 color: YCbCr444 { y: 0, cb: 0, cr: 0 },
                 field_color: Intensity::Low,
             }],
@@ -279,24 +278,24 @@ mod tests {
             Segment {
                 start: 5,
                 end: 12,
-                start_edge_type: EdgeType::Border,
-                end_edge_type: EdgeType::Border,
+                start_edge_type: EdgeType::ImageBorder,
+                end_edge_type: EdgeType::ImageBorder,
                 color: YCbCr444 { y: 0, cb: 0, cr: 0 },
                 field_color: Intensity::Low,
             },
             Segment {
                 start: 18,
                 end: 28,
-                start_edge_type: EdgeType::Border,
-                end_edge_type: EdgeType::Border,
+                start_edge_type: EdgeType::ImageBorder,
+                end_edge_type: EdgeType::ImageBorder,
                 color: YCbCr444 { y: 0, cb: 0, cr: 0 },
                 field_color: Intensity::Low,
             },
             Segment {
                 start: 45,
                 end: 50,
-                start_edge_type: EdgeType::Border,
-                end_edge_type: EdgeType::Border,
+                start_edge_type: EdgeType::ImageBorder,
+                end_edge_type: EdgeType::ImageBorder,
                 color: YCbCr444 { y: 0, cb: 0, cr: 0 },
                 field_color: Intensity::Low,
             },

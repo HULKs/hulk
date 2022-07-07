@@ -1,6 +1,5 @@
+use types::TouchSensors;
 use webots::{Keyboard, Robot};
-
-use crate::types::TouchSensors;
 
 use super::webots_interface::SIMULATION_TIME_STEP;
 

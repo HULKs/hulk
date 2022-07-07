@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
+use types::{KickVariant, Side, Step, WalkCommand};
 
-use crate::{
-    framework::configuration,
-    types::{KickVariant, Side, Step, WalkCommand},
-};
+use crate::framework::configuration;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum WalkState {
@@ -25,7 +23,7 @@ impl WalkState {
         self,
         requested_walk_action: WalkCommand,
         swing_side: Side,
-        config: &configuration::WalkingEngine,
+        kick_steps: &configuration::KickSteps,
     ) -> Self {
         match (self, requested_walk_action) {
             (WalkState::Standing, WalkCommand::Stand) => WalkState::Standing,
@@ -38,14 +36,14 @@ impl WalkState {
             (WalkState::Stopping, WalkCommand::Walk(step)) => WalkState::Walking(step),
             (WalkState::Standing, WalkCommand::Kick(..)) => WalkState::Starting(Step::zero()),
             (WalkState::Starting(_), WalkCommand::Kick(kick_variant, kick_side)) => {
-                if kick_side == swing_side {
+                if kick_side == swing_side.opposite() {
                     WalkState::Kicking(kick_variant, kick_side, 0)
                 } else {
                     WalkState::Walking(Step::zero())
                 }
             }
             (WalkState::Walking(_), WalkCommand::Kick(kick_variant, kick_side)) => {
-                if kick_side == swing_side {
+                if kick_side == swing_side.opposite() {
                     WalkState::Kicking(kick_variant, kick_side, 0)
                 } else {
                     WalkState::Walking(Step::zero())
@@ -53,8 +51,8 @@ impl WalkState {
             }
             (WalkState::Kicking(kick_variant, kick_side, step_i), WalkCommand::Stand) => {
                 let num_steps = match kick_variant {
-                    KickVariant::Forward => &config.forward_kick_steps,
-                    KickVariant::Turn => &config.turn_kick_steps,
+                    KickVariant::Forward => &kick_steps.forward,
+                    KickVariant::Turn => &kick_steps.turn,
                 }
                 .len();
                 if step_i + 1 < num_steps {
@@ -65,8 +63,8 @@ impl WalkState {
             }
             (WalkState::Kicking(kick_variant, kick_side, step_i), WalkCommand::Walk(step)) => {
                 let num_steps = match kick_variant {
-                    KickVariant::Forward => &config.forward_kick_steps,
-                    KickVariant::Turn => &config.turn_kick_steps,
+                    KickVariant::Forward => &kick_steps.forward,
+                    KickVariant::Turn => &kick_steps.turn,
                 }
                 .len();
                 if step_i + 1 < num_steps {
@@ -80,20 +78,20 @@ impl WalkState {
                 WalkCommand::Kick(next_kick_variant, next_kick_side),
             ) => {
                 let num_steps = match current_kick_variant {
-                    KickVariant::Forward => &config.forward_kick_steps,
-                    KickVariant::Turn => &config.turn_kick_steps,
+                    KickVariant::Forward => &kick_steps.forward,
+                    KickVariant::Turn => &kick_steps.turn,
                 }
                 .len();
                 if step_i + 1 < num_steps {
                     WalkState::Kicking(current_kick_variant, current_kick_side, step_i + 1)
-                } else if next_kick_side == swing_side {
+                } else if next_kick_side == swing_side.opposite() {
                     WalkState::Kicking(next_kick_variant, next_kick_side, 0)
                 } else {
                     WalkState::Walking(Step::zero())
                 }
             }
             (WalkState::Stopping, WalkCommand::Kick(kick_variant, kick_side)) => {
-                if kick_side == swing_side {
+                if kick_side == swing_side.opposite() {
                     WalkState::Kicking(kick_variant, kick_side, 0)
                 } else {
                     WalkState::Walking(Step::zero())

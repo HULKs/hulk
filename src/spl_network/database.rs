@@ -1,4 +1,4 @@
-use macros::SerializeHierarchy;
+use serialize_hierarchy::SerializeHierarchy;
 use spl_network::{GameControllerStateMessage, SplMessage};
 
 #[derive(Clone, Debug, Default, SerializeHierarchy)]

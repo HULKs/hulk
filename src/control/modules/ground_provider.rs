@@ -1,7 +1,6 @@
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::{vector, Isometry3, Translation, Vector3};
-
-use crate::types::{RobotKinematics, SensorData, Side, SupportFoot};
+use types::{RobotKinematics, SensorData, Side, SupportFoot};
 
 pub struct GroundProvider {}
 

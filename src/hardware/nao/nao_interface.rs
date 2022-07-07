@@ -9,13 +9,11 @@ use alsa::{
 };
 use anyhow::Context;
 use parking_lot::Mutex;
+use types::{CameraPosition, CycleInfo, Image422, Joints, Leds, SensorData};
 
-use crate::{
-    hardware::{
-        interface::{AUDIO_SAMPLE_RATE, NUMBER_OF_AUDIO_CHANNELS, NUMBER_OF_AUDIO_SAMPLES},
-        HardwareIds, HardwareInterface,
-    },
-    types::{CameraPosition, CycleInfo, Image422, Joints, Leds, SensorData},
+use crate::hardware::{
+    interface::{AUDIO_SAMPLE_RATE, NUMBER_OF_AUDIO_CHANNELS, NUMBER_OF_AUDIO_SAMPLES},
+    HardwareIds, HardwareInterface,
 };
 
 use super::{hula_interface::HulaInterface, nao_camera::NaoCamera};

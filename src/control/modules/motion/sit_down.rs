@@ -1,8 +1,5 @@
-use macros::{module, require_some};
-
-use crate::types::{
-    Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
-};
+use module_derive::{module, require_some};
+use types::{Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType, SensorData};
 
 use super::motion_file::{MotionFile, MotionFileInterpolator};
 

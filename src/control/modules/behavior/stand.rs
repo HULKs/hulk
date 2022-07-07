@@ -1,4 +1,4 @@
-use crate::types::{MotionCommand, PrimaryState, WorldState};
+use types::{MotionCommand, PrimaryState, WorldState};
 
 use super::head::look_for_ball;
 

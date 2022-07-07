@@ -1,6 +1,5 @@
 use nalgebra::{point, Point2, UnitComplex};
-
-use crate::types::{direct_path, MotionCommand, OrientationMode, WorldState};
+use types::{direct_path, MotionCommand, OrientationMode, WorldState};
 
 use super::head::look_for_ball;
 

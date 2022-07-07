@@ -1,15 +1,14 @@
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 
 use anyhow::Result;
 use nalgebra::{Isometry2, Point2};
 
-use crate::{
-    control::filtering::greater_than_with_hysteresis,
-    types::{
-        BallPosition, BallState, FallState, Obstacle, PrimaryState, RobotState, Role, SensorData,
-        Side, WorldState,
-    },
+use types::{
+    BallPosition, BallState, FallState, FilteredGameState, Obstacle, PrimaryState, RobotState,
+    Role, SensorData, Side, WorldState,
 };
+
+use crate::control::filtering::greater_than_with_hysteresis;
 
 pub struct WorldStateComposer {
     last_ball_field_side: Side,
@@ -19,6 +18,7 @@ pub struct WorldStateComposer {
 #[input(path = sensor_data, data_type = SensorData)]
 #[input(path = ball_position, data_type = BallPosition)]
 #[input(path = fall_state, data_type = FallState)]
+#[input(path = filtered_game_state, data_type = FilteredGameState)]
 #[input(path = robot_to_field, data_type = Isometry2<f32>)]
 #[input(path = role, data_type = Role)]
 #[input(path = primary_state, data_type = PrimaryState)]
@@ -69,10 +69,12 @@ impl WorldStateComposer {
             fall_state,
             has_ground_contact,
         };
+
         let world_state = WorldState {
             ball,
-            robot,
+            filtered_game_state: *context.filtered_game_state,
             obstacles: obstacles.clone(),
+            robot,
         };
 
         Ok(MainOutputs {

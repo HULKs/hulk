@@ -5,8 +5,10 @@ After=dbus.socket lola.service
 
 [Service]
 ExecStart=/usr/bin/hula
+TimeoutStopSec=10
 StandardOutput=journal
-Type=simple
+Type=notify
+NotifyAccess=main
 User=nao
 Group=nao
 

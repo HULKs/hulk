@@ -11,6 +11,7 @@ use futures_util::future::join_all;
 use image::codecs::jpeg::JpegEncoder;
 use log::error;
 use serde::Serialize;
+use serialize_hierarchy::{HierarchyType, SerializeHierarchy};
 use tokio::{
     select, spawn,
     sync::{
@@ -19,16 +20,12 @@ use tokio::{
     },
     task::JoinHandle,
 };
+use types::{Rgb, YCbCr444};
 
 use crate::{
     audio, control,
-    framework::{
-        buffer::{Reader, Writer},
-        HierarchyType, SerializeHierarchy,
-    },
-    spl_network,
-    types::{Rgb, YCbCr444},
-    vision,
+    framework::buffer::{Reader, Writer},
+    spl_network, vision,
 };
 
 use super::{

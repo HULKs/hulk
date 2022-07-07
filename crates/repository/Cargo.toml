@@ -1,0 +1,13 @@
+[package]
+edition = "2021"
+license = "GPL-3.0-only"
+name = "repository"
+version = "0.1.0"
+
+[dependencies]
+anyhow = "1.0.58"
+serde = {features = ["derive"], version = "1.0.137"}
+serde_json = "1.0.81"
+spl_network = {path = "../spl_network"}
+tempfile = "3.3.0"
+tokio = {features = ["fs", "io-util", "process"], version = "1.19.2"}

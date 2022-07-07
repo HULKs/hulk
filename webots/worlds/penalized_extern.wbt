@@ -1,0 +1,34 @@
+#VRML_SIM R2022a utf8
+WorldInfo {
+  basicTimeStep 10
+  FPS 15
+  contactProperties [
+    ContactProperties {
+      coulombFriction [
+        0.45
+      ]
+    }
+  ]
+}
+Viewpoint {
+  orientation -0.1146074964102358 0.049240254105906205 0.9921897596438715 2.3356723147398393
+  position 3.0672084191091242 -6.3836334597540905 2.263724067879851
+}
+TexturedBackground {
+  texture "stadium"
+}
+TexturedBackgroundLight {
+  texture "stadium"
+}
+Field {
+}
+SPLBall {
+  translation -2.5 -1 0.05
+}
+NAO {
+  translation -3.2 -3 0.345
+  rotation 0 0 1 1.57079632679
+  name "webots2"
+  controller "<extern>"
+  supervisor TRUE
+}

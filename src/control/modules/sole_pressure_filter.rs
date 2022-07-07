@@ -1,9 +1,7 @@
-use macros::{module, require_some};
+use module_derive::{module, require_some};
+use types::{SensorData, SolePressure};
 
-use crate::{
-    control::filtering::LowPassFilter,
-    types::{SensorData, SolePressure},
-};
+use crate::control::filtering::LowPassFilter;
 
 pub struct SolePressureFilter {
     left_sole_pressure: LowPassFilter<f32>,

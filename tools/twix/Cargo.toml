@@ -1,0 +1,18 @@
+[package]
+name = "twix"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+
+[dependencies]
+eframe = { version = "0.18.0", features = ["persistence"] }
+communication = { path = "../../crates/communication/" }
+tokio = { version = "1.19.2", features = ["full"] }
+anyhow = "1.0.57"
+log = "0.4.17"
+fern = { version = "0.6.1", features = ["colored"] }
+serde_json = "1.0.81"
+serde = { version = "1.0.137", features = ["derive"] }
+nalgebra = { version = "0.31.0", features = ["serde", "serde-serialize"] }
+types = { path = "../../crates/types/" }
+fuzzy-matcher = "0.3.7"

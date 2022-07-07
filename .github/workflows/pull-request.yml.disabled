@@ -4,14 +4,16 @@ on:
     branches:
       - gh-readonly-queue/main/**
   pull_request:
+env:
+  PATH: /ci/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 jobs:
   build:
     name: Build
     strategy:
       fail-fast: true
       matrix:
-        target: [NAO, Webots]
-        build_type: [Release, Debug]
+        target: [nao, webots]
+        profile: [release, incremental, dev]
     runs-on:
       - self-hosted
       - v2
@@ -22,7 +24,7 @@ jobs:
       - name: Build
         run: |
           ln -s /opt/nao/ sdk/current
-          ./pepsi build --target ${{ matrix.target }} --build-type ${{ matrix.build_type }} --no-sdk-installation
+          ./pepsi build --target ${{ matrix.target }} --profile ${{ matrix.profile }} --no-sdk-installation
   build_behavior_simulator:
     name: Build (behavior_simulator)
     runs-on:
@@ -34,12 +36,12 @@ jobs:
           lfs: true
       - name: Build
         run: |
-          cargo build --features behavior_simulator --bin behavior_simulator --release
+          ./pepsi build --target behavior_simulator
   check:
     name: Check
     strategy:
       matrix:
-        path: [., macros, module_attributes, spl_network, tools/camera_matrix_extractor, tools/depp, tools/fanta, tools/hula, tools/pepsi, uvcvideo]
+        path: [., crates/communication, crates/module_attributes, crates/module_derive, crates/nao, crates/repository, crates/serialize_hierarchy, crates/serialize_hierarchy_derive, crates/spl_network, crates/types, crates/uvcvideo, tools/camera_matrix_extractor, tools/depp, tools/fanta, tools/hula, tools/pepsi, tools/twix]
     runs-on:
       - self-hosted
       - v2
@@ -68,7 +70,7 @@ jobs:
     name: Build
     strategy:
       matrix:
-        path: [tools/camera_matrix_extractor, tools/depp, tools/fanta, tools/hula, tools/pepsi]
+        path: [tools/camera_matrix_extractor, tools/depp, tools/fanta, tools/hula, tools/pepsi, tools/twix]
     runs-on:
       - self-hosted
       - v2

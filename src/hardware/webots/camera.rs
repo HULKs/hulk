@@ -7,9 +7,8 @@ use std::arch::x86_64::{
 
 use anyhow::Context;
 use parking_lot::{Condvar, Mutex};
+use types::{CameraPosition, Image422, YCbCr422};
 use webots::Robot;
-
-use crate::types::{CameraPosition, Image422, YCbCr422};
 
 use super::webots_interface::SIMULATION_TIME_STEP;
 

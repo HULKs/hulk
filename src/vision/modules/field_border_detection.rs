@@ -1,12 +1,12 @@
 use anyhow::Result;
 
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::{point, Point2, Vector2};
-
-use crate::{
-    types::{CameraMatrix, FieldBorder, ImageSegments, Intensity, Line, Line2, Segment},
-    Ransac,
+use types::{
+    CameraMatrix, CameraPosition, FieldBorder, ImageSegments, Intensity, Line, Line2, Segment,
 };
+
+use crate::Ransac;
 
 pub struct FieldBorderDetection;
 
@@ -29,6 +29,14 @@ impl FieldBorderDetection {
     fn cycle(&mut self, mut context: CycleContext) -> anyhow::Result<MainOutputs> {
         let image_segments = require_some!(context.image_segments);
         let camera_matrix = require_some!(context.camera_matrix);
+
+        if context.camera_position == CameraPosition::Bottom {
+            return Ok(MainOutputs {
+                field_border: Some(FieldBorder {
+                    border_lines: vec![],
+                }),
+            });
+        }
 
         let first_field_pixels: Vec<_> = image_segments
             .scan_grid
@@ -128,8 +136,7 @@ fn is_orthogonal(
 mod test {
     use approx::assert_relative_eq;
     use rand::{rngs::StdRng, Rng, SeedableRng};
-
-    use crate::types::{EdgeType, ScanLine, YCbCr444};
+    use types::{EdgeType, ScanLine, YCbCr444};
 
     use super::*;
 
@@ -145,10 +152,10 @@ mod test {
                 field_color: Intensity::Low,
             };
             if i == 0 {
-                segment.start_edge_type = EdgeType::Border;
+                segment.start_edge_type = EdgeType::ImageBorder;
             }
             if i == number_of_segments - 1 {
-                segment.end_edge_type = EdgeType::Border;
+                segment.end_edge_type = EdgeType::ImageBorder;
             }
             if i % 2 == 0 {
                 segment.start_edge_type = EdgeType::Falling;

@@ -1,9 +1,7 @@
 use std::f32::consts::PI;
 
 use nalgebra::{geometry::Isometry3, Rotation3, Translation3, Vector3};
-
-use crate::types::LegJoints;
-use crate::types::RobotDimensions;
+use types::{LegJoints, RobotDimensions};
 
 pub fn leg_angles(
     left_foot_to_torso: Isometry3<f32>,

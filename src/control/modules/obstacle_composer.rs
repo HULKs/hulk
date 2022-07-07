@@ -1,14 +1,14 @@
 use itertools::{chain, iproduct};
-use macros::module;
+use module_derive::module;
 use nalgebra::{point, Isometry2};
-
-use crate::types::{BallPosition, FieldDimensions, Obstacle};
+use types::{BallPosition, FieldDimensions, Obstacle, RobotPosition};
 
 pub struct ObstacleComposer;
 
 #[module(control)]
 #[parameter(path = field_dimensions, data_type = FieldDimensions)]
 #[input(path = ball_position, data_type = BallPosition)]
+#[input(path = robot_positions, data_type = Vec<RobotPosition>)]
 #[input(path = robot_to_field, data_type = Isometry2<f32>)]
 #[main_output(data_type = Vec<Obstacle>, name = obstacles)]
 impl ObstacleComposer {}
@@ -26,6 +26,17 @@ impl ObstacleComposer {
             Obstacle::ball(ball_position.position, field_dimensions.ball_radius)
         });
 
+        let robot_positions = context.robot_positions;
+        let robot_obstacles = match robot_positions {
+            Some(robot_positions) => robot_positions
+                .iter()
+                .map(|obstacle_position| {
+                    Obstacle::robot(obstacle_position.position, field_dimensions.ball_radius)
+                })
+                .collect::<Vec<_>>(),
+            None => vec![],
+        };
+
         let goal_post_obstacles = context
             .robot_to_field
             .map(|robot_to_field| {
@@ -42,7 +53,7 @@ impl ObstacleComposer {
             .into_iter()
             .flatten();
 
-        let obstacles = chain!(ball_obstacle, goal_post_obstacles).collect();
+        let obstacles = chain!(ball_obstacle, goal_post_obstacles, robot_obstacles).collect();
 
         Ok(MainOutputs {
             obstacles: Some(obstacles),

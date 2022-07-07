@@ -1,14 +1,11 @@
 use nalgebra::{point, Isometry3, Point2};
 
-use macros::{module, require_some};
-
-use crate::{
-    kinematics::head_to_neck,
-    kinematics::neck_to_robot,
-    types::{
-        CameraMatrices, HeadJoints, HeadMotion, Joints, MotionCommand, RobotKinematics, SensorData,
-    },
+use module_derive::{module, require_some};
+use types::{
+    CameraMatrices, HeadJoints, HeadMotion, Joints, MotionCommand, RobotKinematics, SensorData,
 };
+
+use crate::{kinematics::head_to_neck, kinematics::neck_to_robot};
 
 pub struct LookAt {}
 
@@ -66,8 +63,8 @@ impl LookAt {
         let request = look_at(
             sensor_data.positions,
             ground_to_zero_head,
-            camera_matrices.top.camera_to_head,
-            camera_matrices.bottom.camera_to_head,
+            camera_matrices.top.camera_to_head.inverse(),
+            camera_matrices.bottom.camera_to_head.inverse(),
             *target,
             *context.minimum_bottom_focus_pitch,
         );

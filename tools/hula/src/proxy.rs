@@ -20,7 +20,7 @@ use byteorder::{ByteOrder, NativeEndian};
 use epoll::{ControlOptions, Event, Events};
 use log::{debug, error, info, warn};
 use nix::sys::eventfd::{eventfd, EfdFlags};
-use rmp_serde::{encode::write_named, from_read_ref};
+use rmp_serde::{encode::write_named, from_slice};
 
 use crate::{
     lola::{
@@ -265,7 +265,7 @@ impl Proxy {
             .context("Failed to read from LoLA")?;
         let received_at = start.elapsed();
         let state_message: LoLAStateMessage =
-            from_read_ref(&lola_data).context("Failed to parse MessagePack from LoLA")?;
+            from_slice(lola_data).context("Failed to parse MessagePack from LoLA")?;
         if !connections.is_empty() {
             let state_storage = StateStorage::from(received_at, &state_message);
             let state_storage_buffer = unsafe {

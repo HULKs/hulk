@@ -5,16 +5,22 @@ use log::{error, info};
 use tokio::{net::TcpListener, select, spawn, sync::mpsc::Sender, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 
-use crate::framework::communication::connection::connection;
+use crate::framework::{communication::connection::connection, Configuration};
 
 use super::{database_subscription_manager, parameter_modificator};
 
 pub async fn acceptor(
+    initial_configuration: Configuration,
     database_subscription_manager_sender: Sender<database_subscription_manager::Request>,
     parameter_modificator_sender: Sender<parameter_modificator::Request>,
     keep_running: CancellationToken,
 ) -> JoinHandle<()> {
     spawn(async move {
+        if initial_configuration.disable_communication_acceptor {
+            keep_running.cancelled().await;
+            return;
+        }
+
         let mut wait_group = WaitGroup::new();
         select! {
             _ = async {

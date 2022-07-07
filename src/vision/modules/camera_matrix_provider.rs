@@ -1,6 +1,6 @@
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 
-use crate::types::{CameraMatrices, CameraMatrix, CameraPosition};
+use types::{CameraMatrices, CameraMatrix, CameraPosition};
 
 pub struct CameraMatrixProvider;
 

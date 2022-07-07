@@ -15,6 +15,6 @@ pub use behavior_cycler::BehaviorCycler;
 pub use cycler::Control;
 pub use database::{AdditionalOutputs, Database, MainOutputs, PersistentState};
 pub use modules::localization::generate_initial_pose;
-pub use path_planner::{PathObstacle, PathPlanner};
+pub use path_planner::PathPlanner;
 
 pub type Configuration = crate::framework::configuration::Control;

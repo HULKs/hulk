@@ -1,6 +1,5 @@
-use macros::module;
-
-use crate::types::FieldColor;
+use module_derive::module;
+use types::FieldColor;
 
 pub struct FieldColorDetection;
 
@@ -27,7 +26,7 @@ impl FieldColorDetection {
 
 #[cfg(test)]
 mod test {
-    use crate::types::{Intensity, YCbCr444};
+    use types::{Intensity, YCbCr444};
 
     use super::*;
 

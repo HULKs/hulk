@@ -1,6 +1,5 @@
-use macros::{module, require_some};
-
-use crate::types::{
+use module_derive::{module, require_some};
+use types::{
     BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand, MotionSelection,
     MotionType, SensorData,
 };

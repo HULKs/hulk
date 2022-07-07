@@ -1,14 +1,19 @@
 use nalgebra::{point, vector, Isometry2, Point2, UnitComplex, Vector2};
-
-use crate::{
-    framework::configuration::DribblePose,
-    types::{direct_path, FieldDimensions, HeadMotion, MotionCommand, OrientationMode, WorldState},
+use types::{
+    direct_path, rotate_towards, FieldDimensions, HeadMotion, MotionCommand, OrientationMode,
+    PathObstacle, WorldState,
 };
+
+use crate::framework::{configuration::DribblePose, AdditionalOutput};
+
+use super::walk_to_pose::{hybrid_alignment, WalkPathPlanner};
 
 pub fn execute(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     dribble_pose: &DribblePose,
+    walk_path_planner: &WalkPathPlanner,
+    path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
 ) -> Option<MotionCommand> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let relative_ball_position = world_state.ball?.position;
@@ -20,19 +25,51 @@ pub fn execute(
         dribble_pose,
     );
     let relative_dribble_pose = robot_to_field.inverse() * pose_behind_ball;
-    if relative_dribble_pose.translation.vector.y.abs() > 0.05
-        || relative_dribble_pose.translation.vector.x.abs() > 0.15
-        || relative_dribble_pose.rotation.angle().abs() > 0.05
+    if relative_dribble_pose.translation.vector.x.abs() > dribble_pose.target_reached_thresholds.x
+        || relative_dribble_pose.translation.vector.y.abs()
+            > dribble_pose.target_reached_thresholds.y
+        || relative_dribble_pose.rotation.angle().abs() > dribble_pose.target_reached_thresholds.z
     {
-        return None;
-    }
-    Some(MotionCommand::Walk {
-        head: HeadMotion::LookAt {
+        let robot_to_field = world_state.robot.robot_to_field?;
+        let absolute_ball_position = world_state
+            .ball
+            .map(|ball| robot_to_field * ball.position)
+            .unwrap_or_default();
+        let pose_behind_ball = get_dribble_pose(
+            field_dimensions,
+            absolute_ball_position,
+            robot_to_field,
+            dribble_pose,
+        );
+        let relative_dribble_pose = robot_to_field.inverse() * pose_behind_ball;
+        let head = HeadMotion::LookAt {
             target: relative_ball_position,
-        },
-        orientation_mode: OrientationMode::AlignWithPath,
-        path: direct_path(Point2::origin(), point![1.0, 0.0]),
-    })
+        };
+        let orientation_mode = hybrid_alignment(
+            relative_dribble_pose,
+            dribble_pose.hybrid_align_distance,
+            dribble_pose.distance_to_be_aligned,
+        );
+        let path = walk_path_planner.plan(
+            relative_dribble_pose * Point2::origin(),
+            robot_to_field,
+            path_obstacles_output,
+        );
+        let command = MotionCommand::Walk {
+            head,
+            orientation_mode,
+            path,
+        };
+        Some(command)
+    } else {
+        Some(MotionCommand::Walk {
+            head: HeadMotion::LookAt {
+                target: relative_ball_position,
+            },
+            orientation_mode: OrientationMode::AlignWithPath,
+            path: direct_path(Point2::origin(), point![1.0, 0.0]),
+        })
+    }
 }
 
 pub fn get_dribble_pose(
@@ -65,11 +102,6 @@ pub fn get_dribble_pose(
     };
     Isometry2::new(
         closest_position.coords,
-        face_towards(closest_position, opponent_goal).angle(),
+        rotate_towards(closest_position, opponent_goal).angle(),
     )
-}
-
-fn face_towards(origin: Point2<f32>, target: Point2<f32>) -> UnitComplex<f32> {
-    let origin_to_target = target - origin;
-    UnitComplex::rotation_between(&Vector2::x(), &origin_to_target)
 }

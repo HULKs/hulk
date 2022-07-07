@@ -1,10 +1,9 @@
 use std::f32::consts::PI;
 
 use anyhow::Result;
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::Isometry3;
-
-use crate::types::{
+use types::{
     HeadJoints, HeadJointsCommand, HeadMotion as HeadMotionCommand, MotionCommand, MotionSelection,
     SensorData,
 };

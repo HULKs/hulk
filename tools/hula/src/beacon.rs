@@ -4,8 +4,9 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use ipnetwork::IpNetwork;
 use log::debug;
-use pnet::{datalink, ipnetwork::IpNetwork};
+use pnet_datalink::interfaces;
 use serde::Serialize;
 
 use crate::{
@@ -51,7 +52,7 @@ pub fn send_beacon_on_all_interfaces(
     battery: Battery,
 ) -> Result<()> {
     debug!("Send beacon to all interfaces");
-    let active_interfaces = datalink::interfaces()
+    let active_interfaces = interfaces()
         .into_iter()
         .filter(|interface| interface.is_up() && interface.is_multicast());
 

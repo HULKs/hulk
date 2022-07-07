@@ -7,10 +7,10 @@ use anyhow::{bail, Context};
 use mlua::Lua;
 use nalgebra::{Point2, Vector2};
 use serde::Serialize;
-use spl_network::{GamePhase, GameState, Penalty, SplMessage};
+use spl_network::{GamePhase, GameState, Penalty, SplMessage, Team};
+use types::{FilteredGameState, GameControllerState, Players};
 
 use crate::control::Database;
-use crate::types::{GameControllerState, Players};
 
 use super::{
     configuration::{Action, Configuration as SimulationConfiguration},
@@ -21,8 +21,9 @@ use super::{
 pub struct State {
     pub configuration: SimulationConfiguration,
     pub now: SystemTime,
+    pub filtered_game_state: FilteredGameState,
     pub game_controller_state: GameControllerState,
-    pub game_state: GameState,
+    pub ball_is_free: bool,
     pub ball_position: Point2<f32>,
     pub ball_velocity: Vector2<f32>,
     pub broadcasted_spl_message_counter: usize,
@@ -36,9 +37,11 @@ impl TryFrom<SimulationConfiguration> for State {
         Ok(Self {
             configuration,
             now: UNIX_EPOCH,
+            filtered_game_state: FilteredGameState::Initial,
             game_controller_state: GameControllerState {
                 game_state: GameState::Initial,
                 game_phase: GamePhase::Normal,
+                kicking_team: Team::Hulks,
                 last_game_state_change: UNIX_EPOCH,
                 penalties: Players {
                     one: None,
@@ -47,8 +50,10 @@ impl TryFrom<SimulationConfiguration> for State {
                     four: None,
                     five: None,
                 },
+                remaining_amount_of_messages: 1200,
+                set_play: None,
             },
-            game_state: GameState::Initial,
+            ball_is_free: true,
             ball_position: Point2::origin(),
             ball_velocity: Vector2::zeros(),
             broadcasted_spl_message_counter: 0,
@@ -90,15 +95,42 @@ impl State {
 
             match rule.action {
                 Action::StopSimulation => return Ok(true),
+                Action::SetBallIsFree { ball_is_free } => {
+                    self.ball_is_free = ball_is_free;
+                }
                 Action::SetBallPosition { position } => {
                     self.ball_position = position;
                 }
                 Action::SetBallVelocity { velocity } => {
                     self.ball_velocity = velocity;
                 }
-                Action::SetGameState { game_state } => {
-                    self.game_controller_state.game_state = game_state;
-                    self.game_state = game_state;
+                Action::SetFilteredGameState {
+                    filtered_game_state,
+                } => {
+                    self.filtered_game_state = filtered_game_state;
+                    match self.filtered_game_state {
+                        FilteredGameState::Initial => {
+                            self.game_controller_state.game_state = GameState::Initial
+                        }
+                        FilteredGameState::Ready { kicking_team } => {
+                            self.game_controller_state.kicking_team = kicking_team;
+                            self.game_controller_state.game_state = GameState::Ready;
+                            match kicking_team {
+                                Team::Hulks => self.ball_is_free = true,
+                                _ => self.ball_is_free = false,
+                            }
+                        }
+                        FilteredGameState::Set => {
+                            self.game_controller_state.game_state = GameState::Set
+                        }
+                        FilteredGameState::Playing { ball_is_free } => {
+                            self.game_controller_state.game_state = GameState::Playing;
+                            self.ball_is_free = ball_is_free;
+                        }
+                        FilteredGameState::Finished => {
+                            self.game_controller_state.game_state = GameState::Finished;
+                        }
+                    }
                 }
                 Action::SetPenalized {
                     robot_index,
@@ -130,6 +162,9 @@ impl State {
                     }
                     None => bail!("Robot index {} out of range", robot_index),
                 },
+                Action::SetSetPlay { set_play } => {
+                    self.game_controller_state.set_play = set_play;
+                }
             }
         }
 
@@ -163,6 +198,8 @@ impl State {
 
         self.broadcasted_spl_messages = new_broadcasted_spl_messages;
         self.broadcasted_spl_message_counter += self.broadcasted_spl_messages.len();
+        self.game_controller_state.remaining_amount_of_messages -=
+            self.broadcasted_spl_messages.len() as u16;
 
         if new_ball_velocity != Vector2::zeros() {
             self.ball_velocity = new_ball_velocity;

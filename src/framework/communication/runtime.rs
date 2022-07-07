@@ -152,11 +152,12 @@ impl Communication {
                     .await;
                     let parameter_modificator_task = parameter_modificator(
                         parameter_modificator_receiver,
-                        self.initial_configuration,
+                        self.initial_configuration.clone(),
                         channels_for_parameters,
                     )
                     .await;
                     let acceptor_task = acceptor(
+                        self.initial_configuration,
                         database_subscription_manager_sender,
                         parameter_modificator_sender,
                         keep_running.clone(),

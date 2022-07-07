@@ -7,6 +7,7 @@ use tokio::sync::{
     Notify,
 };
 use tokio_util::sync::CancellationToken;
+use types::CameraPosition;
 
 use crate::{
     audio::Audio,
@@ -18,7 +19,6 @@ use crate::{
     },
     hardware::HardwareInterface,
     spl_network::SplNetwork,
-    types::CameraPosition,
     vision::Vision,
 };
 

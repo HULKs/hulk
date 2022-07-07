@@ -7,8 +7,7 @@ use std::{
 };
 
 use nalgebra::{vector, Vector2, Vector3};
-
-use crate::types::{self, ArmJoints, HeadJoints, Joints, LegJoints};
+use types::{self, ArmJoints, HeadJoints, Joints, LegJoints};
 
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(C)]

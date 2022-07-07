@@ -1,8 +1,7 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use macros::{module, require_some};
-
-use crate::types::{HeadJoints, SensorData, Side};
+use module_derive::{module, require_some};
+use types::{HeadJoints, SensorData, Side};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Mode {

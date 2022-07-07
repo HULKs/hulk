@@ -13,5 +13,5 @@ mod stand_up;
 mod support_striker;
 mod unstiff;
 mod walk_backwards;
-mod walk_behind_ball;
+mod walk_to_kick_off;
 mod walk_to_pose;

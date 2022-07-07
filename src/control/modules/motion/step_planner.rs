@@ -1,9 +1,6 @@
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::{Isometry2, UnitComplex};
-
-use crate::types::{
-    MotionCommand, OrientationMode, PathSegment, SensorData, Side, Step, SupportFoot,
-};
+use types::{MotionCommand, OrientationMode, PathSegment, SensorData, Side, Step, SupportFoot};
 
 pub struct StepPlanner;
 
@@ -30,11 +27,6 @@ impl StepPlanner {
         let motion_command = require_some!(context.motion_command);
         let support_side = require_some!(require_some!(context.support_foot).support_side);
 
-        if let Some(step) = context.injected_step {
-            return Ok(MainOutputs {
-                step_plan: Some(*step),
-            });
-        }
         let (path, orientation_mode) = match motion_command {
             MotionCommand::Walk {
                 path,
@@ -87,7 +79,7 @@ impl StepPlanner {
             }
         };
 
-        let step = Step {
+        let mut step = Step {
             forward: target_pose.translation.x,
             left: target_pose.translation.y,
             turn: match orientation_mode {
@@ -96,6 +88,10 @@ impl StepPlanner {
             }
             .angle(),
         };
+
+        if let Some(injected_step) = context.injected_step {
+            step = *injected_step;
+        }
 
         let step = compensate_with_return_offset(step, *context.walk_return_offset);
 

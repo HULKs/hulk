@@ -26,6 +26,7 @@ import MotionDispatching from "./panels/MotionDispatching";
 import Odometry from "./panels/Odometry";
 import ProjectedLimbs from "./panels/ProjectedLimbs";
 import LineFitting from "./panels/LineFitting";
+import RobotDetection from "./panels/RobotDetection";
 
 export default function Application() {
   const [
@@ -217,6 +218,16 @@ export default function Application() {
   if (selectedPanel.panelType === PanelType.ProjectedLimbs) {
     return (
       <ProjectedLimbs
+        selector={selector}
+        connector={connector}
+        connection={connection}
+        cycler={selectedPanel.cycler}
+      />
+    );
+  }
+  if (selectedPanel.panelType === PanelType.RobotDetection) {
+    return (
+      <RobotDetection
         selector={selector}
         connector={connector}
         connection={connection}

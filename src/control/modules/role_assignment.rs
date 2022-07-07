@@ -3,24 +3,21 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use log::debug;
-use macros::{module, require_some};
-
 use anyhow::Result;
+use log::debug;
+use module_derive::{module, require_some};
 use nalgebra::Isometry2;
 use spl_network::{GameControllerReturnMessage, Penalty, PlayerNumber, SplMessage};
 use tokio::sync::{
     mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
     Mutex,
 };
-
-use crate::{
-    framework::configuration::SplNetwork,
-    types::{
-        BallPosition, FallState, FieldDimensions, GameControllerState, MessageReceivers, Players,
-        PrimaryState, Role, SensorData,
-    },
+use types::{
+    BallPosition, FallState, FieldDimensions, GameControllerState, Players, PrimaryState, Role,
+    SensorData,
 };
+
+use crate::{framework::configuration::SplNetwork, spl_network::MessageReceivers};
 
 pub struct RoleAssignment {
     game_controller_return_message_receiver:
@@ -79,10 +76,13 @@ impl RoleAssignment {
         let ball = context.ball_position;
         let fall_state = require_some!(context.fall_state);
         let robot_to_field = context.robot_to_field.unwrap_or_default();
-        let primary_state = require_some!(context.primary_state);
+        let primary_state = *require_some!(context.primary_state);
         let mut role = self.role;
 
-        if !self.role_initialized || *primary_state == PrimaryState::Ready {
+        if !self.role_initialized
+            || primary_state == PrimaryState::Ready
+            || primary_state == PrimaryState::Set
+        {
             role = match context.player_number {
                 PlayerNumber::One => Role::Keeper,
                 PlayerNumber::Two => Role::DefenderRight,
@@ -188,27 +188,38 @@ impl RoleAssignment {
             }
         }
 
-        if send_spl_striker_message && primary_state == &PrimaryState::Playing {
+        if send_spl_striker_message && primary_state == PrimaryState::Playing {
             self.last_transmitted_spl_striker_message = Some(cycle_start_time);
             self.last_received_spl_striker_message = Some(cycle_start_time);
-            if ball.is_none() && team_ball.is_some() {
-                self.spl_message_sender.send(SplMessage {
-                    player_number: *context.player_number,
-                    fallen: matches!(fall_state, FallState::Fallen { .. }),
-                    robot_to_field,
-                    ball_position: team_ball_to_network_ball_position(
-                        &team_ball,
-                        &robot_to_field,
-                        cycle_start_time,
-                    ),
-                })?;
-            } else {
-                self.spl_message_sender.send(SplMessage {
-                    player_number: *context.player_number,
-                    fallen: matches!(fall_state, FallState::Fallen { .. }),
-                    robot_to_field,
-                    ball_position: seen_ball_to_network_ball_position(ball, cycle_start_time),
-                })?;
+            if let Some(game_controller_state) = *context.game_controller_state {
+                if game_controller_state.remaining_amount_of_messages
+                    > context
+                        .spl_network
+                        .remaining_amount_of_messages_to_stop_sending
+                {
+                    if ball.is_none() && team_ball.is_some() {
+                        self.spl_message_sender.send(SplMessage {
+                            player_number: *context.player_number,
+                            fallen: matches!(fall_state, FallState::Fallen { .. }),
+                            robot_to_field,
+                            ball_position: team_ball_to_network_ball_position(
+                                &team_ball,
+                                &robot_to_field,
+                                cycle_start_time,
+                            ),
+                        })?;
+                    } else {
+                        self.spl_message_sender.send(SplMessage {
+                            player_number: *context.player_number,
+                            fallen: matches!(fall_state, FallState::Fallen { .. }),
+                            robot_to_field,
+                            ball_position: seen_ball_to_network_ball_position(
+                                ball,
+                                cycle_start_time,
+                            ),
+                        })?;
+                    }
+                }
             }
         }
 
@@ -237,7 +248,7 @@ fn process_role_state_machine(
     current_role: Role,
     current_pose: &Isometry2<f32>,
     detected_own_ball: &Option<BallPosition>,
-    primary_state: &PrimaryState,
+    primary_state: PrimaryState,
     incoming_message: Option<&SplMessage>,
     send_spl_striker_message: bool,
     team_ball: Option<BallPosition>,
@@ -246,7 +257,7 @@ fn process_role_state_machine(
     player_number: PlayerNumber,
     striker_trusts_team_ball: Duration,
 ) -> (Role, bool, Option<BallPosition>) {
-    if primary_state != &PrimaryState::Playing {
+    if primary_state != PrimaryState::Playing {
         match detected_own_ball {
             None => return (current_role, false, team_ball),
             Some(..) => {

@@ -30,24 +30,24 @@
     {
       "event": "frame_index == 5",
       "action": {
-        "SetGameState": {
-          "game_state": "Ready"
+        "SetFilteredGameState": {
+          "filtered_game_state": { "Ready": { "kicking_team": "Hulks" } }
         }
       }
     },
     {
       "event": "frame_index == 100",
       "action": {
-        "SetGameState": {
-          "game_state": "Set"
+        "SetFilteredGameState": {
+          "filtered_game_state": "Set"
         }
       }
     },
     {
       "event": "frame_index == 105",
       "action": {
-        "SetGameState": {
-          "game_state": "Playing"
+        "SetFilteredGameState": {
+          "filtered_game_state": { "Playing": { "ball_is_free": true } }
         }
       }
     },
@@ -63,8 +63,16 @@
     {
       "event": "frame_index == 285",
       "action": {
-        "SetGameState": {
-          "game_state": "Ready"
+        "SetFilteredGameState": {
+          "filtered_game_state": { "Ready": { "kicking_team": "Uncertain" } }
+        }
+      }
+    },
+    {
+      "event": "frame_index == 300",
+      "action": {
+        "SetFilteredGameState": {
+          "filtered_game_state": { "Ready": { "kicking_team": "Opponent" } }
         }
       }
     }

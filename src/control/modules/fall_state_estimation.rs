@@ -1,9 +1,8 @@
 use std::time::{Duration, SystemTime};
 
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::{Vector2, Vector3};
-
-use crate::types::{Facing, FallDirection, FallState, SensorData};
+use types::{Facing, FallDirection, FallState, SensorData};
 
 pub struct FallStateEstimation {
     fallen_time: SystemTime,

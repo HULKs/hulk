@@ -5,6 +5,7 @@ use std::{
 
 use log::error;
 use serde_json::Value;
+use serialize_hierarchy::{HierarchyType, SerializeHierarchy};
 use tokio::{
     spawn,
     sync::{
@@ -14,7 +15,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::framework::{Configuration, HierarchyType, SerializeHierarchy};
+use crate::framework::Configuration;
 
 use super::{
     receiver::respond_or_log_error,

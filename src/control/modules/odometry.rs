@@ -1,8 +1,7 @@
 use anyhow::Result;
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::{Isometry2, Translation2, UnitComplex, Vector2};
-
-use crate::types::{RobotKinematics, Side, SupportFoot};
+use types::{RobotKinematics, Side, SupportFoot};
 
 pub struct Odometry {
     last_orientation: UnitComplex<f32>,

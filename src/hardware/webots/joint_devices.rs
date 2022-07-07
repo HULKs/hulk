@@ -1,6 +1,5 @@
+use types::{ArmJoints, HeadJoints, Joints, LegJoints};
 use webots::{Motor, PositionSensor, Robot};
-
-use crate::types::{ArmJoints, HeadJoints, Joints, LegJoints};
 
 use super::webots_interface::SIMULATION_TIME_STEP;
 

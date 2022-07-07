@@ -1,6 +1,5 @@
 use std::time::Duration;
-
-use crate::types::{JointOverride, KickStep, LegJoints};
+use types::{JointOverride, KickStep, LegJoints};
 
 pub fn apply_joint_overrides(kick_step: &KickStep, swing_leg: &mut LegJoints, t: Duration) {
     if let Some(overrides) = &kick_step.hip_pitch_overrides {

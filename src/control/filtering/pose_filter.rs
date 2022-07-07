@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
-use macros::SerializeHierarchy;
 use nalgebra::{
     vector, Complex, ComplexField, Isometry2, Matrix2, Matrix3, Matrix3x2, UnitComplex, Vector2,
     Vector3,
 };
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct ScoredPoseFilter {

@@ -1,6 +1,5 @@
 use nalgebra::{Isometry3, Vector3};
-
-use crate::types::{RobotDimensions, Side};
+use types::{RobotDimensions, Side};
 
 use super::foot_offsets::FootOffsets;
 

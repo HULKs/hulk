@@ -1,9 +1,8 @@
 use std::{collections::VecDeque, time::SystemTime};
 
 use anyhow::Result;
-use macros::{module, require_some};
-
-use crate::types::{FilteredWhistle, SensorData, Whistle};
+use module_derive::{module, require_some};
+use types::{FilteredWhistle, SensorData, Whistle};
 
 pub struct WhistleFilter {
     pub detection_buffer: VecDeque<bool>,

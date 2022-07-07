@@ -2,14 +2,11 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use clap::Parser;
-use tokio::sync::mpsc;
+use communication::{Communication, CyclerOutput, SubscriberMessage};
+use log::{error, info};
 
-use crate::{
-    communication::{Connection, CyclerOutput},
-    logging::setup_logger,
-};
+use crate::logging::setup_logger;
 
-mod communication;
 mod logging;
 
 #[derive(Parser, Debug)]
@@ -26,13 +23,17 @@ async fn main() -> Result<()> {
 
     let arguments = CommandlineArguments::parse();
     let output_to_subscribe = CyclerOutput::from_str(&arguments.path)?;
-    let connection = Connection::connect(&format!("ws://{}:1337", arguments.address)).await?;
-    let (output_sender, mut output_receiver) = mpsc::channel(1);
-    connection
-        .subscribe(output_to_subscribe, output_sender)
-        .await?;
-    while let Some(output) = output_receiver.recv().await {
-        println!("{output:#}")
+    let communication = Communication::new(Some(format!("ws://{}:1337", arguments.address)), true);
+    let (_uuid, mut receiver) = communication.subscribe_output(output_to_subscribe).await;
+    while let Some(message) = receiver.recv().await {
+        match message {
+            SubscriberMessage::Update { value } => println!("{value:#}"),
+            SubscriberMessage::SubscriptionSuccess => info!("Successfully subscribed"),
+            SubscriberMessage::SubscriptionFailure { info } => {
+                error!("Failed to subscribe: {info:?}");
+                break;
+            }
+        }
     }
     Ok(())
 }

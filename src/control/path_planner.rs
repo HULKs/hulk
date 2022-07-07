@@ -1,12 +1,10 @@
-use std::collections::HashSet;
-
 use super::{a_star_search, DynamicMap};
-use macros::SerializeHierarchy;
 use nalgebra::{point, Isometry2, Point2};
-use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::types::{Arc, Circle, LineSegment, Obstacle, Orientation, PathSegment};
+use types::{
+    Arc, LineSegment, Obstacle, Orientation, PathObstacle, PathObstacleShape, PathSegment,
+};
 
 #[derive(Debug, Clone)]
 pub struct PathNode {
@@ -23,59 +21,6 @@ impl From<Point2<f32>> for PathNode {
             obstacle: None,
             pair_node: None,
             allow_local_exits: false,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-pub enum PathObstacleShape {
-    Circle(Circle),
-    LineSegment(LineSegment),
-}
-
-impl PathObstacleShape {
-    fn intersects_line_segment(&self, line_segment: LineSegment) -> bool {
-        match self {
-            PathObstacleShape::Circle(circle) => circle.intersects_line_segment(&line_segment),
-            PathObstacleShape::LineSegment(obstacle_line_segment) => {
-                obstacle_line_segment.intersects_line_segment(line_segment)
-            }
-        }
-    }
-
-    fn overlaps_arc(&self, arc: Arc, orientation: Orientation) -> bool {
-        match self {
-            PathObstacleShape::Circle(circle) => circle.overlaps_arc(arc, orientation),
-            PathObstacleShape::LineSegment(line_segment) => {
-                line_segment.overlaps_arc(arc, orientation)
-            }
-        }
-    }
-
-    fn as_circle(&self) -> Option<&Circle> {
-        if let PathObstacleShape::Circle(circle) = self {
-            Some(circle)
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
-pub struct PathObstacle {
-    #[leaf]
-    pub shape: PathObstacleShape,
-    pub nodes: Vec<usize>,
-    #[leaf]
-    populated_connections: HashSet<usize>,
-}
-
-impl From<PathObstacleShape> for PathObstacle {
-    fn from(shape: PathObstacleShape) -> Self {
-        Self {
-            shape,
-            nodes: vec![],
-            populated_connections: HashSet::new(),
         }
     }
 }
@@ -415,7 +360,7 @@ mod tests {
     use nalgebra::point;
 
     use super::*;
-    use crate::types::Circle;
+    use types::Circle;
 
     fn run_test_scenario(
         mut map: PathPlanner,

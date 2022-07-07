@@ -1,12 +1,9 @@
 use anyhow::Result;
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::UnitComplex;
+use types::{SensorData, SolePressure, SupportFoot};
 
-use crate::{
-    control::filtering,
-    framework::configuration,
-    types::{SensorData, SolePressure, SupportFoot},
-};
+use crate::{control::filtering, framework::configuration};
 
 pub struct OrientationFilter {
     orientation_filter: filtering::OrientationFilter,

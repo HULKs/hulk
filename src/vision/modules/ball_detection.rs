@@ -1,13 +1,11 @@
 use compiled_nn::CompiledNN;
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::{point, vector};
-
-use crate::{
-    framework::configuration::BallDetection as BallDetectionConfiguration,
-    types::{
-        Ball, CameraMatrix, CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
-    },
+use types::{
+    Ball, CameraMatrix, CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
 };
+
+use crate::framework::configuration::BallDetection as BallDetectionConfiguration;
 
 pub const SAMPLE_SIZE: usize = 32;
 pub type Sample = [[f32; SAMPLE_SIZE]; SAMPLE_SIZE];
@@ -331,11 +329,9 @@ mod tests {
     use anyhow::anyhow;
     use approx::assert_relative_eq;
     use nalgebra::{Isometry3, Translation, UnitQuaternion};
+    use types::CameraPosition;
 
-    use crate::{
-        framework::AdditionalOutput,
-        types::{CameraPosition, Image422},
-    };
+    use crate::framework::AdditionalOutput;
 
     use super::*;
 

@@ -1,7 +1,6 @@
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use spl_network::PlayerNumber;
-
-use crate::types::{Buttons, FilteredGameState, GameControllerState, PrimaryState};
+use types::{Buttons, FilteredGameState, GameControllerState, PrimaryState};
 
 pub struct PrimaryStateFilter {
     last_primary_state: PrimaryState,
@@ -35,7 +34,7 @@ impl PrimaryStateFilter {
 
         self.last_primary_state = match (
             self.last_primary_state,
-            buttons.are_all_head_elements_touched,
+            buttons.head_buttons_touched,
             buttons.is_chest_button_pressed,
             context.filtered_game_state,
             has_ground_contact,

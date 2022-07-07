@@ -1,9 +1,7 @@
 use anyhow::Context;
+use types::{CameraPosition, CycleInfo};
 
-use crate::{
-    hardware::HardwareInterface,
-    types::{CameraPosition, CycleInfo},
-};
+use crate::hardware::HardwareInterface;
 
 pub fn receive_image<Hardware>(
     hardware_interface: &Hardware,

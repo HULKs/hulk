@@ -9,6 +9,7 @@ use anyhow::{bail, Context};
 use i2cdev::{core::I2CDevice, linux::LinuxI2CDevice};
 use log::{debug, info, warn};
 use parking_lot::Mutex;
+use types::{CameraPosition, Image422};
 use v4l::{
     buffer::Type,
     device::{OpenFlags, WaitError},
@@ -20,14 +21,9 @@ use v4l::{
     Device, Format, FourCC, Fraction,
 };
 
-use crate::{
-    hardware::nao::{
-        registers::write_register,
-        v4l2::{
-            apply_v4l2_settings, ExposureMode, FocusMode, HueMode, V4L2Controls, WhiteBalanceMode,
-        },
-    },
-    types::{CameraPosition, Image422},
+use crate::hardware::nao::{
+    registers::write_register,
+    v4l2::{apply_v4l2_settings, ExposureMode, FocusMode, HueMode, V4L2Controls, WhiteBalanceMode},
 };
 
 pub const UVC_EXTENSION_UNIT: u8 = 0x03;

@@ -6,6 +6,7 @@ use std::{
 use anyhow::Context;
 use log::error;
 use tokio_util::sync::CancellationToken;
+use types::CameraPosition;
 
 use crate::{
     control,
@@ -15,7 +16,6 @@ use crate::{
         util::collect_changed_parameters,
     },
     hardware::HardwareInterface,
-    types::CameraPosition,
     CommunicationChannelsForCyclerWithImage,
 };
 
@@ -39,7 +39,6 @@ where
     vision_writer: Writer<Database>,
     vision_producer: Producer<MainOutputs>,
     communication_channels: CommunicationChannelsForCyclerWithImage,
-
     modules: VisionModules,
 }
 

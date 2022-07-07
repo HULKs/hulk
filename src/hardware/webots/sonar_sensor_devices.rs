@@ -1,6 +1,5 @@
+use types::SonarSensors;
 use webots::{DistanceSensor, Robot};
-
-use crate::types::SonarSensors;
 
 use super::webots_interface::SIMULATION_TIME_STEP;
 

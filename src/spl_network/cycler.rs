@@ -9,6 +9,7 @@ use log::error;
 use spl_network::HULKS_TEAM_NUMBER;
 use tokio::{net::UdpSocket, runtime, sync::Notify};
 use tokio_util::sync::CancellationToken;
+use types::MessageEvent;
 
 use crate::{
     control,
@@ -17,7 +18,6 @@ use crate::{
         future_queue::Producer,
     },
     hardware::HardwareInterface,
-    types::MessageEvent,
     CommunicationChannelsForCycler,
 };
 

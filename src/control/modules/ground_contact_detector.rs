@@ -1,11 +1,9 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use macros::{module, require_some};
+use module_derive::{module, require_some};
+use types::{SensorData, SolePressure};
 
-use crate::{
-    control::filtering::greater_than_with_hysteresis,
-    types::{SensorData, SolePressure},
-};
+use crate::control::filtering::greater_than_with_hysteresis;
 
 pub struct GroundContactDetector {
     last_has_pressure: bool,

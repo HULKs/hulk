@@ -1,13 +1,11 @@
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::{point, vector, Isometry3, UnitQuaternion, Vector3};
-
-use crate::{
-    framework::configuration::CameraMatrixParameters,
-    types::{
-        CameraMatrices, CameraMatrix, CameraPosition, FieldDimensions, Line, Line2,
-        ProjectedFieldLines, RobotDimensions, RobotKinematics,
-    },
+use types::{
+    CameraMatrices, CameraMatrix, CameraPosition, FieldDimensions, Line, Line2,
+    ProjectedFieldLines, RobotDimensions, RobotKinematics,
 };
+
+use crate::framework::configuration::CameraMatrixParameters;
 
 pub struct CameraMatrixProvider;
 

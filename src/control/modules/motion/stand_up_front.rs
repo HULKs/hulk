@@ -1,12 +1,10 @@
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::Vector2;
-
-use crate::{
-    control::filtering::LowPassFilter,
-    types::{
-        Facing, Joints, MotionCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
-    },
+use types::{
+    Facing, Joints, MotionCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
+
+use crate::control::filtering::LowPassFilter;
 
 use super::motion_file::{MotionFile, MotionFileInterpolator};
 

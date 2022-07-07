@@ -1,7 +1,6 @@
 use anyhow::Context;
+use types::{Foot, ForceSensitiveResistors};
 use webots::{Robot, TouchSensor};
-
-use crate::types::{Foot, ForceSensitiveResistors};
 
 use super::webots_interface::SIMULATION_TIME_STEP;
 

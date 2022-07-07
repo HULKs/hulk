@@ -1,9 +1,8 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
-use macros::{module, require_some};
-
-use crate::types::{Ball, Eye, Leds, PrimaryState, Rgb, SensorData};
+use module_derive::{module, require_some};
+use types::{Ball, Eye, Leds, PrimaryState, Rgb, SensorData};
 
 pub struct LedStatus {
     blink_state: bool,

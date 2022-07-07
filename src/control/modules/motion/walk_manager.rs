@@ -1,6 +1,5 @@
-use macros::{module, require_some};
-
-use crate::types::{MotionCommand, MotionSelection, MotionType, Step, WalkCommand};
+use module_derive::{module, require_some};
+use types::{MotionCommand, MotionSelection, MotionType, Step, WalkCommand};
 
 pub struct WalkManager;
 

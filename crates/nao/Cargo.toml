@@ -1,0 +1,9 @@
+[package]
+edition = "2021"
+license = "GPL-3.0-only"
+name = "nao"
+version = "0.1.0"
+
+[dependencies]
+anyhow = "1.0.58"
+tokio = {features = ["process"], version = "1.19.2"}

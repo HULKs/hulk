@@ -1,8 +1,7 @@
 use anyhow::Context;
 use nalgebra::vector;
+use types::InertialMeasurementUnitData;
 use webots::{Accelerometer, Gyro, InertialUnit, Robot};
-
-use crate::types::InertialMeasurementUnitData;
 
 use super::webots_interface::SIMULATION_TIME_STEP;
 

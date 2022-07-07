@@ -1,0 +1,14 @@
+[package]
+name = "serialize_hierarchy_derive"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+
+[dependencies]
+proc-macro2 = "1.0.34"
+proc-macro-error = "1.0.4"
+quote = "1.0.10"
+syn = {version = "1.0.91", features = ["full"]}
+
+[lib]
+proc-macro = true

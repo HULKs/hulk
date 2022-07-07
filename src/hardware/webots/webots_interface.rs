@@ -10,14 +10,12 @@ use std::{
 use anyhow::{bail, Context};
 use parking_lot::Mutex;
 use tokio_util::sync::CancellationToken;
+use types::{CameraPosition, CycleInfo, Image422, Joints, Leds, SensorData};
 use webots::Robot;
 
-use crate::{
-    hardware::{
-        interface::{HardwareIds, NUMBER_OF_AUDIO_CHANNELS, NUMBER_OF_AUDIO_SAMPLES},
-        HardwareInterface,
-    },
-    types::{CameraPosition, CycleInfo, Image422, Joints, Leds, SensorData},
+use crate::hardware::{
+    interface::{HardwareIds, NUMBER_OF_AUDIO_CHANNELS, NUMBER_OF_AUDIO_SAMPLES},
+    HardwareInterface,
 };
 
 use super::{

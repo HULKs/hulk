@@ -1,15 +1,13 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use macros::{module, require_some};
-
-use crate::{
-    control::linear_interpolator::LinearInterpolator,
-    types::{
-        BodyJointsCommand, HeadJoints, Joints, JointsCommand, MotionSafeExits, MotionSelection,
-        MotionType, SensorData,
-    },
+use module_derive::{module, require_some};
+use types::{
+    BodyJointsCommand, HeadJoints, Joints, JointsCommand, MotionSafeExits, MotionSelection,
+    MotionType, SensorData,
 };
+
+use crate::control::linear_interpolator::LinearInterpolator;
 
 pub struct DispatchingInterpolator {
     interpolator: LinearInterpolator<Joints>,

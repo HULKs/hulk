@@ -1,9 +1,11 @@
 use std::io::stdout;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use anyhow::{bail, Context, Result};
 use clap::{App, Arg};
 use log::{debug, error};
+use systemd::daemon::{notify, STATE_READY};
 use termination::TerminationRequest;
 
 use crate::aliveness::Aliveness;
@@ -43,7 +45,7 @@ fn main() -> Result<()> {
         .about("Forwards messages between LoLA and other applications, exports metrics over DBus")
         .arg(
             Arg::with_name("verbose")
-                .short("v")
+                .short('v')
                 .long("verbose")
                 .help("Log with DEBUG log level"),
         );
@@ -69,27 +71,37 @@ fn main() -> Result<()> {
         battery.clone(),
     )
     .context("Failed to start proxy")?;
-    let aliveness =
-        match Aliveness::start(termination_request.clone(), robot_configuration, battery) {
-            Ok(aliveness) => aliveness,
-            Err(error) => {
-                termination_request.terminate();
-                if let Err(error) = proxy.join() {
-                    error!("Failed to join proxy: {:?}", error);
+    let disable_aliveness = Path::new("/home/nao/disable_aliveness").exists();
+    let aliveness = match disable_aliveness {
+        true => None,
+        false => Some(
+            match Aliveness::start(termination_request.clone(), robot_configuration, battery) {
+                Ok(aliveness) => aliveness,
+                Err(error) => {
+                    termination_request.terminate();
+                    if let Err(error) = proxy.join() {
+                        error!("Failed to join proxy: {:?}", error);
+                    }
+                    bail!("Failed to start aliveness: {:?}", error);
                 }
-                bail!("Failed to start aliveness: {:?}", error);
-            }
-        };
+            },
+        ),
+    };
+
+    notify(false, [(STATE_READY, "1")].iter())
+        .context("Failed to contact SystemD for ready notification")?;
 
     debug!("Waiting for termination request...");
     termination_request.wait();
     debug!("Got termination request, initiating shutdown...");
 
     let proxy_stop_result = proxy.join();
-    let dbus_stop_result = aliveness.join();
+    let aliveness_stop_result = aliveness.map(|aliveness| aliveness.join());
 
     proxy_stop_result?;
-    dbus_stop_result?;
+    if let Some(aliveness_stop_result) = aliveness_stop_result {
+        aliveness_stop_result?;
+    }
 
     Ok(())
 }

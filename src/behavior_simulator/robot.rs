@@ -6,15 +6,15 @@ use std::{
 use anyhow::{anyhow, Context};
 use nalgebra::{distance, Isometry2, Point2, Rotation2, UnitComplex, Vector, Vector2};
 use serde::Serialize;
-use spl_network::{GameState, SplMessage};
+use spl_network::SplMessage;
+use types::{
+    BallPosition, CycleInfo, FallState, FilteredGameState, GameControllerState, HeadMotion,
+    MotionCommand, OrientationMode, PathSegment, PrimaryState, SensorData,
+};
 
 use crate::{
     control::{generate_initial_pose, BehaviorCycler, Database},
     framework::Configuration,
-    types::{
-        BallPosition, CycleInfo, FallState, GameControllerState, HeadMotion, MotionCommand,
-        OrientationMode, PathSegment, PrimaryState, SensorData,
-    },
 };
 
 use super::state::State;
@@ -79,6 +79,7 @@ impl Robot {
             primary_state,
             game_controller_state,
             has_ground_contact,
+            filtered_game_state,
         ) = self.inputs_from_state(state);
 
         let database = self
@@ -94,6 +95,7 @@ impl Robot {
                 state.broadcasted_spl_messages.clone(),
                 game_controller_state,
                 has_ground_contact,
+                filtered_game_state,
             )
             .context("Failed to run cycle")?;
 
@@ -152,6 +154,7 @@ impl Robot {
         PrimaryState,
         GameControllerState,
         bool,
+        FilteredGameState,
     ) {
         let cycle_info = CycleInfo {
             start_time: state.now,
@@ -183,13 +186,13 @@ impl Robot {
         });
 
         let fall_state = FallState::Upright;
-        let primary_state = match (self.is_penalized, state.game_state) {
+        let primary_state = match (self.is_penalized, state.filtered_game_state) {
             (true, _) => PrimaryState::Penalized,
-            (false, GameState::Initial) => PrimaryState::Initial,
-            (false, GameState::Ready) => PrimaryState::Ready,
-            (false, GameState::Set) => PrimaryState::Set,
-            (false, GameState::Playing) => PrimaryState::Playing,
-            (false, GameState::Finished) => PrimaryState::Finished,
+            (false, FilteredGameState::Initial) => PrimaryState::Initial,
+            (false, FilteredGameState::Ready { .. }) => PrimaryState::Ready,
+            (false, FilteredGameState::Set) => PrimaryState::Set,
+            (false, FilteredGameState::Playing { .. }) => PrimaryState::Playing,
+            (false, FilteredGameState::Finished) => PrimaryState::Finished,
         };
 
         let has_ground_contact = true;
@@ -201,6 +204,7 @@ impl Robot {
             primary_state,
             state.game_controller_state,
             has_ground_contact,
+            state.filtered_game_state,
         )
     }
 

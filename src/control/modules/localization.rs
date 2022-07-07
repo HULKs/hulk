@@ -2,22 +2,19 @@ use std::f32::consts::FRAC_PI_2;
 
 use anyhow::{Context, Result};
 use approx::assert_relative_eq;
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::{
-    distance, matrix, vector, Isometry2, Matrix, Matrix2, Matrix3, Point2, Rotation2, Vector2,
-    Vector3,
+    distance, matrix, point, vector, Isometry2, Matrix, Matrix2, Matrix3, Point2, Rotation2,
+    Vector2, Vector3,
 };
 use ordered_float::NotNan;
 use spl_network::PlayerNumber;
-
-use crate::{
-    control::filtering::{PoseFilter, ScoredPoseFilter},
-    types::{
-        field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldDimensions,
-        FieldMark, InitialPose, Line, Line2, LineData, LocalizationUpdate, Players, PrimaryState,
-        Side,
-    },
+use types::{
+    field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldDimensions, FieldMark,
+    InitialPose, Line, Line2, LineData, LocalizationUpdate, Players, PrimaryState, Side,
 };
+
+use crate::control::filtering::{PoseFilter, ScoredPoseFilter};
 
 pub struct Localization {
     field_marks: Vec<FieldMark>,
@@ -59,7 +56,12 @@ impl Localization {}
 impl Localization {
     fn new(context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {
-            field_marks: field_marks_from_field_dimensions(context.field_dimensions),
+            field_marks: field_marks_from_field_dimensions(context.field_dimensions)
+                .into_iter()
+                .chain(goal_support_structure_line_marks_from_field_dimensions(
+                    context.field_dimensions,
+                ))
+                .collect(),
             last_primary_state: PrimaryState::Unstiff,
             hypotheses: vec![],
         })
@@ -359,6 +361,75 @@ impl Localization {
             .iter()
             .max_by_key(|scored_filter| NotNan::new(scored_filter.score).unwrap())
     }
+}
+
+fn goal_support_structure_line_marks_from_field_dimensions(
+    field_dimensions: &FieldDimensions,
+) -> Vec<FieldMark> {
+    let goal_width = field_dimensions.goal_inner_width + field_dimensions.goal_post_diameter;
+    let goal_depth = field_dimensions.goal_depth;
+    vec![
+        FieldMark::Line {
+            line: Line(
+                point![
+                    -field_dimensions.length / 2.0 - goal_depth,
+                    -goal_width / 2.0
+                ],
+                point![
+                    -field_dimensions.length / 2.0 - goal_depth,
+                    goal_width / 2.0
+                ],
+            ),
+            direction: Direction::PositiveY,
+        },
+        FieldMark::Line {
+            line: Line(
+                point![
+                    -field_dimensions.length / 2.0 - goal_depth,
+                    -goal_width / 2.0
+                ],
+                point![-field_dimensions.length / 2.0, -goal_width / 2.0],
+            ),
+            direction: Direction::PositiveX,
+        },
+        FieldMark::Line {
+            line: Line(
+                point![
+                    -field_dimensions.length / 2.0 - goal_depth,
+                    goal_width / 2.0
+                ],
+                point![-field_dimensions.length / 2.0, goal_width / 2.0],
+            ),
+            direction: Direction::PositiveX,
+        },
+        FieldMark::Line {
+            line: Line(
+                point![
+                    field_dimensions.length / 2.0 + goal_depth,
+                    -goal_width / 2.0
+                ],
+                point![field_dimensions.length / 2.0 + goal_depth, goal_width / 2.0],
+            ),
+            direction: Direction::PositiveY,
+        },
+        FieldMark::Line {
+            line: Line(
+                point![field_dimensions.length / 2.0, -goal_width / 2.0],
+                point![
+                    field_dimensions.length / 2.0 + goal_depth,
+                    -goal_width / 2.0
+                ],
+            ),
+            direction: Direction::PositiveX,
+        },
+        FieldMark::Line {
+            line: Line(
+                point![field_dimensions.length / 2.0, goal_width / 2.0],
+                point![field_dimensions.length / 2.0 + goal_depth, goal_width / 2.0],
+            ),
+            direction: Direction::PositiveX,
+        },
+    ]
 }
 
 #[derive(Clone, Copy, Debug)]

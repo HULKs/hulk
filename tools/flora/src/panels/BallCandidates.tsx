@@ -16,29 +16,30 @@ export default function BallCandidates({
   const [imageData, setImageData] = useState<Blob | undefined>(undefined)
   const [ballCandidatesData, setBallCandidatesData] = useState<
     | Array<{
-        candidate_circle: {
-          radius: number
-          center: Array<number>
-        }
-        corrected_circle: {
-          radius: number
-          center: Array<number>
-        }
-        classifier_confidence: number
-        preclassifier_confidence: number
-        merge_weight: number
-      }>
+      candidate_circle: {
+        radius: number
+        center: Array<number>
+      }
+      corrected_circle: {
+        radius: number
+        center: Array<number>
+      }
+      classifier_confidence: number
+      preclassifier_confidence: number
+      merge_weight: number
+    }>
     | null
     | undefined
   >(undefined)
+  const [filteredBallsData, setFilteredBallsData] = useState<Array<{ radius: number, center: Array<number> }> | null | undefined>(undefined);
   const [ballsData, setBallsData] = useState<
     | Array<{
-        image_location: {
-          radius: number
-          center: Array<number>
-        }
-        position: Array<number>
-      }>
+      image_location: {
+        radius: number
+        center: Array<number>
+      }
+      position: Array<number>
+    }>
     | null
     | undefined
   >(undefined)
@@ -66,6 +67,17 @@ export default function BallCandidates({
         alert(`Error: ${error}`)
       },
     )
+    const unsubscribeFilteredBalls = connection.subscribeOutput(
+      Cycler.Control,
+      OutputType.Additional,
+      cycler === Cycler.VisionTop ? 'filtered_balls_in_image_top' : 'filtered_balls_in_image_bottom',
+      (data) => {
+        setFilteredBallsData(data)
+      },
+      (error) => {
+        alert(`Error: ${error}`)
+      },
+    )
     const unsubscribeBalls = connection.subscribeOutput(
       cycler,
       OutputType.Main,
@@ -80,6 +92,7 @@ export default function BallCandidates({
     return () => {
       unsubscribeImage()
       unsubscribeBallCandidates()
+      unsubscribeFilteredBalls()
       unsubscribeBalls()
     }
   }, [connection, cycler])
@@ -96,72 +109,91 @@ export default function BallCandidates({
   const candidateCircles =
     ballCandidatesData !== undefined && ballCandidatesData !== null
       ? ballCandidatesData.map((candidate, index) => {
-          const corrected_circle =
-            candidate.corrected_circle !== null ? (
+        const corrected_circle =
+          candidate.corrected_circle !== null ? (
+            <circle
+              cx={candidate.corrected_circle.center[0]}
+              cy={candidate.corrected_circle.center[1]}
+              r={candidate.corrected_circle.radius}
+              stroke="green"
+              stroke-width="3"
+              fill="none"
+            />
+          ) : null
+        return (
+          <g key={index}>
+            <g
+              transform={`translate(
+                ${candidate.candidate_circle.center[0] -
+                candidate.candidate_circle.radius
+                }
+                ${candidate.candidate_circle.center[1] -
+                candidate.candidate_circle.radius
+                }
+              )`}
+            >
               <circle
-                cx={candidate.corrected_circle.center[0]}
-                cy={candidate.corrected_circle.center[1]}
-                r={candidate.corrected_circle.radius}
-                stroke="green"
+                cx={candidate.candidate_circle.radius}
+                cy={candidate.candidate_circle.radius}
+                r={candidate.candidate_circle.radius}
+                stroke="blue"
                 stroke-width="3"
                 fill="none"
               />
-            ) : null
-          return (
-            <g key={index}>
-              <g
-                transform={`translate(
-                ${
-                  candidate.candidate_circle.center[0] -
-                  candidate.candidate_circle.radius
-                }
-                ${
-                  candidate.candidate_circle.center[1] -
-                  candidate.candidate_circle.radius
-                }
-              )`}
-              >
-                <circle
-                  cx={candidate.candidate_circle.radius}
-                  cy={candidate.candidate_circle.radius}
-                  r={candidate.candidate_circle.radius}
-                  stroke="blue"
-                  stroke-width="3"
-                  fill="none"
-                />
-                <text x="0" y="-3" fontSize="10">
-                  {candidate.preclassifier_confidence.toFixed(2)}
-                </text>
-              </g>
-              {corrected_circle}
+              <text x="0" y="-3" fontSize="10">
+                {candidate.preclassifier_confidence.toFixed(2)}
+              </text>
             </g>
-          )
-        })
+            {corrected_circle}
+          </g>
+        )
+      })
       : null
   const balls =
     ballsData !== undefined && ballsData !== null
       ? ballsData.map((ball, index) => {
-          return (
-            <g key={index}>
-              <g
-                transform={`translate(
+        return (
+          <g key={index}>
+            <g
+              transform={`translate(
                 ${ball.image_location.center[0] - ball.image_location.radius}
                 ${ball.image_location.center[1] - ball.image_location.radius}
               )`}
-              >
-                <circle
-                  cx={ball.image_location.radius}
-                  cy={ball.image_location.radius}
-                  r={ball.image_location.radius}
-                  stroke="white"
-                  stroke-width="1"
-                  fill="none"
-                />
-              </g>
+            >
+              <circle
+                cx={ball.image_location.radius}
+                cy={ball.image_location.radius}
+                r={ball.image_location.radius}
+                stroke="white"
+                stroke-width="1"
+                fill="none"
+              />
             </g>
-          )
-        })
+          </g>
+        )
+      })
       : null
+  const filtered_balls = filteredBallsData !== undefined && filteredBallsData !== null ? filteredBallsData.map((ball, index) => {
+    return (
+      <g key={index}>
+        <g
+          transform={`translate(
+                ${ball.center[0] - ball.radius}
+                ${ball.center[1] - ball.radius}
+              )`}
+        >
+          <circle
+            cx={ball.radius}
+            cy={ball.radius}
+            r={ball.radius}
+            stroke="red"
+            stroke-width="1"
+            fill="none"
+          />
+        </g>
+      </g>
+    )
+  }) : null;
   return (
     <div className="ballCandidates">
       <div className="header">
@@ -176,6 +208,7 @@ export default function BallCandidates({
           <svg className="overlay" viewBox="0 0 640 480">
             {candidateCircles}
             {balls}
+            {filtered_balls}
           </svg>
         </>
       ) : (

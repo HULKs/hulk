@@ -1,6 +1,5 @@
-use macros::{module, require_some};
-
-use crate::types::{Facing, MotionCommand, MotionSafeExits, MotionSelection, MotionType};
+use module_derive::{module, require_some};
+use types::{Facing, MotionCommand, MotionSafeExits, MotionSelection, MotionType};
 
 pub struct MotionSelector {
     current_motion: MotionType,

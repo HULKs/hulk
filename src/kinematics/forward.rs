@@ -1,8 +1,7 @@
 use std::f32::consts::PI;
 
 use nalgebra::{Isometry3, Translation, Vector3};
-
-use crate::types::{ArmJoints, HeadJoints, LegJoints, RobotDimensions};
+use types::{ArmJoints, HeadJoints, LegJoints, RobotDimensions};
 
 pub fn neck_to_robot(angles: &HeadJoints) -> Isometry3<f32> {
     Translation::from(RobotDimensions::ROBOT_TO_NECK)

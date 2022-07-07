@@ -1,19 +1,24 @@
-use macros::SerializeHierarchy;
 use nalgebra::{Isometry2, Isometry3, Point3, UnitComplex};
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 
-use crate::types::{
-    BallPosition, BodyJointsCommand, Buttons, CameraMatrices, FallState, FilteredGameState,
+use types::{
+    BallPosition, BodyJointsCommand, Buttons, CameraMatrices, Circle, FallState, FilteredGameState,
     FilteredWhistle, GameControllerState, HeadJoints, HeadJointsCommand, Joints, JointsCommand,
-    Leds, Line2, LocalizationUpdate, MessageReceivers, MotionCommand, MotionSafeExits,
-    MotionSelection, Obstacle, PrimaryState, ProjectedFieldLines, RobotKinematics, Role,
-    SensorData, SolePressure, Step, SupportFoot, WalkCommand, WorldState,
+    Leds, Line2, LocalizationUpdate, MotionCommand, MotionSafeExits, MotionSelection, Obstacle,
+    PathObstacle, PrimaryState, ProjectedFieldLines, ProjectedLimbs, RobotKinematics,
+    RobotPosition, Role, SensorData, SolePressure, SonarObstacle, SonarValues, Step, SupportFoot,
+    WalkCommand, WorldState,
 };
+
+use crate::spl_network::MessageReceivers;
 
 use super::{
     filtering::ScoredPoseFilter,
-    modules::{ball_filter::BallFilterHypothesis, motion::walking_engine::WalkingEngine},
-    PathObstacle,
+    modules::{
+        ball_filter::BallFilterHypothesis, motion::walking_engine::WalkingEngine,
+        robot_filter::RobotFilterHypothesis,
+    },
 };
 
 #[derive(Clone, Debug, Default, Serialize, SerializeHierarchy)]
@@ -45,6 +50,7 @@ pub struct MainOutputs {
     pub motion_command: Option<MotionCommand>,
     pub motion_selection: Option<MotionSelection>,
     pub obstacles: Option<Vec<Obstacle>>,
+    pub robot_positions: Option<Vec<RobotPosition>>,
     pub odometry_offset: Option<Isometry2<f32>>,
     #[leaf]
     pub primary_state: Option<PrimaryState>,
@@ -57,6 +63,7 @@ pub struct MainOutputs {
     pub sensor_data: Option<SensorData>,
     pub sit_down_joints_command: Option<JointsCommand>,
     pub sole_pressure: Option<SolePressure>,
+    pub sonar_obstacle: Option<SonarObstacle>,
     pub stand_up_back_positions: Option<Joints>,
     pub stand_up_front_positions: Option<Joints>,
     pub step_plan: Option<Step>,
@@ -70,16 +77,31 @@ pub struct MainOutputs {
     pub world_state: Option<WorldState>,
     pub head_joints_command: Option<HeadJointsCommand>,
     pub leds: Option<Leds>,
+    pub projected_limbs: Option<ProjectedLimbs>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, SerializeHierarchy)]
 pub struct AdditionalOutputs {
     pub accumulated_odometry: Option<Isometry2<f32>>,
     pub ball_filter_hypotheses: Option<Vec<BallFilterHypothesis>>,
+    pub robot_filter_hypotheses: Option<Vec<RobotFilterHypothesis>>,
     pub walking_engine: Option<WalkingEngine>,
+    pub step_adjustment: Option<StepAdjustment>,
     pub projected_field_lines: Option<ProjectedFieldLines>,
     pub localization: Localization,
     pub path_obstacles: Option<Vec<PathObstacle>>,
+    pub filtered_balls_in_image_top: Option<Vec<Circle>>,
+    pub filtered_balls_in_image_bottom: Option<Vec<Circle>>,
+    pub sonar_values: Option<SonarValues>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct StepAdjustment {
+    pub adjustment: f32,
+    pub limited_adjustment: f32,
+    pub torso_tilt_shift: f32,
+    pub forward_balance_limit: f32,
+    pub backward_balance_limit: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

@@ -1,5 +1,5 @@
-use macros::SerializeHierarchy;
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct FootOffsets {

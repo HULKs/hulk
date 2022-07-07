@@ -1,7 +1,6 @@
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::{Point, Point3};
-
-use crate::types::{RobotKinematics, RobotMass};
+use types::{RobotKinematics, RobotMass};
 
 pub struct CenterOfMassProvider;
 

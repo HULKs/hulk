@@ -49,7 +49,6 @@ export default function ImageSegments({
   const [imageSegmentsData, setImageSegmentsData] = useState<
     {
       scan_grid: {
-        horizontal_scan_lines: Array<ScanLine>;
         vertical_scan_lines: Array<ScanLine>;
       };
     } | null | undefined

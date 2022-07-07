@@ -3,11 +3,13 @@ use std::time::SystemTime;
 use anyhow::Context;
 use nalgebra::Isometry2;
 use spl_network::SplMessage;
+use types::{
+    BallPosition, FallState, FilteredGameState, GameControllerState, PrimaryState, SensorData,
+};
 
 use crate::{
     framework::{future_queue::Data, Configuration, PerceptionDatabases},
     spl_network::MainOutputs,
-    types::{BallPosition, FallState, GameControllerState, PrimaryState, SensorData},
 };
 
 use super::{
@@ -56,6 +58,7 @@ impl BehaviorCycler {
         broadcasted_spl_messages: Vec<SplMessage>,
         game_controller_state: GameControllerState,
         has_ground_contact: bool,
+        filtered_game_state: FilteredGameState,
     ) -> anyhow::Result<Database> {
         let mut control_database = Database::default();
         control_database.main_outputs.ball_position = ball_position;
@@ -65,6 +68,7 @@ impl BehaviorCycler {
         control_database.main_outputs.primary_state = Some(primary_state);
         control_database.main_outputs.game_controller_state = Some(game_controller_state);
         control_database.main_outputs.has_ground_contact = Some(has_ground_contact);
+        control_database.main_outputs.filtered_game_state = Some(filtered_game_state);
 
         let historic_databases = Default::default();
         let mut perception_databases = PerceptionDatabases::default();

@@ -4,7 +4,8 @@ use anyhow::Context;
 use nalgebra::{Isometry2, Point2, UnitComplex, Vector2};
 use serde::Serialize;
 use serde_json::to_writer;
-use spl_network::{GameState, SplMessage};
+use spl_network::SplMessage;
+use types::FilteredGameState;
 
 use crate::{control::Database, framework::Configuration};
 
@@ -39,7 +40,7 @@ impl Recording {
     pub fn push_frame(&mut self, state: &State, robots: &[RobotState], databases: Vec<Database>) {
         self.frames.push(Frame {
             now: state.now,
-            game_state: state.game_state,
+            filtered_game_state: state.filtered_game_state,
             ball_position: state.ball_position,
             ball_velocity: state.ball_velocity,
             broadcasted_spl_message_counter: state.broadcasted_spl_message_counter,
@@ -76,7 +77,7 @@ impl Recording {
 #[derive(Serialize)]
 pub struct Frame {
     pub now: SystemTime,
-    pub game_state: GameState,
+    pub filtered_game_state: FilteredGameState,
     pub ball_position: Point2<f32>,
     pub ball_velocity: Vector2<f32>,
     pub broadcasted_spl_message_counter: usize,

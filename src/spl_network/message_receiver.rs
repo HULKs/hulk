@@ -1,10 +1,29 @@
 use std::sync::Arc;
 
 use anyhow::bail;
+use spl_network::{GameControllerReturnMessage, SplMessage};
+use tokio::sync::{mpsc::UnboundedReceiver, Mutex};
 use tokio::{net::UdpSocket, select, sync::Notify};
 use tokio_util::sync::CancellationToken;
+use types::MessageEvent;
 
-use crate::{control::Database, framework::buffer::Reader, types::MessageEvent};
+use crate::{control::Database, framework::buffer::Reader};
+
+#[derive(Clone, Debug)]
+pub struct MessageReceivers {
+    pub game_controller_return_message_receiver:
+        Arc<Mutex<UnboundedReceiver<GameControllerReturnMessage>>>,
+    pub spl_message_receiver: Arc<Mutex<UnboundedReceiver<SplMessage>>>,
+}
+
+impl Default for MessageReceivers {
+    fn default() -> Self {
+        // This can only happen if someone deserializes a value into Option<MessageReceivers>
+        // but MessageReceivers have #[dont_serialize] in the database.
+        // So let's tell the compiler everything will be fine:
+        panic!("MessageReceivers cannot be Default constructed");
+    }
+}
 
 pub async fn receive_message<'buffer>(
     keep_running: &CancellationToken,

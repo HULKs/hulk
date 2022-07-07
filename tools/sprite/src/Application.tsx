@@ -4,7 +4,7 @@ import "./Application.css";
 import { useFieldDimensions } from "./useFieldDimensions";
 import { Circle, Line, useMarks } from "./useMarks";
 import { State, useAnimation } from "./useAnimation";
-import { Vector } from 'vecti'
+import { Vector } from "vecti";
 
 export function Application() {
   const [frameIndex, setFrameIndex] = useState(0);
@@ -32,13 +32,24 @@ export function Application() {
   const fieldDimensions = useFieldDimensions();
   const marks = useMarks(fieldDimensions);
   const frame = recording.frames[frameIndex];
+
+  let filtered_game_state_string = "";
+  if (typeof frame.filtered_game_state === "string") {
+    filtered_game_state_string = frame.filtered_game_state;
+  } else if (typeof frame.filtered_game_state === "object") {
+    filtered_game_state_string = Object.keys(frame.filtered_game_state)[0];
+  }
+
   return (
     <div className="Application">
       <svg
-        viewBox={`${-(fieldDimensions.length + fieldDimensions.border_strip_width) / 2
-          } ${-(fieldDimensions.width + fieldDimensions.border_strip_width) / 2
-          } ${fieldDimensions.length + fieldDimensions.border_strip_width} ${fieldDimensions.width + fieldDimensions.border_strip_width
-          }`}
+        viewBox={`${
+          -(fieldDimensions.length + fieldDimensions.border_strip_width) / 2
+        } ${
+          -(fieldDimensions.width + fieldDimensions.border_strip_width) / 2
+        } ${fieldDimensions.length + fieldDimensions.border_strip_width} ${
+          fieldDimensions.width + fieldDimensions.border_strip_width
+        }`}
       >
         <g transform="scale(1, -1)">
           {marks.map((mark) => {
@@ -84,7 +95,7 @@ export function Application() {
         </text>
       </svg>
       <div className="output">
-        <div>GameState: {frame.game_state}</div>
+        <div>FilteredGameState: {filtered_game_state_string}</div>
         <div>
           Role:{" "}
           {frame.robots
@@ -233,13 +244,13 @@ function drawFieldOfView(
   const y = maximum_distance * Math.sin(maximum_angle);
   return (
     <g transform={`rotate(${head_yaw})`}>
-    <path
-      d={`M 0 0 L ${x} ${y} A ${maximum_distance} ${maximum_distance} 0 0 0 ${x} ${-y} L 0 0 Z`}
-      fill="transparent"
-      stroke={strokeColor}
-      strokeOpacity={0.15}
-      strokeWidth={strokeWidth}
-    />
+      <path
+        d={`M 0 0 L ${x} ${y} A ${maximum_distance} ${maximum_distance} 0 0 0 ${x} ${-y} L 0 0 Z`}
+        fill="transparent"
+        stroke={strokeColor}
+        strokeOpacity={0.15}
+        strokeWidth={strokeWidth}
+      />
     </g>
   );
 }
@@ -269,7 +280,7 @@ function Transform({
 type Point = [number, number];
 type LineSegment = { LineSegment: Array<Point> };
 type Direction = "Clockwise" | "Counterclockwise";
-type Arc = { circle: Circle, start: Point, end: Point };
+type Arc = { circle: Circle; start: Point; end: Point };
 type ArcSegment = { Arc: [Arc, Direction] };
 type PathSegment = LineSegment | ArcSegment;
 
@@ -296,7 +307,7 @@ function Robot({
   database: any;
   simulation_configuration: any;
   angle: any;
-  head_yaw: any,
+  head_yaw: any;
 }): JSX.Element {
   const motion = database.main_outputs.motion_command;
   let plannedPathTarget = null;
@@ -312,22 +323,26 @@ function Robot({
             y2={`${line_segment[1][1]}`}
             stroke="orange"
             strokeWidth="0.0125"
-          />);
+          />
+        );
       }
       if ("Arc" in segment) {
         const [arc, direction] = segment.Arc;
         const x_axis_rotation = 0;
         const sweep_flag = direction === "Clockwise" ? 0 : 1;
         const long_arc_flag = determine_long_arc_flag(arc, sweep_flag);
-        return (<path d={`
+        return (
+          <path
+            d={`
             M ${arc.start[0]} ${arc.start[1]}
             A ${arc.circle.radius} ${arc.circle.radius} ${x_axis_rotation} ${long_arc_flag} ${sweep_flag}  ${arc.end[0]} ${arc.end[1]}
           `}
-          fill="none"
-          stroke="red"
-          strokeWidth="0.0125"
-          strokeLinecap="round"
-        />);
+            fill="none"
+            stroke="red"
+            strokeWidth="0.0125"
+            strokeLinecap="round"
+          />
+        );
       }
       return null;
     });

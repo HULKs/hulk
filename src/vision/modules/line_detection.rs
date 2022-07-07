@@ -1,13 +1,11 @@
 use std::{collections::HashSet, ops::Range};
 
-use macros::{module, require_some};
+use module_derive::{module, require_some};
 use nalgebra::{distance, point, vector, Point2, Vector2};
 use ordered_float::NotNan;
+use types::{CameraMatrix, EdgeType, FilteredSegments, ImageLines, Line, LineData, Segment};
 
-use crate::{
-    types::{CameraMatrix, EdgeType, FilteredSegments, ImageLines, Line, LineData, Segment},
-    Ransac, RansacResult,
-};
+use crate::{Ransac, RansacResult};
 
 pub struct LineDetection;
 
@@ -270,14 +268,12 @@ fn is_segment_shorter_than(
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        framework::AdditionalOutput,
-        types::{CameraPosition, Intensity, ScanGrid, ScanLine, Segment, YCbCr422, YCbCr444},
-    };
+    use nalgebra::{vector, Isometry3, Translation, UnitQuaternion};
+    use types::{CameraPosition, Intensity, ScanGrid, ScanLine, Segment, YCbCr422, YCbCr444};
+
+    use crate::framework::AdditionalOutput;
 
     use super::*;
-
-    use nalgebra::{vector, Isometry3, Translation, UnitQuaternion};
 
     #[test]
     fn check_correct_number_of_line_points() {
@@ -298,10 +294,10 @@ mod tests {
                     field_color: Intensity::Low,
                 };
                 if i == 0 {
-                    segment.start_edge_type = EdgeType::Border;
+                    segment.start_edge_type = EdgeType::ImageBorder;
                 }
                 if i == number_of_segments - 1 {
-                    segment.end_edge_type = EdgeType::Border;
+                    segment.end_edge_type = EdgeType::ImageBorder;
                 }
                 if i % 2 == 0 {
                     segment.start_edge_type = EdgeType::Falling;
@@ -323,7 +319,6 @@ mod tests {
                 .collect();
             FilteredSegments {
                 scan_grid: ScanGrid {
-                    horizontal_scan_lines: Vec::new(),
                     vertical_scan_lines,
                 },
             }

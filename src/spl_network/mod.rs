@@ -8,3 +8,4 @@ mod spl_message_sender;
 
 pub use cycler::SplNetwork;
 pub use database::{AdditionalOutputs, Database, MainOutputs};
+pub use message_receiver::MessageReceivers;

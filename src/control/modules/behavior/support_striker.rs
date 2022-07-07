@@ -1,13 +1,26 @@
 use std::f32::consts::FRAC_PI_4;
 
-use nalgebra::{point, Isometry2, Point2, UnitComplex, Vector2};
-
-use crate::{
-    framework::configuration::RolePositions,
-    types::{BallState, FieldDimensions, Side, WorldState},
+use nalgebra::{point, Isometry2, UnitComplex, Vector2};
+use types::{
+    rotate_towards, BallState, FieldDimensions, MotionCommand, PathObstacle, Side, WorldState,
 };
 
-pub fn support_striker_pose(
+use crate::framework::{configuration::RolePositions, AdditionalOutput};
+
+use super::{head::look_for_ball, walk_to_pose::WalkAndStand};
+
+pub fn execute(
+    world_state: &WorldState,
+    field_dimensions: &FieldDimensions,
+    role_positions: &RolePositions,
+    walk_and_stand: &WalkAndStand,
+    path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+) -> Option<MotionCommand> {
+    let pose = support_striker_pose(world_state, field_dimensions, role_positions)?;
+    walk_and_stand.execute(pose, look_for_ball(world_state.ball), path_obstacles_output)
+}
+
+fn support_striker_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositions,
@@ -24,7 +37,7 @@ pub fn support_striker_pose(
     let offset_vector = UnitComplex::new(match side {
         Side::Left => -FRAC_PI_4,
         Side::Right => FRAC_PI_4,
-    }) * -Vector2::x();
+    }) * -(Vector2::x() * role_positions.striker_supporter_distance_to_ball);
     let supporting_position = ball.position + offset_vector;
     let clamped_position = point![
         supporting_position.x.clamp(
@@ -36,12 +49,7 @@ pub fn support_striker_pose(
 
     let support_pose = Isometry2::new(
         clamped_position.coords,
-        face_towards(clamped_position, ball.position).angle(),
+        rotate_towards(clamped_position, ball.position).angle(),
     );
     Some(robot_to_field.inverse() * support_pose)
-}
-
-fn face_towards(origin: Point2<f32>, target: Point2<f32>) -> UnitComplex<f32> {
-    let origin_to_target = target - origin;
-    UnitComplex::rotation_between(&Vector2::x(), &origin_to_target)
 }

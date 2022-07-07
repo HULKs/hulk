@@ -27,6 +27,7 @@ export enum PanelType {
   Odometry = "Odometry",
   ProjectedLimbs = "ProjectedLimbs",
   LineFitting = "LineFitting",
+  RobotDetection = "RobotDetection"
 }
 export type RawOutput = {
   panelType: PanelType.RawOutput;
@@ -96,6 +97,10 @@ export type ProjectedLimbs = {
 export type LineFitting = {
   panelType: PanelType.LineFitting;
 };
+export type RobotDetection = {
+  panelType: PanelType.RobotDetection;
+  cycler: Cycler;
+};
 export type SelectablePanel =
   | RawOutput
   | RawImage
@@ -115,7 +120,8 @@ export type SelectablePanel =
   | MotionDispatching
   | Odometry
   | ProjectedLimbs
-  | LineFitting;
+  | LineFitting
+  | RobotDetection;
 export type SelectablePanels = { [sortPath: string]: SelectablePanel };
 
 function rawOutputsFromOutputHierarchy(
@@ -340,6 +346,19 @@ function lineFitting(): SelectablePanels {
   };
 }
 
+function robotDetection(): SelectablePanels {
+  return {
+    "RobotDetection.VisionTop": {
+      panelType: PanelType.RobotDetection,
+      cycler: Cycler.VisionTop,
+    },
+    "RobotDetection.VisionBottom": {
+      panelType: PanelType.RobotDetection,
+      cycler: Cycler.VisionBottom,
+    },
+  };
+}
+
 export default function useSelectablePanels(
   outputHierarchy: OutputHierarchy,
   parameterHierarchy: ParameterHierarchy
@@ -364,6 +383,7 @@ export default function useSelectablePanels(
       ...odometry(),
       ...projectedLimbs(),
       ...lineFitting(),
+      ...robotDetection(),
     };
   }, [outputHierarchy, parameterHierarchy]);
 }

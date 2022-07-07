@@ -1,4 +1,4 @@
-use crate::types::{BallState, HeadMotion};
+use types::{BallState, HeadMotion};
 
 pub fn look_for_ball(ball_state: Option<BallState>) -> HeadMotion {
     match ball_state {

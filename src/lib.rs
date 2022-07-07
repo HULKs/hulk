@@ -10,7 +10,6 @@ mod ransac;
 mod runtime;
 mod spl_network;
 mod statistics;
-mod types;
 mod vision;
 
 pub use logging::setup_logger;

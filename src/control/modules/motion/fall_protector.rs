@@ -1,15 +1,13 @@
 use std::time::{Duration, SystemTime};
 
 use approx::relative_eq;
-use macros::{module, require_some};
-
-use crate::{
-    framework::configuration::FallProtection,
-    types::{
-        BodyJoints, FallDirection, HeadJoints, Joints, JointsCommand, MotionCommand,
-        MotionSelection, MotionType, SensorData,
-    },
+use module_derive::{module, require_some};
+use types::{
+    BodyJoints, FallDirection, HeadJoints, Joints, JointsCommand, MotionCommand, MotionSelection,
+    MotionType, SensorData,
 };
+
+use crate::framework::configuration::FallProtection;
 
 pub struct FallProtector {
     start_time: SystemTime,

@@ -2,19 +2,20 @@ use std::{f32::consts::PI, time::Duration};
 
 use anyhow::Result;
 use log::warn;
-use macros::{module, require_some, SerializeHierarchy};
+use module_derive::{module, require_some};
 use nalgebra::{geometry::Isometry3, Point3, Vector3};
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
+use types::{
+    ArmJoints, BodyJoints, BodyJointsCommand, InertialMeasurementUnitData, Joints, KickVariant,
+    LegJoints, MotionSafeExits, MotionType, RobotKinematics, SensorData, Side, Step, SupportFoot,
+    WalkCommand,
+};
 
 use crate::{
-    control::filtering::LowPassFilter,
-    framework::configuration,
+    control::{database::StepAdjustment, filtering::LowPassFilter},
+    framework::{configuration, AdditionalOutput},
     kinematics,
-    types::{
-        ArmJoints, BodyJoints, BodyJointsCommand, InertialMeasurementUnitData, Joints, KickVariant,
-        LegJoints, MotionSafeExits, MotionType, RobotKinematics, SensorData, Side, Step,
-        SupportFoot, WalkCommand,
-    },
 };
 
 use self::{
@@ -103,8 +104,10 @@ pub struct WalkingEngine {
 #[persistent_state(path = motion_safe_exits, data_type = MotionSafeExits)]
 #[persistent_state(path = walk_return_offset, data_type = Step)]
 #[parameter(path = control.walking_engine, data_type = configuration::WalkingEngine, name = config)]
+#[parameter(path = control.kick_steps, data_type = configuration::KickSteps)]
 #[parameter(path = control.ready_pose, data_type = Joints)]
 #[additional_output(path = walking_engine, data_type = WalkingEngine)]
+#[additional_output(path = step_adjustment, data_type = StepAdjustment)]
 #[main_output(name = walk_joints_command, data_type = BodyJointsCommand)]
 impl WalkingEngine {}
 
@@ -132,6 +135,7 @@ impl WalkingEngine {
                 *walk_command,
                 support_foot.support_side,
                 context.config,
+                context.kick_steps,
             );
         }
         let has_support_changed = match support_foot.support_side {
@@ -141,7 +145,11 @@ impl WalkingEngine {
         match &self.walk_state {
             WalkState::Standing => self.reset(),
             WalkState::Starting(_) | WalkState::Walking(_) | WalkState::Stopping => {
-                self.walk_cycle(sensor_data.cycle_info.last_cycle_duration, context.config);
+                self.walk_cycle(
+                    sensor_data.cycle_info.last_cycle_duration,
+                    context.config,
+                    &mut context.step_adjustment,
+                );
             }
             WalkState::Kicking(..) => self.kick_cycle(sensor_data.cycle_info.last_cycle_duration),
         }
@@ -172,8 +180,8 @@ impl WalkingEngine {
                 Side::Right => &mut right_leg,
             };
             let kick_steps = match kick_variant {
-                KickVariant::Forward => &context.config.forward_kick_steps,
-                KickVariant::Turn => &context.config.turn_kick_steps,
+                KickVariant::Forward => &context.kick_steps.forward,
+                KickVariant::Turn => &context.kick_steps.turn,
             };
             let kick_step = &kick_steps[kick_step_i];
             apply_joint_overrides(kick_step, swing_leg, self.t);
@@ -258,14 +266,15 @@ impl WalkingEngine {
         walk_command: WalkCommand,
         measured_support_side: Option<Side>,
         config: &configuration::WalkingEngine,
+        kick_steps: &configuration::KickSteps,
     ) {
         self.left_foot_t0 = self.left_foot;
         self.right_foot_t0 = self.right_foot;
         self.turn_t0 = self.turn;
         let last_step = self.current_step;
-        self.walk_state = self
-            .walk_state
-            .next_walk_state(walk_command, self.swing_side, config);
+        self.walk_state =
+            self.walk_state
+                .next_walk_state(walk_command, self.swing_side, kick_steps);
 
         match (self.walk_state, measured_support_side) {
             (WalkState::Standing, _) | (_, None) => {
@@ -274,15 +283,10 @@ impl WalkingEngine {
                 self.swing_side = Side::Left;
                 self.max_swing_foot_lift = 0.0;
             }
-            (WalkState::Starting(requested_step), Some(_)) => {
+            (WalkState::Starting(_), Some(support_side)) => {
                 self.current_step = Step::zero();
                 self.step_duration = config.starting_step_duration;
-                let request_walk_to_left = requested_step.left > 0.0;
-                self.swing_side = if request_walk_to_left {
-                    Side::Right
-                } else {
-                    Side::Left
-                };
+                self.swing_side = support_side.opposite();
                 self.max_swing_foot_lift = config.starting_step_foot_lift;
             }
             (WalkState::Walking(requested_step), Some(support_side)) => {
@@ -293,9 +297,10 @@ impl WalkingEngine {
                     ..requested_step
                 };
                 let duration_increase = Duration::from_secs_f32(
-                    requested_step.forward.abs() * config.step_duration_increase.forward
-                        + requested_step.left.abs() * config.step_duration_increase.left
-                        + requested_step.turn.abs() * config.step_duration_increase.turn,
+                    config.sideways_step_duration_increase
+                        * (self.left_foot.left.abs() + self.right_foot.left.abs()
+                            - requested_step.left.abs())
+                        .abs(),
                 );
                 self.step_duration = config.base_step_duration + duration_increase;
                 self.swing_side = support_side.opposite();
@@ -309,8 +314,8 @@ impl WalkingEngine {
             }
             (WalkState::Kicking(kick_variant, kick_side, kick_step_i), Some(support_side)) => {
                 let kick_steps = match kick_variant {
-                    KickVariant::Forward => &config.forward_kick_steps,
-                    KickVariant::Turn => &config.turn_kick_steps,
+                    KickVariant::Forward => &kick_steps.forward,
+                    KickVariant::Turn => &kick_steps.turn,
                 };
                 let base_step = kick_steps[kick_step_i].base_step;
                 self.current_step = match kick_side {
@@ -433,7 +438,12 @@ impl WalkingEngine {
         self.last_right_walk_request = self.right_foot;
     }
 
-    fn walk_cycle(&mut self, cycle_duration: Duration, config: &configuration::WalkingEngine) {
+    fn walk_cycle(
+        &mut self,
+        cycle_duration: Duration,
+        config: &configuration::WalkingEngine,
+        step_adjustment_output: &mut AdditionalOutput<StepAdjustment>,
+    ) {
         self.t += cycle_duration;
         let (
             next_left_walk_request,
@@ -454,6 +464,7 @@ impl WalkingEngine {
             config.forward_foot_support_offset,
             config.backward_foot_support_offset,
             config.max_step_adjustment,
+            step_adjustment_output,
         );
         self.last_left_walk_request = next_left_walk_request;
         self.last_right_walk_request = next_right_walk_request;

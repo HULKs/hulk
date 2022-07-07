@@ -1,10 +1,8 @@
 use std::time::SystemTime;
 
-use macros::{module, require_some};
-
+use module_derive::{module, require_some};
 use spl_network::GameControllerStateMessage;
-
-use crate::types::{GameControllerState, SensorData};
+use types::{GameControllerState, SensorData};
 
 pub struct GameControllerFilter {
     game_controller_state: Option<GameControllerState>,
@@ -48,8 +46,13 @@ impl GameControllerFilter {
             self.game_controller_state = Some(GameControllerState {
                 game_state: game_controller_state_message.game_state,
                 game_phase: game_controller_state_message.game_phase,
+                kicking_team: game_controller_state_message.kicking_team,
                 last_game_state_change: self.last_game_state_change.unwrap(),
                 penalties: game_controller_state_message.hulks_team.clone().into(),
+                remaining_amount_of_messages: game_controller_state_message
+                    .hulks_team
+                    .remaining_amount_of_messages,
+                set_play: game_controller_state_message.set_play,
             });
         }
         Ok(MainOutputs {

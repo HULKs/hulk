@@ -7,6 +7,7 @@ use anyhow::Result;
 use log::error;
 use rustfft::{Fft, FftPlanner};
 use tokio_util::sync::CancellationToken;
+use types::Whistle;
 
 use crate::{
     control,
@@ -15,7 +16,6 @@ use crate::{
         future_queue::Producer,
     },
     hardware::{HardwareInterface, NUMBER_OF_AUDIO_SAMPLES},
-    types::Whistle,
     CommunicationChannelsForCycler,
 };
 

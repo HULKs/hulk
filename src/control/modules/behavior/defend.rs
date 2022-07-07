@@ -1,13 +1,83 @@
 use std::ops::Range;
 
-use nalgebra::{point, Isometry2, Point2, UnitComplex, Vector2};
-
-use crate::{
-    framework::configuration::RolePositions,
-    types::{BallState, FieldDimensions, Line, Side, WorldState},
+use nalgebra::{distance, point, Isometry2, Point2};
+use types::{
+    rotate_towards, BallState, FieldDimensions, Line, MotionCommand, PathObstacle, Side, WorldState,
 };
 
-pub fn defend_left_pose(
+use crate::framework::{configuration::RolePositions, AdditionalOutput};
+
+use super::{head::look_for_ball, walk_to_pose::WalkAndStand};
+
+pub struct Defend<'cycle> {
+    world_state: &'cycle WorldState,
+    field_dimensions: &'cycle FieldDimensions,
+    role_positions: &'cycle RolePositions,
+    walk_and_stand: &'cycle WalkAndStand<'cycle>,
+}
+
+impl<'cycle> Defend<'cycle> {
+    pub fn new(
+        world_state: &'cycle WorldState,
+        field_dimensions: &'cycle FieldDimensions,
+        role_positions: &'cycle RolePositions,
+        walk_and_stand: &'cycle WalkAndStand,
+    ) -> Self {
+        Self {
+            world_state,
+            field_dimensions,
+            role_positions,
+            walk_and_stand,
+        }
+    }
+
+    fn with_pose(
+        &self,
+        pose: Isometry2<f32>,
+        path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+    ) -> Option<MotionCommand> {
+        self.walk_and_stand.execute(
+            pose,
+            look_for_ball(self.world_state.ball),
+            path_obstacles_output,
+        )
+    }
+
+    pub fn left(
+        &self,
+        path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+    ) -> Option<MotionCommand> {
+        let pose = defend_left_pose(self.world_state, self.field_dimensions, self.role_positions)?;
+        self.with_pose(pose, path_obstacles_output)
+    }
+
+    pub fn right(
+        &self,
+        path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+    ) -> Option<MotionCommand> {
+        let pose = defend_right_pose(self.world_state, self.field_dimensions, self.role_positions)?;
+        self.with_pose(pose, path_obstacles_output)
+    }
+
+    pub fn goal(
+        &self,
+        path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+    ) -> Option<MotionCommand> {
+        let pose = defend_goal_pose(self.world_state, self.field_dimensions, self.role_positions)?;
+        self.with_pose(pose, path_obstacles_output)
+    }
+
+    pub fn kick_off(
+        &self,
+        path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+    ) -> Option<MotionCommand> {
+        let pose =
+            defend_kick_off_pose(self.world_state, self.field_dimensions, self.role_positions)?;
+        self.with_pose(pose, path_obstacles_output)
+    }
+}
+
+fn defend_left_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositions,
@@ -35,7 +105,7 @@ pub fn defend_left_pose(
     Some(robot_to_field.inverse() * defend_pose)
 }
 
-pub fn defend_right_pose(
+fn defend_right_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositions,
@@ -63,7 +133,7 @@ pub fn defend_right_pose(
     Some(robot_to_field.inverse() * defend_pose)
 }
 
-pub fn defend_goal_pose(
+fn defend_goal_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositions,
@@ -87,12 +157,28 @@ pub fn defend_goal_pose(
     Some(robot_to_field.inverse() * defend_pose)
 }
 
-fn face_towards(origin: Point2<f32>, target: Point2<f32>) -> UnitComplex<f32> {
-    let origin_to_target = target - origin;
-    UnitComplex::rotation_between(&Vector2::x(), &origin_to_target)
+fn defend_kick_off_pose(
+    world_state: &WorldState,
+    field_dimensions: &FieldDimensions,
+    role_positions: &RolePositions,
+) -> Option<Isometry2<f32>> {
+    let robot_to_field = world_state.robot.robot_to_field?;
+    let absolute_ball_position = match world_state.ball {
+        Some(ball) => robot_to_field * ball.position,
+        None => Point2::origin(),
+    };
+    let position_to_defend = point![-field_dimensions.length / 2.0, 0.0];
+    let distance_to_target = distance(&position_to_defend, &absolute_ball_position)
+        - role_positions.striker_distance_to_non_free_ball;
+    let defend_pose = block_on_circle(
+        absolute_ball_position,
+        position_to_defend,
+        distance_to_target,
+    );
+    Some(robot_to_field.inverse() * defend_pose)
 }
 
-fn block_on_circle(
+pub fn block_on_circle(
     ball_position: Point2<f32>,
     target: Point2<f32>,
     distance_to_target: f32,
@@ -101,7 +187,7 @@ fn block_on_circle(
     let block_position = target + target_to_ball.normalize() * distance_to_target;
     Isometry2::new(
         block_position.coords,
-        face_towards(block_position, ball_position).angle(),
+        rotate_towards(block_position, ball_position).angle(),
     )
 }
 
@@ -127,7 +213,7 @@ fn block_on_line(
         ];
         Isometry2::new(
             defense_position.coords,
-            face_towards(defense_position, ball_position).angle(),
+            rotate_towards(defense_position, ball_position).angle(),
         )
     } else {
         let defense_position = point![
@@ -136,7 +222,7 @@ fn block_on_line(
         ];
         Isometry2::new(
             defense_position.coords,
-            face_towards(defense_position, ball_position).angle(),
+            rotate_towards(defense_position, ball_position).angle(),
         )
     }
 }
