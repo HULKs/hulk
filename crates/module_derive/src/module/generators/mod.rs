@@ -2,7 +2,7 @@ mod callback;
 mod context;
 mod main_outputs;
 
-pub use callback::generate_change_callback_invokation;
+pub use callback::generate_change_callback_invocation;
 pub use context::{
     generate_cycle_context_initializers, generate_new_context_initializers, GenerateContextField,
 };

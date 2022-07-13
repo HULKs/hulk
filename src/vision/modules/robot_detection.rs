@@ -1,10 +1,10 @@
 use std::ops::Range;
 
-use module_derive::{module, require_some};
-use nalgebra::{distance, point, Point2};
+use module_derive::module;
+use nalgebra::{distance, point};
 use types::{
-    CameraMatrix, ClusterCone, DetectedRobots, EdgeType, FieldDimensions, FilteredSegments,
-    ScoredCluster, ScoredClusterPoint,
+    Ball, CameraMatrix, ClusterCone, DetectedRobots, EdgeType, FieldDimensions, FilteredSegments,
+    LineData, ScoredCluster, ScoredClusterPoint,
 };
 
 use crate::statistics::{mean, standard_deviation};
@@ -12,14 +12,18 @@ use crate::statistics::{mean, standard_deviation};
 pub struct RobotDetection;
 
 #[module(vision)]
-#[input(path = filtered_segments, data_type = FilteredSegments)]
-#[input(path = camera_matrix, data_type = CameraMatrix)]
-#[parameter(path = $this_cycler.robot_detection.allowed_cluster_radius, data_type = Range<f32>)]
+#[input(path = balls, data_type = Vec<Ball>, required)]
+#[input(path = camera_matrix, data_type = CameraMatrix, required)]
+#[input(path = filtered_segments, data_type = FilteredSegments, required)]
+#[input(path = line_data, data_type = LineData, required)]
+#[parameter(path = $this_cycler.robot_detection.enable, data_type = bool)]
 #[parameter(path = $this_cycler.robot_detection.amount_of_segments_factor, data_type = f32)]
 #[parameter(path = $this_cycler.robot_detection.amount_score_exponent, data_type = f32)]
-#[parameter(path = $this_cycler.robot_detection.cluster_cone_size_factor, data_type = f32)]
+#[parameter(path = $this_cycler.robot_detection.cluster_cone_radius, data_type = f32)]
 #[parameter(path = $this_cycler.robot_detection.cluster_distance_score_range, data_type = Range<f32>)]
 #[parameter(path = $this_cycler.robot_detection.detection_box_width, data_type = f32)]
+#[parameter(path = $this_cycler.robot_detection.ignore_ball_segments, data_type = bool)]
+#[parameter(path = $this_cycler.robot_detection.ignore_line_segments, data_type = bool)]
 #[parameter(path = $this_cycler.robot_detection.luminance_score_exponent, data_type = f32)]
 #[parameter(path = $this_cycler.robot_detection.maximum_cluster_distance, data_type = f32)]
 #[parameter(path = $this_cycler.robot_detection.minimum_cluster_score, data_type = f32)]
@@ -37,13 +41,18 @@ impl RobotDetection {
     }
 
     fn cycle(&mut self, mut context: CycleContext) -> anyhow::Result<MainOutputs> {
-        let filtered_segments = require_some!(context.filtered_segments);
-        let camera_matrix = require_some!(context.camera_matrix);
+        if !*context.enable {
+            return Ok(MainOutputs::none());
+        }
 
         let mut scored_cluster_points_in_pixel = extract_segment_cluster_points(
-            filtered_segments,
+            context.filtered_segments,
             *context.minimum_consecutive_segments,
             *context.amount_of_segments_factor,
+            *context.ignore_ball_segments,
+            *context.ignore_line_segments,
+            context.balls,
+            context.line_data,
         );
         scored_cluster_points_in_pixel.sort_unstable_by(|left_point, right_point| {
             right_point.point.y.total_cmp(&left_point.point.y)
@@ -53,7 +62,7 @@ impl RobotDetection {
             .fill_on_subscription(|| scored_cluster_points_in_pixel.clone());
 
         let scored_cluster_points_in_ground =
-            project_to_ground(scored_cluster_points_in_pixel, camera_matrix);
+            project_to_ground(scored_cluster_points_in_pixel, context.camera_matrix);
 
         let clustered_cluster_points_in_ground = cluster_scored_cluster_points(
             scored_cluster_points_in_ground,
@@ -69,11 +78,9 @@ impl RobotDetection {
         let clusters_in_ground =
             map_clustered_cluster_points_to_scored_clusters(clustered_cluster_points_in_ground);
         let clusters_in_ground =
-            filter_clusters_via_radii(clusters_in_ground, context.allowed_cluster_radius);
-        let clusters_in_ground =
             filter_clusters_via_scores(clusters_in_ground, *context.minimum_cluster_score);
         let (clusters_in_ground, cluster_cones) =
-            filter_clusters_via_cones(clusters_in_ground, *context.cluster_cone_size_factor);
+            filter_clusters_via_cones(clusters_in_ground, *context.cluster_cone_radius);
         context.cluster_cones.fill_on_subscription(|| cluster_cones);
 
         Ok(MainOutputs {
@@ -88,13 +95,36 @@ fn extract_segment_cluster_points(
     filtered_segments: &FilteredSegments,
     minimum_consecutive_segments: usize,
     amount_of_segments_factor: f32,
+    ignore_line_segments: bool,
+    ignore_ball_segments: bool,
+    balls: &[Ball],
+    line_data: &LineData,
 ) -> Vec<ScoredClusterPoint> {
     let mut cluster_points = vec![];
     for scan_line in filtered_segments.scan_grid.vertical_scan_lines.iter() {
-        let mut clusters = match scan_line.segments.first() {
-            Some(first_segment) => scan_line.segments.iter().fold(
-                vec![vec![first_segment]],
-                |mut clusters, segment| {
+        let mut segments = scan_line
+            .segments
+            .iter()
+            .filter(|segment| {
+                !ignore_line_segments
+                    || !line_data
+                        .used_vertical_filtered_segments
+                        .contains(&point![scan_line.position, segment.start])
+            })
+            .filter(|segment| {
+                !ignore_ball_segments
+                    || !balls.iter().any(|ball| {
+                        ball.image_location.contains(point![
+                            (2 * scan_line.position) as f32,
+                            segment.center() as f32
+                        ])
+                    })
+            })
+            .peekable();
+        let first_segment = segments.peek();
+        let mut clusters = match first_segment {
+            Some(&first_segment) => {
+                segments.fold(vec![vec![first_segment]], |mut clusters, segment| {
                     let last_cluster = clusters.last_mut().unwrap();
                     let belongs_to_previous_cluster =
                         segment.start == last_cluster.last().unwrap().end;
@@ -110,8 +140,8 @@ fn extract_segment_cluster_points(
                         }
                     }
                     clusters
-                },
-            ),
+                })
+            }
             None => vec![],
         };
         let last_cluster_too_short = clusters.last().map_or(false, |last_cluster| {
@@ -227,46 +257,22 @@ fn map_clustered_cluster_points_to_scored_clusters(
     clustered_cluster_points
         .into_iter()
         .map(|cluster_points| {
-            let (top_left, bottom_right) = cluster_points
+            let (mut xs, mut ys): (Vec<_>, Vec<_>) = cluster_points
                 .iter()
-                .map(|point| point.point)
-                .fold(
-                    None,
-                    |accumulator: Option<(Point2<f32>, Point2<f32>)>, point| match accumulator {
-                        Some((top_left, bottom_right)) => Some((
-                            point![f32::min(top_left.x, point.x), f32::min(top_left.y, point.y)],
-                            point![
-                                f32::max(bottom_right.x, point.x),
-                                f32::max(bottom_right.y, point.y)
-                            ],
-                        )),
-                        None => Some((point, point)),
-                    },
-                )
-                .unwrap();
-            let half_diagonal = (bottom_right - top_left) / 2.0;
-            let radius = half_diagonal.norm();
-            let center = top_left + half_diagonal;
+                .map(|point| (point.point.x, point.point.y))
+                .unzip();
+            xs.sort_by(|left, right| left.total_cmp(right));
+            ys.sort_by(|left, right| left.total_cmp(right));
+            let median = point![xs[xs.len() / 2], ys[ys.len() / 2]];
             let score = cluster_points
                 .iter()
                 .map(|point| point.amount_score * point.luminance_score)
                 .sum();
             ScoredCluster {
-                center,
-                radius,
+                center: median,
                 score,
             }
         })
-        .collect()
-}
-
-fn filter_clusters_via_radii(
-    clusters: Vec<ScoredCluster>,
-    allowed_cluster_radius: &Range<f32>,
-) -> Vec<ScoredCluster> {
-    clusters
-        .into_iter()
-        .filter(|cluster| allowed_cluster_radius.contains(&cluster.radius))
         .collect()
 }
 
@@ -282,12 +288,12 @@ fn filter_clusters_via_scores(
 
 fn filter_clusters_via_cones(
     clusters: Vec<ScoredCluster>,
-    cluster_cone_size_factor: f32,
+    cluster_cone_radius: f32,
 ) -> (Vec<ScoredCluster>, Vec<ClusterCone>) {
     clusters
         .into_iter()
         .fold((vec![], vec![]), |(mut clusters, mut cones), cluster| {
-            let cone = ClusterCone::from_cluster(&cluster, cluster_cone_size_factor);
+            let cone = ClusterCone::from_cluster(&cluster, cluster_cone_radius);
             if !cones
                 .iter()
                 .any(|existing_cone| existing_cone.intersects_with(&cone))

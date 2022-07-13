@@ -5,7 +5,6 @@ pub enum Action {
     FallSafely,
     StandUp,
     Stand,
-    InWalkKick,
     Dribble,
     DefendGoal,
     DefendKickOff,
@@ -13,6 +12,6 @@ pub enum Action {
     DefendRight,
     SupportStriker,
     Search,
-    WalkBackwards,
+    SearchForLostBall,
     WalkToKickOff,
 }

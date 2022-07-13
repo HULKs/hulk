@@ -5,4 +5,5 @@ use serialize_hierarchy::SerializeHierarchy;
 pub struct Buttons {
     pub is_chest_button_pressed: bool,
     pub head_buttons_touched: bool,
+    pub calibration_buttons_touched: bool,
 }

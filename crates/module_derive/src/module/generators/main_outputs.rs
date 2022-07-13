@@ -25,7 +25,12 @@ pub fn generate_main_outputs_struct(cycle_method: &ModuleInformation) -> TokenSt
 
 fn generate_main_outputs_assignment(attribute: &MainOutputAttribute) -> TokenStream {
     let name = &attribute.name;
-    quote! { database.main_outputs.#name = self.#name }
+    quote! {
+        database.main_outputs.#name = match &injected_outputs.main_outputs.#name {
+            Some(injected_output) => Some(injected_output.clone()),
+            None => self.#name
+        }
+    }
 }
 
 pub fn generate_main_outputs_implementation(
@@ -39,7 +44,11 @@ pub fn generate_main_outputs_implementation(
     let main_outputs_identifier = &cycle_method.main_outputs_identifier;
     quote! {
         impl #main_outputs_identifier {
-            fn update(self, database: &mut crate::#cycler::Database) {
+            fn update(
+                self,
+                database: &mut crate::#cycler::Database,
+                injected_outputs: &crate::#cycler::Database,
+            ) {
                 #(#assignments);*
             }
             fn none() -> Self {

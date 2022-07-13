@@ -20,6 +20,7 @@ mod image;
 mod image_segments;
 mod initial_pose;
 mod joints;
+mod kick_decision;
 mod kick_step;
 mod led;
 mod limb;
@@ -38,7 +39,6 @@ mod primary_state;
 mod robot_dimensions;
 mod robot_kinematics;
 mod robot_masses;
-mod robot_position;
 mod roles;
 mod sensor_data;
 mod sole_pressure;
@@ -77,6 +77,7 @@ pub use joints::{
     ArmJoints, BodyJoints, BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand,
     LegJoints,
 };
+pub use kick_decision::KickDecision;
 pub use kick_step::{JointOverride, KickStep};
 pub use led::{Ear, Eye, Leds};
 pub use limb::{is_above_limbs, Limb, ProjectedLimbs};
@@ -98,7 +99,6 @@ pub use primary_state::PrimaryState;
 pub use robot_dimensions::RobotDimensions;
 pub use robot_kinematics::RobotKinematics;
 pub use robot_masses::RobotMass;
-pub use robot_position::RobotPosition;
 pub use roles::Role;
 pub use sensor_data::{
     Foot, ForceSensitiveResistors, InertialMeasurementUnitData, SensorData, SonarSensors,

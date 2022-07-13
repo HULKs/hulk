@@ -28,11 +28,10 @@ impl HistoricDatabases {
 
 #[derive(Debug)]
 pub struct HistoricDataType<'a, DataType> {
-    pub historic: BTreeMap<SystemTime, &'a DataType>,
+    historic: BTreeMap<SystemTime, &'a DataType>,
 }
 
 impl<'a, DataType> HistoricDataType<'a, DataType> {
-    #[allow(dead_code)]
     pub fn new(
         cycle_start_time: SystemTime,
         historic_databases: &'a HistoricDatabases,
@@ -50,5 +49,12 @@ impl<'a, DataType> HistoricDataType<'a, DataType> {
                 .map(historic_datatype_extraction),
         );
         Self { historic }
+    }
+
+    pub fn get(&self, system_time: SystemTime) -> &'a DataType {
+        return *self
+            .historic
+            .get(&system_time)
+            .expect("Failed to get historic at given time stamp");
     }
 }

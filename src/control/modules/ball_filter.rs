@@ -63,8 +63,10 @@ impl BallFilter {
             .iter()
             .zip(context.balls_bottom.persistent.values());
         for ((&detection_time, balls_top), balls_bottom) in measured_balls {
-            let current_odometry_to_last_odometry =
-                context.current_odometry_to_last_odometry.historic.get(&detection_time).expect("Failed to get matching current_odometry_to_last_odometry from ball detection time").expect("current_odometry_to_last_odometry should not be None");
+            let current_odometry_to_last_odometry = context
+                .current_odometry_to_last_odometry
+                .get(detection_time)
+                .expect("current_odometry_to_last_odometry should not be None");
             let measured_balls_in_control_cycle = balls_top
                 .iter()
                 .chain(balls_bottom.iter())
@@ -74,16 +76,8 @@ impl BallFilter {
                 Matrix4::from_diagonal(context.process_noise),
             );
 
-            let camera_matrices = context
-                .historic_camera_matrices
-                .historic
-                .get(&detection_time)
-                .expect("Failed to get matching camera_matrices from ball detection time");
-            let projected_limbs_bottom = context
-                .projected_limbs
-                .historic
-                .get(&detection_time)
-                .expect("Failed to get matching projected_limbs_bottom from ball detection time");
+            let camera_matrices = context.historic_camera_matrices.get(detection_time);
+            let projected_limbs_bottom = context.projected_limbs.get(detection_time);
             self.decay_hypotheses(
                 camera_matrices,
                 projected_limbs_bottom,

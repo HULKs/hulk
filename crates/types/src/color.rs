@@ -95,7 +95,7 @@ impl From<Rgb> for YCbCr444 {
     }
 }
 
-#[allow(dead_code)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum RgbChannel {
     Red,
     Green,
@@ -130,7 +130,6 @@ impl Rgb {
         Self { r, g, b }
     }
 
-    #[allow(dead_code)]
     pub fn get_chromaticity(&self, channel: RgbChannel) -> f32 {
         let sum = self.r as f32 + self.g as f32 + self.b as f32;
         if sum == 0.0 {

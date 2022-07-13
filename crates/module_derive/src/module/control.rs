@@ -6,7 +6,7 @@ use syn::{parse_quote, Ident, ImplItem};
 use crate::module::generators::{generate_cycle_context_initializers, GenerateContextField};
 
 use super::generators::{
-    generate_change_callback_invokation, generate_main_outputs_implementation,
+    generate_change_callback_invocation, generate_main_outputs_implementation,
     generate_main_outputs_struct, generate_new_context_initializers,
 };
 
@@ -158,10 +158,10 @@ fn generate_run_new_method(module_information: &ModuleInformation) -> ImplItem {
 }
 
 fn generate_run_cycle_method(module_information: &ModuleInformation) -> ImplItem {
-    let change_callback_invokations = module_information
+    let change_callback_invocations = module_information
         .parameters
         .iter()
-        .map(generate_change_callback_invokation);
+        .map(generate_change_callback_invocation);
     let context_identifier = &module_information.cycle_context_identifier;
 
     parse_quote! {
@@ -176,8 +176,9 @@ fn generate_run_cycle_method(module_information: &ModuleInformation) -> ImplItem
             subscribed_additional_outputs: &std::collections::HashSet<String>,
             changed_parameters: &std::collections::HashSet<String>,
             persistent_state: &mut crate::control::PersistentState,
+            injected_outputs: &crate::control::Database,
         ) -> anyhow::Result<()> {
-            #(#change_callback_invokations)*
+            #(#change_callback_invocations)*
             let context = #context_identifier::new(
                 cycle_start_time,
                 this_database,
@@ -192,7 +193,7 @@ fn generate_run_cycle_method(module_information: &ModuleInformation) -> ImplItem
                 Some(context) => self.cycle(context)?,
                 None => MainOutputs::none(),
             };
-            main_outputs.update(this_database);
+            main_outputs.update(this_database, injected_outputs);
             Ok(())
         }
     }

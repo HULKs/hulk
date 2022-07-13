@@ -38,7 +38,9 @@ impl GroundContactDetector {
             *context.pressure_threshold,
             *context.hysteresis,
         );
-        self.last_has_pressure = has_pressure;
+        if self.last_has_pressure != has_pressure {
+            self.last_time_switched = sensor_data.cycle_info.start_time;
+        }
         if sensor_data
             .cycle_info
             .start_time
@@ -46,9 +48,10 @@ impl GroundContactDetector {
             .expect("Time ran backwards")
             > *context.timeout
         {
-            self.last_time_switched = sensor_data.cycle_info.start_time;
             self.has_ground_contact = has_pressure;
         }
+        self.last_has_pressure = has_pressure;
+
         Ok(MainOutputs {
             has_ground_contact: Some(self.has_ground_contact),
         })

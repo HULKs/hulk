@@ -1,10 +1,9 @@
 use std::{str::FromStr, sync::Arc};
 
+use anyhow::Result;
 use communication::CyclerOutput;
 use eframe::epaint::Color32;
-use log::error;
 use nalgebra::Isometry2;
-use serde_json::{from_value, Value::Array};
 use types::FieldDimensions;
 
 use crate::{nao::Nao, panels::Layer, twix_paint::TwixPainter, value_buffer::ValueBuffer};
@@ -30,17 +29,10 @@ impl Layer for BallPosition {
         }
     }
 
-    fn paint(&self, painter: &TwixPainter, field_dimensions: &FieldDimensions) {
-        let robot_to_fields: Vec<Option<Isometry2<f32>>> = match self.robot_to_field.get_buffered()
-        {
-            Ok(value) => from_value(Array(value)).unwrap(),
-            Err(error) => return error!("{:?}", error),
-        };
+    fn paint(&self, painter: &TwixPainter, field_dimensions: &FieldDimensions) -> Result<()> {
+        let robot_to_fields: Vec<Option<Isometry2<f32>>> = self.robot_to_field.parse_buffered()?;
         let ball_positions: Vec<Option<types::BallPosition>> =
-            match self.ball_position.get_buffered() {
-                Ok(value) => from_value(Array(value)).unwrap(),
-                Err(error) => return error!("{:?}", error),
-            };
+            self.ball_position.parse_buffered()?;
 
         for (ball, robot_to_field) in ball_positions.iter().zip(robot_to_fields.iter()) {
             if let Some(ball) = ball {
@@ -61,5 +53,6 @@ impl Layer for BallPosition {
                 field_dimensions.ball_radius,
             );
         }
+        Ok(())
     }
 }

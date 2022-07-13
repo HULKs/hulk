@@ -24,7 +24,7 @@ use crate::{
     CommunicationChannelsForCommunicationWithImage,
 };
 
-use super::parameter_modificator::parameter_modificator;
+use super::{injection_writer::injection_writer, parameter_modificator::parameter_modificator};
 
 pub struct ChannelsForDatabases<Database> {
     pub database: Reader<Database>,
@@ -42,6 +42,10 @@ pub struct ChannelsForDatabasesWithImage<Database> {
 pub struct ChannelsForParameters {
     pub configuration: Writer<Configuration>,
     pub changed_parameters: Sender<String>,
+}
+
+pub struct ChannelsForInjectedOutputs<Database> {
+    pub injected_outputs: Writer<Database>,
 }
 
 pub struct Communication {
@@ -99,6 +103,7 @@ impl Communication {
                         database_subscription_manager_receiver,
                     ) = channel(1);
                     let (parameter_modificator_sender, parameter_modificator_receiver) = channel(1);
+                    let (injection_writer_sender, injection_writer_receiver) = channel(1);
                     let channels_for_audio_databases = ChannelsForDatabases {
                         database: self.channels_from_audio.database,
                         database_changed: self.channels_from_audio.database_changed,
@@ -140,6 +145,18 @@ impl Communication {
                         configuration: self.configuration,
                         changed_parameters: self.changed_parameters,
                     };
+                    let channels_for_injected_outputs_for_control_databases =
+                        ChannelsForInjectedOutputs {
+                            injected_outputs: self.channels_from_control.injected_outputs,
+                        };
+                    let channels_for_injected_outputs_for_vision_top_databases =
+                        ChannelsForInjectedOutputs {
+                            injected_outputs: self.channels_from_vision_top.injected_outputs,
+                        };
+                    let channels_for_injected_outputs_for_vision_bottom_databases =
+                        ChannelsForInjectedOutputs {
+                            injected_outputs: self.channels_from_vision_bottom.injected_outputs,
+                        };
 
                     let database_subscription_manager_task = database_subscription_manager(
                         database_subscription_manager_receiver,
@@ -156,20 +173,32 @@ impl Communication {
                         channels_for_parameters,
                     )
                     .await;
+                    let injection_writer_task = injection_writer(
+                        injection_writer_receiver,
+                        channels_for_injected_outputs_for_control_databases,
+                        channels_for_injected_outputs_for_vision_top_databases,
+                        channels_for_injected_outputs_for_vision_bottom_databases,
+                    )
+                    .await;
                     let acceptor_task = acceptor(
                         self.initial_configuration,
                         database_subscription_manager_sender,
                         parameter_modificator_sender,
+                        injection_writer_sender,
                         keep_running.clone(),
                     )
                     .await;
                     keep_running.cancelled().await;
                     let acceptor_task_result = acceptor_task.await;
+                    let injection_writer_task_result = injection_writer_task.await;
                     let database_subscription_manager_task_result =
                         database_subscription_manager_task.await;
                     let parameter_modificator_task_result = parameter_modificator_task.await;
                     if let Err(error) = acceptor_task_result {
                         error!("Got error during `acceptor`: {:?}", error);
+                    }
+                    if let Err(error) = injection_writer_task_result {
+                        error!("Got error during `injection_writer`: {:?}", error);
                     }
                     if let Err(error) = database_subscription_manager_task_result {
                         error!(

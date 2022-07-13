@@ -27,6 +27,7 @@ import Odometry from "./panels/Odometry";
 import ProjectedLimbs from "./panels/ProjectedLimbs";
 import LineFitting from "./panels/LineFitting";
 import RobotDetection from "./panels/RobotDetection";
+import FieldColor from "./panels/FieldColor";
 
 export default function Application() {
   const [
@@ -241,6 +242,16 @@ export default function Application() {
         selector={selector}
         connector={connector}
         connection={connection}
+      />
+    );
+  }
+  if (selectedPanel.panelType === PanelType.FieldColor) {
+    return (
+      <FieldColor
+        selector={selector}
+        connector={connector}
+        connection={connection}
+        cycler={selectedPanel.cycler}
       />
     );
   }

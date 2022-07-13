@@ -24,9 +24,9 @@ use tokio_tungstenite::{
 use tokio_util::sync::CancellationToken;
 
 use super::{
-    database_subscription_manager, parameter_modificator,
+    database_subscription_manager, injection_writer, parameter_modificator,
     sender::{Message, Payload},
-    CyclerOutput,
+    Cycler, CyclerOutput,
 };
 
 #[allow(clippy::too_many_arguments)]
@@ -35,6 +35,7 @@ pub async fn receiver(
     mut reader: SplitStream<WebSocketStream<TcpStream>>,
     database_subscription_manager_sender: Sender<database_subscription_manager::Request>,
     parameter_modificator_sender: Sender<parameter_modificator::Request>,
+    injection_writer_sender: Sender<injection_writer::Request>,
     _wait_group_worker: Worker, // will be dropped when this function exits
     keep_running: CancellationToken,
     keep_only_self_running: CancellationToken,
@@ -48,6 +49,7 @@ pub async fn receiver(
                     &peer_address,
                     &database_subscription_manager_sender,
                     &parameter_modificator_sender,
+                    &injection_writer_sender,
                     &keep_only_self_running,
                     &message_sender,
                 ).await;
@@ -108,6 +110,7 @@ async fn handle_message(
     peer_address: &SocketAddr,
     database_subscription_manager_sender: &Sender<database_subscription_manager::Request>,
     parameter_modificator_sender: &Sender<parameter_modificator::Request>,
+    injection_writer_sender: &Sender<injection_writer::Request>,
     keep_only_self_running: &CancellationToken,
     message_sender: &Sender<Message>,
 ) {
@@ -127,6 +130,7 @@ async fn handle_message(
                 peer_address,
                 database_subscription_manager_sender,
                 parameter_modificator_sender,
+                injection_writer_sender,
                 keep_only_self_running,
                 message_sender,
             )
@@ -169,6 +173,17 @@ enum Request {
         path: String,
         data: Value,
     },
+    SetInjectedOutput {
+        id: usize,
+        cycler: Cycler,
+        path: String,
+        data: Value,
+    },
+    UnsetInjectedOutput {
+        id: usize,
+        cycler: Cycler,
+        path: String,
+    },
 }
 
 pub fn respond_or_log_error<T>(response_sender: oneshot::Sender<T>, item: T)
@@ -188,6 +203,7 @@ async fn handle_text_message(
     peer_address: &SocketAddr,
     database_subscription_manager_sender: &Sender<database_subscription_manager::Request>,
     parameter_modificator_sender: &Sender<parameter_modificator::Request>,
+    injection_writer_sender: &Sender<injection_writer::Request>,
     keep_only_self_running: &CancellationToken,
     message_sender: &Sender<Message>,
 ) {
@@ -269,6 +285,34 @@ async fn handle_text_message(
                 path,
                 data,
                 parameter_modificator_sender,
+                keep_only_self_running,
+                message_sender,
+            )
+            .await;
+        }
+        Request::SetInjectedOutput {
+            id,
+            cycler,
+            path,
+            data,
+        } => {
+            handle_set_injected_output_request(
+                id,
+                cycler,
+                path,
+                data,
+                injection_writer_sender,
+                keep_only_self_running,
+                message_sender,
+            )
+            .await;
+        }
+        Request::UnsetInjectedOutput { id, cycler, path } => {
+            handle_unset_injected_output_request(
+                id,
+                cycler,
+                path,
+                injection_writer_sender,
                 keep_only_self_running,
                 message_sender,
             )
@@ -623,6 +667,118 @@ async fn handle_update_parameter_request(
             reason: Default::default(),
         },
         Err(error) => Payload::UpdateParameterResult {
+            id,
+            ok: false,
+            reason: Some(format!("Failed to update at {:?}: {:?}", path, error)),
+        },
+    };
+    if let Err(error) = message_sender
+        .send(Message::Json { payload: response })
+        .await
+    {
+        error!(
+            "Failed to send message into channel for sender: {:?}",
+            error
+        );
+    }
+}
+
+async fn handle_set_injected_output_request(
+    id: usize,
+    cycler: Cycler,
+    path: String,
+    data: Value,
+    injection_writer_sender: &Sender<injection_writer::Request>,
+    keep_only_self_running: &CancellationToken,
+    message_sender: &Sender<Message>,
+) {
+    let (response_sender, response_receiver) = channel();
+    let request = injection_writer::Request::SetInjectedOutput {
+        cycler,
+        path: path.clone(),
+        data,
+        response_sender,
+    };
+    if let Err(error) = injection_writer_sender.send(request).await {
+        send_close_from_error("Failed to send request, closing now", error, message_sender).await;
+        keep_only_self_running.cancel();
+        return;
+    }
+    let response = match response_receiver.await {
+        Ok(response) => response,
+        Err(error) => {
+            send_close_from_error(
+                "Failed to receive response, closing now",
+                error,
+                message_sender,
+            )
+            .await;
+            keep_only_self_running.cancel();
+            return;
+        }
+    };
+    let response = match response {
+        Ok(_) => Payload::SetInjectedOutputResult {
+            id,
+            ok: true,
+            reason: Default::default(),
+        },
+        Err(error) => Payload::SetInjectedOutputResult {
+            id,
+            ok: false,
+            reason: Some(format!("Failed to update at {:?}: {:?}", path, error)),
+        },
+    };
+    if let Err(error) = message_sender
+        .send(Message::Json { payload: response })
+        .await
+    {
+        error!(
+            "Failed to send message into channel for sender: {:?}",
+            error
+        );
+    }
+}
+
+async fn handle_unset_injected_output_request(
+    id: usize,
+    cycler: Cycler,
+    path: String,
+    injection_writer_sender: &Sender<injection_writer::Request>,
+    keep_only_self_running: &CancellationToken,
+    message_sender: &Sender<Message>,
+) {
+    let (response_sender, response_receiver) = channel();
+    let request = injection_writer::Request::UnsetInjectedOutput {
+        cycler,
+        path: path.clone(),
+        response_sender,
+    };
+    if let Err(error) = injection_writer_sender.send(request).await {
+        send_close_from_error("Failed to send request, closing now", error, message_sender).await;
+        keep_only_self_running.cancel();
+        return;
+    }
+    let response = match response_receiver.await {
+        Ok(response) => response,
+        Err(error) => {
+            send_close_from_error(
+                "Failed to receive response, closing now",
+                error,
+                message_sender,
+            )
+            .await;
+            keep_only_self_running.cancel();
+            return;
+        }
+    };
+    let response = match response {
+        Ok(_) => Payload::UnsetInjectedOutputResult {
+            id,
+            ok: true,
+            reason: Default::default(),
+        },
+        Err(error) => Payload::UnsetInjectedOutputResult {
             id,
             ok: false,
             reason: Some(format!("Failed to update at {:?}: {:?}", path, error)),

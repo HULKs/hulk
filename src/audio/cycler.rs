@@ -35,7 +35,7 @@ where
     control_reader: Reader<control::Database>,
     audio_writer: Writer<Database>,
     audio_producer: Producer<MainOutputs>,
-    communication_channels: CommunicationChannelsForCycler,
+    communication_channels: CommunicationChannelsForCycler<Database>,
     fft: Arc<dyn Fft<f32>>,
 }
 
@@ -48,7 +48,7 @@ where
         control_reader: Reader<control::Database>,
         audio_writer: Writer<Database>,
         audio_producer: Producer<MainOutputs>,
-        communication_channels: CommunicationChannelsForCycler,
+        communication_channels: CommunicationChannelsForCycler<Database>,
     ) -> anyhow::Result<Self> {
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(NUMBER_OF_AUDIO_SAMPLES);

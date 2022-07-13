@@ -1,30 +1,20 @@
-use types::{FieldDimensions, MotionCommand, PathObstacle, WorldState};
+use nalgebra::Isometry2;
+use types::{MotionCommand, PathObstacle, WorldState};
 
-use crate::framework::{configuration::DribblePose, AdditionalOutput};
+use crate::framework::AdditionalOutput;
 
-use super::{dribble::get_dribble_pose, walk_to_pose::WalkAndStand};
+use super::walk_to_pose::WalkAndStand;
 
 pub fn execute(
     world_state: &WorldState,
-    field_dimensions: &FieldDimensions,
-    dribble_pose: &DribblePose,
     walk_and_stand: &WalkAndStand,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
 ) -> Option<MotionCommand> {
     let robot_to_field = world_state.robot.robot_to_field?;
-    let absolute_ball_position = world_state
-        .ball
-        .map(|ball| robot_to_field * ball.position)
-        .unwrap_or_default();
-    let pose_behind_ball = get_dribble_pose(
-        field_dimensions,
-        absolute_ball_position,
-        robot_to_field,
-        dribble_pose,
-    );
+    let kick_off_pose = Isometry2::translation(-0.2, 0.0);
     let head = types::HeadMotion::LookAround;
     walk_and_stand.execute(
-        robot_to_field.inverse() * pose_behind_ball,
+        robot_to_field.inverse() * kick_off_pose,
         head,
         path_obstacles_output,
     )

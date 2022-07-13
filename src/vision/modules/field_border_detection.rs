@@ -1,9 +1,10 @@
 use anyhow::Result;
 
-use module_derive::{module, require_some};
+use module_derive::module;
 use nalgebra::{point, Point2, Vector2};
 use types::{
-    CameraMatrix, CameraPosition, FieldBorder, ImageSegments, Intensity, Line, Line2, Segment,
+    CameraMatrix, CameraPosition, FieldBorder, Horizon, ImageSegments, Intensity, Line, Line2,
+    Segment,
 };
 
 use crate::Ransac;
@@ -11,12 +12,13 @@ use crate::Ransac;
 pub struct FieldBorderDetection;
 
 #[module(vision)]
-#[input(path = image_segments, data_type = ImageSegments)]
-#[input(path = camera_matrix, data_type = CameraMatrix)]
+#[input(path = camera_matrix, data_type = CameraMatrix, required)]
+#[input(path = image_segments, data_type = ImageSegments, required)]
 #[parameter(path = $this_cycler.field_border_detection.min_points_per_line, data_type = usize)]
 #[parameter(path = $this_cycler.field_border_detection.angle_threshold, data_type = f32)]
 #[parameter(path = $this_cycler.field_border_detection.first_line_association_distance, data_type = f32)]
 #[parameter(path = $this_cycler.field_border_detection.second_line_association_distance, data_type = f32)]
+#[parameter(path = $this_cycler.field_border_detection.horizon_margin, data_type = f32)]
 #[additional_output(path = field_border_points, data_type = Vec<Point2<f32>>)]
 #[main_output(data_type = FieldBorder)]
 impl FieldBorderDetection {}
@@ -27,9 +29,6 @@ impl FieldBorderDetection {
     }
 
     fn cycle(&mut self, mut context: CycleContext) -> anyhow::Result<MainOutputs> {
-        let image_segments = require_some!(context.image_segments);
-        let camera_matrix = require_some!(context.camera_matrix);
-
         if context.camera_position == CameraPosition::Bottom {
             return Ok(MainOutputs {
                 field_border: Some(FieldBorder {
@@ -38,13 +37,18 @@ impl FieldBorderDetection {
             });
         }
 
-        let first_field_pixels: Vec<_> = image_segments
+        let first_field_pixels: Vec<_> = context
+            .image_segments
             .scan_grid
             .vertical_scan_lines
             .iter()
             .filter_map(|scan_line| {
-                get_first_field_segment(&scan_line.segments)
-                    .map(|segment| point![scan_line.position as f32, segment.start as f32])
+                get_first_field_segment(
+                    &scan_line.segments,
+                    &context.camera_matrix.horizon,
+                    *context.horizon_margin,
+                )
+                .map(|segment| point![scan_line.position as f32, segment.start as f32])
             })
             .collect();
         context
@@ -53,7 +57,7 @@ impl FieldBorderDetection {
         let ransac = Ransac::new(first_field_pixels);
         let border_lines = find_border_lines(
             ransac,
-            camera_matrix,
+            context.camera_matrix,
             *context.min_points_per_line,
             *context.angle_threshold,
             *context.first_line_association_distance,
@@ -65,10 +69,15 @@ impl FieldBorderDetection {
     }
 }
 
-fn get_first_field_segment(segments: &[Segment]) -> Option<&Segment> {
-    segments
-        .iter()
-        .find(|segment| segment.field_color != Intensity::Low)
+fn get_first_field_segment<'segment>(
+    segments: &'segment [Segment],
+    horizon: &Horizon,
+    horizon_margin: f32,
+) -> Option<&'segment Segment> {
+    segments.iter().find(|segment| {
+        segment.field_color == Intensity::High
+            && segment.start > (horizon.horizon_y_minimum() + horizon_margin) as u16
+    })
 }
 
 fn find_border_lines(
@@ -181,7 +190,14 @@ mod test {
             25,
         );
         scanline.segments[7].field_color = Intensity::High;
-        let green_segment = get_first_field_segment(&scanline.segments);
+        let green_segment = get_first_field_segment(
+            &scanline.segments,
+            &Horizon {
+                left_horizon_y: 0.0,
+                right_horizon_y: 0.0,
+            },
+            5.0,
+        );
         assert_eq!(green_segment, Some(&scanline.segments[7]));
     }
 

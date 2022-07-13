@@ -39,7 +39,7 @@ where
     vision_top_consumer: Consumer<vision::MainOutputs>,
     vision_bottom_consumer: Consumer<vision::MainOutputs>,
     audio_consumer: Consumer<audio::MainOutputs>,
-    communication_channels: CommunicationChannelsForCycler,
+    communication_channels: CommunicationChannelsForCycler<Database>,
 
     historic_databases: HistoricDatabases,
     perception_databases: PerceptionDatabases,
@@ -61,7 +61,7 @@ where
         vision_top_consumer: Consumer<vision::MainOutputs>,
         vision_bottom_consumer: Consumer<vision::MainOutputs>,
         audio_consumer: Consumer<audio::MainOutputs>,
-        communication_channels: CommunicationChannelsForCycler,
+        communication_channels: CommunicationChannelsForCycler<Database>,
     ) -> anyhow::Result<Self> {
         let configuration = communication_channels.configuration.next().clone();
         Ok(Self {
@@ -136,6 +136,8 @@ where
 
             let changed_parameters =
                 collect_changed_parameters(&mut self.communication_channels.changed_parameters)?;
+
+            let injected_outputs = self.communication_channels.injected_outputs.next();
 
             // process
             include!(concat!(env!("OUT_DIR"), "/control_cycler_run_cycles.rs"));

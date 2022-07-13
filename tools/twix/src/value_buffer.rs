@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
 
+use anyhow::{anyhow, Context, Result};
 use communication::{Communication, CyclerOutput, SubscriberMessage};
-use serde_json::Value;
+use serde::Deserialize;
+use serde_json::{from_value, Value, Value::Array};
 use tokio::{
     select, spawn,
     sync::{
@@ -85,6 +87,29 @@ impl ValueBuffer {
         self.sender
             .blocking_send(Message::SetBufferSize { buffer_size })
             .unwrap();
+    }
+    pub fn parse_latest<Output>(&self) -> Result<Output>
+    where
+        for<'de> Output: Deserialize<'de>,
+    {
+        let latest_value = self.get_latest().map_err(|error| anyhow!(error))?;
+        from_value(latest_value).context("Failed to parse json value")
+    }
+
+    pub fn require_latest<Output>(&self) -> Result<Output>
+    where
+        for<'de> Output: Deserialize<'de>,
+    {
+        let parsed_value: Option<Output> = self.parse_latest()?;
+        parsed_value.ok_or_else(|| anyhow!("Value was none"))
+    }
+
+    pub fn parse_buffered<Output>(&self) -> Result<Vec<Output>>
+    where
+        for<'de> Output: Deserialize<'de>,
+    {
+        let buffered_values = self.get_buffered().map_err(|error| anyhow!(error))?;
+        from_value(Array(buffered_values)).context("Failed to parse json value")
     }
 }
 

@@ -1,0 +1,30 @@
+{
+  "vision_top": {
+    "image_segmenter": {
+      "vertical_edge_detection_source": "Luminance",
+      "vertical_edge_threshold": 16,
+      "vertical_median_mode": "FivePixels"
+    },
+    "field_color_detection": {
+      "red_chromaticity_threshold": 1.0,
+      "blue_chromaticity_threshold": 1.0,
+      "lower_green_chromaticity_threshold": 0.4,
+      "upper_green_chromaticity_threshold": 0.41,
+      "green_luminance_threshold": 30
+    }
+  },
+  "vision_bottom": {
+    "image_segmenter": {
+      "vertical_edge_detection_source": "Luminance",
+      "vertical_edge_threshold": 32,
+      "vertical_median_mode": "FivePixels"
+    },
+    "field_color_detection": {
+      "red_chromaticity_threshold": 1.0,
+      "blue_chromaticity_threshold": 1.0,
+      "lower_green_chromaticity_threshold": 0.4,
+      "upper_green_chromaticity_threshold": 0.41,
+      "green_luminance_threshold": 20
+    }
+  }
+}

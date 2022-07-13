@@ -1,9 +1,13 @@
+use std::time::{Duration, Instant};
+
 use module_derive::{module, require_some};
 use nalgebra::point;
 use types::{
     is_above_limbs, CameraMatrix, CameraPosition, EdgeType, FieldColor, ImageSegments, Intensity,
-    Limb, ProjectedLimbs, ScanGrid, ScanLine, Segment, YCbCr444,
+    Limb, ProjectedLimbs, Rgb, RgbChannel, ScanGrid, ScanLine, Segment, YCbCr422, YCbCr444,
 };
+
+use crate::framework::configuration::{EdgeDetectionSource, MedianMode};
 
 pub struct ImageSegmenter;
 
@@ -11,8 +15,10 @@ pub struct ImageSegmenter;
 #[input(path = camera_matrix, data_type = CameraMatrix)]
 #[input(path = field_color, data_type = FieldColor)]
 #[input(path = projected_limbs, data_type = ProjectedLimbs, cycler = control)]
+#[parameter(path = $this_cycler.image_segmenter.vertical_edge_detection_source, data_type = EdgeDetectionSource)]
 #[parameter(path = $this_cycler.image_segmenter.vertical_edge_threshold, data_type = i16)]
-#[parameter(path = $this_cycler.image_segmenter.use_vertical_median, data_type = bool)]
+#[parameter(path = $this_cycler.image_segmenter.vertical_median_mode, data_type = MedianMode)]
+#[additional_output(path = image_segmenter_cycle_time, data_type = Duration)]
 #[main_output(data_type = ImageSegments)]
 impl ImageSegmenter {}
 
@@ -21,7 +27,8 @@ impl ImageSegmenter {
         Ok(Self)
     }
 
-    fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
+    fn cycle(&mut self, mut context: CycleContext) -> anyhow::Result<MainOutputs> {
+        let begin = Instant::now();
         let field_color = require_some!(context.field_color);
         let projected_limbs = require_some!(context.projected_limbs);
         let projected_limbs = match context.camera_position {
@@ -37,10 +44,15 @@ impl ImageSegmenter {
             field_color,
             horizontal_stride,
             vertical_stride,
+            *context.vertical_edge_detection_source,
             *context.vertical_edge_threshold,
-            *context.use_vertical_median,
+            *context.vertical_median_mode,
             projected_limbs.as_slice(),
         );
+        let end = Instant::now();
+        context
+            .image_segmenter_cycle_time
+            .fill_on_subscription(|| end - begin);
         Ok(MainOutputs {
             image_segments: Some(ImageSegments { scan_grid }),
         })
@@ -54,8 +66,9 @@ fn new_grid(
     field_color: &FieldColor,
     horizontal_stride: usize,
     vertical_stride: usize,
+    vertical_edge_detection_source: EdgeDetectionSource,
     vertical_edge_threshold: i16,
-    vertical_use_median: bool,
+    vertical_median_mode: MedianMode,
     projected_limbs: &[Limb],
 ) -> ScanGrid {
     let horizon_y_minimum = camera_matrix.as_ref().map_or(0.0, |camera_matrix| {
@@ -74,8 +87,9 @@ fn new_grid(
                     field_color,
                     x_422,
                     vertical_stride,
+                    vertical_edge_detection_source,
                     vertical_edge_threshold,
-                    vertical_use_median,
+                    vertical_median_mode,
                     horizon_y_minimum,
                     projected_limbs,
                 )
@@ -107,6 +121,7 @@ impl ScanLineState {
 }
 
 fn median_of_three(first: u8, second: u8, third: u8) -> u8 {
+    // TODO: replace with same approach as median_of_five()
     if first <= second {
         if second <= third {
             // first <= second <= third
@@ -130,37 +145,62 @@ fn median_of_three(first: u8, second: u8, third: u8) -> u8 {
     }
 }
 
+fn median_of_five(first: u8, second: u8, third: u8, fourth: u8, fifth: u8) -> u8 {
+    let mut values = [first, second, third, fourth, fifth];
+    let (_, median, _) = values.select_nth_unstable(2);
+    *median
+}
+
 #[allow(clippy::too_many_arguments)]
 fn new_vertical_scan_line(
     image: &Image422,
     field_color: &FieldColor,
     position_422: usize,
     stride: usize,
+    edge_detection_source: EdgeDetectionSource,
     edge_threshold: i16,
-    use_median: bool,
+    median_mode: MedianMode,
     horizon_y_minimum: f32,
     projected_limbs: &[Limb],
 ) -> ScanLine {
     let x_422 = position_422;
-    let (start_y, end_y) = if use_median {
-        ((horizon_y_minimum as usize) + 1, image.height() - 1)
-    } else {
-        (horizon_y_minimum as usize, image.height())
+    let (start_y, end_y) = match median_mode {
+        MedianMode::Disabled => (horizon_y_minimum as usize, image.height()),
+        MedianMode::ThreePixels => ((horizon_y_minimum as usize) + 1, image.height() - 1),
+        MedianMode::FivePixels => ((horizon_y_minimum as usize) + 2, image.height() - 2),
     };
-    if start_y + 1 >= image.height() {
+    if start_y >= end_y {
         return ScanLine {
             position: position_422 as u16,
             segments: Vec::new(),
         };
     }
 
-    let first_pixel = image[(x_422, start_y)];
-    let luminance_value_of_first_pixel = if use_median {
-        let previous_pixel = image[(x_422, start_y - 1)];
-        let next_pixel = image[(x_422, start_y + 1)];
-        median_of_three(previous_pixel.y1, first_pixel.y1, next_pixel.y1)
-    } else {
-        first_pixel.y1
+    let first_pixel = pixel_to_edge_detection_value(image[(x_422, start_y)], edge_detection_source);
+    let luminance_value_of_first_pixel = match median_mode {
+        MedianMode::Disabled => first_pixel,
+        MedianMode::ThreePixels => {
+            let previous_pixel = image[(x_422, start_y - 1)];
+            let next_pixel = image[(x_422, start_y + 1)];
+            median_of_three(
+                pixel_to_edge_detection_value(previous_pixel, edge_detection_source),
+                first_pixel,
+                pixel_to_edge_detection_value(next_pixel, edge_detection_source),
+            )
+        }
+        MedianMode::FivePixels => {
+            let second_previous_pixel = image[(x_422, start_y - 2)];
+            let previous_pixel = image[(x_422, start_y - 1)];
+            let next_pixel = image[(x_422, start_y + 1)];
+            let second_next_pixel = image[(x_422, start_y + 2)];
+            median_of_five(
+                pixel_to_edge_detection_value(second_previous_pixel, edge_detection_source),
+                pixel_to_edge_detection_value(previous_pixel, edge_detection_source),
+                first_pixel,
+                pixel_to_edge_detection_value(next_pixel, edge_detection_source),
+                pixel_to_edge_detection_value(second_next_pixel, edge_detection_source),
+            )
+        }
     } as i16;
     let mut state = ScanLineState::new(
         luminance_value_of_first_pixel,
@@ -170,14 +210,31 @@ fn new_vertical_scan_line(
 
     let mut segments = vec![];
     for y in (start_y..end_y).step_by(stride) {
-        let pixel = image[(x_422, y)];
-
-        let luminance_value = if use_median {
-            let previous_pixel = image[(x_422, y - 1)];
-            let next_pixel = image[(x_422, y + 1)];
-            median_of_three(previous_pixel.y1, pixel.y1, next_pixel.y1)
-        } else {
-            pixel.y1
+        let pixel = pixel_to_edge_detection_value(image[(x_422, y)], edge_detection_source);
+        let luminance_value = match median_mode {
+            MedianMode::Disabled => pixel,
+            MedianMode::ThreePixels => {
+                let previous_pixel = image[(x_422, y - 1)];
+                let next_pixel = image[(x_422, y + 1)];
+                median_of_three(
+                    pixel_to_edge_detection_value(previous_pixel, edge_detection_source),
+                    pixel,
+                    pixel_to_edge_detection_value(next_pixel, edge_detection_source),
+                )
+            }
+            MedianMode::FivePixels => {
+                let second_previous_pixel = image[(x_422, y - 2)];
+                let previous_pixel = image[(x_422, y - 1)];
+                let next_pixel = image[(x_422, y + 1)];
+                let second_next_pixel = image[(x_422, y + 2)];
+                median_of_five(
+                    pixel_to_edge_detection_value(second_previous_pixel, edge_detection_source),
+                    pixel_to_edge_detection_value(previous_pixel, edge_detection_source),
+                    pixel,
+                    pixel_to_edge_detection_value(next_pixel, edge_detection_source),
+                    pixel_to_edge_detection_value(second_next_pixel, edge_detection_source),
+                )
+            }
         } as i16;
 
         if let Some(segment) = detect_edge(&mut state, y as u16, luminance_value, edge_threshold) {
@@ -217,12 +274,85 @@ fn new_vertical_scan_line(
     }
 }
 
+fn pixel_to_edge_detection_value(
+    pixel: YCbCr422,
+    edge_detection_source: EdgeDetectionSource,
+) -> u8 {
+    match edge_detection_source {
+        EdgeDetectionSource::Luminance => pixel.y1,
+        EdgeDetectionSource::GreenChromaticity => {
+            let rgb = Rgb::from(pixel);
+            (rgb.get_chromaticity(RgbChannel::Green) * 255.0) as u8
+        }
+    }
+}
+
 fn set_color_in_vertical_segment(
     mut segment: Segment,
     image: &Image422,
     x_422: usize,
     field_color: &FieldColor,
 ) -> Segment {
+    segment.color = match segment.length() {
+        6.. => {
+            let length = segment.length();
+            let first_position = segment.start + (length / 6);
+            let second_position = segment.start + ((length * 2) / 6);
+            let third_position = segment.start + ((length * 3) / 6);
+            let fourth_position = segment.start + ((length * 4) / 6);
+            let fifth_position = segment.start + ((length * 5) / 6);
+
+            let first_pixel = image[(x_422, first_position as usize)];
+            let second_pixel = image[(x_422, second_position as usize)];
+            let third_pixel = image[(x_422, third_position as usize)];
+            let fourth_pixel = image[(x_422, fourth_position as usize)];
+            let fifth_pixel = image[(x_422, fifth_position as usize)];
+
+            let y = median_of_five(
+                first_pixel.y1,
+                second_pixel.y1,
+                third_pixel.y1,
+                fourth_pixel.y1,
+                fifth_pixel.y1,
+            );
+            let cb = median_of_five(
+                first_pixel.cb,
+                second_pixel.cb,
+                third_pixel.cb,
+                fourth_pixel.cb,
+                fifth_pixel.cb,
+            );
+            let cr = median_of_five(
+                first_pixel.cr,
+                second_pixel.cr,
+                third_pixel.cr,
+                fourth_pixel.cr,
+                fifth_pixel.cr,
+            );
+
+            YCbCr444::new(y, cb, cr)
+        }
+        4..=5 => {
+            let length = segment.length();
+            let first_position = segment.start + (length / 4);
+            let second_position = segment.start + ((length * 2) / 4);
+            let third_position = segment.start + ((length * 3) / 4);
+
+            let first_pixel = image[(x_422, first_position as usize)];
+            let second_pixel = image[(x_422, second_position as usize)];
+            let third_pixel = image[(x_422, third_position as usize)];
+
+            let y = median_of_three(first_pixel.y1, second_pixel.y1, third_pixel.y1);
+            let cb = median_of_three(first_pixel.cb, second_pixel.cb, third_pixel.cb);
+            let cr = median_of_three(first_pixel.cr, second_pixel.cr, third_pixel.cr);
+
+            YCbCr444::new(y, cb, cr)
+        }
+        0..=3 => {
+            let position = segment.start + segment.length() / 2;
+            image[(x_422, position as usize)].into()
+        }
+    };
     segment.color = if segment.length() >= 4 {
         let spacing = segment.length() / 4;
         let first_position = segment.start + spacing;
@@ -322,6 +452,7 @@ fn detect_edge(
 
 #[cfg(test)]
 mod tests {
+    use itertools::iproduct;
     use types::YCbCr422;
 
     use super::*;
@@ -337,18 +468,21 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
         let vertical_stride = 2;
         let vertical_edge_threshold = 16;
-        let vertical_use_median = false;
+        let vertical_median_mode = MedianMode::Disabled;
+        let vertical_edge_detection_source = EdgeDetectionSource::Luminance;
         let horizon_y_minimum = 0.0;
         let scan_line = new_vertical_scan_line(
             &image,
             &field_color,
             12,
             vertical_stride,
+            vertical_edge_detection_source,
             vertical_edge_threshold,
-            vertical_use_median,
+            vertical_median_mode,
             horizon_y_minimum,
             &[],
         );
@@ -369,8 +503,19 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
-        let scan_line = new_vertical_scan_line(&image, &field_color, 0, 2, 1, false, 0.0, &[]);
+        let scan_line = new_vertical_scan_line(
+            &image,
+            &field_color,
+            0,
+            2,
+            EdgeDetectionSource::Luminance,
+            1,
+            MedianMode::Disabled,
+            0.0,
+            &[],
+        );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -385,8 +530,19 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
-        let scan_line = new_vertical_scan_line(&image, &field_color, 0, 2, 1, true, 0.0, &[]);
+        let scan_line = new_vertical_scan_line(
+            &image,
+            &field_color,
+            0,
+            2,
+            EdgeDetectionSource::Luminance,
+            1,
+            MedianMode::ThreePixels,
+            0.0,
+            &[],
+        );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -401,13 +557,24 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
         // only evaluating every second 422 pixel
         image[(0, 0)] = YCbCr422::new(0, 10, 10, 10);
         image[(0, 1)] = YCbCr422::new(0, 15, 14, 13);
         image[(0, 2)] = YCbCr422::new(0, 10, 10, 10);
 
-        let scan_line = new_vertical_scan_line(&image, &field_color, 0, 2, 1, false, 0.0, &[]);
+        let scan_line = new_vertical_scan_line(
+            &image,
+            &field_color,
+            0,
+            2,
+            EdgeDetectionSource::Luminance,
+            1,
+            MedianMode::Disabled,
+            0.0,
+            &[],
+        );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].color.y, 0);
@@ -423,6 +590,7 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
         // only evaluating every second 422 pixel
         image[(0, 0)] = YCbCr422::new(0, 10, 10, 10);
@@ -438,7 +606,17 @@ mod tests {
         image[(0, 10)] = YCbCr422::new(0, 10, 10, 10);
         image[(0, 11)] = YCbCr422::new(0, 10, 10, 10);
 
-        let scan_line = new_vertical_scan_line(&image, &field_color, 0, 2, 1, false, 0.0, &[]);
+        let scan_line = new_vertical_scan_line(
+            &image,
+            &field_color,
+            0,
+            2,
+            EdgeDetectionSource::Luminance,
+            1,
+            MedianMode::Disabled,
+            0.0,
+            &[],
+        );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].color.y, 0);
@@ -454,6 +632,7 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
         // only evaluating every secondth pixel
         image[(0, 0)] = YCbCr422::new(0, 0, 0, 0);
@@ -486,7 +665,17 @@ mod tests {
         // 3  1     0          0                   0             0
         // -> end segment at position 12
 
-        let scan_line = new_vertical_scan_line(&image, &field_color, 0, 2, 1, false, 0.0, &[]);
+        let scan_line = new_vertical_scan_line(
+            &image,
+            &field_color,
+            0,
+            2,
+            EdgeDetectionSource::Luminance,
+            1,
+            MedianMode::Disabled,
+            0.0,
+            &[],
+        );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -505,6 +694,7 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
         // only evaluating every secondth pixel
         image[(0, 0)] = YCbCr422::new(0, 0, 0, 0);
@@ -543,7 +733,17 @@ mod tests {
         // 3
         // -> end segment at position 12
 
-        let scan_line = new_vertical_scan_line(&image, &field_color, 0, 2, 1, true, 0.0, &[]);
+        let scan_line = new_vertical_scan_line(
+            &image,
+            &field_color,
+            0,
+            2,
+            EdgeDetectionSource::Luminance,
+            1,
+            MedianMode::ThreePixels,
+            0.0,
+            &[],
+        );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -568,6 +768,7 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
         // only evaluating every secondth 422 pixel
         image[(0, 0)] = YCbCr422::new(3, 0, 0, 0);
@@ -600,7 +801,17 @@ mod tests {
         // 0  -1     0         0                    0              0
         // -> end segment at position 12
 
-        let scan_line = new_vertical_scan_line(&image, &field_color, 0, 2, 1, false, 0.0, &[]);
+        let scan_line = new_vertical_scan_line(
+            &image,
+            &field_color,
+            0,
+            2,
+            EdgeDetectionSource::Luminance,
+            1,
+            MedianMode::Disabled,
+            0.0,
+            &[],
+        );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -625,6 +836,7 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
         // only evaluating every secondth 422 pixel
         image[(0, 0)] = YCbCr422::new(3, 0, 0, 0);
@@ -663,7 +875,17 @@ mod tests {
         // 0
         // -> end segment at position 12
 
-        let scan_line = new_vertical_scan_line(&image, &field_color, 0, 2, 1, true, 0.0, &[]);
+        let scan_line = new_vertical_scan_line(
+            &image,
+            &field_color,
+            0,
+            2,
+            EdgeDetectionSource::Luminance,
+            1,
+            MedianMode::ThreePixels,
+            0.0,
+            &[],
+        );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -688,6 +910,7 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
         // only evaluating every secondth 422 pixel
         image[(0, 0)] = YCbCr422::new(0, 0, 0, 0);
@@ -793,7 +1016,17 @@ mod tests {
         // 0   0     0         0                    1              0
         // -> end segment at position 44
 
-        let scan_line = new_vertical_scan_line(&image, &field_color, 0, 2, 1, false, 0.0, &[]);
+        let scan_line = new_vertical_scan_line(
+            &image,
+            &field_color,
+            0,
+            2,
+            EdgeDetectionSource::Luminance,
+            1,
+            MedianMode::Disabled,
+            0.0,
+            &[],
+        );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -818,6 +1051,7 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
         // only evaluating every secondth 422 pixel
         image[(0, 0)] = YCbCr422::new(0, 0, 0, 0);
@@ -967,7 +1201,17 @@ mod tests {
         // 0
         // -> end segment at position 44
 
-        let scan_line = new_vertical_scan_line(&image, &field_color, 0, 2, 1, true, 0.0, &[]);
+        let scan_line = new_vertical_scan_line(
+            &image,
+            &field_color,
+            0,
+            2,
+            EdgeDetectionSource::Luminance,
+            1,
+            MedianMode::ThreePixels,
+            0.0,
+            &[],
+        );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -992,6 +1236,7 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
         // only evaluating every secondth 422 pixel
         image[(0, 0)] = YCbCr422::new(0, 0, 0, 0);
@@ -1024,7 +1269,17 @@ mod tests {
         // 21  6     5          1                   0             0
         // -> end segment at position 16
 
-        let scan_line = new_vertical_scan_line(&image, &field_color, 0, 2, 1, false, 0.0, &[]);
+        let scan_line = new_vertical_scan_line(
+            &image,
+            &field_color,
+            0,
+            2,
+            EdgeDetectionSource::Luminance,
+            1,
+            MedianMode::Disabled,
+            0.0,
+            &[],
+        );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -1041,6 +1296,7 @@ mod tests {
             blue_chromaticity_threshold: 0.38,
             lower_green_chromaticity_threshold: 0.4,
             upper_green_chromaticity_threshold: 0.43,
+            green_luminance_threshold: 255,
         };
         // only evaluating every secondth 422 pixel
         image[(0, 0)] = YCbCr422::new(0, 0, 0, 0);
@@ -1081,7 +1337,17 @@ mod tests {
         // 21
         // -> end segment at position 16
 
-        let scan_line = new_vertical_scan_line(&image, &field_color, 0, 2, 1, true, 0.0, &[]);
+        let scan_line = new_vertical_scan_line(
+            &image,
+            &field_color,
+            0,
+            2,
+            EdgeDetectionSource::Luminance,
+            1,
+            MedianMode::ThreePixels,
+            0.0,
+            &[],
+        );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -1116,5 +1382,16 @@ mod tests {
         assert_eq!(median_of_three(2, 0, 1), 1);
         // third < second <= first
         assert_eq!(median_of_three(2, 1, 0), 1);
+    }
+
+    #[test]
+    fn median_of_five_calculates_median() {
+        for (first, second, third, fourth, fifth) in iproduct!(0..5, 0..5, 0..5, 0..5, 0..5) {
+            let calculated_median = median_of_five(first, second, third, fourth, fifth);
+            let mut numbers = vec![first, second, third, fourth, fifth];
+            numbers.sort();
+            let real_median = numbers[2];
+            assert_eq!(calculated_median,real_median, "test_case: {first} {second} {third} {fourth} {fifth}, median_of_five: {calculated_median}");
+        }
     }
 }

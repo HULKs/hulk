@@ -1,8 +1,10 @@
 use anyhow::Result;
 use module_derive::{module, require_some};
+use nalgebra::{point, Point2};
 use spl_network::Team;
 use types::{
-    FieldDimensions, FilteredGameState, MotionCommand, PathObstacle, Role, SensorData, WorldState,
+    FieldDimensions, FilteredGameState, KickDecision, MotionCommand, PathObstacle, Role,
+    SensorData, WorldState,
 };
 
 use crate::framework::configuration;
@@ -10,12 +12,15 @@ use crate::framework::configuration;
 use super::{
     action::Action,
     defend::Defend,
-    dribble, fall_safely, in_walk_kick, penalize, search, sit_down, stand, stand_up,
-    support_striker, unstiff, walk_backwards, walk_to_kick_off,
+    dribble, fall_safely, lost_ball, penalize, search, sit_down, stand, stand_up, support_striker,
+    unstiff, walk_to_kick_off,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
 
-pub struct Behavior {}
+pub struct Behavior {
+    last_motion_command: MotionCommand,
+    absolute_last_known_ball_position: Point2<f32>,
+}
 
 #[module(control)]
 #[input(path = world_state, data_type = WorldState)]
@@ -23,12 +28,17 @@ pub struct Behavior {}
 #[parameter(path = control.behavior, data_type = configuration::Behavior)]
 #[parameter(path = field_dimensions, data_type = FieldDimensions)]
 #[additional_output(path = path_obstacles, data_type = Vec<PathObstacle>)]
+#[additional_output(path = kick_decisions, data_type = Vec<KickDecision>)]
+#[additional_output(path = kick_targets, data_type = Vec<Point2<f32>>)]
 #[main_output(data_type = MotionCommand)]
 impl Behavior {}
 
 impl Behavior {
     fn new(_context: NewContext) -> anyhow::Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_motion_command: MotionCommand::Unstiff,
+            absolute_last_known_ball_position: point![0.0, 0.0],
+        })
     }
 
     fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -38,6 +48,12 @@ impl Behavior {
             return Ok(MainOutputs {
                 motion_command: Some(command.clone()),
             });
+        }
+
+        if let (Some(ball_state), Some(robot_to_field)) =
+            (&world_state.ball, world_state.robot.robot_to_field)
+        {
+            self.absolute_last_known_ball_position = robot_to_field * ball_state.position;
         }
 
         let mut actions = vec![
@@ -53,12 +69,11 @@ impl Behavior {
             Role::DefenderLeft => actions.push(Action::DefendLeft),
             Role::DefenderRight => actions.push(Action::DefendRight),
             Role::Keeper => actions.push(Action::DefendGoal),
-            Role::Loser => actions.push(Action::WalkBackwards),
+            Role::Loser => actions.push(Action::SearchForLostBall),
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
             Role::Searcher => actions.push(Action::Search),
             Role::Striker => match world_state.filtered_game_state {
                 None | Some(FilteredGameState::Playing { ball_is_free: true }) => {
-                    actions.push(Action::InWalkKick);
                     actions.push(Action::Dribble);
                 }
                 Some(FilteredGameState::Ready {
@@ -75,15 +90,13 @@ impl Behavior {
             }
         };
 
-        let walk_path_planner = WalkPathPlanner::new(
-            world_state,
-            context.field_dimensions,
-            &context.behavior.path_planning,
-        );
+        let walk_path_planner =
+            WalkPathPlanner::new(context.field_dimensions, &context.behavior.path_planning);
         let walk_and_stand = WalkAndStand::new(
             world_state,
             &context.behavior.walk_and_stand,
             &walk_path_planner,
+            &self.last_motion_command,
         );
         let defend = Defend::new(
             world_state,
@@ -101,15 +114,21 @@ impl Behavior {
                 Action::FallSafely => fall_safely::execute(world_state),
                 Action::StandUp => stand_up::execute(world_state),
                 Action::Stand => stand::execute(world_state),
-                Action::InWalkKick => in_walk_kick::execute(world_state, context.field_dimensions),
                 Action::Dribble => dribble::execute(
                     world_state,
                     context.field_dimensions,
-                    &context.behavior.dribble_pose,
+                    &context.behavior.dribbling,
+                    &walk_path_planner,
+                    &mut context.path_obstacles,
+                    &mut context.kick_targets,
+                    &mut context.kick_decisions,
+                ),
+                Action::SearchForLostBall => lost_ball::execute(
+                    world_state,
+                    self.absolute_last_known_ball_position,
                     &walk_path_planner,
                     &mut context.path_obstacles,
                 ),
-                Action::WalkBackwards => walk_backwards::execute(world_state),
                 Action::Search => search::execute(world_state),
                 Action::DefendGoal => defend.goal(&mut context.path_obstacles),
                 Action::DefendLeft => defend.left(&mut context.path_obstacles),
@@ -124,8 +143,6 @@ impl Behavior {
                 Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
                 Action::WalkToKickOff => walk_to_kick_off::execute(
                     world_state,
-                    context.field_dimensions,
-                    &context.behavior.dribble_pose,
                     &walk_and_stand,
                     &mut context.path_obstacles,
                 ),

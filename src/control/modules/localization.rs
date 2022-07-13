@@ -1,4 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
+use std::{f32::consts::FRAC_PI_2, mem::take};
 
 use anyhow::{Context, Result};
 use approx::assert_relative_eq;
@@ -11,7 +11,8 @@ use ordered_float::NotNan;
 use spl_network::PlayerNumber;
 use types::{
     field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldDimensions, FieldMark,
-    InitialPose, Line, Line2, LineData, LocalizationUpdate, Players, PrimaryState, Side,
+    GameControllerState, InitialPose, Line, Line2, LineData, LocalizationUpdate, Players,
+    PrimaryState, Side,
 };
 
 use crate::control::filtering::{PoseFilter, ScoredPoseFilter};
@@ -20,10 +21,15 @@ pub struct Localization {
     field_marks: Vec<FieldMark>,
     last_primary_state: PrimaryState,
     hypotheses: Vec<ScoredPoseFilter>,
+    hypotheses_when_entered_playing: Vec<ScoredPoseFilter>,
+    is_penalized_with_motion_in_set: bool,
+    was_picked_up_while_penalized_with_motion_in_set: bool,
 }
 
 #[module(control)]
 #[input(path = primary_state, data_type = PrimaryState)]
+#[input(path = game_controller_state, data_type = GameControllerState)]
+#[input(path = has_ground_contact, data_type = bool)]
 #[historic_input(path = current_odometry_to_last_odometry, data_type = Isometry2<f32>)]
 #[perception_input(name = line_data_top, path = line_data, data_type = LineData, cycler = vision_top)]
 #[perception_input(name = line_data_bottom, path = line_data, data_type = LineData, cycler = vision_bottom)]
@@ -64,11 +70,19 @@ impl Localization {
                 .collect(),
             last_primary_state: PrimaryState::Unstiff,
             hypotheses: vec![],
+            hypotheses_when_entered_playing: vec![],
+            is_penalized_with_motion_in_set: false,
+            was_picked_up_while_penalized_with_motion_in_set: false,
         })
     }
 
     fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let primary_state = *require_some!(context.primary_state);
+        let penalty = context
+            .game_controller_state
+            .map(|game_controller_state| game_controller_state.penalties[*context.player_number])
+            .flatten();
+        let has_ground_contact = *require_some!(context.has_ground_contact);
 
         match (self.last_primary_state, primary_state) {
             (PrimaryState::Initial, PrimaryState::Ready) => {
@@ -76,38 +90,80 @@ impl Localization {
                     &context.initial_poses[*context.player_number],
                     context.field_dimensions,
                 );
-                self.hypotheses = vec![ScoredPoseFilter {
-                    pose_filter: PoseFilter::new(
-                        vector![
-                            initial_pose.translation.x,
-                            initial_pose.translation.y,
-                            initial_pose.rotation.angle()
-                        ],
-                        *context.initial_hypothesis_covariance,
-                    ),
-                    score: *context.initial_hypothesis_score,
-                }];
+                self.hypotheses = vec![ScoredPoseFilter::from_isometry(
+                    initial_pose,
+                    *context.initial_hypothesis_covariance,
+                    *context.initial_hypothesis_score,
+                )];
+                self.hypotheses_when_entered_playing = self.hypotheses.clone();
+            }
+            (PrimaryState::Set, PrimaryState::Playing) => {
+                self.hypotheses_when_entered_playing = self.hypotheses.clone();
+            }
+            (PrimaryState::Playing, PrimaryState::Penalized) => {
+                match penalty {
+                    Some(spl_network::Penalty::IllegalMotionInSet { remaining: _ }) => {
+                        self.is_penalized_with_motion_in_set = true;
+                    }
+                    Some(_) => {}
+                    None => {}
+                };
             }
             (PrimaryState::Penalized, _) if primary_state != PrimaryState::Penalized => {
+                if self.is_penalized_with_motion_in_set {
+                    if self.was_picked_up_while_penalized_with_motion_in_set {
+                        self.hypotheses = take(&mut self.hypotheses_when_entered_playing);
+
+                        let penalized_poses = generate_penalized_poses(context.field_dimensions);
+                        self.hypotheses_when_entered_playing = penalized_poses
+                            .into_iter()
+                            .map(|pose| {
+                                ScoredPoseFilter::from_isometry(
+                                    pose,
+                                    *context.initial_hypothesis_covariance,
+                                    *context.initial_hypothesis_score,
+                                )
+                            })
+                            .collect();
+                    }
+                    self.is_penalized_with_motion_in_set = false;
+                    self.was_picked_up_while_penalized_with_motion_in_set = false;
+                } else {
+                    let penalized_poses = generate_penalized_poses(context.field_dimensions);
+                    self.hypotheses = penalized_poses
+                        .into_iter()
+                        .map(|pose| {
+                            ScoredPoseFilter::from_isometry(
+                                pose,
+                                *context.initial_hypothesis_covariance,
+                                *context.initial_hypothesis_score,
+                            )
+                        })
+                        .collect();
+                    self.hypotheses_when_entered_playing = self.hypotheses.clone();
+                }
+            }
+            (PrimaryState::Unstiff, _) => {
                 let penalized_poses = generate_penalized_poses(context.field_dimensions);
                 self.hypotheses = penalized_poses
-                    .iter()
-                    .map(|pose| ScoredPoseFilter {
-                        pose_filter: PoseFilter::new(
-                            vector![
-                                pose.translation.x,
-                                pose.translation.y,
-                                pose.rotation.angle()
-                            ],
+                    .into_iter()
+                    .map(|pose| {
+                        ScoredPoseFilter::from_isometry(
+                            pose,
                             *context.initial_hypothesis_covariance,
-                        ),
-                        score: *context.initial_hypothesis_score,
+                            *context.initial_hypothesis_score,
+                        )
                     })
                     .collect();
+                self.hypotheses_when_entered_playing = self.hypotheses.clone();
             }
             _ => {}
         }
         self.last_primary_state = primary_state;
+
+        if self.is_penalized_with_motion_in_set && !has_ground_contact {
+            self.was_picked_up_while_penalized_with_motion_in_set = true;
+        }
 
         if primary_state == PrimaryState::Ready
             || primary_state == PrimaryState::Set
@@ -134,16 +190,9 @@ impl Localization {
             ) in line_datas
             {
                 assert_eq!(line_data_top_timestamp, line_data_bottom_timestamp);
-                let current_odometry_to_last_odometry = match context
+                let current_odometry_to_last_odometry = context
                     .current_odometry_to_last_odometry
-                    .historic
-                    .get(line_data_top_timestamp)
-                {
-                    Some(&current_odometry_to_last_odometry) => current_odometry_to_last_odometry,
-                    None => {
-                        panic!("Failed to get matching current odometry from line_data timestamp")
-                    }
-                };
+                    .get(*line_data_top_timestamp);
 
                 let mut fit_errors_per_hypothesis = vec![];
                 for (hypothesis_index, scored_filter) in self.hypotheses.iter_mut().enumerate() {

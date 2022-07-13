@@ -27,7 +27,8 @@ export enum PanelType {
   Odometry = "Odometry",
   ProjectedLimbs = "ProjectedLimbs",
   LineFitting = "LineFitting",
-  RobotDetection = "RobotDetection"
+  RobotDetection = "RobotDetection",
+  FieldColor = "FieldColor",
 }
 export type RawOutput = {
   panelType: PanelType.RawOutput;
@@ -101,6 +102,10 @@ export type RobotDetection = {
   panelType: PanelType.RobotDetection;
   cycler: Cycler;
 };
+export type FieldColor = {
+  panelType: PanelType.FieldColor;
+  cycler: Cycler;
+};
 export type SelectablePanel =
   | RawOutput
   | RawImage
@@ -121,7 +126,8 @@ export type SelectablePanel =
   | Odometry
   | ProjectedLimbs
   | LineFitting
-  | RobotDetection;
+  | RobotDetection
+  | FieldColor;
 export type SelectablePanels = { [sortPath: string]: SelectablePanel };
 
 function rawOutputsFromOutputHierarchy(
@@ -359,6 +365,19 @@ function robotDetection(): SelectablePanels {
   };
 }
 
+function fieldColor(): SelectablePanels {
+  return {
+    "FieldColor.VisionTop": {
+      panelType: PanelType.FieldColor,
+      cycler: Cycler.VisionTop,
+    },
+    "FieldColor.VisionBottom": {
+      panelType: PanelType.FieldColor,
+      cycler: Cycler.VisionBottom,
+    },
+  };
+}
+
 export default function useSelectablePanels(
   outputHierarchy: OutputHierarchy,
   parameterHierarchy: ParameterHierarchy
@@ -384,6 +403,7 @@ export default function useSelectablePanels(
       ...projectedLimbs(),
       ...lineFitting(),
       ...robotDetection(),
+      ...fieldColor(),
     };
   }, [outputHierarchy, parameterHierarchy]);
 }

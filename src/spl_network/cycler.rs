@@ -38,7 +38,7 @@ where
     control_reader: Reader<control::Database>,
     spl_network_writer: Writer<Database>,
     spl_network_producer: Producer<MainOutputs>,
-    communication_channels: CommunicationChannelsForCycler,
+    communication_channels: CommunicationChannelsForCycler<Database>,
     control_database_changed: Arc<Notify>,
 
     last_game_controller_address: Option<SocketAddr>,
@@ -53,7 +53,7 @@ where
         control_reader: Reader<control::Database>,
         spl_network_writer: Writer<Database>,
         spl_network_producer: Producer<MainOutputs>,
-        communication_channels: CommunicationChannelsForCycler,
+        communication_channels: CommunicationChannelsForCycler<Database>,
         control_database_changed: Arc<Notify>,
     ) -> anyhow::Result<Self> {
         Ok(Self {

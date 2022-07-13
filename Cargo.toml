@@ -1,8 +1,28 @@
 [package]
-edition = "2018"
+edition = "2021"
 license = "GPL-3.0-only"
 name = "hulk"
 version = "0.1.0"
+
+[workspace]
+members = [
+  "crates/communication",
+  "crates/module_attributes",
+  "crates/module_derive",
+  "crates/nao",
+  "crates/repository",
+  "crates/serialize_hierarchy",
+  "crates/serialize_hierarchy_derive",
+  "crates/spl_network",
+  "crates/types",
+  "crates/uvcvideo",
+  "tools/camera_matrix_extractor",
+  "tools/depp",
+  "tools/fanta",
+  "tools/hula",
+  "tools/pepsi",
+  "tools/twix",
+]
 
 [dependencies]
 alsa = {version = "0.5.0", optional = true}

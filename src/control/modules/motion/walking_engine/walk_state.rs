@@ -53,6 +53,7 @@ impl WalkState {
                 let num_steps = match kick_variant {
                     KickVariant::Forward => &kick_steps.forward,
                     KickVariant::Turn => &kick_steps.turn,
+                    KickVariant::Side => &kick_steps.side,
                 }
                 .len();
                 if step_i + 1 < num_steps {
@@ -65,6 +66,7 @@ impl WalkState {
                 let num_steps = match kick_variant {
                     KickVariant::Forward => &kick_steps.forward,
                     KickVariant::Turn => &kick_steps.turn,
+                    KickVariant::Side => &kick_steps.side,
                 }
                 .len();
                 if step_i + 1 < num_steps {
@@ -80,6 +82,7 @@ impl WalkState {
                 let num_steps = match current_kick_variant {
                     KickVariant::Forward => &kick_steps.forward,
                     KickVariant::Turn => &kick_steps.turn,
+                    KickVariant::Side => &kick_steps.side,
                 }
                 .len();
                 if step_i + 1 < num_steps {

@@ -6,7 +6,7 @@ use std::{
 use anyhow::Result;
 use log::debug;
 use module_derive::{module, require_some};
-use nalgebra::Isometry2;
+use nalgebra::{Isometry2, Point2};
 use spl_network::{GameControllerReturnMessage, Penalty, PlayerNumber, SplMessage};
 use tokio::sync::{
     mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
@@ -47,6 +47,7 @@ pub struct RoleAssignment {
 #[parameter(path = spl_network, data_type = SplNetwork)]
 #[main_output(data_type = BallPosition, name = team_ball)]
 #[main_output(data_type = MessageReceivers)]
+#[main_output(data_type = Vec<Point2<f32>>, name = network_robot_obstacles)]
 #[main_output(data_type = Role)]
 impl RoleAssignment {}
 
@@ -86,8 +87,8 @@ impl RoleAssignment {
             role = match context.player_number {
                 PlayerNumber::One => Role::Keeper,
                 PlayerNumber::Two => Role::DefenderRight,
-                PlayerNumber::Three => Role::DefenderLeft,
-                PlayerNumber::Four => Role::StrikerSupporter,
+                PlayerNumber::Three => Role::StrikerSupporter,
+                PlayerNumber::Four => Role::DefenderLeft,
                 PlayerNumber::Five => Role::Striker,
             };
             self.role_initialized = true;
@@ -155,6 +156,8 @@ impl RoleAssignment {
             .flatten()
             .peekable();
 
+        let mut network_robot_obstacles = vec![];
+
         if spl_messages.peek().is_none() {
             (role, send_spl_striker_message, team_ball) = process_role_state_machine(
                 role,
@@ -172,6 +175,9 @@ impl RoleAssignment {
         } else {
             for spl_message in spl_messages {
                 self.last_received_spl_striker_message = Some(cycle_start_time);
+                let sender_position =
+                    (robot_to_field.inverse() * spl_message.robot_to_field) * Point2::origin();
+                network_robot_obstacles.push(sender_position);
                 (role, send_spl_striker_message, team_ball) = process_role_state_machine(
                     role,
                     &robot_to_field,
@@ -239,6 +245,7 @@ impl RoleAssignment {
                     .clone(),
                 spl_message_receiver: self.spl_message_receiver.clone(),
             }),
+            network_robot_obstacles: Some(network_robot_obstacles),
         })
     }
 }
@@ -740,25 +747,25 @@ fn pick_role_with_penalties(
         && role_assignment[PlayerNumber::Two].is_none()
         && penalties[PlayerNumber::Two].is_none()
     {
-        role_assignment[PlayerNumber::Two] = Some(Role::DefenderLeft);
+        role_assignment[PlayerNumber::Two] = Some(Role::StrikerSupporter);
         unassigned_robots -= 1;
     } else if unassigned_robots > 0
         && role_assignment[PlayerNumber::Three].is_none()
         && penalties[PlayerNumber::Three].is_none()
     {
-        role_assignment[PlayerNumber::Three] = Some(Role::DefenderLeft);
+        role_assignment[PlayerNumber::Three] = Some(Role::StrikerSupporter);
         unassigned_robots -= 1;
     } else if unassigned_robots > 0
         && role_assignment[PlayerNumber::Four].is_none()
         && penalties[PlayerNumber::Four].is_none()
     {
-        role_assignment[PlayerNumber::Four] = Some(Role::DefenderLeft);
+        role_assignment[PlayerNumber::Four] = Some(Role::StrikerSupporter);
         unassigned_robots -= 1;
     } else if unassigned_robots > 0
         && role_assignment[PlayerNumber::Five].is_none()
         && penalties[PlayerNumber::Five].is_none()
     {
-        role_assignment[PlayerNumber::Five] = Some(Role::DefenderLeft);
+        role_assignment[PlayerNumber::Five] = Some(Role::StrikerSupporter);
         unassigned_robots -= 1;
     }
 
@@ -766,22 +773,22 @@ fn pick_role_with_penalties(
         && role_assignment[PlayerNumber::Two].is_none()
         && penalties[PlayerNumber::Two].is_none()
     {
-        role_assignment[PlayerNumber::Two] = Some(Role::StrikerSupporter);
+        role_assignment[PlayerNumber::Two] = Some(Role::DefenderLeft);
     } else if unassigned_robots > 0
         && role_assignment[PlayerNumber::Three].is_none()
         && penalties[PlayerNumber::Three].is_none()
     {
-        role_assignment[PlayerNumber::Three] = Some(Role::StrikerSupporter);
+        role_assignment[PlayerNumber::Three] = Some(Role::DefenderLeft);
     } else if unassigned_robots > 0
         && role_assignment[PlayerNumber::Four].is_none()
         && penalties[PlayerNumber::Four].is_none()
     {
-        role_assignment[PlayerNumber::Four] = Some(Role::StrikerSupporter);
+        role_assignment[PlayerNumber::Four] = Some(Role::DefenderLeft);
     } else if unassigned_robots > 0
         && role_assignment[PlayerNumber::Five].is_none()
         && penalties[PlayerNumber::Five].is_none()
     {
-        role_assignment[PlayerNumber::Five] = Some(Role::StrikerSupporter);
+        role_assignment[PlayerNumber::Five] = Some(Role::DefenderLeft);
     }
 
     role_assignment[own_player_number].unwrap()

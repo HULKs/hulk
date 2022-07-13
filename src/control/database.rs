@@ -1,14 +1,14 @@
-use nalgebra::{Isometry2, Isometry3, Point3, UnitComplex};
+use nalgebra::{Isometry2, Isometry3, Point2, Point3, UnitComplex};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use types::{
     BallPosition, BodyJointsCommand, Buttons, CameraMatrices, Circle, FallState, FilteredGameState,
     FilteredWhistle, GameControllerState, HeadJoints, HeadJointsCommand, Joints, JointsCommand,
-    Leds, Line2, LocalizationUpdate, MotionCommand, MotionSafeExits, MotionSelection, Obstacle,
-    PathObstacle, PrimaryState, ProjectedFieldLines, ProjectedLimbs, RobotKinematics,
-    RobotPosition, Role, SensorData, SolePressure, SonarObstacle, SonarValues, Step, SupportFoot,
-    WalkCommand, WorldState,
+    KickDecision, Leds, Line2, LocalizationUpdate, MotionCommand, MotionSafeExits, MotionSelection,
+    Obstacle, PathObstacle, PrimaryState, ProjectedFieldLines, ProjectedLimbs, RobotKinematics,
+    Role, SensorData, SolePressure, SonarObstacle, SonarValues, Step, SupportFoot, WalkCommand,
+    WorldState,
 };
 
 use crate::spl_network::MessageReceivers;
@@ -17,7 +17,7 @@ use super::{
     filtering::ScoredPoseFilter,
     modules::{
         ball_filter::BallFilterHypothesis, motion::walking_engine::WalkingEngine,
-        robot_filter::RobotFilterHypothesis,
+        obstacle_filter::ObstacleFilterHypothesis,
     },
 };
 
@@ -49,8 +49,8 @@ pub struct MainOutputs {
     #[leaf]
     pub motion_command: Option<MotionCommand>,
     pub motion_selection: Option<MotionSelection>,
+    pub network_robot_obstacles: Option<Vec<Point2<f32>>>,
     pub obstacles: Option<Vec<Obstacle>>,
-    pub robot_positions: Option<Vec<RobotPosition>>,
     pub odometry_offset: Option<Isometry2<f32>>,
     #[leaf]
     pub primary_state: Option<PrimaryState>,
@@ -84,7 +84,7 @@ pub struct MainOutputs {
 pub struct AdditionalOutputs {
     pub accumulated_odometry: Option<Isometry2<f32>>,
     pub ball_filter_hypotheses: Option<Vec<BallFilterHypothesis>>,
-    pub robot_filter_hypotheses: Option<Vec<RobotFilterHypothesis>>,
+    pub obstacle_filter_hypotheses: Option<Vec<ObstacleFilterHypothesis>>,
     pub walking_engine: Option<WalkingEngine>,
     pub step_adjustment: Option<StepAdjustment>,
     pub projected_field_lines: Option<ProjectedFieldLines>,
@@ -93,6 +93,8 @@ pub struct AdditionalOutputs {
     pub filtered_balls_in_image_top: Option<Vec<Circle>>,
     pub filtered_balls_in_image_bottom: Option<Vec<Circle>>,
     pub sonar_values: Option<SonarValues>,
+    pub kick_decisions: Option<Vec<KickDecision>>,
+    pub kick_targets: Option<Vec<Point2<f32>>>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

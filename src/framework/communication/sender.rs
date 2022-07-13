@@ -73,6 +73,18 @@ pub enum Payload {
         path: String,
         data: Value,
     },
+    SetInjectedOutputResult {
+        id: usize,
+        ok: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
+    UnsetInjectedOutputResult {
+        id: usize,
+        ok: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
 }
 
 #[allow(clippy::large_enum_variant)]

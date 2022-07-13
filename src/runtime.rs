@@ -22,25 +22,28 @@ use crate::{
     vision::Vision,
 };
 
-pub struct CommunicationChannelsForCycler {
+pub struct CommunicationChannelsForCycler<Database> {
     pub database_changed: Arc<Notify>,
     pub subscribed_additional_outputs: Reader<HashSet<String>>,
     pub configuration: Reader<Configuration>,
     pub changed_parameters: Receiver<String>,
+    pub injected_outputs: Reader<Database>,
 }
 
-pub struct CommunicationChannelsForCyclerWithImage {
+pub struct CommunicationChannelsForCyclerWithImage<Database> {
     pub database_changed: Arc<Notify>,
     pub subscribed_additional_outputs: Reader<HashSet<String>>,
     pub subscribed_image: Reader<bool>,
     pub configuration: Reader<Configuration>,
     pub changed_parameters: Receiver<String>,
+    pub injected_outputs: Reader<Database>,
 }
 
 pub struct CommunicationChannelsForCommunication<Database> {
     pub database: Reader<Database>,
     pub database_changed: Arc<Notify>,
     pub subscribed_additional_outputs: Writer<HashSet<String>>,
+    pub injected_outputs: Writer<Database>,
 }
 
 pub struct CommunicationChannelsForCommunicationWithImage<Database> {
@@ -48,6 +51,7 @@ pub struct CommunicationChannelsForCommunicationWithImage<Database> {
     pub database_changed: Arc<Notify>,
     pub subscribed_additional_outputs: Writer<HashSet<String>>,
     pub subscribed_image: Writer<bool>,
+    pub injected_outputs: Writer<Database>,
 }
 
 fn new_communication_channels<Database>(
@@ -55,11 +59,16 @@ fn new_communication_channels<Database>(
     configuration: Reader<Configuration>,
     changed_parameters: Receiver<String>,
 ) -> (
-    CommunicationChannelsForCycler,
+    CommunicationChannelsForCycler<Database>,
     CommunicationChannelsForCommunication<Database>,
-) {
+)
+where
+    Database: Default,
+{
     let database_changed = Arc::new(Notify::new());
     let (subscribed_additional_outputs_writer, subscribed_additional_outputs_reader) =
+        buffer::with_slots([Default::default(), Default::default(), Default::default()]);
+    let (injected_outputs_writer, injected_outputs_reader) =
         buffer::with_slots([Default::default(), Default::default(), Default::default()]);
 
     (
@@ -68,11 +77,13 @@ fn new_communication_channels<Database>(
             subscribed_additional_outputs: subscribed_additional_outputs_reader,
             configuration,
             changed_parameters,
+            injected_outputs: injected_outputs_reader,
         },
         CommunicationChannelsForCommunication {
             database,
             database_changed,
             subscribed_additional_outputs: subscribed_additional_outputs_writer,
+            injected_outputs: injected_outputs_writer,
         },
     )
 }
@@ -82,13 +93,18 @@ fn new_communication_channels_with_image<Database>(
     configuration: Reader<Configuration>,
     changed_parameters: Receiver<String>,
 ) -> (
-    CommunicationChannelsForCyclerWithImage,
+    CommunicationChannelsForCyclerWithImage<Database>,
     CommunicationChannelsForCommunicationWithImage<Database>,
-) {
+)
+where
+    Database: Default,
+{
     let database_changed = Arc::new(Notify::new());
     let (subscribed_additional_outputs_writer, subscribed_additional_outputs_reader) =
         buffer::with_slots([Default::default(), Default::default(), Default::default()]);
     let (subscribed_image_writer, subscribed_image_reader) =
+        buffer::with_slots([Default::default(), Default::default(), Default::default()]);
+    let (injected_outputs_writer, injected_outputs_reader) =
         buffer::with_slots([Default::default(), Default::default(), Default::default()]);
 
     (
@@ -98,12 +114,14 @@ fn new_communication_channels_with_image<Database>(
             subscribed_image: subscribed_image_reader,
             configuration,
             changed_parameters,
+            injected_outputs: injected_outputs_reader,
         },
         CommunicationChannelsForCommunicationWithImage {
             database,
             database_changed,
             subscribed_additional_outputs: subscribed_additional_outputs_writer,
             subscribed_image: subscribed_image_writer,
+            injected_outputs: injected_outputs_writer,
         },
     )
 }

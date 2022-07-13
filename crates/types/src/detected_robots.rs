@@ -10,7 +10,6 @@ pub struct DetectedRobots {
 #[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct ScoredCluster {
     pub center: Point2<f32>,
-    pub radius: f32,
     pub score: f32,
 }
 
@@ -28,12 +27,11 @@ pub struct ClusterCone {
 }
 
 impl ClusterCone {
-    pub fn from_cluster(cluster: &ScoredCluster, cluster_cone_size_factor: f32) -> Self {
+    pub fn from_cluster(cluster: &ScoredCluster, cluster_cone_radius: f32) -> Self {
         let robot_to_center = cluster.center.coords;
         let unit_robot_to_center = robot_to_center.normalize();
-        let center_to_left = vector![unit_robot_to_center.y, -unit_robot_to_center.x]
-            * cluster.radius
-            * cluster_cone_size_factor;
+        let center_to_left =
+            vector![unit_robot_to_center.y, -unit_robot_to_center.x] * cluster_cone_radius;
         let center_to_right = -center_to_left;
         let robot_to_left = robot_to_center + center_to_left;
         let robot_to_right = robot_to_center + center_to_right;

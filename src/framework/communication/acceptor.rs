@@ -7,12 +7,13 @@ use tokio_util::sync::CancellationToken;
 
 use crate::framework::{communication::connection::connection, Configuration};
 
-use super::{database_subscription_manager, parameter_modificator};
+use super::{database_subscription_manager, injection_writer, parameter_modificator};
 
 pub async fn acceptor(
     initial_configuration: Configuration,
     database_subscription_manager_sender: Sender<database_subscription_manager::Request>,
     parameter_modificator_sender: Sender<parameter_modificator::Request>,
+    injection_writer_sender: Sender<injection_writer::Request>,
     keep_running: CancellationToken,
 ) -> JoinHandle<()> {
     spawn(async move {
@@ -44,7 +45,7 @@ pub async fn acceptor(
                             }
                         };
                     info!("New connection: {:?}", stream);
-                    match connection(stream, database_subscription_manager_sender.clone(), parameter_modificator_sender.clone(), keep_running.clone(), wait_group.worker()).await {
+                    match connection(stream, database_subscription_manager_sender.clone(), parameter_modificator_sender.clone(), injection_writer_sender.clone(), keep_running.clone(), wait_group.worker()).await {
                         Ok(_) => {},
                         Err(error) => error!("Failed to establish connection: {:?}", error),
                     }

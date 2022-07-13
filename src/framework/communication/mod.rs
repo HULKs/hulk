@@ -2,6 +2,7 @@ mod acceptor;
 pub mod configuration_directory;
 mod connection;
 mod database_subscription_manager;
+mod injection_writer;
 mod parameter_modificator;
 mod receiver;
 mod runtime;

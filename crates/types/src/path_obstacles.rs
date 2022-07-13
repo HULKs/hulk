@@ -31,10 +31,16 @@ impl PathObstacleShape {
     }
 
     pub fn as_circle(&self) -> Option<&Circle> {
-        if let PathObstacleShape::Circle(circle) = self {
-            Some(circle)
-        } else {
-            None
+        match self {
+            PathObstacleShape::Circle(circle) => Some(circle),
+            _ => None,
+        }
+    }
+
+    pub fn as_circle_mut(&mut self) -> Option<&mut Circle> {
+        match self {
+            PathObstacleShape::Circle(circle) => Some(circle),
+            _ => None,
         }
     }
 }

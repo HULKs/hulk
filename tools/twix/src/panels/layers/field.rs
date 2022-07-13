@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::Result;
 use types::FieldDimensions;
 
 use crate::{nao::Nao, panels::Layer, twix_paint::TwixPainter};
@@ -13,7 +14,8 @@ impl Layer for Field {
         Self {}
     }
 
-    fn paint(&self, painter: &TwixPainter, field_dimensions: &FieldDimensions) {
+    fn paint(&self, painter: &TwixPainter, field_dimensions: &FieldDimensions) -> Result<()> {
         painter.field(field_dimensions);
+        Ok(())
     }
 }

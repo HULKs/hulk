@@ -62,6 +62,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Check(arguments) => cargo(arguments, &repository, CargoCommand::Check)
             .await
             .context("Failed to execute check command")?,
+        Command::Clippy(arguments) => cargo(arguments, &repository, CargoCommand::Clippy)
+            .await
+            .context("Failed to execute clippy command")?,
         Command::Communication(arguments) => communication(arguments, &repository)
             .await
             .context("Failed to execute communication command")?,
@@ -124,6 +127,8 @@ enum Command {
     Build(CargoArguments),
     /// Checks the code with cargo check
     Check(CargoArguments),
+    /// Checks the code with cargo clippy
+    Clippy(CargoArguments),
     /// Enable/disable communication
     Communication(CommunicationArguments),
     /// Control the HULK service

@@ -95,6 +95,8 @@ export default function Selector({
           return <>LineFitting</>;
         case PanelType.RobotDetection:
           return <>RobotDetection.{item.obj.selectablePanel.cycler}</>;
+        case PanelType.FieldColor:
+          return <>FieldColor.{item.obj.selectablePanel.cycler}</>;
       }
     })();
     return (

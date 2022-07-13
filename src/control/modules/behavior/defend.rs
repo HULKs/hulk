@@ -123,7 +123,7 @@ fn defend_right_pose(
         -field_dimensions.length / 2.0,
         -role_positions.defender_y_offset
     ];
-    let distance_to_target = if ball.field_side == Side::Left {
+    let distance_to_target = if ball.field_side == Side::Right {
         role_positions.defender_aggressive_ring_radius
     } else {
         role_positions.defender_passive_ring_radius

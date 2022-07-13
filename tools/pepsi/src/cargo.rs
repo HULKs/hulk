@@ -15,6 +15,7 @@ pub struct Arguments {
 pub enum Command {
     Build,
     Check,
+    Clippy,
     Run,
 }
 
@@ -39,6 +40,10 @@ pub async fn cargo(
             .check(arguments.profile, arguments.target)
             .await
             .context("Failed to check")?,
+        Command::Clippy => repository
+            .clippy(arguments.profile, arguments.target)
+            .await
+            .context("Failed to run clippy")?,
         Command::Run => repository
             .run(arguments.profile, arguments.target)
             .await

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
@@ -27,6 +29,7 @@ pub struct AdditionalOutputs {
     pub ball_candidates: Option<Vec<CandidateEvaluation>>,
     pub lines_in_image: Option<ImageLines>,
     pub field_border_points: Option<Vec<Point2<f32>>>,
+    pub image_segmenter_cycle_time: Option<Duration>,
     pub robot_detection: RobotDetection,
 }
 

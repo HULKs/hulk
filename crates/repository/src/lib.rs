@@ -80,8 +80,15 @@ impl Repository {
             command.env("NAO_CARGO_HOME", nao_cargo_home);
         }
 
-        let cargo_command =
-            format!("cargo {action} --profile {profile} --features {target} --bin {target}");
+        let cargo_command = match action {
+            CargoAction::Clippy => {
+                "cargo clippy --all-features --all-targets -- -D warnings".to_string()
+            }
+            _ => {
+                format!("cargo {action} --profile {profile} --features {target} --bin {target}")
+            }
+        };
+
         command_string += &cargo_command;
         command.arg("-c").arg(command_string);
 
@@ -103,6 +110,10 @@ impl Repository {
 
     pub async fn check(&self, profile: String, target: String) -> anyhow::Result<()> {
         self.cargo(CargoAction::Check, profile, target).await
+    }
+
+    pub async fn clippy(&self, profile: String, target: String) -> anyhow::Result<()> {
+        self.cargo(CargoAction::Clippy, profile, target).await
     }
 
     pub async fn run(&self, profile: String, target: String) -> anyhow::Result<()> {
@@ -346,6 +357,7 @@ impl Repository {
 enum CargoAction {
     Build,
     Check,
+    Clippy,
     Run,
 }
 
@@ -357,6 +369,7 @@ impl Display for CargoAction {
             match self {
                 CargoAction::Build => "build",
                 CargoAction::Check => "check",
+                CargoAction::Clippy => "clippy",
                 CargoAction::Run => "run",
             }
         )

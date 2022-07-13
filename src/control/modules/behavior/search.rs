@@ -1,11 +1,9 @@
 use nalgebra::{point, Point2, UnitComplex};
-use types::{direct_path, MotionCommand, OrientationMode, WorldState};
+use types::{direct_path, HeadMotion, MotionCommand, OrientationMode, WorldState};
 
-use super::head::look_for_ball;
-
-pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
+pub fn execute(_world_state: &WorldState) -> Option<MotionCommand> {
     Some(MotionCommand::Walk {
-        head: look_for_ball(world_state.ball),
+        head: HeadMotion::SearchForLostBall,
         orientation_mode: OrientationMode::Override(UnitComplex::new(1.0)),
         path: direct_path(Point2::origin(), point![0.0, 0.0]),
     })

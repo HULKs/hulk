@@ -1,3 +1,4 @@
+use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -18,4 +19,15 @@ pub struct FieldDimensions {
     pub goal_inner_width: f32,
     pub goal_post_diameter: f32,
     pub goal_depth: f32,
+}
+
+impl FieldDimensions {
+    pub fn is_inside_field(&self, position: Point2<f32>) -> bool {
+        position.x.abs() < self.length / 2.0 && position.y.abs() < self.width / 2.0
+    }
+
+    pub fn is_inside_any_goal_box(&self, position: Point2<f32>) -> bool {
+        position.x.abs() > self.length / 2.0 - self.goal_box_area_length
+            && position.y.abs() < self.goal_box_area_width
+    }
 }

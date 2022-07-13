@@ -182,6 +182,7 @@ impl WalkingEngine {
             let kick_steps = match kick_variant {
                 KickVariant::Forward => &context.kick_steps.forward,
                 KickVariant::Turn => &context.kick_steps.turn,
+                KickVariant::Side => &context.kick_steps.side,
             };
             let kick_step = &kick_steps[kick_step_i];
             apply_joint_overrides(kick_step, swing_leg, self.t);
@@ -316,6 +317,7 @@ impl WalkingEngine {
                 let kick_steps = match kick_variant {
                     KickVariant::Forward => &kick_steps.forward,
                     KickVariant::Turn => &kick_steps.turn,
+                    KickVariant::Side => &kick_steps.side,
                 };
                 let base_step = kick_steps[kick_step_i].base_step;
                 self.current_step = match kick_side {
@@ -523,7 +525,7 @@ impl WalkingEngine {
     fn calculate_arm_joints(&self, shoulder_pitch_factor: f32) -> (ArmJoints, ArmJoints) {
         let left_arm = ArmJoints {
             shoulder_pitch: PI / 2.0 + self.left_foot.forward * shoulder_pitch_factor,
-            shoulder_roll: 0.3,
+            shoulder_roll: 0.2,
             elbow_yaw: 0.0,
             elbow_roll: 0.0,
             wrist_yaw: 0.0,
@@ -531,7 +533,7 @@ impl WalkingEngine {
         };
         let right_arm = ArmJoints {
             shoulder_pitch: PI / 2.0 + self.right_foot.forward * shoulder_pitch_factor,
-            shoulder_roll: -0.3,
+            shoulder_roll: -0.2,
             elbow_yaw: 0.0,
             elbow_roll: 0.0,
             wrist_yaw: 0.0,

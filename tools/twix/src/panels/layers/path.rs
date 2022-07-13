@@ -1,10 +1,9 @@
 use std::{str::FromStr, sync::Arc};
 
+use anyhow::Result;
 use communication::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
-use log::error;
 use nalgebra::Isometry2;
-use serde_json::from_value;
 use types::{FieldDimensions, MotionCommand, PathSegment};
 
 use crate::{nao::Nao, panels::Layer, twix_paint::TwixPainter, value_buffer::ValueBuffer};
@@ -28,19 +27,11 @@ impl Layer for Path {
         }
     }
 
-    fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) {
-        let robot_to_field: Option<Isometry2<f32>> = match self.robot_to_field.get_latest() {
-            Ok(value) => from_value(value).unwrap(),
-            Err(error) => return error!("{:?}", error),
-        };
-        let motion_command: Option<MotionCommand> = match self.motion_command.get_latest() {
-            Ok(value) => from_value(value).unwrap(),
-            Err(error) => return error!("{:?}", error),
-        };
+    fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
+        let robot_to_field: Isometry2<f32> = self.robot_to_field.require_latest()?;
+        let motion_command: MotionCommand = self.motion_command.require_latest()?;
 
-        let robot_to_field = robot_to_field.unwrap_or_default();
-
-        if let Some(MotionCommand::Walk { path, .. }) = motion_command {
+        if let MotionCommand::Walk { path, .. } = motion_command {
             for segment in path {
                 match segment {
                     PathSegment::LineSegment(line_segment) => painter.line_segment(
@@ -63,5 +54,6 @@ impl Layer for Path {
                 }
             }
         }
+        Ok(())
     }
 }

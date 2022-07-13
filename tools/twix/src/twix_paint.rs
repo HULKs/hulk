@@ -11,7 +11,7 @@ use types::{Arc, Circle, FieldDimensions, Orientation};
 pub struct TwixPainter {
     pub response: Response,
     painter: Painter,
-    transform: Similarity2<f32>,
+    pub transform: Similarity2<f32>,
     y_scale: f32,
 }
 
@@ -23,7 +23,7 @@ impl TwixPainter {
         y_scale: f32,
     ) -> Self {
         let (response, painter) =
-            ui.allocate_painter(ui.available_size_before_wrap(), Sense::hover());
+            ui.allocate_painter(ui.available_size_before_wrap(), Sense::drag());
         let width_scale = response.rect.width() / dimensions.x;
         let height_scale = response.rect.height() / dimensions.y;
         let camera_transform = if width_scale < height_scale {
@@ -53,13 +53,17 @@ impl TwixPainter {
         }
     }
 
-    pub fn new_map(ui: &mut Ui, field_dimensions: &FieldDimensions) -> Self {
+    pub fn new_map(
+        ui: &mut Ui,
+        field_dimensions: &FieldDimensions,
+        transformation: Similarity2<f32>,
+    ) -> Self {
         let length = field_dimensions.length + field_dimensions.border_strip_width * 2.0;
         let width = field_dimensions.width + field_dimensions.border_strip_width * 2.0;
         Self::new(
             ui,
             vector![length, width],
-            Similarity2::new(vector![length / 2.0, width / 2.0], 0.0, 1.0),
+            Similarity2::new(vector![length / 2.0, width / 2.0], 0.0, 1.0) * transformation,
             -1.0,
         )
     }
@@ -306,6 +310,11 @@ impl TwixPainter {
             x: normalized.x,
             y: normalized.y,
         }
+    }
+
+    pub fn inverse_transform_pos(&self, pos: Pos2) -> Point2<f32> {
+        let world_point = self.transform.inverse() * point![pos.x, pos.y * self.y_scale];
+        point![world_point.x, world_point.y]
     }
 
     fn transform_stroke(&self, stroke: Stroke) -> Stroke {

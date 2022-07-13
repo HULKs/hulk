@@ -1,9 +1,10 @@
 use super::{a_star_search, DynamicMap};
-use nalgebra::{point, Isometry2, Point2};
+use nalgebra::{distance, point, Isometry2, Point2};
+use ordered_float::NotNan;
 use smallvec::SmallVec;
 
 use types::{
-    Arc, LineSegment, Obstacle, Orientation, PathObstacle, PathObstacleShape, PathSegment,
+    Arc, Circle, LineSegment, Obstacle, Orientation, PathObstacle, PathObstacleShape, PathSegment,
 };
 
 #[derive(Debug, Clone)]
@@ -33,56 +34,46 @@ pub struct PathPlanner {
 }
 
 impl PathPlanner {
-    pub fn new(start: Point2<f32>, destination: Point2<f32>) -> Self {
+    pub fn new() -> Self {
         Self {
-            nodes: vec![start.into(), destination.into()],
+            nodes: vec![],
             obstacles: Vec::new(),
         }
     }
 
-    pub fn with_obstacles(mut self, obstacles: &[Obstacle], robot_radius: f32) -> Self {
-        let start = self
-            .nodes
-            .get(0)
-            .expect("Start node is created in `new`")
-            .position;
-        let destination = self
-            .nodes
-            .get(1)
-            .expect("Destination node is created in `new`")
-            .position;
-
+    pub fn with_obstacles(&mut self, obstacles: &[Obstacle], own_robot_radius: f32) {
         let new_obstacles = obstacles.iter().map(|obstacle| {
-            let mut circle = obstacle.shape;
-            circle.radius += robot_radius;
-
-            let to_start = start - circle.center;
-            let safety_radius = circle.radius * 1.1;
-            if to_start.norm_squared() <= safety_radius.powi(2) {
-                circle.radius -= safety_radius - to_start.norm();
-            }
-
-            let to_destination = destination - circle.center;
-            let safety_radius = circle.radius * 1.1;
-            if to_destination.norm_squared() <= safety_radius.powi(2) {
-                circle.radius -= safety_radius - to_destination.norm();
-            }
-
-            PathObstacle::from(PathObstacleShape::Circle(circle))
+            let position = obstacle.position;
+            let radius = obstacle.radius_at_hip_height + own_robot_radius;
+            PathObstacle::from(PathObstacleShape::Circle(Circle {
+                center: position,
+                radius,
+            }))
         });
 
         self.obstacles.extend(new_obstacles);
+    }
 
-        self
+    pub fn with_ball(
+        &mut self,
+        ball_position: Point2<f32>,
+        ball_radius: f32,
+        own_robot_radius: f32,
+    ) {
+        let shape = PathObstacleShape::Circle(Circle {
+            center: ball_position,
+            radius: ball_radius + own_robot_radius,
+        });
+        self.obstacles.push(PathObstacle::from(shape));
     }
 
     pub fn with_field_borders(
-        mut self,
+        &mut self,
         field_to_robot: Isometry2<f32>,
         field_length: f32,
         field_width: f32,
         margin: f32,
-    ) -> Self {
+    ) -> &mut Self {
         let x = field_length / 2.0 + margin;
         let y = field_width / 2.0 + margin;
         let bottom_right = field_to_robot * point![x, -y];
@@ -135,7 +126,55 @@ impl PathPlanner {
         }
     }
 
-    pub fn plan(&mut self) -> anyhow::Result<Option<Vec<PathSegment>>> {
+    pub fn plan(
+        &mut self,
+        mut start: Point2<f32>,
+        mut destination: Point2<f32>,
+    ) -> anyhow::Result<Option<Vec<PathSegment>>> {
+        let closest_circle = self
+            .obstacles
+            .iter()
+            .filter_map(|obstacle| obstacle.shape.as_circle())
+            .filter(|circle| distance(&circle.center, &start) <= circle.radius)
+            .min_by_key(|circle| NotNan::new(circle.center.coords.norm_squared()).unwrap());
+        if let Some(circle) = closest_circle {
+            let to_start = start - circle.center;
+            let safety_radius = circle.radius * 1.1;
+            start += to_start.normalize() * (safety_radius - to_start.norm());
+        }
+
+        let closest_circle = self
+            .obstacles
+            .iter()
+            .filter_map(|obstacle| obstacle.shape.as_circle())
+            .filter(|circle| distance(&circle.center, &destination) <= circle.radius)
+            .min_by_key(|circle| NotNan::new(circle.center.coords.norm_squared()).unwrap());
+        if let Some(circle) = closest_circle {
+            let to_destination = destination - circle.center;
+            let safety_radius = circle.radius * 1.1;
+            destination += to_destination.normalize() * (safety_radius - to_destination.norm());
+        }
+
+        for circle in self
+            .obstacles
+            .iter_mut()
+            .filter_map(|obstacle| obstacle.shape.as_circle_mut())
+        {
+            let to_start = start - circle.center;
+            let safety_radius = circle.radius * 1.1;
+            if to_start.norm_squared() <= safety_radius.powi(2) {
+                circle.radius -= safety_radius - to_start.norm();
+            }
+
+            let to_destination = destination - circle.center;
+            let safety_radius = circle.radius * 1.1;
+            if to_destination.norm_squared() <= safety_radius.powi(2) {
+                circle.radius -= safety_radius - to_destination.norm();
+            }
+        }
+
+        self.nodes = vec![PathNode::from(start), PathNode::from(destination)];
+
         self.generate_start_destination_tangents();
 
         let navigation_path = a_star_search(0, 1, self);
@@ -356,6 +395,8 @@ impl DynamicMap for PathPlanner {
 
 #[cfg(test)]
 mod tests {
+    use std::f32::consts::PI;
+
     use approx::assert_relative_eq;
     use nalgebra::point;
 
@@ -363,11 +404,16 @@ mod tests {
     use types::Circle;
 
     fn run_test_scenario(
-        mut map: PathPlanner,
+        start: Point2<f32>,
+        end: Point2<f32>,
+        map: &mut PathPlanner,
         expected_segments: &[PathSegment],
         expected_cost: f32,
     ) {
-        let path = map.plan().expect("Path error").expect("Path was none");
+        let path = map
+            .plan(start, end)
+            .expect("Path error")
+            .expect("Path was none");
 
         println!("Map {:#?}", map);
         println!(
@@ -386,7 +432,9 @@ mod tests {
     #[test]
     fn direct_path() {
         run_test_scenario(
-            PathPlanner::new(point![-2.0, 0.0], point![2.0, 0.0]),
+            point![-2.0, 0.0],
+            point![2.0, 0.0],
+            &mut PathPlanner::new(),
             &[PathSegment::LineSegment(LineSegment(
                 point![-2.0, 0.0],
                 point![2.0, 0.0],
@@ -397,9 +445,12 @@ mod tests {
 
     #[test]
     fn direct_path_with_obstacle() {
+        let mut planner = PathPlanner::new();
+        planner.with_obstacles(&[Obstacle::ball(point![0.0, 2.0], 1.0)], 0.0);
         run_test_scenario(
-            PathPlanner::new(point![-2.0, 0.0], point![2.0, 0.0])
-                .with_obstacles(&[Obstacle::ball(point![0.0, 2.0], 1.0)], 0.0),
+            point![-2.0, 0.0],
+            point![2.0, 0.0],
+            &mut planner,
             &[PathSegment::LineSegment(LineSegment(
                 point![-2.0, 0.0],
                 point![2.0, 0.0],
@@ -410,9 +461,12 @@ mod tests {
 
     #[test]
     fn path_with_circle() {
+        let mut planner = PathPlanner::new();
+        planner.with_obstacles(&[Obstacle::ball(point![0.0, 0.0], 1.0)], 0.0);
         run_test_scenario(
-            PathPlanner::new(point![-2.0, 0.0], point![2.0, 0.0])
-                .with_obstacles(&[Obstacle::ball(point![0.0, 0.0], 1.0)], 0.0),
+            point![-2.0, 0.0],
+            point![2.0, 0.0],
+            &mut planner,
             &[
                 PathSegment::LineSegment(LineSegment(point![-2.0, 0.0], point![-0.5, 0.866])),
                 PathSegment::Arc(
@@ -434,15 +488,19 @@ mod tests {
 
     #[test]
     fn path_around_multiple_circles() {
+        let mut planner = PathPlanner::new();
+        planner.with_obstacles(
+            &[
+                Obstacle::goal_post(point![-1.0, 0.0], 0.7001),
+                Obstacle::goal_post(point![1.0, 0.0], 0.7001),
+                Obstacle::goal_post(point![0.0, 2.0], 0.8),
+            ],
+            0.3,
+        );
         run_test_scenario(
-            PathPlanner::new(point![-1.4, 1.0], point![1.4, 1.0]).with_obstacles(
-                &[
-                    Obstacle::goal_post(point![-1.0, 0.0], 0.7001),
-                    Obstacle::goal_post(point![1.0, 0.0], 0.7001),
-                    Obstacle::goal_post(point![0.0, 2.0], 0.8),
-                ],
-                0.3,
-            ),
+            point![-1.4, 1.0],
+            point![1.4, 1.0],
+            &mut planner,
             &[
                 PathSegment::LineSegment(LineSegment(
                     point![-1.4, 1.0],
@@ -500,9 +558,12 @@ mod tests {
 
     #[test]
     fn path_around_ball() {
+        let mut planner = PathPlanner::new();
+        planner.with_obstacles(&[Obstacle::ball(point![-0.76, 0.56], 0.25)], 0.0);
         run_test_scenario(
-            PathPlanner::new(point![0.0, 0.0], point![-0.99, 0.66])
-                .with_obstacles(&[Obstacle::ball(point![-0.76, 0.56], 0.25)], 0.0),
+            point![0.0, 0.0],
+            point![-0.99, 0.66],
+            &mut planner,
             &[
                 PathSegment::LineSegment(LineSegment(
                     point![0.0, 0.0],
@@ -530,19 +591,19 @@ mod tests {
 
     #[test]
     fn path_ball_and_robot_near_goalpost() {
+        let mut planner = PathPlanner::new();
+        planner.with_obstacles(
+            &[
+                Obstacle::ball(point![2.454_799_4, -0.584_156_7], 0.05),
+                Obstacle::goal_post(point![2.290_639_2, 0.022_267_818], 0.05),
+                Obstacle::goal_post(point![0.798_598_23, 0.600_034], 0.05),
+            ],
+            0.3,
+        );
         run_test_scenario(
-            PathPlanner::new(
-                Point2::origin(),
-                point![2.6415963172912598, -0.24750854074954987],
-            )
-            .with_obstacles(
-                &[
-                    Obstacle::ball(point![2.4547994136810303, -0.5841566920280457], 0.05),
-                    Obstacle::goal_post(point![2.2906391620635986, 0.022267818450927734], 0.05),
-                    Obstacle::goal_post(point![0.7985982298851013, 0.6000339984893799], 0.05),
-                ],
-                0.3,
-            ),
+            Point2::origin(),
+            point![2.641_596_3, -0.247_508_54],
+            &mut planner,
             &[
                 PathSegment::LineSegment(LineSegment(
                     point![0.0, 0.0],
@@ -564,39 +625,56 @@ mod tests {
                     point![2.6415963, -0.24750854],
                 )),
             ],
-            3.14,
+            PI,
         );
     }
 
     #[test]
     fn path_ball_near_goalpost() {
-        let map = PathPlanner::new(
-            Point2::origin(),
-            point![3.9447717666625977, 1.0342774391174316],
-        )
-        .with_obstacles(
+        let mut map = PathPlanner::new();
+        map.with_obstacles(
             &[
-                Obstacle::ball(point![3.925943613052368, 0.8854634761810303], 0.05),
-                Obstacle::goal_post(point![2.180830955505371, 1.5641136169433594], 0.05),
-                Obstacle::goal_post(point![3.7807140350341797, 1.5447711944580078], 0.05),
-                Obstacle::goal_post(point![2.072028636932373, -7.43522834777832], 0.05),
-                Obstacle::goal_post(point![3.6719117164611816, -7.454570770263672], 0.05),
+                Obstacle::ball(point![3.925_943_6, 0.885_463_5], 0.05),
+                Obstacle::goal_post(point![2.180_831, 1.564_113_6], 0.05),
+                Obstacle::goal_post(point![3.780_714, 1.544_771_2], 0.05),
+                Obstacle::goal_post(point![2.072_028_6, -7.435_228_3], 0.05),
+                Obstacle::goal_post(point![3.671_911_7, -7.454_571], 0.05),
             ],
             0.3,
         );
         run_test_scenario(
-            map,
-            &[PathSegment::LineSegment(LineSegment(
-                point![0.0, 0.0],
-                point![3.9447718, 1.0342774],
-            ))],
-            4.07,
+            Point2::origin(),
+            point![3.944_771_8, 1.034_277_4],
+            &mut map,
+            &[
+                PathSegment::LineSegment(LineSegment(
+                    point![0.0, 0.0],
+                    point![3.8195379, 1.2188969],
+                )),
+                PathSegment::Arc(
+                    Arc {
+                        circle: Circle {
+                            center: point![3.9259436, 0.8854635],
+                            radius: 0.35,
+                        },
+                        start: point![3.8195379, 1.2188969],
+                        end: point![3.8212261, 1.2194309],
+                    },
+                    Orientation::Clockwise,
+                ),
+                PathSegment::LineSegment(LineSegment(
+                    point![3.8212261, 1.2194309],
+                    point![3.9742692, 1.2674185],
+                )),
+            ],
+            4.17,
         );
     }
 
     #[test]
     fn path_start_surrounded() {
-        let mut map = PathPlanner::new(Point2::origin(), point![2.0, 0.0]).with_obstacles(
+        let mut map = PathPlanner::new();
+        map.with_obstacles(
             &[
                 Obstacle::goal_post(point![0.5, 0.5], 0.6),
                 Obstacle::goal_post(point![-0.5, 0.5], 0.6),
@@ -605,12 +683,16 @@ mod tests {
             ],
             0.0,
         );
-        assert!(map.plan().expect("Path error").is_none());
+        assert!(map
+            .plan(Point2::origin(), point![2.0, 0.0])
+            .expect("Path error")
+            .is_none());
     }
 
     #[test]
     fn path_end_surrounded() {
-        let mut map = PathPlanner::new(point![2.0, 0.0], Point2::origin()).with_obstacles(
+        let mut map = PathPlanner::new();
+        map.with_obstacles(
             &[
                 Obstacle::goal_post(point![0.5, 0.5], 0.6),
                 Obstacle::goal_post(point![-0.5, 0.5], 0.6),
@@ -619,6 +701,9 @@ mod tests {
             ],
             0.0,
         );
-        assert!(map.plan().expect("Path error").is_none());
+        assert!(map
+            .plan(point![2.0, 0.0], Point2::origin())
+            .expect("Path error")
+            .is_none());
     }
 }

@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::ops::{Index, Range};
 use std::{path::PathBuf, time::Duration};
 
 use nalgebra::{Matrix3, Point2, Point3, Vector2, Vector3, Vector4};
@@ -7,8 +7,8 @@ use serialize_hierarchy::SerializeHierarchy;
 use spl_network::PlayerNumber;
 
 use types::{
-    ArmJoints, FieldDimensions, HeadJoints, InitialPose, Joints, KickStep, MotionCommand, Players,
-    Role, Step,
+    ArmJoints, FieldDimensions, HeadJoints, InitialPose, Joints, KickStep, KickVariant,
+    MotionCommand, Players, Role, Step,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -53,7 +53,7 @@ pub struct Control {
     pub localization: Localization,
     pub look_around: LookAround,
     pub look_at: LookAt,
-    pub robot_filter: RobotFilter,
+    pub obstacle_filter: ObstacleFilter,
     pub orientation_filter: OrientationFilter,
     pub penalized_pose: Joints,
     pub projected_limbs: ProjectedLimbs,
@@ -121,7 +121,7 @@ pub struct Behavior {
     #[leaf]
     pub injected_motion_command: Option<MotionCommand>,
     pub role_positions: RolePositions,
-    pub dribble_pose: DribblePose,
+    pub dribbling: Dribbling,
     pub walk_and_stand: WalkAndStand,
     pub path_planning: PathPlanning,
 }
@@ -132,6 +132,7 @@ pub struct RolePositions {
     pub defender_passive_ring_radius: f32,
     pub defender_y_offset: f32,
     pub striker_supporter_distance_to_ball: f32,
+    pub striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free: f32,
     pub striker_supporter_minimum_x: f32,
     pub keeper_x_offset: f32,
     pub striker_distance_to_non_free_ball: f32,
@@ -139,15 +140,46 @@ pub struct RolePositions {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct DribblePose {
-    pub offset: Vector2<f32>,
-    pub target_reached_thresholds: Vector3<f32>,
+pub struct Dribbling {
     pub hybrid_align_distance: f32,
     pub distance_to_be_aligned: f32,
+    pub angle_to_approach_ball_from_threshold: f32,
+    pub in_walk_kicks: InWalkKicks,
+    pub angle_distance_weight: f32,
+    pub max_kick_around_obstacle_angle: f32,
+    pub ignore_robot_when_near_ball_radius: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct InWalkKicks {
+    pub forward: InWalkKickInfo,
+    pub turn: InWalkKickInfo,
+    pub side: InWalkKickInfo,
+}
+
+impl Index<KickVariant> for InWalkKicks {
+    type Output = InWalkKickInfo;
+
+    fn index(&self, variant: KickVariant) -> &Self::Output {
+        match variant {
+            KickVariant::Forward => &self.forward,
+            KickVariant::Turn => &self.turn,
+            KickVariant::Side => &self.side,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct InWalkKickInfo {
+    pub offset: Vector3<f32>,
+    pub shot_angle: f32,
+    pub reached_thresholds: Vector3<f32>,
+    pub enabled: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct WalkAndStand {
+    pub hysteresis: Vector2<f32>,
     pub target_reached_thresholds: Vector2<f32>,
     pub hybrid_align_distance: f32,
     pub distance_to_be_aligned: f32,
@@ -155,7 +187,9 @@ pub struct WalkAndStand {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct PathPlanning {
-    pub robot_radius: f32,
+    pub robot_radius_at_foot_height: f32,
+    pub robot_radius_at_hip_height: f32,
+    pub ball_obstacle_radius: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -197,6 +231,7 @@ pub struct WalkingEngine {
 pub struct KickSteps {
     pub forward: Vec<KickStep>,
     pub turn: Vec<KickStep>,
+    pub side: Vec<KickStep>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -230,7 +265,8 @@ pub struct HeadMotion {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct LookAround {
-    pub time_at_each_position: Duration,
+    pub look_around_timeout: Duration,
+    pub quick_search_timeout: Duration,
     pub middle_positions: HeadJoints,
     pub left_positions: HeadJoints,
     pub right_positions: HeadJoints,
@@ -247,13 +283,14 @@ pub struct WhistleFilter {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct SonarFilter {
     pub low_pass_filter_coefficient: f32,
-    pub distance_threshold: f32,
+    pub maximal_reliable_distance: f32,
+    pub minimal_reliable_distance: f32,
+    pub maximal_detectable_distance: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct SonarObstacle {
-    pub single_offset: Point2<f32>,
-    pub double_offset: Point2<f32>,
+    pub sensor_angle: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -272,15 +309,34 @@ pub struct Vision {
     pub image_receiver: ImageReceiver,
     pub line_detection: LineDetection,
     pub field_border_detection: FieldBorderDetection,
+    pub field_color_detection: FieldColorDetection,
     pub perspective_grid_candidates_provider: PerspectiveGridCandidatesProvider,
     pub robot_detection: RobotDetection,
     pub camera_matrix_parameters: CameraMatrixParameters,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+pub enum MedianMode {
+    #[default]
+    Disabled,
+    ThreePixels,
+    FivePixels,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+pub enum EdgeDetectionSource {
+    #[default]
+    Luminance,
+    GreenChromaticity,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct ImageSegmenter {
     pub vertical_edge_threshold: i16,
-    pub use_vertical_median: bool,
+    #[leaf]
+    pub vertical_edge_detection_source: EdgeDetectionSource,
+    #[leaf]
+    pub vertical_median_mode: MedianMode,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -289,6 +345,16 @@ pub struct FieldBorderDetection {
     pub angle_threshold: f32,
     pub first_line_association_distance: f32,
     pub second_line_association_distance: f32,
+    pub horizon_margin: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct FieldColorDetection {
+    pub red_chromaticity_threshold: f32,
+    pub blue_chromaticity_threshold: f32,
+    pub lower_green_chromaticity_threshold: f32,
+    pub upper_green_chromaticity_threshold: f32,
+    pub green_luminance_threshold: u8,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -359,17 +425,25 @@ pub struct StandUp {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct ButtonFilter {
     pub head_buttons_timeout: Duration,
+    pub calibration_buttons_timeout: Duration,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct RobotFilter {
+pub struct ObstacleFilter {
     pub hypothesis_timeout: Duration,
-    pub measurement_matching_distance: f32,
+    pub network_robot_measurement_matching_distance: f32,
+    pub sonar_goal_post_matching_distance: f32,
+    pub robot_detection_measurement_matching_distance: f32,
+    pub goal_post_measurement_matching_distance: f32,
     pub hypothesis_merge_distance: f32,
     pub process_noise: Vector2<f32>,
-    pub measurement_noise: Vector2<f32>,
+    pub robot_measurement_noise: Vector2<f32>,
+    pub sonar_measurement_noise: Vector2<f32>,
+    pub network_robot_measurement_noise: Vector2<f32>,
     pub initial_covariance: Vector2<f32>,
     pub measurement_count_threshold: usize,
+    pub use_robot_detection_measurements: bool,
+    pub use_sonar_measurements: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -416,12 +490,14 @@ pub struct ProjectedLimbs {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct RobotDetection {
-    pub allowed_cluster_radius: Range<f32>,
+    pub enable: bool,
     pub amount_of_segments_factor: f32,
     pub amount_score_exponent: f32,
-    pub cluster_cone_size_factor: f32,
+    pub cluster_cone_radius: f32,
     pub cluster_distance_score_range: Range<f32>,
     pub detection_box_width: f32,
+    pub ignore_ball_segments: bool,
+    pub ignore_line_segments: bool,
     pub luminance_score_exponent: f32,
     pub maximum_cluster_distance: f32,
     pub minimum_cluster_score: f32,

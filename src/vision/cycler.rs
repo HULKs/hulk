@@ -38,7 +38,8 @@ where
     control_reader: Reader<control::Database>,
     vision_writer: Writer<Database>,
     vision_producer: Producer<MainOutputs>,
-    communication_channels: CommunicationChannelsForCyclerWithImage,
+    communication_channels: CommunicationChannelsForCyclerWithImage<Database>,
+
     modules: VisionModules,
 }
 
@@ -53,7 +54,7 @@ where
         control_reader: Reader<control::Database>,
         vision_writer: Writer<Database>,
         vision_producer: Producer<MainOutputs>,
-        communication_channels: CommunicationChannelsForCyclerWithImage,
+        communication_channels: CommunicationChannelsForCyclerWithImage<Database>,
     ) -> anyhow::Result<Self> {
         let configuration = communication_channels.configuration.next().clone();
         let cycler_configuration = match instance {
@@ -122,6 +123,8 @@ where
             if *self.communication_channels.subscribed_image.next() {
                 vision_database.image = Some((*image).clone());
             }
+
+            let injected_outputs = self.communication_channels.injected_outputs.next();
 
             // process
             include!(concat!(env!("OUT_DIR"), "/vision_cycler_run_cycles.rs"));

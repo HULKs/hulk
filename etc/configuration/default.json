@@ -50,23 +50,34 @@
       "head_buttons_timeout": {
         "nanos": 100000000,
         "secs": 0
+      },
+      "calibration_buttons_timeout": {
+        "nanos": 0,
+        "secs": 1
       }
     },
     "center_head_position": {
       "yaw": 0.0,
       "pitch": 0.4
     },
-    "robot_filter": {
+    "obstacle_filter": {
       "hypothesis_timeout": {
         "nanos": 0,
-        "secs": 5
+        "secs": 3
       },
-      "measurement_matching_distance": 0.2,
-      "hypothesis_merge_distance": 0.2,
+      "network_robot_measurement_matching_distance": 0.2,
+      "sonar_goal_post_matching_distance": 0.2,
+      "robot_detection_measurement_matching_distance": 0.2,
+      "goal_post_measurement_matching_distance": 0.2,
+      "hypothesis_merge_distance": 0.5,
       "process_noise": [0.005, 0.005],
-      "measurement_noise": [3.0, 5.0],
+      "robot_measurement_noise": [3.0, 5.0],
+      "sonar_measurement_noise": [15.0, 15.0],
+      "network_robot_measurement_noise": [3.0, 5.0],
       "initial_covariance": [0.5, 0.5],
-      "measurement_count_threshold": 10
+      "measurement_count_threshold": 10,
+      "use_robot_detection_measurements": false,
+      "use_sonar_measurements": true
     },
     "role_assignment": {
       "forced_role": null
@@ -77,23 +88,24 @@
     },
     "sonar_filter": {
       "low_pass_filter_coefficient": 0.05,
-      "distance_threshold": 0.5
+      "maximal_reliable_distance": 0.6,
+      "minimal_reliable_distance": 0.03,
+      "maximal_detectable_distance": 5.0
     },
     "sonar_obstacle": {
-      "single_offset": [0.4, 0.25],
-      "double_offset": [0.47, 0]
+      "sensor_angle": 0.45
     },
     "step_planner": {
       "injected_step": null,
       "max_step_size": {
         "forward": 0.05,
         "left": 0.12,
-        "turn": 0.7
+        "turn": 0.9
       },
       "max_step_size_backwards": 0.02,
       "translation_exponent": 1.5,
       "rotation_exponent": 2.0,
-      "inside_turn_ratio": 0.33
+      "inside_turn_ratio": 0.15
     },
     "whistle_filter": {
       "buffer_length": 20,
@@ -101,13 +113,13 @@
     },
     "walking_engine": {
       "walk_hip_height": 0.185,
-      "torso_offset": 0.016,
+      "torso_offset": 0.018,
       "minimal_step_duration": {
         "nanos": 200000000,
         "secs": 0
       },
       "shoulder_pitch_factor": 7,
-      "base_foot_lift": 0.013,
+      "base_foot_lift": 0.0145,
       "base_step_duration": {
         "nanos": 260000000,
         "secs": 0
@@ -117,19 +129,19 @@
         "nanos": 200000000,
         "secs": 0
       },
-      "starting_step_foot_lift": 0.008,
-      "gyro_balance_factor": 0.05,
+      "starting_step_foot_lift": 0.009,
+      "gyro_balance_factor": 0.04,
       "swing_foot_pitch_error_leveling_factor": 0.9,
       "swing_foot_backwards_imu_leveling_factor": 1.0,
       "max_level_adjustment_velocity": 0.02,
       "max_forward_acceleration": 0.01,
       "forward_foot_support_offset": 0.07,
-      "backward_foot_support_offset": -0.03,
+      "backward_foot_support_offset": -0.025,
       "max_step_adjustment": 0.004,
       "leg_stiffness_stand": 0.6,
       "leg_stiffness_walk": 1.0,
       "arm_stiffness": 0.8,
-      "gyro_low_pass_factor": 0.2
+      "gyro_low_pass_factor": 0.8
     },
     "kick_steps": {
       "forward": [
@@ -314,6 +326,44 @@
           "hip_pitch_overrides": null,
           "ankle_pitch_overrides": null
         }
+      ],
+      "side": [
+        {
+          "base_step": {
+            "forward": 0.0,
+            "left": 0.0,
+            "turn": 0.0
+          },
+          "hip_pitch_overrides": null,
+          "ankle_pitch_overrides": null
+        },
+        {
+          "base_step": {
+            "forward": 0.0,
+            "left": -0.12,
+            "turn": 0.0
+          },
+          "hip_pitch_overrides": null,
+          "ankle_pitch_overrides": null
+        },
+        {
+          "base_step": {
+            "forward": 0.0,
+            "left": 0.0,
+            "turn": 0.0
+          },
+          "hip_pitch_overrides": null,
+          "ankle_pitch_overrides": null
+        },
+        {
+          "base_step": {
+            "forward": 0.0,
+            "left": 0.0,
+            "turn": 0.0
+          },
+          "hip_pitch_overrides": null,
+          "ankle_pitch_overrides": null
+        }
       ]
     },
     "localization": {
@@ -483,9 +533,13 @@
       "minimum_bottom_focus_pitch": 0.2
     },
     "look_around": {
-      "time_at_each_position": {
+      "look_around_timeout": {
         "nanos": 0,
         "secs": 1
+      },
+      "quick_search_timeout": {
+        "nanos": 300000000,
+        "secs": 0
       },
       "middle_positions": {
         "yaw": 0.0,
@@ -512,27 +566,54 @@
       "injected_motion_command": null,
       "role_positions": {
         "defender_aggressive_ring_radius": 2.0,
-        "defender_passive_ring_radius": 1.5,
+        "defender_passive_ring_radius": 1.7,
         "defender_y_offset": 0.6,
         "striker_supporter_distance_to_ball": 1.2,
-        "striker_supporter_minimum_x": -1.1,
+        "striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free": -1.0,
+        "striker_supporter_minimum_x": 2.0,
         "keeper_x_offset": 0.1,
         "striker_distance_to_non_free_ball": 0.85,
         "striker_set_position": [-1.0, 0.0]
       },
-      "dribble_pose": {
-        "offset": [-0.25, 0.035],
+      "dribbling": {
         "hybrid_align_distance": 1.0,
         "distance_to_be_aligned": 0.1,
-        "target_reached_thresholds": [0.04, 0.1, 0.1]
+        "target_reached_thresholds": [0.04, 0.1, 0.1],
+        "angle_to_approach_ball_from_threshold": 0.78,
+        "in_walk_kicks": {
+          "forward": {
+            "offset": [-0.23, 0.05, 0.0],
+            "shot_angle": 0.0,
+            "reached_thresholds": [0.07, 0.02, 0.1],
+            "enabled": true
+          },
+          "turn": {
+            "offset": [-0.17, -0.1, 0.0],
+            "shot_angle": -1.0,
+            "reached_thresholds": [0.04, 0.03, 0.1],
+            "enabled": true
+          },
+          "side": {
+            "offset": [-0.2, -0.02, 1.57],
+            "shot_angle": 0.0,
+            "reached_thresholds": [0.05, 0.05, 0.1],
+            "enabled": true
+          }
+        },
+        "angle_distance_weight": 1.0,
+        "max_kick_around_obstacle_angle": 0.78,
+        "ignore_robot_when_near_ball_radius": 0.6
       },
       "walk_and_stand": {
-        "target_reached_thresholds": [0.04, 0.1],
+        "hysteresis": [0.1, 0.26],
+        "target_reached_thresholds": [0.2, 0.4],
         "hybrid_align_distance": 1.0,
         "distance_to_be_aligned": 0.05
       },
       "path_planning": {
-        "robot_radius": 0.3
+        "robot_radius_at_hip_height": 0.25,
+        "robot_radius_at_foot_height": 0.2,
+        "ball_obstacle_radius": 0.05
       }
     },
     "game_state_filter": {
@@ -706,8 +787,9 @@
       "resolution": 42
     },
     "image_segmenter": {
+      "vertical_edge_detection_source": "Luminance",
       "vertical_edge_threshold": 16,
-      "use_vertical_median": true
+      "vertical_median_mode": "ThreePixels"
     },
     "line_detection": {
       "allowed_line_length_in_field": {
@@ -729,25 +811,32 @@
       "min_points_per_line": 10,
       "angle_threshold": 0.35,
       "first_line_association_distance": 2.0,
-      "second_line_association_distance": 2.0
+      "second_line_association_distance": 2.0,
+      "horizon_margin": 15
+    },
+    "field_color_detection": {
+      "red_chromaticity_threshold": 0.37,
+      "blue_chromaticity_threshold": 0.38,
+      "lower_green_chromaticity_threshold": 0.4,
+      "upper_green_chromaticity_threshold": 0.43,
+      "green_luminance_threshold": 255
     },
     "perspective_grid_candidates_provider": {
       "minimum_radius": 3.0,
       "fallback_radius": 42.0
     },
     "robot_detection": {
-      "allowed_cluster_radius": {
-        "start": 0.05,
-        "end": 0.3
-      },
+      "enable": false,
       "amount_of_segments_factor": 0.3,
       "amount_score_exponent": 1.0,
-      "cluster_cone_size_factor": 1.5,
+      "cluster_cone_radius": 0.3,
       "cluster_distance_score_range": {
         "start": 0.9,
         "end": 1.0
       },
       "detection_box_width": 0.25,
+      "ignore_ball_segments": true,
+      "ignore_line_segments": true,
       "luminance_score_exponent": 0.5,
       "maximum_cluster_distance": 0.3,
       "minimum_cluster_score": 3,
@@ -778,8 +867,16 @@
       "resolution": 42
     },
     "image_segmenter": {
+      "vertical_edge_detection_source": "Luminance",
       "vertical_edge_threshold": 16,
-      "use_vertical_median": true
+      "vertical_median_mode": "ThreePixels"
+    },
+    "field_color_detection": {
+      "red_chromaticity_threshold": 0.37,
+      "blue_chromaticity_threshold": 0.38,
+      "lower_green_chromaticity_threshold": 0.4,
+      "upper_green_chromaticity_threshold": 0.43,
+      "green_luminance_threshold": 255
     },
     "line_detection": {
       "allowed_line_length_in_field": {
@@ -801,25 +898,25 @@
       "min_points_per_line": 10,
       "angle_threshold": 0.35,
       "first_line_association_distance": 2.0,
-      "second_line_association_distance": 2.0
+      "second_line_association_distance": 2.0,
+      "horizon_margin": 0
     },
     "perspective_grid_candidates_provider": {
       "minimum_radius": 3.0,
       "fallback_radius": 42.0
     },
     "robot_detection": {
-      "allowed_cluster_radius": {
-        "start": 0.05,
-        "end": 0.3
-      },
+      "enable": false,
       "amount_of_segments_factor": 0.3,
       "amount_score_exponent": 1.0,
-      "cluster_cone_size_factor": 1.5,
+      "cluster_cone_radius": 0.3,
       "cluster_distance_score_range": {
         "start": 0.9,
         "end": 1.0
       },
       "detection_box_width": 0.25,
+      "ignore_ball_segments": true,
+      "ignore_line_segments": true,
       "luminance_score_exponent": 0.5,
       "maximum_cluster_distance": 0.3,
       "minimum_cluster_score": 3,

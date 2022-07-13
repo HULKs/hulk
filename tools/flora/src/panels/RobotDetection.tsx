@@ -27,12 +27,20 @@ type ClusterCone = {
   left: [number, number];
   right: [number, number];
 };
-type RobotPosition = {
+type Obstacle = {
+  kind: ObstacleKind;
   position: number[];
-  last_seen: {
-    nanos_since_epoch: number;
-    secs_since_epoch: number;
-  };
+  radius_at_foot_height: number;
+  radius_at_hip_height: number;
+};
+enum ObstacleKind {
+  Ball = "Ball",
+  GoalPost = "GoalPost",
+  Robot = "Robot",
+  Unknown = "Unknown",
+}
+type SonarObstacle = {
+  position_in_robot: number[];
 };
 
 export default function RobotDetection({
@@ -66,11 +74,17 @@ export default function RobotDetection({
   const detectedRobots = useOutputSubscription<{
     robot_positions: ScoredCluster[];
   } | null>(connection, cycler, OutputType.Main, "detected_robots");
-  const filteredRobots = useOutputSubscription<RobotPosition[] | null>(
+  const filteredObstacles = useOutputSubscription<Obstacle[] | null>(
     connection,
     Cycler.Control,
     OutputType.Main,
-    "robot_positions"
+    "obstacles"
+  );
+  const sonarObstacle = useOutputSubscription<SonarObstacle | null>(
+    connection,
+    Cycler.Control,
+    OutputType.Main,
+    "sonar_obstacle"
   );
   const clusterCones = useOutputSubscription<ClusterCone[] | null>(
     connection,
@@ -150,26 +164,38 @@ export default function RobotDetection({
           ))
         )
       : null;
-  const filteredRobotPositionCircles =
-    filteredRobots !== undefined && filteredRobots !== null
-      ? filteredRobots.map((robot) => (
+  const filteredObstaclePositionCircles =
+    filteredObstacles !== undefined && filteredObstacles !== null
+      ? filteredObstacles.map((obstacle) => (
           <circle
-            cx={robot.position[0]}
-            cy={robot.position[1]}
-            r="0.1"
+            cx={obstacle.position[0]}
+            cy={obstacle.position[1]}
+            r={obstacle.radius_at_foot_height}
             fill="orange"
             stroke="white"
             strokeWidth={0.01}
           />
         ))
       : null;
+  const filteredSonarObstacle =
+    sonarObstacle !== undefined && sonarObstacle !== null ? (
+      <circle
+        cx={sonarObstacle.position_in_robot[0]}
+        cy={sonarObstacle.position_in_robot[1]}
+        r="0.15"
+        fill="none"
+        stroke="magenta"
+        strokeWidth={0.02}
+      />
+    ) : null;
+  console.log(sonarObstacle);
   const renderedClusterCircles =
     detectedRobots !== undefined && detectedRobots !== null
       ? detectedRobots.robot_positions.map((cluster) => (
           <circle
             cx={cluster.center[0]}
             cy={cluster.center[1]}
-            r={cluster.radius}
+            r={0.15}
             fill="none"
             stroke="black"
             strokeWidth={0.01}
@@ -231,14 +257,16 @@ export default function RobotDetection({
         {renderedClusteredClusterPointsInGround}
         {renderedClusterCircles}
         {renderedClusterCones}
-        {filteredRobotPositionCircles}
+        {filteredObstaclePositionCircles}
+        {filteredSonarObstacle}
       </Transform>
     ) : (
       <>
         {renderedClusteredClusterPointsInGround}
         {renderedClusterCircles}
         {renderedClusterCones}
-        {filteredRobotPositionCircles}
+        {filteredObstaclePositionCircles}
+        {filteredSonarObstacle}
       </>
     );
   return (

@@ -6,7 +6,7 @@ use syn::{parse_quote, Ident, ImplItem};
 use crate::module::generators::{generate_cycle_context_initializers, GenerateContextField};
 
 use super::generators::{
-    generate_change_callback_invokation, generate_main_outputs_implementation,
+    generate_change_callback_invocation, generate_main_outputs_implementation,
     generate_main_outputs_struct, generate_new_context_initializers,
 };
 
@@ -119,12 +119,12 @@ fn generate_cycle_context_implementation(module_information: &ModuleInformation)
                 configuration: &'a crate::framework::Configuration,
                 cycler_configuration: &'a crate::vision::Configuration,
                 subscribed_additional_outputs: &std::collections::HashSet<String>,
-            ) -> Self {
-                Self {
+            ) -> Option<Self> {
+                Some(Self {
                     image,
                     camera_position,
                     #constructors
-                }
+                })
             }
         }
     }
@@ -145,10 +145,10 @@ fn generate_run_new_method(module_information: &ModuleInformation) -> ImplItem {
 }
 
 fn generate_run_cycle_method(module_information: &ModuleInformation) -> ImplItem {
-    let change_callback_invokations = module_information
+    let change_callback_invocation = module_information
         .parameters
         .iter()
-        .map(generate_change_callback_invokation);
+        .map(generate_change_callback_invocation);
     let context_identifier = &module_information.cycle_context_identifier;
 
     parse_quote! {
@@ -163,9 +163,10 @@ fn generate_run_cycle_method(module_information: &ModuleInformation) -> ImplItem
             cycler_configuration: &crate::vision::Configuration,
             subscribed_additional_outputs: &std::collections::HashSet<String>,
             changed_parameters: &std::collections::HashSet<String>,
+            injected_outputs: &crate::vision::Database,
         ) -> anyhow::Result<()> {
-            #(#change_callback_invokations)*
-            let inputs = #context_identifier::new(
+            #(#change_callback_invocation)*
+            let context = #context_identifier::new(
                 image,
                 camera_position,
                 this_database,
@@ -174,8 +175,11 @@ fn generate_run_cycle_method(module_information: &ModuleInformation) -> ImplItem
                 cycler_configuration,
                 subscribed_additional_outputs,
             );
-            let main_outputs = self.cycle(inputs)?;
-            main_outputs.update(this_database);
+            let main_outputs = match context {
+                Some(context) => self.cycle(context)?,
+                None => MainOutputs::none(),
+            };
+            main_outputs.update(this_database, injected_outputs);
             Ok(())
         }
     }

@@ -1,5 +1,5 @@
 use approx::{AbsDiffEq, RelativeEq};
-use nalgebra::{vector, Point2, UnitComplex, Vector2};
+use nalgebra::{distance, vector, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -363,6 +363,10 @@ impl Circle {
         Self { center, radius }
     }
 
+    pub fn contains(&self, point: Point2<f32>) -> bool {
+        distance(&self.center, &point) <= self.radius
+    }
+
     pub fn bounding_box(&self) -> Rectangle {
         let radius_vector = vector![self.radius, self.radius];
 
@@ -577,7 +581,7 @@ mod tests {
                 let angle_distance = angle_distance_index as f32 / 100.0 * 2.0 * PI;
                 let start = UnitComplex::from_angle(angle) * vector![1.0, 0.0];
                 let end = UnitComplex::from_angle(angle + angle_distance) * vector![1.0, 0.0];
-                let center = point![3.14, 4.20];
+                let center = point![PI, 4.20];
                 let radius = 5.0;
                 let arc = Arc {
                     circle: Circle { center, radius },

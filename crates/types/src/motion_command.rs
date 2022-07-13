@@ -44,11 +44,29 @@ pub enum MotionCommand {
     },
 }
 
+impl MotionCommand {
+    pub fn head_motion(&self) -> Option<HeadMotion> {
+        match self {
+            MotionCommand::SitDown { head }
+            | MotionCommand::Stand { head }
+            | MotionCommand::Walk { head, .. }
+            | MotionCommand::InWalkKick { head, .. } => Some(*head),
+            MotionCommand::Penalized => Some(HeadMotion::ZeroAngles),
+            MotionCommand::Unstiff => Some(HeadMotion::Unstiff),
+            MotionCommand::FallProtection { .. }
+            | MotionCommand::Jump { .. }
+            | MotionCommand::StandUp { .. }
+            | MotionCommand::Kick { .. } => None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum HeadMotion {
     ZeroAngles,
     Center,
     LookAround,
+    SearchForLostBall,
     LookAt { target: Point2<f32> },
     Unstiff,
 }
@@ -65,6 +83,7 @@ pub enum KickDirection {
 pub enum KickVariant {
     Forward,
     Turn,
+    Side,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]

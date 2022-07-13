@@ -314,6 +314,7 @@ fn cycler_run_cycles_from_sorted_modules(
                     &subscribed_additional_outputs,
                     &changed_parameters,
                     &mut self.persistent_state,
+                    &injected_outputs,
                 ).context(#error_context)?;
             },
             Cycler::Vision => quote! {
@@ -326,6 +327,7 @@ fn cycler_run_cycles_from_sorted_modules(
                     cycler_configuration,
                     &subscribed_additional_outputs,
                     &changed_parameters,
+                    &injected_outputs,
                 ).context(#error_context)?;
             },
         }

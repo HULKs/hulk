@@ -10,13 +10,15 @@ use tokio_tungstenite::accept_async;
 use tokio_util::sync::CancellationToken;
 
 use super::{
-    database_subscription_manager, parameter_modificator, receiver::receiver, sender::sender,
+    database_subscription_manager, injection_writer, parameter_modificator, receiver::receiver,
+    sender::sender,
 };
 
 pub async fn connection(
     stream: TcpStream,
     database_subscription_manager_sender: Sender<database_subscription_manager::Request>,
     parameter_modificator_sender: Sender<parameter_modificator::Request>,
+    injection_writer_sender: Sender<injection_writer::Request>,
     keep_running: CancellationToken,
     wait_group_worker: Worker,
 ) -> anyhow::Result<()> {
@@ -36,6 +38,7 @@ pub async fn connection(
         reader,
         database_subscription_manager_sender,
         parameter_modificator_sender,
+        injection_writer_sender,
         wait_group_worker.clone(),
         keep_running,
         keep_only_self_running.clone(),

@@ -2,7 +2,8 @@ use std::f32::consts::FRAC_PI_4;
 
 use nalgebra::{point, Isometry2, UnitComplex, Vector2};
 use types::{
-    rotate_towards, BallState, FieldDimensions, MotionCommand, PathObstacle, Side, WorldState,
+    rotate_towards, BallState, FieldDimensions, FilteredGameState, MotionCommand, PathObstacle,
+    Side, WorldState,
 };
 
 use crate::framework::{configuration::RolePositions, AdditionalOutput};
@@ -39,14 +40,24 @@ fn support_striker_pose(
         Side::Right => FRAC_PI_4,
     }) * -(Vector2::x() * role_positions.striker_supporter_distance_to_ball);
     let supporting_position = ball.position + offset_vector;
-    let clamped_position = point![
-        supporting_position.x.clamp(
-            role_positions.striker_supporter_minimum_x,
-            field_dimensions.length / 2.0
+    let clamped_x = match world_state.filtered_game_state {
+        Some(FilteredGameState::Ready { .. })
+        | Some(FilteredGameState::Playing {
+            ball_is_free: false,
+        }) => supporting_position.x.clamp(
+            role_positions
+                .striker_supporter_minimum_x
+                .min(role_positions.striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free),
+            role_positions
+                .striker_supporter_minimum_x
+                .max(role_positions.striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free),
         ),
-        supporting_position.y
-    ];
-
+        _ => supporting_position.x.clamp(
+            role_positions.striker_supporter_minimum_x,
+            field_dimensions.length / 2.0,
+        ),
+    };
+    let clamped_position = point![clamped_x, supporting_position.y];
     let support_pose = Isometry2::new(
         clamped_position.coords,
         rotate_towards(clamped_position, ball.position).angle(),

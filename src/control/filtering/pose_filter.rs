@@ -12,6 +12,22 @@ pub struct ScoredPoseFilter {
     pub score: f32,
 }
 
+impl ScoredPoseFilter {
+    pub fn from_isometry(pose: Isometry2<f32>, covariance: Matrix3<f32>, score: f32) -> Self {
+        Self {
+            pose_filter: PoseFilter::new(
+                vector![
+                    pose.translation.x,
+                    pose.translation.y,
+                    pose.rotation.angle()
+                ],
+                covariance,
+            ),
+            score,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct PoseFilter {
     mean: Vector3<f32>,

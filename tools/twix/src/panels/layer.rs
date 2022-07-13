@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
+use anyhow::Result;
 use eframe::{egui::Ui, Storage};
+
 use types::FieldDimensions;
 
 use crate::{nao::Nao, twix_paint::TwixPainter};
@@ -8,7 +10,7 @@ use crate::{nao::Nao, twix_paint::TwixPainter};
 pub trait Layer {
     const NAME: &'static str;
     fn new(nao: Arc<Nao>) -> Self;
-    fn paint(&self, painter: &TwixPainter, field_dimensions: &FieldDimensions);
+    fn paint(&self, painter: &TwixPainter, field_dimensions: &FieldDimensions) -> Result<()>;
 }
 
 pub struct EnabledLayer<T>
@@ -43,10 +45,11 @@ where
         }
     }
 
-    pub fn paint(&self, painter: &TwixPainter, field_dimensions: &FieldDimensions) {
+    pub fn paint(&self, painter: &TwixPainter, field_dimensions: &FieldDimensions) -> Result<()> {
         if let Some(layer) = &self.layer {
-            layer.paint(painter, field_dimensions);
+            layer.paint(painter, field_dimensions)?;
         }
+        Ok(())
     }
 
     pub fn save(&self, storage: &mut dyn Storage) {

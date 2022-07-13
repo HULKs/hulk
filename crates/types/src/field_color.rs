@@ -9,6 +9,7 @@ pub struct FieldColor {
     pub blue_chromaticity_threshold: f32,
     pub lower_green_chromaticity_threshold: f32,
     pub upper_green_chromaticity_threshold: f32,
+    pub green_luminance_threshold: u8,
 }
 
 impl FieldColor {
@@ -20,6 +21,7 @@ impl FieldColor {
         if red_chromaticity > self.red_chromaticity_threshold
             || blue_chromaticity > self.blue_chromaticity_threshold
             || green_chromaticity < self.lower_green_chromaticity_threshold
+            || rgb.g < self.green_luminance_threshold
         {
             Intensity::Low
         } else if green_chromaticity > self.upper_green_chromaticity_threshold {
