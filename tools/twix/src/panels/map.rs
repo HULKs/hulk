@@ -81,7 +81,7 @@ impl Widget for &mut MapPanel {
             Err(error) => return ui.label(format!("{:?}", error)),
         };
 
-        let painter = TwixPainter::new_map(ui, &field_dimensions, self.transformation);
+        let mut painter = TwixPainter::new_map(ui, &field_dimensions, self.transformation);
 
         let _ = self.field.paint(&painter, &field_dimensions);
         let _ = self.robot_pose.paint(&painter, &field_dimensions);
@@ -96,14 +96,30 @@ impl Widget for &mut MapPanel {
             field_dimensions.length / painter.response.rect.width(),
             field_dimensions.width / painter.response.rect.height()
         ]);
+        let pointer_position = ui.input().pointer.interact_pos();
+
+        let pointer_in_world_before =
+            pointer_position.map(|pointer_position| painter.pixel_to_world(pointer_position));
         let zoom_factor = 1.01_f32.powf(ui.input().scroll_delta.y);
+
         self.transformation.append_scaling_mut(zoom_factor);
+
+        painter.model_to_world = self.transformation;
+        let pointer_in_world_after =
+            pointer_position.map(|pointer_position| painter.pixel_to_world(pointer_position));
+        let shift_from_zoom = pointer_in_world_before
+            .zip(pointer_in_world_after)
+            .map(|(before, after)| {
+                vector![after.x - before.x, before.y - after.y] * self.transformation.scaling()
+            })
+            .unwrap_or_default();
+
+        self.transformation
+            .append_translation_mut(&Translation2::from(drag + shift_from_zoom));
+
         if painter.response.double_clicked() {
             self.transformation = Similarity2::identity();
         }
-
-        self.transformation
-            .append_translation_mut(&Translation2::from(drag));
 
         painter.response
     }

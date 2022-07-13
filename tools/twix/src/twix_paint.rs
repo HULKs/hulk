@@ -11,7 +11,9 @@ use types::{Arc, Circle, FieldDimensions, Orientation};
 pub struct TwixPainter {
     pub response: Response,
     painter: Painter,
-    pub transform: Similarity2<f32>,
+    pub model_to_world: Similarity2<f32>,
+    world_to_camera: Similarity2<f32>,
+    camera_to_pixel: Similarity2<f32>,
     y_scale: f32,
 }
 
@@ -19,14 +21,15 @@ impl TwixPainter {
     pub fn new(
         ui: &mut Ui,
         dimensions: Vector2<f32>,
-        world_transform: Similarity2<f32>,
+        model_to_world: Similarity2<f32>,
+        world_to_camera: Similarity2<f32>,
         y_scale: f32,
     ) -> Self {
         let (response, painter) =
             ui.allocate_painter(ui.available_size_before_wrap(), Sense::drag());
         let width_scale = response.rect.width() / dimensions.x;
         let height_scale = response.rect.height() / dimensions.y;
-        let camera_transform = if width_scale < height_scale {
+        let camera_to_pixel = if width_scale < height_scale {
             Similarity2::new(
                 vector![
                     0.0,
@@ -48,7 +51,9 @@ impl TwixPainter {
         Self {
             response,
             painter,
-            transform: camera_transform * world_transform,
+            model_to_world,
+            world_to_camera,
+            camera_to_pixel,
             y_scale,
         }
     }
@@ -63,9 +68,14 @@ impl TwixPainter {
         Self::new(
             ui,
             vector![length, width],
-            Similarity2::new(vector![length / 2.0, width / 2.0], 0.0, 1.0) * transformation,
+            transformation,
+            Similarity2::new(vector![length / 2.0, width / 2.0], 0.0, 1.0),
             -1.0,
         )
+    }
+
+    pub fn transform(&self) -> Similarity2<f32> {
+        self.camera_to_pixel * self.world_to_camera * self.model_to_world
     }
 
     pub fn field(&self, field_dimensions: &FieldDimensions) {
@@ -273,7 +283,7 @@ impl TwixPainter {
     pub fn n_gon(&self, corners: usize, position: Point2<f32>, radius: f32, fill_color: Color32) {
         let points: Vec<_> = (0..corners)
             .map(|index| {
-                self.transform_point({
+                self.world_to_pixel({
                     let angle = index as f32 * PI * 2.0 / corners as f32;
                     position + vector![angle.cos(), angle.sin()] * radius
                 })
@@ -304,37 +314,37 @@ impl TwixPainter {
 }
 
 impl TwixPainter {
-    fn transform_point(&self, point: Point2<f32>) -> Pos2 {
-        let normalized = self.transform * point![point.x, point.y * self.y_scale];
+    fn world_to_pixel(&self, point: Point2<f32>) -> Pos2 {
+        let normalized = self.transform() * point![point.x, point.y * self.y_scale];
         Pos2 {
             x: normalized.x,
             y: normalized.y,
         }
     }
 
-    pub fn inverse_transform_pos(&self, pos: Pos2) -> Point2<f32> {
-        let world_point = self.transform.inverse() * point![pos.x, pos.y * self.y_scale];
-        point![world_point.x, world_point.y]
+    pub fn pixel_to_world(&self, pos: Pos2) -> Point2<f32> {
+        let world_point = self.transform().inverse() * point![pos.x, pos.y];
+        point![world_point.x, world_point.y * self.y_scale]
     }
 
     fn transform_stroke(&self, stroke: Stroke) -> Stroke {
         Stroke {
-            width: stroke.width * self.transform.scaling(),
+            width: stroke.width * self.transform().scaling(),
             ..stroke
         }
     }
 
     pub fn line_segment(&self, start: Point2<f32>, end: Point2<f32>, stroke: Stroke) {
-        let start = self.transform_point(start);
-        let end = self.transform_point(end);
+        let start = self.world_to_pixel(start);
+        let end = self.world_to_pixel(end);
         let stroke = self.transform_stroke(stroke);
         self.painter.line_segment([start, end], stroke);
     }
 
     pub fn rect_filled(&self, min: Point2<f32>, max: Point2<f32>, fill_color: Color32) {
         let rect = Rect {
-            min: self.transform_point(min),
-            max: self.transform_point(max),
+            min: self.world_to_pixel(min),
+            max: self.world_to_pixel(max),
         };
         self.painter
             .rect_filled(sort_rect(rect), Rounding::none(), fill_color);
@@ -342,8 +352,8 @@ impl TwixPainter {
 
     pub fn rect_stroke(&self, min: Point2<f32>, max: Point2<f32>, stroke: Stroke) {
         let rect = Rect {
-            min: self.transform_point(min),
-            max: self.transform_point(max),
+            min: self.world_to_pixel(min),
+            max: self.world_to_pixel(max),
         };
         let stroke = self.transform_stroke(stroke);
         self.painter
@@ -351,21 +361,21 @@ impl TwixPainter {
     }
 
     pub fn circle(&self, center: Point2<f32>, radius: f32, fill_color: Color32, stroke: Stroke) {
-        let center = self.transform_point(center);
-        let radius = radius * self.transform.scaling();
+        let center = self.world_to_pixel(center);
+        let radius = radius * self.transform().scaling();
         let stroke = self.transform_stroke(stroke);
         self.painter.circle(center, radius, fill_color, stroke);
     }
 
     pub fn circle_filled(&self, center: Point2<f32>, radius: f32, fill_color: Color32) {
-        let center = self.transform_point(center);
-        let radius = radius * self.transform.scaling();
+        let center = self.world_to_pixel(center);
+        let radius = radius * self.transform().scaling();
         self.painter.circle_filled(center, radius, fill_color);
     }
 
     pub fn circle_stroke(&self, center: Point2<f32>, radius: f32, stroke: Stroke) {
-        let center = self.transform_point(center);
-        let radius = radius * self.transform.scaling();
+        let center = self.world_to_pixel(center);
+        let radius = radius * self.transform().scaling();
         let stroke = self.transform_stroke(stroke);
         self.painter.circle_stroke(center, radius, stroke);
     }
@@ -397,14 +407,14 @@ impl TwixPainter {
 
         const PIXELS_PER_SAMPLE: f32 = 5.0;
         let samples = 1.max(
-            (signed_angle_difference.abs() * radius * self.transform.scaling() / PIXELS_PER_SAMPLE)
-                as usize,
+            (signed_angle_difference.abs() * radius * self.transform().scaling()
+                / PIXELS_PER_SAMPLE) as usize,
         );
         let points = (0..samples + 1)
             .map(|index| {
                 let angle = signed_angle_difference / samples as f32 * index as f32;
                 let point = pose * (center + Rotation2::new(angle) * start_relative);
-                self.transform_point(point)
+                self.world_to_pixel(point)
             })
             .collect();
 

@@ -128,9 +128,15 @@ impl Widget for &mut ImageSegmentsPanel {
             Err(error) => return ui.label(format!("{:?}", error)),
         };
 
-        let mut painter = TwixPainter::new(ui, vector![640.0, 480.0], Similarity2::identity(), 1.0);
+        let mut painter = TwixPainter::new(
+            ui,
+            vector![640.0, 480.0],
+            Similarity2::identity(),
+            Similarity2::identity(),
+            1.0,
+        );
         if let Some(hover_pos) = painter.response.hover_pos() {
-            let image_coords = painter.inverse_transform_pos(hover_pos);
+            let image_coords = painter.pixel_to_world(hover_pos);
             let x = image_coords.x.round() as u16;
             let y = image_coords.y.round() as u16;
             if let Some(scanline) = image_segments
