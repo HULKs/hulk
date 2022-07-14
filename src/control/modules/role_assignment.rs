@@ -177,7 +177,9 @@ impl RoleAssignment {
                 self.last_received_spl_striker_message = Some(cycle_start_time);
                 let sender_position =
                     (robot_to_field.inverse() * spl_message.robot_to_field) * Point2::origin();
-                network_robot_obstacles.push(sender_position);
+                if spl_message.player_number != *context.player_number {
+                    network_robot_obstacles.push(sender_position);
+                }
                 (role, send_spl_striker_message, team_ball) = process_role_state_machine(
                     role,
                     &robot_to_field,

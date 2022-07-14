@@ -1,15 +1,16 @@
 use anyhow::Context;
+use clap::Args;
 use futures::future::join_all;
+
 use nao::Nao;
 use repository::Repository;
-use structopt::StructOpt;
 
 use crate::{parsers::NaoAddress, results::gather_results};
 
-#[derive(StructOpt)]
+#[derive(Args)]
 pub struct Arguments {
     /// The NAOs to reboot e.g. 20w or 10.1.24.22
-    #[structopt(required = true)]
+    #[clap(required = true)]
     pub naos: Vec<NaoAddress>,
 }
 

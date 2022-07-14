@@ -1,15 +1,15 @@
-use std::{f32::consts::PI, time::Duration};
+use std::time::Duration;
 
 use anyhow::Result;
 use log::warn;
-use module_derive::{module, require_some};
+use module_derive::module;
 use nalgebra::{geometry::Isometry3, Point3, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
     ArmJoints, BodyJoints, BodyJointsCommand, InertialMeasurementUnitData, Joints, KickVariant,
-    LegJoints, MotionSafeExits, MotionType, RobotKinematics, SensorData, Side, Step, SupportFoot,
-    WalkCommand,
+    LegJoints, MotionCommand, MotionSafeExits, MotionType, RobotKinematics, SensorData, Side, Step,
+    SupportFoot, WalkCommand,
 };
 
 use crate::{
@@ -19,6 +19,7 @@ use crate::{
 };
 
 use self::{
+    arms::SwingingArm,
     balancing::{foot_leveling, gyro_balancing, step_adjustment},
     engine::{calculate_foot_to_robot, parabolic_return, parabolic_step},
     foot_offsets::FootOffsets,
@@ -26,6 +27,7 @@ use self::{
     walk_state::WalkState,
 };
 
+mod arms;
 mod balancing;
 mod engine;
 mod foot_offsets;
@@ -94,13 +96,22 @@ pub struct WalkingEngine {
     last_left_level_adjustment: f32,
     /// step adjustment for the right foot of the last cycle
     last_right_level_adjustment: f32,
+    /// motion of the left arm currently executed
+    #[leaf]
+    left_arm: SwingingArm,
+    /// motion of the right arm currently executed
+    #[leaf]
+    right_arm: SwingingArm,
+    /// counting steps that exceeded a timeout
+    number_of_timeouted_steps: usize,
 }
 
 #[module(control)]
-#[input(path = sensor_data, data_type = SensorData)]
-#[input(path = support_foot, data_type = SupportFoot)]
-#[input(path = walk_command, data_type = WalkCommand)]
-#[input(path = robot_kinematics, data_type = RobotKinematics)]
+#[input(path = sensor_data, data_type = SensorData, required)]
+#[input(path = support_foot, data_type = SupportFoot, required)]
+#[input(path = walk_command, data_type = WalkCommand, required)]
+#[input(path = robot_kinematics, data_type = RobotKinematics, required)]
+#[input(path = motion_command, data_type = MotionCommand, required)]
 #[persistent_state(path = motion_safe_exits, data_type = MotionSafeExits)]
 #[persistent_state(path = walk_return_offset, data_type = Step)]
 #[parameter(path = control.walking_engine, data_type = configuration::WalkingEngine, name = config)]
@@ -115,77 +126,118 @@ impl WalkingEngine {
     fn new(context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {
             filtered_gyro_y: LowPassFilter::with_alpha(0.0, context.config.gyro_low_pass_factor),
-            filtered_robot_tilt_shift: LowPassFilter::with_alpha(0.0, 0.7),
+            filtered_robot_tilt_shift: LowPassFilter::with_alpha(
+                0.0,
+                context.config.tilt_shift_low_pass_factor,
+            ),
+            left_arm: SwingingArm::new(Side::Left),
+            right_arm: SwingingArm::new(Side::Right),
             ..Default::default()
         })
     }
 
     fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let sensor_data = require_some!(context.sensor_data);
-        let support_foot = require_some!(context.support_foot);
-        let walk_command = require_some!(context.walk_command);
-        let robot_kinematics = require_some!(context.robot_kinematics);
-
-        self.filtered_gyro_y
-            .update(sensor_data.inertial_measurement_unit.angular_velocity.y);
-        self.filter_robot_tilt_shift(robot_kinematics, &sensor_data.inertial_measurement_unit);
+        let last_cycle_duration = context.sensor_data.cycle_info.last_cycle_duration;
+        self.filtered_gyro_y.update(
+            context
+                .sensor_data
+                .inertial_measurement_unit
+                .angular_velocity
+                .y,
+        );
+        self.filter_robot_tilt_shift(
+            context.robot_kinematics,
+            &context.sensor_data.inertial_measurement_unit,
+        );
 
         if self.t.is_zero() {
             self.initialize_step_states_from_request(
-                *walk_command,
-                support_foot.support_side,
+                *context.walk_command,
+                context.support_foot.support_side,
                 context.config,
                 context.kick_steps,
             );
         }
-        let has_support_changed = match support_foot.support_side {
-            Some(support_side) => self.swing_side.opposite() != support_side,
-            None => true,
-        };
+
         match &self.walk_state {
             WalkState::Standing => self.reset(),
             WalkState::Starting(_) | WalkState::Walking(_) | WalkState::Stopping => {
                 self.walk_cycle(
-                    sensor_data.cycle_info.last_cycle_duration,
+                    context.sensor_data.cycle_info.last_cycle_duration,
                     context.config,
                     &mut context.step_adjustment,
                 );
             }
-            WalkState::Kicking(..) => self.kick_cycle(sensor_data.cycle_info.last_cycle_duration),
+            WalkState::Kicking(..) => self.kick_cycle(last_cycle_duration),
         }
+
+        let has_support_changed = match context.support_foot.support_side {
+            Some(support_side) => self.swing_side.opposite() != support_side,
+            None => true,
+        };
         if has_support_changed && self.t > context.config.minimal_step_duration {
+            self.number_of_timeouted_steps = 0;
+            self.end_step_phase();
+        } else if self.t > context.config.maximal_step_duration {
+            self.number_of_timeouted_steps += 1;
             self.end_step_phase();
         }
 
-        let (left_arm, right_arm) = self.calculate_arm_joints(context.config.shoulder_pitch_factor);
+        let left_arm = self.left_arm.next(
+            self.left_foot,
+            context.motion_command,
+            last_cycle_duration,
+            &context.config.swinging_arms,
+        );
+        let right_arm = self.right_arm.next(
+            self.right_foot,
+            context.motion_command,
+            last_cycle_duration,
+            &context.config.swinging_arms,
+        );
 
-        let (mut left_leg, mut right_leg) =
-            self.calculate_leg_joints(context.config.torso_offset, context.config.walk_hip_height);
+        let arm_compensation = self
+            .left_arm
+            .torso_tilt_compensation(&context.config.swinging_arms)
+            + self
+                .right_arm
+                .torso_tilt_compensation(&context.config.swinging_arms);
 
-        if let WalkState::Walking(_) = self.walk_state {
-            foot_leveling(
-                &mut left_leg,
-                &mut right_leg,
-                sensor_data.positions.left_leg,
-                sensor_data.positions.right_leg,
-                sensor_data.inertial_measurement_unit.roll_pitch.y,
-                self.swing_side,
-                &mut self.last_left_level_adjustment,
-                &mut self.last_right_level_adjustment,
-                context.config,
-            );
-        } else if let WalkState::Kicking(kick_variant, _, kick_step_i) = self.walk_state {
-            let swing_leg = match self.swing_side {
-                Side::Left => &mut left_leg,
-                Side::Right => &mut right_leg,
-            };
-            let kick_steps = match kick_variant {
-                KickVariant::Forward => &context.kick_steps.forward,
-                KickVariant::Turn => &context.kick_steps.turn,
-                KickVariant::Side => &context.kick_steps.side,
-            };
-            let kick_step = &kick_steps[kick_step_i];
-            apply_joint_overrides(kick_step, swing_leg, self.t);
+        let (mut left_leg, mut right_leg) = self.calculate_leg_joints(
+            context.config.torso_shift_offset,
+            context.config.walk_hip_height,
+        );
+        left_leg.hip_pitch += arm_compensation - context.config.torso_tilt_offset;
+        right_leg.hip_pitch += arm_compensation - context.config.torso_tilt_offset;
+
+        match self.walk_state {
+            WalkState::Walking(_) => {
+                foot_leveling(
+                    &mut left_leg,
+                    &mut right_leg,
+                    context.sensor_data.positions.left_leg,
+                    context.sensor_data.positions.right_leg,
+                    context.sensor_data.inertial_measurement_unit.roll_pitch.y,
+                    self.swing_side,
+                    &mut self.last_left_level_adjustment,
+                    &mut self.last_right_level_adjustment,
+                    context.config,
+                );
+            }
+            WalkState::Kicking(kick_variant, _, kick_step_i) => {
+                let swing_leg = match self.swing_side {
+                    Side::Left => &mut left_leg,
+                    Side::Right => &mut right_leg,
+                };
+                let kick_steps = match kick_variant {
+                    KickVariant::Forward => &context.kick_steps.forward,
+                    KickVariant::Turn => &context.kick_steps.turn,
+                    KickVariant::Side => &context.kick_steps.side,
+                };
+                let kick_step = &kick_steps[kick_step_i];
+                apply_joint_overrides(kick_step, swing_leg, self.t);
+            }
+            _ => (),
         }
 
         if let WalkState::Walking(_) | WalkState::Kicking(..) = self.walk_state {
@@ -272,11 +324,20 @@ impl WalkingEngine {
         self.left_foot_t0 = self.left_foot;
         self.right_foot_t0 = self.right_foot;
         self.turn_t0 = self.turn;
-        let last_step = self.current_step;
         self.walk_state =
             self.walk_state
                 .next_walk_state(walk_command, self.swing_side, kick_steps);
 
+        if self.number_of_timeouted_steps >= config.max_number_of_timeouted_steps {
+            self.current_step = config.emergency_step;
+            self.step_duration = config.emergency_step_duration;
+            self.swing_side = measured_support_side.unwrap_or(Side::Left);
+            self.max_swing_foot_lift = config.emergency_foot_lift;
+            self.number_of_timeouted_steps = 0;
+            return;
+        }
+
+        let last_step = self.current_step;
         match (self.walk_state, measured_support_side) {
             (WalkState::Standing, _) | (_, None) => {
                 self.current_step = Step::zero();
@@ -495,7 +556,7 @@ impl WalkingEngine {
 
     fn calculate_leg_joints(
         &self,
-        torso_offset: f32,
+        torso_shift_offset: f32,
         walk_hip_height: f32,
     ) -> (LegJoints, LegJoints) {
         let left_foot_to_robot = calculate_foot_to_robot(
@@ -503,7 +564,7 @@ impl WalkingEngine {
             self.left_foot,
             self.turn,
             self.left_foot_lift,
-            torso_offset,
+            torso_shift_offset,
             walk_hip_height,
         );
         let right_foot_to_robot = calculate_foot_to_robot(
@@ -511,7 +572,7 @@ impl WalkingEngine {
             self.right_foot,
             self.turn,
             self.right_foot_lift,
-            torso_offset,
+            torso_shift_offset,
             walk_hip_height,
         );
         let (is_reachable, left_leg, right_leg) =
@@ -520,25 +581,5 @@ impl WalkingEngine {
             warn!("Not reachable!");
         }
         (left_leg, right_leg)
-    }
-
-    fn calculate_arm_joints(&self, shoulder_pitch_factor: f32) -> (ArmJoints, ArmJoints) {
-        let left_arm = ArmJoints {
-            shoulder_pitch: PI / 2.0 + self.left_foot.forward * shoulder_pitch_factor,
-            shoulder_roll: 0.2,
-            elbow_yaw: 0.0,
-            elbow_roll: 0.0,
-            wrist_yaw: 0.0,
-            hand: 0.0,
-        };
-        let right_arm = ArmJoints {
-            shoulder_pitch: PI / 2.0 + self.right_foot.forward * shoulder_pitch_factor,
-            shoulder_roll: -0.2,
-            elbow_yaw: 0.0,
-            elbow_roll: 0.0,
-            wrist_yaw: 0.0,
-            hand: 0.0,
-        };
-        (left_arm, right_arm)
     }
 }

@@ -74,6 +74,14 @@ impl ArmJoints {
             hand: value,
         }
     }
+
+    pub fn mirrored(&self) -> Self {
+        Self {
+            shoulder_roll: -self.shoulder_roll,
+            elbow_yaw: -self.elbow_yaw,
+            ..*self
+        }
+    }
 }
 
 impl Mul<f32> for ArmJoints {

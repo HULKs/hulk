@@ -23,8 +23,10 @@ pub struct ObstacleFilter {
 #[module(control)]
 #[parameter(path = field_dimensions, data_type = FieldDimensions)]
 #[parameter(path = control.obstacle_filter, data_type = crate::framework::configuration::ObstacleFilter)]
-#[parameter(path = control.behavior.path_planning.robot_radius_at_hip_height, data_type = f32)]
-#[parameter(path = control.behavior.path_planning.robot_radius_at_foot_height, data_type = f32)]
+#[parameter(path = control.obstacle_filter.robot_obstacle_radius_at_hip_height, data_type = f32)]
+#[parameter(path = control.obstacle_filter.robot_obstacle_radius_at_foot_height, data_type = f32)]
+#[parameter(path = control.obstacle_filter.unknown_obstacle_radius, data_type = f32)]
+#[parameter(path = control.obstacle_filter.goal_post_obstacle_radius, data_type = f32)]
 #[input(path = sensor_data, data_type = SensorData)]
 #[historic_input(path = network_robot_obstacles, data_type = Vec<Point2<f32>>)]
 #[historic_input(path = sonar_obstacle, data_type = SonarObstacle)]
@@ -141,11 +143,28 @@ impl ObstacleFilter {
             .filter(|hypothesis| {
                 hypothesis.measurement_count > context.obstacle_filter.measurement_count_threshold
             })
-            .map(|hypothesis| Obstacle {
-                position: hypothesis.filter.state().into(),
-                kind: hypothesis.obstacle_kind,
-                radius_at_hip_height: *context.robot_radius_at_hip_height,
-                radius_at_foot_height: *context.robot_radius_at_foot_height,
+            .map(|hypothesis| {
+                let (radius_at_hip_height, radius_at_foot_height) = match hypothesis.obstacle_kind {
+                    ObstacleKind::GoalPost => (
+                        *context.goal_post_obstacle_radius,
+                        *context.goal_post_obstacle_radius,
+                    ),
+                    ObstacleKind::Robot => (
+                        *context.robot_obstacle_radius_at_hip_height,
+                        *context.robot_obstacle_radius_at_foot_height,
+                    ),
+                    ObstacleKind::Unknown => (
+                        *context.unknown_obstacle_radius,
+                        *context.unknown_obstacle_radius,
+                    ),
+                    _ => panic!("Unexpected obstacle radius"),
+                };
+                Obstacle {
+                    position: hypothesis.filter.state().into(),
+                    kind: hypothesis.obstacle_kind,
+                    radius_at_hip_height,
+                    radius_at_foot_height,
+                }
             })
             .collect::<Vec<_>>();
         let current_robot_to_field = context.robot_to_field.get(cycle_start_time);

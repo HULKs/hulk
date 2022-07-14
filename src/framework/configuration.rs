@@ -117,13 +117,15 @@ pub struct RoleAssignment {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+
 pub struct Behavior {
+    pub dribbling: Dribbling,
     #[leaf]
     pub injected_motion_command: Option<MotionCommand>,
-    pub role_positions: RolePositions,
-    pub dribbling: Dribbling,
-    pub walk_and_stand: WalkAndStand,
+    pub lost_ball: LostBall,
     pub path_planning: PathPlanning,
+    pub role_positions: RolePositions,
+    pub walk_and_stand: WalkAndStand,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -148,6 +150,8 @@ pub struct Dribbling {
     pub angle_distance_weight: f32,
     pub max_kick_around_obstacle_angle: f32,
     pub ignore_robot_when_near_ball_radius: f32,
+    pub kick_pose_obstacle_radius: f32,
+    pub emergency_kick_target_angles: Vec<f32>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -186,6 +190,11 @@ pub struct WalkAndStand {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct LostBall {
+    pub offset_to_last_ball_location: Vector2<f32>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct PathPlanning {
     pub robot_radius_at_foot_height: f32,
     pub robot_radius_at_hip_height: f32,
@@ -204,27 +213,47 @@ pub struct GameStateFilter {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct WalkingEngine {
-    pub walk_hip_height: f32,
-    pub torso_offset: f32,
-    pub minimal_step_duration: Duration,
-    pub shoulder_pitch_factor: f32,
+    pub arm_stiffness: f32,
+    pub backward_foot_support_offset: f32,
     pub base_foot_lift: f32,
     pub base_step_duration: Duration,
-    pub starting_step_duration: Duration,
-    pub starting_step_foot_lift: f32,
-    pub gyro_balance_factor: f32,
-    pub swing_foot_pitch_error_leveling_factor: f32,
-    pub swing_foot_backwards_imu_leveling_factor: f32,
-    pub max_level_adjustment_velocity: f32,
-    pub max_forward_acceleration: f32,
+    pub emergency_foot_lift: f32,
+    pub emergency_step: Step,
+    pub emergency_step_duration: Duration,
     pub forward_foot_support_offset: f32,
-    pub backward_foot_support_offset: f32,
-    pub max_step_adjustment: f32,
-    pub sideways_step_duration_increase: f32,
+    pub gyro_balance_factor: f32,
+    pub gyro_low_pass_factor: f32,
     pub leg_stiffness_stand: f32,
     pub leg_stiffness_walk: f32,
-    pub arm_stiffness: f32,
-    pub gyro_low_pass_factor: f32,
+    pub max_forward_acceleration: f32,
+    pub max_level_adjustment_velocity: f32,
+    pub max_number_of_timeouted_steps: usize,
+    pub max_step_adjustment: f32,
+    pub maximal_step_duration: Duration,
+    pub minimal_step_duration: Duration,
+    pub sideways_step_duration_increase: f32,
+    pub starting_step_duration: Duration,
+    pub starting_step_foot_lift: f32,
+    pub swing_foot_backwards_imu_leveling_factor: f32,
+    pub swing_foot_pitch_error_leveling_factor: f32,
+    pub swinging_arms: SwingingArms,
+    pub tilt_shift_low_pass_factor: f32,
+    pub torso_shift_offset: f32,
+    pub torso_tilt_offset: f32,
+    pub walk_hip_height: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct SwingingArms {
+    pub debug_pull_back: bool,
+    pub default_roll: f32,
+    pub roll_factor: f32,
+    pub pitch_factor: f32,
+    pub pull_back_joints: ArmJoints,
+    pub pull_tight_joints: ArmJoints,
+    pub pulling_back_duration: Duration,
+    pub pulling_tight_duration: Duration,
+    pub torso_tilt_compensation_factor: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -444,6 +473,10 @@ pub struct ObstacleFilter {
     pub measurement_count_threshold: usize,
     pub use_robot_detection_measurements: bool,
     pub use_sonar_measurements: bool,
+    pub robot_obstacle_radius_at_hip_height: f32,
+    pub robot_obstacle_radius_at_foot_height: f32,
+    pub unknown_obstacle_radius: f32,
+    pub goal_post_obstacle_radius: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

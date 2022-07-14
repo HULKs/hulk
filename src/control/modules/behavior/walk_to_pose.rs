@@ -1,7 +1,7 @@
-use nalgebra::{Isometry2, Point2, UnitComplex};
+use nalgebra::{point, Isometry2, Point2, UnitComplex};
 use types::{
-    direct_path, FieldDimensions, HeadMotion, MotionCommand, Obstacle, OrientationMode,
-    PathObstacle, PathSegment, WorldState,
+    direct_path, ArmMotion, FieldDimensions, HeadMotion, MotionCommand, Obstacle, OrientationMode,
+    PathObstacle, PathSegment, Side, WorldState,
 };
 
 use crate::{
@@ -11,24 +11,27 @@ use crate::{
 
 pub struct WalkPathPlanner<'cycle> {
     field_dimensions: &'cycle FieldDimensions,
+    obstacles: &'cycle [Obstacle],
     configuration: &'cycle configuration::PathPlanning,
 }
 
 impl<'cycle> WalkPathPlanner<'cycle> {
     pub fn new(
         field_dimensions: &'cycle FieldDimensions,
+        obstacles: &'cycle [Obstacle],
         configuration: &'cycle configuration::PathPlanning,
     ) -> Self {
         Self {
             field_dimensions,
+            obstacles,
             configuration,
         }
     }
     pub fn plan(
         &self,
-        target: Point2<f32>,
+        target_in_robot: Point2<f32>,
         robot_to_field: Isometry2<f32>,
-        ball_position: Option<Point2<f32>>,
+        ball_obstacle: Option<Point2<f32>>,
         obstacles: &[Obstacle],
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     ) -> Vec<PathSegment> {
@@ -40,7 +43,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             self.field_dimensions.width,
             self.field_dimensions.border_strip_width,
         );
-        if let Some(ball_position) = ball_position {
+        if let Some(ball_position) = ball_obstacle {
             planner.with_ball(
                 ball_position,
                 self.configuration.ball_obstacle_radius,
@@ -48,9 +51,51 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             );
         }
 
-        let path = planner.plan(Point2::origin(), target).unwrap();
+        let target_in_field = robot_to_field * target_in_robot;
+        let x_max = self.field_dimensions.length / 2.0 + self.field_dimensions.border_strip_width;
+        let y_max = self.field_dimensions.width / 2.0 + self.field_dimensions.border_strip_width;
+        let clamped_target_in_robot = robot_to_field.inverse()
+            * point![
+                target_in_field.x.clamp(-x_max, x_max),
+                target_in_field.y.clamp(-y_max, y_max)
+            ];
+
+        let path = planner
+            .plan(Point2::origin(), clamped_target_in_robot)
+            .unwrap();
         path_obstacles_output.fill_on_subscription(|| planner.obstacles.clone());
         path.unwrap_or_else(|| direct_path(Point2::origin(), Point2::origin()))
+    }
+
+    pub fn walk_with_obstacle_avoiding_arms(
+        &self,
+        head: HeadMotion,
+        orientation_mode: OrientationMode,
+        path: Vec<PathSegment>,
+    ) -> MotionCommand {
+        MotionCommand::Walk {
+            head,
+            orientation_mode,
+            path,
+            left_arm: self.arm_motion_with_obstacles(Side::Left),
+            right_arm: self.arm_motion_with_obstacles(Side::Right),
+        }
+    }
+
+    fn arm_motion_with_obstacles(&self, side: Side) -> ArmMotion {
+        if self.obstacles.iter().any(|obstacle| {
+            let is_on_relevant_side = match side {
+                Side::Left => obstacle.position.y.is_sign_positive(),
+                Side::Right => obstacle.position.y.is_sign_negative(),
+            };
+            is_on_relevant_side
+                && obstacle.position.x.abs() < 0.5
+                && obstacle.position.y.abs() < 0.5
+        }) {
+            ArmMotion::PullTight
+        } else {
+            ArmMotion::Swing
+        }
     }
 }
 
@@ -90,12 +135,12 @@ impl<'cycle> WalkAndStand<'cycle> {
         let is_reached = less_than_with_hysteresis(
             was_standing_last_cycle,
             distance_to_walk,
-            self.configuration.target_reached_thresholds.x,
+            self.configuration.target_reached_thresholds.x + self.configuration.hysteresis.x,
             self.configuration.hysteresis.x,
         ) && less_than_with_hysteresis(
             was_standing_last_cycle,
             angle_to_walk.abs(),
-            self.configuration.target_reached_thresholds.y,
+            self.configuration.target_reached_thresholds.y + self.configuration.hysteresis.y,
             self.configuration.hysteresis.y,
         );
         let orientation_mode = hybrid_alignment(
@@ -107,17 +152,18 @@ impl<'cycle> WalkAndStand<'cycle> {
         if is_reached {
             Some(MotionCommand::Stand { head })
         } else {
-            Some(MotionCommand::Walk {
+            let path = self.walk_path_planner.plan(
+                target_pose * Point2::origin(),
+                robot_to_field,
+                self.world_state.ball.map(|ball| ball.position),
+                &self.world_state.obstacles,
+                path_obstacles_output,
+            );
+            Some(self.walk_path_planner.walk_with_obstacle_avoiding_arms(
                 head,
                 orientation_mode,
-                path: self.walk_path_planner.plan(
-                    target_pose * Point2::origin(),
-                    robot_to_field,
-                    self.world_state.ball.map(|ball| ball.position),
-                    &self.world_state.obstacles,
-                    path_obstacles_output,
-                ),
-            })
+                path,
+            ))
         }
     }
 }

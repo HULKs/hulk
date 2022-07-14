@@ -1,8 +1,9 @@
 use anyhow::Context;
+use clap::Args;
 use futures::future::join_all;
+
 use nao::{Nao, SystemctlAction};
 use repository::Repository;
-use structopt::StructOpt;
 
 use crate::{
     cargo::{cargo, Arguments as CargoArguments, Command},
@@ -12,30 +13,30 @@ use crate::{
     results::gather_results,
 };
 
-#[derive(StructOpt)]
+#[derive(Args)]
 pub struct Arguments {
-    #[structopt(long, default_value = "incremental")]
+    #[clap(long, default_value = "incremental")]
     pub profile: String,
     /// Do not update nor install SDK
-    #[structopt(long)]
+    #[clap(long)]
     pub no_sdk_installation: bool,
     /// Do not build before uploading
-    #[structopt(long)]
+    #[clap(long)]
     pub no_build: bool,
     /// Do not restart HULK nor HULA service after uploading
-    #[structopt(long)]
+    #[clap(long)]
     pub no_restart: bool,
     /// Do not remove existing remote files during uploading
-    #[structopt(long)]
+    #[clap(long)]
     pub no_clean: bool,
     /// Do not run aliveness (ignored if --no-restart given because it requires restarting HULA)
-    #[structopt(long)]
+    #[clap(long)]
     pub no_aliveness: bool,
     /// Do not enable communication
-    #[structopt(long)]
+    #[clap(long)]
     pub no_communication: bool,
     /// The NAOs to upload to e.g. 20w or 10.1.24.22
-    #[structopt(required = true)]
+    #[clap(required = true)]
     pub naos: Vec<NaoAddress>,
 }
 
@@ -50,9 +51,11 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Re
     if !arguments.no_build {
         cargo(
             CargoArguments {
+                workspace: false,
                 profile: arguments.profile.clone(),
                 target: "nao".to_string(),
                 no_sdk_installation: arguments.no_sdk_installation,
+                passthrough_arguments: Vec::new(),
             },
             repository,
             Command::Build,

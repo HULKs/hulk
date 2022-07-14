@@ -427,6 +427,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "3.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ead064480dfc4880a10764488415a97fdd36a4cf1bb022d372f02e8faf8386e1"
+dependencies = [
+ "clap 3.2.8",
+]
+
+[[package]]
 name = "clap_derive"
 version = "3.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2329,15 +2338,16 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "pepsi"
-version = "2.0.0"
+version = "2.2.1"
 dependencies = [
  "anyhow",
+ "clap 3.2.8",
+ "clap_complete",
  "futures",
  "nao",
  "regex",
  "repository",
  "spl_network",
- "structopt",
  "tokio",
 ]
 

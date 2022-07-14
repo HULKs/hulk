@@ -11,13 +11,14 @@ use std::{
 use anyhow::{bail, Context};
 use serde::Deserialize;
 use serde_json::{from_slice, to_value, to_vec, Value};
-use spl_network::PlayerNumber;
 use tempfile::{tempdir, TempDir};
 use tokio::{
     fs::{create_dir, create_dir_all, remove_file, set_permissions, symlink, File, OpenOptions},
     io::{AsyncReadExt, AsyncWriteExt},
     process::Command,
 };
+
+use spl_network::PlayerNumber;
 
 pub const SDK_VERSION: &str = "4.2";
 pub const INSTALLATION_DIRECTORY: &str = "/opt/nao";
@@ -61,8 +62,10 @@ impl Repository {
     async fn cargo(
         &self,
         action: CargoAction,
+        workspace: bool,
         profile: String,
         target: String,
+        passthrough_arguments: Vec<String>,
     ) -> anyhow::Result<()> {
         let mut command = Command::new("sh");
 
@@ -80,14 +83,22 @@ impl Repository {
             command.env("NAO_CARGO_HOME", nao_cargo_home);
         }
 
-        let cargo_command = match action {
-            CargoAction::Clippy => {
-                "cargo clippy --all-features --all-targets -- -D warnings".to_string()
+        let cargo_command = format!("cargo {action} ")
+            + format!("--profile {profile} ").as_str()
+            + if workspace {
+                "--workspace --all-features --all-targets ".to_string()
+            } else {
+                format!("--features {target} --bin {target} ")
             }
-            _ => {
-                format!("cargo {action} --profile {profile} --features {target} --bin {target}")
+            .as_str()
+            + "-- "
+            + match action {
+                CargoAction::Clippy => "--deny warnings ",
+                _ => "",
             }
-        };
+            + passthrough_arguments.join(" ").as_str();
+
+        println!("Running: {cargo_command}");
 
         command_string += &cargo_command;
         command.arg("-c").arg(command_string);
@@ -104,20 +115,57 @@ impl Repository {
         Ok(())
     }
 
-    pub async fn build(&self, profile: String, target: String) -> anyhow::Result<()> {
-        self.cargo(CargoAction::Build, profile, target).await
+    pub async fn build(
+        &self,
+        workspace: bool,
+        profile: String,
+        target: String,
+        passthrough_arguments: Vec<String>,
+    ) -> anyhow::Result<()> {
+        self.cargo(
+            CargoAction::Build,
+            workspace,
+            profile,
+            target,
+            passthrough_arguments,
+        )
+        .await
     }
 
-    pub async fn check(&self, profile: String, target: String) -> anyhow::Result<()> {
-        self.cargo(CargoAction::Check, profile, target).await
+    pub async fn check(
+        &self,
+        workspace: bool,
+        profile: String,
+        target: String,
+    ) -> anyhow::Result<()> {
+        self.cargo(CargoAction::Check, workspace, profile, target, Vec::new())
+            .await
     }
 
-    pub async fn clippy(&self, profile: String, target: String) -> anyhow::Result<()> {
-        self.cargo(CargoAction::Clippy, profile, target).await
+    pub async fn clippy(
+        &self,
+        workspace: bool,
+        profile: String,
+        target: String,
+    ) -> anyhow::Result<()> {
+        self.cargo(CargoAction::Clippy, workspace, profile, target, Vec::new())
+            .await
     }
 
-    pub async fn run(&self, profile: String, target: String) -> anyhow::Result<()> {
-        self.cargo(CargoAction::Run, profile, target).await
+    pub async fn run(
+        &self,
+        profile: String,
+        target: String,
+        passthrough_arguments: Vec<String>,
+    ) -> anyhow::Result<()> {
+        self.cargo(
+            CargoAction::Run,
+            false,
+            profile,
+            target,
+            passthrough_arguments,
+        )
+        .await
     }
 
     fn get_configuration_path(&self, head_id: &str) -> PathBuf {

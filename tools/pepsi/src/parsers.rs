@@ -5,8 +5,9 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Context};
-use nao::{Network, SystemctlAction};
 use regex::Regex;
+
+use nao::{Network, SystemctlAction};
 use spl_network::PlayerNumber;
 
 pub const SYSTEMCTL_ACTION_POSSIBLE_VALUES: &[&str] =

@@ -3,8 +3,8 @@
 set -e
 
 THIS_DIRECTORY="$(dirname $(readlink -f $0))"
-PEPSI_TARGET_DIRECTORY=${CARGO_TARGET_DIR:-${THIS_DIRECTORY}/tools/pepsi/target}
+PEPSI_TARGET_DIRECTORY=${CARGO_TARGET_DIR:-${THIS_DIRECTORY}/target}
 
-cargo build --release --manifest-path="${THIS_DIRECTORY}/tools/pepsi/Cargo.toml"
+cargo build --profile incremental --manifest-path="${THIS_DIRECTORY}/tools/pepsi/Cargo.toml"
 # cargo sets LD_LIBRARY_PATH which we don't want, so let's call the binary directly
-"${PEPSI_TARGET_DIRECTORY}/release/pepsi" "$@"
+"${PEPSI_TARGET_DIRECTORY}/incremental/pepsi" "$@"

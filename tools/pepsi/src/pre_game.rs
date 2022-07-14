@@ -1,7 +1,8 @@
 use anyhow::Context;
+use clap::Args;
+
 use nao::Network;
 use repository::Repository;
-use structopt::StructOpt;
 
 use crate::{
     parsers::{parse_network, NaoAddressPlayerAssignment, NETWORK_POSSIBLE_VALUES},
@@ -10,33 +11,33 @@ use crate::{
     wireless::{wireless, Arguments as WirelessArguments},
 };
 
-#[derive(StructOpt)]
+#[derive(Args)]
 pub struct Arguments {
-    #[structopt(long, default_value = "release")]
+    #[clap(long, default_value = "release")]
     pub profile: String,
     /// Do not update nor install SDK
-    #[structopt(long)]
+    #[clap(long)]
     pub no_sdk_installation: bool,
     /// Do not build before uploading
-    #[structopt(long)]
+    #[clap(long)]
     pub no_build: bool,
     /// Do not restart HULK nor HULA service after uploading
-    #[structopt(long)]
+    #[clap(long)]
     pub no_restart: bool,
     /// Do not remove existing remote files during uploading
-    #[structopt(long)]
+    #[clap(long)]
     pub no_clean: bool,
     /// Enable aliveness (ignored if --no-restart given because it requires restarting HULA)
-    #[structopt(long)]
+    #[clap(long)]
     pub with_aliveness: bool,
     /// Enable communication
-    #[structopt(long)]
+    #[clap(long)]
     pub with_communication: bool,
     /// The network to connect the wireless device to e.g. SPL_A or None (None disconnects from anything)
-    #[structopt(possible_values = NETWORK_POSSIBLE_VALUES, parse(try_from_str = parse_network))]
+    #[clap(possible_values = NETWORK_POSSIBLE_VALUES, parse(try_from_str = parse_network))]
     network: Network,
     /// The NAOs to upload to with player number assignments e.g. 20w:2 or 10.1.24.22:5 (player numbers start from 1)
-    #[structopt(required = true)]
+    #[clap(required = true)]
     pub assignments: Vec<NaoAddressPlayerAssignment>,
 }
 

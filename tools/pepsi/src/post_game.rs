@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
+use clap::Args;
+
 use nao::{Network, SystemctlAction};
 use repository::Repository;
-use structopt::StructOpt;
 
 use crate::{
     aliveness::{aliveness, Arguments as AlivenessArguments},
@@ -13,18 +14,18 @@ use crate::{
     wireless::{wireless, Arguments as WirelessArguments},
 };
 
-#[derive(StructOpt)]
+#[derive(Args)]
 pub struct Arguments {
     /// Disable aliveness (may restart HULA if needed)
-    #[structopt(long)]
+    #[clap(long)]
     pub no_aliveness: bool,
     /// The network to connect the wireless device to e.g. SPL_A or None (None disconnects from anything)
-    #[structopt(long, default_value = "None", possible_values = NETWORK_POSSIBLE_VALUES, parse(try_from_str = parse_network))]
+    #[clap(long, default_value = "None", possible_values = NETWORK_POSSIBLE_VALUES, parse(try_from_str = parse_network))]
     pub network: Network,
     /// Directory where to store the downloaded logs (will be created if not existing)
     pub log_directory: PathBuf,
     /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-    #[structopt(required = true)]
+    #[clap(required = true)]
     pub naos: Vec<NaoAddress>,
 }
 

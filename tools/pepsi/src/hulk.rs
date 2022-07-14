@@ -1,21 +1,22 @@
 use anyhow::Context;
+use clap::Args;
 use futures::future::join_all;
+
 use nao::{Nao, SystemctlAction};
 use repository::Repository;
-use structopt::StructOpt;
 
 use crate::{
     parsers::{parse_systemctl_action, NaoAddress, SYSTEMCTL_ACTION_POSSIBLE_VALUES},
     results::gather_results,
 };
 
-#[derive(StructOpt)]
+#[derive(Args)]
 pub struct Arguments {
     /// The systemctl action to execute for the HULK service
-    #[structopt(possible_values = SYSTEMCTL_ACTION_POSSIBLE_VALUES, parse(try_from_str = parse_systemctl_action))]
+    #[clap(possible_values = SYSTEMCTL_ACTION_POSSIBLE_VALUES, parse(try_from_str = parse_systemctl_action))]
     pub action: SystemctlAction,
     /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-    #[structopt(required = true)]
+    #[clap(required = true)]
     pub naos: Vec<NaoAddress>,
 }
 

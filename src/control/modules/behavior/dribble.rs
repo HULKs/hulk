@@ -1,12 +1,13 @@
 use std::cmp::Ordering;
 
 use itertools::iproduct;
-use nalgebra::{point, vector, Isometry2, Point2, UnitComplex};
+use nalgebra::{point, vector, Isometry2, Point2, Rotation2, UnitComplex};
 use ordered_float::NotNan;
-use types::LineSegment;
 use types::{
-    rotate_towards, Circle, FieldDimensions, HeadMotion, KickDecision, KickVariant, MotionCommand,
-    Obstacle, PathObstacle, Side, WorldState,
+    rotate_towards, Circle, FieldDimensions, HeadMotion, KickDecision, KickVariant, LineSegment,
+    MotionCommand, Obstacle,
+    OrientationMode::{self, AlignWithPath},
+    PathObstacle, Side, WorldState,
 };
 
 use crate::framework::{
@@ -18,7 +19,7 @@ use super::walk_to_pose::{hybrid_alignment, WalkPathPlanner};
 
 fn kick_decisions_from_targets(
     targets_to_kick_to: &[Point2<f32>],
-    config: &configuration::InWalkKicks,
+    parameters: &configuration::InWalkKicks,
     variant: KickVariant,
     kicking_side: Side,
     world_state: &WorldState,
@@ -30,7 +31,7 @@ fn kick_decisions_from_targets(
         targets_to_kick_to
             .iter()
             .map(|&target| {
-                let kick_info = &config[variant];
+                let kick_info = &parameters[variant];
                 let absolute_kick_pose = compute_kick_pose(
                     absolute_ball_position,
                     robot_to_field * target,
@@ -53,7 +54,7 @@ fn kick_decisions_from_targets(
 pub fn execute(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
-    config: &Dribbling,
+    parameters: &Dribbling,
     walk_path_planner: &WalkPathPlanner,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     kick_targets_output: &mut AdditionalOutput<Vec<Point2<f32>>>,
@@ -70,19 +71,19 @@ pub fn execute(
         robot_to_field,
         field_dimensions,
         &world_state.obstacles,
-        config.max_kick_around_obstacle_angle,
+        parameters,
     );
     kick_targets_output.fill_on_subscription(|| targets_to_kick_to.clone());
 
     let sides = [Side::Left, Side::Right];
     let mut kick_variants = Vec::new();
-    if config.in_walk_kicks.forward.enabled {
+    if parameters.in_walk_kicks.forward.enabled {
         kick_variants.push(KickVariant::Forward)
     }
-    if config.in_walk_kicks.turn.enabled {
+    if parameters.in_walk_kicks.turn.enabled {
         kick_variants.push(KickVariant::Turn)
     }
-    if config.in_walk_kicks.side.enabled
+    if parameters.in_walk_kicks.side.enabled
         && field_dimensions.is_inside_any_goal_box(robot_to_field * relative_ball_position)
     {
         kick_variants.push(KickVariant::Side)
@@ -91,7 +92,7 @@ pub fn execute(
         .filter_map(|(side, kick_variant)| {
             kick_decisions_from_targets(
                 &targets_to_kick_to,
-                &config.in_walk_kicks,
+                &parameters.in_walk_kicks,
                 kick_variant,
                 side,
                 world_state,
@@ -100,7 +101,19 @@ pub fn execute(
         .flatten()
         .collect();
 
-    kick_decisions_output.fill_on_subscription(|| kick_decisions.clone());
+    kick_decisions_output.fill_on_subscription(|| {
+        kick_decisions
+            .iter()
+            .filter(|decision| {
+                !is_inside_any_obstacle(
+                    decision.relative_kick_pose,
+                    &world_state.obstacles,
+                    parameters.kick_pose_obstacle_radius,
+                )
+            })
+            .cloned()
+            .collect()
+    });
 
     let available_kick = kick_decisions.iter().find(|decision| decision.is_reached);
     if let Some(kick) = available_kick {
@@ -113,14 +126,20 @@ pub fn execute(
     }
 
     let best_kick_decision = kick_decisions.iter().min_by(|left, right| {
-        let left_in_obstacle =
-            is_inside_any_obstacle(left.relative_kick_pose, &world_state.obstacles);
-        let right_in_obstacle =
-            is_inside_any_obstacle(left.relative_kick_pose, &world_state.obstacles);
+        let left_in_obstacle = is_inside_any_obstacle(
+            left.relative_kick_pose,
+            &world_state.obstacles,
+            parameters.kick_pose_obstacle_radius,
+        );
+        let right_in_obstacle = is_inside_any_obstacle(
+            left.relative_kick_pose,
+            &world_state.obstacles,
+            parameters.kick_pose_obstacle_radius,
+        );
         let distance_to_left =
-            distance_to_kick_pose(left.relative_kick_pose, config.angle_distance_weight);
+            distance_to_kick_pose(left.relative_kick_pose, parameters.angle_distance_weight);
         let distance_to_right =
-            distance_to_kick_pose(right.relative_kick_pose, config.angle_distance_weight);
+            distance_to_kick_pose(right.relative_kick_pose, parameters.angle_distance_weight);
         match (left_in_obstacle, right_in_obstacle) {
             (true, false) => Ordering::Less,
             (false, true) => Ordering::Greater,
@@ -134,24 +153,28 @@ pub fn execute(
 
     let relative_best_pose = best_kick_decision.relative_kick_pose;
 
-    let orientation_mode = hybrid_alignment(
+    let hybrid_orientation_mode = hybrid_alignment(
         relative_best_pose,
-        config.hybrid_align_distance,
-        config.distance_to_be_aligned,
+        parameters.hybrid_align_distance,
+        parameters.distance_to_be_aligned,
     );
-    let ball_position = world_state.ball.and_then(|ball| {
-        let robot_to_ball = ball.position.coords;
-        let dribble_pose_to_ball = ball.position.coords - relative_best_pose.translation.vector;
-        let angle = robot_to_ball.angle(&dribble_pose_to_ball);
-        if angle > config.angle_to_approach_ball_from_threshold {
-            Some(ball.position)
-        } else {
-            None
+    let orientation_mode = match hybrid_orientation_mode {
+        AlignWithPath if relative_ball_position.coords.norm() > 0.0 => {
+            OrientationMode::Override(rotate_towards(Point2::origin(), relative_ball_position))
         }
-    });
+        orientation_mode => orientation_mode,
+    };
+
+    let robot_to_ball = relative_ball_position.coords;
+    let dribble_pose_to_ball =
+        relative_ball_position.coords - relative_best_pose.translation.vector;
+    let angle = robot_to_ball.angle(&dribble_pose_to_ball);
+    let should_avoid_ball = angle > parameters.angle_to_approach_ball_from_threshold;
+    let ball_obstacle = should_avoid_ball.then_some(relative_ball_position);
+
     let is_near_ball = matches!(
         world_state.ball,
-        Some(ball) if ball.position.coords.norm() < config.ignore_robot_when_near_ball_radius,
+        Some(ball) if ball.position.coords.norm() < parameters.ignore_robot_when_near_ball_radius,
     );
     let obstacles = if is_near_ball {
         &[]
@@ -161,15 +184,11 @@ pub fn execute(
     let path = walk_path_planner.plan(
         relative_best_pose * Point2::origin(),
         robot_to_field,
-        ball_position,
+        ball_obstacle,
         obstacles,
         path_obstacles_output,
     );
-    Some(MotionCommand::Walk {
-        head,
-        orientation_mode,
-        path,
-    })
+    Some(walk_path_planner.walk_with_obstacle_avoiding_arms(head, orientation_mode, path))
 }
 
 fn find_targets_to_kick_to(
@@ -177,10 +196,9 @@ fn find_targets_to_kick_to(
     robot_to_field: Isometry2<f32>,
     field_dimensions: &FieldDimensions,
     obstacles: &[Obstacle],
-    max_kick_around_obstacle_angle: f32,
+    parameters: &Dribbling,
 ) -> Vec<Point2<f32>> {
     let field_to_robot = robot_to_field.inverse();
-    let goal_center = field_to_robot * point![field_dimensions.length / 2.0, 0.0];
     let left_goal_half = field_to_robot
         * point![
             field_dimensions.length / 2.0,
@@ -196,7 +214,7 @@ fn find_targets_to_kick_to(
         .map(|obstacle| {
             let ball_to_obstacle = obstacle.position - ball_position;
             let obstacle_radius = obstacle.radius_at_foot_height;
-            let safety_radius = obstacle_radius / max_kick_around_obstacle_angle.sin();
+            let safety_radius = obstacle_radius / parameters.max_kick_around_obstacle_angle.sin();
             let distance_to_obstacle = ball_to_obstacle.norm();
             let center = if distance_to_obstacle < safety_radius {
                 obstacle.position
@@ -211,7 +229,32 @@ fn find_targets_to_kick_to(
         })
         .collect();
 
-    [goal_center, left_goal_half, right_goal_half]
+    let mut possible_kick_targets = vec![left_goal_half, right_goal_half];
+
+    let own_goal_center = field_to_robot
+        * point![
+            -field_dimensions.length / 2.0 - field_dimensions.goal_depth / 2.0,
+            0.0
+        ];
+    if ball_is_close_to_own_goal(&ball_position, own_goal_center, field_dimensions) {
+        let goal_center_to_ball = ball_position - own_goal_center;
+        let target_vector_from_goal = goal_center_to_ball
+            .normalize()
+            .scale(field_dimensions.width / 2.0);
+
+        let emergency_targets = parameters
+            .emergency_kick_target_angles
+            .iter()
+            .map(|angle| {
+                let rotation_matrix = Rotation2::new(*angle);
+                let kick_target_vector_from_goal = rotation_matrix * target_vector_from_goal;
+                own_goal_center + kick_target_vector_from_goal
+            })
+            .filter(|target| (robot_to_field * target).x > -field_dimensions.length / 2.0);
+        possible_kick_targets.extend(emergency_targets);
+    }
+
+    possible_kick_targets
         .into_iter()
         .flat_map(|target| {
             let ball_to_target = LineSegment(ball_position, target);
@@ -234,12 +277,16 @@ fn find_targets_to_kick_to(
         .collect()
 }
 
-fn is_inside_any_obstacle(kick_pose: Isometry2<f32>, obstacles: &[Obstacle]) -> bool {
+fn is_inside_any_obstacle(
+    kick_pose: Isometry2<f32>,
+    obstacles: &[Obstacle],
+    kick_pose_obstacle_radius: f32,
+) -> bool {
     let position = Point2::from(kick_pose.translation.vector);
     obstacles.iter().any(|obstacle| {
         let circle = Circle {
             center: obstacle.position,
-            radius: obstacle.radius_at_foot_height,
+            radius: obstacle.radius_at_foot_height + kick_pose_obstacle_radius,
         };
         circle.contains(position)
     })
@@ -288,4 +335,18 @@ fn is_kick_pose_reached(kick_pose_to_robot: Isometry2<f32>, kick_info: &InWalkKi
 
 fn distance_to_kick_pose(kick_pose: Isometry2<f32>, angle_distance_weight: f32) -> f32 {
     kick_pose.translation.vector.norm() + angle_distance_weight * kick_pose.rotation.angle().abs()
+}
+
+fn ball_is_close_to_own_goal(
+    ball_position: &Point2<f32>,
+    own_goal_center: Point2<f32>,
+    field_dimensions: &FieldDimensions,
+) -> bool {
+    let is_close_threshold = vector![
+        field_dimensions.goal_box_area_length,
+        field_dimensions.goal_box_area_width / 2.0
+    ]
+    .norm();
+    let goal_to_ball = ball_position - own_goal_center;
+    goal_to_ball.norm() < is_close_threshold
 }

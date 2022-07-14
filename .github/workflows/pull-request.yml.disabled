@@ -35,7 +35,7 @@ jobs:
           lfs: true
       - name: Check
         run: |
-          ./pepsi clippy
+          ./pepsi clippy --workspace
   format:
     name: Format
     runs-on:
@@ -59,7 +59,7 @@ jobs:
           lfs: true
       - name: Test
         run: |
-          cargo test --all-features
+          cargo test --profile incremental --all-features --workspace
   build:
     name: Build
     strategy:
@@ -93,7 +93,7 @@ jobs:
       - name: Build
         run: |
           cd ${{ matrix.path }}
-          cargo build --all-features --release
+          cargo build --profile incremental --all-features
   build_web_projects:
     name: Build
     runs-on:
@@ -135,7 +135,7 @@ jobs:
           lfs: true
       - name: Run all scenes
         run: |
-          cargo run --features behavior_simulator --bin behavior_simulator -- tests/behavior/${{ matrix.scenario }} recording.json
+          cargo run --profile incremental --features behavior_simulator --bin behavior_simulator -- tests/behavior/${{ matrix.scenario }} recording.json
       - name: Upload recording.json
         if: ${{ matrix.scenario == 'empty.json' }}
         uses: actions/upload-artifact@v3

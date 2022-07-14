@@ -3,7 +3,9 @@ use std::{
     time::Duration,
 };
 
-#[derive(Debug, Default, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub struct LinearInterpolator<T> {
     start_value: T,
     end_value: T,
@@ -52,6 +54,10 @@ where
 
     pub fn remaining_duration(&self) -> Duration {
         self.duration.mul_f32(1.0 - self.argument)
+    }
+
+    pub fn passed_duration(&self) -> Duration {
+        self.duration.mul_f32(self.argument)
     }
 }
 

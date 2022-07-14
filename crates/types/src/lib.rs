@@ -86,8 +86,8 @@ pub use line_data::{ImageLines, LineData};
 pub use localization_update::LocalizationUpdate;
 pub use message_event::MessageEvent;
 pub use motion_command::{
-    Facing, FallDirection, HeadMotion, JumpDirection, KickDirection, KickVariant, MotionCommand,
-    OrientationMode, SitDirection,
+    ArmMotion, Facing, FallDirection, HeadMotion, JumpDirection, KickDirection, KickVariant,
+    MotionCommand, OrientationMode, SitDirection,
 };
 pub use motion_selection::{MotionSafeExits, MotionSelection, MotionType};
 pub use obstacles::{Obstacle, ObstacleKind};

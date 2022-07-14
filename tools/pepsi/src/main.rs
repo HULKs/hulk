@@ -1,3 +1,26 @@
+use std::{env::current_dir, path::PathBuf};
+
+use anyhow::{anyhow, bail, Context};
+use clap::{IntoApp, Parser, Subcommand};
+use clap_complete::generate;
+use tokio::fs::read_dir;
+
+use aliveness::{aliveness, Arguments as AlivenessArguments};
+use cargo::{cargo, Arguments as CargoArguments, Command as CargoCommand};
+use communication::{communication, Arguments as CommunicationArguments};
+use hulk::{hulk, Arguments as HulkArguments};
+use logs::{logs, Arguments as LogsArguments};
+use player_number::{player_number, Arguments as PlayerNumberArguments};
+use post_game::{post_game, Arguments as PostGameArguments};
+use power_off::{power_off, Arguments as PoweroffArguments};
+use pre_game::{pre_game, Arguments as PreGameArguments};
+use reboot::{reboot, Arguments as RebootArguments};
+use repository::Repository;
+use sdk::{sdk, Arguments as SdkArguments};
+use shell::{shell, Arguments as ShellArguments};
+use upload::{upload, Arguments as UploadArguments};
+use wireless::{wireless, Arguments as WirelessArguments};
+
 mod aliveness;
 mod cargo;
 mod communication;
@@ -15,30 +38,9 @@ mod shell;
 mod upload;
 mod wireless;
 
-use std::{env::current_dir, path::PathBuf};
-
-use aliveness::{aliveness, Arguments as AlivenessArguments};
-use anyhow::{anyhow, bail, Context};
-use cargo::{cargo, Arguments as CargoArguments, Command as CargoCommand};
-use communication::{communication, Arguments as CommunicationArguments};
-use hulk::{hulk, Arguments as HulkArguments};
-use logs::{logs, Arguments as LogsArguments};
-use player_number::{player_number, Arguments as PlayerNumberArguments};
-use post_game::{post_game, Arguments as PostGameArguments};
-use power_off::{power_off, Arguments as PoweroffArguments};
-use pre_game::{pre_game, Arguments as PreGameArguments};
-use reboot::{reboot, Arguments as RebootArguments};
-use repository::Repository;
-use sdk::{sdk, Arguments as SdkArguments};
-use shell::{shell, Arguments as ShellArguments};
-use structopt::StructOpt;
-use tokio::fs::read_dir;
-use upload::{upload, Arguments as UploadArguments};
-use wireless::{wireless, Arguments as WirelessArguments};
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let arguments = Arguments::from_args();
+    let arguments = Arguments::parse();
     let repository_root = match arguments.repository_root {
         Some(repository_root) => repository_root,
         None => get_repository_root()
@@ -68,22 +70,28 @@ async fn main() -> anyhow::Result<()> {
         Command::Communication(arguments) => communication(arguments, &repository)
             .await
             .context("Failed to execute communication command")?,
+        Command::Completions { shell } => generate(
+            shell,
+            &mut Arguments::command(),
+            "pepsi",
+            &mut std::io::stdout(),
+        ),
         Command::Hulk(arguments) => hulk(arguments, &repository)
             .await
             .context("Failed to execute hulk command")?,
         Command::Logs(arguments) => logs(arguments, &repository)
             .await
             .context("Failed to execute logs command")?,
-        Command::PlayerNumber(arguments) => player_number(arguments, &repository)
+        Command::Playernumber(arguments) => player_number(arguments, &repository)
             .await
             .context("Failed to execute player_number command")?,
-        Command::PostGame(arguments) => post_game(arguments, &repository)
+        Command::Postgame(arguments) => post_game(arguments, &repository)
             .await
             .context("Failed to execute post_game command")?,
-        Command::PowerOff(arguments) => power_off(arguments, &repository)
+        Command::Poweroff(arguments) => power_off(arguments, &repository)
             .await
             .context("Failed to execute power_off command")?,
-        Command::PreGame(arguments) => pre_game(arguments, &repository)
+        Command::Pregame(arguments) => pre_game(arguments, &repository)
             .await
             .context("Failed to execute pre_game command")?,
         Command::Reboot(arguments) => reboot(arguments, &repository)
@@ -109,19 +117,20 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[derive(StructOpt)]
-#[structopt(name = "pepsi")]
+#[derive(Parser)]
+#[clap(name = "pepsi")]
 struct Arguments {
     /// Alternative repository root (if not given the parent of .git is used)
-    #[structopt(long)]
+    #[clap(long)]
     repository_root: Option<PathBuf>,
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     command: Command,
 }
 
-#[derive(StructOpt)]
+#[derive(Subcommand)]
 enum Command {
     /// Enable/disable aliveness on NAOs
+    #[clap(subcommand)]
     Aliveness(AlivenessArguments),
     /// Builds the code for a target
     Build(CargoArguments),
@@ -130,30 +139,39 @@ enum Command {
     /// Checks the code with cargo clippy
     Clippy(CargoArguments),
     /// Enable/disable communication
+    #[clap(subcommand)]
     Communication(CommunicationArguments),
+    /// Generates shell completion files
+    Completions {
+        #[clap(name = "shell")]
+        shell: clap_complete::shells::Shell,
+    },
     /// Control the HULK service
     Hulk(HulkArguments),
     /// Logging on the NAO
+    #[clap(subcommand)]
     Logs(LogsArguments),
     /// Change player numbers of the NAOs in local configuration
-    PlayerNumber(PlayerNumberArguments),
+    Playernumber(PlayerNumberArguments),
     /// Disable NAOs after a game (downloads logs, unsets wireless network, etc.)
-    PostGame(PostGameArguments),
+    Postgame(PostGameArguments),
     /// Power NAOs off
-    PowerOff(PoweroffArguments),
+    Poweroff(PoweroffArguments),
     /// Get NAOs ready for a game (sets player numbers, uploads, sets wireless network, etc.)
-    PreGame(PreGameArguments),
+    Pregame(PreGameArguments),
     /// Reboot NAOs
     Reboot(RebootArguments),
     /// Runs the code for a target
     Run(CargoArguments),
     /// Manage the NAO SDK
+    #[clap(subcommand)]
     Sdk(SdkArguments),
     /// Opens a command line shell to a NAO
     Shell(ShellArguments),
     /// Upload the code to NAOs
     Upload(UploadArguments),
     /// Control wireless network on the NAO
+    #[clap(subcommand)]
     Wireless(WirelessArguments),
 }
 

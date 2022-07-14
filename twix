@@ -4,4 +4,4 @@ set -e
 
 THIS_DIRECTORY="$(dirname $(readlink -f $0))"
 
-cargo run --release --manifest-path="${THIS_DIRECTORY}/tools/twix/Cargo.toml"
+cargo run --profile incremental --manifest-path="${THIS_DIRECTORY}/tools/twix/Cargo.toml"

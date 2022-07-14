@@ -1,15 +1,22 @@
 use anyhow::Context;
-use repository::Repository;
-use structopt::StructOpt;
+use clap::Args;
 
-#[derive(StructOpt)]
+use repository::Repository;
+
+#[derive(Args)]
 pub struct Arguments {
-    #[structopt(long, default_value = "incremental")]
+    /// Apply to entire workspace (only valid for build/check/clippy)
+    #[clap(long)]
+    pub workspace: bool,
+    #[clap(long, default_value = "incremental")]
     pub profile: String,
-    #[structopt(long, default_value = "webots")]
+    #[clap(long, default_value = "webots")]
     pub target: String,
-    #[structopt(long)]
+    #[clap(long)]
     pub no_sdk_installation: bool,
+    /// Pass through arguments to cargo ... -- PASSTHROUGH_ARGUMENTS
+    #[clap(last = true, value_parser)]
+    pub passthrough_arguments: Vec<String>,
 }
 
 pub enum Command {
@@ -33,21 +40,35 @@ pub async fn cargo(
 
     match command {
         Command::Build => repository
-            .build(arguments.profile, arguments.target)
+            .build(
+                arguments.workspace,
+                arguments.profile,
+                arguments.target,
+                arguments.passthrough_arguments,
+            )
             .await
             .context("Failed to build")?,
         Command::Check => repository
-            .check(arguments.profile, arguments.target)
+            .check(arguments.workspace, arguments.profile, arguments.target)
             .await
             .context("Failed to check")?,
         Command::Clippy => repository
-            .clippy(arguments.profile, arguments.target)
+            .clippy(arguments.workspace, arguments.profile, arguments.target)
             .await
             .context("Failed to run clippy")?,
-        Command::Run => repository
-            .run(arguments.profile, arguments.target)
-            .await
-            .context("Failed to run")?,
+        Command::Run => {
+            if arguments.workspace {
+                println!("INFO: Found --workspace with run subcommand, ignoring...")
+            }
+            repository
+                .run(
+                    arguments.profile,
+                    arguments.target,
+                    arguments.passthrough_arguments,
+                )
+                .await
+                .context("Failed to run")?
+        }
     }
 
     Ok(())

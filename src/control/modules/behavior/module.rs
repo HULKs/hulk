@@ -27,6 +27,7 @@ pub struct Behavior {
 #[input(path = sensor_data, data_type = SensorData)]
 #[parameter(path = control.behavior, data_type = configuration::Behavior)]
 #[parameter(path = field_dimensions, data_type = FieldDimensions)]
+#[parameter(path = control.behavior.lost_ball, data_type=configuration::LostBall, name=lost_ball_parameters)]
 #[additional_output(path = path_obstacles, data_type = Vec<PathObstacle>)]
 #[additional_output(path = kick_decisions, data_type = Vec<KickDecision>)]
 #[additional_output(path = kick_targets, data_type = Vec<Point2<f32>>)]
@@ -90,8 +91,11 @@ impl Behavior {
             }
         };
 
-        let walk_path_planner =
-            WalkPathPlanner::new(context.field_dimensions, &context.behavior.path_planning);
+        let walk_path_planner = WalkPathPlanner::new(
+            context.field_dimensions,
+            &world_state.obstacles,
+            &context.behavior.path_planning,
+        );
         let walk_and_stand = WalkAndStand::new(
             world_state,
             &context.behavior.walk_and_stand,
@@ -127,9 +131,10 @@ impl Behavior {
                     world_state,
                     self.absolute_last_known_ball_position,
                     &walk_path_planner,
+                    context.lost_ball_parameters,
                     &mut context.path_obstacles,
                 ),
-                Action::Search => search::execute(world_state),
+                Action::Search => search::execute(world_state, &walk_path_planner),
                 Action::DefendGoal => defend.goal(&mut context.path_obstacles),
                 Action::DefendLeft => defend.left(&mut context.path_obstacles),
                 Action::DefendRight => defend.right(&mut context.path_obstacles),
@@ -153,6 +158,8 @@ impl Behavior {
                     world_state
                 )
             });
+
+        self.last_motion_command = motion_command.clone();
 
         Ok(MainOutputs {
             motion_command: Some(motion_command),

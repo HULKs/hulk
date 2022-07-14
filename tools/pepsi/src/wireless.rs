@@ -1,32 +1,33 @@
 use anyhow::Context;
+use clap::Subcommand;
 use futures::future::join_all;
+
 use nao::{Nao, Network};
 use repository::Repository;
-use structopt::StructOpt;
 
 use crate::{
     parsers::{parse_network, NaoAddress, NETWORK_POSSIBLE_VALUES},
     results::gather_results,
 };
 
-#[derive(StructOpt)]
+#[derive(Subcommand)]
 pub enum Arguments {
     Status {
         /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-        #[structopt(required = true)]
+        #[clap(required = true)]
         naos: Vec<NaoAddress>,
     },
     AvailableNetworks {
         /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-        #[structopt(required = true)]
+        #[clap(required = true)]
         naos: Vec<NaoAddress>,
     },
     Set {
         /// The network to connect the wireless device to e.g. SPL_A or None (None disconnects from anything)
-        #[structopt(possible_values = NETWORK_POSSIBLE_VALUES, parse(try_from_str = parse_network))]
+        #[clap(possible_values = NETWORK_POSSIBLE_VALUES, parse(try_from_str = parse_network))]
         network: Network,
         /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-        #[structopt(required = true)]
+        #[clap(required = true)]
         naos: Vec<NaoAddress>,
     },
 }

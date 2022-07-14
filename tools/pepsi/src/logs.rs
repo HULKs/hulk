@@ -1,19 +1,20 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
+use clap::Subcommand;
 use futures::future::join_all;
+
 use nao::Nao;
 use repository::Repository;
-use structopt::StructOpt;
 
 use crate::{parsers::NaoAddress, results::gather_results};
 
-#[derive(StructOpt)]
+#[derive(Subcommand)]
 pub enum Arguments {
     // Delete logs on the NAOs
     Delete {
         /// The NAOs to delete logs from e.g. 20w or 10.1.24.22
-        #[structopt(required = true)]
+        #[clap(required = true)]
         naos: Vec<NaoAddress>,
     },
     // Download logs from the NAOs
@@ -21,7 +22,7 @@ pub enum Arguments {
         /// Directory where to store the downloaded logs (will be created if not existing)
         log_directory: PathBuf,
         /// The NAOs to download logs from e.g. 20w or 10.1.24.22
-        #[structopt(required = true)]
+        #[clap(required = true)]
         naos: Vec<NaoAddress>,
     },
 }

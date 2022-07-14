@@ -1,20 +1,21 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use repository::Repository;
-use structopt::StructOpt;
+use clap::Subcommand;
 
-#[derive(StructOpt)]
+use repository::Repository;
+
+#[derive(Subcommand)]
 pub enum Arguments {
     Install {
         /// Force reinstallation of existing SDK
-        #[structopt(long)]
+        #[clap(long)]
         force_reinstall: bool,
         /// Alternative SDK version e.g. 3.3
-        #[structopt(long)]
+        #[clap(long)]
         sdk_version: Option<String>,
         /// Alternative SDK installation directory e.g. /opt/nao
-        #[structopt(long)]
+        #[clap(long)]
         installation_directory: Option<PathBuf>,
     },
 }

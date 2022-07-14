@@ -2,14 +2,15 @@
 edition = "2021"
 license = "GPL-3.0-only"
 name = "pepsi"
-version = "2.0.0"
+version = "2.2.1"
 
 [dependencies]
 anyhow = "1.0.58"
+clap = { version = "3.2.8", features = ["derive"] }
+clap_complete = "3.2.3"
 futures = "0.3.21"
-nao = {path = "../../crates/nao"}
+nao = { path = "../../crates/nao" }
 regex = "1.5.6"
-repository = {path = "../../crates/repository"}
-spl_network = {path = "../../crates/spl_network"}
-structopt = "0.3.26"
-tokio = {features = ["full"], version = "1.19.2"}
+repository = { path = "../../crates/repository" }
+spl_network = { path = "../../crates/spl_network" }
+tokio = { features = ["full"], version = "1.19.2" }

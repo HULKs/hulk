@@ -1,20 +1,21 @@
 use anyhow::Context;
+use clap::Subcommand;
 use futures::future::join_all;
+
 use repository::Repository;
-use structopt::StructOpt;
 
 use crate::{parsers::NaoNumber, results::gather_results};
 
-#[derive(StructOpt)]
+#[derive(Subcommand)]
 pub enum Arguments {
     Enable {
         /// The NAO number to enable communication on e.g. 20 or 32
-        #[structopt(required = true)]
+        #[clap(required = true)]
         nao_numbers: Vec<NaoNumber>,
     },
     Disable {
         /// The NAO number to disable communication on e.g. 20 or 32
-        #[structopt(required = true)]
+        #[clap(required = true)]
         nao_numbers: Vec<NaoNumber>,
     },
 }

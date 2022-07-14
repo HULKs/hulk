@@ -35,6 +35,8 @@ pub enum MotionCommand {
     Walk {
         head: HeadMotion,
         path: Vec<PathSegment>,
+        left_arm: ArmMotion,
+        right_arm: ArmMotion,
         orientation_mode: OrientationMode,
     },
     InWalkKick {
@@ -69,6 +71,12 @@ pub enum HeadMotion {
     SearchForLostBall,
     LookAt { target: Point2<f32> },
     Unstiff,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+pub enum ArmMotion {
+    Swing,
+    PullTight,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]

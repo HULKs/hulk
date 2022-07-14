@@ -68,7 +68,7 @@
       "network_robot_measurement_matching_distance": 0.2,
       "sonar_goal_post_matching_distance": 0.2,
       "robot_detection_measurement_matching_distance": 0.2,
-      "goal_post_measurement_matching_distance": 0.2,
+      "goal_post_measurement_matching_distance": 0.35,
       "hypothesis_merge_distance": 0.5,
       "process_noise": [0.005, 0.005],
       "robot_measurement_noise": [3.0, 5.0],
@@ -77,7 +77,11 @@
       "initial_covariance": [0.5, 0.5],
       "measurement_count_threshold": 10,
       "use_robot_detection_measurements": false,
-      "use_sonar_measurements": true
+      "use_sonar_measurements": true,
+      "robot_obstacle_radius_at_hip_height": 0.2,
+      "robot_obstacle_radius_at_foot_height": 0.2,
+      "unknown_obstacle_radius": 0.15,
+      "goal_post_obstacle_radius": 0.2
     },
     "role_assignment": {
       "forced_role": null
@@ -93,7 +97,7 @@
       "maximal_detectable_distance": 5.0
     },
     "sonar_obstacle": {
-      "sensor_angle": 0.45
+      "sensor_angle": 0.35
     },
     "step_planner": {
       "injected_step": null,
@@ -112,36 +116,58 @@
       "minimum_detections": 4
     },
     "walking_engine": {
-      "walk_hip_height": 0.185,
-      "torso_offset": 0.018,
-      "minimal_step_duration": {
-        "nanos": 200000000,
-        "secs": 0
-      },
-      "shoulder_pitch_factor": 7,
-      "base_foot_lift": 0.0145,
-      "base_step_duration": {
-        "nanos": 260000000,
-        "secs": 0
-      },
-      "sideways_step_duration_increase": 0.7,
-      "starting_step_duration": {
-        "nanos": 200000000,
-        "secs": 0
-      },
-      "starting_step_foot_lift": 0.009,
-      "gyro_balance_factor": 0.04,
-      "swing_foot_pitch_error_leveling_factor": 0.9,
-      "swing_foot_backwards_imu_leveling_factor": 1.0,
-      "max_level_adjustment_velocity": 0.02,
-      "max_forward_acceleration": 0.01,
-      "forward_foot_support_offset": 0.07,
+      "arm_stiffness": 0.8,
       "backward_foot_support_offset": -0.025,
-      "max_step_adjustment": 0.004,
+      "base_foot_lift": 0.019,
+      "base_step_duration": { "nanos": 250000000, "secs": 0 },
+      "emergency_foot_lift": 0.03,
+      "emergency_step": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
+      "emergency_step_duration": { "nanos": 280000000, "secs": 0 },
+      "forward_foot_support_offset": 0.1,
+      "gyro_balance_factor": 0.05,
+      "gyro_low_pass_factor": 0.6,
       "leg_stiffness_stand": 0.6,
       "leg_stiffness_walk": 1.0,
-      "arm_stiffness": 0.8,
-      "gyro_low_pass_factor": 0.8
+      "max_forward_acceleration": 0.01,
+      "max_level_adjustment_velocity": 0.02,
+      "max_number_of_timeouted_steps": 3,
+      "max_step_adjustment": 0.004,
+      "maximal_step_duration": { "nanos": 0, "secs": 1 },
+      "minimal_step_duration": { "nanos": 150000000, "secs": 0 },
+      "sideways_step_duration_increase": 0.7,
+      "starting_step_duration": { "nanos": 200000000, "secs": 0 },
+      "starting_step_foot_lift": 0.009,
+      "swing_foot_backwards_imu_leveling_factor": 1.0,
+      "swing_foot_pitch_error_leveling_factor": 0.9,
+      "swinging_arms": {
+        "debug_pull_back": false,
+        "default_roll": 0.13,
+        "pitch_factor": 10.0,
+        "pull_back_joints": {
+          "elbow_roll": 0.0,
+          "elbow_yaw": -1.57,
+          "hand": 0.0,
+          "shoulder_pitch": 1.9,
+          "shoulder_roll": 0.2,
+          "wrist_yaw": 0.0
+        },
+        "pull_tight_joints": {
+          "elbow_roll": 0.0,
+          "elbow_yaw": -1.57,
+          "hand": 0.0,
+          "shoulder_pitch": 2.4,
+          "shoulder_roll": -0.3,
+          "wrist_yaw": 0.0
+        },
+        "pulling_back_duration": { "nanos": 0, "secs": 1 },
+        "pulling_tight_duration": { "nanos": 0, "secs": 1 },
+        "roll_factor": 4,
+        "torso_tilt_compensation_factor": -0.05
+      },
+      "tilt_shift_low_pass_factor": 0.7,
+      "torso_shift_offset": 0.012,
+      "torso_tilt_offset": 0.0,
+      "walk_hip_height": 0.185
     },
     "kick_steps": {
       "forward": [
@@ -572,7 +598,7 @@
         "striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free": -1.0,
         "striker_supporter_minimum_x": 2.0,
         "keeper_x_offset": 0.1,
-        "striker_distance_to_non_free_ball": 0.85,
+        "striker_distance_to_non_free_ball": 0.95,
         "striker_set_position": [-1.0, 0.0]
       },
       "dribbling": {
@@ -602,16 +628,21 @@
         },
         "angle_distance_weight": 1.0,
         "max_kick_around_obstacle_angle": 0.78,
-        "ignore_robot_when_near_ball_radius": 0.6
+        "ignore_robot_when_near_ball_radius": 0.6,
+        "kick_pose_obstacle_radius": 0.1,
+        "emergency_kick_target_angles": [-0.52, -0.26, 0.0, 0.26, 0.52]
       },
       "walk_and_stand": {
-        "hysteresis": [0.1, 0.26],
-        "target_reached_thresholds": [0.2, 0.4],
+        "hysteresis": [0.05, 0.05],
+        "target_reached_thresholds": [0.02, 0.05],
         "hybrid_align_distance": 1.0,
         "distance_to_be_aligned": 0.05
       },
+      "lost_ball": {
+        "offset_to_last_ball_location": [1.0, 0.0]
+      },
       "path_planning": {
-        "robot_radius_at_hip_height": 0.25,
+        "robot_radius_at_hip_height": 0.15,
         "robot_radius_at_foot_height": 0.2,
         "ball_obstacle_radius": 0.05
       }

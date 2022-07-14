@@ -1,14 +1,15 @@
 use anyhow::Context;
+use clap::Args;
 use futures::future::join_all;
+
 use repository::Repository;
-use structopt::StructOpt;
 
 use crate::{parsers::NaoNumberPlayerAssignment, results::gather_results};
 
-#[derive(StructOpt)]
+#[derive(Args)]
 pub struct Arguments {
     /// The assignments to change e.g. 20:2 or 32:5 (player numbers start from 1)
-    #[structopt(required = true)]
+    #[clap(required = true)]
     pub assignments: Vec<NaoNumberPlayerAssignment>,
 }
 

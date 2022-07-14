@@ -1,11 +1,12 @@
 use anyhow::Context;
+use clap::Args;
+
 use nao::Nao;
 use repository::Repository;
-use structopt::StructOpt;
 
 use crate::parsers::NaoAddress;
 
-#[derive(StructOpt)]
+#[derive(Args)]
 pub struct Arguments {
     /// The NAO to connect to e.g. 20w or 10.1.24.22
     pub nao: NaoAddress,

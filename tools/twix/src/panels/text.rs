@@ -2,12 +2,12 @@ use std::{str::FromStr, sync::Arc};
 
 use communication::CyclerOutput;
 use eframe::{
-    egui::{ScrollArea, TextEdit, Widget},
+    egui::{ScrollArea, Widget},
     Storage,
 };
 use log::error;
 
-use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
+use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 
 pub struct TextPanel {
     nao: Arc<Nao>,
@@ -49,10 +49,8 @@ impl Panel for TextPanel {
 
 impl Widget for &mut TextPanel {
     fn ui(self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
-        let edit_response = TextEdit::singleline(&mut self.output)
-            .hint_text("Output")
-            .ui(ui);
-        if edit_response.lost_focus() {
+        let edit_response = ui.add(CompletionEdit::outputs(&mut self.output, self.nao.as_ref()));
+        if edit_response.changed() {
             match CyclerOutput::from_str(&self.output) {
                 Ok(output) => {
                     self.values = Some(self.nao.subscribe_output(output));
