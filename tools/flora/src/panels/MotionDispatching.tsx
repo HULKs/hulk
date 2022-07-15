@@ -23,6 +23,11 @@ enum HeadMotionType {
   ZeroAngles = "ZeroAngles",
 }
 
+enum StandUpFacing {
+  Down = "Down",
+  Up = "Up",
+}
+
 export default function MotionDispatching({
   selector,
   connector,
@@ -37,6 +42,9 @@ export default function MotionDispatching({
   const [motionType, setMotionType] = useState(MotionType.DoNotInject);
   const [standHeadMotionType, setStandHeadMotionType] = useState(
     HeadMotionType.Unstiff
+  );
+  const [standUpFacing, setStandUpFacing] = useState(
+    StandUpFacing.Up
   );
   useEffect(() => {
     if (connection === null) {
@@ -56,7 +64,7 @@ export default function MotionDispatching({
       case MotionType.FallProtection:
         connection.updateParameter(
           "control.behavior.injected_motion_command",
-          { motion: { FallProtection: { direction: "Forward" } } },
+          { FallProtection: { direction: "Forward" } },
           () => {},
           (error) => {
             alert(`Error: ${error}`);
@@ -72,7 +80,7 @@ export default function MotionDispatching({
       case MotionType.Penalized:
         connection.updateParameter(
           "control.behavior.injected_motion_command",
-          { motion: "Penalized" },
+          "Penalized",
           () => {},
           (error) => {
             alert(`Error: ${error}`);
@@ -82,7 +90,7 @@ export default function MotionDispatching({
       case MotionType.Sit:
         connection.updateParameter(
           "control.behavior.injected_motion_command",
-          { motion: { Sit: { head: "Unstiff", direction: "Down" } } },
+          { Sit: { head: "Unstiff", direction: "Down" } },
           () => {},
           (error) => {
             alert(`Error: ${error}`);
@@ -106,7 +114,7 @@ export default function MotionDispatching({
         })(standHeadMotionType);
         connection.updateParameter(
           "control.behavior.injected_motion_command",
-          { motion: { Stand: { head: headMotion } } },
+          { Stand: { head: headMotion } },
           () => {},
           (error) => {
             alert(`Error: ${error}`);
@@ -116,7 +124,7 @@ export default function MotionDispatching({
       case MotionType.StandUp:
         connection.updateParameter(
           "control.behavior.injected_motion_command",
-          { motion: { StandUp: { facing: "Up" } } },
+          { StandUp: { facing: standUpFacing } },
           () => {},
           (error) => {
             alert(`Error: ${error}`);
@@ -126,7 +134,7 @@ export default function MotionDispatching({
       case MotionType.Unstiff:
         connection.updateParameter(
           "control.behavior.injected_motion_command",
-          { motion: "Unstiff" },
+          "Unstiff",
           () => {},
           (error) => {
             alert(`Error: ${error}`);
@@ -157,7 +165,7 @@ export default function MotionDispatching({
         );
         break;
     }
-  }, [connection, motionType, standHeadMotionType]);
+  }, [connection, motionType, standHeadMotionType, standUpFacing]);
   useEffect(() => {
     if (connection === null) {
       return;
@@ -298,6 +306,15 @@ export default function MotionDispatching({
               }}
             />
             <label htmlFor="motionTypeStandUp">StandUp</label>
+            <select
+              value={standUpFacing}
+              onChange={(event) =>
+                setStandUpFacing(event.target.value as StandUpFacing)
+              }
+            >
+              <option value={StandUpFacing.Down}>Down</option>
+              <option value={StandUpFacing.Up}>Up</option>
+            </select>
           </div>
           <div className="motionType">
             <input

@@ -1,6 +1,9 @@
 use nalgebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
+use spl_network::PlayerNumber;
+
+use crate::GameControllerState;
 
 use super::{FallState, FilteredGameState, Obstacle, PrimaryState, Role, Side};
 
@@ -9,6 +12,8 @@ pub struct WorldState {
     pub ball: Option<BallState>,
     #[leaf]
     pub filtered_game_state: Option<FilteredGameState>,
+    #[leaf]
+    pub game_controller_state: Option<GameControllerState>,
     pub obstacles: Vec<Obstacle>,
     pub robot: RobotState,
 }
@@ -39,4 +44,6 @@ pub struct RobotState {
     #[leaf]
     pub fall_state: FallState,
     pub has_ground_contact: bool,
+    #[leaf]
+    pub player_number: PlayerNumber,
 }

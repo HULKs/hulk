@@ -43,6 +43,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             self.field_dimensions.width,
             self.field_dimensions.border_strip_width,
         );
+        planner.with_goal_support_structures(robot_to_field.inverse(), self.field_dimensions);
         if let Some(ball_position) = ball_obstacle {
             planner.with_ball(
                 ball_position,

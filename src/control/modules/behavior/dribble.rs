@@ -213,7 +213,8 @@ fn find_targets_to_kick_to(
         .iter()
         .map(|obstacle| {
             let ball_to_obstacle = obstacle.position - ball_position;
-            let obstacle_radius = obstacle.radius_at_foot_height;
+            let obstacle_radius =
+                obstacle.radius_at_foot_height + parameters.ball_radius_for_kick_target_selection;
             let safety_radius = obstacle_radius / parameters.max_kick_around_obstacle_angle.sin();
             let distance_to_obstacle = ball_to_obstacle.norm();
             let center = if distance_to_obstacle < safety_radius {

@@ -54,6 +54,48 @@ impl From<TeamState> for Players<Option<Penalty>> {
     }
 }
 
+pub struct PlayersIterator<'a, T> {
+    data: &'a Players<T>,
+    player_number: Option<PlayerNumber>,
+}
+
+impl<'a, T> PlayersIterator<'a, T> {
+    fn new(data: &'a Players<T>) -> Self {
+        Self {
+            data,
+            player_number: Some(PlayerNumber::One),
+        }
+    }
+}
+
+impl<'a, T> Iterator for PlayersIterator<'a, T> {
+    type Item = (PlayerNumber, &'a T);
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = self.player_number.map(|number| match number {
+            PlayerNumber::One => (PlayerNumber::One, &self.data.one),
+            PlayerNumber::Two => (PlayerNumber::Two, &self.data.two),
+            PlayerNumber::Three => (PlayerNumber::Three, &self.data.three),
+            PlayerNumber::Four => (PlayerNumber::Four, &self.data.four),
+            PlayerNumber::Five => (PlayerNumber::Five, &self.data.five),
+        });
+        self.player_number = match self.player_number {
+            Some(PlayerNumber::One) => Some(PlayerNumber::Two),
+            Some(PlayerNumber::Two) => Some(PlayerNumber::Three),
+            Some(PlayerNumber::Three) => Some(PlayerNumber::Four),
+            Some(PlayerNumber::Four) => Some(PlayerNumber::Five),
+            Some(PlayerNumber::Five) => None,
+            None => None,
+        };
+        result
+    }
+}
+
+impl<T> Players<T> {
+    pub fn iter(&self) -> PlayersIterator<'_, T> {
+        PlayersIterator::new(self)
+    }
+}
+
 impl<T> SerializeHierarchy for Players<T>
 where
     T: Serialize + for<'de> Deserialize<'de> + SerializeHierarchy,

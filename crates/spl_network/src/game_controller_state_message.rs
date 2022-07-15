@@ -113,8 +113,8 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
             game_state: GameState::try_from(message.state)?,
             set_play: SetPlay::try_from(message.setPlay)?,
             half: message.firstHalf.try_into()?,
-            remaining_time_in_half: Duration::from_secs(message.secsRemaining.try_into()?),
-            secondary_time: Duration::from_secs(message.secondaryTime.try_into()?),
+            remaining_time_in_half: Duration::from_secs(message.secsRemaining.max(0).try_into()?),
+            secondary_time: Duration::from_secs(message.secondaryTime.max(0).try_into()?),
             hulks_team: TeamState {
                 team_number: message.teams[hulks_team_index].teamNumber,
                 color: message.teams[hulks_team_index].teamColour.try_into()?,

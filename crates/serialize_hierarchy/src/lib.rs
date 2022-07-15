@@ -136,4 +136,5 @@ serialize_hierarchy_primary_impl!(SystemTime);
 serialize_hierarchy_primary_impl!(Duration);
 serialize_hierarchy_primary_impl!(String);
 serialize_hierarchy_primary_impl!(Range<f32>);
+serialize_hierarchy_primary_impl!(Range<Duration>);
 serialize_hierarchy_primary_impl!(PathBuf);

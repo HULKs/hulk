@@ -119,7 +119,7 @@
       "arm_stiffness": 0.8,
       "backward_foot_support_offset": -0.025,
       "base_foot_lift": 0.019,
-      "base_step_duration": { "nanos": 250000000, "secs": 0 },
+      "base_step_duration": { "nanos": 260000000, "secs": 0 },
       "emergency_foot_lift": 0.03,
       "emergency_step": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
       "emergency_step_duration": { "nanos": 280000000, "secs": 0 },
@@ -131,10 +131,13 @@
       "max_forward_acceleration": 0.01,
       "max_level_adjustment_velocity": 0.02,
       "max_number_of_timeouted_steps": 3,
+      "max_number_of_unstable_steps": 3,
       "max_step_adjustment": 0.004,
       "maximal_step_duration": { "nanos": 0, "secs": 1 },
       "minimal_step_duration": { "nanos": 150000000, "secs": 0 },
+      "number_of_stabilizing_steps": 3,
       "sideways_step_duration_increase": 0.7,
+      "stable_step_deviation": { "nanos": 60000000, "secs": 0 },
       "starting_step_duration": { "nanos": 200000000, "secs": 0 },
       "starting_step_foot_lift": 0.009,
       "swing_foot_backwards_imu_leveling_factor": 1.0,
@@ -165,7 +168,7 @@
         "torso_tilt_compensation_factor": -0.05
       },
       "tilt_shift_low_pass_factor": 0.7,
-      "torso_shift_offset": 0.012,
+      "torso_shift_offset": 0.013,
       "torso_tilt_offset": 0.0,
       "walk_hip_height": 0.185
     },
@@ -436,7 +439,10 @@
       "minimum_fit_error": 0.001,
       "minimum_line_length": 0.15,
       "odometry_noise": [0.05, 0.01, 0.008],
-      "use_line_measurements": true
+      "use_line_measurements": true,
+      "good_matching_threshold": 0.5,
+      "score_per_good_match": 1.0,
+      "hypothesis_score_base_increase": 0.1
     },
     "orientation_filter": {
       "acceleration_threshold": 0.2,
@@ -447,10 +453,11 @@
       "force_sensitive_resistor_threshold": 5.0
     },
     "fall_state_estimation": {
-      "linear_acceleration_upright_threshold": [6.0, 4.0, 5.0],
-      "low_pass_filter_coefficient": 0.3,
-      "minimum_angle": [-0.5, -0.45],
-      "maximum_angle": [0.5, 0.45],
+      "linear_acceleration_low_pass_factor": 0.05,
+      "angular_velocity_low_pass_factor": 0.2,
+      "roll_pitch_low_pass_factor": 0.2,
+      "gravitational_acceleration_threshold": 4.0,
+      "falling_angle_threshold": [0.5, 0.45],
       "minimum_angular_velocity": [-0.233, -0.61],
       "maximum_angular_velocity": [0.233, 0.317],
       "fallen_timeout": {
@@ -630,7 +637,8 @@
         "max_kick_around_obstacle_angle": 0.78,
         "ignore_robot_when_near_ball_radius": 0.6,
         "kick_pose_obstacle_radius": 0.1,
-        "emergency_kick_target_angles": [-0.52, -0.26, 0.0, 0.26, 0.52]
+        "emergency_kick_target_angles": [-0.52, -0.26, 0.0, 0.26, 0.52],
+        "ball_radius_for_kick_target_selection": 0.15
       },
       "walk_and_stand": {
         "hysteresis": [0.05, 0.05],
@@ -645,6 +653,10 @@
         "robot_radius_at_hip_height": 0.15,
         "robot_radius_at_foot_height": 0.2,
         "ball_obstacle_radius": 0.05
+      },
+      "search": {
+        "position_reached_distance": 0.4,
+        "rotation_per_step": 0.35
       }
     },
     "game_state_filter": {
@@ -780,7 +792,11 @@
       "nanos": 0,
       "secs": 1
     },
-    "remaining_amount_of_messages_to_stop_sending": 10,
+    "remaining_amount_of_messages_to_stop_sending": 20,
+    "silence_interval_between_messages": {
+      "nanos": 0,
+      "secs": 1
+    },
     "spl_striker_message_receive_timeout": {
       "nanos": 0,
       "secs": 3

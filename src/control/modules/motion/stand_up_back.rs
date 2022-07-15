@@ -26,7 +26,8 @@ impl StandUpBack {}
 impl StandUpBack {
     fn new(context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {
-            interpolator: MotionFile::from_path("etc/motions/stand_up_back.json")?.into(),
+            interpolator: MotionFile::from_path("etc/motions/stand_up_back_dortmund_2022.json")?
+                .into(),
             filtered_gyro: LowPassFilter::with_alpha(
                 Vector2::zeros(),
                 *context.gyro_low_pass_filter_coefficient,

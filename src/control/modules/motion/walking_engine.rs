@@ -104,6 +104,10 @@ pub struct WalkingEngine {
     right_arm: SwingingArm,
     /// counting steps that exceeded a timeout
     number_of_timeouted_steps: usize,
+    /// counting steps that had support changes that were not inside an accepted range
+    number_of_unstable_steps: usize,
+    /// number of steps walking has to make zero steps to stabilize before starting to walk again
+    remaining_stabilizing_steps: usize,
 }
 
 #[module(control)]
@@ -176,6 +180,15 @@ impl WalkingEngine {
             None => true,
         };
         if has_support_changed && self.t > context.config.minimal_step_duration {
+            let deviation_from_plan = self
+                .t
+                .checked_sub(self.step_duration)
+                .unwrap_or_else(|| self.step_duration.checked_sub(self.t).unwrap());
+            if deviation_from_plan > context.config.stable_step_deviation {
+                self.number_of_unstable_steps += 1;
+            } else {
+                self.number_of_unstable_steps = 0;
+            }
             self.number_of_timeouted_steps = 0;
             self.end_step_phase();
         } else if self.t > context.config.maximal_step_duration {
@@ -327,31 +340,54 @@ impl WalkingEngine {
         self.walk_state =
             self.walk_state
                 .next_walk_state(walk_command, self.swing_side, kick_steps);
+        let support_side = match measured_support_side {
+            Some(support_side) => support_side,
+            None => {
+                self.current_step = Step::zero();
+                self.step_duration = Duration::ZERO;
+                self.swing_side = Side::Left;
+                self.max_swing_foot_lift = 0.0;
+                return;
+            }
+        };
 
         if self.number_of_timeouted_steps >= config.max_number_of_timeouted_steps {
             self.current_step = config.emergency_step;
             self.step_duration = config.emergency_step_duration;
-            self.swing_side = measured_support_side.unwrap_or(Side::Left);
+            self.swing_side = support_side;
             self.max_swing_foot_lift = config.emergency_foot_lift;
             self.number_of_timeouted_steps = 0;
             return;
         }
 
+        if self.number_of_unstable_steps >= config.max_number_of_unstable_steps {
+            self.number_of_unstable_steps = 0;
+            self.remaining_stabilizing_steps = config.number_of_stabilizing_steps;
+        }
+        if self.remaining_stabilizing_steps > 0 {
+            self.remaining_stabilizing_steps -= 1;
+            self.current_step = Step::zero();
+            self.step_duration = config.base_step_duration;
+            self.swing_side = support_side.opposite();
+            self.max_swing_foot_lift = config.base_foot_lift;
+            return;
+        }
+
         let last_step = self.current_step;
-        match (self.walk_state, measured_support_side) {
-            (WalkState::Standing, _) | (_, None) => {
+        match self.walk_state {
+            WalkState::Standing => {
                 self.current_step = Step::zero();
                 self.step_duration = Duration::ZERO;
                 self.swing_side = Side::Left;
                 self.max_swing_foot_lift = 0.0;
             }
-            (WalkState::Starting(_), Some(support_side)) => {
+            WalkState::Starting(_) => {
                 self.current_step = Step::zero();
                 self.step_duration = config.starting_step_duration;
                 self.swing_side = support_side.opposite();
                 self.max_swing_foot_lift = config.starting_step_foot_lift;
             }
-            (WalkState::Walking(requested_step), Some(support_side)) => {
+            WalkState::Walking(requested_step) => {
                 let forward_acceleration = requested_step.forward - last_step.forward;
                 self.current_step = Step {
                     forward: last_step.forward
@@ -368,13 +404,13 @@ impl WalkingEngine {
                 self.swing_side = support_side.opposite();
                 self.max_swing_foot_lift = config.base_foot_lift;
             }
-            (WalkState::Stopping, Some(support_side)) => {
+            WalkState::Stopping => {
                 self.current_step = Step::zero();
                 self.step_duration = config.base_step_duration;
                 self.swing_side = support_side.opposite();
                 self.max_swing_foot_lift = config.base_foot_lift;
             }
-            (WalkState::Kicking(kick_variant, kick_side, kick_step_i), Some(support_side)) => {
+            WalkState::Kicking(kick_variant, kick_side, kick_step_i) => {
                 let kick_steps = match kick_variant {
                     KickVariant::Forward => &kick_steps.forward,
                     KickVariant::Turn => &kick_steps.turn,
@@ -414,6 +450,9 @@ impl WalkingEngine {
         self.last_right_walk_request = FootOffsets::zero();
         self.last_left_level_adjustment = 0.0;
         self.last_right_level_adjustment = 0.0;
+        self.number_of_timeouted_steps = 0;
+        self.number_of_unstable_steps = 0;
+        self.remaining_stabilizing_steps = 0;
     }
 
     fn next_foot_offsets(

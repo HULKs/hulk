@@ -1,9 +1,9 @@
 {
   "player_number": "One",
   "vision_bottom": {
-    "camera_matrix_parameters": { "extrinsic_rotations": [0.5, -1.0, 0] }
+    "camera_matrix_parameters": { "extrinsic_rotations": [0.3, -2.8, 0] }
   },
   "vision_top": {
-    "camera_matrix_parameters": { "extrinsic_rotations": [0.5, -3.0, 0] }
+    "camera_matrix_parameters": { "extrinsic_rotations": [0.3, -3.7, 0] }
   }
 }

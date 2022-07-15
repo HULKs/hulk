@@ -52,8 +52,8 @@ impl JointCommandSender {
                 Joints::from_head_and_body(head_joints_command.positions, walk.positions),
                 Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),
             ),
-            MotionType::StandUpBack => (*stand_up_back_positions, Joints::fill(0.8)),
-            MotionType::StandUpFront => (*stand_up_front_positions, Joints::fill(0.8)),
+            MotionType::StandUpBack => (*stand_up_back_positions, Joints::fill(1.0)),
+            MotionType::StandUpFront => (*stand_up_front_positions, Joints::fill(1.0)),
             MotionType::Unstiff => (current_positions, Joints::fill(0.0)),
             MotionType::Walk => (
                 Joints::from_head_and_body(head_joints_command.positions, walk.positions),

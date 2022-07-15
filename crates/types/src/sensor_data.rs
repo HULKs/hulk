@@ -4,8 +4,9 @@ use serialize_hierarchy::SerializeHierarchy;
 
 use super::{CycleInfo, Joints};
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct InertialMeasurementUnitData {
+    // Linear acceleration is currently coming from a left handed coordinate system
     pub linear_acceleration: Vector3<f32>,
     pub angular_velocity: Vector3<f32>,
     pub roll_pitch: Vector2<f32>,

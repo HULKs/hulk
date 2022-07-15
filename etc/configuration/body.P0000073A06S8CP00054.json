@@ -1,0 +1,8 @@
+{
+  "control": {
+    "sonar_filter": {
+      "low_pass_filter_coefficient": 0.03,
+      "maximal_reliable_distance": 0.5
+    }
+  }
+}

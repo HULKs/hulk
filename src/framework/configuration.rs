@@ -86,6 +86,9 @@ pub struct Localization {
     pub minimum_fit_error: f32,
     pub odometry_noise: Vector3<f32>,
     pub use_line_measurements: bool,
+    pub good_matching_threshold: f32,
+    pub score_per_good_match: f32,
+    pub hypothesis_score_base_increase: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -126,6 +129,7 @@ pub struct Behavior {
     pub path_planning: PathPlanning,
     pub role_positions: RolePositions,
     pub walk_and_stand: WalkAndStand,
+    pub search: Search,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -152,6 +156,13 @@ pub struct Dribbling {
     pub ignore_robot_when_near_ball_radius: f32,
     pub kick_pose_obstacle_radius: f32,
     pub emergency_kick_target_angles: Vec<f32>,
+    pub ball_radius_for_kick_target_selection: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct Search {
+    pub position_reached_distance: f32,
+    pub rotation_per_step: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -228,10 +239,13 @@ pub struct WalkingEngine {
     pub max_forward_acceleration: f32,
     pub max_level_adjustment_velocity: f32,
     pub max_number_of_timeouted_steps: usize,
+    pub max_number_of_unstable_steps: usize,
     pub max_step_adjustment: f32,
     pub maximal_step_duration: Duration,
     pub minimal_step_duration: Duration,
+    pub number_of_stabilizing_steps: usize,
     pub sideways_step_duration_increase: f32,
+    pub stable_step_deviation: Duration,
     pub starting_step_duration: Duration,
     pub starting_step_foot_lift: f32,
     pub swing_foot_backwards_imu_leveling_factor: f32,
@@ -326,6 +340,7 @@ pub struct SonarObstacle {
 pub struct SplNetwork {
     pub game_controller_return_message_interval: Duration,
     pub remaining_amount_of_messages_to_stop_sending: u16,
+    pub silence_interval_between_messages: Duration,
     pub spl_striker_message_receive_timeout: Duration,
     pub spl_striker_message_send_interval: Duration,
     pub striker_trusts_team_ball: Duration,
@@ -481,10 +496,11 @@ pub struct ObstacleFilter {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct FallStateEstimation {
-    pub linear_acceleration_upright_threshold: Vector3<f32>,
-    pub low_pass_filter_coefficient: f32,
-    pub minimum_angle: Vector2<f32>,
-    pub maximum_angle: Vector2<f32>,
+    pub linear_acceleration_low_pass_factor: f32,
+    pub angular_velocity_low_pass_factor: f32,
+    pub roll_pitch_low_pass_factor: f32,
+    pub gravitational_acceleration_threshold: f32,
+    pub falling_angle_threshold: Vector2<f32>,
     pub minimum_angular_velocity: Vector2<f32>,
     pub maximum_angular_velocity: Vector2<f32>,
     pub fallen_timeout: Duration,

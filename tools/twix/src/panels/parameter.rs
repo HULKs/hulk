@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use eframe::{
-    egui::{Response, TextEdit, Ui, Widget},
+    egui::{Response, ScrollArea, TextEdit, Ui, Widget},
     Storage,
 };
 use log::error;
@@ -63,11 +63,13 @@ impl Widget for &mut ParameterPanel {
                         if self.update_notify_receiver.try_recv().is_ok() {
                             self.parameter_value = serde_json::to_string_pretty(&value).unwrap();
                         }
-                        ui.add(
-                            TextEdit::multiline(&mut self.parameter_value)
-                                .code_editor()
-                                .desired_width(f32::INFINITY),
-                        );
+                        ScrollArea::vertical().show(ui, |ui| {
+                            ui.add(
+                                TextEdit::multiline(&mut self.parameter_value)
+                                    .code_editor()
+                                    .desired_width(f32::INFINITY),
+                            );
+                        });
                     }
                     Err(error) => {
                         ui.label(format!("{error:#?}"));

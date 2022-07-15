@@ -1,4 +1,4 @@
-use nalgebra::{Isometry2, Isometry3, Point2, Point3, UnitComplex};
+use nalgebra::{Isometry2, Isometry3, Point2, Point3, UnitComplex, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -95,6 +95,11 @@ pub struct AdditionalOutputs {
     pub sonar_values: Option<SonarValues>,
     pub kick_decisions: Option<Vec<KickDecision>>,
     pub kick_targets: Option<Vec<Point2<f32>>>,
+    pub filtered_linear_acceleration: Option<Vector3<f32>>,
+    pub filtered_angular_velocity: Option<Vector3<f32>>,
+    pub filtered_roll_pitch: Option<Vector2<f32>>,
+    pub backward_gravitational_difference: Option<f32>,
+    pub forward_gravitational_difference: Option<f32>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

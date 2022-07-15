@@ -50,6 +50,9 @@ pub struct Localization {
 #[parameter(path = control.localization.minimum_fit_error, data_type = f32)]
 #[parameter(path = control.localization.odometry_noise, data_type = Vector3<f32>)]
 #[parameter(path = control.localization.use_line_measurements, data_type = bool)]
+#[parameter(path = control.localization.good_matching_threshold, data_type = f32)]
+#[parameter(path = control.localization.score_per_good_match, data_type = f32)]
+#[parameter(path = control.localization.hypothesis_score_base_increase, data_type = f32)]
 #[parameter(path = player_number, data_type = PlayerNumber)]
 #[additional_output(path = localization.pose_hypotheses, data_type = Vec<ScoredPoseFilter>)]
 #[additional_output(path = localization.correspondence_lines, data_type = Vec<Line2>)]
@@ -368,9 +371,14 @@ impl Localization {
                                     )
                                     .context("Failed to update pose filter")?,
                             }
-                            scored_filter.score += 1.0 / uncertainty_weight;
+                            if field_mark_correspondence.fit_error_sum()
+                                < *context.good_matching_threshold
+                            {
+                                scored_filter.score += *context.score_per_good_match;
+                            }
                         }
                     }
+                    scored_filter.score += *context.hypothesis_score_base_increase;
                 }
 
                 if context.fit_errors.is_subscribed() {
@@ -389,7 +397,6 @@ impl Localization {
             context
                 .pose_hypotheses
                 .fill_on_subscription(|| self.hypotheses.clone());
-
             context
                 .fit_errors
                 .fill_on_subscription(|| fit_errors_per_measurement);
@@ -486,6 +493,14 @@ struct FieldMarkCorrespondence {
     measured_line_in_field: Line2,
     field_mark: FieldMark,
     correspondence_points: (CorrespondencePoints, CorrespondencePoints),
+}
+
+impl FieldMarkCorrespondence {
+    fn fit_error_sum(&self) -> f32 {
+        (self.correspondence_points.0.measured - self.correspondence_points.0.reference).norm()
+            + (self.correspondence_points.1.measured - self.correspondence_points.1.reference)
+                .norm()
+    }
 }
 
 fn predict(

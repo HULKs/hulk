@@ -4,7 +4,8 @@ use ordered_float::NotNan;
 use smallvec::SmallVec;
 
 use types::{
-    Arc, Circle, LineSegment, Obstacle, Orientation, PathObstacle, PathObstacleShape, PathSegment,
+    Arc, Circle, FieldDimensions, LineSegment, Obstacle, Orientation, PathObstacle,
+    PathObstacleShape, PathSegment,
 };
 
 #[derive(Debug, Clone)]
@@ -81,7 +82,7 @@ impl PathPlanner {
         let bottom_left = field_to_robot * point![-x, -y];
         let top_left = field_to_robot * point![-x, y];
 
-        let line_segments = vec![
+        let line_segments = [
             LineSegment(bottom_left, top_left),
             LineSegment(top_left, top_right),
             LineSegment(top_right, bottom_right),
@@ -95,6 +96,38 @@ impl PathPlanner {
         );
 
         self
+    }
+
+    pub fn with_goal_support_structures(
+        &mut self,
+        field_to_robot: Isometry2<f32>,
+        field_dimensions: &FieldDimensions,
+    ) {
+        let goal_post_x = field_dimensions.length / 2.0 + field_dimensions.goal_post_diameter / 2.0
+            - field_dimensions.line_width / 2.0;
+        let goal_post_y =
+            field_dimensions.goal_inner_width / 2.0 + field_dimensions.goal_post_diameter / 2.0;
+        let field_border_x = field_dimensions.length / 2.0 + field_dimensions.border_strip_width;
+
+        let post_to_border = |x_sign: f32, y_sign: f32| {
+            LineSegment(
+                field_to_robot * point![x_sign * goal_post_x, y_sign * goal_post_y],
+                field_to_robot * point![x_sign * field_border_x, y_sign * goal_post_y],
+            )
+        };
+
+        let line_segments = [
+            post_to_border(1.0, 1.0),
+            post_to_border(-1.0, 1.0),
+            post_to_border(1.0, -1.0),
+            post_to_border(-1.0, -1.0),
+        ];
+
+        self.obstacles.extend(
+            line_segments.into_iter().map(|line_segment| {
+                PathObstacle::from(PathObstacleShape::LineSegment(line_segment))
+            }),
+        );
     }
 
     fn generate_start_destination_tangents(&mut self) {

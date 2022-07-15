@@ -117,6 +117,14 @@ impl RoleAssignment {
             }
         };
 
+        let silence_interval_has_passed = match self.last_transmitted_spl_striker_message {
+            Some(last_transmitted_spl_striker_message) => {
+                cycle_start_time.duration_since(last_transmitted_spl_striker_message)?
+                    > context.spl_network.silence_interval_between_messages
+            }
+            None => true,
+        };
+
         if send_game_controller_return_message {
             self.last_transmitted_game_controller_return_message = Some(cycle_start_time);
             self.game_controller_return_message_sender
@@ -196,7 +204,10 @@ impl RoleAssignment {
             }
         }
 
-        if send_spl_striker_message && primary_state == PrimaryState::Playing {
+        if send_spl_striker_message
+            && primary_state == PrimaryState::Playing
+            && silence_interval_has_passed
+        {
             self.last_transmitted_spl_striker_message = Some(cycle_start_time);
             self.last_received_spl_striker_message = Some(cycle_start_time);
             if let Some(game_controller_state) = *context.game_controller_state {

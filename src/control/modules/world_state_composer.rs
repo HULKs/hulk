@@ -1,11 +1,12 @@
-use module_derive::{module, require_some};
+use module_derive::module;
 
 use anyhow::Result;
 use nalgebra::{Isometry2, Point2};
 
+use spl_network::PlayerNumber;
 use types::{
-    BallPosition, BallState, FallState, FilteredGameState, Obstacle, PrimaryState, RobotState,
-    Role, SensorData, Side, WorldState,
+    BallPosition, BallState, FallState, FilteredGameState, GameControllerState, Obstacle,
+    PrimaryState, RobotState, Role, Side, WorldState,
 };
 
 use crate::control::filtering::greater_than_with_hysteresis;
@@ -15,16 +16,17 @@ pub struct WorldStateComposer {
 }
 
 #[module(control)]
-#[input(path = sensor_data, data_type = SensorData)]
+#[input(path = fall_state, data_type = FallState, required)]
+#[input(path = has_ground_contact, data_type = bool, required)]
+#[input(path = obstacles, data_type = Vec<Obstacle>, required)]
+#[input(path = primary_state, data_type = PrimaryState, required)]
 #[input(path = ball_position, data_type = BallPosition)]
-#[input(path = fall_state, data_type = FallState)]
 #[input(path = filtered_game_state, data_type = FilteredGameState)]
+#[input(path = game_controller_state, data_type = GameControllerState)]
 #[input(path = robot_to_field, data_type = Isometry2<f32>)]
-#[input(path = role, data_type = Role)]
-#[input(path = primary_state, data_type = PrimaryState)]
-#[input(path = has_ground_contact, data_type = bool)]
+#[input(path = role, data_type = Role, required)]
 #[input(path = team_ball, data_type = BallPosition)]
-#[input(path = obstacles, data_type = Vec<Obstacle>)]
+#[parameter(path = player_number, data_type = PlayerNumber)]
 #[main_output(data_type = WorldState)]
 impl WorldStateComposer {}
 
@@ -36,11 +38,12 @@ impl WorldStateComposer {
     }
 
     fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let fall_state = *require_some!(context.fall_state);
-        let primary_state = *require_some!(context.primary_state);
-        let has_ground_contact = *require_some!(context.has_ground_contact);
-        let role = *require_some!(context.role);
-        let obstacles = require_some!(context.obstacles);
+        let fall_state = *context.fall_state;
+        let primary_state = *context.primary_state;
+        let has_ground_contact = *context.has_ground_contact;
+        let role = *context.role;
+        let obstacles = context.obstacles;
+        let game_controller_state = *context.game_controller_state;
 
         let ball = match (
             primary_state,
@@ -68,6 +71,7 @@ impl WorldStateComposer {
             primary_state,
             fall_state,
             has_ground_contact,
+            player_number: *context.player_number,
         };
 
         let world_state = WorldState {
@@ -75,6 +79,7 @@ impl WorldStateComposer {
             filtered_game_state: *context.filtered_game_state,
             obstacles: obstacles.clone(),
             robot,
+            game_controller_state,
         };
 
         Ok(MainOutputs {
