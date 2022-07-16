@@ -1,25 +1,17 @@
 use proc_macro2::TokenStream;
-use proc_macro_error::abort_call_site;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, token::Colon2, Data, DeriveInput, Fields, PathArguments, Type};
+use syn::{token::Colon2, DataStruct, DeriveInput, Fields, PathArguments, Type};
 
-pub fn process_serialize_hierarchy_implementation(
-    input: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
+pub fn process_struct(input: &DeriveInput, data: &DataStruct) -> proc_macro::TokenStream {
+    let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    let fields = match input.data {
-        Data::Struct(data) => data.fields,
-        _ => abort_call_site!("`SerializeHierarchy` can only be derived for `struct`"),
-    };
-    let serde_serialization = generate_serde_serialization(&fields);
-    let path_serialization = generate_path_serialization(&fields);
-    let serde_deserialization = generate_serde_deserialization(&fields);
-    let path_deserialization = generate_path_deserialization(&fields);
-    let path_exists_getter = generate_path_exists_getter(&fields);
-    let field_exists_getter = generate_field_exists_getter(&fields);
-    let hierarchy_insertions = generate_hierarchy_insertions(&fields);
+    let serde_serialization = generate_serde_serialization(&data.fields);
+    let path_serialization = generate_path_serialization(&data.fields);
+    let serde_deserialization = generate_serde_deserialization(&data.fields);
+    let path_deserialization = generate_path_deserialization(&data.fields);
+    let path_exists_getter = generate_path_exists_getter(&data.fields);
+    let field_exists_getter = generate_field_exists_getter(&data.fields);
+    let hierarchy_insertions = generate_hierarchy_insertions(&data.fields);
 
     let expanded = quote! {
         impl #impl_generics serialize_hierarchy::SerializeHierarchy for #name #ty_generics #where_clause {
