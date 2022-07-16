@@ -7,7 +7,6 @@ use serialize_hierarchy::SerializeHierarchy;
 #[derive(Clone, Copy, Serialize, Deserialize, SerializeHierarchy, Debug)]
 pub struct BallPosition {
     pub position: Point2<f32>,
-    #[leaf]
     pub last_seen: SystemTime,
 }
 

@@ -12,9 +12,7 @@ use super::{FallState, FilteredGameState, Obstacle, PrimaryState, Role, Side};
 #[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct WorldState {
     pub ball: Option<BallState>,
-    #[leaf]
     pub filtered_game_state: Option<FilteredGameState>,
-    #[leaf]
     pub game_controller_state: Option<GameControllerState>,
     pub obstacles: Vec<Obstacle>,
     pub robot: RobotState,
@@ -23,9 +21,7 @@ pub struct WorldState {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct BallState {
     pub position: Point2<f32>,
-    #[leaf]
     pub penalty_shot_direction: Option<PenaltyShotDirection>,
-    #[leaf]
     pub field_side: Side,
 }
 
@@ -39,16 +35,25 @@ impl Default for BallState {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct RobotState {
     pub robot_to_field: Option<Isometry2<f32>>,
-    #[leaf]
     pub role: Role,
-    #[leaf]
     pub primary_state: PrimaryState,
-    #[leaf]
     pub fall_state: FallState,
     pub has_ground_contact: bool,
-    #[leaf]
     pub player_number: PlayerNumber,
+}
+
+impl Default for RobotState {
+    fn default() -> Self {
+        Self {
+            robot_to_field: Default::default(),
+            role: Default::default(),
+            primary_state: PrimaryState::Unstiff,
+            fall_state: Default::default(),
+            has_ground_contact: Default::default(),
+            player_number: Default::default(),
+        }
+    }
 }

@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::Team;
 
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub enum FilteredGameState {
-    #[default]
     Initial,
     Ready {
         kicking_team: Team,

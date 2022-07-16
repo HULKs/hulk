@@ -2,7 +2,7 @@ use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, SerializeHierarchy)]
 pub enum ObstacleKind {
     Ball,
     GoalPost,
@@ -12,7 +12,6 @@ pub enum ObstacleKind {
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Obstacle {
-    #[leaf]
     pub kind: ObstacleKind,
     pub position: Point2<f32>,
     pub radius_at_foot_height: f32,

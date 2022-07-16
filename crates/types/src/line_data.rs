@@ -9,7 +9,6 @@ use super::Line2;
 #[derive(Clone, Default, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct LineData {
     pub lines_in_robot: Vec<Line2>,
-    #[leaf]
     pub used_vertical_filtered_segments: HashSet<Point2<u16>>,
 }
 

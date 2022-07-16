@@ -68,7 +68,6 @@ pub struct HighDetector {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct RoleAssignment {
-    #[leaf]
     pub forced_role: Option<Role>,
 }
 
@@ -76,7 +75,6 @@ pub struct RoleAssignment {
 
 pub struct Behavior {
     pub dribbling: Dribbling,
-    #[leaf]
     pub injected_motion_command: Option<MotionCommand>,
     pub lost_ball: LostBall,
     pub path_planning: PathPlanning,
@@ -306,7 +304,7 @@ pub struct SplNetwork {
     pub striker_trusts_team_ball: Duration,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub enum MedianMode {
     #[default]
     Disabled,
@@ -314,7 +312,7 @@ pub enum MedianMode {
     FivePixels,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub enum EdgeDetectionSource {
     #[default]
     Luminance,
@@ -324,9 +322,7 @@ pub enum EdgeDetectionSource {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct ImageSegmenter {
     pub vertical_edge_threshold: i16,
-    #[leaf]
     pub vertical_edge_detection_source: EdgeDetectionSource,
-    #[leaf]
     pub vertical_median_mode: MedianMode,
 }
 

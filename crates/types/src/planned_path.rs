@@ -5,7 +5,7 @@ use serialize_hierarchy::SerializeHierarchy;
 
 use super::{Arc, LineSegment, Orientation};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, SerializeHierarchy)]
 pub enum PathSegment {
     LineSegment(LineSegment),
     Arc(Arc, Orientation),
@@ -77,6 +77,5 @@ impl PathSegment {
 #[derive(Clone, Debug, Default, Serialize, SerializeHierarchy, Deserialize)]
 pub struct PlannedPath {
     pub end_pose: Isometry2<f32>,
-    #[leaf]
     pub path: Option<Vec<PathSegment>>,
 }

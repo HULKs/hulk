@@ -7,7 +7,7 @@ use syn::{parse_macro_input, Data, DeriveInput};
 mod process_enum;
 mod process_struct;
 
-#[proc_macro_derive(SerializeHierarchy, attributes(leaf, dont_serialize))]
+#[proc_macro_derive(SerializeHierarchy, attributes(dont_serialize))]
 #[proc_macro_error]
 pub fn serialize_hierarchy(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

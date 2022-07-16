@@ -1,12 +1,14 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     ops::Range,
     path::PathBuf,
     time::{Duration, SystemTime},
 };
 
 use color_eyre::{eyre::bail, Result};
-use nalgebra::{Isometry2, Isometry3, Point2, Point3, SMatrix, Vector2, Vector3, Vector4};
+use nalgebra::{
+    Isometry2, Isometry3, Point2, Point3, SMatrix, UnitComplex, Vector2, Vector3, Vector4,
+};
 use serde::Serialize;
 pub use serde_json;
 use serde_json::Value;
@@ -40,7 +42,7 @@ pub trait SerializeHierarchy {
 
 impl<T> SerializeHierarchy for Option<T>
 where
-    T: Default + SerializeHierarchy,
+    T: SerializeHierarchy,
 {
     fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
         match self {
@@ -49,9 +51,8 @@ where
         }
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, data: Value) -> Result<()> {
-        self.get_or_insert_with(Default::default)
-            .deserialize_hierarchy(field_path, data)
+    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> Result<()> {
+        bail!("Cannot deserialize into Option with path: `{field_path}`")
     }
 
     fn exists(field_path: &str) -> bool {
@@ -62,6 +63,24 @@ where
         HierarchyType::Option {
             nested: Box::new(T::get_hierarchy()),
         }
+    }
+}
+
+impl<T> SerializeHierarchy for HashSet<T> {
+    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
+        bail!("cannot access HashSet with path: {}", field_path)
+    }
+
+    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> Result<()> {
+        bail!("cannot access HashSet with path: {}", field_path)
+    }
+
+    fn exists(_field_path: &str) -> bool {
+        true
+    }
+
+    fn get_hierarchy() -> HierarchyType {
+        HierarchyType::GenericStruct
     }
 }
 
@@ -123,7 +142,9 @@ serialize_hierarchy_primary_impl!(u8);
 serialize_hierarchy_primary_impl!(u16);
 serialize_hierarchy_primary_impl!(u64);
 serialize_hierarchy_primary_impl!(usize);
+// nalgebra
 serialize_hierarchy_primary_impl!(Point2<f32>);
+serialize_hierarchy_primary_impl!(Point2<u16>);
 serialize_hierarchy_primary_impl!(Point3<f32>);
 serialize_hierarchy_primary_impl!(Vector2<f32>);
 serialize_hierarchy_primary_impl!(Vector3<f32>);
@@ -131,6 +152,8 @@ serialize_hierarchy_primary_impl!(Vector4<f32>);
 serialize_hierarchy_primary_impl!(SMatrix<f32, 3, 3>);
 serialize_hierarchy_primary_impl!(Isometry2<f32>);
 serialize_hierarchy_primary_impl!(Isometry3<f32>);
+serialize_hierarchy_primary_impl!(UnitComplex<f32>);
+// stdlib
 serialize_hierarchy_primary_impl!(SystemTime);
 serialize_hierarchy_primary_impl!(Duration);
 serialize_hierarchy_primary_impl!(String);

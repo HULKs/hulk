@@ -5,7 +5,7 @@ use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{Arc, Circle, LineSegment, Orientation};
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub enum PathObstacleShape {
     Circle(Circle),
     LineSegment(LineSegment),
@@ -47,10 +47,8 @@ impl PathObstacleShape {
 
 #[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct PathObstacle {
-    #[leaf]
     pub shape: PathObstacleShape,
     pub nodes: Vec<usize>,
-    #[leaf]
     pub populated_connections: HashSet<usize>,
 }
 

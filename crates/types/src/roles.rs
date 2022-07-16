@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub enum Role {
     DefenderLeft,
     DefenderRight,

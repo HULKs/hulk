@@ -1,7 +1,9 @@
 use approx::{AbsDiffEq, RelativeEq};
+use color_eyre::{eyre::bail, Result};
 use nalgebra::{distance, vector, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
+use serde_json::Value;
+use serialize_hierarchy::{HierarchyType, SerializeHierarchy};
 
 use std::f32::consts::PI;
 
@@ -30,7 +32,7 @@ pub fn rotate_towards(origin: Point2<f32>, target: Point2<f32>) -> UnitComplex<f
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct LineSegment(pub Point2<f32>, pub Point2<f32>);
 
-impl approx::AbsDiffEq for LineSegment {
+impl AbsDiffEq for LineSegment {
     type Epsilon = f32;
 
     fn default_epsilon() -> Self::Epsilon {
@@ -43,7 +45,7 @@ impl approx::AbsDiffEq for LineSegment {
     }
 }
 
-impl approx::RelativeEq for LineSegment {
+impl RelativeEq for LineSegment {
     fn default_max_relative() -> f32 {
         f32::default_max_relative()
     }
@@ -194,15 +196,34 @@ impl LineSegment {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct CircleTangents {
-    #[leaf]
-    pub inner: Option<(LineSegment, LineSegment)>,
-    #[leaf]
-    pub outer: (LineSegment, LineSegment),
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct TwoLineSegments(LineSegment, LineSegment);
+
+impl SerializeHierarchy for TwoLineSegments {
+    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
+        bail!("cannot access TwoLineSegments with path: {}", field_path)
+    }
+
+    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> Result<()> {
+        bail!("cannot access TwoLineSegments with path: {}", field_path)
+    }
+
+    fn exists(_field_path: &str) -> bool {
+        true
+    }
+
+    fn get_hierarchy() -> HierarchyType {
+        HierarchyType::GenericStruct
+    }
 }
 
-impl approx::AbsDiffEq for CircleTangents {
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct CircleTangents {
+    pub inner: Option<TwoLineSegments>,
+    pub outer: TwoLineSegments,
+}
+
+impl AbsDiffEq for CircleTangents {
     type Epsilon = f32;
 
     fn default_epsilon() -> Self::Epsilon {
@@ -226,7 +247,7 @@ impl approx::AbsDiffEq for CircleTangents {
     }
 }
 
-impl approx::RelativeEq for CircleTangents {
+impl RelativeEq for CircleTangents {
     fn default_max_relative() -> f32 {
         f32::default_max_relative()
     }
@@ -407,7 +428,7 @@ impl Circle {
         (angle_start_to_obstacle < angle_start_to_end) ^ (orientation == Orientation::Clockwise)
     }
 
-    pub fn tangents_with_point(&self, other: Point2<f32>) -> Option<(LineSegment, LineSegment)> {
+    pub fn tangents_with_point(&self, other: Point2<f32>) -> Option<TwoLineSegments> {
         let delta_to_point = self.center - other;
         if delta_to_point.norm_squared() <= self.radius.powi(2) {
             return None;
@@ -416,7 +437,7 @@ impl Circle {
         let relative_tangent_angle = (self.radius / delta_to_point.norm()).asin();
         let angle_to_point = delta_to_point.y.atan2(delta_to_point.x);
 
-        Some((
+        Some(TwoLineSegments(
             LineSegment(
                 self.center
                     + self.radius
@@ -438,7 +459,7 @@ impl Circle {
         ))
     }
 
-    fn interior_tangents_with_circle(&self, other: Circle) -> Option<(LineSegment, LineSegment)> {
+    fn interior_tangents_with_circle(&self, other: Circle) -> Option<TwoLineSegments> {
         let flip = other.radius > self.radius;
         let small_circle = if flip { self } else { &other };
         let large_circle = if flip { &other } else { self };
@@ -451,12 +472,12 @@ impl Circle {
         if let Some(reduced_tangents) = reduced_circle.tangents_with_point(small_circle.center) {
             let shift1 = (reduced_tangents.0 .0 - large_circle.center) * radius_change_ratio;
             let shift2 = (reduced_tangents.1 .0 - large_circle.center) * radius_change_ratio;
-            let tangents = (
+            let tangents = TwoLineSegments(
                 LineSegment(reduced_tangents.0 .0 - shift1, small_circle.center - shift1),
                 LineSegment(reduced_tangents.1 .0 - shift2, small_circle.center - shift2),
             );
             if flip {
-                return Some((tangents.0.flip(), tangents.1.flip()));
+                return Some(TwoLineSegments(tangents.0.flip(), tangents.1.flip()));
             }
             return Some(tangents);
         }
@@ -464,7 +485,7 @@ impl Circle {
         None
     }
 
-    fn exterior_tangents_with_circle(&self, other: Circle) -> Option<(LineSegment, LineSegment)> {
+    fn exterior_tangents_with_circle(&self, other: Circle) -> Option<TwoLineSegments> {
         let flip = other.radius > self.radius;
         let small_circle = if flip { self } else { &other };
         let large_circle = if flip { &other } else { self };
@@ -477,12 +498,12 @@ impl Circle {
         if let Some(reduced_tangents) = reduced_circle.tangents_with_point(small_circle.center) {
             let shift1 = (reduced_tangents.0 .0 - large_circle.center) * radius_change_ratio;
             let shift2 = (reduced_tangents.1 .0 - large_circle.center) * radius_change_ratio;
-            let tangents = (
+            let tangents = TwoLineSegments(
                 LineSegment(reduced_tangents.0 .0 + shift1, small_circle.center + shift1),
                 LineSegment(reduced_tangents.1 .0 + shift2, small_circle.center + shift2),
             );
             if flip {
-                return Some((tangents.0.flip(), tangents.1.flip()));
+                return Some(TwoLineSegments(tangents.0.flip(), tangents.1.flip()));
             }
             return Some(tangents);
         }
@@ -735,11 +756,11 @@ mod tests {
         assert_relative_eq!(
             tangents,
             CircleTangents {
-                inner: Some((
+                inner: Some(TwoLineSegments(
                     LineSegment(point_left, point_right),
                     LineSegment(point_left, point_right)
                 )),
-                outer: (
+                outer: TwoLineSegments(
                     LineSegment(point_left, point_right),
                     LineSegment(point_left, point_right)
                 )
@@ -762,11 +783,11 @@ mod tests {
         assert_relative_eq!(
             tangents,
             CircleTangents {
-                inner: Some((
+                inner: Some(TwoLineSegments(
                     LineSegment(point![-0.5, 0.5], point_right),
                     LineSegment(point![-0.5, -0.5], point_right)
                 )),
-                outer: (
+                outer: TwoLineSegments(
                     LineSegment(point![-0.5, 0.5], point_right),
                     LineSegment(point![-0.5, -0.5], point_right)
                 )
@@ -799,7 +820,7 @@ mod tests {
             tangents,
             CircleTangents {
                 inner: None,
-                outer: (
+                outer: TwoLineSegments(
                     LineSegment(point![-0.5, 1.0], point![0.5, 1.0]),
                     LineSegment(point![-0.5, -1.0], point![0.5, -1.0]),
                 )
@@ -823,7 +844,7 @@ mod tests {
             tangents,
             CircleTangents {
                 inner: None,
-                outer: (
+                outer: TwoLineSegments(
                     LineSegment(point![-0.5, 1.0], point![0.5, 1.0]),
                     LineSegment(point![-0.5, -1.0], point![0.5, -1.0]),
                 )

@@ -10,16 +10,16 @@ pub fn process_enum(input: &DeriveInput, _data: &DataEnum) -> proc_macro::TokenS
             fn serialize_hierarchy(
                 &self,
                 field_path: &str
-            ) -> anyhow::Result<serialize_hierarchy::serde_json::Value> {
-                anyhow::bail!("Cannot access enum with path `{}`", field_path)
+            ) -> color_eyre::Result<serialize_hierarchy::serde_json::Value> {
+                color_eyre::eyre::bail!("Cannot access enum with path `{}`", field_path)
             }
 
             fn deserialize_hierarchy(
                 &mut self,
                 field_path: &str,
                 data: serialize_hierarchy::serde_json::Value
-            ) -> anyhow::Result<()> {
-                anyhow::bail!("Cannot access enum with path `{}`", field_path)
+            ) -> color_eyre::Result<()> {
+                color_eyre::eyre::bail!("Cannot access enum with path `{}`", field_path)
             }
 
             fn exists(field_path: &str) -> bool {

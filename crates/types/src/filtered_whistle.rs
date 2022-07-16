@@ -7,6 +7,5 @@ use serialize_hierarchy::SerializeHierarchy;
 pub struct FilteredWhistle {
     pub is_detected: bool,
     pub started_this_cycle: bool,
-    #[leaf]
     pub last_detection: Option<SystemTime>,
 }
