@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 
 use super::{Facing, FallDirection};
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub enum FallState {
     Upright,
     Falling { direction: FallDirection },

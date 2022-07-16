@@ -5,13 +5,11 @@ use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Clone, Debug, Default, Serialize, SerializeHierarchy, Deserialize)]
 pub struct MotionSelection {
-    #[leaf]
     pub current_motion: MotionType,
-    #[leaf]
     pub dispatching_motion: Option<MotionType>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub enum MotionType {
     ArmsUpSquat,
     Dispatching,

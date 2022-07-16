@@ -38,7 +38,6 @@ mod walk_state;
 /// report from 2014 (<http://cgi.cse.unsw.edu.au/~robocup/2014ChampionTeamPaperReports/20140930-Bernhard.Hengst-Walk2014Report.pdf>).
 #[derive(Default, Debug, Clone, SerializeHierarchy, Serialize, Deserialize)]
 pub struct WalkingEngine {
-    #[leaf]
     walk_state: WalkState,
 
     /// the step request from planning the engine is currently executing
@@ -77,12 +76,9 @@ pub struct WalkingEngine {
     /// The duration the currently executed step is planned to take
     step_duration: Duration,
     /// Fix the side of the swing foot for an entire walk phase
-    #[leaf]
     swing_side: Side,
-    #[leaf]
     /// Low pass filter the gyro for balance adjustment
     filtered_gyro_y: LowPassFilter<f32>,
-    #[leaf]
     /// Low pass filter the robot tilt for step adjustments
     filtered_robot_tilt_shift: LowPassFilter<f32>,
     /// Foot offsets for the left foot the walking engine interpolation generated for the last cycle
@@ -94,10 +90,8 @@ pub struct WalkingEngine {
     /// step adjustment for the right foot of the last cycle
     last_right_level_adjustment: f32,
     /// motion of the left arm currently executed
-    #[leaf]
     left_arm: SwingingArm,
     /// motion of the right arm currently executed
-    #[leaf]
     right_arm: SwingingArm,
     /// counting steps that exceeded a timeout
     number_of_timeouted_steps: usize,

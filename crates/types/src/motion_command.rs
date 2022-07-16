@@ -1,5 +1,6 @@
 use nalgebra::{Point2, UnitComplex};
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 
 use super::{PathSegment, Side};
 
@@ -9,7 +10,7 @@ pub enum OrientationMode {
     Override(UnitComplex<f32>),
 }
 
-#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub enum MotionCommand {
     ArmsUpSquat,
     FallProtection {
@@ -28,7 +29,6 @@ pub enum MotionCommand {
     StandUp {
         facing: Facing,
     },
-    #[default]
     Unstiff,
     Walk {
         head: HeadMotion,
@@ -61,7 +61,7 @@ impl MotionCommand {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, SerializeHierarchy)]
 pub enum HeadMotion {
     ZeroAngles,
     Center,
@@ -71,13 +71,13 @@ pub enum HeadMotion {
     Unstiff,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub enum ArmMotion {
     Swing,
     PullTight,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub enum KickDirection {
     Back,
     Front,
@@ -85,26 +85,26 @@ pub enum KickDirection {
     Right,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub enum KickVariant {
     Forward,
     Turn,
     Side,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub enum Facing {
     Down,
     Up,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub enum SitDirection {
     Down,
     Up,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub enum FallDirection {
     Backward,
     Forward,
@@ -112,7 +112,7 @@ pub enum FallDirection {
     Right,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub enum JumpDirection {
     Left,
     Right,

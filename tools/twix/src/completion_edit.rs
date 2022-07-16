@@ -249,6 +249,7 @@ fn extend_from_hierarchy(buffer: &mut Vec<String>, prefix: String, hierarchy: Hi
             }
         }
         HierarchyType::GenericStruct => buffer.push(prefix),
+        HierarchyType::GenericEnum => buffer.push(prefix),
         HierarchyType::Option { nested } => extend_from_hierarchy(buffer, prefix, *nested),
         HierarchyType::Vec { nested } => extend_from_hierarchy(buffer, prefix, *nested),
     }

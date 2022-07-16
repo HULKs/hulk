@@ -3398,6 +3398,8 @@ dependencies = [
  "color-eyre",
  "nalgebra",
  "serde",
+ "serialize_hierarchy",
+ "serialize_hierarchy_derive",
 ]
 
 [[package]]

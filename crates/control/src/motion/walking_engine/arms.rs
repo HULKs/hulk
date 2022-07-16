@@ -1,19 +1,20 @@
 use std::{f32::consts::FRAC_PI_2, time::Duration};
 
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 use types::{
     configuration::SwingingArms, ArmJoints, ArmMotion, LinearInterpolator, MotionCommand, Side,
 };
 
 use super::foot_offsets::FootOffsets;
 
-#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct SwingingArm {
     side: Side,
     state: State,
 }
 
-#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize, SerializeHierarchy)]
 enum State {
     #[default]
     Swing,

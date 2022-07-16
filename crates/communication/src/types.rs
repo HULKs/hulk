@@ -90,6 +90,7 @@ pub enum HierarchyType {
         fields: BTreeMap<String, HierarchyType>,
     },
     GenericStruct,
+    GenericEnum,
     Option {
         nested: Box<HierarchyType>,
     },

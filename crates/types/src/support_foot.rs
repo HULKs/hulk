@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub enum Side {
     Left,
     Right,
@@ -24,7 +24,6 @@ impl Default for Side {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct SupportFoot {
-    #[leaf]
     pub support_side: Option<Side>,
     pub changed_this_cycle: bool,
 }
