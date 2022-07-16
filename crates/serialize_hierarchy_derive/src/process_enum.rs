@@ -7,11 +7,11 @@ pub fn process_enum(input: &DeriveInput, _data: &DataEnum) -> proc_macro::TokenS
 
     let expanded = quote! {
         impl #impl_generics serialize_hierarchy::SerializeHierarchy for #name #ty_generics #where_clause {
-            fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<serde_json::Value> {
+            fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<serialize_hierarchy::serde_json::Value> {
                 anyhow::bail!("Cannot access enum with path `{}`", field_path)
             }
 
-            fn deserialize_hierarchy(&mut self, field_path: &str, data: serde_json::Value) -> anyhow::Result<()> {
+            fn deserialize_hierarchy(&mut self, field_path: &str, data: serialize_hierarchy::serde_json::Value) -> anyhow::Result<()> {
                 anyhow::bail!("Cannot access enum with path `{}`", field_path)
             }
 

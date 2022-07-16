@@ -8,6 +8,7 @@ use std::{
 use color_eyre::{eyre::bail, Result};
 use nalgebra::{Isometry2, Isometry3, Point2, Point3, SMatrix, Vector2, Vector3, Vector4};
 use serde::Serialize;
+pub use serde_json;
 use serde_json::Value;
 pub use serialize_hierarchy_derive::SerializeHierarchy;
 

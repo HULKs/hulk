@@ -15,7 +15,7 @@ pub fn process_struct(input: &DeriveInput, data: &DataStruct) -> proc_macro::Tok
 
     let expanded = quote! {
         impl #impl_generics serialize_hierarchy::SerializeHierarchy for #name #ty_generics #where_clause {
-            fn serialize_hierarchy(&self, field_path: &str) -> color_eyre::eyre::Result<serde_json::Value> {
+            fn serialize_hierarchy(&self, field_path: &str) -> color_eyre::eyre::Result<serialize_hierarchy::serde_json::Value> {
                 use color_eyre::eyre::WrapErr;
                 let split = field_path.split_once(".");
                 match split {
@@ -30,7 +30,7 @@ pub fn process_struct(input: &DeriveInput, data: &DataStruct) -> proc_macro::Tok
                 }
             }
 
-            fn deserialize_hierarchy(&mut self, field_path: &str, data: serde_json::Value) -> color_eyre::eyre::Result<()> {
+            fn deserialize_hierarchy(&mut self, field_path: &str, data: serialize_hierarchy::serde_json::Value) -> color_eyre::eyre::Result<()> {
                 use color_eyre::eyre::WrapErr;
                 let split = field_path.split_once(".");
                 match split {
@@ -87,7 +87,7 @@ fn generate_serde_serialization(fields: &Fields) -> Vec<TokenStream> {
             let pattern = name.to_string();
             let error_message = format!("failed to serialize field `{name}`");
             Some(quote! {
-                #pattern => serde_json::to_value(&self.#name).wrap_err(#error_message)
+                #pattern => serialize_hierarchy::serde_json::to_value(&self.#name).wrap_err(#error_message)
             })
         })
         .collect()
@@ -141,7 +141,7 @@ fn generate_serde_deserialization(fields: &Fields) -> Vec<TokenStream> {
             let error_message = format!("failed to deserialize field `{name}`");
             Some(quote! {
                 #pattern => {
-                    self.#name = serde_json::from_value(data).wrap_err(#error_message)?;
+                    self.#name = serialize_hierarchy::serde_json::from_value(data).wrap_err(#error_message)?;
                     Ok(())
                 }
             })
