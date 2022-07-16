@@ -15,7 +15,10 @@ pub fn process_struct(input: &DeriveInput, data: &DataStruct) -> proc_macro::Tok
 
     let expanded = quote! {
         impl #impl_generics serialize_hierarchy::SerializeHierarchy for #name #ty_generics #where_clause {
-            fn serialize_hierarchy(&self, field_path: &str) -> color_eyre::eyre::Result<serialize_hierarchy::serde_json::Value> {
+            fn serialize_hierarchy(
+                &self,
+                field_path: &str,
+            ) -> color_eyre::eyre::Result<serialize_hierarchy::serde_json::Value> {
                 use color_eyre::eyre::WrapErr;
                 let split = field_path.split_once(".");
                 match split {
@@ -30,7 +33,11 @@ pub fn process_struct(input: &DeriveInput, data: &DataStruct) -> proc_macro::Tok
                 }
             }
 
-            fn deserialize_hierarchy(&mut self, field_path: &str, data: serialize_hierarchy::serde_json::Value) -> color_eyre::eyre::Result<()> {
+            fn deserialize_hierarchy(
+                &mut self,
+                field_path: &str,
+                data: serialize_hierarchy::serde_json::Value,
+            ) -> color_eyre::eyre::Result<()> {
                 use color_eyre::eyre::WrapErr;
                 let split = field_path.split_once(".");
                 match split {
