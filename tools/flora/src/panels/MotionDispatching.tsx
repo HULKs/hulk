@@ -4,9 +4,9 @@ import "./MotionDispatching.css";
 
 enum MotionType {
   DoNotInject = "DoNotInject",
+  ArmsUpSquat = "ArmsUpSquat",
   FallProtection = "FallProtection",
   Jump = "Jump",
-  Kick = "Kick",
   Penalized = "Penalized",
   Sit = "Sit",
   Stand = "Stand",
@@ -28,6 +28,12 @@ enum StandUpFacing {
   Up = "Up",
 }
 
+enum JumpDirection {
+  Left = "Left",
+  Squat = "Squat",
+  Right = "Right",
+}
+
 export default function MotionDispatching({
   selector,
   connector,
@@ -46,6 +52,9 @@ export default function MotionDispatching({
   const [standUpFacing, setStandUpFacing] = useState(
     StandUpFacing.Up
   );
+  const [jumpDirection, setJumpDirection] = useState(
+    JumpDirection.Left
+  );
   useEffect(() => {
     if (connection === null) {
       return;
@@ -55,6 +64,16 @@ export default function MotionDispatching({
         connection.updateParameter(
           "control.behavior.injected_motion_command",
           null,
+          () => {},
+          (error) => {
+            alert(`Error: ${error}`);
+          }
+        );
+        break;
+      case MotionType.ArmsUpSquat:
+        connection.updateParameter(
+          "control.behavior.injected_motion_command",
+          "ArmsUpSquat",
           () => {},
           (error) => {
             alert(`Error: ${error}`);
@@ -72,10 +91,14 @@ export default function MotionDispatching({
         );
         break;
       case MotionType.Jump:
-        alert("Not implemented");
-        break;
-      case MotionType.Kick:
-        alert("Not implemented");
+        connection.updateParameter(
+          "control.behavior.injected_motion_command",
+          { Jump: { direction: jumpDirection } },
+          () => {},
+          (error) => {
+            alert(`Error: ${error}`);
+          }
+        );
         break;
       case MotionType.Penalized:
         connection.updateParameter(
@@ -165,7 +188,7 @@ export default function MotionDispatching({
         );
         break;
     }
-  }, [connection, motionType, standHeadMotionType, standUpFacing]);
+  }, [connection, motionType, standHeadMotionType, standUpFacing, jumpDirection]);
   useEffect(() => {
     if (connection === null) {
       return;
@@ -220,6 +243,17 @@ export default function MotionDispatching({
           </div>
           <div className="motionType">
             <input
+              id="motionTypeArmsUpSquat"
+              type="radio"
+              checked={motionType === MotionType.ArmsUpSquat}
+              onChange={() => {
+                setMotionType(MotionType.ArmsUpSquat);
+              }}
+            />
+            <label htmlFor="motionTypeArmsUpSquat">ArmsUpSquat</label>
+          </div>
+          <div className="motionType">
+            <input
               id="motionTypeFallProtection"
               type="radio"
               checked={motionType === MotionType.FallProtection}
@@ -239,17 +273,16 @@ export default function MotionDispatching({
               }}
             />
             <label htmlFor="motionTypeJump">Jump</label>
-          </div>
-          <div className="motionType">
-            <input
-              id="motionTypeKick"
-              type="radio"
-              checked={motionType === MotionType.Kick}
-              onChange={() => {
-                setMotionType(MotionType.Kick);
-              }}
-            />
-            <label htmlFor="motionTypeKick">Kick</label>
+            <select
+              value={jumpDirection}
+              onChange={(event) =>
+                setJumpDirection(event.target.value as JumpDirection)
+              }
+            >
+              <option value={JumpDirection.Left}>Left</option>
+              <option value={JumpDirection.Squat}>Squat</option>
+              <option value={JumpDirection.Right}>Right</option>
+            </select>
           </div>
           <div className="motionType">
             <input

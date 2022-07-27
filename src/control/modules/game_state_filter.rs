@@ -77,7 +77,10 @@ impl State {
             State::WhistleInPlaying { .. } => FilteredGameState::Ready {
                 kicking_team: Team::Uncertain,
             },
-            State::Finished => FilteredGameState::Finished,
+            State::Finished => match game_controller_state.game_phase {
+                spl_network::GamePhase::PenaltyShootout { .. } => FilteredGameState::Set,
+                _ => FilteredGameState::Finished,
+            },
         }
     }
 }

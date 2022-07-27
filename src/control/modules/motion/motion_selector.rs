@@ -1,5 +1,5 @@
 use module_derive::{module, require_some};
-use types::{Facing, MotionCommand, MotionSafeExits, MotionSelection, MotionType};
+use types::{Facing, JumpDirection, MotionCommand, MotionSafeExits, MotionSelection, MotionType};
 
 pub struct MotionSelector {
     current_motion: MotionType,
@@ -47,9 +47,12 @@ impl MotionSelector {
 
 fn motion_type_from_command(command: &MotionCommand) -> MotionType {
     match command {
+        MotionCommand::ArmsUpSquat => MotionType::ArmsUpSquat,
         MotionCommand::FallProtection { .. } => MotionType::FallProtection,
-        MotionCommand::Jump { .. } => MotionType::Jump,
-        MotionCommand::Kick { .. } => MotionType::Kick,
+        MotionCommand::Jump { direction } => match direction {
+            JumpDirection::Left => MotionType::JumpLeft,
+            JumpDirection::Right => MotionType::JumpRight,
+        },
         MotionCommand::Penalized => MotionType::Penalized,
         MotionCommand::SitDown { .. } => MotionType::SitDown,
         MotionCommand::Stand { .. } => MotionType::Stand,

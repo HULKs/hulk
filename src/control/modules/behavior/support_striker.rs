@@ -8,17 +8,18 @@ use types::{
 
 use crate::framework::{configuration::RolePositions, AdditionalOutput};
 
-use super::{head::look_for_ball, walk_to_pose::WalkAndStand};
+use super::{head::LookAction, walk_to_pose::WalkAndStand};
 
 pub fn execute(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositions,
     walk_and_stand: &WalkAndStand,
+    look_action: &LookAction,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
 ) -> Option<MotionCommand> {
     let pose = support_striker_pose(world_state, field_dimensions, role_positions)?;
-    walk_and_stand.execute(pose, look_for_ball(world_state.ball), path_obstacles_output)
+    walk_and_stand.execute(pose, look_action.execute(), path_obstacles_output)
 }
 
 fn support_striker_pose(
@@ -32,6 +33,7 @@ fn support_striker_pose(
         .map(|ball| BallState {
             position: robot_to_field * ball.position,
             field_side: ball.field_side,
+            penalty_shot_direction: Default::default(),
         })
         .unwrap_or_default();
     let side = ball.field_side.opposite();

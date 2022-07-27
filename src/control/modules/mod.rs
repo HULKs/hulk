@@ -16,6 +16,7 @@ pub mod motion;
 pub mod obstacle_filter;
 pub mod odometry;
 pub mod orientation_filter;
+pub mod penalty_shot_direction_estimation;
 pub mod primary_state_filter;
 pub mod role_assignment;
 pub mod sole_pressure_filter;

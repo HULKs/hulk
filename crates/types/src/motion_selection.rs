@@ -13,10 +13,11 @@ pub struct MotionSelection {
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 pub enum MotionType {
+    ArmsUpSquat,
     Dispatching,
     FallProtection,
-    Jump,
-    Kick,
+    JumpLeft,
+    JumpRight,
     Penalized,
     SitDown,
     Stand,
@@ -34,10 +35,11 @@ impl Default for MotionType {
 
 #[derive(Clone, Debug)]
 pub struct MotionSafeExits {
+    arms_up_squat: bool,
     dispatching: bool,
     fall_protection: bool,
-    jump: bool,
-    kick: bool,
+    jump_left: bool,
+    jump_right: bool,
     penalized: bool,
     sit_down: bool,
     stand_up_back: bool,
@@ -50,10 +52,11 @@ pub struct MotionSafeExits {
 impl Default for MotionSafeExits {
     fn default() -> Self {
         Self {
+            arms_up_squat: true,
             dispatching: false,
             fall_protection: true,
-            jump: false,
-            kick: false,
+            jump_left: false,
+            jump_right: false,
             penalized: true,
             sit_down: false,
             stand_up_back: false,
@@ -70,10 +73,11 @@ impl Index<MotionType> for MotionSafeExits {
 
     fn index(&self, motion_type: MotionType) -> &Self::Output {
         match motion_type {
+            MotionType::ArmsUpSquat => &self.arms_up_squat,
             MotionType::Dispatching => &self.dispatching,
+            MotionType::JumpLeft => &self.jump_left,
+            MotionType::JumpRight => &self.jump_right,
             MotionType::FallProtection => &self.fall_protection,
-            MotionType::Jump => &self.jump,
-            MotionType::Kick => &self.kick,
             MotionType::Penalized => &self.penalized,
             MotionType::SitDown => &self.sit_down,
             MotionType::Stand => &self.stand,
@@ -88,10 +92,11 @@ impl Index<MotionType> for MotionSafeExits {
 impl IndexMut<MotionType> for MotionSafeExits {
     fn index_mut(&mut self, motion_type: MotionType) -> &mut Self::Output {
         match motion_type {
+            MotionType::ArmsUpSquat => &mut self.arms_up_squat,
             MotionType::Dispatching => &mut self.dispatching,
+            MotionType::JumpLeft => &mut self.jump_left,
+            MotionType::JumpRight => &mut self.jump_right,
             MotionType::FallProtection => &mut self.fall_protection,
-            MotionType::Jump => &mut self.jump,
-            MotionType::Kick => &mut self.kick,
             MotionType::Penalized => &mut self.penalized,
             MotionType::SitDown => &mut self.sit_down,
             MotionType::Stand => &mut self.stand,

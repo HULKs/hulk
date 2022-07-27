@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum PrimaryState {
+    #[default]
     Unstiff,
     Initial,
     Ready,
@@ -10,10 +11,4 @@ pub enum PrimaryState {
     Penalized,
     Finished,
     Calibration,
-}
-
-impl Default for PrimaryState {
-    fn default() -> Self {
-        PrimaryState::Unstiff
-    }
 }

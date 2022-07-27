@@ -14,6 +14,13 @@ pub struct HeadJoints {
 }
 
 impl HeadJoints {
+    pub fn mirrored(self) -> Self {
+        Self {
+            yaw: -self.yaw,
+            pitch: self.pitch,
+        }
+    }
+
     pub fn fill(value: f32) -> Self {
         Self {
             yaw: value,
@@ -64,6 +71,17 @@ pub struct ArmJoints {
 }
 
 impl ArmJoints {
+    pub fn mirrored(self) -> Self {
+        Self {
+            shoulder_pitch: self.shoulder_pitch,
+            shoulder_roll: -self.shoulder_roll,
+            elbow_yaw: -self.elbow_yaw,
+            elbow_roll: -self.elbow_roll,
+            wrist_yaw: -self.wrist_yaw,
+            hand: self.hand,
+        }
+    }
+
     pub fn fill(value: f32) -> Self {
         Self {
             shoulder_pitch: value,
@@ -72,14 +90,6 @@ impl ArmJoints {
             elbow_roll: value,
             wrist_yaw: value,
             hand: value,
-        }
-    }
-
-    pub fn mirrored(&self) -> Self {
-        Self {
-            shoulder_roll: -self.shoulder_roll,
-            elbow_yaw: -self.elbow_yaw,
-            ..*self
         }
     }
 }
@@ -125,6 +135,17 @@ pub struct LegJoints {
 }
 
 impl LegJoints {
+    pub fn mirrored(self) -> Self {
+        Self {
+            hip_yaw_pitch: self.hip_yaw_pitch,
+            hip_roll: -self.hip_roll,
+            hip_pitch: self.hip_pitch,
+            knee_pitch: self.knee_pitch,
+            ankle_pitch: self.ankle_pitch,
+            ankle_roll: -self.ankle_roll,
+        }
+    }
+
     pub fn fill(value: f32) -> Self {
         Self {
             hip_yaw_pitch: value,
@@ -277,6 +298,16 @@ pub struct Joints {
 }
 
 impl Joints {
+    pub fn mirrored(self) -> Self {
+        Self {
+            head: self.head.mirrored(),
+            left_arm: self.right_arm.mirrored(),
+            right_arm: self.left_arm.mirrored(),
+            left_leg: self.right_leg.mirrored(),
+            right_leg: self.left_leg.mirrored(),
+        }
+    }
+
     pub fn from_angles(angles: [f32; 26]) -> Self {
         Self {
             head: HeadJoints {

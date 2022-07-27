@@ -3,10 +3,10 @@ use module_derive::module;
 use anyhow::Result;
 use nalgebra::{Isometry2, Point2};
 
-use spl_network::PlayerNumber;
+use spl_network::{GamePhase, PlayerNumber};
 use types::{
     BallPosition, BallState, FallState, FilteredGameState, GameControllerState, Obstacle,
-    PrimaryState, RobotState, Role, Side, WorldState,
+    PenaltyShotDirection, PrimaryState, RobotState, Role, Side, WorldState,
 };
 
 use crate::control::filtering::greater_than_with_hysteresis;
@@ -22,6 +22,7 @@ pub struct WorldStateComposer {
 #[input(path = primary_state, data_type = PrimaryState, required)]
 #[input(path = ball_position, data_type = BallPosition)]
 #[input(path = filtered_game_state, data_type = FilteredGameState)]
+#[input(path = penalty_shot_direction, data_type = PenaltyShotDirection)]
 #[input(path = game_controller_state, data_type = GameControllerState)]
 #[input(path = robot_to_field, data_type = Isometry2<f32>)]
 #[input(path = role, data_type = Role, required)]
@@ -44,6 +45,10 @@ impl WorldStateComposer {
         let role = *context.role;
         let obstacles = context.obstacles;
         let game_controller_state = *context.game_controller_state;
+        let game_phase = match context.game_controller_state {
+            Some(game_controller_state) => game_controller_state.game_phase,
+            None => GamePhase::Normal,
+        };
 
         let ball = match (
             primary_state,
@@ -56,11 +61,13 @@ impl WorldStateComposer {
                 ball_position.position,
                 *robot_to_field,
                 &mut self.last_ball_field_side,
+                *context.penalty_shot_direction,
             )),
             (_, None, Some(ball_position), Some(robot_to_field)) => Some(create_ball_state(
                 robot_to_field.inverse() * ball_position.position,
                 Some(*robot_to_field),
                 &mut self.last_ball_field_side,
+                *context.penalty_shot_direction,
             )),
             _ => None,
         };
@@ -77,6 +84,7 @@ impl WorldStateComposer {
         let world_state = WorldState {
             ball,
             filtered_game_state: *context.filtered_game_state,
+            game_phase,
             obstacles: obstacles.clone(),
             robot,
             game_controller_state,
@@ -92,6 +100,7 @@ fn create_ball_state(
     position: Point2<f32>,
     robot_to_field: Option<Isometry2<f32>>,
     last_ball_field_side: &mut Side,
+    penalty_shot_direction: Option<PenaltyShotDirection>,
 ) -> BallState {
     let was_in_left_half = *last_ball_field_side == Side::Left;
     let field_side = match robot_to_field {
@@ -112,5 +121,6 @@ fn create_ball_state(
     BallState {
         position,
         field_side,
+        penalty_shot_direction,
     }
 }

@@ -44,7 +44,6 @@ impl LookAt {
         };
 
         let head_motion = match motion_command {
-            MotionCommand::Kick { head, direction: _ } => head,
             MotionCommand::SitDown { head } => head,
             MotionCommand::Stand { head } => head,
             MotionCommand::Walk { head, .. } => head,

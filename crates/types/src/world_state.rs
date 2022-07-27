@@ -5,7 +5,10 @@ use spl_network::PlayerNumber;
 
 use crate::GameControllerState;
 
+use crate::PenaltyShotDirection;
+
 use super::{FallState, FilteredGameState, Obstacle, PrimaryState, Role, Side};
+use spl_network::GamePhase;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct WorldState {
@@ -14,6 +17,8 @@ pub struct WorldState {
     pub filtered_game_state: Option<FilteredGameState>,
     #[leaf]
     pub game_controller_state: Option<GameControllerState>,
+    #[leaf]
+    pub game_phase: GamePhase,
     pub obstacles: Vec<Obstacle>,
     pub robot: RobotState,
 }
@@ -22,6 +27,8 @@ pub struct WorldState {
 pub struct BallState {
     pub position: Point2<f32>,
     #[leaf]
+    pub penalty_shot_direction: Option<PenaltyShotDirection>,
+    #[leaf]
     pub field_side: Side,
 }
 
@@ -29,6 +36,7 @@ impl Default for BallState {
     fn default() -> Self {
         Self {
             position: Point2::origin(),
+            penalty_shot_direction: Default::default(),
             field_side: Side::Left,
         }
     }

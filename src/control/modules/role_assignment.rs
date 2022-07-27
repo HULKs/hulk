@@ -277,6 +277,18 @@ fn process_role_state_machine(
     player_number: PlayerNumber,
     striker_trusts_team_ball: Duration,
 ) -> (Role, bool, Option<BallPosition>) {
+    if let Some(game_controller_state) = game_controller_state {
+        match game_controller_state.game_phase {
+            spl_network::GamePhase::PenaltyShootout {
+                kicking_team: spl_network::Team::Hulks,
+            } => return (Role::Striker, false, None),
+            spl_network::GamePhase::PenaltyShootout {
+                kicking_team: spl_network::Team::Opponent,
+            } => return (Role::Keeper, false, None),
+            _ => {}
+        }
+    }
+
     if primary_state != PrimaryState::Playing {
         match detected_own_ball {
             None => return (current_role, false, team_ball),

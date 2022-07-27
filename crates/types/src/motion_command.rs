@@ -11,15 +11,12 @@ pub enum OrientationMode {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MotionCommand {
+    ArmsUpSquat,
     FallProtection {
         direction: FallDirection,
     },
     Jump {
         direction: JumpDirection,
-    },
-    Kick {
-        head: HeadMotion,
-        direction: KickDirection,
     },
     Penalized,
     SitDown {
@@ -55,10 +52,10 @@ impl MotionCommand {
             | MotionCommand::InWalkKick { head, .. } => Some(*head),
             MotionCommand::Penalized => Some(HeadMotion::ZeroAngles),
             MotionCommand::Unstiff => Some(HeadMotion::Unstiff),
-            MotionCommand::FallProtection { .. }
+            MotionCommand::ArmsUpSquat
+            | MotionCommand::FallProtection { .. }
             | MotionCommand::Jump { .. }
-            | MotionCommand::StandUp { .. }
-            | MotionCommand::Kick { .. } => None,
+            | MotionCommand::StandUp { .. } => None,
         }
     }
 }
@@ -117,6 +114,5 @@ pub enum FallDirection {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum JumpDirection {
     Left,
-    Squat,
     Right,
 }

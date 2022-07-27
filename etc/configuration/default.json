@@ -541,6 +541,9 @@
         "ankle_roll": 0.0
       }
     },
+    "penalty_shot_direction_estimation": {
+      "moving_distance_threshold": 0.2
+    },
     "head_motion_limits": {
       "maximum_yaw": 2.076941809873252,
       "maximum_pitch_at_center": 0.4886921905584123,
@@ -657,6 +660,10 @@
       "search": {
         "position_reached_distance": 0.4,
         "rotation_per_step": 0.35
+      },
+      "look_action": {
+        "angle_threshold": 0.95,
+        "distance_threshold": 3.0
       }
     },
     "game_state_filter": {

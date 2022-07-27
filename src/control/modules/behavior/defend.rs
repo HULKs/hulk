@@ -1,19 +1,21 @@
 use std::ops::Range;
 
 use nalgebra::{distance, point, Isometry2, Point2};
+use spl_network::Team;
 use types::{
     rotate_towards, BallState, FieldDimensions, Line, MotionCommand, PathObstacle, Side, WorldState,
 };
 
 use crate::framework::{configuration::RolePositions, AdditionalOutput};
 
-use super::{head::look_for_ball, walk_to_pose::WalkAndStand};
+use super::{head::LookAction, walk_to_pose::WalkAndStand};
 
 pub struct Defend<'cycle> {
     world_state: &'cycle WorldState,
     field_dimensions: &'cycle FieldDimensions,
     role_positions: &'cycle RolePositions,
     walk_and_stand: &'cycle WalkAndStand<'cycle>,
+    look_action: &'cycle LookAction<'cycle>,
 }
 
 impl<'cycle> Defend<'cycle> {
@@ -22,12 +24,14 @@ impl<'cycle> Defend<'cycle> {
         field_dimensions: &'cycle FieldDimensions,
         role_positions: &'cycle RolePositions,
         walk_and_stand: &'cycle WalkAndStand,
+        look_action: &'cycle LookAction,
     ) -> Self {
         Self {
             world_state,
             field_dimensions,
             role_positions,
             walk_and_stand,
+            look_action,
         }
     }
 
@@ -36,11 +40,8 @@ impl<'cycle> Defend<'cycle> {
         pose: Isometry2<f32>,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     ) -> Option<MotionCommand> {
-        self.walk_and_stand.execute(
-            pose,
-            look_for_ball(self.world_state.ball),
-            path_obstacles_output,
-        )
+        self.walk_and_stand
+            .execute(pose, self.look_action.execute(), path_obstacles_output)
     }
 
     pub fn left(
@@ -88,6 +89,7 @@ fn defend_left_pose(
         .map(|ball| BallState {
             position: robot_to_field * ball.position,
             field_side: ball.field_side,
+            penalty_shot_direction: Default::default(),
         })
         .unwrap_or_default();
 
@@ -116,6 +118,7 @@ fn defend_right_pose(
         .map(|ball| BallState {
             position: robot_to_field * ball.position,
             field_side: ball.field_side,
+            penalty_shot_direction: Default::default(),
         })
         .unwrap_or_default();
 
@@ -144,14 +147,22 @@ fn defend_goal_pose(
         .map(|ball| BallState {
             position: robot_to_field * ball.position,
             field_side: ball.field_side,
+            penalty_shot_direction: Default::default(),
         })
         .unwrap_or_default();
+
+    let keeper_x_offset = match world_state.game_phase {
+        spl_network::GamePhase::PenaltyShootout {
+            kicking_team: Team::Opponent,
+        } => 0.0,
+        _ => role_positions.keeper_x_offset,
+    };
 
     let position_to_defend = point![-field_dimensions.length / 2.0 - 1.0, 0.0];
     let defend_pose = block_on_line(
         ball.position,
         position_to_defend,
-        -field_dimensions.length / 2.0 + role_positions.keeper_x_offset,
+        -field_dimensions.length / 2.0 + keeper_x_offset,
         -0.7..0.7,
     );
     Some(robot_to_field.inverse() * defend_pose)

@@ -1,10 +1,10 @@
 use anyhow::Result;
-use module_derive::{module, require_some};
+use module_derive::module;
 use nalgebra::{point, Point2};
-use spl_network::Team;
+use spl_network::{GamePhase, Team};
 use types::{
-    FieldDimensions, FilteredGameState, KickDecision, MotionCommand, PathObstacle, Role,
-    SensorData, WorldState,
+    CameraMatrices, FieldDimensions, FilteredGameState, KickDecision, MotionCommand, PathObstacle,
+    ProjectedLimbs, Role, WorldState,
 };
 
 use crate::framework::configuration;
@@ -12,7 +12,9 @@ use crate::framework::configuration;
 use super::{
     action::Action,
     defend::Defend,
-    dribble, fall_safely, lost_ball, penalize, search, sit_down, stand, stand_up, support_striker,
+    dribble, fall_safely,
+    head::LookAction,
+    jump, lost_ball, penalize, prepare_jump, search, sit_down, stand, stand_up, support_striker,
     unstiff, walk_to_kick_off,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
@@ -23,8 +25,9 @@ pub struct Behavior {
 }
 
 #[module(control)]
-#[input(path = world_state, data_type = WorldState)]
-#[input(path = sensor_data, data_type = SensorData)]
+#[input(path = world_state, data_type = WorldState, required)]
+#[input(path = camera_matrices, data_type = CameraMatrices)]
+#[input(path = projected_limbs, data_type = ProjectedLimbs)]
 #[parameter(path = control.behavior, data_type = configuration::Behavior)]
 #[parameter(path = field_dimensions, data_type = FieldDimensions)]
 #[parameter(path = control.behavior.lost_ball, data_type=configuration::LostBall, name=lost_ball_parameters)]
@@ -43,7 +46,7 @@ impl Behavior {
     }
 
     fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let world_state = require_some!(context.world_state);
+        let world_state = context.world_state;
 
         if let Some(command) = &context.behavior.injected_motion_command {
             return Ok(MainOutputs {
@@ -69,7 +72,13 @@ impl Behavior {
         match world_state.robot.role {
             Role::DefenderLeft => actions.push(Action::DefendLeft),
             Role::DefenderRight => actions.push(Action::DefendRight),
-            Role::Keeper => actions.push(Action::DefendGoal),
+            Role::Keeper => match world_state.game_phase {
+                GamePhase::PenaltyShootout { .. } => {
+                    actions.push(Action::Jump);
+                    actions.push(Action::PrepareJump);
+                }
+                _ => actions.push(Action::DefendGoal),
+            },
             Role::Loser => actions.push(Action::SearchForLostBall),
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
             Role::Searcher => actions.push(Action::Search),
@@ -102,11 +111,17 @@ impl Behavior {
             &walk_path_planner,
             &self.last_motion_command,
         );
+        let look_action = LookAction::new(
+            world_state,
+            context.field_dimensions,
+            &context.behavior.look_action,
+        );
         let defend = Defend::new(
             world_state,
             context.field_dimensions,
             &context.behavior.role_positions,
             &walk_and_stand,
+            &look_action,
         );
 
         let motion_command = actions
@@ -117,6 +132,10 @@ impl Behavior {
                 Action::Penalize => penalize::execute(world_state),
                 Action::FallSafely => fall_safely::execute(world_state),
                 Action::StandUp => stand_up::execute(world_state),
+                Action::DefendGoal => defend.goal(&mut context.path_obstacles),
+                Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
+                Action::DefendLeft => defend.left(&mut context.path_obstacles),
+                Action::DefendRight => defend.right(&mut context.path_obstacles),
                 Action::Stand => stand::execute(world_state),
                 Action::Dribble => dribble::execute(
                     world_state,
@@ -127,13 +146,8 @@ impl Behavior {
                     &mut context.kick_targets,
                     &mut context.kick_decisions,
                 ),
-                Action::SearchForLostBall => lost_ball::execute(
-                    world_state,
-                    self.absolute_last_known_ball_position,
-                    &walk_path_planner,
-                    context.lost_ball_parameters,
-                    &mut context.path_obstacles,
-                ),
+                Action::Jump => jump::execute(world_state),
+                Action::PrepareJump => prepare_jump::execute(world_state),
                 Action::Search => search::execute(
                     world_state,
                     &walk_path_planner,
@@ -142,20 +156,25 @@ impl Behavior {
                     &context.behavior.search,
                     &mut context.path_obstacles,
                 ),
-                Action::DefendGoal => defend.goal(&mut context.path_obstacles),
-                Action::DefendLeft => defend.left(&mut context.path_obstacles),
-                Action::DefendRight => defend.right(&mut context.path_obstacles),
+                Action::SearchForLostBall => lost_ball::execute(
+                    world_state,
+                    self.absolute_last_known_ball_position,
+                    &walk_path_planner,
+                    context.lost_ball_parameters,
+                    &mut context.path_obstacles,
+                ),
                 Action::SupportStriker => support_striker::execute(
                     world_state,
                     context.field_dimensions,
                     &context.behavior.role_positions,
                     &walk_and_stand,
+                    &look_action,
                     &mut context.path_obstacles,
                 ),
-                Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
                 Action::WalkToKickOff => walk_to_kick_off::execute(
                     world_state,
                     &walk_and_stand,
+                    &look_action,
                     &mut context.path_obstacles,
                 ),
             })

@@ -6,9 +6,9 @@ use types::{
     BallPosition, BodyJointsCommand, Buttons, CameraMatrices, Circle, FallState, FilteredGameState,
     FilteredWhistle, GameControllerState, HeadJoints, HeadJointsCommand, Joints, JointsCommand,
     KickDecision, Leds, Line2, LocalizationUpdate, MotionCommand, MotionSafeExits, MotionSelection,
-    Obstacle, PathObstacle, PrimaryState, ProjectedFieldLines, ProjectedLimbs, RobotKinematics,
-    Role, SensorData, SolePressure, SonarObstacle, SonarValues, Step, SupportFoot, WalkCommand,
-    WorldState,
+    Obstacle, PathObstacle, PenaltyShotDirection, PrimaryState, ProjectedFieldLines,
+    ProjectedLimbs, RobotKinematics, Role, SensorData, SolePressure, SonarObstacle, SonarValues,
+    Step, SupportFoot, WalkCommand, WorldState,
 };
 
 use crate::spl_network::MessageReceivers;
@@ -23,13 +23,14 @@ use super::{
 
 #[derive(Clone, Debug, Default, Serialize, SerializeHierarchy)]
 pub struct MainOutputs {
+    pub arms_up_squat_joints_command: Option<JointsCommand>,
     pub accumulated_odometry: Option<Isometry2<f32>>,
     pub ball_position: Option<BallPosition>,
     pub buttons: Option<Buttons>,
     pub camera_matrices: Option<CameraMatrices>,
     pub center_of_mass: Option<Point3<f32>>,
     pub current_odometry_to_last_odometry: Option<Isometry2<f32>>,
-    pub dispatching_positions: Option<Joints>,
+    pub dispatching_command: Option<JointsCommand>,
     pub fall_protection_command: Option<JointsCommand>,
     #[leaf]
     pub fall_state: Option<FallState>,
@@ -42,6 +43,8 @@ pub struct MainOutputs {
     pub has_ground_contact: Option<bool>,
     pub look_around: Option<HeadJoints>,
     pub look_at: Option<HeadJoints>,
+    pub jump_left_joints_command: Option<JointsCommand>,
+    pub jump_right_joints_command: Option<JointsCommand>,
     pub positions: Option<Joints>,
     #[dont_serialize]
     #[serde(skip)]
@@ -52,6 +55,8 @@ pub struct MainOutputs {
     pub network_robot_obstacles: Option<Vec<Point2<f32>>>,
     pub obstacles: Option<Vec<Obstacle>>,
     pub odometry_offset: Option<Isometry2<f32>>,
+    #[leaf]
+    pub penalty_shot_direction: Option<PenaltyShotDirection>,
     #[leaf]
     pub primary_state: Option<PrimaryState>,
     pub robot_kinematics: Option<RobotKinematics>,

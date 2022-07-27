@@ -215,9 +215,9 @@ impl Robot {
             .as_ref()
             .ok_or_else(|| anyhow!("MotionCommand is None"))?;
         self.next_action = match motion_command {
+            MotionCommand::ArmsUpSquat => NextAction::DoNothing,
             MotionCommand::FallProtection { .. } => NextAction::DoNothing,
             MotionCommand::Jump { .. } => NextAction::DoNothing,
-            MotionCommand::Kick { .. } => NextAction::DoNothing,
             MotionCommand::Penalized => NextAction::DoNothing,
             MotionCommand::SitDown { .. } => NextAction::DoNothing,
             MotionCommand::Stand { head, .. } => {

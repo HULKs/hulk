@@ -56,6 +56,7 @@ pub struct Control {
     pub obstacle_filter: ObstacleFilter,
     pub orientation_filter: OrientationFilter,
     pub penalized_pose: Joints,
+    pub penalty_shot_direction_estimation: PenaltyShotDirectionEstimation,
     pub projected_limbs: ProjectedLimbs,
     pub ready_pose: Joints,
     pub role_assignment: RoleAssignment,
@@ -130,6 +131,13 @@ pub struct Behavior {
     pub role_positions: RolePositions,
     pub walk_and_stand: WalkAndStand,
     pub search: Search,
+    pub look_action: LookAction,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct LookAction {
+    pub angle_threshold: f32,
+    pub distance_threshold: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -551,4 +559,9 @@ pub struct RobotDetection {
     pub maximum_cluster_distance: f32,
     pub minimum_cluster_score: f32,
     pub minimum_consecutive_segments: usize,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct PenaltyShotDirectionEstimation {
+    pub moving_distance_threshold: f32,
 }

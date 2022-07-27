@@ -32,6 +32,7 @@ mod motion_command;
 mod motion_selection;
 mod obstacles;
 mod path_obstacles;
+mod penalty_shot_direction;
 mod perspective_grid_candidates;
 mod planned_path;
 mod players;
@@ -92,6 +93,7 @@ pub use motion_command::{
 pub use motion_selection::{MotionSafeExits, MotionSelection, MotionType};
 pub use obstacles::{Obstacle, ObstacleKind};
 pub use path_obstacles::{PathObstacle, PathObstacleShape};
+pub use penalty_shot_direction::PenaltyShotDirection;
 pub use perspective_grid_candidates::PerspectiveGridCandidates;
 pub use planned_path::{direct_path, PathSegment, PlannedPath};
 pub use players::Players;

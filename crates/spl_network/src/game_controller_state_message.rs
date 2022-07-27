@@ -109,7 +109,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
         Ok(GameControllerStateMessage {
-            game_phase: message.gamePhase.try_into()?,
+            game_phase: GamePhase::try_from(message.gamePhase, message.kickingTeam)?,
             game_state: GameState::try_from(message.state)?,
             set_play: SetPlay::try_from(message.setPlay)?,
             half: message.firstHalf.try_into()?,
@@ -138,21 +138,27 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub enum GamePhase {
+    #[default]
     Normal,
-    PenaltyShootout,
+    PenaltyShootout {
+        kicking_team: Team,
+    },
     Overtime,
     Timeout,
 }
 
-impl TryFrom<u8> for GamePhase {
-    type Error = anyhow::Error;
-
-    fn try_from(game_phase: u8) -> anyhow::Result<Self> {
+impl GamePhase {
+    fn try_from(game_phase: u8, kicking_team: u8) -> anyhow::Result<Self> {
+        let team = if kicking_team == HULKS_TEAM_NUMBER {
+            Team::Hulks
+        } else {
+            Team::Opponent
+        };
         match game_phase {
             GAME_PHASE_NORMAL => Ok(GamePhase::Normal),
-            GAME_PHASE_PENALTYSHOOT => Ok(GamePhase::PenaltyShootout),
+            GAME_PHASE_PENALTYSHOOT => Ok(GamePhase::PenaltyShootout { kicking_team: team }),
             GAME_PHASE_OVERTIME => Ok(GamePhase::Overtime),
             GAME_PHASE_TIMEOUT => Ok(GamePhase::Timeout),
             _ => bail!("Unexpected game phase"),
