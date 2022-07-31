@@ -4,16 +4,17 @@ use syn::{parse2, ItemImpl};
 use crate::Attribute;
 
 #[derive(Debug)]
-pub struct Module {}
+pub struct Module {
+    attributes: Vec<Attribute>,
+}
 
 impl Module {
-    pub fn from_implementation(implementation: ItemImpl) -> syn::Result<Self> {
-        println!("attributes: {:#?}", implementation.attrs);
-        let foo = implementation.attrs.first().unwrap().clone();
-        let foo = foo.to_token_stream();
-        println!("foo: {:#?}", foo);
-        let attribute: Attribute = parse2(foo)?;
-        println!("attribute: {:#?}", attribute);
-        Ok(Self {})
+    pub fn from_implementation(mut implementation: ItemImpl) -> syn::Result<Self> {
+        let attributes = implementation
+            .attrs
+            .into_iter()
+            .map(|attribute| parse2(attribute.to_token_stream()))
+            .collect::<Result<_, _>>()?;
+        Ok(Self { attributes })
     }
 }
