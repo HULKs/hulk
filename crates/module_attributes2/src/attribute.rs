@@ -1,10 +1,6 @@
 use syn::{Ident, TypePath};
 
 macro_rules! attribute_parser {
-    (@field $($field_name:ident: $field_type:ty),+) => {
-        $field_name: $field_type
-    };
-
     (@field_parsers $input_in_parentheses:ident $($field_name:ident: $field_type:ty),+) => {
         $(
             let attribute_parameter_name: syn::Ident = $input_in_parentheses.parse()?;
