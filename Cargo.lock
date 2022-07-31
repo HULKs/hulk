@@ -1792,6 +1792,7 @@ version = "0.1.0"
 dependencies = [
  "module_attributes2",
  "proc-macro2",
+ "quote",
  "syn",
 ]
 
