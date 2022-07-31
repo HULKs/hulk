@@ -1,4 +1,4 @@
-use syn::{Ident, TypePath};
+use syn::{Ident, Type, TypePath};
 
 macro_rules! attribute_parser {
     (@field_parsers $input_in_parentheses:ident $($field_name:ident: $field_type:ty),+) => {
@@ -60,7 +60,7 @@ attribute_parser! {
     pub enum Attribute {
         RealtimeModule { cycler_module: Ident },
         PerceptionModule { cycler_module: Ident },
-        PersistentState { data_type: TypePath, path: TypePath },
-        MainOutput { data_type: TypePath, name: TypePath }
+        PersistentState { data_type: Type, path: TypePath },
+        MainOutput { data_type: Type, name: TypePath }
     }
 }
