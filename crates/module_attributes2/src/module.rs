@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::mem::take;
 
 use convert_case::{Case, Casing};
@@ -6,6 +7,7 @@ use quote::quote;
 use quote::{format_ident, ToTokens};
 use syn::{parse2, spanned::Spanned, Error, Ident, ItemImpl, Type};
 
+use crate::attribute::Path;
 use crate::to_absolute::ToAbsolute;
 use crate::{Attribute, Uses};
 
@@ -63,6 +65,20 @@ impl Module {
                     let data_type = data_type.to_absolute(uses);
                     Some(quote! { #name: Option<#data_type> })
                 }
+                _ => None,
+            })
+            .collect()
+    }
+
+    pub fn generate_persistent_state_fields(&self, uses: &Uses) -> HashMap<Path, Type> {
+        self.attributes
+            .iter()
+            .filter_map(|attribute| match attribute {
+                Attribute::PersistentState {
+                    data_type,
+                    name: _,
+                    path,
+                } => Some((path.clone(), data_type.to_absolute(uses))),
                 _ => None,
             })
             .collect()
