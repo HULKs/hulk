@@ -8,8 +8,8 @@ use std::{
 use module_attributes2::{Attribute, Module};
 use quote::quote;
 use syn::{
-    parse_file, punctuated::Punctuated, Ident, Item, Path, PathArguments, PathSegment, ReturnType,
-    Type, TypeParamBound, UseTree,
+    parse_file, punctuated::Punctuated, GenericArgument, Ident, Item, Path, PathArguments,
+    PathSegment, ReturnType, Type, TypeParamBound, UseTree,
 };
 
 fn extract_uses(mut prefix: Vec<Ident>, tree: &UseTree) -> HashMap<Ident, Vec<Ident>> {
@@ -79,6 +79,38 @@ fn main() {
     }
 }
 
+fn to_absolute_path_argument(
+    relative_path_arguments: &PathArguments,
+    uses: &HashMap<Ident, Vec<Ident>>,
+) -> PathArguments {
+    let mut path_arguments = relative_path_arguments.clone();
+    match &mut path_arguments {
+        PathArguments::AngleBracketed(angle_bracketed) => {
+            for argument in angle_bracketed.args.iter_mut() {
+                match argument {
+                    GenericArgument::Lifetime(_) => {}
+                    GenericArgument::Type(argument_type) => {
+                        *argument_type = to_absolute_type(argument_type, uses);
+                    }
+                    GenericArgument::Binding(binding) => {
+                        binding.ty = to_absolute_type(&binding.ty, uses);
+                    }
+                    GenericArgument::Constraint(constraint) => {
+                        for bound in constraint.bounds.iter_mut() {
+                            if let TypeParamBound::Trait(trait_bound) = bound {
+                                trait_bound.path = to_absolute_path(&trait_bound.path, uses);
+                            }
+                        }
+                    }
+                    GenericArgument::Const(_) => {}
+                }
+            }
+        }
+        _ => {}
+    }
+    path_arguments
+}
+
 fn to_absolute_path(relative_path: &Path, uses: &HashMap<Ident, Vec<Ident>>) -> Path {
     let prefix = relative_path
         .segments
@@ -87,16 +119,40 @@ fn to_absolute_path(relative_path: &Path, uses: &HashMap<Ident, Vec<Ident>>) -> 
     Path {
         leading_colon: relative_path.leading_colon,
         segments: match prefix {
-            Some(prefix) => Punctuated::from_iter(
-                prefix
-                    .iter()
-                    .map(|identifier| PathSegment {
-                        ident: identifier.clone(),
-                        arguments: PathArguments::None,
-                    })
-                    .chain(relative_path.segments.iter().skip(1).cloned()),
-            ),
-            None => relative_path.segments.clone(),
+            Some(prefix) => {
+                Punctuated::from_iter(
+                    prefix
+                        .iter()
+                        .enumerate()
+                        .map(|(index, identifier)| PathSegment {
+                            ident: identifier.clone(),
+                            arguments: if index < prefix.len() - 1 {
+                                PathArguments::None
+                            } else {
+                                to_absolute_path_argument(
+                                    &relative_path.segments.first().unwrap().arguments,
+                                    uses,
+                                )
+                            },
+                        })
+                        .chain(
+                            relative_path
+                                .segments
+                                .iter()
+                                .skip(1)
+                                .map(|segment| PathSegment {
+                                    ident: segment.ident.clone(),
+                                    arguments: to_absolute_path_argument(&segment.arguments, uses),
+                                }),
+                        ),
+                )
+            }
+            None => {
+                Punctuated::from_iter(relative_path.segments.iter().map(|segment| PathSegment {
+                    ident: segment.ident.clone(),
+                    arguments: to_absolute_path_argument(&segment.arguments, uses),
+                }))
+            }
         },
     }
 }
