@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use syn::{Ident, Item, UseTree};
 
-pub fn uses_from_items(items: &[Item]) -> HashMap<Ident, Vec<Ident>> {
+pub type Uses = HashMap<Ident, Vec<Ident>>;
+
+pub fn uses_from_items(items: &[Item]) -> Uses {
     items
         .iter()
         .filter_map(|item| match item {
@@ -14,11 +16,11 @@ pub fn uses_from_items(items: &[Item]) -> HashMap<Ident, Vec<Ident>> {
 }
 
 trait ExtractUses {
-    fn extract_uses(&self, prefix: Vec<Ident>) -> HashMap<Ident, Vec<Ident>>;
+    fn extract_uses(&self, prefix: Vec<Ident>) -> Uses;
 }
 
 impl ExtractUses for UseTree {
-    fn extract_uses(&self, mut prefix: Vec<Ident>) -> HashMap<Ident, Vec<Ident>> {
+    fn extract_uses(&self, mut prefix: Vec<Ident>) -> Uses {
         match self {
             UseTree::Path(path) => {
                 prefix.push(path.ident.clone());

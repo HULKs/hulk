@@ -1,10 +1,13 @@
 use std::mem::take;
 
 use convert_case::{Case, Casing};
+use proc_macro2::TokenStream;
+use quote::quote;
 use quote::{format_ident, ToTokens};
 use syn::{parse2, spanned::Spanned, Error, Ident, ItemImpl, Type};
 
-use crate::Attribute;
+use crate::to_absolute::ToAbsolute;
+use crate::{Attribute, Uses};
 
 #[derive(Debug)]
 pub struct Module {
@@ -50,5 +53,18 @@ impl Module {
             main_outputs_identifier: format_ident!("MainOutputs"),
             implementation,
         })
+    }
+
+    pub fn generate_main_output_fields(&self, uses: &Uses) -> Vec<TokenStream> {
+        self.attributes
+            .iter()
+            .filter_map(|attribute| match attribute {
+                Attribute::MainOutput { data_type, name } => {
+                    let data_type = data_type.to_absolute(uses);
+                    Some(quote! { #name: Option<#data_type> })
+                }
+                _ => None,
+            })
+            .collect()
     }
 }
