@@ -1,7 +1,4 @@
-use syn::{
-    punctuated::Punctuated, GenericArgument, Path, PathArguments, PathSegment, ReturnType, Type,
-    TypeParamBound,
-};
+use syn::{GenericArgument, Path, PathArguments, PathSegment, ReturnType, Type, TypeParamBound};
 
 use crate::Uses;
 
@@ -49,27 +46,30 @@ impl ToAbsolute for Path {
         Path {
             leading_colon: self.leading_colon,
             segments: match prefix {
-                Some(prefix) => Punctuated::from_iter(
-                    prefix
-                        .iter()
-                        .enumerate()
-                        .map(|(index, identifier)| PathSegment {
-                            ident: identifier.clone(),
-                            arguments: if index < prefix.len() - 1 {
-                                PathArguments::None
-                            } else {
-                                self.segments.first().unwrap().arguments.to_absolute(uses)
-                            },
-                        })
-                        .chain(self.segments.iter().skip(1).map(|segment| PathSegment {
-                            ident: segment.ident.clone(),
-                            arguments: segment.arguments.to_absolute(uses),
-                        })),
-                ),
-                None => Punctuated::from_iter(self.segments.iter().map(|segment| PathSegment {
-                    ident: segment.ident.clone(),
-                    arguments: segment.arguments.to_absolute(uses),
-                })),
+                Some(prefix) => prefix
+                    .iter()
+                    .enumerate()
+                    .map(|(index, identifier)| PathSegment {
+                        ident: identifier.clone(),
+                        arguments: if index < prefix.len() - 1 {
+                            PathArguments::None
+                        } else {
+                            self.segments.first().unwrap().arguments.to_absolute(uses)
+                        },
+                    })
+                    .chain(self.segments.iter().skip(1).map(|segment| PathSegment {
+                        ident: segment.ident.clone(),
+                        arguments: segment.arguments.to_absolute(uses),
+                    }))
+                    .collect(),
+                None => self
+                    .segments
+                    .iter()
+                    .map(|segment| PathSegment {
+                        ident: segment.ident.clone(),
+                        arguments: segment.arguments.to_absolute(uses),
+                    })
+                    .collect(),
             },
         }
     }
