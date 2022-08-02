@@ -5,51 +5,19 @@ use std::{
     process::Command,
 };
 
-use module_attributes2::{Attribute, Module};
+use module_attributes2::{uses_from_items, Attribute, Module};
 use quote::quote;
 use syn::{
     parse_file, punctuated::Punctuated, GenericArgument, Ident, Item, Path, PathArguments,
-    PathSegment, ReturnType, Type, TypeParamBound, UseTree,
+    PathSegment, ReturnType, Type, TypeParamBound,
 };
-
-fn extract_uses(mut prefix: Vec<Ident>, tree: &UseTree) -> HashMap<Ident, Vec<Ident>> {
-    match tree {
-        UseTree::Path(path) => {
-            prefix.push(path.ident.clone());
-            extract_uses(prefix, &path.tree)
-        }
-        UseTree::Name(name) => {
-            prefix.push(name.ident.clone());
-            HashMap::from([(name.ident.clone(), prefix)])
-        }
-        UseTree::Rename(rename) => {
-            prefix.push(rename.ident.clone());
-            HashMap::from([(rename.rename.clone(), prefix)])
-        }
-        UseTree::Glob(_) => HashMap::new(),
-        UseTree::Group(group) => group
-            .items
-            .iter()
-            .map(|tree| extract_uses(prefix.clone(), tree))
-            .flatten()
-            .collect(),
-    }
-}
 
 fn main() {
     let mut file = File::open("src/spl_network2/message_receiver.rs").unwrap();
     let mut buffer = String::new();
     file.read_to_string(&mut buffer).unwrap();
     let ast = parse_file(&buffer).unwrap();
-    let uses: HashMap<_, _> = ast
-        .items
-        .iter()
-        .filter_map(|item| match item {
-            Item::Use(use_item) => Some(extract_uses(vec![], &use_item.tree)),
-            _ => None,
-        })
-        .flatten()
-        .collect();
+    let uses = uses_from_items(&ast.items);
     println!("uses: {uses:?}");
     for item in ast.items {
         let impl_item = match item {
