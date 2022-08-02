@@ -68,7 +68,7 @@ attribute_parser! {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Path {
     pub segments: Vec<Ident>,
 }
