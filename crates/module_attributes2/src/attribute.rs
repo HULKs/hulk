@@ -1,4 +1,7 @@
-use syn::{Ident, Type, TypePath};
+use syn::{
+    parse::{Parse, ParseStream},
+    Ident, Token, Type,
+};
 
 macro_rules! attribute_parser {
     (@field_parsers $input_in_parentheses:ident $($field_name:ident: $field_type:ty),+) => {
@@ -60,7 +63,26 @@ attribute_parser! {
     pub enum Attribute {
         RealtimeModule { cycler_module: Ident },
         PerceptionModule { cycler_module: Ident },
-        PersistentState { data_type: Type, path: TypePath },
-        MainOutput { data_type: Type, name: TypePath }
+        PersistentState { data_type: Type, name: Ident, path: Path },
+        MainOutput { data_type: Type, name: Ident }
+    }
+}
+
+#[derive(Debug)]
+pub struct Path {
+    pub segments: Vec<Ident>,
+}
+
+impl Parse for Path {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut segments = vec![];
+        loop {
+            segments.push(input.parse()?);
+            if !input.peek(Token![.]) {
+                break;
+            }
+            input.parse::<Token![.]>()?;
+        }
+        Ok(Self { segments })
     }
 }
