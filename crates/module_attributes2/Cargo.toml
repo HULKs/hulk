@@ -6,6 +6,6 @@ version = "0.1.0"
 
 [dependencies]
 convert_case = "0.5.0"
-proc-macro-error = "1.0.4"
+proc-macro2 = "1.0.39"
 quote = "1.0.10"
 syn = {version = "1.0.82", features = ["full", "extra-traits", "visit", "visit-mut"]}
