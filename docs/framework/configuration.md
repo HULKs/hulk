@@ -1,5 +1,7 @@
 # Configuration
 
+TODO: Elaborate
+
 - Configuration
     - Configuration contains types
     - Loaded from filesystem

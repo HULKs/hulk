@@ -1,12 +1,15 @@
 # Overview
 
-TODO
+TODO: Elaborate
 
 - Development workflow
-    - Simulator
     - GitHub
+        - CI
+        - Board
     - Meetings
+        - Test games
     - Test-driven development
+        - Simulator
 - Competition workflow
     - Meetings
     - Roles

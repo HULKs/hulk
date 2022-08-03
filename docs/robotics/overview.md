@@ -1,11 +1,22 @@
 # Overview
 
-TODO
+TODO: Elaborate
+
+## Perception
 
 - Filters
-- Behaviour
-- Motion
-- Vision
 - SPL Network (GameController communication, Team communication)
+- Vision
 - Whistle Detection/Audio
-- Testing
+
+## Behavior
+
+- World state -> Actions -> MotionCommand
+
+## Motion
+
+- Step planning
+- Walking
+- Kicking
+- ...
+

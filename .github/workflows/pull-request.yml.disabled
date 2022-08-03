@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Status message
         run:
-          echo "All other jobs exited successfully!"
+          echo 'All other jobs exited successfully!'
   check:
     name: Check
     runs-on:

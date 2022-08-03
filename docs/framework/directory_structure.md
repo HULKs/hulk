@@ -1,5 +1,11 @@
 # Directory Structure
 
+TODO: Add `crates` directory
+
+TODO: Add `twix`
+
+TODO: Check if up-to-date
+
 The main code repository represents a [monorepo](https://en.wikipedia.org/wiki/Monorepo) containing many parts of the robotic control software and several tools.
 The directory structure is organized as follows:
 

@@ -22,7 +22,7 @@ theme:
         icon: material/toggle-switch
         name: Switch to light mode
 nav:
-  - Overview: index.md
+  - Introduction: index.md
   - Setup:
     - Overview: setup/overview.md
   - Framework:
@@ -40,8 +40,10 @@ nav:
     - Filtering: framework/filtering.md
     - Macros: framework/macros.md
     - Error Handling: framework/error_handling.md
+    - Logging: framework/logging.md
   - Tooling:
     - Overview: tooling/overview.md
+    - Pepsi: tooling/pepsi.md
   - Operating System:
     - Overview: operating_system/overview.md
   - Robotics:

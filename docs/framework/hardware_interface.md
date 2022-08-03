@@ -1,5 +1,7 @@
 # Hardware Interface
 
+TODO: Elaborate
+
 - Hardware Interface
     - Trait
         - `produce_sensor_data()`

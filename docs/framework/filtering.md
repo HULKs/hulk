@@ -1,5 +1,7 @@
 # Filtering
 
+TODO: Elaborate
+
 - FutureQueue/Filtering
     - Overview: Time diagram/plot
     - Motivation: Filters need to have monotonic updates

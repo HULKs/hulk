@@ -1,5 +1,7 @@
 # Error Handling
 
+TODO: Elaborate
+
 - Error Handling
     - 3 ways to handle errors
         - Set a main output to none: Happens when the module is unable to generate this output (e.g. when inputs are not available or there was a temporary error inside of the module)

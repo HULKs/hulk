@@ -1,5 +1,7 @@
 # Macros
 
+TODO: Elaborate
+
 - Macros
     - What is a Rust macro? Gets a TokenStream as input, is able to transform it and outputs a new TokenStream
     - Goal: Reduce code duplication, reduce manually-written code
@@ -25,7 +27,7 @@
         - Outputs
             - Main Output `#[main_output(data_type, name)]` Output for dependent modules, generated in every cycle
             - Additional Output `#[additional_output(path, data_type, name)]` Optional output that can be enabled/requested from e.g. Communication
-    - `require_some!`
+    - `require_some!` TODO: `required` flag?
         - Extracts data from cycle context and returns none for all main outputs if the input was none
         - `require_some!(...) => match ... { Some(...) => ..., None => return MainOutputs::none() }`
     - SerializeHierarchy

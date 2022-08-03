@@ -1,5 +1,7 @@
 # Communication
 
+TODO: Elaborate
+
 - Communication
     - Overview & Diagram
         - Asynchronous Tasks

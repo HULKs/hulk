@@ -1,5 +1,7 @@
 # Thread Communication
 
+TODO: Elaborate
+
 - Buffering/Thread Communication/Channels
     - Tokio CancellationToken
     - n-tuple Buffer
