@@ -56,6 +56,7 @@ fn main() {
                 Edge::ConsumesFrom { attribute: _ } => "ConsumesFrom".to_string(),
                 Edge::ReadsFrom { attribute: _ } => "ReadsFrom".to_string(),
                 Edge::WritesTo { attribute: _ } => "WritesTo".to_string(),
+                Edge::ReadsFromOrWritesTo { attribute: _ } => "ReadsFromOrWritesTo".to_string(),
             }
         );
     }

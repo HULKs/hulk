@@ -8,5 +8,6 @@ version = "0.1.0"
 anyhow = "1.0.59"
 module_attributes2 = {path = "../module_attributes2"}
 petgraph = "0.6.2"
+proc-macro2 = {version = "1.0.39", features = ["span-locations"]}
 syn = {version = "1.0.82", features = ["full"]}
 walkdir = "2.3.2"

@@ -2962,6 +2962,7 @@ dependencies = [
  "anyhow",
  "module_attributes2",
  "petgraph",
+ "proc-macro2",
  "syn",
  "walkdir",
 ]
