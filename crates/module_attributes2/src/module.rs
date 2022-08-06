@@ -11,7 +11,7 @@ use crate::attribute::Path;
 use crate::to_absolute::ToAbsolute;
 use crate::{Attribute, Uses};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Module {
     pub attributes: Vec<Attribute>,
     pub module_identifier: Ident,

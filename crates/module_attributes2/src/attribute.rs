@@ -43,7 +43,7 @@ macro_rules! attribute_parser {
     };
 
     (pub enum Attribute { $($variant:ident { $($field:tt)+ },)+ }) => {
-        #[derive(Debug)]
+        #[derive(Clone, Debug)]
         pub enum Attribute {
             $($variant { $($field)+ },)+
         }
