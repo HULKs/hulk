@@ -1,18 +1,26 @@
 use std::{fs, io::Read, path::Path};
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use module_attributes2::Module;
 use syn::{Ident, Item, ItemEnum, ItemImpl};
 
-pub fn parse_file<P>(file: P) -> anyhow::Result<syn::File>
+pub fn parse_file<P>(file_path: P) -> anyhow::Result<syn::File>
 where
     P: AsRef<Path>,
 {
-    let mut file = fs::File::open(file).context("Failed to open file")?;
+    let mut file = fs::File::open(&file_path).context("Failed to open file")?;
     let mut buffer = String::new();
     file.read_to_string(&mut buffer)
         .context("Failed to read file to string")?;
-    syn::parse_file(&buffer).context("Failed to parse file into abstract syntax tree")
+    syn::parse_file(&buffer).map_err(|error| {
+        let start = error.span().start();
+        anyhow!(
+            "Failed to parse file into abstract syntax tree: {error} at {}:{}:{}",
+            file_path.as_ref().display(),
+            start.line,
+            start.column
+        )
+    })
 }
 
 pub fn get_cycler_instance_enum(file: &syn::File) -> Option<&ItemEnum> {

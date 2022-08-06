@@ -6,4 +6,5 @@ pub enum Edge {
     ConsumesFrom { attribute: Attribute },
     ReadsFrom { attribute: Attribute },
     WritesTo { attribute: Attribute },
+    ReadsFromOrWritesTo { attribute: Attribute },
 }

@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::{anyhow, bail, Context};
 use module_attributes2::Attribute;
-use petgraph::Graph;
+use petgraph::{graph::NodeIndex, stable_graph::IndexType, Directed, Graph};
 
 use crate::{
     edge::Edge,
@@ -18,6 +18,9 @@ where
     P: AsRef<Path>,
 {
     let mut graph = Graph::new();
+    let configuration_index = graph.add_node(Node::Configuration);
+    let hardware_interface_index = graph.add_node(Node::HardwareInterface);
+
     for rust_file_path in rust_file_paths_from(parent_directory) {
         graph.add_node(Node::RustFilePath {
             path: rust_file_path,
@@ -38,8 +41,14 @@ where
         let cycler_instances = get_cycler_instance_enum(&file)
             .map(|cycler_instance_enum| get_cycler_instances(cycler_instance_enum));
         let module = get_module_implementation(&file).map(|module_implementation| {
-            get_module(module_implementation).with_context(|| {
-                format!("Failed to parse module attributes from {rust_file_path:?}")
+            get_module(module_implementation).map_err(|error| {
+                let start = error.span().start();
+                anyhow!(
+                    "Failed to parse module attributes: {error} at {}:{}:{}",
+                    rust_file_path.display(),
+                    start.line,
+                    start.column
+                )
             })
         });
 
@@ -62,13 +71,32 @@ where
                 .ok_or_else(|| anyhow!("Failed to interpret cycler module name as Unicode"))?
                 .to_string();
             let cycler_module_index = graph.add_node(Node::CyclerModule {
-                module: cycler_module_directory_name,
+                module: cycler_module_directory_name.clone(),
                 path: cycler_module_directory,
             });
 
+            let main_outputs_index = graph.add_node(Node::MainOutputs {
+                cycler_module: cycler_module_directory_name.clone(),
+            });
+            graph.add_edge(cycler_module_index, main_outputs_index, Edge::Contains);
+
+            let additional_outputs_index = graph.add_node(Node::AdditionalOutputs {
+                cycler_module: cycler_module_directory_name.clone(),
+            });
+            graph.add_edge(
+                cycler_module_index,
+                additional_outputs_index,
+                Edge::Contains,
+            );
+
+            let persistent_state_index = graph.add_node(Node::PersistentState {
+                cycler_module: cycler_module_directory_name,
+            });
+            graph.add_edge(cycler_module_index, persistent_state_index, Edge::Contains);
+
             for cycler_instance in cycler_instances {
                 let cycler_instance_index = graph.add_node(Node::CyclerInstance {
-                    instance: cycler_instance,
+                    instance: cycler_instance.to_string(),
                 });
                 graph.add_edge(
                     parsed_rust_file_index,
@@ -138,5 +166,203 @@ where
         }
     }
 
+    let cloned_graph = graph.clone();
+    for (module_index, module) in
+        cloned_graph
+            .node_indices()
+            .filter_map(|node_index| match &cloned_graph[node_index] {
+                Node::Module { module } => Some((node_index, module)),
+                _ => None,
+            })
+    {
+        let cycler_module = module
+            .attributes
+            .iter()
+            .find_map(|attribute| match attribute {
+                Attribute::PerceptionModule { cycler_module }
+                | Attribute::RealtimeModule { cycler_module } => Some(cycler_module.to_string()),
+                _ => None,
+            })
+            .ok_or_else(|| {
+                anyhow!(
+                    "Failed to find perception_module/realtime_module attribute of module {}",
+                    module.module_identifier
+                )
+            })?;
+
+        for attribute in module.attributes.iter() {
+            match attribute {
+                Attribute::AdditionalOutput { .. } => {
+                    let additional_outputs_index = find_additional_outputs_within_cycler(&graph, &cycler_module)
+                        .ok_or_else(|| anyhow!("Failed to find AdditionalOutputs in source graph of cycler module {cycler_module}"))?;
+                    graph.add_edge(
+                        module_index,
+                        additional_outputs_index,
+                        Edge::WritesTo {
+                            attribute: attribute.clone(),
+                        },
+                    );
+                }
+                Attribute::HistoricInput { .. } => {
+                    let main_outputs_index = find_main_outputs_within_cycler(&graph, &cycler_module)
+                        .ok_or_else(|| anyhow!("Failed to find MainOutputs in source graph of cycler module {cycler_module}"))?;
+                    graph.add_edge(
+                        module_index,
+                        main_outputs_index,
+                        Edge::ReadsFrom {
+                            attribute: attribute.clone(),
+                        },
+                    );
+                }
+                Attribute::Input {
+                    cycler_instance, ..
+                } => {
+                    let cycler_module = match cycler_instance {
+                        Some(cycler_instance) => {
+                            let cycler_module_index = find_cycler_module_from_cycler_instance(&graph, &cycler_instance.to_string())
+                                .ok_or_else(|| anyhow!("Failed to find cycler module node in source graph of cycler instance {cycler_instance}"))?;
+                            match &graph[cycler_module_index] {
+                                Node::CyclerModule { module, path: _ } => module,
+                                _ => panic!("Unexpected non-CyclerModule after successful search"),
+                            }
+                        }
+                        None => &cycler_module,
+                    };
+                    let main_outputs_index = find_main_outputs_within_cycler(&graph, cycler_module)
+                        .ok_or_else(|| anyhow!("Failed to find MainOutputs in source graph of cycler module {cycler_module}"))?;
+                    graph.add_edge(
+                        module_index,
+                        main_outputs_index,
+                        Edge::ReadsFrom {
+                            attribute: attribute.clone(),
+                        },
+                    );
+                }
+                Attribute::MainOutput { .. } => {
+                    let main_outputs_index = find_main_outputs_within_cycler(&graph, &cycler_module)
+                        .ok_or_else(|| anyhow!("Failed to find MainOutputs in source graph of cycler module {cycler_module}"))?;
+                    graph.add_edge(
+                        module_index,
+                        main_outputs_index,
+                        Edge::WritesTo {
+                            attribute: attribute.clone(),
+                        },
+                    );
+                }
+                Attribute::Parameter { .. } => {
+                    graph.add_edge(
+                        module_index,
+                        configuration_index,
+                        Edge::ReadsFrom {
+                            attribute: attribute.clone(),
+                        },
+                    );
+                }
+                Attribute::PerceptionInput {
+                    cycler_instance, ..
+                } => {
+                    let cycler_module_index = find_cycler_module_from_cycler_instance(&graph, &cycler_instance.to_string())
+                        .ok_or_else(|| anyhow!("Failed to find cycler module node in source graph of cycler instance {cycler_instance}"))?;
+                    let cycler_module = match &graph[cycler_module_index] {
+                        Node::CyclerModule { module, path: _ } => module,
+                        _ => panic!("Unexpected non-CyclerModule after successful search"),
+                    };
+                    let main_outputs_index = find_main_outputs_within_cycler(&graph, cycler_module)
+                        .ok_or_else(|| anyhow!("Failed to find MainOutputs in source graph of cycler module {cycler_module}"))?;
+                    graph.add_edge(
+                        module_index,
+                        main_outputs_index,
+                        Edge::ReadsFrom {
+                            attribute: attribute.clone(),
+                        },
+                    );
+                }
+                Attribute::PersistentState { .. } => {
+                    let persistent_state_index = find_persistent_state_within_cycler(&graph, &cycler_module)
+                        .ok_or_else(|| anyhow!("Failed to find PersistentState in source graph of cycler module {cycler_module}"))?;
+                    graph.add_edge(
+                        module_index,
+                        persistent_state_index,
+                        Edge::ReadsFromOrWritesTo {
+                            attribute: attribute.clone(),
+                        },
+                    );
+                }
+                Attribute::PerceptionModule { .. } | Attribute::RealtimeModule { .. } => {}
+            }
+        }
+    }
+
     Ok(graph)
+}
+
+fn find_main_outputs_within_cycler<Index>(
+    graph: &Graph<Node, Edge, Directed, Index>,
+    cycler_module: &str,
+) -> Option<NodeIndex<Index>>
+where
+    Index: IndexType,
+{
+    graph
+        .node_indices()
+        .find(|node_index| match &graph[*node_index] {
+            Node::MainOutputs {
+                cycler_module: cycler_module_of_node,
+            } if cycler_module_of_node == cycler_module => true,
+            _ => false,
+        })
+}
+
+fn find_additional_outputs_within_cycler<Index>(
+    graph: &Graph<Node, Edge, Directed, Index>,
+    cycler_module: &str,
+) -> Option<NodeIndex<Index>>
+where
+    Index: IndexType,
+{
+    graph
+        .node_indices()
+        .find(|node_index| match &graph[*node_index] {
+            Node::AdditionalOutputs {
+                cycler_module: cycler_module_of_node,
+            } if cycler_module_of_node == cycler_module => true,
+            _ => false,
+        })
+}
+
+fn find_persistent_state_within_cycler<Index>(
+    graph: &Graph<Node, Edge, Directed, Index>,
+    cycler_module: &str,
+) -> Option<NodeIndex<Index>>
+where
+    Index: IndexType,
+{
+    graph
+        .node_indices()
+        .find(|node_index| match &graph[*node_index] {
+            Node::PersistentState {
+                cycler_module: cycler_module_of_node,
+            } if cycler_module_of_node == cycler_module => true,
+            _ => false,
+        })
+}
+
+fn find_cycler_module_from_cycler_instance<Index>(
+    graph: &Graph<Node, Edge, Directed, Index>,
+    cycler_instance: &str,
+) -> Option<NodeIndex<Index>>
+where
+    Index: IndexType,
+{
+    graph
+        .node_indices()
+        .find(|node_index| match &graph[*node_index] {
+            Node::CyclerModule { .. } => graph.neighbors(*node_index).any(|neighbor| match &graph
+                [neighbor]
+            {
+                Node::CyclerInstance { instance } if instance == cycler_instance => true,
+                _ => false,
+            }),
+            _ => false,
+        })
 }
