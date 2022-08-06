@@ -12,7 +12,7 @@ use crate::{
     walker::rust_file_paths_from,
 };
 
-pub fn dependency_graph_from<P>(parent_directory: P) -> anyhow::Result<Graph<Node, Edge>>
+pub fn source_graph_from<P>(parent_directory: P) -> anyhow::Result<Graph<Node, Edge>>
 where
     P: AsRef<Path>,
 {

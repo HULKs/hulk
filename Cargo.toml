@@ -7,13 +7,13 @@ version = "0.1.0"
 [workspace]
 members = [
   "crates/communication",
-  "crates/dependency_graph",
   "crates/module_attributes",
   "crates/module_derive",
   "crates/nao",
   "crates/repository",
   "crates/serialize_hierarchy",
   "crates/serialize_hierarchy_derive",
+  "crates/source_graph",
   "crates/spl_network",
   "crates/types",
   "crates/uvcvideo",

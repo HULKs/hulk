@@ -9,6 +9,18 @@ use quote::quote;
 use syn::{parse_file, Item};
 
 fn main() {
+    let file = source_graph::parse_file("src/spl_network2/mod.rs").unwrap();
+    println!("file: {file:#?}");
+    let cycler_instance = source_graph::get_cycler_instance_enum(&file);
+    println!("cycler_instance: {cycler_instance:#?}");
+    let module_implementation = source_graph::get_module_implementation(&file);
+    println!("module_implementation: {module_implementation:#?}");
+    let file = source_graph::parse_file("src/spl_network2/message_receiver.rs").unwrap();
+    println!("file: {file:#?}");
+    let cycler_instance = source_graph::get_cycler_instance_enum(&file);
+    println!("cycler_instance: {cycler_instance:#?}");
+    let module_implementation = source_graph::get_module_implementation(&file);
+    println!("module_implementation: {module_implementation:#?}");
     let mut file = File::open("src/spl_network2/message_receiver.rs").unwrap();
     let mut buffer = String::new();
     file.read_to_string(&mut buffer).unwrap();

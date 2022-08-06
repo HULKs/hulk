@@ -822,17 +822,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dependency_graph"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "module_attributes2",
- "petgraph",
- "syn",
- "walkdir",
-]
-
-[[package]]
 name = "depp"
 version = "0.1.0"
 dependencies = [
@@ -1847,6 +1836,7 @@ dependencies = [
  "module_attributes2",
  "proc-macro2",
  "quote",
+ "source_graph",
  "syn",
 ]
 
@@ -2963,6 +2953,17 @@ checksum = "02e2d2db9033d13a1567121ddd7a095ee144db4e1ca1b1bda3419bc0da294ebd"
 dependencies = [
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "source_graph"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "module_attributes2",
+ "petgraph",
+ "syn",
+ "walkdir",
 ]
 
 [[package]]
