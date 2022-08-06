@@ -316,20 +316,37 @@ where
                 _ => None,
             })
     {
-        for (producing_module_index, attribute) in cloned_graph
-            .edges(consuming_module_index)
-            .filter_map(|edge_reference| match edge_reference.weight() {
-                Edge::ReadsFrom { attribute } => {
-                    find_producing_module_from_read_edge_reference(&cloned_graph, edge_reference)
-                        .map(|producing_module_index| (producing_module_index, attribute.clone()))
-                }
-                _ => None,
-            })
+        for (edge_reference, attribute) in
+            cloned_graph
+                .edges(consuming_module_index)
+                .filter_map(|edge_reference| match edge_reference.weight() {
+                    Edge::ReadsFrom { attribute } => match attribute {
+                        Attribute::HistoricInput { .. }
+                        | Attribute::Input { .. }
+                        | Attribute::PerceptionInput { .. } => Some((edge_reference, attribute)),
+                        _ => None,
+                    },
+                    _ => None,
+                })
         {
+            let producing_module_index = find_producing_module_from_read_edge_reference(
+                    &cloned_graph,
+                    edge_reference,
+                )
+                .ok_or_else(|| {
+                    let module_identifier = match &graph[consuming_module_index] {
+                        Node::Module { module } => &module.module_identifier,
+                        _ => panic!("consuming_module_index should be a Node::Module"),
+                    };
+                    anyhow!("Failed to find producing module in source graph for {attribute} in module {module_identifier}")
+                })?;
+
             graph.add_edge(
                 consuming_module_index,
                 producing_module_index,
-                Edge::ConsumesFrom { attribute },
+                Edge::ConsumesFrom {
+                    attribute: attribute.clone(),
+                },
             );
         }
     }
