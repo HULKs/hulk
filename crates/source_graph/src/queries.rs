@@ -1,14 +1,11 @@
-use petgraph::{stable_graph::IndexType, stable_graph::NodeIndex, Directed, Graph};
+use petgraph::{stable_graph::NodeIndex, Graph};
 
 use crate::{Edge, Node};
 
-pub fn find_main_outputs_within_cycler<Index>(
-    graph: &Graph<Node, Edge, Directed, Index>,
+pub fn find_main_outputs_within_cycler(
+    graph: &Graph<Node, Edge>,
     cycler_module: &str,
-) -> Option<NodeIndex<Index>>
-where
-    Index: IndexType,
-{
+) -> Option<NodeIndex> {
     graph
         .node_indices()
         .find(|node_index| match &graph[*node_index] {
@@ -19,13 +16,10 @@ where
         })
 }
 
-pub fn find_additional_outputs_within_cycler<Index>(
-    graph: &Graph<Node, Edge, Directed, Index>,
+pub fn find_additional_outputs_within_cycler(
+    graph: &Graph<Node, Edge>,
     cycler_module: &str,
-) -> Option<NodeIndex<Index>>
-where
-    Index: IndexType,
-{
+) -> Option<NodeIndex> {
     graph
         .node_indices()
         .find(|node_index| match &graph[*node_index] {
@@ -36,13 +30,10 @@ where
         })
 }
 
-pub fn find_persistent_state_within_cycler<Index>(
-    graph: &Graph<Node, Edge, Directed, Index>,
+pub fn find_persistent_state_within_cycler(
+    graph: &Graph<Node, Edge>,
     cycler_module: &str,
-) -> Option<NodeIndex<Index>>
-where
-    Index: IndexType,
-{
+) -> Option<NodeIndex> {
     graph
         .node_indices()
         .find(|node_index| match &graph[*node_index] {
@@ -53,13 +44,10 @@ where
         })
 }
 
-pub fn find_cycler_module_from_cycler_instance<Index>(
-    graph: &Graph<Node, Edge, Directed, Index>,
+pub fn find_cycler_module_from_cycler_instance(
+    graph: &Graph<Node, Edge>,
     cycler_instance: &str,
-) -> Option<NodeIndex<Index>>
-where
-    Index: IndexType,
-{
+) -> Option<NodeIndex> {
     graph
         .node_indices()
         .find(|node_index| match &graph[*node_index] {
