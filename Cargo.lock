@@ -822,6 +822,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependency_graph"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "module_attributes2",
+ "petgraph",
+ "syn",
+ "walkdir",
+]
+
+[[package]]
 name = "depp"
 version = "0.1.0"
 dependencies = [

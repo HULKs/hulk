@@ -1,0 +1,12 @@
+[package]
+edition = "2021"
+license = "GPL-3.0-only"
+name = "dependency_graph"
+version = "0.1.0"
+
+[dependencies]
+anyhow = "1.0.59"
+module_attributes2 = {path = "../module_attributes2"}
+petgraph = "0.6.2"
+syn = {version = "1.0.82", features = ["full"]}
+walkdir = "2.3.2"
