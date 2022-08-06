@@ -1,3 +1,5 @@
+use proc_macro2::TokenStream;
+use quote::ToTokens;
 use syn::{
     custom_keyword,
     parse::{Parse, ParseStream},
@@ -37,15 +39,39 @@ macro_rules! attribute_parser {
     };
 
     (@initializer $variant:ident $($field_name:ident: $field_type:ty),+) => {
-        Ok(Attribute::$variant {
+        Attribute::$variant {
             $($field_name),+
-        })
+        }
+    };
+
+    (@display_fields $variant:ident $($field_name:ident: $field_type:ty),+) => {
+        [
+            $(format!(concat!(stringify!($field_name), " = {}"), $field_name.to_token_stream()),)+
+        ]
     };
 
     (pub enum Attribute { $($variant:ident { $($field:tt)+ },)+ }) => {
         #[derive(Clone, Debug)]
         pub enum Attribute {
             $($variant { $($field)+ },)+
+        }
+
+        impl std::fmt::Display for Attribute {
+            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                use convert_case::Casing;
+                use quote::ToTokens;
+
+                match self {
+                    $(attribute_parser!(@initializer $variant $($field)+) => {
+                        let variant = stringify!($variant).to_string().to_case(convert_case::Case::Snake);
+                        write!(formatter, "#[{}(", variant)?;
+                        formatter.write_str(&attribute_parser!(@display_fields variant $($field)+).join(", "))?;
+                        formatter.write_str(")]")?;
+                    },)+
+                }
+
+                Ok(())
+            }
         }
 
         impl syn::parse::Parse for Attribute {
@@ -62,7 +88,7 @@ macro_rules! attribute_parser {
                 match name_camel_case.as_str() {
                     $(stringify!($variant) => {
                         attribute_parser!(@field_parsers input_in_parentheses $($field)+);
-                        attribute_parser!(@initializer $variant $($field)+)
+                        Ok(attribute_parser!(@initializer $variant $($field)+))
                     },)+
                     _ => Err(syn::Error::new(
                         name.span(),
@@ -105,5 +131,16 @@ impl Parse for Path {
             input.parse::<Token![.]>()?;
         }
         Ok(Self { segments })
+    }
+}
+
+impl ToTokens for Path {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        for (index, segment) in self.segments.iter().enumerate() {
+            segment.to_tokens(tokens);
+            if index + 1 < self.segments.len() {
+                <Token![.]>::default().to_tokens(tokens);
+            }
+        }
     }
 }
