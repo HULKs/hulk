@@ -207,6 +207,15 @@ where
                         },
                     );
                 }
+                Attribute::HardwareInterface { .. } => {
+                    graph.add_edge(
+                        module_index,
+                        hardware_interface_index,
+                        Edge::ReadsFromOrWritesTo {
+                            attribute: attribute.clone(),
+                        },
+                    );
+                }
                 Attribute::HistoricInput { .. } => {
                     let main_outputs_index = find_main_outputs_within_cycler(&graph, &cycler_module)
                         .ok_or_else(|| anyhow!("Failed to find MainOutputs in source graph of cycler module {cycler_module}"))?;
