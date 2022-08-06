@@ -53,10 +53,11 @@ fn main() {
             to.index(),
             match &graph[edge_index] {
                 Edge::Contains => "Contains".to_string(),
-                Edge::ConsumesFrom { attribute: _ } => "ConsumesFrom".to_string(),
-                Edge::ReadsFrom { attribute: _ } => "ReadsFrom".to_string(),
-                Edge::WritesTo { attribute: _ } => "WritesTo".to_string(),
-                Edge::ReadsFromOrWritesTo { attribute: _ } => "ReadsFromOrWritesTo".to_string(),
+                Edge::ConsumesFrom { attribute } => format!("ConsumesFrom({attribute})"),
+                Edge::ReadsFrom { attribute } => format!("ReadsFrom({attribute})"),
+                Edge::WritesTo { attribute } => format!("WritesTo({attribute})"),
+                Edge::ReadsFromOrWritesTo { attribute } =>
+                    format!("ReadsFromOrWritesTo({attribute})"),
             }
         );
     }
