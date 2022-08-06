@@ -33,7 +33,8 @@ fn main() {
                     format!("AdditionalOutputs({cycler_module})"),
                 Node::Configuration => "Configuration".to_string(),
                 Node::CyclerInstance { instance } => format!("CyclerInstance({instance})"),
-                Node::CyclerModule { module } => format!("CyclerModule({module})"),
+                Node::CyclerModule { module, path } =>
+                    format!("CyclerModule({module}, {})", path.display()),
                 Node::HardwareInterface => "HardwareInterface".to_string(),
                 Node::MainOutputs { cycler_module } => format!("MainOutputs({cycler_module})"),
                 Node::Module { module } => format!("Module({})", module.module_identifier),
