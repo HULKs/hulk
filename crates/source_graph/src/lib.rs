@@ -2,6 +2,7 @@ mod edge;
 mod generator;
 mod node;
 mod parser;
+pub mod queries;
 mod walker;
 
 pub use edge::Edge;

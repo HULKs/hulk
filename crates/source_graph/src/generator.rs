@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::{anyhow, bail, Context};
 use module_attributes2::Attribute;
-use petgraph::{graph::NodeIndex, stable_graph::IndexType, Directed, Graph};
+use petgraph::Graph;
 
 use crate::{
     edge::Edge,
@@ -10,6 +10,10 @@ use crate::{
     node::Node,
     parse_file,
     parser::{get_cycler_instances, get_module},
+    queries::{
+        find_additional_outputs_within_cycler, find_cycler_module_from_cycler_instance,
+        find_main_outputs_within_cycler, find_persistent_state_within_cycler,
+    },
     walker::rust_file_paths_from,
 };
 
@@ -294,75 +298,4 @@ where
     }
 
     Ok(graph)
-}
-
-fn find_main_outputs_within_cycler<Index>(
-    graph: &Graph<Node, Edge, Directed, Index>,
-    cycler_module: &str,
-) -> Option<NodeIndex<Index>>
-where
-    Index: IndexType,
-{
-    graph
-        .node_indices()
-        .find(|node_index| match &graph[*node_index] {
-            Node::MainOutputs {
-                cycler_module: cycler_module_of_node,
-            } if cycler_module_of_node == cycler_module => true,
-            _ => false,
-        })
-}
-
-fn find_additional_outputs_within_cycler<Index>(
-    graph: &Graph<Node, Edge, Directed, Index>,
-    cycler_module: &str,
-) -> Option<NodeIndex<Index>>
-where
-    Index: IndexType,
-{
-    graph
-        .node_indices()
-        .find(|node_index| match &graph[*node_index] {
-            Node::AdditionalOutputs {
-                cycler_module: cycler_module_of_node,
-            } if cycler_module_of_node == cycler_module => true,
-            _ => false,
-        })
-}
-
-fn find_persistent_state_within_cycler<Index>(
-    graph: &Graph<Node, Edge, Directed, Index>,
-    cycler_module: &str,
-) -> Option<NodeIndex<Index>>
-where
-    Index: IndexType,
-{
-    graph
-        .node_indices()
-        .find(|node_index| match &graph[*node_index] {
-            Node::PersistentState {
-                cycler_module: cycler_module_of_node,
-            } if cycler_module_of_node == cycler_module => true,
-            _ => false,
-        })
-}
-
-fn find_cycler_module_from_cycler_instance<Index>(
-    graph: &Graph<Node, Edge, Directed, Index>,
-    cycler_instance: &str,
-) -> Option<NodeIndex<Index>>
-where
-    Index: IndexType,
-{
-    graph
-        .node_indices()
-        .find(|node_index| match &graph[*node_index] {
-            Node::CyclerModule { .. } => graph.neighbors(*node_index).any(|neighbor| match &graph
-                [neighbor]
-            {
-                Node::CyclerInstance { instance } if instance == cycler_instance => true,
-                _ => false,
-            }),
-            _ => false,
-        })
 }
