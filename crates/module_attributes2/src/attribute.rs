@@ -77,6 +77,7 @@ macro_rules! attribute_parser {
 attribute_parser! {
     pub enum Attribute {
         AdditionalOutput { data_type: Type, name: Ident, path: Path },
+        HardwareInterface { name: Ident },
         HistoricInput { data_type: Type, name: Ident, path: Path },
         Input { cycler_instance: Option<Ident>, data_type: Type, is_required: LitBool, name: Ident, path: Path },
         MainOutput { data_type: Type, name: Ident },
