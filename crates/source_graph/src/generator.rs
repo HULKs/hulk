@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
+use module_attributes2::Attribute;
 use petgraph::Graph;
 
 use crate::{
@@ -50,6 +51,21 @@ where
         }
 
         if let Some(cycler_instances) = cycler_instances {
+            let cycler_module_directory = rust_file_path
+                .parent()
+                .expect("Expected at least the parent directory")
+                .to_path_buf();
+            let cycler_module_directory_name = cycler_module_directory
+                .file_name()
+                .ok_or_else(|| anyhow!("Failed to get file name of cycler module directory"))?
+                .to_str()
+                .ok_or_else(|| anyhow!("Failed to interpret cycler module name as Unicode"))?
+                .to_string();
+            let cycler_module_index = graph.add_node(Node::CyclerModule {
+                module: cycler_module_directory_name,
+                path: cycler_module_directory,
+            });
+
             for cycler_instance in cycler_instances {
                 let cycler_instance_index = graph.add_node(Node::CyclerInstance {
                     instance: cycler_instance,
@@ -59,6 +75,7 @@ where
                     cycler_instance_index,
                     Edge::Contains,
                 );
+                graph.add_edge(cycler_module_index, cycler_instance_index, Edge::Contains);
             }
         }
 
@@ -70,6 +87,54 @@ where
                 cycler_instance_index,
                 Edge::Contains,
             );
+        }
+    }
+
+    let cloned_graph = graph.clone();
+    for (cycler_module_directory_index, cycler_module, cycler_module_directory) in cloned_graph
+        .node_indices()
+        .filter_map(|node_index| match &cloned_graph[node_index] {
+            Node::CyclerModule { module, path } => Some((node_index, module, path)),
+            _ => None,
+        })
+    {
+        for rust_file_path_index in
+            cloned_graph
+                .node_indices()
+                .filter_map(|node_index| match &cloned_graph[node_index] {
+                    Node::RustFilePath { path } if path.starts_with(cycler_module_directory) => {
+                        Some(node_index)
+                    }
+                    _ => None,
+                })
+        {
+            graph.add_edge(
+                cycler_module_directory_index,
+                rust_file_path_index,
+                Edge::Contains,
+            );
+        }
+
+        for module_index in cloned_graph
+            .node_indices()
+            .filter_map(|node_index| match &cloned_graph[node_index] {
+                Node::Module { module }
+                    if module.attributes.iter().any(|attribute| match attribute {
+                        Attribute::PerceptionModule {
+                            cycler_module: cycler_module_of_attribute,
+                        }
+                        | Attribute::RealtimeModule {
+                            cycler_module: cycler_module_of_attribute,
+                        } => cycler_module_of_attribute == cycler_module,
+                        _ => false,
+                    }) =>
+                {
+                    Some(node_index)
+                }
+                _ => None,
+            })
+        {
+            graph.add_edge(cycler_module_directory_index, module_index, Edge::Contains);
         }
     }
 

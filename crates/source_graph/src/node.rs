@@ -8,7 +8,7 @@ pub enum Node {
     AdditionalOutputs { cycler_module: Ident },
     Configuration,
     CyclerInstance { instance: Ident },
-    CyclerModule { module: Ident },
+    CyclerModule { module: String, path: PathBuf },
     HardwareInterface,
     MainOutputs { cycler_module: Ident },
     Module { module: Module },
