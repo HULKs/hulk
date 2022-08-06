@@ -13,6 +13,7 @@ use crate::{
     queries::{
         find_additional_outputs_within_cycler, find_cycler_module_from_cycler_instance,
         find_main_outputs_within_cycler, find_persistent_state_within_cycler,
+        find_producing_module_from_read_edge_reference,
     },
     walker::rust_file_paths_from,
 };
@@ -303,6 +304,33 @@ where
                 }
                 Attribute::PerceptionModule { .. } | Attribute::RealtimeModule { .. } => {}
             }
+        }
+    }
+
+    let cloned_graph = graph.clone();
+    for consuming_module_index in
+        cloned_graph
+            .node_indices()
+            .filter_map(|node_index| match &cloned_graph[node_index] {
+                Node::Module { .. } => Some(node_index),
+                _ => None,
+            })
+    {
+        for (producing_module_index, attribute) in cloned_graph
+            .edges(consuming_module_index)
+            .filter_map(|edge_reference| match edge_reference.weight() {
+                Edge::ReadsFrom { attribute } => {
+                    find_producing_module_from_read_edge_reference(&cloned_graph, edge_reference)
+                        .map(|producing_module_index| (producing_module_index, attribute.clone()))
+                }
+                _ => None,
+            })
+        {
+            graph.add_edge(
+                consuming_module_index,
+                producing_module_index,
+                Edge::ConsumesFrom { attribute },
+            );
         }
     }
 

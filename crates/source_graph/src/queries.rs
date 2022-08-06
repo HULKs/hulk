@@ -1,4 +1,7 @@
-use petgraph::{stable_graph::NodeIndex, Graph};
+use module_attributes2::Attribute;
+use petgraph::{
+    graph::EdgeReference, stable_graph::NodeIndex, visit::EdgeRef, Direction::Incoming, Graph,
+};
 
 use crate::{Edge, Node};
 
@@ -58,5 +61,35 @@ pub fn find_cycler_module_from_cycler_instance(
                 _ => false,
             }),
             _ => false,
+        })
+}
+
+pub fn find_producing_module_from_read_edge_reference(
+    graph: &Graph<Node, Edge>,
+    read_edge_reference: EdgeReference<Edge>,
+) -> Option<NodeIndex> {
+    let main_outputs_index = read_edge_reference.target();
+    let read_edge_attribute = match read_edge_reference.weight() {
+        Edge::ReadsFrom { attribute } => attribute,
+        _ => return None,
+    };
+    let first_segment = match read_edge_attribute {
+        Attribute::HistoricInput { path, .. }
+        | Attribute::Input { path, .. }
+        | Attribute::PerceptionInput { path, .. } => path.segments.first()?,
+        _ => return None,
+    };
+    graph
+        .edges_directed(main_outputs_index, Incoming)
+        .find_map(|edge_reference| match edge_reference.weight() {
+            Edge::WritesTo { attribute }
+                if match attribute {
+                    Attribute::MainOutput { name, .. } => first_segment == name,
+                    _ => false,
+                } =>
+            {
+                Some(edge_reference.source())
+            }
+            _ => None,
         })
 }
