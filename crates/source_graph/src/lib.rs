@@ -2,7 +2,7 @@ mod edge;
 mod generator;
 mod node;
 mod parser;
-pub mod queries;
+mod queries;
 mod to_absolute;
 mod walker;
 
