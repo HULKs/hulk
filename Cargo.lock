@@ -2960,6 +2960,7 @@ name = "source_graph"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "convert_case 0.5.0",
  "module_attributes2",
  "petgraph",
  "proc-macro2",
