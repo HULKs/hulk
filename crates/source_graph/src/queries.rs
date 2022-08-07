@@ -2,6 +2,7 @@ use module_attributes2::Attribute;
 use petgraph::{
     graph::EdgeReference, stable_graph::NodeIndex, visit::EdgeRef, Direction::Incoming, Graph,
 };
+use syn::{Ident, Type};
 
 use crate::{Edge, Node};
 
@@ -92,6 +93,61 @@ pub fn find_producing_module_from_read_edge_reference(
                 } =>
             {
                 Some(edge_reference.source())
+            }
+            _ => None,
+        })
+}
+
+pub fn iterate_producing_module_edges_from_main_outputs_struct_index(
+    graph: &Graph<Node, Edge>,
+    main_outputs_struct_index: NodeIndex,
+) -> impl Iterator<Item = (EdgeReference<Edge>, &Type, &Ident)> {
+    graph
+        .edges_directed(main_outputs_struct_index, Incoming)
+        .filter_map(|edge_reference| match edge_reference.weight() {
+            Edge::WritesTo { attribute } => match attribute {
+                Attribute::MainOutput { data_type, name } => {
+                    Some((edge_reference, data_type, name))
+                }
+                _ => None,
+            },
+            _ => None,
+        })
+}
+
+pub fn find_parsed_rust_file_from_module_index(
+    graph: &Graph<Node, Edge>,
+    module_index: NodeIndex,
+) -> Option<NodeIndex> {
+    graph
+        .edges_directed(module_index, Incoming)
+        .find_map(|edge_reference| match edge_reference.weight() {
+            Edge::Contains
+                if match graph[edge_reference.source()] {
+                    Node::ParsedRustFile { .. } => true,
+                    _ => false,
+                } =>
+            {
+                Some(edge_reference.source())
+            }
+            _ => None,
+        })
+}
+
+pub fn find_uses_from_parsed_rust_file_index(
+    graph: &Graph<Node, Edge>,
+    parsed_rust_file_index: NodeIndex,
+) -> Option<NodeIndex> {
+    graph
+        .edges(parsed_rust_file_index)
+        .find_map(|edge_reference| match edge_reference.weight() {
+            Edge::Contains
+                if match &graph[edge_reference.target()] {
+                    Node::Uses { .. } => true,
+                    _ => false,
+                } =>
+            {
+                Some(edge_reference.target())
             }
             _ => None,
         })
