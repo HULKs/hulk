@@ -1,3 +1,4 @@
+use quote::ToTokens;
 use source_graph::{source_graph_from, Edge, Node};
 
 fn main() {
@@ -32,6 +33,9 @@ fn main() {
                     name,
                     cycler_module,
                 } => format!("Struct({name}, {cycler_module})"),
+                Node::StructField { data_type } =>
+                    format!("StructField({})", data_type.to_token_stream()),
+                Node::Uses { .. } => "Uses".to_string(),
             }
         );
     }
@@ -42,8 +46,9 @@ fn main() {
             from.index(),
             to.index(),
             match &graph[edge_index] {
-                Edge::Contains => "Contains".to_string(),
                 Edge::ConsumesFrom { attribute } => format!("ConsumesFrom({attribute})"),
+                Edge::Contains => "Contains".to_string(),
+                Edge::ContainsField { name } => format!("ContainsField({name})"),
                 Edge::ReadsFrom { attribute } => format!("ReadsFrom({attribute})"),
                 Edge::WritesTo { attribute } => format!("WritesTo({attribute})"),
                 Edge::ReadsFromOrWritesTo { attribute } =>

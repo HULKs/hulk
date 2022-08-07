@@ -2,19 +2,22 @@ use std::path::Path;
 
 use anyhow::{anyhow, bail, Context};
 use module_attributes2::Attribute;
-use petgraph::Graph;
+use petgraph::{visit::EdgeRef, Graph};
 
 use crate::{
     edge::Edge,
     get_cycler_instance_enum, get_module_implementation,
     node::Node,
     parse_file,
-    parser::{get_cycler_instances, get_module},
+    parser::{get_cycler_instances, get_module, uses_from_items},
     queries::{
         find_additional_outputs_within_cycler, find_cycler_module_from_cycler_instance,
-        find_main_outputs_within_cycler, find_persistent_state_within_cycler,
-        find_producing_module_from_read_edge_reference,
+        find_main_outputs_within_cycler, find_parsed_rust_file_from_module_index,
+        find_persistent_state_within_cycler, find_producing_module_from_read_edge_reference,
+        find_uses_from_parsed_rust_file_index,
+        iterate_producing_module_edges_from_main_outputs_struct_index,
     },
+    to_absolute::ToAbsolute,
     walker::rust_file_paths_from,
 };
 
@@ -339,7 +342,7 @@ where
                 .ok_or_else(|| {
                     let module_identifier = match &graph[consuming_module_index] {
                         Node::Module { module } => &module.module_identifier,
-                        _ => panic!("consuming_module_index should be a Node::Module"),
+                        _ => panic!("consuming_module_index should refer to a Node::Module"),
                     };
                     anyhow!("Failed to find producing module in source graph for {attribute} in module {module_identifier}")
                 })?;
@@ -351,6 +354,65 @@ where
                     attribute: attribute.clone(),
                 },
             );
+        }
+    }
+
+    let cloned_graph = graph.clone();
+    for (struct_index, struct_name) in
+        cloned_graph
+            .node_indices()
+            .filter_map(|node_index| match &cloned_graph[node_index] {
+                Node::Struct { name, .. } => Some((node_index, name)),
+                _ => None,
+            })
+    {
+        match struct_name.as_str() {
+            "MainOutputs" => {
+                for (edge_reference, data_type, name) in
+                    iterate_producing_module_edges_from_main_outputs_struct_index(
+                        &cloned_graph,
+                        struct_index,
+                    )
+                {
+                    let parsed_rust_file_index = find_parsed_rust_file_from_module_index(&graph, edge_reference.source())
+                        .ok_or_else(|| {
+                            let module_identifier = match &graph[edge_reference.source()] {
+                                Node::Module { module } => &module.module_identifier,
+                                _ => panic!("edge_reference.source() should refer to a Node::Module"),
+                            };
+                            anyhow!("Failed to find ParsedRustFile in source graph for module {module_identifier}")
+                        })?;
+                    let uses_index =
+                        find_uses_from_parsed_rust_file_index(&graph, parsed_rust_file_index)
+                            .unwrap_or_else(|| {
+                                let uses = match &graph[parsed_rust_file_index] {
+                                    Node::ParsedRustFile { file } => uses_from_items(&file.items),
+                                    _ => panic!(
+                                "parsed_rust_file_index should refer to a Node::ParsedRustFile"
+                            ),
+                                };
+                                let uses_index = graph.add_node(Node::Uses { uses });
+                                graph.add_edge(parsed_rust_file_index, uses_index, Edge::Contains);
+                                uses_index
+                            });
+                    let uses = match &graph[uses_index] {
+                        Node::Uses { uses } => uses,
+                        _ => panic!("uses_index should refer to a Node::Uses"),
+                    };
+                    let absolute_data_type = data_type.to_absolute(uses);
+                    let struct_field_index = graph.add_node(Node::StructField {
+                        data_type: absolute_data_type,
+                    });
+                    graph.add_edge(
+                        struct_index,
+                        struct_field_index,
+                        Edge::ContainsField { name: name.clone() },
+                    );
+                }
+            }
+            "AdditionalOutputs" => {}
+            "PersistentState" => {}
+            _ => {}
         }
     }
 

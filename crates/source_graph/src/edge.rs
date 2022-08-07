@@ -1,10 +1,12 @@
 use module_attributes2::Attribute;
+use syn::Ident;
 
 #[derive(Clone, Debug)]
 pub enum Edge {
-    Contains,
     ConsumesFrom { attribute: Attribute },
+    Contains,
+    ContainsField { name: Ident },
     ReadsFrom { attribute: Attribute },
-    WritesTo { attribute: Attribute },
     ReadsFromOrWritesTo { attribute: Attribute },
+    WritesTo { attribute: Attribute },
 }

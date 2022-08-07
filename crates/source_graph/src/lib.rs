@@ -3,6 +3,7 @@ mod generator;
 mod node;
 mod parser;
 pub mod queries;
+mod to_absolute;
 mod walker;
 
 pub use edge::Edge;

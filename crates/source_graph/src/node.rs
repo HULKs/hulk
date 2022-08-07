@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use module_attributes2::Module;
-use syn::File;
+use syn::{File, Type};
+
+use crate::parser::Uses;
 
 #[derive(Clone, Debug)]
 pub enum Node {
@@ -13,4 +15,6 @@ pub enum Node {
     ParsedRustFile { file: File },
     RustFilePath { path: PathBuf },
     Struct { name: String, cycler_module: String },
+    StructField { data_type: Type },
+    Uses { uses: Uses },
 }
