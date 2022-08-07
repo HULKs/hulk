@@ -13,10 +13,13 @@ use crate::{
     queries::{
         add_path_to_struct_hierarchy, find_cycler_module_from_cycler_instance,
         find_producing_module_from_read_edge_reference, find_struct_within_cycler,
+        iterate_cycler_modules, iterate_modules, iterate_modules_with_matching_cycler_module,
         iterate_producing_module_edges_from_additional_outputs_struct_index,
         iterate_producing_module_edges_from_configuration_struct_index,
         iterate_producing_module_edges_from_main_outputs_struct_index,
         iterate_producing_module_edges_from_persistent_state_struct_index,
+        iterate_read_edge_references_from_module_index, iterate_rust_file_paths,
+        iterate_rust_file_paths_starting_with_path, iterate_structs,
         store_and_get_uses_from_module_index,
     },
     to_absolute::ToAbsolute,
@@ -40,14 +43,7 @@ where
     }
 
     let cloned_graph = graph.clone();
-    for (rust_file_path_index, rust_file_path) in
-        cloned_graph
-            .node_indices()
-            .filter_map(|node_index| match &cloned_graph[node_index] {
-                Node::RustFilePath { path } => Some((node_index, path.clone())),
-                _ => None,
-            })
-    {
+    for (rust_file_path_index, rust_file_path) in iterate_rust_file_paths(&cloned_graph) {
         let file = parse_file(&rust_file_path)
             .with_context(|| format!("Failed to parse file {rust_file_path:?}"))?;
         let cycler_instances = get_cycler_instance_enum(&file)
@@ -131,22 +127,11 @@ where
     }
 
     let cloned_graph = graph.clone();
-    for (cycler_module_directory_index, cycler_module, cycler_module_directory) in cloned_graph
-        .node_indices()
-        .filter_map(|node_index| match &cloned_graph[node_index] {
-            Node::CyclerModule { module, path } => Some((node_index, module, path)),
-            _ => None,
-        })
+    for (cycler_module_directory_index, cycler_module, cycler_module_directory) in
+        iterate_cycler_modules(&cloned_graph)
     {
         for rust_file_path_index in
-            cloned_graph
-                .node_indices()
-                .filter_map(|node_index| match &cloned_graph[node_index] {
-                    Node::RustFilePath { path } if path.starts_with(cycler_module_directory) => {
-                        Some(node_index)
-                    }
-                    _ => None,
-                })
+            iterate_rust_file_paths_starting_with_path(&cloned_graph, cycler_module_directory)
         {
             graph.add_edge(
                 cycler_module_directory_index,
@@ -155,38 +140,15 @@ where
             );
         }
 
-        for module_index in cloned_graph
-            .node_indices()
-            .filter_map(|node_index| match &cloned_graph[node_index] {
-                Node::Module { module }
-                    if module.attributes.iter().any(|attribute| match attribute {
-                        Attribute::PerceptionModule {
-                            cycler_module: cycler_module_of_attribute,
-                        }
-                        | Attribute::RealtimeModule {
-                            cycler_module: cycler_module_of_attribute,
-                        } => cycler_module_of_attribute == cycler_module,
-                        _ => false,
-                    }) =>
-                {
-                    Some(node_index)
-                }
-                _ => None,
-            })
+        for module_index in
+            iterate_modules_with_matching_cycler_module(&cloned_graph, cycler_module)
         {
             graph.add_edge(cycler_module_directory_index, module_index, Edge::Contains);
         }
     }
 
     let cloned_graph = graph.clone();
-    for (module_index, module) in
-        cloned_graph
-            .node_indices()
-            .filter_map(|node_index| match &cloned_graph[node_index] {
-                Node::Module { module } => Some((node_index, module)),
-                _ => None,
-            })
-    {
+    for (module_index, module) in iterate_modules(&cloned_graph) {
         let cycler_module = module
             .attributes
             .iter()
@@ -315,38 +277,20 @@ where
     }
 
     let cloned_graph = graph.clone();
-    for consuming_module_index in
-        cloned_graph
-            .node_indices()
-            .filter_map(|node_index| match &cloned_graph[node_index] {
-                Node::Module { .. } => Some(node_index),
-                _ => None,
-            })
-    {
+    for (consuming_module_index, consuming_module) in iterate_modules(&cloned_graph) {
         for (edge_reference, attribute) in
-            cloned_graph
-                .edges(consuming_module_index)
-                .filter_map(|edge_reference| match edge_reference.weight() {
-                    Edge::ReadsFrom { attribute } => match attribute {
-                        Attribute::HistoricInput { .. }
-                        | Attribute::Input { .. }
-                        | Attribute::PerceptionInput { .. } => Some((edge_reference, attribute)),
-                        _ => None,
-                    },
-                    _ => None,
-                })
+            iterate_read_edge_references_from_module_index(&cloned_graph, consuming_module_index)
         {
             let producing_module_index = find_producing_module_from_read_edge_reference(
-                    &cloned_graph,
-                    edge_reference,
+                &cloned_graph,
+                edge_reference,
+            )
+            .ok_or_else(|| {
+                anyhow!(
+                    "Failed to find producing module in source graph for {attribute} in module {}",
+                    consuming_module.module_identifier
                 )
-                .ok_or_else(|| {
-                    let module_identifier = match &graph[consuming_module_index] {
-                        Node::Module { module } => &module.module_identifier,
-                        _ => panic!("consuming_module_index should refer to a Node::Module"),
-                    };
-                    anyhow!("Failed to find producing module in source graph for {attribute} in module {module_identifier}")
-                })?;
+            })?;
 
             graph.add_edge(
                 consuming_module_index,
@@ -359,14 +303,7 @@ where
     }
 
     let cloned_graph = graph.clone();
-    for (root_struct_index, root_struct_name) in
-        cloned_graph
-            .node_indices()
-            .filter_map(|node_index| match &cloned_graph[node_index] {
-                Node::Struct { name } => Some((node_index, name)),
-                _ => None,
-            })
-    {
+    for (root_struct_index, root_struct_name) in iterate_structs(&cloned_graph) {
         match root_struct_name.as_str() {
             "Configuration" => {
                 for (edge_reference, data_type, _name, path) in
