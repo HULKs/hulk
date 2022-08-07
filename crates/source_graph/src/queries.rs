@@ -12,9 +12,10 @@ pub fn find_main_outputs_within_cycler(
     graph
         .node_indices()
         .find(|node_index| match &graph[*node_index] {
-            Node::MainOutputs {
+            Node::Struct {
+                name,
                 cycler_module: cycler_module_of_node,
-            } if cycler_module_of_node == cycler_module => true,
+            } if name == "MainOutputs" && cycler_module_of_node == cycler_module => true,
             _ => false,
         })
 }
@@ -26,9 +27,10 @@ pub fn find_additional_outputs_within_cycler(
     graph
         .node_indices()
         .find(|node_index| match &graph[*node_index] {
-            Node::AdditionalOutputs {
+            Node::Struct {
+                name,
                 cycler_module: cycler_module_of_node,
-            } if cycler_module_of_node == cycler_module => true,
+            } if name == "AdditionalOutputs" && cycler_module_of_node == cycler_module => true,
             _ => false,
         })
 }
@@ -40,9 +42,10 @@ pub fn find_persistent_state_within_cycler(
     graph
         .node_indices()
         .find(|node_index| match &graph[*node_index] {
-            Node::PersistentState {
+            Node::Struct {
+                name,
                 cycler_module: cycler_module_of_node,
-            } if cycler_module_of_node == cycler_module => true,
+            } if name == "PersistentState" && cycler_module_of_node == cycler_module => true,
             _ => false,
         })
 }

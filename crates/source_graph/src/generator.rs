@@ -80,12 +80,14 @@ where
                 path: cycler_module_directory,
             });
 
-            let main_outputs_index = graph.add_node(Node::MainOutputs {
+            let main_outputs_index = graph.add_node(Node::Struct {
+                name: "MainOutputs".to_string(),
                 cycler_module: cycler_module_directory_name.clone(),
             });
             graph.add_edge(cycler_module_index, main_outputs_index, Edge::Contains);
 
-            let additional_outputs_index = graph.add_node(Node::AdditionalOutputs {
+            let additional_outputs_index = graph.add_node(Node::Struct {
+                name: "AdditionalOutputs".to_string(),
                 cycler_module: cycler_module_directory_name.clone(),
             });
             graph.add_edge(
@@ -94,7 +96,8 @@ where
                 Edge::Contains,
             );
 
-            let persistent_state_index = graph.add_node(Node::PersistentState {
+            let persistent_state_index = graph.add_node(Node::Struct {
+                name: "PersistentState".to_string(),
                 cycler_module: cycler_module_directory_name,
             });
             graph.add_edge(cycler_module_index, persistent_state_index, Edge::Contains);

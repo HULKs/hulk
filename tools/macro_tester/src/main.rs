@@ -1,13 +1,4 @@
-use std::{
-    fs::File,
-    io::{Read, Write},
-    process::Command,
-};
-
-use module_attributes2::{uses_from_items, Module, Uses};
-use quote::quote;
 use source_graph::{source_graph_from, Edge, Node};
-use syn::{parse_file, Item};
 
 fn main() {
     // let file = source_graph::parse_file("src/spl_network2/mod.rs").unwrap();
@@ -29,19 +20,18 @@ fn main() {
             "\t{} [ label = \"{}\" ]",
             node_index.index(),
             match &graph[node_index] {
-                Node::AdditionalOutputs { cycler_module } =>
-                    format!("AdditionalOutputs({cycler_module})"),
                 Node::Configuration => "Configuration".to_string(),
                 Node::CyclerInstance { instance } => format!("CyclerInstance({instance})"),
                 Node::CyclerModule { module, path } =>
                     format!("CyclerModule({module}, {})", path.display()),
                 Node::HardwareInterface => "HardwareInterface".to_string(),
-                Node::MainOutputs { cycler_module } => format!("MainOutputs({cycler_module})"),
                 Node::Module { module } => format!("Module({})", module.module_identifier),
                 Node::ParsedRustFile { file: _ } => "ParsedRustFile".to_string(),
-                Node::PersistentState { cycler_module } =>
-                    format!("PersistentState({cycler_module})"),
                 Node::RustFilePath { path } => format!("RustFilePath({})", path.display()),
+                Node::Struct {
+                    name,
+                    cycler_module,
+                } => format!("Struct({name}, {cycler_module})"),
             }
         );
     }
@@ -96,24 +86,24 @@ fn main() {
     // }
 }
 
-fn generate_main_outputs_database(module: &Module, uses: &Uses) {
-    let main_outputs = module.generate_main_output_fields(uses);
-    let database = quote! {
-        struct MainOutputs {
-            #(#main_outputs,)*
-        }
-    };
+// fn generate_main_outputs_database(module: &Module, uses: &Uses) {
+//     let main_outputs = module.generate_main_output_fields(uses);
+//     let database = quote! {
+//         struct MainOutputs {
+//             #(#main_outputs,)*
+//         }
+//     };
 
-    {
-        let mut file = File::create("database.rs").unwrap();
-        write!(file, "{}", database).unwrap();
-    }
+//     {
+//         let mut file = File::create("database.rs").unwrap();
+//         write!(file, "{}", database).unwrap();
+//     }
 
-    let status = Command::new("rustfmt")
-        .arg("database.rs")
-        .status()
-        .expect("Failed to execute rustfmt");
-    if !status.success() {
-        panic!("rustfmt did not exit with success");
-    }
-}
+//     let status = Command::new("rustfmt")
+//         .arg("database.rs")
+//         .status()
+//         .expect("Failed to execute rustfmt");
+//     if !status.success() {
+//         panic!("rustfmt did not exit with success");
+//     }
+// }
