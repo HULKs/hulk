@@ -11,9 +11,8 @@ use crate::{
     parse_file,
     parser::{get_cycler_instances, get_module},
     queries::{
-        add_path_to_struct_hierarchy, find_additional_outputs_within_cycler,
-        find_cycler_module_from_cycler_instance, find_main_outputs_within_cycler,
-        find_persistent_state_within_cycler, find_producing_module_from_read_edge_reference,
+        add_path_to_struct_hierarchy, find_cycler_module_from_cycler_instance,
+        find_producing_module_from_read_edge_reference, find_struct_within_cycler,
         iterate_producing_module_edges_from_additional_outputs_struct_index,
         iterate_producing_module_edges_from_main_outputs_struct_index,
         iterate_producing_module_edges_from_persistent_state_struct_index,
@@ -87,13 +86,11 @@ where
 
             let main_outputs_index = graph.add_node(Node::Struct {
                 name: "MainOutputs".to_string(),
-                cycler_module: cycler_module_directory_name.clone(),
             });
             graph.add_edge(cycler_module_index, main_outputs_index, Edge::Contains);
 
             let additional_outputs_index = graph.add_node(Node::Struct {
                 name: "AdditionalOutputs".to_string(),
-                cycler_module: cycler_module_directory_name.clone(),
             });
             graph.add_edge(
                 cycler_module_index,
@@ -103,7 +100,6 @@ where
 
             let persistent_state_index = graph.add_node(Node::Struct {
                 name: "PersistentState".to_string(),
-                cycler_module: cycler_module_directory_name,
             });
             graph.add_edge(cycler_module_index, persistent_state_index, Edge::Contains);
 
@@ -206,7 +202,7 @@ where
         for attribute in module.attributes.iter() {
             match attribute {
                 Attribute::AdditionalOutput { .. } => {
-                    let additional_outputs_index = find_additional_outputs_within_cycler(&graph, &cycler_module)
+                    let additional_outputs_index = find_struct_within_cycler(&graph, &cycler_module, "AdditionalOutputs")
                         .ok_or_else(|| anyhow!("Failed to find AdditionalOutputs in source graph of cycler module {cycler_module}"))?;
                     graph.add_edge(
                         module_index,
@@ -226,7 +222,7 @@ where
                     );
                 }
                 Attribute::HistoricInput { .. } => {
-                    let main_outputs_index = find_main_outputs_within_cycler(&graph, &cycler_module)
+                    let main_outputs_index = find_struct_within_cycler(&graph, &cycler_module, "MainOutputs")
                         .ok_or_else(|| anyhow!("Failed to find MainOutputs in source graph of cycler module {cycler_module}"))?;
                     graph.add_edge(
                         module_index,
@@ -250,7 +246,7 @@ where
                         }
                         None => &cycler_module,
                     };
-                    let main_outputs_index = find_main_outputs_within_cycler(&graph, cycler_module)
+                    let main_outputs_index = find_struct_within_cycler(&graph, &cycler_module, "MainOutputs")
                         .ok_or_else(|| anyhow!("Failed to find MainOutputs in source graph of cycler module {cycler_module}"))?;
                     graph.add_edge(
                         module_index,
@@ -261,7 +257,7 @@ where
                     );
                 }
                 Attribute::MainOutput { .. } => {
-                    let main_outputs_index = find_main_outputs_within_cycler(&graph, &cycler_module)
+                    let main_outputs_index = find_struct_within_cycler(&graph, &cycler_module, "MainOutputs")
                         .ok_or_else(|| anyhow!("Failed to find MainOutputs in source graph of cycler module {cycler_module}"))?;
                     graph.add_edge(
                         module_index,
@@ -289,7 +285,7 @@ where
                         Node::CyclerModule { module, path: _ } => module,
                         _ => panic!("Unexpected non-CyclerModule after successful search"),
                     };
-                    let main_outputs_index = find_main_outputs_within_cycler(&graph, cycler_module)
+                    let main_outputs_index = find_struct_within_cycler(&graph, &cycler_module, "MainOutputs")
                         .ok_or_else(|| anyhow!("Failed to find MainOutputs in source graph of cycler module {cycler_module}"))?;
                     graph.add_edge(
                         module_index,
@@ -300,7 +296,7 @@ where
                     );
                 }
                 Attribute::PersistentState { .. } => {
-                    let persistent_state_index = find_persistent_state_within_cycler(&graph, &cycler_module)
+                    let persistent_state_index = find_struct_within_cycler(&graph, &cycler_module, "PersistentState")
                         .ok_or_else(|| anyhow!("Failed to find PersistentState in source graph of cycler module {cycler_module}"))?;
                     graph.add_edge(
                         module_index,
@@ -360,15 +356,13 @@ where
     }
 
     let cloned_graph = graph.clone();
-    for (root_struct_index, root_struct_name, root_struct_cycler_module) in cloned_graph
-        .node_indices()
-        .filter_map(|node_index| match &cloned_graph[node_index] {
-            Node::Struct {
-                name,
-                cycler_module,
-            } => Some((node_index, name, cycler_module)),
-            _ => None,
-        })
+    for (root_struct_index, root_struct_name) in
+        cloned_graph
+            .node_indices()
+            .filter_map(|node_index| match &cloned_graph[node_index] {
+                Node::Struct { name } => Some((node_index, name)),
+                _ => None,
+            })
     {
         match root_struct_name.as_str() {
             "MainOutputs" => {

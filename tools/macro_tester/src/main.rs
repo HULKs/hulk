@@ -29,10 +29,7 @@ fn main() {
                 Node::Module { module } => format!("Module({})", module.module_identifier),
                 Node::ParsedRustFile { file: _ } => "ParsedRustFile".to_string(),
                 Node::RustFilePath { path } => format!("RustFilePath({})", path.display()),
-                Node::Struct {
-                    name,
-                    cycler_module,
-                } => format!("Struct({name}, {cycler_module})"),
+                Node::Struct { name } => format!("Struct({name})"),
                 Node::StructField { data_type } =>
                     format!("StructField({})", data_type.to_token_stream()),
                 Node::Uses { .. } => "Uses".to_string(),

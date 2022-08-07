@@ -17,49 +17,25 @@ use crate::{
     Edge, Node,
 };
 
-pub fn find_main_outputs_within_cycler(
+pub fn find_struct_within_cycler(
     graph: &Graph<Node, Edge>,
     cycler_module: &str,
+    struct_name: &str,
 ) -> Option<NodeIndex> {
-    graph
-        .node_indices()
-        .find(|node_index| match &graph[*node_index] {
-            Node::Struct {
-                name,
-                cycler_module: cycler_module_of_node,
-            } if name == "MainOutputs" && cycler_module_of_node == cycler_module => true,
-            _ => false,
-        })
-}
-
-pub fn find_additional_outputs_within_cycler(
-    graph: &Graph<Node, Edge>,
-    cycler_module: &str,
-) -> Option<NodeIndex> {
-    graph
-        .node_indices()
-        .find(|node_index| match &graph[*node_index] {
-            Node::Struct {
-                name,
-                cycler_module: cycler_module_of_node,
-            } if name == "AdditionalOutputs" && cycler_module_of_node == cycler_module => true,
-            _ => false,
-        })
-}
-
-pub fn find_persistent_state_within_cycler(
-    graph: &Graph<Node, Edge>,
-    cycler_module: &str,
-) -> Option<NodeIndex> {
-    graph
-        .node_indices()
-        .find(|node_index| match &graph[*node_index] {
-            Node::Struct {
-                name,
-                cycler_module: cycler_module_of_node,
-            } if name == "PersistentState" && cycler_module_of_node == cycler_module => true,
-            _ => false,
-        })
+    graph.edge_references().find_map(|edge_reference| {
+        match (
+            &graph[edge_reference.source()],
+            edge_reference.weight(),
+            &graph[edge_reference.target()],
+        ) {
+            (Node::CyclerModule { module, .. }, Edge::Contains, Node::Struct { name })
+                if module == cycler_module && name == struct_name =>
+            {
+                Some(edge_reference.target())
+            }
+            _ => None,
+        }
+    })
 }
 
 pub fn find_cycler_module_from_cycler_instance(
@@ -264,7 +240,6 @@ pub fn add_path_to_struct_hierarchy(
             None => {
                 let next_node_index = graph.add_node(Node::Struct {
                     name: current_struct_name.clone(),
-                    cycler_module: todo!(),
                 });
                 graph.add_edge(
                     current_node_index,
