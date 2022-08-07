@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::{anyhow, bail, Context};
 use module_attributes2::Attribute;
-use petgraph::{visit::EdgeRef, Graph};
+use petgraph::{stable_graph::NodeIndex, visit::EdgeRef, Graph};
 
 use crate::{
     edge::Edge,
@@ -31,17 +31,41 @@ where
     P: AsRef<Path>,
 {
     let mut graph = Graph::new();
+    let (configuration_index, hardware_interface_index) = generate_initial_root_structs(&mut graph);
+    generate_rust_file_paths(&mut graph, parent_directory);
+    generate_modules_and_cycler_instances_and_root_structs(&mut graph)
+        .context("Failed to generate modules and cycler instances")?;
+    connect_nodes_with_corresponding_cycler_modules(&mut graph);
+    generate_attribute_edges(&mut graph, configuration_index, hardware_interface_index)
+        .context("Failed to generate attribute edges")?;
+    generate_consumer_producer_edges(&mut graph)
+        .context("Failed to generate consumer/producer edges")?;
+    generate_struct_hierarchy(&mut graph).context("Failed to generate struct hierarchy")?;
+    Ok(graph)
+}
+
+fn generate_initial_root_structs(graph: &mut Graph<Node, Edge>) -> (NodeIndex, NodeIndex) {
     let configuration_index = graph.add_node(Node::Struct {
         name: "Configuration".to_string(),
     });
     let hardware_interface_index = graph.add_node(Node::HardwareInterface);
+    (configuration_index, hardware_interface_index)
+}
 
+fn generate_rust_file_paths<P>(graph: &mut Graph<Node, Edge>, parent_directory: P)
+where
+    P: AsRef<Path>,
+{
     for rust_file_path in rust_file_paths_from(parent_directory) {
         graph.add_node(Node::RustFilePath {
             path: rust_file_path,
         });
     }
+}
 
+fn generate_modules_and_cycler_instances_and_root_structs(
+    graph: &mut Graph<Node, Edge>,
+) -> anyhow::Result<()> {
     let cloned_graph = graph.clone();
     for (rust_file_path_index, rust_file_path) in iterate_rust_file_paths(&cloned_graph) {
         let file = parse_file(&rust_file_path)
@@ -125,7 +149,10 @@ where
             );
         }
     }
+    Ok(())
+}
 
+fn connect_nodes_with_corresponding_cycler_modules(graph: &mut Graph<Node, Edge>) {
     let cloned_graph = graph.clone();
     for (cycler_module_directory_index, cycler_module, cycler_module_directory) in
         iterate_cycler_modules(&cloned_graph)
@@ -146,7 +173,13 @@ where
             graph.add_edge(cycler_module_directory_index, module_index, Edge::Contains);
         }
     }
+}
 
+fn generate_attribute_edges(
+    graph: &mut Graph<Node, Edge>,
+    configuration_index: NodeIndex,
+    hardware_interface_index: NodeIndex,
+) -> anyhow::Result<()> {
     let cloned_graph = graph.clone();
     for (module_index, module) in iterate_modules(&cloned_graph) {
         let cycler_module = module
@@ -275,22 +308,23 @@ where
             }
         }
     }
+    Ok(())
+}
 
+fn generate_consumer_producer_edges(graph: &mut Graph<Node, Edge>) -> anyhow::Result<()> {
     let cloned_graph = graph.clone();
     for (consuming_module_index, consuming_module) in iterate_modules(&cloned_graph) {
         for (edge_reference, attribute) in
             iterate_read_edge_references_from_module_index(&cloned_graph, consuming_module_index)
         {
-            let producing_module_index = find_producing_module_from_read_edge_reference(
-                &cloned_graph,
-                edge_reference,
-            )
-            .ok_or_else(|| {
-                anyhow!(
+            let producing_module_index =
+                find_producing_module_from_read_edge_reference(&cloned_graph, edge_reference)
+                    .ok_or_else(|| {
+                        anyhow!(
                     "Failed to find producing module in source graph for {attribute} in module {}",
                     consuming_module.module_identifier
                 )
-            })?;
+                    })?;
 
             graph.add_edge(
                 consuming_module_index,
@@ -301,7 +335,10 @@ where
             );
         }
     }
+    Ok(())
+}
 
+fn generate_struct_hierarchy(graph: &mut Graph<Node, Edge>) -> anyhow::Result<()> {
     let cloned_graph = graph.clone();
     for (root_struct_index, root_struct_name) in iterate_structs(&cloned_graph) {
         match root_struct_name.as_str() {
@@ -313,10 +350,10 @@ where
                     )
                 {
                     let uses =
-                        store_and_get_uses_from_module_index(&mut graph, edge_reference.source())?;
+                        store_and_get_uses_from_module_index(graph, edge_reference.source())?;
                     let absolute_data_type = data_type.to_absolute(uses);
                     add_path_to_struct_hierarchy(
-                        &mut graph,
+                        graph,
                         root_struct_index,
                         root_struct_name.clone(),
                         absolute_data_type,
@@ -332,7 +369,7 @@ where
                     )
                 {
                     let uses =
-                        store_and_get_uses_from_module_index(&mut graph, edge_reference.source())?;
+                        store_and_get_uses_from_module_index(graph, edge_reference.source())?;
                     let absolute_data_type = data_type.to_absolute(uses);
                     let struct_field_index = graph.add_node(Node::StructField {
                         data_type: absolute_data_type,
@@ -352,10 +389,10 @@ where
                     )
                 {
                     let uses =
-                        store_and_get_uses_from_module_index(&mut graph, edge_reference.source())?;
+                        store_and_get_uses_from_module_index(graph, edge_reference.source())?;
                     let absolute_data_type = data_type.to_absolute(uses);
                     add_path_to_struct_hierarchy(
-                        &mut graph,
+                        graph,
                         root_struct_index,
                         root_struct_name.clone(),
                         absolute_data_type,
@@ -371,10 +408,10 @@ where
                     )
                 {
                     let uses =
-                        store_and_get_uses_from_module_index(&mut graph, edge_reference.source())?;
+                        store_and_get_uses_from_module_index(graph, edge_reference.source())?;
                     let absolute_data_type = data_type.to_absolute(uses);
                     add_path_to_struct_hierarchy(
-                        &mut graph,
+                        graph,
                         root_struct_index,
                         root_struct_name.clone(),
                         absolute_data_type,
@@ -385,6 +422,5 @@ where
             _ => {}
         }
     }
-
-    Ok(graph)
+    Ok(())
 }
