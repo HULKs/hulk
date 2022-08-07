@@ -1,8 +1,11 @@
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    path::{self, PathBuf},
+};
 
 use anyhow::anyhow;
 use convert_case::{Case, Casing};
-use module_attributes2::{Attribute, Path};
+use module_attributes2::{Attribute, Module, Path};
 use petgraph::{
     graph::EdgeReference,
     stable_graph::NodeIndex,
@@ -16,6 +19,78 @@ use crate::{
     parser::{uses_from_items, Uses},
     Edge, Node,
 };
+
+pub fn iterate_rust_file_paths(
+    graph: &Graph<Node, Edge>,
+) -> impl Iterator<Item = (NodeIndex, &PathBuf)> {
+    graph
+        .node_indices()
+        .filter_map(|node_index| match &graph[node_index] {
+            Node::RustFilePath { path } => Some((node_index, path)),
+            _ => None,
+        })
+}
+
+pub fn iterate_cycler_modules(
+    graph: &Graph<Node, Edge>,
+) -> impl Iterator<Item = (NodeIndex, &String, &PathBuf)> {
+    graph
+        .node_indices()
+        .filter_map(|node_index| match &graph[node_index] {
+            Node::CyclerModule { module, path } => Some((node_index, module, path)),
+            _ => None,
+        })
+}
+
+pub fn iterate_rust_file_paths_starting_with_path<'a, P>(
+    graph: &'a Graph<Node, Edge>,
+    path_prefix: P,
+) -> impl Iterator<Item = NodeIndex> + 'a
+where
+    P: AsRef<path::Path> + 'a,
+{
+    graph
+        .node_indices()
+        .filter_map(move |node_index| match &graph[node_index] {
+            Node::RustFilePath { path } if path.starts_with(path_prefix.as_ref()) => {
+                Some(node_index)
+            }
+            _ => None,
+        })
+}
+
+pub fn iterate_modules_with_matching_cycler_module<'a>(
+    graph: &'a Graph<Node, Edge>,
+    cycler_module: &'a str,
+) -> impl Iterator<Item = NodeIndex> + 'a {
+    graph
+        .node_indices()
+        .filter_map(move |node_index| match &graph[node_index] {
+            Node::Module { module }
+                if module.attributes.iter().any(|attribute| match attribute {
+                    Attribute::PerceptionModule {
+                        cycler_module: cycler_module_of_attribute,
+                    }
+                    | Attribute::RealtimeModule {
+                        cycler_module: cycler_module_of_attribute,
+                    } => cycler_module_of_attribute == cycler_module,
+                    _ => false,
+                }) =>
+            {
+                Some(node_index)
+            }
+            _ => None,
+        })
+}
+
+pub fn iterate_modules(graph: &Graph<Node, Edge>) -> impl Iterator<Item = (NodeIndex, &Module)> {
+    graph
+        .node_indices()
+        .filter_map(|node_index| match &graph[node_index] {
+            Node::Module { module } => Some((node_index, module)),
+            _ => None,
+        })
+}
 
 pub fn find_struct_within_cycler(
     graph: &Graph<Node, Edge>,
@@ -55,6 +130,23 @@ pub fn find_cycler_module_from_cycler_instance(
         })
 }
 
+pub fn iterate_read_edge_references_from_module_index(
+    graph: &Graph<Node, Edge>,
+    module_index: NodeIndex,
+) -> impl Iterator<Item = (EdgeReference<Edge>, &Attribute)> {
+    graph
+        .edges(module_index)
+        .filter_map(|edge_reference| match edge_reference.weight() {
+            Edge::ReadsFrom { attribute } => match attribute {
+                Attribute::HistoricInput { .. }
+                | Attribute::Input { .. }
+                | Attribute::PerceptionInput { .. } => Some((edge_reference, attribute)),
+                _ => None,
+            },
+            _ => None,
+        })
+}
+
 pub fn find_producing_module_from_read_edge_reference(
     graph: &Graph<Node, Edge>,
     read_edge_reference: EdgeReference<Edge>,
@@ -81,6 +173,15 @@ pub fn find_producing_module_from_read_edge_reference(
             {
                 Some(edge_reference.source())
             }
+            _ => None,
+        })
+}
+
+pub fn iterate_structs(graph: &Graph<Node, Edge>) -> impl Iterator<Item = (NodeIndex, &String)> {
+    graph
+        .node_indices()
+        .filter_map(|node_index| match &graph[node_index] {
+            Node::Struct { name } => Some((node_index, name)),
             _ => None,
         })
 }
