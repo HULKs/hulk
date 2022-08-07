@@ -7,7 +7,7 @@ use petgraph::{
     graph::EdgeReference,
     stable_graph::NodeIndex,
     visit::{Dfs, EdgeRef},
-    Direction::Incoming,
+    Direction::{Incoming, Outgoing},
     Graph,
 };
 use syn::{Ident, Type};
@@ -251,6 +251,12 @@ pub fn add_path_to_struct_hierarchy(
                 next_node_index
             }
         };
+    }
+    while let Some(neighbor_edge_index) = graph.first_edge(current_node_index, Outgoing) {
+        let (_, neighbor_index) = graph
+            .edge_endpoints(neighbor_edge_index)
+            .expect("Found edge must have endpoints");
+        remove_tree(graph, neighbor_index);
     }
     graph[current_node_index] = Node::StructField { data_type };
 }
