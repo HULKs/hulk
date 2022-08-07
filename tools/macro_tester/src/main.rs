@@ -21,7 +21,6 @@ fn main() {
             "\t{} [ label = \"{}\" ]",
             node_index.index(),
             match &graph[node_index] {
-                Node::Configuration => "Configuration".to_string(),
                 Node::CyclerInstance { instance } => format!("CyclerInstance({instance})"),
                 Node::CyclerModule { module, path } =>
                     format!("CyclerModule({module}, {})", path.display()),
