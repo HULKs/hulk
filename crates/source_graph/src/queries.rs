@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use anyhow::anyhow;
+use convert_case::{Case, Casing};
 use module_attributes2::{Attribute, Path};
 use petgraph::{
     graph::EdgeReference,
@@ -217,4 +218,45 @@ pub fn remove_tree(graph: &mut Graph<Node, Edge>, removal_root_index: NodeIndex)
         node_indices_to_remove.insert(node_index);
     }
     graph.retain_nodes(|_graph, node_index| !node_indices_to_remove.contains(&node_index));
+}
+
+pub fn add_path_to_struct_hierarchy(
+    graph: &mut Graph<Node, Edge>,
+    root_struct_index: NodeIndex,
+    root_struct_name: String,
+    data_type: Type,
+    path: &Path,
+) {
+    let mut current_node_index = root_struct_index;
+    let mut current_struct_name = root_struct_name;
+    for segment in path.segments.iter() {
+        match &graph[current_node_index] {
+            Node::StructField { .. } => break,
+            _ => {}
+        }
+        current_struct_name += &segment.to_string().to_case(Case::Pascal);
+        current_node_index = match graph.edges(current_node_index).find(|edge_reference| {
+            match edge_reference.weight() {
+                Edge::ContainsField { name } if name == segment => true,
+                _ => false,
+            }
+        }) {
+            Some(edge_reference) => edge_reference.target(),
+            None => {
+                let next_node_index = graph.add_node(Node::Struct {
+                    name: current_struct_name.clone(),
+                    cycler_module: todo!(),
+                });
+                graph.add_edge(
+                    current_node_index,
+                    next_node_index,
+                    Edge::ContainsField {
+                        name: segment.clone(),
+                    },
+                );
+                next_node_index
+            }
+        };
+    }
+    graph[current_node_index] = Node::StructField { data_type };
 }
