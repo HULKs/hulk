@@ -12,9 +12,9 @@ use crate::{
     parse_file,
     parser::{get_cycler_instances, get_module},
     queries::{
-        find_additional_outputs_within_cycler, find_cycler_module_from_cycler_instance,
-        find_main_outputs_within_cycler, find_persistent_state_within_cycler,
-        find_producing_module_from_read_edge_reference,
+        add_path_to_struct_hierarchy, find_additional_outputs_within_cycler,
+        find_cycler_module_from_cycler_instance, find_main_outputs_within_cycler,
+        find_persistent_state_within_cycler, find_producing_module_from_read_edge_reference,
         iterate_producing_module_edges_from_additional_outputs_struct_index,
         iterate_producing_module_edges_from_main_outputs_struct_index,
         store_and_get_uses_from_module_index,
@@ -401,41 +401,13 @@ where
                     let uses =
                         store_and_get_uses_from_module_index(&mut graph, edge_reference.source())?;
                     let absolute_data_type = data_type.to_absolute(uses);
-                    let mut current_node_index = root_struct_index;
-                    let mut current_struct_name = root_struct_name.clone();
-                    for segment in path.segments.iter() {
-                        match &graph[current_node_index] {
-                            Node::StructField { .. } => break,
-                            _ => {}
-                        }
-                        current_struct_name += &segment.to_string().to_case(Case::Pascal);
-                        current_node_index =
-                            match graph.edges(current_node_index).find(|edge_reference| {
-                                match edge_reference.weight() {
-                                    Edge::ContainsField { name } if name == segment => true,
-                                    _ => false,
-                                }
-                            }) {
-                                Some(edge_reference) => edge_reference.target(),
-                                None => {
-                                    let next_node_index = graph.add_node(Node::Struct {
-                                        name: current_struct_name.clone(),
-                                        cycler_module: root_struct_cycler_module.clone(),
-                                    });
-                                    graph.add_edge(
-                                        current_node_index,
-                                        next_node_index,
-                                        Edge::ContainsField {
-                                            name: segment.clone(),
-                                        },
-                                    );
-                                    next_node_index
-                                }
-                            };
-                    }
-                    graph[current_node_index] = Node::StructField {
-                        data_type: absolute_data_type,
-                    };
+                    add_path_to_struct_hierarchy(
+                        &mut graph,
+                        root_struct_index,
+                        root_struct_name.clone(),
+                        absolute_data_type,
+                        path,
+                    );
                 }
             }
             "PersistentState" => {}
