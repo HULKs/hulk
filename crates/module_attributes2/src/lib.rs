@@ -1,7 +1,5 @@
 mod attribute;
-mod field_tree;
 mod module;
-mod to_absolute;
 mod uses;
 
 pub use attribute::{Attribute, Path};
