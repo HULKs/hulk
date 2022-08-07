@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use anyhow::{anyhow, bail, Context};
-use convert_case::{Case, Casing};
 use module_attributes2::Attribute;
 use petgraph::{visit::EdgeRef, Graph};
 
@@ -17,6 +16,7 @@ use crate::{
         find_persistent_state_within_cycler, find_producing_module_from_read_edge_reference,
         iterate_producing_module_edges_from_additional_outputs_struct_index,
         iterate_producing_module_edges_from_main_outputs_struct_index,
+        iterate_producing_module_edges_from_persistent_state_struct_index,
         store_and_get_uses_from_module_index,
     },
     to_absolute::ToAbsolute,
@@ -410,7 +410,25 @@ where
                     );
                 }
             }
-            "PersistentState" => {}
+            "PersistentState" => {
+                for (edge_reference, data_type, _name, path) in
+                    iterate_producing_module_edges_from_persistent_state_struct_index(
+                        &cloned_graph,
+                        root_struct_index,
+                    )
+                {
+                    let uses =
+                        store_and_get_uses_from_module_index(&mut graph, edge_reference.source())?;
+                    let absolute_data_type = data_type.to_absolute(uses);
+                    add_path_to_struct_hierarchy(
+                        &mut graph,
+                        root_struct_index,
+                        root_struct_name.clone(),
+                        absolute_data_type,
+                        path,
+                    );
+                }
+            }
             _ => {}
         }
     }
