@@ -7,7 +7,6 @@ use crate::parser::Uses;
 
 #[derive(Clone, Debug)]
 pub enum Node {
-    Configuration,
     CyclerInstance { instance: String },
     CyclerModule { module: String, path: PathBuf },
     HardwareInterface,

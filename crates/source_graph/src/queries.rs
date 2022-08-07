@@ -85,6 +85,25 @@ pub fn find_producing_module_from_read_edge_reference(
         })
 }
 
+pub fn iterate_producing_module_edges_from_configuration_struct_index(
+    graph: &Graph<Node, Edge>,
+    configuration_struct_index: NodeIndex,
+) -> impl Iterator<Item = (EdgeReference<Edge>, &Type, &Ident, &Path)> {
+    graph
+        .edges_directed(configuration_struct_index, Incoming)
+        .filter_map(|edge_reference| match edge_reference.weight() {
+            Edge::ReadsFrom { attribute } => match attribute {
+                Attribute::Parameter {
+                    data_type,
+                    name,
+                    path,
+                } => Some((edge_reference, data_type, name, path)),
+                _ => None,
+            },
+            _ => None,
+        })
+}
+
 pub fn iterate_producing_module_edges_from_main_outputs_struct_index(
     graph: &Graph<Node, Edge>,
     main_outputs_struct_index: NodeIndex,
