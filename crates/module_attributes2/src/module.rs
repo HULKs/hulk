@@ -1,15 +1,10 @@
-use std::collections::HashMap;
 use std::mem::take;
 
 use convert_case::{Case, Casing};
-use proc_macro2::TokenStream;
-use quote::quote;
 use quote::{format_ident, ToTokens};
 use syn::{parse2, spanned::Spanned, Error, Ident, ItemImpl, Type};
 
-use crate::attribute::Path;
-use crate::to_absolute::ToAbsolute;
-use crate::{Attribute, Uses};
+use crate::Attribute;
 
 #[derive(Clone, Debug)]
 pub struct Module {
@@ -55,32 +50,5 @@ impl Module {
             main_outputs_identifier: format_ident!("MainOutputs"),
             implementation,
         })
-    }
-
-    pub fn generate_main_output_fields(&self, uses: &Uses) -> Vec<TokenStream> {
-        self.attributes
-            .iter()
-            .filter_map(|attribute| match attribute {
-                Attribute::MainOutput { data_type, name } => {
-                    let data_type = data_type.to_absolute(uses);
-                    Some(quote! { #name: Option<#data_type> })
-                }
-                _ => None,
-            })
-            .collect()
-    }
-
-    pub fn generate_persistent_state_fields(&self, uses: &Uses) -> HashMap<Path, Type> {
-        self.attributes
-            .iter()
-            .filter_map(|attribute| match attribute {
-                Attribute::PersistentState {
-                    data_type,
-                    name: _,
-                    path,
-                } => Some((path.clone(), data_type.to_absolute(uses))),
-                _ => None,
-            })
-            .collect()
     }
 }
