@@ -145,6 +145,25 @@ pub fn iterate_producing_module_edges_from_additional_outputs_struct_index(
         })
 }
 
+pub fn iterate_producing_module_edges_from_persistent_state_struct_index(
+    graph: &Graph<Node, Edge>,
+    persistent_state_struct_index: NodeIndex,
+) -> impl Iterator<Item = (EdgeReference<Edge>, &Type, &Ident, &Path)> {
+    graph
+        .edges_directed(persistent_state_struct_index, Incoming)
+        .filter_map(|edge_reference| match edge_reference.weight() {
+            Edge::ReadsFromOrWritesTo { attribute } => match attribute {
+                Attribute::PersistentState {
+                    data_type,
+                    name,
+                    path,
+                } => Some((edge_reference, data_type, name, path)),
+                _ => None,
+            },
+            _ => None,
+        })
+}
+
 pub fn find_parsed_rust_file_from_module_index(
     graph: &Graph<Node, Edge>,
     module_index: NodeIndex,
