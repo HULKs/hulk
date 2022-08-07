@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::{anyhow, bail, Context};
+use convert_case::{Case, Casing};
 use module_attributes2::Attribute;
 use petgraph::{visit::EdgeRef, Graph};
 
@@ -9,13 +10,14 @@ use crate::{
     get_cycler_instance_enum, get_module_implementation,
     node::Node,
     parse_file,
-    parser::{get_cycler_instances, get_module, uses_from_items},
+    parser::{get_cycler_instances, get_module},
     queries::{
         find_additional_outputs_within_cycler, find_cycler_module_from_cycler_instance,
-        find_main_outputs_within_cycler, find_parsed_rust_file_from_module_index,
-        find_persistent_state_within_cycler, find_producing_module_from_read_edge_reference,
-        find_uses_from_parsed_rust_file_index,
+        find_main_outputs_within_cycler, find_persistent_state_within_cycler,
+        find_producing_module_from_read_edge_reference,
+        iterate_producing_module_edges_from_additional_outputs_struct_index,
         iterate_producing_module_edges_from_main_outputs_struct_index,
+        store_and_get_uses_from_module_index,
     },
     to_absolute::ToAbsolute,
     walker::rust_file_paths_from,
@@ -358,59 +360,84 @@ where
     }
 
     let cloned_graph = graph.clone();
-    for (struct_index, struct_name) in
-        cloned_graph
-            .node_indices()
-            .filter_map(|node_index| match &cloned_graph[node_index] {
-                Node::Struct { name, .. } => Some((node_index, name)),
-                _ => None,
-            })
+    for (root_struct_index, root_struct_name, root_struct_cycler_module) in cloned_graph
+        .node_indices()
+        .filter_map(|node_index| match &cloned_graph[node_index] {
+            Node::Struct {
+                name,
+                cycler_module,
+            } => Some((node_index, name, cycler_module)),
+            _ => None,
+        })
     {
-        match struct_name.as_str() {
+        match root_struct_name.as_str() {
             "MainOutputs" => {
                 for (edge_reference, data_type, name) in
                     iterate_producing_module_edges_from_main_outputs_struct_index(
                         &cloned_graph,
-                        struct_index,
+                        root_struct_index,
                     )
                 {
-                    let parsed_rust_file_index = find_parsed_rust_file_from_module_index(&graph, edge_reference.source())
-                        .ok_or_else(|| {
-                            let module_identifier = match &graph[edge_reference.source()] {
-                                Node::Module { module } => &module.module_identifier,
-                                _ => panic!("edge_reference.source() should refer to a Node::Module"),
-                            };
-                            anyhow!("Failed to find ParsedRustFile in source graph for module {module_identifier}")
-                        })?;
-                    let uses_index =
-                        find_uses_from_parsed_rust_file_index(&graph, parsed_rust_file_index)
-                            .unwrap_or_else(|| {
-                                let uses = match &graph[parsed_rust_file_index] {
-                                    Node::ParsedRustFile { file } => uses_from_items(&file.items),
-                                    _ => panic!(
-                                "parsed_rust_file_index should refer to a Node::ParsedRustFile"
-                            ),
-                                };
-                                let uses_index = graph.add_node(Node::Uses { uses });
-                                graph.add_edge(parsed_rust_file_index, uses_index, Edge::Contains);
-                                uses_index
-                            });
-                    let uses = match &graph[uses_index] {
-                        Node::Uses { uses } => uses,
-                        _ => panic!("uses_index should refer to a Node::Uses"),
-                    };
+                    let uses =
+                        store_and_get_uses_from_module_index(&mut graph, edge_reference.source())?;
                     let absolute_data_type = data_type.to_absolute(uses);
                     let struct_field_index = graph.add_node(Node::StructField {
                         data_type: absolute_data_type,
                     });
                     graph.add_edge(
-                        struct_index,
+                        root_struct_index,
                         struct_field_index,
                         Edge::ContainsField { name: name.clone() },
                     );
                 }
             }
-            "AdditionalOutputs" => {}
+            "AdditionalOutputs" => {
+                for (edge_reference, data_type, _name, path) in
+                    iterate_producing_module_edges_from_additional_outputs_struct_index(
+                        &cloned_graph,
+                        root_struct_index,
+                    )
+                {
+                    let uses =
+                        store_and_get_uses_from_module_index(&mut graph, edge_reference.source())?;
+                    let absolute_data_type = data_type.to_absolute(uses);
+                    let mut current_node_index = root_struct_index;
+                    let mut current_struct_name = root_struct_name.clone();
+                    for segment in path.segments.iter() {
+                        match &graph[current_node_index] {
+                            Node::StructField { .. } => break,
+                            _ => {}
+                        }
+                        current_struct_name += &segment.to_string().to_case(Case::Pascal);
+                        current_node_index =
+                            match graph.edges(current_node_index).find(|edge_reference| {
+                                match edge_reference.weight() {
+                                    Edge::ContainsField { name } if name == segment => true,
+                                    _ => false,
+                                }
+                            }) {
+                                Some(edge_reference) => edge_reference.target(),
+                                None => {
+                                    let next_node_index = graph.add_node(Node::Struct {
+                                        name: current_struct_name.clone(),
+                                        cycler_module: root_struct_cycler_module.clone(),
+                                    });
+                                    graph.add_edge(
+                                        current_node_index,
+                                        next_node_index,
+                                        Edge::ContainsField {
+                                            name: segment.clone(),
+                                        },
+                                    );
+                                    next_node_index
+                                }
+                            };
+                    }
+                    graph[current_node_index] = Node::StructField {
+                        data_type: absolute_data_type,
+                    };
+                }
+            }
             "PersistentState" => {}
             _ => {}
         }

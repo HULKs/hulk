@@ -14,7 +14,7 @@ pub enum Node {
     Module { module: Module },
     ParsedRustFile { file: File },
     RustFilePath { path: PathBuf },
-    Struct { name: String, cycler_module: String },
+    Struct { name: String, cycler_module: String }, // TODO: remove cycler_module
     StructField { data_type: Type },
     Uses { uses: Uses },
 }
