@@ -1,8 +1,8 @@
 [package]
-name = "types"
-version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
+name = "types"
+version = "0.1.0"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -14,3 +14,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serialize_hierarchy = { workspace = true }
 spl_network = { workspace = true }
+
+[build-dependencies]
+petgraph = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+source_graph = { workspace = true }

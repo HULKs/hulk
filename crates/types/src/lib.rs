@@ -114,3 +114,11 @@ pub use support_foot::{Side, SupportFoot};
 pub use walk_command::WalkCommand;
 pub use whistle::Whistle;
 pub use world_state::{BallState, RobotState, WorldState};
+
+include!(concat!(env!("OUT_DIR"), "/structs.rs"));
+
+fn test2() {
+    let configuration = Configuration {
+        o: ConfigurationO { k: true },
+    };
+}

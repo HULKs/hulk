@@ -3332,9 +3332,13 @@ dependencies = [
  "image",
  "nalgebra",
  "ordered-float",
+ "petgraph",
+ "proc-macro2",
+ "quote",
  "serde",
  "serde_json",
  "serialize_hierarchy",
+ "source_graph",
  "spl_network",
 ]
 
