@@ -13,8 +13,8 @@ fn main() {
         .and_then(|crates_directory| crates_directory.parent())
         .expect("types crate must be located in crates/types subdirectory");
 
-    let source_graph = source_graph_from(project_root.join("src/spl_network2"))
-        .expect("Failed to generate source graph");
+    let source_graph =
+        source_graph_from(project_root.join("src")).expect("Failed to generate source graph");
 
     let mut struct_index_stack: Vec<_> = source_graph
         .edge_references()
@@ -65,12 +65,24 @@ fn main() {
                 }
             });
         let struct_name = match &source_graph[struct_index] {
-            Node::Struct { name } => format_ident!("{}", name),
+            Node::Struct { name } => name,
             _ => panic!("struct_index should refer to Node::Struct"),
         };
+        let derives = if struct_name.starts_with("Configuration") {
+            quote! { #[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)] }
+        } else if struct_name.starts_with("MainOutputs")
+            || struct_name.starts_with("AdditionalOutputs")
+        {
+            quote! { #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)] }
+        } else if struct_name.starts_with("PersistentState") {
+            quote! { #[derive(Debug)] }
+        } else {
+            panic!("Unknown struct name prefix")
+        };
+        let struct_name = format_ident!("{}", struct_name);
         structs.entry(cycler_module).or_default().push(quote! {
-            #[derive(Clone, Debug, Deserialize, Serialize)]
-            struct #struct_name {
+            #derives
+            pub struct #struct_name {
                 #(#struct_fields,)*
             }
         });
@@ -82,7 +94,10 @@ fn main() {
             Some(cycler_module) => {
                 let cycler_module = format_ident!("{}", cycler_module);
                 quote! {
-                    mod #cycler_module {
+                    pub mod #cycler_module {
+                        #[allow(unused_imports)]
+                        use crate as types;
+
                         #(#structs)*
                     }
                 }
@@ -93,9 +108,12 @@ fn main() {
         });
 
     let token_stream = quote! {
-        use serde::{Deserialize, Serialize};
+        pub mod structs {
+            #[allow(unused_imports)]
+            use crate as types;
 
-        #(#items)*
+            #(#items)*
+        }
     };
 
     let file_path = out_path.join("structs.rs");

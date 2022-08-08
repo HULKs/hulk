@@ -14,6 +14,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serialize_hierarchy = { workspace = true }
 spl_network = { workspace = true }
+tokio = { workspace = true }
 
 [build-dependencies]
 petgraph = { workspace = true }
