@@ -603,6 +603,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "context_attribute"
+version = "0.1.0"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "convert_case"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2987,6 +2997,14 @@ dependencies = [
  "byteorder",
  "nalgebra",
  "serde",
+]
+
+[[package]]
+name = "spl_network2"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "context_attribute",
 ]
 
 [[package]]

@@ -1,0 +1,14 @@
+[package]
+edition = "2021"
+license = "GPL-3.0-only"
+name = "context_attribute"
+version = "0.1.0"
+
+[dependencies]
+proc-macro-error = "1.0.4"
+proc-macro2 = "1.0.34"
+quote = "1.0.10"
+syn = {version = "1.0.91", features = ["full"]}
+
+[lib]
+proc-macro = true
