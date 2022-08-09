@@ -14,6 +14,8 @@ members = [
   "crates/repository",
   "crates/serialize_hierarchy",
   "crates/serialize_hierarchy_derive",
+  "crates/source_analysis",
+  "crates/source_analyzer",
   "crates/source_graph",
   "crates/spl_network",
   "crates/spl_network2",
