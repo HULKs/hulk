@@ -2966,6 +2966,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "source_analysis"
+version = "0.1.0"
+
+[[package]]
+name = "source_analyzer"
+version = "0.1.0"
+
+[[package]]
 name = "source_graph"
 version = "0.1.0"
 dependencies = [
