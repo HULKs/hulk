@@ -3,8 +3,8 @@ use proc_macro2::Span;
 use proc_macro_error::{abort, proc_macro_error};
 use quote::ToTokens;
 use syn::{
-    parse_macro_input, punctuated::Pair, token::Pub, Expr, ExprLit, GenericArgument, GenericParam,
-    ItemStruct, Lifetime, LifetimeDef, Lit, PathArguments, Type, VisPublic, Visibility,
+    parse_macro_input, punctuated::Pair, Expr, ExprLit, GenericArgument, GenericParam, ItemStruct,
+    Lifetime, LifetimeDef, Lit, PathArguments, Type,
 };
 
 #[proc_macro_attribute]
@@ -12,31 +12,9 @@ use syn::{
 pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
     let mut struct_item = parse_macro_input!(input as ItemStruct);
 
-    match &mut struct_item.vis {
-        Visibility::Public(..) => {}
-        _ => {
-            struct_item.vis = Visibility::Public(VisPublic {
-                pub_token: Pub {
-                    span: Span::call_site(),
-                },
-            });
-        }
-    }
-
     let mut requires_lifetime_parameter = false;
 
     for field in struct_item.fields.iter_mut() {
-        match &mut field.vis {
-            Visibility::Public(..) => {}
-            _ => {
-                field.vis = Visibility::Public(VisPublic {
-                    pub_token: Pub {
-                        span: Span::call_site(),
-                    },
-                });
-            }
-        }
-
         match &mut field.ty {
             Type::Path(path) => {
                 let first_segment = match path.path.segments.first_mut() {
