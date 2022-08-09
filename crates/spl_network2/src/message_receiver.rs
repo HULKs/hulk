@@ -22,17 +22,17 @@ pub struct Counter {
 
 #[context]
 pub struct NewContext {
-    initial_value: Parameter<usize, "message_receiver/initial_value">,
+    pub initial_value: Parameter<usize, "message_receiver/initial_value">,
 }
 
 #[context]
 pub struct CycleContext {
-    step: Parameter<usize, "message_receiver/step">,
+    pub step: Parameter<usize, "message_receiver/step">,
 }
 
 #[context]
 pub struct MainOutputs {
-    value: MainOutput<usize>,
+    pub value: MainOutput<usize>,
 }
 
 impl Counter {
