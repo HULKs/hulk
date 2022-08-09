@@ -1,5 +1,4 @@
-use quote::ToTokens;
-use source_graph::{source_graph_from, Edge, Node};
+use source_analyzer::{parse_rust_file, Contexts, Modules, Structs};
 
 fn main() {
     // let file = source_graph::parse_file("src/spl_network2/mod.rs").unwrap();
@@ -14,45 +13,54 @@ fn main() {
     // println!("cycler_instance: {cycler_instance:#?}");
     // let module_implementation = source_graph::get_module_implementation(&file);
     // println!("module_implementation: {module_implementation:#?}");
-    let graph = source_graph_from("src/spl_network2").unwrap();
-    println!("digraph {{");
-    for node_index in graph.node_indices() {
-        println!(
-            "\t{} [ label = \"{}\" ]",
-            node_index.index(),
-            match &graph[node_index] {
-                Node::CyclerInstance { instance } => format!("CyclerInstance({instance})"),
-                Node::CyclerModule { module, path } =>
-                    format!("CyclerModule({module}, {})", path.display()),
-                Node::HardwareInterface => "HardwareInterface".to_string(),
-                Node::Module { module } => format!("Module({})", module.module_identifier),
-                Node::ParsedRustFile { file: _ } => "ParsedRustFile".to_string(),
-                Node::RustFilePath { path } => format!("RustFilePath({})", path.display()),
-                Node::Struct { name } => format!("Struct({name})"),
-                Node::StructField { data_type } =>
-                    format!("StructField({})", data_type.to_token_stream()),
-                Node::Uses { .. } => "Uses".to_string(),
-            }
-        );
-    }
-    for edge_index in graph.edge_indices() {
-        let (from, to) = graph.edge_endpoints(edge_index).unwrap();
-        println!(
-            "\t{} -> {} [ label = \"{}\" ]",
-            from.index(),
-            to.index(),
-            match &graph[edge_index] {
-                Edge::ConsumesFrom { attribute } => format!("ConsumesFrom({attribute})"),
-                Edge::Contains => "Contains".to_string(),
-                Edge::ContainsField { name } => format!("ContainsField({name})"),
-                Edge::ReadsFrom { attribute } => format!("ReadsFrom({attribute})"),
-                Edge::WritesTo { attribute } => format!("WritesTo({attribute})"),
-                Edge::ReadsFromOrWritesTo { attribute } =>
-                    format!("ReadsFromOrWritesTo({attribute})"),
-            }
-        );
-    }
-    println!("}}");
+    println!("structs: {:?}", Structs::try_from("crates"));
+    let file = parse_rust_file("crates/spl_network2/src/message_receiver.rs").unwrap();
+    let fields =
+        Contexts::try_from_file("crates/spl_network2/src/message_receiver.rs", &file).unwrap();
+    println!("fields: {fields:#?}");
+    println!(
+        "modules: {:#?}",
+        Modules::try_from_crates_directory("crates")
+    );
+    // let graph = source_graph_from("src/spl_network2").unwrap();
+    // println!("digraph {{");
+    // for node_index in graph.node_indices() {
+    //     println!(
+    //         "\t{} [ label = \"{}\" ]",
+    //         node_index.index(),
+    //         match &graph[node_index] {
+    //             Node::CyclerInstance { instance } => format!("CyclerInstance({instance})"),
+    //             Node::CyclerModule { module, path } =>
+    //                 format!("CyclerModule({module}, {})", path.display()),
+    //             Node::HardwareInterface => "HardwareInterface".to_string(),
+    //             Node::Module { module } => format!("Module({})", module.module_identifier),
+    //             Node::ParsedRustFile { file: _ } => "ParsedRustFile".to_string(),
+    //             Node::RustFilePath { path } => format!("RustFilePath({})", path.display()),
+    //             Node::Struct { name } => format!("Struct({name})"),
+    //             Node::StructField { data_type } =>
+    //                 format!("StructField({})", data_type.to_token_stream()),
+    //             Node::Uses { .. } => "Uses".to_string(),
+    //         }
+    //     );
+    // }
+    // for edge_index in graph.edge_indices() {
+    //     let (from, to) = graph.edge_endpoints(edge_index).unwrap();
+    //     println!(
+    //         "\t{} -> {} [ label = \"{}\" ]",
+    //         from.index(),
+    //         to.index(),
+    //         match &graph[edge_index] {
+    //             Edge::ConsumesFrom { attribute } => format!("ConsumesFrom({attribute})"),
+    //             Edge::Contains => "Contains".to_string(),
+    //             Edge::ContainsField { name } => format!("ContainsField({name})"),
+    //             Edge::ReadsFrom { attribute } => format!("ReadsFrom({attribute})"),
+    //             Edge::WritesTo { attribute } => format!("WritesTo({attribute})"),
+    //             Edge::ReadsFromOrWritesTo { attribute } =>
+    //                 format!("ReadsFromOrWritesTo({attribute})"),
+    //         }
+    //     );
+    // }
+    // println!("}}");
     // let mut file = File::open("src/spl_network2/message_receiver.rs").unwrap();
     // let mut buffer = String::new();
     // file.read_to_string(&mut buffer).unwrap();

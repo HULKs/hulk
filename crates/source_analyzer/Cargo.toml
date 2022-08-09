@@ -3,3 +3,9 @@ edition = "2021"
 license = "GPL-3.0-only"
 name = "source_analyzer"
 version = "0.1.0"
+
+[dependencies]
+anyhow = "1.0.59"
+glob = "0.3.0"
+proc-macro2 = "1.0.34"
+syn = {version = "1.0.99", features = ["full"]}

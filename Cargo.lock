@@ -1846,6 +1846,7 @@ dependencies = [
  "module_attributes2",
  "proc-macro2",
  "quote",
+ "source_analyzer",
  "source_graph",
  "syn",
 ]
@@ -2972,6 +2973,12 @@ version = "0.1.0"
 [[package]]
 name = "source_analyzer"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glob",
+ "proc-macro2",
+ "syn",
+]
 
 [[package]]
 name = "source_graph"
