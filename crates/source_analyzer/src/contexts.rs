@@ -224,6 +224,69 @@ impl Field {
             _ => new_syn_error_as_anyhow_result(field.ty.span(), "expected type path", file_path),
         }
     }
+
+    pub fn get_path_segments(&self) -> Option<Vec<String>> {
+        match self {
+            Field::AdditionalOutput { path, .. } => Some(
+                path.token()
+                    .to_string()
+                    .trim_matches('"')
+                    .split('/')
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            Field::HardwareInterface { .. } => None,
+            Field::HistoricInput { path, .. } => Some(
+                path.token()
+                    .to_string()
+                    .trim_matches('"')
+                    .split('/')
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            Field::MainOutput { .. } => None,
+            Field::OptionalInput { path, .. } => Some(
+                path.token()
+                    .to_string()
+                    .trim_matches('"')
+                    .split('/')
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            Field::Parameter { path, .. } => Some(
+                path.token()
+                    .to_string()
+                    .trim_matches('"')
+                    .split('/')
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            Field::PerceptionInput { path, .. } => Some(
+                path.token()
+                    .to_string()
+                    .trim_matches('"')
+                    .split('/')
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            Field::PersistentState { path, .. } => Some(
+                path.token()
+                    .to_string()
+                    .trim_matches('"')
+                    .split('/')
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            Field::RequiredInput { path, .. } => Some(
+                path.token()
+                    .to_string()
+                    .trim_matches('"')
+                    .split('/')
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+        }
+    }
 }
 
 fn extract_one_argument<P>(file_path: P, arguments: &PathArguments) -> anyhow::Result<Type>

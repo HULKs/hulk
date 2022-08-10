@@ -101,15 +101,15 @@ impl Modules {
     }
 
     pub fn sort(&mut self) -> anyhow::Result<()> {
-        for modules in self.cycler_modules_to_modules.values_mut() {
-            if modules.len() == 1 {
+        for module_names in self.cycler_modules_to_modules.values_mut() {
+            if module_names.len() == 1 {
                 continue;
             }
 
             let mut main_outputs_to_modules = HashMap::new();
             let mut topological_sort: TopologicalSort<String> = TopologicalSort::new();
 
-            for module_name in modules.iter() {
+            for module_name in module_names.iter() {
                 for field in self.modules[module_name].contexts.main_outputs.iter() {
                     match field {
                         Field::MainOutput { data_type, name } => {
@@ -121,7 +121,7 @@ impl Modules {
                 }
             }
 
-            for consuming_module_name in modules.iter() {
+            for consuming_module_name in module_names.iter() {
                 for field in self.modules[consuming_module_name]
                     .contexts
                     .new_context
@@ -135,25 +135,19 @@ impl Modules {
                 {
                     match field {
                         Field::HistoricInput {
-                            data_type,
-                            name,
-                            path,
+                            data_type, name, ..
                         }
                         | Field::OptionalInput {
-                            data_type,
-                            name,
-                            path,
+                            data_type, name, ..
                         }
                         | Field::RequiredInput {
-                            data_type,
-                            name,
-                            path,
+                            data_type, name, ..
                         } => {
-                            let path = path.token().to_string();
-                            let first_segment = match Path::new(&path).into_iter().next() {
-                                Some(first_segment) => first_segment.to_str().with_context(|| {
-                                    anyhow!("Failed to interpret first path segment as Unicode for {name} in module {consuming_module_name}")
-                                })?,
+                            let path_segments = field
+                                .get_path_segments()
+                                .expect("Unexpected missing path in input field");
+                            let first_segment = match path_segments.first() {
+                                Some(first_segment) => first_segment,
                                 None => bail!("Expected at least one path segment for {name} in module {consuming_module_name}"),
                             };
                             let (producing_module_name, main_output_data_type) = match main_outputs_to_modules.get(first_segment) {
@@ -173,8 +167,8 @@ impl Modules {
                 }
             }
 
-            modules.clear();
-            modules.extend(topological_sort);
+            module_names.clear();
+            module_names.extend(topological_sort);
         }
 
         Ok(())
