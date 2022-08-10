@@ -1,15 +1,20 @@
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::Path,
+};
 
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, bail, Context};
 use glob::glob;
+use quote::ToTokens;
 use syn::{ImplItem, Item, Type};
+use topological_sort::TopologicalSort;
 
-use crate::{cycler_crates::cycler_crates_from_crates_directory, parse_rust_file, Contexts};
+use crate::{cycler_crates::cycler_crates_from_crates_directory, parse_rust_file, Contexts, Field};
 
 #[derive(Debug)]
 pub struct Modules {
-    modules: BTreeMap<String, Module>,
-    cycler_modules_to_modules: BTreeMap<String, Vec<String>>,
+    pub modules: BTreeMap<String, Module>,
+    pub cycler_modules_to_modules: BTreeMap<String, Vec<String>>,
 }
 
 impl Modules {
@@ -94,10 +99,90 @@ impl Modules {
             cycler_modules_to_modules,
         })
     }
+
+    pub fn sort(&mut self) -> anyhow::Result<()> {
+        for modules in self.cycler_modules_to_modules.values_mut() {
+            if modules.len() == 1 {
+                continue;
+            }
+
+            let mut main_outputs_to_modules = HashMap::new();
+            let mut topological_sort: TopologicalSort<String> = TopologicalSort::new();
+
+            for module_name in modules.iter() {
+                for field in self.modules[module_name].contexts.main_outputs.iter() {
+                    match field {
+                        Field::MainOutput { data_type, name } => {
+                            main_outputs_to_modules
+                                .insert(name.to_string(), (module_name.clone(), data_type.clone()));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            for consuming_module_name in modules.iter() {
+                for field in self.modules[consuming_module_name]
+                    .contexts
+                    .new_context
+                    .iter()
+                    .chain(
+                        self.modules[consuming_module_name]
+                            .contexts
+                            .cycle_context
+                            .iter(),
+                    )
+                {
+                    match field {
+                        Field::HistoricInput {
+                            data_type,
+                            name,
+                            path,
+                        }
+                        | Field::OptionalInput {
+                            data_type,
+                            name,
+                            path,
+                        }
+                        | Field::RequiredInput {
+                            data_type,
+                            name,
+                            path,
+                        } => {
+                            let path = path.token().to_string();
+                            let first_segment = match Path::new(&path).into_iter().next() {
+                                Some(first_segment) => first_segment.to_str().with_context(|| {
+                                    anyhow!("Failed to interpret first path segment as Unicode for {name} in module {consuming_module_name}")
+                                })?,
+                                None => bail!("Expected at least one path segment for {name} in module {consuming_module_name}"),
+                            };
+                            let (producing_module_name, main_output_data_type) = match main_outputs_to_modules.get(first_segment) {
+                                Some(producing_module) => producing_module,
+                                None => bail!("Failed to find producing module for {name} in module {consuming_module_name}"),
+                            };
+                            if main_output_data_type != data_type {
+                                bail!("Expected data type {} but {name} has {} in module {consuming_module_name}", main_output_data_type.to_token_stream(), data_type.to_token_stream());
+                            }
+                            topological_sort.add_dependency(
+                                producing_module_name.clone(),
+                                consuming_module_name.clone(),
+                            );
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            modules.clear();
+            modules.extend(topological_sort);
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
 pub struct Module {
-    cycler_module: String,
-    contexts: Contexts,
+    pub cycler_module: String,
+    pub contexts: Contexts,
 }
