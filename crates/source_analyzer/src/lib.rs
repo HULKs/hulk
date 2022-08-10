@@ -10,5 +10,4 @@ mod uses;
 
 pub use contexts::{Contexts, Field};
 pub use modules::{Module, Modules};
-pub use parse::parse_rust_file;
-pub use structs::Structs;
+pub use structs::{CyclerStructs, StructHierarchy, Structs};

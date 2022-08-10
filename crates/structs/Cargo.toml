@@ -1,13 +1,14 @@
 [package]
 edition = "2021"
 license = "GPL-3.0-only"
-name = "source_analyzer"
+name = "structs"
 version = "0.1.0"
 
 [dependencies]
+
+[build-dependencies]
 anyhow = "1.0.59"
-glob = "0.3.0"
+convert_case = "0.5.0"
 proc-macro2 = {version = "1.0.39", features = ["span-locations"]}
 quote = "1.0.10"
-syn = {version = "1.0.99", features = ["full", "extra-traits"]}
-topological-sort = "0.2.2"
+source_analyzer = {path = "../source_analyzer"}

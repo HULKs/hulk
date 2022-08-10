@@ -17,6 +17,7 @@ members = [
   "crates/source_analysis",
   "crates/source_analyzer",
   "crates/source_graph",
+  "crates/structs",
   "crates/spl_network",
   "crates/spl_network2",
   "crates/types",

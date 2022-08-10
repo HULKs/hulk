@@ -3073,6 +3073,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "structs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "convert_case 0.5.0",
+ "proc-macro2",
+ "quote",
+ "source_analyzer",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"

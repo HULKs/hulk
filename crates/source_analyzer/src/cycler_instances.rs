@@ -6,7 +6,7 @@ use syn::Item;
 
 use crate::{
     cycler_crates::cycler_crates_from_crates_directory,
-    into_anyhow_result::new_syn_error_as_anyhow_result, parse_rust_file,
+    into_anyhow_result::new_syn_error_as_anyhow_result, parse::parse_rust_file,
 };
 
 pub struct CyclerInstances {
