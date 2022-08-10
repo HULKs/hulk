@@ -18,10 +18,9 @@ fn main() {
     let fields =
         Contexts::try_from_file("crates/spl_network2/src/message_receiver.rs", &file).unwrap();
     println!("fields: {fields:#?}");
-    println!(
-        "modules: {:#?}",
-        Modules::try_from_crates_directory("crates")
-    );
+    let mut modules = Modules::try_from_crates_directory("crates").unwrap();
+    modules.sort().unwrap();
+    println!("modules: {modules:#?}");
     // let graph = source_graph_from("src/spl_network2").unwrap();
     // println!("digraph {{");
     // for node_index in graph.node_indices() {
