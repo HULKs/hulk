@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context};
 use glob::glob;
 use syn::Item;
 
-use crate::parse_rust_file;
+use crate::parse::parse_rust_file;
 
 pub fn cycler_crates_from_crates_directory<P>(crates_directory: P) -> anyhow::Result<Vec<PathBuf>>
 where

@@ -9,7 +9,9 @@ use quote::ToTokens;
 use syn::{ImplItem, Item, Type};
 use topological_sort::TopologicalSort;
 
-use crate::{cycler_crates::cycler_crates_from_crates_directory, parse_rust_file, Contexts, Field};
+use crate::{
+    cycler_crates::cycler_crates_from_crates_directory, parse::parse_rust_file, Contexts, Field,
+};
 
 #[derive(Debug)]
 pub struct Modules {
