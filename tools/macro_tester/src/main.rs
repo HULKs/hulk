@@ -13,7 +13,7 @@ fn main() {
     // println!("cycler_instance: {cycler_instance:#?}");
     // let module_implementation = source_graph::get_module_implementation(&file);
     // println!("module_implementation: {module_implementation:#?}");
-    println!("structs: {:?}", Structs::try_from("crates"));
+    println!("structs: {:#?}", Structs::try_from_crates_directory("crates"));
     let file = parse_rust_file("crates/spl_network2/src/message_receiver.rs").unwrap();
     let fields =
         Contexts::try_from_file("crates/spl_network2/src/message_receiver.rs", &file).unwrap();
