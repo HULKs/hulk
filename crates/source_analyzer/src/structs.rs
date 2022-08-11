@@ -17,7 +17,7 @@ impl Structs {
     where
         P: AsRef<Path>,
     {
-        let mut structs = Structs::default();
+        let mut structs = Self::default();
 
         let modules = Modules::try_from_crates_directory(&crates_directory)
             .context("Failed to get modules")?;
