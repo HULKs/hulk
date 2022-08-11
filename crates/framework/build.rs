@@ -1,5 +1,3 @@
-use std::{fs::File, io::Write};
-
 use anyhow::Context;
 use build_script_helpers::write_token_stream;
 use convert_case::{Case, Casing};
@@ -9,8 +7,6 @@ use source_analyzer::CyclerInstances;
 fn main() -> anyhow::Result<()> {
     let cycler_instances = CyclerInstances::try_from_crates_directory("..")
         .context("Failed to get cycler instances from crates directory")?;
-    let mut file = File::create("build.rs.log").unwrap();
-    writeln!(file, "cycler_instances: {cycler_instances:?}").unwrap();
 
     let updates_fields = cycler_instances.instances_to_modules.iter().map(|(instance_name, module_name)| {
         let field_name_identifier = format_ident!("{}", instance_name.to_case(Case::Snake));
