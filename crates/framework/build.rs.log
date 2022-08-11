@@ -1,1 +1,0 @@
-cycler_instances: CyclerInstances { instances_to_modules: {"SplNetwork": "spl_network2"}, modules_to_instances: {"spl_network2": ["SplNetwork"]} }
