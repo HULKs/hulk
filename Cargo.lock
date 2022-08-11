@@ -1240,6 +1240,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "framework"
+version = "0.1.0"
+
+[[package]]
 name = "freetype-rs"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
