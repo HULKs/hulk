@@ -4,6 +4,12 @@ pub struct ReferenceInput<'context, DataType> {
     value: &'context DataType,
 }
 
+impl<'context, DataType> From<&'context DataType> for ReferenceInput<'context, DataType> {
+    fn from(value: &'context DataType) -> Self {
+        Self { value }
+    }
+}
+
 impl<'context, DataType> Deref for ReferenceInput<'context, DataType> {
     type Target = DataType;
 
@@ -14,6 +20,12 @@ impl<'context, DataType> Deref for ReferenceInput<'context, DataType> {
 
 pub struct MutableReferenceInput<'context, DataType> {
     value: &'context mut DataType,
+}
+
+impl<'context, DataType> From<&'context mut DataType> for MutableReferenceInput<'context, DataType> {
+    fn from(value: &'context mut DataType) -> Self {
+        Self { value }
+    }
 }
 
 impl<'context, DataType> Deref for MutableReferenceInput<'context, DataType> {
