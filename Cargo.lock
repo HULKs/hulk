@@ -1848,6 +1848,7 @@ dependencies = [
  "quote",
  "source_analyzer",
  "source_graph",
+ "structs",
  "syn",
 ]
 

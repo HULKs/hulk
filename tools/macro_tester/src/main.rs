@@ -1,4 +1,5 @@
-use source_analyzer::{parse_rust_file, Contexts, Modules, Structs};
+use source_analyzer::{Contexts, Modules, Structs};
+use structs::{Configuration, ConfigurationMessageReceiver};
 
 fn main() {
     // let file = source_graph::parse_file("src/spl_network2/mod.rs").unwrap();
@@ -13,14 +14,19 @@ fn main() {
     // println!("cycler_instance: {cycler_instance:#?}");
     // let module_implementation = source_graph::get_module_implementation(&file);
     // println!("module_implementation: {module_implementation:#?}");
-    println!("structs: {:#?}", Structs::try_from_crates_directory("crates"));
-    let file = parse_rust_file("crates/spl_network2/src/message_receiver.rs").unwrap();
-    let fields =
-        Contexts::try_from_file("crates/spl_network2/src/message_receiver.rs", &file).unwrap();
-    println!("fields: {fields:#?}");
+    println!(
+        "structs: {:#?}",
+        Structs::try_from_crates_directory("crates")
+    );
     let mut modules = Modules::try_from_crates_directory("crates").unwrap();
     modules.sort().unwrap();
     println!("modules: {modules:#?}");
+    let configuration = Configuration {
+        message_receiver: ConfigurationMessageReceiver {
+            initial_value: 42,
+            step: 1,
+        },
+    };
     // let graph = source_graph_from("src/spl_network2").unwrap();
     // println!("digraph {{");
     // for node_index in graph.node_indices() {
