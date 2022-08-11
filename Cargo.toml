@@ -8,6 +8,7 @@ version = "0.1.0"
 members = [
   "crates/communication",
   "crates/context_attribute",
+  "crates/hardware",
   "crates/module_attributes",
   "crates/module_derive",
   "crates/nao",
