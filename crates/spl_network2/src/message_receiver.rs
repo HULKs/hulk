@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Parameter};
+use framework::{HardwareInterface, MainOutput, Parameter};
 
 pub struct Counter {
     value: usize,
@@ -13,6 +13,7 @@ pub struct NewContext {
 #[context]
 pub struct CycleContext {
     pub step: Parameter<usize, "message_receiver/step">,
+    pub hardware_interface: HardwareInterface,
 }
 
 #[context]
@@ -24,12 +25,19 @@ pub struct MainOutputs {
 impl Counter {
     pub fn new(context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {
-            value: **context.initial_value,
+            value: *context.initial_value,
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
-        self.value += **context.step;
+    pub fn cycle<Interface>(
+        &mut self,
+        context: CycleContext<Interface>,
+    ) -> anyhow::Result<MainOutputs>
+    where
+        Interface: hardware::HardwareInterface,
+    {
+        self.value += *context.step;
+        context.hardware_interface.print_number(42);
         Ok(MainOutputs {
             value: Some(self.value).into(),
         })

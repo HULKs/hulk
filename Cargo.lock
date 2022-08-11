@@ -284,6 +284,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "build_script_helpers"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "proc-macro2",
+ "source_analyzer",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1242,6 +1251,17 @@ dependencies = [
 [[package]]
 name = "framework"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build_script_helpers",
+ "convert_case 0.5.0",
+ "hardware",
+ "parking_lot",
+ "proc-macro2",
+ "quote",
+ "source_analyzer",
+ "structs",
+]
 
 [[package]]
 name = "freetype-rs"
@@ -3032,6 +3052,7 @@ dependencies = [
  "anyhow",
  "context_attribute",
  "framework",
+ "hardware",
 ]
 
 [[package]]

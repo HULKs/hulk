@@ -9,5 +9,6 @@ mod to_absolute;
 mod uses;
 
 pub use contexts::{Contexts, Field};
+pub use cycler_instances::CyclerInstances;
 pub use modules::{Module, Modules};
 pub use structs::{CyclerStructs, StructHierarchy, Structs};

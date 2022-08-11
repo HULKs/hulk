@@ -9,6 +9,7 @@ use crate::{
     into_anyhow_result::new_syn_error_as_anyhow_result, parse::parse_rust_file,
 };
 
+#[derive(Debug)]
 pub struct CyclerInstances {
     pub instances_to_modules: BTreeMap<String, String>,
     pub modules_to_instances: BTreeMap<String, Vec<String>>,

@@ -1,10 +1,10 @@
 #[derive(Default)]
-pub struct MainOutput<T> {
-    pub value: T,
+pub struct MainOutput<DataType> {
+    pub value: DataType,
 }
 
-impl<T> From<T> for MainOutput<T> {
-    fn from(value: T) -> Self {
+impl<DataType> From<DataType> for MainOutput<DataType> {
+    fn from(value: DataType) -> Self {
         Self { value }
     }
 }
