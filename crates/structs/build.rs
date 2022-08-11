@@ -103,6 +103,7 @@ fn struct_hierarchy_to_token_stream(
         });
 
     quote! {
+        #[derive(Clone, Debug, Default)]
         pub struct #struct_name_identifier {
             #(#struct_fields,)*
         }
