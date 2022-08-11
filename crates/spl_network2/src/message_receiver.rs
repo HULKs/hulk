@@ -1,20 +1,5 @@
-use std::ops::Deref;
-
 use context_attribute::context;
-
-pub struct Parameter<'context, T> {
-    value: &'context T,
-}
-
-impl<'context, T> Deref for Parameter<'context, T> {
-    type Target = &'context T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-type MainOutput<T> = Option<T>;
+use framework::{MainOutput, Parameter};
 
 pub struct Counter {
     value: usize,
@@ -31,8 +16,9 @@ pub struct CycleContext {
 }
 
 #[context]
+#[derive(Default)]
 pub struct MainOutputs {
-    pub value: MainOutput<usize>,
+    pub value: MainOutput<Option<usize>>,
 }
 
 impl Counter {
@@ -45,7 +31,7 @@ impl Counter {
     pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
         self.value += **context.step;
         Ok(MainOutputs {
-            value: Some(self.value),
+            value: Some(self.value).into(),
         })
     }
 }
