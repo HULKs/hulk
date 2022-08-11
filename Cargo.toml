@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [workspace]
 members = [
+  "crates/build_script_helpers",
   "crates/communication",
   "crates/context_attribute",
   "crates/framework",

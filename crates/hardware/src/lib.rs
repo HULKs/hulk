@@ -2,7 +2,7 @@ use std::sync::Mutex;
 
 pub trait HardwareInterface {
     fn get_random_number(&self) -> usize;
-    fn print_number(number: usize);
+    fn print_number(&self, number: usize);
 }
 
 #[derive(Default)]
@@ -17,7 +17,7 @@ impl HardwareInterface for NaoInterface {
         *value
     }
 
-    fn print_number(number: usize) {
+    fn print_number(&self, number: usize) {
         println!("number: {number}");
     }
 }
