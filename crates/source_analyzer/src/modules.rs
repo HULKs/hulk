@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
-    path::Path,
+    path::{Component, Path},
 };
 
 use anyhow::{anyhow, bail, Context};
@@ -84,8 +84,23 @@ impl Modules {
                     .with_context(|| anyhow!("Failed to find module name in {rust_file_path:?}"))?;
                 let contexts = Contexts::try_from_file(&rust_file_path, &rust_file)
                     .with_context(|| anyhow!("Failed to get contexts in {rust_file_path:?}"))?;
+                let path_segments: Vec<_> = rust_file_path
+                    .strip_prefix(crate_directory.join("src"))
+                    .context("Failed to strip prefix of module's rust file path")?
+                    .with_extension("")
+                    .components()
+                    .map(|component| match component {
+                        Component::Normal(component) => component
+                            .to_str()
+                            .ok_or_else(|| anyhow!("Failed to interpret path component as Unicode"))
+                            .map(ToString::to_string),
+                        _ => bail!("Unexpected path component"),
+                    })
+                    .collect::<Result<_, _>>()
+                    .context("Failed to generate module's path")?;
                 let module = Module {
                     cycler_module: cycler_module.to_string(),
+                    path_segments,
                     contexts,
                 };
                 modules.insert(module_name.to_string(), module);
@@ -180,5 +195,6 @@ impl Modules {
 #[derive(Debug)]
 pub struct Module {
     pub cycler_module: String,
+    pub path_segments: Vec<String>,
     pub contexts: Contexts,
 }
