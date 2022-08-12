@@ -34,11 +34,19 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                                     abort!(arguments, "expected exactly three generic parameters");
                                 }
                                 match arguments.args.pop() {
-                                    Some(Pair::End(GenericArgument::Const(Expr::Lit(
-                                        ExprLit {
-                                            lit: Lit::Str(_), ..
-                                        },
-                                    )))) => {}
+                                    Some(
+                                        Pair::End(GenericArgument::Const(Expr::Lit(ExprLit {
+                                            lit: Lit::Str(_),
+                                            ..
+                                        })))
+                                        | Pair::Punctuated(
+                                            GenericArgument::Const(Expr::Lit(ExprLit {
+                                                lit: Lit::Str(_),
+                                                ..
+                                            })),
+                                            _,
+                                        ),
+                                    ) => {}
                                     Some(argument) => {
                                         abort!(
                                             argument,
@@ -53,11 +61,19 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                                     }
                                 }
                                 match arguments.args.pop() {
-                                    Some(Pair::End(GenericArgument::Const(Expr::Lit(
-                                        ExprLit {
-                                            lit: Lit::Str(_), ..
-                                        },
-                                    )))) => {}
+                                    Some(
+                                        Pair::End(GenericArgument::Const(Expr::Lit(ExprLit {
+                                            lit: Lit::Str(_),
+                                            ..
+                                        })))
+                                        | Pair::Punctuated(
+                                            GenericArgument::Const(Expr::Lit(ExprLit {
+                                                lit: Lit::Str(_),
+                                                ..
+                                            })),
+                                            _,
+                                        ),
+                                    ) => {}
                                     Some(argument) => {
                                         abort!(
                                             argument,
@@ -91,11 +107,19 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                                     abort!(arguments, "expected exactly two generic parameters");
                                 }
                                 match arguments.args.pop() {
-                                    Some(Pair::End(GenericArgument::Const(Expr::Lit(
-                                        ExprLit {
-                                            lit: Lit::Str(_), ..
-                                        },
-                                    )))) => {}
+                                    Some(
+                                        Pair::End(GenericArgument::Const(Expr::Lit(ExprLit {
+                                            lit: Lit::Str(_),
+                                            ..
+                                        })))
+                                        | Pair::Punctuated(
+                                            GenericArgument::Const(Expr::Lit(ExprLit {
+                                                lit: Lit::Str(_),
+                                                ..
+                                            })),
+                                            _,
+                                        ),
+                                    ) => {}
                                     Some(argument) => {
                                         abort!(
                                             argument,
@@ -138,8 +162,30 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                                         path: Path {
                                             leading_colon: None,
                                             segments: Punctuated::from_iter([PathSegment {
-                                                ident: format_ident!("Interface"),
+                                                ident: format_ident!("std"),
                                                 arguments: PathArguments::None,
+                                            },PathSegment {
+                                                ident: format_ident!("sync"),
+                                                arguments: PathArguments::None,
+                                            },PathSegment {
+                                                ident: format_ident!("Arc"),
+                                                arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                                                    colon2_token: None,
+                                                    lt_token: Default::default(),
+                                                    args: Punctuated::from_iter([
+                                                        GenericArgument::Type(Type::Path(TypePath {
+                                                            qself: None,
+                                                            path: Path {
+                                                                leading_colon: None,
+                                                                segments: Punctuated::from_iter([PathSegment {
+                                                                    ident: format_ident!("Interface"),
+                                                                    arguments: PathArguments::None,
+                                                                }]),
+                                                            },
+                                                        }))
+                                                    ]),
+                                                    gt_token: Default::default(),
+                                                }),
                                             }]),
                                         },
                                     })),
