@@ -9,6 +9,8 @@ members = [
   "crates/build_script_helpers",
   "crates/communication",
   "crates/context_attribute",
+  "crates/control",
+  "crates/cyclers",
   "crates/framework",
   "crates/hardware",
   "crates/module_attributes",

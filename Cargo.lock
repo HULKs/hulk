@@ -622,6 +622,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "control"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "context_attribute",
+ "framework",
+ "hardware",
+]
+
+[[package]]
 name = "convert_case"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -804,6 +814,19 @@ name = "cty"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
+
+[[package]]
+name = "cyclers"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "control",
+ "framework",
+ "hardware",
+ "spl_network2",
+ "structs",
+ "tokio-util",
+]
 
 [[package]]
 name = "darling"
