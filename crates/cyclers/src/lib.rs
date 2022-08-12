@@ -23,6 +23,7 @@ mod spl_network2 {
             crate::Outputs<structs::control::MainOutputs, structs::control::AdditionalOutputs>,
         >,
         configuration_reader: framework::Reader<structs::Configuration>,
+        persistent_state: structs::spl_network2::PersistentState,
 
         counter: spl_network2::message_receiver::Counter,
     }
@@ -58,6 +59,7 @@ mod spl_network2 {
                 spl_network_main_outputs_producer,
                 control_main_outputs_reader,
                 configuration_reader,
+                persistent_state: Default::default(),
                 counter: spl_network2::message_receiver::Counter::new(
                     spl_network2::message_receiver::NewContext {
                         initial_value: framework::Parameter::from(

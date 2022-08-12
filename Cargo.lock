@@ -820,9 +820,14 @@ name = "cyclers"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "build_script_helpers",
  "control",
+ "convert_case 0.5.0",
  "framework",
  "hardware",
+ "proc-macro2",
+ "quote",
+ "source_analyzer",
  "spl_network2",
  "structs",
  "tokio-util",
