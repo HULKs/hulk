@@ -365,7 +365,7 @@ where
 {
     match arguments {
         PathArguments::AngleBracketed(arguments) => {
-            if arguments.args.len() != 2 {
+            if arguments.args.len() != 3 {
                 return new_syn_error_as_anyhow_result(
                     arguments.span(),
                     "expected exactly three generic parameters",
