@@ -5,10 +5,10 @@ name = "macro_tester"
 version = "0.1.0"
 
 [dependencies]
+anyhow = "1.0.59"
+convert_case = "0.5.0"
 module_attributes2 = {path = "../../crates/module_attributes2"}
 proc-macro2 = {version = "1.0.39", features = ["span-locations"]}
 quote = "1.0.20"
 source_analyzer = {path = "../../crates/source_analyzer"}
-source_graph = {path = "../../crates/source_graph"}
-structs = {path = "../../crates/structs"}
 syn = {version = "1.0.91", features = ["full"]}
