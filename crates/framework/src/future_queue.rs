@@ -2,6 +2,8 @@ use std::{sync::Arc, time::SystemTime};
 
 use parking_lot::Mutex;
 
+use crate::Update;
+
 struct Slot<T> {
     timestamp: Option<SystemTime>,
     data: Option<T>,
@@ -61,7 +63,7 @@ pub struct Consumer<T> {
 }
 
 impl<T> Consumer<T> {
-    pub fn consume(&self, now: SystemTime) -> (Vec<Item<T>>, Option<SystemTime>) {
+    pub fn consume(&self, now: SystemTime) -> Update<T> {
         let mut slots = self.slots.lock();
 
         for object in slots.iter_mut() {
@@ -76,7 +78,11 @@ impl<T> Consumer<T> {
             .unwrap_or(slots.len());
         let finished = slots.drain(..first_empty_data).map(Item::from).collect();
         let first_timestamp_of_empty_data = slots.first().map(|slot| slot.timestamp.unwrap());
-        (finished, first_timestamp_of_empty_data)
+
+        Update {
+            items: finished,
+            first_timestamp_of_non_finalized_database: first_timestamp_of_empty_data,
+        }
     }
 }
 
@@ -98,7 +104,10 @@ mod tests {
         }
 
         let instant_a = SystemTime::now();
-        let (databases, first_timestamp_of_non_finalized_database) = consumer.consume(instant_a);
+        let Update {
+            items: databases,
+            first_timestamp_of_non_finalized_database,
+        } = consumer.consume(instant_a);
         assert!(databases.is_empty());
         assert_eq!(first_timestamp_of_non_finalized_database, Some(instant_a));
         {
@@ -127,7 +136,10 @@ mod tests {
         }
 
         let instant_b = SystemTime::now();
-        let (databases, first_timestamp_of_non_finalized_database) = consumer.consume(instant_b);
+        let Update {
+            items: databases,
+            first_timestamp_of_non_finalized_database,
+        } = consumer.consume(instant_b);
         assert_eq!(databases.len(), 1);
         assert_eq!(databases[0].timestamp, instant_a);
         assert_eq!(databases[0].data, 42);
@@ -162,7 +174,10 @@ mod tests {
         }
 
         let instant_a = SystemTime::now();
-        let (databases, first_timestamp_of_non_finalized_database) = consumer.consume(instant_a);
+        let Update {
+            items: databases,
+            first_timestamp_of_non_finalized_database,
+        } = consumer.consume(instant_a);
         assert!(databases.is_empty());
         assert_eq!(first_timestamp_of_non_finalized_database, Some(instant_a));
         {
@@ -225,7 +240,10 @@ mod tests {
         }
 
         let instant_b = SystemTime::now();
-        let (databases, first_timestamp_of_non_finalized_database) = consumer.consume(instant_b);
+        let Update {
+            items: databases,
+            first_timestamp_of_non_finalized_database,
+        } = consumer.consume(instant_b);
         assert_eq!(databases.len(), 3);
         assert_eq!(databases[0].timestamp, instant_a);
         assert_eq!(databases[0].data, 42);
@@ -254,7 +272,10 @@ mod tests {
         }
 
         let instant_a = SystemTime::now();
-        let (databases, first_timestamp_of_non_finalized_database) = consumer.consume(instant_a);
+        let Update {
+            items: databases,
+            first_timestamp_of_non_finalized_database,
+        } = consumer.consume(instant_a);
         assert!(databases.is_empty());
         assert_eq!(first_timestamp_of_non_finalized_database, Some(instant_a));
         {
@@ -265,7 +286,10 @@ mod tests {
         }
 
         let instant_b = SystemTime::now();
-        let (databases, first_timestamp_of_non_finalized_database) = consumer.consume(instant_b);
+        let Update {
+            items: databases,
+            first_timestamp_of_non_finalized_database,
+        } = consumer.consume(instant_b);
         assert!(databases.is_empty());
         assert_eq!(first_timestamp_of_non_finalized_database, Some(instant_a));
         {
@@ -284,7 +308,10 @@ mod tests {
         }
 
         let instant_c = SystemTime::now();
-        let (databases, first_timestamp_of_non_finalized_database) = consumer.consume(instant_c);
+        let Update {
+            items: databases,
+            first_timestamp_of_non_finalized_database,
+        } = consumer.consume(instant_c);
         assert_eq!(databases.len(), 1);
         assert_eq!(databases[0].timestamp, instant_a);
         assert_eq!(databases[0].data, 42);
@@ -295,7 +322,10 @@ mod tests {
         }
 
         let instant_d = SystemTime::now();
-        let (databases, first_timestamp_of_non_finalized_database) = consumer.consume(instant_d);
+        let Update {
+            items: databases,
+            first_timestamp_of_non_finalized_database,
+        } = consumer.consume(instant_d);
         assert!(databases.is_empty());
         assert!(first_timestamp_of_non_finalized_database.is_none());
         {
