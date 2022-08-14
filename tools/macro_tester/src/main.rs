@@ -294,6 +294,28 @@ impl Cycler<'_> {
             .collect()
     }
 
+    fn get_perception_cycler_updates(&self) -> Vec<TokenStream> {
+        self.get_other_cyclers()
+            .into_iter()
+            .filter_map(|other_cycler| match other_cycler {
+                OtherCycler::Consumer {
+                    cycler_instance_name,
+                    ..
+                } => {
+                    let update_name_identifier =
+                        format_ident!("{}", cycler_instance_name.to_case(Case::Snake));
+                    let consumer_identifier =
+                        format_ident!("{}_consumer", cycler_instance_name.to_case(Case::Snake));
+
+                    Some(quote! {
+                        #update_name_identifier: self.#consumer_identifier.consume()
+                    })
+                }
+                OtherCycler::Reader { .. } => None,
+            })
+            .collect()
+    }
+
     fn get_interpreted_modules(&self) -> Vec<Module> {
         self.get_modules()
             .modules
@@ -350,6 +372,21 @@ impl Cycler<'_> {
         let own_producer_field = self.get_own_producer_field();
         let other_cycler_fields = self.get_other_cycler_fields();
         let cycler_module_name_identifier = self.get_cycler_module_name_identifier();
+        let real_time_fields = match self {
+            Cycler::Perception { .. } => Default::default(),
+            Cycler::RealTime {
+                cycler_module_name, ..
+            } => {
+                let cycler_module_name_identifier = format_ident!("{}", cycler_module_name);
+
+                quote! {
+                    historic_databases: framework::HistoricDatabases<
+                        structs::#cycler_module_name_identifier::MainOutputs,
+                    >,
+                    perception_databases: framework::PerceptionDatabases,
+                }
+            }
+        };
         let module_fields = self.get_module_fields();
 
         quote! {
@@ -360,6 +397,7 @@ impl Cycler<'_> {
                 #own_producer_field
                 #(#other_cycler_fields,)*
                 configuration_reader: framework::Reader<structs::Configuration>,
+                #real_time_fields
                 persistent_state: structs::#cycler_module_name_identifier::PersistentState,
                 #(#module_fields,)*
             }
@@ -376,6 +414,13 @@ impl Cycler<'_> {
             .context("Failed to get module initializers")?;
         let own_producer_identifier = self.get_own_producer_identifier();
         let other_cycler_identifiers = self.get_other_cycler_identifiers();
+        let real_time_initializers = match self {
+            Cycler::Perception { .. } => Default::default(),
+            Cycler::RealTime { .. } => quote! {
+                historic_databases: Default::default(),
+                perception_databases: Default::default(),
+            },
+        };
         let module_identifiers = self.get_module_identifiers();
 
         Ok(quote! {
@@ -399,6 +444,7 @@ impl Cycler<'_> {
                     #own_producer_identifier
                     #(#other_cycler_identifiers,)*
                     configuration_reader,
+                    #real_time_initializers
                     persistent_state,
                     #(#module_identifiers,)*
                 })
@@ -441,38 +487,71 @@ impl Cycler<'_> {
             bail!("Expected at least one module");
         }
 
+        let before_first_module = quote! {
+            let mut own_database = self.own_writer.next();
+        };
         let (first_module, remaining_modules) = module_executions.split_at(1);
-        let first_module = &first_module[0];
-        let remaining_module_executions = match remaining_modules.is_empty() {
+        let first_module = {
+            let first_module = &first_module[0];
+            quote! {
+                {
+                    let configuration = self.configuration_reader.next();
+                    #first_module
+                }
+            }
+        };
+        let after_first_module = match self {
+            Cycler::Perception { .. } => quote! {
+                self.own_producer.announce();
+            },
+            Cycler::RealTime { .. } => {
+                let perception_cycler_updates = self.get_perception_cycler_updates();
+
+                quote! {
+                    let now = self.hardware_interface.get_now();
+                    self.perception_databases.update(now, framework::Updates {
+                        #(#perception_cycler_updates,)*
+                    });
+                }
+            }
+        };
+        let remaining_modules = match remaining_modules.is_empty() {
             true => Default::default(),
             false => quote! {
                 {
                     let configuration = self.configuration_reader.next();
-
                     #(#remaining_modules)*
                 }
             },
+        };
+        let after_remaining_modules = match self {
+            Cycler::Perception { .. } => quote! {
+                self.own_producer.finalize(own_database.main_outputs.clone());
+            },
+            Cycler::RealTime { .. } => quote! {
+                self.historic_databases.update(
+                    now,
+                    self.perception_databases
+                        .get_first_timestamp_of_temporary_databases(),
+                    &own_database,
+                );
+            },
+        };
+        let after_dropping_database_writer_guard = quote! {
+            todo!("notify communication");
         };
 
         Ok(quote! {
             fn cycle(&mut self) -> anyhow::Result<()> {
                 use anyhow::Context;
-
                 {
-                    let mut own_database = self.own_writer.next();
-
-                    {
-                        let configuration = self.configuration_reader.next();
-
-                        #first_module
-                    }
-
-                    self.own_producer.announce();
-
-                    #remaining_module_executions
-
-                    self.own_producer.finalize(own_database.main_outputs.clone());
+                    #before_first_module
+                    #first_module
+                    #after_first_module
+                    #remaining_modules
+                    #after_remaining_modules
                 }
+                #after_dropping_database_writer_guard
             }
         })
     }
