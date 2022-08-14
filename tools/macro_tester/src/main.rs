@@ -789,10 +789,26 @@ impl Module<'_> {
                     )
                 }),
                 Field::HistoricInput { name, .. } => {
-                    // TODO
-                    // bail!("Unexpected historic input field `{name}` in cycle context")
+                    let segments: Vec<_> = field
+                        .get_path_segments()
+                        .unwrap()
+                        .into_iter()
+                        .map(|segment| format_ident!("{}", segment))
+                        .collect();
                     Ok(quote! {
-                        #name: todo!()
+                        #name: [(now, &own_database.main_outputs #(.#segments)*)]
+                            .into_iter()
+                            .chain(
+                                self
+                                    .historic_databases
+                                    .iter()
+                                    .map(|(system_time, database)| (
+                                        system_time,
+                                        &database #(.#segments)*,
+                                    ))
+                            )
+                            .collect()
+                            .into()
                     })
                 }
                 Field::MainOutput { name, .. } => {
@@ -822,11 +838,54 @@ impl Module<'_> {
                         )
                     })
                 }
-                Field::PerceptionInput { name, .. } => {
-                    // TODO
-                    // bail!("Unexpected perception input field `{name}` in cycle context")
+                Field::PerceptionInput {
+                    name,
+                    cycler_instance,
+                    ..
+                } => {
+                    let cycler_instance_identifier = format_ident!(
+                        "{}",
+                        cycler_instance
+                            .token()
+                            .to_string()
+                            .trim_matches('"')
+                            .to_case(Case::Snake)
+                    );
+                    let segments: Vec<_> = field
+                        .get_path_segments()
+                        .unwrap()
+                        .into_iter()
+                        .map(|segment| format_ident!("{}", segment))
+                        .collect();
                     Ok(quote! {
-                        #name: todo!()
+                        #name: framework::PerceptionInput {
+                            persistent: self
+                                .perception_databases
+                                .persistent()
+                                .map(|(system_time, databases)| (
+                                    system_time,
+                                    databases
+                                        .#cycler_instance_identifier
+                                        .iter()
+                                        .map(|database| &database #(.#segments)*)
+                                        .collect()
+                                    ,
+                                ))
+                                .collect(),
+                            temporary: self
+                                .perception_databases
+                                .temporary()
+                                .map(|(system_time, databases)| (
+                                    system_time,
+                                    databases
+                                        .#cycler_instance_identifier
+                                        .iter()
+                                        .map(|database| &database #(.#segments)*)
+                                        .collect()
+                                    ,
+                                ))
+                                .collect(),
+                        }
                     })
                 }
                 Field::PersistentState { name, .. } => {
