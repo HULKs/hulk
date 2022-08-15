@@ -308,7 +308,7 @@ impl Cycler<'_> {
                         format_ident!("{}_consumer", cycler_instance_name.to_case(Case::Snake));
 
                     Some(quote! {
-                        #update_name_identifier: self.#consumer_identifier.consume()
+                        #update_name_identifier: self.#consumer_identifier.consume(now)
                     })
                 }
                 OtherCycler::Reader { .. } => None,
@@ -390,7 +390,7 @@ impl Cycler<'_> {
         let module_fields = self.get_module_fields();
 
         quote! {
-            pub struct Cycler<Instance> {
+            pub struct Cycler<Interface> {
                 instance_name: String,
                 hardware_interface: std::sync::Arc<Interface>,
                 own_writer: #own_writer_type,
@@ -533,7 +533,7 @@ impl Cycler<'_> {
                     now,
                     self.perception_databases
                         .get_first_timestamp_of_temporary_databases(),
-                    &own_database,
+                    &own_database.main_outputs,
                 );
             },
         };
@@ -863,7 +863,7 @@ impl Module<'_> {
                                 .perception_databases
                                 .persistent()
                                 .map(|(system_time, databases)| (
-                                    system_time,
+                                    *system_time,
                                     databases
                                         .#cycler_instance_identifier
                                         .iter()
@@ -876,7 +876,7 @@ impl Module<'_> {
                                 .perception_databases
                                 .temporary()
                                 .map(|(system_time, databases)| (
-                                    system_time,
+                                    *system_time,
                                     databases
                                         .#cycler_instance_identifier
                                         .iter()

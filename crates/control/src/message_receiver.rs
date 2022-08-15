@@ -14,7 +14,7 @@ pub struct NewContext {
 pub struct CycleContext {
     pub step: Parameter<usize, "message_receiver/step">,
     pub hardware_interface: HardwareInterface,
-    pub test: PerceptionInput<usize, "SplNetwork", "value">,
+    pub test: PerceptionInput<Option<usize>, "SplNetwork", "value">,
 }
 
 #[context]
