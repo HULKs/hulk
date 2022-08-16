@@ -13,7 +13,9 @@ fn main() -> anyhow::Result<()> {
     let configuration = match &structs.configuration {
         StructHierarchy::Struct { fields } => {
             struct_hierarchy_to_token_stream("Configuration", fields)
+                .context("Failed to generate struct `Configuration`")?
         }
+        StructHierarchy::Optional { .. } => bail!("Unexpected optional variant as root-struct"),
         StructHierarchy::Field { .. } => bail!("Unexpected field variant as root-struct"),
     };
     let cyclers = structs
@@ -24,18 +26,30 @@ fn main() -> anyhow::Result<()> {
             let main_outputs = match &cycler_structs.main_outputs {
                 StructHierarchy::Struct { fields } => {
                     struct_hierarchy_to_token_stream("MainOutputs", fields)
+                        .context("Failed to generate struct `MainOutputs`")?
+                }
+                StructHierarchy::Optional { .. } => {
+                    bail!("Unexpected optional variant as root-struct")
                 }
                 StructHierarchy::Field { .. } => bail!("Unexpected field variant as root-struct"),
             };
             let additional_outputs = match &cycler_structs.additional_outputs {
                 StructHierarchy::Struct { fields } => {
                     struct_hierarchy_to_token_stream("AdditionalOutputs", fields)
+                        .context("Failed to generate struct `AdditionalOutputs`")?
+                }
+                StructHierarchy::Optional { .. } => {
+                    bail!("Unexpected optional variant as root-struct")
                 }
                 StructHierarchy::Field { .. } => bail!("Unexpected field variant as root-struct"),
             };
             let persistent_state = match &cycler_structs.persistent_state {
                 StructHierarchy::Struct { fields } => {
                     struct_hierarchy_to_token_stream("PersistentState", fields)
+                        .context("Failed to generate struct `PersistentState`")?
+                }
+                StructHierarchy::Optional { .. } => {
+                    bail!("Unexpected optional variant as root-struct")
                 }
                 StructHierarchy::Field { .. } => bail!("Unexpected field variant as root-struct"),
             };
@@ -79,34 +93,67 @@ fn main() -> anyhow::Result<()> {
 fn struct_hierarchy_to_token_stream(
     struct_name: &str,
     fields: &BTreeMap<String, StructHierarchy>,
-) -> TokenStream {
+) -> anyhow::Result<TokenStream> {
     let struct_name_identifier = format_ident!("{}", struct_name);
-    let struct_fields = fields.iter().map(|(name, struct_hierarchy)| {
-        let name_identifier = format_ident!("{}", name);
-        match struct_hierarchy {
-            StructHierarchy::Struct { .. } => {
-                let struct_name_identifier =
-                    format_ident!("{}{}", struct_name, name.to_case(Case::Pascal));
-                quote! { pub #name_identifier: #struct_name_identifier }
+    let struct_fields: Vec<_> = fields
+        .iter()
+        .map(|(name, struct_hierarchy)| {
+            let name_identifier = format_ident!("{}", name);
+            match struct_hierarchy {
+                StructHierarchy::Struct { .. } => {
+                    let struct_name_identifier =
+                        format_ident!("{}{}", struct_name, name.to_case(Case::Pascal));
+                    Ok(quote! { pub #name_identifier: #struct_name_identifier })
+                }
+                StructHierarchy::Optional { child } => match &**child {
+                    StructHierarchy::Struct { .. } => {
+                        let struct_name_identifier =
+                            format_ident!("{}{}", struct_name, name.to_case(Case::Pascal));
+                        Ok(quote! { pub #name_identifier: Option<#struct_name_identifier> })
+                    }
+                    StructHierarchy::Optional { .. } => {
+                        bail!("Unexpected optional in an optional struct")
+                    }
+                    StructHierarchy::Field { data_type } => {
+                        Ok(quote! { pub #name_identifier: Option<#data_type> })
+                    }
+                },
+                StructHierarchy::Field { data_type } => {
+                    Ok(quote! { pub #name_identifier: #data_type })
+                }
             }
-            StructHierarchy::Field { data_type } => quote! { pub #name_identifier: #data_type },
-        }
-    });
-    let child_structs = fields
+        })
+        .collect::<Result<_, _>>()
+        .context("Failed to generate struct fields")?;
+    let child_structs: Vec<_> = fields
         .iter()
         .map(|(name, struct_hierarchy)| match struct_hierarchy {
             StructHierarchy::Struct { fields } => {
                 let struct_name = format!("{}{}", struct_name, name.to_case(Case::Pascal));
                 struct_hierarchy_to_token_stream(&struct_name, &fields)
+                    .with_context(|| anyhow!("Failed to generate struct `{struct_name}`"))
             }
-            StructHierarchy::Field { .. } => Default::default(),
-        });
+            StructHierarchy::Optional { child } => match &**child {
+                StructHierarchy::Struct { fields } => {
+                    let struct_name = format!("{}{}", struct_name, name.to_case(Case::Pascal));
+                    struct_hierarchy_to_token_stream(&struct_name, &fields)
+                        .with_context(|| anyhow!("Failed to generate struct `{struct_name}`"))
+                }
+                StructHierarchy::Optional { .. } => {
+                    bail!("Unexpected optional in an optional struct")
+                }
+                StructHierarchy::Field { .. } => Ok(Default::default()),
+            },
+            StructHierarchy::Field { .. } => Ok(Default::default()),
+        })
+        .collect::<Result<_, _>>()
+        .context("Failed to generate child structs")?;
 
-    quote! {
+    Ok(quote! {
         #[derive(Clone, Debug, Default)]
         pub struct #struct_name_identifier {
             #(#struct_fields,)*
         }
         #(#child_structs)*
-    }
+    })
 }
