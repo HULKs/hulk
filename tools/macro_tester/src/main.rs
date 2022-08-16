@@ -1,10 +1,10 @@
-use std::{collections::BTreeMap, fs::File, io::Write, path::Path, process::Command};
+use std::{fs::File, io::Write, path::Path, process::Command};
 
 use anyhow::{anyhow, bail, Context};
 use convert_case::{Case, Casing};
-use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote, ToTokens};
-use source_analyzer::{CyclerInstances, CyclerType, CyclerTypes, Field, Modules};
+use proc_macro2::{Delimiter, Group, Ident, Punct, Spacing, TokenStream, TokenTree};
+use quote::{format_ident, quote, TokenStreamExt};
+use source_analyzer::{CyclerInstances, CyclerType, CyclerTypes, Field, Modules, PathSegment};
 
 pub fn write_token_stream<P>(file_path: P, token_stream: TokenStream) -> anyhow::Result<()>
 where
@@ -164,7 +164,6 @@ impl Cycler<'_> {
     }
 
     fn get_own_producer_identifier(&self) -> TokenStream {
-        let own_producer_type = self.get_own_producer_type();
         match self {
             Cycler::Perception { .. } => quote! { own_producer, },
             Cycler::RealTime { .. } => Default::default(),
@@ -681,30 +680,22 @@ impl Module<'_> {
                 Field::OptionalInput { name, .. } => {
                     bail!("Unexpected optional input field `{name}` in new context")
                 }
-                Field::Parameter { name, .. } => {
-                    let segments = field
-                        .get_path_segments()
-                        .unwrap()
-                        .into_iter()
-                        .map(|segment| format_ident!("{}", segment));
+                Field::Parameter { name, path, .. } => {
+                    let accessor = path_to_accessor_token_stream(&path);
                     Ok(quote! {
                         #name: framework::Parameter::from(
-                            &configuration #(.#segments)*,
+                            &configuration #accessor,
                         )
                     })
                 }
                 Field::PerceptionInput { name, .. } => {
                     bail!("Unexpected perception input field `{name}` in new context")
                 }
-                Field::PersistentState { name, .. } => {
-                    let segments = field
-                        .get_path_segments()
-                        .unwrap()
-                        .into_iter()
-                        .map(|segment| format_ident!("{}", segment));
+                Field::PersistentState { name, path, .. } => {
+                    let accessor = path_to_accessor_token_stream(&path);
                     Ok(quote! {
                         #name: framework::PersistentState::from(
-                            &mut persistent_state #(.#segments)*,
+                            &mut persistent_state #accessor,
                         )
                     })
                 }
@@ -742,14 +733,10 @@ impl Module<'_> {
             .cycle_context
             .iter()
             .filter_map(|field| match field {
-                Field::RequiredInput { .. } => {
-                    let segments = field
-                        .get_path_segments()
-                        .unwrap()
-                        .into_iter()
-                        .map(|segment| format_ident!("{}", segment));
+                Field::RequiredInput { path, .. } => {
+                    let accessor = path_to_accessor_token_stream(&path);
                     Some(quote! {
-                        own_database.main_outputs #(.#segments)* .is_some()
+                        own_database.main_outputs #accessor .is_some()
                     })
                 }
                 _ => None,
@@ -758,7 +745,7 @@ impl Module<'_> {
         match required_inputs_are_some.is_empty() {
             true => None,
             false => Some(quote! {
-                if #(#required_inputs_are_some&&)*
+                if #(#required_inputs_are_some)&&*
             }),
         }
     }
@@ -769,17 +756,13 @@ impl Module<'_> {
             .cycle_context
             .iter()
             .map(|field| match field {
-                Field::AdditionalOutput { name, .. } => {
-                    let segments = field
-                        .get_path_segments()
-                        .unwrap()
-                        .into_iter()
-                        .map(|segment| format_ident!("{}", segment));
+                Field::AdditionalOutput { name, path, .. } => {
+                    let accessor = path_to_accessor_token_stream(&path);
                     // TODO: is_subscribed
                     Ok(quote! {
                         #name: framework::AdditionalOutput::new(
                             false,
-                            &mut own_database.additional_outputs #(.#segments)*,
+                            &mut own_database.additional_outputs #accessor,
                         )
                     })
                 }
@@ -788,15 +771,10 @@ impl Module<'_> {
                         &self.hardware_interface,
                     )
                 }),
-                Field::HistoricInput { name, .. } => {
-                    let segments: Vec<_> = field
-                        .get_path_segments()
-                        .unwrap()
-                        .into_iter()
-                        .map(|segment| format_ident!("{}", segment))
-                        .collect();
+                Field::HistoricInput { name, path, .. } => {
+                    let accessor = path_to_accessor_token_stream(&path);
                     Ok(quote! {
-                        #name: [(now, &own_database.main_outputs #(.#segments)*)]
+                        #name: [(now, &own_database.main_outputs #accessor)]
                             .into_iter()
                             .chain(
                                 self
@@ -804,7 +782,7 @@ impl Module<'_> {
                                     .iter()
                                     .map(|(system_time, database)| (
                                         system_time,
-                                        &database #(.#segments)*,
+                                        &database #accessor,
                                     ))
                             )
                             .collect()
@@ -814,49 +792,31 @@ impl Module<'_> {
                 Field::MainOutput { name, .. } => {
                     bail!("Unexpected main output field `{name}` in cycle context")
                 }
-                Field::OptionalInput { name, .. } => {
-                    let segments = field
-                        .get_path_segments()
-                        .unwrap()
-                        .into_iter()
-                        .map(|segment| format_ident!("{}", segment));
+                Field::OptionalInput { name, path, .. } => {
+                    let accessor = path_to_accessor_token_stream(&path);
                     Ok(quote! {
                         #name: framework::OptionalInput::from(
-                            &own_database.main_outputs #(.#segments)*,
+                            &own_database.main_outputs #accessor,
                         )
                     })
                 }
-                Field::Parameter { name, .. } => {
-                    let segments = field
-                        .get_path_segments()
-                        .unwrap()
-                        .into_iter()
-                        .map(|segment| format_ident!("{}", segment));
+                Field::Parameter { name, path, .. } => {
+                    let accessor = path_to_accessor_token_stream(&path);
                     Ok(quote! {
                         #name: framework::Parameter::from(
-                            &configuration #(.#segments)*,
+                            &configuration #accessor,
                         )
                     })
                 }
                 Field::PerceptionInput {
-                    name,
                     cycler_instance,
+                    name,
+                    path,
                     ..
                 } => {
-                    let cycler_instance_identifier = format_ident!(
-                        "{}",
-                        cycler_instance
-                            .token()
-                            .to_string()
-                            .trim_matches('"')
-                            .to_case(Case::Snake)
-                    );
-                    let segments: Vec<_> = field
-                        .get_path_segments()
-                        .unwrap()
-                        .into_iter()
-                        .map(|segment| format_ident!("{}", segment))
-                        .collect();
+                    let cycler_instance_identifier =
+                        format_ident!("{}", cycler_instance.to_case(Case::Snake));
+                    let accessor = path_to_accessor_token_stream(&path);
                     Ok(quote! {
                         #name: framework::PerceptionInput {
                             persistent: self
@@ -867,7 +827,7 @@ impl Module<'_> {
                                     databases
                                         .#cycler_instance_identifier
                                         .iter()
-                                        .map(|database| &database #(.#segments)*)
+                                        .map(|database| &database #accessor)
                                         .collect()
                                     ,
                                 ))
@@ -880,7 +840,7 @@ impl Module<'_> {
                                     databases
                                         .#cycler_instance_identifier
                                         .iter()
-                                        .map(|database| &database #(.#segments)*)
+                                        .map(|database| &database #accessor)
                                         .collect()
                                     ,
                                 ))
@@ -888,27 +848,19 @@ impl Module<'_> {
                         }
                     })
                 }
-                Field::PersistentState { name, .. } => {
-                    let segments = field
-                        .get_path_segments()
-                        .unwrap()
-                        .into_iter()
-                        .map(|segment| format_ident!("{}", segment));
+                Field::PersistentState { name, path, .. } => {
+                    let accessor = path_to_accessor_token_stream(&path);
                     Ok(quote! {
                         #name: framework::PersistentState::from(
-                            &mut persistent_state #(.#segments)*,
+                            &mut persistent_state #accessor,
                         )
                     })
                 }
-                Field::RequiredInput { name, .. } => {
-                    let segments = field
-                        .get_path_segments()
-                        .unwrap()
-                        .into_iter()
-                        .map(|segment| format_ident!("{}", segment));
+                Field::RequiredInput { name, path, .. } => {
+                    let accessor = path_to_accessor_token_stream(&path);
                     Ok(quote! {
                         #name: framework::RequiredInput::from(
-                            own_database.main_outputs #(.#segments)*.as_ref().unwrap(),
+                            own_database.main_outputs #accessor .as_ref().unwrap(),
                         )
                     })
                 }
@@ -982,6 +934,119 @@ impl Module<'_> {
                     #module_execution
                 }
             }),
+        }
+    }
+}
+
+fn path_to_accessor_token_stream(path: &[PathSegment]) -> TokenStream {
+    let mut token_stream = TokenStream::default();
+    let mut token_stream_within_method = None;
+
+    for (index, segment) in path.iter().enumerate() {
+        {
+            let token_stream = match &mut token_stream_within_method {
+                Some(token_stream) => token_stream,
+                None => &mut token_stream,
+            };
+
+            token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+            token_stream.append(TokenTree::Ident(format_ident!("{}", segment.name)));
+        }
+
+        let is_last_segment = index == path.len() - 1;
+        if segment.is_optional && !is_last_segment {
+            if let Some(token_stream_within_method) = token_stream_within_method.take() {
+                token_stream.append(TokenTree::Group(Group::new(
+                    Delimiter::Parenthesis,
+                    token_stream_within_method,
+                )));
+            }
+
+            token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+
+            let method_name = match path
+                .iter()
+                .skip(index + 1)
+                .find(|segment| segment.is_optional)
+            {
+                Some(_) => "and_then",
+                _ => "map",
+            };
+            token_stream.append(TokenTree::Ident(format_ident!("{}", method_name)));
+
+            let mut new_token_stream_within_method = TokenStream::default();
+            new_token_stream_within_method
+                .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
+            new_token_stream_within_method
+                .append(TokenTree::Ident(format_ident!("{}", segment.name)));
+            new_token_stream_within_method
+                .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
+            new_token_stream_within_method
+                .append(TokenTree::Ident(format_ident!("{}", segment.name)));
+            token_stream_within_method = Some(new_token_stream_within_method);
+        }
+    }
+
+    if let Some(token_stream_within_method) = token_stream_within_method.take() {
+        token_stream.append(TokenTree::Group(Group::new(
+            Delimiter::Parenthesis,
+            token_stream_within_method,
+        )));
+    }
+
+    token_stream
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn paths_with_optionals_result_in_correct_accessor_token_streams() {
+        let cases = [
+            (
+                "a/b/c/d/e/f?/g/i/j/k/l/m/n",
+                quote! { .a.b.c.d.e.f.map(|f| f.g.i.j.k.l.m.n) },
+            ),
+            (
+                "a/b/c/d/e/f?/g/i/j/k/l/m/n?",
+                quote! { .a.b.c.d.e.f.and_then(|f| f.g.i.j.k.l.m.n) },
+            ),
+            ("a", quote! { .a }),
+            ("a/b", quote! { .a.b }),
+            ("a/b/c", quote! { .a.b.c }),
+            ("a?/b/c", quote! { .a.map(|a| a.b.c) }),
+            ("a?", quote! { .a }),
+            ("a?/b?/c", quote! { .a.and_then(|a| a.b).map(|b| b.c) }),
+            (
+                "a?/b?/c?",
+                quote! { .a.and_then(|a| a.b).and_then(|b| b.c) },
+            ),
+            (
+                "a?/b?/c?/d",
+                quote! { .a.and_then(|a| a.b).and_then(|b| b.c).map(|c| c.d) },
+            ),
+            (
+                "a?/b?/c?/d?",
+                quote! { .a.and_then(|a| a.b).and_then(|b| b.c).and_then(|c| c.d) },
+            ),
+            ("a?/b/c/d?", quote! { .a.and_then(|a| a.b.c.d) }),
+            ("a?/b/c/d", quote! { .a.map(|a| a.b.c.d) }),
+            ("a?/b/c?/d", quote! { .a.and_then(|a| a.b.c).map(|c| c.d) }),
+            ("a/b/c?/d", quote! { .a.b.c.map(|c| c.d) }),
+            ("a/b/c/d", quote! { .a.b.c.d }),
+            ("a/b?/c?/d", quote! { .a.b.and_then(|b| b.c).map(|c| c.d) }),
+            (
+                "a/b?/c?/d?",
+                quote! { .a.b.and_then(|b| b.c).and_then(|c| c.d) },
+            ),
+        ];
+
+        for (path, expected_token_stream) in cases {
+            let path_segments: Vec<_> = path.split('/').map(PathSegment::from).collect();
+
+            let token_stream = path_to_accessor_token_stream(&path_segments);
+            assert_eq!(token_stream.to_string(), expected_token_stream.to_string());
         }
     }
 }
