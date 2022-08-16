@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, iter::once, path::Path};
 
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
 use quote::ToTokens;
 use syn::Type;
 
@@ -61,7 +61,9 @@ impl Structs {
                 {
                     match field {
                         Field::AdditionalOutput {
-                            data_type, path, ..
+                            data_type,
+                            name,
+                            path,
                         } => {
                             let expanded_paths = expand_variables_from_path(
                                 path,
@@ -70,20 +72,24 @@ impl Structs {
                                     cycler_instances.clone(),
                                 )]),
                             )
-                            .context("Failed to expand path variables")?;
+                            .with_context(|| {
+                                anyhow!("Failed to expand path variables for additional output `{name}`")
+                            })?;
 
                             for path in expanded_paths {
                                 let insertion_rules = path_into_insertion_rules(&path, data_type);
                                 cycler_structs
                                     .additional_outputs
                                     .insert(insertion_rules)
-                                    .context(
-                                        "Failed to insert expanded path into additional outputs",
-                                    )?;
+                                    .with_context(|| {
+                                        anyhow!("Failed to insert expanded path into additional outputs for additional output `{name}`")
+                                    })?;
                             }
                         }
                         Field::Parameter {
-                            data_type, path, ..
+                            data_type,
+                            name,
+                            path,
                         } => {
                             let expanded_paths = expand_variables_from_path(
                                 path,
@@ -92,18 +98,24 @@ impl Structs {
                                     cycler_instances.clone(),
                                 )]),
                             )
-                            .context("Failed to expand path variables")?;
+                            .with_context(|| {
+                                anyhow!("Failed to expand path variables for parameter `{name}`")
+                            })?;
 
                             for path in expanded_paths {
                                 let insertion_rules = path_into_insertion_rules(&path, data_type);
                                 structs
                                     .configuration
                                     .insert(insertion_rules)
-                                    .context("Failed to insert expanded path into configuration")?;
+                                    .with_context(|| {
+                                        anyhow!("Failed to insert expanded path into configuration for parameter `{name}`")
+                                    })?;
                             }
                         }
                         Field::PersistentState {
-                            data_type, path, ..
+                            data_type,
+                            name,
+                            path,
                         } => {
                             let expanded_paths = expand_variables_from_path(
                                 path,
@@ -112,16 +124,20 @@ impl Structs {
                                     cycler_instances.clone(),
                                 )]),
                             )
-                            .context("Failed to expand path variables")?;
+                            .with_context(|| {
+                                anyhow!(
+                                    "Failed to expand path variables for persistent state `{name}`"
+                                )
+                            })?;
 
                             for path in expanded_paths {
                                 let insertion_rules = path_into_insertion_rules(&path, data_type);
                                 cycler_structs
                                     .persistent_state
                                     .insert(insertion_rules)
-                                    .context(
-                                        "Failed to insert expanded path into persistent state",
-                                    )?;
+                                    .with_context(|| {
+                                        anyhow!("Failed to insert expanded path into persistent state for persistent state `{name}`")
+                                    })?;
                             }
                         }
                         Field::HardwareInterface { .. }
@@ -130,7 +146,7 @@ impl Structs {
                         | Field::PerceptionInput { .. }
                         | Field::RequiredInput { .. } => {}
                         _ => {
-                            bail!("Unexpected field {field:?} in NewContext or CycleContext");
+                            bail!("Unexpected field {field:?} in `NewContext` or `CycleContext`");
                         }
                     }
                 }
@@ -204,11 +220,11 @@ impl StructHierarchy {
                     Ok(())
                 }
             },
-            StructHierarchy::Optional { .. } => match first_rule {
+            StructHierarchy::Optional { child } => match first_rule {
                 InsertionRule::InsertField { name } => {
                     bail!("Failed to insert field with name `{name}` to optional")
                 }
-                InsertionRule::BeginOptional => self.insert(insertion_rules.split_off(1)),
+                InsertionRule::BeginOptional => child.insert(insertion_rules.split_off(1)),
                 InsertionRule::BeginStruct => bail!("Failed to begin struct in-place of optional"),
                 InsertionRule::AppendDataType { .. } => {
                     bail!("Failed to append data type in-place of optional")
