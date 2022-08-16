@@ -41,7 +41,7 @@ impl CyclerTypes {
                                     Field::PerceptionInput {
                                         cycler_instance, ..
                                     } if &cycler_instances.instances_to_modules
-                                        [cycler_instance.token().to_string().trim_matches('"')]
+                                        [cycler_instance]
                                         == cycler_module_name =>
                                     {
                                         true

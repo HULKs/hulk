@@ -98,8 +98,87 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                             _ => abort!(first_segment, "expected exactly three generic parameters"),
                         }
                     }
-                    "AdditionalOutput" | "HistoricInput" | "RequiredInput" | "OptionalInput"
-                    | "Parameter" | "PersistentState" => {
+                    "RequiredInput" | "OptionalInput" => {
+                        requires_lifetime_parameter = true;
+                        match &mut first_segment.arguments {
+                            PathArguments::AngleBracketed(arguments) => {
+                                if arguments.args.len() != 2 && arguments.args.len() != 3 {
+                                    abort!(
+                                        arguments,
+                                        "expected exactly two or three generic parameters"
+                                    );
+                                }
+                                match arguments.args.pop() {
+                                    Some(
+                                        Pair::End(GenericArgument::Const(Expr::Lit(ExprLit {
+                                            lit: Lit::Str(_),
+                                            ..
+                                        })))
+                                        | Pair::Punctuated(
+                                            GenericArgument::Const(Expr::Lit(ExprLit {
+                                                lit: Lit::Str(_),
+                                                ..
+                                            })),
+                                            _,
+                                        ),
+                                    ) => {}
+                                    Some(argument) => {
+                                        abort!(
+                                            argument,
+                                            "expected string literal in last generic parameter"
+                                        );
+                                    }
+                                    _ => {
+                                        abort!(
+                                            arguments,
+                                            "expected exactly two or three generic parameters"
+                                        );
+                                    }
+                                }
+                                if arguments.args.len() == 3 {
+                                    match arguments.args.pop() {
+                                        Some(
+                                            Pair::End(GenericArgument::Const(Expr::Lit(ExprLit {
+                                                lit: Lit::Str(_),
+                                                ..
+                                            })))
+                                            | Pair::Punctuated(
+                                                GenericArgument::Const(Expr::Lit(ExprLit {
+                                                    lit: Lit::Str(_),
+                                                    ..
+                                                })),
+                                                _,
+                                            ),
+                                        ) => {}
+                                        Some(argument) => {
+                                            abort!(
+                                                argument,
+                                                "expected string literal in second last generic parameter"
+                                            );
+                                        }
+                                        _ => {
+                                            abort!(
+                                                arguments,
+                                                "expected exactly two or three generic parameters"
+                                            );
+                                        }
+                                    }
+                                }
+                                arguments.args.insert(
+                                    0,
+                                    GenericArgument::Lifetime(Lifetime::new(
+                                        "'context",
+                                        Span::call_site(),
+                                    )),
+                                );
+                            }
+                            _ => abort!(
+                                first_segment,
+                                "expected exactly two or three generic parameters"
+                            ),
+                        }
+                    }
+                    "AdditionalOutput" | "HistoricInput" | "Parameter" | "PersistentState" => {
                         requires_lifetime_parameter = true;
                         match &mut first_segment.arguments {
                             PathArguments::AngleBracketed(arguments) => {
