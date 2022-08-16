@@ -3032,6 +3032,7 @@ name = "source_analyzer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "convert_case 0.5.0",
  "glob",
  "proc-macro2",
  "quote",

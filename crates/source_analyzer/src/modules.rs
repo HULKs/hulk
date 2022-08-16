@@ -11,6 +11,7 @@ use topological_sort::TopologicalSort;
 
 use crate::{
     cycler_crates::cycler_crates_from_crates_directory, parse::parse_rust_file, Contexts, Field,
+    PathSegment,
 };
 
 #[derive(Debug)]
@@ -152,19 +153,25 @@ impl Modules {
                 {
                     match field {
                         Field::HistoricInput {
-                            data_type, name, ..
+                            data_type,
+                            name,
+                            path,
                         }
                         | Field::OptionalInput {
-                            data_type, name, ..
+                            data_type,
+                            name,
+                            path,
+                            ..
                         }
                         | Field::RequiredInput {
-                            data_type, name, ..
+                            data_type,
+                            name,
+                            path,
+                            ..
                         } => {
-                            let path_segments = field
-                                .get_path_segments()
-                                .expect("Unexpected missing path in input field");
-                            let first_segment = match path_segments.first() {
-                                Some(first_segment) => first_segment,
+                            let first_segment = match path.first() {
+                                Some(PathSegment { name, is_variable: false, .. }) => name,
+                                Some(..) => bail!("Unexpected variable segment as first segment for {name} in module {consuming_module_name} (not implemented)"),
                                 None => bail!("Expected at least one path segment for {name} in module {consuming_module_name}"),
                             };
                             let (producing_module_name, main_output_data_type) = match main_outputs_to_modules.get(first_segment) {
