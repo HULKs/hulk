@@ -77,7 +77,7 @@ impl Structs {
                             })?;
 
                             for path in expanded_paths {
-                                let insertion_rules = path_into_insertion_rules(&path, data_type);
+                                let insertion_rules = path_to_insertion_rules(&path, data_type);
                                 cycler_structs
                                     .additional_outputs
                                     .insert(insertion_rules)
@@ -103,7 +103,7 @@ impl Structs {
                             })?;
 
                             for path in expanded_paths {
-                                let insertion_rules = path_into_insertion_rules(&path, data_type);
+                                let insertion_rules = path_to_insertion_rules(&path, data_type);
                                 structs
                                     .configuration
                                     .insert(insertion_rules)
@@ -131,7 +131,7 @@ impl Structs {
                             })?;
 
                             for path in expanded_paths {
-                                let insertion_rules = path_into_insertion_rules(&path, data_type);
+                                let insertion_rules = path_to_insertion_rules(&path, data_type);
                                 cycler_structs
                                     .persistent_state
                                     .insert(insertion_rules)
@@ -259,7 +259,7 @@ enum InsertionRule {
     AppendDataType { data_type: Type },
 }
 
-fn path_into_insertion_rules(path: &[PathSegment], data_type: &Type) -> Vec<InsertionRule> {
+fn path_to_insertion_rules(path: &[PathSegment], data_type: &Type) -> Vec<InsertionRule> {
     path.iter()
         .map(|segment| {
             assert_eq!(segment.is_variable, false);
@@ -428,7 +428,7 @@ mod tests {
         for case in cases {
             let path = case.0;
             let path_segments: Vec<_> = path.split('/').map(PathSegment::from).collect();
-            let insertion_rules = path_into_insertion_rules(&path_segments, &data_type);
+            let insertion_rules = path_to_insertion_rules(&path_segments, &data_type);
             let expected_insertion_rules = case.1;
 
             assert_eq!(insertion_rules.len(), expected_insertion_rules.len(), "path: {path:?}, insertion_rules: {insertion_rules:?}, expected_insertion_rules: {expected_insertion_rules:?}");
