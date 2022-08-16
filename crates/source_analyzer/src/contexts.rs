@@ -2,7 +2,8 @@ use std::{collections::BTreeMap, path::Path};
 
 use anyhow::{bail, Context};
 use syn::{
-    spanned::Spanned, Expr, ExprLit, File, GenericArgument, Ident, Item, Lit, PathArguments, Type,
+    spanned::Spanned, AngleBracketedGenericArguments, Expr, ExprLit, File, GenericArgument, Ident,
+    Item, Lit, PathArguments, Type, TypePath,
 };
 
 use crate::{
@@ -144,6 +145,8 @@ impl Field {
                     "AdditionalOutput" => {
                         let (data_type, path) =
                             extract_two_arguments(file_path, &first_segment.arguments)?;
+                        let data_type = unwrap_option_data_type(data_type, &path)
+                            .context("Failed to unwrap Option<T> from data type")?;
                         Ok(Field::AdditionalOutput {
                             data_type: data_type.to_absolute(uses),
                             name: field_name.clone(),
@@ -156,6 +159,8 @@ impl Field {
                     "HistoricInput" => {
                         let (data_type, path) =
                             extract_two_arguments(file_path, &first_segment.arguments)?;
+                        let data_type = unwrap_option_data_type(data_type, &path)
+                            .context("Failed to unwrap Option<T> from data type")?;
                         Ok(Field::HistoricInput {
                             data_type: data_type.to_absolute(uses),
                             name: field_name.clone(),
@@ -191,6 +196,8 @@ impl Field {
                                 file_path,
                             )?,
                         };
+                        let data_type = unwrap_option_data_type(data_type, &path)
+                            .context("Failed to unwrap Option<T> from data type")?;
                         Ok(Field::OptionalInput {
                             cycler_instance,
                             data_type: data_type.to_absolute(uses),
@@ -201,6 +208,8 @@ impl Field {
                     "Parameter" => {
                         let (data_type, path) =
                             extract_two_arguments(file_path, &first_segment.arguments)?;
+                        let data_type = unwrap_option_data_type(data_type, &path)
+                            .context("Failed to unwrap Option<T> from data type")?;
                         Ok(Field::Parameter {
                             data_type: data_type.to_absolute(uses),
                             name: field_name.clone(),
@@ -210,6 +219,8 @@ impl Field {
                     "PerceptionInput" => {
                         let (data_type, cycler_instance, path) =
                             extract_three_arguments(file_path, &first_segment.arguments)?;
+                        let data_type = unwrap_option_data_type(data_type, &path)
+                            .context("Failed to unwrap Option<T> from data type")?;
                         Ok(Field::PerceptionInput {
                             cycler_instance,
                             data_type: data_type.to_absolute(uses),
@@ -220,6 +231,8 @@ impl Field {
                     "PersistentState" => {
                         let (data_type, path) =
                             extract_two_arguments(file_path, &first_segment.arguments)?;
+                        let data_type = unwrap_option_data_type(data_type, &path)
+                            .context("Failed to unwrap Option<T> from data type")?;
                         Ok(Field::PersistentState {
                             data_type: data_type.to_absolute(uses),
                             name: field_name.clone(),
@@ -248,6 +261,8 @@ impl Field {
                                 file_path,
                             )?,
                         };
+                        let data_type = unwrap_option_data_type(data_type, &path)
+                            .context("Failed to unwrap Option<T> from data type")?;
                         Ok(Field::RequiredInput {
                             cycler_instance,
                             data_type: data_type.to_absolute(uses),
@@ -325,6 +340,32 @@ pub fn expand_variables_from_path(
         }
     }
     Ok(paths)
+}
+
+fn unwrap_option_data_type(data_type: Type, path: &[PathSegment]) -> anyhow::Result<Type> {
+    let path_contains_optional = path.iter().any(|segment| segment.is_optional);
+    match path_contains_optional {
+        true => match data_type {
+            Type::Path(TypePath {
+                path: syn::Path { segments, .. },
+                ..
+            }) if segments.len() == 1 && segments.first().unwrap().ident == "Option" => {
+                match &segments.first().unwrap().arguments {
+                    PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                        args, ..
+                    }) if args.len() == 1 => match args.first().unwrap() {
+                        GenericArgument::Type(nested_data_type) => Ok(nested_data_type.clone()),
+                        _ => bail!(
+                            "Unexpected generic argument, expected type argument in data type"
+                        ),
+                    },
+                    _ => bail!("Expected exactly one generic type argument in data type"),
+                }
+            }
+            _ => bail!("Execpted Option<T> as data type"),
+        },
+        false => Ok(data_type),
+    }
 }
 
 fn extract_one_argument<P>(file_path: P, arguments: &PathArguments) -> anyhow::Result<Type>
