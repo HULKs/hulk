@@ -343,6 +343,28 @@ impl Cycler<'_> {
             .collect()
     }
 
+    fn get_perception_cycler_databases(&self) -> Vec<TokenStream> {
+        self.get_other_cyclers()
+            .into_iter()
+            .filter_map(|other_cycler| match other_cycler {
+                OtherCycler::Reader {
+                    cycler_instance_name,
+                    ..
+                } => {
+                    let reader_identifier =
+                        format_ident!("{}_reader", cycler_instance_name.to_case(Case::Snake));
+                        let database_identifier =
+                        format_ident!("{}_database", cycler_instance_name.to_case(Case::Snake));
+
+                    Some(quote! {
+                        let #database_identifier = self.#reader_identifier.next();
+                    })
+                }
+                OtherCycler::Consumer { .. } => None,
+            })
+            .collect()
+    }
+
     fn get_interpreted_modules(&self) -> Vec<Module> {
         self.get_modules()
             .modules
@@ -542,11 +564,13 @@ impl Cycler<'_> {
                 }
             }
         };
+        let other_cycler_databases = self.get_perception_cycler_databases();
         let remaining_modules = match remaining_modules.is_empty() {
             true => Default::default(),
             false => quote! {
                 {
                     let configuration = self.configuration_reader.next();
+                    #(#other_cycler_databases)*
                     #(#remaining_modules)*
                 }
             },
@@ -821,11 +845,15 @@ impl Module<'_> {
                 Field::MainOutput { name, .. } => {
                     bail!("Unexpected main output field `{name}` in cycle context")
                 }
-                Field::OptionalInput { name, path, .. } => {
+                Field::OptionalInput { cycler_instance, name, path, .. } => {
+                    let database_identifier = match cycler_instance {
+                        Some(cycler_instance) => format_ident!("{}_database", cycler_instance.to_case(Case::Snake)),
+                        None => format_ident!("own_database"),
+                    };
                     let accessor = path_to_accessor_token_stream(&path);
                     Ok(quote! {
                         #name: framework::OptionalInput::from(
-                            &own_database.main_outputs #accessor,
+                            & #database_identifier .main_outputs #accessor,
                         )
                     })
                 }
@@ -885,11 +913,15 @@ impl Module<'_> {
                         )
                     })
                 }
-                Field::RequiredInput { name, path, .. } => {
+                Field::RequiredInput { cycler_instance, name, path, .. } => {
+                    let database_identifier = match cycler_instance {
+                        Some(cycler_instance) => format_ident!("{}_database", cycler_instance.to_case(Case::Snake)),
+                        None => format_ident!("own_database"),
+                    };
                     let accessor = path_to_accessor_token_stream(&path);
                     Ok(quote! {
                         #name: framework::RequiredInput::from(
-                            own_database.main_outputs #accessor .as_ref().unwrap(),
+                            & #database_identifier .main_outputs #accessor .as_ref().unwrap(),
                         )
                     })
                 }
