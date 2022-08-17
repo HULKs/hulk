@@ -1,8 +1,11 @@
 use std::{collections::BTreeMap, iter::once, path::Path};
 
 use anyhow::{anyhow, bail, Context};
-use quote::ToTokens;
-use syn::Type;
+use quote::{format_ident, ToTokens};
+use syn::{
+    punctuated::Punctuated, AngleBracketedGenericArguments, GenericArgument, PathArguments, Type,
+    TypePath,
+};
 
 use crate::{expand_variables_from_path, CyclerInstances, Field, Modules, PathSegment};
 
@@ -76,8 +79,28 @@ impl Structs {
                                 anyhow!("Failed to expand path variables for additional output `{name}`")
                             })?;
 
+                            let data_type_wrapped_in_option = Type::Path(TypePath {
+                                qself: None,
+                                path: syn::Path {
+                                    leading_colon: None,
+                                    segments: Punctuated::from_iter([syn::PathSegment {
+                                        ident: format_ident!("Option"),
+                                        arguments: PathArguments::AngleBracketed(
+                                            AngleBracketedGenericArguments {
+                                                colon2_token: None,
+                                                lt_token: Default::default(),
+                                                args: Punctuated::from_iter([
+                                                    GenericArgument::Type(data_type.clone()),
+                                                ]),
+                                                gt_token: Default::default(),
+                                            },
+                                        ),
+                                    }]),
+                                },
+                            });
                             for path in expanded_paths {
-                                let insertion_rules = path_to_insertion_rules(&path, data_type);
+                                let insertion_rules =
+                                    path_to_insertion_rules(&path, &data_type_wrapped_in_option);
                                 cycler_structs
                                     .additional_outputs
                                     .insert(insertion_rules)
@@ -103,7 +126,16 @@ impl Structs {
                             })?;
 
                             for path in expanded_paths {
-                                let insertion_rules = path_to_insertion_rules(&path, data_type);
+                                let path_contains_optional =
+                                    path.iter().any(|segment| segment.is_optional);
+                                let data_type = match path_contains_optional {
+                                    true => unwrap_option_data_type(data_type.clone())
+                                        .with_context(|| {
+                                            anyhow!("Failed to unwrap Option<T> from data type for parameter `{name}`")
+                                        })?,
+                                    false => data_type.clone(),
+                                };
+                                let insertion_rules = path_to_insertion_rules(&path, &data_type);
                                 structs
                                     .configuration
                                     .insert(insertion_rules)
@@ -284,6 +316,30 @@ fn path_to_insertion_rules(path: &[PathSegment], data_type: &Type) -> Vec<Insert
             data_type: data_type.clone(),
         }))
         .collect()
+}
+
+fn unwrap_option_data_type(data_type: Type) -> anyhow::Result<Type> {
+    match data_type {
+        Type::Path(TypePath {
+            path: syn::Path { segments, .. },
+            ..
+        }) if segments.len() == 1 && segments.first().unwrap().ident == "Option" => {
+            match &segments.first().unwrap().arguments {
+                PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. })
+                    if args.len() == 1 =>
+                {
+                    match args.first().unwrap() {
+                        GenericArgument::Type(nested_data_type) => Ok(nested_data_type.clone()),
+                        _ => bail!(
+                            "Unexpected generic argument, expected type argument in data type"
+                        ),
+                    }
+                }
+                _ => bail!("Expected exactly one generic type argument in data type"),
+            }
+        }
+        _ => bail!("Execpted Option<T> as data type"),
+    }
 }
 
 #[cfg(test)]
