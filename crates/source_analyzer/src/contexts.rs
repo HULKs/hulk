@@ -2,8 +2,7 @@ use std::{collections::BTreeMap, path::Path};
 
 use anyhow::{bail, Context};
 use syn::{
-    spanned::Spanned, AngleBracketedGenericArguments, Expr, ExprLit, File, GenericArgument, Ident,
-    Item, Lit, PathArguments, Type, TypePath,
+    spanned::Spanned, Expr, ExprLit, File, GenericArgument, Ident, Item, Lit, PathArguments, Type,
 };
 
 use crate::{
@@ -145,8 +144,10 @@ impl Field {
                     "AdditionalOutput" => {
                         let (data_type, path) =
                             extract_two_arguments(file_path, &first_segment.arguments)?;
-                        let data_type = unwrap_option_data_type(data_type, &path)
-                            .context("Failed to unwrap Option<T> from data type")?;
+                        let path_contains_optional = path.iter().any(|segment| segment.is_optional);
+                        if path_contains_optional {
+                            bail!("Unexpected optional segments in path of additional output `{field_name}`");
+                        }
                         Ok(Field::AdditionalOutput {
                             data_type: data_type.to_absolute(uses),
                             name: field_name.clone(),
@@ -159,8 +160,6 @@ impl Field {
                     "HistoricInput" => {
                         let (data_type, path) =
                             extract_two_arguments(file_path, &first_segment.arguments)?;
-                        let data_type = unwrap_option_data_type(data_type, &path)
-                            .context("Failed to unwrap Option<T> from data type")?;
                         Ok(Field::HistoricInput {
                             data_type: data_type.to_absolute(uses),
                             name: field_name.clone(),
@@ -196,8 +195,10 @@ impl Field {
                                 file_path,
                             )?,
                         };
-                        let data_type = unwrap_option_data_type(data_type, &path)
-                            .context("Failed to unwrap Option<T> from data type")?;
+                        let path_contains_optional = path.iter().any(|segment| segment.is_optional);
+                        if !path_contains_optional {
+                            bail!("Expected at least one optional segment in path of optional input `{field_name}`");
+                        }
                         Ok(Field::OptionalInput {
                             cycler_instance,
                             data_type: data_type.to_absolute(uses),
@@ -208,8 +209,6 @@ impl Field {
                     "Parameter" => {
                         let (data_type, path) =
                             extract_two_arguments(file_path, &first_segment.arguments)?;
-                        let data_type = unwrap_option_data_type(data_type, &path)
-                            .context("Failed to unwrap Option<T> from data type")?;
                         Ok(Field::Parameter {
                             data_type: data_type.to_absolute(uses),
                             name: field_name.clone(),
@@ -219,8 +218,6 @@ impl Field {
                     "PerceptionInput" => {
                         let (data_type, cycler_instance, path) =
                             extract_three_arguments(file_path, &first_segment.arguments)?;
-                        let data_type = unwrap_option_data_type(data_type, &path)
-                            .context("Failed to unwrap Option<T> from data type")?;
                         Ok(Field::PerceptionInput {
                             cycler_instance,
                             data_type: data_type.to_absolute(uses),
@@ -231,8 +228,10 @@ impl Field {
                     "PersistentState" => {
                         let (data_type, path) =
                             extract_two_arguments(file_path, &first_segment.arguments)?;
-                        let data_type = unwrap_option_data_type(data_type, &path)
-                            .context("Failed to unwrap Option<T> from data type")?;
+                        let path_contains_optional = path.iter().any(|segment| segment.is_optional);
+                        if path_contains_optional {
+                            bail!("Unexpected optional segments in path of persistent state `{field_name}`");
+                        }
                         Ok(Field::PersistentState {
                             data_type: data_type.to_absolute(uses),
                             name: field_name.clone(),
@@ -261,8 +260,6 @@ impl Field {
                                 file_path,
                             )?,
                         };
-                        let data_type = unwrap_option_data_type(data_type, &path)
-                            .context("Failed to unwrap Option<T> from data type")?;
                         Ok(Field::RequiredInput {
                             cycler_instance,
                             data_type: data_type.to_absolute(uses),
@@ -340,32 +337,6 @@ pub fn expand_variables_from_path(
         }
     }
     Ok(paths)
-}
-
-fn unwrap_option_data_type(data_type: Type, path: &[PathSegment]) -> anyhow::Result<Type> {
-    let path_contains_optional = path.iter().any(|segment| segment.is_optional);
-    match path_contains_optional {
-        true => match data_type {
-            Type::Path(TypePath {
-                path: syn::Path { segments, .. },
-                ..
-            }) if segments.len() == 1 && segments.first().unwrap().ident == "Option" => {
-                match &segments.first().unwrap().arguments {
-                    PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                        args, ..
-                    }) if args.len() == 1 => match args.first().unwrap() {
-                        GenericArgument::Type(nested_data_type) => Ok(nested_data_type.clone()),
-                        _ => bail!(
-                            "Unexpected generic argument, expected type argument in data type"
-                        ),
-                    },
-                    _ => bail!("Expected exactly one generic type argument in data type"),
-                }
-            }
-            _ => bail!("Execpted Option<T> as data type"),
-        },
-        false => Ok(data_type),
-    }
 }
 
 fn extract_one_argument<P>(file_path: P, arguments: &PathArguments) -> anyhow::Result<Type>
@@ -487,7 +458,513 @@ where
 mod tests {
     use std::convert::identity;
 
+    use syn::{parse_str, FieldsNamed};
+
     use super::*;
+
+    #[test]
+    fn fields_parsing_is_correct() {
+        let empty_uses = Uses::new();
+        let type_usize: Type = parse_str("usize").unwrap();
+        let type_option_usize: Type = parse_str("Option<usize>").unwrap();
+
+        // without optionals
+        let field = "AdditionalOutput<usize, \"a/b/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::AdditionalOutput {
+                data_type,
+                name,
+                path,
+            } if data_type == type_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && !path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // optionals are not supported
+        let field = "AdditionalOutput<usize, \"a/b?/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        assert!(Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses
+        )
+        .is_err());
+
+        // without optionals
+        let field = "HistoricInput<Option<usize>, \"a/b/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::HistoricInput {
+                data_type,
+                name,
+                path,
+            } if data_type == type_option_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && !path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // with optionals
+        let field = "HistoricInput<Option<usize>, \"a/b?/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::HistoricInput {
+                data_type,
+                name,
+                path,
+            } if data_type == type_option_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // optional output
+        let field = "MainOutput<Option<usize>>";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::MainOutput { data_type, name }
+                if data_type == type_option_usize && name == "name" => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // required output
+        let field = "MainOutput<usize>";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::MainOutput { data_type, name } if data_type == type_usize && name == "name" => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // from own cycler
+        let field = "OptionalInput<Option<usize>, \"a/b?/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::OptionalInput {
+                cycler_instance: None,
+                data_type,
+                name,
+                path,
+            } if data_type == type_option_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // from foreign cycler
+        let field = "OptionalInput<Option<usize>, \"Control\", \"a/b?/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::OptionalInput {
+                cycler_instance: Some(cycler_instance),
+                data_type,
+                name,
+                path,
+            } if cycler_instance == "Control"
+                && data_type == type_option_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // no optionals are not supported
+        let field = "OptionalInput<Option<usize>, \"a/b/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        assert!(Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses
+        )
+        .is_err());
+
+        // without optionals
+        let field = "Parameter<usize, \"a/b/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::Parameter {
+                data_type,
+                name,
+                path,
+            } if data_type == type_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && !path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // with optionals and Option<T> data type
+        let field = "Parameter<Option<usize>, \"a/b?/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::Parameter {
+                data_type,
+                name,
+                path,
+            } if data_type == type_option_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // without optionals
+        let field = "PerceptionInput<usize, \"Control\", \"a/b/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::PerceptionInput {
+                cycler_instance,
+                data_type,
+                name,
+                path,
+            } if cycler_instance == "Control"
+                && data_type == type_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && !path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // with optionals and Option<T> data type
+        let field = "PerceptionInput<Option<usize>, \"Control\", \"a/b?/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::PerceptionInput {
+                cycler_instance,
+                data_type,
+                name,
+                path,
+            } if cycler_instance == "Control"
+                && data_type == type_option_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // without optionals
+        let field = "PersistentState<usize, \"a/b/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::PersistentState {
+                data_type,
+                name,
+                path,
+            } if data_type == type_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && !path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // optionals are not supported
+        let field = "PersistentState<usize, \"a/b?/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        assert!(Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses
+        )
+        .is_err());
+
+        // from own cycler, without optionals
+        let field = "RequiredInput<usize, \"a/b/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::RequiredInput {
+                cycler_instance: None,
+                data_type,
+                name,
+                path,
+            } if data_type == type_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && !path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // from own cycler, with optionals but without Option<T> data type
+        let field = "RequiredInput<usize, \"a/b?/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::RequiredInput {
+                cycler_instance: None,
+                data_type,
+                name,
+                path,
+            } if data_type == type_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // from foreign cycler, without optionals
+        let field = "RequiredInput<usize, \"Control\", \"a/b/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::RequiredInput {
+                cycler_instance: Some(cycler_instance),
+                data_type,
+                name,
+                path,
+            } if cycler_instance == "Control"
+                && data_type == type_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && !path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+
+        // from foreign cycler, with optionals but without Option<T> data type
+        let field = "RequiredInput<usize, \"Control\", \"a/b?/c\">";
+        let fields = format!("{{ name: {field} }}");
+        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        let parsed_field = Field::try_from_field(
+            "file_path",
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+        )
+        .unwrap();
+        match parsed_field {
+            Field::RequiredInput {
+                cycler_instance: Some(cycler_instance),
+                data_type,
+                name,
+                path,
+            } if cycler_instance == "Control"
+                && data_type == type_usize
+                && name == "name"
+                && path.len() == 3
+                && path[0].name == "a"
+                && !path[0].is_optional
+                && !path[0].is_variable
+                && path[1].name == "b"
+                && path[1].is_optional
+                && !path[1].is_variable
+                && path[2].name == "c"
+                && !path[2].is_optional
+                && !path[2].is_variable => {}
+            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
+        }
+    }
 
     #[test]
     fn multiple_variables_result_in_cartesian_product() {
