@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, time::SystemTime};
 
 #[derive(Default)]
 pub struct HistoricDatabases<MainOutputs> {
-    databases: BTreeMap<SystemTime, MainOutputs>,
+    pub databases: BTreeMap<SystemTime, MainOutputs>,
 }
 
 impl<MainOutputs> HistoricDatabases<MainOutputs>
