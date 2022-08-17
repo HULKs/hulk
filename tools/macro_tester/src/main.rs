@@ -37,37 +37,37 @@ fn main() -> anyhow::Result<()> {
     let cycler_types = CyclerTypes::try_from_crates_directory("crates")
         .context("Failed to get perception cycler instances from crates directory")?;
 
-    for module_names in modules.cycler_modules_to_modules.values() {
-        let first_module_name = match module_names.first() {
-            Some(first_module_name) => first_module_name,
-            None => continue,
-        };
-        for field in modules.modules[first_module_name]
-            .contexts
-            .cycle_context
-            .iter()
-        {
-            match field {
-                Field::HistoricInput { name, .. } => bail!(
-                    "Unexpected historic input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
-                    modules.modules[first_module_name].cycler_module
-                ),
-                Field::OptionalInput { name, .. } => bail!(
-                    "Unexpected optional input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
-                    modules.modules[first_module_name].cycler_module
-                ),
-                Field::PerceptionInput { name, .. } => bail!(
-                    "Unexpected perception input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
-                    modules.modules[first_module_name].cycler_module
-                ),
-                Field::RequiredInput { name, .. } => bail!(
-                    "Unexpected required input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
-                    modules.modules[first_module_name].cycler_module
-                ),
-                _ => {}
-            }
-        }
-    }
+    // for module_names in modules.cycler_modules_to_modules.values() {
+    //     let first_module_name = match module_names.first() {
+    //         Some(first_module_name) => first_module_name,
+    //         None => continue,
+    //     };
+    //     for field in modules.modules[first_module_name]
+    //         .contexts
+    //         .cycle_context
+    //         .iter()
+    //     {
+    //         match field {
+    //             Field::HistoricInput { name, .. } => bail!(
+    //                 "Unexpected historic input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
+    //                 modules.modules[first_module_name].cycler_module
+    //             ),
+    //             Field::OptionalInput { name, .. } => bail!(
+    //                 "Unexpected optional input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
+    //                 modules.modules[first_module_name].cycler_module
+    //             ),
+    //             Field::PerceptionInput { name, .. } => bail!(
+    //                 "Unexpected perception input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
+    //                 modules.modules[first_module_name].cycler_module
+    //             ),
+    //             Field::RequiredInput { name, .. } => bail!(
+    //                 "Unexpected required input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
+    //                 modules.modules[first_module_name].cycler_module
+    //             ),
+    //             _ => {}
+    //         }
+    //     }
+    // }
 
     let cyclers = generate_cyclers(&cycler_instances, &modules, &cycler_types)
         .context("Failed to generate cyclers")?;
@@ -353,7 +353,7 @@ impl Cycler<'_> {
                 } => {
                     let reader_identifier =
                         format_ident!("{}_reader", cycler_instance_name.to_case(Case::Snake));
-                        let database_identifier =
+                    let database_identifier =
                         format_ident!("{}_database", cycler_instance_name.to_case(Case::Snake));
 
                     Some(quote! {
@@ -733,10 +733,14 @@ impl Module<'_> {
                     bail!("Unexpected optional input field `{name}` in new context")
                 }
                 Field::Parameter { name, path, .. } => {
-                    let accessor = path_to_accessor_token_stream(&path);
+                    let accessor = path_to_accessor_token_stream(
+                        quote! { configuration },
+                        &path,
+                        ReferenceType::Immutable,
+                    );
                     Ok(quote! {
                         #name: framework::Parameter::from(
-                            &configuration #accessor,
+                            #accessor,
                         )
                     })
                 }
@@ -744,10 +748,14 @@ impl Module<'_> {
                     bail!("Unexpected perception input field `{name}` in new context")
                 }
                 Field::PersistentState { name, path, .. } => {
-                    let accessor = path_to_accessor_token_stream(&path);
+                    let accessor = path_to_accessor_token_stream(
+                        quote! { persistent_state },
+                        &path,
+                        ReferenceType::Mutable,
+                    );
                     Ok(quote! {
                         #name: framework::PersistentState::from(
-                            &mut persistent_state #accessor,
+                            #accessor,
                         )
                     })
                 }
@@ -786,9 +794,14 @@ impl Module<'_> {
             .iter()
             .filter_map(|field| match field {
                 Field::RequiredInput { path, .. } => {
-                    let accessor = path_to_accessor_token_stream(&path);
+                    let accessor = path_to_accessor_token_stream(
+                        quote! { own_database.main_outputs },
+                        &path,
+                        ReferenceType::Immutable,
+                    );
+                    // TODO: check if required input actually has at least one optional
                     Some(quote! {
-                        own_database.main_outputs #accessor .is_some()
+                        #accessor .is_some()
                     })
                 }
                 _ => None,
@@ -809,12 +822,16 @@ impl Module<'_> {
             .iter()
             .map(|field| match field {
                 Field::AdditionalOutput { name, path, .. } => {
-                    let accessor = path_to_accessor_token_stream(&path);
+                    let accessor = path_to_accessor_token_stream(
+                        quote! { own_database.additional_outputs },
+                        &path,
+                        ReferenceType::Mutable,
+                    );
                     // TODO: is_subscribed
                     Ok(quote! {
                         #name: framework::AdditionalOutput::new(
                             false,
-                            &mut own_database.additional_outputs #accessor,
+                            #accessor,
                         )
                     })
                 }
@@ -824,9 +841,18 @@ impl Module<'_> {
                     )
                 }),
                 Field::HistoricInput { name, path, .. } => {
-                    let accessor = path_to_accessor_token_stream(&path);
+                    let now_accessor = path_to_accessor_token_stream(
+                        quote! { own_database.main_outputs },
+                        &path,
+                        ReferenceType::Immutable,
+                    );
+                    let historic_accessor = path_to_accessor_token_stream(
+                        quote! { database },
+                        &path,
+                        ReferenceType::Immutable,
+                    );
                     Ok(quote! {
-                        #name: [(now, &own_database.main_outputs #accessor)]
+                        #name: [(now, #now_accessor)]
                             .into_iter()
                             .chain(
                                 self
@@ -835,7 +861,7 @@ impl Module<'_> {
                                     .iter()
                                     .map(|(system_time, database)| (
                                         *system_time,
-                                        &database #accessor,
+                                        #historic_accessor,
                                     ))
                             )
                             .collect::<std::collections::BTreeMap<_, _>>()
@@ -845,23 +871,38 @@ impl Module<'_> {
                 Field::MainOutput { name, .. } => {
                     bail!("Unexpected main output field `{name}` in cycle context")
                 }
-                Field::OptionalInput { cycler_instance, name, path, .. } => {
+                Field::OptionalInput {
+                    cycler_instance,
+                    name,
+                    path,
+                    ..
+                } => {
                     let database_identifier = match cycler_instance {
-                        Some(cycler_instance) => format_ident!("{}_database", cycler_instance.to_case(Case::Snake)),
+                        Some(cycler_instance) => {
+                            format_ident!("{}_database", cycler_instance.to_case(Case::Snake))
+                        }
                         None => format_ident!("own_database"),
                     };
-                    let accessor = path_to_accessor_token_stream(&path);
+                    let accessor = path_to_accessor_token_stream(
+                        quote! { #database_identifier .main_ouputs },
+                        &path,
+                        ReferenceType::Immutable,
+                    );
                     Ok(quote! {
                         #name: framework::OptionalInput::from(
-                            & #database_identifier .main_outputs #accessor,
+                            #accessor,
                         )
                     })
                 }
                 Field::Parameter { name, path, .. } => {
-                    let accessor = path_to_accessor_token_stream(&path);
+                    let accessor = path_to_accessor_token_stream(
+                        quote! { configuration },
+                        &path,
+                        ReferenceType::Immutable,
+                    );
                     Ok(quote! {
                         #name: framework::Parameter::from(
-                            &configuration #accessor,
+                            #accessor,
                         )
                     })
                 }
@@ -873,7 +914,11 @@ impl Module<'_> {
                 } => {
                     let cycler_instance_identifier =
                         format_ident!("{}", cycler_instance.to_case(Case::Snake));
-                    let accessor = path_to_accessor_token_stream(&path);
+                    let accessor = path_to_accessor_token_stream(
+                        quote! { database },
+                        &path,
+                        ReferenceType::Immutable,
+                    );
                     Ok(quote! {
                         #name: framework::PerceptionInput {
                             persistent: self
@@ -884,7 +929,7 @@ impl Module<'_> {
                                     databases
                                         .#cycler_instance_identifier
                                         .iter()
-                                        .map(|database| &database #accessor)
+                                        .map(|database| #accessor)
                                         .collect()
                                     ,
                                 ))
@@ -897,7 +942,7 @@ impl Module<'_> {
                                     databases
                                         .#cycler_instance_identifier
                                         .iter()
-                                        .map(|database| &database #accessor)
+                                        .map(|database| #accessor)
                                         .collect()
                                     ,
                                 ))
@@ -906,22 +951,37 @@ impl Module<'_> {
                     })
                 }
                 Field::PersistentState { name, path, .. } => {
-                    let accessor = path_to_accessor_token_stream(&path);
+                    let accessor = path_to_accessor_token_stream(
+                        quote! { self.persistent_state },
+                        &path,
+                        ReferenceType::Mutable,
+                    );
                     Ok(quote! {
                         #name: framework::PersistentState::from(
-                            &mut self.persistent_state #accessor,
+                            #accessor,
                         )
                     })
                 }
-                Field::RequiredInput { cycler_instance, name, path, .. } => {
+                Field::RequiredInput {
+                    cycler_instance,
+                    name,
+                    path,
+                    ..
+                } => {
                     let database_identifier = match cycler_instance {
-                        Some(cycler_instance) => format_ident!("{}_database", cycler_instance.to_case(Case::Snake)),
+                        Some(cycler_instance) => {
+                            format_ident!("{}_database", cycler_instance.to_case(Case::Snake))
+                        }
                         None => format_ident!("own_database"),
                     };
-                    let accessor = path_to_accessor_token_stream(&path);
+                    let accessor = path_to_accessor_token_stream(
+                        quote! { #database_identifier .main_outputs },
+                        &path,
+                        ReferenceType::Immutable,
+                    );
                     Ok(quote! {
                         #name: framework::RequiredInput::from(
-                            & #database_identifier .main_outputs #accessor .as_ref().unwrap(),
+                            #accessor .unwrap(),
                         )
                     })
                 }
@@ -999,9 +1059,29 @@ impl Module<'_> {
     }
 }
 
-fn path_to_accessor_token_stream(path: &[PathSegment]) -> TokenStream {
+#[derive(Copy, Clone, Debug)]
+enum ReferenceType {
+    Immutable,
+    Mutable,
+}
+
+fn path_to_accessor_token_stream(
+    prefix_token_stream: TokenStream,
+    path: &[PathSegment],
+    reference_type: ReferenceType,
+) -> TokenStream {
     let mut token_stream = TokenStream::default();
     let mut token_stream_within_method = None;
+
+    let path_contains_optional = path.iter().any(|segment| segment.is_optional);
+    if !path_contains_optional {
+        token_stream.append(TokenTree::Punct(Punct::new('&', Spacing::Alone)));
+        if let ReferenceType::Mutable = reference_type {
+            token_stream.append(TokenTree::Ident(format_ident!("mut")));
+        }
+    }
+
+    token_stream.extend(prefix_token_stream);
 
     for (index, segment) in path.iter().enumerate() {
         {
@@ -1015,36 +1095,75 @@ fn path_to_accessor_token_stream(path: &[PathSegment]) -> TokenStream {
         }
 
         let is_last_segment = index == path.len() - 1;
-        if segment.is_optional && !is_last_segment {
-            if let Some(token_stream_within_method) = token_stream_within_method.take() {
-                token_stream.append(TokenTree::Group(Group::new(
-                    Delimiter::Parenthesis,
-                    token_stream_within_method,
-                )));
+        if segment.is_optional {
+            match token_stream_within_method.take() {
+                Some(mut token_stream_within_method) => {
+                    token_stream_within_method
+                        .append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+                    match reference_type {
+                        ReferenceType::Immutable => token_stream_within_method
+                            .append(TokenTree::Ident(format_ident!("as_ref"))),
+                        ReferenceType::Mutable => token_stream_within_method
+                            .append(TokenTree::Ident(format_ident!("as_mut"))),
+                    }
+                    token_stream_within_method.append(TokenTree::Group(Group::new(
+                        Delimiter::Parenthesis,
+                        TokenStream::default(),
+                    )));
+
+                    token_stream.append(TokenTree::Group(Group::new(
+                        Delimiter::Parenthesis,
+                        token_stream_within_method,
+                    )));
+                }
+                None => {
+                    token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+                    match reference_type {
+                        ReferenceType::Immutable => {
+                            token_stream.append(TokenTree::Ident(format_ident!("as_ref")))
+                        }
+                        ReferenceType::Mutable => {
+                            token_stream.append(TokenTree::Ident(format_ident!("as_mut")))
+                        }
+                    }
+                    token_stream.append(TokenTree::Group(Group::new(
+                        Delimiter::Parenthesis,
+                        TokenStream::default(),
+                    )));
+                }
             }
 
-            token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+            if !is_last_segment {
+                token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+                let next_segments_contain_optional = path
+                    .iter()
+                    .skip(index + 1)
+                    .any(|segment| segment.is_optional);
+                let method_name = match next_segments_contain_optional {
+                    true => "and_then",
+                    false => "map",
+                };
+                token_stream.append(TokenTree::Ident(format_ident!("{}", method_name)));
 
-            let method_name = match path
-                .iter()
-                .skip(index + 1)
-                .find(|segment| segment.is_optional)
-            {
-                Some(_) => "and_then",
-                _ => "map",
-            };
-            token_stream.append(TokenTree::Ident(format_ident!("{}", method_name)));
-
-            let mut new_token_stream_within_method = TokenStream::default();
-            new_token_stream_within_method
-                .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
-            new_token_stream_within_method
-                .append(TokenTree::Ident(format_ident!("{}", segment.name)));
-            new_token_stream_within_method
-                .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
-            new_token_stream_within_method
-                .append(TokenTree::Ident(format_ident!("{}", segment.name)));
-            token_stream_within_method = Some(new_token_stream_within_method);
+                let mut new_token_stream_within_method = TokenStream::default();
+                new_token_stream_within_method
+                    .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
+                new_token_stream_within_method
+                    .append(TokenTree::Ident(format_ident!("{}", segment.name)));
+                new_token_stream_within_method
+                    .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
+                if !next_segments_contain_optional {
+                    new_token_stream_within_method
+                        .append(TokenTree::Punct(Punct::new('&', Spacing::Alone)));
+                    if let ReferenceType::Mutable = reference_type {
+                        new_token_stream_within_method
+                            .append(TokenTree::Ident(format_ident!("mut")));
+                    }
+                }
+                new_token_stream_within_method
+                    .append(TokenTree::Ident(format_ident!("{}", segment.name)));
+                token_stream_within_method = Some(new_token_stream_within_method);
+            }
         }
     }
 
@@ -1065,49 +1184,170 @@ mod tests {
     #[test]
     fn paths_with_optionals_result_in_correct_accessor_token_streams() {
         let cases = [
+            ("a", ReferenceType::Immutable, quote! { &prefix.a }),
+            ("a", ReferenceType::Mutable, quote! { &mut prefix.a }),
+            ("a/b", ReferenceType::Immutable, quote! { &prefix.a.b }),
+            ("a/b", ReferenceType::Mutable, quote! { &mut prefix.a.b }),
+            ("a/b/c", ReferenceType::Immutable, quote! { &prefix.a.b.c }),
             (
-                "a/b/c/d/e/f?/g/i/j/k/l/m/n",
-                quote! { .a.b.c.d.e.f.map(|f| f.g.i.j.k.l.m.n) },
+                "a/b/c",
+                ReferenceType::Mutable,
+                quote! { &mut prefix.a.b.c },
             ),
             (
-                "a/b/c/d/e/f?/g/i/j/k/l/m/n?",
-                quote! { .a.b.c.d.e.f.and_then(|f| f.g.i.j.k.l.m.n) },
+                "a?/b/c",
+                ReferenceType::Immutable,
+                quote! { prefix.a.as_ref().map(|a| &a.b.c) },
             ),
-            ("a", quote! { .a }),
-            ("a/b", quote! { .a.b }),
-            ("a/b/c", quote! { .a.b.c }),
-            ("a?/b/c", quote! { .a.map(|a| a.b.c) }),
-            ("a?", quote! { .a }),
-            ("a?/b?/c", quote! { .a.and_then(|a| a.b).map(|b| b.c) }),
+            (
+                "a?/b/c",
+                ReferenceType::Mutable,
+                quote! { prefix.a.as_mut().map(|a| &mut a.b.c) },
+            ),
+            ("a?", ReferenceType::Immutable, quote! { prefix.a.as_ref() }),
+            ("a?", ReferenceType::Mutable, quote! { prefix.a.as_mut() }),
+            (
+                "a?/b?/c",
+                ReferenceType::Immutable,
+                quote! { prefix.a.as_ref().and_then(|a| a.b.as_ref()).map(|b| &b.c) },
+            ),
+            (
+                "a?/b?/c",
+                ReferenceType::Mutable,
+                quote! { prefix.a.as_mut().and_then(|a| a.b.as_mut()).map(|b| &mut b.c) },
+            ),
             (
                 "a?/b?/c?",
-                quote! { .a.and_then(|a| a.b).and_then(|b| b.c) },
+                ReferenceType::Immutable,
+                quote! { prefix.a.as_ref().and_then(|a| a.b.as_ref()).and_then(|b| b.c.as_ref()) },
+            ),
+            (
+                "a?/b?/c?",
+                ReferenceType::Mutable,
+                quote! { prefix.a.as_mut().and_then(|a| a.b.as_mut()).and_then(|b| b.c.as_mut()) },
             ),
             (
                 "a?/b?/c?/d",
-                quote! { .a.and_then(|a| a.b).and_then(|b| b.c).map(|c| c.d) },
+                ReferenceType::Immutable,
+                quote! { prefix.a.as_ref().and_then(|a| a.b.as_ref()).and_then(|b| b.c.as_ref()).map(|c| &c.d) },
+            ),
+            (
+                "a?/b?/c?/d",
+                ReferenceType::Mutable,
+                quote! { prefix.a.as_mut().and_then(|a| a.b.as_mut()).and_then(|b| b.c.as_mut()).map(|c| &mut c.d) },
             ),
             (
                 "a?/b?/c?/d?",
-                quote! { .a.and_then(|a| a.b).and_then(|b| b.c).and_then(|c| c.d) },
+                ReferenceType::Immutable,
+                quote! { prefix.a.as_ref().and_then(|a| a.b.as_ref()).and_then(|b| b.c.as_ref()).and_then(|c| c.d.as_ref()) },
             ),
-            ("a?/b/c/d?", quote! { .a.and_then(|a| a.b.c.d) }),
-            ("a?/b/c/d", quote! { .a.map(|a| a.b.c.d) }),
-            ("a?/b/c?/d", quote! { .a.and_then(|a| a.b.c).map(|c| c.d) }),
-            ("a/b/c?/d", quote! { .a.b.c.map(|c| c.d) }),
-            ("a/b/c/d", quote! { .a.b.c.d }),
-            ("a/b?/c?/d", quote! { .a.b.and_then(|b| b.c).map(|c| c.d) }),
+            (
+                "a?/b?/c?/d?",
+                ReferenceType::Mutable,
+                quote! { prefix.a.as_mut().and_then(|a| a.b.as_mut()).and_then(|b| b.c.as_mut()).and_then(|c| c.d.as_mut()) },
+            ),
+            (
+                "a?/b/c/d?",
+                ReferenceType::Immutable,
+                quote! { prefix.a.as_ref().and_then(|a| a.b.c.d.as_ref()) },
+            ),
+            (
+                "a?/b/c/d?",
+                ReferenceType::Mutable,
+                quote! { prefix.a.as_mut().and_then(|a| a.b.c.d.as_mut()) },
+            ),
+            (
+                "a?/b/c/d",
+                ReferenceType::Immutable,
+                quote! { prefix.a.as_ref().map(|a| &a.b.c.d) },
+            ),
+            (
+                "a?/b/c/d",
+                ReferenceType::Mutable,
+                quote! { prefix.a.as_mut().map(|a| &mut a.b.c.d) },
+            ),
+            (
+                "a?/b/c?/d",
+                ReferenceType::Immutable,
+                quote! { prefix.a.as_ref().and_then(|a| a.b.c.as_ref()).map(|c| &c.d) },
+            ),
+            (
+                "a?/b/c?/d",
+                ReferenceType::Mutable,
+                quote! { prefix.a.as_mut().and_then(|a| a.b.c.as_mut()).map(|c| &mut c.d) },
+            ),
+            (
+                "a/b/c?/d",
+                ReferenceType::Immutable,
+                quote! { prefix.a.b.c.as_ref().map(|c| &c.d) },
+            ),
+            (
+                "a/b/c?/d",
+                ReferenceType::Mutable,
+                quote! { prefix.a.b.c.as_mut().map(|c| &mut c.d) },
+            ),
+            (
+                "a/b/c/d",
+                ReferenceType::Immutable,
+                quote! { &prefix.a.b.c.d },
+            ),
+            (
+                "a/b/c/d",
+                ReferenceType::Mutable,
+                quote! { &mut prefix.a.b.c.d },
+            ),
+            (
+                "a/b?/c?/d",
+                ReferenceType::Immutable,
+                quote! { prefix.a.b.as_ref().and_then(|b| b.c.as_ref()).map(|c| &c.d) },
+            ),
+            (
+                "a/b?/c?/d",
+                ReferenceType::Mutable,
+                quote! { prefix.a.b.as_mut().and_then(|b| b.c.as_mut()).map(|c| &mut c.d) },
+            ),
             (
                 "a/b?/c?/d?",
-                quote! { .a.b.and_then(|b| b.c).and_then(|c| c.d) },
+                ReferenceType::Immutable,
+                quote! { prefix.a.b.as_ref().and_then(|b| b.c.as_ref()).and_then(|c| c.d.as_ref()) },
+            ),
+            (
+                "a/b?/c?/d?",
+                ReferenceType::Mutable,
+                quote! { prefix.a.b.as_mut().and_then(|b| b.c.as_mut()).and_then(|c| c.d.as_mut()) },
+            ),
+            (
+                "a/b/c/d/e/f?/g/i/j/k/l/m/n",
+                ReferenceType::Immutable,
+                quote! { prefix.a.b.c.d.e.f.as_ref().map(|f| &f.g.i.j.k.l.m.n) },
+            ),
+            (
+                "a/b/c/d/e/f?/g/i/j/k/l/m/n",
+                ReferenceType::Mutable,
+                quote! { prefix.a.b.c.d.e.f.as_mut().map(|f| &mut f.g.i.j.k.l.m.n) },
+            ),
+            (
+                "a/b/c/d/e/f?/g/i/j/k/l/m/n?",
+                ReferenceType::Immutable,
+                quote! { prefix.a.b.c.d.e.f.as_ref().and_then(|f| f.g.i.j.k.l.m.n.as_ref()) },
+            ),
+            (
+                "a/b/c/d/e/f?/g/i/j/k/l/m/n?",
+                ReferenceType::Mutable,
+                quote! { prefix.a.b.c.d.e.f.as_mut().and_then(|f| f.g.i.j.k.l.m.n.as_mut()) },
             ),
         ];
 
-        for (path, expected_token_stream) in cases {
+        for (path, reference_type, expected_token_stream) in cases {
             let path_segments: Vec<_> = path.split('/').map(PathSegment::from).collect();
 
-            let token_stream = path_to_accessor_token_stream(&path_segments);
-            assert_eq!(token_stream.to_string(), expected_token_stream.to_string());
+            let token_stream =
+                path_to_accessor_token_stream(quote! { prefix }, &path_segments, reference_type);
+            assert_eq!(
+                token_stream.to_string(),
+                expected_token_stream.to_string(),
+                "path: {path:?}"
+            );
         }
     }
 }
