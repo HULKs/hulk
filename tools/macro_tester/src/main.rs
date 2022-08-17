@@ -70,10 +70,6 @@ fn main() -> anyhow::Result<()> {
 
     write_token_stream("cyclers.rs", cyclers).context("Failed to write cyclers")?;
 
-    println!("cycler_instances: {cycler_instances:#?}");
-    println!("modules: {modules:#?}");
-    println!("cycler_types: {cycler_types:#?}");
-
     Ok(())
 }
 
