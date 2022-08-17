@@ -49,16 +49,20 @@ fn main() -> anyhow::Result<()> {
         {
             match field {
                 Field::HistoricInput { name, .. } => bail!(
-                    "Unexpected historic input for first module for `{name}` in cycle context"
+                    "Unexpected historic input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
+                    modules.modules[first_module_name].cycler_module
                 ),
                 Field::OptionalInput { name, .. } => bail!(
-                    "Unexpected optional input for first module for `{name}` in cycle context"
+                    "Unexpected optional input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
+                    modules.modules[first_module_name].cycler_module
                 ),
                 Field::PerceptionInput { name, .. } => bail!(
-                    "Unexpected perception input for first module for `{name}` in cycle context"
+                    "Unexpected perception input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
+                    modules.modules[first_module_name].cycler_module
                 ),
                 Field::RequiredInput { name, .. } => bail!(
-                    "Unexpected required input for first module for `{name}` in cycle context"
+                    "Unexpected required input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
+                    modules.modules[first_module_name].cycler_module
                 ),
                 _ => {}
             }
