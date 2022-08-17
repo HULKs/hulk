@@ -158,12 +158,14 @@ impl Modules {
                             path,
                         }
                         | Field::OptionalInput {
+                            cycler_instance: None,
                             data_type,
                             name,
                             path,
                             ..
                         }
                         | Field::RequiredInput {
+                            cycler_instance: None,
                             data_type,
                             name,
                             path,
@@ -171,15 +173,15 @@ impl Modules {
                         } => {
                             let first_segment = match path.first() {
                                 Some(PathSegment { name, is_variable: false, .. }) => name,
-                                Some(..) => bail!("Unexpected variable segment as first segment for {name} in module {consuming_module_name} (not implemented)"),
-                                None => bail!("Expected at least one path segment for {name} in module {consuming_module_name}"),
+                                Some(..) => bail!("Unexpected variable segment as first segment for `{name}` in module `{consuming_module_name}` (not implemented)"),
+                                None => bail!("Expected at least one path segment for `{name}` in module `{consuming_module_name}`"),
                             };
                             let (producing_module_name, main_output_data_type) = match main_outputs_to_modules.get(first_segment) {
                                 Some(producing_module) => producing_module,
-                                None => bail!("Failed to find producing module for {name} in module {consuming_module_name}"),
+                                None => bail!("Failed to find producing module for `{name}` in module `{consuming_module_name}`"),
                             };
                             if main_output_data_type != data_type {
-                                bail!("Expected data type {} but {name} has {} in module {consuming_module_name}", main_output_data_type.to_token_stream(), data_type.to_token_stream());
+                                bail!("Expected data type `{}` but `{name}` has `{}` in module `{consuming_module_name}`", main_output_data_type.to_token_stream(), data_type.to_token_stream());
                             }
                             topological_sort.add_dependency(
                                 producing_module_name.clone(),
