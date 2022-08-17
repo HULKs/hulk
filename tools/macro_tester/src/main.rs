@@ -434,7 +434,7 @@ impl Cycler<'_> {
             ) -> anyhow::Result<Self> {
                 use anyhow::Context;
                 let configuration = configuration_reader.next().clone();
-                let mut persistent_state = Default::default();
+                let mut persistent_state = structs::#cycler_module_name_identifier::PersistentState::default();
                 #(#module_initializers)*
                 Ok(Self {
                     instance_name,
@@ -779,13 +779,14 @@ impl Module<'_> {
                             .chain(
                                 self
                                     .historic_databases
+                                    .databases
                                     .iter()
                                     .map(|(system_time, database)| (
-                                        system_time,
+                                        *system_time,
                                         &database #accessor,
                                     ))
                             )
-                            .collect()
+                            .collect::<std::collections::BTreeMap<_, _>>()
                             .into()
                     })
                 }
@@ -852,7 +853,7 @@ impl Module<'_> {
                     let accessor = path_to_accessor_token_stream(&path);
                     Ok(quote! {
                         #name: framework::PersistentState::from(
-                            &mut persistent_state #accessor,
+                            &mut self.persistent_state #accessor,
                         )
                     })
                 }
