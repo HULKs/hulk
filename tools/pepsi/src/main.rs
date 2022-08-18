@@ -6,6 +6,7 @@ use clap_complete::generate;
 use tokio::fs::read_dir;
 
 use aliveness::{aliveness, Arguments as AlivenessArguments};
+use analyze::{analyze, Arguments as AnalyzeArguments};
 use cargo::{cargo, Arguments as CargoArguments, Command as CargoCommand};
 use communication::{communication, Arguments as CommunicationArguments};
 use hulk::{hulk, Arguments as HulkArguments};
@@ -23,6 +24,7 @@ use upload::{upload, Arguments as UploadArguments};
 use wireless::{wireless, Arguments as WirelessArguments};
 
 mod aliveness;
+mod analyze;
 mod cargo;
 mod communication;
 mod hulk;
@@ -55,6 +57,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Aliveness(arguments) => aliveness(arguments)
             .await
             .context("Failed to execute aliveness command")?,
+        Command::Analyze(arguments) => analyze(arguments, &repository)
+            .await
+            .context("Failed to execute analyze command")?,
         Command::Build(arguments) => cargo(arguments, &repository, CargoCommand::Build)
             .await
             .context("Failed to execute build command")?,
@@ -132,6 +137,9 @@ enum Command {
     /// Enable/disable aliveness on NAOs
     #[command(subcommand)]
     Aliveness(AlivenessArguments),
+    /// Analyze source code
+    #[clap(subcommand)]
+    Analyze(AnalyzeArguments),
     /// Builds the code for a target
     Build(CargoArguments),
     /// Checks the code with cargo check

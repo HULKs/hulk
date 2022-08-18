@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = { workspace = true }
+glob = { workspace = true }
 futures = { workspace = true }
 home = { workspace = true }
 serde = { workspace = true }
