@@ -6,6 +6,7 @@ version = "2.4.1"
 
 [dependencies]
 anyhow = { workspace = true }
+bat = { workspace = true }
 clap = { workspace = true }
 clap_complete = { workspace = true }
 futures = { workspace = true }

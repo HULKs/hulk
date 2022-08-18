@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use futures::future::join_all;
+use glob::glob;
 use home::home_dir;
 use serde::Deserialize;
 use serde_json::{from_slice, to_value, to_vec_pretty, Value};
@@ -35,6 +36,33 @@ impl Repository {
         Self {
             root: root.as_ref().to_path_buf(),
         }
+    }
+
+    pub fn find_latest_generated_file(&self, file_name: &str) -> anyhow::Result<PathBuf> {
+        let path = self.root.join("target/**/out/**").join(file_name);
+        let matching_paths: Vec<_> = glob(
+            path.to_str()
+                .ok_or_else(|| anyhow!("Failed to interpret path as Unicode"))?,
+        )
+        .context("Failed to execute glob() over target directory")?
+        .into_iter()
+        .map(|entry| {
+            let path = entry.context("Failed to get glob() entry")?;
+            let metadata = path
+                .metadata()
+                .with_context(|| anyhow!("Failed to get metadata of path {path:?}"))?;
+            let modified_time = metadata.modified().with_context(|| {
+                anyhow!("Failed to get modified time from metadata of path {path:?}")
+            })?;
+            Ok((path, modified_time))
+        })
+        .collect::<anyhow::Result<_>>()
+        .context("Failed to get matching paths")?;
+        let (path_with_maximal_modified_time, _modified_time) = matching_paths
+            .iter()
+            .max_by_key(|(_path, modified_time)| modified_time)
+            .ok_or_else(|| anyhow!("Failed to find any matching path"))?;
+        Ok(path_with_maximal_modified_time.to_path_buf())
     }
 
     async fn cargo(
