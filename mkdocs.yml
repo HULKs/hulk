@@ -5,6 +5,7 @@ theme:
   logo: logo.svg
   features:
     - content.code.annotate
+    - content.tabs.link
     - navigation.indexes
     - navigation.tabs
     - navigation.tracking
@@ -25,6 +26,7 @@ nav:
   - Introduction: index.md
   - Setup:
     - Overview: setup/overview.md
+    - Main Setup: setup/main_setup.md
   - Framework:
     - Overview: framework/overview.md
     - Directory Structure: framework/directory_structure.md
@@ -55,4 +57,6 @@ markdown_extensions:
       anchor_linenums: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.superfences

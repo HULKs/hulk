@@ -58,7 +58,7 @@ impl SolePressureFilter {
 ```
 
 1. Module's state
-2. Module declaration with `module` macro
+2. Module declaration with `module` [macro](./macros.md)
 3. Configuration parameter of type `f32`
 4. Input of type `SensorData`
 5. Output of type `SolePressure`
