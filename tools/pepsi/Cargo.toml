@@ -13,5 +13,6 @@ futures = { workspace = true }
 nao = { workspace = true }
 regex = { workspace = true }
 repository = { workspace = true }
+source_analyzer = { workspace = true }
 spl_network = { workspace = true }
 tokio = { workspace = true }
