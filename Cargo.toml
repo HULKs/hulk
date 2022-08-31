@@ -103,6 +103,7 @@ serde_json = "1.0.85"
 serialize_hierarchy = { path = "crates/serialize_hierarchy" }
 serialize_hierarchy_derive = { path = "crates/serialize_hierarchy_derive" }
 smallvec = "1.9.0"
+source_analyzer = { path = "crates/source_analyzer" }
 source_graph = { path = "crates/source_graph" }
 spl_network = { path = "crates/spl_network" }
 structopt = "0.3.26"
