@@ -135,7 +135,8 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                                         );
                                     }
                                 }
-                                if arguments.args.len() == 3 {
+                                let has_additional_argument = arguments.args.len() == 2;
+                                if has_additional_argument {
                                     match arguments.args.pop() {
                                         Some(
                                             Pair::End(GenericArgument::Const(Expr::Lit(ExprLit {
