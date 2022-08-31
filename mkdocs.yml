@@ -10,13 +10,13 @@ theme:
     - navigation.tabs
     - navigation.tracking
   palette:
-    - media: "(prefers-color-scheme: light)" 
+    - media: "(prefers-color-scheme: light)"
       primary: green
       scheme: default
       toggle:
         icon: material/toggle-switch-off-outline
         name: Switch to dark mode
-    - media: "(prefers-color-scheme: dark)" 
+    - media: "(prefers-color-scheme: dark)"
       primary: green
       scheme: slate
       toggle:
@@ -50,8 +50,21 @@ nav:
     - Overview: operating_system/overview.md
   - Robotics:
     - Overview: robotics/overview.md
+    - Perception:
+      - Vision: robotics/perception/vision.md
+      - Audio: robotics/perception/audio.md
+      - Filters: robotics/perception/filters.md
+      - SPL Network: robotics/perception/spl_network.md
+    - Behavior: robotics/behavior/behavior.md
+    - Motion:
+      - Step planning: robotics/motion/step_planning.md
+      - Walking: robotics/motion/walking.md
+      - Kicking: robotics/motion/kicking.md
+      - Motion Files: robotics/motion/motion_files.md
   - Workflow:
     - Overview: workflow/overview.md
+    - Development: workflow/development.md
+    - Competition: workflow/competition.md
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true

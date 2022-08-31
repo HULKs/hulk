@@ -9,7 +9,9 @@ TODO: Elaborate
     - Meetings
         - Test games
     - Test-driven development
-        - Simulator
+        - Unit testing
+        - Webots
+        - Behavior Simulator
 - Competition workflow
     - Meetings
     - Roles

@@ -17,7 +17,7 @@ Due to the frequent changes in the weekly branch, the documentation can be outda
 
 All our code is released under the terms of the [GNU General Public License v3](https://www.gnu.org/licenses/gpl-3.0.html).
 
-If you have question that are not answered here, please file an issue in our GitHub [issue tracker](https://github.com/HULKs/HULKsCodeRelease/issues) so we can fix the documentation for everyone.
+If you have questions that are not answered here, please file issues in our GitHub [issue tracker](https://github.com/HULKs/HULKsCodeRelease/issues) so we can fix the documentation for everyone.
 As our team has limited resources, we don't expect to be able to give much in-depth support individually.
 
 ## Documentation Status

@@ -10,42 +10,47 @@ TODO: NAO?
 Some packages are required to be installed before you can compile and run our code.
 Use your distribution's package manager to install the following dependencies:
 
-ToDo: Git? Git-lfs?
-ToDo: split by common/webots/nao/tooling?
+TODO: split by common/webots/nao/tooling?
 
 === "Arch Linux/Manjaro"
 
-    - base-devel
-    - rust *(rustup)*
-    - rsync
-    - cmake
-    - clang
-    - hdf5
-    - python
-    - webots
+    1. Install dependencies
+    ```sh
+    sudo pacman -S git git-lfs base-devel rustup rsync cmake clang hdf5 python webots
+    ```
+    1. Install rust toolchain
+    ```sh
+    rustup default stable
+    ```
 
 === "Ubuntu"
 
-    - build-essential
-    - rust *(rustup)*
-    - libssl-dev
-    - pkg-config
-    - libclang-dev
-    - rsync
-    - cmake
-    - libhdf5-dev
-    - python
-    - webots
+    1. Install dependencies
+    ```sh
+    sudo apt install git git-lfs build-essential rustup libssl-dev pkg-config libclang-dev rsync cmake libhdf5-dev python
+    ```
+    1. Install Webots
+    ```sh
+    sudo snap install webots
+    ```
+    1. Install rust toolchain
+    ```sh
+    rustup default stable
+    ```
 
-If you installed rust via rustup, make sure to download the latest rust toolchain as well.
+## Acquiring the code
+
+If you are a HULKs member, you should have access to our [HULKs/nao](https://github.com/HULKs/nao) repository on GitHub:
 
 ```sh
-$ rustup default stable
+git clone git@github.com:HULKs/nao
 ```
 
-## Acquiring the code 
+Otherwise, use our code release at [HULKs/CodeRelease](https://github.com/HULKs/HULKsCodeRelease).
 
-If you are a HULKs member, you should have access to our main repository at on github: [HULKs/nao](https://github.com/HULKs/nao). Otherwise, use our code release at [HULKs/CodeRelease](https://github.com/HULKs/HULKsCodeRelease).
+```sh
+git clone git@github.com:HULKs/HULKsCodeRelease
+```
 
 ## Compiling for webots
 
@@ -53,9 +58,8 @@ In the root of our repository is a script called `pepsi`. See [pepsi](../tooling
 Simply execute the build command in the repository root to build a binary for use with Webots.
 This will first build the pepsi binary and then start the build process.
 
-
 ```sh
-$ pepsi build
+pepsi build
 ```
 
 ## Running webots
