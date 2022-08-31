@@ -655,6 +655,7 @@ enum OtherCycler<'a> {
     },
 }
 
+// TODO: Convert to struct instead of enum
 enum Module<'a> {
     Perception {
         module_name: &'a str,
@@ -810,7 +811,7 @@ impl Module<'_> {
         match required_inputs_are_some.is_empty() {
             true => None,
             false => Some(quote! {
-                if #(#required_inputs_are_some)&&*
+                #(#required_inputs_are_some)&&*
             }),
         }
     }
@@ -1044,7 +1045,7 @@ impl Module<'_> {
 
         match required_inputs_are_some {
             Some(required_inputs_are_some) => Ok(quote! {
-                #required_inputs_are_some {
+                if #required_inputs_are_some {
                     #module_execution
                 } else {
                     #(#main_output_setters_from_none)*
