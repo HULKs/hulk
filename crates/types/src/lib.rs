@@ -1,4 +1,5 @@
 mod ball;
+mod ball_filter_hypothesis;
 mod ball_position;
 mod buttons;
 mod camera_matrix;
