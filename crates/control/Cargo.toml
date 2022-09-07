@@ -9,6 +9,8 @@ anyhow = "1.0.59"
 context_attribute = {path = "../context_attribute"}
 framework = {path = "../framework"}
 hardware = {path = "../hardware"}
+nalgebra = {version = "0.31.0", features = ["serde-serialize"]}
+types = {path = "../types"}
 
 # convert_case = "0.5.0"
 # module_attributes2 = {path = "../module_attributes2"}
