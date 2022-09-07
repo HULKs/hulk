@@ -309,7 +309,7 @@ impl Nao {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SystemctlAction {
     Disable,
     Enable,
@@ -319,7 +319,7 @@ pub enum SystemctlAction {
     Stop,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Network {
     None,
     SplA,

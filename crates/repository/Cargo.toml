@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = "1.0.58"
+futures = "0.3.21"
 serde = {features = ["derive"], version = "1.0.137"}
 serde_json = "1.0.81"
 spl_network = {path = "../spl_network"}

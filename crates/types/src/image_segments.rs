@@ -13,13 +13,13 @@ pub struct ScanGrid {
     pub vertical_scan_lines: Vec<ScanLine>,
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ScanLine {
     pub position: u16,
     pub segments: Vec<Segment>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Segment {
     pub start: u16,
     pub end: u16,
@@ -42,7 +42,7 @@ impl Segment {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[allow(dead_code)]
 pub enum EdgeType {
     Rising,

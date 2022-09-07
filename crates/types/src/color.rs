@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(C)]
 pub struct YCbCr422 {
     pub y1: u8,
@@ -35,7 +35,7 @@ impl From<[YCbCr444; 2]> for YCbCr422 {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct YCbCr444 {
     pub y: u8,
     pub cb: u8,
@@ -95,7 +95,7 @@ impl From<Rgb> for YCbCr444 {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RgbChannel {
     Red,
     Green,
@@ -103,14 +103,16 @@ pub enum RgbChannel {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Intensity {
     Low,
     Medium,
     High,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy,
+)]
 pub struct Rgb {
     pub r: u8,
     pub g: u8,

@@ -11,11 +11,11 @@ pub fn deserialize<P: AsRef<Path>>(root_path: P, ids: HardwareIds) -> anyhow::Re
     let mut configuration = from_path(default_file_path)?;
 
     let webots_id_found = ids.head_id.starts_with("webots");
-    let simulated_behavior_id_found = ids.head_id.starts_with("simulated_behavior");
+    let behavior_simulator_id_found = ids.head_id.starts_with("behavior_simulator");
     let location_directory = if webots_id_found {
         "webots_location"
-    } else if simulated_behavior_id_found {
-        "simulated_behavior"
+    } else if behavior_simulator_id_found {
+        "behavior_simulator"
     } else {
         "nao_location"
     };

@@ -1,19 +1,23 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, BTreeSet, HashMap},
     env::var_os,
     fmt::Display,
     fs::Permissions,
-    io::ErrorKind,
+    io::{self, ErrorKind},
     os::unix::prelude::PermissionsExt,
     path::{Path, PathBuf},
 };
 
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
+use futures::future::join_all;
 use serde::Deserialize;
 use serde_json::{from_slice, to_value, to_vec, Value};
 use tempfile::{tempdir, TempDir};
 use tokio::{
-    fs::{create_dir, create_dir_all, remove_file, set_permissions, symlink, File, OpenOptions},
+    fs::{
+        create_dir, create_dir_all, read_dir, read_link, remove_file, set_permissions, symlink,
+        File, OpenOptions,
+    },
     io::{AsyncReadExt, AsyncWriteExt},
     process::Command,
 };
@@ -63,8 +67,8 @@ impl Repository {
         &self,
         action: CargoAction,
         workspace: bool,
-        profile: String,
-        target: String,
+        profile: &str,
+        target: &str,
         passthrough_arguments: Vec<String>,
     ) -> anyhow::Result<()> {
         let mut command = Command::new("sh");
@@ -118,8 +122,8 @@ impl Repository {
     pub async fn build(
         &self,
         workspace: bool,
-        profile: String,
-        target: String,
+        profile: &str,
+        target: &str,
         passthrough_arguments: Vec<String>,
     ) -> anyhow::Result<()> {
         self.cargo(
@@ -132,30 +136,20 @@ impl Repository {
         .await
     }
 
-    pub async fn check(
-        &self,
-        workspace: bool,
-        profile: String,
-        target: String,
-    ) -> anyhow::Result<()> {
+    pub async fn check(&self, workspace: bool, profile: &str, target: &str) -> anyhow::Result<()> {
         self.cargo(CargoAction::Check, workspace, profile, target, Vec::new())
             .await
     }
 
-    pub async fn clippy(
-        &self,
-        workspace: bool,
-        profile: String,
-        target: String,
-    ) -> anyhow::Result<()> {
+    pub async fn clippy(&self, workspace: bool, profile: &str, target: &str) -> anyhow::Result<()> {
         self.cargo(CargoAction::Clippy, workspace, profile, target, Vec::new())
             .await
     }
 
     pub async fn run(
         &self,
-        profile: String,
-        target: String,
+        profile: &str,
+        target: &str,
         passthrough_arguments: Vec<String>,
     ) -> anyhow::Result<()> {
         self.cargo(
@@ -168,9 +162,13 @@ impl Repository {
         .await
     }
 
+    fn get_configuration_root(&self) -> PathBuf {
+        self.root.join("etc/configuration")
+    }
+
     fn get_configuration_path(&self, head_id: &str) -> PathBuf {
-        self.root
-            .join(format!("etc/configuration/head.{}.json", head_id))
+        self.get_configuration_root()
+            .join(format!("head.{head_id}.json"))
     }
 
     async fn read_configuration(&self, head_id: &str) -> anyhow::Result<Value> {
@@ -294,7 +292,7 @@ impl Repository {
         }
 
         let downloads_directory = sdk_directory.join("downloads");
-        let installer_name = format!("HULKs-OS-toolchain-{}.sh", sdk_version);
+        let installer_name = format!("HULKs-OS-toolchain-{sdk_version}.sh");
         let download_file_path = downloads_directory.join(&installer_name);
         if !download_file_path.exists() {
             if !downloads_directory.exists() {
@@ -302,7 +300,7 @@ impl Repository {
                     .await
                     .context("Failed to create download directory")?;
             }
-            let url = format!("http://bighulk/sdk/{}", installer_name);
+            let url = format!("http://bighulk/sdk/{installer_name}");
             let status = Command::new("curl")
                 .arg("--progress-bar")
                 .arg("--output")
@@ -313,7 +311,7 @@ impl Repository {
                 .context("Failed to download SDK")?;
 
             if !status.success() {
-                bail!("curl exited with {}", status);
+                bail!("curl exited with {status}");
             }
 
             set_permissions(&download_file_path, Permissions::from_mode(0o755))
@@ -329,7 +327,7 @@ impl Repository {
             .context("Failed to install SDK")?;
 
         if !status.success() {
-            bail!("SDK installer exited with {}", status);
+            bail!("SDK installer exited with {status}");
         }
 
         Self::create_sdk_symlink(&sdk_directory, &installation_directory).await?;
@@ -370,7 +368,7 @@ impl Repository {
 
         symlink(
             self.root
-                .join(format!("target/x86_64-aldebaran-linux/{}/nao", profile)),
+                .join(format!("target/x86_64-aldebaran-linux/{profile}/nao")),
             hulk_directory.join("bin/hulk"),
         )
         .await
@@ -399,6 +397,82 @@ impl Repository {
             })
             .collect::<anyhow::Result<HashMap<_, _>>>()?;
         Ok(hardware_ids_with_nao_number_keys)
+    }
+
+    pub async fn get_configured_locations(
+        &self,
+    ) -> anyhow::Result<BTreeMap<String, Option<String>>> {
+        let tasks = ["nao_location", "webots_location", "behavior_simulator"]
+            .into_iter()
+            .map(|target_name| async move {
+                (
+                    target_name,
+                    read_link(self.get_configuration_root().join(target_name))
+                        .await
+                        .with_context(|| {
+                            anyhow!("Failed reading location symlink for {target_name}")
+                        }),
+                )
+            });
+        let results = join_all(tasks).await;
+        results
+            .into_iter()
+            .map(|(target_name, path)| match path {
+                Ok(path) => Ok((
+                    target_name.to_string(),
+                    Some(
+                        path.file_name()
+                            .ok_or_else(|| anyhow!("Failed to get file name"))?
+                            .to_str()
+                            .ok_or_else(|| anyhow!("Failed to convert to UTF-8"))?
+                            .to_string(),
+                    ),
+                )),
+                Err(error)
+                    if error.downcast_ref::<io::Error>().unwrap().kind() == ErrorKind::NotFound =>
+                {
+                    Ok((target_name.to_string(), None))
+                }
+                Err(error) => Err(error),
+            })
+            .collect()
+    }
+
+    pub async fn set_location(&self, target: &str, location: &str) -> anyhow::Result<()> {
+        let target_location = self.get_configuration_root().join(target);
+        let new_location = self.get_configuration_root().join(location);
+        remove_file(&target_location)
+            .await
+            .with_context(|| anyhow!("Failed removing symlink for {target_location:?}"))?;
+        symlink(&new_location, &target_location)
+            .await
+            .with_context(|| {
+                anyhow!(
+                    "Failed creating symlink from {new_location:?} to {target_location:?}, does the location exist?"
+                )
+            })
+    }
+
+    pub async fn list_available_locations(&self) -> anyhow::Result<BTreeSet<String>> {
+        let configuration_path = self.root.join("etc/configuration");
+        let mut locations = read_dir(configuration_path)
+            .await
+            .context("Failed configuration root")?;
+        let mut results = BTreeSet::new();
+        while let Ok(Some(entry)) = locations.next_entry().await {
+            if entry.path().is_dir() && !entry.path().is_symlink() {
+                results.insert(
+                    entry
+                        .path()
+                        .file_name()
+                        .with_context(|| anyhow!("Failed getting file name for location"))?
+                        .to_str()
+                        .with_context(|| anyhow!("Failed to convert to UTF-8"))?
+                        .to_string(),
+                );
+            }
+        }
+        Ok(results)
     }
 }
 

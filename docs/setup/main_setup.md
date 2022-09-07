@@ -1,4 +1,4 @@
-# Main Setup
+# Main Setup TODO: Rename to what is actually set up here?
 
 This section will guide you through the installation of dependencies and compiling the code for the [Webots](https://www.cyberbotics.com/) simulator.
 We recommend using [Arch Linux](https://archlinux.org/) or one of it's derivatives such as [Manjaro](https://manjaro.org/).
@@ -40,19 +40,25 @@ TODO: split by common/webots/nao/tooling?
 
 ## Acquiring the code
 
-If you are a HULKs member, you should have access to our [HULKs/nao](https://github.com/HULKs/nao) repository on GitHub:
+=== "HULKs Members"
 
-```sh
-git clone git@github.com:HULKs/nao
-```
+    If you are a HULKs member, you should have access to our [HULKs/nao](https://github.com/HULKs/nao) repository on GitHub:
 
-Otherwise, use our code release at [HULKs/CodeRelease](https://github.com/HULKs/HULKsCodeRelease).
+    ```sh
+    git clone git@github.com:HULKs/nao
+    ```
 
-```sh
-git clone git@github.com:HULKs/HULKsCodeRelease
-```
+=== "Non HULKs Members"
+
+    If you are not a member of the HULKs club, use our code release at [HULKs/CodeRelease](https://github.com/HULKs/HULKsCodeRelease).
+
+    ```sh
+    git clone git@github.com:HULKs/HULKsCodeRelease
+    ```
 
 ## Compiling for webots
+
+TODO: Capitalize **W**ebots correctly because it is a name
 
 In the root of our repository is a script called `pepsi`. See [pepsi](../tooling/pepsi.md) for details.
 Simply execute the build command in the repository root to build a binary for use with Webots.
@@ -65,3 +71,5 @@ pepsi build
 ## Running webots
 
 Once the compilation step is complete, open webots and load the scene at `webots/worlds/penalized.wbt` from the repository.
+
+TODO: Write about how non HULKs members need to change things in our code to make it work, e.g. changing the team number in various files etc.

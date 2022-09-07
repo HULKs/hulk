@@ -42,18 +42,18 @@ pub async fn cargo(
         Command::Build => repository
             .build(
                 arguments.workspace,
-                arguments.profile,
-                arguments.target,
+                &arguments.profile,
+                &arguments.target,
                 arguments.passthrough_arguments,
             )
             .await
             .context("Failed to build")?,
         Command::Check => repository
-            .check(arguments.workspace, arguments.profile, arguments.target)
+            .check(arguments.workspace, &arguments.profile, &arguments.target)
             .await
             .context("Failed to check")?,
         Command::Clippy => repository
-            .clippy(arguments.workspace, arguments.profile, arguments.target)
+            .clippy(arguments.workspace, &arguments.profile, &arguments.target)
             .await
             .context("Failed to run clippy")?,
         Command::Run => {
@@ -62,8 +62,8 @@ pub async fn cargo(
             }
             repository
                 .run(
-                    arguments.profile,
-                    arguments.target,
+                    &arguments.profile,
+                    &arguments.target,
                     arguments.passthrough_arguments,
                 )
                 .await

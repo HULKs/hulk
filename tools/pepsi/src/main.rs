@@ -9,6 +9,7 @@ use aliveness::{aliveness, Arguments as AlivenessArguments};
 use cargo::{cargo, Arguments as CargoArguments, Command as CargoCommand};
 use communication::{communication, Arguments as CommunicationArguments};
 use hulk::{hulk, Arguments as HulkArguments};
+use location::{location, Arguments as LocationArguments};
 use logs::{logs, Arguments as LogsArguments};
 use player_number::{player_number, Arguments as PlayerNumberArguments};
 use post_game::{post_game, Arguments as PostGameArguments};
@@ -25,6 +26,7 @@ mod aliveness;
 mod cargo;
 mod communication;
 mod hulk;
+mod location;
 mod logs;
 mod parsers;
 mod player_number;
@@ -79,6 +81,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Hulk(arguments) => hulk(arguments, &repository)
             .await
             .context("Failed to execute hulk command")?,
+        Command::Location(arguments) => location(arguments, &repository)
+            .await
+            .context("Failed to execute location command")?,
         Command::Logs(arguments) => logs(arguments, &repository)
             .await
             .context("Failed to execute logs command")?,
@@ -148,6 +153,9 @@ enum Command {
     },
     /// Control the HULK service
     Hulk(HulkArguments),
+    /// Control the configured location
+    #[clap(subcommand)]
+    Location(LocationArguments),
     /// Logging on the NAO
     #[clap(subcommand)]
     Logs(LogsArguments),

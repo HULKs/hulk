@@ -10,7 +10,7 @@ use v4l::{
     Control, Device,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ExposureMode {
     Auto = 0,
     Manual = 1,

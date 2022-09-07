@@ -4,8 +4,6 @@ on:
     branches:
       - gh-readonly-queue/main/**
   pull_request:
-env:
-  PATH: /ci/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 jobs:
   required_checks:
     name: Require all CI jobs

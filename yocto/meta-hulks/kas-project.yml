@@ -16,6 +16,6 @@ repos:
             0001-Rename-thread_local-target-option-and-disable-it:
                 repo: "meta-hulks"
                 path: "patches/0001-Rename-thread_local-target-option-and-disable-it.patch"
-            0002-Upgrade-to-Rust-1.62:
+            0001-Upgrade-Rust-version:
                 repo: "meta-hulks"
-                path: "patches/0002-Upgrade-to-Rust-1.62.patch"
+                path: "patches/0001-Upgrade-Rust-version.patch"

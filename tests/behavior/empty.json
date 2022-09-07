@@ -6,7 +6,7 @@
   "maximum_field_of_view_distance": 3.0,
   "maximum_walk_angle_per_second": 0.785398163,
   "maximum_walk_translation_distance_per_second": 0.3,
-  "robot_ids": ["simulated_behavior_1"],
+  "robot_ids": ["behavior_simulator_1"],
   "rules": [
     {
       "event": "frame_index == 1",

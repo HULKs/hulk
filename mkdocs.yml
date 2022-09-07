@@ -27,6 +27,7 @@ nav:
   - Setup:
     - Overview: setup/overview.md
     - Main Setup: setup/main_setup.md
+    - NAO Image & SDK: setup/nao_image_and_sdk.md
   - Framework:
     - Overview: framework/overview.md
     - Directory Structure: framework/directory_structure.md

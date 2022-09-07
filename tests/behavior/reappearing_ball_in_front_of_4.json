@@ -7,11 +7,11 @@
   "maximum_walk_angle_per_second": 0.785398163,
   "maximum_walk_translation_distance_per_second": 0.3,
   "robot_ids": [
-    "simulated_behavior_1",
-    "simulated_behavior_2",
-    "simulated_behavior_3",
-    "simulated_behavior_4",
-    "simulated_behavior_5"
+    "behavior_simulator_1",
+    "behavior_simulator_2",
+    "behavior_simulator_3",
+    "behavior_simulator_4",
+    "behavior_simulator_5"
   ],
   "rules": [
     {

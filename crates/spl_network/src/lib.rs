@@ -23,7 +23,7 @@ pub struct BallPosition {
 
 pub const HULKS_TEAM_NUMBER: u8 = 24;
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum PlayerNumber {
     One,
     Two,

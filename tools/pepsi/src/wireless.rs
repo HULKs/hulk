@@ -12,20 +12,23 @@ use crate::{
 
 #[derive(Subcommand)]
 pub enum Arguments {
-    Status {
+    /// List available networks
+    List {
         /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
         #[clap(required = true)]
         naos: Vec<NaoAddress>,
     },
-    AvailableNetworks {
-        /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-        #[clap(required = true)]
-        naos: Vec<NaoAddress>,
-    },
+    /// Set active network
     Set {
         /// The network to connect the wireless device to e.g. SPL_A or None (None disconnects from anything)
         #[clap(possible_values = NETWORK_POSSIBLE_VALUES, parse(try_from_str = parse_network))]
         network: Network,
+        /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
+        #[clap(required = true)]
+        naos: Vec<NaoAddress>,
+    },
+    /// Show current network status
+    Status {
         /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
         #[clap(required = true)]
         naos: Vec<NaoAddress>,
@@ -35,7 +38,7 @@ pub enum Arguments {
 pub async fn wireless(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
     match arguments {
         Arguments::Status { naos } => status(naos, repository).await,
-        Arguments::AvailableNetworks { naos } => available_networks(naos, repository).await,
+        Arguments::List { naos } => available_networks(naos, repository).await,
         Arguments::Set { network, naos } => set(naos, network, repository)
             .await
             .context("Failed to execute set command")?,

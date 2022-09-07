@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use clap::Args;
 
 use nao::Network;
@@ -33,6 +33,8 @@ pub struct Arguments {
     /// Enable communication
     #[clap(long)]
     pub with_communication: bool,
+    /// The location to use for configuration
+    location: String,
     /// The network to connect the wireless device to e.g. SPL_A or None (None disconnects from anything)
     #[clap(possible_values = NETWORK_POSSIBLE_VALUES, parse(try_from_str = parse_network))]
     network: Network,
@@ -47,6 +49,11 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> anyhow::
         .iter()
         .map(|assignment| assignment.nao_address)
         .collect();
+
+    repository
+        .set_location("nao", &arguments.location)
+        .await
+        .with_context(|| anyhow!("Failed setting location for nao to {}", arguments.location))?;
 
     player_number(
         PlayerNumberArguments {
