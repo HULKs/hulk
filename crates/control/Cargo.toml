@@ -7,6 +7,7 @@ version = "0.1.0"
 [dependencies]
 anyhow = "1.0.59"
 context_attribute = {path = "../context_attribute"}
+filtering = {path = "../filtering"}
 framework = {path = "../framework"}
 hardware = {path = "../hardware"}
 nalgebra = {version = "0.31.0", features = ["serde-serialize"]}
