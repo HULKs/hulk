@@ -1,0 +1,14 @@
+[package]
+edition = "2021"
+license = "GPL-3.0-only"
+name = "filtering"
+version = "0.1.0"
+
+[dependencies]
+#anyhow = "1.0.59"
+#control = {path = "../control"}
+#framework = {path = "../framework"}
+#hardware = {path = "../hardware"}
+#spl_network2 = {path = "../spl_network2"}
+#structs = {path = "../structs"}
+#tokio-util = "0.7.1"
