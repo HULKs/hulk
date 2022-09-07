@@ -11,6 +11,7 @@ members = [
   "crates/context_attribute",
   "crates/control",
   "crates/cyclers",
+  "crates/filtering",
   "crates/framework",
   "crates/hardware",
   "crates/module_attributes",
