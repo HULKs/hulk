@@ -18,21 +18,21 @@ The SDK contains a full cross-compilation toolchain that is self-contained and c
     ./pepsi upload 42
     ```
 
-    You will be asked to install the SDK during during the compilation process.
+    You will be asked to install the SDK during the compilation process.
     Just choose the defaults if unsure or ask your fellow HULK.
 
 === "Non HULKs Members"
 
     Non HULKs members need to copy the Yocto SDK to the local downloads folder to prevent the Pepsi tool (TODO: link to Pepsi) from downloading it during compilation.
     For instructions on how to build the image and SDK refer to the section [Image & SDK Creation](#image-sdk-creation).
-    
+
     ```sh
     mkdir -p sdk/downloads/
     cp .../HULKs-OS-toolchain-[...].sh sdk/downloads/
     ./pepsi upload 42
     ```
 
-    You will be asked to install the SDK during during the compilation process.
+    You will be asked to install the SDK during the compilation process.
     Just choose the defaults if unsure.
 
 ## Image & SDK Creation
@@ -141,7 +141,8 @@ All BitBake and Devtool commands shall be executed from this shell.
 
 ### Preparing the Build
 
-The NAO image contains the HULA binary (TODO: link to HULA) which is built from [HULKs/nao](https://github.com/HULKs/nao) or [HULKs/CodeRelease](https://github.com/HULKs/HULKsCodeRelease) (depending on whether you are a HULKs member or not).
+The NAO image contains the HULA binary (TODO: link to HULA) which is built from [HULKs/nao](https://github.com/HULKs/nao) or [HULKs/CodeRelease](https://github.com/HULKs/HULKsCodeRelease) (depending
+on whether you are a HULKs member or not).
 The HULA source code is located in `tools/hula`.
 The meta-hulks layer is set up to clone the private [HULKs/nao](https://github.com/HULKs/nao) repository and check out a specific version.
 This only works if the kas-container has SSH correctly set up and uses a SSH key that has access to the repository.
@@ -159,7 +160,8 @@ This must be executed at any restart of the build shell.
 Inside of the build shell, the following command will build the NAO image.
 The initial build may take multiple hours depending on your hardware and internet access.
 BitBake provides advanced caching of the build artifacts which means that future builds are done in minutes depending on the changes.
-The cache relies in the `build/sstate-cache` which can be copied from another build directory or shared between machines (see [Yocto Documentation about Shared State Cache](https://docs.yoctoproject.org/overview-manual/concepts.html#shared-state-cache)).
+The cache relies in the `build/sstate-cache` which can be copied from another build directory or shared between machines (
+see [Yocto Documentation about Shared State Cache](https://docs.yoctoproject.org/overview-manual/concepts.html#shared-state-cache)).
 To build the image run the following command in the build shell:
 
 ```sh
@@ -211,11 +213,11 @@ The HULKs use semantic versioning for the Yocto images and SDKs.
 This means that versions are increased depending on the severity of changes.
 The following policy exists for the HULKs:
 
-- Images have major, minor, and patch version numbers (e.g. 4.2.3), SDKs have only have major and minor (e.g. 4.2)
-- Same version numbers of images and SDKs are compatible to each other
-- Major changes, refactorings, implementations result in the increase of the major version number
-- Minor changes, additions and iterations result in the increase of the minor version number
-- Changes in the image that do not require SDK recreation, result in the increase of the patch version number (which only requires to create a new image)
+-   Images have major, minor, and patch version numbers (e.g. 4.2.3), SDKs have only have major and minor (e.g. 4.2)
+-   Same version numbers of images and SDKs are compatible to each other
+-   Major changes, refactorings, implementations result in the increase of the major version number
+-   Minor changes, additions and iterations result in the increase of the minor version number
+-   Changes in the image that do not require SDK recreation, result in the increase of the patch version number (which only requires to create a new image)
 
 Before building new images, the version number needs to be set in `meta-hulks/conf/distro/HULKsOS.conf`.
 Only change the `DISTRO_VERSION`, the `SDK_VERSION` is automatically derived from the `DISTRO_VERSION`.
@@ -235,49 +237,49 @@ The recipes are located in `meta/recipes-devtools/{cargo,rust}`.
 The following steps are high-level instructions on how to modify the poky repository.
 A patch file can be created after applying these instructions and saved to the corresponding meta-hulks layer.
 
-- Set new version in the `RUSTVERSION` variable in `poky/meta/conf/distro/include/tcmode-default.inc`
-- Rename files (to new version) in `poky/meta/recipes-devtools/cargo/`
-- Rename files (to new version) in `poky/meta/recipes-devtools/rust/`
-- Some LLVM benchmarks are built and run during the compilation which often results in errors.
-  Therefore it is a good idea to just exclude them by appending `-DLLVM_BUILD_BENCHMARKS=OFF` and `-DLLVM_INCLUDE_BENCHMARKS=OFF` to the `EXTRA_OECMAKE` variable in `poky/meta/recipes-devtools/rust/rust-llvm.inc`.
-- Set new version in the `RS_VERSION` and `CARGO_VERSION` variable in `poky/meta/recipes-devtools/rust/rust-snapshot.inc`
-- Update the checksums in `poky/meta/recipes-devtools/rust/rust-snapshot.inc` for the NAO architecture `x86_64`
-    - Download the files in your command line (example for Rust version 1.63):
-      ```sh
-      RS_VERSION="1.63.0"
-      CARGO_VERSION="1.63.0"
-      RUST_BUILD_ARCH="x86_64"
-      RUST_STD_SNAPSHOT="rust-std-${RS_VERSION}-${RUST_BUILD_ARCH}-unknown-linux-gnu"
-      RUSTC_SNAPSHOT="rustc-${RS_VERSION}-${RUST_BUILD_ARCH}-unknown-linux-gnu"
-      CARGO_SNAPSHOT="cargo-${CARGO_VERSION}-${RUST_BUILD_ARCH}-unknown-linux-gnu"
-      wget "https://static.rust-lang.org/dist/${RUST_STD_SNAPSHOT}.tar.xz"
-      wget "https://static.rust-lang.org/dist/${RUSTC_SNAPSHOT}.tar.xz"
-      wget "https://static.rust-lang.org/dist/${CARGO_SNAPSHOT}.tar.xz"
-      ```
-    - Generate the checksums in the same terminal:
-      ```sh
-      sha256sum ${RUST_STD_SNAPSHOT}.tar.xz ${RUSTC_SNAPSHOT}.tar.xz ${CARGO_SNAPSHOT}.tar.xz
-      ```
-    - Keep the terminal open for the next step
-- Update the checksums in `poky/meta/recipes-devtools/rust/rust-source.inc`
-    - Download the files:
-      ```sh
-      wget "https://static.rust-lang.org/dist/rustc-${RS_VERSION}-src.tar.xz"
-      ```
-    - Generate the checksums in the same terminal:
-      ```sh
-      sha256sum "rustc-${RS_VERSION}-src.tar.xz"
-      ```
-- Run `bitbake nao-image` within the build shell
-    - Errors similar to `libstd-rs-1.63.0-r0 do_patch: Applying patch...` often mean that patches are obsolete.
-      These patches are located in `poky/meta/recipes-devtools/rust/libstd-rs/` and `poky/meta/recipes-devtools/rust/rust-llvm/`.
-      Deleted patches need to be removed from their corresponding recipes.
-      Afterwards rerun the image build.
-- Once a successful build completed, create a patch from the changes in poky:
-    - ```sh
-      cd poky/
-      git add .
-      git commit # ...
-      git format-patch HEAD~  # this generates 0001-....patch
-      ```
-    - Copy the patch file into `meta-hulks/patches/0001....patch` and fix the patch path in `meta-hulks/kas-project.yml`
+-   Set new version in the `RUSTVERSION` variable in `poky/meta/conf/distro/include/tcmode-default.inc`
+-   Rename files (to new version) in `poky/meta/recipes-devtools/cargo/`
+-   Rename files (to new version) in `poky/meta/recipes-devtools/rust/`
+-   Some LLVM benchmarks are built and run during the compilation which often results in errors.
+    Therefore, it is a good idea to just exclude them by appending `-DLLVM_BUILD_BENCHMARKS=OFF` and `-DLLVM_INCLUDE_BENCHMARKS=OFF` to the `EXTRA_OECMAKE` variable in `poky/meta/recipes-devtools/rust/rust-llvm.inc`.
+-   Set new version in the `RS_VERSION` and `CARGO_VERSION` variable in `poky/meta/recipes-devtools/rust/rust-snapshot.inc`
+-   Update the checksums in `poky/meta/recipes-devtools/rust/rust-snapshot.inc` for the NAO architecture `x86_64`
+    -   Download the files in your command line (example for Rust version 1.63):
+    ```sh
+    RS_VERSION="1.63.0"
+    CARGO_VERSION="1.63.0"
+    RUST_BUILD_ARCH="x86_64"
+    RUST_STD_SNAPSHOT="rust-std-${RS_VERSION}-${RUST_BUILD_ARCH}-unknown-linux-gnu"
+    RUSTC_SNAPSHOT="rustc-${RS_VERSION}-${RUST_BUILD_ARCH}-unknown-linux-gnu"
+    CARGO_SNAPSHOT="cargo-${CARGO_VERSION}-${RUST_BUILD_ARCH}-unknown-linux-gnu"
+    wget "https://static.rust-lang.org/dist/${RUST_STD_SNAPSHOT}.tar.xz"
+    wget "https://static.rust-lang.org/dist/${RUSTC_SNAPSHOT}.tar.xz"
+    wget "https://static.rust-lang.org/dist/${CARGO_SNAPSHOT}.tar.xz"
+    ```
+    -   Generate the checksums in the same terminal:
+        ```sh
+        sha256sum ${RUST_STD_SNAPSHOT}.tar.xz ${RUSTC_SNAPSHOT}.tar.xz ${CARGO_SNAPSHOT}.tar.xz
+        ```
+    -   Keep the terminal open for the next step
+-   Update the checksums in `poky/meta/recipes-devtools/rust/rust-source.inc`
+    -   Download the files:
+        ```sh
+        wget "https://static.rust-lang.org/dist/rustc-${RS_VERSION}-src.tar.xz"
+        ```
+    -   Generate the checksums in the same terminal:
+        ```sh
+        sha256sum "rustc-${RS_VERSION}-src.tar.xz"
+        ```
+-   Run `bitbake nao-image` within the build shell
+    -   Errors similar to `libstd-rs-1.63.0-r0 do_patch: Applying patch...` often mean that patches are obsolete.
+        These patches are located in `poky/meta/recipes-devtools/rust/libstd-rs/` and `poky/meta/recipes-devtools/rust/rust-llvm/`.
+        Deleted patches need to be removed from their corresponding recipes.
+        Afterwards rerun the image build.
+-   Once a successful build completed, create a patch from the changes in poky:
+    -   ```sh
+        cd poky/
+        git add .
+        git commit # ...
+        git format-patch HEAD~  # this generates 0001-....patch
+        ```
+    -   Copy the patch file into `meta-hulks/patches/0001....patch` and fix the patch path in `meta-hulks/kas-project.yml`

@@ -16,3 +16,11 @@ indent_size = 2
 
 [*.ps1]
 end_of_line = crlf
+
+[docs/**.md]
+indent_style = space
+indent_size = 4
+
+[mkdocs.yml]
+indent_style = space
+indent_size = 2

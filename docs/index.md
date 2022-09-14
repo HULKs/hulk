@@ -24,9 +24,9 @@ As our team has limited resources, we don't expect to be able to give much in-de
 
 | Section          | Status                         |
 | ---------------- | ------------------------------ |
-| Setup            | Missing                        |
+| Setup            | Incomplete                     |
 | Framework        | Incomplete, partially outdated |
-| Tooling          | Missing                        |
+| Tooling          | Incomplete                     |
 | Operating System | Missing                        |
 | Robotics         | Missing                        |
 | Workflow         | Missing                        |

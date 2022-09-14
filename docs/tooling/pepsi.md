@@ -9,17 +9,20 @@ For detailed usage instructions, run `pepsi --help` or `pepsi <subcommand> --hel
 ## Typical Webots Workflow
 
 This is pretty simple. Open Webots, load the `webots/worlds/penalized_extern.wbt` world file and execute
+
 ```bash
-pepsi run
+./pepsi run
 ```
+
 in your terminal. This will build (if necessary) and then run the webots binary.
 The simulation is paused automatically until the binary starts.
 
 ## Typical NAO Workflow
 
 ```bash
-pepsi upload <number or IP>
+./pepsi upload <number or IP>
 ```
+
 This command does the following:
 
 - checks if a toolchain is installed, downloads, and installs one if necessary
@@ -32,8 +35,8 @@ This command does the following:
 NAOs are identified either by IP or by number.
 Numbers are converted to IPs as follows:
 
- * `{number}` -> `10.1.24.{number}`
- * `{number}w` -> `10.0.24.{number}`
+- `{number}` -> `10.1.24.{number}`
+- `{number}w` -> `10.0.24.{number}`
 
 Many subcommands can act on multiple robots concurrently.
 
@@ -56,7 +59,9 @@ However `upload` and `pregame` only supports a profiles, since it doesn't make s
 Shell completions can be generated using the `completions` subcommand.
 
 Example:
+
 ```bash
-pepsi completions zsh > _pepsi
+./pepsi completions zsh > _pepsi
 ```
+
 Refer to your shell's completion documentation for details.
