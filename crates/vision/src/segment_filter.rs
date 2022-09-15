@@ -1,8 +1,8 @@
 use framework::{
-    MainOutput, OptionalInput, PerceptionInput
+    MainOutput, OptionalInput
 };
 
-pub struct GameControllerFilter {}
+pub struct SegmentFilter {}
 
 #[context]
 pub struct NewContext {
@@ -12,10 +12,10 @@ pub struct NewContext {
 pub struct CycleContext {
 
 
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+    pub field_border: OptionalInput<FieldBorder, "field_border">,
+    pub image_segments: OptionalInput<ImageSegments, "image_segments">,
 
 
-    pub game_controller_state_message: PerceptionInput<GameControllerStateMessage, "SplNetwork", "game_controller_state_message">,
 
 
 }
@@ -23,10 +23,10 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub game_controller_state: MainOutput<GameControllerState>,
+    pub filtered_segments: MainOutput<FilteredSegments>,
 }
 
-impl GameControllerFilter {
+impl SegmentFilter {
     pub fn new(context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }

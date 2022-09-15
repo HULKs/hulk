@@ -2,7 +2,7 @@ use framework::{
     MainOutput, OptionalInput, PerceptionInput
 };
 
-pub struct GameControllerFilter {}
+pub struct LedStatus {}
 
 #[context]
 pub struct NewContext {
@@ -12,10 +12,12 @@ pub struct NewContext {
 pub struct CycleContext {
 
 
+    pub primary_state: OptionalInput<PrimaryState, "primary_state">,
     pub sensor_data: OptionalInput<SensorData, "sensor_data">,
 
 
-    pub game_controller_state_message: PerceptionInput<GameControllerStateMessage, "SplNetwork", "game_controller_state_message">,
+    pub balls_bottom: PerceptionInput<Vec<Ball>, "VisionBottom", "balls">,
+    pub balls_top: PerceptionInput<Vec<Ball>, "VisionTop", "balls">,
 
 
 }
@@ -23,10 +25,10 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub game_controller_state: MainOutput<GameControllerState>,
+    pub leds: MainOutput<Leds>,
 }
 
-impl GameControllerFilter {
+impl LedStatus {
     pub fn new(context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }

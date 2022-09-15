@@ -1,32 +1,34 @@
 use framework::{
-    MainOutput, OptionalInput, PerceptionInput
+    MainOutput, PersistentState, OptionalInput
 };
 
-pub struct GameControllerFilter {}
+pub struct SitDown {}
 
 #[context]
 pub struct NewContext {
+    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]
 pub struct CycleContext {
 
 
+    pub motion_selection: OptionalInput<MotionSelection, "motion_selection">,
     pub sensor_data: OptionalInput<SensorData, "sensor_data">,
 
 
-    pub game_controller_state_message: PerceptionInput<GameControllerStateMessage, "SplNetwork", "game_controller_state_message">,
 
+    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub game_controller_state: MainOutput<GameControllerState>,
+    pub sit_down_joints_command: MainOutput<JointsCommand>,
 }
 
-impl GameControllerFilter {
+impl SitDown {
     pub fn new(context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }

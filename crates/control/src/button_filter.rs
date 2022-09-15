@@ -1,27 +1,26 @@
-use std::time::{Duration, SystemTime};
+use framework::{
+    MainOutput, Parameter, OptionalInput
+};
 
-use filtering::TapDetector;
-use types::{Buttons, SensorData};
+pub struct ButtonFilter {}
 
-#[derive(Default)]
-pub struct ButtonFilter {
-    chest_button_tap_detector: TapDetector,
-    head_buttons_touched: SystemTime,
-    last_head_buttons_touched: bool,
-    calibration_buttons_touched: SystemTime,
-    last_calibration_buttons_touched: bool,
+#[context]
+pub struct NewContext {
+    pub calibration_buttons_timeout: Parameter<Duration, "control/button_filter/calibration_buttons_timeout">,
+    pub head_buttons_timeout: Parameter<Duration, "control/button_filter/head_buttons_timeout">,
 }
 
 #[context]
-pub struct NewContext {}
-
-#[context]
 pub struct CycleContext {
-    pub head_buttons_timeout: Parameter<Duration, "control/button_filter/head_buttons_timeout">,
-    pub calibration_buttons_timeout:
-        Parameter<Duration, "control/button_filter/calibration_buttons_timeout">,
 
-    pub sensor_data: RequiredInput<SensorData, "sensor_data">,
+
+    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+
+    pub calibration_buttons_timeout: Parameter<Duration, "control/button_filter/calibration_buttons_timeout">,
+    pub head_buttons_timeout: Parameter<Duration, "control/button_filter/head_buttons_timeout">,
+
+
+
 }
 
 #[context]
@@ -32,7 +31,7 @@ pub struct MainOutputs {
 
 impl ButtonFilter {
     pub fn new(context: NewContext) -> anyhow::Result<Self> {
-        Ok(Self::default()) // TODO: This is wrong
+        Ok(Self {})
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
