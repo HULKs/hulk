@@ -1,6 +1,5 @@
-use framework::{
-    MainOutput, Parameter, OptionalInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput, Parameter};
 
 pub struct FallProtector {}
 
@@ -11,16 +10,11 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-
-
     pub motion_command: OptionalInput<MotionCommand, "motion_command">,
     pub motion_selection: OptionalInput<MotionSelection, "motion_selection">,
     pub sensor_data: OptionalInput<SensorData, "sensor_data">,
 
     pub fall_protection: Parameter<FallProtection, "control/fall_protection">,
-
-
-
 }
 
 #[context]

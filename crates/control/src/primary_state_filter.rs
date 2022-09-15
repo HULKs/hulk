@@ -1,6 +1,5 @@
-use framework::{
-    MainOutput, Parameter, OptionalInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput, Parameter};
 
 pub struct PrimaryStateFilter {}
 
@@ -11,17 +10,12 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-
-
     pub buttons: OptionalInput<Buttons, "buttons">,
     pub filtered_game_state: OptionalInput<FilteredGameState, "filtered_game_state">,
     pub game_controller_state: OptionalInput<GameControllerState, "game_controller_state">,
     pub has_ground_contact: OptionalInput<bool, "has_ground_contact">,
 
     pub player_number: Parameter<PlayerNumber, "player_number">,
-
-
-
 }
 
 #[context]

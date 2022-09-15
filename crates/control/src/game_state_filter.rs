@@ -1,6 +1,5 @@
-use framework::{
-    Parameter, MainOutput, PersistentState, OptionalInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput, Parameter, PersistentState};
 
 pub struct GameStateFilter {}
 
@@ -15,8 +14,6 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-
-
     pub ball_position: OptionalInput<BallPosition, "ball_position">,
     pub buttons: OptionalInput<Buttons, "buttons">,
     pub filtered_whistle: OptionalInput<FilteredWhistle, "filtered_whistle">,
@@ -27,9 +24,7 @@ pub struct CycleContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
 
-
     pub robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
-
 }
 
 #[context]

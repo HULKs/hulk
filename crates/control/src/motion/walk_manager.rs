@@ -1,24 +1,16 @@
-use framework::{
-    MainOutput, OptionalInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput};
 
 pub struct WalkManager {}
 
 #[context]
-pub struct NewContext {
-}
+pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-
-
     pub motion_command: OptionalInput<MotionCommand, "motion_command">,
     pub motion_selection: OptionalInput<MotionSelection, "motion_selection">,
     pub step_plan: OptionalInput<Step, "step_plan">,
-
-
-
-
 }
 
 #[context]

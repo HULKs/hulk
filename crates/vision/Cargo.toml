@@ -1,0 +1,21 @@
+[package]
+edition = "2021"
+license = "GPL-3.0-only"
+name = "vision"
+version = "0.1.0"
+
+[dependencies]
+anyhow = "1.0.59"
+context_attribute = {path = "../context_attribute"}
+filtering = {path = "../filtering"}
+framework = {path = "../framework"}
+hardware = {path = "../hardware"}
+nalgebra = {version = "0.31.0", features = ["serde-serialize"]}
+types = {path = "../types"}
+
+# convert_case = "0.5.0"
+# module_attributes2 = {path = "../module_attributes2"}
+# petgraph = "0.6.2"
+# proc-macro2 = {version = "1.0.39", features = ["span-locations"]}
+# syn = {version = "1.0.82", features = ["full"]}
+# walkdir = "2.3.2"

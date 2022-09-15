@@ -1,26 +1,22 @@
-use framework::{
-    MainOutput, Parameter, OptionalInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput, Parameter};
 
 pub struct ButtonFilter {}
 
 #[context]
 pub struct NewContext {
-    pub calibration_buttons_timeout: Parameter<Duration, "control/button_filter/calibration_buttons_timeout">,
+    pub calibration_buttons_timeout:
+        Parameter<Duration, "control/button_filter/calibration_buttons_timeout">,
     pub head_buttons_timeout: Parameter<Duration, "control/button_filter/head_buttons_timeout">,
 }
 
 #[context]
 pub struct CycleContext {
-
-
     pub sensor_data: OptionalInput<SensorData, "sensor_data">,
 
-    pub calibration_buttons_timeout: Parameter<Duration, "control/button_filter/calibration_buttons_timeout">,
+    pub calibration_buttons_timeout:
+        Parameter<Duration, "control/button_filter/calibration_buttons_timeout">,
     pub head_buttons_timeout: Parameter<Duration, "control/button_filter/head_buttons_timeout">,
-
-
-
 }
 
 #[context]

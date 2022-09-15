@@ -1,24 +1,16 @@
-use framework::{
-    MainOutput, OptionalInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput};
 
 pub struct GroundProvider {}
 
 #[context]
-pub struct NewContext {
-}
+pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-
-
     pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics">,
     pub sensor_data: OptionalInput<SensorData, "sensor_data">,
     pub support_foot: OptionalInput<SupportFoot, "support_foot">,
-
-
-
-
 }
 
 #[context]

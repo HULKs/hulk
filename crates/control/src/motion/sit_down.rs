@@ -1,6 +1,5 @@
-use framework::{
-    MainOutput, PersistentState, OptionalInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput, PersistentState};
 
 pub struct SitDown {}
 
@@ -11,15 +10,10 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-
-
     pub motion_selection: OptionalInput<MotionSelection, "motion_selection">,
     pub sensor_data: OptionalInput<SensorData, "sensor_data">,
 
-
-
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-
 }
 
 #[context]

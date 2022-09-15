@@ -1,6 +1,5 @@
-use framework::{
-    RequiredInput, MainOutput, PersistentState
-};
+use context_attribute::context;
+use framework::{MainOutput, PersistentState, RequiredInput};
 
 pub struct JumpRight {}
 
@@ -11,11 +10,6 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-
-
-
-
-
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
     pub motion_selection: RequiredInput<MotionSelection, "motion_selection">,

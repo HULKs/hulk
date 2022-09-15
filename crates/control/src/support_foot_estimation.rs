@@ -1,6 +1,5 @@
-use framework::{
-    RequiredInput, MainOutput, Parameter
-};
+use context_attribute::context;
+use framework::{MainOutput, Parameter, RequiredInput};
 
 pub struct SupportFootEstimation {}
 
@@ -11,12 +10,7 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-
-
-
     pub hysteresis: Parameter<f32, "control/support_foot_estimation/hysteresis">,
-
-
 
     pub has_ground_contact: RequiredInput<bool, "has_ground_contact">,
     pub sensor_data: RequiredInput<SensorData, "sensor_data">,

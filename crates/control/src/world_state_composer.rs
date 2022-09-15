@@ -1,6 +1,5 @@
-use framework::{
-    RequiredInput, MainOutput, Parameter, OptionalInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput, Parameter, RequiredInput};
 
 pub struct WorldStateComposer {}
 
@@ -11,8 +10,6 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-
-
     pub ball_position: OptionalInput<BallPosition, "ball_position">,
     pub filtered_game_state: OptionalInput<FilteredGameState, "filtered_game_state">,
     pub game_controller_state: OptionalInput<GameControllerState, "game_controller_state">,
@@ -21,8 +18,6 @@ pub struct CycleContext {
     pub team_ball: OptionalInput<BallPosition, "team_ball">,
 
     pub player_number: Parameter<PlayerNumber, "player_number">,
-
-
 
     pub fall_state: RequiredInput<FallState, "fall_state">,
     pub has_ground_contact: RequiredInput<bool, "has_ground_contact">,
