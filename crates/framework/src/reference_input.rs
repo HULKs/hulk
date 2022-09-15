@@ -22,7 +22,9 @@ pub struct MutableReferenceInput<'context, DataType> {
     value: &'context mut DataType,
 }
 
-impl<'context, DataType> From<&'context mut DataType> for MutableReferenceInput<'context, DataType> {
+impl<'context, DataType> From<&'context mut DataType>
+    for MutableReferenceInput<'context, DataType>
+{
     fn from(value: &'context mut DataType) -> Self {
         Self { value }
     }

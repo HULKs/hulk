@@ -1,22 +1,14 @@
-use framework::{
-    MainOutput, OptionalInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput};
 
 pub struct CameraMatrixProvider {}
 
 #[context]
-pub struct NewContext {
-}
+pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-
-
     pub camera_matrices: OptionalInput<CameraMatrices, "Control", "camera_matrices">,
-
-
-
-
 }
 
 #[context]

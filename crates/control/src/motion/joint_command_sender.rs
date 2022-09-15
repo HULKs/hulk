@@ -1,6 +1,5 @@
-use framework::{
-    RequiredInput, MainOutput, Parameter
-};
+use context_attribute::context;
+use framework::{MainOutput, Parameter, RequiredInput};
 
 pub struct JointCommandSender {}
 
@@ -13,14 +12,9 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-
-
-
     pub center_head_position: Parameter<HeadJoints, "control/center_head_position">,
     pub penalized_pose: Parameter<Joints, "control/penalized_pose">,
     pub ready_pose: Parameter<Joints, "control/ready_pose">,
-
-
 
     pub arms_up_squat_joints_command: RequiredInput<JointsCommand, "arms_up_squat_joints_command">,
     pub dispatching_command: RequiredInput<JointsCommand, "dispatching_command">,

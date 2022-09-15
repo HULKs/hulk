@@ -1,23 +1,15 @@
-use framework::{
-    MainOutput, OptionalInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput};
 
 pub struct SegmentFilter {}
 
 #[context]
-pub struct NewContext {
-}
+pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-
-
     pub field_border: OptionalInput<FieldBorder, "field_border">,
     pub image_segments: OptionalInput<ImageSegments, "image_segments">,
-
-
-
-
 }
 
 #[context]

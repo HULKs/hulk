@@ -1,6 +1,5 @@
-use framework::{
-    MainOutput, AdditionalOutput, PersistentState, RequiredInput, Parameter
-};
+use context_attribute::context;
+use framework::{AdditionalOutput, MainOutput, Parameter, PersistentState, RequiredInput};
 
 pub struct WalkingEngine {}
 
@@ -19,12 +18,9 @@ pub struct CycleContext {
     pub step_adjustment: AdditionalOutput<StepAdjustment, "step_adjustment">,
     pub walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
 
-
-
     pub config: Parameter<configuration::WalkingEngine, "control/walking_engine">,
     pub kick_steps: Parameter<configuration::KickSteps, "control/kick_steps">,
     pub ready_pose: Parameter<Joints, "control/ready_pose">,
-
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
     pub walk_return_offset: PersistentState<Step, "walk_return_offset">,

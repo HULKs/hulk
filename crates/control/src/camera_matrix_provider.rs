@@ -1,30 +1,29 @@
-use framework::{
-    AdditionalOutput, MainOutput, Parameter, OptionalInput
-};
+use context_attribute::context;
+use framework::{AdditionalOutput, MainOutput, OptionalInput, Parameter};
 
 pub struct CameraMatrixProvider {}
 
 #[context]
 pub struct NewContext {
-    pub bottom_camera_matrix_parameters: Parameter<CameraMatrixParameters, "vision_bottom/camera_matrix_parameters">,
+    pub bottom_camera_matrix_parameters:
+        Parameter<CameraMatrixParameters, "vision_bottom/camera_matrix_parameters">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub top_camera_matrix_parameters: Parameter<CameraMatrixParameters, "vision_top/camera_matrix_parameters">,
+    pub top_camera_matrix_parameters:
+        Parameter<CameraMatrixParameters, "vision_top/camera_matrix_parameters">,
 }
 
 #[context]
 pub struct CycleContext {
     pub projected_field_lines: AdditionalOutput<ProjectedFieldLines, "projected_field_lines">,
 
-
     pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics">,
     pub robot_to_ground: OptionalInput<Isometry3<f32>, "robot_to_ground">,
 
-    pub bottom_camera_matrix_parameters: Parameter<CameraMatrixParameters, "vision_bottom/camera_matrix_parameters">,
+    pub bottom_camera_matrix_parameters:
+        Parameter<CameraMatrixParameters, "vision_bottom/camera_matrix_parameters">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub top_camera_matrix_parameters: Parameter<CameraMatrixParameters, "vision_top/camera_matrix_parameters">,
-
-
-
+    pub top_camera_matrix_parameters:
+        Parameter<CameraMatrixParameters, "vision_top/camera_matrix_parameters">,
 }
 
 #[context]

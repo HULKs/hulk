@@ -1,6 +1,5 @@
-use framework::{
-    MainOutput, Parameter, OptionalInput, PerceptionInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput, Parameter, PerceptionInput};
 
 pub struct RoleAssignment {}
 
@@ -14,8 +13,6 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-
-
     pub ball_position: OptionalInput<BallPosition, "ball_position">,
     pub fall_state: OptionalInput<FallState, "fall_state">,
     pub game_controller_state: OptionalInput<GameControllerState, "game_controller_state">,
@@ -29,8 +26,6 @@ pub struct CycleContext {
     pub spl_network: Parameter<SplNetwork, "spl_network">,
 
     pub spl_message: PerceptionInput<SplMessage, "SplNetwork", "spl_message">,
-
-
 }
 
 #[context]

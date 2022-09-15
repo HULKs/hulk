@@ -1,6 +1,5 @@
-use framework::{
-    Parameter, MainOutput, PersistentState, OptionalInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput, Parameter, PersistentState};
 
 pub struct DispatchingInterpolator {}
 
@@ -14,8 +13,6 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-
-
     pub arms_up_squat_joints_command: OptionalInput<JointsCommand, "arms_up_squat_joints_command">,
     pub jump_left_joints_command: OptionalInput<JointsCommand, "jump_left_joints_command">,
     pub jump_right_joints_command: OptionalInput<JointsCommand, "jump_right_joints_command">,
@@ -29,9 +26,7 @@ pub struct CycleContext {
     pub penalized_pose: Parameter<Joints, "control/penalized_pose">,
     pub ready_pose: Parameter<Joints, "control/ready_pose">,
 
-
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-
 }
 
 #[context]

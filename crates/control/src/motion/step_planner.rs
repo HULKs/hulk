@@ -1,6 +1,5 @@
-use framework::{
-    Parameter, MainOutput, PersistentState, OptionalInput
-};
+use context_attribute::context;
+use framework::{MainOutput, OptionalInput, Parameter, PersistentState};
 
 pub struct StepPlanner {}
 
@@ -18,8 +17,6 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-
-
     pub motion_command: OptionalInput<MotionCommand, "motion_command">,
     pub sensor_data: OptionalInput<SensorData, "sensor_data">,
     pub support_foot: OptionalInput<SupportFoot, "support_foot">,
@@ -31,9 +28,7 @@ pub struct CycleContext {
     pub rotation_exponent: Parameter<f32, "control/step_planner/rotation_exponent">,
     pub translation_exponent: Parameter<f32, "control/step_planner/translation_exponent">,
 
-
     pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
-
 }
 
 #[context]

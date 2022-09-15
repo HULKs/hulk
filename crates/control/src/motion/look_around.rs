@@ -1,6 +1,5 @@
-use framework::{
-    RequiredInput, MainOutput, Parameter
-};
+use context_attribute::context;
+use framework::{MainOutput, Parameter, RequiredInput};
 
 pub struct LookAround {}
 
@@ -11,12 +10,7 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-
-
-
     pub config: Parameter<configuration::LookAround, "control/look_around">,
-
-
 
     pub motion_command: RequiredInput<MotionCommand, "motion_command">,
     pub sensor_data: RequiredInput<SensorData, "sensor_data">,

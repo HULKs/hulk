@@ -1,6 +1,5 @@
-use framework::{
-    AdditionalOutput, MainOutput, Parameter, OptionalInput
-};
+use context_attribute::context;
+use framework::{AdditionalOutput, MainOutput, OptionalInput, Parameter};
 
 pub struct BallDetection {}
 
@@ -14,15 +13,12 @@ pub struct NewContext {
 pub struct CycleContext {
     pub ball_candidates: AdditionalOutput<Vec<CandidateEvaluation>, "ball_candidates">,
 
-
     pub camera_matrix: OptionalInput<CameraMatrix, "camera_matrix">,
-    pub perspective_grid_candidates: OptionalInput<PerspectiveGridCandidates, "perspective_grid_candidates">,
+    pub perspective_grid_candidates:
+        OptionalInput<PerspectiveGridCandidates, "perspective_grid_candidates">,
 
     pub ball_detection: Parameter<BallDetectionConfiguration, "$this_cycler/ball_detection">,
     pub ball_radius: Parameter<f32, "field_dimensions/ball_radius">,
-
-
-
 }
 
 #[context]
