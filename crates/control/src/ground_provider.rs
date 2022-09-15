@@ -1,8 +1,8 @@
 use framework::{
-    MainOutput, OptionalInput, PerceptionInput
+    MainOutput, OptionalInput
 };
 
-pub struct GameControllerFilter {}
+pub struct GroundProvider {}
 
 #[context]
 pub struct NewContext {
@@ -12,10 +12,11 @@ pub struct NewContext {
 pub struct CycleContext {
 
 
+    pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics">,
     pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+    pub support_foot: OptionalInput<SupportFoot, "support_foot">,
 
 
-    pub game_controller_state_message: PerceptionInput<GameControllerStateMessage, "SplNetwork", "game_controller_state_message">,
 
 
 }
@@ -23,10 +24,11 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub game_controller_state: MainOutput<GameControllerState>,
+    pub robot_to_ground: MainOutput<Isometry3<f32>>,
+    pub ground_to_robot: MainOutput<Isometry3<f32>>,
 }
 
-impl GameControllerFilter {
+impl GroundProvider {
     pub fn new(context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }

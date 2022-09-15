@@ -1,8 +1,8 @@
 use framework::{
-    MainOutput, OptionalInput
+    AdditionalOutput, MainOutput, OptionalInput
 };
 
-pub struct CenterOfMassProvider {}
+pub struct Odometry {}
 
 #[context]
 pub struct NewContext {
@@ -10,9 +10,12 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
+    pub accumulated_odometry: AdditionalOutput<Isometry2<f32>, "accumulated_odometry">,
 
 
     pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics">,
+    pub robot_orientation: OptionalInput<UnitComplex<f32>, "robot_orientation">,
+    pub support_foot: OptionalInput<SupportFoot, "support_foot">,
 
 
 
@@ -22,10 +25,10 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub center_of_mass: MainOutput<Point3<f32>>,
+    pub current_odometry_to_last_odometry: MainOutput<Isometry2<f32>>,
 }
 
-impl CenterOfMassProvider {
+impl Odometry {
     pub fn new(context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }

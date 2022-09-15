@@ -1,26 +1,30 @@
-use context_attribute::context;
-use nalgebra::Isometry3;
-
-use framework::{AdditionalOutput, MainOutput, Parameter, RequiredInput};
-use types::{CameraMatrices, FieldDimensions, ProjectedFieldLines, RobotKinematics};
+use framework::{
+    AdditionalOutput, MainOutput, Parameter, OptionalInput
+};
 
 pub struct CameraMatrixProvider {}
 
 #[context]
-pub struct NewContext {}
+pub struct NewContext {
+    pub bottom_camera_matrix_parameters: Parameter<CameraMatrixParameters, "vision_bottom/camera_matrix_parameters">,
+    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    pub top_camera_matrix_parameters: Parameter<CameraMatrixParameters, "vision_top/camera_matrix_parameters">,
+}
 
 #[context]
 pub struct CycleContext {
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">, // path?
-    pub top_camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "vision_top/camera_matrix_parameters">, // Kommt aus framework::configuration, path?
-    pub bottom_camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "vision_bottom/camera_matrix_parameters">, // Kommt aus framework::configuration, path?
-
-    pub robot_to_ground: RequiredInput<Isometry3<f32>, "robot_to_ground">,
-    pub robot_kinematics: RequiredInput<RobotKinematics, "robot_kinematics">,
-
     pub projected_field_lines: AdditionalOutput<ProjectedFieldLines, "projected_field_lines">,
+
+
+    pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics">,
+    pub robot_to_ground: OptionalInput<Isometry3<f32>, "robot_to_ground">,
+
+    pub bottom_camera_matrix_parameters: Parameter<CameraMatrixParameters, "vision_bottom/camera_matrix_parameters">,
+    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    pub top_camera_matrix_parameters: Parameter<CameraMatrixParameters, "vision_top/camera_matrix_parameters">,
+
+
+
 }
 
 #[context]
@@ -31,7 +35,7 @@ pub struct MainOutputs {
 
 impl CameraMatrixProvider {
     pub fn new(context: NewContext) -> anyhow::Result<Self> {
-        Ok(Self)
+        Ok(Self {})
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
