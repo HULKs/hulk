@@ -6,5 +6,5 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = "1.0.59"
-proc-macro2 = {version = "1.0.39", features = ["span-locations"]}
-source_analyzer = {path = "../source_analyzer"}
+proc-macro2 = { workspace = true }
+source_analyzer = { workspace = true }

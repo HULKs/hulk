@@ -6,17 +6,17 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = "1.0.59"
-control = {path = "../control"}
-framework = {path = "../framework"}
-hardware = {path = "../hardware"}
-spl_network2 = {path = "../spl_network2"}
-structs = {path = "../structs"}
-tokio-util = "0.7.1"
+control = { workspace = true }
+framework = { workspace = true }
+hardware = { workspace = true }
+spl_network2 = { workspace = true }
+structs = { workspace = true }
+tokio-util = { workspace = true }
 
 [build-dependencies]
-anyhow = "1.0.59"
-build_script_helpers = {path = "../build_script_helpers"}
-convert_case = "0.5.0"
-proc-macro2 = {version = "1.0.39", features = ["span-locations"]}
-quote = "1.0.10"
-source_analyzer = {path = "../source_analyzer"}
+anyhow = { workspace = true }
+build_script_helpers = { workspace = true }
+convert_case = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+source_analyzer = { workspace = true }
