@@ -1,9 +1,8 @@
-#VRML_SIM R2022a utf8
+#VRML_SIM R2022b utf8
 # license: Apache License 2.0
 # license url: http://www.apache.org/licenses/LICENSE-2.0
 # This is a proto file for Webots for the NAO
 # Extracted from: webots/protos/NAO.urdf
-
 PROTO NAO [
   field  SFVec3f     translation     0 0.345 0
   field  SFRotation  rotation        1 0 0 0
