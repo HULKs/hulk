@@ -9,7 +9,7 @@ use eframe::{
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
-use super::overlays::LineDetection;
+use super::overlays::{BallDetection, LineDetection};
 
 pub trait Overlay {
     const NAME: &'static str;
@@ -78,16 +78,22 @@ where
 
 pub struct Overlays {
     pub line_detection: EnabledOverlay<LineDetection>,
+    pub ball_detection: EnabledOverlay<BallDetection>,
 }
 
 impl Overlays {
     pub fn new(nao: Arc<Nao>, storage: Option<&dyn Storage>, selected_cycler: Cycler) -> Self {
-        let line_detection = EnabledOverlay::new(nao, storage, true, selected_cycler);
-        Self { line_detection }
+        let line_detection = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
+        let ball_detection = EnabledOverlay::new(nao, storage, true, selected_cycler);
+        Self {
+            line_detection,
+            ball_detection,
+        }
     }
 
     pub fn update_cycler(&mut self, selected_cycler: Cycler) {
         self.line_detection.update_cycler(selected_cycler);
+        self.ball_detection.update_cycler(selected_cycler);
     }
 
     pub fn combo_box(&mut self, ui: &mut Ui, selected_cycler: Cycler) {
@@ -95,15 +101,18 @@ impl Overlays {
             .selected_text("Overlays")
             .show_ui(ui, |ui| {
                 self.line_detection.checkbox(ui, selected_cycler);
+                self.ball_detection.checkbox(ui, selected_cycler);
             });
     }
 
     pub fn paint(&self, painter: &TwixPainter) -> Result<()> {
         let _ = self.line_detection.paint(painter);
+        let _ = self.ball_detection.paint(painter);
         Ok(())
     }
 
     pub fn save(&self, storage: &mut dyn Storage) {
         self.line_detection.save(storage);
+        self.ball_detection.save(storage);
     }
 }

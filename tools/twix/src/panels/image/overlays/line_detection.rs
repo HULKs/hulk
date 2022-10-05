@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 use communication::{Cycler, CyclerOutput};
 use eframe::epaint::{Color32, Stroke};
-use nalgebra::{point, Point2};
 use types::ImageLines;
 
 use crate::{
