@@ -13,6 +13,7 @@ use crate::{
 
 #[derive(Debug)]
 pub enum Message {
+    SubscribeToUpdates(mpsc::Sender<ConnectionStatus>),
     SetConnect(bool),
     SetAddress(String),
     ReconnectTimerElapsed,
@@ -21,7 +22,7 @@ pub enum Message {
 }
 
 #[derive(Debug)]
-enum ConnectionStatus {
+enum ConnectionState {
     Disconnected {
         address: Option<String>,
         connect: bool,
@@ -29,6 +30,20 @@ enum ConnectionStatus {
     Connecting {
         address: String,
         ongoing_connection: JoinHandle<()>,
+    },
+    Connected {
+        address: String,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum ConnectionStatus {
+    Disconnected {
+        address: Option<String>,
+        connect: bool,
+    },
+    Connecting {
+        address: String,
     },
     Connected {
         address: String,
@@ -47,25 +62,31 @@ pub async fn connector(
     let mut status = match (initial_address, initial_connect) {
         (Some(address), true) => {
             let ongoing_connection = spawn_connect(address.clone(), sender.clone());
-            ConnectionStatus::Connecting {
+            ConnectionState::Connecting {
                 address,
                 ongoing_connection,
             }
         }
-        (address, connect) => ConnectionStatus::Disconnected { address, connect },
+        (address, connect) => ConnectionState::Disconnected { address, connect },
     };
+
+    let mut subscribers = Vec::new();
 
     while let Some(message) = receiver.recv().await {
         status = match status {
-            ConnectionStatus::Disconnected {
+            ConnectionState::Disconnected {
                 connect: false,
                 address: None,
             } => match message {
-                Message::SetConnect(new_connect) => ConnectionStatus::Disconnected {
+                Message::SubscribeToUpdates(sender) => {
+                    subscribers.push(sender);
+                    status
+                }
+                Message::SetConnect(new_connect) => ConnectionState::Disconnected {
                     connect: new_connect,
                     address: None,
                 },
-                Message::SetAddress(new_address) => ConnectionStatus::Disconnected {
+                Message::SetAddress(new_address) => ConnectionState::Disconnected {
                     connect: false,
                     address: Some(new_address),
                 },
@@ -73,53 +94,64 @@ pub async fn connector(
                 Message::ConnectionFailed { .. } => panic!("This should never happen"),
                 Message::ReconnectTimerElapsed => panic!("This should never happen"),
             },
-            ConnectionStatus::Disconnected {
+            ConnectionState::Disconnected {
                 connect: false,
                 address: Some(address),
             } => match message {
+                Message::SubscribeToUpdates(sender) => {
+                    subscribers.push(sender);
+                    ConnectionState::Disconnected {
+                        address: Some(address),
+                        connect: false,
+                    }
+                }
                 Message::SetConnect(true) => {
                     let ongoing_connection = spawn_connect(address.clone(), sender.clone());
-                    ConnectionStatus::Connecting {
+                    ConnectionState::Connecting {
                         address,
                         ongoing_connection,
                     }
                 }
-                Message::SetConnect(false) => ConnectionStatus::Disconnected {
+                Message::SetConnect(false) => ConnectionState::Disconnected {
                     connect: false,
                     address: Some(address),
                 },
-                Message::SetAddress(new_address) => ConnectionStatus::Disconnected {
+                Message::SetAddress(new_address) => ConnectionState::Disconnected {
                     connect: false,
                     address: Some(new_address),
                 },
                 Message::Connected(_ws_stream) => {
                     warn!("Dropping connection, we do not want to connect anymore");
-                    ConnectionStatus::Disconnected {
+                    ConnectionState::Disconnected {
                         connect: false,
                         address: Some(address),
                     }
                 }
                 Message::ConnectionFailed { .. } => panic!("This should never happen"),
-                Message::ReconnectTimerElapsed => ConnectionStatus::Disconnected {
+                Message::ReconnectTimerElapsed => ConnectionState::Disconnected {
                     connect: false,
                     address: Some(address),
                 },
             },
-            ConnectionStatus::Disconnected {
+            ConnectionState::Disconnected {
                 connect: true,
                 address: None,
             } => match message {
-                Message::SetConnect(false) => ConnectionStatus::Disconnected {
+                Message::SubscribeToUpdates(sender) => {
+                    subscribers.push(sender);
+                    status
+                }
+                Message::SetConnect(false) => ConnectionState::Disconnected {
                     connect: false,
                     address: None,
                 },
-                Message::SetConnect(true) => ConnectionStatus::Disconnected {
+                Message::SetConnect(true) => ConnectionState::Disconnected {
                     connect: true,
                     address: None,
                 },
                 Message::SetAddress(address) => {
                     let ongoing_connection = spawn_connect(address.clone(), sender.clone());
-                    ConnectionStatus::Connecting {
+                    ConnectionState::Connecting {
                         address,
                         ongoing_connection,
                     }
@@ -128,25 +160,32 @@ pub async fn connector(
                 Message::ConnectionFailed { .. } => panic!("This should never happen"),
                 Message::ReconnectTimerElapsed => panic!("This should never happen"),
             },
-            ConnectionStatus::Disconnected {
+            ConnectionState::Disconnected {
                 connect: true,
                 address: Some(address),
             } => match message {
-                Message::SetConnect(false) => ConnectionStatus::Disconnected {
+                Message::SubscribeToUpdates(sender) => {
+                    subscribers.push(sender);
+                    ConnectionState::Disconnected {
+                        address: Some(address),
+                        connect: true,
+                    }
+                }
+                Message::SetConnect(false) => ConnectionState::Disconnected {
                     connect: false,
                     address: Some(address),
                 },
-                Message::SetConnect(true) => ConnectionStatus::Disconnected {
+                Message::SetConnect(true) => ConnectionState::Disconnected {
                     connect: true,
                     address: Some(address),
                 },
-                Message::SetAddress(address) => ConnectionStatus::Disconnected {
+                Message::SetAddress(address) => ConnectionState::Disconnected {
                     connect: true,
                     address: Some(address),
                 },
                 Message::ReconnectTimerElapsed => {
                     let ongoing_connection = spawn_connect(address.clone(), sender.clone());
-                    ConnectionStatus::Connecting {
+                    ConnectionState::Connecting {
                         address,
                         ongoing_connection,
                     }
@@ -154,24 +193,31 @@ pub async fn connector(
                 Message::Connected(_) => panic!("This should never happen"),
                 Message::ConnectionFailed { .. } => panic!("This should never happen"),
             },
-            ConnectionStatus::Connecting {
+            ConnectionState::Connecting {
                 address,
                 ongoing_connection,
             } => match message {
+                Message::SubscribeToUpdates(sender) => {
+                    subscribers.push(sender);
+                    ConnectionState::Connecting {
+                        address,
+                        ongoing_connection,
+                    }
+                }
                 Message::SetConnect(false) => {
                     ongoing_connection.abort();
-                    ConnectionStatus::Disconnected {
+                    ConnectionState::Disconnected {
                         connect: false,
                         address: Some(address),
                     }
                 }
-                Message::SetConnect(true) => ConnectionStatus::Connecting {
+                Message::SetConnect(true) => ConnectionState::Connecting {
                     address,
                     ongoing_connection,
                 },
                 Message::SetAddress(new_address) => {
                     if new_address == address {
-                        ConnectionStatus::Connecting {
+                        ConnectionState::Connecting {
                             address,
                             ongoing_connection,
                         }
@@ -204,22 +250,26 @@ pub async fn connector(
                         sender.clone(),
                     ));
                     info!("Connected to {}", address);
-                    ConnectionStatus::Connected { address }
+                    ConnectionState::Connected { address }
                 }
                 Message::ConnectionFailed { info } => {
                     error!("Connection failed: {}", info);
                     spawn_reconnect_timer(sender.clone());
-                    ConnectionStatus::Disconnected {
+                    ConnectionState::Disconnected {
                         connect: true,
                         address: Some(address),
                     }
                 }
-                Message::ReconnectTimerElapsed => ConnectionStatus::Connecting {
+                Message::ReconnectTimerElapsed => ConnectionState::Connecting {
                     address,
                     ongoing_connection,
                 },
             },
-            ConnectionStatus::Connected { address } => match message {
+            ConnectionState::Connected { address } => match message {
+                Message::SubscribeToUpdates(sender) => {
+                    subscribers.push(sender);
+                    ConnectionState::Connected { address }
+                }
                 Message::SetConnect(false) => {
                     output_subscription_manager
                         .send(output_subscription_manager::Message::Disconnect)
@@ -229,15 +279,15 @@ pub async fn connector(
                         .send(parameter_subscription_manager::Message::Disconnect)
                         .await
                         .unwrap();
-                    ConnectionStatus::Disconnected {
+                    ConnectionState::Disconnected {
                         connect: false,
                         address: Some(address),
                     }
                 }
-                Message::SetConnect(true) => ConnectionStatus::Connected { address },
+                Message::SetConnect(true) => ConnectionState::Connected { address },
                 Message::SetAddress(new_address) => {
                     if new_address == address {
-                        ConnectionStatus::Connected { address }
+                        ConnectionState::Connected { address }
                     } else {
                         output_subscription_manager
                             .send(output_subscription_manager::Message::Disconnect)
@@ -248,7 +298,7 @@ pub async fn connector(
                             .await
                             .unwrap();
                         let ongoing_connection = spawn_connect(new_address.clone(), sender.clone());
-                        ConnectionStatus::Connecting {
+                        ConnectionState::Connecting {
                             address: new_address,
                             ongoing_connection,
                         }
@@ -258,14 +308,30 @@ pub async fn connector(
                 Message::ConnectionFailed { info } => {
                     error!("Connection failed: {}", info);
                     spawn_reconnect_timer(sender.clone());
-                    ConnectionStatus::Disconnected {
+                    ConnectionState::Disconnected {
                         connect: true,
                         address: Some(address),
                     }
                 }
-                Message::ReconnectTimerElapsed => ConnectionStatus::Connected { address },
+                Message::ReconnectTimerElapsed => ConnectionState::Connected { address },
             },
         };
+        let status = match &status {
+            ConnectionState::Disconnected { address, connect } => ConnectionStatus::Disconnected {
+                address: address.clone(),
+                connect: *connect,
+            },
+            ConnectionState::Connecting {
+                address,
+                ongoing_connection: _,
+            } => ConnectionStatus::Connecting {
+                address: address.to_string(),
+            },
+            ConnectionState::Connected { address } => ConnectionStatus::Connected {
+                address: address.to_string(),
+            },
+        };
+        subscribers.retain(|sender| sender.try_send(status.clone()).is_ok())
     }
 }
 
@@ -305,13 +371,13 @@ async fn replace_ongoing_connection(
     ongoing_connection: JoinHandle<()>,
     new_address: String,
     sender: mpsc::Sender<Message>,
-) -> ConnectionStatus {
+) -> ConnectionState {
     ongoing_connection.abort();
     match ongoing_connection.await {
         Err(error) => {
             assert!(error.is_cancelled());
             let ongoing_connection = spawn_connect(new_address.clone(), sender);
-            ConnectionStatus::Connecting {
+            ConnectionState::Connecting {
                 address: new_address,
                 ongoing_connection,
             }

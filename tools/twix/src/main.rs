@@ -5,9 +5,13 @@ use std::{
 
 use anyhow::Result;
 
+use communication::ConnectionStatus;
 use completion_edit::CompletionEdit;
 use eframe::{
-    egui::{CentralPanel, Context, Key, Modifiers, TopBottomPanel, Ui, Visuals, Widget},
+    egui::{
+        CentralPanel, Context, Key, Modifiers, TopBottomPanel, Ui, Visuals, Widget, WidgetText,
+    },
+    epaint::Color32,
     run_native, App, CreationContext, Frame, NativeOptions, Storage,
 };
 use egui_dock::{DockArea, NodeIndex, TabAddAlign, TabIndex, Tree};
@@ -17,6 +21,7 @@ use nao::Nao;
 use panel::Panel;
 use panels::{ImagePanel, ImageSegmentsPanel, MapPanel, ParameterPanel, PlotPanel, TextPanel};
 use serde_json::{from_str, to_string, Value};
+use tokio::sync::mpsc;
 
 mod completion_edit;
 mod image_buffer;
@@ -129,6 +134,8 @@ struct TwixApp {
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
     tree: Tree<SelectablePanel>,
+    connection_status: ConnectionStatus,
+    connection_receiver: mpsc::Receiver<ConnectionStatus>,
 }
 
 impl TwixApp {
@@ -159,6 +166,12 @@ impl TwixApp {
             .unwrap_or_else(|| Tree::new(Vec::new()));
         let tree = tree.map_tabs(|value| SelectablePanel::new(nao.clone(), Some(value)).unwrap());
 
+        let connection_status = ConnectionStatus::Disconnected {
+            address: None,
+            connect: false,
+        };
+        let connection_receiver = nao.subscribe_status_updates();
+
         let mut style = (*creation_context.egui_ctx.style()).clone();
         style.visuals = Visuals::dark();
         creation_context.egui_ctx.set_style(style);
@@ -170,6 +183,8 @@ impl TwixApp {
             panel_selection,
             tree,
             last_focused_tab: (0.into(), 0.into()),
+            connection_status,
+            connection_receiver,
         }
     }
 }
@@ -180,6 +195,10 @@ fn ip_to_socket_address(ip_address: &str) -> String {
 
 impl App for TwixApp {
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
+        while let Ok(status) = self.connection_receiver.try_recv() {
+            self.connection_status = status;
+        }
+
         context.request_repaint();
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
@@ -191,8 +210,21 @@ impl App for TwixApp {
                 if address_input.changed() || address_input.lost_focus() {
                     self.nao.set_address(ip_to_socket_address(&self.ip_address));
                 }
+                let (connect_text, color) = match &self.connection_status {
+                    ConnectionStatus::Disconnected { connect, .. } => (
+                        "Connect",
+                        if *connect {
+                            Color32::RED
+                        } else {
+                            Color32::WHITE
+                        },
+                    ),
+                    ConnectionStatus::Connecting { .. } => ("Connecting", Color32::YELLOW),
+                    ConnectionStatus::Connected { .. } => ("Connected", Color32::GREEN),
+                };
+                let connect_text = WidgetText::from(connect_text).color(color);
                 if ui
-                    .checkbox(&mut self.connection_intent, "Connect")
+                    .checkbox(&mut self.connection_intent, connect_text)
                     .changed()
                 {
                     self.nao.set_connect(self.connection_intent);
