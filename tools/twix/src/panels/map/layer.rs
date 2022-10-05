@@ -5,7 +5,7 @@ use eframe::{egui::Ui, Storage};
 
 use types::FieldDimensions;
 
-use crate::{nao::Nao, twix_paint::TwixPainter};
+use crate::{nao::Nao, twix_painter::TwixPainter};
 
 pub trait Layer {
     const NAME: &'static str;

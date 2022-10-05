@@ -11,7 +11,7 @@ use crate::{
     id_tracker::{self, get_message_id},
     requester, responder,
     types::SubscribedOutput,
-    OutputHierarchy, SubscriberMessage,
+    Output, OutputHierarchy, SubscriberMessage,
 };
 
 use super::{Cycler, CyclerOutput};
@@ -34,6 +34,11 @@ pub enum Message {
     Update {
         cycler: Cycler,
         outputs: Vec<SubscribedOutput>,
+        image_id: Option<u32>,
+    },
+    UpdateImage {
+        image_id: u32,
+        data: Vec<u8>,
     },
     UpdateOutputHierarchy {
         hierarchy: OutputHierarchy,
@@ -55,6 +60,9 @@ pub async fn output_subscription_manager(
     > = HashMap::new();
     let mut requester = None;
     let mut hierarchy = None;
+    let mut images: HashMap<u32, Vec<u8>> = HashMap::new();
+    let mut image_ids_waiting_for_image: HashMap<u32, Cycler> = HashMap::new();
+
     while let Some(message) = receiver.recv().await {
         match message {
             Message::Connect {
@@ -109,7 +117,32 @@ pub async fn output_subscription_manager(
                     }
                 }
             }
-            Message::Update { cycler, outputs } => {
+            Message::Update {
+                cycler,
+                outputs,
+                image_id,
+            } => {
+                let image_subscribers = subscribed_outputs.get(&CyclerOutput {
+                    cycler,
+                    output: Output::Image,
+                });
+                if let (Some(image_id), Some(senders)) = (image_id, image_subscribers) {
+                    match images.remove(&image_id) {
+                        Some(image) => {
+                            for sender in senders.values() {
+                                sender
+                                    .send(SubscriberMessage::UpdateImage {
+                                        data: image.clone(),
+                                    })
+                                    .await
+                                    .unwrap();
+                            }
+                        }
+                        None => {
+                            image_ids_waiting_for_image.insert(image_id, cycler);
+                        }
+                    }
+                }
                 for output in outputs {
                     if let Some(senders) = subscribed_outputs.get(&CyclerOutput {
                         cycler,
@@ -133,6 +166,24 @@ pub async fn output_subscription_manager(
             }
             Message::GetOutputHierarchy { response_sender } => {
                 response_sender.send(hierarchy.clone()).unwrap();
+            }
+            Message::UpdateImage { image_id, data } => {
+                if let Some(cycler) = image_ids_waiting_for_image.get(&image_id) {
+                    let image_subscribers = subscribed_outputs.get(&CyclerOutput {
+                        cycler: *cycler,
+                        output: Output::Image,
+                    });
+                    if let Some(senders) = image_subscribers {
+                        for sender in senders.values() {
+                            sender
+                                .send(SubscriberMessage::UpdateImage { data: data.clone() })
+                                .await
+                                .unwrap();
+                        }
+                    }
+                } else {
+                    images.insert(image_id, data);
+                }
             }
         }
     }

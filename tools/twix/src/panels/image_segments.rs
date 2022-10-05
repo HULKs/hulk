@@ -9,9 +9,9 @@ use eframe::{
 use nalgebra::{point, vector, Similarity2};
 use types::{CameraPosition, ImageSegments, Rgb, RgbChannel};
 
-use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
+use crate::{nao::Nao, panel::Panel, twix_painter::CoordinateSystem, value_buffer::ValueBuffer};
 
-use crate::twix_paint::TwixPainter;
+use crate::twix_painter::TwixPainter;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ColorMode {
@@ -128,15 +128,14 @@ impl Widget for &mut ImageSegmentsPanel {
             Err(error) => return ui.label(format!("{:?}", error)),
         };
 
-        let mut painter = TwixPainter::new(
-            ui,
+        let (mut response, painter) = TwixPainter::allocate_new(ui);
+        let painter = painter.with_camera(
             vector![640.0, 480.0],
             Similarity2::identity(),
-            Similarity2::identity(),
-            1.0,
+            CoordinateSystem::LeftHand,
         );
-        if let Some(hover_pos) = painter.response.hover_pos() {
-            let image_coords = painter.pixel_to_world(hover_pos);
+        if let Some(hover_pos) = response.hover_pos() {
+            let image_coords = painter.transform_pixel_to_world(hover_pos);
             let x = image_coords.x.round() as u16;
             let y = image_coords.y.round() as u16;
             if let Some(scanline) = image_segments
@@ -159,8 +158,7 @@ impl Widget for &mut ImageSegmentsPanel {
                     let red_chromaticity = rgb_color.get_chromaticity(RgbChannel::Red);
                     let green_chromaticity = rgb_color.get_chromaticity(RgbChannel::Green);
                     let blue_chromaticity = rgb_color.get_chromaticity(RgbChannel::Blue);
-                    painter.response = painter
-                .response
+                    response = response
                 .on_hover_text_at_pointer(format!("x: {x}, start: {start}, end: {end}\nY: {y:3}, Cb: {cb:3}, Cr: {cr:3}\nR: {r:3}, G: {g:3}, B: {b:3}\nr: {red_chromaticity:.2}, g: {green_chromaticity:.2}, b: {blue_chromaticity:.2}"));
                 }
             }
@@ -207,6 +205,6 @@ impl Widget for &mut ImageSegmentsPanel {
                 );
             }
         }
-        painter.response
+        response
     }
 }

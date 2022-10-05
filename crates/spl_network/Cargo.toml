@@ -1,15 +1,15 @@
 [package]
-edition = "2018"
+edition = "2021"
 name = "spl_network"
 version = "0.1.0"
 license = "GPL-3.0-only"
 
 [build-dependencies]
-bindgen = "0.59.2"
+bindgen = { workspace = true }
 
 [dependencies]
-anyhow = "1.0.56"
-approx = "0.5.1"
-byteorder = "1.4.3"
-nalgebra = {version = "0.31.0", features = ["serde-serialize"]}
-serde = {version = "1.0.136", features = ["derive"]}
+anyhow = { workspace = true }
+approx = { workspace = true }
+byteorder = { workspace = true }
+nalgebra = { workspace = true }
+serde = { workspace = true }

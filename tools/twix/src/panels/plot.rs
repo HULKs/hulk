@@ -1,10 +1,9 @@
 use std::{str::FromStr, sync::Arc};
 
-use communication::CyclerOutput;
 use eframe::{
     egui::{
         self,
-        plot::{Line, Value, Values},
+        plot::{Line, PlotPoints},
         widgets::plot::Plot as EguiPlot,
         DragValue, Response, Widget,
     },
@@ -12,6 +11,8 @@ use eframe::{
     Storage,
 };
 use log::{error, info};
+
+use communication::CyclerOutput;
 
 use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 
@@ -59,7 +60,7 @@ impl Widget for &mut PlotPanel {
                     match buffer.get_buffered() {
                         Ok(buffered_values) => {
                             ui.ctx().request_repaint();
-                            Values::from_values_iter(buffered_values.iter().rev().enumerate().map(
+                            PlotPoints::from_iter(buffered_values.iter().rev().enumerate().map(
                                 |(i, value)| {
                                     let value = match value {
                                         serde_json::Value::Bool(value) => *value as u8 as f64,
@@ -68,14 +69,14 @@ impl Widget for &mut PlotPanel {
                                         }
                                         _ => f64::NAN,
                                     };
-                                    Value::new(i as f64, value)
+                                    [i as f64, value]
                                 },
                             ))
                         }
-                        _ => Values::default(),
+                        _ => PlotPoints::default(),
                     }
                 } else {
-                    Values::default()
+                    PlotPoints::default()
                 };
                 Line::new(values).color(data.color)
             })

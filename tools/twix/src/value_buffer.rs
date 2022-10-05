@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use anyhow::{anyhow, Context, Result};
 use communication::{Communication, CyclerOutput, SubscriberMessage};
+use log::error;
 use serde::Deserialize;
 use serde_json::{from_value, Value, Value::Array};
 use tokio::{
@@ -147,6 +148,10 @@ async fn value_buffer(
                             },
                             SubscriberMessage::SubscriptionSuccess => (),
                             SubscriberMessage::SubscriptionFailure{info} => values = Some(Err(info)),
+                            SubscriberMessage::UpdateImage{..} => {
+                                error!("Got UpdateImage message on value buffer");
+                                break;
+                            }
                         }
                     },
                     None => break,

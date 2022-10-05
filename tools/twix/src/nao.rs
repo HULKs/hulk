@@ -1,9 +1,9 @@
-use communication::{Communication, CyclerOutput, HierarchyType, OutputHierarchy};
+use communication::{Communication, Cycler, CyclerOutput, HierarchyType, OutputHierarchy};
 
 use serde_json::Value;
 use tokio::runtime::{Builder, Runtime};
 
-use crate::value_buffer::ValueBuffer;
+use crate::{image_buffer::ImageBuffer, value_buffer::ValueBuffer};
 
 pub struct Nao {
     communication: Communication,
@@ -34,6 +34,11 @@ impl Nao {
     pub fn subscribe_output(&self, output: CyclerOutput) -> ValueBuffer {
         let _guard = self.runtime.enter();
         ValueBuffer::output(self.communication.clone(), output)
+    }
+
+    pub fn subscribe_image(&self, cycler: Cycler) -> ImageBuffer {
+        let _guard = self.runtime.enter();
+        ImageBuffer::new(self.communication.clone(), cycler)
     }
 
     pub fn subscribe_parameter(&self, path: &str) -> ValueBuffer {

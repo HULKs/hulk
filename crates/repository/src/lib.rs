@@ -24,7 +24,7 @@ use tokio::{
 
 use spl_network::PlayerNumber;
 
-pub const SDK_VERSION: &str = "4.2";
+pub const SDK_VERSION: &str = "4.3";
 pub const INSTALLATION_DIRECTORY: &str = "/opt/nao";
 
 pub struct Repository {

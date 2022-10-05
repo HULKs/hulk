@@ -158,8 +158,8 @@ fn extract_segment_cluster_points(
             clusters.pop();
         }
 
-        let amount_of_segments = clusters.len();
         if let Some(last_cluster) = clusters.last() {
+            let amount_of_segments = last_cluster.len();
             let luminances: Vec<_> = last_cluster
                 .iter()
                 .map(|segment| segment.color.y as f32)

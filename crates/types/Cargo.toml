@@ -5,12 +5,12 @@ edition = "2021"
 license = "GPL-3.0-only"
 
 [dependencies]
-anyhow = "1.0.56"
-approx = "0.5.1"
-nalgebra = {version = "0.31.0", features = ["serde-serialize"]}
-serde = {version = "1.0.136", features = ["derive"]}
-serde_json = "1.0.79"
-serialize_hierarchy = {path="../serialize_hierarchy"}
-ordered-float = "2.10.0"
-spl_network = {path="../spl_network"}
-image = "0.23.14"
+anyhow = { workspace = true }
+approx = { workspace = true }
+image = { workspace = true }
+nalgebra = { workspace = true }
+ordered-float = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serialize_hierarchy = { workspace = true }
+spl_network = { workspace = true }

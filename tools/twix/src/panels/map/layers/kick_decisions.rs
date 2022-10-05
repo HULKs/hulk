@@ -6,7 +6,9 @@ use eframe::epaint::{Color32, Stroke};
 use nalgebra::{Isometry2, Point2};
 use types::FieldDimensions;
 
-use crate::{nao::Nao, panels::Layer, twix_paint::TwixPainter, value_buffer::ValueBuffer};
+use crate::{
+    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+};
 
 pub struct KickDecisions {
     robot_to_field: ValueBuffer,

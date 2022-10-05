@@ -6,7 +6,9 @@ use eframe::epaint::{Color32, Stroke};
 use nalgebra::Isometry2;
 use types::{FieldDimensions, MotionCommand, PathSegment};
 
-use crate::{nao::Nao, panels::Layer, twix_paint::TwixPainter, value_buffer::ValueBuffer};
+use crate::{
+    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+};
 
 pub struct Path {
     robot_to_field: ValueBuffer,

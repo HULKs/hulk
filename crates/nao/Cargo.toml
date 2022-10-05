@@ -5,5 +5,5 @@ name = "nao"
 version = "0.1.0"
 
 [dependencies]
-anyhow = "1.0.58"
-tokio = {features = ["process"], version = "1.19.2"}
+anyhow = { workspace = true }
+tokio = { workspace = true }

@@ -5,8 +5,9 @@ use std::{
 
 use anyhow::Result;
 
+use completion_edit::CompletionEdit;
 use eframe::{
-    egui::{CentralPanel, ComboBox, Context, TextEdit, TopBottomPanel, Visuals, Widget},
+    egui::{CentralPanel, Context, Key, Modifiers, TopBottomPanel, Visuals, Widget},
     run_native, App, CreationContext, Frame, NativeOptions, Storage,
 };
 use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
@@ -14,13 +15,14 @@ use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 use log::warn;
 use nao::Nao;
 use panel::Panel;
-use panels::{ImageSegmentsPanel, MapPanel, ParameterPanel, PlotPanel, TextPanel};
+use panels::{ImagePanel, ImageSegmentsPanel, MapPanel, ParameterPanel, PlotPanel, TextPanel};
 
 mod completion_edit;
+mod image_buffer;
 mod nao;
 mod panel;
 mod panels;
-mod twix_paint;
+mod twix_painter;
 mod value_buffer;
 
 fn setup_logger() -> Result<(), InitError> {
@@ -49,9 +51,11 @@ fn main() {
     )
 }
 
+#[allow(clippy::large_enum_variant)]
 enum SelectablePanel {
-    Plot(PlotPanel),
     Text(TextPanel),
+    Plot(PlotPanel),
+    Image(ImagePanel),
     ImageSegments(ImageSegmentsPanel),
     Map(MapPanel),
     Parameter(ParameterPanel),
@@ -60,8 +64,9 @@ enum SelectablePanel {
 impl SelectablePanel {
     fn save(&mut self, storage: &mut dyn Storage) {
         match self {
-            SelectablePanel::Plot(panel) => panel.save(storage),
             SelectablePanel::Text(panel) => panel.save(storage),
+            SelectablePanel::Plot(panel) => panel.save(storage),
+            SelectablePanel::Image(panel) => panel.save(storage),
             SelectablePanel::ImageSegments(panel) => panel.save(storage),
             SelectablePanel::Map(panel) => panel.save(storage),
             SelectablePanel::Parameter(panel) => panel.save(storage),
@@ -72,8 +77,9 @@ impl SelectablePanel {
 impl Display for SelectablePanel {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let panel_name = match self {
-            SelectablePanel::Plot(_) => PlotPanel::NAME,
             SelectablePanel::Text(_) => TextPanel::NAME,
+            SelectablePanel::Plot(_) => PlotPanel::NAME,
+            SelectablePanel::Image(_) => ImagePanel::NAME,
             SelectablePanel::ImageSegments(_) => ImageSegmentsPanel::NAME,
             SelectablePanel::Map(_) => MapPanel::NAME,
             SelectablePanel::Parameter(_) => ParameterPanel::NAME,
@@ -86,7 +92,8 @@ struct TwixApp {
     nao: Arc<Nao>,
     connection_intent: bool,
     ip_address: String,
-    selected_panel: SelectablePanel,
+    panel_selection: String,
+    active_panel: SelectablePanel,
 }
 
 impl TwixApp {
@@ -110,32 +117,44 @@ impl TwixApp {
             connection_intent,
         ));
 
-        let selected_panel = match creation_context
+        let (panel_selection, active_panel) = match creation_context
             .storage
             .and_then(|storage| storage.get_string("selected_panel"))
         {
-            Some(stored_panel) => match stored_panel.as_str() {
-                "Text" => {
-                    SelectablePanel::Text(TextPanel::new(nao.clone(), creation_context.storage))
-                }
-                "Plot" => {
-                    SelectablePanel::Plot(PlotPanel::new(nao.clone(), creation_context.storage))
-                }
-                "Image Segments" => SelectablePanel::ImageSegments(ImageSegmentsPanel::new(
-                    nao.clone(),
-                    creation_context.storage,
-                )),
-                "Map" => SelectablePanel::Map(MapPanel::new(nao.clone(), creation_context.storage)),
-                "Parameter" => SelectablePanel::Parameter(ParameterPanel::new(
-                    nao.clone(),
-                    creation_context.storage,
-                )),
-                name => {
-                    warn!("Unknown panel stored in persistent storage: {name}");
-                    SelectablePanel::Text(TextPanel::new(nao.clone(), creation_context.storage))
-                }
-            },
-            None => SelectablePanel::Text(TextPanel::new(nao.clone(), creation_context.storage)),
+            Some(stored_panel) => {
+                let panel = match stored_panel.as_str() {
+                    "Text" => {
+                        SelectablePanel::Text(TextPanel::new(nao.clone(), creation_context.storage))
+                    }
+                    "Plot" => {
+                        SelectablePanel::Plot(PlotPanel::new(nao.clone(), creation_context.storage))
+                    }
+                    "Image" => SelectablePanel::Image(ImagePanel::new(
+                        nao.clone(),
+                        creation_context.storage,
+                    )),
+                    "Image Segments" => SelectablePanel::ImageSegments(ImageSegmentsPanel::new(
+                        nao.clone(),
+                        creation_context.storage,
+                    )),
+                    "Map" => {
+                        SelectablePanel::Map(MapPanel::new(nao.clone(), creation_context.storage))
+                    }
+                    "Parameter" => SelectablePanel::Parameter(ParameterPanel::new(
+                        nao.clone(),
+                        creation_context.storage,
+                    )),
+                    name => {
+                        warn!("Unknown panel stored in persistent storage: {name}");
+                        SelectablePanel::Text(TextPanel::new(nao.clone(), creation_context.storage))
+                    }
+                };
+                (stored_panel, panel)
+            }
+            None => (
+                "Text".to_string(),
+                SelectablePanel::Text(TextPanel::new(nao.clone(), creation_context.storage)),
+            ),
         };
 
         let mut style = (*creation_context.egui_ctx.style()).clone();
@@ -145,7 +164,8 @@ impl TwixApp {
             nao,
             connection_intent,
             ip_address: ip_address.unwrap_or_default(),
-            selected_panel,
+            panel_selection,
+            active_panel,
         }
     }
 }
@@ -159,11 +179,12 @@ impl App for TwixApp {
         context.request_repaint();
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
-                if TextEdit::singleline(&mut self.ip_address)
-                    .hint_text("Address")
-                    .ui(ui)
-                    .lost_focus()
-                {
+                let address_input = CompletionEdit::addresses(&mut self.ip_address, 21..33).ui(ui);
+                if ui.input_mut().consume_key(Modifiers::CTRL, Key::O) {
+                    address_input.request_focus();
+                    CompletionEdit::select_all(&self.ip_address, ui, address_input.id);
+                }
+                if address_input.changed() || address_input.lost_focus() {
                     self.nao.set_address(ip_to_socket_address(&self.ip_address));
                 }
                 if ui
@@ -172,74 +193,68 @@ impl App for TwixApp {
                 {
                     self.nao.set_connect(self.connection_intent);
                 }
-                ComboBox::from_label("Panel")
-                    .selected_text(self.selected_panel.to_string())
-                    .show_ui(ui, |ui| {
-                        if ui
-                            .selectable_label(
-                                matches!(self.selected_panel, SelectablePanel::Text(_)),
-                                "Text",
-                            )
-                            .clicked()
-                        {
-                            self.selected_panel = SelectablePanel::Text(TextPanel::new(
+                let panel_input = CompletionEdit::new(
+                    &mut self.panel_selection,
+                    vec![
+                        "Text".to_string(),
+                        "Plot".to_string(),
+                        "Image".to_string(),
+                        "Image Segments".to_string(),
+                        "Map".to_string(),
+                        "Parameter".to_string(),
+                    ],
+                )
+                .ui(ui);
+                if ui.input_mut().consume_key(Modifiers::CTRL, Key::P) {
+                    panel_input.request_focus();
+                    CompletionEdit::select_all(&self.panel_selection, ui, panel_input.id);
+                }
+                if panel_input.changed() || panel_input.lost_focus() {
+                    match self.panel_selection.to_lowercase().as_str() {
+                        "text" => {
+                            self.active_panel = SelectablePanel::Text(TextPanel::new(
+                                self.nao.clone(),
+                                frame.storage(),
+                            ))
+                        }
+                        "plot" => {
+                            self.active_panel = SelectablePanel::Plot(PlotPanel::new(
                                 self.nao.clone(),
                                 frame.storage(),
                             ));
                         }
-                        if ui
-                            .selectable_label(
-                                matches!(self.selected_panel, SelectablePanel::Plot(_)),
-                                "Plot",
-                            )
-                            .clicked()
-                        {
-                            self.selected_panel = SelectablePanel::Plot(PlotPanel::new(
+                        "image" => {
+                            self.active_panel = SelectablePanel::Image(ImagePanel::new(
                                 self.nao.clone(),
                                 frame.storage(),
-                            ));
+                            ))
                         }
-                        if ui
-                            .selectable_label(
-                                matches!(self.selected_panel, SelectablePanel::Map(_)),
-                                "Map",
-                            )
-                            .clicked()
-                        {
-                            self.selected_panel = SelectablePanel::Map(MapPanel::new(
-                                self.nao.clone(),
-                                frame.storage(),
-                            ));
-                        }
-                        if ui
-                            .selectable_label(
-                                matches!(self.selected_panel, SelectablePanel::ImageSegments(_)),
-                                "Image Segments",
-                            )
-                            .clicked()
-                        {
-                            self.selected_panel = SelectablePanel::ImageSegments(
+                        "image segments" => {
+                            self.active_panel = SelectablePanel::ImageSegments(
                                 ImageSegmentsPanel::new(self.nao.clone(), frame.storage()),
-                            );
-                        }
-                        if ui
-                            .selectable_label(
-                                matches!(self.selected_panel, SelectablePanel::Parameter(_)),
-                                "Parameter",
                             )
-                            .clicked()
-                        {
-                            self.selected_panel = SelectablePanel::Parameter(ParameterPanel::new(
+                        }
+                        "map" => {
+                            self.active_panel = SelectablePanel::Map(MapPanel::new(
                                 self.nao.clone(),
                                 frame.storage(),
-                            ));
+                            ))
                         }
-                    });
+                        "parameter" => {
+                            self.active_panel = SelectablePanel::Parameter(ParameterPanel::new(
+                                self.nao.clone(),
+                                frame.storage(),
+                            ))
+                        }
+                        _ => {}
+                    }
+                }
             })
         });
-        CentralPanel::default().show(context, |ui| match &mut self.selected_panel {
-            SelectablePanel::Plot(panel) => panel.ui(ui),
+        CentralPanel::default().show(context, |ui| match &mut self.active_panel {
             SelectablePanel::Text(panel) => panel.ui(ui),
+            SelectablePanel::Plot(panel) => panel.ui(ui),
+            SelectablePanel::Image(panel) => panel.ui(ui),
             SelectablePanel::ImageSegments(panel) => panel.ui(ui),
             SelectablePanel::Map(panel) => panel.ui(ui),
             SelectablePanel::Parameter(panel) => panel.ui(ui),
@@ -257,7 +272,7 @@ impl App for TwixApp {
             }
             .to_string(),
         );
-        storage.set_string("selected_panel", self.selected_panel.to_string());
-        self.selected_panel.save(storage);
+        storage.set_string("selected_panel", self.active_panel.to_string());
+        self.active_panel.save(storage);
     }
 }

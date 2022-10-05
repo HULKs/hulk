@@ -33,6 +33,7 @@ async fn main() -> Result<()> {
                 error!("Failed to subscribe: {info:?}");
                 break;
             }
+            SubscriberMessage::UpdateImage { .. } => anyhow::bail!("Cannot print Image data"),
         }
     }
     Ok(())

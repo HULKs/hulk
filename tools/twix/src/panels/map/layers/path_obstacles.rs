@@ -1,12 +1,14 @@
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
 
 use anyhow::Result;
 use communication::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::Isometry2;
-use types::PathObstacle;
+use types::{FieldDimensions, PathObstacle};
 
-use crate::{panels::Layer, value_buffer::ValueBuffer};
+use crate::{
+    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+};
 
 pub struct PathObstacles {
     robot_to_field: ValueBuffer,
@@ -16,7 +18,7 @@ pub struct PathObstacles {
 impl Layer for PathObstacles {
     const NAME: &'static str = "Path Obstacles";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
+    fn new(nao: Arc<Nao>) -> Self {
         let robot_to_field =
             nao.subscribe_output(CyclerOutput::from_str("control.main.robot_to_field").unwrap());
         let path_obstacles = nao
@@ -27,11 +29,7 @@ impl Layer for PathObstacles {
         }
     }
 
-    fn paint(
-        &self,
-        painter: &crate::twix_paint::TwixPainter,
-        _field_dimensions: &types::FieldDimensions,
-    ) -> Result<()> {
+    fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
         let robot_to_field: Isometry2<f32> = self.robot_to_field.require_latest()?;
         let path_obstacles: Vec<PathObstacle> = self.path_obstacles.require_latest()?;
 

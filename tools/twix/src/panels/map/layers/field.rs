@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use types::FieldDimensions;
 
-use crate::{nao::Nao, panels::Layer, twix_paint::TwixPainter};
+use crate::{nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter};
 
 pub struct Field {}
 

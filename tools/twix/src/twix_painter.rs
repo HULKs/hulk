@@ -8,74 +8,89 @@ use eframe::{
 use nalgebra::{point, vector, Isometry2, Point2, Rotation2, Similarity2, Vector2};
 use types::{Arc, Circle, FieldDimensions, Orientation};
 
+pub enum CoordinateSystem {
+    RightHand,
+    LeftHand,
+}
+
+impl CoordinateSystem {
+    fn y_scale(&self) -> f32 {
+        match self {
+            CoordinateSystem::RightHand => -1.0,
+            CoordinateSystem::LeftHand => 1.0,
+        }
+    }
+}
+
 pub struct TwixPainter {
-    pub response: Response,
     painter: Painter,
-    pub model_to_world: Similarity2<f32>,
-    world_to_camera: Similarity2<f32>,
-    camera_to_pixel: Similarity2<f32>,
-    y_scale: f32,
+    pixel_rect: Rect,
+    world_to_pixel: Similarity2<f32>,
+    camera_coordinate_system: CoordinateSystem,
 }
 
 impl TwixPainter {
-    pub fn new(
-        ui: &mut Ui,
-        dimensions: Vector2<f32>,
-        model_to_world: Similarity2<f32>,
-        world_to_camera: Similarity2<f32>,
-        y_scale: f32,
-    ) -> Self {
+    pub fn allocate_new(ui: &mut Ui) -> (Response, Self) {
         let (response, painter) =
-            ui.allocate_painter(ui.available_size_before_wrap(), Sense::drag());
-        let width_scale = response.rect.width() / dimensions.x;
-        let height_scale = response.rect.height() / dimensions.y;
-        let camera_to_pixel = if width_scale < height_scale {
-            Similarity2::new(
-                vector![
-                    0.0,
-                    response.rect.height() / 2.0 - width_scale * dimensions.y / 2.0
-                ],
-                0.0,
-                width_scale,
-            )
-        } else {
-            Similarity2::new(
-                vector![
-                    response.rect.width() / 2.0 - height_scale * dimensions.x / 2.0,
-                    0.0
-                ],
-                0.0,
-                height_scale,
-            )
-        };
-        Self {
-            response,
+            ui.allocate_painter(ui.available_size_before_wrap(), Sense::click_and_drag());
+        let pixel_rect = response.rect;
+        let world_to_pixel = Similarity2::new(
+            vector![pixel_rect.left_top().x, pixel_rect.left_top().y],
+            0.0,
+            1.0,
+        );
+        let twix_painter = Self {
             painter,
-            model_to_world,
-            world_to_camera,
-            camera_to_pixel,
-            y_scale,
+            pixel_rect,
+            world_to_pixel,
+            camera_coordinate_system: CoordinateSystem::RightHand,
+        };
+        (response, twix_painter)
+    }
+
+    pub fn paint_at(ui: &mut Ui, pixel_rect: Rect) -> Self {
+        let painter = ui.painter_at(pixel_rect);
+        let world_to_pixel = Similarity2::new(
+            vector![pixel_rect.left_top().x, pixel_rect.left_top().y],
+            0.0,
+            1.0,
+        );
+        Self {
+            painter,
+            pixel_rect,
+            world_to_pixel,
+            camera_coordinate_system: CoordinateSystem::RightHand,
         }
     }
 
-    pub fn new_map(
-        ui: &mut Ui,
-        field_dimensions: &FieldDimensions,
-        transformation: Similarity2<f32>,
+    pub fn with_camera(
+        self,
+        camera_dimensions: Vector2<f32>,
+        world_to_camera: Similarity2<f32>,
+        camera_coordinate_system: CoordinateSystem,
     ) -> Self {
-        let length = field_dimensions.length + field_dimensions.border_strip_width * 2.0;
-        let width = field_dimensions.width + field_dimensions.border_strip_width * 2.0;
-        Self::new(
-            ui,
-            vector![length, width],
-            transformation,
-            Similarity2::new(vector![length / 2.0, width / 2.0], 0.0, 1.0),
-            -1.0,
-        )
+        let width_scale = self.pixel_rect.width() / camera_dimensions.x;
+        let height_scale = self.pixel_rect.height() / camera_dimensions.y;
+        let top_left = vector![self.pixel_rect.left_top().x, self.pixel_rect.left_top().y];
+        let camera_to_pixel = Similarity2::new(top_left, 0.0, width_scale.min(height_scale));
+        Self {
+            painter: self.painter,
+            pixel_rect: self.pixel_rect,
+            world_to_pixel: camera_to_pixel * world_to_camera,
+            camera_coordinate_system,
+        }
     }
 
-    pub fn transform(&self) -> Similarity2<f32> {
-        self.camera_to_pixel * self.world_to_camera * self.model_to_world
+    pub fn with_map_transforms(self, field_dimensions: &FieldDimensions) -> Self {
+        let length = field_dimensions.length + field_dimensions.border_strip_width * 2.0;
+        let width = field_dimensions.width + field_dimensions.border_strip_width * 2.0;
+        let dimensions = vector![length, width];
+        let world_to_camera = Similarity2::new(vector![length / 2.0, width / 2.0], 0.0, 1.0);
+        self.with_camera(dimensions, world_to_camera, CoordinateSystem::RightHand)
+    }
+
+    pub fn append_transform(&mut self, transformation: Similarity2<f32>) {
+        self.world_to_pixel = transformation * self.world_to_pixel;
     }
 
     pub fn field(&self, field_dimensions: &FieldDimensions) {
@@ -283,7 +298,7 @@ impl TwixPainter {
     pub fn n_gon(&self, corners: usize, position: Point2<f32>, radius: f32, fill_color: Color32) {
         let points: Vec<_> = (0..corners)
             .map(|index| {
-                self.world_to_pixel({
+                self.transform_world_to_pixel({
                     let angle = index as f32 * PI * 2.0 / corners as f32;
                     position + vector![angle.cos(), angle.sin()] * radius
                 })
@@ -311,40 +326,42 @@ impl TwixPainter {
             stroke,
         );
     }
-}
 
-impl TwixPainter {
-    fn world_to_pixel(&self, point: Point2<f32>) -> Pos2 {
-        let normalized = self.transform() * point![point.x, point.y * self.y_scale];
+    pub fn transform_world_to_pixel(&self, point: Point2<f32>) -> Pos2 {
+        let normalized = self.world_to_pixel
+            * point![point.x, point.y * self.camera_coordinate_system.y_scale()];
         Pos2 {
             x: normalized.x,
             y: normalized.y,
         }
     }
 
-    pub fn pixel_to_world(&self, pos: Pos2) -> Point2<f32> {
-        let world_point = self.transform().inverse() * point![pos.x, pos.y];
-        point![world_point.x, world_point.y * self.y_scale]
+    pub fn transform_pixel_to_world(&self, pos: Pos2) -> Point2<f32> {
+        let world_point = self.world_to_pixel.inverse() * point![pos.x, pos.y];
+        point![
+            world_point.x,
+            world_point.y * self.camera_coordinate_system.y_scale()
+        ]
     }
 
     fn transform_stroke(&self, stroke: Stroke) -> Stroke {
         Stroke {
-            width: stroke.width * self.transform().scaling(),
+            width: stroke.width * self.world_to_pixel.scaling(),
             ..stroke
         }
     }
 
     pub fn line_segment(&self, start: Point2<f32>, end: Point2<f32>, stroke: Stroke) {
-        let start = self.world_to_pixel(start);
-        let end = self.world_to_pixel(end);
+        let start = self.transform_world_to_pixel(start);
+        let end = self.transform_world_to_pixel(end);
         let stroke = self.transform_stroke(stroke);
         self.painter.line_segment([start, end], stroke);
     }
 
     pub fn rect_filled(&self, min: Point2<f32>, max: Point2<f32>, fill_color: Color32) {
         let rect = Rect {
-            min: self.world_to_pixel(min),
-            max: self.world_to_pixel(max),
+            min: self.transform_world_to_pixel(min),
+            max: self.transform_world_to_pixel(max),
         };
         self.painter
             .rect_filled(sort_rect(rect), Rounding::none(), fill_color);
@@ -352,8 +369,8 @@ impl TwixPainter {
 
     pub fn rect_stroke(&self, min: Point2<f32>, max: Point2<f32>, stroke: Stroke) {
         let rect = Rect {
-            min: self.world_to_pixel(min),
-            max: self.world_to_pixel(max),
+            min: self.transform_world_to_pixel(min),
+            max: self.transform_world_to_pixel(max),
         };
         let stroke = self.transform_stroke(stroke);
         self.painter
@@ -361,21 +378,21 @@ impl TwixPainter {
     }
 
     pub fn circle(&self, center: Point2<f32>, radius: f32, fill_color: Color32, stroke: Stroke) {
-        let center = self.world_to_pixel(center);
-        let radius = radius * self.transform().scaling();
+        let center = self.transform_world_to_pixel(center);
+        let radius = radius * self.world_to_pixel.scaling();
         let stroke = self.transform_stroke(stroke);
         self.painter.circle(center, radius, fill_color, stroke);
     }
 
     pub fn circle_filled(&self, center: Point2<f32>, radius: f32, fill_color: Color32) {
-        let center = self.world_to_pixel(center);
-        let radius = radius * self.transform().scaling();
+        let center = self.transform_world_to_pixel(center);
+        let radius = radius * self.world_to_pixel.scaling();
         self.painter.circle_filled(center, radius, fill_color);
     }
 
     pub fn circle_stroke(&self, center: Point2<f32>, radius: f32, stroke: Stroke) {
-        let center = self.world_to_pixel(center);
-        let radius = radius * self.transform().scaling();
+        let center = self.transform_world_to_pixel(center);
+        let radius = radius * self.world_to_pixel.scaling();
         let stroke = self.transform_stroke(stroke);
         self.painter.circle_stroke(center, radius, stroke);
     }
@@ -407,14 +424,14 @@ impl TwixPainter {
 
         const PIXELS_PER_SAMPLE: f32 = 5.0;
         let samples = 1.max(
-            (signed_angle_difference.abs() * radius * self.transform().scaling()
+            (signed_angle_difference.abs() * radius * self.world_to_pixel.scaling()
                 / PIXELS_PER_SAMPLE) as usize,
         );
         let points = (0..samples + 1)
             .map(|index| {
                 let angle = signed_angle_difference / samples as f32 * index as f32;
                 let point = pose * (center + Rotation2::new(angle) * start_relative);
-                self.world_to_pixel(point)
+                self.transform_world_to_pixel(point)
             })
             .collect();
 

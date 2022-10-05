@@ -20,6 +20,8 @@ settings.json
 *.pyc
 .DS_Store
 .dir-locals.el
+.envrc
+default.nix
 
 target/
 

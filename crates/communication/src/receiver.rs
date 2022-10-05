@@ -1,3 +1,4 @@
+use byteorder::{ByteOrder, LittleEndian};
 use futures_util::{stream::SplitStream, StreamExt};
 use log::{debug, error};
 use serde::Deserialize;
@@ -93,12 +94,13 @@ pub async fn receiver(
                         Payload::OutputsUpdated {
                             cycler,
                             outputs,
-                            image_id: _,
+                            image_id,
                         } => {
                             output_subscription_manager
                                 .send(output_subscription_manager::Message::Update {
                                     cycler,
                                     outputs,
+                                    image_id,
                                 })
                                 .await
                                 .unwrap();
@@ -139,6 +141,17 @@ pub async fn receiver(
                 }
                 tokio_tungstenite::tungstenite::Message::Close(_) => {
                     break;
+                }
+                tokio_tungstenite::tungstenite::Message::Binary(data) => {
+                    let length = LittleEndian::read_u32(&data[0..4]);
+                    let image_id = LittleEndian::read_u32(&data[4..8]);
+                    let data = data[8..].to_vec();
+                    assert_eq!(length as usize, data.len());
+
+                    output_subscription_manager
+                        .send(output_subscription_manager::Message::UpdateImage { image_id, data })
+                        .await
+                        .unwrap();
                 }
                 _ => {
                     error!("Got unsupported message type from socket");

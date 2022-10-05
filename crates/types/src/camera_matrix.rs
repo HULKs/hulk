@@ -119,7 +119,7 @@ impl CameraMatrix {
         let camera_ray = self.pixel_to_camera(pixel_coordinates);
         let camera_ray_rotated_to_robot_coordinate_system =
             self.camera_to_ground.rotation * camera_ray;
-        if camera_ray_rotated_to_robot_coordinate_system.z == 0.0
+        if camera_ray_rotated_to_robot_coordinate_system.z >= 0.0
             || camera_ray_rotated_to_robot_coordinate_system.x.is_nan()
             || camera_ray_rotated_to_robot_coordinate_system.y.is_nan()
             || camera_ray_rotated_to_robot_coordinate_system.z.is_nan()
@@ -186,6 +186,10 @@ pub struct Horizon {
 impl Horizon {
     pub fn horizon_y_minimum(&self) -> f32 {
         self.left_horizon_y.min(self.right_horizon_y)
+    }
+
+    pub fn y_at_x(&self, x: f32, image_width: f32) -> f32 {
+        self.left_horizon_y + x / image_width * (self.right_horizon_y - self.left_horizon_y)
     }
 
     fn from_parameters(

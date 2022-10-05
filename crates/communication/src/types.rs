@@ -1,4 +1,8 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::{
+    collections::BTreeMap,
+    fmt::{self, Display},
+    str::FromStr,
+};
 
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
@@ -47,6 +51,16 @@ pub enum Cycler {
     VisionBottom,
 }
 
+impl Display for Cycler {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Cycler::Control => f.write_str("control"),
+            Cycler::VisionTop => f.write_str("vision_top"),
+            Cycler::VisionBottom => f.write_str("vision_bottom"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(tag = "type")]
 pub enum Output {
@@ -57,6 +71,7 @@ pub enum Output {
 
 #[derive(Debug, Clone)]
 pub enum SubscriberMessage {
+    UpdateImage { data: Vec<u8> },
     Update { value: Value },
     SubscriptionSuccess,
     SubscriptionFailure { info: String },

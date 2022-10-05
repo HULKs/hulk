@@ -5,8 +5,8 @@ edition = "2021"
 license = "GPL-3.0-only"
 
 [dependencies]
-anyhow = "1.0.56"
-nalgebra = {version = "0.31.0", features = ["serde-serialize"]}
-serde = {version = "1.0.136", features = ["derive"]}
-serde_json = "1.0.79"
-serialize_hierarchy_derive = {path="../serialize_hierarchy_derive"}
+anyhow = { workspace = true }
+nalgebra = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serialize_hierarchy_derive = { workspace = true }
