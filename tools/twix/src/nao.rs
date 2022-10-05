@@ -1,4 +1,6 @@
-use communication::{Communication, Cycler, CyclerOutput, HierarchyType, OutputHierarchy};
+use communication::{
+    Communication, ConnectionStatus, Cycler, CyclerOutput, HierarchyType, OutputHierarchy,
+};
 
 use serde_json::Value;
 use tokio::runtime::{Builder, Runtime};
@@ -44,6 +46,12 @@ impl Nao {
     pub fn subscribe_parameter(&self, path: &str) -> ValueBuffer {
         let _guard = self.runtime.enter();
         ValueBuffer::parameter(self.communication.clone(), path.to_string())
+    }
+
+    pub fn subscribe_status_updates(&self) -> tokio::sync::mpsc::Receiver<ConnectionStatus> {
+        let _guard = self.runtime.enter();
+        self.runtime
+            .block_on(self.communication.subscribe_connection_updates())
     }
 
     pub fn get_output_hierarchy(&self) -> Option<OutputHierarchy> {

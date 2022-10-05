@@ -6,7 +6,7 @@ use tokio::{
 use uuid::Uuid;
 
 use crate::{
-    connector::{self, connector},
+    connector::{self, connector, ConnectionStatus},
     parameter_subscription_manager::{self, parameter_subscription_manager},
     HierarchyType, OutputHierarchy, SubscriberMessage,
 };
@@ -78,6 +78,15 @@ impl Communication {
             .send(connector::Message::SetAddress(address))
             .await
             .unwrap();
+    }
+
+    pub async fn subscribe_connection_updates(&self) -> mpsc::Receiver<ConnectionStatus> {
+        let (subscriber_sender, subscriber_receiver) = mpsc::channel(10);
+        self.connector
+            .send(connector::Message::SubscribeToUpdates(subscriber_sender))
+            .await
+            .unwrap();
+        subscriber_receiver
     }
 
     pub async fn subscribe_output(

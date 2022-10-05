@@ -9,4 +9,5 @@ mod responder;
 mod types;
 
 pub use crate::communication::Communication;
+pub use connector::ConnectionStatus;
 pub use types::{Cycler, CyclerOutput, HierarchyType, Output, OutputHierarchy, SubscriberMessage};
