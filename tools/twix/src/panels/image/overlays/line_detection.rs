@@ -5,7 +5,11 @@ use eframe::epaint::{Color32, Stroke};
 use nalgebra::{point, Point2};
 use types::ImageLines;
 
-use crate::{panels::image::overlay::Overlay, value_buffer::ValueBuffer};
+use crate::{
+    panels::image::overlay::Overlay,
+    twix_painter::{to_444, TwixPainter},
+    value_buffer::ValueBuffer,
+};
 
 pub struct LineDetection {
     lines_in_image: ValueBuffer,
@@ -23,7 +27,7 @@ impl Overlay for LineDetection {
         }
     }
 
-    fn paint(&self, painter: &crate::twix_painter::TwixPainter) -> anyhow::Result<()> {
+    fn paint(&self, painter: &TwixPainter) -> anyhow::Result<()> {
         let lines_in_image: ImageLines = self.lines_in_image.require_latest()?;
         for point in lines_in_image.points {
             painter.circle_stroke(to_444(point), 3.0, Stroke::new(1.0, Color32::RED))
@@ -37,8 +41,4 @@ impl Overlay for LineDetection {
         }
         Ok(())
     }
-}
-
-fn to_444(point: Point2<f32>) -> Point2<f32> {
-    point![point.x * 2.0, point.y]
 }
