@@ -873,7 +873,7 @@
       "blue_chromaticity_threshold": 0.38,
       "lower_green_chromaticity_threshold": 0.4,
       "upper_green_chromaticity_threshold": 0.43,
-      "green_luminance_threshold": 255
+      "green_luminance_threshold": 25
     },
     "perspective_grid_candidates_provider": {
       "minimum_radius": 3.0,
@@ -930,7 +930,7 @@
       "blue_chromaticity_threshold": 0.38,
       "lower_green_chromaticity_threshold": 0.4,
       "upper_green_chromaticity_threshold": 0.43,
-      "green_luminance_threshold": 255
+      "green_luminance_threshold": 25
     },
     "line_detection": {
       "allowed_line_length_in_field": {

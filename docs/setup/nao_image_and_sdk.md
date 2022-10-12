@@ -182,10 +182,10 @@ dd if=nao-image-HULKs-OS-[...].ext3.gz.opn.opn of=/dev/sdb status=progress
 sync
 ```
 
-Reboot the NAO with a plugged-in USB stick.
+A RoboCupper image needs to be flashed first because the Yocto `.opn` does not flash the chestboard (which needs up-to-date software).
+Now flash the NAO with the Yocto image.
 The flashing process may take 1-3 minutes.
-It is finished if the HULA process displays an red LED animation in the eyes.
-A RoboCupper image needs to be flashed before because the Yocto `.opn` does not flash e.g. the chestboard (which needs up-to-date software).
+It is finished if the HULA process displays a red LED animation in the eyes.
 
 ### Building the SDK
 
