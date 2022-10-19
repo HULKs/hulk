@@ -29,7 +29,7 @@ pub struct ObstacleFilter {
 #[parameter(path = control.obstacle_filter.goal_post_obstacle_radius, data_type = f32)]
 #[input(path = sensor_data, data_type = SensorData)]
 #[historic_input(path = network_robot_obstacles, data_type = Vec<Point2<f32>>)]
-#[historic_input(path = sonar_obstacle, data_type = SonarObstacle)]
+#[historic_input(path = sonar_obstacles, data_type = Vec<SonarObstacle>)]
 #[historic_input(path = robot_to_field, data_type = Isometry2<f32>)]
 #[historic_input(path = current_odometry_to_last_odometry, data_type = Isometry2<f32>)]
 #[perception_input(name = detected_robots_top, path = detected_robots, data_type = DetectedRobots, cycler = vision_top)]
@@ -110,23 +110,28 @@ impl ObstacleFilter {
                 }
             }
 
-            if let Some(sonar_obstacle) = context.sonar_obstacle.get(detection_time) {
-                // TODO: Use a clever more intelligent metric
-                if context.obstacle_filter.use_sonar_measurements
-                    && goal_posts.into_iter().all(|goal_post| {
-                        distance(&goal_post, &sonar_obstacle.position_in_robot)
-                            > context
-                                .obstacle_filter
-                                .goal_post_measurement_matching_distance
-                    })
-                {
-                    self.update_hypotheses_with_measurement(
-                        sonar_obstacle.position_in_robot,
-                        ObstacleKind::Unknown,
-                        detection_time,
-                        context.obstacle_filter.sonar_goal_post_matching_distance,
-                        Matrix2::from_diagonal(&context.obstacle_filter.sonar_measurement_noise),
-                    );
+            if let Some(sonar_obstacles) = context.sonar_obstacles.get(detection_time) {
+                for sonar_obstacle in sonar_obstacles.iter() {
+                    // TODO: Use a clever more intelligent metric
+
+                    if context.obstacle_filter.use_sonar_measurements
+                        && goal_posts.clone().into_iter().all(|goal_post| {
+                            distance(&goal_post, &sonar_obstacle.position_in_robot)
+                                > context
+                                    .obstacle_filter
+                                    .goal_post_measurement_matching_distance
+                        })
+                    {
+                        self.update_hypotheses_with_measurement(
+                            sonar_obstacle.position_in_robot,
+                            ObstacleKind::Unknown,
+                            detection_time,
+                            context.obstacle_filter.sonar_goal_post_matching_distance,
+                            Matrix2::from_diagonal(
+                                &context.obstacle_filter.sonar_measurement_noise,
+                            ),
+                        );
+                    }
                 }
             }
         }

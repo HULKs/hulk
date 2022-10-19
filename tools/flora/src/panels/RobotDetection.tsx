@@ -80,11 +80,11 @@ export default function RobotDetection({
     OutputType.Main,
     "obstacles"
   );
-  const sonarObstacle = useOutputSubscription<SonarObstacle | null>(
+  const sonarObstacles = useOutputSubscription<SonarObstacle[] | null>(
     connection,
     Cycler.Control,
     OutputType.Main,
-    "sonar_obstacle"
+    "sonar_obstacles"
   );
   const clusterCones = useOutputSubscription<ClusterCone[] | null>(
     connection,
@@ -178,17 +178,19 @@ export default function RobotDetection({
         ))
       : null;
   const filteredSonarObstacle =
-    sonarObstacle !== undefined && sonarObstacle !== null ? (
-      <circle
-        cx={sonarObstacle.position_in_robot[0]}
-        cy={sonarObstacle.position_in_robot[1]}
-        r="0.15"
-        fill="none"
-        stroke="magenta"
-        strokeWidth={0.02}
-      />
-    ) : null;
-  console.log(sonarObstacle);
+    sonarObstacles !== undefined && sonarObstacles !== null
+      ? sonarObstacles.map((sonarObstacle) => (
+          <circle
+            cx={sonarObstacle.position_in_robot[0]}
+            cy={sonarObstacle.position_in_robot[1]}
+            r="0.15"
+            fill="none"
+            stroke="magenta"
+            strokeWidth={0.02}
+          />
+        ))
+      : null;
+  console.log(sonarObstacles);
   const renderedClusterCircles =
     detectedRobots !== undefined && detectedRobots !== null
       ? detectedRobots.robot_positions.map((cluster) => (

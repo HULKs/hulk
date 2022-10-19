@@ -15,9 +15,10 @@ pub struct SonarFilter {
 #[parameter(path = control.sonar_filter.maximal_reliable_distance, data_type = f32)]
 #[parameter(path = control.sonar_filter.minimal_reliable_distance, data_type = f32)]
 #[parameter(path = control.sonar_filter.maximal_detectable_distance, data_type = f32)]
+#[parameter(path = control.sonar_filter.middle_merge_threshold, data_type = f32)]
 #[parameter(path = control.sonar_obstacle.sensor_angle, data_type = f32)]
 #[additional_output(path = sonar_values, data_type = SonarValues)]
-#[main_output(data_type = SonarObstacle)]
+#[main_output(data_type = Vec<SonarObstacle>, name = sonar_obstacles)]
 impl SonarFilter {}
 
 impl SonarFilter {
@@ -64,26 +65,38 @@ impl SonarFilter {
             context.sensor_angle.cos() * self.filtered_sonar_right.state(),
             -context.sensor_angle.sin() * self.filtered_sonar_right.state()
         ];
+        let middle_point = point![
+            (self.filtered_sonar_left.state() + self.filtered_sonar_right.state()) / 2.0,
+            0.0
+        ];
 
-        let obstacle_position = match (
+        let obstacle_positions = match (
             fall_state,
             obstacle_detected_on_left,
             obstacle_detected_on_right,
         ) {
             (FallState::Upright, true, true) => {
-                if self.filtered_sonar_left.state() < self.filtered_sonar_right.state() {
-                    Some(left_point)
+                if (self.filtered_sonar_left.state() - self.filtered_sonar_right.state()).abs()
+                    < *context.middle_merge_threshold
+                {
+                    vec![middle_point]
                 } else {
-                    Some(right_point)
+                    vec![left_point, right_point]
                 }
             }
-            (FallState::Upright, true, false) => Some(left_point),
-            (FallState::Upright, false, true) => Some(right_point),
-            _ => None,
+            (FallState::Upright, true, false) => vec![left_point],
+            (FallState::Upright, false, true) => vec![right_point],
+            _ => vec![],
         };
-        let sonar_obstacle =
-            obstacle_position.map(|position_in_robot| SonarObstacle { position_in_robot });
+        let sonar_obstacles = obstacle_positions
+            .iter()
+            .map(|position_in_robot| SonarObstacle {
+                position_in_robot: *position_in_robot,
+            })
+            .collect();
 
-        Ok(MainOutputs { sonar_obstacle })
+        Ok(MainOutputs {
+            sonar_obstacles: Some(sonar_obstacles),
+        })
     }
 }

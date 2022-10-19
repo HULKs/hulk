@@ -68,7 +68,7 @@ pub struct MainOutputs {
     pub sensor_data: Option<SensorData>,
     pub sit_down_joints_command: Option<JointsCommand>,
     pub sole_pressure: Option<SolePressure>,
-    pub sonar_obstacle: Option<SonarObstacle>,
+    pub sonar_obstacles: Option<Vec<SonarObstacle>>,
     pub stand_up_back_positions: Option<Joints>,
     pub stand_up_front_positions: Option<Joints>,
     pub step_plan: Option<Step>,

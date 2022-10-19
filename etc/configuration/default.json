@@ -94,7 +94,8 @@
       "low_pass_filter_coefficient": 0.05,
       "maximal_reliable_distance": 0.6,
       "minimal_reliable_distance": 0.03,
-      "maximal_detectable_distance": 5.0
+      "maximal_detectable_distance": 5.0,
+      "middle_merge_threshold": 0.3
     },
     "sonar_obstacle": {
       "sensor_angle": 0.35

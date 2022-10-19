@@ -2,6 +2,8 @@
 
 TODO: decide whether to backtick all "meta-nao", "meta-hulks", "kas", "BitBake" names
 TODO: "code release" or "code-release" or "coderelease"?
+TODO: Set up id map json first
+TODO: Change team number in meta-hulks
 
 The HULKs use the [Yocto Project](https://yoctoproject.org) for creating flashable OPN images for the NAO and a corresponding software development kit (SDK) for local development targeting the NAO.
 The SDK contains a full cross-compilation toolchain that is self-contained and can be easily used on development machines.

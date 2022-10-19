@@ -337,6 +337,7 @@ pub struct SonarFilter {
     pub maximal_reliable_distance: f32,
     pub minimal_reliable_distance: f32,
     pub maximal_detectable_distance: f32,
+    pub middle_merge_threshold: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
