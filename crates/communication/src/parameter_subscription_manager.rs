@@ -83,17 +83,21 @@ pub async fn parameter_subscription_manager(
                 response_sender,
             } => {
                 let uuid = Uuid::new_v4();
-                response_sender.send(uuid).unwrap();
-                add_subscription(
-                    &mut subscribed_parameters,
-                    uuid,
-                    path,
-                    subscriber,
-                    &id_tracker,
-                    &responder,
-                    &requester,
-                )
-                .await;
+                match response_sender.send(uuid) {
+                    Ok(()) => {
+                        add_subscription(
+                            &mut subscribed_parameters,
+                            uuid,
+                            path,
+                            subscriber,
+                            &id_tracker,
+                            &responder,
+                            &requester,
+                        )
+                        .await
+                    }
+                    Err(error) => error!("{error}"),
+                };
             }
             Message::Unsubscribe { path, uuid } => {
                 let mut is_empty = false;
@@ -111,12 +115,14 @@ pub async fn parameter_subscription_manager(
             Message::Update { path, data } => {
                 if let Some(senders) = subscribed_parameters.get(&path) {
                     for sender in senders.values() {
-                        sender
+                        if let Err(error) = sender
                             .send(SubscriberMessage::Update {
                                 value: data.clone(),
                             })
                             .await
-                            .unwrap()
+                        {
+                            error!("{error}");
+                        }
                     }
                 }
             }
@@ -126,7 +132,9 @@ pub async fn parameter_subscription_manager(
                 hierarchy = Some(new_hierarchy);
             }
             Message::GetParameterHierarchy { response_sender } => {
-                response_sender.send(hierarchy.clone()).unwrap();
+                if let Err(error) = response_sender.send(hierarchy.clone()) {
+                    error!("{error:?}");
+                }
             }
             Message::UpdateParameterValue { path, value } => {
                 if let Some(requester) = &requester {
@@ -266,7 +274,9 @@ async fn subscribe(
             Err(error) => SubscriberMessage::SubscriptionFailure { info: error },
         };
         for sender in subscribers {
-            sender.send(message.clone()).await.unwrap();
+            if let Err(error) = sender.send(message.clone()).await {
+                error!("{error}");
+            }
         }
     });
 }

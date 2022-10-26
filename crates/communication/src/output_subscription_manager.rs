@@ -79,9 +79,19 @@ pub async fn output_subscription_manager(
                     )
                     .await
                 }
-                query_output_hierarchy(sender.clone(), &id_tracker, &responder, &new_requester)
-                    .await;
-                requester = Some(new_requester);
+                match query_output_hierarchy(
+                    sender.clone(),
+                    &id_tracker,
+                    &responder,
+                    &new_requester,
+                )
+                .await
+                {
+                    Ok(()) => requester = Some(new_requester),
+                    Err(error) => {
+                        error!("{error}");
+                    }
+                };
             }
             Message::Disconnect => {
                 requester = None;
@@ -92,17 +102,21 @@ pub async fn output_subscription_manager(
                 response_sender,
             } => {
                 let uuid = Uuid::new_v4();
-                response_sender.send(uuid).unwrap();
-                add_subscription(
-                    &mut subscribed_outputs,
-                    uuid,
-                    output,
-                    output_sender,
-                    &id_tracker,
-                    &responder,
-                    &requester,
-                )
-                .await;
+                match response_sender.send(uuid) {
+                    Ok(()) => {
+                        add_subscription(
+                            &mut subscribed_outputs,
+                            uuid,
+                            output,
+                            output_sender,
+                            &id_tracker,
+                            &responder,
+                            &requester,
+                        )
+                        .await
+                    }
+                    Err(error) => error!("{error}"),
+                };
             }
             Message::Unsubscribe { output, uuid } => {
                 let mut is_empty = false;
@@ -130,12 +144,14 @@ pub async fn output_subscription_manager(
                     match images.remove(&image_id) {
                         Some(image) => {
                             for sender in senders.values() {
-                                sender
+                                if let Err(error) = sender
                                     .send(SubscriberMessage::UpdateImage {
                                         data: image.clone(),
                                     })
                                     .await
-                                    .unwrap();
+                                {
+                                    error!("{error}");
+                                }
                             }
                         }
                         None => {
@@ -149,12 +165,14 @@ pub async fn output_subscription_manager(
                         output: output.output,
                     }) {
                         for sender in senders.values() {
-                            sender
+                            if let Err(error) = sender
                                 .send(SubscriberMessage::Update {
                                     value: output.data.clone(),
                                 })
                                 .await
-                                .unwrap()
+                            {
+                                error!("{error}");
+                            }
                         }
                     }
                 }
@@ -165,7 +183,9 @@ pub async fn output_subscription_manager(
                 hierarchy = Some(new_hierarchy);
             }
             Message::GetOutputHierarchy { response_sender } => {
-                response_sender.send(hierarchy.clone()).unwrap();
+                if let Err(error) = response_sender.send(hierarchy.clone()) {
+                    error!("{error:?}");
+                }
             }
             Message::UpdateImage { image_id, data } => {
                 if let Some(cycler) = image_ids_waiting_for_image.get(&image_id) {
@@ -175,10 +195,12 @@ pub async fn output_subscription_manager(
                     });
                     if let Some(senders) = image_subscribers {
                         for sender in senders.values() {
-                            sender
+                            if let Err(error) = sender
                                 .send(SubscriberMessage::UpdateImage { data: data.clone() })
                                 .await
-                                .unwrap();
+                            {
+                                error!("{error}");
+                            }
                         }
                     }
                 } else {
@@ -195,7 +217,7 @@ async fn query_output_hierarchy(
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
     requester: &mpsc::Sender<requester::Message>,
-) {
+) -> anyhow::Result<()> {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
     responder
@@ -203,12 +225,10 @@ async fn query_output_hierarchy(
             id: message_id,
             response_sender,
         })
-        .await
-        .unwrap();
+        .await?;
     requester
         .send(requester::Message::GetOutputHierarchy { id: message_id })
-        .await
-        .unwrap();
+        .await?;
     spawn(async move {
         let response = response_receiver.await.unwrap();
         match response {
@@ -216,10 +236,12 @@ async fn query_output_hierarchy(
                 let hierarchy = serde_json::from_value(value);
                 match hierarchy {
                     Ok(hierarchy) => {
-                        manager
+                        if let Err(error) = manager
                             .send(Message::UpdateOutputHierarchy { hierarchy })
                             .await
-                            .unwrap();
+                        {
+                            error!("{error}");
+                        };
                     }
                     Err(error) => error!("Failed to deserialize OutputHierarchy: {}", error),
                 }
@@ -227,6 +249,7 @@ async fn query_output_hierarchy(
             Err(error) => error!("Failed to get output hierarchy: {}", error),
         }
     });
+    Ok(())
 }
 
 async fn add_subscription(
@@ -267,18 +290,24 @@ async fn subscribe(
 ) {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
-    responder
+    if let Err(error) = responder
         .send(responder::Message::Await {
             id: message_id,
             response_sender,
         })
         .await
-        .unwrap();
+    {
+        error!("{error}");
+        return;
+    }
     let request = requester::Message::SubscribeOutput {
         id: message_id,
         output,
     };
-    requester.send(request).await.unwrap();
+    if let Err(error) = requester.send(request).await {
+        error!("{error}");
+        return;
+    }
     spawn(async move {
         let response = response_receiver.await.unwrap();
         let message = match response {
@@ -286,7 +315,9 @@ async fn subscribe(
             Err(error) => SubscriberMessage::SubscriptionFailure { info: error },
         };
         for sender in subscribers {
-            sender.send(message.clone()).await.unwrap();
+            if let Err(error) = sender.send(message.clone()).await {
+                error!("{error}");
+            }
         }
     });
 }
@@ -299,18 +330,22 @@ async fn unsubscribe(
 ) {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
-    responder
+    if let Err(error) = responder
         .send(responder::Message::Await {
             id: message_id,
             response_sender,
         })
         .await
-        .unwrap();
+    {
+        error!("{error}")
+    }
     let request = requester::Message::UnsubscribeOutput {
         id: message_id,
         output,
     };
-    requester.send(request).await.unwrap();
+    if let Err(error) = requester.send(request).await {
+        error!("{error}")
+    }
     spawn(async move {
         let response = response_receiver.await.unwrap();
         if let Err(error) = response {

@@ -11,7 +11,7 @@ use std::{
 use anyhow::{anyhow, bail, Context};
 use futures::future::join_all;
 use serde::Deserialize;
-use serde_json::{from_slice, to_value, to_vec, Value};
+use serde_json::{from_slice, to_value, to_vec_pretty, Value};
 use tempfile::{tempdir, TempDir};
 use tokio::{
     fs::{
@@ -198,7 +198,7 @@ impl Repository {
 
     async fn write_configuration(&self, head_id: &str, configuration: Value) -> anyhow::Result<()> {
         let configuration_file_path = self.get_configuration_path(head_id);
-        let mut contents = to_vec(&configuration).with_context(|| {
+        let mut contents = to_vec_pretty(&configuration).with_context(|| {
             format!(
                 "Failed to dump configuration for {}",
                 configuration_file_path.display()
@@ -212,25 +212,6 @@ impl Repository {
             .write_all(&contents)
             .await
             .with_context(|| format!("Failed to parse {}", configuration_file_path.display()))?;
-
-        let status = match Command::new("prettier")
-            .arg("--write")
-            .arg("--loglevel=warn")
-            .arg(&configuration_file_path)
-            .status()
-            .await
-        {
-            Ok(status) => status,
-            Err(error) if error.kind() == ErrorKind::NotFound => {
-                Err(error).context("prettier command not found, is it installed?")?
-            }
-            Err(error) => Err(error).context("Failed to execute prettier command")?,
-        };
-
-        if !status.success() {
-            bail!("prettier command exited with {status}");
-        }
-
         Ok(())
     }
 

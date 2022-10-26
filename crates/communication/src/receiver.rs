@@ -86,24 +86,28 @@ pub async fn receiver(
                             output_hierarchy,
                         } => {
                             let response = result_from_response(ok, None, output_hierarchy);
-                            responder
+                            if let Err(error) = responder
                                 .send(responder::Message::Respond { id, response })
                                 .await
-                                .unwrap();
+                            {
+                                error!("{error}");
+                            }
                         }
                         Payload::OutputsUpdated {
                             cycler,
                             outputs,
                             image_id,
                         } => {
-                            output_subscription_manager
+                            if let Err(error) = output_subscription_manager
                                 .send(output_subscription_manager::Message::Update {
                                     cycler,
                                     outputs,
                                     image_id,
                                 })
                                 .await
-                                .unwrap();
+                            {
+                                error!("{error}");
+                            }
                         }
                         Payload::GetParameterHierarchyResult {
                             id,
@@ -111,19 +115,23 @@ pub async fn receiver(
                             parameter_hierarchy: hierarchy,
                         } => {
                             let response = result_from_response(ok, None, hierarchy);
-                            responder
+                            if let Err(error) = responder
                                 .send(responder::Message::Respond { id, response })
                                 .await
-                                .unwrap();
+                            {
+                                error!("{error}");
+                            }
                         }
                         Payload::ParameterUpdated { path, data } => {
-                            parameter_subscription_manager
+                            if let Err(error) = parameter_subscription_manager
                                 .send(parameter_subscription_manager::Message::Update {
                                     path,
                                     data,
                                 })
                                 .await
-                                .unwrap();
+                            {
+                                error!("{error}");
+                            }
                         }
                         Payload::SubscribeOutputResult { id, ok, reason }
                         | Payload::UnsubscribeOutputResult { id, ok, reason }
@@ -132,10 +140,12 @@ pub async fn receiver(
                         | Payload::UpdateParameterResult { id, ok, reason } => {
                             let response =
                                 result_from_response(ok, reason, Value::Object(Map::new()));
-                            responder
+                            if let Err(error) = responder
                                 .send(responder::Message::Respond { id, response })
                                 .await
-                                .unwrap();
+                            {
+                                error!("{error}");
+                            }
                         }
                     }
                 }
