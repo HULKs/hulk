@@ -71,18 +71,16 @@ impl Panel for MapPanel {
 
 impl Widget for &mut MapPanel {
     fn ui(self, ui: &mut Ui) -> eframe::egui::Response {
-        ComboBox::from_id_source("Layers")
-            .selected_text("Layers")
-            .show_ui(ui, |ui: &mut Ui| {
-                self.field.checkbox(ui);
-                self.image_segments.checkbox(ui);
-                self.robot_pose.checkbox(ui);
-                self.ball_position.checkbox(ui);
-                self.obstacles.checkbox(ui);
-                self.path_obstacles.checkbox(ui);
-                self.path.checkbox(ui);
-                self.kick_decisions.checkbox(ui);
-            });
+        ui.menu_button("Overlays", |ui| {
+            self.field.checkbox(ui);
+            self.image_segments.checkbox(ui);
+            self.robot_pose.checkbox(ui);
+            self.ball_position.checkbox(ui);
+            self.obstacles.checkbox(ui);
+            self.path_obstacles.checkbox(ui);
+            self.path.checkbox(ui);
+            self.kick_decisions.checkbox(ui);
+        });
 
         let field_dimensions: FieldDimensions = match self.field_dimensions.get_latest() {
             Ok(value) => from_value(value).unwrap(),
