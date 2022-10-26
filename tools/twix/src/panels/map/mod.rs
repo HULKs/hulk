@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use eframe::{
-    egui::{ComboBox, Ui, Widget},
+    egui::{Ui, Widget},
     Storage,
 };
 use nalgebra::{vector, Similarity2, Translation2};
