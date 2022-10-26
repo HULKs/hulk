@@ -284,7 +284,8 @@ impl App for TwixApp {
                 .show_inside(ui, &mut tab_viewer);
             for node_id in tab_viewer.nodes_to_add_tabs_to {
                 let tab = SelectablePanel::Text(TextPanel::new(self.nao.clone(), None));
-                self.tree[node_id].insert_tab(0.into(), tab);
+                let index = self.tree[node_id].tabs_count();
+                self.tree[node_id].insert_tab(index.into(), tab);
             }
         });
     }
