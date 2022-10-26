@@ -73,6 +73,24 @@ impl SelectablePanel {
             SelectablePanel::Parameter(panel) => panel.save(storage),
         }
     }
+
+    fn try_from_name(
+        name: &str,
+        nao: Arc<Nao>,
+        storage: Option<&dyn Storage>,
+    ) -> Option<SelectablePanel> {
+        Some(match name.to_lowercase().as_str() {
+            "text" => SelectablePanel::Text(TextPanel::new(nao, storage)),
+            "plot" => SelectablePanel::Plot(PlotPanel::new(nao, storage)),
+            "image" => SelectablePanel::Image(ImagePanel::new(nao, storage)),
+            "image segments" => {
+                SelectablePanel::ImageSegments(ImageSegmentsPanel::new(nao, storage))
+            }
+            "map" => SelectablePanel::Map(MapPanel::new(nao, storage)),
+            "parameter" => SelectablePanel::Parameter(ParameterPanel::new(nao, storage)),
+            _ => return None,
+        })
+    }
 }
 
 impl Widget for &mut SelectablePanel {
@@ -135,37 +153,10 @@ impl TwixApp {
         let (panel_selection, active_panel) = match creation_context
             .storage
             .and_then(|storage| storage.get_string("selected_panel"))
-        {
-            Some(stored_panel) => {
-                let panel = match stored_panel.as_str() {
-                    "Text" => {
-                        SelectablePanel::Text(TextPanel::new(nao.clone(), creation_context.storage))
-                    }
-                    "Plot" => {
-                        SelectablePanel::Plot(PlotPanel::new(nao.clone(), creation_context.storage))
-                    }
-                    "Image" => SelectablePanel::Image(ImagePanel::new(
-                        nao.clone(),
-                        creation_context.storage,
-                    )),
-                    "Image Segments" => SelectablePanel::ImageSegments(ImageSegmentsPanel::new(
-                        nao.clone(),
-                        creation_context.storage,
-                    )),
-                    "Map" => {
-                        SelectablePanel::Map(MapPanel::new(nao.clone(), creation_context.storage))
-                    }
-                    "Parameter" => SelectablePanel::Parameter(ParameterPanel::new(
-                        nao.clone(),
-                        creation_context.storage,
-                    )),
-                    name => {
-                        warn!("Unknown panel stored in persistent storage: {name}");
-                        SelectablePanel::Text(TextPanel::new(nao.clone(), creation_context.storage))
-                    }
-                };
-                (stored_panel, panel)
-            }
+            .and_then(|panel_name| {
+                SelectablePanel::try_from_name(&panel_name, nao.clone(), creation_context.storage)
+            }) {
+            Some(panel) => (format!("{panel}"), panel),
             None => (
                 "Text".to_string(),
                 SelectablePanel::Text(TextPanel::new(nao.clone(), creation_context.storage)),
@@ -232,43 +223,12 @@ impl App for TwixApp {
                     CompletionEdit::select_all(&self.panel_selection, ui, panel_input.id);
                 }
                 if panel_input.changed() || panel_input.lost_focus() {
-                    match self.panel_selection.to_lowercase().as_str() {
-                        "text" => {
-                            self.active_panel = SelectablePanel::Text(TextPanel::new(
-                                self.nao.clone(),
-                                frame.storage(),
-                            ))
-                        }
-                        "plot" => {
-                            self.active_panel = SelectablePanel::Plot(PlotPanel::new(
-                                self.nao.clone(),
-                                frame.storage(),
-                            ));
-                        }
-                        "image" => {
-                            self.active_panel = SelectablePanel::Image(ImagePanel::new(
-                                self.nao.clone(),
-                                frame.storage(),
-                            ))
-                        }
-                        "image segments" => {
-                            self.active_panel = SelectablePanel::ImageSegments(
-                                ImageSegmentsPanel::new(self.nao.clone(), frame.storage()),
-                            )
-                        }
-                        "map" => {
-                            self.active_panel = SelectablePanel::Map(MapPanel::new(
-                                self.nao.clone(),
-                                frame.storage(),
-                            ))
-                        }
-                        "parameter" => {
-                            self.active_panel = SelectablePanel::Parameter(ParameterPanel::new(
-                                self.nao.clone(),
-                                frame.storage(),
-                            ))
-                        }
-                        _ => {}
+                    if let Some(panel) = SelectablePanel::try_from_name(
+                        &self.panel_selection,
+                        self.nao.clone(),
+                        frame.storage(),
+                    ) {
+                        self.active_panel = panel;
                     }
                 }
             })
