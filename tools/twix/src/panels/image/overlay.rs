@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use communication::Cycler;
-use eframe::{
-    egui::{ComboBox, Ui},
-    Storage,
-};
+use eframe::{egui::Ui, Storage};
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
