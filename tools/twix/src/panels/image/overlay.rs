@@ -97,12 +97,10 @@ impl Overlays {
     }
 
     pub fn combo_box(&mut self, ui: &mut Ui, selected_cycler: Cycler) {
-        ComboBox::from_id_source("Overlays")
-            .selected_text("Overlays")
-            .show_ui(ui, |ui| {
-                self.line_detection.checkbox(ui, selected_cycler);
-                self.ball_detection.checkbox(ui, selected_cycler);
-            });
+        ui.menu_button("Overlays", |ui| {
+            self.line_detection.checkbox(ui, selected_cycler);
+            self.ball_detection.checkbox(ui, selected_cycler);
+        });
     }
 
     pub fn paint(&self, painter: &TwixPainter) -> Result<()> {
