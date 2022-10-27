@@ -13,7 +13,6 @@ use eframe::{
 use egui_dock::{DockArea, NodeIndex, Tree};
 use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 
-use log::warn;
 use nao::Nao;
 use panel::Panel;
 use panels::{ImagePanel, ImageSegmentsPanel, MapPanel, ParameterPanel, PlotPanel, TextPanel};
@@ -236,8 +235,7 @@ impl App for TwixApp {
         CentralPanel::default().show(context, |ui| {
             let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
             style.show_add_buttons = true;
-            // Uncomment once TabAddAlign is accessible from outside the egui_dock crate.
-            // style.add_tab_align = egui_dock::TabAddAlign::Left;
+            style.add_tab_align = egui_dock::TabAddAlign::Left;
             let mut tab_viewer = TabViewer::default();
             DockArea::new(&mut self.tree)
                 .style(style)
