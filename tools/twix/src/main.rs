@@ -10,7 +10,7 @@ use eframe::{
     egui::{CentralPanel, Context, Key, Modifiers, TopBottomPanel, Ui, Visuals, Widget},
     run_native, App, CreationContext, Frame, NativeOptions, Storage,
 };
-use egui_dock::{DockArea, NodeIndex, Tree};
+use egui_dock::{DockArea, NodeIndex, TabAddAlign, Tree};
 use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 
 use nao::Nao;
@@ -124,7 +124,6 @@ struct TwixApp {
     connection_intent: bool,
     ip_address: String,
     panel_selection: String,
-    active_panel: SelectablePanel,
     tree: Tree<SelectablePanel>,
 }
 
@@ -171,12 +170,12 @@ impl TwixApp {
         let mut style = (*creation_context.egui_ctx.style()).clone();
         style.visuals = Visuals::dark();
         creation_context.egui_ctx.set_style(style);
+        let panel_selection = "".to_string();
         Self {
             nao,
             connection_intent,
             ip_address: ip_address.unwrap_or_default(),
             panel_selection,
-            active_panel,
             tree,
         }
     }
@@ -227,7 +226,7 @@ impl App for TwixApp {
                         self.nao.clone(),
                         frame.storage(),
                     ) {
-                        self.active_panel = panel;
+                        *self.active_panel().unwrap() = panel;
                     }
                 }
             })
@@ -235,7 +234,7 @@ impl App for TwixApp {
         CentralPanel::default().show(context, |ui| {
             let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
             style.show_add_buttons = true;
-            style.add_tab_align = egui_dock::TabAddAlign::Left;
+            style.add_tab_align = TabAddAlign::Left;
             let mut tab_viewer = TabViewer::default();
             DockArea::new(&mut self.tree)
                 .style(style)
@@ -259,8 +258,17 @@ impl App for TwixApp {
             }
             .to_string(),
         );
-        storage.set_string("selected_panel", self.active_panel.to_string());
-        self.active_panel.save(storage);
+        if let Some(panel) = self.active_panel() {
+            storage.set_string("selected_panel", panel.to_string());
+            panel.save(storage);
+        }
+    }
+}
+
+impl TwixApp {
+    fn active_panel(&mut self) -> Option<&mut SelectablePanel> {
+        let (_viewport, tab) = self.tree.find_active_focused()?;
+        Some(tab)
     }
 }
 
