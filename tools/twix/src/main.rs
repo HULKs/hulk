@@ -148,19 +148,6 @@ impl TwixApp {
             connection_intent,
         ));
 
-        let (panel_selection, active_panel) = match creation_context
-            .storage
-            .and_then(|storage| storage.get_string("selected_panel"))
-            .and_then(|panel_name| {
-                SelectablePanel::try_from_name(&panel_name, nao.clone(), creation_context.storage)
-            }) {
-            Some(panel) => (format!("{panel}"), panel),
-            None => (
-                "Text".to_string(),
-                SelectablePanel::Text(TextPanel::new(nao.clone(), creation_context.storage)),
-            ),
-        };
-
         let tab1 = SelectablePanel::Map(MapPanel::new(nao.clone(), creation_context.storage));
         let tab2 = SelectablePanel::Image(ImagePanel::new(nao.clone(), creation_context.storage));
 
