@@ -947,7 +947,7 @@ dependencies = [
 [[package]]
 name = "egui_dock"
 version = "0.2.1"
-source = "git+https://github.com/Avarel/egui_dock/?branch=tab_add#996fa6ab698c1ac0c71499ce69416e08e335594b"
+source = "git+https://github.com/knoellle/egui_dock/#6f65b115bc4aac2b9dfd3f2292c938353936d75c"
 dependencies = [
  "egui",
 ]
