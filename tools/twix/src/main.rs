@@ -124,6 +124,7 @@ struct TwixApp {
     connection_intent: bool,
     ip_address: String,
     panel_selection: String,
+    last_focused_tab: Option<NodeIndex>,
     tree: Tree<SelectablePanel>,
 }
 
@@ -164,6 +165,7 @@ impl TwixApp {
             ip_address: ip_address.unwrap_or_default(),
             panel_selection,
             tree,
+            last_focused_tab: None,
         }
     }
 }
@@ -190,6 +192,12 @@ impl App for TwixApp {
                     .changed()
                 {
                     self.nao.set_connect(self.connection_intent);
+                }
+                if self.tree.focused_leaf() != self.last_focused_tab {
+                    self.last_focused_tab = self.tree.focused_leaf();
+                    if let Some(name) = self.active_panel().map(|panel| format!("{panel}")) {
+                        self.panel_selection = name
+                    }
                 }
                 let panel_input = CompletionEdit::new(
                     &mut self.panel_selection,
