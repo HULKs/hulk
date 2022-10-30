@@ -194,8 +194,8 @@ impl App for TwixApp {
                     self.nao.set_connect(self.connection_intent);
                 }
 
-                if self.active_tab() != Some(self.last_focused_tab) {
-                    self.last_focused_tab = self.active_tab().unwrap();
+                if self.active_tab_index() != Some(self.last_focused_tab) {
+                    self.last_focused_tab = self.active_tab_index().unwrap();
                     if let Some(name) = self.active_panel().map(|panel| format!("{panel}")) {
                         self.panel_selection = name
                     }
@@ -272,7 +272,7 @@ impl TwixApp {
         Some(tab)
     }
 
-    fn active_tab(&self) -> Option<(NodeIndex, TabIndex)> {
+    fn active_tab_index(&self) -> Option<(NodeIndex, TabIndex)> {
         let node = self.tree.focused_leaf()?;
         if let egui_dock::Node::Leaf { active, .. } = &self.tree[node] {
             Some((node, *active))
