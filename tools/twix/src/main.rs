@@ -10,7 +10,7 @@ use eframe::{
     egui::{CentralPanel, Context, Key, Modifiers, TopBottomPanel, Ui, Visuals, Widget},
     run_native, App, CreationContext, Frame, NativeOptions, Storage,
 };
-use egui_dock::{DockArea, NodeIndex, TabAddAlign, Tree};
+use egui_dock::{DockArea, NodeIndex, TabAddAlign, TabIndex, Tree};
 use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 
 use nao::Nao;
@@ -124,7 +124,7 @@ struct TwixApp {
     connection_intent: bool,
     ip_address: String,
     panel_selection: String,
-    last_focused_tab: Option<NodeIndex>,
+    last_focused_tab: (NodeIndex, TabIndex),
     tree: Tree<SelectablePanel>,
 }
 
@@ -165,7 +165,7 @@ impl TwixApp {
             ip_address: ip_address.unwrap_or_default(),
             panel_selection,
             tree,
-            last_focused_tab: None,
+            last_focused_tab: (0.into(), 0.into()),
         }
     }
 }
@@ -193,8 +193,9 @@ impl App for TwixApp {
                 {
                     self.nao.set_connect(self.connection_intent);
                 }
-                if self.tree.focused_leaf() != self.last_focused_tab {
-                    self.last_focused_tab = self.tree.focused_leaf();
+
+                if self.active_tab() != Some(self.last_focused_tab) {
+                    self.last_focused_tab = self.active_tab().unwrap();
                     if let Some(name) = self.active_panel().map(|panel| format!("{panel}")) {
                         self.panel_selection = name
                     }
@@ -269,6 +270,15 @@ impl TwixApp {
     fn active_panel(&mut self) -> Option<&mut SelectablePanel> {
         let (_viewport, tab) = self.tree.find_active_focused()?;
         Some(tab)
+    }
+
+    fn active_tab(&self) -> Option<(NodeIndex, TabIndex)> {
+        let node = self.tree.focused_leaf()?;
+        if let egui_dock::Node::Leaf { active, .. } = &self.tree[node] {
+            Some((node, *active))
+        } else {
+            None
+        }
     }
 }
 
