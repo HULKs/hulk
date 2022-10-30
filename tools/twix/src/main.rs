@@ -227,6 +227,11 @@ impl App for TwixApp {
             })
         });
         CentralPanel::default().show(context, |ui| {
+            if ui.input_mut().consume_key(Modifiers::CTRL, Key::T) {
+                let tab = SelectablePanel::Text(TextPanel::new(self.nao.clone(), None));
+                self.tree.push_to_focused_leaf(tab);
+            }
+
             let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
             style.show_add_buttons = true;
             style.add_tab_align = TabAddAlign::Left;
