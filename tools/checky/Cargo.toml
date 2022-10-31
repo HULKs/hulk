@@ -10,3 +10,4 @@ color-eyre = { workspace = true }
 itertools = { workspace = true }
 proc-macro2 = { workspace = true }
 syn = { workspace = true }
+walkdir = { workspace = true }

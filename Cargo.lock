@@ -990,6 +990,7 @@ dependencies = [
  "itertools",
  "proc-macro2",
  "syn 1.0.109",
+ "walkdir",
 ]
 
 [[package]]
