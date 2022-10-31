@@ -35,6 +35,7 @@ members = [
   "tools/annotato",
   "tools/behavior_simulator",
   "tools/camera_matrix_extractor",
+  "tools/checky",
   "tools/depp",
   "tools/fanta",
   "tools/hula/types",
