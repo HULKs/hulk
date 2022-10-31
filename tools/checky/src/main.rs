@@ -4,7 +4,7 @@ mod syn_context;
 
 use std::{io::Read, path::Path};
 
-use checks::mod_use_order;
+use checks::{empty_lines, mod_use_order};
 use color_eyre::{eyre::{bail, Context}, Result};
 use syn::{parse_file, File};
 
@@ -25,6 +25,7 @@ where
 {
     let (buffer, file) = parse_rust_file(&file_path).wrap_err("failed to parse Rust file")?;
     let success = mod_use_order::check(&file_path, &buffer, &file);
+    let success = empty_lines::check(&file_path, &buffer, &file) && success;
     Ok(success)
 }
 
