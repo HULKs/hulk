@@ -7,5 +7,6 @@ homepage.workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
+itertools = { workspace = true }
 proc-macro2 = { workspace = true }
 syn = { workspace = true }
