@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use itertools::Itertools;
-use syn::{spanned::Spanned, File, Item};
+use syn::{spanned::Spanned, File, ImplItem, Item};
 
 use crate::output::output_diagnostic;
 
@@ -32,7 +32,12 @@ where
             return false;
         }
         if let Item::Impl(item) = item_before {
-            for (item_before, item_after) in item.items.iter().tuple_windows() {
+            for (item_before, item_after) in item
+                .items
+                .iter()
+                .filter(|item| matches!(item, ImplItem::Method(_)))
+                .tuple_windows()
+            {
                 let line_before = item_before.span().end().line;
                 let line_after = item_after.span().start().line;
                 if line_before + 1 == line_after {

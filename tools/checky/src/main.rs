@@ -7,12 +7,28 @@ use std::{io::Read, path::Path};
 use checks::{empty_lines, mod_use_order};
 use color_eyre::{eyre::{bail, Context}, Result};
 use syn::{parse_file, File};
+use walkdir::WalkDir;
 
 use crate::syn_context::SynContext;
 
 fn main() -> Result<()> {
-    let success =
-        check("src/control/modules/localization.rs").wrap_err("failed to check Rust file")?;
+    let mut success = true;
+    for directory in ["crates", "src", "tools"] {
+        for entry in WalkDir::new(directory)
+            .into_iter()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| {
+                entry.file_type().is_file()
+                    && entry
+                        .path()
+                        .extension()
+                        .map(|extension| extension == "rs")
+                        .unwrap_or_default()
+            })
+        {
+            success = check(entry.path()).wrap_err("failed to check Rust file")? && success;
+        }
+    }
     if !success {
         bail!("at least one check failed");
     }
