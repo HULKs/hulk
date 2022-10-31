@@ -4,13 +4,13 @@ use color_eyre::{eyre::eyre, Result};
 use syn::Error;
 
 pub trait SynContext<T, E> {
-    fn syn_context<P>(self, file_path: P) -> eyre::Result<T>
+    fn syn_context<P>(self, file_path: P) -> Result<T>
     where
         P: AsRef<Path>;
 }
 
 impl<T> SynContext<T, Error> for syn::Result<T> {
-    fn syn_context<P>(self, file_path: P) -> eyre::Result<T>
+    fn syn_context<P>(self, file_path: P) -> Result<T>
     where
         P: AsRef<Path>,
     {

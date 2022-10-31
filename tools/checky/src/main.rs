@@ -5,7 +5,10 @@ mod syn_context;
 use std::{io::Read, path::Path};
 
 use checks::{empty_lines, mod_use_order};
-use color_eyre::{eyre::{bail, Context}, Result};
+use color_eyre::{
+    eyre::{bail, Context},
+    Result,
+};
 use syn::{parse_file, File};
 use walkdir::WalkDir;
 
