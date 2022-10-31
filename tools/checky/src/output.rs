@@ -11,7 +11,12 @@ where
     eprintln!("{:1$} |", "", number_of_digits);
     let buffer_lines: Vec<_> = buffer.split('\n').collect();
     for line1 in lines1 {
-        eprintln!("{0:1$} | {2}", line1, number_of_digits, buffer_lines[line1 - 1]);
+        eprintln!(
+            "{0:1$} | {2}",
+            line1,
+            number_of_digits,
+            buffer_lines[line1 - 1]
+        );
     }
     eprintln!("{:1$} |", "", number_of_digits);
     eprintln!();
