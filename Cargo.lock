@@ -1080,6 +1080,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "checky"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "proc-macro2",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"

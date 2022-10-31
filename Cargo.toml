@@ -48,6 +48,7 @@ members = [
   "crates/walking_engine",
   "tools/annotato",
   "tools/camera_matrix_extractor",
+  "tools/checky",
   "tools/depp",
   "tools/fanta",
   "tools/hula/types",
