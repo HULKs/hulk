@@ -16,7 +16,7 @@ use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 use nao::Nao;
 use panel::Panel;
 use panels::{ImagePanel, ImageSegmentsPanel, MapPanel, ParameterPanel, PlotPanel, TextPanel};
-use serde_json::{from_str, to_string, to_string_pretty, Value};
+use serde_json::{from_str, to_string, Value};
 
 mod completion_edit;
 mod image_buffer;
@@ -254,7 +254,6 @@ impl App for TwixApp {
 
     fn save(&mut self, storage: &mut dyn Storage) {
         let tree = self.tree.map_tabs(|panel| panel.save());
-        println!("{}", to_string_pretty(&tree).unwrap());
 
         storage.set_string("tree", to_string(&tree).unwrap());
         storage.set_string("ip_address", self.ip_address.clone());
