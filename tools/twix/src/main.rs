@@ -16,7 +16,7 @@ use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 use nao::Nao;
 use panel::Panel;
 use panels::{ImagePanel, ImageSegmentsPanel, MapPanel, ParameterPanel, PlotPanel, TextPanel};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{from_str, json, to_string, to_string_pretty, Value};
 
 mod completion_edit;
@@ -202,7 +202,7 @@ fn ip_to_socket_address(ip_address: &str) -> String {
 }
 
 impl App for TwixApp {
-    fn update(&mut self, context: &Context, frame: &mut Frame) {
+    fn update(&mut self, context: &Context, _frame: &mut Frame) {
         context.request_repaint();
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {

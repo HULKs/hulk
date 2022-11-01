@@ -37,7 +37,7 @@ impl Panel for ImagePanel {
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
         let cycler_name = value
-            .and_then(|value| value.get("image.cycler"))
+            .and_then(|value| value.get("cycler"))
             .and_then(|value| value.as_str())
             .unwrap_or("vision_top");
         let cycler = match cycler_name {
@@ -47,7 +47,11 @@ impl Panel for ImagePanel {
         };
         let image_buffer = nao.subscribe_image(cycler);
         let cycler_selector = VisionCyclerSelector::new(cycler);
-        let overlays = Overlays::new(nao.clone(), todo!(), cycler_selector.selected_cycler());
+        let overlays = Overlays::new(
+            nao.clone(),
+            value.and_then(|value| value.get("overlays")),
+            cycler_selector.selected_cycler(),
+        );
         Self {
             nao,
             image_buffer,
@@ -64,13 +68,14 @@ impl Panel for ImagePanel {
                 error!("Invalid camera cycler: {cycler}");
                 "vision_top"
             }
-        };
+        }
+        .to_string();
 
-        // self.overlays.save(storage)
-        todo!();
+        let overlays = self.overlays.save();
 
         return json!({
-            "cycler": cycler.to_string(),
+            "cycler": cycler,
+            "overlays":overlays,
         });
     }
 }

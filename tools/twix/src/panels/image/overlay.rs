@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use communication::Cycler;
-use eframe::{egui::Ui, Storage};
+use eframe::egui::{ComboBox, Ui};
+use serde_json::{json, Value};
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
@@ -29,13 +30,14 @@ where
 {
     pub fn new(
         nao: Arc<Nao>,
-        storage: Option<&dyn Storage>,
+        value: Option<&Value>,
         active: bool,
         selected_cycler: Cycler,
     ) -> Self {
-        let active = storage
-            .and_then(|storage| storage.get_string(&format!("image.{}", T::NAME)))
-            .and_then(|value| value.parse().ok())
+        let active = value
+            .and_then(|value| value.get(T::NAME))
+            .and_then(|value| value.get("active"))
+            .and_then(|value| value.as_bool())
             .unwrap_or(active);
         let layer = active.then(|| T::new(nao.clone(), selected_cycler));
         Self {
@@ -68,8 +70,8 @@ where
         Ok(())
     }
 
-    pub fn save(&self, storage: &mut dyn Storage) {
-        storage.set_string(&format!("image.{}", T::NAME), self.active.to_string());
+    pub fn save(&self) -> Value {
+        json!({"active": self.active})
     }
 }
 
@@ -79,7 +81,7 @@ pub struct Overlays {
 }
 
 impl Overlays {
-    pub fn new(nao: Arc<Nao>, storage: Option<&dyn Storage>, selected_cycler: Cycler) -> Self {
+    pub fn new(nao: Arc<Nao>, storage: Option<&Value>, selected_cycler: Cycler) -> Self {
         let line_detection = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let ball_detection = EnabledOverlay::new(nao, storage, true, selected_cycler);
         Self {
@@ -106,8 +108,10 @@ impl Overlays {
         Ok(())
     }
 
-    pub fn save(&self, storage: &mut dyn Storage) {
-        self.line_detection.save(storage);
-        self.ball_detection.save(storage);
+    pub fn save(&self) -> Value {
+        json!({
+            "Line Detection": self.line_detection.save(),
+            "Ball Detection": self.ball_detection.save(),
+        })
     }
 }
