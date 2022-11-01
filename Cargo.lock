@@ -947,9 +947,10 @@ dependencies = [
 [[package]]
 name = "egui_dock"
 version = "0.2.1"
-source = "git+https://github.com/knoellle/egui_dock/#aa66bc27ee08eb237127a53d256c299c472e0834"
+source = "git+https://github.com/knoellle/egui_dock/#f7d1a20df6fb767f4e20b4536cc6289f6ce51442"
 dependencies = [
  "egui",
+ "serde",
 ]
 
 [[package]]
