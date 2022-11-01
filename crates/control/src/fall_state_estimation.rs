@@ -1,14 +1,16 @@
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, Parameter, RequiredInput};
+use nalgebra::{Vector2, Vector3};
+use types::{
+    configuration::FallStateEstimation as FallStateEstimationConfiguration, FallState, SensorData,
+};
 
 pub struct FallStateEstimation {}
 
 #[context]
 pub struct NewContext {
-    pub fall_state_estimation: Parameter<
-        crate::framework::configuration::FallStateEstimation,
-        "control/fall_state_estimation",
-    >,
+    pub fall_state_estimation:
+        Parameter<FallStateEstimationConfiguration, "control/fall_state_estimation">,
 }
 
 #[context]
@@ -21,10 +23,8 @@ pub struct CycleContext {
     pub filtered_roll_pitch: AdditionalOutput<Vector2<f32>, "filtered_roll_pitch">,
     pub forward_gravitational_difference: AdditionalOutput<f32, "forward_gravitational_difference">,
 
-    pub fall_state_estimation: Parameter<
-        crate::framework::configuration::FallStateEstimation,
-        "control/fall_state_estimation",
-    >,
+    pub fall_state_estimation:
+        Parameter<FallStateEstimationConfiguration, "control/fall_state_estimation">,
 
     pub has_ground_contact: RequiredInput<bool, "has_ground_contact">,
     pub sensor_data: RequiredInput<SensorData, "sensor_data">,
@@ -37,11 +37,11 @@ pub struct MainOutputs {
 }
 
 impl FallStateEstimation {
-    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }

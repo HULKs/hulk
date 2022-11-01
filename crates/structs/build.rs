@@ -4,9 +4,15 @@ use anyhow::{anyhow, bail, Context};
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use source_analyzer::{StructHierarchy, Structs};
+use source_analyzer::{cycler_crates_from_crates_directory, StructHierarchy, Structs};
 
 fn main() -> anyhow::Result<()> {
+    for crate_directory in cycler_crates_from_crates_directory("..")
+        .context("Failed to get cycler crate directories from crates directory")?
+    {
+        println!("cargo:rerun-if-changed={}", crate_directory.display());
+    }
+
     let structs = Structs::try_from_crates_directory("..")
         .context("Failed to get structs from crates directory")?;
 

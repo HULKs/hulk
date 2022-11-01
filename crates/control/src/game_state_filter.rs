@@ -1,11 +1,17 @@
 use context_attribute::context;
 use framework::{MainOutput, OptionalInput, Parameter, PersistentState};
+use nalgebra::Isometry2;
+use spl_network_messages::PlayerNumber;
+use types::{
+    configuration::GameStateFilter as GameStateFilterConfiguration, BallPosition, Buttons,
+    FieldDimensions, FilteredGameState, FilteredWhistle, GameControllerState, SensorData,
+};
 
 pub struct GameStateFilter {}
 
 #[context]
 pub struct NewContext {
-    pub config: Parameter<configuration::GameStateFilter, "control/game_state_filter">,
+    pub config: Parameter<GameStateFilterConfiguration, "control/game_state_filter">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
 
@@ -20,7 +26,7 @@ pub struct CycleContext {
     pub game_controller_state: OptionalInput<GameControllerState, "game_controller_state?">,
     pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 
-    pub config: Parameter<configuration::GameStateFilter, "control/game_state_filter">,
+    pub config: Parameter<GameStateFilterConfiguration, "control/game_state_filter">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
 
@@ -34,11 +40,11 @@ pub struct MainOutputs {
 }
 
 impl GameStateFilter {
-    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }

@@ -21,4 +21,3 @@ tokio = { workspace = true }
 petgraph = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
-source_graph = { workspace = true }

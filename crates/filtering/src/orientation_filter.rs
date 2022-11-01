@@ -211,7 +211,7 @@ mod test {
     const CYCLE_TIME: f32 = 1.0 / (NUMBER_OF_MEASUREMENTS as f32);
     const SEED: u64 = 3;
 
-    const PARAMETERS: configuration::OrientationFilter = configuration::OrientationFilter {
+    const PARAMETERS: OrientationFilterParameters = OrientationFilterParameters {
         acceleration_threshold: ACCELERATION_THRESHOLD,
         delta_angular_velocity_threshold: DELTA_ANGULAR_VELOCITY_THRESHOLD,
         angular_velocity_bias_weight: ANGULAR_VELOCITY_BIAS_WEIGHT,

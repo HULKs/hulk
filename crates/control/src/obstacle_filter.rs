@@ -2,6 +2,10 @@ use context_attribute::context;
 use framework::{
     AdditionalOutput, HistoricInput, MainOutput, OptionalInput, Parameter, PerceptionInput,
 };
+use nalgebra::{Isometry2, Point2};
+use types::{
+    DetectedRobots, FieldDimensions, Obstacle, ObstacleFilterHypothesis, SensorData, SonarObstacle,
+};
 
 pub struct ObstacleFilter {}
 
@@ -11,7 +15,7 @@ pub struct NewContext {
     pub goal_post_obstacle_radius:
         Parameter<f32, "control/obstacle_filter/goal_post_obstacle_radius">,
     // pub obstacle_filter:
-    //     Parameter<crate::framework::configuration::ObstacleFilter, "control/obstacle_filter">,
+    //     Parameter<ObstacleFilter, "control/obstacle_filter">,
     pub robot_obstacle_radius_at_foot_height:
         Parameter<f32, "control/obstacle_filter/robot_obstacle_radius_at_foot_height">,
     pub robot_obstacle_radius_at_hip_height:
@@ -36,7 +40,7 @@ pub struct CycleContext {
     pub goal_post_obstacle_radius:
         Parameter<f32, "control/obstacle_filter/goal_post_obstacle_radius">,
     // pub obstacle_filter:
-    //     Parameter<crate::framework::configuration::ObstacleFilter, "control/obstacle_filter">,
+    //     Parameter<ObstacleFilter, "control/obstacle_filter">,
     pub robot_obstacle_radius_at_foot_height:
         Parameter<f32, "control/obstacle_filter/robot_obstacle_radius_at_foot_height">,
     pub robot_obstacle_radius_at_hip_height:
@@ -54,11 +58,11 @@ pub struct MainOutputs {
 }
 
 impl ObstacleFilter {
-    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }

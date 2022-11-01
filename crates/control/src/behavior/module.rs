@@ -1,13 +1,19 @@
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, OptionalInput, Parameter, RequiredInput};
+use nalgebra::Point2;
+use types::{
+    configuration::{Behavior as BehaviorConfiguration, LostBall},
+    CameraMatrices, FieldDimensions, KickDecision, MotionCommand, PathObstacle, ProjectedLimbs,
+    WorldState,
+};
 
 pub struct Behavior {}
 
 #[context]
 pub struct NewContext {
-    pub behavior: Parameter<configuration::Behavior, "control/behavior">,
+    pub behavior: Parameter<BehaviorConfiguration, "control/behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub lost_ball_parameters: Parameter<configuration::LostBall, "control/behavior/lost_ball">,
+    pub lost_ball_parameters: Parameter<LostBall, "control/behavior/lost_ball">,
 }
 
 #[context]
@@ -19,9 +25,9 @@ pub struct CycleContext {
     pub camera_matrices: OptionalInput<CameraMatrices, "camera_matrices?">,
     pub projected_limbs: OptionalInput<ProjectedLimbs, "projected_limbs?">,
 
-    pub behavior: Parameter<configuration::Behavior, "control/behavior">,
+    pub behavior: Parameter<BehaviorConfiguration, "control/behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub lost_ball_parameters: Parameter<configuration::LostBall, "control/behavior/lost_ball">,
+    pub lost_ball_parameters: Parameter<LostBall, "control/behavior/lost_ball">,
 
     pub world_state: RequiredInput<WorldState, "world_state">,
 }
@@ -29,15 +35,15 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub motion_command: MainOutput<MotionCommand>,
+    pub motion_command: MainOutput<Option<MotionCommand>>,
 }
 
 impl Behavior {
-    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }

@@ -1,5 +1,6 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput, Parameter, PerceptionInput};
+use framework::{MainOutput, OptionalInput, Parameter};
+use types::{FilteredWhistle, SensorData};
 
 pub struct WhistleFilter {}
 
@@ -15,7 +16,6 @@ pub struct CycleContext {
 
     pub buffer_length: Parameter<usize, "control/whistle_filter/buffer_length">,
     pub minimum_detections: Parameter<usize, "control/whistle_filter/minimum_detections">,
-
     // TODO: wieder einkommentieren
     // pub detected_whistle: PerceptionInput<Whistle, "Audio", "detected_whistle">,
 }
@@ -27,11 +27,11 @@ pub struct MainOutputs {
 }
 
 impl WhistleFilter {
-    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }
