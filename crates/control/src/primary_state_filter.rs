@@ -1,5 +1,7 @@
 use context_attribute::context;
 use framework::{MainOutput, OptionalInput, Parameter};
+use spl_network_messages::PlayerNumber;
+use types::{Buttons, FilteredGameState, GameControllerState, PrimaryState};
 
 pub struct PrimaryStateFilter {}
 
@@ -25,11 +27,11 @@ pub struct MainOutputs {
 }
 
 impl PrimaryStateFilter {
-    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }

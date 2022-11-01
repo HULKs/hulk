@@ -1,5 +1,6 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput, PerceptionInput};
+use framework::{MainOutput, OptionalInput};
+use types::{GameControllerState, SensorData};
 
 pub struct GameControllerFilter {}
 
@@ -9,7 +10,6 @@ pub struct NewContext {}
 #[context]
 pub struct CycleContext {
     pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
-
     // TODO: wieder einkommentieren
     // pub game_controller_state_message:
     //     PerceptionInput<GameControllerStateMessage, "SplNetwork", "game_controller_state_message">,
@@ -18,15 +18,15 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub game_controller_state: MainOutput<GameControllerState>,
+    pub game_controller_state: MainOutput<Option<GameControllerState>>,
 }
 
 impl GameControllerFilter {
-    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }

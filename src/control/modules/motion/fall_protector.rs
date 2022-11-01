@@ -19,7 +19,6 @@ pub struct FallProtector {
 #[input(path = motion_selection, data_type = MotionSelection)]
 #[input(path = motion_command, data_type = MotionCommand)]
 #[main_output(name = fall_protection_command, data_type = JointsCommand)]
-
 impl FallProtector {}
 
 impl FallProtector {

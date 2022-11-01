@@ -11,6 +11,7 @@ filtering = {path = "../filtering"}
 framework = {path = "../framework"}
 hardware = {path = "../hardware"}
 nalgebra = {version = "0.31.0", features = ["serde-serialize"]}
+spl_network_messages = {path = "../spl_network_messages"}
 types = {path = "../types"}
 
 # convert_case = "0.5.0"

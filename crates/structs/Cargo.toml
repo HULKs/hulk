@@ -5,6 +5,10 @@ name = "structs"
 version = "0.1.0"
 
 [dependencies]
+filtering = {path = "../filtering"}
+nalgebra = {version = "0.31.0", features = ["serde-serialize"]}
+spl_network_messages = {path = "../spl_network_messages"}
+types = {path = "../types"}
 
 [build-dependencies]
 anyhow = "1.0.59"

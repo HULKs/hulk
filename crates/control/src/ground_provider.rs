@@ -1,5 +1,7 @@
 use context_attribute::context;
 use framework::{MainOutput, OptionalInput};
+use nalgebra::Isometry3;
+use types::{RobotKinematics, SensorData, SupportFoot};
 
 pub struct GroundProvider {}
 
@@ -21,11 +23,11 @@ pub struct MainOutputs {
 }
 
 impl GroundProvider {
-    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }

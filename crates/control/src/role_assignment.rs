@@ -1,5 +1,11 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput, Parameter, PerceptionInput};
+use framework::{MainOutput, OptionalInput, Parameter};
+use nalgebra::{Isometry2, Point2};
+use spl_network_messages::PlayerNumber;
+use types::{
+    configuration::SplNetwork, BallPosition, FallState, FieldDimensions, GameControllerState,
+    PrimaryState, Role, SensorData,
+};
 
 pub struct RoleAssignment {}
 
@@ -24,7 +30,6 @@ pub struct CycleContext {
     pub forced_role: Parameter<Option<Role>, "control/role_assignment/forced_role">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
     pub spl_network: Parameter<SplNetwork, "spl_network">,
-
     // TODO: wieder einkommentieren
     // pub spl_message: PerceptionInput<SplMessage, "SplNetwork", "spl_message">,
 }
@@ -33,17 +38,17 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub team_ball: MainOutput<BallPosition>,
-    pub message_receivers: MainOutput<MessageReceivers>,
+    // pub message_receivers: MainOutput<MessageReceivers>,
     pub network_robot_obstacles: MainOutput<Vec<Point2<f32>>>,
     pub role: MainOutput<Role>,
 }
 
 impl RoleAssignment {
-    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }

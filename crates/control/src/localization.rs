@@ -1,7 +1,14 @@
 use context_attribute::context;
+use filtering::ScoredPoseFilter;
 use framework::{
     AdditionalOutput, HistoricInput, MainOutput, OptionalInput, Parameter, PerceptionInput,
     PersistentState,
+};
+use nalgebra::{Isometry2, Matrix3, Vector2, Vector3};
+use spl_network_messages::PlayerNumber;
+use types::{
+    FieldDimensions, GameControllerState, InitialPose, Line2, LineData, LocalizationUpdate,
+    Players, PrimaryState,
 };
 
 pub struct Localization {}
@@ -102,11 +109,11 @@ pub struct MainOutputs {
 }
 
 impl Localization {
-    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }

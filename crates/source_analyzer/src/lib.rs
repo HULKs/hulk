@@ -10,6 +10,7 @@ mod to_absolute;
 mod uses;
 
 pub use contexts::{expand_variables_from_path, Contexts, Field, PathSegment};
+pub use cycler_crates::cycler_crates_from_crates_directory;
 pub use cycler_instances::CyclerInstances;
 pub use cycler_types::{CyclerType, CyclerTypes};
 pub use modules::{Module, Modules};

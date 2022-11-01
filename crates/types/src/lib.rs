@@ -5,6 +5,7 @@ mod buttons;
 mod camera_matrix;
 mod camera_position;
 mod color;
+pub mod configuration;
 mod cycle_info;
 mod detected_robots;
 mod fall_state;
@@ -31,6 +32,7 @@ mod localization_update;
 mod message_event;
 mod motion_command;
 mod motion_selection;
+mod obstacle_filter_hypothesis;
 mod obstacles;
 mod path_obstacles;
 mod penalty_shot_direction;
@@ -46,6 +48,7 @@ mod sensor_data;
 mod sole_pressure;
 mod sonar_obstacle;
 mod sonar_values;
+mod step_adjustment;
 mod step_plan;
 mod support_foot;
 mod walk_command;
@@ -54,6 +57,7 @@ mod world_state;
 
 pub use self::image::Image422;
 pub use ball::{Ball, CandidateEvaluation};
+pub use ball_filter_hypothesis::BallFilterHypothesis;
 pub use ball_position::BallPosition;
 pub use buttons::Buttons;
 pub use camera_matrix::{CameraMatrices, CameraMatrix, Horizon, ProjectedFieldLines};
@@ -92,6 +96,7 @@ pub use motion_command::{
     MotionCommand, OrientationMode, SitDirection,
 };
 pub use motion_selection::{MotionSafeExits, MotionSelection, MotionType};
+pub use obstacle_filter_hypothesis::ObstacleFilterHypothesis;
 pub use obstacles::{Obstacle, ObstacleKind};
 pub use path_obstacles::{PathObstacle, PathObstacleShape};
 pub use penalty_shot_direction::PenaltyShotDirection;
@@ -110,10 +115,9 @@ pub use sensor_data::{
 pub use sole_pressure::SolePressure;
 pub use sonar_obstacle::SonarObstacle;
 pub use sonar_values::SonarValues;
+pub use step_adjustment::StepAdjustment;
 pub use step_plan::Step;
 pub use support_foot::{Side, SupportFoot};
 pub use walk_command::WalkCommand;
 pub use whistle::Whistle;
 pub use world_state::{BallState, RobotState, WorldState};
-
-include!(concat!(env!("OUT_DIR"), "/structs.rs"));

@@ -1,5 +1,7 @@
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, Parameter, RequiredInput};
+use nalgebra::Point2;
+use types::{CameraMatrix, FieldBorder, ImageSegments};
 
 pub struct FieldBorderDetection {}
 
@@ -39,11 +41,11 @@ pub struct MainOutputs {
 }
 
 impl FieldBorderDetection {
-    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }
