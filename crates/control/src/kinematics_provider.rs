@@ -8,7 +8,7 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 }
 
 #[context]

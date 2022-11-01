@@ -13,15 +13,15 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub arms_up_squat_joints_command: OptionalInput<JointsCommand, "arms_up_squat_joints_command">,
-    pub jump_left_joints_command: OptionalInput<JointsCommand, "jump_left_joints_command">,
-    pub jump_right_joints_command: OptionalInput<JointsCommand, "jump_right_joints_command">,
-    pub motion_selection: OptionalInput<MotionSelection, "motion_selection">,
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
-    pub sit_down_joints_command: OptionalInput<JointsCommand, "sit_down_joints_command">,
-    pub stand_up_back_positions: OptionalInput<Joints, "stand_up_back_positions">,
-    pub stand_up_front_positions: OptionalInput<Joints, "stand_up_front_positions">,
-    pub walk_joints_command: OptionalInput<BodyJointsCommand, "walk_joints_command">,
+    pub arms_up_squat_joints_command: OptionalInput<JointsCommand, "arms_up_squat_joints_command?">,
+    pub jump_left_joints_command: OptionalInput<JointsCommand, "jump_left_joints_command?">,
+    pub jump_right_joints_command: OptionalInput<JointsCommand, "jump_right_joints_command?">,
+    pub motion_selection: OptionalInput<MotionSelection, "motion_selection?">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
+    pub sit_down_joints_command: OptionalInput<JointsCommand, "sit_down_joints_command?">,
+    pub stand_up_back_positions: OptionalInput<Joints, "stand_up_back_positions?">,
+    pub stand_up_front_positions: OptionalInput<Joints, "stand_up_front_positions?">,
+    pub walk_joints_command: OptionalInput<BodyJointsCommand, "walk_joints_command?">,
 
     pub penalized_pose: Parameter<Joints, "control/penalized_pose">,
     pub ready_pose: Parameter<Joints, "control/ready_pose">,

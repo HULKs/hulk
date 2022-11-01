@@ -10,8 +10,8 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub motion_selection: OptionalInput<MotionSelection, "motion_selection">,
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+    pub motion_selection: OptionalInput<MotionSelection, "motion_selection?">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }

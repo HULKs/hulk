@@ -31,7 +31,7 @@ pub struct BallDetection {
 #[module(vision)]
 #[input(path = perspective_grid_candidates, data_type = PerspectiveGridCandidates)]
 #[input(path = camera_matrix, data_type = CameraMatrix)]
-#[parameter(path = $this_cycler.ball_detection, data_type = BallDetectionConfiguration)]
+#[parameter(path = $cycler_instance.ball_detection, data_type = BallDetectionConfiguration)]
 #[parameter(path = field_dimensions.ball_radius, data_type = f32, name = ball_radius)]
 #[additional_output(path = ball_candidates, data_type = Vec<CandidateEvaluation>)]
 #[main_output(name = balls, data_type = Vec<Ball>)]

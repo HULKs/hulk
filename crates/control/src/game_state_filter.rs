@@ -14,11 +14,11 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub ball_position: OptionalInput<BallPosition, "ball_position">,
-    pub buttons: OptionalInput<Buttons, "buttons">,
-    pub filtered_whistle: OptionalInput<FilteredWhistle, "filtered_whistle">,
-    pub game_controller_state: OptionalInput<GameControllerState, "game_controller_state">,
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+    pub ball_position: OptionalInput<BallPosition, "ball_position?">,
+    pub buttons: OptionalInput<Buttons, "buttons?">,
+    pub filtered_whistle: OptionalInput<FilteredWhistle, "filtered_whistle?">,
+    pub game_controller_state: OptionalInput<GameControllerState, "game_controller_state?">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 
     pub config: Parameter<configuration::GameStateFilter, "control/game_state_filter">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,

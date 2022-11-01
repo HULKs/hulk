@@ -15,9 +15,9 @@ pub struct ImageSegmenter;
 #[input(path = camera_matrix, data_type = CameraMatrix)]
 #[input(path = field_color, data_type = FieldColor)]
 #[input(path = projected_limbs, data_type = ProjectedLimbs, cycler = control)]
-#[parameter(path = $this_cycler.image_segmenter.vertical_edge_detection_source, data_type = EdgeDetectionSource)]
-#[parameter(path = $this_cycler.image_segmenter.vertical_edge_threshold, data_type = i16)]
-#[parameter(path = $this_cycler.image_segmenter.vertical_median_mode, data_type = MedianMode)]
+#[parameter(path = $cycler_instance.image_segmenter.vertical_edge_detection_source, data_type = EdgeDetectionSource)]
+#[parameter(path = $cycler_instance.image_segmenter.vertical_edge_threshold, data_type = i16)]
+#[parameter(path = $cycler_instance.image_segmenter.vertical_median_mode, data_type = MedianMode)]
 #[additional_output(path = image_segmenter_cycle_time, data_type = Duration)]
 #[main_output(data_type = ImageSegments)]
 impl ImageSegmenter {}

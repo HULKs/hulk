@@ -15,9 +15,9 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: OptionalInput<MotionCommand, "motion_command">,
-    pub motion_selection: OptionalInput<MotionSelection, "motion_selection">,
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+    pub motion_command: OptionalInput<MotionCommand, "motion_command?">,
+    pub motion_selection: OptionalInput<MotionSelection, "motion_selection?">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 
     pub gyro_low_pass_filter_coefficient:
         Parameter<f32, "control/stand_up/gyro_low_pass_filter_coefficient">,

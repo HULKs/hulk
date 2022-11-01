@@ -10,8 +10,8 @@ pub struct NewContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub goal_post_obstacle_radius:
         Parameter<f32, "control/obstacle_filter/goal_post_obstacle_radius">,
-    pub obstacle_filter:
-        Parameter<crate::framework::configuration::ObstacleFilter, "control/obstacle_filter">,
+    // pub obstacle_filter:
+    //     Parameter<crate::framework::configuration::ObstacleFilter, "control/obstacle_filter">,
     pub robot_obstacle_radius_at_foot_height:
         Parameter<f32, "control/obstacle_filter/robot_obstacle_radius_at_foot_height">,
     pub robot_obstacle_radius_at_hip_height:
@@ -30,13 +30,13 @@ pub struct CycleContext {
     pub robot_to_field: HistoricInput<Isometry2<f32>, "robot_to_field">,
     pub sonar_obstacle: HistoricInput<SonarObstacle, "sonar_obstacle">,
 
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub goal_post_obstacle_radius:
         Parameter<f32, "control/obstacle_filter/goal_post_obstacle_radius">,
-    pub obstacle_filter:
-        Parameter<crate::framework::configuration::ObstacleFilter, "control/obstacle_filter">,
+    // pub obstacle_filter:
+    //     Parameter<crate::framework::configuration::ObstacleFilter, "control/obstacle_filter">,
     pub robot_obstacle_radius_at_foot_height:
         Parameter<f32, "control/obstacle_filter/robot_obstacle_radius_at_foot_height">,
     pub robot_obstacle_radius_at_hip_height:

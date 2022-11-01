@@ -16,8 +16,8 @@ pub struct NewContext {
 pub struct CycleContext {
     pub projected_field_lines: AdditionalOutput<ProjectedFieldLines, "projected_field_lines">,
 
-    pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics">,
-    pub robot_to_ground: OptionalInput<Isometry3<f32>, "robot_to_ground">,
+    pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics?">,
+    pub robot_to_ground: OptionalInput<Isometry3<f32>, "robot_to_ground?">,
 
     pub bottom_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "vision_bottom/camera_matrix_parameters">,

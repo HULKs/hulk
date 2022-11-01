@@ -11,9 +11,9 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
-    pub sole_pressure: OptionalInput<SolePressure, "sole_pressure">,
-    pub support_foot: OptionalInput<SupportFoot, "support_foot">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
+    pub sole_pressure: OptionalInput<SolePressure, "sole_pressure?">,
+    pub support_foot: OptionalInput<SupportFoot, "support_foot?">,
 
     pub orientation_filter:
         Parameter<configuration::OrientationFilter, "control/orientation_filter">,

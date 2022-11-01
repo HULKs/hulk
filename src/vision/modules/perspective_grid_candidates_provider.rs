@@ -19,8 +19,8 @@ pub struct PerspectiveGridCandidatesProvider;
 #[input(path = filtered_segments, data_type = FilteredSegments)]
 #[input(path = camera_matrix, data_type = CameraMatrix)]
 #[input(path = line_data, data_type = LineData)]
-#[parameter(path = $this_cycler.perspective_grid_candidates_provider.minimum_radius, data_type = f32, name = minimum_radius)]
-#[parameter(path = $this_cycler.perspective_grid_candidates_provider.fallback_radius, data_type = f32, name = fallback_radius)]
+#[parameter(path = $cycler_instance.perspective_grid_candidates_provider.minimum_radius, data_type = f32, name = minimum_radius)]
+#[parameter(path = $cycler_instance.perspective_grid_candidates_provider.fallback_radius, data_type = f32, name = fallback_radius)]
 #[parameter(path = field_dimensions.ball_radius, data_type = f32, name = ball_radius)]
 #[main_output(data_type = PerspectiveGridCandidates)]
 impl PerspectiveGridCandidatesProvider {}

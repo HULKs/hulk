@@ -8,10 +8,11 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 
-    pub game_controller_state_message:
-        PerceptionInput<GameControllerStateMessage, "SplNetwork", "game_controller_state_message">,
+    // TODO: wieder einkommentieren
+    // pub game_controller_state_message:
+    //     PerceptionInput<GameControllerStateMessage, "SplNetwork", "game_controller_state_message">,
 }
 
 #[context]
