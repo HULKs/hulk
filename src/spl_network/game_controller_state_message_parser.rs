@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 
 use log::warn;
-use spl_network::GameControllerStateMessage;
+use spl_network_messages::GameControllerStateMessage;
 
 pub fn parse_game_controller_state_message(message: &[u8]) -> Option<GameControllerStateMessage> {
     match message.try_into() {

@@ -8,7 +8,7 @@ use anyhow::{anyhow, bail, Context};
 use regex::Regex;
 
 use nao::{Network, SystemctlAction};
-use spl_network::PlayerNumber;
+use spl_network_messages::PlayerNumber;
 
 pub const SYSTEMCTL_ACTION_POSSIBLE_VALUES: &[&str] =
     &["disable", "enable", "restart", "start", "status", "stop"];

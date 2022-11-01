@@ -23,7 +23,7 @@ use tokio::{
     process::Command,
 };
 
-use spl_network::PlayerNumber;
+use spl_network_messages::PlayerNumber;
 
 pub const SDK_VERSION: &str = "5.1";
 

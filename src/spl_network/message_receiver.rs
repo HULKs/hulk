@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::bail;
-use spl_network::{GameControllerReturnMessage, SplMessage};
+use spl_network_messages::{GameControllerReturnMessage, SplMessage};
 use tokio::sync::{mpsc::UnboundedReceiver, Mutex};
 use tokio::{net::UdpSocket, select, sync::Notify};
 use tokio_util::sync::CancellationToken;

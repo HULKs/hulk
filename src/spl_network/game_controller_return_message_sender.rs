@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use log::warn;
-use spl_network::GameControllerReturnMessage;
+use spl_network_messages::GameControllerReturnMessage;
 use tokio::net::UdpSocket;
 
 pub async fn send_game_controller_return_message(

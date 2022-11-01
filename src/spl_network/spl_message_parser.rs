@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 
 use log::warn;
-use spl_network::SplMessage;
+use spl_network_messages::SplMessage;
 
 pub fn parse_spl_message(message: &[u8]) -> Option<SplMessage> {
     match message.try_into() {

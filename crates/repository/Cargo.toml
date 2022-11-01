@@ -11,6 +11,6 @@ futures = { workspace = true }
 home = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-spl_network = { workspace = true }
+spl_network_messages = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }

@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "spl_network"
+name = "spl_network_messages"
 version = "0.1.0"
 license = "GPL-3.0-only"
 

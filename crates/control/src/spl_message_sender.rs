@@ -1,5 +1,4 @@
-use spl_network::SplMessage;
-use spl_network::{GameControllerReturnMessage, GameControllerStateMessage};
+use spl_network::{GameControllerReturnMessage, GameControllerStateMessage, SplMessage};
 use tokio::runtime::Runtime;
 
 pub struct SplMessageSender;

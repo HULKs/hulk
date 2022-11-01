@@ -1,14 +1,14 @@
 use nalgebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use spl_network::PlayerNumber;
+use spl_network_messages::PlayerNumber;
 
 use crate::GameControllerState;
 
 use crate::PenaltyShotDirection;
 
 use super::{FallState, FilteredGameState, Obstacle, PrimaryState, Role, Side};
-use spl_network::GamePhase;
+use spl_network_messages::GamePhase;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct WorldState {
