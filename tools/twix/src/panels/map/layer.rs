@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use eframe::{egui::Ui, Storage};
+use convert_case::{Case, Casing};
+use eframe::egui::Ui;
 
+use serde_json::{json, Value};
 use types::FieldDimensions;
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
@@ -26,10 +28,11 @@ impl<T> EnabledLayer<T>
 where
     T: Layer,
 {
-    pub fn new(nao: Arc<Nao>, storage: Option<&dyn Storage>, active: bool) -> Self {
-        let active = storage
-            .and_then(|storage| storage.get_string(&format!("map.{}", T::NAME)))
-            .and_then(|value| value.parse().ok())
+    pub fn new(nao: Arc<Nao>, value: Option<&Value>, active: bool) -> Self {
+        let active = value
+            .and_then(|value| value.get(T::NAME.to_case(Case::Snake)))
+            .and_then(|value| value.get("active"))
+            .and_then(|value| value.as_bool())
             .unwrap_or(active);
         let layer = active.then(|| T::new(nao.clone()));
         Self { nao, layer, active }
@@ -52,7 +55,9 @@ where
         Ok(())
     }
 
-    pub fn save(&self, storage: &mut dyn Storage) {
-        storage.set_string(&format!("map.{}", T::NAME), self.active.to_string());
+    pub fn save(&self) -> Value {
+        json!({
+            "active": self.active
+        })
     }
 }

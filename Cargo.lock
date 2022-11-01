@@ -3209,6 +3209,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "communication",
+ "convert_case",
  "eframe",
  "egui_dock",
  "egui_extras",

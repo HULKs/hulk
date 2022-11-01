@@ -8,6 +8,7 @@ license = "GPL-3.0-only"
 anyhow = { workspace = true }
 communication = { workspace = true }
 eframe = { workspace = true }
+convert_case = { workspace = true }
 egui_extras = { workspace = true }
 egui_dock = { workspace = true }
 fern = { workspace = true }

@@ -16,8 +16,7 @@ use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 use nao::Nao;
 use panel::Panel;
 use panels::{ImagePanel, ImageSegmentsPanel, MapPanel, ParameterPanel, PlotPanel, TextPanel};
-use serde::Serialize;
-use serde_json::{from_str, json, to_string, to_string_pretty, Value};
+use serde_json::{from_str, to_string, to_string_pretty, Value};
 
 mod completion_edit;
 mod image_buffer;
@@ -43,28 +42,7 @@ fn setup_logger() -> Result<(), InitError> {
     Ok(())
 }
 
-#[derive(Serialize)]
-struct X {
-    hello: String,
-    test: f32,
-}
-
-fn convert_tree(tree: Tree<Value>) -> Tree<X> {
-    tree.map_tabs(|value| X {
-        hello: value["hello"].as_str().unwrap().to_string(),
-        test: 13.37,
-    })
-}
-
 fn main() {
-    // let tree = Tree::<Value>::from_str("");
-    let tab1 = json!({"hello": "world"});
-    let tab2 = json!({"hello": "Konrad"});
-    let mut tree = Tree::new(vec![tab1]);
-    tree.split_below(NodeIndex::root(), 0.50, vec![tab2]);
-    // println!("{}", to_string_pretty(&tree).unwrap());
-    // println!("{}", to_string_pretty(&convert_tree(tree)).unwrap());
-    // return;
     setup_logger().unwrap();
     let options = NativeOptions::default();
     run_native(
@@ -110,7 +88,6 @@ impl SelectablePanel {
             SelectablePanel::ImageSegments(panel) => panel.save(),
             SelectablePanel::Map(panel) => panel.save(),
             SelectablePanel::Parameter(panel) => panel.save(),
-            _ => json!({}),
         };
         value["_panel_type"] = Value::String(self.to_string());
 
