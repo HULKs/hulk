@@ -5,7 +5,6 @@ use communication::Cycler;
 use eframe::{
     egui::{Response, Ui, Widget},
     emath::Rect,
-    Storage,
 };
 use egui_extras::RetainedImage;
 use log::error;

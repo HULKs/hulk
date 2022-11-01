@@ -39,7 +39,7 @@ pub struct ImageSegmentsPanel {
 impl Panel for ImageSegmentsPanel {
     const NAME: &'static str = "Image Segments";
 
-    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
+    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
         let value_buffer =
             nao.subscribe_output(CyclerOutput::from_str("vision_top.main.image_segments").unwrap());
         Self {
