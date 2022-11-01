@@ -5,7 +5,7 @@ use eframe::{
     Storage,
 };
 use nalgebra::{vector, Similarity2, Translation2};
-use serde_json::from_value;
+use serde_json::{from_value, json, Value};
 use types::{self, FieldDimensions};
 
 use crate::{nao::Nao, panel::Panel, twix_painter::TwixPainter, value_buffer::ValueBuffer};
@@ -31,15 +31,15 @@ pub struct MapPanel {
 impl Panel for MapPanel {
     const NAME: &'static str = "Map";
 
-    fn new(nao: Arc<Nao>, storage: Option<&dyn Storage>) -> Self {
-        let field = EnabledLayer::new(nao.clone(), storage, true);
-        let image_segments = EnabledLayer::new(nao.clone(), storage, false);
-        let robot_pose = EnabledLayer::new(nao.clone(), storage, true);
-        let ball_position = EnabledLayer::new(nao.clone(), storage, false);
-        let obstacles = EnabledLayer::new(nao.clone(), storage, false);
-        let path_obstacles = EnabledLayer::new(nao.clone(), storage, false);
-        let path = EnabledLayer::new(nao.clone(), storage, false);
-        let kick_decisions = EnabledLayer::new(nao.clone(), storage, false);
+    fn new(nao: Arc<Nao>, storage: Option<&Value>) -> Self {
+        let field = EnabledLayer::new(nao.clone(), None, true);
+        let image_segments = EnabledLayer::new(nao.clone(), None, false);
+        let robot_pose = EnabledLayer::new(nao.clone(), None, true);
+        let ball_position = EnabledLayer::new(nao.clone(), None, false);
+        let obstacles = EnabledLayer::new(nao.clone(), None, false);
+        let path_obstacles = EnabledLayer::new(nao.clone(), None, false);
+        let path = EnabledLayer::new(nao.clone(), None, false);
+        let kick_decisions = EnabledLayer::new(nao.clone(), None, false);
 
         let field_dimensions = nao.subscribe_parameter("field_dimensions");
         let transformation = Similarity2::identity();
@@ -57,15 +57,18 @@ impl Panel for MapPanel {
         }
     }
 
-    fn save(&mut self, storage: &mut dyn Storage) {
-        self.field.save(storage);
-        self.image_segments.save(storage);
-        self.robot_pose.save(storage);
-        self.ball_position.save(storage);
-        self.obstacles.save(storage);
-        self.path_obstacles.save(storage);
-        self.path.save(storage);
-        self.kick_decisions.save(storage);
+    fn save(&self) -> Value {
+        todo!();
+        json!({
+            // "field": self.field.save(),
+            // "image_segments": self.image_segments.save(),
+            // "robot_pose": self.robot_pose.save(),
+            // "ball_position": self.ball_position.save(),
+            // "obstacles": self.obstacles.save(),
+            // "path_obstacles": self.path_obstacles.save(),
+            // "path": self.path.save(),
+            // "kick_decisions": self.kick_decisions.save(),
+        })
     }
 }
 
