@@ -72,10 +72,10 @@ impl Panel for ImagePanel {
 
         let overlays = self.overlays.save();
 
-        return json!({
+        json!({
             "cycler": cycler,
             "overlays":overlays,
-        });
+        })
     }
 }
 
