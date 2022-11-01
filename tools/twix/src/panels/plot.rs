@@ -8,11 +8,11 @@ use eframe::{
         DragValue, Response, Widget,
     },
     epaint::Color32,
-    Storage,
 };
 use log::{error, info};
 
 use communication::CyclerOutput;
+use serde_json::Value;
 
 use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 
@@ -41,7 +41,7 @@ pub struct PlotPanel {
 impl Panel for PlotPanel {
     const NAME: &'static str = "Plot";
 
-    fn new(nao: Arc<Nao>, _storage: Option<&dyn Storage>) -> Self {
+    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
         Self {
             nao,
             line_datas: Vec::new(),

@@ -85,62 +85,36 @@ enum SelectablePanel {
 }
 
 impl SelectablePanel {
-    fn try_from_value(nao: Arc<Nao>, value: &Value) -> Option<SelectablePanel> {
-        let name = value.get("_panel_type")?.as_str()?;
-        Some(match name.to_lowercase().as_str() {
-            "text" => SelectablePanel::Text(TextPanel::new2(nao, value)),
-            // "plot" => SelectablePanel::Plot(PlotPanel::new(nao, storage)),
-            // "image" => SelectablePanel::Image(ImagePanel::new(nao, storage)),
-            // "image segments" => {
-            //     SelectablePanel::ImageSegments(ImageSegmentsPanel::new(nao, storage))
-            // }
-            // "map" => SelectablePanel::Map(MapPanel::new(nao, storage)),
-            "parameter" => SelectablePanel::Parameter(ParameterPanel::new2(nao, value)),
-            _ => SelectablePanel::Text(TextPanel::new(nao, None)),
-        })
-    }
-    fn save(&mut self, storage: &mut dyn Storage) {
-        match self {
-            SelectablePanel::Text(panel) => panel.save(storage),
-            SelectablePanel::Plot(panel) => panel.save(storage),
-            SelectablePanel::Image(panel) => panel.save(storage),
-            SelectablePanel::ImageSegments(panel) => panel.save(storage),
-            SelectablePanel::Map(panel) => panel.save(storage),
-            SelectablePanel::Parameter(panel) => panel.save(storage),
-        }
+    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Option<SelectablePanel> {
+        let name = value?.get("_panel_type")?.as_str()?;
+        Self::try_from_name(name, nao, value)
     }
 
-    fn save2(&self) -> Value {
+    fn try_from_name(name: &str, nao: Arc<Nao>, value: Option<&Value>) -> Option<SelectablePanel> {
+        Some(match name.to_lowercase().as_str() {
+            "text" => SelectablePanel::Text(TextPanel::new(nao, value)),
+            "plot" => SelectablePanel::Plot(PlotPanel::new(nao, value)),
+            "image" => SelectablePanel::Image(ImagePanel::new(nao, value)),
+            "image segments" => SelectablePanel::ImageSegments(ImageSegmentsPanel::new(nao, value)),
+            "map" => SelectablePanel::Map(MapPanel::new(nao, value)),
+            "parameter" => SelectablePanel::Parameter(ParameterPanel::new(nao, value)),
+            _ => return None,
+        })
+    }
+
+    fn save(&self) -> Value {
         let mut value = match self {
-            SelectablePanel::Text(panel) => panel.save2(),
-            // SelectablePanel::Plot(panel) => panel.save(storage),
-            // SelectablePanel::Image(panel) => panel.save(storage),
-            // SelectablePanel::ImageSegments(panel) => panel.save(storage),
-            // SelectablePanel::Map(panel) => panel.save(storage),
-            SelectablePanel::Parameter(panel) => panel.save2(),
+            SelectablePanel::Text(panel) => panel.save(),
+            SelectablePanel::Plot(panel) => panel.save(),
+            SelectablePanel::Image(panel) => panel.save(),
+            SelectablePanel::ImageSegments(panel) => panel.save(),
+            SelectablePanel::Map(panel) => panel.save(),
+            SelectablePanel::Parameter(panel) => panel.save(),
             _ => json!({}),
         };
         value["_panel_type"] = Value::String(self.to_string());
 
         value
-    }
-
-    fn try_from_name(
-        name: &str,
-        nao: Arc<Nao>,
-        storage: Option<&dyn Storage>,
-    ) -> Option<SelectablePanel> {
-        Some(match name.to_lowercase().as_str() {
-            "text" => SelectablePanel::Text(TextPanel::new(nao, storage)),
-            "plot" => SelectablePanel::Plot(PlotPanel::new(nao, storage)),
-            "image" => SelectablePanel::Image(ImagePanel::new(nao, storage)),
-            "image segments" => {
-                SelectablePanel::ImageSegments(ImageSegmentsPanel::new(nao, storage))
-            }
-            "map" => SelectablePanel::Map(MapPanel::new(nao, storage)),
-            "parameter" => SelectablePanel::Parameter(ParameterPanel::new(nao, storage)),
-            _ => return None,
-        })
     }
 }
 
@@ -201,19 +175,12 @@ impl TwixApp {
             connection_intent,
         ));
 
-        // let tab1 = SelectablePanel::Map(MapPanel::new(nao.clone(), creation_context.storage));
-        let tab2 = SelectablePanel::Image(ImagePanel::new(nao.clone(), creation_context.storage));
-        //
-        // let mut tree = Tree::new(vec![tab1]);
-        // tree.split_below(NodeIndex::root(), 0.50, vec![tab2]);
         let tree: Tree<Value> = creation_context
             .storage
             .and_then(|storage| storage.get_string("tree"))
             .and_then(|string| from_str(&string).ok())
             .unwrap_or_else(|| Tree::new(Vec::new()));
-        let mut tree =
-            tree.map_tabs(|value| SelectablePanel::try_from_value(nao.clone(), value).unwrap());
-        // tree.split_below(NodeIndex::root(), 0.50, vec![tab2]);
+        let tree = tree.map_tabs(|value| SelectablePanel::new(nao.clone(), Some(value)).unwrap());
 
         let mut style = (*creation_context.egui_ctx.style()).clone();
         style.visuals = Visuals::dark();
@@ -280,7 +247,7 @@ impl App for TwixApp {
                     if let Some(panel) = SelectablePanel::try_from_name(
                         &self.panel_selection,
                         self.nao.clone(),
-                        frame.storage(),
+                        None,
                     ) {
                         *self.active_panel().unwrap() = panel;
                     }
@@ -309,7 +276,7 @@ impl App for TwixApp {
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {
-        let tree = self.tree.map_tabs(|panel| panel.save2());
+        let tree = self.tree.map_tabs(|panel| panel.save());
         println!("{}", to_string_pretty(&tree).unwrap());
 
         storage.set_string("tree", to_string(&tree).unwrap());
@@ -323,10 +290,6 @@ impl App for TwixApp {
             }
             .to_string(),
         );
-        if let Some(panel) = self.active_panel() {
-            storage.set_string("selected_panel", panel.to_string());
-            panel.save(storage);
-        }
     }
 }
 

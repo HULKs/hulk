@@ -1,10 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use communication::CyclerOutput;
-use eframe::{
-    egui::{ScrollArea, Widget},
-    Storage,
-};
+use eframe::egui::{ScrollArea, Widget};
 use log::error;
 use serde_json::{json, Value};
 
@@ -19,37 +16,8 @@ pub struct TextPanel {
 impl Panel for TextPanel {
     const NAME: &'static str = "Text";
 
-    fn new(nao: Arc<Nao>, storage: Option<&dyn Storage>) -> Self {
-        let output = match storage.and_then(|storage| storage.get_string("text_panel_output")) {
-            Some(stored_output) => stored_output,
-            None => String::new(),
-        };
-        let values = if !output.is_empty() {
-            let output = CyclerOutput::from_str(&output);
-            match output {
-                Ok(output) => Some(nao.subscribe_output(output)),
-                Err(error) => {
-                    error!("Failed to subscribe: {error:?}");
-                    None
-                }
-            }
-        } else {
-            None
-        };
-        Self {
-            nao,
-            output,
-            values,
-        }
-    }
-
-    fn save(&mut self, storage: &mut dyn Storage) {
-        storage.set_string("text_panel_output", self.output.clone());
-    }
-}
-impl TextPanel {
-    pub fn new2(nao: Arc<Nao>, value: &Value) -> Self {
-        let output = match value.get("subscribe_key") {
+    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
+        let output = match value.and_then(|value| value.get("subscribe_key")) {
             Some(Value::String(string)) => string.to_string(),
             _ => String::new(),
         };
@@ -72,7 +40,7 @@ impl TextPanel {
         }
     }
 
-    pub fn save2(&self) -> Value {
+    fn save(&self) -> Value {
         json!({
             "subscribe_key": self.output.clone()
         })

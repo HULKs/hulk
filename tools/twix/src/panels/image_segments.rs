@@ -4,9 +4,9 @@ use communication::CyclerOutput;
 use eframe::{
     egui::{ComboBox, Response, Ui, Widget},
     epaint::{Color32, Stroke},
-    Storage,
 };
 use nalgebra::{point, vector, Similarity2};
+use serde_json::Value;
 use types::{CameraPosition, ImageSegments, Rgb, RgbChannel};
 
 use crate::{nao::Nao, panel::Panel, twix_painter::CoordinateSystem, value_buffer::ValueBuffer};
@@ -39,7 +39,7 @@ pub struct ImageSegmentsPanel {
 impl Panel for ImageSegmentsPanel {
     const NAME: &'static str = "Image Segments";
 
-    fn new(nao: Arc<Nao>, _storage: Option<&dyn Storage>) -> Self {
+    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
         let value_buffer =
             nao.subscribe_output(CyclerOutput::from_str("vision_top.main.image_segments").unwrap());
         Self {

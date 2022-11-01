@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
-use eframe::Storage;
+use serde_json::{json, Value};
 
 use crate::nao::Nao;
 
 pub trait Panel {
     const NAME: &'static str;
-    fn new(nao: Arc<Nao>, storage: Option<&dyn Storage>) -> Self;
-    fn save(&mut self, _storage: &mut dyn Storage) {}
+    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self;
+    fn save(&self) -> Value {
+        json!({})
+    }
 }
