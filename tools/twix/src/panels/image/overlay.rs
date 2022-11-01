@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use communication::Cycler;
-use eframe::egui::{ComboBox, Ui};
+use convert_case::Casing;
+use eframe::egui::Ui;
 use serde_json::{json, Value};
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
@@ -35,7 +36,7 @@ where
         selected_cycler: Cycler,
     ) -> Self {
         let active = value
-            .and_then(|value| value.get(T::NAME))
+            .and_then(|value| value.get(T::NAME.to_case(convert_case::Case::Snake)))
             .and_then(|value| value.get("active"))
             .and_then(|value| value.as_bool())
             .unwrap_or(active);
@@ -110,8 +111,8 @@ impl Overlays {
 
     pub fn save(&self) -> Value {
         json!({
-            "Line Detection": self.line_detection.save(),
-            "Ball Detection": self.ball_detection.save(),
+            "line_detection": self.line_detection.save(),
+            "ball_detection": self.ball_detection.save(),
         })
     }
 }
