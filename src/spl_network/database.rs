@@ -1,5 +1,5 @@
 use serialize_hierarchy::SerializeHierarchy;
-use spl_network::{GameControllerStateMessage, SplMessage};
+use spl_network_messages::{GameControllerStateMessage, SplMessage};
 
 #[derive(Clone, Debug, Default, SerializeHierarchy)]
 pub struct MainOutputs {

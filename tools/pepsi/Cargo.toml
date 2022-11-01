@@ -14,5 +14,5 @@ nao = { workspace = true }
 regex = { workspace = true }
 repository = { workspace = true }
 source_analyzer = { workspace = true }
-spl_network = { workspace = true }
+spl_network_messages = { workspace = true }
 tokio = { workspace = true }

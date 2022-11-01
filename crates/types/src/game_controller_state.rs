@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
-use spl_network::{GamePhase, GameState, Penalty, SetPlay, Team};
+use spl_network_messages::{GamePhase, GameState, Penalty, SetPlay, Team};
 
 use super::Players;
 

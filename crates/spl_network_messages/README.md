@@ -1,4 +1,4 @@
-# spl_network
+# spl_network_messages
 
 ## Licensing
 

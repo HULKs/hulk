@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::{HierarchyType, SerializeHierarchy};
-use spl_network::{Penalty, PlayerNumber, TeamState};
+use spl_network_messages::{Penalty, PlayerNumber, TeamState};
 
 #[derive(Clone, Copy, Default, Debug, Deserialize, Serialize)]
 pub struct Players<T> {

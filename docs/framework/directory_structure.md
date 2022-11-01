@@ -20,7 +20,7 @@ The directory structure is organized as follows:
 - `module_attributes/`: Rust sub-crate providing macro attribute parsing for the [module macros](./macros.md)
 - `scripts/`: Legacy scripts and files (may be removed at some time)
 - `sdk/`: SDK download directory and version selection symlink
-- `spl_network/`: Rust sub-crate providing SPL message parsing including GameController messages
+- `spl_network_messages/`: Rust sub-crate providing SPL message parsing including GameController messages
 - `src/`: Source code of the robotic control software
     - `audio/`: Audio cycler and all modules that belong to it
     - `behavior_simulator/`: Special runtime that is able to execute a subset of control modules for behavior simulation

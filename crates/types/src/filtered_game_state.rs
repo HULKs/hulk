@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use spl_network::Team;
+use spl_network_messages::Team;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum FilteredGameState {

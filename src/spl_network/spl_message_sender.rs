@@ -1,7 +1,7 @@
 use std::net::{Ipv4Addr, SocketAddr};
 
 use log::warn;
-use spl_network::{SplMessage, HULKS_TEAM_NUMBER};
+use spl_network_messages::{SplMessage, HULKS_TEAM_NUMBER};
 use tokio::net::UdpSocket;
 
 pub async fn spl_message_sender(spl_messages: &UdpSocket, message: SplMessage) {
