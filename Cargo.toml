@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [workspace]
 members = [
+  "crates/audio",
   "crates/build_script_helpers",
   "crates/communication",
   "crates/context_attribute",
@@ -21,7 +22,6 @@ members = [
   "crates/serialize_hierarchy",
   "crates/serialize_hierarchy_derive",
   "crates/source_analyzer",
-  "crates/source_graph",
   "crates/structs",
   "crates/spl_network_messages",
   "crates/spl_network2",
