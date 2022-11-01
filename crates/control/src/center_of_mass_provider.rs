@@ -8,7 +8,7 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics">,
+    pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics?">,
 }
 
 #[context]

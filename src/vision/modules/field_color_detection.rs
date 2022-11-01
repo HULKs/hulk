@@ -4,11 +4,11 @@ use types::FieldColor;
 pub struct FieldColorDetection;
 
 #[module(vision)]
-#[parameter(path = $this_cycler.field_color_detection.red_chromaticity_threshold, data_type = f32)]
-#[parameter(path = $this_cycler.field_color_detection.blue_chromaticity_threshold, data_type = f32)]
-#[parameter(path = $this_cycler.field_color_detection.lower_green_chromaticity_threshold, data_type = f32)]
-#[parameter(path = $this_cycler.field_color_detection.upper_green_chromaticity_threshold, data_type = f32)]
-#[parameter(path = $this_cycler.field_color_detection.green_luminance_threshold, data_type = u8)]
+#[parameter(path = $cycler_instance.field_color_detection.red_chromaticity_threshold, data_type = f32)]
+#[parameter(path = $cycler_instance.field_color_detection.blue_chromaticity_threshold, data_type = f32)]
+#[parameter(path = $cycler_instance.field_color_detection.lower_green_chromaticity_threshold, data_type = f32)]
+#[parameter(path = $cycler_instance.field_color_detection.upper_green_chromaticity_threshold, data_type = f32)]
+#[parameter(path = $cycler_instance.field_color_detection.green_luminance_threshold, data_type = u8)]
 #[main_output(data_type = FieldColor)]
 impl FieldColorDetection {}
 

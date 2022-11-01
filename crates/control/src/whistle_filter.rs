@@ -11,12 +11,13 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 
     pub buffer_length: Parameter<usize, "control/whistle_filter/buffer_length">,
     pub minimum_detections: Parameter<usize, "control/whistle_filter/minimum_detections">,
 
-    pub detected_whistle: PerceptionInput<Whistle, "Audio", "detected_whistle">,
+    // TODO: wieder einkommentieren
+    // pub detected_whistle: PerceptionInput<Whistle, "Audio", "detected_whistle">,
 }
 
 #[context]

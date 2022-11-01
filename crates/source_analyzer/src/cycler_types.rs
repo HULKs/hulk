@@ -41,8 +41,8 @@ impl CyclerTypes {
                                     Field::PerceptionInput {
                                         cycler_instance, ..
                                     } if &cycler_instances.instances_to_modules
-                                        [cycler_instance]
-                                        == cycler_module_name =>
+                                            [cycler_instance] // TODO: wenn der Benutzer einen Cycler angibt, der nicht existiert, panikiert hier was
+                                            == cycler_module_name =>
                                     {
                                         true
                                     }

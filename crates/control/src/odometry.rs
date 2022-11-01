@@ -10,9 +10,9 @@ pub struct NewContext {}
 pub struct CycleContext {
     pub accumulated_odometry: AdditionalOutput<Isometry2<f32>, "accumulated_odometry">,
 
-    pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics">,
-    pub robot_orientation: OptionalInput<UnitComplex<f32>, "robot_orientation">,
-    pub support_foot: OptionalInput<SupportFoot, "support_foot">,
+    pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics?">,
+    pub robot_orientation: OptionalInput<UnitComplex<f32>, "robot_orientation?">,
+    pub support_foot: OptionalInput<SupportFoot, "support_foot?">,
 }
 
 #[context]

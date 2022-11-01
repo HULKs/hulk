@@ -36,8 +36,8 @@ pub struct CycleContext {
     pub historic_camera_matrices: HistoricInput<CameraMatrices, "camera_matrices">,
     pub projected_limbs: HistoricInput<ProjectedLimbs, "projected_limbs">,
 
-    pub camera_matrices: OptionalInput<CameraMatrices, "camera_matrices">,
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+    pub camera_matrices: OptionalInput<CameraMatrices, "camera_matrices?">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub hidden_validity_exponential_decay_factor:

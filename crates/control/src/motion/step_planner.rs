@@ -17,9 +17,9 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: OptionalInput<MotionCommand, "motion_command">,
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
-    pub support_foot: OptionalInput<SupportFoot, "support_foot">,
+    pub motion_command: OptionalInput<MotionCommand, "motion_command?">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
+    pub support_foot: OptionalInput<SupportFoot, "support_foot?">,
 
     pub injected_step: Parameter<Option<Step>, "control/step_planner/injected_step">,
     pub inside_turn_ratio: Parameter<f32, "control/step_planner/inside_turn_ratio">,

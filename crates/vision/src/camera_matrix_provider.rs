@@ -8,7 +8,7 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub camera_matrices: OptionalInput<CameraMatrices, "Control", "camera_matrices">,
+    pub camera_matrices: OptionalInput<CameraMatrices, "Control", "camera_matrices?">,
 }
 
 #[context]

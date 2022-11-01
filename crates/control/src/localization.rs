@@ -54,9 +54,9 @@ pub struct CycleContext {
     pub current_odometry_to_last_odometry:
         HistoricInput<Isometry2<f32>, "current_odometry_to_last_odometry">,
 
-    pub game_controller_state: OptionalInput<GameControllerState, "game_controller_state">,
-    pub has_ground_contact: OptionalInput<bool, "has_ground_contact">,
-    pub primary_state: OptionalInput<PrimaryState, "primary_state">,
+    pub game_controller_state: OptionalInput<GameControllerState, "game_controller_state?">,
+    pub has_ground_contact: OptionalInput<bool, "has_ground_contact?">,
+    pub primary_state: OptionalInput<PrimaryState, "primary_state?">,
 
     pub circle_measurement_noise:
         Parameter<Vector2<f32>, "control/localization/circle_measurement_noise">,

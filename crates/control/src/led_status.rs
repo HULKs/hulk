@@ -8,8 +8,8 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub primary_state: OptionalInput<PrimaryState, "primary_state">,
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+    pub primary_state: OptionalInput<PrimaryState, "primary_state?">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 
     pub balls_bottom: PerceptionInput<Vec<Ball>, "VisionBottom", "balls">,
     pub balls_top: PerceptionInput<Vec<Ball>, "VisionTop", "balls">,

@@ -10,7 +10,7 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: OptionalInput<MotionCommand, "motion_command">,
+    pub motion_command: OptionalInput<MotionCommand, "motion_command?">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }

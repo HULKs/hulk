@@ -12,7 +12,7 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: OptionalInput<SensorData, "sensor_data">,
+    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 
     pub calibration_buttons_timeout:
         Parameter<Duration, "control/button_filter/calibration_buttons_timeout">,

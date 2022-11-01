@@ -8,8 +8,8 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub field_border: OptionalInput<FieldBorder, "field_border">,
-    pub image_segments: OptionalInput<ImageSegments, "image_segments">,
+    pub field_border: OptionalInput<FieldBorder, "field_border?">,
+    pub image_segments: OptionalInput<ImageSegments, "image_segments?">,
 }
 
 #[context]
