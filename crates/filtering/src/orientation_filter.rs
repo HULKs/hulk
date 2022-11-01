@@ -1,8 +1,17 @@
 use nalgebra::{Quaternion, UnitComplex, UnitQuaternion, Vector3};
 
-use crate::framework::configuration;
+#[derive(Clone, Debug, Default)]
+pub struct OrientationFilterParameters {
+    pub acceleration_threshold: f32,
+    pub delta_angular_velocity_threshold: f32,
+    pub angular_velocity_bias_weight: f32,
+    pub acceleration_weight: f32,
+    pub falling_threshold: f32,
+    pub force_sensitive_resistor_threshold: f32,
+}
 
 const GRAVITATIONAL_CONSTANT: f32 = 9.81;
+
 /**
 Paper <https://www.mdpi.com/1424-8220/15/8/19302/pdf>
 Name: Keeping a Good Attitude: A Quaternion-Based Orientation Filter for IMUs and MARGs
@@ -24,7 +33,7 @@ impl OrientationFilter {
         left_force_sensitive_resistor: f32,
         right_force_sensitive_resistor: f32,
         cycle_time: f32,
-        parameters: &configuration::OrientationFilter,
+        parameters: &OrientationFilterParameters,
     ) {
         if !self.is_initialized {
             if measured_acceleration.norm() < parameters.falling_threshold {
@@ -127,7 +136,7 @@ impl OrientationFilter {
         measured_angular_velocity: Vector3<f32>,
         left_force_sensitive_resistor: f32,
         right_force_sensitive_resistor: f32,
-        parameters: &configuration::OrientationFilter,
+        parameters: &OrientationFilterParameters,
     ) -> bool {
         if (measured_acceleration.norm() - GRAVITATIONAL_CONSTANT).abs()
             > parameters.acceleration_threshold
