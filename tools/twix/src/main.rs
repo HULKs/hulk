@@ -16,6 +16,8 @@ use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 use nao::Nao;
 use panel::Panel;
 use panels::{ImagePanel, ImageSegmentsPanel, MapPanel, ParameterPanel, PlotPanel, TextPanel};
+use serde::{Deserialize, Serialize};
+use serde_json::{from_str, json, to_string, to_string_pretty, Value};
 
 mod completion_edit;
 mod image_buffer;
@@ -41,7 +43,28 @@ fn setup_logger() -> Result<(), InitError> {
     Ok(())
 }
 
+#[derive(Serialize)]
+struct X {
+    hello: String,
+    test: f32,
+}
+
+fn convert_tree(tree: Tree<Value>) -> Tree<X> {
+    tree.map_tabs(|value| X {
+        hello: value["hello"].as_str().unwrap().to_string(),
+        test: 13.37,
+    })
+}
+
 fn main() {
+    // let tree = Tree::<Value>::from_str("");
+    let tab1 = json!({"hello": "world"});
+    let tab2 = json!({"hello": "Konrad"});
+    let mut tree = Tree::new(vec![tab1]);
+    tree.split_below(NodeIndex::root(), 0.50, vec![tab2]);
+    // println!("{}", to_string_pretty(&tree).unwrap());
+    // println!("{}", to_string_pretty(&convert_tree(tree)).unwrap());
+    // return;
     setup_logger().unwrap();
     let options = NativeOptions::default();
     run_native(
@@ -62,6 +85,20 @@ enum SelectablePanel {
 }
 
 impl SelectablePanel {
+    fn try_from_value(nao: Arc<Nao>, value: &Value) -> Option<SelectablePanel> {
+        let name = value.get("_panel_type")?.as_str()?;
+        Some(match name.to_lowercase().as_str() {
+            "text" => SelectablePanel::Text(TextPanel::new2(nao, value)),
+            // "plot" => SelectablePanel::Plot(PlotPanel::new(nao, storage)),
+            // "image" => SelectablePanel::Image(ImagePanel::new(nao, storage)),
+            // "image segments" => {
+            //     SelectablePanel::ImageSegments(ImageSegmentsPanel::new(nao, storage))
+            // }
+            // "map" => SelectablePanel::Map(MapPanel::new(nao, storage)),
+            "parameter" => SelectablePanel::Parameter(ParameterPanel::new2(nao, value)),
+            _ => SelectablePanel::Text(TextPanel::new(nao, None)),
+        })
+    }
     fn save(&mut self, storage: &mut dyn Storage) {
         match self {
             SelectablePanel::Text(panel) => panel.save(storage),
@@ -71,6 +108,21 @@ impl SelectablePanel {
             SelectablePanel::Map(panel) => panel.save(storage),
             SelectablePanel::Parameter(panel) => panel.save(storage),
         }
+    }
+
+    fn save2(&self) -> Value {
+        let mut value = match self {
+            SelectablePanel::Text(panel) => panel.save2(),
+            // SelectablePanel::Plot(panel) => panel.save(storage),
+            // SelectablePanel::Image(panel) => panel.save(storage),
+            // SelectablePanel::ImageSegments(panel) => panel.save(storage),
+            // SelectablePanel::Map(panel) => panel.save(storage),
+            SelectablePanel::Parameter(panel) => panel.save2(),
+            _ => json!({}),
+        };
+        value["_panel_type"] = Value::String(self.to_string());
+
+        value
     }
 
     fn try_from_name(
@@ -149,11 +201,19 @@ impl TwixApp {
             connection_intent,
         ));
 
-        let tab1 = SelectablePanel::Map(MapPanel::new(nao.clone(), creation_context.storage));
+        // let tab1 = SelectablePanel::Map(MapPanel::new(nao.clone(), creation_context.storage));
         let tab2 = SelectablePanel::Image(ImagePanel::new(nao.clone(), creation_context.storage));
-
-        let mut tree = Tree::new(vec![tab1]);
-        tree.split_below(NodeIndex::root(), 0.50, vec![tab2]);
+        //
+        // let mut tree = Tree::new(vec![tab1]);
+        // tree.split_below(NodeIndex::root(), 0.50, vec![tab2]);
+        let tree: Tree<Value> = creation_context
+            .storage
+            .and_then(|storage| storage.get_string("tree"))
+            .and_then(|string| from_str(&string).ok())
+            .unwrap_or_else(|| Tree::new(Vec::new()));
+        let mut tree =
+            tree.map_tabs(|value| SelectablePanel::try_from_value(nao.clone(), value).unwrap());
+        // tree.split_below(NodeIndex::root(), 0.50, vec![tab2]);
 
         let mut style = (*creation_context.egui_ctx.style()).clone();
         style.visuals = Visuals::dark();
@@ -249,6 +309,10 @@ impl App for TwixApp {
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {
+        let tree = self.tree.map_tabs(|panel| panel.save2());
+        println!("{}", to_string_pretty(&tree).unwrap());
+
+        storage.set_string("tree", to_string(&tree).unwrap());
         storage.set_string("ip_address", self.ip_address.clone());
         storage.set_string(
             "connection_intent",

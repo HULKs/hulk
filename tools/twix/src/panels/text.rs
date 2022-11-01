@@ -6,6 +6,7 @@ use eframe::{
     Storage,
 };
 use log::error;
+use serde_json::{json, Value};
 
 use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 
@@ -44,6 +45,37 @@ impl Panel for TextPanel {
 
     fn save(&mut self, storage: &mut dyn Storage) {
         storage.set_string("text_panel_output", self.output.clone());
+    }
+}
+impl TextPanel {
+    pub fn new2(nao: Arc<Nao>, value: &Value) -> Self {
+        let output = match value.get("subscribe_key") {
+            Some(Value::String(string)) => string.to_string(),
+            _ => String::new(),
+        };
+        let values = if !output.is_empty() {
+            let output = CyclerOutput::from_str(&output);
+            match output {
+                Ok(output) => Some(nao.subscribe_output(output)),
+                Err(error) => {
+                    error!("Failed to subscribe: {error:?}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        Self {
+            nao,
+            output,
+            values,
+        }
+    }
+
+    pub fn save2(&self) -> Value {
+        json!({
+            "subscribe_key": self.output.clone()
+        })
     }
 }
 

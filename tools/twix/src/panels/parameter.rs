@@ -5,6 +5,7 @@ use eframe::{
     Storage,
 };
 use log::error;
+use serde_json::{json, Value};
 use tokio::sync::mpsc;
 
 use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::ValueBuffer};
@@ -31,6 +32,29 @@ impl Panel for ParameterPanel {
             update_notify_sender,
             update_notify_receiver,
         }
+    }
+}
+
+impl ParameterPanel {
+    pub fn new2(nao: Arc<Nao>, value: &Value) -> Self {
+        let path = match value.get("subscribe_key") {
+            Some(Value::String(string)) => string.clone(),
+            _ => String::new(),
+        };
+        let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
+        Self {
+            nao,
+            path,
+            value_buffer: None,
+            parameter_value: String::new(),
+            update_notify_sender,
+            update_notify_receiver,
+        }
+    }
+    pub fn save2(&self) -> Value {
+        json!({
+            "subscribe_key": self.path.clone()
+        })
     }
 }
 
