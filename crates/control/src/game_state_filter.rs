@@ -23,7 +23,7 @@ pub struct CycleContext {
     pub ball_position: OptionalInput<BallPosition, "ball_position?">,
     pub buttons: OptionalInput<Buttons, "buttons?">,
     pub filtered_whistle: OptionalInput<FilteredWhistle, "filtered_whistle?">,
-    pub game_controller_state: OptionalInput<GameControllerState, "game_controller_state?">,
+    pub game_controller_state: OptionalInput<Option<GameControllerState>, "game_controller_state?">,
     pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 
     pub config: Parameter<GameStateFilterConfiguration, "control/game_state_filter">,

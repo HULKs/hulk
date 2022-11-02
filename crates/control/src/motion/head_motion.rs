@@ -23,7 +23,7 @@ pub struct CycleContext {
 
     pub look_around: RequiredInput<HeadJoints, "look_around">,
     pub look_at: RequiredInput<HeadJoints, "look_at">,
-    pub motion_command: RequiredInput<MotionCommand, "motion_command">,
+    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command">,
     pub sensor_data: RequiredInput<SensorData, "sensor_data">,
 }
 

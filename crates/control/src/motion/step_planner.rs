@@ -18,7 +18,7 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: OptionalInput<MotionCommand, "motion_command?">,
+    pub motion_command: OptionalInput<Option<MotionCommand>, "motion_command?">,
     pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
     pub support_foot: OptionalInput<SupportFoot, "support_foot?">,
 

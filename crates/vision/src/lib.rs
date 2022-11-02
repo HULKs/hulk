@@ -7,6 +7,7 @@ pub mod line_detection;
 pub mod perspective_grid_candidates_provider;
 pub mod robot_detection;
 pub mod segment_filter;
+pub mod image_receiver;
 
 pub enum CyclerInstance {
     VisionTop,

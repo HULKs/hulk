@@ -13,7 +13,7 @@ pub struct NewContext {
 pub struct CycleContext {
     pub config: Parameter<LookAroundConfiguration, "control/look_around">,
 
-    pub motion_command: RequiredInput<MotionCommand, "motion_command">,
+    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command">,
     pub sensor_data: RequiredInput<SensorData, "sensor_data">,
 }
 
