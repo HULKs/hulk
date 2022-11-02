@@ -20,6 +20,7 @@ pub mod orientation_filter;
 pub mod penalty_shot_direction_estimation;
 pub mod primary_state_filter;
 pub mod role_assignment;
+pub mod sensor_data_receiver;
 pub mod sole_pressure_filter;
 pub mod sonar_filter;
 // pub mod spl_message_sender;

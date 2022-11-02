@@ -1,10 +1,10 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, OptionalInput, Parameter};
+use framework::{AdditionalOutput, MainOutput, OptionalInput, Parameter, RequiredInput};
 use types::{
     configuration::{EdgeDetectionSource, MedianMode},
-    CameraMatrix, FieldColor, ImageSegments, ProjectedLimbs,
+    CameraMatrix, FieldColor, Image422, ImageSegments, ProjectedLimbs,
 };
 
 pub struct ImageSegmenter {}
@@ -24,6 +24,8 @@ pub struct NewContext {
 #[context]
 pub struct CycleContext {
     pub image_segmenter_cycle_time: AdditionalOutput<Duration, "image_segmenter_cycle_time">,
+
+    pub image: RequiredInput<Arc<Image422>, "image">,
 
     pub camera_matrix: OptionalInput<CameraMatrix, "camera_matrix?">,
     pub field_color: OptionalInput<FieldColor, "field_color?">,

@@ -30,7 +30,7 @@ pub struct CycleContext {
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
     pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
 
-    pub motion_command: RequiredInput<MotionCommand, "motion_command">,
+    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command">,
     pub robot_kinematics: RequiredInput<RobotKinematics, "robot_kinematics">,
     pub sensor_data: RequiredInput<SensorData, "sensor_data">,
     pub support_foot: RequiredInput<SupportFoot, "support_foot">,

@@ -9,7 +9,7 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: OptionalInput<MotionCommand, "motion_command?">,
+    pub motion_command: OptionalInput<Option<MotionCommand>, "motion_command?">,
     pub motion_selection: OptionalInput<MotionSelection, "motion_selection?">,
     pub step_plan: OptionalInput<Step, "step_plan?">,
 }

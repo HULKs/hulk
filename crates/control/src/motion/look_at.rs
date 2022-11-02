@@ -14,7 +14,7 @@ pub struct NewContext {
 pub struct CycleContext {
     pub camera_matrices: OptionalInput<CameraMatrices, "camera_matrices?">,
     pub ground_to_robot: OptionalInput<Isometry3<f32>, "ground_to_robot?">,
-    pub motion_command: OptionalInput<MotionCommand, "motion_command?">,
+    pub motion_command: OptionalInput<Option<MotionCommand>, "motion_command?">,
     pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics?">,
     pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
 

@@ -21,7 +21,7 @@ pub struct NewContext {
 pub struct CycleContext {
     pub ball_position: OptionalInput<BallPosition, "ball_position?">,
     pub fall_state: OptionalInput<FallState, "fall_state?">,
-    pub game_controller_state: OptionalInput<GameControllerState, "game_controller_state?">,
+    pub game_controller_state: OptionalInput<Option<GameControllerState>, "game_controller_state?">,
     pub primary_state: OptionalInput<PrimaryState, "primary_state?">,
     pub robot_to_field: OptionalInput<Isometry2<f32>, "robot_to_field?">,
     pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
