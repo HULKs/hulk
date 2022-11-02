@@ -1,7 +1,7 @@
 pub mod ball_filter;
 pub mod behavior;
 pub mod button_filter;
-pub mod camera_matrix_provider;
+pub mod camera_matrix_calculator;
 pub mod center_of_mass_provider;
 pub mod fall_state_estimation;
 pub mod game_controller_filter;

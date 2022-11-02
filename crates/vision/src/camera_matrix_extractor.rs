@@ -2,7 +2,7 @@ use context_attribute::context;
 use framework::{MainOutput, OptionalInput};
 use types::{CameraMatrices, CameraMatrix};
 
-pub struct CameraMatrixProvider {}
+pub struct CameraMatrixExtractor {}
 
 #[context]
 pub struct NewContext {}
@@ -18,7 +18,7 @@ pub struct MainOutputs {
     pub camera_matrix: MainOutput<CameraMatrix>,
 }
 
-impl CameraMatrixProvider {
+impl CameraMatrixExtractor {
     pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }
