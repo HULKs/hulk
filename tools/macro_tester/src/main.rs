@@ -779,7 +779,7 @@ impl Module<'_> {
 
         Ok(quote! {
             let #module_name_identifier_snake_case = #cycler_module_name_identifier::#(#path_segments::)*#module_name_identifier::new(
-                #cycler_module_name_identifier::#(#path_segments::)::*NewContext {
+                #cycler_module_name_identifier::#(#path_segments::)*NewContext {
                     #(#field_initializers,)*
                 },
             )
@@ -1035,7 +1035,7 @@ impl Module<'_> {
         );
         let module_execution = quote! {
             let main_outputs = self.#module_name_identifier_snake_case.cycle(
-                #cycler_module_name_identifier::#(#path_segments::)::*CycleContext {
+                #cycler_module_name_identifier::#(#path_segments::)*CycleContext {
                     #(#field_initializers,)*
                 },
             )
