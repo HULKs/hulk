@@ -4,7 +4,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, OptionalInput, Parameter, RequiredInput};
 use types::{
     configuration::{EdgeDetectionSource, MedianMode},
-    CameraMatrix, FieldColor, Image422, ImageSegments, ProjectedLimbs,
+    CameraMatrix, FieldColor, ImageSegments, ProjectedLimbs,
 };
 
 pub struct ImageSegmenter {}
@@ -25,7 +25,7 @@ pub struct NewContext {
 pub struct CycleContext {
     pub image_segmenter_cycle_time: AdditionalOutput<Duration, "image_segmenter_cycle_time">,
 
-    pub image: RequiredInput<Arc<Image422>, "image">,
+    pub image: RequiredInput<Arc<bool>, "image">,
 
     pub camera_matrix: OptionalInput<CameraMatrix, "camera_matrix?">,
     pub field_color: OptionalInput<FieldColor, "field_color?">,

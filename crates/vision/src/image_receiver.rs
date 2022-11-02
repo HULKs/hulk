@@ -4,7 +4,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, OptionalInput, Parameter};
 use types::{
     configuration::{EdgeDetectionSource, MedianMode},
-    CameraMatrix, FieldColor, Image422, ImageSegments, ProjectedLimbs,
+    CameraMatrix, FieldColor, ImageSegments, ProjectedLimbs,
 };
 
 pub struct ImageReceiver {}
@@ -18,7 +18,7 @@ pub struct CycleContext {}
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub image: MainOutput<Arc<Image422>>,
+    pub image: MainOutput<Arc<bool>>,
 }
 
 impl ImageReceiver {
