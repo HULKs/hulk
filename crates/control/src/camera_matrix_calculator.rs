@@ -6,7 +6,7 @@ use types::{
     RobotKinematics,
 };
 
-pub struct CameraMatrixProvider {}
+pub struct CameraMatrixCalculator {}
 
 #[context]
 pub struct NewContext {
@@ -37,7 +37,7 @@ pub struct MainOutputs {
     pub camera_matrices: MainOutput<CameraMatrices>,
 }
 
-impl CameraMatrixProvider {
+impl CameraMatrixCalculator {
     pub fn new(_context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {})
     }

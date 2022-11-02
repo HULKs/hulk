@@ -1,5 +1,5 @@
 pub mod ball_detection;
-pub mod camera_matrix_provider;
+pub mod camera_matrix_extractor;
 pub mod field_border_detection;
 pub mod field_color_detection;
 pub mod image_segmenter;

@@ -104,7 +104,14 @@ impl Modules {
                     path_segments,
                     contexts,
                 };
-                modules.insert(module_name.to_string(), module);
+                if let Some(overwritten_module) = modules.insert(module_name.to_string(), module) {
+                    bail!(
+                        "Module `{}` is not allowed to exist in multiple cyclers `{}`, `{}`, and maybe more",
+                        module_name.to_string(),
+                        cycler_module.to_string(),
+                        overwritten_module.cycler_module,
+                    );
+                }
                 cycler_modules_to_modules
                     .entry(cycler_module.to_string())
                     .or_default()
