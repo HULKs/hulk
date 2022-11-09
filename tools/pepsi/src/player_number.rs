@@ -9,7 +9,7 @@ use crate::{parsers::NaoNumberPlayerAssignment, results::gather_results};
 #[derive(Args)]
 pub struct Arguments {
     /// The assignments to change e.g. 20:2 or 32:5 (player numbers start from 1)
-    #[clap(required = true)]
+    #[arg(required = true)]
     pub assignments: Vec<NaoNumberPlayerAssignment>,
 }
 

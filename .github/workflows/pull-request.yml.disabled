@@ -20,15 +20,14 @@ jobs:
       - run_behavior_simulator
     steps:
       - name: Status message
-        run:
-          echo 'All other jobs exited successfully!'
+        run: echo 'All other jobs exited successfully!'
   check:
     name: Check
     runs-on:
       - self-hosted
       - v2
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           lfs: true
       - name: Check
@@ -40,7 +39,7 @@ jobs:
       - self-hosted
       - v2
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           lfs: true
       - name: Check
@@ -52,7 +51,7 @@ jobs:
       - self-hosted
       - v2
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           lfs: true
       - name: Test
@@ -69,7 +68,7 @@ jobs:
       - self-hosted
       - v2
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           lfs: true
       - name: Build
@@ -80,12 +79,20 @@ jobs:
     name: Build
     strategy:
       matrix:
-        path: [tools/camera_matrix_extractor, tools/depp, tools/fanta, tools/hula, tools/pepsi, tools/twix]
+        path:
+          [
+            tools/camera_matrix_extractor,
+            tools/depp,
+            tools/fanta,
+            tools/hula,
+            tools/pepsi,
+            tools/twix,
+          ]
     runs-on:
       - self-hosted
       - v2
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           lfs: true
       - name: Build
@@ -102,7 +109,7 @@ jobs:
       matrix:
         path: [tools/flora, tools/sprite]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           lfs: true
       - name: Download recording.json
@@ -126,9 +133,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario: [ empty.json ]
+        scenario: [empty.json]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           lfs: true
       - name: Run all scenes

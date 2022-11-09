@@ -1,7 +1,7 @@
 use std::{env::current_dir, path::PathBuf};
 
 use anyhow::{anyhow, bail, Context};
-use clap::{IntoApp, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::generate;
 use tokio::fs::read_dir;
 
@@ -126,16 +126,16 @@ async fn main() -> anyhow::Result<()> {
 #[clap(name = "pepsi")]
 struct Arguments {
     /// Alternative repository root (if not given the parent of .git is used)
-    #[clap(long)]
+    #[arg(long)]
     repository_root: Option<PathBuf>,
-    #[clap(subcommand)]
+    #[command(subcommand)]
     command: Command,
 }
 
 #[derive(Subcommand)]
 enum Command {
     /// Enable/disable aliveness on NAOs
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Aliveness(AlivenessArguments),
     /// Builds the code for a target
     Build(CargoArguments),
@@ -144,7 +144,7 @@ enum Command {
     /// Checks the code with cargo clippy
     Clippy(CargoArguments),
     /// Enable/disable communication
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Communication(CommunicationArguments),
     /// Generates shell completion files
     Completions {
@@ -154,10 +154,10 @@ enum Command {
     /// Control the HULK service
     Hulk(HulkArguments),
     /// Control the configured location
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Location(LocationArguments),
     /// Logging on the NAO
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Logs(LogsArguments),
     /// Change player numbers of the NAOs in local configuration
     Playernumber(PlayerNumberArguments),
@@ -172,14 +172,14 @@ enum Command {
     /// Runs the code for a target
     Run(CargoArguments),
     /// Manage the NAO SDK
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Sdk(SdkArguments),
     /// Opens a command line shell to a NAO
     Shell(ShellArguments),
     /// Upload the code to NAOs
     Upload(UploadArguments),
     /// Control wireless network on the NAO
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Wireless(WirelessArguments),
 }
 

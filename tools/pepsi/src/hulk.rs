@@ -1,5 +1,8 @@
 use anyhow::Context;
-use clap::Args;
+use clap::{
+    builder::{PossibleValuesParser, TypedValueParser},
+    Args,
+};
 use futures::future::join_all;
 
 use nao::{Nao, SystemctlAction};
@@ -13,10 +16,13 @@ use crate::{
 #[derive(Args)]
 pub struct Arguments {
     /// The systemctl action to execute for the HULK service
-    #[clap(possible_values = SYSTEMCTL_ACTION_POSSIBLE_VALUES, parse(try_from_str = parse_systemctl_action))]
+    #[arg(
+        value_parser = PossibleValuesParser::new(SYSTEMCTL_ACTION_POSSIBLE_VALUES)
+            .map(|s| parse_systemctl_action(&s).unwrap()))
+    ]
     pub action: SystemctlAction,
     /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-    #[clap(required = true)]
+    #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
 }
 

@@ -10,10 +10,10 @@ pub enum Arguments {
     /// Set location for repository
     Set {
         /// The target to set a location for (nao, webots, behavior_simulator)
-        #[clap(required = true)]
+        #[arg(required = true)]
         target: String,
         /// The location to set for the repository
-        #[clap(required = true)]
+        #[arg(required = true)]
         location: String,
     },
     /// Get currently configured locations

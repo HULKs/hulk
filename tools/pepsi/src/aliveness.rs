@@ -11,12 +11,12 @@ use crate::{parsers::NaoAddress, results::gather_results};
 pub enum Arguments {
     Enable {
         /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-        #[clap(required = true)]
+        #[arg(required = true)]
         naos: Vec<NaoAddress>,
     },
     Disable {
         /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-        #[clap(required = true)]
+        #[arg(required = true)]
         naos: Vec<NaoAddress>,
     },
 }

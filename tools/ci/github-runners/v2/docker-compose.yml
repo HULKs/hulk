@@ -6,7 +6,7 @@ services:
     build:
       context: .
       args:
-        - RUNNER_VERSION=2.294.0
+        - RUNNER_VERSION=2.299.1
     restart: always
     volumes:
       - hulks-github-runner-v2-01:/ci/actions-runner
@@ -20,7 +20,7 @@ services:
     build:
       context: .
       args:
-        - RUNNER_VERSION=2.294.0
+        - RUNNER_VERSION=2.299.1
     restart: always
     volumes:
       - hulks-github-runner-v2-02:/ci/actions-runner
@@ -34,7 +34,7 @@ services:
     build:
       context: .
       args:
-        - RUNNER_VERSION=2.294.0
+        - RUNNER_VERSION=2.299.1
     restart: always
     volumes:
       - hulks-github-runner-v2-03:/ci/actions-runner
@@ -48,7 +48,7 @@ services:
     build:
       context: .
       args:
-        - RUNNER_VERSION=2.294.0
+        - RUNNER_VERSION=2.299.1
     restart: always
     volumes:
       - hulks-github-runner-v2-04:/ci/actions-runner
@@ -62,7 +62,7 @@ services:
     build:
       context: .
       args:
-        - RUNNER_VERSION=2.294.0
+        - RUNNER_VERSION=2.299.1
     restart: always
     volumes:
       - hulks-github-runner-v2-05:/ci/actions-runner

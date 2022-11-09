@@ -11,28 +11,36 @@ Use your distribution's package manager to install the following dependencies:
 === "Arch Linux/Manjaro"
 
     1. Install dependencies
-    ```sh
-    sudo pacman -S git git-lfs base-devel rustup rsync cmake clang hdf5 python webots
-    ```
+
+        ```sh
+        yay -S git git-lfs base-devel rustup rsync cmake clang hdf5 python webots
+        ```
+        `yay` is used because `webots` is an [AUR](https://aur.archlinux.org/) package.
+        Optionally substitute `yay` with your favorite AUR helper.
+
     1. Install rust toolchain
-    ```sh
-    rustup default stable
-    ```
+
+        ```sh
+        rustup default stable
+        ```
 
 === "Ubuntu"
 
     1. Install dependencies
-    ```sh
-    sudo apt install git git-lfs build-essential rustup libssl-dev pkg-config libclang-dev rsync cmake libhdf5-dev python
-    ```
+
+        ```sh
+        sudo apt install git git-lfs build-essential libssl-dev pkg-config libclang-dev rsync cmake libhdf5-dev python
+        ```
+
     1. Install Webots
-    ```sh
-    sudo snap install webots
-    ```
+
+        ```sh
+        sudo snap install webots
+        ```
+
     1. Install rust toolchain
-    ```sh
-    rustup default stable
-    ```
+
+        Visit [https://rustup.rs/](https://rustup.rs/) for up to date instructions.
 
 ## Acquiring the code
 

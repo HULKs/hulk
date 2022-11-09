@@ -56,6 +56,11 @@ nav:
       - Debugging with GDB/LLDB: tooling/debugging.md
   - Operating System:
       - Overview: operating_system/overview.md
+      - Partitioning: operating_system/partitioning.md
+      - Home Directory: operating_system/home_directory.md
+      - Linux: operating_system/linux.md
+      - WiFi: operating_system/wifi.md
+      - HULA: operating_system/hula.md
   - Robotics:
       - Overview: robotics/overview.md
       - Perception:

@@ -10,12 +10,12 @@ use crate::{parsers::NaoNumber, results::gather_results};
 pub enum Arguments {
     Enable {
         /// The NAO number to enable communication on e.g. 20 or 32
-        #[clap(required = true)]
+        #[arg(required = true)]
         nao_numbers: Vec<NaoNumber>,
     },
     Disable {
         /// The NAO number to disable communication on e.g. 20 or 32
-        #[clap(required = true)]
+        #[arg(required = true)]
         nao_numbers: Vec<NaoNumber>,
     },
 }

@@ -1,9 +1,14 @@
 # Overview
 
-TODO: Elaborate
+TODOs:
 
-- Directory Structure on NAO
+- Chapter introduction
 - HULA
-- System Configuration
-    - WiFi
-- SDK, Rust Installation
+
+## Outline
+
+- [Partitioning](./partitioning.md)
+- [Home Directory](./home_directory.md)
+- [Linux](./linux.md)
+- [WiFi](./wifi.md)
+- [HULA](./hula.md)

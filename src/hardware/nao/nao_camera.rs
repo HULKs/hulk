@@ -254,14 +254,14 @@ impl NaoCamera {
         let path_buffer = PathBuf::from(device_path);
         let error_message = "Timeout while waiting for camera to disconnect during reset";
         let sleep_time = Duration::from_millis(50);
-        poll_condition(&|| !path_buffer.exists(), 20, sleep_time, error_message)?;
+        poll_condition(|| !path_buffer.exists(), 20, sleep_time, error_message)?;
         // connect both cameras (if not already connected)
         device
             .smbus_write_byte_data(0x1, 0xc)
             .context("Failed to write i2c data")?;
         // wait until USB disconnect has been registered by linux
         let error_message = "Timeout while waiting for camera to connect during reset";
-        poll_condition(&|| path_buffer.exists(), 40, sleep_time, error_message)?;
+        poll_condition(|| path_buffer.exists(), 40, sleep_time, error_message)?;
         Ok(())
     }
 

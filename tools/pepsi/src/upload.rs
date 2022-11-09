@@ -15,28 +15,28 @@ use crate::{
 
 #[derive(Args)]
 pub struct Arguments {
-    #[clap(long, default_value = "incremental")]
+    #[arg(long, default_value = "incremental")]
     pub profile: String,
     /// Do not update nor install SDK
-    #[clap(long)]
+    #[arg(long)]
     pub no_sdk_installation: bool,
     /// Do not build before uploading
-    #[clap(long)]
+    #[arg(long)]
     pub no_build: bool,
     /// Do not restart HULK nor HULA service after uploading
-    #[clap(long)]
+    #[arg(long)]
     pub no_restart: bool,
     /// Do not remove existing remote files during uploading
-    #[clap(long)]
+    #[arg(long)]
     pub no_clean: bool,
     /// Do not run aliveness (ignored if --no-restart given because it requires restarting HULA)
-    #[clap(long)]
+    #[arg(long)]
     pub no_aliveness: bool,
     /// Do not enable communication
-    #[clap(long)]
+    #[arg(long)]
     pub no_communication: bool,
     /// The NAOs to upload to e.g. 20w or 10.1.24.22
-    #[clap(required = true)]
+    #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
 }
 

@@ -9,13 +9,13 @@ use repository::Repository;
 pub enum Arguments {
     Install {
         /// Force reinstallation of existing SDK
-        #[clap(long)]
+        #[arg(long)]
         force_reinstall: bool,
         /// Alternative SDK version e.g. 3.3
-        #[clap(long)]
+        #[arg(long)]
         sdk_version: Option<String>,
         /// Alternative SDK installation directory e.g. /opt/nao
-        #[clap(long)]
+        #[arg(long)]
         installation_directory: Option<PathBuf>,
     },
 }

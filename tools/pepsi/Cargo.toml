@@ -2,7 +2,7 @@
 edition = "2021"
 license = "GPL-3.0-only"
 name = "pepsi"
-version = "2.3.0"
+version = "2.4.0"
 
 [dependencies]
 anyhow = { workspace = true }

@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use clap::Args;
+use clap::{
+    builder::{PossibleValuesParser, TypedValueParser},
+    Args,
+};
 
 use nao::{Network, SystemctlAction};
 use repository::Repository;
@@ -17,15 +20,18 @@ use crate::{
 #[derive(Args)]
 pub struct Arguments {
     /// Disable aliveness (may restart HULA if needed)
-    #[clap(long)]
+    #[arg(long)]
     pub no_aliveness: bool,
-    /// The network to connect the wireless device to e.g. SPL_A or None (None disconnects from anything)
-    #[clap(long, default_value = "None", possible_values = NETWORK_POSSIBLE_VALUES, parse(try_from_str = parse_network))]
+    /// The network to connect the wireless device to (None disconnects from anything)
+    #[arg(
+        value_parser = PossibleValuesParser::new(NETWORK_POSSIBLE_VALUES)
+            .map(|s| parse_network(&s).unwrap()))
+    ]
     pub network: Network,
     /// Directory where to store the downloaded logs (will be created if not existing)
     pub log_directory: PathBuf,
     /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-    #[clap(required = true)]
+    #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
 }
 

@@ -6,16 +6,16 @@ use repository::Repository;
 #[derive(Args)]
 pub struct Arguments {
     /// Apply to entire workspace (only valid for build/check/clippy)
-    #[clap(long)]
+    #[arg(long)]
     pub workspace: bool,
-    #[clap(long, default_value = "incremental")]
+    #[arg(long, default_value = "incremental")]
     pub profile: String,
-    #[clap(long, default_value = "webots")]
+    #[arg(long, default_value = "webots")]
     pub target: String,
-    #[clap(long)]
+    #[arg(long)]
     pub no_sdk_installation: bool,
     /// Pass through arguments to cargo ... -- PASSTHROUGH_ARGUMENTS
-    #[clap(last = true, value_parser)]
+    #[arg(last = true, value_parser)]
     pub passthrough_arguments: Vec<String>,
 }
 

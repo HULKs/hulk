@@ -1,5 +1,8 @@
 use anyhow::Context;
-use clap::Subcommand;
+use clap::{
+    builder::{PossibleValuesParser, TypedValueParser},
+    Subcommand,
+};
 use futures::future::join_all;
 
 use nao::{Nao, Network};
@@ -15,22 +18,25 @@ pub enum Arguments {
     /// List available networks
     List {
         /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-        #[clap(required = true)]
+        #[arg(required = true)]
         naos: Vec<NaoAddress>,
     },
     /// Set active network
     Set {
-        /// The network to connect the wireless device to e.g. SPL_A or None (None disconnects from anything)
-        #[clap(possible_values = NETWORK_POSSIBLE_VALUES, parse(try_from_str = parse_network))]
+        /// The network to connect the wireless device to (None disconnects from anything)
+        #[arg(
+            value_parser = PossibleValuesParser::new(NETWORK_POSSIBLE_VALUES)
+                .map(|s| parse_network(&s).unwrap()))
+        ]
         network: Network,
         /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-        #[clap(required = true)]
+        #[arg(required = true)]
         naos: Vec<NaoAddress>,
     },
     /// Show current network status
     Status {
         /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-        #[clap(required = true)]
+        #[arg(required = true)]
         naos: Vec<NaoAddress>,
     },
 }

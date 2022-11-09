@@ -148,6 +148,7 @@ on whether you are a HULKs member or not).
 The HULA source code is located in `tools/hula`.
 The meta-hulks layer is set up to clone the private [HULKs/nao](https://github.com/HULKs/nao) repository and check out a specific version.
 This only works if the kas-container has SSH correctly set up and uses a SSH key that has access to the repository.
+Ensure that the SSH private key has appropriate permissions, usually `600`.
 Most often it is easier to clone the repository manually and point BitBake to use it.
 The following command can be executed within the build environment to do that:
 

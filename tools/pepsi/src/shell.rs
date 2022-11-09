@@ -9,6 +9,7 @@ use crate::parsers::NaoAddress;
 #[derive(Args)]
 pub struct Arguments {
     /// The NAO to connect to e.g. 20w or 10.1.24.22
+    #[arg(required = true)]
     pub nao: NaoAddress,
 }
 

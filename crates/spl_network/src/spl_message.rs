@@ -137,7 +137,7 @@ impl From<SplMessage> for SPLStandardMessage {
                 PlayerNumber::Five => 5,
             },
             teamNum: HULKS_TEAM_NUMBER,
-            fallen: if message.fallen { 1 } else { 0 },
+            fallen: u8::from(message.fallen),
             pose: [
                 message.robot_to_field.translation.vector.x * 1000.0,
                 message.robot_to_field.translation.vector.y * 1000.0,

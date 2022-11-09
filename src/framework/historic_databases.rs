@@ -52,7 +52,7 @@ impl<'a, DataType> HistoricDataType<'a, DataType> {
     }
 
     pub fn get(&self, system_time: SystemTime) -> &'a DataType {
-        return *self
+        return self
             .historic
             .get(&system_time)
             .expect("Failed to get historic at given time stamp");

@@ -10,7 +10,7 @@ use crate::{parsers::NaoAddress, results::gather_results};
 #[derive(Args)]
 pub struct Arguments {
     /// The NAOs to reboot e.g. 20w or 10.1.24.22
-    #[clap(required = true)]
+    #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
 }
 

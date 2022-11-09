@@ -1,15 +1,17 @@
-use std::io::stdout;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::{
+    io::stdout,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::{bail, Context, Result};
-use clap::{App, Arg};
+use clap::{Arg, ArgAction, Command};
 use log::{debug, error};
 use systemd::daemon::{notify, STATE_READY};
+
 use termination::TerminationRequest;
 
-use crate::aliveness::Aliveness;
-use crate::proxy::Proxy;
+use crate::{aliveness::Aliveness, proxy::Proxy};
 
 mod aliveness;
 mod beacon;
@@ -41,18 +43,19 @@ fn setup_logger(is_verbose: bool) -> Result<(), fern::InitError> {
 }
 
 fn main() -> Result<()> {
-    let app = App::new("proxy")
+    let app = Command::new("proxy")
         .about("Forwards messages between LoLA and other applications, exports metrics over DBus")
         .arg(
-            Arg::with_name("verbose")
+            Arg::new("verbose")
                 .short('v')
                 .long("verbose")
-                .help("Log with DEBUG log level"),
+                .help("Log with DEBUG log level")
+                .action(ArgAction::SetTrue),
         );
 
     let matches = app.get_matches();
 
-    setup_logger(matches.is_present("verbose")).context("Failed to setup logger")?;
+    setup_logger(matches.get_flag("verbose")).context("Failed to setup logger")?;
 
     let termination_request = TerminationRequest::default();
     let termination_request_for_handler = termination_request.clone();
