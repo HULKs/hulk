@@ -1026,9 +1026,9 @@ dependencies = [
  "proc-macro2",
  "quote",
  "source_analyzer",
- "spl_network2",
  "structs",
  "tokio-util",
+ "vision",
 ]
 
 [[package]]
