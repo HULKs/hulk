@@ -1,9 +1,21 @@
 {
   "player_number": "Five",
   "vision_bottom": {
-    "camera_matrix_parameters": { "extrinsic_rotations": [0.8, -3.8, 1] }
+    "camera_matrix_parameters": {
+      "extrinsic_rotations": [
+        0.4,
+        -3.0,
+        1.0
+      ]
+    }
   },
   "vision_top": {
-    "camera_matrix_parameters": { "extrinsic_rotations": [0.5, -5.5, 1] }
+    "camera_matrix_parameters": {
+      "extrinsic_rotations": [
+        0.0,
+        -5.5,
+        1
+      ]
+    }
   }
 }
