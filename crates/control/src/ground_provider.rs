@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput};
+use framework::{MainOutput, Input};
 use nalgebra::Isometry3;
 use types::{RobotKinematics, SensorData, SupportFoot};
 
@@ -10,9 +10,9 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub robot_kinematics: OptionalInput<RobotKinematics, "robot_kinematics?">,
-    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
-    pub support_foot: OptionalInput<SupportFoot, "support_foot?">,
+    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics?">,
+    pub sensor_data: Input<SensorData, "sensor_data?">,
+    pub support_foot: Input<SupportFoot, "support_foot?">,
 }
 
 #[context]

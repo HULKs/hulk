@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput, Parameter, PersistentState};
+use framework::{MainOutput, Input, Parameter, PersistentState};
 use types::{MotionCommand, SensorData, Step, SupportFoot};
 
 pub struct StepPlanner {}
@@ -18,9 +18,9 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: OptionalInput<Option<MotionCommand>, "motion_command?">,
-    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
-    pub support_foot: OptionalInput<SupportFoot, "support_foot?">,
+    pub motion_command: Input<Option<MotionCommand>, "motion_command?">,
+    pub sensor_data: Input<SensorData, "sensor_data?">,
+    pub support_foot: Input<SupportFoot, "support_foot?">,
 
     pub injected_step: Parameter<Option<Step>, "control/step_planner/injected_step">,
     pub inside_turn_ratio: Parameter<f32, "control/step_planner/inside_turn_ratio">,

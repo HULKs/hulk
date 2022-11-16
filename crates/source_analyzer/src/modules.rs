@@ -164,7 +164,7 @@ impl Modules {
                             name,
                             path,
                         }
-                        | Field::OptionalInput {
+                        | Field::Input {
                             cycler_instance: None,
                             data_type,
                             name,

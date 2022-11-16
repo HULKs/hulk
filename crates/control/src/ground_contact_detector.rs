@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput, Parameter};
+use framework::{MainOutput, Input, Parameter};
 use types::{SensorData, SolePressure};
 
 pub struct GroundContactDetector {}
@@ -15,8 +15,8 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
-    pub sole_pressure: OptionalInput<SolePressure, "sole_pressure?">,
+    pub sensor_data: Input<SensorData, "sensor_data?">,
+    pub sole_pressure: Input<SolePressure, "sole_pressure?">,
 
     pub hysteresis: Parameter<f32, "control/ground_contact_detector/hysteresis">,
     pub pressure_threshold: Parameter<f32, "control/ground_contact_detector/pressure_threshold">,

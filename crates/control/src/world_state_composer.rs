@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput, Parameter, RequiredInput};
+use framework::{MainOutput, Input, Parameter, RequiredInput};
 use nalgebra::Isometry2;
 use spl_network_messages::PlayerNumber;
 use types::{
@@ -16,12 +16,12 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub ball_position: OptionalInput<BallPosition, "ball_position?">,
-    pub filtered_game_state: OptionalInput<FilteredGameState, "filtered_game_state?">,
-    pub game_controller_state: OptionalInput<Option<GameControllerState>, "game_controller_state?">,
-    pub penalty_shot_direction: OptionalInput<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
-    pub robot_to_field: OptionalInput<Isometry2<f32>, "robot_to_field?">,
-    pub team_ball: OptionalInput<BallPosition, "team_ball?">,
+    pub ball_position: Input<BallPosition, "ball_position?">,
+    pub filtered_game_state: Input<FilteredGameState, "filtered_game_state?">,
+    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    pub penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
+    pub robot_to_field: Input<Isometry2<f32>, "robot_to_field?">,
+    pub team_ball: Input<BallPosition, "team_ball?">,
 
     pub player_number: Parameter<PlayerNumber, "player_number">,
 

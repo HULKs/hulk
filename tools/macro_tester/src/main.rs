@@ -52,7 +52,7 @@ fn main() -> anyhow::Result<()> {
                     "Unexpected historic input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
                     modules.modules[first_module_name].cycler_module
                 ),
-                Field::OptionalInput { name, .. } => bail!(
+                Field::Input { name, .. } => bail!(
                     "Unexpected optional input for first module `{first_module_name}` in `{}` for `{name}` in cycle context",
                     modules.modules[first_module_name].cycler_module
                 ),
@@ -727,11 +727,11 @@ impl Module<'_> {
                 Field::HistoricInput { name, .. } => {
                     bail!("Unexpected historic input field `{name}` in new context")
                 }
+                Field::Input { name, .. } => {
+                    bail!("Unexpected optional input field `{name}` in new context")
+                }
                 Field::MainOutput { name, .. } => {
                     bail!("Unexpected main output field `{name}` in new context")
-                }
-                Field::OptionalInput { name, .. } => {
-                    bail!("Unexpected optional input field `{name}` in new context")
                 }
                 Field::Parameter { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
@@ -869,10 +869,7 @@ impl Module<'_> {
                             .into()
                     })
                 }
-                Field::MainOutput { name, .. } => {
-                    bail!("Unexpected main output field `{name}` in cycle context")
-                }
-                Field::OptionalInput {
+                Field::Input {
                     cycler_instance,
                     name,
                     path,
@@ -890,10 +887,13 @@ impl Module<'_> {
                         ReferenceType::Immutable,
                     );
                     Ok(quote! {
-                        #name: framework::OptionalInput::from(
+                        #name: framework::Input::from(
                             #accessor,
                         )
                     })
+                }
+                Field::MainOutput { name, .. } => {
+                    bail!("Unexpected main output field `{name}` in cycle context")
                 }
                 Field::Parameter { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(

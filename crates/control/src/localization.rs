@@ -1,7 +1,7 @@
 use context_attribute::context;
 use filtering::ScoredPoseFilter;
 use framework::{
-    AdditionalOutput, HistoricInput, MainOutput, OptionalInput, Parameter, PerceptionInput,
+    AdditionalOutput, HistoricInput, MainOutput, Input, Parameter, PerceptionInput,
     PersistentState,
 };
 use nalgebra::{Isometry2, Matrix3, Vector2, Vector3};
@@ -61,9 +61,9 @@ pub struct CycleContext {
     pub current_odometry_to_last_odometry:
         HistoricInput<Isometry2<f32>, "current_odometry_to_last_odometry">,
 
-    pub game_controller_state: OptionalInput<Option<GameControllerState>, "game_controller_state?">,
-    pub has_ground_contact: OptionalInput<bool, "has_ground_contact?">,
-    pub primary_state: OptionalInput<PrimaryState, "primary_state?">,
+    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    pub has_ground_contact: Input<bool, "has_ground_contact?">,
+    pub primary_state: Input<PrimaryState, "primary_state?">,
 
     pub circle_measurement_noise:
         Parameter<Vector2<f32>, "control/localization/circle_measurement_noise">,

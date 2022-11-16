@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput, Parameter};
+use framework::{MainOutput, Input, Parameter};
 use nalgebra::UnitComplex;
 use types::{
     configuration::OrientationFilter as OrientationFilterConfiguration, SensorData, SolePressure,
@@ -15,9 +15,9 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
-    pub sole_pressure: OptionalInput<SolePressure, "sole_pressure?">,
-    pub support_foot: OptionalInput<SupportFoot, "support_foot?">,
+    pub sensor_data: Input<SensorData, "sensor_data?">,
+    pub sole_pressure: Input<SolePressure, "sole_pressure?">,
+    pub support_foot: Input<SupportFoot, "support_foot?">,
 
     pub orientation_filter: Parameter<OrientationFilterConfiguration, "control/orientation_filter">,
 }

@@ -1,6 +1,6 @@
 use context_attribute::context;
 use framework::{
-    AdditionalOutput, HistoricInput, MainOutput, OptionalInput, Parameter, PerceptionInput,
+    AdditionalOutput, HistoricInput, MainOutput, Input, Parameter, PerceptionInput,
 };
 use nalgebra::{Isometry2, Point2};
 use types::{
@@ -34,7 +34,7 @@ pub struct CycleContext {
     pub robot_to_field: HistoricInput<Isometry2<f32>, "robot_to_field">,
     pub sonar_obstacle: HistoricInput<SonarObstacle, "sonar_obstacle">,
 
-    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
+    pub sensor_data: Input<SensorData, "sensor_data?">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub goal_post_obstacle_radius:

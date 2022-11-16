@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput, Parameter};
+use framework::{MainOutput, Input, Parameter};
 use types::{CameraMatrix, FilteredSegments, LineData, PerspectiveGridCandidates};
 
 pub struct PerspectiveGridCandidatesProvider {}
@@ -15,9 +15,9 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub camera_matrix: OptionalInput<CameraMatrix, "camera_matrix?">,
-    pub filtered_segments: OptionalInput<FilteredSegments, "filtered_segments?">,
-    pub line_data: OptionalInput<LineData, "line_data?">,
+    pub camera_matrix: Input<CameraMatrix, "camera_matrix?">,
+    pub filtered_segments: Input<FilteredSegments, "filtered_segments?">,
+    pub line_data: Input<LineData, "line_data?">,
 
     pub ball_radius: Parameter<f32, "field_dimensions/ball_radius">,
     pub fallback_radius:

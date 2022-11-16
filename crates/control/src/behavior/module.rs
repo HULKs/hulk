@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, OptionalInput, Parameter, RequiredInput};
+use framework::{AdditionalOutput, MainOutput, Input, Parameter, RequiredInput};
 use nalgebra::Point2;
 use types::{
     configuration::{Behavior as BehaviorConfiguration, LostBall},
@@ -22,8 +22,8 @@ pub struct CycleContext {
     pub kick_targets: AdditionalOutput<Vec<Point2<f32>>, "kick_targets">,
     pub path_obstacles: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
 
-    pub camera_matrices: OptionalInput<CameraMatrices, "camera_matrices?">,
-    pub projected_limbs: OptionalInput<ProjectedLimbs, "projected_limbs?">,
+    pub camera_matrices: Input<CameraMatrices, "camera_matrices?">,
+    pub projected_limbs: Input<ProjectedLimbs, "projected_limbs?">,
 
     pub behavior: Parameter<BehaviorConfiguration, "control/behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,

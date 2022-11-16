@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput, Parameter, PersistentState};
+use framework::{MainOutput, Input, Parameter, PersistentState};
 use nalgebra::Isometry2;
 use spl_network_messages::PlayerNumber;
 use types::{
@@ -20,11 +20,11 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub ball_position: OptionalInput<BallPosition, "ball_position?">,
-    pub buttons: OptionalInput<Buttons, "buttons?">,
-    pub filtered_whistle: OptionalInput<FilteredWhistle, "filtered_whistle?">,
-    pub game_controller_state: OptionalInput<Option<GameControllerState>, "game_controller_state?">,
-    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
+    pub ball_position: Input<BallPosition, "ball_position?">,
+    pub buttons: Input<Buttons, "buttons?">,
+    pub filtered_whistle: Input<FilteredWhistle, "filtered_whistle?">,
+    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    pub sensor_data: Input<SensorData, "sensor_data?">,
 
     pub config: Parameter<GameStateFilterConfiguration, "control/game_state_filter">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
