@@ -374,16 +374,10 @@ impl Cycler<'_> {
                     return None;
                 }
 
-                match self {
-                    Cycler::Perception { .. } => Some(Module::Perception {
-                        module_name,
-                        module,
-                    }),
-                    Cycler::RealTime { .. } => Some(Module::RealTime {
-                        module_name,
-                        module,
-                    }),
-                }
+                Some(Module {
+                    module_name,
+                    module,
+                })
             })
             .collect()
     }
@@ -655,43 +649,22 @@ enum OtherCycler<'a> {
     },
 }
 
-// TODO: Convert to struct instead of enum
-enum Module<'a> {
-    Perception {
-        module_name: &'a str,
-        module: &'a source_analyzer::Module,
-    },
-    RealTime {
-        module_name: &'a str,
-        module: &'a source_analyzer::Module,
-    },
+struct Module<'a> {
+    module_name: &'a str,
+    module: &'a source_analyzer::Module,
 }
 
 impl Module<'_> {
-    fn get_module_name(&self) -> &str {
-        match self {
-            Module::Perception { module_name, .. } => module_name,
-            Module::RealTime { module_name, .. } => module_name,
-        }
-    }
-
-    fn get_module(&self) -> &source_analyzer::Module {
-        match self {
-            Module::Perception { module, .. } => module,
-            Module::RealTime { module, .. } => module,
-        }
-    }
-
     fn get_identifier(&self) -> Ident {
-        format_ident!("{}", self.get_module_name())
+        format_ident!("{}", self.module_name)
     }
 
     fn get_identifier_snake_case(&self) -> Ident {
-        format_ident!("{}", self.get_module_name().to_case(Case::Snake))
+        format_ident!("{}", self.module_name.to_case(Case::Snake))
     }
 
     fn get_path_segments(&self) -> Vec<Ident> {
-        self.get_module()
+        self.module
             .path_segments
             .iter()
             .map(|segment| format_ident!("{}", segment))
@@ -702,7 +675,7 @@ impl Module<'_> {
         let module_name_identifier_snake_case = self.get_identifier_snake_case();
         let module_name_identifier = self.get_identifier();
         let path_segments = self.get_path_segments();
-        let cycler_module_name_identifier = format_ident!("{}", self.get_module().cycler_module);
+        let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
 
         quote! {
             #module_name_identifier_snake_case:
@@ -711,7 +684,7 @@ impl Module<'_> {
     }
 
     fn get_initializer_field_initializers(&self) -> anyhow::Result<Vec<TokenStream>> {
-        self.get_module()
+        self.module
             .contexts
             .new_context
             .iter()
@@ -771,11 +744,11 @@ impl Module<'_> {
         let module_name_identifier_snake_case = self.get_identifier_snake_case();
         let module_name_identifier = self.get_identifier();
         let path_segments = self.get_path_segments();
-        let cycler_module_name_identifier = format_ident!("{}", self.get_module().cycler_module);
+        let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
         let field_initializers = self
             .get_initializer_field_initializers()
             .context("Failed to generate field initializers")?;
-        let error_message = format!("Failed to create module `{}`", self.get_module_name());
+        let error_message = format!("Failed to create module `{}`", self.module_name);
 
         Ok(quote! {
             let #module_name_identifier_snake_case = #cycler_module_name_identifier::#(#path_segments::)*#module_name_identifier::new(
@@ -789,7 +762,7 @@ impl Module<'_> {
 
     fn get_required_inputs_are_some(&self) -> Option<TokenStream> {
         let required_inputs_are_some: Vec<_> = self
-            .get_module()
+            .module
             .contexts
             .cycle_context
             .iter()
@@ -817,7 +790,7 @@ impl Module<'_> {
     }
 
     fn get_execution_field_initializers(&self) -> anyhow::Result<Vec<TokenStream>> {
-        self.get_module()
+        self.module
             .contexts
             .cycle_context
             .iter()
@@ -991,7 +964,7 @@ impl Module<'_> {
     }
 
     fn get_main_output_setters_from_cycle_result(&self) -> Vec<TokenStream> {
-        self.get_module()
+        self.module
             .contexts
             .main_outputs
             .iter()
@@ -1005,7 +978,7 @@ impl Module<'_> {
     }
 
     fn get_main_output_setters_from_none(&self) -> Vec<TokenStream> {
-        self.get_module()
+        self.module
             .contexts
             .main_outputs
             .iter()
@@ -1021,7 +994,7 @@ impl Module<'_> {
     fn get_execution(&self) -> anyhow::Result<TokenStream> {
         let module_name_identifier_snake_case = self.get_identifier_snake_case();
         let path_segments = self.get_path_segments();
-        let cycler_module_name_identifier = format_ident!("{}", self.get_module().cycler_module);
+        let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
         let required_inputs_are_some = self.get_required_inputs_are_some();
         let field_initializers = self
             .get_execution_field_initializers()
@@ -1029,10 +1002,7 @@ impl Module<'_> {
         let main_output_setters_from_cycle_result =
             self.get_main_output_setters_from_cycle_result();
         let main_output_setters_from_none = self.get_main_output_setters_from_none();
-        let error_message = format!(
-            "Failed to execute cycle of module `{}`",
-            self.get_module_name()
-        );
+        let error_message = format!("Failed to execute cycle of module `{}`", self.module_name);
         let module_execution = quote! {
             let main_outputs = self.#module_name_identifier_snake_case.cycle(
                 #cycler_module_name_identifier::#(#path_segments::)*CycleContext {
