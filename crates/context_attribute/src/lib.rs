@@ -7,7 +7,8 @@ use syn::{
     punctuated::{Pair, Punctuated},
     AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, GenericParam, ItemStruct,
     Lifetime, LifetimeDef, Lit, Path, PathArguments, PathSegment, PredicateType, TraitBound,
-    TraitBoundModifier, Type, TypeParam, TypeParamBound, TypePath, WhereClause, WherePredicate,
+    TraitBoundModifier, Type, TypeParam, TypeParamBound, TypePath, TypeReference, WhereClause,
+    WherePredicate,
 };
 
 #[proc_macro_attribute]
@@ -87,13 +88,70 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                                         );
                                     }
                                 }
-                                arguments.args.insert(
-                                    0,
-                                    GenericArgument::Lifetime(Lifetime::new(
-                                        "'context",
-                                        Span::call_site(),
-                                    )),
-                                );
+                                if let GenericArgument::Type(data_type) =
+                                    arguments.args.first_mut().unwrap()
+                                {
+                                    {
+                                        let data_type = match data_type {
+                                            Type::Path(TypePath {
+                                                path: Path { segments, .. },
+                                                ..
+                                            }) if segments.len() == 1
+                                                && segments.first().unwrap().ident == "Option" =>
+                                            {
+                                                match &mut segments.first_mut().unwrap().arguments {
+                                                    PathArguments::AngleBracketed(arguments)
+                                                        if arguments.args.len() == 1 =>
+                                                    {
+                                                        match arguments.args.first_mut().unwrap() {
+                                                            GenericArgument::Type(data_type) => {
+                                                                data_type
+                                                            }
+                                                            _ => data_type,
+                                                        }
+                                                    }
+                                                    _ => data_type,
+                                                }
+                                            }
+                                            _ => data_type,
+                                        };
+                                        *data_type = Type::Reference(TypeReference {
+                                            and_token: Default::default(),
+                                            lifetime: Some(Lifetime::new(
+                                                "'context",
+                                                Span::call_site(),
+                                            )),
+                                            mutability: None,
+                                            elem: Box::new(data_type.clone()),
+                                        });
+                                    }
+                                    *data_type = Type::Path(TypePath {
+                                        qself: None,
+                                        path: Path {
+                                            leading_colon: None,
+                                            segments: Punctuated::from_iter([PathSegment {
+                                                ident: format_ident!("Vec"),
+                                                arguments: PathArguments::AngleBracketed(
+                                                    AngleBracketedGenericArguments {
+                                                        colon2_token: None,
+                                                        lt_token: Default::default(),
+                                                        args: Punctuated::from_iter([
+                                                            GenericArgument::Type(
+                                                                data_type.clone(),
+                                                            ),
+                                                        ]),
+                                                        gt_token: Default::default(),
+                                                    },
+                                                ),
+                                            }]),
+                                        },
+                                    });
+                                } else {
+                                    abort!(
+                                        arguments,
+                                        "expected type path in first generic parameter"
+                                    );
+                                }
                             }
                             _ => abort!(first_segment, "expected exactly three generic parameters"),
                         }
@@ -165,6 +223,44 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                                         }
                                     }
                                 }
+                                if first_segment.ident == "RequiredInput" {
+                                    if let GenericArgument::Type(data_type) =
+                                        arguments.args.first_mut().unwrap()
+                                    {
+                                        *data_type =
+                                            match data_type {
+                                                Type::Path(TypePath {
+                                                    path: syn::Path { segments, .. },
+                                                    ..
+                                                }) if segments.len() == 1
+                                                    && segments.first().unwrap().ident
+                                                        == "Option" =>
+                                                {
+                                                    match &segments.first().unwrap().arguments {
+                                                    PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. })
+                                                        if args.len() == 1 =>
+                                                    {
+                                                        match args.first().unwrap() {
+                                                            GenericArgument::Type(nested_data_type) => nested_data_type.clone(),
+                                                            _ => abort!(
+                                                                first_segment,
+                                                                "unexpected generic argument, expected type argument in data type"
+                                                            ),
+                                                        }
+                                                    }
+                                                    _ => abort!(
+                                                        first_segment,
+                                                        "expected exactly one generic type argument in data type"
+                                                    ),
+                                                }
+                                                }
+                                                _ => abort!(
+                                                    first_segment,
+                                                    "Execpted Option<T> as data type"
+                                                ),
+                                            };
+                                    }
+                                }
                                 arguments.args.insert(
                                     0,
                                     GenericArgument::Lifetime(Lifetime::new(
@@ -213,13 +309,57 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                                         );
                                     }
                                 }
-                                arguments.args.insert(
-                                    0,
-                                    GenericArgument::Lifetime(Lifetime::new(
-                                        "'context",
-                                        Span::call_site(),
-                                    )),
-                                );
+                                if first_segment.ident == "HistoricInput" {
+                                    if let GenericArgument::Type(data_type) =
+                                        arguments.args.first_mut().unwrap()
+                                    {
+                                        let data_type = match data_type {
+                                            Type::Path(TypePath {
+                                                path: Path { segments, .. },
+                                                ..
+                                            }) if segments.len() == 1
+                                                && segments.first().unwrap().ident == "Option" =>
+                                            {
+                                                match &mut segments.first_mut().unwrap().arguments {
+                                                    PathArguments::AngleBracketed(arguments)
+                                                        if arguments.args.len() == 1 =>
+                                                    {
+                                                        match arguments.args.first_mut().unwrap() {
+                                                            GenericArgument::Type(data_type) => {
+                                                                data_type
+                                                            }
+                                                            _ => data_type,
+                                                        }
+                                                    }
+                                                    _ => data_type,
+                                                }
+                                            }
+                                            _ => data_type,
+                                        };
+                                        *data_type = Type::Reference(TypeReference {
+                                            and_token: Default::default(),
+                                            lifetime: Some(Lifetime::new(
+                                                "'context",
+                                                Span::call_site(),
+                                            )),
+                                            mutability: None,
+                                            elem: Box::new(data_type.clone()),
+                                        });
+                                    } else {
+                                        abort!(
+                                            arguments,
+                                            "expected type path in first generic parameter"
+                                        );
+                                    }
+                                } else {
+                                    arguments.args.insert(
+                                        0,
+                                        GenericArgument::Lifetime(Lifetime::new(
+                                            "'context",
+                                            Span::call_site(),
+                                        )),
+                                    );
+                                }
                             }
                             _ => abort!(first_segment, "expected exactly two generic parameters"),
                         }

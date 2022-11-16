@@ -713,6 +713,7 @@ impl Module<'_> {
                         quote! { configuration },
                         &path,
                         ReferenceType::Immutable,
+                        quote! { instance_name },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -729,6 +730,7 @@ impl Module<'_> {
                         quote! { persistent_state },
                         &path,
                         ReferenceType::Mutable,
+                        quote! { instance_name },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -771,11 +773,27 @@ impl Module<'_> {
             .cycle_context
             .iter()
             .filter_map(|field| match field {
-                Field::RequiredInput { path, .. } => {
+                Field::RequiredInput {
+                    path,
+                    cycler_instance,
+                    ..
+                } => {
+                    let database_prefix = match cycler_instance {
+                        Some(cycler_instance) => {
+                            let identifier =
+                                format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
+                            quote! { #identifier }
+                        }
+                        None => {
+                            let identifier = format_ident!("own_database");
+                            quote! { #identifier .main_outputs }
+                        }
+                    };
                     let accessor = path_to_accessor_token_stream(
-                        quote! { own_database.main_outputs },
+                        database_prefix,
                         &path,
                         ReferenceType::Immutable,
+                        quote! { self.instance_name },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     // TODO: check if required input actually has at least one optional
@@ -805,6 +823,7 @@ impl Module<'_> {
                         quote! { own_database.additional_outputs },
                         &path,
                         ReferenceType::Mutable,
+                        quote! { self.instance_name },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     // TODO: is_subscribed
@@ -825,12 +844,14 @@ impl Module<'_> {
                         quote! { own_database.main_outputs },
                         &path,
                         ReferenceType::Immutable,
+                        quote! { self.instance_name },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     let historic_accessor = path_to_accessor_token_stream(
                         quote! { database },
                         &path,
                         ReferenceType::Immutable,
+                        quote! { self.instance_name },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -856,16 +877,22 @@ impl Module<'_> {
                     path,
                     ..
                 } => {
-                    let database_identifier = match cycler_instance {
+                    let database_prefix = match cycler_instance {
                         Some(cycler_instance) => {
-                            format_ident!("{}_database", cycler_instance.to_case(Case::Snake))
+                            let identifier =
+                                format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
+                            quote! { #identifier }
                         }
-                        None => format_ident!("own_database"),
+                        None => {
+                            let identifier = format_ident!("own_database");
+                            quote! { #identifier .main_outputs }
+                        }
                     };
                     let accessor = path_to_accessor_token_stream(
-                        quote! { #database_identifier .main_outputs },
+                        database_prefix,
                         &path,
                         ReferenceType::Immutable,
+                        quote! { self.instance_name },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -882,6 +909,7 @@ impl Module<'_> {
                         quote! { configuration },
                         &path,
                         ReferenceType::Immutable,
+                        quote! { self.instance_name },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -902,6 +930,7 @@ impl Module<'_> {
                         quote! { database },
                         &path,
                         ReferenceType::Immutable,
+                        quote! { self.instance_name },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -940,6 +969,7 @@ impl Module<'_> {
                         quote! { self.persistent_state },
                         &path,
                         ReferenceType::Mutable,
+                        quote! { self.instance_name },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -954,16 +984,22 @@ impl Module<'_> {
                     path,
                     ..
                 } => {
-                    let database_identifier = match cycler_instance {
+                    let database_prefix = match cycler_instance {
                         Some(cycler_instance) => {
-                            format_ident!("{}_database", cycler_instance.to_case(Case::Snake))
+                            let identifier =
+                                format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
+                            quote! { #identifier }
                         }
-                        None => format_ident!("own_database"),
+                        None => {
+                            let identifier = format_ident!("own_database");
+                            quote! { #identifier .main_outputs }
+                        }
                     };
                     let accessor = path_to_accessor_token_stream(
-                        quote! { #database_identifier .main_outputs },
+                        database_prefix,
                         &path,
                         ReferenceType::Immutable,
+                        quote! { self.instance_name },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -1053,6 +1089,7 @@ fn path_to_accessor_token_stream(
     prefix_token_stream: TokenStream,
     path: &[PathSegment],
     reference_type: ReferenceType,
+    instance_name: TokenStream,
     cycler_instances: &[String],
 ) -> TokenStream {
     fn path_to_accessor_token_stream_with_cycler_instance(
@@ -1184,9 +1221,7 @@ fn path_to_accessor_token_stream(
     if path_contains_variable {
         let mut token_stream = TokenStream::default();
         token_stream.append(TokenTree::Ident(format_ident!("match")));
-        token_stream.append(TokenTree::Ident(format_ident!("self")));
-        token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
-        token_stream.append(TokenTree::Ident(format_ident!("instance_name")));
+        token_stream.extend(instance_name.clone());
         token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
         token_stream.append(TokenTree::Ident(format_ident!("as_str")));
         token_stream.append(TokenTree::Group(Group::new(
@@ -1218,9 +1253,7 @@ fn path_to_accessor_token_stream(
             "unexpected instance name {}",
         )));
         token_stream_within_panic.append(TokenTree::Punct(Punct::new(',', Spacing::Alone)));
-        token_stream_within_panic.append(TokenTree::Ident(format_ident!("self")));
-        token_stream_within_panic.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
-        token_stream_within_panic.append(TokenTree::Ident(format_ident!("instance_name")));
+        token_stream_within_panic.extend(instance_name);
         token_stream_within_match.append(TokenTree::Group(Group::new(
             Delimiter::Parenthesis,
             token_stream_within_panic,
@@ -1439,6 +1472,7 @@ mod tests {
                 quote! { prefix },
                 &path_segments,
                 reference_type,
+                quote! { self.instance_name },
                 &["InstanceA".to_string(), "InstanceB".to_string()],
             );
             assert_eq!(

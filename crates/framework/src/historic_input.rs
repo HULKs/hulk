@@ -1,22 +1,23 @@
 use std::{collections::BTreeMap, time::SystemTime};
 
-pub struct HistoricInput<'context, DataType> {
-    historic: BTreeMap<SystemTime, &'context DataType>,
+pub struct HistoricInput<DataType> {
+    historic: BTreeMap<SystemTime, DataType>,
 }
 
-impl<'context, DataType> From<BTreeMap<SystemTime, &'context DataType>>
-    for HistoricInput<'context, DataType>
-{
-    fn from(historic: BTreeMap<SystemTime, &'context DataType>) -> Self {
+impl<DataType> From<BTreeMap<SystemTime, DataType>> for HistoricInput<DataType> {
+    fn from(historic: BTreeMap<SystemTime, DataType>) -> Self {
         Self { historic }
     }
 }
 
-impl<'context, DataType> HistoricInput<'context, DataType> {
-    pub fn get(&self, system_time: SystemTime) -> &'context DataType {
-        return *self
+impl<DataType> HistoricInput<DataType>
+where
+    DataType: Copy,
+{
+    pub fn get(&self, system_time: &SystemTime) -> DataType {
+        *self
             .historic
-            .get(&system_time)
-            .expect("Failed to get historic input value at given timestamp");
+            .get(system_time)
+            .expect("Failed to get historic input value at given timestamp")
     }
 }
