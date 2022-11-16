@@ -47,8 +47,8 @@ pub struct CycleContext {
         Parameter<f32, "control/obstacle_filter/robot_obstacle_radius_at_hip_height">,
     pub unknown_obstacle_radius: Parameter<f32, "control/obstacle_filter/unknown_obstacle_radius">,
 
-    pub detected_robots_bottom: PerceptionInput<DetectedRobots, "VisionBottom", "detected_robots">,
-    pub detected_robots_top: PerceptionInput<DetectedRobots, "VisionTop", "detected_robots">,
+    pub detected_robots_bottom: PerceptionInput<Option<DetectedRobots>, "VisionBottom", "detected_robots?">,
+    pub detected_robots_top: PerceptionInput<Option<DetectedRobots>, "VisionTop", "detected_robots?">,
 }
 
 #[context]

@@ -318,6 +318,7 @@ fn path_to_insertion_rules(path: &[PathSegment], data_type: &Type) -> Vec<Insert
         .collect()
 }
 
+// TODO: is this still needed?
 fn unwrap_option_data_type(data_type: Type) -> anyhow::Result<Type> {
     match data_type {
         Type::Path(TypePath {
