@@ -19,9 +19,9 @@ pub struct CycleContext {
     pub moving_distance_threshold:
         Parameter<f32, "control/penalty_shot_direction_estimation/moving_distance_threshold">,
 
-    pub ball_position: RequiredInput<BallPosition, "ball_position">,
-    pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state">,
-    pub primary_state: RequiredInput<PrimaryState, "primary_state">,
+    pub ball_position: RequiredInput<Option<BallPosition>, "ball_position?">,
+    pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
+    pub primary_state: RequiredInput<Option<PrimaryState>, "primary_state?">,
 }
 
 #[context]

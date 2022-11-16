@@ -1,6 +1,6 @@
 use context_attribute::context;
-use framework::{MainOutput, Input, PerceptionInput};
-use types::{Ball, Leds, PrimaryState, SensorData};
+use framework::MainOutput;
+use types::SensorData;
 
 pub struct SensorDataReceiver {}
 

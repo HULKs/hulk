@@ -12,27 +12,27 @@ pub struct RobotDetection {}
 #[context]
 pub struct NewContext {
     pub amount_of_segments_factor:
-        Parameter<f32, "$cycler_instance/robot_detection/amount_of_segments_factor">,
+        Parameter<f32, "robot_detection/$cycler_instance/amount_of_segments_factor">,
     pub amount_score_exponent:
-        Parameter<f32, "$cycler_instance/robot_detection/amount_score_exponent">,
-    pub cluster_cone_radius: Parameter<f32, "$cycler_instance/robot_detection/cluster_cone_radius">,
+        Parameter<f32, "robot_detection/$cycler_instance/amount_score_exponent">,
+    pub cluster_cone_radius: Parameter<f32, "robot_detection/$cycler_instance/cluster_cone_radius">,
     pub cluster_distance_score_range:
-        Parameter<Range<f32>, "$cycler_instance/robot_detection/cluster_distance_score_range">,
-    pub detection_box_width: Parameter<f32, "$cycler_instance/robot_detection/detection_box_width">,
-    pub enable: Parameter<bool, "$cycler_instance/robot_detection/enable">,
+        Parameter<Range<f32>, "robot_detection/$cycler_instance/cluster_distance_score_range">,
+    pub detection_box_width: Parameter<f32, "robot_detection/$cycler_instance/detection_box_width">,
+    pub enable: Parameter<bool, "robot_detection/$cycler_instance/enable">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub ignore_ball_segments:
-        Parameter<bool, "$cycler_instance/robot_detection/ignore_ball_segments">,
+        Parameter<bool, "robot_detection/$cycler_instance/ignore_ball_segments">,
     pub ignore_line_segments:
-        Parameter<bool, "$cycler_instance/robot_detection/ignore_line_segments">,
+        Parameter<bool, "robot_detection/$cycler_instance/ignore_line_segments">,
     pub luminance_score_exponent:
-        Parameter<f32, "$cycler_instance/robot_detection/luminance_score_exponent">,
+        Parameter<f32, "robot_detection/$cycler_instance/luminance_score_exponent">,
     pub maximum_cluster_distance:
-        Parameter<f32, "$cycler_instance/robot_detection/maximum_cluster_distance">,
+        Parameter<f32, "robot_detection/$cycler_instance/maximum_cluster_distance">,
     pub minimum_cluster_score:
-        Parameter<f32, "$cycler_instance/robot_detection/minimum_cluster_score">,
+        Parameter<f32, "robot_detection/$cycler_instance/minimum_cluster_score">,
     pub minimum_consecutive_segments:
-        Parameter<usize, "$cycler_instance/robot_detection/minimum_consecutive_segments">,
+        Parameter<usize, "robot_detection/$cycler_instance/minimum_consecutive_segments">,
 }
 
 #[context]
@@ -46,38 +46,38 @@ pub struct CycleContext {
     >,
 
     pub amount_of_segments_factor:
-        Parameter<f32, "$cycler_instance/robot_detection/amount_of_segments_factor">,
+        Parameter<f32, "robot_detection/$cycler_instance/amount_of_segments_factor">,
     pub amount_score_exponent:
-        Parameter<f32, "$cycler_instance/robot_detection/amount_score_exponent">,
-    pub cluster_cone_radius: Parameter<f32, "$cycler_instance/robot_detection/cluster_cone_radius">,
+        Parameter<f32, "robot_detection/$cycler_instance/amount_score_exponent">,
+    pub cluster_cone_radius: Parameter<f32, "robot_detection/$cycler_instance/cluster_cone_radius">,
     pub cluster_distance_score_range:
-        Parameter<Range<f32>, "$cycler_instance/robot_detection/cluster_distance_score_range">,
-    pub detection_box_width: Parameter<f32, "$cycler_instance/robot_detection/detection_box_width">,
-    pub enable: Parameter<bool, "$cycler_instance/robot_detection/enable">,
+        Parameter<Range<f32>, "robot_detection/$cycler_instance/cluster_distance_score_range">,
+    pub detection_box_width: Parameter<f32, "robot_detection/$cycler_instance/detection_box_width">,
+    pub enable: Parameter<bool, "robot_detection/$cycler_instance/enable">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub ignore_ball_segments:
-        Parameter<bool, "$cycler_instance/robot_detection/ignore_ball_segments">,
+        Parameter<bool, "robot_detection/$cycler_instance/ignore_ball_segments">,
     pub ignore_line_segments:
-        Parameter<bool, "$cycler_instance/robot_detection/ignore_line_segments">,
+        Parameter<bool, "robot_detection/$cycler_instance/ignore_line_segments">,
     pub luminance_score_exponent:
-        Parameter<f32, "$cycler_instance/robot_detection/luminance_score_exponent">,
+        Parameter<f32, "robot_detection/$cycler_instance/luminance_score_exponent">,
     pub maximum_cluster_distance:
-        Parameter<f32, "$cycler_instance/robot_detection/maximum_cluster_distance">,
+        Parameter<f32, "robot_detection/$cycler_instance/maximum_cluster_distance">,
     pub minimum_cluster_score:
-        Parameter<f32, "$cycler_instance/robot_detection/minimum_cluster_score">,
+        Parameter<f32, "robot_detection/$cycler_instance/minimum_cluster_score">,
     pub minimum_consecutive_segments:
-        Parameter<usize, "$cycler_instance/robot_detection/minimum_consecutive_segments">,
+        Parameter<usize, "robot_detection/$cycler_instance/minimum_consecutive_segments">,
 
-    pub balls: RequiredInput<Vec<Ball>, "balls">,
-    pub camera_matrix: RequiredInput<CameraMatrix, "camera_matrix">,
-    pub filtered_segments: RequiredInput<FilteredSegments, "filtered_segments">,
-    pub line_data: RequiredInput<LineData, "line_data">,
+    pub balls: RequiredInput<Option<Vec<Ball>>, "balls?">,
+    pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    pub filtered_segments: RequiredInput<Option<FilteredSegments>, "filtered_segments?">,
+    pub line_data: RequiredInput<Option<LineData>, "line_data?">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub detected_robots: MainOutput<DetectedRobots>,
+    pub detected_robots: MainOutput<Option<DetectedRobots>>,
 }
 
 impl RobotDetection {

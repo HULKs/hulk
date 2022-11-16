@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use context_attribute::context;
 use framework::{
-    AdditionalOutput, HistoricInput, MainOutput, Input, Parameter, PerceptionInput,
+    AdditionalOutput, HistoricInput, Input, MainOutput, Parameter, PerceptionInput, RequiredInput,
 };
 use nalgebra::{Isometry2, Vector2, Vector4};
 use types::{
@@ -39,12 +39,12 @@ pub struct CycleContext {
     pub filtered_balls_in_image_top: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_top">,
 
     pub current_odometry_to_last_odometry:
-        HistoricInput<Isometry2<f32>, "current_odometry_to_last_odometry">,
-    pub historic_camera_matrices: HistoricInput<CameraMatrices, "camera_matrices">,
-    pub projected_limbs: HistoricInput<ProjectedLimbs, "projected_limbs">,
+        HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
+    pub historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
+    pub projected_limbs: HistoricInput<Option<ProjectedLimbs>, "projected_limbs?">,
 
-    pub camera_matrices: Input<CameraMatrices, "camera_matrices?">,
-    pub sensor_data: Input<SensorData, "sensor_data?">,
+    pub camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub hidden_validity_exponential_decay_factor:
@@ -68,7 +68,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub ball_position: MainOutput<BallPosition>,
+    pub ball_position: MainOutput<Option<BallPosition>>,
 }
 
 impl BallFilter {

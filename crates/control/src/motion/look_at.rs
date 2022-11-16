@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Input, Parameter};
+use framework::{Input, MainOutput, Parameter, RequiredInput};
 use nalgebra::Isometry3;
 use types::{CameraMatrices, HeadJoints, MotionCommand, RobotKinematics, SensorData};
 
@@ -12,11 +12,11 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub camera_matrices: Input<CameraMatrices, "camera_matrices?">,
-    pub ground_to_robot: Input<Isometry3<f32>, "ground_to_robot?">,
-    pub motion_command: Input<Option<MotionCommand>, "motion_command?">,
-    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics?">,
-    pub sensor_data: Input<SensorData, "sensor_data?">,
+    pub camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
+    pub ground_to_robot: RequiredInput<Option<Isometry3<f32>>, "ground_to_robot?">,
+    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command?">,
+    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 
     pub minimum_bottom_focus_pitch: Parameter<f32, "control/look_at/minimum_bottom_focus_pitch">,
 }
@@ -24,7 +24,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub look_at: MainOutput<HeadJoints>,
+    pub look_at: MainOutput<Option<HeadJoints>>,
 }
 
 impl LookAt {

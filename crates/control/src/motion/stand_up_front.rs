@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Input, Parameter, PersistentState};
+use framework::{Input, MainOutput, Parameter, PersistentState, RequiredInput};
 use types::{Joints, MotionCommand, MotionSafeExits, MotionSelection, SensorData};
 
 pub struct StandUpFront {}
@@ -16,9 +16,9 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: Input<Option<MotionCommand>, "motion_command?">,
-    pub motion_selection: Input<MotionSelection, "motion_selection?">,
-    pub sensor_data: Input<SensorData, "sensor_data?">,
+    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command?">,
+    pub motion_selection: RequiredInput<Option<MotionSelection>, "motion_selection?">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 
     pub gyro_low_pass_filter_coefficient:
         Parameter<f32, "control/stand_up/gyro_low_pass_filter_coefficient">,
@@ -31,7 +31,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub stand_up_front_positions: MainOutput<Joints>,
+    pub stand_up_front_positions: MainOutput<Option<Joints>>,
 }
 
 impl StandUpFront {

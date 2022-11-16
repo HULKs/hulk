@@ -1,8 +1,8 @@
 use context_attribute::context;
 use filtering::ScoredPoseFilter;
 use framework::{
-    AdditionalOutput, HistoricInput, MainOutput, Input, Parameter, PerceptionInput,
-    PersistentState,
+    AdditionalOutput, HistoricInput, Input, MainOutput, Parameter, PerceptionInput,
+    PersistentState, RequiredInput,
 };
 use nalgebra::{Isometry2, Matrix3, Vector2, Vector3};
 use spl_network_messages::PlayerNumber;
@@ -59,11 +59,11 @@ pub struct CycleContext {
     pub updates: AdditionalOutput<Vec<Vec<LocalizationUpdate>>, "localization/updates">,
 
     pub current_odometry_to_last_odometry:
-        HistoricInput<Isometry2<f32>, "current_odometry_to_last_odometry">,
+        HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
 
-    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
-    pub has_ground_contact: Input<bool, "has_ground_contact?">,
-    pub primary_state: Input<PrimaryState, "primary_state?">,
+    pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
+    pub has_ground_contact: Input<bool, "has_ground_contact">,
+    pub primary_state: RequiredInput<Option<PrimaryState>, "primary_state?">,
 
     pub circle_measurement_noise:
         Parameter<Vector2<f32>, "control/localization/circle_measurement_noise">,
@@ -105,7 +105,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub robot_to_field: MainOutput<Isometry2<f32>>,
+    pub robot_to_field: MainOutput<Option<Isometry2<f32>>>,
 }
 
 impl Localization {

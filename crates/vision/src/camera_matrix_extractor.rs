@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use context_attribute::context;
-use framework::{MainOutput, Input};
+use framework::{Input, MainOutput, RequiredInput};
 use types::{CameraMatrices, CameraMatrix};
 
 pub struct CameraMatrixExtractor {}
@@ -11,14 +11,14 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub camera_matrices: Input<CameraMatrices, "Control", "camera_matrices?">,
-    pub image: RequiredInput<Arc<bool>, "image">, // required for correct module order
+    pub camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
+    pub image: Input<Arc<bool>, "image">, // required for correct module order
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub camera_matrix: MainOutput<CameraMatrix>,
+    pub camera_matrix: MainOutput<Option<CameraMatrix>>,
 }
 
 impl CameraMatrixExtractor {

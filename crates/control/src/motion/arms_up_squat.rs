@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, PersistentState, RequiredInput};
+use framework::{Input, MainOutput, PersistentState, RequiredInput};
 use types::{JointsCommand, MotionSafeExits, MotionSelection, SensorData};
 
 pub struct ArmsUpSquat {}
@@ -13,14 +13,14 @@ pub struct NewContext {
 pub struct CycleContext {
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
-    pub motion_selection: RequiredInput<MotionSelection, "motion_selection">,
-    pub sensor_data: RequiredInput<SensorData, "sensor_data">,
+    pub motion_selection: RequiredInput<Option<MotionSelection>, "motion_selection?">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub arms_up_squat_joints_command: MainOutput<JointsCommand>,
+    pub arms_up_squat_joints_command: MainOutput<Option<JointsCommand>>,
 }
 
 impl ArmsUpSquat {

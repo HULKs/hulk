@@ -9,7 +9,7 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: Input<SensorData, "sensor_data?">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]

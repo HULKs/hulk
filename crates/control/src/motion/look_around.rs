@@ -1,6 +1,8 @@
 use context_attribute::context;
-use framework::{MainOutput, Parameter, RequiredInput};
-use types::{configuration::LookAround as LookAroundConfiguration, HeadJoints, MotionCommand, SensorData};
+use framework::{Input, MainOutput, Parameter, RequiredInput};
+use types::{
+    configuration::LookAround as LookAroundConfiguration, HeadJoints, MotionCommand, SensorData,
+};
 
 pub struct LookAround {}
 
@@ -13,14 +15,14 @@ pub struct NewContext {
 pub struct CycleContext {
     pub config: Parameter<LookAroundConfiguration, "control/look_around">,
 
-    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command">,
-    pub sensor_data: RequiredInput<SensorData, "sensor_data">,
+    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command?">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub look_around: MainOutput<HeadJoints>,
+    pub look_around: MainOutput<Option<HeadJoints>>,
 }
 
 impl LookAround {

@@ -1,11 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, Input, Parameter};
-use types::{
-    configuration::{EdgeDetectionSource, MedianMode},
-    CameraMatrix, FieldColor, ImageSegments, ProjectedLimbs,
-};
+use framework::MainOutput;
 
 pub struct ImageReceiver {}
 
