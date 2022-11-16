@@ -2,7 +2,7 @@ use std::{fs::File, io::Write, path::Path, process::Command};
 
 use anyhow::{anyhow, bail, Context};
 use convert_case::{Case, Casing};
-use proc_macro2::{Delimiter, Group, Ident, Punct, Spacing, TokenStream, TokenTree};
+use proc_macro2::{Delimiter, Group, Ident, Literal, Punct, Spacing, TokenStream, TokenTree};
 use quote::{format_ident, quote, TokenStreamExt};
 use source_analyzer::{CyclerInstances, CyclerType, CyclerTypes, Field, Modules, PathSegment};
 
@@ -375,6 +375,7 @@ impl Cycler<'_> {
                 }
 
                 Some(Module {
+                    cycler_instances: self.get_cycler_instances(),
                     module_name,
                     module,
                 })
@@ -650,6 +651,7 @@ enum OtherCycler<'a> {
 }
 
 struct Module<'a> {
+    cycler_instances: &'a CyclerInstances,
     module_name: &'a str,
     module: &'a source_analyzer::Module,
 }
@@ -711,6 +713,7 @@ impl Module<'_> {
                         quote! { configuration },
                         &path,
                         ReferenceType::Immutable,
+                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
                         #name: framework::Parameter::from(
@@ -726,6 +729,7 @@ impl Module<'_> {
                         quote! { persistent_state },
                         &path,
                         ReferenceType::Mutable,
+                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
                         #name: framework::PersistentState::from(
@@ -772,6 +776,7 @@ impl Module<'_> {
                         quote! { own_database.main_outputs },
                         &path,
                         ReferenceType::Immutable,
+                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     // TODO: check if required input actually has at least one optional
                     Some(quote! {
@@ -800,6 +805,7 @@ impl Module<'_> {
                         quote! { own_database.additional_outputs },
                         &path,
                         ReferenceType::Mutable,
+                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     // TODO: is_subscribed
                     Ok(quote! {
@@ -819,11 +825,13 @@ impl Module<'_> {
                         quote! { own_database.main_outputs },
                         &path,
                         ReferenceType::Immutable,
+                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     let historic_accessor = path_to_accessor_token_stream(
                         quote! { database },
                         &path,
                         ReferenceType::Immutable,
+                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
                         #name: [(now, #now_accessor)]
@@ -858,6 +866,7 @@ impl Module<'_> {
                         quote! { #database_identifier .main_ouputs },
                         &path,
                         ReferenceType::Immutable,
+                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
                         #name: framework::Input::from(
@@ -873,6 +882,7 @@ impl Module<'_> {
                         quote! { configuration },
                         &path,
                         ReferenceType::Immutable,
+                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
                         #name: framework::Parameter::from(
@@ -892,6 +902,7 @@ impl Module<'_> {
                         quote! { database },
                         &path,
                         ReferenceType::Immutable,
+                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
                         #name: framework::PerceptionInput {
@@ -929,6 +940,7 @@ impl Module<'_> {
                         quote! { self.persistent_state },
                         &path,
                         ReferenceType::Mutable,
+                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
                         #name: framework::PersistentState::from(
@@ -952,6 +964,7 @@ impl Module<'_> {
                         quote! { #database_identifier .main_outputs },
                         &path,
                         ReferenceType::Immutable,
+                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
                         #name: framework::RequiredInput::from(
@@ -1040,112 +1053,186 @@ fn path_to_accessor_token_stream(
     prefix_token_stream: TokenStream,
     path: &[PathSegment],
     reference_type: ReferenceType,
+    cycler_instances: &[String],
 ) -> TokenStream {
-    let mut token_stream = TokenStream::default();
-    let mut token_stream_within_method = None;
+    fn path_to_accessor_token_stream_with_cycler_instance(
+        prefix_token_stream: TokenStream,
+        path: &[PathSegment],
+        reference_type: ReferenceType,
+        cycler_instance: Option<&str>,
+    ) -> TokenStream {
+        let mut token_stream = TokenStream::default();
+        let mut token_stream_within_method = None;
 
-    let path_contains_optional = path.iter().any(|segment| segment.is_optional);
-    if !path_contains_optional {
-        token_stream.append(TokenTree::Punct(Punct::new('&', Spacing::Alone)));
-        if let ReferenceType::Mutable = reference_type {
-            token_stream.append(TokenTree::Ident(format_ident!("mut")));
-        }
-    }
-
-    token_stream.extend(prefix_token_stream);
-
-    for (index, segment) in path.iter().enumerate() {
-        {
-            let token_stream = match &mut token_stream_within_method {
-                Some(token_stream) => token_stream,
-                None => &mut token_stream,
-            };
-
-            token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
-            token_stream.append(TokenTree::Ident(format_ident!("{}", segment.name)));
-        }
-
-        let is_last_segment = index == path.len() - 1;
-        if segment.is_optional {
-            match token_stream_within_method.take() {
-                Some(mut token_stream_within_method) => {
-                    token_stream_within_method
-                        .append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
-                    match reference_type {
-                        ReferenceType::Immutable => token_stream_within_method
-                            .append(TokenTree::Ident(format_ident!("as_ref"))),
-                        ReferenceType::Mutable => token_stream_within_method
-                            .append(TokenTree::Ident(format_ident!("as_mut"))),
-                    }
-                    token_stream_within_method.append(TokenTree::Group(Group::new(
-                        Delimiter::Parenthesis,
-                        TokenStream::default(),
-                    )));
-
-                    token_stream.append(TokenTree::Group(Group::new(
-                        Delimiter::Parenthesis,
-                        token_stream_within_method,
-                    )));
-                }
-                None => {
-                    token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
-                    match reference_type {
-                        ReferenceType::Immutable => {
-                            token_stream.append(TokenTree::Ident(format_ident!("as_ref")))
-                        }
-                        ReferenceType::Mutable => {
-                            token_stream.append(TokenTree::Ident(format_ident!("as_mut")))
-                        }
-                    }
-                    token_stream.append(TokenTree::Group(Group::new(
-                        Delimiter::Parenthesis,
-                        TokenStream::default(),
-                    )));
-                }
+        let path_contains_optional = path.iter().any(|segment| segment.is_optional);
+        if !path_contains_optional {
+            token_stream.append(TokenTree::Punct(Punct::new('&', Spacing::Alone)));
+            if let ReferenceType::Mutable = reference_type {
+                token_stream.append(TokenTree::Ident(format_ident!("mut")));
             }
+        }
 
-            if !is_last_segment {
-                token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
-                let next_segments_contain_optional = path
-                    .iter()
-                    .skip(index + 1)
-                    .any(|segment| segment.is_optional);
-                let method_name = match next_segments_contain_optional {
-                    true => "and_then",
-                    false => "map",
+        token_stream.extend(prefix_token_stream);
+
+        for (index, segment) in path.iter().enumerate() {
+            {
+                let token_stream = match &mut token_stream_within_method {
+                    Some(token_stream) => token_stream,
+                    None => &mut token_stream,
                 };
-                token_stream.append(TokenTree::Ident(format_ident!("{}", method_name)));
 
-                let mut new_token_stream_within_method = TokenStream::default();
-                new_token_stream_within_method
-                    .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
-                new_token_stream_within_method
-                    .append(TokenTree::Ident(format_ident!("{}", segment.name)));
-                new_token_stream_within_method
-                    .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
-                if !next_segments_contain_optional {
-                    new_token_stream_within_method
-                        .append(TokenTree::Punct(Punct::new('&', Spacing::Alone)));
-                    if let ReferenceType::Mutable = reference_type {
-                        new_token_stream_within_method
-                            .append(TokenTree::Ident(format_ident!("mut")));
+                token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+                match (segment.is_variable, cycler_instance) {
+                    (true, Some(cycler_instance)) => {
+                        token_stream.append(TokenTree::Ident(format_ident!("{}", cycler_instance)));
+                    }
+                    _ => {
+                        token_stream.append(TokenTree::Ident(format_ident!("{}", segment.name)));
                     }
                 }
-                new_token_stream_within_method
-                    .append(TokenTree::Ident(format_ident!("{}", segment.name)));
-                token_stream_within_method = Some(new_token_stream_within_method);
+            }
+
+            let is_last_segment = index == path.len() - 1;
+            if segment.is_optional {
+                match token_stream_within_method.take() {
+                    Some(mut token_stream_within_method) => {
+                        token_stream_within_method
+                            .append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+                        match reference_type {
+                            ReferenceType::Immutable => token_stream_within_method
+                                .append(TokenTree::Ident(format_ident!("as_ref"))),
+                            ReferenceType::Mutable => token_stream_within_method
+                                .append(TokenTree::Ident(format_ident!("as_mut"))),
+                        }
+                        token_stream_within_method.append(TokenTree::Group(Group::new(
+                            Delimiter::Parenthesis,
+                            TokenStream::default(),
+                        )));
+
+                        token_stream.append(TokenTree::Group(Group::new(
+                            Delimiter::Parenthesis,
+                            token_stream_within_method,
+                        )));
+                    }
+                    None => {
+                        token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+                        match reference_type {
+                            ReferenceType::Immutable => {
+                                token_stream.append(TokenTree::Ident(format_ident!("as_ref")))
+                            }
+                            ReferenceType::Mutable => {
+                                token_stream.append(TokenTree::Ident(format_ident!("as_mut")))
+                            }
+                        }
+                        token_stream.append(TokenTree::Group(Group::new(
+                            Delimiter::Parenthesis,
+                            TokenStream::default(),
+                        )));
+                    }
+                }
+
+                if !is_last_segment {
+                    token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+                    let next_segments_contain_optional = path
+                        .iter()
+                        .skip(index + 1)
+                        .any(|segment| segment.is_optional);
+                    let method_name = match next_segments_contain_optional {
+                        true => "and_then",
+                        false => "map",
+                    };
+                    token_stream.append(TokenTree::Ident(format_ident!("{}", method_name)));
+
+                    let mut new_token_stream_within_method = TokenStream::default();
+                    new_token_stream_within_method
+                        .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
+                    new_token_stream_within_method
+                        .append(TokenTree::Ident(format_ident!("{}", segment.name)));
+                    new_token_stream_within_method
+                        .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
+                    if !next_segments_contain_optional {
+                        new_token_stream_within_method
+                            .append(TokenTree::Punct(Punct::new('&', Spacing::Alone)));
+                        if let ReferenceType::Mutable = reference_type {
+                            new_token_stream_within_method
+                                .append(TokenTree::Ident(format_ident!("mut")));
+                        }
+                    }
+                    new_token_stream_within_method
+                        .append(TokenTree::Ident(format_ident!("{}", segment.name)));
+                    token_stream_within_method = Some(new_token_stream_within_method);
+                }
             }
         }
+
+        if let Some(token_stream_within_method) = token_stream_within_method.take() {
+            token_stream.append(TokenTree::Group(Group::new(
+                Delimiter::Parenthesis,
+                token_stream_within_method,
+            )));
+        }
+
+        token_stream
     }
 
-    if let Some(token_stream_within_method) = token_stream_within_method.take() {
-        token_stream.append(TokenTree::Group(Group::new(
-            Delimiter::Parenthesis,
-            token_stream_within_method,
+    let path_contains_variable = path.iter().any(|segment| {
+        if segment.is_variable && segment.name != "cycler_instance" {
+            unimplemented!("only $cycler_instance is implemented");
+        }
+        segment.is_variable
+    });
+    if path_contains_variable {
+        let mut token_stream = TokenStream::default();
+        token_stream.append(TokenTree::Ident(format_ident!("match")));
+        token_stream.append(TokenTree::Ident(format_ident!("self")));
+        token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+        token_stream.append(TokenTree::Ident(format_ident!("instance_name")));
+        let mut token_stream_within_match = TokenStream::default();
+        for cycler_instance in cycler_instances {
+            token_stream_within_match.append(TokenTree::Literal(Literal::string(
+                cycler_instance.as_str(),
+            )));
+            token_stream_within_match.append(TokenTree::Punct(Punct::new('=', Spacing::Joint)));
+            token_stream_within_match.append(TokenTree::Punct(Punct::new('>', Spacing::Alone)));
+            token_stream_within_match.extend(path_to_accessor_token_stream_with_cycler_instance(
+                prefix_token_stream.clone(),
+                path,
+                reference_type,
+                Some(cycler_instance),
+            ));
+            token_stream_within_match.append(TokenTree::Punct(Punct::new(',', Spacing::Alone)));
+        }
+        token_stream_within_match.append(TokenTree::Punct(Punct::new('_', Spacing::Alone)));
+        token_stream_within_match.append(TokenTree::Punct(Punct::new('=', Spacing::Joint)));
+        token_stream_within_match.append(TokenTree::Punct(Punct::new('>', Spacing::Alone)));
+        token_stream_within_match.append(TokenTree::Ident(format_ident!("panic")));
+        token_stream_within_match.append(TokenTree::Punct(Punct::new('!', Spacing::Alone)));
+        let mut token_stream_within_panic = TokenStream::default();
+        token_stream_within_panic.append(TokenTree::Literal(Literal::string(
+            "unexpected instance name {}",
         )));
+        token_stream_within_panic.append(TokenTree::Punct(Punct::new(',', Spacing::Alone)));
+        token_stream_within_panic.append(TokenTree::Ident(format_ident!("self")));
+        token_stream_within_panic.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+        token_stream_within_panic.append(TokenTree::Ident(format_ident!("instance_name")));
+        token_stream_within_match.append(TokenTree::Group(Group::new(
+            Delimiter::Parenthesis,
+            token_stream_within_panic,
+        )));
+        token_stream_within_match.append(TokenTree::Punct(Punct::new(',', Spacing::Alone)));
+        token_stream.append(TokenTree::Group(Group::new(
+            Delimiter::Brace,
+            token_stream_within_match,
+        )));
+        token_stream
+    } else {
+        path_to_accessor_token_stream_with_cycler_instance(
+            prefix_token_stream,
+            path,
+            reference_type,
+            None,
+        )
     }
-
-    token_stream
 }
 
 #[cfg(test)]
@@ -1156,9 +1243,29 @@ mod tests {
     fn paths_with_optionals_result_in_correct_accessor_token_streams() {
         let cases = [
             ("a", ReferenceType::Immutable, quote! { &prefix.a }),
+            (
+                "$cycler_instance",
+                ReferenceType::Immutable,
+                quote! { match self.instance_name { "InstanceA" => &prefix.InstanceA, "InstanceB" => &prefix.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
+            ),
             ("a", ReferenceType::Mutable, quote! { &mut prefix.a }),
+            (
+                "$cycler_instance",
+                ReferenceType::Mutable,
+                quote! { match self.instance_name { "InstanceA" => &mut prefix.InstanceA, "InstanceB" => &mut prefix.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
+            ),
             ("a/b", ReferenceType::Immutable, quote! { &prefix.a.b }),
+            (
+                "a/$cycler_instance",
+                ReferenceType::Immutable,
+                quote! { match self.instance_name { "InstanceA" => &prefix.a.InstanceA, "InstanceB" => &prefix.a.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
+            ),
             ("a/b", ReferenceType::Mutable, quote! { &mut prefix.a.b }),
+            (
+                "a/$cycler_instance",
+                ReferenceType::Mutable,
+                quote! { match self.instance_name { "InstanceA" => &mut prefix.a.InstanceA, "InstanceB" => &mut prefix.a.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
+            ),
             ("a/b/c", ReferenceType::Immutable, quote! { &prefix.a.b.c }),
             (
                 "a/b/c",
@@ -1176,7 +1283,17 @@ mod tests {
                 quote! { prefix.a.as_mut().map(|a| &mut a.b.c) },
             ),
             ("a?", ReferenceType::Immutable, quote! { prefix.a.as_ref() }),
+            (
+                "$cycler_instance?",
+                ReferenceType::Immutable,
+                quote! { match self.instance_name { "InstanceA" => prefix.InstanceA.as_ref(), "InstanceB" => prefix.InstanceB.as_ref(), _ => panic!("unexpected instance name {}", self.instance_name), } },
+            ),
             ("a?", ReferenceType::Mutable, quote! { prefix.a.as_mut() }),
+            (
+                "$cycler_instance?",
+                ReferenceType::Mutable,
+                quote! { match self.instance_name { "InstanceA" => prefix.InstanceA.as_mut(), "InstanceB" => prefix.InstanceB.as_mut(), _ => panic!("unexpected instance name {}", self.instance_name), } },
+            ),
             (
                 "a?/b?/c",
                 ReferenceType::Immutable,
@@ -1312,8 +1429,12 @@ mod tests {
         for (path, reference_type, expected_token_stream) in cases {
             let path_segments: Vec<_> = path.split('/').map(PathSegment::from).collect();
 
-            let token_stream =
-                path_to_accessor_token_stream(quote! { prefix }, &path_segments, reference_type);
+            let token_stream = path_to_accessor_token_stream(
+                quote! { prefix },
+                &path_segments,
+                reference_type,
+                &["InstanceA".to_string(), "InstanceB".to_string()],
+            );
             assert_eq!(
                 token_stream.to_string(),
                 expected_token_stream.to_string(),
