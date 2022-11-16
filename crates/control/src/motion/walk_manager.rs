@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Input};
+use framework::{MainOutput, RequiredInput};
 use types::{MotionCommand, MotionSelection, Step, WalkCommand};
 
 pub struct WalkManager {}
@@ -9,15 +9,15 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: Input<Option<MotionCommand>, "motion_command?">,
-    pub motion_selection: Input<MotionSelection, "motion_selection?">,
-    pub step_plan: Input<Step, "step_plan?">,
+    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command?">,
+    pub motion_selection: RequiredInput<Option<MotionSelection>, "motion_selection?">,
+    pub step_plan: RequiredInput<Option<Step>, "step_plan?">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub walk_command: MainOutput<WalkCommand>,
+    pub walk_command: MainOutput<Option<WalkCommand>>,
 }
 
 impl WalkManager {

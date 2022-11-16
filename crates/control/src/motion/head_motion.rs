@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Parameter, RequiredInput};
+use framework::{Input, MainOutput, Parameter, RequiredInput};
 use types::{HeadJoints, HeadJointsCommand, MotionCommand, SensorData};
 
 pub struct HeadMotion {}
@@ -21,16 +21,16 @@ pub struct CycleContext {
     pub outer_maximum_pitch: Parameter<f32, "control/head_motion/outer_maximum_pitch">,
     pub outer_yaw: Parameter<f32, "control/head_motion/outer_yaw">,
 
-    pub look_around: RequiredInput<HeadJoints, "look_around">,
-    pub look_at: RequiredInput<HeadJoints, "look_at">,
-    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command">,
-    pub sensor_data: RequiredInput<SensorData, "sensor_data">,
+    pub look_around: RequiredInput<Option<HeadJoints>, "look_around?">,
+    pub look_at: RequiredInput<Option<HeadJoints>, "look_at?">,
+    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command?">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub head_joints_command: MainOutput<HeadJointsCommand>,
+    pub head_joints_command: MainOutput<Option<HeadJointsCommand>>,
 }
 
 impl HeadMotion {

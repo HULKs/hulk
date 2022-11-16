@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Parameter, RequiredInput};
+use framework::{Input, MainOutput, Parameter};
 use types::{SensorData, SupportFoot};
 
 pub struct SupportFootEstimation {}
@@ -13,14 +13,14 @@ pub struct NewContext {
 pub struct CycleContext {
     pub hysteresis: Parameter<f32, "control/support_foot_estimation/hysteresis">,
 
-    pub has_ground_contact: RequiredInput<bool, "has_ground_contact">,
-    pub sensor_data: RequiredInput<SensorData, "sensor_data">,
+    pub has_ground_contact: Input<bool, "has_ground_contact">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub support_foot: MainOutput<SupportFoot>,
+    pub support_foot: MainOutput<Option<SupportFoot>>,
 }
 
 impl SupportFootEstimation {

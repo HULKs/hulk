@@ -188,10 +188,6 @@ impl Field {
                                 file_path,
                             )?,
                         };
-                        let path_contains_optional = path.iter().any(|segment| segment.is_optional);
-                        if !path_contains_optional {
-                            bail!("Expected at least one optional segment in path of optional input `{field_name}`");
-                        }
                         Ok(Field::Input {
                             cycler_instance,
                             data_type: data_type.to_absolute(uses),
@@ -228,10 +224,6 @@ impl Field {
                     "PersistentState" => {
                         let (data_type, path) =
                             extract_two_arguments(file_path, &first_segment.arguments)?;
-                        let path_contains_optional = path.iter().any(|segment| segment.is_optional);
-                        if path_contains_optional {
-                            bail!("Unexpected optional segments in path of persistent state `{field_name}`");
-                        }
                         Ok(Field::PersistentState {
                             data_type: data_type.to_absolute(uses),
                             name: field_name.clone(),
@@ -260,6 +252,10 @@ impl Field {
                                 file_path,
                             )?,
                         };
+                        let path_contains_optional = path.iter().any(|segment| segment.is_optional);
+                        if !path_contains_optional {
+                            bail!("Expected optional segments in path of required input `{field_name}`");
+                        }
                         Ok(Field::RequiredInput {
                             cycler_instance,
                             data_type: data_type.to_absolute(uses),

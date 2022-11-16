@@ -12,7 +12,7 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: Input<SensorData, "sensor_data?">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 
     pub buffer_length: Parameter<usize, "control/whistle_filter/buffer_length">,
     pub minimum_detections: Parameter<usize, "control/whistle_filter/minimum_detections">,
@@ -23,7 +23,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub filtered_whistle: MainOutput<FilteredWhistle>,
+    pub filtered_whistle: MainOutput<Option<FilteredWhistle>>,
 }
 
 impl WhistleFilter {

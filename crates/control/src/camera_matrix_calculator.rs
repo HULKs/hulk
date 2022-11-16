@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, Input, Parameter};
+use framework::{AdditionalOutput, Input, MainOutput, Parameter, RequiredInput};
 use nalgebra::Isometry3;
 use types::{
     configuration::CameraMatrixParameters, CameraMatrices, FieldDimensions, ProjectedFieldLines,
@@ -21,8 +21,8 @@ pub struct NewContext {
 pub struct CycleContext {
     pub projected_field_lines: AdditionalOutput<ProjectedFieldLines, "projected_field_lines">,
 
-    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics?">,
-    pub robot_to_ground: Input<Isometry3<f32>, "robot_to_ground?">,
+    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+    pub robot_to_ground: RequiredInput<Option<Isometry3<f32>>, "robot_to_ground?">,
 
     pub bottom_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "VisionBottom/camera_matrix_parameters">,
@@ -34,7 +34,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub camera_matrices: MainOutput<CameraMatrices>,
+    pub camera_matrices: MainOutput<Option<CameraMatrices>>,
 }
 
 impl CameraMatrixCalculator {

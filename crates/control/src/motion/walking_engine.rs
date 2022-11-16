@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, Parameter, PersistentState, RequiredInput};
+use framework::{AdditionalOutput, Input, MainOutput, Parameter, PersistentState, RequiredInput};
 use types::{
     configuration::{KickSteps, WalkingEngine as WalkingEngineConfiguration},
     BodyJointsCommand, Joints, MotionCommand, MotionSafeExits, RobotKinematics, SensorData, Step,
@@ -30,17 +30,17 @@ pub struct CycleContext {
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
     pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
 
-    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command">,
-    pub robot_kinematics: RequiredInput<RobotKinematics, "robot_kinematics">,
-    pub sensor_data: RequiredInput<SensorData, "sensor_data">,
-    pub support_foot: RequiredInput<SupportFoot, "support_foot">,
-    pub walk_command: RequiredInput<WalkCommand, "walk_command">,
+    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command?">,
+    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
+    pub support_foot: RequiredInput<Option<SupportFoot>, "support_foot?">,
+    pub walk_command: RequiredInput<Option<WalkCommand>, "walk_command?">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub walk_joints_command: MainOutput<BodyJointsCommand>,
+    pub walk_joints_command: MainOutput<Option<BodyJointsCommand>>,
 }
 
 impl WalkingEngine {

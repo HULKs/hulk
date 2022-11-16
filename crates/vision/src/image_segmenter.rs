@@ -13,38 +13,38 @@ pub struct ImageSegmenter {}
 pub struct NewContext {
     pub vertical_edge_detection_source: Parameter<
         EdgeDetectionSource,
-        "$cycler_instance/image_segmenter/vertical_edge_detection_source",
+        "image_segmenter/$cycler_instance/vertical_edge_detection_source",
     >,
     pub vertical_edge_threshold:
-        Parameter<i16, "$cycler_instance/image_segmenter/vertical_edge_threshold">,
+        Parameter<i16, "image_segmenter/$cycler_instance/vertical_edge_threshold">,
     pub vertical_median_mode:
-        Parameter<MedianMode, "$cycler_instance/image_segmenter/vertical_median_mode">,
+        Parameter<MedianMode, "image_segmenter/$cycler_instance/vertical_median_mode">,
 }
 
 #[context]
 pub struct CycleContext {
     pub image_segmenter_cycle_time: AdditionalOutput<Duration, "image_segmenter_cycle_time">,
 
-    pub image: RequiredInput<Arc<bool>, "image">,
+    pub image: Input<Arc<bool>, "image">,
 
-    pub camera_matrix: Input<CameraMatrix, "camera_matrix?">,
-    pub field_color: Input<FieldColor, "field_color?">,
-    pub projected_limbs: Input<ProjectedLimbs, "Control", "projected_limbs?">,
+    pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    pub field_color: Input<FieldColor, "field_color">,
+    pub projected_limbs: RequiredInput<Option<ProjectedLimbs>, "Control", "projected_limbs?">,
 
     pub vertical_edge_detection_source: Parameter<
         EdgeDetectionSource,
-        "$cycler_instance/image_segmenter/vertical_edge_detection_source",
+        "image_segmenter/$cycler_instance/vertical_edge_detection_source",
     >,
     pub vertical_edge_threshold:
-        Parameter<i16, "$cycler_instance/image_segmenter/vertical_edge_threshold">,
+        Parameter<i16, "image_segmenter/$cycler_instance/vertical_edge_threshold">,
     pub vertical_median_mode:
-        Parameter<MedianMode, "$cycler_instance/image_segmenter/vertical_median_mode">,
+        Parameter<MedianMode, "image_segmenter/$cycler_instance/vertical_median_mode">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub image_segments: MainOutput<ImageSegments>,
+    pub image_segments: MainOutput<Option<ImageSegments>>,
 }
 
 impl ImageSegmenter {

@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, Parameter, RequiredInput};
+use framework::{AdditionalOutput, Input, MainOutput, Parameter};
 use nalgebra::{Vector2, Vector3};
 use types::{
     configuration::FallStateEstimation as FallStateEstimationConfiguration, FallState, SensorData,
@@ -26,14 +26,14 @@ pub struct CycleContext {
     pub fall_state_estimation:
         Parameter<FallStateEstimationConfiguration, "control/fall_state_estimation">,
 
-    pub has_ground_contact: RequiredInput<bool, "has_ground_contact">,
-    pub sensor_data: RequiredInput<SensorData, "sensor_data">,
+    pub has_ground_contact: Input<bool, "has_ground_contact">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub fall_state: MainOutput<FallState>,
+    pub fall_state: MainOutput<Option<FallState>>,
 }
 
 impl FallStateEstimation {

@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Input, Parameter, PersistentState};
+use framework::{Input, MainOutput, Parameter, PersistentState, RequiredInput};
 use types::{
     BodyJointsCommand, Joints, JointsCommand, MotionSafeExits, MotionSelection, SensorData,
 };
@@ -16,15 +16,17 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub arms_up_squat_joints_command: Input<JointsCommand, "arms_up_squat_joints_command?">,
-    pub jump_left_joints_command: Input<JointsCommand, "jump_left_joints_command?">,
-    pub jump_right_joints_command: Input<JointsCommand, "jump_right_joints_command?">,
-    pub motion_selection: Input<MotionSelection, "motion_selection?">,
-    pub sensor_data: Input<SensorData, "sensor_data?">,
-    pub sit_down_joints_command: Input<JointsCommand, "sit_down_joints_command?">,
-    pub stand_up_back_positions: Input<Joints, "stand_up_back_positions?">,
-    pub stand_up_front_positions: Input<Joints, "stand_up_front_positions?">,
-    pub walk_joints_command: Input<BodyJointsCommand, "walk_joints_command?">,
+    pub arms_up_squat_joints_command:
+        RequiredInput<Option<JointsCommand>, "arms_up_squat_joints_command?">,
+    pub jump_left_joints_command: RequiredInput<Option<JointsCommand>, "jump_left_joints_command?">,
+    pub jump_right_joints_command:
+        RequiredInput<Option<JointsCommand>, "jump_right_joints_command?">,
+    pub motion_selection: RequiredInput<Option<MotionSelection>, "motion_selection?">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
+    pub sit_down_joints_command: RequiredInput<Option<JointsCommand>, "sit_down_joints_command?">,
+    pub stand_up_back_positions: RequiredInput<Option<Joints>, "stand_up_back_positions?">,
+    pub stand_up_front_positions: RequiredInput<Option<Joints>, "stand_up_front_positions?">,
+    pub walk_joints_command: RequiredInput<Option<BodyJointsCommand>, "walk_joints_command?">,
 
     pub penalized_pose: Parameter<Joints, "control/penalized_pose">,
     pub ready_pose: Parameter<Joints, "control/ready_pose">,
@@ -35,7 +37,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub dispatching_command: MainOutput<JointsCommand>,
+    pub dispatching_command: MainOutput<Option<JointsCommand>>,
 }
 
 impl DispatchingInterpolator {

@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, Input};
+use framework::{AdditionalOutput, Input, MainOutput, RequiredInput};
 use nalgebra::{Isometry2, UnitComplex};
 use types::{RobotKinematics, SupportFoot};
 
@@ -12,15 +12,15 @@ pub struct NewContext {}
 pub struct CycleContext {
     pub accumulated_odometry: AdditionalOutput<Isometry2<f32>, "accumulated_odometry">,
 
-    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics?">,
-    pub robot_orientation: Input<UnitComplex<f32>, "robot_orientation?">,
-    pub support_foot: Input<SupportFoot, "support_foot?">,
+    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+    pub robot_orientation: RequiredInput<Option<UnitComplex<f32>>, "robot_orientation?">,
+    pub support_foot: RequiredInput<Option<SupportFoot>, "support_foot?">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub current_odometry_to_last_odometry: MainOutput<Isometry2<f32>>,
+    pub current_odometry_to_last_odometry: MainOutput<Option<Isometry2<f32>>>,
 }
 
 impl Odometry {

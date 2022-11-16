@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Input, PersistentState};
+use framework::{MainOutput, PersistentState, RequiredInput};
 use types::{MotionCommand, MotionSafeExits, MotionSelection};
 
 pub struct MotionSelector {}
@@ -11,7 +11,7 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: Input<Option<MotionCommand>, "motion_command?">,
+    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command?">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
@@ -19,7 +19,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub motion_selection: MainOutput<MotionSelection>,
+    pub motion_selection: MainOutput<Option<MotionSelection>>,
 }
 
 impl MotionSelector {

@@ -29,12 +29,12 @@ pub struct CycleContext {
         AdditionalOutput<Vec<ObstacleFilterHypothesis>, "obstacle_filter_hypotheses">,
 
     pub current_odometry_to_last_odometry:
-        HistoricInput<Isometry2<f32>, "current_odometry_to_last_odometry">,
-    pub network_robot_obstacles: HistoricInput<Vec<Point2<f32>>, "network_robot_obstacles">,
-    pub robot_to_field: HistoricInput<Isometry2<f32>, "robot_to_field">,
-    pub sonar_obstacle: HistoricInput<SonarObstacle, "sonar_obstacle">,
+        HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
+    pub network_robot_obstacles: HistoricInput<Option<Vec<Point2<f32>>>, "network_robot_obstacles?">,
+    pub robot_to_field: HistoricInput<Option<Isometry2<f32>>, "robot_to_field?">,
+    pub sonar_obstacle: HistoricInput<Option<SonarObstacle>, "sonar_obstacle?">,
 
-    pub sensor_data: Input<SensorData, "sensor_data?">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub goal_post_obstacle_radius:
@@ -54,7 +54,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub obstacles: MainOutput<Vec<Obstacle>>,
+    pub obstacles: MainOutput<Option<Vec<Obstacle>>>,
 }
 
 impl ObstacleFilter {

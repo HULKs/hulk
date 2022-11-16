@@ -863,7 +863,7 @@ impl Module<'_> {
                         None => format_ident!("own_database"),
                     };
                     let accessor = path_to_accessor_token_stream(
-                        quote! { #database_identifier .main_ouputs },
+                        quote! { #database_identifier .main_outputs },
                         &path,
                         ReferenceType::Immutable,
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
@@ -990,14 +990,14 @@ impl Module<'_> {
             .collect()
     }
 
-    fn get_main_output_setters_from_none(&self) -> Vec<TokenStream> {
+    fn get_main_output_setters_from_default(&self) -> Vec<TokenStream> {
         self.module
             .contexts
             .main_outputs
             .iter()
             .filter_map(|field| match field {
                 Field::MainOutput { name, .. } => Some(quote! {
-                    own_database.main_outputs.#name = None;
+                    own_database.main_outputs.#name = Default::default();
                 }),
                 _ => None,
             })
@@ -1014,7 +1014,7 @@ impl Module<'_> {
             .context("Failed to generate field initializers")?;
         let main_output_setters_from_cycle_result =
             self.get_main_output_setters_from_cycle_result();
-        let main_output_setters_from_none = self.get_main_output_setters_from_none();
+        let main_output_setters_from_default = self.get_main_output_setters_from_default();
         let error_message = format!("Failed to execute cycle of module `{}`", self.module_name);
         let module_execution = quote! {
             let main_outputs = self.#module_name_identifier_snake_case.cycle(
@@ -1031,7 +1031,7 @@ impl Module<'_> {
                 if #required_inputs_are_some {
                     #module_execution
                 } else {
-                    #(#main_output_setters_from_none)*
+                    #(#main_output_setters_from_default)*
                 }
             }),
             None => Ok(quote! {
@@ -1187,6 +1187,12 @@ fn path_to_accessor_token_stream(
         token_stream.append(TokenTree::Ident(format_ident!("self")));
         token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
         token_stream.append(TokenTree::Ident(format_ident!("instance_name")));
+        token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+        token_stream.append(TokenTree::Ident(format_ident!("as_str")));
+        token_stream.append(TokenTree::Group(Group::new(
+            Delimiter::Parenthesis,
+            TokenStream::default(),
+        )));
         let mut token_stream_within_match = TokenStream::default();
         for cycler_instance in cycler_instances {
             token_stream_within_match.append(TokenTree::Literal(Literal::string(
@@ -1246,25 +1252,25 @@ mod tests {
             (
                 "$cycler_instance",
                 ReferenceType::Immutable,
-                quote! { match self.instance_name { "InstanceA" => &prefix.InstanceA, "InstanceB" => &prefix.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
+                quote! { match self.instance_name.as_str() { "InstanceA" => &prefix.InstanceA, "InstanceB" => &prefix.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
             ),
             ("a", ReferenceType::Mutable, quote! { &mut prefix.a }),
             (
                 "$cycler_instance",
                 ReferenceType::Mutable,
-                quote! { match self.instance_name { "InstanceA" => &mut prefix.InstanceA, "InstanceB" => &mut prefix.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
+                quote! { match self.instance_name.as_str() { "InstanceA" => &mut prefix.InstanceA, "InstanceB" => &mut prefix.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
             ),
             ("a/b", ReferenceType::Immutable, quote! { &prefix.a.b }),
             (
                 "a/$cycler_instance",
                 ReferenceType::Immutable,
-                quote! { match self.instance_name { "InstanceA" => &prefix.a.InstanceA, "InstanceB" => &prefix.a.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
+                quote! { match self.instance_name.as_str() { "InstanceA" => &prefix.a.InstanceA, "InstanceB" => &prefix.a.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
             ),
             ("a/b", ReferenceType::Mutable, quote! { &mut prefix.a.b }),
             (
                 "a/$cycler_instance",
                 ReferenceType::Mutable,
-                quote! { match self.instance_name { "InstanceA" => &mut prefix.a.InstanceA, "InstanceB" => &mut prefix.a.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
+                quote! { match self.instance_name.as_str() { "InstanceA" => &mut prefix.a.InstanceA, "InstanceB" => &mut prefix.a.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
             ),
             ("a/b/c", ReferenceType::Immutable, quote! { &prefix.a.b.c }),
             (
@@ -1286,13 +1292,13 @@ mod tests {
             (
                 "$cycler_instance?",
                 ReferenceType::Immutable,
-                quote! { match self.instance_name { "InstanceA" => prefix.InstanceA.as_ref(), "InstanceB" => prefix.InstanceB.as_ref(), _ => panic!("unexpected instance name {}", self.instance_name), } },
+                quote! { match self.instance_name.as_str() { "InstanceA" => prefix.InstanceA.as_ref(), "InstanceB" => prefix.InstanceB.as_ref(), _ => panic!("unexpected instance name {}", self.instance_name), } },
             ),
             ("a?", ReferenceType::Mutable, quote! { prefix.a.as_mut() }),
             (
                 "$cycler_instance?",
                 ReferenceType::Mutable,
-                quote! { match self.instance_name { "InstanceA" => prefix.InstanceA.as_mut(), "InstanceB" => prefix.InstanceB.as_mut(), _ => panic!("unexpected instance name {}", self.instance_name), } },
+                quote! { match self.instance_name.as_str() { "InstanceA" => prefix.InstanceA.as_mut(), "InstanceB" => prefix.InstanceB.as_mut(), _ => panic!("unexpected instance name {}", self.instance_name), } },
             ),
             (
                 "a?/b?/c",

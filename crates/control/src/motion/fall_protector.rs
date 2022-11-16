@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Input, Parameter};
+use framework::{Input, MainOutput, Parameter, RequiredInput};
 use types::{
     configuration::FallProtection, JointsCommand, MotionCommand, MotionSelection, SensorData,
 };
@@ -13,9 +13,9 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: Input<Option<MotionCommand>, "motion_command?">,
-    pub motion_selection: Input<MotionSelection, "motion_selection?">,
-    pub sensor_data: Input<SensorData, "sensor_data?">,
+    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command?">,
+    pub motion_selection: RequiredInput<Option<MotionSelection>, "motion_selection?">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 
     pub fall_protection: Parameter<FallProtection, "control/fall_protection">,
 }
@@ -23,7 +23,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub fall_protection_command: MainOutput<JointsCommand>,
+    pub fall_protection_command: MainOutput<Option<JointsCommand>>,
 }
 
 impl FallProtector {

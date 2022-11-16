@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Input, Parameter};
+use framework::{Input, MainOutput, Parameter, RequiredInput};
 use nalgebra::Point3;
 use types::{CameraMatrices, ProjectedLimbs, RobotKinematics};
 
@@ -21,8 +21,8 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub camera_matrices: Input<CameraMatrices, "camera_matrices?">,
-    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics?">,
+    pub camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
+    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
 
     pub foot_bounding_polygon:
         Parameter<Vec<Point3<f32>>, "control/projected_limbs/foot_bounding_polygon">,
@@ -39,7 +39,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub projected_limbs: MainOutput<ProjectedLimbs>,
+    pub projected_limbs: MainOutput<Option<ProjectedLimbs>>,
 }
 
 impl LimbProjector {

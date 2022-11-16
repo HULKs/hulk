@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, Parameter, RequiredInput};
+use framework::{AdditionalOutput, Input, MainOutput, Parameter, RequiredInput};
 use types::{FallState, SensorData, SonarObstacle, SonarValues};
 
 pub struct SonarFilter {}
@@ -27,14 +27,14 @@ pub struct CycleContext {
     pub minimal_reliable_distance: Parameter<f32, "control/sonar_filter/minimal_reliable_distance">,
     pub sensor_angle: Parameter<f32, "control/sonar_obstacle/sensor_angle">,
 
-    pub fall_state: RequiredInput<FallState, "fall_state">,
-    pub sensor_data: RequiredInput<SensorData, "sensor_data">,
+    pub fall_state: RequiredInput<Option<FallState>, "fall_state?">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub sonar_obstacle: MainOutput<SonarObstacle>,
+    pub sonar_obstacle: MainOutput<Option<SonarObstacle>>,
 }
 
 impl SonarFilter {
