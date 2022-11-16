@@ -174,7 +174,7 @@ impl Structs {
                         }
                         Field::HardwareInterface { .. }
                         | Field::HistoricInput { .. }
-                        | Field::OptionalInput { .. }
+                        | Field::Input { .. }
                         | Field::PerceptionInput { .. }
                         | Field::RequiredInput { .. } => {}
                         _ => {

@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput, Parameter};
+use framework::{MainOutput, Input, Parameter};
 use nalgebra::{Isometry2, Point2};
 use spl_network_messages::PlayerNumber;
 use types::{
@@ -19,12 +19,12 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub ball_position: OptionalInput<BallPosition, "ball_position?">,
-    pub fall_state: OptionalInput<FallState, "fall_state?">,
-    pub game_controller_state: OptionalInput<Option<GameControllerState>, "game_controller_state?">,
-    pub primary_state: OptionalInput<PrimaryState, "primary_state?">,
-    pub robot_to_field: OptionalInput<Isometry2<f32>, "robot_to_field?">,
-    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
+    pub ball_position: Input<BallPosition, "ball_position?">,
+    pub fall_state: Input<FallState, "fall_state?">,
+    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    pub primary_state: Input<PrimaryState, "primary_state?">,
+    pub robot_to_field: Input<Isometry2<f32>, "robot_to_field?">,
+    pub sensor_data: Input<SensorData, "sensor_data?">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub forced_role: Parameter<Option<Role>, "control/role_assignment/forced_role">,

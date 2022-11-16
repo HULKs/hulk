@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput, Parameter};
+use framework::{MainOutput, Input, Parameter};
 use types::{FilteredWhistle, SensorData};
 
 pub struct WhistleFilter {}
@@ -12,7 +12,7 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
+    pub sensor_data: Input<SensorData, "sensor_data?">,
 
     pub buffer_length: Parameter<usize, "control/whistle_filter/buffer_length">,
     pub minimum_detections: Parameter<usize, "control/whistle_filter/minimum_detections">,

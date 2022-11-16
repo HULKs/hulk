@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput, Parameter};
+use framework::{MainOutput, Input, Parameter};
 use spl_network_messages::PlayerNumber;
 use types::{Buttons, FilteredGameState, GameControllerState, PrimaryState};
 
@@ -12,10 +12,10 @@ pub struct NewContext {
 
 #[context]
 pub struct CycleContext {
-    pub buttons: OptionalInput<Buttons, "buttons?">,
-    pub filtered_game_state: OptionalInput<FilteredGameState, "filtered_game_state?">,
-    pub game_controller_state: OptionalInput<Option<GameControllerState>, "game_controller_state?">,
-    pub has_ground_contact: OptionalInput<bool, "has_ground_contact?">,
+    pub buttons: Input<Buttons, "buttons?">,
+    pub filtered_game_state: Input<FilteredGameState, "filtered_game_state?">,
+    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    pub has_ground_contact: Input<bool, "has_ground_contact?">,
 
     pub player_number: Parameter<PlayerNumber, "player_number">,
 }

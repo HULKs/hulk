@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, OptionalInput, Parameter, RequiredInput};
+use framework::{AdditionalOutput, MainOutput, Input, Parameter, RequiredInput};
 use types::{
     configuration::{EdgeDetectionSource, MedianMode},
     CameraMatrix, FieldColor, ImageSegments, ProjectedLimbs,
@@ -27,9 +27,9 @@ pub struct CycleContext {
 
     pub image: RequiredInput<Arc<bool>, "image">,
 
-    pub camera_matrix: OptionalInput<CameraMatrix, "camera_matrix?">,
-    pub field_color: OptionalInput<FieldColor, "field_color?">,
-    pub projected_limbs: OptionalInput<ProjectedLimbs, "Control", "projected_limbs?">,
+    pub camera_matrix: Input<CameraMatrix, "camera_matrix?">,
+    pub field_color: Input<FieldColor, "field_color?">,
+    pub projected_limbs: Input<ProjectedLimbs, "Control", "projected_limbs?">,
 
     pub vertical_edge_detection_source: Parameter<
         EdgeDetectionSource,

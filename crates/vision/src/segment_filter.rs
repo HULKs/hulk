@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput};
+use framework::{MainOutput, Input};
 use types::{FieldBorder, FilteredSegments, ImageSegments};
 
 pub struct SegmentFilter {}
@@ -9,8 +9,8 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub field_border: OptionalInput<FieldBorder, "field_border?">,
-    pub image_segments: OptionalInput<ImageSegments, "image_segments?">,
+    pub field_border: Input<FieldBorder, "field_border?">,
+    pub image_segments: Input<ImageSegments, "image_segments?">,
 }
 
 #[context]

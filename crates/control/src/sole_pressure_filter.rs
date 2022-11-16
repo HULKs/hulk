@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput};
+use framework::{MainOutput, Input};
 use types::{SensorData, SolePressure};
 
 pub struct SolePressureFilter {}
@@ -9,7 +9,7 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: OptionalInput<SensorData, "sensor_data?">,
+    pub sensor_data: Input<SensorData, "sensor_data?">,
 }
 
 #[context]

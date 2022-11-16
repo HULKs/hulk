@@ -98,7 +98,7 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                             _ => abort!(first_segment, "expected exactly three generic parameters"),
                         }
                     }
-                    "RequiredInput" | "OptionalInput" => {
+                    "Input" | "RequiredInput" => {
                         requires_lifetime_parameter = true;
                         match &mut first_segment.arguments {
                             PathArguments::AngleBracketed(arguments) => {

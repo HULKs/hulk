@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use context_attribute::context;
-use framework::{MainOutput, OptionalInput};
+use framework::{MainOutput, Input};
 use types::{CameraMatrices, CameraMatrix};
 
 pub struct CameraMatrixExtractor {}
@@ -11,7 +11,7 @@ pub struct NewContext {}
 
 #[context]
 pub struct CycleContext {
-    pub camera_matrices: OptionalInput<CameraMatrices, "Control", "camera_matrices?">,
+    pub camera_matrices: Input<CameraMatrices, "Control", "camera_matrices?">,
     pub image: RequiredInput<Arc<bool>, "image">, // required for correct module order
 }
 

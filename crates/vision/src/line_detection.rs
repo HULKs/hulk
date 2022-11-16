@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, OptionalInput, Parameter};
+use framework::{AdditionalOutput, MainOutput, Input, Parameter};
 use types::{CameraMatrix, FilteredSegments, ImageLines, LineData};
 
 pub struct LineDetection {}
@@ -32,8 +32,8 @@ pub struct NewContext {
 pub struct CycleContext {
     pub lines_in_image: AdditionalOutput<ImageLines, "lines_in_image">,
 
-    pub camera_matrix: OptionalInput<CameraMatrix, "camera_matrix?">,
-    pub filtered_segments: OptionalInput<FilteredSegments, "filtered_segments?">,
+    pub camera_matrix: Input<CameraMatrix, "camera_matrix?">,
+    pub filtered_segments: Input<FilteredSegments, "filtered_segments?">,
 
     pub allowed_line_length_in_field:
         Parameter<Range<f32>, "$cycler_instance/line_detection/allowed_line_length_in_field">,

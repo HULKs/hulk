@@ -90,15 +90,15 @@ pub enum Field {
         name: Ident,
         path: Vec<PathSegment>,
     },
-    MainOutput {
-        data_type: Type,
-        name: Ident,
-    },
-    OptionalInput {
+    Input {
         cycler_instance: Option<String>,
         data_type: Type,
         name: Ident,
         path: Vec<PathSegment>,
+    },
+    MainOutput {
+        data_type: Type,
+        name: Ident,
     },
     Parameter {
         data_type: Type,
@@ -166,14 +166,7 @@ impl Field {
                             path,
                         })
                     }
-                    "MainOutput" => {
-                        let data_type = extract_one_argument(file_path, &first_segment.arguments)?;
-                        Ok(Field::MainOutput {
-                            data_type: data_type.to_absolute(uses),
-                            name: field_name.clone(),
-                        })
-                    }
-                    "OptionalInput" => {
+                    "Input" => {
                         let (data_type, cycler_instance, path) = match &first_segment.arguments {
                             PathArguments::AngleBracketed(arguments)
                                 if arguments.args.len() == 2 =>
@@ -199,11 +192,18 @@ impl Field {
                         if !path_contains_optional {
                             bail!("Expected at least one optional segment in path of optional input `{field_name}`");
                         }
-                        Ok(Field::OptionalInput {
+                        Ok(Field::Input {
                             cycler_instance,
                             data_type: data_type.to_absolute(uses),
                             name: field_name.clone(),
                             path,
+                        })
+                    }
+                    "MainOutput" => {
+                        let data_type = extract_one_argument(file_path, &first_segment.arguments)?;
+                        Ok(Field::MainOutput {
+                            data_type: data_type.to_absolute(uses),
+                            name: field_name.clone(),
                         })
                     }
                     "Parameter" => {
@@ -601,7 +601,7 @@ mod tests {
         }
 
         // from own cycler
-        let field = "OptionalInput<Option<usize>, \"a/b?/c\">";
+        let field = "Input<Option<usize>, \"a/b?/c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -611,7 +611,7 @@ mod tests {
         )
         .unwrap();
         match parsed_field {
-            Field::OptionalInput {
+            Field::Input {
                 cycler_instance: None,
                 data_type,
                 name,
@@ -632,7 +632,7 @@ mod tests {
         }
 
         // from foreign cycler
-        let field = "OptionalInput<Option<usize>, \"Control\", \"a/b?/c\">";
+        let field = "Input<Option<usize>, \"Control\", \"a/b?/c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -642,7 +642,7 @@ mod tests {
         )
         .unwrap();
         match parsed_field {
-            Field::OptionalInput {
+            Field::Input {
                 cycler_instance: Some(cycler_instance),
                 data_type,
                 name,
@@ -664,7 +664,7 @@ mod tests {
         }
 
         // no optionals are not supported
-        let field = "OptionalInput<Option<usize>, \"a/b/c\">";
+        let field = "Input<Option<usize>, \"a/b/c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         assert!(Field::try_from_field(
