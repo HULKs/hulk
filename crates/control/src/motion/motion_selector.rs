@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, PersistentState, RequiredInput};
+use framework::MainOutput;
 use types::{MotionCommand, MotionSafeExits, MotionSelection};
 
 pub struct MotionSelector {}

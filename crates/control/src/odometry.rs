@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{AdditionalOutput, Input, MainOutput, RequiredInput};
+use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{Isometry2, UnitComplex};
 use types::{RobotKinematics, SupportFoot};
 

@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, Input, Parameter, RequiredInput};
+use framework::{AdditionalOutput, MainOutput};
 use types::{
     configuration::{EdgeDetectionSource, MedianMode},
     CameraMatrix, FieldColor, ImageSegments, ProjectedLimbs,

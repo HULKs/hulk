@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{Input, MainOutput, Parameter, RequiredInput};
+use framework::MainOutput;
 use types::{HeadJoints, HeadJointsCommand, MotionCommand, SensorData};
 
 pub struct HeadMotion {}

@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{Input, MainOutput, Parameter, PersistentState, RequiredInput};
+use framework::MainOutput;
 use types::{MotionCommand, SensorData, Step, SupportFoot};
 
 pub struct StepPlanner {}

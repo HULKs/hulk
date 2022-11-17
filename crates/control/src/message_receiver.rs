@@ -1,10 +1,7 @@
 use std::time::SystemTime;
 
 use context_attribute::context;
-use framework::{
-    AdditionalOutput, HardwareInterface, HistoricInput, MainOutput, Parameter, PerceptionInput,
-    PersistentState,
-};
+use framework::{AdditionalOutput, HardwareInterface, HistoricInput, MainOutput, PerceptionInput};
 
 // TODO: dieses Modul weg, weil es nur zum Testen war?
 pub struct MessageReceiver {

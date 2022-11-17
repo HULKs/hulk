@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{AdditionalOutput, Input, MainOutput, Parameter, PersistentState, RequiredInput};
+use framework::{AdditionalOutput, MainOutput};
 use types::{
     configuration::{KickSteps, WalkingEngine as WalkingEngineConfiguration},
     BodyJointsCommand, Joints, MotionCommand, MotionSafeExits, RobotKinematics, SensorData, Step,

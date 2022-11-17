@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Input};
+use framework::MainOutput;
 use nalgebra::Point3;
 use types::RobotKinematics;
 

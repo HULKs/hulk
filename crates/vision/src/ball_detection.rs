@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, Parameter, RequiredInput};
+use framework::{AdditionalOutput, MainOutput};
 use types::{
     configuration::BallDetection as BallDetectionConfiguration, Ball, CameraMatrix,
     CandidateEvaluation, PerspectiveGridCandidates,

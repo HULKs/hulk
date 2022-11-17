@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{AdditionalOutput, Input, MainOutput, Parameter, RequiredInput};
+use framework::{AdditionalOutput, MainOutput};
 use nalgebra::Isometry3;
 use types::{
     configuration::CameraMatrixParameters, CameraMatrices, FieldDimensions, ProjectedFieldLines,

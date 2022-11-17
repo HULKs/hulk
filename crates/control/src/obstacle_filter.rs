@@ -1,7 +1,5 @@
 use context_attribute::context;
-use framework::{
-    AdditionalOutput, HistoricInput, MainOutput, Input, Parameter, PerceptionInput,
-};
+use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use nalgebra::{Isometry2, Point2};
 use types::{
     DetectedRobots, FieldDimensions, Obstacle, ObstacleFilterHypothesis, SensorData, SonarObstacle,
@@ -30,7 +28,8 @@ pub struct CycleContext {
 
     pub current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
-    pub network_robot_obstacles: HistoricInput<Option<Vec<Point2<f32>>>, "network_robot_obstacles?">,
+    pub network_robot_obstacles:
+        HistoricInput<Option<Vec<Point2<f32>>>, "network_robot_obstacles?">,
     pub robot_to_field: HistoricInput<Option<Isometry2<f32>>, "robot_to_field?">,
     pub sonar_obstacle: HistoricInput<Option<SonarObstacle>, "sonar_obstacle?">,
 
@@ -47,8 +46,10 @@ pub struct CycleContext {
         Parameter<f32, "control/obstacle_filter/robot_obstacle_radius_at_hip_height">,
     pub unknown_obstacle_radius: Parameter<f32, "control/obstacle_filter/unknown_obstacle_radius">,
 
-    pub detected_robots_bottom: PerceptionInput<Option<DetectedRobots>, "VisionBottom", "detected_robots?">,
-    pub detected_robots_top: PerceptionInput<Option<DetectedRobots>, "VisionTop", "detected_robots?">,
+    pub detected_robots_bottom:
+        PerceptionInput<Option<DetectedRobots>, "VisionBottom", "detected_robots?">,
+    pub detected_robots_top:
+        PerceptionInput<Option<DetectedRobots>, "VisionTop", "detected_robots?">,
 }
 
 #[context]

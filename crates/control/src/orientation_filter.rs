@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{Input, MainOutput, Parameter, RequiredInput};
+use framework::MainOutput;
 use nalgebra::UnitComplex;
 use types::{
     configuration::OrientationFilter as OrientationFilterConfiguration, SensorData, SolePressure,

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use context_attribute::context;
-use framework::{Input, MainOutput, RequiredInput};
+use framework::MainOutput;
 use types::{CameraMatrices, CameraMatrix};
 
 pub struct CameraMatrixExtractor {}

@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{Input, MainOutput, Parameter, RequiredInput};
+use framework::MainOutput;
 use types::{
     configuration::LookAround as LookAroundConfiguration, HeadJoints, MotionCommand, SensorData,
 };

@@ -1,9 +1,6 @@
 use context_attribute::context;
 use filtering::ScoredPoseFilter;
-use framework::{
-    AdditionalOutput, HistoricInput, Input, MainOutput, Parameter, PerceptionInput,
-    PersistentState, RequiredInput,
-};
+use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use nalgebra::{Isometry2, Matrix3, Vector2, Vector3};
 use spl_network_messages::PlayerNumber;
 use types::{
