@@ -61,8 +61,8 @@ pub struct CycleContext {
     pub visible_validity_exponential_decay_factor:
         Parameter<f32, "control/ball_filter/visible_validity_exponential_decay_factor">,
 
-    pub balls_bottom: PerceptionInput<Vec<Ball>, "VisionBottom", "balls">,
-    pub balls_top: PerceptionInput<Vec<Ball>, "VisionTop", "balls">,
+    pub balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
+    pub balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
 }
 
 #[context]

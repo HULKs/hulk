@@ -93,8 +93,8 @@ pub struct CycleContext {
     pub score_per_good_match: Parameter<f32, "control/localization/score_per_good_match">,
     pub use_line_measurements: Parameter<bool, "control/localization/use_line_measurements">,
 
-    pub line_data_bottom: PerceptionInput<LineData, "VisionBottom", "line_data">,
-    pub line_data_top: PerceptionInput<LineData, "VisionTop", "line_data">,
+    pub line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
+    pub line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
 
     pub robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
 }
