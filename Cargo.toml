@@ -127,6 +127,7 @@ uvcvideo = { path = "crates/uvcvideo" }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", branch = "hulksChanges" }
 walkdir = "2.3.2"
 webots = { version = "0.5.0" }
+vision = { path = "crates/vision" }
 
 [dependencies]
 alsa = { workspace = true, optional = true }
