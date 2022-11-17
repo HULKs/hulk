@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{Input, MainOutput, Parameter, RequiredInput};
+use framework::MainOutput;
 use nalgebra::Isometry3;
 use types::{CameraMatrices, HeadJoints, MotionCommand, RobotKinematics, SensorData};
 

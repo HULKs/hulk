@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{Input, MainOutput, Parameter};
+use framework::MainOutput;
 use types::{SensorData, SupportFoot};
 
 pub struct SupportFootEstimation {}

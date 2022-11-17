@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use context_attribute::context;
-use framework::{Input, MainOutput, Parameter};
+use framework::MainOutput;
 use types::{Buttons, SensorData};
 
 pub struct ButtonFilter {}

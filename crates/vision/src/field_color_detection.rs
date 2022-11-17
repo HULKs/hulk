@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Parameter};
+use framework::MainOutput;
 use types::FieldColor;
 
 pub struct FieldColorDetection {}

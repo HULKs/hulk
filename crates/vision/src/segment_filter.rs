@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, RequiredInput};
+use framework::MainOutput;
 use types::{FieldBorder, FilteredSegments, ImageSegments};
 
 pub struct SegmentFilter {}

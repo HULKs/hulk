@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use context_attribute::context;
 use framework::{
-    AdditionalOutput, HistoricInput, Input, MainOutput, Parameter, PerceptionInput, RequiredInput,
+    AdditionalOutput, HistoricInput, MainOutput, PerceptionInput,
 };
 use nalgebra::{Isometry2, Vector2, Vector4};
 use types::{

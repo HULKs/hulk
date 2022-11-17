@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{AdditionalOutput, Input, MainOutput, Parameter};
+use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{Vector2, Vector3};
 use types::{
     configuration::FallStateEstimation as FallStateEstimationConfiguration, FallState, SensorData,

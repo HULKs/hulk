@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{Input, MainOutput, Parameter, RequiredInput};
+use framework::MainOutput;
 use types::{
     BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand, MotionSelection,
     SensorData,

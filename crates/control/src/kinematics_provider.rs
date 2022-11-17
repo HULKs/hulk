@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{Input, MainOutput};
+use framework::MainOutput;
 use types::{RobotKinematics, SensorData};
 
 pub struct KinematicsProvider {}

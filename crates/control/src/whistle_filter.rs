@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Input, Parameter};
+use framework::MainOutput;
 use types::{FilteredWhistle, SensorData};
 
 pub struct WhistleFilter {}

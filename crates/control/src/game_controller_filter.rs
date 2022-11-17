@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Input};
+use framework::MainOutput;
 use types::{GameControllerState, SensorData};
 
 pub struct GameControllerFilter {}

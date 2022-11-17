@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{Input, MainOutput, PersistentState, RequiredInput};
+use framework::MainOutput;
 use types::{JointsCommand, MotionSafeExits, MotionSelection, SensorData};
 
 pub struct SitDown {}

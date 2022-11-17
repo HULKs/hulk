@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, Parameter, RequiredInput};
+use framework::{AdditionalOutput, MainOutput};
 use types::{CameraMatrix, FilteredSegments, ImageLines, LineData};
 
 pub struct LineDetection {}

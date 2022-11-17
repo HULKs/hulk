@@ -1,5 +1,5 @@
 use context_attribute::context;
-use framework::{MainOutput, Parameter, RequiredInput};
+use framework::MainOutput;
 use types::{CameraMatrix, FilteredSegments, LineData, PerspectiveGridCandidates};
 
 pub struct PerspectiveGridCandidatesProvider {}
