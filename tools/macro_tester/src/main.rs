@@ -695,7 +695,7 @@ impl Module<'_> {
                     bail!("Unexpected additional output field `{name}` in new context")
                 }
                 Field::HardwareInterface { name } => Ok(quote! {
-                    #name: framework::HardwareInterface::from(
+                    #name: hardware::HardwareInterface::from(
                         &hardware_interface,
                     )
                 }),
@@ -717,9 +717,7 @@ impl Module<'_> {
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
-                        #name: framework::Parameter::from(
-                            #accessor,
-                        )
+                        #name: #accessor
                     })
                 }
                 Field::PerceptionInput { name, .. } => {
@@ -734,9 +732,7 @@ impl Module<'_> {
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
-                        #name: framework::PersistentState::from(
-                            #accessor,
-                        )
+                        #name: #accessor
                     })
                 }
                 Field::RequiredInput { name, .. } => {
@@ -835,7 +831,7 @@ impl Module<'_> {
                     })
                 }
                 Field::HardwareInterface { name } => Ok(quote! {
-                    #name: framework::HardwareInterface::from(
+                    #name: hardware::HardwareInterface::from(
                         &self.hardware_interface,
                     )
                 }),
@@ -896,9 +892,7 @@ impl Module<'_> {
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
-                        #name: framework::Input::from(
-                            #accessor,
-                        )
+                        #name: #accessor
                     })
                 }
                 Field::MainOutput { name, .. } => {
@@ -913,9 +907,7 @@ impl Module<'_> {
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
-                        #name: framework::Parameter::from(
-                            #accessor,
-                        )
+                        #name: #accessor
                     })
                 }
                 Field::PerceptionInput {
@@ -973,9 +965,7 @@ impl Module<'_> {
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
-                        #name: framework::PersistentState::from(
-                            #accessor,
-                        )
+                        #name: #accessor
                     })
                 }
                 Field::RequiredInput {
@@ -1003,9 +993,7 @@ impl Module<'_> {
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
-                        #name: framework::RequiredInput::from(
-                            #accessor .unwrap(),
-                        )
+                        #name: #accessor .unwrap()
                     })
                 }
             })
