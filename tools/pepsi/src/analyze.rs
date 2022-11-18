@@ -9,6 +9,12 @@ use source_analyzer::{parse_rust_file, Contexts, CyclerInstances, CyclerTypes, M
 
 #[derive(Subcommand)]
 pub enum Arguments {
+    DumpBuildScriptOutput {
+        /// Crate name whose build script output to dump (may contain wildcard characters usable by glob())
+        crate_name: String,
+        /// File name to dump (may contain wildcard characters usable by glob())
+        file_name: String,
+    },
     DumpContexts {
         /// File path to a Rust file containing a module with context structs
         file_path: PathBuf,
@@ -25,6 +31,24 @@ pub enum Arguments {
 
 pub async fn analyze(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
     match arguments {
+        Arguments::DumpBuildScriptOutput {
+            crate_name,
+            file_name,
+        } => {
+            let prefix = format!("target/**/{crate_name}-*/**");
+            let file_path = repository
+                .find_latest_file(&prefix, &file_name)
+                .context("Failed find latest build script output")?;
+            PrettyPrinter::new()
+                .input_file(file_path)
+                .grid(true)
+                .header(true)
+                .line_numbers(true)
+                .paging_mode(PagingMode::QuitIfOneScreen)
+                .rule(true)
+                .print()
+                .context("Failed to print file")?;
+        }
         Arguments::DumpContexts { file_path } => {
             let file = parse_rust_file(&file_path).context("Failed to parse rust file")?;
             let context = Contexts::try_from_file(file_path, &file)
@@ -45,7 +69,7 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> anyhow::R
         }
         Arguments::DumpLatest { file_name } => {
             let file_path = repository
-                .find_latest_generated_file(&file_name)
+                .find_latest_file("target/**/out/**", &file_name)
                 .context("Failed find latest generated file")?;
             PrettyPrinter::new()
                 .input_file(file_path)
