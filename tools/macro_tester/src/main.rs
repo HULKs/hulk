@@ -109,16 +109,6 @@ fn generate_cyclers(
         .context("Failed to get cyclers")?;
 
     Ok(quote! {
-        #[derive(Default)]
-        pub struct Outputs<MainOutputs, AdditionalOutputs>
-        where
-            MainOutputs: Default,
-            AdditionalOutputs: Default,
-        {
-            pub main_outputs: MainOutputs,
-            pub additional_outputs: AdditionalOutputs,
-        }
-
         #(#cyclers)*
     })
 }
@@ -179,15 +169,13 @@ impl Cycler<'_> {
         format_ident!("{}", self.get_cycler_module_name())
     }
 
-    fn get_own_writer_type(&self) -> TokenStream {
+    fn get_database_struct(&self) -> TokenStream {
         let cycler_module_name_identifier = self.get_cycler_module_name_identifier();
         quote! {
-            framework::Writer<
-                crate::Outputs<
-                    structs::#cycler_module_name_identifier::MainOutputs,
-                    structs::#cycler_module_name_identifier::AdditionalOutputs,
-                >
-            >
+            pub struct Database {
+                main_outputs: structs::#cycler_module_name_identifier::MainOutputs,
+                additional_outputs: structs::#cycler_module_name_identifier::AdditionalOutputs,
+            }
         }
     }
 
@@ -412,7 +400,7 @@ impl Cycler<'_> {
     }
 
     fn get_struct_definition(&self) -> TokenStream {
-        let own_writer_type = self.get_own_writer_type();
+        let database_struct = self.get_database_struct();
         let own_producer_field = self.get_own_producer_field();
         let other_cycler_fields = self.get_other_cycler_fields();
         let cycler_module_name_identifier = self.get_cycler_module_name_identifier();
@@ -434,10 +422,12 @@ impl Cycler<'_> {
         let module_fields = self.get_module_fields();
 
         quote! {
+            #database_struct
+
             pub struct Cycler<Interface> {
                 instance: #cycler_module_name_identifier::CyclerInstance,
                 hardware_interface: std::sync::Arc<Interface>,
-                own_writer: #own_writer_type,
+                own_writer: framework::Writer<Database>,
                 #own_producer_field
                 #(#other_cycler_fields,)*
                 configuration_reader: framework::Reader<structs::Configuration>,
@@ -449,7 +439,6 @@ impl Cycler<'_> {
     }
 
     fn get_new_method(&self) -> anyhow::Result<TokenStream> {
-        let own_writer_type = self.get_own_writer_type();
         let own_producer_field = self.get_own_producer_field();
         let other_cycler_fields = self.get_other_cycler_fields();
         let cycler_module_name_identifier = self.get_cycler_module_name_identifier();
@@ -471,7 +460,7 @@ impl Cycler<'_> {
             pub fn new(
                 instance: #cycler_module_name_identifier::CyclerInstance,
                 hardware_interface: std::sync::Arc<Interface>,
-                own_writer: #own_writer_type,
+                own_writer: framework::Writer<Database>,
                 #own_producer_field
                 #(#other_cycler_fields,)*
                 configuration_reader: framework::Reader<structs::Configuration>,
@@ -533,6 +522,10 @@ impl Cycler<'_> {
 
         let before_first_module = quote! {
             let mut own_database = self.own_writer.next();
+            let own_database_reference = {
+                use std::ops::DerefMut;
+                own_database.deref_mut()
+            };
         };
         let (first_module, remaining_modules) = module_executions.split_at(1);
         let first_module = {
@@ -572,14 +565,14 @@ impl Cycler<'_> {
         };
         let after_remaining_modules = match self {
             Cycler::Perception { .. } => quote! {
-                self.own_producer.finalize(own_database.main_outputs.clone());
+                self.own_producer.finalize(own_database_reference.main_outputs.clone());
             },
             Cycler::RealTime { .. } => quote! {
                 self.historic_databases.update(
                     now,
                     self.perception_databases
                         .get_first_timestamp_of_temporary_databases(),
-                    &own_database.main_outputs,
+                    &own_database_reference.main_outputs,
                 );
             },
         };
@@ -785,8 +778,7 @@ impl Module<'_> {
                             quote! { #identifier }
                         }
                         None => {
-                            let identifier = format_ident!("own_database");
-                            quote! { #identifier .main_outputs }
+                            quote! { own_database_reference.main_outputs }
                         }
                     };
                     let accessor = path_to_accessor_token_stream(
@@ -822,7 +814,7 @@ impl Module<'_> {
             .map(|field| match field {
                 Field::AdditionalOutput { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
-                        quote! { own_database.additional_outputs },
+                        quote! { own_database_reference.additional_outputs },
                         &path,
                         ReferenceType::Mutable,
                         quote! { self.instance },
@@ -844,7 +836,7 @@ impl Module<'_> {
                 }),
                 Field::HistoricInput { name, path, .. } => {
                     let now_accessor = path_to_accessor_token_stream(
-                        quote! { own_database.main_outputs },
+                        quote! { own_database_reference.main_outputs },
                         &path,
                         ReferenceType::Immutable,
                         quote! { self.instance },
@@ -889,8 +881,7 @@ impl Module<'_> {
                             quote! { #identifier }
                         }
                         None => {
-                            let identifier = format_ident!("own_database");
-                            quote! { #identifier .main_outputs }
+                            quote! { own_database_reference.main_outputs }
                         }
                     };
                     let accessor = path_to_accessor_token_stream(
@@ -994,8 +985,7 @@ impl Module<'_> {
                             quote! { #identifier }
                         }
                         None => {
-                            let identifier = format_ident!("own_database");
-                            quote! { #identifier .main_outputs }
+                            quote! { own_database_reference.main_outputs }
                         }
                     };
                     let accessor = path_to_accessor_token_stream(
@@ -1021,7 +1011,7 @@ impl Module<'_> {
             .iter()
             .filter_map(|field| match field {
                 Field::MainOutput { name, .. } => Some(quote! {
-                    own_database.main_outputs.#name = main_outputs.#name.value;
+                    own_database_reference.main_outputs.#name = main_outputs.#name.value;
                 }),
                 _ => None,
             })
@@ -1035,7 +1025,7 @@ impl Module<'_> {
             .iter()
             .filter_map(|field| match field {
                 Field::MainOutput { name, .. } => Some(quote! {
-                    own_database.main_outputs.#name = Default::default();
+                    own_database_reference.main_outputs.#name = Default::default();
                 }),
                 _ => None,
             })
