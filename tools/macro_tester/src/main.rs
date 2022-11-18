@@ -464,7 +464,6 @@ impl Cycler<'_> {
                 #own_producer_field
                 #(#other_cycler_fields,)*
                 configuration_reader: framework::Reader<structs::Configuration>,
-                persistent_state: structs::#cycler_module_name_identifier::PersistentState,
             ) -> anyhow::Result<Self> {
                 use anyhow::Context;
                 let configuration = configuration_reader.next().clone();
@@ -624,6 +623,7 @@ impl Cycler<'_> {
             .context("Failed to get struct implementation")?;
 
         Ok(quote! {
+            #[allow(dead_code, unused_mut, unused_variables)]
             pub mod #cycler_module_name_identifier {
                 #struct_definition
                 #struct_implementation
