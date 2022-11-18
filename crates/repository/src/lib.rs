@@ -38,8 +38,8 @@ impl Repository {
         }
     }
 
-    pub fn find_latest_generated_file(&self, file_name: &str) -> anyhow::Result<PathBuf> {
-        let path = self.root.join("target/**/out/**").join(file_name);
+    pub fn find_latest_file(&self, prefix: &str, file_name: &str) -> anyhow::Result<PathBuf> {
+        let path = self.root.join(prefix).join(file_name);
         let matching_paths: Vec<_> = glob(
             path.to_str()
                 .ok_or_else(|| anyhow!("Failed to interpret path as Unicode"))?,
