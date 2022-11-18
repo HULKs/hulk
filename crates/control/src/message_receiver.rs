@@ -8,14 +8,14 @@ pub struct MessageReceiver {
     value: usize,
 }
 
-#[context]
+// #[context]
 pub struct NewContext {
     pub hardware_interface: HardwareInterface,
     pub initial_value: Parameter<usize, "message_receiver/initial_value">,
     pub value: PersistentState<usize, "message_receiver/value">,
 }
 
-#[context]
+// #[context]
 pub struct CycleContext {
     pub step: Parameter<usize, "message_receiver/step">,
     pub test_a: Parameter<usize, "a/a/a">,
@@ -32,7 +32,7 @@ pub struct CycleContext {
     pub output: AdditionalOutput<usize, "message_receiver/output">,
 }
 
-#[context]
+// #[context]
 #[derive(Default)]
 pub struct MainOutputs {
     pub value: MainOutput<Option<usize>>,
