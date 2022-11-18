@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, iter::once, path::Path};
 
 use anyhow::{anyhow, bail, Context};
+use convert_case::{Case, Casing};
 use quote::{format_ident, ToTokens};
 use syn::{
     punctuated::Punctuated, AngleBracketedGenericArguments, GenericArgument, PathArguments, Type,
@@ -72,7 +73,7 @@ impl Structs {
                                 path,
                                 &BTreeMap::from_iter([(
                                     "cycler_instance".to_string(),
-                                    cycler_instances.clone(),
+                                    cycler_instances.iter().map(|instance| instance.to_case(Case::Snake)).collect(),
                                 )]),
                             )
                             .with_context(|| {
@@ -118,12 +119,13 @@ impl Structs {
                                 path,
                                 &BTreeMap::from_iter([(
                                     "cycler_instance".to_string(),
-                                    cycler_instances.clone(),
+                                    cycler_instances.iter().map(|instance| instance.to_case(Case::Snake)).collect(),
                                 )]),
                             )
                             .with_context(|| {
                                 anyhow!("Failed to expand path variables for parameter `{name}`")
                             })?;
+                            dbg!(&expanded_paths);
 
                             for path in expanded_paths {
                                 let path_contains_optional =
@@ -149,28 +151,13 @@ impl Structs {
                             name,
                             path,
                         } => {
-                            let expanded_paths = expand_variables_from_path(
-                                path,
-                                &BTreeMap::from_iter([(
-                                    "cycler_instance".to_string(),
-                                    cycler_instances.clone(),
-                                )]),
-                            )
-                            .with_context(|| {
-                                anyhow!(
-                                    "Failed to expand path variables for persistent state `{name}`"
-                                )
-                            })?;
-
-                            for path in expanded_paths {
-                                let insertion_rules = path_to_insertion_rules(&path, data_type);
-                                cycler_structs
-                                    .persistent_state
-                                    .insert(insertion_rules)
-                                    .with_context(|| {
-                                        anyhow!("Failed to insert expanded path into persistent state for persistent state `{name}`")
-                                    })?;
-                            }
+                            let insertion_rules = path_to_insertion_rules(&path, data_type);
+                            cycler_structs
+                                .persistent_state
+                                .insert(insertion_rules)
+                                .with_context(|| {
+                                    anyhow!("Failed to insert expanded path into persistent state for persistent state `{name}`")
+                                })?;
                         }
                         Field::HardwareInterface { .. }
                         | Field::HistoricInput { .. }
@@ -318,7 +305,6 @@ fn path_to_insertion_rules(path: &[PathSegment], data_type: &Type) -> Vec<Insert
         .collect()
 }
 
-// TODO: is this still needed?
 fn unwrap_option_data_type(data_type: Type) -> anyhow::Result<Type> {
     match data_type {
         Type::Path(TypePath {
