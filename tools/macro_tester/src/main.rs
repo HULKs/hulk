@@ -2,7 +2,7 @@ use std::{fs::File, io::Write, path::Path, process::Command};
 
 use anyhow::{anyhow, bail, Context};
 use convert_case::{Case, Casing};
-use proc_macro2::{Delimiter, Group, Ident, Literal, Punct, Spacing, TokenStream, TokenTree};
+use proc_macro2::{Delimiter, Group, Ident, Punct, Spacing, TokenStream, TokenTree};
 use quote::{format_ident, quote, TokenStreamExt};
 use source_analyzer::{CyclerInstances, CyclerType, CyclerTypes, Field, Modules, PathSegment};
 
@@ -435,7 +435,7 @@ impl Cycler<'_> {
 
         quote! {
             pub struct Cycler<Interface> {
-                instance_name: String,
+                instance: #cycler_module_name_identifier::CyclerInstance,
                 hardware_interface: std::sync::Arc<Interface>,
                 own_writer: #own_writer_type,
                 #own_producer_field
@@ -469,7 +469,7 @@ impl Cycler<'_> {
 
         Ok(quote! {
             pub fn new(
-                instance_name: String,
+                instance: #cycler_module_name_identifier::CyclerInstance,
                 hardware_interface: std::sync::Arc<Interface>,
                 own_writer: #own_writer_type,
                 #own_producer_field
@@ -482,7 +482,7 @@ impl Cycler<'_> {
                 let mut persistent_state = structs::#cycler_module_name_identifier::PersistentState::default();
                 #(#module_initializers)*
                 Ok(Self {
-                    instance_name,
+                    instance,
                     hardware_interface,
                     own_writer,
                     #own_producer_identifier
@@ -503,7 +503,7 @@ impl Cycler<'_> {
                 keep_running: tokio_util::sync::CancellationToken,
             ) -> anyhow::Result<std::thread::JoinHandle<anyhow::Result<()>>> {
                 use anyhow::Context;
-                let instance_name = self.instance_name.clone();
+                let instance_name = format!("{:?}", self.instance);
                 std::thread::Builder::new()
                     .name(instance_name.clone())
                     .spawn(move || {
@@ -686,6 +686,7 @@ impl Module<'_> {
     }
 
     fn get_initializer_field_initializers(&self) -> anyhow::Result<Vec<TokenStream>> {
+        let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
         self.module
             .contexts
             .new_context
@@ -713,7 +714,8 @@ impl Module<'_> {
                         quote! { configuration },
                         &path,
                         ReferenceType::Immutable,
-                        quote! { instance_name },
+                        quote! { instance },
+                        quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -728,7 +730,8 @@ impl Module<'_> {
                         quote! { persistent_state },
                         &path,
                         ReferenceType::Mutable,
-                        quote! { instance_name },
+                        quote! { instance },
+                        quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -763,6 +766,7 @@ impl Module<'_> {
     }
 
     fn get_required_inputs_are_some(&self) -> Option<TokenStream> {
+        let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
         let required_inputs_are_some: Vec<_> = self
             .module
             .contexts
@@ -789,7 +793,8 @@ impl Module<'_> {
                         database_prefix,
                         &path,
                         ReferenceType::Immutable,
-                        quote! { self.instance_name },
+                        quote! { self.instance },
+                        quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     // TODO: check if required input actually has at least one optional
@@ -809,6 +814,7 @@ impl Module<'_> {
     }
 
     fn get_execution_field_initializers(&self) -> anyhow::Result<Vec<TokenStream>> {
+        let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
         self.module
             .contexts
             .cycle_context
@@ -819,7 +825,8 @@ impl Module<'_> {
                         quote! { own_database.additional_outputs },
                         &path,
                         ReferenceType::Mutable,
-                        quote! { self.instance_name },
+                        quote! { self.instance },
+                        quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     // TODO: is_subscribed
@@ -840,14 +847,16 @@ impl Module<'_> {
                         quote! { own_database.main_outputs },
                         &path,
                         ReferenceType::Immutable,
-                        quote! { self.instance_name },
+                        quote! { self.instance },
+                        quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     let historic_accessor = path_to_accessor_token_stream(
                         quote! { database },
                         &path,
                         ReferenceType::Immutable,
-                        quote! { self.instance_name },
+                        quote! { self.instance },
+                        quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -888,7 +897,8 @@ impl Module<'_> {
                         database_prefix,
                         &path,
                         ReferenceType::Immutable,
-                        quote! { self.instance_name },
+                        quote! { self.instance },
+                        quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -903,7 +913,8 @@ impl Module<'_> {
                         quote! { configuration },
                         &path,
                         ReferenceType::Immutable,
-                        quote! { self.instance_name },
+                        quote! { self.instance },
+                        quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -922,7 +933,8 @@ impl Module<'_> {
                         quote! { database },
                         &path,
                         ReferenceType::Immutable,
-                        quote! { self.instance_name },
+                        quote! { self.instance },
+                        quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -961,7 +973,8 @@ impl Module<'_> {
                         quote! { self.persistent_state },
                         &path,
                         ReferenceType::Mutable,
-                        quote! { self.instance_name },
+                        quote! { self.instance },
+                        quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -989,7 +1002,8 @@ impl Module<'_> {
                         database_prefix,
                         &path,
                         ReferenceType::Immutable,
-                        quote! { self.instance_name },
+                        quote! { self.instance },
+                        quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
                     );
                     Ok(quote! {
@@ -1077,7 +1091,8 @@ fn path_to_accessor_token_stream(
     prefix_token_stream: TokenStream,
     path: &[PathSegment],
     reference_type: ReferenceType,
-    instance_name: TokenStream,
+    instance: TokenStream,
+    cycler_instance_prefix: TokenStream,
     cycler_instances: &[String],
 ) -> TokenStream {
     fn path_to_accessor_token_stream_with_cycler_instance(
@@ -1212,18 +1227,11 @@ fn path_to_accessor_token_stream(
     if path_contains_variable {
         let mut token_stream = TokenStream::default();
         token_stream.append(TokenTree::Ident(format_ident!("match")));
-        token_stream.extend(instance_name.clone());
-        token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
-        token_stream.append(TokenTree::Ident(format_ident!("as_str")));
-        token_stream.append(TokenTree::Group(Group::new(
-            Delimiter::Parenthesis,
-            TokenStream::default(),
-        )));
+        token_stream.extend(instance.clone());
         let mut token_stream_within_match = TokenStream::default();
         for cycler_instance in cycler_instances {
-            token_stream_within_match.append(TokenTree::Literal(Literal::string(
-                cycler_instance.as_str(),
-            )));
+            token_stream_within_match.extend(cycler_instance_prefix.clone());
+            token_stream_within_match.append(format_ident!("{}", cycler_instance));
             token_stream_within_match.append(TokenTree::Punct(Punct::new('=', Spacing::Joint)));
             token_stream_within_match.append(TokenTree::Punct(Punct::new('>', Spacing::Alone)));
             token_stream_within_match.extend(path_to_accessor_token_stream_with_cycler_instance(
@@ -1234,22 +1242,6 @@ fn path_to_accessor_token_stream(
             ));
             token_stream_within_match.append(TokenTree::Punct(Punct::new(',', Spacing::Alone)));
         }
-        token_stream_within_match.append(TokenTree::Punct(Punct::new('_', Spacing::Alone)));
-        token_stream_within_match.append(TokenTree::Punct(Punct::new('=', Spacing::Joint)));
-        token_stream_within_match.append(TokenTree::Punct(Punct::new('>', Spacing::Alone)));
-        token_stream_within_match.append(TokenTree::Ident(format_ident!("panic")));
-        token_stream_within_match.append(TokenTree::Punct(Punct::new('!', Spacing::Alone)));
-        let mut token_stream_within_panic = TokenStream::default();
-        token_stream_within_panic.append(TokenTree::Literal(Literal::string(
-            "unexpected instance name {}",
-        )));
-        token_stream_within_panic.append(TokenTree::Punct(Punct::new(',', Spacing::Alone)));
-        token_stream_within_panic.extend(instance_name);
-        token_stream_within_match.append(TokenTree::Group(Group::new(
-            Delimiter::Parenthesis,
-            token_stream_within_panic,
-        )));
-        token_stream_within_match.append(TokenTree::Punct(Punct::new(',', Spacing::Alone)));
         token_stream.append(TokenTree::Group(Group::new(
             Delimiter::Brace,
             token_stream_within_match,
@@ -1276,25 +1268,25 @@ mod tests {
             (
                 "$cycler_instance",
                 ReferenceType::Immutable,
-                quote! { match self.instance_name.as_str() { "InstanceA" => &prefix.InstanceA, "InstanceB" => &prefix.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
+                quote! { match self.instance_name { CyclerInstance::InstanceA => &prefix.InstanceA, CyclerInstance::InstanceB => &prefix.InstanceB, } },
             ),
             ("a", ReferenceType::Mutable, quote! { &mut prefix.a }),
             (
                 "$cycler_instance",
                 ReferenceType::Mutable,
-                quote! { match self.instance_name.as_str() { "InstanceA" => &mut prefix.InstanceA, "InstanceB" => &mut prefix.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
+                quote! { match self.instance_name { CyclerInstance::InstanceA => &mut prefix.InstanceA, CyclerInstance::InstanceB => &mut prefix.InstanceB, } },
             ),
             ("a/b", ReferenceType::Immutable, quote! { &prefix.a.b }),
             (
                 "a/$cycler_instance",
                 ReferenceType::Immutable,
-                quote! { match self.instance_name.as_str() { "InstanceA" => &prefix.a.InstanceA, "InstanceB" => &prefix.a.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
+                quote! { match self.instance_name { CyclerInstance::InstanceA => &prefix.a.InstanceA, CyclerInstance::InstanceB => &prefix.a.InstanceB, } },
             ),
             ("a/b", ReferenceType::Mutable, quote! { &mut prefix.a.b }),
             (
                 "a/$cycler_instance",
                 ReferenceType::Mutable,
-                quote! { match self.instance_name.as_str() { "InstanceA" => &mut prefix.a.InstanceA, "InstanceB" => &mut prefix.a.InstanceB, _ => panic!("unexpected instance name {}", self.instance_name), } },
+                quote! { match self.instance_name { CyclerInstance::InstanceA => &mut prefix.a.InstanceA, CyclerInstance::InstanceB => &mut prefix.a.InstanceB, } },
             ),
             ("a/b/c", ReferenceType::Immutable, quote! { &prefix.a.b.c }),
             (
@@ -1316,13 +1308,13 @@ mod tests {
             (
                 "$cycler_instance?",
                 ReferenceType::Immutable,
-                quote! { match self.instance_name.as_str() { "InstanceA" => prefix.InstanceA.as_ref(), "InstanceB" => prefix.InstanceB.as_ref(), _ => panic!("unexpected instance name {}", self.instance_name), } },
+                quote! { match self.instance_name { CyclerInstance::InstanceA => prefix.InstanceA.as_ref(), CyclerInstance::InstanceB => prefix.InstanceB.as_ref(), } },
             ),
             ("a?", ReferenceType::Mutable, quote! { prefix.a.as_mut() }),
             (
                 "$cycler_instance?",
                 ReferenceType::Mutable,
-                quote! { match self.instance_name.as_str() { "InstanceA" => prefix.InstanceA.as_mut(), "InstanceB" => prefix.InstanceB.as_mut(), _ => panic!("unexpected instance name {}", self.instance_name), } },
+                quote! { match self.instance_name { CyclerInstance::InstanceA => prefix.InstanceA.as_mut(), CyclerInstance::InstanceB => prefix.InstanceB.as_mut(), } },
             ),
             (
                 "a?/b?/c",
@@ -1464,6 +1456,7 @@ mod tests {
                 &path_segments,
                 reference_type,
                 quote! { self.instance_name },
+                quote! { CyclerInstance:: },
                 &["InstanceA".to_string(), "InstanceB".to_string()],
             );
             assert_eq!(
