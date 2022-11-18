@@ -11,10 +11,10 @@ pub struct CameraMatrixCalculator {}
 #[context]
 pub struct NewContext {
     pub bottom_camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "VisionBottom/camera_matrix_parameters">,
+        Parameter<CameraMatrixParameters, "vision_bottom/camera_matrix_parameters">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub top_camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "VisionTop/camera_matrix_parameters">,
+        Parameter<CameraMatrixParameters, "vision_top/camera_matrix_parameters">,
 }
 
 #[context]
@@ -25,10 +25,10 @@ pub struct CycleContext {
     pub robot_to_ground: RequiredInput<Option<Isometry3<f32>>, "robot_to_ground?">,
 
     pub bottom_camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "VisionBottom/camera_matrix_parameters">,
+        Parameter<CameraMatrixParameters, "vision_bottom/camera_matrix_parameters">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub top_camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "VisionTop/camera_matrix_parameters">,
+        Parameter<CameraMatrixParameters, "vision_top/camera_matrix_parameters">,
 }
 
 #[context]

@@ -1109,7 +1109,10 @@ fn path_to_accessor_token_stream(
                 token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
                 match (segment.is_variable, cycler_instance) {
                     (true, Some(cycler_instance)) => {
-                        token_stream.append(TokenTree::Ident(format_ident!("{}", cycler_instance)));
+                        token_stream.append(TokenTree::Ident(format_ident!(
+                            "{}",
+                            cycler_instance.to_case(Case::Snake)
+                        )));
                     }
                     _ => {
                         token_stream.append(TokenTree::Ident(format_ident!("{}", segment.name)));
