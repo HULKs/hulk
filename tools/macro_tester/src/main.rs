@@ -576,7 +576,7 @@ impl Cycler<'_> {
             },
         };
         let after_dropping_database_writer_guard = quote! {
-            todo!("notify communication");
+            // todo!("notify communication");
         };
 
         Ok(quote! {
@@ -590,6 +590,7 @@ impl Cycler<'_> {
                     #after_remaining_modules
                 }
                 #after_dropping_database_writer_guard
+                Ok(())
             }
         })
     }
