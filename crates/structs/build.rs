@@ -79,6 +79,7 @@ fn main() -> anyhow::Result<()> {
         PathBuf::from(var("OUT_DIR").context("Failed to get environment variable OUT_DIR")?)
             .join("structs.rs");
     {
+        // TODO: use build_script_helpers?
         let mut file = File::create(&file_path)
             .with_context(|| anyhow!("Failed create file {file_path:?}"))?;
         write!(file, "{}", token_stream)

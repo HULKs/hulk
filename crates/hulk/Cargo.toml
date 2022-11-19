@@ -1,0 +1,20 @@
+[package]
+edition = "2021"
+license = "GPL-3.0-only"
+name = "hulk"
+version = "0.1.0"
+
+[features]
+nao = ["uvcvideo", "v4l", "alsa"]
+
+[dependencies]
+alsa = {optional = true, workspace = true}
+anyhow = {workspace = true}
+ctrlc = {workspace = true}
+cyclers = {workspace = true}
+hardware = {workspace = true}
+structs = {workspace = true}
+tokio-util = {workspace = true}
+uvcvideo = {optional = true, workspace = true}
+v4l = {optional = true, workspace = true}
+webots = {optional = true, workspace = true}

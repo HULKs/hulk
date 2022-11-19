@@ -94,10 +94,18 @@ impl<Slot> Writer<Slot> {
     }
 }
 
-#[derive(Clone)]
 pub struct Reader<T> {
     slots: Arc<Vec<RwLock<T>>>,
     states: Arc<Mutex<Vec<State>>>,
+}
+
+impl<T> Clone for Reader<T> {
+    fn clone(&self) -> Self {
+        Self {
+            slots: self.slots.clone(),
+            states: self.states.clone(),
+        }
+    }
 }
 
 pub struct ReaderGuard<'locked, Slot> {
