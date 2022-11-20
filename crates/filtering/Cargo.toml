@@ -5,11 +5,11 @@ name = "filtering"
 version = "0.1.0"
 
 [dependencies]
-anyhow = "1.0.56"
-approx = "0.5.1"
-nalgebra = {version = "0.31.0", features = ["serde-serialize"]}
-rand = "0.8.5"
-rand_distr = "0.4.3"
-serde = { version = "1.0.137", features = ["derive"] }
-serde_json = "1.0.79"
-serialize_hierarchy = {path = "../serialize_hierarchy"}
+anyhow = { workspace = true }
+approx = { workspace = true }
+nalgebra = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serialize_hierarchy = { workspace = true }

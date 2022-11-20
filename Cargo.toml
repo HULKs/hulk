@@ -9,16 +9,14 @@ members = [
   "crates/framework",
   "crates/hardware",
   "crates/hulk",
-  "crates/module_attributes",
-  "crates/module_derive",
   "crates/nao",
   "crates/repository",
   "crates/serialize_hierarchy",
   "crates/serialize_hierarchy_derive",
   "crates/source_analyzer",
-  "crates/structs",
-  "crates/spl_network_messages",
   "crates/spl_network2",
+  "crates/spl_network_messages",
+  "crates/structs",
   "crates/types",
   "crates/uvcvideo",
   "crates/vision",
@@ -78,8 +76,6 @@ itertools = "0.10.5"
 libc = "0.2.133"
 log = "0.4.17"
 mlua = { version = "0.8.3", features = ["luajit", "serialize"] }
-module_attributes = { path = "crates/module_attributes" }
-module_derive = { path = "crates/module_derive" }
 nalgebra = { version = "0.31.1", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nix = "0.25.0"
@@ -117,6 +113,7 @@ tokio = { version = "1.21.2", features = ["full"] }
 tokio-tungstenite = "0.17.2"
 tokio-util = "0.7.4"
 toml = "0.5.9"
+topological-sort = "0.2.2"
 types = { path = "crates/types" }
 uuid = { version = "1.1.2", features = ["v4"] }
 uvcvideo = { path = "crates/uvcvideo" }

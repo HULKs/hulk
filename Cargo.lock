@@ -726,12 +726,6 @@ dependencies = [
 
 [[package]]
 name = "convert_case"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb4a24b1aaf0fd0ce8b45161144d6f42cd91677fd5940fd431183eb023b3a2b8"
-
-[[package]]
-name = "convert_case"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
@@ -969,7 +963,7 @@ dependencies = [
  "anyhow",
  "build_script_helpers",
  "control",
- "convert_case 0.6.0",
+ "convert_case",
  "framework",
  "hardware",
  "proc-macro2",
@@ -1522,7 +1516,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build_script_helpers",
- "convert_case 0.5.0",
+ "convert_case",
  "hardware",
  "parking_lot",
  "proc-macro2",
@@ -2266,38 +2260,6 @@ dependencies = [
  "log",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.42.0",
-]
-
-[[package]]
-name = "module_attributes"
-version = "0.1.0"
-dependencies = [
- "convert_case 0.6.0",
- "proc-macro-error",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "module_attributes2"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "convert_case 0.5.0",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "module_derive"
-version = "0.1.0"
-dependencies = [
- "module_attributes",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -3471,7 +3433,7 @@ name = "source_analyzer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "convert_case 0.5.0",
+ "convert_case",
  "glob",
  "proc-macro2",
  "quote",
@@ -3563,7 +3525,7 @@ name = "structs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "convert_case 0.5.0",
+ "convert_case",
  "filtering",
  "nalgebra",
  "proc-macro2",
