@@ -1,0 +1,12 @@
+[package]
+edition = "2021"
+license = "GPL-3.0-only"
+name = "audio"
+version = "0.1.0"
+
+[dependencies]
+anyhow = "1.0.59"
+context_attribute = { path = "../context_attribute" }
+framework = { path = "../framework" }
+hardware = { path = "../hardware" }
+types = { path = "../types" }

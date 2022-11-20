@@ -1,22 +1,44 @@
-use spl_network::SplMessage;
-use spl_network::{GameControllerReturnMessage, GameControllerStateMessage};
-use tokio::runtime::Runtime;
+use context_attribute::context;
+use framework::{HardwareInterface, MainOutput, Input, Parameter, RequiredInput};
 
-pub struct SplMessageSender;
+pub struct SplMessageSender {
+    value: usize,
+}
 
-#[perception_module(cycler_module = spl_network2)]
-#[persistent_state(data_type = Runtime, name = foo, path = runtime)]
-#[parameter(data_type = bool, name = okay, path = o.k)]
-#[input(cycler_instance = SplNetwork, data_type = SplMessage, is_required = true, name = outgoing_spl_message, path = outgoing_spl_message)]
-#[main_output(data_type = SplMessage, name = outgoing_spl_message2)]
-impl SplMessageSender {}
+// #[context]
+pub struct NewContext {
+    pub initial_value: Parameter<usize, "message_receiver/initial_value">,
+}
+
+// #[context]
+pub struct CycleContext {
+    pub step: Parameter<usize, "message_receiver/step">,
+    pub hardware_interface: HardwareInterface,
+    pub optional: Input<Option<usize>, "Control", "value?">,
+    pub required: RequiredInput<usize, "Control", "value?">,
+    pub required2: RequiredInput<Option<usize>, "value1?">,
+}
+
+// #[context]
+#[derive(Default)]
+pub struct MainOutputs {}
 
 impl SplMessageSender {
-    fn new(_context: NewContext) -> anyhow::Result<Self> {
-        Ok(Self)
+    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+        Ok(Self {
+            value: *context.initial_value,
+        })
     }
 
-    fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
-        Ok(MainOutputs::none())
+    pub fn cycle<Interface>(
+        &mut self,
+        context: CycleContext<Interface>,
+    ) -> anyhow::Result<MainOutputs>
+    where
+        Interface: hardware::HardwareInterface,
+    {
+        self.value += *context.step;
+        context.hardware_interface.print_number(42);
+        Ok(MainOutputs {})
     }
 }

@@ -5,21 +5,21 @@ pub struct Counter {
     value: usize,
 }
 
-#[context]
+// #[context]
 pub struct NewContext {
     pub initial_value: Parameter<usize, "message_receiver/initial_value">,
 }
 
-#[context]
+// #[context]
 pub struct CycleContext {
     pub step: Parameter<usize, "message_receiver/step">,
     pub hardware_interface: HardwareInterface,
 }
 
-#[context]
+// #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub value: MainOutput<Option<usize>>,
+    pub value1: MainOutput<Option<usize>>,
 }
 
 impl Counter {
@@ -39,7 +39,7 @@ impl Counter {
         self.value += *context.step;
         context.hardware_interface.print_number(42);
         Ok(MainOutputs {
-            value: Some(self.value).into(),
+            value1: Some(self.value).into(),
         })
     }
 }
