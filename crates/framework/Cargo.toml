@@ -5,14 +5,14 @@ name = "framework"
 version = "0.1.0"
 
 [dependencies]
-hardware = {path = "../hardware"}
-parking_lot = "0.12.1"
-structs = {path = "../structs"}
+hardware = { workspace = true }
+parking_lot = { workspace = true }
+structs = { workspace = true }
 
 [build-dependencies]
-anyhow = "1.0.59"
-build_script_helpers = {path = "../build_script_helpers"}
-convert_case = "0.5.0"
-proc-macro2 = {version = "1.0.39", features = ["span-locations"]}
-quote = "1.0.10"
-source_analyzer = {path = "../source_analyzer"}
+anyhow = { workspace = true }
+build_script_helpers = { workspace = true }
+convert_case = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+source_analyzer = { workspace = true }

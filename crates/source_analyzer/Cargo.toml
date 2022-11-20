@@ -5,10 +5,10 @@ name = "source_analyzer"
 version = "0.1.0"
 
 [dependencies]
-anyhow = "1.0.59"
-convert_case = "0.5.0"
-glob = "0.3.0"
-proc-macro2 = {version = "1.0.39", features = ["span-locations"]}
-quote = "1.0.10"
-syn = {version = "1.0.99", features = ["full", "extra-traits"]}
-topological-sort = "0.2.2"
+anyhow = { workspace = true }
+convert_case = { workspace = true }
+glob = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
+topological-sort = { workspace = true }
