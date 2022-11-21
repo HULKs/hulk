@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 license = "GPL-3.0-only"
-name = "spl_network2"
+name = "spl_network"
 version = "0.1.0"
 
 [dependencies]

@@ -1,29 +1,29 @@
 use context_attribute::context;
-use framework::{HardwareInterface, MainOutput, Input, Parameter, RequiredInput};
+use framework::MainOutput;
+use hardware::HardwareInterface;
 
-pub struct SplMessageSender {
+pub struct Counter {
     value: usize,
 }
 
-// #[context]
+#[context]
 pub struct NewContext {
     pub initial_value: Parameter<usize, "message_receiver/initial_value">,
 }
 
-// #[context]
+#[context]
 pub struct CycleContext {
     pub step: Parameter<usize, "message_receiver/step">,
     pub hardware_interface: HardwareInterface,
-    pub optional: Input<Option<usize>, "Control", "value?">,
-    pub required: RequiredInput<usize, "Control", "value?">,
-    pub required2: RequiredInput<Option<usize>, "value1?">,
 }
 
-// #[context]
+#[context]
 #[derive(Default)]
-pub struct MainOutputs {}
+pub struct MainOutputs {
+    pub value1: MainOutput<Option<usize>>,
+}
 
-impl SplMessageSender {
+impl Counter {
     pub fn new(context: NewContext) -> anyhow::Result<Self> {
         Ok(Self {
             value: *context.initial_value,
@@ -35,10 +35,12 @@ impl SplMessageSender {
         context: CycleContext<Interface>,
     ) -> anyhow::Result<MainOutputs>
     where
-        Interface: hardware::HardwareInterface,
+        Interface: HardwareInterface,
     {
         self.value += *context.step;
         context.hardware_interface.print_number(42);
-        Ok(MainOutputs {})
+        Ok(MainOutputs {
+            value1: Some(self.value).into(),
+        })
     }
 }

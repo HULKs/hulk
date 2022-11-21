@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "crates/audio",
   "crates/build_script_helpers",
   "crates/communication",
   "crates/context_attribute",
@@ -14,7 +15,7 @@ members = [
   "crates/serialize_hierarchy",
   "crates/serialize_hierarchy_derive",
   "crates/source_analyzer",
-  "crates/spl_network2",
+  "crates/spl_network",
   "crates/spl_network_messages",
   "crates/structs",
   "crates/types",
@@ -102,7 +103,7 @@ serialize_hierarchy = { path = "crates/serialize_hierarchy" }
 serialize_hierarchy_derive = { path = "crates/serialize_hierarchy_derive" }
 smallvec = "1.9.0"
 source_analyzer = { path = "crates/source_analyzer" }
-spl_network2 = { path = "crates/spl_network2" }
+spl_network = { path = "crates/spl_network" }
 spl_network_messages = { path = "crates/spl_network_messages" }
 structopt = "0.3.26"
 structs = { path = "crates/structs" }

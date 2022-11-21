@@ -1,17 +1,18 @@
 use context_attribute::context;
-use framework::HardwareInterface;
+use framework::MainOutput;
+use hardware::HardwareInterface;
 
 pub struct MicrophoneRecorder {}
 
-// #[context]
+#[context]
 pub struct NewContext {}
 
-// #[context]
+#[context]
 pub struct CycleContext {
     pub hardware_interface: HardwareInterface,
 }
 
-// #[context]
+#[context]
 #[derive(Default)]
 pub struct MainOutputs {
     buffer: MainOutput<bool>,
@@ -27,7 +28,7 @@ impl MicrophoneRecorder {
         context: CycleContext<Interface>,
     ) -> anyhow::Result<MainOutputs>
     where
-        Interface: hardware::HardwareInterface,
+        Interface: HardwareInterface,
     {
         Ok(MainOutputs::default())
         //hardware_interface

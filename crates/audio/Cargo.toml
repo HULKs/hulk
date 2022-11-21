@@ -5,8 +5,8 @@ name = "audio"
 version = "0.1.0"
 
 [dependencies]
-anyhow = "1.0.59"
-context_attribute = { path = "../context_attribute" }
-framework = { path = "../framework" }
-hardware = { path = "../hardware" }
-types = { path = "../types" }
+anyhow = { workspace = true }
+context_attribute = { workspace = true }
+framework = { workspace = true }
+hardware = { workspace = true }
+types = { workspace = true }
