@@ -320,6 +320,6 @@ fn unwrap_option(data_type: &mut Type) {
                     ),
                 }
             }
-            _ => abort!(data_type, "Execpted Option<T> as data type"),
+            _ => abort!(data_type, "expected Option<T> as data type"),
         };
 }
