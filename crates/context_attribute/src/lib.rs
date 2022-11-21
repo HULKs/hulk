@@ -101,50 +101,43 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                     "HardwareInterface" => {
                         requires_lifetime_parameter = true;
                         requires_hardware_interface_parameter = true;
-                        first_segment.arguments =
-                            PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                                colon2_token: None,
-                                lt_token: Default::default(),
-                                args: Punctuated::from_iter([
-                                    GenericArgument::Lifetime(Lifetime::new(
-                                        "'context",
-                                        Span::call_site(),
-                                    )),
-                                    GenericArgument::Type(Type::Path(TypePath {
-                                        qself: None,
-                                        path: Path {
-                                            leading_colon: None,
-                                            segments: Punctuated::from_iter([PathSegment {
-                                                ident: format_ident!("std"),
-                                                arguments: PathArguments::None,
-                                            },PathSegment {
-                                                ident: format_ident!("sync"),
-                                                arguments: PathArguments::None,
-                                            },PathSegment {
-                                                ident: format_ident!("Arc"),
-                                                arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                                                    colon2_token: None,
-                                                    lt_token: Default::default(),
-                                                    args: Punctuated::from_iter([
-                                                        GenericArgument::Type(Type::Path(TypePath {
-                                                            qself: None,
-                                                            path: Path {
-                                                                leading_colon: None,
-                                                                segments: Punctuated::from_iter([PathSegment {
-                                                                    ident: format_ident!("Interface"),
-                                                                    arguments: PathArguments::None,
-                                                                }]),
-                                                            },
-                                                        }))
-                                                    ]),
-                                                    gt_token: Default::default(),
-                                                }),
-                                            }]),
-                                        },
-                                    })),
-                                ]),
-                                gt_token: Default::default(),
-                            });
+                        field.ty = Type::Reference(TypeReference {
+                            and_token: Default::default(),
+                            lifetime: Some(Lifetime::new("'context", Span::call_site())),
+                            mutability: None,
+                            elem: Box::new(Type::Path(TypePath {
+                                qself: None,
+                                path: Path {
+                                    leading_colon: None,
+                                    segments: Punctuated::from_iter([PathSegment {
+                                        ident: format_ident!("std"),
+                                        arguments: PathArguments::None,
+                                    },PathSegment {
+                                        ident: format_ident!("sync"),
+                                        arguments: PathArguments::None,
+                                    },PathSegment {
+                                        ident: format_ident!("Arc"),
+                                        arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                                            colon2_token: None,
+                                            lt_token: Default::default(),
+                                            args: Punctuated::from_iter([
+                                                GenericArgument::Type(Type::Path(TypePath {
+                                                    qself: None,
+                                                    path: Path {
+                                                        leading_colon: None,
+                                                        segments: Punctuated::from_iter([PathSegment {
+                                                            ident: format_ident!("Interface"),
+                                                            arguments: PathArguments::None,
+                                                        }]),
+                                                    },
+                                                }))
+                                            ]),
+                                            gt_token: Default::default(),
+                                        }),
+                                    }]),
+                                },
+                            })),
+                        });
                     }
                     _ => {
                         abort!(first_segment.ident, "unexpected identifier")
