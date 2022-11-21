@@ -1,11 +1,15 @@
+use std::ops::Range;
+
 use context_attribute::context;
+use framework::{AdditionalOutput, MainOutput};
+use types::Whistle;
 
 pub struct WhistleDetection {}
 
-// #[context]
+#[context]
 pub struct NewContext {}
 
-// #[context]
+#[context]
 pub struct CycleContext {
     // Parameter statt WhistleDetectionConfiguration
     pub background_noise_scaling:
@@ -14,13 +18,12 @@ pub struct CycleContext {
     pub number_of_chunks: Parameter<usize, "audio/whistle_detection/number_of_chunks">,
     pub whistle_scaling: Parameter<f32, "audio/whistle_detection/whistle_scaling">,
 
-    pub samples: RequiredInput<AudioSamples, "samples">, // In Konrads code mit require_some!()
-
+    // pub samples: RequiredInput<AudioSamples, "samples">, // In Konrads code mit require_some!()
     pub audio_spectrums: AdditionalOutput<Vec<Vec<(f32, f32)>>, "audio_spectrums">,
-    pub detection_infos: AdditionalOutput<Vec<DetectionInfo>, "detection_infos">, // DetectionInfos bisher in src/audio/database.rs
+    // pub detection_infos: AdditionalOutput<Vec<DetectionInfo>, "detection_infos">, // DetectionInfos bisher in src/audio/database.rs
 }
 
-// #[context]
+#[context]
 #[derive(Default)]
 pub struct MainOutputs {
     detected_whistle: MainOutput<Whistle>,
