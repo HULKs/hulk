@@ -37,7 +37,6 @@ impl PerceptionDatabases {
         self.first_timestamp_of_temporary_databases
     }
 
-    #[allow(dead_code)]
     pub fn persistent(&self) -> Range<SystemTime, Databases> {
         if let Some(first_timestamp_of_temporary_databases) =
             self.first_timestamp_of_temporary_databases
@@ -49,7 +48,6 @@ impl PerceptionDatabases {
         }
     }
 
-    #[allow(dead_code)]
     pub fn temporary(&self) -> Range<SystemTime, Databases> {
         if let Some(first_timestamp_of_temporary_databases) =
             self.first_timestamp_of_temporary_databases
@@ -62,272 +60,278 @@ impl PerceptionDatabases {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[test]
-//     fn empty_updates_creates_single_persistent_item() {
-//         let mut databases = PerceptionDatabases::default();
-//         assert!(databases.databases.is_empty());
-//         assert_eq!(databases.first_timestamp_of_temporary_databases, None);
+    #[test]
+    fn empty_updates_creates_single_persistent_item() {
+        let mut databases = PerceptionDatabases::default();
+        assert!(databases.databases.is_empty());
+        assert_eq!(databases.first_timestamp_of_temporary_databases, None);
 
-//         assert!(databases.persistent().next().is_none());
-//         assert!(databases.temporary().next().is_none());
+        assert!(databases.persistent().next().is_none());
+        assert!(databases.temporary().next().is_none());
 
-//         let instant = SystemTime::now();
-//         databases.update(
-//             instant,
-//             (vec![], None),
-//             (vec![], None),
-//             (vec![], None),
-//             (vec![], None),
-//         );
+        let instant = SystemTime::now();
+        databases.update(
+            instant,
+            Updates {
+                vision_top: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                vision_bottom: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+            },
+        );
 
-//         assert_eq!(databases.databases.len(), 1);
-//         assert!(databases.databases.contains_key(&instant));
-//         assert!(databases.databases[&instant].vision_top.is_empty());
-//         assert!(databases.databases[&instant].vision_bottom.is_empty());
-//         assert_eq!(databases.first_timestamp_of_temporary_databases, None);
+        assert_eq!(databases.databases.len(), 1);
+        assert!(databases.databases.contains_key(&instant));
+        assert!(databases.databases[&instant].vision_top.is_empty());
+        assert!(databases.databases[&instant].vision_bottom.is_empty());
+        assert_eq!(databases.first_timestamp_of_temporary_databases, None);
 
-//         let persistent_item = databases.persistent().next();
-//         assert!(persistent_item.is_some());
-//         if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
-//             assert_eq!(persistent_item_instant, &instant);
-//             assert!(persistent_item_databases.vision_top.is_empty());
-//             assert!(persistent_item_databases.vision_bottom.is_empty());
-//         }
-//         assert!(databases.temporary().next().is_none());
-//     }
+        let persistent_item = databases.persistent().next();
+        assert!(persistent_item.is_some());
+        if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
+            assert_eq!(persistent_item_instant, &instant);
+            assert!(persistent_item_databases.vision_top.is_empty());
+            assert!(persistent_item_databases.vision_bottom.is_empty());
+        }
+        assert!(databases.temporary().next().is_none());
+    }
 
-//     #[test]
-//     fn vision_top_updates_creates_single_persistent_item() {
-//         let mut databases = PerceptionDatabases::default();
-//         assert!(databases.databases.is_empty());
-//         assert_eq!(databases.first_timestamp_of_temporary_databases, None);
+    #[test]
+    fn vision_top_updates_creates_single_persistent_item() {
+        let mut databases = PerceptionDatabases::default();
+        assert!(databases.databases.is_empty());
+        assert_eq!(databases.first_timestamp_of_temporary_databases, None);
 
-//         assert!(databases.persistent().next().is_none());
-//         assert!(databases.temporary().next().is_none());
+        assert!(databases.persistent().next().is_none());
+        assert!(databases.temporary().next().is_none());
 
-//         let instant = SystemTime::now();
-//         databases.update(
-//             instant,
-//             (vec![], None),
-//             (vec![], None),
-//             (
-//                 vec![Item::<vision::MainOutputs> {
-//                     timestamp: instant,
-//                     data: Default::default(),
-//                 }],
-//                 None,
-//             ),
-//             (vec![], None),
-//         );
+        let instant = SystemTime::now();
+        databases.update(
+            instant,
+            (vec![], None),
+            (vec![], None),
+            (
+                vec![Item::<vision::MainOutputs> {
+                    timestamp: instant,
+                    data: Default::default(),
+                }],
+                None,
+            ),
+            (vec![], None),
+        );
 
-//         assert_eq!(databases.databases.len(), 1);
-//         assert!(databases.databases.contains_key(&instant));
-//         assert_eq!(databases.databases[&instant].vision_top.len(), 1);
-//         assert!(databases.databases[&instant].vision_bottom.is_empty());
-//         assert_eq!(databases.first_timestamp_of_temporary_databases, None);
+        assert_eq!(databases.databases.len(), 1);
+        assert!(databases.databases.contains_key(&instant));
+        assert_eq!(databases.databases[&instant].vision_top.len(), 1);
+        assert!(databases.databases[&instant].vision_bottom.is_empty());
+        assert_eq!(databases.first_timestamp_of_temporary_databases, None);
 
-//         let persistent_item = databases.persistent().next();
-//         assert!(persistent_item.is_some());
-//         if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
-//             assert_eq!(persistent_item_instant, &instant);
-//             assert_eq!(persistent_item_databases.vision_top.len(), 1);
-//             assert!(persistent_item_databases.vision_bottom.is_empty());
-//         }
-//         assert!(databases.temporary().next().is_none());
-//     }
+        let persistent_item = databases.persistent().next();
+        assert!(persistent_item.is_some());
+        if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
+            assert_eq!(persistent_item_instant, &instant);
+            assert_eq!(persistent_item_databases.vision_top.len(), 1);
+            assert!(persistent_item_databases.vision_bottom.is_empty());
+        }
+        assert!(databases.temporary().next().is_none());
+    }
 
-//     #[test]
-//     fn multiple_announcing_updates_keep_items() {
-//         let mut databases = PerceptionDatabases::default();
-//         assert!(databases.databases.is_empty());
-//         assert_eq!(databases.first_timestamp_of_temporary_databases, None);
+    #[test]
+    fn multiple_announcing_updates_keep_items() {
+        let mut databases = PerceptionDatabases::default();
+        assert!(databases.databases.is_empty());
+        assert_eq!(databases.first_timestamp_of_temporary_databases, None);
 
-//         assert!(databases.persistent().next().is_none());
-//         assert!(databases.temporary().next().is_none());
+        assert!(databases.persistent().next().is_none());
+        assert!(databases.temporary().next().is_none());
 
-//         let instant_a = SystemTime::now();
-//         databases.update(
-//             instant_a,
-//             (vec![], None),
-//             (vec![], None),
-//             (vec![], Some(instant_a)),
-//             (vec![], None),
-//         );
+        let instant_a = SystemTime::now();
+        databases.update(
+            instant_a,
+            (vec![], None),
+            (vec![], None),
+            (vec![], Some(instant_a)),
+            (vec![], None),
+        );
 
-//         assert_eq!(databases.databases.len(), 1);
-//         assert!(databases.databases.contains_key(&instant_a));
-//         assert!(databases.databases[&instant_a].vision_top.is_empty());
-//         assert!(databases.databases[&instant_a].vision_bottom.is_empty());
-//         assert_eq!(
-//             databases.first_timestamp_of_temporary_databases,
-//             Some(instant_a)
-//         );
+        assert_eq!(databases.databases.len(), 1);
+        assert!(databases.databases.contains_key(&instant_a));
+        assert!(databases.databases[&instant_a].vision_top.is_empty());
+        assert!(databases.databases[&instant_a].vision_bottom.is_empty());
+        assert_eq!(
+            databases.first_timestamp_of_temporary_databases,
+            Some(instant_a)
+        );
 
-//         assert!(databases.persistent().next().is_none());
-//         let temporary_item = databases.temporary().next();
-//         assert!(temporary_item.is_some());
-//         if let Some((temporary_item_instant, temporary_item_databases)) = temporary_item {
-//             assert_eq!(temporary_item_instant, &instant_a);
-//             assert!(temporary_item_databases.vision_top.is_empty());
-//             assert!(temporary_item_databases.vision_bottom.is_empty());
-//         }
+        assert!(databases.persistent().next().is_none());
+        let temporary_item = databases.temporary().next();
+        assert!(temporary_item.is_some());
+        if let Some((temporary_item_instant, temporary_item_databases)) = temporary_item {
+            assert_eq!(temporary_item_instant, &instant_a);
+            assert!(temporary_item_databases.vision_top.is_empty());
+            assert!(temporary_item_databases.vision_bottom.is_empty());
+        }
 
-//         let instant_b = SystemTime::now();
-//         databases.update(
-//             instant_b,
-//             (vec![], None),
-//             (vec![], Some(instant_a)),
-//             (vec![], Some(instant_b)),
-//             (vec![], None),
-//         );
+        let instant_b = SystemTime::now();
+        databases.update(
+            instant_b,
+            (vec![], None),
+            (vec![], Some(instant_a)),
+            (vec![], Some(instant_b)),
+            (vec![], None),
+        );
 
-//         assert_eq!(databases.databases.len(), 2);
-//         assert!(databases.databases.contains_key(&instant_a));
-//         assert!(databases.databases.contains_key(&instant_b));
-//         assert!(databases.databases[&instant_a].vision_top.is_empty());
-//         assert!(databases.databases[&instant_a].vision_bottom.is_empty());
-//         assert!(databases.databases[&instant_b].vision_top.is_empty());
-//         assert!(databases.databases[&instant_b].vision_bottom.is_empty());
-//         assert_eq!(
-//             databases.first_timestamp_of_temporary_databases,
-//             Some(instant_a)
-//         );
+        assert_eq!(databases.databases.len(), 2);
+        assert!(databases.databases.contains_key(&instant_a));
+        assert!(databases.databases.contains_key(&instant_b));
+        assert!(databases.databases[&instant_a].vision_top.is_empty());
+        assert!(databases.databases[&instant_a].vision_bottom.is_empty());
+        assert!(databases.databases[&instant_b].vision_top.is_empty());
+        assert!(databases.databases[&instant_b].vision_bottom.is_empty());
+        assert_eq!(
+            databases.first_timestamp_of_temporary_databases,
+            Some(instant_a)
+        );
 
-//         assert!(databases.persistent().next().is_none());
-//         let mut temporary_iterator = databases.temporary();
-//         let temporary_item = temporary_iterator.next();
-//         assert!(temporary_item.is_some());
-//         if let Some((temporary_item_instant, temporary_item_databases)) = temporary_item {
-//             assert_eq!(temporary_item_instant, &instant_a);
-//             assert!(temporary_item_databases.vision_top.is_empty());
-//             assert!(temporary_item_databases.vision_bottom.is_empty());
-//         }
-//         let temporary_item = temporary_iterator.next();
-//         assert!(temporary_item.is_some());
-//         if let Some((temporary_item_instant, temporary_item_databases)) = temporary_item {
-//             assert_eq!(temporary_item_instant, &instant_b);
-//             assert!(temporary_item_databases.vision_top.is_empty());
-//             assert!(temporary_item_databases.vision_bottom.is_empty());
-//         }
+        assert!(databases.persistent().next().is_none());
+        let mut temporary_iterator = databases.temporary();
+        let temporary_item = temporary_iterator.next();
+        assert!(temporary_item.is_some());
+        if let Some((temporary_item_instant, temporary_item_databases)) = temporary_item {
+            assert_eq!(temporary_item_instant, &instant_a);
+            assert!(temporary_item_databases.vision_top.is_empty());
+            assert!(temporary_item_databases.vision_bottom.is_empty());
+        }
+        let temporary_item = temporary_iterator.next();
+        assert!(temporary_item.is_some());
+        if let Some((temporary_item_instant, temporary_item_databases)) = temporary_item {
+            assert_eq!(temporary_item_instant, &instant_b);
+            assert!(temporary_item_databases.vision_top.is_empty());
+            assert!(temporary_item_databases.vision_bottom.is_empty());
+        }
 
-//         let instant_c = SystemTime::now();
-//         databases.update(
-//             instant_c,
-//             (vec![], None),
-//             (vec![], None),
-//             (vec![], None),
-//             (vec![], Some(instant_b)),
-//         );
+        let instant_c = SystemTime::now();
+        databases.update(
+            instant_c,
+            (vec![], None),
+            (vec![], None),
+            (vec![], None),
+            (vec![], Some(instant_b)),
+        );
 
-//         assert_eq!(databases.databases.len(), 3);
-//         assert!(databases.databases.contains_key(&instant_a));
-//         assert!(databases.databases.contains_key(&instant_b));
-//         assert!(databases.databases.contains_key(&instant_c));
-//         assert!(databases.databases[&instant_a].vision_top.is_empty());
-//         assert!(databases.databases[&instant_a].vision_bottom.is_empty());
-//         assert!(databases.databases[&instant_b].vision_top.is_empty());
-//         assert!(databases.databases[&instant_b].vision_bottom.is_empty());
-//         assert!(databases.databases[&instant_c].vision_top.is_empty());
-//         assert!(databases.databases[&instant_c].vision_bottom.is_empty());
-//         assert_eq!(
-//             databases.first_timestamp_of_temporary_databases,
-//             Some(instant_b)
-//         );
+        assert_eq!(databases.databases.len(), 3);
+        assert!(databases.databases.contains_key(&instant_a));
+        assert!(databases.databases.contains_key(&instant_b));
+        assert!(databases.databases.contains_key(&instant_c));
+        assert!(databases.databases[&instant_a].vision_top.is_empty());
+        assert!(databases.databases[&instant_a].vision_bottom.is_empty());
+        assert!(databases.databases[&instant_b].vision_top.is_empty());
+        assert!(databases.databases[&instant_b].vision_bottom.is_empty());
+        assert!(databases.databases[&instant_c].vision_top.is_empty());
+        assert!(databases.databases[&instant_c].vision_bottom.is_empty());
+        assert_eq!(
+            databases.first_timestamp_of_temporary_databases,
+            Some(instant_b)
+        );
 
-//         let persistent_item = databases.persistent().next();
-//         assert!(persistent_item.is_some());
-//         if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
-//             assert_eq!(persistent_item_instant, &instant_a);
-//             assert!(persistent_item_databases.vision_top.is_empty());
-//             assert!(persistent_item_databases.vision_bottom.is_empty());
-//         }
-//         let mut temporary_iterator = databases.temporary();
-//         let temporary_item = temporary_iterator.next();
-//         assert!(temporary_item.is_some());
-//         if let Some((temporary_item_instant, temporary_item_databases)) = temporary_item {
-//             assert_eq!(temporary_item_instant, &instant_b);
-//             assert!(temporary_item_databases.vision_top.is_empty());
-//             assert!(temporary_item_databases.vision_bottom.is_empty());
-//         }
-//         let temporary_item = temporary_iterator.next();
-//         assert!(temporary_item.is_some());
-//         if let Some((temporary_item_instant, temporary_item_databases)) = temporary_item {
-//             assert_eq!(temporary_item_instant, &instant_c);
-//             assert!(temporary_item_databases.vision_top.is_empty());
-//             assert!(temporary_item_databases.vision_bottom.is_empty());
-//         }
+        let persistent_item = databases.persistent().next();
+        assert!(persistent_item.is_some());
+        if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
+            assert_eq!(persistent_item_instant, &instant_a);
+            assert!(persistent_item_databases.vision_top.is_empty());
+            assert!(persistent_item_databases.vision_bottom.is_empty());
+        }
+        let mut temporary_iterator = databases.temporary();
+        let temporary_item = temporary_iterator.next();
+        assert!(temporary_item.is_some());
+        if let Some((temporary_item_instant, temporary_item_databases)) = temporary_item {
+            assert_eq!(temporary_item_instant, &instant_b);
+            assert!(temporary_item_databases.vision_top.is_empty());
+            assert!(temporary_item_databases.vision_bottom.is_empty());
+        }
+        let temporary_item = temporary_iterator.next();
+        assert!(temporary_item.is_some());
+        if let Some((temporary_item_instant, temporary_item_databases)) = temporary_item {
+            assert_eq!(temporary_item_instant, &instant_c);
+            assert!(temporary_item_databases.vision_top.is_empty());
+            assert!(temporary_item_databases.vision_bottom.is_empty());
+        }
 
-//         let instant_d = SystemTime::now();
-//         databases.update(
-//             instant_d,
-//             (vec![], None),
-//             (vec![], None),
-//             (vec![], None),
-//             (vec![], None),
-//         );
+        let instant_d = SystemTime::now();
+        databases.update(
+            instant_d,
+            (vec![], None),
+            (vec![], None),
+            (vec![], None),
+            (vec![], None),
+        );
 
-//         assert_eq!(databases.databases.len(), 3);
-//         assert!(databases.databases.contains_key(&instant_b));
-//         assert!(databases.databases.contains_key(&instant_c));
-//         assert!(databases.databases.contains_key(&instant_d));
-//         assert!(databases.databases[&instant_b].vision_top.is_empty());
-//         assert!(databases.databases[&instant_b].vision_bottom.is_empty());
-//         assert!(databases.databases[&instant_c].vision_top.is_empty());
-//         assert!(databases.databases[&instant_c].vision_bottom.is_empty());
-//         assert!(databases.databases[&instant_d].vision_top.is_empty());
-//         assert!(databases.databases[&instant_d].vision_bottom.is_empty());
-//         assert_eq!(databases.first_timestamp_of_temporary_databases, None);
+        assert_eq!(databases.databases.len(), 3);
+        assert!(databases.databases.contains_key(&instant_b));
+        assert!(databases.databases.contains_key(&instant_c));
+        assert!(databases.databases.contains_key(&instant_d));
+        assert!(databases.databases[&instant_b].vision_top.is_empty());
+        assert!(databases.databases[&instant_b].vision_bottom.is_empty());
+        assert!(databases.databases[&instant_c].vision_top.is_empty());
+        assert!(databases.databases[&instant_c].vision_bottom.is_empty());
+        assert!(databases.databases[&instant_d].vision_top.is_empty());
+        assert!(databases.databases[&instant_d].vision_bottom.is_empty());
+        assert_eq!(databases.first_timestamp_of_temporary_databases, None);
 
-//         let mut persistent_iterator = databases.persistent();
-//         let persistent_item = persistent_iterator.next();
-//         assert!(persistent_item.is_some());
-//         if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
-//             assert_eq!(persistent_item_instant, &instant_b);
-//             assert!(persistent_item_databases.vision_top.is_empty());
-//             assert!(persistent_item_databases.vision_bottom.is_empty());
-//         }
-//         let persistent_item = persistent_iterator.next();
-//         assert!(persistent_item.is_some());
-//         if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
-//             assert_eq!(persistent_item_instant, &instant_c);
-//             assert!(persistent_item_databases.vision_top.is_empty());
-//             assert!(persistent_item_databases.vision_bottom.is_empty());
-//         }
-//         let persistent_item = persistent_iterator.next();
-//         assert!(persistent_item.is_some());
-//         if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
-//             assert_eq!(persistent_item_instant, &instant_d);
-//             assert!(persistent_item_databases.vision_top.is_empty());
-//             assert!(persistent_item_databases.vision_bottom.is_empty());
-//         }
-//         assert!(databases.temporary().next().is_none());
+        let mut persistent_iterator = databases.persistent();
+        let persistent_item = persistent_iterator.next();
+        assert!(persistent_item.is_some());
+        if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
+            assert_eq!(persistent_item_instant, &instant_b);
+            assert!(persistent_item_databases.vision_top.is_empty());
+            assert!(persistent_item_databases.vision_bottom.is_empty());
+        }
+        let persistent_item = persistent_iterator.next();
+        assert!(persistent_item.is_some());
+        if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
+            assert_eq!(persistent_item_instant, &instant_c);
+            assert!(persistent_item_databases.vision_top.is_empty());
+            assert!(persistent_item_databases.vision_bottom.is_empty());
+        }
+        let persistent_item = persistent_iterator.next();
+        assert!(persistent_item.is_some());
+        if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
+            assert_eq!(persistent_item_instant, &instant_d);
+            assert!(persistent_item_databases.vision_top.is_empty());
+            assert!(persistent_item_databases.vision_bottom.is_empty());
+        }
+        assert!(databases.temporary().next().is_none());
 
-//         let instant_e = SystemTime::now();
-//         databases.update(
-//             instant_e,
-//             (vec![], None),
-//             (vec![], None),
-//             (vec![], None),
-//             (vec![], None),
-//         );
+        let instant_e = SystemTime::now();
+        databases.update(
+            instant_e,
+            (vec![], None),
+            (vec![], None),
+            (vec![], None),
+            (vec![], None),
+        );
 
-//         assert_eq!(databases.databases.len(), 1);
-//         assert!(databases.databases.contains_key(&instant_e));
-//         assert!(databases.databases[&instant_e].vision_top.is_empty());
-//         assert!(databases.databases[&instant_e].vision_bottom.is_empty());
-//         assert_eq!(databases.first_timestamp_of_temporary_databases, None);
+        assert_eq!(databases.databases.len(), 1);
+        assert!(databases.databases.contains_key(&instant_e));
+        assert!(databases.databases[&instant_e].vision_top.is_empty());
+        assert!(databases.databases[&instant_e].vision_bottom.is_empty());
+        assert_eq!(databases.first_timestamp_of_temporary_databases, None);
 
-//         let persistent_item = databases.persistent().next();
-//         assert!(persistent_item.is_some());
-//         if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
-//             assert_eq!(persistent_item_instant, &instant_e);
-//             assert!(persistent_item_databases.vision_top.is_empty());
-//             assert!(persistent_item_databases.vision_bottom.is_empty());
-//         }
-//         assert!(databases.temporary().next().is_none());
-//     }
-// }
+        let persistent_item = databases.persistent().next();
+        assert!(persistent_item.is_some());
+        if let Some((persistent_item_instant, persistent_item_databases)) = persistent_item {
+            assert_eq!(persistent_item_instant, &instant_e);
+            assert!(persistent_item_databases.vision_top.is_empty());
+            assert!(persistent_item_databases.vision_bottom.is_empty());
+        }
+        assert!(databases.temporary().next().is_none());
+    }
+}
