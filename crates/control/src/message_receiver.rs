@@ -1,21 +1,22 @@
 use std::time::SystemTime;
 
 use context_attribute::context;
-use framework::{AdditionalOutput, HardwareInterface, HistoricInput, MainOutput, PerceptionInput};
+use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
+use hardware::HardwareInterface;
 
 // TODO: dieses Modul weg, weil es nur zum Testen war?
 pub struct MessageReceiver {
     value: usize,
 }
 
-// #[context]
+#[context]
 pub struct NewContext {
     pub hardware_interface: HardwareInterface,
     pub initial_value: Parameter<usize, "message_receiver/initial_value">,
     pub value: PersistentState<usize, "message_receiver/value">,
 }
 
-// #[context]
+#[context]
 pub struct CycleContext {
     pub step: Parameter<usize, "message_receiver/step">,
     pub test_a: Parameter<usize, "a/a/a">,
@@ -25,23 +26,22 @@ pub struct CycleContext {
     pub test_e: Parameter<Option<usize>, "e/a?/a?">,
     pub test_f: Parameter<Option<usize>, "f/a/a?">,
     pub hardware_interface: HardwareInterface,
-    // TODO: wieder einkommentieren
-    // pub test: PerceptionInput<Option<usize>, "SplNetwork", "value">,
-    pub test2: HistoricInput<Option<usize>, "value">,
+    pub test: PerceptionInput<Option<usize>, "SplNetwork", "value1?">,
+    pub test2: HistoricInput<Option<usize>, "value?">,
     pub value: PersistentState<usize, "message_receiver/value">,
     pub output: AdditionalOutput<usize, "message_receiver/output">,
 }
 
-// #[context]
+#[context]
 #[derive(Default)]
 pub struct MainOutputs {
     pub value: MainOutput<Option<usize>>,
 }
 
 impl MessageReceiver {
-    pub fn new<Interface>(mut context: NewContext<Interface>) -> anyhow::Result<Self>
+    pub fn new<Interface>(context: NewContext<Interface>) -> anyhow::Result<Self>
     where
-        Interface: hardware::HardwareInterface,
+        Interface: HardwareInterface,
     {
         context.hardware_interface.print_number(42);
         *context.value = 42;
@@ -55,14 +55,14 @@ impl MessageReceiver {
         mut context: CycleContext<Interface>,
     ) -> anyhow::Result<MainOutputs>
     where
-        Interface: hardware::HardwareInterface,
+        Interface: HardwareInterface,
     {
         self.value += *context.step;
         *context.value = 1337;
         context.hardware_interface.print_number(42);
         context.output.fill_on_subscription(|| 42);
         let _foo = context.test.persistent.is_empty();
-        let _foo = context.test2.get(SystemTime::now());
+        let _foo = context.test2.get(&SystemTime::now());
         // context.optional;
         Ok(MainOutputs {
             value: Some(self.value).into(),

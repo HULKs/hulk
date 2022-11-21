@@ -12,7 +12,7 @@ pub mod kinematics_provider;
 pub mod led_status;
 pub mod limb_projector;
 pub mod localization;
-// pub mod message_receiver;
+pub mod message_receiver;
 pub mod motion;
 pub mod obstacle_filter;
 pub mod odometry;

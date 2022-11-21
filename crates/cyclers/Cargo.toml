@@ -6,9 +6,11 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = { workspace = true }
+audio = { workspace = true }
 control = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }
+spl_network = { workspace = true }
 structs = { workspace = true }
 tokio-util = { workspace = true }
 vision = { workspace = true }

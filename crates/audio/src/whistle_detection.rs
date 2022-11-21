@@ -26,7 +26,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    detected_whistle: MainOutput<Whistle>,
+    pub detected_whistle: MainOutput<Whistle>,
 }
 
 impl WhistleDetection {

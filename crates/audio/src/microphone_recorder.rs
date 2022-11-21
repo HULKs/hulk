@@ -15,7 +15,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    buffer: MainOutput<bool>,
+    pub buffer: MainOutput<bool>,
 }
 
 impl MicrophoneRecorder {
