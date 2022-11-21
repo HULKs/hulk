@@ -1,6 +1,6 @@
 use context_attribute::context;
-use framework::MainOutput;
-use types::{FilteredWhistle, SensorData};
+use framework::{MainOutput, PerceptionInput};
+use types::{FilteredWhistle, SensorData, Whistle};
 
 pub struct WhistleFilter {}
 
@@ -16,8 +16,7 @@ pub struct CycleContext {
 
     pub buffer_length: Parameter<usize, "control/whistle_filter/buffer_length">,
     pub minimum_detections: Parameter<usize, "control/whistle_filter/minimum_detections">,
-    // TODO: wieder einkommentieren
-    // pub detected_whistle: PerceptionInput<Whistle, "Audio", "detected_whistle">,
+    pub detected_whistle: PerceptionInput<Whistle, "Audio", "detected_whistle">,
 }
 
 #[context]

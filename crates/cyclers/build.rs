@@ -877,9 +877,7 @@ impl Module<'_> {
                     bail!("Unexpected additional output field `{name}` in new context")
                 }
                 Field::HardwareInterface { name } => Ok(quote! {
-                    #name: hardware::HardwareInterface::from(
-                        &hardware_interface,
-                    )
+                    #name: &hardware_interface
                 }),
                 Field::HistoricInput { name, .. } => {
                     bail!("Unexpected historic input field `{name}` in new context")
@@ -1018,9 +1016,7 @@ impl Module<'_> {
                     })
                 }
                 Field::HardwareInterface { name } => Ok(quote! {
-                    #name: hardware::HardwareInterface::from(
-                        &self.hardware_interface,
-                    )
+                    #name: &self.hardware_interface
                 }),
                 Field::HistoricInput { name, path, .. } => {
                     let now_accessor = path_to_accessor_token_stream(

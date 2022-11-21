@@ -37,6 +37,7 @@ exclude = [
 alsa = { version = "0.6.0" }
 anyhow = "1.0.65"
 approx = "0.5.1"
+audio = { path = "crates/audio" }
 awaitgroup = "0.6.0"
 base64 = "0.13.0"
 bat = { version = "0.21.0", default-features = false, features = ["regex-onig", "paging"] }

@@ -14,8 +14,8 @@ pub struct NewContext {
 pub struct CycleContext {
     pub step: Parameter<usize, "message_receiver/step">,
     pub hardware_interface: HardwareInterface,
-    pub optional: Input<Option<usize>, "Control", "value?">,
-    pub required: RequiredInput<Option<usize>, "Control", "value?">,
+    // pub optional: Input<Option<usize>, "Control", "value?">,
+    // pub required: RequiredInput<Option<usize>, "Control", "value?">,
     pub required2: RequiredInput<Option<usize>, "value1?">,
 }
 

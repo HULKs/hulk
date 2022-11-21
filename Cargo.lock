@@ -972,6 +972,7 @@ name = "cyclers"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "audio",
  "build_script_helpers",
  "control",
  "convert_case",
@@ -980,6 +981,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "source_analyzer",
+ "spl_network",
  "structs",
  "tokio-util",
  "vision",

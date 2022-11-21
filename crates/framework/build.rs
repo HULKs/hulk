@@ -2,9 +2,17 @@ use anyhow::Context;
 use build_script_helpers::write_token_stream;
 use convert_case::{Case, Casing};
 use quote::{format_ident, quote};
-use source_analyzer::{CyclerInstances, CyclerType, CyclerTypes};
+use source_analyzer::{
+    cycler_crates_from_crates_directory, CyclerInstances, CyclerType, CyclerTypes,
+};
 
 fn main() -> anyhow::Result<()> {
+    for crate_directory in cycler_crates_from_crates_directory("..")
+        .context("Failed to get cycler crate directories from crates directory")?
+    {
+        println!("cargo:rerun-if-changed={}", crate_directory.display());
+    }
+
     let cycler_instances = CyclerInstances::try_from_crates_directory("..")
         .context("Failed to get cycler instances from crates directory")?;
     let cycler_types = CyclerTypes::try_from_crates_directory("..")
