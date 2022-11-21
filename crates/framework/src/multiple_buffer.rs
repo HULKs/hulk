@@ -175,7 +175,7 @@ impl<Slot> Reader<Slot> {
     }
 }
 
-pub fn n_tuple_buffer_with_slots<Slots>(slots: Slots) -> (Writer<Slots::Item>, Reader<Slots::Item>)
+pub fn multiple_buffer_with_slots<Slots>(slots: Slots) -> (Writer<Slots::Item>, Reader<Slots::Item>)
 where
     Slots: IntoIterator,
 {
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn two_slots_sequential_reader_writer() {
-        let (writer, reader) = n_tuple_buffer_with_slots([0, 1, 2]);
+        let (writer, reader) = multiple_buffer_with_slots([0, 1, 2]);
         {
             let mut slot = writer.next();
             *slot = 42;
@@ -231,7 +231,7 @@ mod tests {
 
     #[test]
     fn writer_overwrites_non_reader_slots() {
-        let (writer, reader) = n_tuple_buffer_with_slots([0, 1, 2]);
+        let (writer, reader) = multiple_buffer_with_slots([0, 1, 2]);
         {
             let mut slot = writer.next();
             *slot = 42;
@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn readers_share_same_slot() {
-        let (_writer, reader) = n_tuple_buffer_with_slots([0, 1, 2]);
+        let (_writer, reader) = multiple_buffer_with_slots([0, 1, 2]);
         let reader2 = reader.clone();
         let reader_slot = reader.next();
         let reader2_slot = reader2.next();

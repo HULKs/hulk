@@ -184,7 +184,7 @@ fn generate_run(cyclers: &[Cycler]) -> TokenStream {
             2 + 1, /* 2 writer slots + 1 reader slot for communication */
         )
         .collect();
-    let n_tuple_buffer_initializers: Vec<_> = cyclers
+    let multiple_buffer_initializers: Vec<_> = cyclers
         .iter()
         .map(|cycler| {
             cycler.get_cycler_instances().modules_to_instances[cycler.get_cycler_module_name()]
@@ -198,7 +198,7 @@ fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                         Cycler::RealTime { .. } => &default_slot_initializers_for_all_cyclers,
                     };
                     quote! {
-                        let (#writer_identifier, #reader_identifier) = framework::n_tuple_buffer_with_slots([
+                        let (#writer_identifier, #reader_identifier) = framework::multiple_buffer_with_slots([
                             #(#slot_initializers,)*
                         ]);
                     }
@@ -282,10 +282,10 @@ fn generate_run(cyclers: &[Cycler]) -> TokenStream {
         {
             use anyhow::Context;
 
-            let (configuration_writer, configuration_reader) = framework::n_tuple_buffer_with_slots([
+            let (configuration_writer, configuration_reader) = framework::multiple_buffer_with_slots([
                 #(#configuration_slot_initializers_for_all_cyclers,)*
             ]);
-            #(#n_tuple_buffer_initializers)*
+            #(#multiple_buffer_initializers)*
             #(#future_queue_initializers)*
 
             #(#cycler_initializations)*
