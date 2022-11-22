@@ -1,6 +1,7 @@
-use std::{collections::BTreeMap, env::var, fs::File, io::Write, path::PathBuf, process::Command};
+use std::collections::BTreeMap;
 
 use anyhow::{anyhow, bail, Context};
+use build_script_helpers::write_token_stream;
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -75,24 +76,8 @@ fn main() -> anyhow::Result<()> {
         #(#cyclers)*
     };
 
-    let file_path =
-        PathBuf::from(var("OUT_DIR").context("Failed to get environment variable OUT_DIR")?)
-            .join("structs.rs");
-    {
-        // TODO: use build_script_helpers?
-        let mut file = File::create(&file_path)
-            .with_context(|| anyhow!("Failed create file {file_path:?}"))?;
-        write!(file, "{}", token_stream)
-            .with_context(|| anyhow!("Failed to write to file {file_path:?}"))?;
-    }
-
-    let status = Command::new("rustfmt")
-        .arg(file_path)
-        .status()
-        .context("Failed to execute rustfmt")?;
-    if !status.success() {
-        bail!("rustfmt did not exit with success");
-    }
+    write_token_stream("structs.rs", token_stream)
+        .context("Failed to write perception databases structs")?;
 
     Ok(())
 }
