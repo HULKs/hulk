@@ -84,13 +84,12 @@ impl Cycler<'_> {
         }
     }
 
-    // TODO: remove?
-    // fn get_cycler_types(&self) -> &CyclerTypes {
-    //     match self {
-    //         Cycler::Perception { cycler_types, .. } => cycler_types,
-    //         Cycler::RealTime { cycler_types, .. } => cycler_types,
-    //     }
-    // }
+    fn get_cycler_types(&self) -> &CyclerTypes {
+        match self {
+            Cycler::Perception { cycler_types, .. } => cycler_types,
+            Cycler::RealTime { cycler_types, .. } => cycler_types,
+        }
+    }
 
     pub fn get_cycler_module_name(&self) -> &str {
         match self {
@@ -145,10 +144,9 @@ impl Cycler<'_> {
     pub fn get_other_cyclers(&self) -> Vec<OtherCycler> {
         match self {
             Cycler::Perception {
-                cycler_instances,
-                cycler_types,
-                ..
-            } => cycler_types
+                cycler_instances, ..
+            } => self
+                .get_cycler_types()
                 .cycler_modules_to_cycler_types
                 .iter()
                 .filter_map(
@@ -167,10 +165,9 @@ impl Cycler<'_> {
                 .flatten()
                 .collect(),
             Cycler::RealTime {
-                cycler_instances,
-                cycler_types,
-                ..
-            } => cycler_types
+                cycler_instances, ..
+            } => self
+                .get_cycler_types()
                 .cycler_modules_to_cycler_types
                 .iter()
                 .filter_map(
