@@ -77,6 +77,14 @@ mod tests {
         databases.update(
             instant,
             Updates {
+                audio: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                spl_network: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
                 vision_top: Update {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
@@ -116,16 +124,27 @@ mod tests {
         let instant = SystemTime::now();
         databases.update(
             instant,
-            (vec![], None),
-            (vec![], None),
-            (
-                vec![Item::<vision::MainOutputs> {
-                    timestamp: instant,
-                    data: Default::default(),
-                }],
-                None,
-            ),
-            (vec![], None),
+            Updates {
+                audio: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                spl_network: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                vision_bottom: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                vision_top: Update {
+                    items: vec![Item::<structs::vision::MainOutputs> {
+                        timestamp: instant,
+                        data: Default::default(),
+                    }],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+            },
         );
 
         assert_eq!(databases.databases.len(), 1);
@@ -156,10 +175,24 @@ mod tests {
         let instant_a = SystemTime::now();
         databases.update(
             instant_a,
-            (vec![], None),
-            (vec![], None),
-            (vec![], Some(instant_a)),
-            (vec![], None),
+            Updates {
+                audio: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                spl_network: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                vision_bottom: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                vision_top: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: Some(instant_a),
+                },
+            },
         );
 
         assert_eq!(databases.databases.len(), 1);
@@ -183,10 +216,24 @@ mod tests {
         let instant_b = SystemTime::now();
         databases.update(
             instant_b,
-            (vec![], None),
-            (vec![], Some(instant_a)),
-            (vec![], Some(instant_b)),
-            (vec![], None),
+            Updates {
+                audio: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                spl_network: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: Some(instant_a),
+                },
+                vision_bottom: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                vision_top: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: Some(instant_b),
+                },
+            },
         );
 
         assert_eq!(databases.databases.len(), 2);
@@ -221,10 +268,24 @@ mod tests {
         let instant_c = SystemTime::now();
         databases.update(
             instant_c,
-            (vec![], None),
-            (vec![], None),
-            (vec![], None),
-            (vec![], Some(instant_b)),
+            Updates {
+                audio: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                spl_network: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                vision_bottom: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: Some(instant_b),
+                },
+                vision_top: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+            },
         );
 
         assert_eq!(databases.databases.len(), 3);
@@ -268,10 +329,24 @@ mod tests {
         let instant_d = SystemTime::now();
         databases.update(
             instant_d,
-            (vec![], None),
-            (vec![], None),
-            (vec![], None),
-            (vec![], None),
+            Updates {
+                audio: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                spl_network: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                vision_bottom: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                vision_top: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+            },
         );
 
         assert_eq!(databases.databases.len(), 3);
@@ -313,10 +388,24 @@ mod tests {
         let instant_e = SystemTime::now();
         databases.update(
             instant_e,
-            (vec![], None),
-            (vec![], None),
-            (vec![], None),
-            (vec![], None),
+            Updates {
+                audio: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                spl_network: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                vision_bottom: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+                vision_top: Update {
+                    items: vec![],
+                    first_timestamp_of_non_finalized_database: None,
+                },
+            },
         );
 
         assert_eq!(databases.databases.len(), 1);
