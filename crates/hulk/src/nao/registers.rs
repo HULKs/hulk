@@ -4,7 +4,7 @@ use anyhow::Context;
 use log::trace;
 use v4l::Device;
 
-use crate::hardware::nao::nao_camera::UVC_EXTENSION_UNIT;
+use super::nao_camera::UVC_EXTENSION_UNIT;
 
 const REGISTER_EXTENSION_UNIT_SELECTOR: u8 = 0x0e;
 const REGISTER_READ: u8 = 0x00;

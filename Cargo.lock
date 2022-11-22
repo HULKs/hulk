@@ -1837,6 +1837,11 @@ dependencies = [
 [[package]]
 name = "hardware"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "parking_lot",
+ "types",
+]
 
 [[package]]
 name = "hashbrown"
@@ -1935,8 +1940,14 @@ dependencies = [
  "ctrlc",
  "cyclers",
  "hardware",
+ "i2cdev",
+ "log",
+ "nalgebra",
+ "parking_lot",
+ "rand",
  "structs",
  "tokio-util",
+ "types",
  "uvcvideo",
  "v4l",
  "webots",
@@ -1947,6 +1958,18 @@ name = "humantime"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
+
+[[package]]
+name = "i2cdev"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8fe61341e9ce588ede54fd131bf0df63eed3c6e45fcc7fa0e548ea176f39358"
+dependencies = [
+ "bitflags",
+ "byteorder",
+ "libc",
+ "nix 0.23.1",
+]
 
 [[package]]
 name = "iana-time-zone"

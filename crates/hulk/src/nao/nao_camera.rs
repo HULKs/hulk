@@ -21,7 +21,7 @@ use v4l::{
     Device, Format, FourCC, Fraction,
 };
 
-use crate::hardware::nao::{
+use super::{
     registers::write_register,
     v4l2::{apply_v4l2_settings, ExposureMode, FocusMode, HueMode, V4L2Controls, WhiteBalanceMode},
 };

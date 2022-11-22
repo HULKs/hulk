@@ -9,11 +9,12 @@ use alsa::{
 };
 use anyhow::Context;
 use parking_lot::Mutex;
+use tokio_util::sync::CancellationToken;
 use types::{CameraPosition, CycleInfo, Image422, Joints, Leds, SensorData};
 
-use crate::hardware::{
-    interface::{AUDIO_SAMPLE_RATE, NUMBER_OF_AUDIO_CHANNELS, NUMBER_OF_AUDIO_SAMPLES},
-    HardwareIds, HardwareInterface,
+use hardware::{
+    HardwareIds, HardwareInterface, AUDIO_SAMPLE_RATE, NUMBER_OF_AUDIO_CHANNELS,
+    NUMBER_OF_AUDIO_SAMPLES,
 };
 
 use super::{hula_interface::HulaInterface, nao_camera::NaoCamera};
@@ -30,7 +31,7 @@ pub struct NaoInterface {
 }
 
 impl NaoInterface {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new(_keep_running: CancellationToken) -> anyhow::Result<Self> {
         let interface = HulaInterface::new()?;
         let ids = interface.get_ids();
         let audio_device = Self::new_audio_device().context("Failed to initialize audio device")?;
@@ -84,6 +85,10 @@ impl NaoInterface {
 }
 
 impl HardwareInterface for NaoInterface {
+    fn get_now(&self) -> SystemTime {
+        SystemTime::now()
+    }
+
     fn get_ids(&self) -> HardwareIds {
         self.ids.clone()
     }

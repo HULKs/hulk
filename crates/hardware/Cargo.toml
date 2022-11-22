@@ -3,3 +3,8 @@ edition = "2021"
 license = "GPL-3.0-only"
 name = "hardware"
 version = "0.1.0"
+
+[dependencies]
+anyhow = { workspace = true }
+parking_lot = { workspace = true }
+types = { workspace = true }

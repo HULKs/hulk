@@ -7,7 +7,7 @@ use std::{
 use anyhow::Context;
 use types::{CycleInfo, Joints, Leds, SensorData};
 
-use crate::hardware::HardwareIds;
+use hardware::HardwareIds;
 
 use super::hula::{read_from_hula, write_to_hula, ControlStorage};
 

@@ -13,10 +13,7 @@ use tokio_util::sync::CancellationToken;
 use types::{CameraPosition, CycleInfo, Image422, Joints, Leds, SensorData};
 use webots::Robot;
 
-use crate::hardware::{
-    interface::{HardwareIds, NUMBER_OF_AUDIO_CHANNELS, NUMBER_OF_AUDIO_SAMPLES},
-    HardwareInterface,
-};
+use hardware::{HardwareIds, HardwareInterface, NUMBER_OF_AUDIO_CHANNELS, NUMBER_OF_AUDIO_SAMPLES};
 
 use super::{
     camera::Camera, force_sensitive_resistor_devices::ForceSensitiveResistorDevices,
@@ -122,6 +119,10 @@ impl WebotsInterface {
 }
 
 impl HardwareInterface for WebotsInterface {
+    fn get_now(&self) -> SystemTime {
+        SystemTime::now()
+    }
+
     fn get_ids(&self) -> HardwareIds {
         let name = from_utf8(Robot::get_name()).expect("Robot name must be valid UTF-8");
         HardwareIds {

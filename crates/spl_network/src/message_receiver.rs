@@ -38,7 +38,7 @@ impl Counter {
         Interface: HardwareInterface,
     {
         self.value += *context.step;
-        context.hardware_interface.print_number(42);
+        // context.hardware_interface.print_number(42);
         Ok(MainOutputs {
             value1: Some(self.value).into(),
         })

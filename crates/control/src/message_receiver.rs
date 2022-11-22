@@ -43,7 +43,7 @@ impl MessageReceiver {
     where
         Interface: HardwareInterface,
     {
-        context.hardware_interface.print_number(42);
+        // context.hardware_interface.print_number(42);
         *context.value = 42;
         Ok(Self {
             value: *context.initial_value,
@@ -59,7 +59,7 @@ impl MessageReceiver {
     {
         self.value += *context.step;
         *context.value = 1337;
-        context.hardware_interface.print_number(42);
+        // context.hardware_interface.print_number(42);
         context.output.fill_on_subscription(|| 42);
         let _foo = context.test.persistent.is_empty();
         let _foo = context.test2.get(&SystemTime::now());
