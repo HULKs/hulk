@@ -3538,6 +3538,7 @@ name = "structs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "build_script_helpers",
  "convert_case",
  "filtering",
  "nalgebra",
