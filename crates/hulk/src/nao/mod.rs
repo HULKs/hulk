@@ -5,4 +5,4 @@ mod nao_interface;
 mod registers;
 mod v4l2;
 
-pub use nao_interface::NaoInterface;
+pub use nao_interface::NaoInterface as Interface;

@@ -47,6 +47,7 @@ byteorder = "1.4.3"
 chrono = "0.4.22"
 clap = { version = "4.0.22", features = ["derive"] }
 clap_complete = "4.0.5"
+color-eyre = "0.6.2"
 communication = { path = "crates/communication" }
 compiled-nn = "0.10.0"
 context_attribute = { path = "crates/context_attribute" }

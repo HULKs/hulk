@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use cyclers::run;
-use hardware::HardwareInterface;
 use structs::Configuration;
 use tokio_util::sync::CancellationToken;
 
@@ -23,8 +23,9 @@ fn main() -> anyhow::Result<()> {
             keep_running.cancel();
         })?;
     }
-    let hardware_interface = Arc::new(Interface::default());
-    hardware_interface.print_number(42);
+    let hardware_interface = Arc::new(
+        Interface::new(keep_running.clone()).context("Failed to create hardware interface")?,
+    );
     let initial_configuration = Configuration::default();
     run(hardware_interface, initial_configuration, keep_running)
 }

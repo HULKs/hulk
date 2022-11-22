@@ -38,7 +38,7 @@ impl SplMessageSender {
         Interface: HardwareInterface,
     {
         self.value += *context.step;
-        context.hardware_interface.print_number(42);
+        // context.hardware_interface.print_number(42);
         Ok(MainOutputs {})
     }
 }

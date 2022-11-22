@@ -13,8 +13,14 @@ anyhow = {workspace = true}
 ctrlc = {workspace = true}
 cyclers = {workspace = true}
 hardware = {workspace = true}
+i2cdev = {workspace = true}
+log = {workspace = true}
+nalgebra = {workspace = true}
+parking_lot = {workspace = true}
+rand = {workspace = true}
 structs = {workspace = true}
 tokio-util = {workspace = true}
+types = {workspace = true}
 uvcvideo = {optional = true, workspace = true}
 v4l = {optional = true, workspace = true}
 webots = {optional = true, workspace = true}
