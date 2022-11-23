@@ -4,18 +4,15 @@ header:
         - repo: meta-nao
           file: kas-project.yml
 distro: HULKs-OS
+local_conf_header:
+    meta-hulks: |
+        SDK_TOOLCHAIN_LANGS ?= "rust"
 repos:
     meta-hulks:
     meta-nao:
         path: meta-nao
     poky:
         patches:
-            001-nao-cargo-home:
+            0001-rust_1.65:
                 repo: "meta-hulks"
-                path: "patches/001-nao-cargo-home.patch"
-            0001-Rename-thread_local-target-option-and-disable-it:
-                repo: "meta-hulks"
-                path: "patches/0001-Rename-thread_local-target-option-and-disable-it.patch"
-            0001-Upgrade-Rust-version:
-                repo: "meta-hulks"
-                path: "patches/0001-Upgrade-Rust-version.patch"
+                path: "patches/0001-rust_1.65.patch"

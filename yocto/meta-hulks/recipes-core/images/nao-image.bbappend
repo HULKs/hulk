@@ -11,7 +11,3 @@ CORE_IMAGE_EXTRA_INSTALL += "\
                              nano \
                              network-config \
                             "
-
-TOOLCHAIN_HOST_TASK:append = "\
-                             packagegroup-rust-cross-canadian-${MACHINE} \
-                             "
