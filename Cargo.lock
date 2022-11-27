@@ -19,6 +19,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330223a1aecc308757b9926e9391c9b47f8ef2dbd8aea9df88312aea18c5e8d6"
 
 [[package]]
+name = "addr2line"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9ecd88a8c8378ca913a680cd98f0f13ac67383d35993f86c90a70e3f137816b"
+dependencies = [
+ "gimli",
+]
+
+[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -59,14 +68,14 @@ dependencies = [
 
 [[package]]
 name = "alsa"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5915f52fe2cf65e83924d037b6c5290b7cee097c6b5c8700746e6168a343fd6b"
+checksum = "8512c9117059663fb5606788fbca3619e2a91dac0e3fe516242eab1fa6be5e44"
 dependencies = [
  "alsa-sys",
  "bitflags",
  "libc",
- "nix 0.23.1",
+ "nix 0.24.2",
 ]
 
 [[package]]
@@ -171,10 +180,9 @@ dependencies = [
 name = "audio"
 version = "0.1.0"
 dependencies = [
- "anyhow",
+ "color-eyre",
  "context_attribute",
  "framework",
- "hardware",
  "types",
 ]
 
@@ -183,6 +191,21 @@ name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
+
+[[package]]
+name = "backtrace"
+version = "0.3.66"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cab84319d616cfb654d03394f38ab7e6f0919e181b1b57e1fd15e7fb4077d9a7"
+dependencies = [
+ "addr2line",
+ "cc",
+ "cfg-if",
+ "libc",
+ "miniz_oxide 0.5.4",
+ "object",
+ "rustc-demangle",
+]
 
 [[package]]
 name = "base64"
@@ -237,7 +260,7 @@ dependencies = [
  "cexpr 0.4.0",
  "clang-sys",
  "clap 2.34.0",
- "env_logger 0.8.4",
+ "env_logger",
  "lazy_static",
  "lazycell",
  "log",
@@ -252,15 +275,13 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.60.1"
+version = "0.61.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "062dddbc1ba4aca46de6338e2bf87771414c335f7b2f2036e8f3e9befebf88e6"
+checksum = "8a022e58a142a46fea340d68012b9201c094e93ec3d033a944a24f8fd4a4f09a"
 dependencies = [
  "bitflags",
  "cexpr 0.6.0",
  "clang-sys",
- "clap 3.2.23",
- "env_logger 0.9.3",
  "lazy_static",
  "lazycell",
  "log",
@@ -270,14 +291,15 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex 1.1.0",
+ "syn",
  "which 4.3.0",
 ]
 
 [[package]]
 name = "bindgen"
-version = "0.61.0"
+version = "0.63.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a022e58a142a46fea340d68012b9201c094e93ec3d033a944a24f8fd4a4f09a"
+checksum = "36d860121800b2a9a94f9b5604b332d5cffb234ce17609ea479d723dbc9d3885"
 dependencies = [
  "bitflags",
  "cexpr 0.6.0",
@@ -343,7 +365,7 @@ checksum = "1522ac6ee801a11bf9ef3f80403f4ede6eb41291fac3dde3de09989679305f25"
 name = "build_script_helpers"
 version = "0.1.0"
 dependencies = [
- "anyhow",
+ "color-eyre",
  "proc-macro2",
  "source_analyzer",
 ]
@@ -497,24 +519,9 @@ dependencies = [
  "atty",
  "bitflags",
  "strsim 0.8.0",
- "textwrap 0.11.0",
+ "textwrap",
  "unicode-width",
  "vec_map",
-]
-
-[[package]]
-name = "clap"
-version = "3.2.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71655c45cb9845d3270c9d6df84ebe72b4dad3c2ba3f7023ad47c144e4e473a5"
-dependencies = [
- "atty",
- "bitflags",
- "clap_lex 0.2.4",
- "indexmap",
- "strsim 0.10.0",
- "termcolor",
- "textwrap 0.16.0",
 ]
 
 [[package]]
@@ -526,7 +533,7 @@ dependencies = [
  "atty",
  "bitflags",
  "clap_derive",
- "clap_lex 0.3.0",
+ "clap_lex",
  "once_cell",
  "strsim 0.10.0",
  "termcolor",
@@ -552,15 +559,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "clap_lex"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
-dependencies = [
- "os_str_bytes",
 ]
 
 [[package]]
@@ -646,6 +644,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "color-eyre"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a667583cca8c4f8436db8de46ea8233c42a7d9ae424a82d338f2e4675229204"
+dependencies = [
+ "backtrace",
+ "color-spantrace",
+ "eyre",
+ "indenter",
+ "once_cell",
+ "owo-colors",
+ "tracing-error",
+]
+
+[[package]]
+name = "color-spantrace"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ba75b3d9449ecdccb27ecbc479fdc0b87fa2dd43d2f8298f9bf0e59aacc8dce"
+dependencies = [
+ "once_cell",
+ "owo-colors",
+ "tracing-core",
+ "tracing-error",
+]
+
+[[package]]
 name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -676,8 +701,8 @@ dependencies = [
 name = "communication"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "byteorder",
+ "color-eyre",
  "futures-util",
  "log",
  "serde",
@@ -725,11 +750,10 @@ dependencies = [
 name = "control"
 version = "0.1.0"
 dependencies = [
- "anyhow",
+ "color-eyre",
  "context_attribute",
  "filtering",
  "framework",
- "hardware",
  "nalgebra",
  "spl_network_messages",
  "types",
@@ -971,19 +995,19 @@ dependencies = [
 name = "cyclers"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "audio",
  "build_script_helpers",
+ "color-eyre",
  "control",
  "convert_case",
  "framework",
- "hardware",
  "proc-macro2",
  "quote",
  "source_analyzer",
  "spl_network",
  "structs",
  "tokio-util",
+ "types",
  "vision",
 ]
 
@@ -1293,19 +1317,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "env_logger"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
-dependencies = [
- "atty",
- "humantime",
- "log",
- "regex",
- "termcolor",
-]
-
-[[package]]
 name = "epaint"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1388,6 +1399,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "eyre"
+version = "0.6.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c2b6b5a29c02cdc822728b7d7b8ae1bab3e3b05d44522770ddd49722eeac7eb"
+dependencies = [
+ "indenter",
+ "once_cell",
+]
+
+[[package]]
 name = "fanta"
 version = "0.1.0"
 dependencies = [
@@ -1427,8 +1448,8 @@ dependencies = [
 name = "filtering"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "approx",
+ "color-eyre",
  "nalgebra",
  "rand",
  "rand_distr",
@@ -1527,15 +1548,15 @@ dependencies = [
 name = "framework"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "build_script_helpers",
+ "color-eyre",
  "convert_case",
- "hardware",
  "parking_lot",
  "proc-macro2",
  "quote",
  "source_analyzer",
  "structs",
+ "types",
 ]
 
 [[package]]
@@ -1702,6 +1723,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "gimli"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22030e2c5a68ec659fde1e949a745124b48e6fa8b045b7ed5bd1fe4ccc5c4e5d"
+
+[[package]]
 name = "gl_generator"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1835,15 +1862,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hardware"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "parking_lot",
- "types",
-]
-
-[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1936,19 +1954,20 @@ name = "hulk"
 version = "0.1.0"
 dependencies = [
  "alsa",
- "anyhow",
+ "color-eyre",
  "ctrlc",
  "cyclers",
- "hardware",
  "i2cdev",
  "log",
  "nalgebra",
+ "nao_camera",
  "parking_lot",
  "rand",
+ "serde",
+ "serde_json",
  "structs",
  "tokio-util",
  "types",
- "uvcvideo",
  "v4l",
  "webots",
 ]
@@ -2029,6 +2048,12 @@ dependencies = [
  "scoped_threadpool",
  "tiff",
 ]
+
+[[package]]
+name = "indenter"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce23b50ad8242c51a442f3ff322d56b02f08852c77e4c0b4d3fd684abc89c683"
 
 [[package]]
 name = "indexmap"
@@ -2344,6 +2369,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "nao_camera"
+version = "0.1.0"
+dependencies = [
+ "bindgen 0.61.0",
+ "i2cdev",
+ "libc",
+ "nix 0.25.0",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "types",
+]
+
+[[package]]
 name = "ndk"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2624,6 +2663,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "object"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21158b2c33aa6d4561f1c0a6ea283ca92bc54802a93b263e910746d679a7eb53"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2695,6 +2743,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "owo-colors"
+version = "3.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
+
+[[package]]
 name = "parking_lot"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2746,6 +2800,7 @@ dependencies = [
  "bat",
  "clap 4.0.26",
  "clap_complete",
+ "color-eyre",
  "futures",
  "nao",
  "regex",
@@ -3175,6 +3230,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustc-demangle"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ef03e0a2b150c7a90d01faf6254c9c48a41e95fb2a8c2ac1c6f0d2b9aefc342"
+
+[[package]]
 name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3302,7 +3363,7 @@ dependencies = [
 name = "serialize_hierarchy"
 version = "0.1.0"
 dependencies = [
- "anyhow",
+ "color-eyre",
  "nalgebra",
  "serde",
  "serde_json",
@@ -3349,6 +3410,15 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+]
+
+[[package]]
+name = "sharded-slab"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "900fba806f70c630b0a382d0d825e17a0f19fcd059a2ade1ff237bcddf446b31"
+dependencies = [
+ "lazy_static",
 ]
 
 [[package]]
@@ -3468,7 +3538,7 @@ dependencies = [
 name = "source_analyzer"
 version = "0.1.0"
 dependencies = [
- "anyhow",
+ "color-eyre",
  "convert_case",
  "glob",
  "proc-macro2",
@@ -3490,20 +3560,20 @@ dependencies = [
 name = "spl_network"
 version = "0.1.0"
 dependencies = [
- "anyhow",
+ "color-eyre",
  "context_attribute",
  "framework",
- "hardware",
+ "types",
 ]
 
 [[package]]
 name = "spl_network_messages"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "approx",
  "bindgen 0.61.0",
  "byteorder",
+ "color-eyre",
  "nalgebra",
  "serde",
 ]
@@ -3560,8 +3630,8 @@ dependencies = [
 name = "structs"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "build_script_helpers",
+ "color-eyre",
  "convert_case",
  "filtering",
  "nalgebra",
@@ -3660,12 +3730,6 @@ checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 dependencies = [
  "unicode-width",
 ]
-
-[[package]]
-name = "textwrap"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d"
 
 [[package]]
 name = "thiserror"
@@ -3856,6 +3920,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24eb03ba0eab1fd845050058ce5e616558e8f8d8fca633e6b163fe25c797213a"
 dependencies = [
  "once_cell",
+ "valuable",
+]
+
+[[package]]
+name = "tracing-error"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d686ec1c0f384b1277f097b2f279a2ecc11afe8c133c1aabf036a27cb4cd206e"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "tracing-subscriber"
+version = "0.3.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6176eae26dd70d0c919749377897b54a9276bd7061339665dd68777926b5a70"
+dependencies = [
+ "sharded-slab",
+ "thread_local",
+ "tracing-core",
 ]
 
 [[package]]
@@ -3913,12 +3999,13 @@ checksum = "dcf81ac59edc17cc8697ff311e8f5ef2d99fcbd9817b34cec66f90b6c3dfd987"
 name = "types"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "approx",
+ "color-eyre",
  "filtering",
  "image",
  "nalgebra",
  "ordered-float",
+ "parking_lot",
  "petgraph",
  "proc-macro2",
  "quote",
@@ -3995,15 +4082,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "uvcvideo"
-version = "0.1.0"
-dependencies = [
- "bindgen 0.61.0",
- "libc",
- "nix 0.25.0",
-]
-
-[[package]]
 name = "v4l"
 version = "0.12.1"
 source = "git+https://github.com/HULKs/libv4l-rs?branch=hulksChanges#f8da6383e30b2e38b4ec5d3bcef2d0264f472ba2"
@@ -4024,6 +4102,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "valuable"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
+
+[[package]]
 name = "vec_map"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4039,11 +4123,10 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "vision"
 version = "0.1.0"
 dependencies = [
- "anyhow",
+ "color-eyre",
  "context_attribute",
  "filtering",
  "framework",
- "hardware",
  "nalgebra",
  "types",
 ]
@@ -4246,21 +4329,21 @@ dependencies = [
 
 [[package]]
 name = "webots"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4343906e9dd9d5269c78d969bb75fac469da4b174dde0af886cf41fe7514ca50"
+checksum = "29fd777e625588a5ab3c9375a0141b5d2e8d7b6f89f162f278569026bcd5c020"
 dependencies = [
- "anyhow",
+ "thiserror",
  "webots-bindings",
 ]
 
 [[package]]
 name = "webots-bindings"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d139059bd8e122f65250b1e43ddca1dfb72e2afdd43fbb9536ce85c755948ab1"
+checksum = "09427a817ddb0b03d313f627c8fcb742fa6e1351ebe507e5e351ea6787f8935e"
 dependencies = [
- "bindgen 0.60.1",
+ "bindgen 0.63.0",
  "walkdir",
 ]
 

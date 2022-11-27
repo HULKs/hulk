@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use types::Whistle;
@@ -30,10 +31,10 @@ pub struct MainOutputs {
 }
 
 impl WhistleDetection {
-    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> Result<Self> {
         Ok(Self {})
     }
-    pub fn cycle(&mut self, mut context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }
@@ -41,7 +42,7 @@ impl WhistleDetection {
 /*
 use std::{f32::consts::PI, ops::Range, sync::Arc};
 
-use anyhow::Result;
+use Result;
 use macros::{module, require_some};
 use nalgebra::ComplexField;
 use rustfft::{num_complex::Complex32, Fft, FftPlanner};
@@ -71,7 +72,7 @@ pub struct WhistleDetection {
 impl WhistleDetection {}
 
 impl WhistleDetection {
-    fn new(_context: NewContext) -> anyhow::Result<Self> {
+    fn new(_context: NewContext) -> Result<Self> {
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(NUMBER_OF_AUDIO_SAMPLES);
         Ok(Self { fft })
@@ -102,7 +103,7 @@ fn is_whistle_detected_in_buffer(
     whistle_scaling: f32,
     number_of_chunks: usize,
     context: &mut CycleContext,
-) -> anyhow::Result<[bool; NUMBER_OF_AUDIO_CHANNELS]> {
+) -> Result<[bool; NUMBER_OF_AUDIO_CHANNELS]> {
     let mut audio_spectrums = Vec::new();
     let mut detection_infos = Vec::new();
     let frequency_resolution = AUDIO_SAMPLE_RATE as f32 / NUMBER_OF_AUDIO_SAMPLES as f32;

@@ -1,8 +1,8 @@
-use anyhow::Context;
+use color_eyre::{eyre::WrapErr, Result};
 use types::{Foot, ForceSensitiveResistors};
 use webots::{Robot, TouchSensor};
 
-use super::webots_interface::SIMULATION_TIME_STEP;
+use super::interface::SIMULATION_TIME_STEP;
 
 pub struct ForceSensitiveResistorDevices {
     left_foot_front_left: TouchSensor,
@@ -55,39 +55,39 @@ impl Default for ForceSensitiveResistorDevices {
 }
 
 impl ForceSensitiveResistorDevices {
-    pub fn get_values(&self) -> anyhow::Result<ForceSensitiveResistors> {
+    pub fn get_values(&self) -> Result<ForceSensitiveResistors> {
         let left_foot_front_left_values = self
             .left_foot_front_left
             .get_values()
-            .context("Failed to get front left force sensitive resistor of left foot")?;
+            .wrap_err("failed to get front left force sensitive resistor of left foot")?;
         let left_foot_front_right_values = self
             .left_foot_front_right
             .get_values()
-            .context("Failed to get front right force sensitive resistor of left foot")?;
+            .wrap_err("failed to get front right force sensitive resistor of left foot")?;
         let left_foot_rear_left_values = self
             .left_foot_rear_left
             .get_values()
-            .context("Failed to get rear left force sensitive resistor of left foot")?;
+            .wrap_err("failed to get rear left force sensitive resistor of left foot")?;
         let left_foot_rear_right_values = self
             .left_foot_rear_right
             .get_values()
-            .context("Failed to get rear right force sensitive resistor of left foot")?;
+            .wrap_err("failed to get rear right force sensitive resistor of left foot")?;
         let right_foot_front_left_values = self
             .right_foot_front_left
             .get_values()
-            .context("Failed to get front left force sensitive resistor of right foot")?;
+            .wrap_err("failed to get front left force sensitive resistor of right foot")?;
         let right_foot_front_right_values = self
             .right_foot_front_right
             .get_values()
-            .context("Failed to get front right force sensitive resistor of right foot")?;
+            .wrap_err("failed to get front right force sensitive resistor of right foot")?;
         let right_foot_rear_left_values = self
             .right_foot_rear_left
             .get_values()
-            .context("Failed to get rear left force sensitive resistor of right foot")?;
+            .wrap_err("failed to get rear left force sensitive resistor of right foot")?;
         let right_foot_rear_right_values = self
             .right_foot_rear_right
             .get_values()
-            .context("Failed to get rear right force sensitive resistor of right foot")?;
+            .wrap_err("failed to get rear right force sensitive resistor of right foot")?;
         Ok(ForceSensitiveResistors {
             left: Foot {
                 front_left: left_foot_front_left_values[2] as f32,

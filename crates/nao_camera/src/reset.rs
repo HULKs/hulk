@@ -5,6 +5,7 @@ use i2cdev::{
     linux::{LinuxI2CDevice, LinuxI2CError},
 };
 use thiserror::Error;
+use types::CameraPosition;
 
 #[derive(Debug, Error)]
 pub enum ResetError {
@@ -24,13 +25,8 @@ pub enum ResetError {
     ConnectTimeouted,
 }
 
-pub enum CameraPosition {
-    Top,
-    Bottom,
-}
-
 pub fn reset_camera_device(
-    device_path: impl AsRef<Path>,
+    path: impl AsRef<Path>,
     camera_position: CameraPosition,
 ) -> Result<(), ResetError> {
     const SLAVE_ADDRESS: u16 = 0x41;
@@ -79,7 +75,7 @@ pub fn reset_camera_device(
             register: 0x1,
         })?;
     poll_condition(
-        || !device_path.as_ref().exists(),
+        || !path.as_ref().exists(),
         20,
         Duration::from_millis(50),
         ResetError::DisconnectTimeouted,
@@ -93,7 +89,7 @@ pub fn reset_camera_device(
             register: 0x1,
         })?;
     poll_condition(
-        || device_path.as_ref().exists(),
+        || path.as_ref().exists(),
         40,
         Duration::from_millis(50),
         ResetError::ConnectTimeouted,

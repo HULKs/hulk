@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use color_eyre::{eyre::eyre, Result};
 use nalgebra::{
     vector, Complex, ComplexField, Isometry2, Matrix2, Matrix3, Matrix3x2, UnitComplex, Vector2,
     Vector3,
@@ -97,7 +97,7 @@ impl PoseFilter {
         let kalman_gain = predicted_measurements_cross_covariance
             * (predicted_measurement_covariance + measurement_noise)
                 .try_inverse()
-                .context("Failed to invert measurement covariance matrix")?;
+                .ok_or_else(|| eyre!("failed to invert measurement covariance matrix"))?;
 
         let residuum = measurement - predicted_measurement_mean;
         self.mean += kalman_gain * residuum;
@@ -141,7 +141,7 @@ impl PoseFilter {
         let kalman_gain = predicted_measurements_cross_covariance
             * (predicted_measurement_covariance + measurement_noise)
                 .try_inverse()
-                .context("Failed to invert measurement covariance matrix")?;
+                .ok_or_else(|| eyre!("failed to invert measurement covariance matrix"))?;
 
         let residuum = measurement - predicted_measurement_mean;
         self.mean += kalman_gain * residuum;
@@ -171,9 +171,9 @@ fn into_symmetric(matrix: Matrix3<f32>) -> Matrix3<f32> {
 }
 
 fn sample_sigma_points(mean: Vector3<f32>, covariance: Matrix3<f32>) -> Result<[Vector3<f32>; 7]> {
-    let covariance_cholesky = covariance.cholesky().with_context(|| {
-        format!(
-            "Failed to decompose covariance matrix via Cholesky decomposition. Matrix was: {}",
+    let covariance_cholesky = covariance.cholesky().ok_or_else(|| {
+        eyre!(
+            "failed to decompose covariance matrix via Cholesky decomposition, matrix was: {}",
             covariance
         )
     })?;

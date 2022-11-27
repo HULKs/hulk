@@ -2,7 +2,7 @@ mod contexts;
 mod cycler_crates;
 mod cycler_instances;
 mod cycler_types;
-mod into_anyhow_result;
+mod into_eyre_result;
 mod modules;
 mod parse;
 mod structs;

@@ -1,12 +1,12 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context};
+use color_eyre::{eyre::WrapErr, Result};
 use glob::glob;
 use syn::Item;
 
 use crate::parse::parse_rust_file;
 
-pub fn cycler_crates_from_crates_directory<P>(crates_directory: P) -> anyhow::Result<Vec<PathBuf>>
+pub fn cycler_crates_from_crates_directory<P>(crates_directory: P) -> Result<Vec<PathBuf>>
 where
     P: AsRef<Path>,
 {
@@ -17,9 +17,9 @@ where
             .to_str()
             .unwrap(),
     )
-    .with_context(|| {
-        anyhow!(
-            "Failed to find lib.rs files from crates directory {:?}",
+    .wrap_err_with(|| {
+        format!(
+            "failed to find lib.rs files from crates directory {:?}",
             crates_directory.as_ref()
         )
     })?

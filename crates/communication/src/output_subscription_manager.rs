@@ -1,5 +1,6 @@
 use std::collections::{hash_map::Entry, HashMap};
 
+use color_eyre::Result;
 use log::{error, info};
 use tokio::{
     spawn,
@@ -217,7 +218,7 @@ async fn query_output_hierarchy(
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
     requester: &mpsc::Sender<requester::Message>,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
     responder

@@ -1,4 +1,7 @@
-use anyhow::{anyhow, bail, Context};
+use color_eyre::{
+    eyre::{bail, WrapErr},
+    Result,
+};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
@@ -33,16 +36,16 @@ pub fn get_cyclers<'a>(
         .collect()
 }
 
-pub fn generate_cyclers(cyclers: &[Cycler]) -> anyhow::Result<TokenStream> {
+pub fn generate_cyclers(cyclers: &[Cycler]) -> Result<TokenStream> {
     let cyclers: Vec<_> = cyclers
         .iter()
         .map(|cycler| {
-            cycler.get_module().with_context(|| {
-                anyhow!("Failed to get cycler `{}`", cycler.get_cycler_module_name())
+            cycler.get_module().wrap_err_with(|| {
+                format!("failed to get cycler `{}`", cycler.get_cycler_module_name())
             })
         })
         .collect::<Result<_, _>>()
-        .context("Failed to get cyclers")?;
+        .wrap_err("failed to get cyclers")?;
 
     Ok(quote! {
         #(#cyclers)*
@@ -319,14 +322,14 @@ impl Cycler<'_> {
             .collect()
     }
 
-    pub fn get_module_initializers(&self) -> anyhow::Result<Vec<TokenStream>> {
+    pub fn get_module_initializers(&self) -> Result<Vec<TokenStream>> {
         self.get_interpreted_modules()
             .into_iter()
             .map(|module| module.get_initializer())
             .collect()
     }
 
-    pub fn get_module_executions(&self) -> anyhow::Result<Vec<TokenStream>> {
+    pub fn get_module_executions(&self) -> Result<Vec<TokenStream>> {
         self.get_interpreted_modules()
             .into_iter()
             .map(|module| module.get_execution())
@@ -372,13 +375,13 @@ impl Cycler<'_> {
         }
     }
 
-    pub fn get_new_method(&self) -> anyhow::Result<TokenStream> {
+    pub fn get_new_method(&self) -> Result<TokenStream> {
         let own_producer_field = self.get_own_producer_field();
         let other_cycler_fields = self.get_other_cycler_fields();
         let cycler_module_name_identifier = self.get_cycler_module_name_identifier();
         let module_initializers = self
             .get_module_initializers()
-            .context("Failed to get module initializers")?;
+            .wrap_err("failed to get module initializers")?;
         let own_producer_identifier = self.get_own_producer_identifier();
         let other_cycler_identifiers = self.get_other_cycler_identifiers();
         let real_time_initializers = match self {
@@ -398,8 +401,8 @@ impl Cycler<'_> {
                 #own_producer_field
                 #(#other_cycler_fields,)*
                 configuration_reader: framework::Reader<structs::Configuration>,
-            ) -> anyhow::Result<Self> {
-                use anyhow::Context;
+            ) -> color_eyre::Result<Self> {
+                use color_eyre::eyre::WrapErr;
                 let configuration = configuration_reader.next().clone();
                 let mut persistent_state = structs::#cycler_module_name_identifier::PersistentState::default();
                 #(#module_initializers)*
@@ -423,8 +426,8 @@ impl Cycler<'_> {
             pub fn start(
                 mut self,
                 keep_running: tokio_util::sync::CancellationToken,
-            ) -> anyhow::Result<std::thread::JoinHandle<anyhow::Result<()>>> {
-                use anyhow::Context;
+            ) -> color_eyre::Result<std::thread::JoinHandle<color_eyre::Result<()>>> {
+                use color_eyre::eyre::WrapErr;
                 let instance_name = format!("{:?}", self.instance);
                 std::thread::Builder::new()
                     .name(instance_name.clone())
@@ -432,25 +435,25 @@ impl Cycler<'_> {
                         while !keep_running.is_cancelled() {
                             if let Err(error) = self.cycle() {
                                 keep_running.cancel();
-                                return Err(error).context("Failed to execute cycle of cycler");
+                                return Err(error).wrap_err("failed to execute cycle of cycler");
                             }
                         }
                         Ok(())
                     })
-                    .with_context(|| {
-                        anyhow::anyhow!("Failed to spawn thread for `{instance_name}`")
+                    .wrap_err_with(|| {
+                        format!("failed to spawn thread for `{instance_name}`")
                     })
             }
         }
     }
 
-    pub fn get_cycle_method(&self) -> anyhow::Result<TokenStream> {
+    pub fn get_cycle_method(&self) -> Result<TokenStream> {
         let module_executions = self
             .get_module_executions()
-            .context("Failed to get module executions")?;
+            .wrap_err("failed to get module executions")?;
 
         if module_executions.is_empty() {
-            bail!("Expected at least one module");
+            bail!("expected at least one module");
         }
 
         let before_first_module = quote! {
@@ -514,8 +517,8 @@ impl Cycler<'_> {
         };
 
         Ok(quote! {
-            pub fn cycle(&mut self) -> anyhow::Result<()> {
-                use anyhow::Context;
+            pub fn cycle(&mut self) -> color_eyre::Result<()> {
+                use color_eyre::eyre::WrapErr;
                 {
                     #before_first_module
                     #first_module
@@ -529,19 +532,19 @@ impl Cycler<'_> {
         })
     }
 
-    pub fn get_struct_implementation(&self) -> anyhow::Result<TokenStream> {
+    pub fn get_struct_implementation(&self) -> Result<TokenStream> {
         let new_method = self
             .get_new_method()
-            .context("Failed to get `new` method")?;
+            .wrap_err("failed to get `new` method")?;
         let start_method = self.get_start_method();
         let cycle_method = self
             .get_cycle_method()
-            .context("Failed to get `cycle` method")?;
+            .wrap_err("failed to get `cycle` method")?;
 
         Ok(quote! {
             impl<Interface> Cycler<Interface>
             where
-                Interface: hardware::HardwareInterface + Send + Sync + 'static,
+                Interface: types::hardware::Interface + Send + Sync + 'static,
             {
                 #new_method
                 #start_method
@@ -550,12 +553,12 @@ impl Cycler<'_> {
         })
     }
 
-    pub fn get_module(&self) -> anyhow::Result<TokenStream> {
+    pub fn get_module(&self) -> Result<TokenStream> {
         let cycler_module_name_identifier = self.get_cycler_module_name_identifier();
         let struct_definition = self.get_struct_definition();
         let struct_implementation = self
             .get_struct_implementation()
-            .context("Failed to get struct implementation")?;
+            .wrap_err("failed to get struct implementation")?;
 
         Ok(quote! {
             #[allow(dead_code, unused_mut, unused_variables)]

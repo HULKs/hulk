@@ -8,9 +8,9 @@ members = [
   "crates/cyclers",
   "crates/filtering",
   "crates/framework",
-  "crates/hardware",
   "crates/hulk",
   "crates/nao",
+  "crates/nao_camera",
   "crates/repository",
   "crates/serialize_hierarchy",
   "crates/serialize_hierarchy_derive",
@@ -23,7 +23,6 @@ members = [
   "tools/camera_matrix_extractor",
   "tools/depp",
   "tools/fanta",
-  "tools/macro_tester",
   "tools/pepsi",
   "tools/twix",
 ]
@@ -33,7 +32,7 @@ exclude = [
 ]
 
 [workspace.dependencies]
-alsa = { version = "0.6.0" }
+alsa = "0.7.0"
 anyhow = "1.0.65"
 approx = "0.5.1"
 audio = { path = "crates/audio" }
@@ -75,11 +74,12 @@ i2cdev = "0.5.1"
 image = "0.24.4"
 ipnetwork = "0.19.0"
 itertools = "0.10.5"
-libc = "0.2.133"
+libc = "0.2.137"
 log = "0.4.17"
 mlua = { version = "0.8.3", features = ["luajit", "serialize"] }
 nalgebra = { version = "0.31.1", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
+nao_camera = { path = "crates/nao_camera" }
 nix = "0.25.0"
 ordered-float = "3.1.0"
 parking_lot = "0.12.1"
@@ -111,6 +111,7 @@ structs = { path = "crates/structs" }
 syn = { version = "1.0.101", features = ["full", "extra-traits"] }
 systemd = "0.10.0"
 tempfile = "3.3.0"
+thiserror = "1.0.37"
 tokio = { version = "1.21.2", features = ["full"] }
 tokio-tungstenite = "0.17.2"
 tokio-util = "0.7.4"
@@ -118,10 +119,9 @@ toml = "0.5.9"
 topological-sort = "0.2.2"
 types = { path = "crates/types" }
 uuid = { version = "1.1.2", features = ["v4"] }
-uvcvideo = { path = "crates/uvcvideo" }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", branch = "hulksChanges" }
 walkdir = "2.3.2"
-webots = { version = "0.5.0" }
+webots = { version = "0.6.0" }
 vision = { path = "crates/vision" }
 
 [profile.incremental]

@@ -54,6 +54,9 @@ mod support_foot;
 mod walk_command;
 mod whistle;
 mod world_state;
+pub mod hardware;
+
+// TODO: convert all "mod" to "pub mod"
 
 pub use self::image::Image422;
 pub use ball::{Ball, CandidateEvaluation};

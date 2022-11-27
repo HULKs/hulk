@@ -5,12 +5,13 @@ edition = "2021"
 license = "GPL-3.0-only"
 
 [dependencies]
-anyhow = { workspace = true }
 approx = { workspace = true }
+color-eyre = { workspace = true }
 filtering = { workspace = true }
 image = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
+parking_lot = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serialize_hierarchy = { workspace = true }

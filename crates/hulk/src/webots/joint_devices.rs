@@ -1,7 +1,7 @@
 use types::{ArmJoints, HeadJoints, Joints, LegJoints};
 use webots::{Motor, PositionSensor, Robot};
 
-use super::webots_interface::SIMULATION_TIME_STEP;
+use super::interface::SIMULATION_TIME_STEP;
 
 pub struct JointDevice {
     pub motor: Motor,

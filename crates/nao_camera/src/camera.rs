@@ -24,7 +24,7 @@ use crate::{
     digital_effects::{disable_digital_effects, DigitalEffectsError},
     flip::{flip_sensor, FlipError},
     format::{set_format, SetFormatError},
-    parameters::{CameraParameters, ExposureMode, Format},
+    parameters::{Parameters, ExposureMode, Format},
     queueing::{dequeue, queue, QueueingError},
     request_buffers::{request_user_pointer_buffers, RequestBuffersError},
     streaming::{stream_off, stream_on, StreamingError},
@@ -154,7 +154,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn open(path: impl AsRef<Path>, parameters: &CameraParameters) -> Result<Self, OpenError> {
+    pub fn open(path: impl AsRef<Path>, parameters: &Parameters) -> Result<Self, OpenError> {
         let path = CString::new(path.as_ref().as_os_str().as_bytes())
             .map_err(|source| OpenError::PathNotConverted { source })?;
         let file_descriptor = unsafe { open(path.as_ptr(), O_RDWR | O_NONBLOCK) };

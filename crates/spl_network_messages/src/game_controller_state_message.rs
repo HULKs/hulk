@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::bail;
+use color_eyre::{eyre::bail, Result, Report};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -40,11 +40,11 @@ pub struct GameControllerStateMessage {
 }
 
 impl TryFrom<&[u8]> for GameControllerStateMessage {
-    type Error = anyhow::Error;
+    type Error = Report;
 
-    fn try_from(buffer: &[u8]) -> anyhow::Result<Self> {
+    fn try_from(buffer: &[u8]) -> Result<Self> {
         if buffer.len() < size_of::<RoboCupGameControlData>() {
-            bail!("Buffer too small");
+            bail!("buffer too small");
         }
         let message = unsafe { read(buffer.as_ptr() as *const RoboCupGameControlData) };
         message.try_into()
@@ -52,31 +52,31 @@ impl TryFrom<&[u8]> for GameControllerStateMessage {
 }
 
 impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
-    type Error = anyhow::Error;
+    type Error = Report;
 
-    fn try_from(message: RoboCupGameControlData) -> anyhow::Result<Self> {
+    fn try_from(message: RoboCupGameControlData) -> Result<Self> {
         if message.header[0] != GAMECONTROLLER_STRUCT_HEADER[0] as c_char
             && message.header[1] != GAMECONTROLLER_STRUCT_HEADER[1] as c_char
             && message.header[2] != GAMECONTROLLER_STRUCT_HEADER[2] as c_char
             && message.header[3] != GAMECONTROLLER_STRUCT_HEADER[3] as c_char
         {
-            bail!("Unexpected header");
+            bail!("unexpected header");
         }
         if message.version != GAMECONTROLLER_STRUCT_VERSION {
-            bail!("Unexpected version");
+            bail!("unexpected version");
         }
         let (hulks_team_index, opponent_team_index) =
             match (message.teams[0].teamNumber, message.teams[1].teamNumber) {
                 (HULKS_TEAM_NUMBER, _) => (0, 1),
                 (_, HULKS_TEAM_NUMBER) => (1, 0),
-                _ => bail!("Failed to find HULKs team"),
+                _ => bail!("failed to find HULKs team"),
             };
         const MAXIMUM_NUMBER_OF_PENALTY_SHOOTS: u8 = 16;
         if message.teams[hulks_team_index].penaltyShot >= MAXIMUM_NUMBER_OF_PENALTY_SHOOTS {
-            bail!("Unexpected penalty shoot index for team HULKs");
+            bail!("unexpected penalty shoot index for team HULKs");
         }
         if message.teams[opponent_team_index].penaltyShot >= MAXIMUM_NUMBER_OF_PENALTY_SHOOTS {
-            bail!("Unexpected penalty shoot index for opponent team");
+            bail!("unexpected penalty shoot index for opponent team");
         }
         let hulks_penalty_shoots = (0..message.teams[hulks_team_index].penaltyShot)
             .map(|shoot_index| {
@@ -97,18 +97,18 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
             })
             .collect();
         if message.playersPerTeam >= MAX_NUM_PLAYERS {
-            bail!("Unexpected number of players per team");
+            bail!("unexpected number of players per team");
         }
         let hulks_players = (0..message.playersPerTeam)
             .map(|player_index| {
                 message.teams[hulks_team_index].players[player_index as usize].try_into()
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<Result<Vec<_>>>()?;
         let opponent_players = (0..message.playersPerTeam)
             .map(|player_index| {
                 message.teams[opponent_team_index].players[player_index as usize].try_into()
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<Result<Vec<_>>>()?;
         Ok(GameControllerStateMessage {
             game_phase: GamePhase::try_from(message.gamePhase, message.kickingTeam)?,
             game_state: GameState::try_from(message.state)?,
@@ -151,7 +151,7 @@ pub enum GamePhase {
 }
 
 impl GamePhase {
-    fn try_from(game_phase: u8, kicking_team: u8) -> anyhow::Result<Self> {
+    fn try_from(game_phase: u8, kicking_team: u8) -> Result<Self> {
         let team = if kicking_team == HULKS_TEAM_NUMBER {
             Team::Hulks
         } else {
@@ -162,7 +162,7 @@ impl GamePhase {
             GAME_PHASE_PENALTYSHOOT => Ok(GamePhase::PenaltyShootout { kicking_team: team }),
             GAME_PHASE_OVERTIME => Ok(GamePhase::Overtime),
             GAME_PHASE_TIMEOUT => Ok(GamePhase::Timeout),
-            _ => bail!("Unexpected game phase"),
+            _ => bail!("unexpected game phase"),
         }
     }
 }
@@ -177,14 +177,14 @@ pub enum GameState {
 }
 
 impl GameState {
-    fn try_from(game_state: u8) -> anyhow::Result<Self> {
+    fn try_from(game_state: u8) -> Result<Self> {
         match game_state {
             STATE_INITIAL => Ok(GameState::Initial),
             STATE_READY => Ok(GameState::Ready),
             STATE_SET => Ok(GameState::Set),
             STATE_PLAYING => Ok(GameState::Playing),
             STATE_FINISHED => Ok(GameState::Finished),
-            _ => bail!("Unexpected game state"),
+            _ => bail!("unexpected game state"),
         }
     }
 }
@@ -203,7 +203,7 @@ impl Default for Team {
 }
 
 impl Team {
-    fn try_from(team_number: u8) -> anyhow::Result<Self> {
+    fn try_from(team_number: u8) -> Result<Self> {
         let team = if team_number == HULKS_TEAM_NUMBER {
             Team::Hulks
         } else {
@@ -214,7 +214,7 @@ impl Team {
 }
 
 impl SetPlay {
-    fn try_from(set_play: u8) -> anyhow::Result<Option<Self>> {
+    fn try_from(set_play: u8) -> Result<Option<Self>> {
         match set_play {
             SET_PLAY_NONE => Ok(None),
             SET_PLAY_GOAL_KICK => Ok(Some(SetPlay::GoalKick)),
@@ -222,7 +222,7 @@ impl SetPlay {
             SET_PLAY_CORNER_KICK => Ok(Some(SetPlay::CornerKick)),
             SET_PLAY_KICK_IN => Ok(Some(SetPlay::KickIn)),
             SET_PLAY_PENALTY_KICK => Ok(Some(SetPlay::PenaltyKick)),
-            _ => bail!("Unexpected set play"),
+            _ => bail!("unexpected set play"),
         }
     }
 }
@@ -249,13 +249,13 @@ pub enum Half {
 }
 
 impl TryFrom<u8> for Half {
-    type Error = anyhow::Error;
+    type Error = Report;
 
-    fn try_from(half: u8) -> anyhow::Result<Self> {
+    fn try_from(half: u8) -> Result<Self> {
         match half {
             1 => Ok(Half::First),
             0 => Ok(Half::Second),
-            _ => bail!("Unexpected half"),
+            _ => bail!("unexpected half"),
         }
     }
 }
@@ -286,9 +286,9 @@ pub enum TeamColor {
 }
 
 impl TryFrom<u8> for TeamColor {
-    type Error = anyhow::Error;
+    type Error = Report;
 
-    fn try_from(team_color: u8) -> anyhow::Result<Self> {
+    fn try_from(team_color: u8) -> Result<Self> {
         match team_color {
             TEAM_BLUE => Ok(TeamColor::Blue),
             TEAM_RED => Ok(TeamColor::Red),
@@ -300,7 +300,7 @@ impl TryFrom<u8> for TeamColor {
             TEAM_PURPLE => Ok(TeamColor::Purple),
             TEAM_BROWN => Ok(TeamColor::Brown),
             TEAM_GRAY => Ok(TeamColor::Gray),
-            _ => bail!("Unexpected team color"),
+            _ => bail!("unexpected team color"),
         }
     }
 }
@@ -317,9 +317,9 @@ pub struct Player {
 }
 
 impl TryFrom<RobotInfo> for Player {
-    type Error = anyhow::Error;
+    type Error = Report;
 
-    fn try_from(player: RobotInfo) -> anyhow::Result<Self> {
+    fn try_from(player: RobotInfo) -> Result<Self> {
         let remaining = Duration::from_secs(player.secsTillUnpenalised.try_into()?);
         Ok(Self {
             penalty: Penalty::try_from(remaining, player.penalty)?,
@@ -343,7 +343,7 @@ pub enum Penalty {
 }
 
 impl Penalty {
-    fn try_from(remaining: Duration, penalty: u8) -> anyhow::Result<Option<Self>> {
+    fn try_from(remaining: Duration, penalty: u8) -> Result<Option<Self>> {
         match penalty {
             PENALTY_NONE => Ok(None),
             PENALTY_SPL_ILLEGAL_BALL_CONTACT => Ok(Some(Penalty::IllegalBallContact { remaining })),
@@ -361,7 +361,7 @@ impl Penalty {
             }
             PENALTY_SUBSTITUTE => Ok(Some(Penalty::Substitute { remaining })),
             PENALTY_MANUAL => Ok(Some(Penalty::Manual { remaining })),
-            _ => bail!("Unexpected penalty type"),
+            _ => bail!("unexpected penalty type"),
         }
     }
 }

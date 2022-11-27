@@ -1,3 +1,4 @@
+use color_eyre::Result;
 use spl_network::{GameControllerReturnMessage, GameControllerStateMessage, SplMessage};
 use tokio::runtime::Runtime;
 
@@ -11,11 +12,11 @@ pub struct SplMessageSender;
 impl SplMessageSender {}
 
 impl SplMessageSender {
-    fn new(_context: NewContext) -> anyhow::Result<Self> {
+    fn new(_context: NewContext) -> Result<Self> {
         Ok(Self)
     }
 
-    fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
+    fn cycle(&mut self, _context: CycleContext) -> Result<MainOutputs> {
         Ok(MainOutputs::none())
     }
 }

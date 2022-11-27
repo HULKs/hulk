@@ -2,11 +2,11 @@ use nalgebra::{Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use super::{CycleInfo, Joints};
+use super::Joints;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct InertialMeasurementUnitData {
-    // Linear acceleration is currently coming from a left handed coordinate system
+    // Linear acceleration is coming from a left handed coordinate system
     pub linear_acceleration: Vector3<f32>,
     pub angular_velocity: Vector3<f32>,
     pub roll_pitch: Vector2<f32>,
@@ -58,7 +58,6 @@ pub struct TouchSensors {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct SensorData {
-    pub cycle_info: CycleInfo,
     pub positions: Joints,
     pub inertial_measurement_unit: InertialMeasurementUnitData,
     pub sonar_sensors: SonarSensors,

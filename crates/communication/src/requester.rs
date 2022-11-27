@@ -1,4 +1,4 @@
-use anyhow::Context;
+use color_eyre::eyre::WrapErr;
 use futures_util::{stream::SplitSink, SinkExt};
 use log::info;
 use serde::Serialize;
@@ -46,12 +46,12 @@ pub async fn requester(
 ) {
     while let Some(request) = receiver.recv().await {
         let request = serde_json::to_string(&request)
-            .context("Serialization of Request type failed")
+            .wrap_err("serialization of Request type failed")
             .unwrap();
         writer
             .send(tungstenite::Message::Text(request))
             .await
-            .context("Failed to send message to socket")
+            .wrap_err("failed to send message to socket")
             .unwrap();
     }
     info!("Dropping requester, closing socket");

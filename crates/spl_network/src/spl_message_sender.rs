@@ -1,5 +1,6 @@
+use color_eyre::Result;
 use context_attribute::context;
-use hardware::HardwareInterface;
+use types::hardware::Interface;
 
 pub struct SplMessageSender {
     value: usize,
@@ -24,19 +25,13 @@ pub struct CycleContext {
 pub struct MainOutputs {}
 
 impl SplMessageSender {
-    pub fn new(context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(context: NewContext) -> Result<Self> {
         Ok(Self {
             value: *context.initial_value,
         })
     }
 
-    pub fn cycle<Interface>(
-        &mut self,
-        context: CycleContext<Interface>,
-    ) -> anyhow::Result<MainOutputs>
-    where
-        Interface: HardwareInterface,
-    {
+    pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
         self.value += *context.step;
         // context.hardware_interface.print_number(42);
         Ok(MainOutputs {})

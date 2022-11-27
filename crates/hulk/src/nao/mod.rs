@@ -1,8 +1,9 @@
+mod camera;
 mod hula;
-mod hula_interface;
-mod nao_camera;
-mod nao_interface;
-mod registers;
-mod v4l2;
+mod hula_wrapper;
+mod interface;
+mod microphones;
+mod parameters;
 
-pub use nao_interface::NaoInterface as Interface;
+pub use interface::Interface;
+pub use parameters::Parameters;

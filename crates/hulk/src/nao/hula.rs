@@ -6,6 +6,7 @@ use std::{
     slice::from_raw_parts,
 };
 
+use color_eyre::Result;
 use nalgebra::{vector, Vector2, Vector3};
 use types::{self, ArmJoints, HeadJoints, Joints, LegJoints};
 
@@ -375,7 +376,7 @@ pub struct ControlStorage {
     pub stiffness: JointsArray,
 }
 
-pub fn read_from_hula(stream: &mut UnixStream) -> anyhow::Result<StateStorage> {
+pub fn read_from_hula(stream: &mut UnixStream) -> Result<StateStorage> {
     let mut read_buffer = [0; size_of::<StateStorage>()];
     stream.read_exact(&mut read_buffer)?;
     Ok(unsafe { read(read_buffer.as_ptr() as *const StateStorage) })
@@ -384,7 +385,7 @@ pub fn read_from_hula(stream: &mut UnixStream) -> anyhow::Result<StateStorage> {
 pub fn write_to_hula(
     stream: &mut UnixStream,
     control_storage: ControlStorage,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     let control_storage_buffer = unsafe {
         from_raw_parts(
             &control_storage as *const ControlStorage as *const u8,

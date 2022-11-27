@@ -1,11 +1,13 @@
+use serde::Deserialize;
+
 use crate::bindings::{
     v4l2_exposure_auto_type_V4L2_EXPOSURE_APERTURE_PRIORITY,
     v4l2_exposure_auto_type_V4L2_EXPOSURE_AUTO, v4l2_exposure_auto_type_V4L2_EXPOSURE_MANUAL,
     v4l2_exposure_auto_type_V4L2_EXPOSURE_SHUTTER_PRIORITY,
 };
 
-#[derive(Clone, Debug)]
-pub struct CameraParameters {
+#[derive(Clone, Debug, Deserialize)]
+pub struct Parameters {
     pub width: u32,
     pub height: u32,
     pub format: Format,
@@ -32,18 +34,18 @@ pub struct CameraParameters {
     pub amount_of_buffers: u32,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 pub enum Format {
     YUVU,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 pub struct Fraction {
     pub numerator: u32,
     pub denominator: u32,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 pub enum ExposureMode {
     Auto = v4l2_exposure_auto_type_V4L2_EXPOSURE_AUTO as isize,
     Manual = v4l2_exposure_auto_type_V4L2_EXPOSURE_MANUAL as isize,

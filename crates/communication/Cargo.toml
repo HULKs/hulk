@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = { workspace = true }
 byteorder = { workspace = true }
+color-eyre = { workspace = true }
 futures-util = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }

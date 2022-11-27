@@ -1,9 +1,11 @@
 mod camera;
 mod force_sensitive_resistor_devices;
+mod interface;
 mod intertial_measurement_unit_devices;
 mod joint_devices;
 mod keyboard_device;
+mod parameters;
 mod sonar_sensor_devices;
-mod webots_interface;
 
-pub use webots_interface::WebotsInterface as Interface;
+pub use interface::Interface;
+pub use parameters::Parameters;

@@ -45,7 +45,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                           },
                       })
                       .collect();
-                  let error_message = format!("Failed to create cycler `{}`", cycler_instance);
+                  let error_message = format!("failed to create cycler `{}`", cycler_instance);
                   quote! {
                       let #cycler_variable_identifier = #cycler_module_name_identifier::Cycler::new(
                           ::#cycler_module_name_identifier::CyclerInstance::#cycler_instance_identifier,
@@ -55,7 +55,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                           #(#other_cycler_identifiers,)*
                           configuration_reader.clone(),
                       )
-                      .context(#error_message)?;
+                      .wrap_err(#error_message)?;
                   }
               })
               .collect::<Vec<_>>()
@@ -129,11 +129,11 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                         format_ident!("{}_cycler", cycler_instance_snake_case);
                     let cycler_handle_identifier =
                         format_ident!("{}_handle", cycler_instance_snake_case);
-                    let error_message = format!("Failed to start cycler `{}`", cycler_instance);
+                    let error_message = format!("failed to start cycler `{}`", cycler_instance);
                     quote! {
                         let #cycler_handle_identifier = #cycler_variable_identifier
                             .start(keep_running.clone())
-                            .context(#error_message)?;
+                            .wrap_err(#error_message)?;
                     }
                 })
                 .collect::<Vec<_>>()
@@ -165,11 +165,11 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
             hardware_interface: std::sync::Arc<Interface>,
             initial_configuration: structs::Configuration,
             keep_running: tokio_util::sync::CancellationToken,
-        ) -> anyhow::Result<()>
+        ) -> color_eyre::Result<()>
         where
-            Interface: hardware::HardwareInterface + Send + Sync + 'static,
+            Interface: types::hardware::Interface + Send + Sync + 'static,
         {
-            use anyhow::Context;
+            use color_eyre::eyre::WrapErr;
 
             let (configuration_writer, configuration_reader) = framework::multiple_buffer_with_slots([
                 #(#configuration_slot_initializers_for_all_cyclers,)*

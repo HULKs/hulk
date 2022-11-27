@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
-use anyhow::Context;
+use color_eyre::{eyre::WrapErr, Result};
 
 use crate::{CyclerInstances, Field, Modules};
 
@@ -16,14 +16,14 @@ pub enum CyclerType {
 }
 
 impl CyclerTypes {
-    pub fn try_from_crates_directory<P>(crates_directory: P) -> anyhow::Result<Self>
+    pub fn try_from_crates_directory<P>(crates_directory: P) -> Result<Self>
     where
         P: AsRef<Path>,
     {
         let cycler_instances = CyclerInstances::try_from_crates_directory(&crates_directory)
-            .context("Failed to get cycler_instances")?;
+            .wrap_err("failed to get cycler_instances")?;
         let modules = Modules::try_from_crates_directory(&crates_directory)
-            .context("Failed to get modules")?;
+            .wrap_err("failed to get modules")?;
 
         Ok(Self {
             cycler_modules_to_cycler_types: cycler_instances

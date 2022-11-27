@@ -7,8 +7,8 @@ use std::{
     time::Duration,
 };
 
-use anyhow::bail;
 use byteorder::{ByteOrder, NativeEndian};
+use color_eyre::{eyre::bail, Report, Result};
 use nalgebra::{point, vector, Isometry2};
 use serde::{Deserialize, Serialize};
 
@@ -29,20 +29,20 @@ pub struct SplMessage {
 }
 
 impl TryFrom<&[u8]> for SplMessage {
-    type Error = anyhow::Error;
+    type Error = Report;
 
-    fn try_from(buffer: &[u8]) -> anyhow::Result<Self> {
+    fn try_from(buffer: &[u8]) -> Result<Self> {
         let buffer_offset_of_user_data =
             size_of::<SPLStandardMessage>() - (SPL_STANDARD_MESSAGE_DATA_SIZE as usize);
         if buffer.len() < buffer_offset_of_user_data {
-            bail!("Buffer too small");
+            bail!("buffer too small");
         }
         let number_of_bytes_of_user_data = NativeEndian::read_u16(
             &buffer[buffer_offset_of_user_data - 2..buffer_offset_of_user_data],
         );
         let additional_number_of_bytes_in_message = buffer.len() - buffer_offset_of_user_data;
         if number_of_bytes_of_user_data as usize != additional_number_of_bytes_in_message {
-            bail!("Buffer size mismatch: numOfDataBytes != length of message remainder");
+            bail!("buffer size mismatch: numOfDataBytes != length of message remainder");
         }
         let message = unsafe { read(buffer.as_ptr() as *const SPLStandardMessage) };
         message.try_into()
@@ -50,21 +50,21 @@ impl TryFrom<&[u8]> for SplMessage {
 }
 
 impl TryFrom<SPLStandardMessage> for SplMessage {
-    type Error = anyhow::Error;
+    type Error = Report;
 
-    fn try_from(message: SPLStandardMessage) -> anyhow::Result<Self> {
+    fn try_from(message: SPLStandardMessage) -> Result<Self> {
         if message.header[0] != SPL_STANDARD_MESSAGE_STRUCT_HEADER[0] as c_char
             && message.header[1] != SPL_STANDARD_MESSAGE_STRUCT_HEADER[1] as c_char
             && message.header[2] != SPL_STANDARD_MESSAGE_STRUCT_HEADER[2] as c_char
             && message.header[3] != SPL_STANDARD_MESSAGE_STRUCT_HEADER[3] as c_char
         {
-            bail!("Unexpected header");
+            bail!("unexpected header");
         }
         if message.version != SPL_STANDARD_MESSAGE_STRUCT_VERSION {
-            bail!("Unexpected version");
+            bail!("unexpected version");
         }
         if message.teamNum != HULKS_TEAM_NUMBER {
-            bail!("Unexpected team number != {}", HULKS_TEAM_NUMBER);
+            bail!("unexpected team number != {}", HULKS_TEAM_NUMBER);
         }
         Ok(Self {
             player_number: match message.playerNum {
@@ -73,12 +73,12 @@ impl TryFrom<SPLStandardMessage> for SplMessage {
                 3 => PlayerNumber::Three,
                 4 => PlayerNumber::Four,
                 5 => PlayerNumber::Five,
-                _ => bail!("Unexpected player number {}", message.playerNum),
+                _ => bail!("unexpected player number {}", message.playerNum),
             },
             fallen: match message.fallen {
                 1 => true,
                 0 => false,
-                _ => bail!("Unexpected fallen state"),
+                _ => bail!("unexpected fallen state"),
             },
             robot_to_field: Isometry2::new(
                 vector![message.pose[0] / 1000.0, message.pose[1] / 1000.0],

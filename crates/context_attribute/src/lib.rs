@@ -192,11 +192,15 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                         leading_colon: None,
                         segments: Punctuated::from_iter([
                             PathSegment {
+                                ident: format_ident!("types"),
+                                arguments: PathArguments::None,
+                            },
+                            PathSegment {
                                 ident: format_ident!("hardware"),
                                 arguments: PathArguments::None,
                             },
                             PathSegment {
-                                ident: format_ident!("HardwareInterface"),
+                                ident: format_ident!("Interface"),
                                 arguments: PathArguments::None,
                             },
                         ]),
