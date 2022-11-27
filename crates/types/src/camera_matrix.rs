@@ -1,4 +1,4 @@
-use anyhow::Result;
+use color_eyre::{eyre::bail, Result};
 use nalgebra::{point, vector, Isometry3, Matrix, Point2, Point3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
@@ -99,7 +99,7 @@ impl CameraMatrix {
 
     pub fn camera_to_pixel(&self, camera_ray: &Vector3<f32>) -> Result<Point2<f32>> {
         if camera_ray.x <= 0.0 {
-            anyhow::bail!("Ray points behind the camera")
+            bail!("ray points behind the camera")
         }
         Ok(point![
             self.optical_center.x - self.focal_length.x * camera_ray.y / camera_ray.x,
@@ -124,7 +124,7 @@ impl CameraMatrix {
             || camera_ray_rotated_to_robot_coordinate_system.y.is_nan()
             || camera_ray_rotated_to_robot_coordinate_system.z.is_nan()
         {
-            anyhow::bail!("Cannot map pixel to ground because it is above the horizon");
+            bail!("cannot map pixel to ground because it is above the horizon");
         }
 
         Ok(point![
@@ -170,7 +170,7 @@ impl CameraMatrix {
             self.ground_to_camera * point![robot_coordinates.x, robot_coordinates.y, 0.0];
         let distance = camera_coordinates.coords.norm();
         if distance <= radius_in_robot_coordinates {
-            anyhow::bail!("Object too close to camera to calculate pixel radius");
+            bail!("object too close to camera to calculate pixel radius");
         }
         let angle = (radius_in_robot_coordinates / distance).asin();
         Ok(resolution.y as f32 * angle / self.field_of_view.y)
@@ -259,7 +259,6 @@ impl CameraMatrix {
 mod tests {
     use super::*;
 
-    use anyhow::Ok;
     use approx::assert_relative_eq;
     use nalgebra::{Translation, UnitQuaternion};
 

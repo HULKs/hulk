@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use anyhow::Context;
 use bat::{PagingMode, PrettyPrinter};
 use clap::Subcommand;
+use color_eyre::eyre::WrapErr;
 
 use repository::Repository;
 use source_analyzer::{parse_rust_file, Contexts, CyclerInstances, CyclerTypes, Modules, Structs};
@@ -35,10 +35,11 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> anyhow::R
             crate_name,
             file_name,
         } => {
+            // TODO: replace expects with color_eyre::eyre::WrapErr
             let prefix = format!("target/**/{crate_name}-*/**");
             let file_path = repository
                 .find_latest_file(&prefix, &file_name)
-                .context("Failed find latest build script output")?;
+                .expect("Failed find latest build script output");
             PrettyPrinter::new()
                 .input_file(file_path)
                 .grid(true)
@@ -47,30 +48,30 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> anyhow::R
                 .paging_mode(PagingMode::QuitIfOneScreen)
                 .rule(true)
                 .print()
-                .context("Failed to print file")?;
+                .expect("Failed to print file");
         }
         Arguments::DumpContexts { file_path } => {
-            let file = parse_rust_file(&file_path).context("Failed to parse rust file")?;
+            let file = parse_rust_file(&file_path).expect("Failed to parse rust file");
             let context = Contexts::try_from_file(file_path, &file)
-                .context("Failed to get contexts from rust file")?;
+                .expect("Failed to get contexts from rust file");
             println!("{context:#?}");
         }
         Arguments::DumpCyclerInstances => {
             let cycler_instances =
                 CyclerInstances::try_from_crates_directory(repository.get_crates_directory())
-                    .context("Failed to get cycler instances")?;
+                    .expect("Failed to get cycler instances");
             println!("{cycler_instances:#?}");
         }
         Arguments::DumpCyclerTypes => {
             let cycler_types =
                 CyclerTypes::try_from_crates_directory(repository.get_crates_directory())
-                    .context("Failed to get cycler types")?;
+                    .expect("Failed to get cycler types");
             println!("{cycler_types:#?}");
         }
         Arguments::DumpLatest { file_name } => {
             let file_path = repository
                 .find_latest_file("target/**/out/**", &file_name)
-                .context("Failed find latest generated file")?;
+                .expect("Failed find latest generated file");
             PrettyPrinter::new()
                 .input_file(file_path)
                 .grid(true)
@@ -79,16 +80,16 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> anyhow::R
                 .paging_mode(PagingMode::QuitIfOneScreen)
                 .rule(true)
                 .print()
-                .context("Failed to print file")?;
+                .expect("Failed to print file");
         }
         Arguments::DumpModules => {
             let modules = Modules::try_from_crates_directory(repository.get_crates_directory())
-                .context("Failed to get modules")?;
+                .expect("Failed to get modules");
             println!("{modules:#?}");
         }
         Arguments::DumpStructs => {
             let structs = Structs::try_from_crates_directory(repository.get_crates_directory())
-                .context("Failed to get structs")?;
+                .expect("Failed to get structs");
             println!("{structs:#?}");
         }
     }

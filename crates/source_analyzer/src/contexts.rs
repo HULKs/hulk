@@ -1,12 +1,15 @@
 use std::{collections::BTreeMap, path::Path};
 
-use anyhow::{bail, Context};
+use color_eyre::{
+    eyre::{bail, eyre, WrapErr},
+    Result,
+};
 use syn::{
     spanned::Spanned, Expr, ExprLit, File, GenericArgument, Ident, Item, Lit, PathArguments, Type,
 };
 
 use crate::{
-    into_anyhow_result::new_syn_error_as_anyhow_result,
+    into_eyre_result::new_syn_error_as_eyre_result,
     to_absolute::ToAbsolute,
     uses::{uses_from_items, Uses},
 };
@@ -19,7 +22,7 @@ pub struct Contexts {
 }
 
 impl Contexts {
-    pub fn try_from_file<P>(file_path: P, file: &File) -> anyhow::Result<Self>
+    pub fn try_from_file<P>(file_path: P, file: &File) -> Result<Self>
     where
         P: AsRef<Path>,
     {
@@ -43,7 +46,7 @@ impl Contexts {
                         .iter()
                         .map(|field| Field::try_from_field(&file_path, field, &uses))
                         .collect::<Result<_, _>>()
-                        .context("Failed to gather context fields")?;
+                        .wrap_err("failed to gather context fields")?;
                     match struct_item.ident.to_string().as_str() {
                         "NewContext" => {
                             new_context.append(&mut fields);
@@ -55,7 +58,7 @@ impl Contexts {
                             main_outputs.append(&mut fields);
                         }
                         _ => {
-                            return new_syn_error_as_anyhow_result(
+                            return new_syn_error_as_eyre_result(
                                 struct_item.ident.span(),
                                 "expected `NewContext`, `CycleContext`, or `MainOutputs`",
                                 file_path,
@@ -125,15 +128,18 @@ pub enum Field {
 }
 
 impl Field {
-    pub fn try_from_field<P>(file_path: P, field: &syn::Field, uses: &Uses) -> anyhow::Result<Self>
+    pub fn try_from_field<P>(file_path: P, field: &syn::Field, uses: &Uses) -> Result<Self>
     where
         P: AsRef<Path>,
     {
-        let field_name = field.ident.as_ref().context("field must have be named")?;
+        let field_name = field
+            .ident
+            .as_ref()
+            .ok_or_else(|| eyre!("field must have be named"))?;
         match &field.ty {
             Type::Path(path) => {
                 if path.path.segments.len() != 1 {
-                    return new_syn_error_as_anyhow_result(
+                    return new_syn_error_as_eyre_result(
                         path.span(),
                         "expected type path with exactly one segment",
                         file_path,
@@ -146,7 +152,7 @@ impl Field {
                             extract_two_arguments(file_path, &first_segment.arguments)?;
                         let path_contains_optional = path.iter().any(|segment| segment.is_optional);
                         if path_contains_optional {
-                            bail!("Unexpected optional segments in path of additional output `{field_name}`");
+                            bail!("unexpected optional segments in path of additional output `{field_name}`");
                         }
                         Ok(Field::AdditionalOutput {
                             data_type: data_type.to_absolute(uses),
@@ -182,7 +188,7 @@ impl Field {
                                     extract_three_arguments(file_path, &first_segment.arguments)?;
                                 (data_type, Some(cycler_instance), path)
                             }
-                            _ => new_syn_error_as_anyhow_result(
+                            _ => new_syn_error_as_eyre_result(
                                 first_segment.arguments.span(),
                                 "expected exactly two or three generic parameters",
                                 file_path,
@@ -246,7 +252,7 @@ impl Field {
                                     extract_three_arguments(file_path, &first_segment.arguments)?;
                                 (data_type, Some(cycler_instance), path)
                             }
-                            _ => new_syn_error_as_anyhow_result(
+                            _ => new_syn_error_as_eyre_result(
                                 first_segment.arguments.span(),
                                 "expected exactly two or three generic parameters",
                                 file_path,
@@ -254,7 +260,7 @@ impl Field {
                         };
                         let path_contains_optional = path.iter().any(|segment| segment.is_optional);
                         if !path_contains_optional {
-                            bail!("Expected optional segments in path of required input `{field_name}`");
+                            bail!("expected optional segments in path of required input `{field_name}`");
                         }
                         Ok(Field::RequiredInput {
                             cycler_instance,
@@ -263,14 +269,14 @@ impl Field {
                             path,
                         })
                     }
-                    _ => new_syn_error_as_anyhow_result(
+                    _ => new_syn_error_as_eyre_result(
                         first_segment.ident.span(),
                         "unexpected identifier",
                         file_path,
                     ),
                 }
             }
-            _ => new_syn_error_as_anyhow_result(field.ty.span(), "expected type path", file_path),
+            _ => new_syn_error_as_eyre_result(field.ty.span(), "expected type path", file_path),
         }
     }
 }
@@ -304,13 +310,13 @@ impl From<&str> for PathSegment {
 pub fn expand_variables_from_path(
     path: &[PathSegment],
     variables: &BTreeMap<String, Vec<String>>,
-) -> anyhow::Result<Vec<Vec<PathSegment>>> {
+) -> Result<Vec<Vec<PathSegment>>> {
     let mut paths = vec![vec![]];
     for path_segment in path {
         if path_segment.is_variable {
             let cases = match variables.get(&path_segment.name) {
                 Some(cases) => cases,
-                None => bail!("Unexpected variable `{}` in path", path_segment.name),
+                None => bail!("unexpected variable `{}` in path", path_segment.name),
             };
             paths = cases
                 .iter()
@@ -335,14 +341,14 @@ pub fn expand_variables_from_path(
     Ok(paths)
 }
 
-fn extract_one_argument<P>(file_path: P, arguments: &PathArguments) -> anyhow::Result<Type>
+fn extract_one_argument<P>(file_path: P, arguments: &PathArguments) -> Result<Type>
 where
     P: AsRef<Path>,
 {
     match arguments {
         PathArguments::AngleBracketed(arguments) => {
             if arguments.args.len() != 1 {
-                return new_syn_error_as_anyhow_result(
+                return new_syn_error_as_eyre_result(
                     arguments.span(),
                     "expected exactly one generic parameter",
                     file_path,
@@ -350,14 +356,14 @@ where
             }
             match &arguments.args[0] {
                 GenericArgument::Type(type_argument) => Ok(type_argument.clone()),
-                _ => new_syn_error_as_anyhow_result(
+                _ => new_syn_error_as_eyre_result(
                     arguments.span(),
                     "expected type in first generic parameter",
                     file_path,
                 ),
             }
         }
-        _ => new_syn_error_as_anyhow_result(
+        _ => new_syn_error_as_eyre_result(
             arguments.span(),
             "expected exactly one generic parameter",
             file_path,
@@ -368,14 +374,14 @@ where
 fn extract_two_arguments<P>(
     file_path: P,
     arguments: &PathArguments,
-) -> anyhow::Result<(Type, Vec<PathSegment>)>
+) -> Result<(Type, Vec<PathSegment>)>
 where
     P: AsRef<Path>,
 {
     match arguments {
         PathArguments::AngleBracketed(arguments) => {
             if arguments.args.len() != 2 {
-                return new_syn_error_as_anyhow_result(
+                return new_syn_error_as_eyre_result(
                     arguments.span(),
                     "expected exactly two generic parameters",
                     file_path,
@@ -390,14 +396,14 @@ where
                     type_argument.clone(),
                     literal_argument.token().to_string().trim_matches('"').split('/').map(PathSegment::from).collect(),
                 )),
-                _ => new_syn_error_as_anyhow_result(
+                _ => new_syn_error_as_eyre_result(
                     arguments.span(),
                     "expected type in first generic parameter and string literal in second generic parameter",
                     file_path,
                 ),
             }
         }
-        _ => new_syn_error_as_anyhow_result(
+        _ => new_syn_error_as_eyre_result(
             arguments.span(),
             "expected exactly two generic parameters",
             file_path,
@@ -408,14 +414,14 @@ where
 fn extract_three_arguments<P>(
     file_path: P,
     arguments: &PathArguments,
-) -> anyhow::Result<(Type, String, Vec<PathSegment>)>
+) -> Result<(Type, String, Vec<PathSegment>)>
 where
     P: AsRef<Path>,
 {
     match arguments {
         PathArguments::AngleBracketed(arguments) => {
             if arguments.args.len() != 3 {
-                return new_syn_error_as_anyhow_result(
+                return new_syn_error_as_eyre_result(
                     arguments.span(),
                     "expected exactly three generic parameters",
                     file_path,
@@ -435,14 +441,14 @@ where
                     first_literal_argument.token().to_string().trim_matches('"').to_string(),
                     second_literal_argument.token().to_string().trim_matches('"').split('/').map(PathSegment::from).collect(),
                 )),
-                _ => new_syn_error_as_anyhow_result(
+                _ => new_syn_error_as_eyre_result(
                     arguments.span(),
                     "expected type in first generic parameter and string literals in second and third generic parameters",
                     file_path,
                 ),
             }
         }
-        _ => new_syn_error_as_anyhow_result(
+        _ => new_syn_error_as_eyre_result(
             arguments.span(),
             "expected exactly three generic parameters",
             file_path,

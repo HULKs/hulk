@@ -1,6 +1,7 @@
+use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use hardware::HardwareInterface;
+use types::hardware::Interface;
 
 pub struct MicrophoneRecorder {}
 
@@ -19,17 +20,11 @@ pub struct MainOutputs {
 }
 
 impl MicrophoneRecorder {
-    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle<Interface>(
-        &mut self,
-        context: CycleContext<Interface>,
-    ) -> anyhow::Result<MainOutputs>
-    where
-        Interface: HardwareInterface,
-    {
+    pub fn cycle(&mut self, _context: CycleContext<impl Interface>) -> Result<MainOutputs> {
         Ok(MainOutputs::default())
         //hardware_interface
         //    .produce_audio_data()

@@ -5,19 +5,19 @@ name = "cyclers"
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
 audio = { workspace = true }
+color-eyre = { workspace = true }
 control = { workspace = true }
 framework = { workspace = true }
-hardware = { workspace = true }
 spl_network = { workspace = true }
 structs = { workspace = true }
 tokio-util = { workspace = true }
+types = { workspace = true }
 vision = { workspace = true }
 
 [build-dependencies]
-anyhow = { workspace = true }
 build_script_helpers = { workspace = true }
+color-eyre = { workspace = true }
 convert_case = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }

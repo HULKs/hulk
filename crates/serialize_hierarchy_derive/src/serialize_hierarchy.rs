@@ -23,32 +23,32 @@ pub fn process_serialize_hierarchy_implementation(
 
     let expanded = quote! {
         impl #impl_generics serialize_hierarchy::SerializeHierarchy for #name #ty_generics #where_clause {
-            fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<serde_json::Value> {
-                use anyhow::Context;
+            fn serialize_hierarchy(&self, field_path: &str) -> color_eyre::eyre::Result<serde_json::Value> {
+                use color_eyre::eyre::WrapErr;
                 let split = field_path.split_once(".");
                 match split {
                     Some((field_name, suffix)) => match field_name {
                         #(#path_serialization,)*
-                        _ => anyhow::bail!("No such field in type: `{}`", field_path),
+                        _ => color_eyre::eyre::bail!("no such field in type: `{}`", field_path),
                     },
                     None => match field_path {
                         #(#serde_serialization,)*
-                        _ => anyhow::bail!("No such field in type: `{}`", field_path),
+                        _ => color_eyre::eyre::bail!("no such field in type: `{}`", field_path),
                     },
                 }
             }
 
-            fn deserialize_hierarchy(&mut self, field_path: &str, data: serde_json::Value) -> anyhow::Result<()> {
-                use anyhow::Context;
+            fn deserialize_hierarchy(&mut self, field_path: &str, data: serde_json::Value) -> color_eyre::eyre::Result<()> {
+                use color_eyre::eyre::WrapErr;
                 let split = field_path.split_once(".");
                 match split {
                     Some((field_name, suffix)) => match field_name {
                         #(#path_deserialization,)*
-                        _ => anyhow::bail!("No such field in type: `{}`", field_path),
+                        _ => color_eyre::eyre::bail!("no such field in type: `{}`", field_path),
                     },
                     None => match field_path {
                         #(#serde_deserialization,)*
-                        _ => anyhow::bail!("No such field in type: `{}`", field_path),
+                        _ => color_eyre::eyre::bail!("no such field in type: `{}`", field_path),
                     },
                 }
             }
@@ -93,9 +93,9 @@ fn generate_serde_serialization(fields: &Fields) -> Vec<TokenStream> {
             }
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
-            let error_message = format!("Failed to serialize field `{}`", name);
+            let error_message = format!("failed to serialize field `{}`", name);
             Some(quote! {
-                #pattern => serde_json::to_value(&self.#name).context(#error_message)
+                #pattern => serde_json::to_value(&self.#name).wrap_err(#error_message)
             })
         })
         .collect()
@@ -120,12 +120,12 @@ fn generate_path_serialization(fields: &Fields) -> Vec<TokenStream> {
             let pattern = name.to_string();
             let code = if is_leaf {
                 quote! {
-                    #pattern => anyhow::bail!("Cannot access leaf node with path `{}`", suffix)
+                    #pattern => color_eyre::eyre::bail!("cannot access leaf node with path `{}`", suffix)
                 }
             } else {
-                let error_message = format!("Failed to serialize field `{}`", name);
+                let error_message = format!("failed to serialize field `{}`", name);
                 quote! {
-                    #pattern => self.#name.serialize_hierarchy(suffix).context(#error_message)
+                    #pattern => self.#name.serialize_hierarchy(suffix).wrap_err(#error_message)
                 }
             };
             Some(code)
@@ -146,10 +146,10 @@ fn generate_serde_deserialization(fields: &Fields) -> Vec<TokenStream> {
             }
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
-            let error_message = format!("Failed to deserialize field `{}`", name);
+            let error_message = format!("failed to deserialize field `{}`", name);
             Some(quote! {
                 #pattern => {
-                    self.#name = serde_json::from_value(data).context(#error_message)?;
+                    self.#name = serde_json::from_value(data).wrap_err(#error_message)?;
                     Ok(())
                 }
             })
@@ -174,14 +174,14 @@ fn generate_path_deserialization(fields: &Fields) -> Vec<TokenStream> {
                 .any(|attribute| attribute.path.is_ident("leaf"));
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
-            let error_message = format!("Failed to deserialize field `{}`", name);
+            let error_message = format!("failed to deserialize field `{}`", name);
             let code = if is_leaf {
                 quote! {
-                    #pattern => anyhow::bail!("Cannot access leaf node with path `{}`", suffix)
+                    #pattern => color_eyre::eyre::bail!("cannot access leaf node with path `{}`", suffix)
                 }
             } else {
                 quote! {
-                    #pattern => self.#name.deserialize_hierarchy(suffix, data).context(#error_message)
+                    #pattern => self.#name.deserialize_hierarchy(suffix, data).wrap_err(#error_message)
                 }
             };
             Some(code)

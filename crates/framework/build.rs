@@ -1,4 +1,4 @@
-use anyhow::Context;
+use color_eyre::{eyre::WrapErr, Result};
 use build_script_helpers::write_token_stream;
 use convert_case::{Case, Casing};
 use quote::{format_ident, quote};
@@ -6,17 +6,17 @@ use source_analyzer::{
     cycler_crates_from_crates_directory, CyclerInstances, CyclerType, CyclerTypes,
 };
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<()> {
     for crate_directory in cycler_crates_from_crates_directory("..")
-        .context("Failed to get cycler crate directories from crates directory")?
+        .wrap_err("failed to get cycler crate directories from crates directory")?
     {
         println!("cargo:rerun-if-changed={}", crate_directory.display());
     }
 
     let cycler_instances = CyclerInstances::try_from_crates_directory("..")
-        .context("Failed to get cycler instances from crates directory")?;
+        .wrap_err("failed to get cycler instances from crates directory")?;
     let cycler_types = CyclerTypes::try_from_crates_directory("..")
-        .context("Failed to get perception cycler instances from crates directory")?;
+        .wrap_err("failed to get perception cycler instances from crates directory")?;
 
     let updates_fields = cycler_instances.instances_to_modules.iter().filter_map(|(instance_name, module_name)| {
         match cycler_types.cycler_modules_to_cycler_types[module_name] == CyclerType::Perception {
@@ -109,7 +109,7 @@ fn main() -> anyhow::Result<()> {
             }
         },
     )
-    .context("Failed to write perception databases structs")?;
+    .wrap_err("failed to write perception databases structs")?;
 
     Ok(())
 }

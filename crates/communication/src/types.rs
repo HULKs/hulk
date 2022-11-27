@@ -4,7 +4,10 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::anyhow;
+use color_eyre::{
+    eyre::{bail, eyre},
+    Report, Result,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -15,20 +18,20 @@ pub struct CyclerOutput {
 }
 
 impl FromStr for CyclerOutput {
-    type Err = anyhow::Error;
+    type Err = Report;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         let (cycler_str, output_str) = string.split_once('.').ok_or_else(|| {
-            anyhow!("Expected '.' in subscription path (e.g. 'control.main.foo_bar')")
+            eyre!("expected '.' in subscription path (e.g. 'control.main.foo_bar')")
         })?;
         let cycler = match cycler_str {
             "control" => Cycler::Control,
             "vision_top" => Cycler::VisionTop,
             "vision_bottom" => Cycler::VisionBottom,
-            _ => anyhow::bail!("Unknown cycler '{cycler_str}'"),
+            _ => bail!("unknown cycler '{cycler_str}'"),
         };
         let (output_str, path) = output_str.split_once('.').ok_or_else(|| {
-            anyhow!("Expected '.' after output source (e.g. 'control.main.foo_bar')")
+            eyre!("expected '.' after output source (e.g. 'control.main.foo_bar')")
         })?;
         let output = match output_str {
             "main" | "main_outputs" => Output::Main {
@@ -38,7 +41,7 @@ impl FromStr for CyclerOutput {
                 path: path.to_string(),
             },
             "image" => Output::Image,
-            _ => anyhow::bail!("Unknown output '{output_str}'"),
+            _ => bail!("unknown output '{output_str}'"),
         };
         Ok(CyclerOutput { cycler, output })
     }

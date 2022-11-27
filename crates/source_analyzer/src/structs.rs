@@ -1,6 +1,9 @@
 use std::{collections::BTreeMap, iter::once, path::Path};
 
-use anyhow::{anyhow, bail, Context};
+use color_eyre::{
+    eyre::{bail, WrapErr},
+    Result,
+};
 use convert_case::{Case, Casing};
 use quote::{format_ident, ToTokens};
 use syn::{
@@ -17,16 +20,16 @@ pub struct Structs {
 }
 
 impl Structs {
-    pub fn try_from_crates_directory<P>(crates_directory: P) -> anyhow::Result<Self>
+    pub fn try_from_crates_directory<P>(crates_directory: P) -> Result<Self>
     where
         P: AsRef<Path>,
     {
         let mut structs = Self::default();
 
         let cycler_instances = CyclerInstances::try_from_crates_directory(&crates_directory)
-            .context("Failed to get cycler instances")?;
+            .wrap_err("failed to get cycler instances")?;
         let modules = Modules::try_from_crates_directory(&crates_directory)
-            .context("Failed to get modules")?;
+            .wrap_err("failed to get modules")?;
 
         for (cycler_module, module_names) in modules.cycler_modules_to_modules.iter() {
             let cycler_structs = structs
@@ -50,11 +53,11 @@ impl Structs {
                                         },
                                     );
                                 }
-                                _ => bail!("Unexpected non-struct hierarchy in main outputs"),
+                                _ => bail!("unexpected non-struct hierarchy in main outputs"),
                             }
                         }
                         _ => {
-                            bail!("Unexpected field {field:?} in MainOutputs");
+                            bail!("unexpected field {field:?} in MainOutputs");
                         }
                     }
                 }
@@ -76,8 +79,8 @@ impl Structs {
                                     cycler_instances.iter().map(|instance| instance.to_case(Case::Snake)).collect(),
                                 )]),
                             )
-                            .with_context(|| {
-                                anyhow!("Failed to expand path variables for additional output `{name}`")
+                            .wrap_err_with(|| {
+                                format!("failed to expand path variables for additional output `{name}`")
                             })?;
 
                             let data_type_wrapped_in_option = Type::Path(TypePath {
@@ -105,8 +108,8 @@ impl Structs {
                                 cycler_structs
                                     .additional_outputs
                                     .insert(insertion_rules)
-                                    .with_context(|| {
-                                        anyhow!("Failed to insert expanded path into additional outputs for additional output `{name}`")
+                                    .wrap_err_with(|| {
+                                        format!("failed to insert expanded path into additional outputs for additional output `{name}`")
                                     })?;
                             }
                         }
@@ -119,11 +122,14 @@ impl Structs {
                                 path,
                                 &BTreeMap::from_iter([(
                                     "cycler_instance".to_string(),
-                                    cycler_instances.iter().map(|instance| instance.to_case(Case::Snake)).collect(),
+                                    cycler_instances
+                                        .iter()
+                                        .map(|instance| instance.to_case(Case::Snake))
+                                        .collect(),
                                 )]),
                             )
-                            .with_context(|| {
-                                anyhow!("Failed to expand path variables for parameter `{name}`")
+                            .wrap_err_with(|| {
+                                format!("failed to expand path variables for parameter `{name}`")
                             })?;
                             dbg!(&expanded_paths);
 
@@ -132,8 +138,8 @@ impl Structs {
                                     path.iter().any(|segment| segment.is_optional);
                                 let data_type = match path_contains_optional {
                                     true => unwrap_option_data_type(data_type.clone())
-                                        .with_context(|| {
-                                            anyhow!("Failed to unwrap Option<T> from data type for parameter `{name}`")
+                                        .wrap_err_with(|| {
+                                            format!("failed to unwrap Option<T> from data type for parameter `{name}`")
                                         })?,
                                     false => data_type.clone(),
                                 };
@@ -141,8 +147,8 @@ impl Structs {
                                 structs
                                     .configuration
                                     .insert(insertion_rules)
-                                    .with_context(|| {
-                                        anyhow!("Failed to insert expanded path into configuration for parameter `{name}`")
+                                    .wrap_err_with(|| {
+                                        format!("failed to insert expanded path into configuration for parameter `{name}`")
                                     })?;
                             }
                         }
@@ -155,8 +161,8 @@ impl Structs {
                             cycler_structs
                                 .persistent_state
                                 .insert(insertion_rules)
-                                .with_context(|| {
-                                    anyhow!("Failed to insert expanded path into persistent state for persistent state `{name}`")
+                                .wrap_err_with(|| {
+                                    format!("failed to insert expanded path into persistent state for persistent state `{name}`")
                                 })?;
                         }
                         Field::HardwareInterface { .. }
@@ -165,7 +171,7 @@ impl Structs {
                         | Field::PerceptionInput { .. }
                         | Field::RequiredInput { .. } => {}
                         _ => {
-                            bail!("Unexpected field {field:?} in `NewContext` or `CycleContext`");
+                            bail!("unexpected field {field:?} in `NewContext` or `CycleContext`");
                         }
                     }
                 }
@@ -205,7 +211,7 @@ impl Default for StructHierarchy {
 }
 
 impl StructHierarchy {
-    fn insert(&mut self, mut insertion_rules: Vec<InsertionRule>) -> anyhow::Result<()> {
+    fn insert(&mut self, mut insertion_rules: Vec<InsertionRule>) -> Result<()> {
         let first_rule = match insertion_rules.first() {
             Some(first_rule) => first_rule,
             None => return Ok(()),
@@ -219,7 +225,7 @@ impl StructHierarchy {
                     .insert(insertion_rules.split_off(1)),
                 InsertionRule::BeginOptional => {
                     if !fields.is_empty() {
-                        bail!("Failed to begin optional in-place of non-empty struct");
+                        bail!("failed to begin optional in-place of non-empty struct");
                     }
                     let mut child = StructHierarchy::default();
                     child.insert(insertion_rules.split_off(1))?;
@@ -231,7 +237,7 @@ impl StructHierarchy {
                 InsertionRule::BeginStruct => self.insert(insertion_rules.split_off(1)),
                 InsertionRule::AppendDataType { data_type } => {
                     if !fields.is_empty() {
-                        bail!("Failed to append data type in-place of non-empty struct");
+                        bail!("failed to append data type in-place of non-empty struct");
                     }
                     *self = StructHierarchy::Field {
                         data_type: data_type.clone(),
@@ -241,12 +247,12 @@ impl StructHierarchy {
             },
             StructHierarchy::Optional { child } => match first_rule {
                 InsertionRule::InsertField { name } => {
-                    bail!("Failed to insert field with name `{name}` to optional")
+                    bail!("failed to insert field with name `{name}` to optional")
                 }
                 InsertionRule::BeginOptional => child.insert(insertion_rules.split_off(1)),
-                InsertionRule::BeginStruct => bail!("Failed to begin struct in-place of optional"),
+                InsertionRule::BeginStruct => bail!("failed to begin struct in-place of optional"),
                 InsertionRule::AppendDataType { .. } => {
-                    bail!("Failed to append data type in-place of optional")
+                    bail!("failed to append data type in-place of optional")
                 }
             },
             StructHierarchy::Field { data_type } => match first_rule {
@@ -258,7 +264,7 @@ impl StructHierarchy {
                 } => {
                     if data_type != data_type_to_be_appended {
                         bail!( // TODO: Ja, wo denn?!
-                            "Unmatching data types: previous data type {} does not match data type {} to be appended",
+                            "unmatching data types: previous data type {} does not match data type {} to be appended",
                             data_type.to_token_stream(),
                             data_type_to_be_appended.to_token_stream(),
                         );
@@ -305,7 +311,7 @@ fn path_to_insertion_rules(path: &[PathSegment], data_type: &Type) -> Vec<Insert
         .collect()
 }
 
-fn unwrap_option_data_type(data_type: Type) -> anyhow::Result<Type> {
+fn unwrap_option_data_type(data_type: Type) -> Result<Type> {
     match data_type {
         Type::Path(TypePath {
             path: syn::Path { segments, .. },
@@ -318,14 +324,14 @@ fn unwrap_option_data_type(data_type: Type) -> anyhow::Result<Type> {
                     match args.first().unwrap() {
                         GenericArgument::Type(nested_data_type) => Ok(nested_data_type.clone()),
                         _ => bail!(
-                            "Unexpected generic argument, expected type argument in data type"
+                            "unexpected generic argument, expected type argument in data type"
                         ),
                     }
                 }
-                _ => bail!("Expected exactly one generic type argument in data type"),
+                _ => bail!("expected exactly one generic type argument in data type"),
             }
         }
-        _ => bail!("Execpted Option<T> as data type"),
+        _ => bail!("execpted Option<T> as data type"),
     }
 }
 

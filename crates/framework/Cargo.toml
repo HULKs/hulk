@@ -5,13 +5,13 @@ name = "framework"
 version = "0.1.0"
 
 [dependencies]
-hardware = { workspace = true }
 parking_lot = { workspace = true }
 structs = { workspace = true }
+types = { workspace = true }
 
 [build-dependencies]
-anyhow = { workspace = true }
 build_script_helpers = { workspace = true }
+color-eyre = { workspace = true }
 convert_case = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }

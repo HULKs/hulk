@@ -5,6 +5,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use color_eyre::{eyre::bail, Result};
 use nalgebra::{Isometry2, Isometry3, Point2, Point3, SMatrix, Vector2, Vector3, Vector4};
 use serde::Serialize;
 use serde_json::Value;
@@ -29,8 +30,8 @@ pub enum HierarchyType {
 }
 
 pub trait SerializeHierarchy {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value>;
-    fn deserialize_hierarchy(&mut self, field_path: &str, data: Value) -> anyhow::Result<()>;
+    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value>;
+    fn deserialize_hierarchy(&mut self, field_path: &str, data: Value) -> Result<()>;
     fn exists(field_path: &str) -> bool;
     fn get_hierarchy() -> HierarchyType;
 }
@@ -39,14 +40,14 @@ impl<T> SerializeHierarchy for Option<T>
 where
     T: Default + SerializeHierarchy,
 {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
+    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
         match self {
             Some(some) => some.serialize_hierarchy(field_path),
             None => Ok(Value::Null),
         }
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, data: Value) -> anyhow::Result<()> {
+    fn deserialize_hierarchy(&mut self, field_path: &str, data: Value) -> Result<()> {
         self.get_or_insert_with(Default::default)
             .deserialize_hierarchy(field_path, data)
     }
@@ -63,12 +64,12 @@ where
 }
 
 impl<T> SerializeHierarchy for Vec<T> {
-    fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-        anyhow::bail!("Cannot access Vec with path: {}", field_path)
+    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
+        bail!("cannot access Vec with path: {}", field_path)
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> anyhow::Result<()> {
-        anyhow::bail!("Cannot access Vec with path: {}", field_path)
+    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> Result<()> {
+        bail!("cannot access Vec with path: {}", field_path)
     }
 
     fn exists(_field_path: &str) -> bool {
@@ -83,9 +84,9 @@ impl<T> SerializeHierarchy for Vec<T> {
 macro_rules! serialize_hierarchy_primary_impl {
     ($type:ty) => {
         impl SerializeHierarchy for $type {
-            fn serialize_hierarchy(&self, field_path: &str) -> anyhow::Result<Value> {
-                anyhow::bail!(
-                    "Cannot access {} with path: {}",
+            fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
+                bail!(
+                    "cannot access {} with path: {}",
                     stringify!($type),
                     field_path
                 )
@@ -95,9 +96,9 @@ macro_rules! serialize_hierarchy_primary_impl {
                 &mut self,
                 field_path: &str,
                 _data: Value,
-            ) -> anyhow::Result<()> {
-                anyhow::bail!(
-                    "Cannot access {} with path: {}",
+            ) -> Result<()> {
+                bail!(
+                    "cannot access {} with path: {}",
                     stringify!($type),
                     field_path
                 )

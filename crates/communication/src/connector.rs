@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use anyhow::{anyhow, Context, Result};
+use color_eyre::{eyre::WrapErr, Result};
 use futures_util::StreamExt;
 use log::{error, info, warn};
 use tokio::{net::TcpStream, spawn, sync::mpsc, task::JoinHandle, time::sleep};
@@ -363,7 +363,7 @@ async fn try_connect(address: String) -> Result<WebSocketStream<MaybeTlsStream<T
     info!("Try connection to {}", address);
     let (ws_stream, _response) = tokio_tungstenite::connect_async(&address)
         .await
-        .with_context(|| anyhow!("Cannot connect websocket to {address}"))?;
+        .wrap_err_with(|| format!("cannot connect websocket to {address}"))?;
     Ok(ws_stream)
 }
 

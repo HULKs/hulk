@@ -1,9 +1,9 @@
-use anyhow::Context;
+use color_eyre::{eyre::WrapErr, Result};
 use nalgebra::vector;
 use types::InertialMeasurementUnitData;
 use webots::{Accelerometer, Gyro, InertialUnit, Robot};
 
-use super::webots_interface::SIMULATION_TIME_STEP;
+use super::interface::SIMULATION_TIME_STEP;
 
 pub struct InertialMeasurementUnitDevices {
     accelerometer: Accelerometer,
@@ -31,19 +31,19 @@ impl Default for InertialMeasurementUnitDevices {
 }
 
 impl InertialMeasurementUnitDevices {
-    pub fn get_values(&self) -> anyhow::Result<InertialMeasurementUnitData> {
+    pub fn get_values(&self) -> Result<InertialMeasurementUnitData> {
         let accelerometer = self
             .accelerometer
             .get_values()
-            .context("Failed to get accelerometer values")?;
+            .wrap_err("failed to get accelerometer values")?;
         let gyroscope = self
             .gyroscope
             .get_values()
-            .context("Failed to get gyroscope values")?;
+            .wrap_err("failed to get gyroscope values")?;
         let inertial_unit = self
             .inertial_unit
             .get_roll_pitch_yaw()
-            .context("Failed to get inertial measurement unit values")?;
+            .wrap_err("failed to get inertial measurement unit values")?;
 
         Ok(InertialMeasurementUnitData {
             linear_acceleration: vector![

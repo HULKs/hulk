@@ -1,4 +1,7 @@
-use anyhow::{bail, Context};
+use color_eyre::{
+    eyre::{bail, WrapErr},
+    Result,
+};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
@@ -41,7 +44,7 @@ impl Module<'_> {
         }
     }
 
-    pub fn get_initializer_field_initializers(&self) -> anyhow::Result<Vec<TokenStream>> {
+    pub fn get_initializer_field_initializers(&self) -> Result<Vec<TokenStream>> {
         let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
         self.module
             .contexts
@@ -49,19 +52,19 @@ impl Module<'_> {
             .iter()
             .map(|field| match field {
                 Field::AdditionalOutput { name, .. } => {
-                    bail!("Unexpected additional output field `{name}` in new context")
+                    bail!("unexpected additional output field `{name}` in new context")
                 }
                 Field::HardwareInterface { name } => Ok(quote! {
                     #name: &hardware_interface
                 }),
                 Field::HistoricInput { name, .. } => {
-                    bail!("Unexpected historic input field `{name}` in new context")
+                    bail!("unexpected historic input field `{name}` in new context")
                 }
                 Field::Input { name, .. } => {
-                    bail!("Unexpected optional input field `{name}` in new context")
+                    bail!("unexpected optional input field `{name}` in new context")
                 }
                 Field::MainOutput { name, .. } => {
-                    bail!("Unexpected main output field `{name}` in new context")
+                    bail!("unexpected main output field `{name}` in new context")
                 }
                 Field::Parameter { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
@@ -77,7 +80,7 @@ impl Module<'_> {
                     })
                 }
                 Field::PerceptionInput { name, .. } => {
-                    bail!("Unexpected perception input field `{name}` in new context")
+                    bail!("unexpected perception input field `{name}` in new context")
                 }
                 Field::PersistentState { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
@@ -93,21 +96,21 @@ impl Module<'_> {
                     })
                 }
                 Field::RequiredInput { name, .. } => {
-                    bail!("Unexpected required input field `{name}` in new context")
+                    bail!("unexpected required input field `{name}` in new context")
                 }
             })
             .collect()
     }
 
-    pub fn get_initializer(&self) -> anyhow::Result<TokenStream> {
+    pub fn get_initializer(&self) -> Result<TokenStream> {
         let module_name_identifier_snake_case = self.get_identifier_snake_case();
         let module_name_identifier = self.get_identifier();
         let path_segments = self.get_path_segments();
         let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
         let field_initializers = self
             .get_initializer_field_initializers()
-            .context("Failed to generate field initializers")?;
-        let error_message = format!("Failed to create module `{}`", self.module_name);
+            .wrap_err("failed to generate field initializers")?;
+        let error_message = format!("failed to create module `{}`", self.module_name);
 
         Ok(quote! {
             let #module_name_identifier_snake_case = #cycler_module_name_identifier::#(#path_segments::)*#module_name_identifier::new(
@@ -115,7 +118,7 @@ impl Module<'_> {
                     #(#field_initializers,)*
                 },
             )
-            .context(#error_message)?;
+            .wrap_err(#error_message)?;
         })
     }
 
@@ -166,7 +169,7 @@ impl Module<'_> {
         }
     }
 
-    pub fn get_execution_field_initializers(&self) -> anyhow::Result<Vec<TokenStream>> {
+    pub fn get_execution_field_initializers(&self) -> Result<Vec<TokenStream>> {
         let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
         self.module
             .contexts
@@ -256,7 +259,7 @@ impl Module<'_> {
                     })
                 }
                 Field::MainOutput { name, .. } => {
-                    bail!("Unexpected main output field `{name}` in cycle context")
+                    bail!("unexpected main output field `{name}` in cycle context")
                 }
                 Field::Parameter { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
@@ -391,25 +394,25 @@ impl Module<'_> {
             .collect()
     }
 
-    pub fn get_execution(&self) -> anyhow::Result<TokenStream> {
+    pub fn get_execution(&self) -> Result<TokenStream> {
         let module_name_identifier_snake_case = self.get_identifier_snake_case();
         let path_segments = self.get_path_segments();
         let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
         let required_inputs_are_some = self.get_required_inputs_are_some();
         let field_initializers = self
             .get_execution_field_initializers()
-            .context("Failed to generate field initializers")?;
+            .wrap_err("failed to generate field initializers")?;
         let main_output_setters_from_cycle_result =
             self.get_main_output_setters_from_cycle_result();
         let main_output_setters_from_default = self.get_main_output_setters_from_default();
-        let error_message = format!("Failed to execute cycle of module `{}`", self.module_name);
+        let error_message = format!("failed to execute cycle of module `{}`", self.module_name);
         let module_execution = quote! {
             let main_outputs = self.#module_name_identifier_snake_case.cycle(
                 #cycler_module_name_identifier::#(#path_segments::)*CycleContext {
                     #(#field_initializers,)*
                 },
             )
-            .context(#error_message)?;
+            .wrap_err(#error_message)?;
             #(#main_output_setters_from_cycle_result)*
         };
 

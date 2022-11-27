@@ -5,10 +5,9 @@ name = "vision"
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
+color-eyre = { workspace = true }
 context_attribute = { workspace = true }
 filtering = { workspace = true }
 framework = { workspace = true }
-hardware = { workspace = true }
 nalgebra = { workspace = true }
 types = { workspace = true }

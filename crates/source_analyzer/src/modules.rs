@@ -3,7 +3,10 @@ use std::{
     path::{Component, Path},
 };
 
-use anyhow::{anyhow, bail, Context};
+use color_eyre::{
+    eyre::{bail, eyre, WrapErr},
+    Result,
+};
 use glob::glob;
 use quote::ToTokens;
 use syn::{ImplItem, Item, Type};
@@ -21,33 +24,35 @@ pub struct Modules {
 }
 
 impl Modules {
-    pub fn try_from_crates_directory<P>(crates_directory: P) -> anyhow::Result<Self>
+    pub fn try_from_crates_directory<P>(crates_directory: P) -> Result<Self>
     where
         P: AsRef<Path>,
     {
         let mut modules = BTreeMap::new();
         let mut cycler_modules_to_modules: BTreeMap<_, Vec<_>> = BTreeMap::new();
-        for crate_directory in
-            cycler_crates_from_crates_directory(&crates_directory).with_context(|| {
-                anyhow!(
-                    "Failed to get cycler crates from crates directory {:?}",
+        for crate_directory in cycler_crates_from_crates_directory(&crates_directory)
+            .wrap_err_with(|| {
+                format!(
+                    "failed to get cycler crates from crates directory {:?}",
                     crates_directory.as_ref()
                 )
             })?
         {
             for rust_file_path in glob(crate_directory.join("src/**/*.rs").to_str().unwrap())
-                .with_context(|| {
-                    anyhow!("Failed to find rust files from crate directory {crate_directory:?}")
+                .wrap_err_with(|| {
+                    format!("failed to find rust files from crate directory {crate_directory:?}")
                 })?
             {
                 let cycler_module = crate_directory
                     .file_name()
-                    .context("Failed to get file name from crate directory")?
+                    .ok_or_else(|| eyre!("failed to get file name from crate directory"))?
                     .to_str()
-                    .context("Failed to interpret file name of crate directory as Unicode")?;
-                let rust_file_path = rust_file_path.context("Failed to get rust file path")?;
+                    .ok_or_else(|| {
+                        eyre!("failed to interpret file name of crate directory as Unicode")
+                    })?;
+                let rust_file_path = rust_file_path.wrap_err("failed to get rust file path")?;
                 let rust_file = parse_rust_file(&rust_file_path)
-                    .with_context(|| anyhow!("Failed to parse rust file {rust_file_path:?}"))?;
+                    .wrap_err_with(|| format!("failed to parse rust file {rust_file_path:?}"))?;
                 let has_at_least_one_struct_with_context_attribute =
                     rust_file.items.iter().any(|item| match item {
                         Item::Struct(struct_item) => struct_item.attrs.iter().any(|attribute| {
@@ -82,23 +87,23 @@ impl Modules {
                         }
                         _ => None,
                     })
-                    .with_context(|| anyhow!("Failed to find module name in {rust_file_path:?}"))?;
+                    .ok_or_else(|| eyre!("failed to find module name in {rust_file_path:?}"))?;
                 let contexts = Contexts::try_from_file(&rust_file_path, &rust_file)
-                    .with_context(|| anyhow!("Failed to get contexts in {rust_file_path:?}"))?;
+                    .wrap_err_with(|| format!("failed to get contexts in {rust_file_path:?}"))?;
                 let path_segments: Vec<_> = rust_file_path
                     .strip_prefix(crate_directory.join("src"))
-                    .context("Failed to strip prefix of module's rust file path")?
+                    .wrap_err("failed to strip prefix of module's rust file path")?
                     .with_extension("")
                     .components()
                     .map(|component| match component {
                         Component::Normal(component) => component
                             .to_str()
-                            .ok_or_else(|| anyhow!("Failed to interpret path component as Unicode"))
+                            .ok_or_else(|| eyre!("failed to interpret path component as Unicode"))
                             .map(ToString::to_string),
-                        _ => bail!("Unexpected path component"),
+                        _ => bail!("unexpected path component"),
                     })
                     .collect::<Result<_, _>>()
-                    .context("Failed to generate module's path")?;
+                    .wrap_err("failed to generate module's path")?;
                 let module = Module {
                     cycler_module: cycler_module.to_string(),
                     path_segments,
@@ -106,7 +111,7 @@ impl Modules {
                 };
                 if let Some(overwritten_module) = modules.insert(module_name.to_string(), module) {
                     bail!(
-                        "Module `{}` is not allowed to exist in multiple cyclers `{}`, `{}`, and maybe more",
+                        "module `{}` is not allowed to exist in multiple cyclers `{}`, `{}`, and maybe more",
                         module_name.to_string(),
                         cycler_module.to_string(),
                         overwritten_module.cycler_module,
@@ -125,7 +130,7 @@ impl Modules {
         })
     }
 
-    pub fn sort(&mut self) -> anyhow::Result<()> {
+    pub fn sort(&mut self) -> Result<()> {
         for module_names in self.cycler_modules_to_modules.values_mut() {
             if module_names.len() == 1 {
                 continue;
@@ -180,15 +185,15 @@ impl Modules {
                         } => {
                             let first_segment = match path.first() {
                                 Some(PathSegment { name, is_variable: false, .. }) => name,
-                                Some(..) => bail!("Unexpected variable segment as first segment for `{name}` in module `{consuming_module_name}` (not implemented)"),
-                                None => bail!("Expected at least one path segment for `{name}` in module `{consuming_module_name}`"),
+                                Some(..) => bail!("unexpected variable segment as first segment for `{name}` in module `{consuming_module_name}` (not implemented)"),
+                                None => bail!("expected at least one path segment for `{name}` in module `{consuming_module_name}`"),
                             };
                             let (producing_module_name, main_output_data_type) = match main_outputs_to_modules.get(first_segment) {
                                 Some(producing_module) => producing_module,
-                                None => bail!("Failed to find producing module for `{name}` in module `{consuming_module_name}`"),
+                                None => bail!("failed to find producing module for `{name}` in module `{consuming_module_name}`"),
                             };
                             if main_output_data_type != data_type {
-                                bail!("Expected data type `{}` but `{name}` has `{}` in module `{consuming_module_name}`", main_output_data_type.to_token_stream(), data_type.to_token_stream());
+                                bail!("expected data type `{}` but `{name}` has `{}` in module `{consuming_module_name}`", main_output_data_type.to_token_stream(), data_type.to_token_stream());
                             }
                             topological_sort.add_dependency(
                                 producing_module_name.clone(),

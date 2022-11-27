@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use types::{Buttons, SensorData};
@@ -29,11 +30,11 @@ pub struct MainOutputs {
 }
 
 impl ButtonFilter {
-    pub fn new(_context: NewContext) -> anyhow::Result<Self> {
+    pub fn new(_context: NewContext) -> Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, _context: CycleContext) -> anyhow::Result<MainOutputs> {
+    pub fn cycle(&mut self, _context: CycleContext) -> Result<MainOutputs> {
         Ok(MainOutputs::default())
     }
 }

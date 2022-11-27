@@ -1,8 +1,9 @@
 use std::time::SystemTime;
 
+use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
-use hardware::HardwareInterface;
+use types::hardware::Interface;
 
 // TODO: dieses Modul weg, weil es nur zum Testen war?
 pub struct MessageReceiver {
@@ -39,10 +40,7 @@ pub struct MainOutputs {
 }
 
 impl MessageReceiver {
-    pub fn new<Interface>(context: NewContext<Interface>) -> anyhow::Result<Self>
-    where
-        Interface: HardwareInterface,
-    {
+    pub fn new(context: NewContext<impl Interface>) -> Result<Self> {
         // context.hardware_interface.print_number(42);
         *context.value = 42;
         Ok(Self {
@@ -50,13 +48,10 @@ impl MessageReceiver {
         })
     }
 
-    pub fn cycle<Interface>(
+    pub fn cycle(
         &mut self,
-        mut context: CycleContext<Interface>,
-    ) -> anyhow::Result<MainOutputs>
-    where
-        Interface: HardwareInterface,
-    {
+        mut context: CycleContext<impl Interface>,
+    ) -> Result<MainOutputs> {
         self.value += *context.step;
         *context.value = 1337;
         // context.hardware_interface.print_number(42);

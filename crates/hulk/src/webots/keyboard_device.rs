@@ -1,7 +1,7 @@
 use types::TouchSensors;
 use webots::{Keyboard, Robot};
 
-use super::webots_interface::SIMULATION_TIME_STEP;
+use super::interface::SIMULATION_TIME_STEP;
 
 pub struct KeyboardDevice {
     keyboard: Keyboard,
