@@ -1,11 +1,14 @@
 [package]
-name = "uvcvideo"
-version = "0.1.0"
 edition = "2021"
+license = "GPL-3.0-only"
+name = "nao_camera"
+version = "0.1.0"
 
 [dependencies]
+i2cdev = { workspace = true }
 libc = { workspace = true }
 nix = { workspace = true }
+thiserror = { workspace = true }
 
 [build-dependencies]
 bindgen = { workspace = true }

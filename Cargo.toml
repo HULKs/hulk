@@ -19,7 +19,6 @@ members = [
   "crates/spl_network_messages",
   "crates/structs",
   "crates/types",
-  "crates/uvcvideo",
   "crates/vision",
   "tools/camera_matrix_extractor",
   "tools/depp",
