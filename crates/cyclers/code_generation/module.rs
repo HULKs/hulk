@@ -54,6 +54,9 @@ impl Module<'_> {
                 Field::AdditionalOutput { name, .. } => {
                     bail!("unexpected additional output field `{name}` in new context")
                 }
+                Field::CyclerInstance { name } => Ok(quote! {
+                    #name: instance
+                }),
                 Field::HardwareInterface { name } => Ok(quote! {
                     #name: &hardware_interface
                 }),
@@ -193,6 +196,9 @@ impl Module<'_> {
                         )
                     })
                 }
+                Field::CyclerInstance { name } => Ok(quote! {
+                    #name: self.instance
+                }),
                 Field::HardwareInterface { name } => Ok(quote! {
                     #name: &self.hardware_interface
                 }),

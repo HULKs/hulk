@@ -1,4 +1,4 @@
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{eyre::{WrapErr, bail}, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use types::{hardware::Interface, Ear, Joints, Leds, Rgb, SensorData};

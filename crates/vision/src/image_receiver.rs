@@ -5,6 +5,8 @@ use context_attribute::context;
 use framework::MainOutput;
 use types::{hardware::Interface, CameraPosition, Rgb, YCbCr444};
 
+use crate::CyclerInstance;
+
 pub struct ImageReceiver {}
 
 #[context]
@@ -13,6 +15,7 @@ pub struct NewContext {}
 #[context]
 pub struct CycleContext {
     pub hardware_interface: HardwareInterface,
+    pub instance: CyclerInstance,
 }
 
 #[context]
@@ -30,7 +33,10 @@ impl ImageReceiver {
     pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
         let image = context
             .hardware_interface
-            .read_from_camera(CameraPosition::Top)?;
+            .read_from_camera(match context.instance {
+                CyclerInstance::VisionTop => CameraPosition::Top,
+                CyclerInstance::VisionBottom => CameraPosition::Bottom,
+            })?;
         let mut red = 0;
         let mut green = 0;
         let mut blue = 0;

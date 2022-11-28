@@ -1,6 +1,9 @@
 use std::{fmt::Debug, fs::File, path::Path, sync::Arc};
 
-use color_eyre::{eyre::WrapErr, install, Result};
+use color_eyre::{
+    eyre::{bail, WrapErr},
+    install, Result,
+};
 use cyclers::run;
 use parameters::Parameters;
 use serde_json::from_reader;
@@ -26,7 +29,11 @@ fn main() -> Result<()> {
         .wrap_err("failed to parse hardware parameters")?;
     let hardware_interface = new_hardware_interface(keep_running.clone(), hardware_parameters)?;
     let initial_configuration = Configuration::default();
-    run(hardware_interface, initial_configuration, keep_running)
+    run(
+        hardware_interface,
+        initial_configuration,
+        keep_running.clone(),
+    )
 }
 
 fn parse_hardware_parameters(path: impl AsRef<Path> + Debug) -> Result<Parameters> {

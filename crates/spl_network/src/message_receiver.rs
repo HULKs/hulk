@@ -1,3 +1,5 @@
+use std::{thread::sleep, time::Duration};
+
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
@@ -32,6 +34,7 @@ impl Counter {
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
+        sleep(Duration::from_secs(1));
         self.value += *context.step;
         // context.hardware_interface.print_number(42);
         Ok(MainOutputs {

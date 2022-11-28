@@ -165,7 +165,8 @@ impl Structs {
                                     format!("failed to insert expanded path into persistent state for persistent state `{name}`")
                                 })?;
                         }
-                        Field::HardwareInterface { .. }
+                        Field::CyclerInstance { .. }
+                        | Field::HardwareInterface { .. }
                         | Field::HistoricInput { .. }
                         | Field::Input { .. }
                         | Field::PerceptionInput { .. }

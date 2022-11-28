@@ -9,7 +9,7 @@ pub mod robot_detection;
 pub mod segment_filter;
 pub mod image_receiver;
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum CyclerInstance {
     VisionTop,
     VisionBottom,

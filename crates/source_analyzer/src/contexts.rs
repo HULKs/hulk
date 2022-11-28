@@ -85,6 +85,9 @@ pub enum Field {
         name: Ident,
         path: Vec<PathSegment>,
     },
+    CyclerInstance {
+        name: Ident,
+    },
     HardwareInterface {
         name: Ident,
     },
@@ -160,6 +163,9 @@ impl Field {
                             path,
                         })
                     }
+                    "CyclerInstance" => Ok(Field::CyclerInstance {
+                        name: field_name.clone(),
+                    }),
                     "HardwareInterface" => Ok(Field::HardwareInterface {
                         name: field_name.clone(),
                     }),
