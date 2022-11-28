@@ -1,12 +1,14 @@
 use std::{
     mem::{size_of, ManuallyDrop},
+    path::Path,
     sync::Arc,
     time::SystemTime,
 };
 
 use color_eyre::Result;
+use image::RgbImage;
 
-use crate::YCbCr422;
+use crate::{Rgb, YCbCr422, YCbCr444};
 
 use super::{CameraPosition, Joints, Leds, SensorData};
 
@@ -32,17 +34,21 @@ pub struct Ids {
 
 #[derive(Clone)]
 pub struct Image {
-    _buffer: Arc<Vec<YCbCr422>>,
+    pub buffer: Arc<Vec<YCbCr422>>,
+    pub width_422: u32,
+    pub height: u32,
 }
 
 impl Image {
-    pub fn from_ycbcr_buffer(buffer: Vec<YCbCr422>) -> Self {
+    pub fn from_ycbcr_buffer(buffer: Vec<YCbCr422>, width_422: u32, height: u32) -> Self {
         Self {
-            _buffer: Arc::new(buffer),
+            buffer: Arc::new(buffer),
+            width_422,
+            height,
         }
     }
 
-    pub fn from_raw_buffer(buffer: Vec<u8>) -> Self {
+    pub fn from_raw_buffer(buffer: Vec<u8>, width_422: u32, height: u32) -> Self {
         let mut buffer = ManuallyDrop::new(buffer);
 
         let u8_pointer = buffer.as_mut_ptr();
@@ -59,8 +65,54 @@ impl Image {
         let buffer = unsafe { Vec::from_raw_parts(ycbcr_pointer, ycbcr_length, ycbcr_capacity) };
 
         Self {
-            _buffer: Arc::new(buffer),
+            buffer: Arc::new(buffer),
+            width_422,
+            height,
         }
+    }
+
+    pub fn save_to_ycbcr_444_file(&self, file: impl AsRef<Path>) -> Result<()> {
+        let mut image = RgbImage::new(2 * self.width_422, self.height);
+        for y in 0..self.height {
+            for x in 0..self.width_422 {
+                let pixel = self.buffer[(y * self.width_422 + x) as usize];
+                image.put_pixel(x * 2, y, image::Rgb([pixel.y1, pixel.cb, pixel.cr]));
+                image.put_pixel(x * 2 + 1, y, image::Rgb([pixel.y2, pixel.cb, pixel.cr]));
+            }
+        }
+        Ok(image.save(file)?)
+    }
+
+    pub fn save_to_rgb_file(&self, file: impl AsRef<Path>) -> Result<()> {
+        let mut image = RgbImage::new(2 * self.width_422, self.height);
+        for y in 0..self.height {
+            for x in 0..self.width_422 {
+                let pixel = self.buffer[(y * self.width_422 + x) as usize];
+                let left_color: Rgb = YCbCr444 {
+                    y: pixel.y1,
+                    cb: pixel.cb,
+                    cr: pixel.cr,
+                }
+                .into();
+                let right_color: Rgb = YCbCr444 {
+                    y: pixel.y2,
+                    cb: pixel.cb,
+                    cr: pixel.cr,
+                }
+                .into();
+                image.put_pixel(
+                    x * 2,
+                    y,
+                    image::Rgb([left_color.r, left_color.g, left_color.b]),
+                );
+                image.put_pixel(
+                    x * 2 + 1,
+                    y,
+                    image::Rgb([right_color.r, right_color.g, right_color.b]),
+                );
+            }
+        }
+        Ok(image.save(file)?)
     }
 }
 

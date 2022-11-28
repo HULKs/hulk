@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::SensorData;
+use types::{hardware::Interface, Ear, Joints, Leds, Rgb, SensorData};
 
 pub struct SensorDataReceiver {}
 
@@ -9,7 +9,9 @@ pub struct SensorDataReceiver {}
 pub struct NewContext {}
 
 #[context]
-pub struct CycleContext {}
+pub struct CycleContext {
+    pub hardware_interface: HardwareInterface,
+}
 
 #[context]
 #[derive(Default)]
@@ -22,7 +24,8 @@ impl SensorDataReceiver {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, _context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
+        let sensor_data = context.hardware_interface.read_from_sensors()?;
         Ok(MainOutputs::default())
     }
 }

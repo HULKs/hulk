@@ -83,6 +83,9 @@ impl hardware::Interface for Interface {
     }
 
     fn read_from_camera(&self, camera_position: CameraPosition) -> Result<Image> {
-        todo!()
+        match camera_position {
+            CameraPosition::Top => self.camera_top.lock().read(),
+            CameraPosition::Bottom => self.camera_bottom.lock().read(),
+        }
     }
 }

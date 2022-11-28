@@ -20,17 +20,17 @@ pub struct NewContext {
 #[context]
 pub struct CycleContext {
     pub step: Parameter<usize, "message_receiver/step">,
-    pub test_a: Parameter<usize, "a/a/a">,
-    pub test_b: Parameter<Option<usize>, "b?/a/a">,
-    pub test_c: Parameter<Option<usize>, "c?/a?/a">,
-    pub test_d: Parameter<Option<usize>, "d?/a?/a?">,
-    pub test_e: Parameter<Option<usize>, "e/a?/a?">,
-    pub test_f: Parameter<Option<usize>, "f/a/a?">,
-    pub hardware_interface: HardwareInterface,
+    // pub test_a: Parameter<usize, "a/a/a">,
+    // pub test_b: Parameter<Option<usize>, "b?/a/a">,
+    // pub test_c: Parameter<Option<usize>, "c?/a?/a">,
+    // pub test_d: Parameter<Option<usize>, "d?/a?/a?">,
+    // pub test_e: Parameter<Option<usize>, "e/a?/a?">,
+    // pub test_f: Parameter<Option<usize>, "f/a/a?">,
+    // pub hardware_interface: HardwareInterface,
     pub test: PerceptionInput<Option<usize>, "SplNetwork", "value1?">,
-    pub test2: HistoricInput<Option<usize>, "value?">,
+    // // pub test2: HistoricInput<Option<usize>, "value?">,
     pub value: PersistentState<usize, "message_receiver/value">,
-    pub output: AdditionalOutput<usize, "message_receiver/output">,
+    // pub output: AdditionalOutput<usize, "message_receiver/output">,
 }
 
 #[context]
@@ -48,16 +48,13 @@ impl MessageReceiver {
         })
     }
 
-    pub fn cycle(
-        &mut self,
-        mut context: CycleContext<impl Interface>,
-    ) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         self.value += *context.step;
         *context.value = 1337;
         // context.hardware_interface.print_number(42);
-        context.output.fill_on_subscription(|| 42);
-        let _foo = context.test.persistent.is_empty();
-        let _foo = context.test2.get(&SystemTime::now());
+        // context.output.fill_on_subscription(|| 42);
+        // let _foo = context.test.persistent.is_empty();
+        // let _foo = context.test2.get(&SystemTime::now());
         // context.optional;
         Ok(MainOutputs {
             value: Some(self.value).into(),
