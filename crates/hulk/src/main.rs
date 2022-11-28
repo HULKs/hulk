@@ -1,6 +1,6 @@
 use std::{fmt::Debug, fs::File, path::Path, sync::Arc};
 
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{eyre::WrapErr, install, Result};
 use cyclers::run;
 use parameters::Parameters;
 use serde_json::from_reader;
@@ -14,6 +14,7 @@ mod parameters;
 mod webots;
 
 fn main() -> Result<()> {
+    install()?;
     let keep_running = CancellationToken::new();
     {
         let keep_running = keep_running.clone();

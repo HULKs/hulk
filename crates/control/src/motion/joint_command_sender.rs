@@ -1,4 +1,4 @@
-use color_eyre::Result;
+use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use types::{
@@ -37,7 +37,6 @@ pub struct CycleContext {
     // pub stand_up_back_positions: RequiredInput<Option<Joints>, "stand_up_back_positions?">,
     // pub stand_up_front_positions: RequiredInput<Option<Joints>, "stand_up_front_positions?">,
     // pub walk_joints_command: RequiredInput<Option<BodyJointsCommand>, "walk_joints_command?">,
-
     pub hardware_interface: HardwareInterface,
     pub average_color: PerceptionInput<Rgb, "VisionTop", "average_color">,
 }
@@ -66,19 +65,22 @@ impl JointCommandSender {
         {
             self.last_average_color = **color;
         }
-        context.hardware_interface.write_to_actuators(
-            Joints::default(),
-            Joints::default(),
-            Leds {
-                left_ear: 0.0.into(),
-                right_ear: 0.0.into(),
-                chest: self.last_average_color.into(),
-                left_foot: self.last_average_color.into(),
-                right_foot: self.last_average_color.into(),
-                left_eye: self.last_average_color.into(),
-                right_eye: self.last_average_color.into(),
-            },
-        )?;
+        context
+            .hardware_interface
+            .write_to_actuators(
+                Joints::default(),
+                Joints::default(),
+                Leds {
+                    left_ear: 0.0.into(),
+                    right_ear: 0.0.into(),
+                    chest: self.last_average_color.into(),
+                    left_foot: self.last_average_color.into(),
+                    right_foot: self.last_average_color.into(),
+                    left_eye: self.last_average_color.into(),
+                    right_eye: self.last_average_color.into(),
+                },
+            )
+            .wrap_err("failed to write to actuators")?;
         Ok(MainOutputs::default())
     }
 }
