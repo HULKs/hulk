@@ -21,7 +21,7 @@ fn main() -> Result<()> {
             keep_running.cancel();
         })?;
     }
-    let hardware_parameters = parse_hardware_parameters("etc/configuration")
+    let hardware_parameters = parse_hardware_parameters("etc/configuration/hardware.json")
         .wrap_err("failed to parse hardware parameters")?;
     let hardware_interface = new_hardware_interface(keep_running.clone(), hardware_parameters)?;
     let initial_configuration = Configuration::default();

@@ -1,12 +1,14 @@
 use color_eyre::Result;
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{MainOutput, PerceptionInput};
 use types::{
-    BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand, MotionSelection,
-    SensorData,
+    hardware::Interface, BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand,
+    Leds, MotionSelection, Rgb, SensorData,
 };
 
-pub struct JointCommandSender {}
+pub struct JointCommandSender {
+    last_average_color: Rgb,
+}
 
 #[context]
 pub struct NewContext {
@@ -21,20 +23,23 @@ pub struct CycleContext {
     pub penalized_pose: Parameter<Joints, "control/penalized_pose">,
     pub ready_pose: Parameter<Joints, "control/ready_pose">,
 
-    pub arms_up_squat_joints_command:
-        RequiredInput<Option<JointsCommand>, "arms_up_squat_joints_command?">,
-    pub dispatching_command: RequiredInput<Option<JointsCommand>, "dispatching_command?">,
-    pub fall_protection_command: RequiredInput<Option<JointsCommand>, "fall_protection_command?">,
-    pub head_joints_command: RequiredInput<Option<HeadJointsCommand>, "head_joints_command?">,
-    pub jump_left_joints_command: RequiredInput<Option<JointsCommand>, "jump_left_joints_command?">,
-    pub jump_right_joints_command:
-        RequiredInput<Option<JointsCommand>, "jump_right_joints_command?">,
-    pub motion_selection: RequiredInput<Option<MotionSelection>, "motion_selection?">,
+    // pub arms_up_squat_joints_command:
+    //     RequiredInput<Option<JointsCommand>, "arms_up_squat_joints_command?">,
+    // pub dispatching_command: RequiredInput<Option<JointsCommand>, "dispatching_command?">,
+    // pub fall_protection_command: RequiredInput<Option<JointsCommand>, "fall_protection_command?">,
+    // pub head_joints_command: RequiredInput<Option<HeadJointsCommand>, "head_joints_command?">,
+    // pub jump_left_joints_command: RequiredInput<Option<JointsCommand>, "jump_left_joints_command?">,
+    // pub jump_right_joints_command:
+    //     RequiredInput<Option<JointsCommand>, "jump_right_joints_command?">,
+    // pub motion_selection: RequiredInput<Option<MotionSelection>, "motion_selection?">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub sit_down_joints_command: RequiredInput<Option<JointsCommand>, "sit_down_joints_command?">,
-    pub stand_up_back_positions: RequiredInput<Option<Joints>, "stand_up_back_positions?">,
-    pub stand_up_front_positions: RequiredInput<Option<Joints>, "stand_up_front_positions?">,
-    pub walk_joints_command: RequiredInput<Option<BodyJointsCommand>, "walk_joints_command?">,
+    // pub sit_down_joints_command: RequiredInput<Option<JointsCommand>, "sit_down_joints_command?">,
+    // pub stand_up_back_positions: RequiredInput<Option<Joints>, "stand_up_back_positions?">,
+    // pub stand_up_front_positions: RequiredInput<Option<Joints>, "stand_up_front_positions?">,
+    // pub walk_joints_command: RequiredInput<Option<BodyJointsCommand>, "walk_joints_command?">,
+
+    pub hardware_interface: HardwareInterface,
+    pub average_color: PerceptionInput<Rgb, "VisionTop", "average_color">,
 }
 
 #[context]
@@ -46,10 +51,34 @@ pub struct MainOutputs {
 
 impl JointCommandSender {
     pub fn new(_context: NewContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_average_color: Default::default(),
+        })
     }
 
-    pub fn cycle(&mut self, _context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
+        if let Some(color) = context
+            .average_color
+            .persistent
+            .values()
+            .rev()
+            .find_map(|datas| datas.last())
+        {
+            self.last_average_color = **color;
+        }
+        context.hardware_interface.write_to_actuators(
+            Joints::default(),
+            Joints::default(),
+            Leds {
+                left_ear: 0.0.into(),
+                right_ear: 0.0.into(),
+                chest: self.last_average_color.into(),
+                left_foot: self.last_average_color.into(),
+                right_foot: self.last_average_color.into(),
+                left_eye: self.last_average_color.into(),
+                right_eye: self.last_average_color.into(),
+            },
+        )?;
         Ok(MainOutputs::default())
     }
 }

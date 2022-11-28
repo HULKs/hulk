@@ -27,7 +27,7 @@ impl Camera {
         parameters: Parameters,
         i2c_head_mutex: Arc<Mutex<()>>,
     ) -> Result<Self> {
-        let camera = Self {
+        let mut camera = Self {
             camera: None,
             path: path.as_ref().to_path_buf(),
             camera_position,
@@ -41,9 +41,10 @@ impl Camera {
     fn reset(&mut self) -> Result<()> {
         let _lock = self.i2c_head_mutex.lock();
         self.camera.take();
-        reset_camera_device(self.path, self.camera_position)
+        reset_camera_device(&self.path, self.camera_position)
             .wrap_err("failed to reset camera device")?;
-        let camera = NaoCamera::open(self.path, &self.parameters).wrap_err("failed to open")?;
+        let mut camera =
+            NaoCamera::open(&self.path, &self.parameters).wrap_err("failed to open")?;
         camera.start().wrap_err("failed to start")?;
         for _ in 0..self.parameters.amount_of_buffers {
             camera
@@ -63,7 +64,7 @@ impl Camera {
     pub fn read(&mut self) -> Result<Image> {
         self.wait_for_device()
             .wrap_err("failed to wait for device")?;
-        let camera = self.camera.as_ref().unwrap();
+        let camera = self.camera.as_mut().unwrap();
         let buffer = camera.dequeue().wrap_err("failed to dequeue buffer")?;
         camera
             .queue(vec![
@@ -74,7 +75,11 @@ impl Camera {
                 }
             ])
             .wrap_err("failed to queue buffer")?;
-        Ok(Image::from_raw_buffer(buffer))
+        Ok(Image::from_raw_buffer(
+            buffer,
+            self.parameters.width / 2,
+            self.parameters.height,
+        ))
         // TODO: readd consecutive sequence number checking
     }
 

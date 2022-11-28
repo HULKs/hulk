@@ -82,7 +82,7 @@ impl Camera {
             4 * 320 * 480
         ];
         bgra_444_to_ycbcr_422(&bgra_buffer, &mut ycbcr_buffer);
-        Ok(Image::from_ycbcr_buffer(ycbcr_buffer))
+        Ok(Image::from_ycbcr_buffer(ycbcr_buffer, 320, 480))
     }
 }
 
