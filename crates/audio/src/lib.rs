@@ -1,7 +1,7 @@
 pub mod microphone_recorder;
 pub mod whistle_detection;
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum CyclerInstance {
     Audio,
 }

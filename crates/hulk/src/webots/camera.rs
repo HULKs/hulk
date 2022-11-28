@@ -50,8 +50,8 @@ impl Camera {
         };
 
         {
-            let mut buffer = self.buffer.lock();
-            *buffer = Some(image_data_input.to_vec());
+            let mut bgra_buffer = self.buffer.lock();
+            *bgra_buffer = Some(image_data_input.to_vec());
         }
         self.buffer_updated.notify_all();
 
@@ -68,6 +68,7 @@ impl Camera {
             self.buffer_updated.wait(&mut bgra_buffer);
             bgra_buffer.take()
         } {
+            // TODO: ok_or_else(|| eyre!())
             Some(bgra_buffer) => bgra_buffer,
             None => bail!("no updated image found"),
         };
@@ -79,7 +80,7 @@ impl Camera {
                 y2: 0,
                 cr: 0
             };
-            4 * 320 * 480
+            320 * 480
         ];
         bgra_444_to_ycbcr_422(&bgra_buffer, &mut ycbcr_buffer);
         Ok(Image::from_ycbcr_buffer(ycbcr_buffer, 320, 480))

@@ -150,8 +150,16 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                     let cycler_handle_identifier =
                         format_ident!("{}_handle", cycler_instance_snake_case);
                     quote! {
-                        if let Err(error) = #cycler_handle_identifier.join() {
-                            std::panic::resume_unwind(error)
+                        match #cycler_handle_identifier.join() {
+                            Ok(Err(error)) => {
+                                encountered_error = true;
+                                println!("{error:?}");
+                            },
+                            Err(error) => {
+                                encountered_error = true;
+                                println!("{error:?}");
+                            },
+                            _ => {},
                         }
                     }
                 })
@@ -181,8 +189,12 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
 
             #(#cycler_starts)*
 
+            let mut encountered_error = false;
             #(#cycler_joins)*
 
+            if encountered_error {
+                color_eyre::eyre::bail!("at least one cycler exited with error");
+            }
             Ok(())
         }
     }

@@ -28,7 +28,7 @@ pub mod support_foot_estimation;
 pub mod whistle_filter;
 pub mod world_state_composer;
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum CyclerInstance {
     Control,
 }

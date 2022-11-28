@@ -106,7 +106,7 @@ impl Interface {
 
 impl hardware::Interface for Interface {
     fn read_from_microphones(&self) -> Result<Samples> {
-        self.control_audio_synchronization.wait();
+        // self.control_audio_synchronization.wait();
         Ok(Samples {
             rate: 0,
             channels_of_samples: Arc::new(vec![]),
@@ -128,10 +128,11 @@ impl hardware::Interface for Interface {
     fn read_from_sensors(&self) -> Result<SensorData> {
         match self.step_simulation().wrap_err("failed to step simulation") {
             Ok(_) => {
-                self.control_audio_synchronization.wait();
+                // TODO: Improve cross-cancellation
+                // self.control_audio_synchronization.wait();
             }
             Err(error) => {
-                self.control_audio_synchronization.wait();
+                // self.control_audio_synchronization.wait();
                 self.top_camera.unblock_produce();
                 self.bottom_camera.unblock_produce();
                 return Err(error);
