@@ -1,4 +1,4 @@
-use color_eyre::Result;
+use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use types::hardware::Interface;
@@ -24,7 +24,11 @@ impl MicrophoneRecorder {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, _context: CycleContext<impl Interface>) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
+        let samples = context
+            .hardware_interface
+            .read_from_microphones()
+            .wrap_err("failed to read from microphones")?;
         Ok(MainOutputs::default())
         //hardware_interface
         //    .produce_audio_data()

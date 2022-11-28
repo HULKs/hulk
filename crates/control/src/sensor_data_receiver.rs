@@ -1,4 +1,4 @@
-use color_eyre::Result;
+use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use types::{hardware::Interface, Ear, Joints, Leds, Rgb, SensorData};
@@ -25,7 +25,10 @@ impl SensorDataReceiver {
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
-        let sensor_data = context.hardware_interface.read_from_sensors()?;
+        let sensor_data = context
+            .hardware_interface
+            .read_from_sensors()
+            .wrap_err("failed to read from sensors")?;
         Ok(MainOutputs::default())
     }
 }
