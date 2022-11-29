@@ -1958,6 +1958,7 @@ dependencies = [
  "ctrlc",
  "cyclers",
  "i2cdev",
+ "libc",
  "log",
  "nalgebra",
  "nao_camera",

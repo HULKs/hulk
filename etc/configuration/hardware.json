@@ -8,6 +8,11 @@
       "access": "RWInterleaved",
       "format": "FloatLE"
     },
+    "network": {
+      "game_controller_state_port": 3838,
+      "game_controller_return_port": 3939,
+      "spl_port": 10024
+    },
     "camera_top": {
       "width": 640,
       "height": 480,
@@ -71,5 +76,11 @@
       "amount_of_buffers": 3
     }
   },
-  "webots": {}
+  "webots": {
+    "network": {
+      "game_controller_state_port": 3838,
+      "game_controller_return_port": 3939,
+      "spl_port": 10024
+    }
+  }
 }
