@@ -1,10 +1,10 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::hardware::Interface;
+use types::hardware::{IncomingMessage, Interface};
 
 // TODO: dieses Modul weg, weil es nur zum Testen war?
-pub struct MessageReceiver {
+pub struct MessageFilter {
     value: usize,
 }
 
@@ -25,7 +25,7 @@ pub struct CycleContext {
     // pub test_e: Parameter<Option<usize>, "e/a?/a?">,
     // pub test_f: Parameter<Option<usize>, "f/a/a?">,
     // pub hardware_interface: HardwareInterface,
-    pub test: PerceptionInput<Option<usize>, "SplNetwork", "value1?">,
+    pub test: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
     // // pub test2: HistoricInput<Option<usize>, "value?">,
     pub value: PersistentState<usize, "message_receiver/value">,
     // pub output: AdditionalOutput<usize, "message_receiver/output">,
@@ -37,7 +37,7 @@ pub struct MainOutputs {
     pub value: MainOutput<Option<usize>>,
 }
 
-impl MessageReceiver {
+impl MessageFilter {
     pub fn new(context: NewContext<impl Interface>) -> Result<Self> {
         // context.hardware_interface.print_number(42);
         *context.value = 42;
