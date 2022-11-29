@@ -304,18 +304,20 @@ impl Repository {
     }
 
     pub async fn get_configured_locations(&self) -> Result<BTreeMap<String, Option<String>>> {
-        let tasks = ["nao_location", "webots_location", "behavior_simulator"]
-            .into_iter()
-            .map(|target_name| async move {
-                (
-                    target_name,
-                    read_link(self.configuration_root().join(target_name))
-                        .await
-                        .with_context(|| {
-                            anyhow!("Failed reading location symlink for {target_name}")
-                        }),
-                )
-            });
+        let tasks = [
+            "nao_location",
+            "webots_location",
+            "behavior_simulator_location",
+        ]
+        .into_iter()
+        .map(|target_name| async move {
+            (
+                target_name,
+                read_link(self.configuration_root().join(target_name))
+                    .await
+                    .with_context(|| anyhow!("Failed reading location symlink for {target_name}")),
+            )
+        });
         let results = join_all(tasks).await;
         results
             .into_iter()
@@ -341,11 +343,9 @@ impl Repository {
     }
 
     pub async fn set_location(&self, target: &str, location: &str) -> Result<()> {
-        let target_location = self.configuration_root().join(target);
+        let target_location = self.configuration_root().join(format!("{target}_location"));
         let new_location = self.configuration_root().join(location);
-        remove_file(&target_location)
-            .await
-            .with_context(|| anyhow!("Failed removing symlink for {target_location:?}"))?;
+        let _ = remove_file(&target_location).await;
         symlink(&new_location, &target_location)
             .await
             .with_context(|| {

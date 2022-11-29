@@ -15,7 +15,7 @@ pub fn deserialize<P: AsRef<Path>>(root_path: P, ids: HardwareIds) -> anyhow::Re
     let location_directory = if webots_id_found {
         "webots_location"
     } else if behavior_simulator_id_found {
-        "behavior_simulator"
+        "behavior_simulator_location"
     } else {
         "nao_location"
     };
