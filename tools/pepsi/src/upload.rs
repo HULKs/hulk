@@ -1,14 +1,15 @@
+use std::{path::Path, time::Duration};
+
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 use futures::future::join_all;
-
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use nao::{Nao, SystemctlAction};
 use repository::Repository;
 
 use crate::{
     cargo::{cargo, Arguments as CargoArguments, Command},
     communication::{communication, Arguments as CommunicationArguments},
-    hulk::{hulk, Arguments as HulkArguments},
     parsers::{NaoAddress, NaoNumber},
     results::gather_results,
 };
@@ -37,6 +38,31 @@ pub struct Arguments {
     pub naos: Vec<NaoAddress>,
     #[arg(long)]
     pub skip_os_check: bool,
+}
+
+async fn upload_with_progress(
+    nao: Nao,
+    hulk_directory: impl AsRef<Path>,
+    progress: &ProgressBar,
+    arguments: &Arguments,
+) -> anyhow::Result<()> {
+    progress.set_message("Stopping HULK...");
+    nao.execute_systemctl(SystemctlAction::Stop, "hulk")
+        .await
+        .with_context(|| format!("failed to stop HULK service on {}", nao.host()))?;
+
+    progress.set_message("Uploading...");
+    nao.upload(hulk_directory, !arguments.no_clean)
+        .await
+        .with_context(|| format!("failed to power {} off", nao.host()))?;
+
+    if !arguments.no_restart {
+        progress.set_message("Restarting HULK...");
+        nao.execute_systemctl(SystemctlAction::Start, "hulk")
+            .await
+            .with_context(|| format!("failed to stop HULK service on {}", nao.host()))?;
+    }
+    Ok(())
 }
 
 pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -74,47 +100,56 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
     .wrap_err("failed to set communication enablement directory")?;
 
     let (_temporary_directory, hulk_directory) = repository
-        .create_upload_directory(arguments.profile)
+        .create_upload_directory(arguments.profile.as_str())
         .await
         .wrap_err("failed to create upload directory")?;
 
-    if !arguments.no_restart {
-        println!("Stopping HULK");
-        hulk(HulkArguments {
-            action: SystemctlAction::Stop,
-            naos: arguments.naos.clone(),
-        })
-        .await
-        .wrap_err("failed to stop HULK service")?;
-    }
+    let multi_progress = MultiProgress::new();
+    let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
+        .unwrap()
+        .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
+    let spinner_error_style =
+        ProgressStyle::with_template("{prefix:.bold.dim} {wide_msg:.red}").unwrap();
+
+    let spinner_success_style =
+        ProgressStyle::with_template("{prefix:.bold.dim} {wide_msg:.green}").unwrap();
 
     let tasks = arguments.naos.iter().map(|nao_address| {
         let hulk_directory = hulk_directory.clone();
+        let multi_progress = multi_progress.clone();
+        let arguments = &arguments;
+        let spinner_style = spinner_style.clone();
+        let spinner_error_style = spinner_error_style.clone();
+        let spinner_success_style = spinner_success_style.clone();
+
         async move {
+            let spinner = ProgressBar::new(10)
+                .with_style(spinner_style)
+                .with_prefix(nao_address.to_string());
+            spinner.enable_steady_tick(Duration::from_millis(200));
+            let progress = multi_progress.add(spinner);
             let nao = Nao::new(nao_address.ip);
 
             if !arguments.skip_os_check && !nao.has_stable_os_version().await {
                 return Ok(());
             }
 
-            println!("Starting upload to {nao_address}");
-            nao.upload(hulk_directory, !arguments.no_clean)
-                .await
-                .wrap_err_with(|| format!("failed to power {nao_address} off"))
+            match upload_with_progress(nao, hulk_directory, &progress, arguments).await {
+                Ok(_) => {
+                    progress.set_style(spinner_success_style);
+                    progress.finish_with_message("✓ Done")
+                }
+                Err(error) => {
+                    progress.set_style(spinner_error_style);
+                    progress.finish_with_message(format!("✗ {error}"));
+                }
+            }
+            Ok(())
         }
     });
 
     let results = join_all(tasks).await;
     gather_results(results, "failed to execute some upload tasks")?;
-
-    if !arguments.no_restart {
-        hulk(HulkArguments {
-            action: SystemctlAction::Start,
-            naos: arguments.naos,
-        })
-        .await
-        .wrap_err("failed to start HULK service")?;
-    }
 
     Ok(())
 }
