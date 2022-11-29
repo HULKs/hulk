@@ -27,7 +27,8 @@ impl Interface {
                 HulaWrapper::new().wrap_err("failed to initialize HULA wrapper")?,
             ),
             microphones: Mutex::new(
-                Microphones::new().wrap_err("failed to initialize microphones")?,
+                Microphones::new(parameters.microphones)
+                    .wrap_err("failed to initialize microphones")?,
             ),
             camera_top: Mutex::new(
                 Camera::new(
@@ -36,7 +37,7 @@ impl Interface {
                     parameters.camera_top,
                     i2c_head_mutex.clone(),
                 )
-                .wrap_err("failed to create top camera")?,
+                .wrap_err("failed to initialize top camera")?,
             ),
             camera_bottom: Mutex::new(
                 Camera::new(
@@ -45,7 +46,7 @@ impl Interface {
                     parameters.camera_bottom,
                     i2c_head_mutex,
                 )
-                .wrap_err("failed to create bottom camera")?,
+                .wrap_err("failed to initialize bottom camera")?,
             ),
         })
     }

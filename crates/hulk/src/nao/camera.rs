@@ -38,29 +38,6 @@ impl Camera {
         Ok(camera)
     }
 
-    fn reset(&mut self) -> Result<()> {
-        let _lock = self.i2c_head_mutex.lock();
-        self.camera.take();
-        reset_camera_device(&self.path, self.camera_position)
-            .wrap_err("failed to reset camera device")?;
-        let mut camera =
-            NaoCamera::open(&self.path, &self.parameters).wrap_err("failed to open")?;
-        camera.start().wrap_err("failed to start")?;
-        for _ in 0..self.parameters.amount_of_buffers {
-            camera
-                .queue(vec![
-                    0;
-                    match self.parameters.format {
-                        nao_camera::Format::YUVU =>
-                            (4 * self.parameters.width * self.parameters.height) as usize,
-                    }
-                ])
-                .wrap_err("failed to queue buffer")?;
-        }
-        self.camera = Some(camera);
-        Ok(())
-    }
-
     pub fn read(&mut self) -> Result<Image> {
         self.wait_for_device()
             .wrap_err("failed to wait for device")?;
@@ -103,5 +80,28 @@ impl Camera {
             return Ok(());
         }
         bail!("too many unsuccessful waiting retries");
+    }
+
+    fn reset(&mut self) -> Result<()> {
+        let _lock = self.i2c_head_mutex.lock();
+        self.camera.take();
+        reset_camera_device(&self.path, self.camera_position)
+            .wrap_err("failed to reset camera device")?;
+        let mut camera =
+            NaoCamera::open(&self.path, &self.parameters).wrap_err("failed to open")?;
+        camera.start().wrap_err("failed to start")?;
+        for _ in 0..self.parameters.amount_of_buffers {
+            camera
+                .queue(vec![
+                    0;
+                    match self.parameters.format {
+                        nao_camera::Format::YUVU =>
+                            (4 * self.parameters.width * self.parameters.height) as usize,
+                    }
+                ])
+                .wrap_err("failed to queue buffer")?;
+        }
+        self.camera = Some(camera);
+        Ok(())
     }
 }
