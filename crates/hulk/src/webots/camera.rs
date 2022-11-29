@@ -44,7 +44,7 @@ impl Camera {
         {
             Ok(image_data_input) => image_data_input,
             Err(error) => {
-                self.unblock_produce();
+                self.unblock_read();
                 return Err(error);
             }
         };
@@ -58,7 +58,7 @@ impl Camera {
         Ok(())
     }
 
-    pub fn unblock_produce(&self) {
+    pub fn unblock_read(&self) {
         self.buffer_updated.notify_all();
     }
 

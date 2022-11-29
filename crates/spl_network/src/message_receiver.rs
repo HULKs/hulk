@@ -1,6 +1,4 @@
-use std::{thread::sleep, time::Duration};
-
-use color_eyre::Result;
+use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use types::hardware::Interface;
@@ -34,9 +32,11 @@ impl Counter {
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
-        sleep(Duration::from_secs(1));
+        let _message = context
+            .hardware_interface
+            .read_from_network()
+            .wrap_err("failed to read from network")?;
         self.value += *context.step;
-        // context.hardware_interface.print_number(42);
         Ok(MainOutputs {
             value1: Some(self.value).into(),
         })

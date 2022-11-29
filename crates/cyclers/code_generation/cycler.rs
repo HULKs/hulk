@@ -435,7 +435,9 @@ impl Cycler<'_> {
                         while !keep_running.is_cancelled() {
                             if let Err(error) = self.cycle() {
                                 keep_running.cancel();
-                                return Err(error).wrap_err("failed to execute cycle of cycler");
+                                return Err(error).wrap_err_with(|| {
+                                    format!("failed to execute cycle of cycler `{:?}`", self.instance)
+                                });
                             }
                         }
                         Ok(())
