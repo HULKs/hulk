@@ -3,7 +3,7 @@ use std::sync::Arc;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{CameraMatrices, CameraMatrix};
+use types::{hardware::Image, CameraMatrices, CameraMatrix};
 
 pub struct CameraMatrixExtractor {}
 
@@ -13,7 +13,7 @@ pub struct NewContext {}
 #[context]
 pub struct CycleContext {
     pub camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
-    pub image: Input<Arc<bool>, "image">, // required for correct module order
+    pub image: Input<Image, "image">, // required for correct module order
 }
 
 #[context]

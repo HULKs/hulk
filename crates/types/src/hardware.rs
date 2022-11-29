@@ -1,4 +1,5 @@
 use std::{
+    fmt::{Debug, Error, Formatter},
     mem::{size_of, ManuallyDrop},
     path::Path,
     sync::Arc,
@@ -32,11 +33,22 @@ pub struct Ids {
     pub head_id: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Image {
     pub buffer: Arc<Vec<YCbCr422>>,
     pub width_422: u32,
     pub height: u32,
+}
+
+impl Debug for Image {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), Error> {
+        formatter
+            .debug_struct("Image")
+            .field("buffer", &"...")
+            .field("width_422", &self.width_422)
+            .field("height", &self.height)
+            .finish()
+    }
 }
 
 impl Image {
