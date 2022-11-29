@@ -13,16 +13,18 @@ use color_eyre::{
 };
 use tokio_util::sync::CancellationToken;
 use types::{
-    hardware::{self, Ids, Image, Message, Samples},
+    hardware::{self, Ids, Image, IncomingMessage, OutgoingMessage, Samples},
     CameraPosition, Joints, Leds, SensorData,
 };
 use webots::Robot;
+
+use crate::network::Network;
 
 use super::{
     camera::Camera, force_sensitive_resistor_devices::ForceSensitiveResistorDevices,
     intertial_measurement_unit_devices::InertialMeasurementUnitDevices,
     joint_devices::JointDevices, keyboard_device::KeyboardDevice,
-    sonar_sensor_devices::SonarSensorDevices,
+    sonar_sensor_devices::SonarSensorDevices, Parameters,
 };
 
 pub const SIMULATION_TIME_STEP: i32 = 10;
@@ -41,17 +43,18 @@ pub struct Interface {
     top_camera_requested: AtomicBool,
     bottom_camera_requested: AtomicBool,
 
+    network: Network,
+
     keep_running: CancellationToken,
 
     simulator_audio_synchronization: Barrier,
-    simulator_spl_network_synchronization: Barrier,
 }
 
 impl Interface {
-    pub fn new(keep_running: CancellationToken) -> Self {
+    pub fn new(keep_running: CancellationToken, parameters: Parameters) -> Result<Self> {
         let robot = Default::default();
 
-        Self {
+        Ok(Self {
             _robot: robot,
 
             inertial_measurement_unit: Default::default(),
@@ -65,11 +68,12 @@ impl Interface {
             top_camera_requested: AtomicBool::new(false),
             bottom_camera_requested: AtomicBool::new(false),
 
+            network: Network::new(parameters.network).wrap_err("failed to initialize network")?,
+
             keep_running,
 
             simulator_audio_synchronization: Barrier::new(2),
-            simulator_spl_network_synchronization: Barrier::new(2),
-        }
+        })
     }
 
     fn step_simulation(&self) -> Result<()> {
@@ -134,16 +138,21 @@ impl hardware::Interface for Interface {
         match self.step_simulation().wrap_err("failed to step simulation") {
             Ok(_) => {
                 self.simulator_audio_synchronization.wait();
-                self.simulator_spl_network_synchronization.wait();
             }
             Err(error) => {
                 self.simulator_audio_synchronization.wait();
-                self.simulator_spl_network_synchronization.wait();
+                let result = self.network.unblock_read().wrap_err(
+                    "failed to unblock network read after simulation step error: {error:?}",
+                );
                 self.top_camera.unblock_read();
                 self.bottom_camera.unblock_read();
+                result?;
                 return Err(error);
             }
         };
+        if self.keep_running.is_cancelled() {
+            bail!("termination requested");
+        }
         let positions = self.joints.get_positions();
         let inertial_measurement_unit = self
             .inertial_measurement_unit
@@ -308,16 +317,16 @@ impl hardware::Interface for Interface {
         Ok(())
     }
 
-    fn read_from_network(&self) -> Result<Message> {
-        self.simulator_spl_network_synchronization.wait();
+    fn read_from_network(&self) -> Result<IncomingMessage> {
+        let result = self.network.read();
         if self.keep_running.is_cancelled() {
             bail!("termination requested");
         }
-        Ok(Message::GameController)
+        result
     }
 
-    fn write_to_network(&self, _message: Message) -> Result<()> {
-        Ok(())
+    fn write_to_network(&self, message: OutgoingMessage) -> Result<()> {
+        self.network.write(message)
     }
 
     fn read_from_camera(&self, camera_position: CameraPosition) -> Result<Image> {

@@ -9,6 +9,7 @@ use tokio_util::sync::CancellationToken;
 
 #[cfg(feature = "nao")]
 mod nao;
+mod network;
 mod parameters;
 #[cfg(feature = "webots")]
 mod webots;
@@ -24,7 +25,8 @@ fn main() -> Result<()> {
     }
     let hardware_parameters = parse_hardware_parameters("etc/configuration/hardware.json")
         .wrap_err("failed to parse hardware parameters")?;
-    let hardware_interface = new_hardware_interface(keep_running.clone(), hardware_parameters)?;
+    let hardware_interface = new_hardware_interface(keep_running.clone(), hardware_parameters)
+        .wrap_err("failed to create hardware interface")?;
     let initial_configuration = Configuration::default();
     run(
         hardware_interface,
@@ -40,18 +42,19 @@ fn parse_hardware_parameters(path: impl AsRef<Path> + Debug) -> Result<Parameter
 
 #[cfg(feature = "nao")]
 fn new_hardware_interface(
-    _keep_running: CancellationToken,
+    keep_running: CancellationToken,
     parameters: Parameters,
 ) -> Result<Arc<nao::Interface>> {
-    Ok(Arc::new(
-        nao::Interface::new(parameters.nao).wrap_err("failed to create hardware interface")?,
-    ))
+    Ok(Arc::new(nao::Interface::new(keep_running, parameters.nao)?))
 }
 
 #[cfg(feature = "webots")]
 fn new_hardware_interface(
     keep_running: CancellationToken,
-    _parameters: Parameters,
+    parameters: Parameters,
 ) -> Result<Arc<webots::Interface>> {
-    Ok(Arc::new(webots::Interface::new(keep_running)))
+    Ok(Arc::new(webots::Interface::new(
+        keep_running,
+        parameters.webots,
+    )?))
 }

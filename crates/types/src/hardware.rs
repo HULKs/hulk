@@ -8,6 +8,7 @@ use std::{
 
 use color_eyre::Result;
 use image::RgbImage;
+use spl_network_messages::{GameControllerReturnMessage, GameControllerStateMessage, SplMessage};
 
 use crate::{Rgb, YCbCr422, YCbCr444};
 
@@ -21,8 +22,8 @@ pub trait Interface {
     fn read_from_sensors(&self) -> Result<SensorData>;
     fn write_to_actuators(&self, positions: Joints, stiffnesses: Joints, leds: Leds) -> Result<()>;
 
-    fn read_from_network(&self) -> Result<Message>;
-    fn write_to_network(&self, message: Message) -> Result<()>;
+    fn read_from_network(&self) -> Result<IncomingMessage>;
+    fn write_to_network(&self, message: OutgoingMessage) -> Result<()>;
 
     fn read_from_camera(&self, camera_position: CameraPosition) -> Result<Image>;
 }
@@ -128,9 +129,14 @@ impl Image {
     }
 }
 
-pub enum Message {
-    GameController,
-    Spl,
+pub enum IncomingMessage {
+    GameController(GameControllerStateMessage),
+    Spl(SplMessage),
+}
+
+pub enum OutgoingMessage {
+    GameController(GameControllerReturnMessage),
+    Spl(SplMessage),
 }
 
 #[derive(Clone)]
