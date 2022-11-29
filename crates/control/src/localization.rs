@@ -130,17 +130,13 @@ impl Localization {
         })
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let primary_state = *context.primary_state;
-        let penalty = context
-            .game_controller_state
-            .and_then(|game_controller_state| {
-                game_controller_state.penalties[*context.player_number]
-            });
-        let game_phase = context
-            .game_controller_state
-            .map(|game_controller_state| game_controller_state.game_phase);
-
+    fn reset_state(
+        &mut self,
+        primary_state: PrimaryState,
+        game_phase: Option<GamePhase>,
+        context: &CycleContext,
+        penalty: &Option<Penalty>,
+    ) {
         match (self.last_primary_state, primary_state, game_phase) {
             (PrimaryState::Initial, PrimaryState::Ready, _) => {
                 let initial_pose = generate_initial_pose(
@@ -251,251 +247,255 @@ impl Localization {
             }
             _ => {}
         }
+    }
+
+    fn update_state(&mut self, context: &mut CycleContext) -> Result<()> {
+        let mut fit_errors_per_measurement = vec![];
+
+        context.measured_lines_in_field.fill_if_subscribed(Vec::new);
+        context.correspondence_lines.fill_if_subscribed(Vec::new);
+        context
+            .updates
+            .fill_if_subscribed(|| vec![vec![]; self.hypotheses.len()]);
+
+        let line_datas = context
+            .line_data_top
+            .persistent
+            .iter()
+            .zip(context.line_data_bottom.persistent.iter());
+        for (
+            (line_data_top_timestamp, line_data_top),
+            (line_data_bottom_timestamp, line_data_bottom),
+        ) in line_datas
+        {
+            assert_eq!(line_data_top_timestamp, line_data_bottom_timestamp);
+            let current_odometry_to_last_odometry = context
+                .current_odometry_to_last_odometry
+                .get(line_data_top_timestamp);
+
+            let mut fit_errors_per_hypothesis = vec![];
+            for (hypothesis_index, scored_filter) in self.hypotheses.iter_mut().enumerate() {
+                if let Some(current_odometry_to_last_odometry) = current_odometry_to_last_odometry {
+                    predict(
+                        &mut scored_filter.pose_filter,
+                        current_odometry_to_last_odometry,
+                        context.odometry_noise,
+                    )
+                    .wrap_err("failed to predict pose filter")?;
+                    scored_filter.score *= *context.hypothesis_prediction_score_reduction_factor;
+                }
+                if *context.use_line_measurements {
+                    let robot_to_field = scored_filter.pose_filter.isometry();
+                    let current_measured_lines_in_field: Vec<_> = line_data_top
+                        .iter()
+                        .chain(line_data_bottom.iter())
+                        .filter_map(|data| data.as_ref())
+                        .flat_map(|line_data| {
+                            line_data
+                                .lines_in_robot
+                                .iter()
+                                .map(|&measured_line_in_robot| {
+                                    robot_to_field * measured_line_in_robot
+                                })
+                        })
+                        .collect();
+                    context.measured_lines_in_field.mutate_if_subscribed(
+                        |measured_lines_in_field| {
+                            if let Some(measured_lines_in_field) = measured_lines_in_field {
+                                measured_lines_in_field
+                                    .extend(current_measured_lines_in_field.iter());
+                            }
+                        },
+                    );
+                    if current_measured_lines_in_field.is_empty() {
+                        continue;
+                    }
+
+                    let (field_mark_correspondences, fit_error, fit_errors) =
+                        get_fitted_field_mark_correspondence(
+                            &current_measured_lines_in_field,
+                            &self.field_marks,
+                            context,
+                            context.fit_errors.is_subscribed(),
+                        );
+                    context
+                        .correspondence_lines
+                        .mutate_if_subscribed(|correspondence_lines| {
+                            let next_correspondence_lines = field_mark_correspondences
+                                .iter()
+                                .flat_map(|field_mark_correspondence| {
+                                    let correspondence_points_0 =
+                                        field_mark_correspondence.correspondence_points.0;
+                                    let correspondence_points_1 =
+                                        field_mark_correspondence.correspondence_points.1;
+                                    [
+                                        Line(
+                                            correspondence_points_0.measured,
+                                            correspondence_points_0.reference,
+                                        ),
+                                        Line(
+                                            correspondence_points_1.measured,
+                                            correspondence_points_1.reference,
+                                        ),
+                                    ]
+                                });
+                            if let Some(correspondence_lines) = correspondence_lines {
+                                correspondence_lines.extend(next_correspondence_lines);
+                            }
+                        });
+                    if context.fit_errors.is_subscribed() {
+                        fit_errors_per_hypothesis.push(fit_errors);
+                    }
+                    let clamped_fit_error = fit_error.max(*context.minimum_fit_error);
+                    let number_of_measurements_weight =
+                        1.0 / field_mark_correspondences.len() as f32;
+
+                    for field_mark_correspondence in field_mark_correspondences {
+                        let update = match field_mark_correspondence.field_mark {
+                            FieldMark::Line { .. } => get_translation_and_rotation_measurement(
+                                robot_to_field,
+                                field_mark_correspondence,
+                            ),
+                            FieldMark::Circle { .. } => get_2d_translation_measurement(
+                                robot_to_field,
+                                field_mark_correspondence,
+                            ),
+                        };
+                        let line_length = field_mark_correspondence.measured_line_in_field.length();
+                        let line_length_weight = if line_length == 0.0 {
+                            1.0
+                        } else {
+                            1.0 / line_length
+                        };
+                        let line_center_point =
+                            field_mark_correspondence.measured_line_in_field.center();
+                        let line_distance_to_robot = distance(
+                            &line_center_point,
+                            &Point2::from(robot_to_field.translation.vector),
+                        );
+                        context.updates.mutate_if_subscribed(|updates| {
+                            if let Some(updates) = updates {
+                                updates[hypothesis_index].push({
+                                    let robot_to_field = match field_mark_correspondence.field_mark
+                                    {
+                                        FieldMark::Line { line: _, direction } => match direction {
+                                            Direction::PositiveX => Isometry2::new(
+                                                vector![robot_to_field.translation.x, update.x],
+                                                update.y,
+                                            ),
+                                            Direction::PositiveY => Isometry2::new(
+                                                vector![update.x, robot_to_field.translation.y],
+                                                update.y,
+                                            ),
+                                        },
+                                        FieldMark::Circle { .. } => {
+                                            Isometry2::new(update, robot_to_field.rotation.angle())
+                                        }
+                                    };
+                                    LocalizationUpdate {
+                                        robot_to_field,
+                                        line_center_point,
+                                        fit_error: clamped_fit_error,
+                                        number_of_measurements_weight,
+                                        line_distance_to_robot,
+                                        line_length_weight,
+                                    }
+                                });
+                            }
+                        });
+                        let uncertainty_weight = clamped_fit_error
+                            * number_of_measurements_weight
+                            * line_length_weight
+                            * line_distance_to_robot;
+                        match field_mark_correspondence.field_mark {
+                            FieldMark::Line { line: _, direction } => scored_filter
+                                .pose_filter
+                                .update_with_1d_translation_and_rotation(
+                                    update,
+                                    Matrix::from_diagonal(context.line_measurement_noise)
+                                        * uncertainty_weight,
+                                    |state| match direction {
+                                        Direction::PositiveX => {
+                                            vector![state.y, state.z]
+                                        }
+                                        Direction::PositiveY => {
+                                            vector![state.x, state.z]
+                                        }
+                                    },
+                                )
+                                .context("Failed to update pose filter")?,
+                            FieldMark::Circle { .. } => scored_filter
+                                .pose_filter
+                                .update_with_2d_translation(
+                                    update,
+                                    Matrix::from_diagonal(context.circle_measurement_noise)
+                                        * uncertainty_weight,
+                                    |state| vector![state.x, state.y],
+                                )
+                                .context("Failed to update pose filter")?,
+                        }
+                        if field_mark_correspondence.fit_error_sum()
+                            < *context.good_matching_threshold
+                        {
+                            scored_filter.score += *context.score_per_good_match;
+                        }
+                    }
+                }
+                scored_filter.score += *context.hypothesis_score_base_increase;
+            }
+
+            if context.fit_errors.is_subscribed() {
+                fit_errors_per_measurement.push(fit_errors_per_hypothesis);
+            }
+        }
+
+        let best_hypothesis = self
+            .get_best_hypothesis()
+            .expect("Expected at least one hypothesis");
+        let best_score = best_hypothesis.score;
+        let robot_to_field = best_hypothesis.pose_filter.isometry();
+        self.hypotheses
+            .retain(|filter| filter.score >= *context.hypothesis_retain_factor * best_score);
+
+        context
+            .pose_hypotheses
+            .fill_if_subscribed(|| self.hypotheses.clone());
+        context
+            .fit_errors
+            .fill_if_subscribed(|| fit_errors_per_measurement);
+
+        *context.robot_to_field = robot_to_field;
+
+        Ok(())
+    }
+
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let primary_state = *context.primary_state;
+        let penalty = context
+            .game_controller_state
+            .and_then(|game_controller_state| {
+                game_controller_state.penalties[*context.player_number]
+            });
+        let game_phase = context
+            .game_controller_state
+            .map(|game_controller_state| game_controller_state.game_phase);
+
+        self.reset_state(primary_state, game_phase, &context, &penalty);
         self.last_primary_state = primary_state;
 
         if self.is_penalized_with_motion_in_set && !context.has_ground_contact {
             self.was_picked_up_while_penalized_with_motion_in_set = true;
         }
 
-        if primary_state == PrimaryState::Ready
-            || primary_state == PrimaryState::Set
-            || primary_state == PrimaryState::Playing
-        {
-            let mut fit_errors_per_measurement = vec![];
-
-            context.measured_lines_in_field.fill_if_subscribed(Vec::new);
-            context.correspondence_lines.fill_if_subscribed(Vec::new);
-            context
-                .updates
-                .fill_if_subscribed(|| vec![vec![]; self.hypotheses.len()]);
-
-            let line_datas = context
-                .line_data_top
-                .persistent
-                .iter()
-                .zip(context.line_data_bottom.persistent.iter());
-            for (
-                (line_data_top_timestamp, line_data_top),
-                (line_data_bottom_timestamp, line_data_bottom),
-            ) in line_datas
-            {
-                assert_eq!(line_data_top_timestamp, line_data_bottom_timestamp);
-                let current_odometry_to_last_odometry = context
-                    .current_odometry_to_last_odometry
-                    .get(line_data_top_timestamp);
-
-                let mut fit_errors_per_hypothesis = vec![];
-                for (hypothesis_index, scored_filter) in self.hypotheses.iter_mut().enumerate() {
-                    if let Some(current_odometry_to_last_odometry) =
-                        current_odometry_to_last_odometry
-                    {
-                        predict(
-                            &mut scored_filter.pose_filter,
-                            current_odometry_to_last_odometry,
-                            context.odometry_noise,
-                        )
-                        .wrap_err("failed to predict pose filter")?;
-                        scored_filter.score *=
-                            *context.hypothesis_prediction_score_reduction_factor;
-                    }
-                    if *context.use_line_measurements {
-                        let robot_to_field = scored_filter.pose_filter.isometry();
-                        let current_measured_lines_in_field: Vec<_> = line_data_top
-                            .iter()
-                            .chain(line_data_bottom.iter())
-                            .filter_map(|data| data.as_ref())
-                            .flat_map(|line_data| {
-                                line_data
-                                    .lines_in_robot
-                                    .iter()
-                                    .map(|&measured_line_in_robot| {
-                                        robot_to_field * measured_line_in_robot
-                                    })
-                            })
-                            .collect();
-                        context.measured_lines_in_field.mutate_if_subscribed(
-                            |measured_lines_in_field| {
-                                if let Some(measured_lines_in_field) = measured_lines_in_field {
-                                    measured_lines_in_field
-                                        .extend(current_measured_lines_in_field.iter());
-                                }
-                            },
-                        );
-                        if current_measured_lines_in_field.is_empty() {
-                            continue;
-                        }
-
-                        let (field_mark_correspondences, fit_error, fit_errors) =
-                            get_fitted_field_mark_correspondence(
-                                &current_measured_lines_in_field,
-                                &self.field_marks,
-                                &context,
-                                context.fit_errors.is_subscribed(),
-                            );
-                        context
-                            .correspondence_lines
-                            .mutate_if_subscribed(|correspondence_lines| {
-                                let next_correspondence_lines = field_mark_correspondences
-                                    .iter()
-                                    .flat_map(|field_mark_correspondence| {
-                                        let correspondence_points_0 =
-                                            field_mark_correspondence.correspondence_points.0;
-                                        let correspondence_points_1 =
-                                            field_mark_correspondence.correspondence_points.1;
-                                        [
-                                            Line(
-                                                correspondence_points_0.measured,
-                                                correspondence_points_0.reference,
-                                            ),
-                                            Line(
-                                                correspondence_points_1.measured,
-                                                correspondence_points_1.reference,
-                                            ),
-                                        ]
-                                    });
-                                if let Some(correspondence_lines) = correspondence_lines {
-                                    correspondence_lines.extend(next_correspondence_lines);
-                                }
-                            });
-                        if context.fit_errors.is_subscribed() {
-                            fit_errors_per_hypothesis.push(fit_errors);
-                        }
-                        let clamped_fit_error = fit_error.max(*context.minimum_fit_error);
-                        let number_of_measurements_weight =
-                            1.0 / field_mark_correspondences.len() as f32;
-
-                        for field_mark_correspondence in field_mark_correspondences {
-                            let update = match field_mark_correspondence.field_mark {
-                                FieldMark::Line { .. } => get_translation_and_rotation_measurement(
-                                    robot_to_field,
-                                    field_mark_correspondence,
-                                ),
-                                FieldMark::Circle { .. } => get_2d_translation_measurement(
-                                    robot_to_field,
-                                    field_mark_correspondence,
-                                ),
-                            };
-                            let line_length =
-                                field_mark_correspondence.measured_line_in_field.length();
-                            let line_length_weight = if line_length == 0.0 {
-                                1.0
-                            } else {
-                                1.0 / line_length
-                            };
-                            let line_center_point =
-                                field_mark_correspondence.measured_line_in_field.center();
-                            let line_distance_to_robot = distance(
-                                &line_center_point,
-                                &Point2::from(robot_to_field.translation.vector),
-                            );
-                            context.updates.mutate_if_subscribed(|updates| {
-                                if let Some(updates) = updates {
-                                    updates[hypothesis_index].push({
-                                        let robot_to_field =
-                                            match field_mark_correspondence.field_mark {
-                                                FieldMark::Line { line: _, direction } => {
-                                                    match direction {
-                                                        Direction::PositiveX => Isometry2::new(
-                                                            vector![
-                                                                robot_to_field.translation.x,
-                                                                update.x
-                                                            ],
-                                                            update.y,
-                                                        ),
-                                                        Direction::PositiveY => Isometry2::new(
-                                                            vector![
-                                                                update.x,
-                                                                robot_to_field.translation.y
-                                                            ],
-                                                            update.y,
-                                                        ),
-                                                    }
-                                                }
-                                                FieldMark::Circle { .. } => Isometry2::new(
-                                                    update,
-                                                    robot_to_field.rotation.angle(),
-                                                ),
-                                            };
-                                        LocalizationUpdate {
-                                            robot_to_field,
-                                            line_center_point,
-                                            fit_error: clamped_fit_error,
-                                            number_of_measurements_weight,
-                                            line_distance_to_robot,
-                                            line_length_weight,
-                                        }
-                                    });
-                                }
-                            });
-                            let uncertainty_weight = clamped_fit_error
-                                * number_of_measurements_weight
-                                * line_length_weight
-                                * line_distance_to_robot;
-                            match field_mark_correspondence.field_mark {
-                                FieldMark::Line { line: _, direction } => scored_filter
-                                    .pose_filter
-                                    .update_with_1d_translation_and_rotation(
-                                        update,
-                                        Matrix::from_diagonal(context.line_measurement_noise)
-                                            * uncertainty_weight,
-                                        |state| match direction {
-                                            Direction::PositiveX => {
-                                                vector![state.y, state.z]
-                                            }
-                                            Direction::PositiveY => {
-                                                vector![state.x, state.z]
-                                            }
-                                        },
-                                    )
-                                    .context("Failed to update pose filter")?,
-                                FieldMark::Circle { .. } => scored_filter
-                                    .pose_filter
-                                    .update_with_2d_translation(
-                                        update,
-                                        Matrix::from_diagonal(context.circle_measurement_noise)
-                                            * uncertainty_weight,
-                                        |state| vector![state.x, state.y],
-                                    )
-                                    .context("Failed to update pose filter")?,
-                            }
-                            if field_mark_correspondence.fit_error_sum()
-                                < *context.good_matching_threshold
-                            {
-                                scored_filter.score += *context.score_per_good_match;
-                            }
-                        }
-                    }
-                    scored_filter.score += *context.hypothesis_score_base_increase;
-                }
-
-                if context.fit_errors.is_subscribed() {
-                    fit_errors_per_measurement.push(fit_errors_per_hypothesis);
-                }
+        let robot_to_field = match primary_state {
+            PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing => {
+                self.update_state(&mut context)?;
+                Some(*context.robot_to_field)
             }
-
-            let best_hypothesis = self
-                .get_best_hypothesis()
-                .expect("Expected at least one hypothesis");
-            let best_score = best_hypothesis.score;
-            let robot_to_field = best_hypothesis.pose_filter.isometry();
-            self.hypotheses
-                .retain(|filter| filter.score >= *context.hypothesis_retain_factor * best_score);
-
-            context
-                .pose_hypotheses
-                .fill_if_subscribed(|| self.hypotheses.clone());
-            context
-                .fit_errors
-                .fill_if_subscribed(|| fit_errors_per_measurement);
-
-            *context.robot_to_field = robot_to_field;
-            return Ok(MainOutputs {
-                robot_to_field: Some(robot_to_field).into(),
-            });
-        }
-
+            _ => None,
+        };
         Ok(MainOutputs {
-            robot_to_field: None.into(),
+            robot_to_field: robot_to_field.into(),
         })
     }
 
