@@ -14,6 +14,7 @@ color-eyre = { workspace = true }
 colored = { workspace = true }
 constants = { workspace = true }
 futures = { workspace = true }
+indicatif = "0.17.2"
 nao = { workspace = true }
 regex = { workspace = true }
 repository = { workspace = true }

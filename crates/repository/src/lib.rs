@@ -299,7 +299,7 @@ impl Repository {
         Ok(())
     }
 
-    pub async fn create_upload_directory(&self, profile: String) -> Result<(TempDir, PathBuf)> {
+    pub async fn create_upload_directory(&self, profile: &str) -> Result<(TempDir, PathBuf)> {
         let upload_directory = tempdir().wrap_err("failed to create temporary directory")?;
         let hulk_directory = upload_directory.path().join("hulk");
 
