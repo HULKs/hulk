@@ -79,6 +79,7 @@ home = "0.5.4"
 hostname = "0.3.1"
 i2cdev = "0.5.1"
 image = "0.24.4"
+indicatif = "0.17.2"
 itertools = "0.10.5"
 ittapi = "0.3.3"
 kinematics = { path = "crates/kinematics" }
