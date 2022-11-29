@@ -1,10 +1,7 @@
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::{
-    hardware::Interface, BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand,
-    Leds, MotionSelection, Rgb, SensorData,
-};
+use types::{hardware::Interface, HeadJoints, Joints, Leds, Rgb, SensorData};
 
 pub struct JointCommandSender {
     last_average_color: Rgb,
