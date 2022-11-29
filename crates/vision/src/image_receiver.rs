@@ -3,7 +3,10 @@ use std::sync::Arc;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{hardware::Interface, CameraPosition, Rgb, YCbCr444};
+use types::{
+    hardware::{Image, Interface},
+    CameraPosition, Rgb, YCbCr444,
+};
 
 use crate::CyclerInstance;
 
@@ -19,9 +22,8 @@ pub struct CycleContext {
 }
 
 #[context]
-#[derive(Default)]
 pub struct MainOutputs {
-    pub image: MainOutput<Arc<bool>>,
+    pub image: MainOutput<Image>,
     pub average_color: MainOutput<Rgb>,
 }
 
@@ -63,12 +65,13 @@ impl ImageReceiver {
                 blue += right_color.b as u32;
             }
         }
+        let amount_of_additions = 2 * image.buffer.len();
         Ok(MainOutputs {
-            image: Default::default(),
+            image: image.into(),
             average_color: Rgb::new(
-                (red / (2 * image.buffer.len()) as u32) as u8,
-                (green / (2 * image.buffer.len()) as u32) as u8,
-                (blue / (2 * image.buffer.len()) as u32) as u8,
+                (red / amount_of_additions as u32) as u8,
+                (green / amount_of_additions as u32) as u8,
+                (blue / amount_of_additions as u32) as u8,
             )
             .into(),
         })
