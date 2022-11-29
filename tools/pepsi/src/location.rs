@@ -46,7 +46,7 @@ pub async fn location(arguments: Arguments, repository: &Repository) -> anyhow::
                 .context("Failed to get configured locations")?
             {
                 println!(
-                    "- {target:20}{}",
+                    "- {target:30}{}",
                     location.unwrap_or_else(|| "<NOT_CONFIGURED>".to_string())
                 );
             }

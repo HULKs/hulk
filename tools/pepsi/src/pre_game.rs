@@ -57,7 +57,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> anyhow::
         .collect();
 
     repository
-        .set_location("nao_location", &arguments.location)
+        .set_location("nao", &arguments.location)
         .await
         .with_context(|| anyhow!("Failed setting location for nao to {}", arguments.location))?;
 
