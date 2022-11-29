@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;

@@ -1,8 +1,6 @@
-use std::time::SystemTime;
-
 use color_eyre::Result;
 use context_attribute::context;
-use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
+use framework::{MainOutput, PerceptionInput};
 use types::hardware::Interface;
 
 // TODO: dieses Modul weg, weil es nur zum Testen war?
@@ -48,7 +46,7 @@ impl MessageReceiver {
         })
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         self.value += *context.step;
         *context.value = 1337;
         // context.hardware_interface.print_number(42);

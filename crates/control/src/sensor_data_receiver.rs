@@ -1,10 +1,7 @@
-use color_eyre::{
-    eyre::{bail, WrapErr},
-    Result,
-};
+use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
-use types::{hardware::Interface, Ear, Joints, Leds, Rgb, SensorData};
+use types::{hardware::Interface, SensorData};
 
 pub struct SensorDataReceiver {}
 

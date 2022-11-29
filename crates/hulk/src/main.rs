@@ -1,9 +1,6 @@
 use std::{fmt::Debug, fs::File, path::Path, sync::Arc};
 
-use color_eyre::{
-    eyre::{bail, WrapErr},
-    install, Result,
-};
+use color_eyre::{eyre::WrapErr, install, Result};
 use cyclers::run;
 use parameters::Parameters;
 use serde_json::from_reader;

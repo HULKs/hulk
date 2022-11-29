@@ -27,15 +27,11 @@ impl MicrophoneRecorder {
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
-        let samples = context
+        let _samples = context
             .hardware_interface
             .read_from_microphones()
             .wrap_err("failed to read from microphones")?;
         sleep(Duration::from_secs(1));
         Ok(MainOutputs::default())
-        //hardware_interface
-        //    .produce_audio_data()
-        //    .context("Failed to record from the microphone")?;
-        //Ok(hardware_interface.get_audio_buffer())
     }
 }
