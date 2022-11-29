@@ -11,7 +11,7 @@ use crate::{
     BallPosition, PlayerNumber, HULKS_TEAM_NUMBER,
 };
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct GameControllerReturnMessage {
     pub player_number: PlayerNumber,
     pub fallen: bool,

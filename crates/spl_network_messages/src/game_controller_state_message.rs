@@ -26,7 +26,7 @@ use crate::{
     HULKS_TEAM_NUMBER,
 };
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct GameControllerStateMessage {
     pub game_phase: GamePhase,
     pub game_state: GameState,
@@ -167,8 +167,9 @@ impl GamePhase {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum GameState {
+    #[default]
     Initial,
     Ready,
     Set,
@@ -242,8 +243,9 @@ impl Default for SetPlay {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub enum Half {
+    #[default]
     First,
     Second,
 }
@@ -260,7 +262,7 @@ impl TryFrom<u8> for Half {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct TeamState {
     pub team_number: u8,
     pub color: TeamColor,
@@ -271,12 +273,13 @@ pub struct TeamState {
     pub players: Vec<Player>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub enum TeamColor {
     Blue,
     Red,
     Yellow,
     Black,
+    #[default]
     White,
     Green,
     Orange,
