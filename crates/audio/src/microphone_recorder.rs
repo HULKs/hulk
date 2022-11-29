@@ -1,5 +1,3 @@
-use std::{thread::sleep, time::Duration};
-
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
@@ -31,7 +29,6 @@ impl MicrophoneRecorder {
             .hardware_interface
             .read_from_microphones()
             .wrap_err("failed to read from microphones")?;
-        sleep(Duration::from_secs(1));
         Ok(MainOutputs::default())
     }
 }

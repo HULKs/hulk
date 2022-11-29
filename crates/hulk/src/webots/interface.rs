@@ -43,7 +43,8 @@ pub struct Interface {
 
     keep_running: CancellationToken,
 
-    control_audio_synchronization: Barrier,
+    simulator_audio_synchronization: Barrier,
+    simulator_spl_network_synchronization: Barrier,
 }
 
 impl Interface {
@@ -66,7 +67,8 @@ impl Interface {
 
             keep_running,
 
-            control_audio_synchronization: Barrier::new(2),
+            simulator_audio_synchronization: Barrier::new(2),
+            simulator_spl_network_synchronization: Barrier::new(2),
         }
     }
 
@@ -106,7 +108,10 @@ impl Interface {
 
 impl hardware::Interface for Interface {
     fn read_from_microphones(&self) -> Result<Samples> {
-        // self.control_audio_synchronization.wait();
+        self.simulator_audio_synchronization.wait();
+        if self.keep_running.is_cancelled() {
+            bail!("termination requested");
+        }
         Ok(Samples {
             rate: 0,
             channels_of_samples: Arc::new(vec![]),
@@ -128,13 +133,14 @@ impl hardware::Interface for Interface {
     fn read_from_sensors(&self) -> Result<SensorData> {
         match self.step_simulation().wrap_err("failed to step simulation") {
             Ok(_) => {
-                // TODO: Improve cross-cancellation
-                // self.control_audio_synchronization.wait();
+                self.simulator_audio_synchronization.wait();
+                self.simulator_spl_network_synchronization.wait();
             }
             Err(error) => {
-                // self.control_audio_synchronization.wait();
-                self.top_camera.unblock_produce();
-                self.bottom_camera.unblock_produce();
+                self.simulator_audio_synchronization.wait();
+                self.simulator_spl_network_synchronization.wait();
+                self.top_camera.unblock_read();
+                self.bottom_camera.unblock_read();
                 return Err(error);
             }
         };
@@ -161,7 +167,12 @@ impl hardware::Interface for Interface {
         })
     }
 
-    fn write_to_actuators(&self, positions: Joints, _stiffnesses: Joints, _leds: Leds) -> Result<()> {
+    fn write_to_actuators(
+        &self,
+        positions: Joints,
+        _stiffnesses: Joints,
+        _leds: Leds,
+    ) -> Result<()> {
         self.joints
             .head
             .yaw
@@ -298,15 +309,19 @@ impl hardware::Interface for Interface {
     }
 
     fn read_from_network(&self) -> Result<Message> {
-        unimplemented!()
+        self.simulator_spl_network_synchronization.wait();
+        if self.keep_running.is_cancelled() {
+            bail!("termination requested");
+        }
+        Ok(Message::GameController)
     }
 
     fn write_to_network(&self, _message: Message) -> Result<()> {
-        unimplemented!()
+        Ok(())
     }
 
     fn read_from_camera(&self, camera_position: CameraPosition) -> Result<Image> {
-        match camera_position {
+        let result = match camera_position {
             CameraPosition::Top => {
                 self.top_camera_requested.store(true, Ordering::SeqCst);
                 self.top_camera
@@ -319,6 +334,10 @@ impl hardware::Interface for Interface {
                     .read()
                     .wrap_err("failed to read from bottom camera")
             }
+        };
+        if self.keep_running.is_cancelled() {
+            bail!("termination requested");
         }
+        result
     }
 }

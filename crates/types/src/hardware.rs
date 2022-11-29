@@ -128,7 +128,10 @@ impl Image {
     }
 }
 
-pub struct Message {}
+pub enum Message {
+    GameController,
+    Spl,
+}
 
 #[derive(Clone)]
 pub struct Samples {
