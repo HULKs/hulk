@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use color_eyre::Result;
 use dbus::blocking::{Connection, Proxy};
 use dbus::Path;
 use log::warn;
@@ -51,7 +52,7 @@ pub struct SystemServices {
 }
 
 impl SystemServices {
-    pub fn query(manager: &ServiceManager) -> anyhow::Result<Self> {
+    pub fn query(manager: &ServiceManager) -> Result<Self> {
         Ok(Self {
             hal_state: manager.get_service_state(Service::Hal)?,
             hula_state: manager.get_service_state(Service::Hula)?,
@@ -66,7 +67,7 @@ pub struct ServiceManager {
 }
 
 impl ServiceManager {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new() -> Result<Self> {
         Ok(Self {
             connection: Connection::new_system()?,
         })

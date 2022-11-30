@@ -4,7 +4,10 @@ use std::{
     path::Path,
 };
 
-use anyhow::{anyhow, bail, Context};
+use color_eyre::{
+    eyre::{bail, eyre, WrapErr},
+    Result,
+};
 use tokio::process::Command;
 
 pub struct Nao {
@@ -46,12 +49,12 @@ impl Nao {
         command
     }
 
-    pub async fn execute_shell(&self) -> anyhow::Result<()> {
+    pub async fn execute_shell(&self) -> Result<()> {
         let status = self
             .ssh_to_nao()
             .status()
             .await
-            .context("Failed to execute shell ssh command")?;
+            .wrap_err("failed to execute shell ssh command")?;
 
         if !status.success() {
             bail!("shell ssh command exited with {status}");
@@ -60,11 +63,7 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn execute_systemctl(
-        &self,
-        action: SystemctlAction,
-        unit: &str,
-    ) -> anyhow::Result<i32> {
+    pub async fn execute_systemctl(&self, action: SystemctlAction, unit: &str) -> Result<i32> {
         let status = self
             .ssh_to_nao()
             .arg("systemctl")
@@ -79,7 +78,7 @@ impl Nao {
             .arg(unit)
             .status()
             .await
-            .context("Failed to execute systemctl ssh command")?;
+            .wrap_err("failed to execute systemctl ssh command")?;
 
         let only_check_for_non_status_action = !matches!(action, SystemctlAction::Status);
         if only_check_for_non_status_action && !status.success() {
@@ -88,10 +87,10 @@ impl Nao {
 
         status
             .code()
-            .ok_or_else(|| anyhow!("Failed to extract exit code from {status:?}"))
+            .ok_or_else(|| eyre!("failed to extract exit code from {status:?}"))
     }
 
-    pub async fn delete_logs(&self) -> anyhow::Result<()> {
+    pub async fn delete_logs(&self) -> Result<()> {
         let status = self
             .ssh_to_nao()
             .arg("rm")
@@ -100,7 +99,7 @@ impl Nao {
             .arg("/home/nao/hulk/logs/*")
             .status()
             .await
-            .context("Failed to remove the log directory")?;
+            .wrap_err("failed to remove the log directory")?;
 
         if !status.success() {
             bail!("rm ssh command exited with {status}");
@@ -109,7 +108,7 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn download_logs<P>(&self, local_directory: P) -> anyhow::Result<()>
+    pub async fn download_logs<P>(&self, local_directory: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
@@ -118,7 +117,7 @@ impl Nao {
             .arg("dmesg > /home/nao/hulk/logs/kernel.log")
             .status()
             .await
-            .context("Failed to write dmesg to kernel.log")?;
+            .wrap_err("failed to write dmesg to kernel.log")?;
 
         if !status.success() {
             bail!("dmesg pipe ssh command exited with {status}");
@@ -130,7 +129,7 @@ impl Nao {
             .arg(local_directory.as_ref().to_str().unwrap())
             .status()
             .await
-            .context("Failed to execute rsync command")?;
+            .wrap_err("failed to execute rsync command")?;
 
         if !status.success() {
             bail!("rsync command exited with {status}");
@@ -139,14 +138,14 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn power_off(&self) -> anyhow::Result<()> {
+    pub async fn power_off(&self) -> Result<()> {
         let status = self
             .ssh_to_nao()
             .arg("systemctl")
             .arg("poweroff")
             .status()
             .await
-            .context("Failed to execute poweroff ssh command")?;
+            .wrap_err("failed to execute poweroff ssh command")?;
 
         if !status.success() {
             bail!("poweroff ssh command exited with {status}");
@@ -155,14 +154,14 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn reboot(&self) -> anyhow::Result<()> {
+    pub async fn reboot(&self) -> Result<()> {
         let status = self
             .ssh_to_nao()
             .arg("systemctl")
             .arg("reboot")
             .status()
             .await
-            .context("Failed to execute reboot ssh command")?;
+            .wrap_err("failed to execute reboot ssh command")?;
 
         if !status.success() {
             bail!("reboot ssh command exited with {status}");
@@ -171,7 +170,7 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn upload<P>(&self, local_directory: P, delete_remaining: bool) -> anyhow::Result<()>
+    pub async fn upload<P>(&self, local_directory: P, delete_remaining: bool) -> Result<()>
     where
         P: AsRef<Path>,
     {
@@ -189,7 +188,7 @@ impl Nao {
         let status = command
             .status()
             .await
-            .context("Failed to execute rsync command")?;
+            .wrap_err("failed to execute rsync command")?;
 
         if !status.success() {
             bail!("rsync command exited with {status}");
@@ -198,7 +197,7 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn get_network_status(&self) -> anyhow::Result<String> {
+    pub async fn get_network_status(&self) -> Result<String> {
         let output = self
             .ssh_to_nao()
             .arg("iwctl")
@@ -207,16 +206,16 @@ impl Nao {
             .arg("show")
             .output()
             .await
-            .context("Failed to execute iwctl ssh command")?;
+            .wrap_err("failed to execute iwctl ssh command")?;
 
         if !output.status.success() {
             bail!("iwctl ssh command exited with {}", output.status);
         }
 
-        String::from_utf8(output.stdout).context("Failed to decode UTF-8")
+        String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")
     }
 
-    pub async fn get_available_networks(&self) -> anyhow::Result<String> {
+    pub async fn get_available_networks(&self) -> Result<String> {
         let output = self
             .ssh_to_nao()
             .arg("iwctl")
@@ -225,16 +224,16 @@ impl Nao {
             .arg("get-networks")
             .output()
             .await
-            .context("Failed to execute iwctl ssh command")?;
+            .wrap_err("failed to execute iwctl ssh command")?;
 
         if !output.status.success() {
             bail!("iwctl ssh command exited with {}", output.status);
         }
 
-        String::from_utf8(output.stdout).context("Failed to decode UTF-8")
+        String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")
     }
 
-    pub async fn set_network(&self, network: Network) -> anyhow::Result<()> {
+    pub async fn set_network(&self, network: Network) -> Result<()> {
         let command_string = [
             Network::SplA,
             Network::SplB,
@@ -270,7 +269,7 @@ impl Nao {
         let status = command
             .status()
             .await
-            .context("Failed to execute iwctl ssh command")?;
+            .wrap_err("failed to execute iwctl ssh command")?;
 
         if !status.success() {
             bail!("iwctl ssh command exited with {status}");
@@ -279,7 +278,7 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn set_aliveness(&self, enable: bool) -> anyhow::Result<()> {
+    pub async fn set_aliveness(&self, enable: bool) -> Result<()> {
         let mut command = self.ssh_to_nao();
 
         let command_string = if enable {
@@ -292,7 +291,7 @@ impl Nao {
         let status = command
             .status()
             .await
-            .context("Failed to execute set_aliveness command")?;
+            .wrap_err("failed to execute set_aliveness command")?;
 
         if !status.success() {
             bail!("set_aliveness ssh command exited with {status}");

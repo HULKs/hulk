@@ -1,6 +1,9 @@
 use std::collections::VecDeque;
 
-use anyhow::{anyhow, Context, Result};
+use color_eyre::{
+    eyre::{eyre, WrapErr},
+    Result,
+};
 use communication::{Communication, CyclerOutput, SubscriberMessage};
 use log::error;
 use serde::Deserialize;
@@ -93,8 +96,8 @@ impl ValueBuffer {
     where
         for<'de> Output: Deserialize<'de>,
     {
-        let latest_value = self.get_latest().map_err(|error| anyhow!(error))?;
-        from_value(latest_value).context("Failed to parse json value")
+        let latest_value = self.get_latest().map_err(|error| eyre!(error))?;
+        from_value(latest_value).wrap_err("Failed to parse json value")
     }
 
     pub fn require_latest<Output>(&self) -> Result<Output>
@@ -102,15 +105,15 @@ impl ValueBuffer {
         for<'de> Output: Deserialize<'de>,
     {
         let parsed_value: Option<Output> = self.parse_latest()?;
-        parsed_value.ok_or_else(|| anyhow!("Value was none"))
+        parsed_value.ok_or_else(|| eyre!("Value was none"))
     }
 
     pub fn parse_buffered<Output>(&self) -> Result<Vec<Output>>
     where
         for<'de> Output: Deserialize<'de>,
     {
-        let buffered_values = self.get_buffered().map_err(|error| anyhow!(error))?;
-        from_value(Array(buffered_values)).context("Failed to parse json value")
+        let buffered_values = self.get_buffered().map_err(|error| eyre!(error))?;
+        from_value(Array(buffered_values)).wrap_err("Failed to parse json value")
     }
 }
 

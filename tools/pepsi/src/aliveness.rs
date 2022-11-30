@@ -1,5 +1,5 @@
-use anyhow::Context;
 use clap::Subcommand;
+use color_eyre::{eyre::WrapErr, Result};
 use futures::future::join_all;
 
 use nao::Nao;
@@ -20,7 +20,7 @@ pub enum Arguments {
     },
 }
 
-pub async fn aliveness(arguments: Arguments) -> anyhow::Result<()> {
+pub async fn aliveness(arguments: Arguments) -> Result<()> {
     let (enable, naos) = match arguments {
         Arguments::Enable { naos } => (true, naos),
         Arguments::Disable { naos } => (false, naos),
@@ -30,11 +30,11 @@ pub async fn aliveness(arguments: Arguments) -> anyhow::Result<()> {
         let nao = Nao::new(nao_address.ip);
         nao.set_aliveness(enable)
             .await
-            .with_context(|| format!("Failed to set aliveness on {nao_address}"))
+            .wrap_err_with(|| format!("failed to set aliveness on {nao_address}"))
     });
 
     let results = join_all(tasks).await;
-    gather_results(results, "Failed to execute some aliveness setting tasks")?;
+    gather_results(results, "failed to execute some aliveness setting tasks")?;
 
     Ok(())
 }

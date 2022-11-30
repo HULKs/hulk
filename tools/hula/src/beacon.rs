@@ -3,7 +3,7 @@ use std::{
     net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket},
 };
 
-use anyhow::{Context, Result};
+use color_eyre::{eyre::WrapErr, Result};
 use ipnetwork::IpNetwork;
 use log::debug;
 use pnet_datalink::interfaces;
@@ -34,12 +34,12 @@ fn send_beacon(
 ) -> Result<usize> {
     let source_address = SocketAddr::from((source_address, port));
     let socket = UdpSocket::bind(source_address)
-        .with_context(|| format!("Failed to bind UDP socket to {}", source_address))?;
+        .wrap_err_with(|| format!("failed to bind UDP socket to {}", source_address))?;
     let data = serde_json::to_vec(&message)?;
     debug!("Sending from {}", source_address);
     socket
         .send_to(&data, SocketAddrV4::new(target_address, port))
-        .context("Failed to send to UDP socket")
+        .wrap_err("failed to send to UDP socket")
 }
 
 pub fn send_beacon_on_all_interfaces(

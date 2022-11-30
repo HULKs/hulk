@@ -1,5 +1,5 @@
-use anyhow::Context;
 use clap::Args;
+use color_eyre::{eyre::WrapErr, Result};
 
 use repository::Repository;
 
@@ -26,13 +26,12 @@ pub enum Command {
     Run,
 }
 
-pub async fn cargo(
-    arguments: Arguments,
-    repository: &Repository,
-    command: Command,
-) -> anyhow::Result<()> {
+pub async fn cargo(arguments: Arguments, repository: &Repository, command: Command) -> Result<()> {
     if !arguments.no_sdk_installation && arguments.target == "nao" {
-        repository.install_sdk(None, None).await?;
+        repository
+            .install_sdk(None, None)
+            .await
+            .wrap_err("failed to install SDK")?;
     }
 
     match command {
@@ -44,15 +43,15 @@ pub async fn cargo(
                 &arguments.passthrough_arguments,
             )
             .await
-            .context("Failed to build")?,
+            .wrap_err("failed to build")?,
         Command::Check => repository
             .check(arguments.workspace, &arguments.profile, &arguments.target)
             .await
-            .context("Failed to check")?,
+            .wrap_err("failed to check")?,
         Command::Clippy => repository
             .clippy(arguments.workspace, &arguments.profile, &arguments.target)
             .await
-            .context("Failed to run clippy")?,
+            .wrap_err("failed to run clippy")?,
         Command::Run => {
             if arguments.workspace {
                 println!("INFO: Found --workspace with run subcommand, ignoring...")
@@ -64,7 +63,7 @@ pub async fn cargo(
                     &arguments.passthrough_arguments,
                 )
                 .await
-                .context("Failed to run")?
+                .wrap_err("failed to run")?
         }
     }
 

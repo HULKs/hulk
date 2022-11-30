@@ -1,5 +1,5 @@
-use anyhow::Context;
 use clap::Args;
+use color_eyre::{eyre::WrapErr, Result};
 use futures::future::join_all;
 
 use nao::Nao;
@@ -13,16 +13,16 @@ pub struct Arguments {
     pub naos: Vec<NaoAddress>,
 }
 
-pub async fn power_off(arguments: Arguments) -> anyhow::Result<()> {
+pub async fn power_off(arguments: Arguments) -> Result<()> {
     let tasks = arguments.naos.into_iter().map(|nao_address| async move {
         let nao = Nao::new(nao_address.ip);
         nao.power_off()
             .await
-            .with_context(|| format!("Failed to power {nao_address} off"))
+            .wrap_err_with(|| format!("failed to power {nao_address} off"))
     });
 
     let results = join_all(tasks).await;
-    gather_results(results, "Failed to execute some power_off tasks")?;
+    gather_results(results, "failed to execute some power_off tasks")?;
 
     Ok(())
 }

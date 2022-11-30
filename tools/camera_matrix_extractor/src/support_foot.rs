@@ -1,4 +1,7 @@
-use anyhow::{anyhow, bail, Context};
+use color_eyre::{
+    eyre::{bail, eyre, WrapErr},
+    Report, Result,
+};
 use serde_json::Value;
 
 #[derive(Debug)]
@@ -8,12 +11,12 @@ pub enum SupportFoot {
 }
 
 impl TryFrom<&Value> for SupportFoot {
-    type Error = anyhow::Error;
+    type Error = Report;
 
-    fn try_from(replay_frame: &Value) -> anyhow::Result<Self> {
+    fn try_from(replay_frame: &Value) -> Result<Self> {
         let fsr_left = replay_frame
             .get("fsrLeft")
-            .ok_or_else(|| anyhow!("replay_frame.get(\"fsrLeft\")"))?;
+            .ok_or_else(|| eyre!("replay_frame.get(\"fsrLeft\")"))?;
         let fsr_left_front_left =
             extract_value_from_fsr(fsr_left, "frontLeft").context("fsr_left")?;
         let fsr_left_front_right =
@@ -25,7 +28,7 @@ impl TryFrom<&Value> for SupportFoot {
 
         let fsr_right = replay_frame
             .get("fsrRight")
-            .ok_or_else(|| anyhow!("replay_frame.get(\"fsrRight\")"))?;
+            .ok_or_else(|| eyre!("replay_frame.get(\"fsrRight\")"))?;
         let fsr_right_front_left =
             extract_value_from_fsr(fsr_right, "frontLeft").context("fsr_right")?;
         let fsr_right_front_right =
@@ -50,11 +53,11 @@ impl TryFrom<&Value> for SupportFoot {
     }
 }
 
-fn extract_value_from_fsr(fsr: &Value, key: &str) -> anyhow::Result<f64> {
-    match fsr.get(key).ok_or_else(|| anyhow!("fsr.get(\"{key}\")"))? {
+fn extract_value_from_fsr(fsr: &Value, key: &str) -> Result<f64> {
+    match fsr.get(key).ok_or_else(|| eyre!("fsr.get(\"{key}\")"))? {
         Value::Number(value) => Ok(value
             .as_f64()
-            .ok_or_else(|| anyhow!("fsr.get(\"{key}\") is not a floating point number"))?),
+            .ok_or_else(|| eyre!("fsr.get(\"{key}\") is not a floating point number"))?),
         _ => bail!("fsr.get(\"{key}\") is not a number"),
     }
 }

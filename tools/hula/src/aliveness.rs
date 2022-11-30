@@ -6,7 +6,10 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, Context, Result};
+use color_eyre::{
+    eyre::{eyre, WrapErr},
+    Result,
+};
 use log::{debug, info};
 
 use crate::{
@@ -25,7 +28,7 @@ fn get_hulks_os_version() -> Result<String> {
     Ok(os_release
         .general_section()
         .get("VERSION_ID")
-        .expect("Could not query VERSION_ID")
+        .expect("could not query VERSION_ID")
         .to_string())
 }
 
@@ -49,8 +52,8 @@ impl Aliveness {
             let robot_configuration = robot_configuration
                 .lock()
                 .unwrap()
-                .expect("Expected robot configuration, got None");
-            let battery = battery.lock().unwrap().expect("Expected battery, got None");
+                .expect("expected robot configuration, got None");
+            let battery = battery.lock().unwrap().expect("expected battery, got None");
             beacon::send_beacon_on_all_interfaces(
                 Self::BEACON_MULTICAST_GROUP,
                 Self::BEACON_PORT,
@@ -72,7 +75,7 @@ impl Aliveness {
         battery: Arc<Mutex<Option<Battery>>>,
     ) -> Result<Self> {
         let hulks_os_version = get_hulks_os_version()?;
-        let hostname = hostname::get().context("Failed to query hostname")?;
+        let hostname = hostname::get().context("failed to query hostname")?;
         let service_manager = ServiceManager::new()?;
 
         let thread = spawn(move || {
@@ -104,6 +107,6 @@ impl Aliveness {
             .take()
             .unwrap()
             .join()
-            .map_err(|error| anyhow!("Failed to join aliveness thread: {:?}", error))?
+            .map_err(|error| eyre!("failed to join aliveness thread: {:?}", error))?
     }
 }

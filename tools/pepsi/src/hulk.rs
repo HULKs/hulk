@@ -1,8 +1,8 @@
-use anyhow::Context;
 use clap::{
     builder::{PossibleValuesParser, TypedValueParser},
     Args,
 };
+use color_eyre::{eyre::WrapErr, Result};
 use futures::future::join_all;
 
 use nao::{Nao, SystemctlAction};
@@ -25,16 +25,16 @@ pub struct Arguments {
     pub naos: Vec<NaoAddress>,
 }
 
-pub async fn hulk(arguments: Arguments) -> anyhow::Result<()> {
+pub async fn hulk(arguments: Arguments) -> Result<()> {
     let tasks = arguments.naos.into_iter().map(|nao_address| async move {
         let nao = Nao::new(nao_address.ip);
         nao.execute_systemctl(arguments.action, "hulk")
             .await
-            .with_context(|| format!("Failed to execute systemctl hulk on {nao_address}"))
+            .wrap_err_with(|| format!("Failed to execute systemctl hulk on {nao_address}"))
     });
 
     let results = join_all(tasks).await;
-    gather_results(results, "Failed to execute some systemctl hulk tasks")?;
+    gather_results(results, "failed to execute some systemctl hulk tasks")?;
 
     Ok(())
 }

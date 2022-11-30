@@ -1,5 +1,5 @@
-use anyhow::Context;
 use clap::Args;
+use color_eyre::{eyre::WrapErr, Result};
 use futures::future::join_all;
 
 use nao::{Nao, SystemctlAction};
@@ -40,13 +40,13 @@ pub struct Arguments {
     pub naos: Vec<NaoAddress>,
 }
 
-pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
+pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
     let nao_numbers = arguments
         .naos
         .iter()
         .map(|nao_address| (*nao_address).try_into())
         .collect::<Result<Vec<NaoNumber>, _>>()
-        .context("Failed to convert NAO address into NAO numbers")?;
+        .wrap_err("failed to convert NAO address into NAO numbers")?;
 
     if !arguments.no_build {
         cargo(
@@ -61,7 +61,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Re
             Command::Build,
         )
         .await
-        .context("Failed to build the code")?;
+        .wrap_err("failed to build the code")?;
     }
 
     communication(
@@ -72,12 +72,12 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Re
         repository,
     )
     .await
-    .context("Failed to set communication enablement directory")?;
+    .wrap_err("failed to set communication enablement directory")?;
 
     let (_temporary_directory, hulk_directory) = repository
         .create_upload_directory(arguments.profile)
         .await
-        .context("Failed to create upload directory")?;
+        .wrap_err("failed to create upload directory")?;
 
     if !arguments.no_restart {
         println!("Stopping HULK");
@@ -86,7 +86,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Re
             naos: arguments.naos.clone(),
         })
         .await
-        .context("Failed to stop HULK service")?;
+        .wrap_err("failed to stop HULK service")?;
     }
 
     let tasks = arguments.naos.iter().map(|nao_address| {
@@ -96,25 +96,25 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Re
             println!("Starting upload to {}", nao_address);
             nao.upload(hulk_directory, !arguments.no_clean)
                 .await
-                .with_context(|| format!("Failed to power {nao_address} off"))
+                .wrap_err_with(|| format!("failed to power {nao_address} off"))
         }
     });
 
     let results = join_all(tasks).await;
-    gather_results(results, "Failed to execute some upload tasks")?;
+    gather_results(results, "failed to execute some upload tasks")?;
 
     if !arguments.no_restart {
         let tasks = arguments.naos.iter().map(|nao_address| async move {
             let nao = Nao::new(nao_address.ip);
             nao.set_aliveness(!arguments.no_aliveness)
                 .await
-                .with_context(|| format!("Failed to set aliveness on {nao_address}"))
+                .wrap_err_with(|| format!("failed to set aliveness on {nao_address}"))
         });
 
         let results = join_all(tasks).await;
         gather_results(
             results,
-            "Failed to execute some systemctl restart hula tasks",
+            "failed to execute some systemctl restart hula tasks",
         )?;
 
         hulk(HulkArguments {
@@ -122,7 +122,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Re
             naos: arguments.naos,
         })
         .await
-        .context("Failed to start HULK service")?;
+        .wrap_err("failed to start HULK service")?;
     }
 
     Ok(())

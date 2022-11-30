@@ -5,10 +5,10 @@ name = "hula"
 version = "0.1.0"
 
 [dependencies]
-anyhow = "1.0.66"
 byteorder = "1.4.3"
 chrono = "0.4.23"
 clap = "4.0.29"
+color-eyre = "0.6.2"
 ctrlc = "3.2.3"
 dbus = "0.9.6"
 epoll = "4.3.1"

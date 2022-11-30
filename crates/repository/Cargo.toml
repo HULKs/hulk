@@ -5,7 +5,7 @@ name = "repository"
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
+color-eyre = { workspace = true }
 glob = { workspace = true }
 futures = { workspace = true }
 home = { workspace = true }

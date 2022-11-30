@@ -1,4 +1,4 @@
-use anyhow::Result;
+use color_eyre::Result;
 use std::fs::read_to_string;
 use toml::Value;
 

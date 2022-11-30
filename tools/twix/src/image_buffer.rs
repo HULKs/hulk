@@ -1,4 +1,3 @@
-use anyhow::Result;
 use communication::{Communication, Cycler, CyclerOutput, Output, SubscriberMessage};
 use log::error;
 use tokio::{

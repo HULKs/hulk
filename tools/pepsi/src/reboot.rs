@@ -1,5 +1,5 @@
-use anyhow::Context;
 use clap::Args;
+use color_eyre::{eyre::WrapErr, Result};
 use futures::future::join_all;
 
 use nao::Nao;
@@ -13,16 +13,16 @@ pub struct Arguments {
     pub naos: Vec<NaoAddress>,
 }
 
-pub async fn reboot(arguments: Arguments) -> anyhow::Result<()> {
+pub async fn reboot(arguments: Arguments) -> Result<()> {
     let tasks = arguments.naos.into_iter().map(|nao_address| async move {
         let nao = Nao::new(nao_address.ip);
         nao.reboot()
             .await
-            .with_context(|| format!("Failed to reboot {nao_address}"))
+            .wrap_err_with(|| format!("failed to reboot {nao_address}"))
     });
 
     let results = join_all(tasks).await;
-    gather_results(results, "Failed to execute some reboot tasks")?;
+    gather_results(results, "failed to execute some reboot tasks")?;
 
     Ok(())
 }

@@ -4,7 +4,10 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{anyhow, bail, Context};
+use color_eyre::{
+    eyre::{bail, eyre, WrapErr},
+    Report, Result,
+};
 use regex::Regex;
 
 use nao::{Network, SystemctlAction};
@@ -13,7 +16,7 @@ use spl_network_messages::PlayerNumber;
 pub const SYSTEMCTL_ACTION_POSSIBLE_VALUES: &[&str] =
     &["disable", "enable", "restart", "start", "status", "stop"];
 
-pub fn parse_systemctl_action(systemctl_action: &str) -> anyhow::Result<SystemctlAction> {
+pub fn parse_systemctl_action(systemctl_action: &str) -> Result<SystemctlAction> {
     match systemctl_action {
         "disable" => Ok(SystemctlAction::Disable),
         "enable" => Ok(SystemctlAction::Enable),
@@ -21,14 +24,14 @@ pub fn parse_systemctl_action(systemctl_action: &str) -> anyhow::Result<Systemct
         "start" => Ok(SystemctlAction::Start),
         "status" => Ok(SystemctlAction::Status),
         "stop" => Ok(SystemctlAction::Stop),
-        _ => bail!("Unexpected systemctl action"),
+        _ => bail!("unexpected systemctl action"),
     }
 }
 
 pub const NETWORK_POSSIBLE_VALUES: &[&str] =
     &["None", "SPL_A", "SPL_B", "SPL_C", "SPL_D", "SPL_E", "SPL_F"];
 
-pub fn parse_network(network: &str) -> anyhow::Result<Network> {
+pub fn parse_network(network: &str) -> Result<Network> {
     match network {
         "None" => Ok(Network::None),
         "SPL_A" => Ok(Network::SplA),
@@ -37,7 +40,7 @@ pub fn parse_network(network: &str) -> anyhow::Result<Network> {
         "SPL_D" => Ok(Network::SplD),
         "SPL_E" => Ok(Network::SplE),
         "SPL_F" => Ok(Network::SplF),
-        _ => bail!("Unexpected network"),
+        _ => bail!("unexpected network"),
     }
 }
 
@@ -47,9 +50,9 @@ pub struct NaoAddress {
 }
 
 impl FromStr for NaoAddress {
-    type Err = anyhow::Error;
+    type Err = Report;
 
-    fn from_str(input: &str) -> anyhow::Result<Self> {
+    fn from_str(input: &str) -> Result<Self> {
         let expression = Regex::new(r"^(\d+)(w?)$").unwrap();
         match expression.captures(input) {
             Some(captures) => {
@@ -58,18 +61,18 @@ impl FromStr for NaoAddress {
                     .unwrap()
                     .as_str()
                     .parse()
-                    .context("Failed to parse NaoAddress")?;
+                    .wrap_err("failed to parse NaoAddress")?;
                 let connection = if captures.get(2).unwrap().as_str() == "w" {
                     Connection::Wireless
                 } else {
                     Connection::Wired
                 };
                 let ip =
-                    number_to_ip(number, connection).context("Cannot parse from NAO number")?;
+                    number_to_ip(number, connection).wrap_err("cannot parse from NAO number")?;
                 Ok(Self { ip })
             }
             None => Ok(Self {
-                ip: input.parse().context("Failed to parse NaoAddress")?,
+                ip: input.parse().wrap_err("failed to parse NaoAddress")?,
             }),
         }
     }
@@ -87,7 +90,7 @@ pub enum Connection {
     Wired,
 }
 
-pub fn number_to_ip(nao_number: u8, connection: Connection) -> anyhow::Result<Ipv4Addr> {
+pub fn number_to_ip(nao_number: u8, connection: Connection) -> Result<Ipv4Addr> {
     if nao_number == 0 || nao_number > 254 {
         bail!("NAO number is either the network (0) or broadcast (255) which is not supported");
     }
@@ -104,11 +107,11 @@ pub struct NaoNumber {
 }
 
 impl FromStr for NaoNumber {
-    type Err = anyhow::Error;
+    type Err = Report;
 
-    fn from_str(input: &str) -> anyhow::Result<Self> {
+    fn from_str(input: &str) -> Result<Self> {
         Ok(Self {
-            number: input.parse().context("Failed to parse NaoNumber")?,
+            number: input.parse().wrap_err("failed to parse NaoNumber")?,
         })
     }
 }
@@ -120,14 +123,14 @@ impl Display for NaoNumber {
 }
 
 impl TryFrom<NaoAddress> for NaoNumber {
-    type Error = anyhow::Error;
+    type Error = Report;
 
-    fn try_from(nao_address: NaoAddress) -> anyhow::Result<Self> {
+    fn try_from(nao_address: NaoAddress) -> Result<Self> {
         if nao_address.ip.octets()[0] != 10
             || (nao_address.ip.octets()[1] != 0 && nao_address.ip.octets()[1] != 1)
             || nao_address.ip.octets()[2] != 24
         {
-            bail!("Failed to extract NAO number from IP {nao_address}");
+            bail!("failed to extract NAO number from IP {nao_address}");
         }
 
         Ok(Self {
@@ -143,9 +146,9 @@ pub struct NaoAddressPlayerAssignment {
 }
 
 impl FromStr for NaoAddressPlayerAssignment {
-    type Err = anyhow::Error;
+    type Err = Report;
 
-    fn from_str(input: &str) -> anyhow::Result<Self> {
+    fn from_str(input: &str) -> Result<Self> {
         let (prefix, player_number) = parse_assignment(input)?;
         Ok(Self {
             nao_address: prefix.parse()?,
@@ -161,9 +164,9 @@ pub struct NaoNumberPlayerAssignment {
 }
 
 impl FromStr for NaoNumberPlayerAssignment {
-    type Err = anyhow::Error;
+    type Err = Report;
 
-    fn from_str(input: &str) -> anyhow::Result<Self> {
+    fn from_str(input: &str) -> Result<Self> {
         let (prefix, player_number) = parse_assignment(input)?;
         Ok(Self {
             nao_number: prefix.parse()?,
@@ -172,30 +175,28 @@ impl FromStr for NaoNumberPlayerAssignment {
     }
 }
 
-fn parse_assignment(input: &str) -> anyhow::Result<(&str, PlayerNumber)> {
-    let (prefix, player_number) = input
-        .rsplit_once(':')
-        .ok_or_else(|| anyhow!("Missing `:`"))?;
+fn parse_assignment(input: &str) -> Result<(&str, PlayerNumber)> {
+    let (prefix, player_number) = input.rsplit_once(':').ok_or_else(|| eyre!("missing `:`"))?;
     let player_number = match player_number {
         "1" => PlayerNumber::One,
         "2" => PlayerNumber::Two,
         "3" => PlayerNumber::Three,
         "4" => PlayerNumber::Four,
         "5" => PlayerNumber::Five,
-        _ => bail!("Unexpected player number {player_number}"),
+        _ => bail!("unexpected player number {player_number}"),
     };
     Ok((prefix, player_number))
 }
 
 impl TryFrom<NaoAddressPlayerAssignment> for NaoNumberPlayerAssignment {
-    type Error = anyhow::Error;
+    type Error = Report;
 
-    fn try_from(assignment: NaoAddressPlayerAssignment) -> anyhow::Result<Self> {
+    fn try_from(assignment: NaoAddressPlayerAssignment) -> Result<Self> {
         Ok(Self {
             nao_number: assignment
                 .nao_address
                 .try_into()
-                .context("Failed to convert NAO address into NAO number")?,
+                .wrap_err("failed to convert NAO address into NAO number")?,
             player_number: assignment.player_number,
         })
     }

@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Context};
 use clap::{
     builder::{PossibleValuesParser, TypedValueParser},
     Args,
 };
+use color_eyre::{eyre::WrapErr, Result};
 
 use nao::Network;
 use repository::Repository;
@@ -49,7 +49,7 @@ pub struct Arguments {
     pub assignments: Vec<NaoAddressPlayerAssignment>,
 }
 
-pub async fn pre_game(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
+pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
     let naos: Vec<_> = arguments
         .assignments
         .iter()
@@ -59,7 +59,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> anyhow::
     repository
         .set_location("nao", &arguments.location)
         .await
-        .with_context(|| anyhow!("Failed setting location for nao to {}", arguments.location))?;
+        .wrap_err_with(|| format!("failed setting location for nao to {}", arguments.location))?;
 
     player_number(
         PlayerNumberArguments {
@@ -69,12 +69,12 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> anyhow::
                 .copied()
                 .map(TryFrom::try_from)
                 .collect::<Result<Vec<_>, _>>()
-                .context("Failed to convert NAO address assignments into NAO number assignments for player number setting")?
+                .wrap_err("failed to convert NAO address assignments into NAO number assignments for player number setting")?
         },
         repository
     )
     .await
-    .context("Failed to set player numbers")?;
+    .wrap_err("failed to set player numbers")?;
 
     upload(
         UploadArguments {
@@ -90,14 +90,14 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> anyhow::
         repository,
     )
     .await
-    .context("Failed to upload")?;
+    .wrap_err("failed to upload")?;
 
     wireless(WirelessArguments::Set {
         network: arguments.network,
         naos,
     })
     .await
-    .context("Failed to set wireless network")?;
+    .wrap_err("failed to set wireless network")?;
 
     Ok(())
 }

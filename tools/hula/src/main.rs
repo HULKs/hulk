@@ -4,8 +4,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use anyhow::{bail, Context, Result};
 use clap::{Arg, ArgAction, Command};
+use color_eyre::{
+    eyre::{bail, WrapErr},
+    Result,
+};
 use log::{debug, error};
 use systemd::daemon::{notify, STATE_READY};
 
@@ -55,7 +58,7 @@ fn main() -> Result<()> {
 
     let matches = app.get_matches();
 
-    setup_logger(matches.get_flag("verbose")).context("Failed to setup logger")?;
+    setup_logger(matches.get_flag("verbose")).wrap_err("failed to setup logger")?;
 
     let termination_request = TerminationRequest::default();
     let termination_request_for_handler = termination_request.clone();
@@ -63,7 +66,7 @@ fn main() -> Result<()> {
         debug!("Got signal, will terminate...");
         termination_request_for_handler.terminate();
     })
-    .context("Failed to set signal handler")?;
+    .wrap_err("failed to set signal handler")?;
 
     let robot_configuration = Arc::new(Mutex::default());
     let battery = Arc::new(Mutex::default());
@@ -73,7 +76,7 @@ fn main() -> Result<()> {
         robot_configuration.clone(),
         battery.clone(),
     )
-    .context("Failed to start proxy")?;
+    .wrap_err("failed to start proxy")?;
     let disable_aliveness = Path::new("/home/nao/disable_aliveness").exists();
     let aliveness = match disable_aliveness {
         true => None,
@@ -85,14 +88,14 @@ fn main() -> Result<()> {
                     if let Err(error) = proxy.join() {
                         error!("Failed to join proxy: {:?}", error);
                     }
-                    bail!("Failed to start aliveness: {:?}", error);
+                    bail!("failed to start aliveness: {:?}", error);
                 }
             },
         ),
     };
 
     notify(false, [(STATE_READY, "1")].iter())
-        .context("Failed to contact SystemD for ready notification")?;
+        .wrap_err("failed to contact SystemD for ready notification")?;
 
     debug!("Waiting for termination request...");
     termination_request.wait();
