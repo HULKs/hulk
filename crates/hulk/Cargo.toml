@@ -13,7 +13,6 @@ color-eyre = {workspace = true}
 ctrlc = {workspace = true}
 cyclers = {workspace = true}
 i2cdev = {workspace = true}
-libc = {workspace = true}
 log = {workspace = true}
 nalgebra = {workspace = true}
 nao_camera = {optional = true, workspace = true}
@@ -22,6 +21,7 @@ rand = {workspace = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 structs = {workspace = true}
+tokio = {workspace = true}
 tokio-util = {workspace = true}
 types = {workspace = true}
 v4l = {optional = true, workspace = true}

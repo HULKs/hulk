@@ -36,7 +36,8 @@ impl Interface {
                 Microphones::new(parameters.microphones)
                     .wrap_err("failed to initialize microphones")?,
             ),
-            network: Network::new(parameters.network).wrap_err("failed to initialize network")?,
+            network: Network::new(keep_running.clone(), parameters.network)
+                .wrap_err("failed to initialize network")?,
             camera_top: Mutex::new(
                 Camera::new(
                     "/dev/video-top",
@@ -61,11 +62,7 @@ impl Interface {
 
 impl hardware::Interface for Interface {
     fn read_from_microphones(&self) -> Result<Samples> {
-        let result = self.microphones.lock().read_from_microphones();
-        if self.keep_running.is_cancelled() {
-            self.network.unblock_read();
-        }
-        result
+        self.microphones.lock().read_from_microphones()
     }
 
     fn get_now(&self) -> SystemTime {
@@ -77,11 +74,7 @@ impl hardware::Interface for Interface {
     }
 
     fn read_from_sensors(&self) -> Result<SensorData> {
-        let result = self.hula_wrapper.lock().read_from_hula();
-        if self.keep_running.is_cancelled() {
-            self.network.unblock_read();
-        }
-        result
+        self.hula_wrapper.lock().read_from_hula()
     }
 
     fn write_to_actuators(&self, positions: Joints, stiffnesses: Joints, leds: Leds) -> Result<()> {
@@ -99,13 +92,9 @@ impl hardware::Interface for Interface {
     }
 
     fn read_from_camera(&self, camera_position: CameraPosition) -> Result<Image> {
-        let result = match camera_position {
+        match camera_position {
             CameraPosition::Top => self.camera_top.lock().read(),
             CameraPosition::Bottom => self.camera_bottom.lock().read(),
-        };
-        if self.keep_running.is_cancelled() {
-            self.network.unblock_read();
         }
-        result
     }
 }

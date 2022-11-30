@@ -23,16 +23,29 @@ fn main() -> Result<()> {
             keep_running.cancel();
         })?;
     }
-    let hardware_parameters = parse_hardware_parameters("etc/configuration/hardware.json")
-        .wrap_err("failed to parse hardware parameters")?;
-    let hardware_interface = new_hardware_interface(keep_running.clone(), hardware_parameters)
-        .wrap_err("failed to create hardware interface")?;
+    let hardware_parameters = cancel_on_error(
+        &keep_running,
+        parse_hardware_parameters("etc/configuration/hardware.json"),
+    )
+    .wrap_err("failed to parse hardware parameters")?;
+    let hardware_interface = cancel_on_error(
+        &keep_running,
+        new_hardware_interface(keep_running.clone(), hardware_parameters),
+    )
+    .wrap_err("failed to create hardware interface")?;
     let initial_configuration = Configuration::default();
     run(
         hardware_interface,
         initial_configuration,
         keep_running.clone(),
     )
+}
+
+fn cancel_on_error<T, E>(keep_running: &CancellationToken, result: Result<T, E>) -> Result<T, E> {
+    if result.is_err() {
+        keep_running.cancel();
+    }
+    result
 }
 
 fn parse_hardware_parameters(path: impl AsRef<Path> + Debug) -> Result<Parameters> {

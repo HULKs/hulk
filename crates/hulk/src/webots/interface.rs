@@ -68,7 +68,8 @@ impl Interface {
             top_camera_requested: AtomicBool::new(false),
             bottom_camera_requested: AtomicBool::new(false),
 
-            network: Network::new(parameters.network).wrap_err("failed to initialize network")?,
+            network: Network::new(keep_running.clone(), parameters.network)
+                .wrap_err("failed to initialize network")?,
 
             keep_running,
 
@@ -141,12 +142,8 @@ impl hardware::Interface for Interface {
             }
             Err(error) => {
                 self.simulator_audio_synchronization.wait();
-                let result = self.network.unblock_read().wrap_err(
-                    "failed to unblock network read after simulation step error: {error:?}",
-                );
                 self.top_camera.unblock_read();
                 self.bottom_camera.unblock_read();
-                result?;
                 return Err(error);
             }
         };
