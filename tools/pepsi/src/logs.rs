@@ -31,7 +31,7 @@ pub async fn logs(arguments: Arguments, repository: &Repository) -> anyhow::Resu
     let results = match arguments {
         Arguments::Delete { naos } => {
             join_all(naos.into_iter().map(|nao_address| async move {
-                let nao = Nao::new(nao_address.to_string(), repository.get_private_key_path());
+                let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
 
                 nao.delete_logs()
                     .await
@@ -46,7 +46,7 @@ pub async fn logs(arguments: Arguments, repository: &Repository) -> anyhow::Resu
             join_all(naos.into_iter().map(|nao_address| {
                 let log_directory = log_directory.join(nao_address.to_string());
                 async move {
-                    let nao = Nao::new(nao_address.to_string(), repository.get_private_key_path());
+                    let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
 
                     nao.download_logs(log_directory)
                         .await

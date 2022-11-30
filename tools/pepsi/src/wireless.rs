@@ -55,7 +55,7 @@ pub async fn wireless(arguments: Arguments, repository: &Repository) -> anyhow::
 
 async fn status(naos: Vec<NaoAddress>, repository: &Repository) {
     let results = join_all(naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.to_string(), repository.get_private_key_path());
+        let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
 
         (
             nao_address,
@@ -77,7 +77,7 @@ async fn status(naos: Vec<NaoAddress>, repository: &Repository) {
 
 async fn available_networks(naos: Vec<NaoAddress>, repository: &Repository) {
     let results = join_all(naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.to_string(), repository.get_private_key_path());
+        let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
 
         (
             nao_address,
@@ -103,7 +103,7 @@ async fn set(
     repository: &Repository,
 ) -> anyhow::Result<()> {
     let tasks = naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.to_string(), repository.get_private_key_path());
+        let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
 
         nao.set_network(network)
             .await

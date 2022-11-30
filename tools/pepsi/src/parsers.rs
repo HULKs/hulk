@@ -98,7 +98,7 @@ pub fn number_to_ip(nao_number: u8, connection: Connection) -> anyhow::Result<Ip
     Ok(Ipv4Addr::new(10, subnet, 24, nao_number))
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct NaoNumber {
     pub number: u8,
 }

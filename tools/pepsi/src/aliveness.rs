@@ -28,7 +28,7 @@ pub async fn aliveness(arguments: Arguments, repository: &Repository) -> anyhow:
     };
 
     let tasks = naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.to_string(), repository.get_private_key_path());
+        let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
 
         nao.set_aliveness(enable)
             .await

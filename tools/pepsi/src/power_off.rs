@@ -16,7 +16,7 @@ pub struct Arguments {
 
 pub async fn power_off(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
     let tasks = arguments.naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.to_string(), repository.get_private_key_path());
+        let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
 
         nao.power_off()
             .await

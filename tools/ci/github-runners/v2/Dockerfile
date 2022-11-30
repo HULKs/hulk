@@ -18,9 +18,6 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
 
 RUN rustup component add clippy rustfmt
 
-COPY installer.sh /
-RUN /installer.sh -y -d /opt/nao
-
 RUN useradd --no-log-init --create-home --home-dir /ci --system ci
 WORKDIR /ci
 USER ci:ci
@@ -31,6 +28,10 @@ RUN mkdir actions-runner && cd actions-runner && \
   tar --extract --gzip --file actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz && \
   rm actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
 VOLUME /ci/actions-runner
+
+ARG SDK_VERSION
+COPY HULKs-OS-toolchain-${SDK_VERSION}.sh /
+RUN /HULKs-OS-toolchain-${SDK_VERSION}.sh -y -d /ci/.naosdk/${SDK_VERSION}
 
 WORKDIR /ci/actions-runner
 CMD ["/ci/actions-runner/bin/runsvc.sh"]

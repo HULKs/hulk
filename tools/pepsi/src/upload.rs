@@ -95,7 +95,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Re
     let tasks = arguments.naos.iter().map(|nao_address| {
         let hulk_directory = hulk_directory.clone();
         async move {
-            let nao = Nao::new(nao_address.to_string(), repository.get_private_key_path());
+            let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
 
             println!("Starting upload to {}", nao_address);
             nao.upload(hulk_directory, !arguments.no_clean)
@@ -109,7 +109,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Re
 
     if !arguments.no_restart {
         let tasks = arguments.naos.iter().map(|nao_address| async move {
-            let nao = Nao::new(nao_address.to_string(), repository.get_private_key_path());
+            let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
 
             nao.set_aliveness(!arguments.no_aliveness)
                 .await

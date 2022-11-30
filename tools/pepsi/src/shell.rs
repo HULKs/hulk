@@ -14,7 +14,7 @@ pub struct Arguments {
 }
 
 pub async fn shell(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
-    let nao = Nao::new(arguments.nao.to_string(), repository.get_private_key_path());
+    let nao = Nao::new(arguments.nao.to_string(), repository.private_key_path());
 
     nao.execute_shell()
         .await

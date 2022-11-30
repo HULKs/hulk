@@ -1,12 +1,9 @@
 header:
-    version: 10
+    version: 12
     includes:
         - repo: meta-nao
           file: kas-project.yml
 distro: HULKs-OS
-local_conf_header:
-    meta-hulks: |
-        SDK_TOOLCHAIN_LANGS ?= "rust"
 repos:
     meta-hulks:
     meta-nao:

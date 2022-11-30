@@ -76,7 +76,7 @@ fn main() -> anyhow::Result<()> {
     );
     println!(
         "{:#}",
-        to_value(&camera_matrix).context("to_value(&camera_matrix)")?
+        to_value(camera_matrix).context("to_value(&camera_matrix)")?
     );
     Ok(())
 }

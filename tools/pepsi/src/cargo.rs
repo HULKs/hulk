@@ -32,10 +32,7 @@ pub async fn cargo(
     command: Command,
 ) -> anyhow::Result<()> {
     if !arguments.no_sdk_installation && arguments.target == "nao" {
-        repository
-            .install_sdk(false, None, None)
-            .await
-            .context("Failed to install SDK")?;
+        repository.install_sdk(None, None).await?;
     }
 
     match command {
@@ -44,7 +41,7 @@ pub async fn cargo(
                 arguments.workspace,
                 &arguments.profile,
                 &arguments.target,
-                arguments.passthrough_arguments,
+                &arguments.passthrough_arguments,
             )
             .await
             .context("Failed to build")?,
@@ -64,7 +61,7 @@ pub async fn cargo(
                 .run(
                     &arguments.profile,
                     &arguments.target,
-                    arguments.passthrough_arguments,
+                    &arguments.passthrough_arguments,
                 )
                 .await
                 .context("Failed to run")?

@@ -6,7 +6,7 @@
 /.wiki/
 
 settings.json
-/sdk
+/naosdk
 
 *.edited
 *~

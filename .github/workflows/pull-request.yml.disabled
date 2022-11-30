@@ -73,7 +73,7 @@ jobs:
           lfs: true
       - name: Build
         run: |
-          ln -s /opt/nao/ sdk/current
+          ln -s /ci/.naosdk naosdk
           ./pepsi build --target ${{ matrix.target }} --profile ${{ matrix.profile }} --no-sdk-installation
   build_subprojects:
     name: Build

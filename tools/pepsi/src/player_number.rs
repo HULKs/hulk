@@ -1,4 +1,6 @@
-use anyhow::Context;
+use std::collections::HashSet;
+
+use anyhow::{bail, Context};
 use clap::Args;
 use futures::future::join_all;
 
@@ -18,6 +20,23 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> any
         .get_hardware_ids()
         .await
         .context("Failed to get hardware IDs")?;
+
+    // Check if two NaoNumbers are assigned to the same PlayerNumber
+    // or if a NaoNumber is assigned to multiple PlayerNumbers
+    let mut existing_player_numbers = HashSet::new();
+    let mut existing_nao_numbers = HashSet::new();
+
+    if arguments.assignments.iter().any(
+        |NaoNumberPlayerAssignment {
+             nao_number,
+             player_number,
+         }| {
+            !existing_nao_numbers.insert(nao_number)
+                || !existing_player_numbers.insert(player_number)
+        },
+    ) {
+        bail!("Duplication in NAO to player number assignments")
+    }
 
     let tasks = arguments.assignments.into_iter().map(|assignment| {
         let head_id = &hardware_ids[&assignment.nao_number.number].head_id;

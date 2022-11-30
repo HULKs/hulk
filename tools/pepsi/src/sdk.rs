@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use anyhow::Context;
 use clap::Subcommand;
 
 use repository::Repository;
@@ -8,13 +7,10 @@ use repository::Repository;
 #[derive(Subcommand)]
 pub enum Arguments {
     Install {
-        /// Force reinstallation of existing SDK
-        #[arg(long)]
-        force_reinstall: bool,
         /// Alternative SDK version e.g. 3.3
         #[arg(long)]
         sdk_version: Option<String>,
-        /// Alternative SDK installation directory e.g. /opt/nao
+        /// Alternative SDK installation directory e.g. ~/.naosdk/
         #[arg(long)]
         installation_directory: Option<PathBuf>,
     },
@@ -23,13 +19,13 @@ pub enum Arguments {
 pub async fn sdk(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
     match arguments {
         Arguments::Install {
-            force_reinstall,
             sdk_version,
             installation_directory,
-        } => repository
-            .install_sdk(force_reinstall, sdk_version, installation_directory)
-            .await
-            .context("Failed to install SDK")?,
+        } => {
+            repository
+                .install_sdk(sdk_version.as_deref(), installation_directory.as_deref())
+                .await?
+        }
     }
 
     Ok(())
