@@ -11,6 +11,8 @@ Welcome to the documentation for the [HULKs](https://hulks.de) software.
 The section titles can be found in the bar at the top, inside a section the chapters will be listed on the left.
 Longer chapters will provide a table of contents on the right.
 
+TODO: the following paragraph needs to be reformulated
+
 We plan to release a "final" code release each year after RoboCup for which the documentation should be complete and correct.
 In addition to the [yearly code release](https://github.com/HULKs/HULKsCodeRelease/tree/main), we publish a [weekly snapshot](https://github.com/HULKs/HULKsCodeRelease/tree/weekly) on a separate branch.
 Due to the frequent changes in the weekly branch, the documentation can be outdated at times.
