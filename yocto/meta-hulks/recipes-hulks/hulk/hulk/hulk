@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-systemctl $1 hulk.service
