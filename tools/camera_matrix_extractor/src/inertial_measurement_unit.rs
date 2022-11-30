@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use color_eyre::{eyre::eyre, Report, Result};
 use nalgebra::{Vector2, Vector3};
 use serde_json::{from_value, Value};
 
@@ -10,21 +10,21 @@ pub struct InertialMeasurementUnitData {
 }
 
 impl TryFrom<&Value> for InertialMeasurementUnitData {
-    type Error = anyhow::Error;
+    type Error = Report;
 
-    fn try_from(replay_frame: &Value) -> anyhow::Result<Self> {
+    fn try_from(replay_frame: &Value) -> Result<Self> {
         let imu = replay_frame
             .get("imu")
-            .ok_or_else(|| anyhow!("replay_frame.get(\"imu\")"))?;
+            .ok_or_else(|| eyre!("replay_frame.get(\"imu\")"))?;
         let imu_accelerometer = imu
             .get("accelerometer")
-            .ok_or_else(|| anyhow!("imu.get(\"accelerometer\")"))?;
+            .ok_or_else(|| eyre!("imu.get(\"accelerometer\")"))?;
         let imu_gyroscope = imu
             .get("gyroscope")
-            .ok_or_else(|| anyhow!("imu.get(\"gyroscope\")"))?;
+            .ok_or_else(|| eyre!("imu.get(\"gyroscope\")"))?;
         let imu_angle = imu
             .get("angle")
-            .ok_or_else(|| anyhow!("imu.get(\"angle\")"))?;
+            .ok_or_else(|| eyre!("imu.get(\"angle\")"))?;
         Ok(Self {
             linear_acceleration: from_value(imu_accelerometer.clone())
                 .context("from_value(imu_accelerometer)")?,

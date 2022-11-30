@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use color_eyre::Result;
 use communication::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{point, vector, Isometry2, Point2};
@@ -38,11 +39,7 @@ impl Layer for ImageSegments {
         }
     }
 
-    fn paint(
-        &self,
-        painter: &TwixPainter,
-        _field_dimensions: &FieldDimensions,
-    ) -> anyhow::Result<()> {
+    fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
         let robot_to_field: Isometry2<f32> = self.robot_to_field.parse_latest().unwrap_or_default();
         paint_segments(
             painter,
@@ -65,7 +62,7 @@ fn paint_segments(
     robot_to_field: Isometry2<f32>,
     camera_matrix: &CameraMatrix,
     segments: &types::ImageSegments,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     for scanline in &segments.scan_grid.vertical_scan_lines {
         let x = scanline.position as f32;
         for segment in scanline.segments.iter().rev() {
@@ -94,7 +91,7 @@ fn project_segment_to_field(
     segment: &types::Segment,
     camera_matrix: &CameraMatrix,
     robot_to_field: Isometry2<f32>,
-) -> anyhow::Result<(Point2<f32>, Point2<f32>, f32)> {
+) -> Result<(Point2<f32>, Point2<f32>, f32)> {
     let start = point![x * 2.0, segment.start as f32];
     let end = point![x * 2.0, segment.end as f32];
 

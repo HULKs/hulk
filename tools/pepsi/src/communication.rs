@@ -1,5 +1,5 @@
-use anyhow::Context;
 use clap::Subcommand;
+use color_eyre::{eyre::WrapErr, Result};
 use futures::future::join_all;
 
 use repository::Repository;
@@ -20,11 +20,11 @@ pub enum Arguments {
     },
 }
 
-pub async fn communication(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
+pub async fn communication(arguments: Arguments, repository: &Repository) -> Result<()> {
     let hardware_ids = repository
         .get_hardware_ids()
         .await
-        .context("Failed to get hardware IDs")?;
+        .wrap_err("failed to get hardware IDs")?;
 
     let (enable, nao_numbers) = match arguments {
         Arguments::Enable { nao_numbers } => (true, nao_numbers),
@@ -37,14 +37,16 @@ pub async fn communication(arguments: Arguments, repository: &Repository) -> any
             repository
                 .set_communication(head_id, enable)
                 .await
-                .with_context(|| format!("Failed to set communication enablement for {nao_number}"))
+                .wrap_err_with(|| {
+                    format!("failed to set communication enablement for {nao_number}")
+                })
         }
     });
 
     let results = join_all(tasks).await;
     gather_results(
         results,
-        "Failed to execute some communication setting tasks",
+        "failed to execute some communication setting tasks",
     )?;
 
     Ok(())

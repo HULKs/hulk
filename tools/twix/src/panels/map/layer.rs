@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use color_eyre::Result;
 use convert_case::{Case, Casing};
 use eframe::egui::Ui;
 

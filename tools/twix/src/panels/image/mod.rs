@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use color_eyre::{eyre::eyre, Result};
 use communication::Cycler;
 use eframe::{
     egui::{Response, Ui, Widget},
@@ -105,9 +105,9 @@ impl ImagePanel {
         let image_data = self
             .image_buffer
             .get_latest()
-            .map_err(|error| anyhow!("{error}"))?;
+            .map_err(|error| eyre!("{error}"))?;
         let image = RetainedImage::from_image_bytes("image", &image_data)
-            .map_err(|error| anyhow!("{error}"))?;
+            .map_err(|error| eyre!("{error}"))?;
         let image_size = image.size_vec2();
         let width_scale = ui.available_width() / image_size.x;
         let height_scale = ui.available_height() / image_size.y;

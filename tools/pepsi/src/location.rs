@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Context};
 use clap::Subcommand;
+use color_eyre::{eyre::WrapErr, Result};
 
 use repository::Repository;
 
@@ -20,14 +20,14 @@ pub enum Arguments {
     Status,
 }
 
-pub async fn location(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
+pub async fn location(arguments: Arguments, repository: &Repository) -> Result<()> {
     match arguments {
         Arguments::List {} => {
             println!("Available Locations:");
             for location in repository
                 .list_available_locations()
                 .await
-                .context("Failed to list available locations")?
+                .wrap_err("failed to list available locations")?
             {
                 println!("- {location}");
             }
@@ -36,14 +36,14 @@ pub async fn location(arguments: Arguments, repository: &Repository) -> anyhow::
             repository
                 .set_location(&target, &location)
                 .await
-                .with_context(|| anyhow!("Failed setting location for {target}"))?;
+                .wrap_err_with(|| format!("failed setting location for {target}"))?;
         }
         Arguments::Status {} => {
             println!("Configured Locations:");
             for (target, location) in repository
                 .get_configured_locations()
                 .await
-                .context("Failed to get configured locations")?
+                .wrap_err("failed to get configured locations")?
             {
                 println!(
                     "- {target:30}{}",

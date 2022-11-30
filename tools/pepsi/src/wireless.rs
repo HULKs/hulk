@@ -1,8 +1,8 @@
-use anyhow::Context;
 use clap::{
     builder::{PossibleValuesParser, TypedValueParser},
     Subcommand,
 };
+use color_eyre::{eyre::WrapErr, Result};
 use futures::future::join_all;
 
 use nao::{Nao, Network};
@@ -40,13 +40,13 @@ pub enum Arguments {
     },
 }
 
-pub async fn wireless(arguments: Arguments) -> anyhow::Result<()> {
+pub async fn wireless(arguments: Arguments) -> Result<()> {
     match arguments {
         Arguments::Status { naos } => status(naos).await,
         Arguments::List { naos } => available_networks(naos).await,
         Arguments::Set { network, naos } => set(naos, network)
             .await
-            .context("Failed to execute set command")?,
+            .wrap_err("failed to execute set command")?,
     };
 
     Ok(())
@@ -59,7 +59,7 @@ async fn status(naos: Vec<NaoAddress>) {
             nao_address,
             nao.get_network_status()
                 .await
-                .with_context(|| format!("Failed to get network status from {nao_address}")),
+                .wrap_err_with(|| format!("failed to get network status from {nao_address}")),
         )
     }))
     .await;
@@ -80,7 +80,7 @@ async fn available_networks(naos: Vec<NaoAddress>) {
             nao_address,
             nao.get_available_networks()
                 .await
-                .with_context(|| format!("Failed to get available networks from {nao_address}")),
+                .wrap_err_with(|| format!("failed to get available networks from {nao_address}")),
         )
     }))
     .await;
@@ -94,12 +94,12 @@ async fn available_networks(naos: Vec<NaoAddress>) {
     }
 }
 
-async fn set(naos: Vec<NaoAddress>, network: Network) -> anyhow::Result<()> {
+async fn set(naos: Vec<NaoAddress>, network: Network) -> Result<()> {
     let tasks = naos.into_iter().map(|nao_address| async move {
         let nao = Nao::new(nao_address.ip);
         nao.set_network(network)
             .await
-            .with_context(|| format!("Failed to set network on {nao_address}"))
+            .wrap_err_with(|| format!("failed to set network on {nao_address}"))
     });
 
     let results = join_all(tasks).await;

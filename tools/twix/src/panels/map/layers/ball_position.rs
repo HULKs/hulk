@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use anyhow::Result;
+use color_eyre::Result;
 use communication::CyclerOutput;
 use eframe::epaint::Color32;
 use nalgebra::Isometry2;

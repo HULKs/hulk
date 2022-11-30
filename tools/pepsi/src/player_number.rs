@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use anyhow::{bail, Context};
 use clap::Args;
+use color_eyre::{eyre::WrapErr, Result};
 use futures::future::join_all;
 
 use repository::Repository;
@@ -15,11 +15,11 @@ pub struct Arguments {
     pub assignments: Vec<NaoNumberPlayerAssignment>,
 }
 
-pub async fn player_number(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
+pub async fn player_number(arguments: Arguments, repository: &Repository) -> Result<()> {
     let hardware_ids = repository
         .get_hardware_ids()
         .await
-        .context("Failed to get hardware IDs")?;
+        .wrap_err("failed to get hardware IDs")?;
 
     // Check if two NaoNumbers are assigned to the same PlayerNumber
     // or if a NaoNumber is assigned to multiple PlayerNumbers
@@ -44,14 +44,14 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> any
             repository
                 .set_player_number(head_id, assignment.player_number)
                 .await
-                .with_context(|| format!("Failed to set player number for {assignment:?}"))
+                .wrap_err_with(|| format!("failed to set player number for {assignment:?}"))
         }
     });
 
     let results = join_all(tasks).await;
     gather_results(
         results,
-        "Failed to execute some player number setting tasks",
+        "failed to execute some player number setting tasks",
     )?;
 
     Ok(())

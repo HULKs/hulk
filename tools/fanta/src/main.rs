@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use anyhow::Result;
 use clap::Parser;
+use color_eyre::{eyre::bail, Result};
 use communication::{Communication, CyclerOutput, SubscriberMessage};
 use log::{error, info};
 
@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
                 error!("Failed to subscribe: {info:?}");
                 break;
             }
-            SubscriberMessage::UpdateImage { .. } => anyhow::bail!("Cannot print Image data"),
+            SubscriberMessage::UpdateImage { .. } => bail!("Cannot print Image data"),
         }
     }
     Ok(())

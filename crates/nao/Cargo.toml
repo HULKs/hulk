@@ -5,5 +5,5 @@ name = "nao"
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
+color-eyre = { workspace = true }
 tokio = { workspace = true }

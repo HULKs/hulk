@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use anyhow::Context;
 use clap::{
     builder::{PossibleValuesParser, TypedValueParser},
     Args,
 };
+use color_eyre::{eyre::WrapErr, Result};
 
 use nao::{Network, SystemctlAction};
 
@@ -34,20 +34,20 @@ pub struct Arguments {
     pub naos: Vec<NaoAddress>,
 }
 
-pub async fn post_game(arguments: Arguments) -> anyhow::Result<()> {
+pub async fn post_game(arguments: Arguments) -> Result<()> {
     hulk(HulkArguments {
         action: SystemctlAction::Stop,
         naos: arguments.naos.clone(),
     })
     .await
-    .context("Failed to start HULK service")?;
+    .wrap_err("failed to start HULK service")?;
 
     logs(LogsArguments::Download {
         log_directory: arguments.log_directory,
         naos: arguments.naos.clone(),
     })
     .await
-    .context("Failed to download logs")?;
+    .wrap_err("failed to download logs")?;
 
     aliveness(if arguments.no_aliveness {
         AlivenessArguments::Disable {
@@ -59,14 +59,14 @@ pub async fn post_game(arguments: Arguments) -> anyhow::Result<()> {
         }
     })
     .await
-    .context("Failed to enable/disable aliveness")?;
+    .wrap_err("failed to enable/disable aliveness")?;
 
     wireless(WirelessArguments::Set {
         network: arguments.network,
         naos: arguments.naos,
     })
     .await
-    .context("Failed to set wireless network")?;
+    .wrap_err("failed to set wireless network")?;
 
     Ok(())
 }

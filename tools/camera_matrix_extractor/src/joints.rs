@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Mul},
 };
 
-use anyhow::{anyhow, Context};
+use color_eyre::{eyre::eyre, Report, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_value, Value};
 
@@ -179,12 +179,12 @@ pub struct Joints {
 }
 
 impl TryFrom<&Value> for Joints {
-    type Error = anyhow::Error;
+    type Error = Report;
 
-    fn try_from(replay_frame: &Value) -> anyhow::Result<Self> {
+    fn try_from(replay_frame: &Value) -> Result<Self> {
         let joint_angles = replay_frame
             .get("jointAngles")
-            .ok_or_else(|| anyhow!("replay_frame.get(\"jointAngles\")"))?;
+            .ok_or_else(|| eyre!("replay_frame.get(\"jointAngles\")"))?;
         let angles: Vec<f32> =
             from_value(joint_angles.clone()).context("from_value(joint_angles)")?;
         Ok(Self::from_angles(&angles))

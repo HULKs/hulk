@@ -5,7 +5,7 @@ edition = "2021"
 license = "GPL-3.0-only"
 
 [dependencies]
-anyhow = { workspace = true }
+color-eyre = { workspace = true }
 communication = { workspace = true }
 eframe = { workspace = true }
 convert_case = { workspace = true }

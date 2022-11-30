@@ -7,7 +7,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use color_eyre::{
+    eyre::{bail, eyre, Context},
+    Result,
+};
 use futures::future::join_all;
 use glob::glob;
 use home::home_dir;
@@ -38,30 +41,30 @@ impl Repository {
         }
     }
 
-    pub fn find_latest_file(&self, prefix: &str, file_name: &str) -> anyhow::Result<PathBuf> {
+    pub fn find_latest_file(&self, prefix: &str, file_name: &str) -> Result<PathBuf> {
         let path = self.root.join(prefix).join(file_name);
         let matching_paths: Vec<_> = glob(
             path.to_str()
-                .ok_or_else(|| anyhow!("Failed to interpret path as Unicode"))?,
+                .ok_or_else(|| eyre!("failed to interpret path as Unicode"))?,
         )
-        .context("Failed to execute glob() over target directory")?
+        .wrap_err("failed to execute glob() over target directory")?
         .into_iter()
         .map(|entry| {
-            let path = entry.context("Failed to get glob() entry")?;
+            let path = entry.wrap_err("failed to get glob() entry")?;
             let metadata = path
                 .metadata()
-                .with_context(|| anyhow!("Failed to get metadata of path {path:?}"))?;
-            let modified_time = metadata.modified().with_context(|| {
-                anyhow!("Failed to get modified time from metadata of path {path:?}")
+                .wrap_err_with(|| format!("failed to get metadata of path {path:?}"))?;
+            let modified_time = metadata.modified().wrap_err_with(|| {
+                format!("failed to get modified time from metadata of path {path:?}")
             })?;
             Ok((path, modified_time))
         })
-        .collect::<anyhow::Result<_>>()
-        .context("Failed to get matching paths")?;
+        .collect::<Result<_>>()
+        .wrap_err("failed to get matching paths")?;
         let (path_with_maximal_modified_time, _modified_time) = matching_paths
             .iter()
             .max_by_key(|(_path, modified_time)| modified_time)
-            .ok_or_else(|| anyhow!("Failed to find any matching path"))?;
+            .ok_or_else(|| eyre!("failed to find any matching path"))?;
         Ok(path_with_maximal_modified_time.to_path_buf())
     }
 
@@ -108,7 +111,7 @@ impl Repository {
             .arg(shell_command + &cargo_command)
             .status()
             .await
-            .context("Failed to execute cargo command")?;
+            .wrap_err("failed to execute cargo command")?;
 
         if !status.success() {
             bail!("cargo command exited with {status}");
@@ -177,26 +180,27 @@ impl Repository {
             .create(true)
             .open(&configuration_file_path)
             .await
-            .with_context(|| format!("Failed to open {}", configuration_file_path.display()))?;
+            .wrap_err_with(|| format!("Failed to open {}", configuration_file_path.display()))?;
 
         let mut contents = vec![];
         configuration_file
             .read_to_end(&mut contents)
             .await
-            .with_context(|| {
+            .wrap_err_with(|| {
                 format!("Failed to read from {}", configuration_file_path.display())
             })?;
         Ok(if contents.is_empty() {
             Value::Object(Default::default())
         } else {
-            from_slice(&contents)
-                .with_context(|| format!("Failed to parse {}", configuration_file_path.display()))?
+            from_slice(&contents).wrap_err_with(|| {
+                format!("Failed to parse {}", configuration_file_path.display())
+            })?
         })
     }
 
     async fn write_configuration(&self, head_id: &str, configuration: &Value) -> Result<()> {
         let configuration_file_path = self.head_configuration(head_id);
-        let mut contents = to_vec_pretty(configuration).with_context(|| {
+        let mut contents = to_vec_pretty(configuration).wrap_err_with(|| {
             format!(
                 "Failed to dump configuration for {}",
                 configuration_file_path.display()
@@ -205,11 +209,11 @@ impl Repository {
         contents.push(b'\n');
         let mut configuration_file = File::create(&configuration_file_path)
             .await
-            .with_context(|| format!("Failed to create {}", configuration_file_path.display()))?;
+            .wrap_err_with(|| format!("Failed to create {}", configuration_file_path.display()))?;
         configuration_file
             .write_all(&contents)
             .await
-            .with_context(|| format!("Failed to parse {}", configuration_file_path.display()))?;
+            .wrap_err_with(|| format!("Failed to parse {}", configuration_file_path.display()))?;
         Ok(())
     }
 
@@ -221,21 +225,21 @@ impl Repository {
         let mut configuration = self
             .read_configuration(head_id)
             .await
-            .context("Failed to read configuration")?;
+            .wrap_err("failed to read configuration")?;
 
         configuration["player_number"] =
-            to_value(player_number).context("Failed to serialize player number")?;
+            to_value(player_number).wrap_err("failed to serialize player number")?;
 
         self.write_configuration(head_id, &configuration)
             .await
-            .context("Failed to write configuration")
+            .wrap_err("failed to write configuration")
     }
 
     pub async fn set_communication(&self, head_id: &str, enable: bool) -> Result<()> {
         let mut configuration = self
             .read_configuration(head_id)
             .await
-            .context("Failed to read configuration")?;
+            .wrap_err("failed to read configuration")?;
 
         if enable {
             if let Value::Object(ref mut object) = configuration {
@@ -247,7 +251,7 @@ impl Repository {
 
         self.write_configuration(head_id, &configuration)
             .await
-            .context("Failed to write configuration")
+            .wrap_err("failed to write configuration")
     }
 
     pub async fn install_sdk(
@@ -264,7 +268,7 @@ impl Repository {
             symlink.clone()
         } else {
             let directory = home_dir()
-                .context("Cannot find HOME directory")?
+                .ok_or_else(|| eyre!("cannot find HOME directory"))?
                 .join(".naosdk");
             create_symlink(&directory, &symlink).await?;
             directory
@@ -277,26 +281,26 @@ impl Repository {
             if !installer_path.exists() {
                 download_sdk(&downloads_directory, &installer_name)
                     .await
-                    .context("Failed to download SDK")?;
+                    .wrap_err("failed to download SDK")?;
             }
             install_sdk(installer_path, &sdk)
                 .await
-                .context("Failed to install SDK")?;
+                .wrap_err("Failed to install SDK")?;
         }
         Ok(())
     }
 
     pub async fn create_upload_directory(&self, profile: String) -> Result<(TempDir, PathBuf)> {
-        let upload_directory = tempdir().context("Failed to create temporary directory")?;
+        let upload_directory = tempdir().wrap_err("failed to create temporary directory")?;
         let hulk_directory = upload_directory.path().join("hulk");
 
         create_dir_all(hulk_directory.join("bin"))
             .await
-            .context("Failed to create directory")?;
+            .wrap_err("failed to create directory")?;
 
         symlink(self.root.join("etc"), hulk_directory.join("etc"))
             .await
-            .context("Failed to link etc directory")?;
+            .wrap_err("failed to link etc directory")?;
 
         symlink(
             self.root
@@ -304,7 +308,7 @@ impl Repository {
             hulk_directory.join("bin/hulk"),
         )
         .await
-        .context("Failed to link executable")?;
+        .wrap_err("failed to link executable")?;
 
         Ok((upload_directory, hulk_directory))
     }
@@ -313,7 +317,7 @@ impl Repository {
         let hardware_ids_path = self.root.join("etc/configuration/hardware_ids.json");
         let mut hardware_ids = File::open(&hardware_ids_path)
             .await
-            .with_context(|| format!("Failed to open {}", hardware_ids_path.display()))?;
+            .wrap_err_with(|| format!("Failed to open {}", hardware_ids_path.display()))?;
         let mut contents = vec![];
         hardware_ids.read_to_end(&mut contents).await?;
         let hardware_ids_with_string_keys: HashMap<String, HardwareIds> = from_slice(&contents)?;
@@ -321,9 +325,9 @@ impl Repository {
             .into_iter()
             .map(|(nao_number, hardware_ids)| {
                 Ok((
-                    nao_number
-                        .parse()
-                        .with_context(|| format!("Failed to parse NAO number: {:?}", nao_number))?,
+                    nao_number.parse().wrap_err_with(|| {
+                        format!("Failed to parse NAO number: {:?}", nao_number)
+                    })?,
                     hardware_ids,
                 ))
             })
@@ -343,7 +347,7 @@ impl Repository {
                 target_name,
                 read_link(self.configuration_root().join(target_name))
                     .await
-                    .with_context(|| anyhow!("Failed reading location symlink for {target_name}")),
+                    .wrap_err_with(|| format!("failed reading location symlink for {target_name}")),
             )
         });
         let results = join_all(tasks).await;
@@ -354,9 +358,9 @@ impl Repository {
                     target_name.to_string(),
                     Some(
                         path.file_name()
-                            .ok_or_else(|| anyhow!("Failed to get file name"))?
+                            .ok_or_else(|| eyre!("failed to get file name"))?
                             .to_str()
-                            .ok_or_else(|| anyhow!("Failed to convert to UTF-8"))?
+                            .ok_or_else(|| eyre!("failed to convert to UTF-8"))?
                             .to_string(),
                     ),
                 )),
@@ -376,9 +380,8 @@ impl Repository {
         let _ = remove_file(&target_location).await;
         symlink(&new_location, &target_location)
             .await
-            .with_context(|| {
-                anyhow!(
-                    "Failed creating symlink from {new_location:?} to {target_location:?}, does the location exist?"
+            .wrap_err_with(|| {
+                format!("failed creating symlink from {new_location:?} to {target_location:?}, does the location exist?"
                 )
             })
     }
@@ -387,7 +390,7 @@ impl Repository {
         let configuration_path = self.root.join("etc/configuration");
         let mut locations = read_dir(configuration_path)
             .await
-            .context("Failed configuration root")?;
+            .wrap_err("failed configuration root")?;
         let mut results = BTreeSet::new();
         while let Ok(Some(entry)) = locations.next_entry().await {
             if entry.path().is_dir() && !entry.path().is_symlink() {
@@ -395,9 +398,9 @@ impl Repository {
                     entry
                         .path()
                         .file_name()
-                        .with_context(|| anyhow!("Failed getting file name for location"))?
+                        .ok_or_else(|| eyre!("failed getting file name for location"))?
                         .to_str()
-                        .with_context(|| anyhow!("Failed to convert to UTF-8"))?
+                        .ok_or_else(|| eyre!("failed to convert to UTF-8"))?
                         .to_string(),
                 );
             }

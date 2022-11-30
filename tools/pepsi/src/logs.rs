@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use anyhow::Context;
 use clap::Subcommand;
+use color_eyre::{eyre::WrapErr, Result};
 use futures::future::join_all;
 
 use nao::Nao;
@@ -26,14 +26,14 @@ pub enum Arguments {
     },
 }
 
-pub async fn logs(arguments: Arguments) -> anyhow::Result<()> {
+pub async fn logs(arguments: Arguments) -> Result<()> {
     let results = match arguments {
         Arguments::Delete { naos } => {
             join_all(naos.into_iter().map(|nao_address| async move {
                 let nao = Nao::new(nao_address.ip);
                 nao.delete_logs()
                     .await
-                    .with_context(|| format!("Failed to delete logs on {nao_address}"))
+                    .wrap_err_with(|| format!("failed to delete logs on {nao_address}"))
             }))
             .await
         }
@@ -47,14 +47,14 @@ pub async fn logs(arguments: Arguments) -> anyhow::Result<()> {
                     let nao = Nao::new(nao_address.ip);
                     nao.download_logs(log_directory)
                         .await
-                        .with_context(|| format!("Failed to download logs on {nao_address}"))
+                        .wrap_err_with(|| format!("failed to download logs on {nao_address}"))
                 }
             }))
             .await
         }
     };
 
-    gather_results(results, "Failed to execute some delete/download logs tasks")?;
+    gather_results(results, "failed to execute some delete/download logs tasks")?;
 
     Ok(())
 }

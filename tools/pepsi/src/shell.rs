@@ -1,5 +1,5 @@
-use anyhow::Context;
 use clap::Args;
+use color_eyre::{eyre::WrapErr, Result};
 
 use nao::Nao;
 
@@ -12,9 +12,10 @@ pub struct Arguments {
     pub nao: NaoAddress,
 }
 
-pub async fn shell(arguments: Arguments) -> anyhow::Result<()> {
+pub async fn shell(arguments: Arguments) -> Result<()> {
     let nao = Nao::new(arguments.nao.ip);
+
     nao.execute_shell()
         .await
-        .with_context(|| format!("Failed to execute shell on {}", arguments.nao))
+        .wrap_err_with(|| format!("failed to execute shell on {}", arguments.nao))
 }

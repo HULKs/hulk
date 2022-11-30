@@ -15,8 +15,11 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::{anyhow, Context, Error, Result};
 use byteorder::{ByteOrder, NativeEndian};
+use color_eyre::{
+    eyre::{eyre, WrapErr},
+    Report, Result,
+};
 use epoll::{ControlOptions, Event, Events};
 use log::{debug, error, info, warn};
 use nix::sys::eventfd::{eventfd, EfdFlags};
@@ -155,7 +158,7 @@ impl Proxy {
 
         let written_bytes = write_result.context("Failed to write to shutdown file")?;
         assert_eq!(written_bytes, 8);
-        join_result.map_err(|error| anyhow!("Failed to join proxy thread: {:?}", error))?;
+        join_result.map_err(|error| eyre!("Failed to join proxy thread: {:?}", error))?;
         close_result.context("Failed to close epoll file descriptor")?;
 
         Ok(())
@@ -389,6 +392,6 @@ impl Proxy {
                 file_descriptor_to_add as u64,
             ),
         )
-        .map_err(Error::from)
+        .map_err(Report::from)
     }
 }
