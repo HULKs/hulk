@@ -1,4 +1,4 @@
-use std::{mem::size_of, slice::from_raw_parts};
+use std::{ffi::c_char, mem::size_of, slice::from_raw_parts};
 
 use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
@@ -46,10 +46,10 @@ impl From<GameControllerReturnMessage> for RoboCupGameControlReturnData {
         };
         RoboCupGameControlReturnData {
             header: [
-                GAMECONTROLLER_RETURN_STRUCT_HEADER[0] as i8,
-                GAMECONTROLLER_RETURN_STRUCT_HEADER[1] as i8,
-                GAMECONTROLLER_RETURN_STRUCT_HEADER[2] as i8,
-                GAMECONTROLLER_RETURN_STRUCT_HEADER[3] as i8,
+                GAMECONTROLLER_RETURN_STRUCT_HEADER[0] as c_char,
+                GAMECONTROLLER_RETURN_STRUCT_HEADER[1] as c_char,
+                GAMECONTROLLER_RETURN_STRUCT_HEADER[2] as c_char,
+                GAMECONTROLLER_RETURN_STRUCT_HEADER[3] as c_char,
             ],
             version: GAMECONTROLLER_RETURN_STRUCT_VERSION,
             playerNum: match message.player_number {

@@ -1,5 +1,6 @@
 use std::{
     convert::{TryFrom, TryInto},
+    ffi::c_char,
     mem::size_of,
     ptr::read,
     slice::from_raw_parts,
@@ -52,10 +53,10 @@ impl TryFrom<SPLStandardMessage> for SplMessage {
     type Error = anyhow::Error;
 
     fn try_from(message: SPLStandardMessage) -> anyhow::Result<Self> {
-        if message.header[0] != SPL_STANDARD_MESSAGE_STRUCT_HEADER[0] as i8
-            && message.header[1] != SPL_STANDARD_MESSAGE_STRUCT_HEADER[1] as i8
-            && message.header[2] != SPL_STANDARD_MESSAGE_STRUCT_HEADER[2] as i8
-            && message.header[3] != SPL_STANDARD_MESSAGE_STRUCT_HEADER[3] as i8
+        if message.header[0] != SPL_STANDARD_MESSAGE_STRUCT_HEADER[0] as c_char
+            && message.header[1] != SPL_STANDARD_MESSAGE_STRUCT_HEADER[1] as c_char
+            && message.header[2] != SPL_STANDARD_MESSAGE_STRUCT_HEADER[2] as c_char
+            && message.header[3] != SPL_STANDARD_MESSAGE_STRUCT_HEADER[3] as c_char
         {
             bail!("Unexpected header");
         }
@@ -123,10 +124,10 @@ impl From<SplMessage> for SPLStandardMessage {
         };
         Self {
             header: [
-                SPL_STANDARD_MESSAGE_STRUCT_HEADER[0] as i8,
-                SPL_STANDARD_MESSAGE_STRUCT_HEADER[1] as i8,
-                SPL_STANDARD_MESSAGE_STRUCT_HEADER[2] as i8,
-                SPL_STANDARD_MESSAGE_STRUCT_HEADER[3] as i8,
+                SPL_STANDARD_MESSAGE_STRUCT_HEADER[0] as c_char,
+                SPL_STANDARD_MESSAGE_STRUCT_HEADER[1] as c_char,
+                SPL_STANDARD_MESSAGE_STRUCT_HEADER[2] as c_char,
+                SPL_STANDARD_MESSAGE_STRUCT_HEADER[3] as c_char,
             ],
             version: SPL_STANDARD_MESSAGE_STRUCT_VERSION,
             playerNum: match message.player_number {
