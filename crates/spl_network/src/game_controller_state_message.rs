@@ -1,5 +1,6 @@
 use std::{
     convert::{TryFrom, TryInto},
+    ffi::c_char,
     mem::size_of,
     ptr::read,
     time::Duration,
@@ -54,10 +55,10 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
     type Error = anyhow::Error;
 
     fn try_from(message: RoboCupGameControlData) -> anyhow::Result<Self> {
-        if message.header[0] != GAMECONTROLLER_STRUCT_HEADER[0] as i8
-            && message.header[1] != GAMECONTROLLER_STRUCT_HEADER[1] as i8
-            && message.header[2] != GAMECONTROLLER_STRUCT_HEADER[2] as i8
-            && message.header[3] != GAMECONTROLLER_STRUCT_HEADER[3] as i8
+        if message.header[0] != GAMECONTROLLER_STRUCT_HEADER[0] as c_char
+            && message.header[1] != GAMECONTROLLER_STRUCT_HEADER[1] as c_char
+            && message.header[2] != GAMECONTROLLER_STRUCT_HEADER[2] as c_char
+            && message.header[3] != GAMECONTROLLER_STRUCT_HEADER[3] as c_char
         {
             bail!("Unexpected header");
         }
