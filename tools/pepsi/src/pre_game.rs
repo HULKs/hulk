@@ -92,13 +92,10 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> anyhow::
     .await
     .context("Failed to upload")?;
 
-    wireless(
-        WirelessArguments::Set {
-            network: arguments.network,
-            naos,
-        },
-        repository,
-    )
+    wireless(WirelessArguments::Set {
+        network: arguments.network,
+        naos,
+    })
     .await
     .context("Failed to set wireless network")?;
 

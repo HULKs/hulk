@@ -2,7 +2,6 @@ use anyhow::Context;
 use clap::Args;
 
 use nao::Nao;
-use repository::Repository;
 
 use crate::parsers::NaoAddress;
 
@@ -13,9 +12,8 @@ pub struct Arguments {
     pub nao: NaoAddress,
 }
 
-pub async fn shell(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
-    let nao = Nao::new(arguments.nao.to_string(), repository.private_key_path());
-
+pub async fn shell(arguments: Arguments) -> anyhow::Result<()> {
+    let nao = Nao::new(arguments.nao.ip);
     nao.execute_shell()
         .await
         .with_context(|| format!("Failed to execute shell on {}", arguments.nao))

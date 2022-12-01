@@ -6,7 +6,6 @@ use clap::{
 use futures::future::join_all;
 
 use nao::{Nao, Network};
-use repository::Repository;
 
 use crate::{
     parsers::{parse_network, NaoAddress, NETWORK_POSSIBLE_VALUES},
@@ -41,11 +40,11 @@ pub enum Arguments {
     },
 }
 
-pub async fn wireless(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
+pub async fn wireless(arguments: Arguments) -> anyhow::Result<()> {
     match arguments {
-        Arguments::Status { naos } => status(naos, repository).await,
-        Arguments::List { naos } => available_networks(naos, repository).await,
-        Arguments::Set { network, naos } => set(naos, network, repository)
+        Arguments::Status { naos } => status(naos).await,
+        Arguments::List { naos } => available_networks(naos).await,
+        Arguments::Set { network, naos } => set(naos, network)
             .await
             .context("Failed to execute set command")?,
     };
@@ -53,10 +52,9 @@ pub async fn wireless(arguments: Arguments, repository: &Repository) -> anyhow::
     Ok(())
 }
 
-async fn status(naos: Vec<NaoAddress>, repository: &Repository) {
+async fn status(naos: Vec<NaoAddress>) {
     let results = join_all(naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
-
+        let nao = Nao::new(nao_address.ip);
         (
             nao_address,
             nao.get_network_status()
@@ -75,10 +73,9 @@ async fn status(naos: Vec<NaoAddress>, repository: &Repository) {
     }
 }
 
-async fn available_networks(naos: Vec<NaoAddress>, repository: &Repository) {
+async fn available_networks(naos: Vec<NaoAddress>) {
     let results = join_all(naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
-
+        let nao = Nao::new(nao_address.ip);
         (
             nao_address,
             nao.get_available_networks()
@@ -97,14 +94,9 @@ async fn available_networks(naos: Vec<NaoAddress>, repository: &Repository) {
     }
 }
 
-async fn set(
-    naos: Vec<NaoAddress>,
-    network: Network,
-    repository: &Repository,
-) -> anyhow::Result<()> {
+async fn set(naos: Vec<NaoAddress>, network: Network) -> anyhow::Result<()> {
     let tasks = naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
-
+        let nao = Nao::new(nao_address.ip);
         nao.set_network(network)
             .await
             .with_context(|| format!("Failed to set network on {nao_address}"))

@@ -3,7 +3,6 @@ use clap::Args;
 use futures::future::join_all;
 
 use nao::Nao;
-use repository::Repository;
 
 use crate::{parsers::NaoAddress, results::gather_results};
 
@@ -14,10 +13,9 @@ pub struct Arguments {
     pub naos: Vec<NaoAddress>,
 }
 
-pub async fn power_off(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
+pub async fn power_off(arguments: Arguments) -> anyhow::Result<()> {
     let tasks = arguments.naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
-
+        let nao = Nao::new(nao_address.ip);
         nao.power_off()
             .await
             .with_context(|| format!("Failed to power {nao_address} off"))

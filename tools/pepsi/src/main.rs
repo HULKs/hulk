@@ -51,13 +51,8 @@ async fn main() -> anyhow::Result<()> {
     };
     let repository = Repository::new(repository_root);
 
-    repository
-        .fix_private_key_permissions()
-        .await
-        .context("Failed to fix private key permissions")?;
-
     match arguments.command {
-        Command::Aliveness(arguments) => aliveness(arguments, &repository)
+        Command::Aliveness(arguments) => aliveness(arguments)
             .await
             .context("Failed to execute aliveness command")?,
         Command::Build(arguments) => cargo(arguments, &repository, CargoCommand::Build)
@@ -78,28 +73,28 @@ async fn main() -> anyhow::Result<()> {
             "pepsi",
             &mut std::io::stdout(),
         ),
-        Command::Hulk(arguments) => hulk(arguments, &repository)
+        Command::Hulk(arguments) => hulk(arguments)
             .await
             .context("Failed to execute hulk command")?,
         Command::Location(arguments) => location(arguments, &repository)
             .await
             .context("Failed to execute location command")?,
-        Command::Logs(arguments) => logs(arguments, &repository)
+        Command::Logs(arguments) => logs(arguments)
             .await
             .context("Failed to execute logs command")?,
         Command::Playernumber(arguments) => player_number(arguments, &repository)
             .await
             .context("Failed to execute player_number command")?,
-        Command::Postgame(arguments) => post_game(arguments, &repository)
+        Command::Postgame(arguments) => post_game(arguments)
             .await
             .context("Failed to execute post_game command")?,
-        Command::Poweroff(arguments) => power_off(arguments, &repository)
+        Command::Poweroff(arguments) => power_off(arguments)
             .await
             .context("Failed to execute power_off command")?,
         Command::Pregame(arguments) => pre_game(arguments, &repository)
             .await
             .context("Failed to execute pre_game command")?,
-        Command::Reboot(arguments) => reboot(arguments, &repository)
+        Command::Reboot(arguments) => reboot(arguments)
             .await
             .context("Failed to execute reboot command")?,
         Command::Run(arguments) => cargo(arguments, &repository, CargoCommand::Run)
@@ -108,13 +103,13 @@ async fn main() -> anyhow::Result<()> {
         Command::Sdk(arguments) => sdk(arguments, &repository)
             .await
             .context("Failed to execute sdk command")?,
-        Command::Shell(arguments) => shell(arguments, &repository)
+        Command::Shell(arguments) => shell(arguments)
             .await
             .context("Failed to execute shell command")?,
         Command::Upload(arguments) => upload(arguments, &repository)
             .await
             .context("Failed to execute upload command")?,
-        Command::Wireless(arguments) => wireless(arguments, &repository)
+        Command::Wireless(arguments) => wireless(arguments)
             .await
             .context("Failed to execute wireless command")?,
     }

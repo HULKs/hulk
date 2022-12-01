@@ -37,27 +37,6 @@ impl Repository {
         }
     }
 
-    pub fn private_key_path(&self) -> PathBuf {
-        self.root.join("scripts/ssh_key")
-    }
-
-    pub async fn fix_private_key_permissions(&self) -> Result<()> {
-        let private_key = self.private_key_path();
-        let metadata = private_key
-            .metadata()
-            .context("Failed to get metadata of SSH key")?;
-        let mut permissions = metadata.permissions();
-        let read_write_for_owner_only = 0o600;
-        let permission_bits = extract_permission_bits(permissions.mode());
-        if permission_bits != read_write_for_owner_only {
-            permissions.set_mode(compose_mode(permissions.mode(), read_write_for_owner_only));
-            set_permissions(private_key, permissions)
-                .await
-                .context("Failed to set permissions on SSH key")?;
-        }
-        Ok(())
-    }
-
     async fn cargo(
         &self,
         action: CargoAction,
@@ -483,14 +462,3 @@ pub struct HardwareIds {
     pub body_id: String,
     pub head_id: String,
 }
-
-fn extract_permission_bits(mode: u32) -> u32 {
-    mode & PERMISSION_BITS_MASK
-}
-
-fn compose_mode(old_mode: u32, new_permissions: u32) -> u32 {
-    (old_mode & !PERMISSION_BITS_MASK) | (new_permissions & PERMISSION_BITS_MASK)
-}
-
-#[allow(clippy::unusual_byte_groupings)]
-const PERMISSION_BITS_MASK: u32 = 0b111_111_111;

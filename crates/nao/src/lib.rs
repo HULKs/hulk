@@ -1,25 +1,19 @@
 use std::{
     fmt::{self, Display, Formatter},
-    path::{Path, PathBuf},
+    net::Ipv4Addr,
+    path::Path,
 };
 
 use anyhow::{anyhow, bail, Context};
 use tokio::process::Command;
 
 pub struct Nao {
-    host: String,
-    private_key: PathBuf,
+    host: Ipv4Addr,
 }
 
 impl Nao {
-    pub fn new<P>(host: String, private_key: P) -> Self
-    where
-        P: AsRef<Path>,
-    {
-        Self {
-            host,
-            private_key: private_key.as_ref().to_path_buf(),
-        }
+    pub fn new(host: Ipv4Addr) -> Self {
+        Self { host }
     }
 
     fn get_ssh_flags(&self) -> Vec<String> {
@@ -28,7 +22,6 @@ impl Nao {
             "-oLogLevel=quiet".to_string(),
             "-oStrictHostKeyChecking=no".to_string(),
             "-oUserKnownHostsFile=/dev/null".to_string(),
-            format!("-i{}", self.private_key.to_str().unwrap()),
         ]
     }
 
@@ -37,7 +30,7 @@ impl Nao {
         for flag in self.get_ssh_flags() {
             command.arg(flag);
         }
-        command.arg(&self.host);
+        command.arg(self.host.to_string());
         command
     }
 
