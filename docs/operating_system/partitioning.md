@@ -30,7 +30,6 @@ To inspect the EFI files mount this partition:
 
 ```sh
 sudo su
-# enter the password for the nao user
 mount /dev/mmcblk1p2 /mnt/
 # inspect files at /mnt/
 ```
