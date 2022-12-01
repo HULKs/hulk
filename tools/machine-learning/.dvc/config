@@ -4,4 +4,4 @@
 [cache]
     type = "reflink,symlink,hardlink,copy"
 [remote "bighulk"]
-    url = ssh://hulk@bighulk/mnt/raid1-0/data.dvc
+    url = ssh://hulk@bighulk.hulks.dev/mnt/raid1-0/data.dvc

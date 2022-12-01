@@ -385,7 +385,7 @@ async fn download_sdk(downloads_directory: impl AsRef<Path>, installer_name: &st
             .context("Failed to create download directory")?;
     }
     let installer_path = downloads_directory.as_ref().join(installer_name);
-    let url = format!("http://bighulk/sdk/{installer_name}");
+    let url = format!("http://bighulk.hulks.dev/sdk/{installer_name}");
     println!("Downloading SDK from {url}");
     let status = Command::new("curl")
         .arg("--progress-bar")
