@@ -7,7 +7,6 @@ use clap::{
 };
 
 use nao::{Network, SystemctlAction};
-use repository::Repository;
 
 use crate::{
     aliveness::{aliveness, Arguments as AlivenessArguments},
@@ -35,49 +34,37 @@ pub struct Arguments {
     pub naos: Vec<NaoAddress>,
 }
 
-pub async fn post_game(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
-    hulk(
-        HulkArguments {
-            action: SystemctlAction::Stop,
-            naos: arguments.naos.clone(),
-        },
-        repository,
-    )
+pub async fn post_game(arguments: Arguments) -> anyhow::Result<()> {
+    hulk(HulkArguments {
+        action: SystemctlAction::Stop,
+        naos: arguments.naos.clone(),
+    })
     .await
     .context("Failed to start HULK service")?;
 
-    logs(
-        LogsArguments::Download {
-            log_directory: arguments.log_directory,
-            naos: arguments.naos.clone(),
-        },
-        repository,
-    )
+    logs(LogsArguments::Download {
+        log_directory: arguments.log_directory,
+        naos: arguments.naos.clone(),
+    })
     .await
     .context("Failed to download logs")?;
 
-    aliveness(
-        if arguments.no_aliveness {
-            AlivenessArguments::Disable {
-                naos: arguments.naos.clone(),
-            }
-        } else {
-            AlivenessArguments::Enable {
-                naos: arguments.naos.clone(),
-            }
-        },
-        repository,
-    )
+    aliveness(if arguments.no_aliveness {
+        AlivenessArguments::Disable {
+            naos: arguments.naos.clone(),
+        }
+    } else {
+        AlivenessArguments::Enable {
+            naos: arguments.naos.clone(),
+        }
+    })
     .await
     .context("Failed to enable/disable aliveness")?;
 
-    wireless(
-        WirelessArguments::Set {
-            network: arguments.network,
-            naos: arguments.naos,
-        },
-        repository,
-    )
+    wireless(WirelessArguments::Set {
+        network: arguments.network,
+        naos: arguments.naos,
+    })
     .await
     .context("Failed to set wireless network")?;
 

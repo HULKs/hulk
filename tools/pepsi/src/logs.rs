@@ -5,7 +5,6 @@ use clap::Subcommand;
 use futures::future::join_all;
 
 use nao::Nao;
-use repository::Repository;
 
 use crate::{parsers::NaoAddress, results::gather_results};
 
@@ -27,12 +26,11 @@ pub enum Arguments {
     },
 }
 
-pub async fn logs(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
+pub async fn logs(arguments: Arguments) -> anyhow::Result<()> {
     let results = match arguments {
         Arguments::Delete { naos } => {
             join_all(naos.into_iter().map(|nao_address| async move {
-                let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
-
+                let nao = Nao::new(nao_address.ip);
                 nao.delete_logs()
                     .await
                     .with_context(|| format!("Failed to delete logs on {nao_address}"))
@@ -46,8 +44,7 @@ pub async fn logs(arguments: Arguments, repository: &Repository) -> anyhow::Resu
             join_all(naos.into_iter().map(|nao_address| {
                 let log_directory = log_directory.join(nao_address.to_string());
                 async move {
-                    let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
-
+                    let nao = Nao::new(nao_address.ip);
                     nao.download_logs(log_directory)
                         .await
                         .with_context(|| format!("Failed to download logs on {nao_address}"))

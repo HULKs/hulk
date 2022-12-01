@@ -6,7 +6,6 @@ use clap::{
 use futures::future::join_all;
 
 use nao::{Nao, SystemctlAction};
-use repository::Repository;
 
 use crate::{
     parsers::{parse_systemctl_action, NaoAddress, SYSTEMCTL_ACTION_POSSIBLE_VALUES},
@@ -26,10 +25,9 @@ pub struct Arguments {
     pub naos: Vec<NaoAddress>,
 }
 
-pub async fn hulk(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
+pub async fn hulk(arguments: Arguments) -> anyhow::Result<()> {
     let tasks = arguments.naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
-
+        let nao = Nao::new(nao_address.ip);
         nao.execute_systemctl(arguments.action, "hulk")
             .await
             .with_context(|| format!("Failed to execute systemctl hulk on {nao_address}"))

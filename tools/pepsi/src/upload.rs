@@ -81,13 +81,10 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Re
 
     if !arguments.no_restart {
         println!("Stopping HULK");
-        hulk(
-            HulkArguments {
-                action: SystemctlAction::Stop,
-                naos: arguments.naos.clone(),
-            },
-            repository,
-        )
+        hulk(HulkArguments {
+            action: SystemctlAction::Stop,
+            naos: arguments.naos.clone(),
+        })
         .await
         .context("Failed to stop HULK service")?;
     }
@@ -95,8 +92,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Re
     let tasks = arguments.naos.iter().map(|nao_address| {
         let hulk_directory = hulk_directory.clone();
         async move {
-            let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
-
+            let nao = Nao::new(nao_address.ip);
             println!("Starting upload to {}", nao_address);
             nao.upload(hulk_directory, !arguments.no_clean)
                 .await
@@ -109,8 +105,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Re
 
     if !arguments.no_restart {
         let tasks = arguments.naos.iter().map(|nao_address| async move {
-            let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
-
+            let nao = Nao::new(nao_address.ip);
             nao.set_aliveness(!arguments.no_aliveness)
                 .await
                 .with_context(|| format!("Failed to set aliveness on {nao_address}"))
@@ -122,13 +117,10 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> anyhow::Re
             "Failed to execute some systemctl restart hula tasks",
         )?;
 
-        hulk(
-            HulkArguments {
-                action: SystemctlAction::Start,
-                naos: arguments.naos,
-            },
-            repository,
-        )
+        hulk(HulkArguments {
+            action: SystemctlAction::Start,
+            naos: arguments.naos,
+        })
         .await
         .context("Failed to start HULK service")?;
     }

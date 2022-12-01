@@ -3,7 +3,6 @@ use clap::Subcommand;
 use futures::future::join_all;
 
 use nao::Nao;
-use repository::Repository;
 
 use crate::{parsers::NaoAddress, results::gather_results};
 
@@ -21,15 +20,14 @@ pub enum Arguments {
     },
 }
 
-pub async fn aliveness(arguments: Arguments, repository: &Repository) -> anyhow::Result<()> {
+pub async fn aliveness(arguments: Arguments) -> anyhow::Result<()> {
     let (enable, naos) = match arguments {
         Arguments::Enable { naos } => (true, naos),
         Arguments::Disable { naos } => (false, naos),
     };
 
     let tasks = naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.to_string(), repository.private_key_path());
-
+        let nao = Nao::new(nao_address.ip);
         nao.set_aliveness(enable)
             .await
             .with_context(|| format!("Failed to set aliveness on {nao_address}"))
