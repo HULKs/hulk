@@ -19,9 +19,12 @@ members = [
   "tools/camera_matrix_extractor",
   "tools/depp",
   "tools/fanta",
-  "tools/hula",
   "tools/pepsi",
   "tools/twix",
+]
+# HuLA is built independently by yocto
+exclude = [
+  "tools/hula",
 ]
 
 [workspace.dependencies]
