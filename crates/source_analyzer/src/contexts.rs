@@ -671,7 +671,7 @@ mod tests {
             _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
         }
 
-        // no optionals are not supported
+        // optionals are supported
         let field = "Input<Option<usize>, \"a/b/c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
@@ -680,7 +680,7 @@ mod tests {
             named_fields.named.first().unwrap(),
             &empty_uses
         )
-        .is_err());
+        .is_ok());
 
         // without optionals
         let field = "Parameter<usize, \"a/b/c\">";
@@ -836,7 +836,7 @@ mod tests {
             _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
         }
 
-        // optionals are not supported
+        // optionals are supported
         let field = "PersistentState<usize, \"a/b?/c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
@@ -845,7 +845,7 @@ mod tests {
             named_fields.named.first().unwrap(),
             &empty_uses
         )
-        .is_err());
+        .is_ok());
 
         // from own cycler, without optionals
         let field = "RequiredInput<usize, \"a/b/c\">";
@@ -856,27 +856,7 @@ mod tests {
             named_fields.named.first().unwrap(),
             &empty_uses,
         )
-        .unwrap();
-        match parsed_field {
-            Field::RequiredInput {
-                cycler_instance: None,
-                data_type,
-                name,
-                path,
-            } if data_type == type_usize
-                && name == "name"
-                && path.len() == 3
-                && path[0].name == "a"
-                && !path[0].is_optional
-                && !path[0].is_variable
-                && path[1].name == "b"
-                && !path[1].is_optional
-                && !path[1].is_variable
-                && path[2].name == "c"
-                && !path[2].is_optional
-                && !path[2].is_variable => {}
-            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
-        }
+        .is_err();
 
         // from own cycler, with optionals but without Option<T> data type
         let field = "RequiredInput<usize, \"a/b?/c\">";
@@ -918,28 +898,7 @@ mod tests {
             named_fields.named.first().unwrap(),
             &empty_uses,
         )
-        .unwrap();
-        match parsed_field {
-            Field::RequiredInput {
-                cycler_instance: Some(cycler_instance),
-                data_type,
-                name,
-                path,
-            } if cycler_instance == "Control"
-                && data_type == type_usize
-                && name == "name"
-                && path.len() == 3
-                && path[0].name == "a"
-                && !path[0].is_optional
-                && !path[0].is_variable
-                && path[1].name == "b"
-                && !path[1].is_optional
-                && !path[1].is_variable
-                && path[2].name == "c"
-                && !path[2].is_optional
-                && !path[2].is_variable => {}
-            _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
-        }
+        .is_err();
 
         // from foreign cycler, with optionals but without Option<T> data type
         let field = "RequiredInput<usize, \"Control\", \"a/b?/c\">";
