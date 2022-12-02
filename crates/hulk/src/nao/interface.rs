@@ -25,6 +25,7 @@ pub struct Interface {
 
 impl Interface {
     pub fn new(keep_running: CancellationToken, parameters: Parameters) -> Result<Self> {
+        let keep_running_for_network = keep_running.clone();
         let i2c_head_mutex = Arc::new(Mutex::new(()));
 
         Ok(Self {
@@ -36,7 +37,7 @@ impl Interface {
                 Microphones::new(parameters.microphones)
                     .wrap_err("failed to initialize microphones")?,
             ),
-            network: Network::new(keep_running.clone(), parameters.network)
+            network: Network::new(keep_running_for_network, parameters.network)
                 .wrap_err("failed to initialize network")?,
             camera_top: Mutex::new(
                 Camera::new(
