@@ -1,8 +1,11 @@
-use color_eyre::{eyre::{bail, WrapErr}, Result};
 use build_script_helpers::write_token_stream;
 use code_generation::{
     cycler::{generate_cyclers, get_cyclers},
     run::generate_run,
+};
+use color_eyre::{
+    eyre::{bail, WrapErr},
+    Result,
 };
 use quote::quote;
 use source_analyzer::{

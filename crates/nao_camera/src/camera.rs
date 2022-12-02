@@ -24,7 +24,7 @@ use crate::{
     digital_effects::{disable_digital_effects, DigitalEffectsError},
     flip::{flip_sensor, FlipError},
     format::{set_format, SetFormatError},
-    parameters::{Parameters, ExposureMode, Format},
+    parameters::{ExposureMode, Format, Parameters},
     queueing::{dequeue, queue, QueueingError},
     request_buffers::{request_user_pointer_buffers, RequestBuffersError},
     streaming::{stream_off, stream_on, StreamingError},

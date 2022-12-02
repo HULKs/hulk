@@ -382,10 +382,7 @@ pub fn read_from_hula(stream: &mut UnixStream) -> Result<StateStorage> {
     Ok(unsafe { read(read_buffer.as_ptr() as *const StateStorage) })
 }
 
-pub fn write_to_hula(
-    stream: &mut UnixStream,
-    control_storage: ControlStorage,
-) -> Result<()> {
+pub fn write_to_hula(stream: &mut UnixStream, control_storage: ControlStorage) -> Result<()> {
     let control_storage_buffer = unsafe {
         from_raw_parts(
             &control_storage as *const ControlStorage as *const u8,

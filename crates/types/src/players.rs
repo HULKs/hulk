@@ -3,7 +3,10 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use color_eyre::{eyre::{bail, WrapErr}, Result};
+use color_eyre::{
+    eyre::{bail, WrapErr},
+    Result,
+};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::{HierarchyType, SerializeHierarchy};
 use spl_network_messages::{Penalty, PlayerNumber, TeamState};
@@ -127,28 +130,27 @@ where
                     .wrap_err("failed to serialize field `five`"),
                 _ => bail!("no such field in type: `{}`", field_path),
             },
-            None => match field_path {
-                "one" => serde_json::to_value(&self.one).wrap_err("failed to serialize field `one`"),
-                "two" => serde_json::to_value(&self.two).wrap_err("failed to serialize field `two`"),
-                "three" => {
-                    serde_json::to_value(&self.three).wrap_err("failed to serialize field `three`")
+            None => {
+                match field_path {
+                    "one" => {
+                        serde_json::to_value(&self.one).wrap_err("failed to serialize field `one`")
+                    }
+                    "two" => {
+                        serde_json::to_value(&self.two).wrap_err("failed to serialize field `two`")
+                    }
+                    "three" => serde_json::to_value(&self.three)
+                        .wrap_err("failed to serialize field `three`"),
+                    "four" => serde_json::to_value(&self.four)
+                        .wrap_err("failed to serialize field `four`"),
+                    "five" => serde_json::to_value(&self.five)
+                        .wrap_err("failed to serialize field `five`"),
+                    _ => bail!("no such field in type: `{}`", field_path),
                 }
-                "four" => {
-                    serde_json::to_value(&self.four).wrap_err("failed to serialize field `four`")
-                }
-                "five" => {
-                    serde_json::to_value(&self.five).wrap_err("failed to serialize field `five`")
-                }
-                _ => bail!("no such field in type: `{}`", field_path),
-            },
+            }
         }
     }
 
-    fn deserialize_hierarchy(
-        &mut self,
-        field_path: &str,
-        data: serde_json::Value,
-    ) -> Result<()> {
+    fn deserialize_hierarchy(&mut self, field_path: &str, data: serde_json::Value) -> Result<()> {
         let split = field_path.split_once('.');
         match split {
             Some((field_name, suffix)) => match field_name {

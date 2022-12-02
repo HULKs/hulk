@@ -1,5 +1,5 @@
-use color_eyre::{eyre::WrapErr, Result};
 use build_script_helpers::write_token_stream;
+use color_eyre::{eyre::WrapErr, Result};
 use convert_case::{Case, Casing};
 use quote::{format_ident, quote};
 use source_analyzer::{

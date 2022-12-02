@@ -3,7 +3,10 @@ use std::{
     ops::{Add, Mul},
 };
 
-use color_eyre::{eyre::{eyre, WrapErr}, Report, Result};
+use color_eyre::{
+    eyre::{eyre, WrapErr},
+    Report, Result,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_value, Value};
 

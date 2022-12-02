@@ -1,6 +1,9 @@
 use std::{env::var, fs::File, io::Write, path::PathBuf, process::Command};
 
-use color_eyre::{eyre::{bail, WrapErr}, Result};
+use color_eyre::{
+    eyre::{bail, WrapErr},
+    Result,
+};
 use proc_macro2::TokenStream;
 
 pub fn write_token_stream(file_name: &str, token_stream: TokenStream) -> Result<()> {
