@@ -16,8 +16,6 @@ jobs:
       - test
       - build
       - build_subprojects
-      - build_web_projects
-      - run_behavior_simulator
     steps:
       - name: Status message
         run: echo 'All other jobs exited successfully!'
@@ -99,51 +97,3 @@ jobs:
         run: |
           cd ${{ matrix.path }}
           cargo build --profile incremental --all-features
-  build_web_projects:
-    name: Build
-    runs-on:
-      - self-hosted
-      - nodejs
-    needs: run_behavior_simulator
-    strategy:
-      matrix:
-        path: [tools/flora, tools/sprite]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          lfs: true
-      - name: Download recording.json
-        if: ${{ matrix.path == 'tools/sprite' }}
-        uses: actions/download-artifact@v3
-        with:
-          name: recording.json
-          path: tools/sprite/src/
-      - name: Build
-        env:
-          CI: true
-        run: |
-          cd ${{ matrix.path }}
-          yarn install
-          yarn build
-  run_behavior_simulator:
-    name: Run (behavior_simulator)
-    runs-on:
-      - self-hosted
-      - v2
-    strategy:
-      fail-fast: false
-      matrix:
-        scenario: [empty.json]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          lfs: true
-      - name: Run all scenes
-        run: |
-          cargo run --profile incremental --features behavior_simulator --bin behavior_simulator -- tests/behavior/${{ matrix.scenario }} recording.json
-      - name: Upload recording.json
-        if: ${{ matrix.scenario == 'empty.json' }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: recording.json
-          path: recording.json
