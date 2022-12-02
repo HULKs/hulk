@@ -61,7 +61,7 @@ fn new_hardware_interface(
     Ok(Arc::new(nao::Interface::new(keep_running, parameters.nao)?))
 }
 
-#[cfg(feature = "webots")]
+#[cfg(all(feature = "webots", not(feature = "nao")))]
 fn new_hardware_interface(
     keep_running: CancellationToken,
     parameters: Parameters,
