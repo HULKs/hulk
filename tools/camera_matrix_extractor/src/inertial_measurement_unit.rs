@@ -1,4 +1,4 @@
-use color_eyre::{eyre::eyre, Report, Result};
+use color_eyre::{eyre::{eyre, WrapErr}, Report, Result};
 use nalgebra::{Vector2, Vector3};
 use serde_json::{from_value, Value};
 
@@ -27,9 +27,9 @@ impl TryFrom<&Value> for InertialMeasurementUnitData {
             .ok_or_else(|| eyre!("imu.get(\"angle\")"))?;
         Ok(Self {
             linear_acceleration: from_value(imu_accelerometer.clone())
-                .context("from_value(imu_accelerometer)")?,
+                .wrap_err("from_value(imu_accelerometer)")?,
             angular_velocity: from_value(imu_gyroscope.clone())
-                .context("from_value(imu_gyroscope)")?,
+                .wrap_err("from_value(imu_gyroscope)")?,
             roll_pitch: from_value(imu_angle.clone()).context("from_value(imu_angle)")?,
         })
     }
