@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Mul},
 };
 
-use color_eyre::{eyre::eyre, Report, Result};
+use color_eyre::{eyre::{eyre, WrapErr}, Report, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_value, Value};
 
@@ -186,7 +186,7 @@ impl TryFrom<&Value> for Joints {
             .get("jointAngles")
             .ok_or_else(|| eyre!("replay_frame.get(\"jointAngles\")"))?;
         let angles: Vec<f32> =
-            from_value(joint_angles.clone()).context("from_value(joint_angles)")?;
+            from_value(joint_angles.clone()).wrap_err("from_value(joint_angles)")?;
         Ok(Self::from_angles(&angles))
     }
 }

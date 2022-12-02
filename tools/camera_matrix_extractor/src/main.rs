@@ -10,7 +10,7 @@ mod support_foot;
 
 use std::path::PathBuf;
 
-use color_eyre::eyre::WrapErr;
+use color_eyre::{eyre::WrapErr, Result};
 use nalgebra::vector;
 use serde_json::to_value;
 use structopt::StructOpt;
@@ -42,12 +42,12 @@ fn main() -> Result<()> {
     let arguments = Arguments::from_args();
 
     let replay_frame = to_replay_frame(arguments.path_to_replay_json, &arguments.image_prefix)
-        .wrap_errr("to_replay_frame(\"replay.json\")")?;
+        .wrap_err("to_replay_frame(\"replay.json\")")?;
     let support_foot =
-        SupportFoot::try_from(&replay_frame).wrap_errr("SupportFoot::try_from(replay_frame)")?;
+        SupportFoot::try_from(&replay_frame).wrap_err("SupportFoot::try_from(replay_frame)")?;
     let inertial_measurement_unit = InertialMeasurementUnitData::try_from(&replay_frame)
-        .wrap_errr("InertialMeasurementUnitData::try_from(replay_frame)")?;
-    let joints = Joints::try_from(&replay_frame).wrap_errr("Joints::try_from(replay_frame)")?;
+        .wrap_err("InertialMeasurementUnitData::try_from(replay_frame)")?;
+    let joints = Joints::try_from(&replay_frame).wrap_err("Joints::try_from(replay_frame)")?;
     let robot_kinematics = RobotKinematics::from(joints);
     let ground = Ground::from((
         inertial_measurement_unit,
