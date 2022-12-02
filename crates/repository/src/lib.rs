@@ -41,6 +41,10 @@ impl Repository {
         }
     }
 
+    pub fn crates_directory(&self) -> PathBuf {
+        self.root.join("crates")
+    }
+
     pub fn find_latest_file(&self, prefix: &str, file_name: &str) -> Result<PathBuf> {
         let path = self.root.join(prefix).join(file_name);
         let matching_paths: Vec<_> = glob(

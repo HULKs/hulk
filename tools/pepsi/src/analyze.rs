@@ -35,7 +35,6 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> Result<()
             crate_name,
             file_name,
         } => {
-            // TODO: replace expects with color_eyre::eyre::WrapErr
             let prefix = format!("target/**/{crate_name}-*/**");
             let file_path = repository
                 .find_latest_file(&prefix, &file_name)
@@ -58,13 +57,13 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> Result<()
         }
         Arguments::DumpCyclerInstances => {
             let cycler_instances =
-                CyclerInstances::try_from_crates_directory(repository.get_crates_directory())
+                CyclerInstances::try_from_crates_directory(repository.crates_directory())
                     .wrap_err("failed to get cycler instances")?;
             println!("{cycler_instances:#?}");
         }
         Arguments::DumpCyclerTypes => {
             let cycler_types =
-                CyclerTypes::try_from_crates_directory(repository.get_crates_directory())
+                CyclerTypes::try_from_crates_directory(repository.crates_directory())
                     .wrap_err("failed to get cycler types")?;
             println!("{cycler_types:#?}");
         }
@@ -83,12 +82,12 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> Result<()
                 .wrap_err("failed to print file")?;
         }
         Arguments::DumpModules => {
-            let modules = Modules::try_from_crates_directory(repository.get_crates_directory())
+            let modules = Modules::try_from_crates_directory(repository.crates_directory())
                 .wrap_err("failed to get modules")?;
             println!("{modules:#?}");
         }
         Arguments::DumpStructs => {
-            let structs = Structs::try_from_crates_directory(repository.get_crates_directory())
+            let structs = Structs::try_from_crates_directory(repository.crates_directory())
                 .wrap_err("failed to get structs")?;
             println!("{structs:#?}");
         }
