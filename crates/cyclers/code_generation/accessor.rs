@@ -1,6 +1,6 @@
-use convert_case::{Casing, Case};
-use proc_macro2::{TokenStream, TokenTree, Punct, Spacing, Delimiter, Group};
-use quote::{TokenStreamExt, format_ident};
+use convert_case::{Case, Casing};
+use proc_macro2::{Delimiter, Group, Punct, Spacing, TokenStream, TokenTree};
+use quote::{format_ident, TokenStreamExt};
 use source_analyzer::PathSegment;
 
 use super::reference_type::ReferenceType;

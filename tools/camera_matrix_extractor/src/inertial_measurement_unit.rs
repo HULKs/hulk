@@ -1,4 +1,7 @@
-use color_eyre::{eyre::{eyre, WrapErr}, Report, Result};
+use color_eyre::{
+    eyre::{eyre, WrapErr},
+    Report, Result,
+};
 use nalgebra::{Vector2, Vector3};
 use serde_json::{from_value, Value};
 

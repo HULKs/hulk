@@ -18,6 +18,7 @@ mod filtered_segments;
 mod filtered_whistle;
 mod game_controller_state;
 mod geometry;
+pub mod hardware;
 mod image;
 mod image_segments;
 mod initial_pose;
@@ -54,7 +55,6 @@ mod support_foot;
 mod walk_command;
 mod whistle;
 mod world_state;
-pub mod hardware;
 
 // TODO: convert all "mod" to "pub mod"
 

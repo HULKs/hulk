@@ -29,11 +29,7 @@ impl<T> SynContext<T, Error> for syn::Result<T> {
     }
 }
 
-pub fn new_syn_error_as_eyre_result<T, M, P>(
-    span: Span,
-    message: M,
-    file_path: P,
-) -> Result<T>
+pub fn new_syn_error_as_eyre_result<T, M, P>(span: Span, message: M, file_path: P) -> Result<T>
 where
     M: Display,
     P: AsRef<Path>,

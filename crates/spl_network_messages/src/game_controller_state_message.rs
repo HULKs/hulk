@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use color_eyre::{eyre::bail, Result, Report};
+use color_eyre::{eyre::bail, Report, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{

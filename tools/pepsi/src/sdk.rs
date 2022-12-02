@@ -22,12 +22,10 @@ pub async fn sdk(arguments: Arguments, repository: &Repository) -> Result<()> {
         Arguments::Install {
             sdk_version,
             installation_directory,
-        } => {
-            repository
-                .install_sdk(sdk_version.as_deref(), installation_directory.as_deref())
-                .await
-                .wrap_err("failed to install SDK")?
-        }
+        } => repository
+            .install_sdk(sdk_version.as_deref(), installation_directory.as_deref())
+            .await
+            .wrap_err("failed to install SDK")?,
     }
 
     Ok(())

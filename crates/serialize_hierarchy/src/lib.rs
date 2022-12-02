@@ -92,11 +92,7 @@ macro_rules! serialize_hierarchy_primary_impl {
                 )
             }
 
-            fn deserialize_hierarchy(
-                &mut self,
-                field_path: &str,
-                _data: Value,
-            ) -> Result<()> {
+            fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> Result<()> {
                 bail!(
                     "cannot access {} with path: {}",
                     stringify!($type),

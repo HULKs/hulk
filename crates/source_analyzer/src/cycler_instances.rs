@@ -37,7 +37,9 @@ impl CyclerInstances {
                 .file_name()
                 .ok_or_else(|| eyre!("failed to get file name from crate directory"))?
                 .to_str()
-                .ok_or_else(|| eyre!("failed to interpret file name of crate directory as Unicode"))?;
+                .ok_or_else(|| {
+                    eyre!("failed to interpret file name of crate directory as Unicode")
+                })?;
             let rust_file_path = crate_directory.join("src/lib.rs");
             let rust_file = parse_rust_file(&rust_file_path)
                 .wrap_err_with(|| format!("failed to parse file {rust_file_path:?}"))?;

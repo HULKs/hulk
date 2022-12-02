@@ -1,7 +1,10 @@
 use std::collections::HashSet;
 
 use clap::Args;
-use color_eyre::{eyre::{bail, WrapErr}, Result};
+use color_eyre::{
+    eyre::{bail, WrapErr},
+    Result,
+};
 use futures::future::join_all;
 
 use repository::Repository;

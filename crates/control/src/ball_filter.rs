@@ -2,9 +2,7 @@ use std::time::Duration;
 
 use color_eyre::Result;
 use context_attribute::context;
-use framework::{
-    AdditionalOutput, HistoricInput, MainOutput, PerceptionInput,
-};
+use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use nalgebra::{Isometry2, Vector2, Vector4};
 use types::{
     Ball, BallFilterHypothesis, BallPosition, CameraMatrices, Circle, FieldDimensions,
