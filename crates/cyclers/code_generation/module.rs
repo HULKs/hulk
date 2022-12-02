@@ -72,7 +72,7 @@ impl Module<'_> {
                 Field::Parameter { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
                         quote! { configuration },
-                        &path,
+                        path,
                         ReferenceType::Immutable,
                         quote! { instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
@@ -88,7 +88,7 @@ impl Module<'_> {
                 Field::PersistentState { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
                         quote! { persistent_state },
-                        &path,
+                        path,
                         ReferenceType::Mutable,
                         quote! { instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
@@ -150,7 +150,7 @@ impl Module<'_> {
                     };
                     let accessor = path_to_accessor_token_stream(
                         database_prefix,
-                        &path,
+                        path,
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
@@ -182,7 +182,7 @@ impl Module<'_> {
                 Field::AdditionalOutput { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
                         quote! { own_database_reference.additional_outputs },
-                        &path,
+                        path,
                         ReferenceType::Mutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
@@ -205,7 +205,7 @@ impl Module<'_> {
                 Field::HistoricInput { name, path, .. } => {
                     let now_accessor = path_to_accessor_token_stream(
                         quote! { own_database_reference.main_outputs },
-                        &path,
+                        path,
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
@@ -213,7 +213,7 @@ impl Module<'_> {
                     );
                     let historic_accessor = path_to_accessor_token_stream(
                         quote! { database },
-                        &path,
+                        path,
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
@@ -254,7 +254,7 @@ impl Module<'_> {
                     };
                     let accessor = path_to_accessor_token_stream(
                         database_prefix,
-                        &path,
+                        path,
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
@@ -270,7 +270,7 @@ impl Module<'_> {
                 Field::Parameter { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
                         quote! { configuration },
-                        &path,
+                        path,
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
@@ -290,7 +290,7 @@ impl Module<'_> {
                         format_ident!("{}", cycler_instance.to_case(Case::Snake));
                     let accessor = path_to_accessor_token_stream(
                         quote! { database },
-                        &path,
+                        path,
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
@@ -330,7 +330,7 @@ impl Module<'_> {
                 Field::PersistentState { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
                         quote! { self.persistent_state },
-                        &path,
+                        path,
                         ReferenceType::Mutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
@@ -358,7 +358,7 @@ impl Module<'_> {
                     };
                     let accessor = path_to_accessor_token_stream(
                         database_prefix,
-                        &path,
+                        path,
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },

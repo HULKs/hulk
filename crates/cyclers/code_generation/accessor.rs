@@ -145,7 +145,7 @@ pub fn path_to_accessor_token_stream(
     if path_contains_variable {
         let mut token_stream = TokenStream::default();
         token_stream.append(TokenTree::Ident(format_ident!("match")));
-        token_stream.extend(instance.clone());
+        token_stream.extend(instance);
         let mut token_stream_within_match = TokenStream::default();
         for cycler_instance in cycler_instances {
             token_stream_within_match.extend(cycler_instance_prefix.clone());

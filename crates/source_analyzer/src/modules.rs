@@ -72,12 +72,12 @@ impl Modules {
                     .iter()
                     .find_map(|item| match item {
                         Item::Impl(implementation)
-                            if implementation.items.iter().any(|item| match item {
-                                ImplItem::Method(method) if method.sig.ident == "new" => true,
-                                _ => false,
-                            }) && implementation.items.iter().any(|item| match item {
-                                ImplItem::Method(method) if method.sig.ident == "cycle" => true,
-                                _ => false,
+                            if implementation.items.iter().any(|item| {
+                                matches!(item,
+                                ImplItem::Method(method) if method.sig.ident == "new")
+                            }) && implementation.items.iter().any(|item| {
+                                matches!(item,
+                                ImplItem::Method(method) if method.sig.ident == "cycle")
                             }) =>
                         {
                             match &*implementation.self_ty {
@@ -141,12 +141,9 @@ impl Modules {
 
             for module_name in module_names.iter() {
                 for field in self.modules[module_name].contexts.main_outputs.iter() {
-                    match field {
-                        Field::MainOutput { data_type, name } => {
-                            main_outputs_to_modules
-                                .insert(name.to_string(), (module_name.clone(), data_type.clone()));
-                        }
-                        _ => {}
+                    if let Field::MainOutput { data_type, name } = field {
+                        main_outputs_to_modules
+                            .insert(name.to_string(), (module_name.clone(), data_type.clone()));
                     }
                 }
             }

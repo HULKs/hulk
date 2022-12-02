@@ -70,9 +70,9 @@ impl JointCommandSender {
                 Leds {
                     left_ear: 0.0.into(),
                     right_ear: 0.0.into(),
-                    chest: self.last_average_color.into(),
-                    left_foot: self.last_average_color.into(),
-                    right_foot: self.last_average_color.into(),
+                    chest: self.last_average_color,
+                    left_foot: self.last_average_color,
+                    right_foot: self.last_average_color,
                     left_eye: self.last_average_color.into(),
                     right_eye: self.last_average_color.into(),
                 },

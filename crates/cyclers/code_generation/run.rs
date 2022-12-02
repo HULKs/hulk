@@ -9,7 +9,7 @@ use super::{cycler::Cycler, other_cycler::OtherCycler};
 pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
     let cycler_initializations: Vec<_> = cyclers
       .iter()
-      .map(|cycler| {
+      .flat_map(|cycler| {
           cycler.get_cycler_instances().modules_to_instances[cycler.get_cycler_module_name()]
               .iter()
               .map(|cycler_instance| {
@@ -60,7 +60,6 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
               })
               .collect::<Vec<_>>()
       })
-      .flatten()
       .collect();
     let configuration_slot_initializers_for_all_cyclers: Vec<_> = repeat(quote! { initial_configuration.clone() })
       .take(2 + cycler_initializations.len() /* 2 writer slots + n-1 reader slots for other cyclers + 1 reader slot for communication */)
@@ -75,7 +74,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
         .collect();
     let multiple_buffer_initializers: Vec<_> = cyclers
       .iter()
-      .map(|cycler| {
+      .flat_map(|cycler| {
           cycler.get_cycler_instances().modules_to_instances[cycler.get_cycler_module_name()]
               .iter()
               .map(|cycler_instance| {
@@ -94,7 +93,6 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
               })
               .collect::<Vec<_>>()
       })
-      .flatten()
       .collect();
     let future_queue_initializers: Vec<_> = cyclers
       .iter()
@@ -120,7 +118,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
       .collect();
     let cycler_starts: Vec<_> = cyclers
         .iter()
-        .map(|cycler| {
+        .flat_map(|cycler| {
             cycler.get_cycler_instances().modules_to_instances[cycler.get_cycler_module_name()]
                 .iter()
                 .map(|cycler_instance| {
@@ -138,11 +136,10 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                 })
                 .collect::<Vec<_>>()
         })
-        .flatten()
         .collect();
     let cycler_joins: Vec<_> = cyclers
         .iter()
-        .map(|cycler| {
+        .flat_map(|cycler| {
             cycler.get_cycler_instances().modules_to_instances[cycler.get_cycler_module_name()]
                 .iter()
                 .map(|cycler_instance| {
@@ -165,7 +162,6 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                 })
                 .collect::<Vec<_>>()
         })
-        .flatten()
         .collect();
     quote! {
         #[allow(unused_imports, unused_variables)]

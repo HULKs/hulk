@@ -8,6 +8,7 @@ use repository::Repository;
 use source_analyzer::{parse_rust_file, Contexts, CyclerInstances, CyclerTypes, Modules, Structs};
 
 #[derive(Subcommand)]
+#[allow(clippy::enum_variant_names)]
 pub enum Arguments {
     DumpBuildScriptOutput {
         /// Crate name whose build script output to dump (may contain wildcard characters usable by glob())

@@ -9,29 +9,26 @@ pub trait ToAbsolute {
 impl ToAbsolute for PathArguments {
     fn to_absolute(&self, uses: &Uses) -> Self {
         let mut path_arguments = self.clone();
-        match &mut path_arguments {
-            PathArguments::AngleBracketed(angle_bracketed) => {
-                for argument in angle_bracketed.args.iter_mut() {
-                    match argument {
-                        GenericArgument::Lifetime(_) => {}
-                        GenericArgument::Type(argument_type) => {
-                            *argument_type = argument_type.to_absolute(uses);
-                        }
-                        GenericArgument::Binding(binding) => {
-                            binding.ty = binding.ty.to_absolute(uses);
-                        }
-                        GenericArgument::Constraint(constraint) => {
-                            for bound in constraint.bounds.iter_mut() {
-                                if let TypeParamBound::Trait(trait_bound) = bound {
-                                    trait_bound.path = trait_bound.path.to_absolute(uses);
-                                }
+        if let PathArguments::AngleBracketed(angle_bracketed) = &mut path_arguments {
+            for argument in angle_bracketed.args.iter_mut() {
+                match argument {
+                    GenericArgument::Lifetime(_) => {}
+                    GenericArgument::Type(argument_type) => {
+                        *argument_type = argument_type.to_absolute(uses);
+                    }
+                    GenericArgument::Binding(binding) => {
+                        binding.ty = binding.ty.to_absolute(uses);
+                    }
+                    GenericArgument::Constraint(constraint) => {
+                        for bound in constraint.bounds.iter_mut() {
+                            if let TypeParamBound::Trait(trait_bound) = bound {
+                                trait_bound.path = trait_bound.path.to_absolute(uses);
                             }
                         }
-                        GenericArgument::Const(_) => {}
                     }
+                    GenericArgument::Const(_) => {}
                 }
             }
-            _ => {}
         }
         path_arguments
     }

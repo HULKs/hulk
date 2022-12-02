@@ -125,13 +125,13 @@ fn struct_hierarchy_to_token_stream(
         .map(|(name, struct_hierarchy)| match struct_hierarchy {
             StructHierarchy::Struct { fields } => {
                 let struct_name = format!("{}{}", struct_name, name.to_case(Case::Pascal));
-                struct_hierarchy_to_token_stream(&struct_name, &fields)
+                struct_hierarchy_to_token_stream(&struct_name, fields)
                     .wrap_err_with(|| format!("failed to generate struct `{struct_name}`"))
             }
             StructHierarchy::Optional { child } => match &**child {
                 StructHierarchy::Struct { fields } => {
                     let struct_name = format!("{}{}", struct_name, name.to_case(Case::Pascal));
-                    struct_hierarchy_to_token_stream(&struct_name, &fields)
+                    struct_hierarchy_to_token_stream(&struct_name, fields)
                         .wrap_err_with(|| format!("failed to generate struct `{struct_name}`"))
                 }
                 StructHierarchy::Optional { .. } => {

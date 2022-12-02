@@ -51,6 +51,7 @@ pub struct Interface {
 }
 
 impl Interface {
+    #[allow(dead_code)]
     pub fn new(keep_running: CancellationToken, parameters: Parameters) -> Result<Self> {
         let robot = Default::default();
 

@@ -15,7 +15,6 @@ use super::{
 };
 
 pub struct Interface {
-    keep_running: CancellationToken,
     hula_wrapper: Mutex<HulaWrapper>,
     microphones: Mutex<Microphones>,
     network: Network,
@@ -25,11 +24,9 @@ pub struct Interface {
 
 impl Interface {
     pub fn new(keep_running: CancellationToken, parameters: Parameters) -> Result<Self> {
-        let keep_running_for_network = keep_running.clone();
         let i2c_head_mutex = Arc::new(Mutex::new(()));
 
         Ok(Self {
-            keep_running,
             hula_wrapper: Mutex::new(
                 HulaWrapper::new().wrap_err("failed to initialize HULA wrapper")?,
             ),
@@ -37,7 +34,7 @@ impl Interface {
                 Microphones::new(parameters.microphones)
                     .wrap_err("failed to initialize microphones")?,
             ),
-            network: Network::new(keep_running_for_network, parameters.network)
+            network: Network::new(keep_running, parameters.network)
                 .wrap_err("failed to initialize network")?,
             camera_top: Mutex::new(
                 Camera::new(
