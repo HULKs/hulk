@@ -326,7 +326,7 @@ pub fn expand_variables_from_path(
             };
             paths = cases
                 .iter()
-                .map(|case| {
+                .flat_map(|case| {
                     paths.iter().cloned().map(|mut path| {
                         path.push(PathSegment {
                             name: case.clone(),
@@ -336,7 +336,6 @@ pub fn expand_variables_from_path(
                         path
                     })
                 })
-                .flatten()
                 .collect();
         } else {
             for path in paths.iter_mut() {
@@ -851,12 +850,12 @@ mod tests {
         let field = "RequiredInput<usize, \"a/b/c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field = Field::try_from_field(
+        assert!(Field::try_from_field(
             "file_path",
             named_fields.named.first().unwrap(),
             &empty_uses,
         )
-        .is_err();
+        .is_err());
 
         // from own cycler, with optionals but without Option<T> data type
         let field = "RequiredInput<usize, \"a/b?/c\">";
@@ -893,12 +892,12 @@ mod tests {
         let field = "RequiredInput<usize, \"Control\", \"a/b/c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field = Field::try_from_field(
+        assert!(Field::try_from_field(
             "file_path",
             named_fields.named.first().unwrap(),
             &empty_uses,
         )
-        .is_err();
+        .is_err());
 
         // from foreign cycler, with optionals but without Option<T> data type
         let field = "RequiredInput<usize, \"Control\", \"a/b?/c\">";
@@ -974,17 +973,17 @@ mod tests {
         for path in paths.iter() {
             assert_eq!(path.len(), 5);
 
-            assert_eq!(path[0].is_optional, false);
-            assert_eq!(path[1].is_optional, false);
-            assert_eq!(path[2].is_optional, true);
-            assert_eq!(path[3].is_optional, true);
-            assert_eq!(path[4].is_optional, false);
+            assert!(!path[0].is_optional);
+            assert!(!path[1].is_optional);
+            assert!(path[2].is_optional);
+            assert!(path[3].is_optional);
+            assert!(!path[4].is_optional);
 
-            assert_eq!(path[0].is_variable, false);
-            assert_eq!(path[1].is_variable, false);
-            assert_eq!(path[2].is_variable, false);
-            assert_eq!(path[3].is_variable, false);
-            assert_eq!(path[4].is_variable, false);
+            assert!(!path[0].is_variable);
+            assert!(!path[1].is_variable);
+            assert!(!path[2].is_variable);
+            assert!(!path[3].is_variable);
+            assert!(!path[4].is_variable);
 
             assert_eq!(path[0].name, "a");
             assert_eq!(path[2].name, "c");

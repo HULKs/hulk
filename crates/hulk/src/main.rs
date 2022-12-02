@@ -34,11 +34,7 @@ fn main() -> Result<()> {
     )
     .wrap_err("failed to create hardware interface")?;
     let initial_configuration = Configuration::default();
-    run(
-        hardware_interface,
-        initial_configuration,
-        keep_running.clone(),
-    )
+    run(hardware_interface, initial_configuration, keep_running)
 }
 
 fn cancel_on_error<T, E>(keep_running: &CancellationToken, result: Result<T, E>) -> Result<T, E> {

@@ -157,7 +157,7 @@ impl Structs {
                             name,
                             path,
                         } => {
-                            let insertion_rules = path_to_insertion_rules(&path, data_type);
+                            let insertion_rules = path_to_insertion_rules(path, data_type);
                             cycler_structs
                                 .persistent_state
                                 .insert(insertion_rules)
@@ -287,8 +287,8 @@ enum InsertionRule {
 
 fn path_to_insertion_rules(path: &[PathSegment], data_type: &Type) -> Vec<InsertionRule> {
     path.iter()
-        .map(|segment| {
-            assert_eq!(segment.is_variable, false);
+        .flat_map(|segment| {
+            assert!(!segment.is_variable);
             match segment.is_optional {
                 true => vec![
                     InsertionRule::BeginStruct,
@@ -305,7 +305,6 @@ fn path_to_insertion_rules(path: &[PathSegment], data_type: &Type) -> Vec<Insert
                 ],
             }
         })
-        .flatten()
         .chain(once(InsertionRule::AppendDataType {
             data_type: data_type.clone(),
         }))
@@ -497,6 +496,7 @@ mod tests {
         }
     }
 
+    #[allow(clippy::collapsible_match, clippy::match_like_matches_macro)]
     #[test]
     fn insertion_rules_without_optionals_result_in_correct_struct_hierarchy() {
         let data_type = Type::Verbatim(Default::default());
@@ -562,6 +562,7 @@ mod tests {
         );
     }
 
+    #[allow(clippy::collapsible_match, clippy::match_like_matches_macro)]
     #[test]
     fn insertion_rules_with_one_optional_result_in_correct_struct_hierarchy() {
         let data_type = Type::Verbatim(Default::default());
@@ -631,6 +632,7 @@ mod tests {
         );
     }
 
+    #[allow(clippy::collapsible_match, clippy::match_like_matches_macro)]
     #[test]
     fn insertion_rules_with_two_optionals_result_in_correct_struct_hierarchy() {
         let data_type = Type::Verbatim(Default::default());
@@ -704,6 +706,7 @@ mod tests {
         );
     }
 
+    #[allow(clippy::collapsible_match, clippy::match_like_matches_macro)]
     #[test]
     fn insertion_rules_with_three_optionals_result_in_correct_struct_hierarchy() {
         let data_type = Type::Verbatim(Default::default());

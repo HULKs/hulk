@@ -9,7 +9,7 @@ pub struct CyclerTypes {
     pub cycler_modules_to_cycler_types: HashMap<String, CyclerType>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CyclerType {
     Perception,
     RealTime,

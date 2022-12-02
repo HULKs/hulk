@@ -38,8 +38,7 @@ impl ExtractUses for UseTree {
             UseTree::Group(group) => group
                 .items
                 .iter()
-                .map(|tree| tree.extract_uses(prefix.clone()))
-                .flatten()
+                .flat_map(|tree| tree.extract_uses(prefix.clone()))
                 .collect(),
         }
     }

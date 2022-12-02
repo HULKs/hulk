@@ -269,7 +269,7 @@ fn into_reference_with_lifetime(data_type: &mut Type, mutability: Option<Mut>) {
         Type::Path(TypePath {
             path: Path { segments, .. },
             ..
-        }) if segments.len() > 0 && segments.last().unwrap().ident == "Option" => {
+        }) if !segments.is_empty() && segments.last().unwrap().ident == "Option" => {
             match &mut segments.last_mut().unwrap().arguments {
                 PathArguments::AngleBracketed(arguments) if arguments.args.len() == 1 => {
                     match arguments.args.first_mut().unwrap() {
@@ -314,7 +314,7 @@ fn unwrap_option(data_type: &mut Type) {
             Type::Path(TypePath {
                 path: syn::Path { segments, .. },
                 ..
-            }) if segments.len() > 0 && segments.last().unwrap().ident == "Option" => {
+            }) if !segments.is_empty() && segments.last().unwrap().ident == "Option" => {
                 match &segments.last().unwrap().arguments {
                     PathArguments::AngleBracketed(AngleBracketedGenericArguments {
                         args, ..
