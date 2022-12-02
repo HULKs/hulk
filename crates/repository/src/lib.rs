@@ -98,7 +98,10 @@ impl Repository {
             + if workspace {
                 "--workspace --all-features --all-targets ".to_string()
             } else {
-                format!("--features {target} --bin {target} ")
+                format!(
+                    "--features {target} --manifest-path={} ",
+                    self.root.join("crates/hulk/Cargo.toml").display()
+                )
             }
             .as_str()
             + "-- "
