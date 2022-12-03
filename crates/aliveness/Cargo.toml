@@ -1,0 +1,13 @@
+[package]
+name = "aliveness"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+color-eyre = { workspace = true }
+colored = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
