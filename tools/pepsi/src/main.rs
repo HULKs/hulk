@@ -8,7 +8,6 @@ use color_eyre::{
 };
 use tokio::fs::read_dir;
 
-use aliveness::{aliveness, Arguments as AlivenessArguments};
 use analyze::{analyze, Arguments as AnalyzeArguments};
 use cargo::{cargo, Arguments as CargoArguments, Command as CargoCommand};
 use communication::{communication, Arguments as CommunicationArguments};
@@ -26,7 +25,6 @@ use shell::{shell, Arguments as ShellArguments};
 use upload::{upload, Arguments as UploadArguments};
 use wireless::{wireless, Arguments as WirelessArguments};
 
-mod aliveness;
 mod analyze;
 mod cargo;
 mod communication;
@@ -57,9 +55,6 @@ async fn main() -> Result<()> {
     let repository = Repository::new(repository_root);
 
     match arguments.command {
-        Command::Aliveness(arguments) => aliveness(arguments)
-            .await
-            .wrap_err("failed to execute aliveness command")?,
         Command::Analyze(arguments) => analyze(arguments, &repository)
             .await
             .wrap_err("failed to execute analyze command")?,
@@ -137,9 +132,6 @@ struct Arguments {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Enable/disable aliveness on NAOs
-    #[command(subcommand)]
-    Aliveness(AlivenessArguments),
     /// Analyze source code
     #[clap(subcommand)]
     Analyze(AnalyzeArguments),

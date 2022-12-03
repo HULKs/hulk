@@ -1,0 +1,17 @@
+[package]
+edition = "2021"
+license = "GPL-3.0-only"
+name = "hula"
+version = "0.3.0"
+homepage = "https://github.com/hulks/hulk"
+
+[dependencies]
+chrono = "0.4.23"
+clap = { version = "4.0.29", features = ["derive"] }
+color-eyre = "0.6.2"
+env_logger = "0.10.0"
+epoll = "4.3.1"
+hula-types = { path = "../types/" }
+log = "0.4.17"
+rmp-serde = "1.1.1"
+systemd = "0.10.0"

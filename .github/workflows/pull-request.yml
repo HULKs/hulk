@@ -16,6 +16,7 @@ jobs:
       - test
       - build
       - build_subprojects
+      - build_hula
     steps:
       - name: Status message
         run: echo 'All other jobs exited successfully!'
@@ -82,7 +83,6 @@ jobs:
             tools/camera_matrix_extractor,
             tools/depp,
             tools/fanta,
-            tools/hula,
             tools/pepsi,
             tools/twix,
           ]
@@ -97,3 +97,16 @@ jobs:
         run: |
           cd ${{ matrix.path }}
           cargo build --profile incremental --all-features
+  build_hula:
+    name: Build HuLA
+    runs-on:
+      - self-hosted
+      - v2
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          lfs: true
+      - name: Build HuLA
+        run: |
+          cd tools/hula
+          cargo build --release
