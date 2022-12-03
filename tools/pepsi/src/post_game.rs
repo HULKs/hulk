@@ -9,7 +9,6 @@ use color_eyre::{eyre::WrapErr, Result};
 use nao::{Network, SystemctlAction};
 
 use crate::{
-    aliveness::{aliveness, Arguments as AlivenessArguments},
     hulk::{hulk, Arguments as HulkArguments},
     logs::{logs, Arguments as LogsArguments},
     parsers::{parse_network, NaoAddress, NETWORK_POSSIBLE_VALUES},
@@ -18,9 +17,6 @@ use crate::{
 
 #[derive(Args)]
 pub struct Arguments {
-    /// Disable aliveness (may restart HULA if needed)
-    #[arg(long)]
-    pub no_aliveness: bool,
     /// The network to connect the wireless device to (None disconnects from anything)
     #[arg(
         value_parser = PossibleValuesParser::new(NETWORK_POSSIBLE_VALUES)
@@ -48,18 +44,6 @@ pub async fn post_game(arguments: Arguments) -> Result<()> {
     })
     .await
     .wrap_err("failed to download logs")?;
-
-    aliveness(if arguments.no_aliveness {
-        AlivenessArguments::Disable {
-            naos: arguments.naos.clone(),
-        }
-    } else {
-        AlivenessArguments::Enable {
-            naos: arguments.naos.clone(),
-        }
-    })
-    .await
-    .wrap_err("failed to enable/disable aliveness")?;
 
     wireless(WirelessArguments::Set {
         network: arguments.network,

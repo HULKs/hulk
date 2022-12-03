@@ -275,28 +275,6 @@ impl Nao {
 
         Ok(())
     }
-
-    pub async fn set_aliveness(&self, enable: bool) -> Result<()> {
-        let mut command = self.ssh_to_nao();
-
-        let command_string = if enable {
-            "test -f /home/nao/disable_aliveness && (rm /home/nao/disable_aliveness && systemctl restart hula) || true"
-        } else {
-            "test -f /home/nao/disable_aliveness || (touch /home/nao/disable_aliveness && systemctl restart hula)"
-        };
-        command.arg(command_string);
-
-        let status = command
-            .status()
-            .await
-            .wrap_err("failed to execute set_aliveness command")?;
-
-        if !status.success() {
-            bail!("set_aliveness ssh command exited with {status}");
-        }
-
-        Ok(())
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

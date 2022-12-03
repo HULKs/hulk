@@ -29,9 +29,6 @@ pub struct Arguments {
     /// Do not remove existing remote files during uploading
     #[arg(long)]
     pub no_clean: bool,
-    /// Do not run aliveness (ignored if --no-restart given because it requires restarting HULA)
-    #[arg(long)]
-    pub no_aliveness: bool,
     /// Do not enable communication
     #[arg(long)]
     pub no_communication: bool,
@@ -104,19 +101,6 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
     gather_results(results, "failed to execute some upload tasks")?;
 
     if !arguments.no_restart {
-        let tasks = arguments.naos.iter().map(|nao_address| async move {
-            let nao = Nao::new(nao_address.ip);
-            nao.set_aliveness(!arguments.no_aliveness)
-                .await
-                .wrap_err_with(|| format!("failed to set aliveness on {nao_address}"))
-        });
-
-        let results = join_all(tasks).await;
-        gather_results(
-            results,
-            "failed to execute some systemctl restart hula tasks",
-        )?;
-
         hulk(HulkArguments {
             action: SystemctlAction::Start,
             naos: arguments.naos,

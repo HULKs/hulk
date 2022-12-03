@@ -30,9 +30,6 @@ pub struct Arguments {
     /// Do not remove existing remote files during uploading
     #[arg(long)]
     pub no_clean: bool,
-    /// Enable aliveness (ignored if --no-restart given because it requires restarting HULA)
-    #[arg(long)]
-    pub with_aliveness: bool,
     /// Enable communication
     #[arg(long)]
     pub with_communication: bool,
@@ -83,7 +80,6 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
             no_build: arguments.no_build,
             no_restart: arguments.no_restart,
             no_clean: arguments.no_clean,
-            no_aliveness: !arguments.with_aliveness,
             no_communication: !arguments.with_communication,
             naos: naos.clone(),
         },
