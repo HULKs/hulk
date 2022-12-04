@@ -239,7 +239,7 @@ impl App for TwixApp {
                 }
 
                 if self.active_tab_index() != Some(self.last_focused_tab) {
-                    self.last_focused_tab = self.active_tab_index().unwrap();
+                    self.last_focused_tab = self.active_tab_index().unwrap_or((0.into(), 0.into()));
                     if let Some(name) = self.active_panel().map(|panel| format!("{panel}")) {
                         self.panel_selection = name
                     }
@@ -266,7 +266,9 @@ impl App for TwixApp {
                         self.nao.clone(),
                         None,
                     ) {
-                        *self.active_panel().unwrap() = panel;
+                        if let Some(active_panel) = self.active_panel() {
+                            *active_panel = panel;
+                        }
                     }
                 }
             })
