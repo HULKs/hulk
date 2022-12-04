@@ -78,6 +78,7 @@ filtering = { path = "crates/filtering" }
 framework = { path = "crates/framework" }
 futures-util = "0.3.24"
 fuzzy-matcher = "0.3.7"
+gilrs = "0.10.1"
 glob = "0.3.0"
 hardware = { path = "crates/hardware" }
 home = "0.5.4"

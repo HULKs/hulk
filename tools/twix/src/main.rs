@@ -27,7 +27,7 @@ use nao::Nao;
 use panel::Panel;
 use panels::{
     BehaviorSimulatorPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel,
-    MapPanel, ParameterPanel, PlotPanel, SegmenterCalibrationPanel, TextPanel,
+    MapPanel, ParameterPanel, PlotPanel, SegmenterCalibrationPanel, RemotePanel, TextPanel,
 };
 use serde_json::{from_str, to_string, Value};
 use tokio::sync::mpsc;
@@ -82,6 +82,7 @@ enum SelectablePanel {
     ManualCalibration(ManualCalibrationPanel),
     LookAt(LookAtPanel),
     SegmenterCalibration(SegmenterCalibrationPanel),
+    Remote(RemotePanel),
 }
 
 impl SelectablePanel {
@@ -113,7 +114,7 @@ impl SelectablePanel {
             "segmenter calibration" => {
                 SelectablePanel::SegmenterCalibration(SegmenterCalibrationPanel::new(nao, value))
             }
-
+            "remote" => SelectablePanel::Remote(RemotePanel::new(nao, value)),
             name => bail!("unexpected panel name: {name}"),
         })
     }
@@ -130,6 +131,7 @@ impl SelectablePanel {
             SelectablePanel::ManualCalibration(panel) => panel.save(),
             SelectablePanel::LookAt(panel) => panel.save(),
             SelectablePanel::SegmenterCalibration(panel) => panel.save(),
+            SelectablePanel::Remote(panel) => panel.save(),
         };
         value["_panel_type"] = Value::String(self.to_string());
 
@@ -150,6 +152,7 @@ impl Widget for &mut SelectablePanel {
             SelectablePanel::ManualCalibration(panel) => panel.ui(ui),
             SelectablePanel::LookAt(panel) => panel.ui(ui),
             SelectablePanel::SegmenterCalibration(panel) => panel.ui(ui),
+            SelectablePanel::Remote(panel) => panel.ui(ui),
         }
     }
 }
@@ -167,6 +170,7 @@ impl Display for SelectablePanel {
             SelectablePanel::ManualCalibration(_) => ManualCalibrationPanel::NAME,
             SelectablePanel::LookAt(_) => LookAtPanel::NAME,
             SelectablePanel::SegmenterCalibration(_) => SegmenterCalibrationPanel::NAME,
+            SelectablePanel::Remote(_) => RemotePanel::NAME,
         };
         f.write_str(panel_name)
     }
@@ -307,6 +311,7 @@ impl App for TwixApp {
                             "Manual Calibration".to_string(),
                             "Look At".to_string(),
                             "Segmenter Calibration".to_string(),
+                            "Remote".to_string(),
                         ],
                         "Panel",
                     )

@@ -6,6 +6,7 @@ mod manual_camera_calibration;
 mod map;
 mod parameter;
 mod plot;
+mod remote;
 mod segmenter_calibration;
 mod text;
 
@@ -17,5 +18,6 @@ pub use manual_camera_calibration::ManualCalibrationPanel;
 pub use map::MapPanel;
 pub use parameter::ParameterPanel;
 pub use plot::PlotPanel;
+pub use remote::RemotePanel;
 pub use segmenter_calibration::SegmenterCalibrationPanel;
 pub use text::TextPanel;
