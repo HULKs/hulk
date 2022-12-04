@@ -1,10 +1,10 @@
-use std::{collections::HashSet, f32::consts::PI, ops::Range, sync::Arc};
+use std::{collections::HashSet, f32::consts::PI, sync::Arc};
 
 use nalgebra::ComplexField;
 use rustfft::{num_complex::Complex32, Fft};
 
 use crate::{
-    framework::AdditionalOutput,
+    framework::{configuration::WhistleDetection, AdditionalOutput},
     hardware::{AUDIO_SAMPLE_RATE, NUMBER_OF_AUDIO_CHANNELS, NUMBER_OF_AUDIO_SAMPLES},
     statistics::{mean, standard_deviation},
 };
@@ -39,10 +39,8 @@ impl<'a> AdditionalOutputs<'a> {
 pub fn is_whistle_detected_in_buffer(
     fft: Arc<dyn Fft<f32>>,
     buffers: &[[f32; NUMBER_OF_AUDIO_SAMPLES]; NUMBER_OF_AUDIO_CHANNELS],
-    detection_band: &Range<f32>,
-    background_noise_scaling: f32,
-    whistle_scaling: f32,
-    number_of_chunks: usize,
+    scratch: &mut [Complex32],
+    detection_parameters: &WhistleDetection,
     mut additional_outputs: AdditionalOutputs,
 ) -> anyhow::Result<[bool; NUMBER_OF_AUDIO_CHANNELS]> {
     let mut audio_spectrums = Vec::new();
@@ -60,7 +58,7 @@ pub fn is_whistle_detected_in_buffer(
                 Complex32::new(hann * sample, 0.0)
             })
             .collect();
-        fft.process(&mut buffer);
+        fft.process_with_scratch(&mut buffer, scratch);
         let absolute_values: Vec<_> = buffer
             .iter()
             .take(NUMBER_OF_FREQUENCY_SAMPLES)
@@ -77,14 +75,8 @@ pub fn is_whistle_detected_in_buffer(
                 .collect();
             audio_spectrums.push(spectrum);
         }
-        let (detected, detection_info) = spectrum_contains_whistle(
-            &absolute_values,
-            detection_band,
-            number_of_chunks,
-            background_noise_scaling,
-            whistle_scaling,
-            frequency_resolution,
-        );
+        let (detected, detection_info) =
+            spectrum_contains_whistle(&absolute_values, detection_parameters, frequency_resolution);
         is_detected[channel] = detected;
         detection_infos.push(detection_info);
     }
@@ -100,12 +92,15 @@ pub fn is_whistle_detected_in_buffer(
 
 fn spectrum_contains_whistle(
     absolute_values: &[f32],
-    detection_band: &Range<f32>,
-    number_of_chunks: usize,
-    background_noise_scaling: f32,
-    whistle_scaling: f32,
+    detection_parameters: &WhistleDetection,
     frequency_resolution: f32,
 ) -> (bool, DetectionInfo) {
+    let WhistleDetection {
+        detection_band,
+        background_noise_scaling,
+        whistle_scaling,
+        number_of_chunks,
+    } = detection_parameters;
     let overall_mean = mean(absolute_values);
     let overall_standard_deviation = standard_deviation(absolute_values, overall_mean);
     let background_noise_threshold =

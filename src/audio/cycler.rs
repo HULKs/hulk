@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Result;
 use log::error;
-use rustfft::{Fft, FftPlanner};
+use rustfft::{num_complex::Complex32, num_traits::Zero, Fft, FftPlanner};
 use tokio_util::sync::CancellationToken;
 use types::Whistle;
 
@@ -37,6 +37,7 @@ where
     audio_producer: Producer<MainOutputs>,
     communication_channels: CommunicationChannelsForCycler<Database>,
     fft: Arc<dyn Fft<f32>>,
+    scratch: Vec<Complex32>,
 }
 
 impl<Hardware> Audio<Hardware>
@@ -52,6 +53,7 @@ where
     ) -> anyhow::Result<Self> {
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(NUMBER_OF_AUDIO_SAMPLES);
+        let scratch = vec![Complex32::zero(); fft.get_inplace_scratch_len()];
         Ok(Self {
             hardware_interface,
             control_reader,
@@ -59,6 +61,7 @@ where
             audio_producer,
             communication_channels,
             fft,
+            scratch,
         })
     }
 
@@ -96,13 +99,8 @@ where
                 is_detected: is_whistle_detected_in_buffer(
                     self.fft.clone(),
                     &buffer.lock(),
-                    &configuration.audio.whistle_detection.detection_band,
-                    configuration
-                        .audio
-                        .whistle_detection
-                        .background_noise_scaling,
-                    configuration.audio.whistle_detection.whistle_scaling,
-                    configuration.audio.whistle_detection.number_of_chunks,
+                    &mut self.scratch,
+                    &configuration.audio.whistle_detection,
                     whistle_detection::AdditionalOutputs::new(
                         &mut audio_database.additional_outputs,
                         &subscribed_additional_outputs,
