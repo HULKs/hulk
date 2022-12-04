@@ -159,12 +159,20 @@ impl TwixApp {
             connection_intent,
         ));
 
-        let tree: Tree<Value> = creation_context
+        let tree: Option<Tree<Value>> = creation_context
             .storage
             .and_then(|storage| storage.get_string("tree"))
-            .and_then(|string| from_str(&string).ok())
-            .unwrap_or_else(|| Tree::new(Vec::new()));
-        let tree = tree.map_tabs(|value| SelectablePanel::new(nao.clone(), Some(value)).unwrap());
+            .and_then(|string| from_str(&string).ok());
+
+        let tree = match tree {
+            Some(tree) => {
+                tree.map_tabs(|value| SelectablePanel::new(nao.clone(), Some(value)).unwrap())
+            }
+            None => Tree::new(vec![SelectablePanel::Text(TextPanel::new(
+                nao.clone(),
+                None,
+            ))]),
+        };
 
         let connection_status = ConnectionStatus::Disconnected {
             address: None,
