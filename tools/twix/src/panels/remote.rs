@@ -43,9 +43,12 @@ impl Widget for &mut RemotePanel {
         }
 
         if let Some(gamepad) = self.active_gamepad.map(|id| self.gilrs.gamepad(id)) {
-            let left = get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0);
+            let right = get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0);
             let forward = get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0);
-            let turn = get_axis_value(gamepad, Axis::RightStickX).unwrap_or(0.0);
+            let turn_right = get_axis_value(gamepad, Axis::RightStickX).unwrap_or(0.0);
+
+            let left = -right;
+            let turn = -turn_right;
 
             let step = Step {
                 forward,
