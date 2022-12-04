@@ -6,7 +6,7 @@ use std::{
     ptr::read,
     slice::from_raw_parts,
     thread::sleep,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use color_eyre::eyre::{bail, Result, WrapErr};
@@ -14,10 +14,7 @@ use epoll::{ControlOptions, Event, Events};
 use log::{debug, error, info, warn};
 use rmp_serde::{encode::write_named, from_slice};
 
-use crate::{
-    control_frame::HulaControlFrame, listener::HulaListener, lola::LolaControlFrame,
-    robot_state::RobotState,
-};
+use crate::{control_frame::HulaControlFrame, listener::HulaListener, robot_state::RobotState};
 
 const HULA_SOCKET_PATH: &str = "/tmp/hula";
 const LOLA_SOCKET_PATH: &str = "/tmp/robocup";
@@ -61,6 +58,7 @@ impl Proxy {
     }
 
     pub fn run(mut self) -> Result<()> {
+        let proxy_start = Instant::now();
         let mut connections = HashMap::new();
         let mut events = [Event::new(Events::empty(), 0); 16];
         let mut writer = BufWriter::with_capacity(786, self.lola.try_clone()?);
@@ -68,15 +66,12 @@ impl Proxy {
         debug!("Entering epoll loop...");
         loop {
             let epoll_timeout = -1;
-            debug!("Waiting for epoll event");
             let num_events = epoll::wait(self.epoll_fd, epoll_timeout, &mut events)
                 .wrap_err("failed to wait for epoll")?;
-            debug!("Got {num_events} epoll events");
             for event in &events[0..num_events] {
                 let notified_fd = event.data as i32;
                 if notified_fd == self.lola.as_raw_fd() {
-                    debug!("LoLA Event");
-                    handle_lola_event(&mut self.lola, &mut connections)?;
+                    handle_lola_event(&mut self.lola, &mut connections, proxy_start)?;
                 } else if notified_fd == self.hula.as_raw_fd() {
                     debug!("HuLA Event");
                     register_connection(&mut self.hula, &mut connections, self.epoll_fd)?;
@@ -94,8 +89,12 @@ impl Proxy {
 fn handle_lola_event(
     lola: &mut UnixStream,
     connections: &mut HashMap<RawFd, UnixStream>,
+    proxy_start: Instant,
 ) -> Result<()> {
-    let robot_state = read_lola_message(lola).wrap_err("failed to read lola message")?;
+    let since_start = proxy_start.elapsed();
+    let mut robot_state = read_lola_message(lola).wrap_err("failed to read lola message")?;
+    robot_state.received_at = since_start.as_secs_f32();
+
     if connections.is_empty() {
         return Ok(());
     }
@@ -164,9 +163,8 @@ fn handle_connection_event(
                 return Ok(());
             };
             // reinterpret the read buffer as a ControlFrame
-            let _control_frame = unsafe { read(read_buffer.as_ptr() as *const HulaControlFrame) };
-            let lola_message = LolaControlFrame::default();
-            // TODO: merge control_message and control_frame
+            let control_frame = unsafe { read(read_buffer.as_ptr() as *const HulaControlFrame) };
+            let lola_message = control_frame.into_lola(Default::default());
             // TODO: serialize battery
             write_named(writer, &lola_message).wrap_err("failed to serialize control message")?;
             writer

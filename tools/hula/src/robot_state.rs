@@ -4,27 +4,29 @@ use serde::{Deserialize, Deserializer};
 #[derive(Debug, Default, Deserialize)]
 #[repr(C)]
 pub struct RobotState {
+    #[serde(skip)]
+    pub received_at: f32, // TODO convert to Duration?
     #[serde(rename = "RobotConfig")]
     pub robot_configuration: RobotConfiguration,
     #[serde(rename = "Battery")]
     pub battery: Battery,
     #[serde(flatten)]
     pub inertial_measurement_unit: InertialMeasurementUnit,
-    #[serde(rename="FSR")]
+    #[serde(rename = "FSR")]
     pub force_sensitive_resistors: ForceSensitiveResistors,
-    #[serde(rename="Touch")]
+    #[serde(rename = "Touch")]
     pub touch_sensors: TouchSensors,
-    #[serde(rename="Sonar")]
+    #[serde(rename = "Sonar")]
     pub sonar_sensors: SonarSensors,
-    #[serde(rename="Position")]
+    #[serde(rename = "Position")]
     pub position: JointsArray,
-    #[serde(rename="Stiffness")]
+    #[serde(rename = "Stiffness")]
     pub stiffness: JointsArray,
-    #[serde(rename="Current")]
+    #[serde(rename = "Current")]
     pub current: JointsArray,
-    #[serde(rename="Temperature")]
+    #[serde(rename = "Temperature")]
     pub temperature: JointsArray,
-    #[serde(rename="Status")]
+    #[serde(rename = "Status")]
     pub status: JointsArray,
 }
 
@@ -107,11 +109,11 @@ pub struct Battery {
 #[derive(Debug, Default, Deserialize)]
 #[repr(C)]
 pub struct InertialMeasurementUnit {
-    #[serde(rename="Accelerometer")]
+    #[serde(rename = "Accelerometer")]
     accelerometer: Vertex3,
-    #[serde(rename="Angles")]
+    #[serde(rename = "Angles")]
     angles: Vertex2,
-    #[serde(rename="Gyroscope")]
+    #[serde(rename = "Gyroscope")]
     gyroscope: Vertex3,
 }
 
@@ -131,33 +133,33 @@ pub struct ForceSensitiveResistors {
 #[derive(Debug, Default, Deserialize)]
 #[repr(C)]
 pub struct TouchSensors {
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     chest_button: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     head_front: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     head_middle: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     head_rear: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     left_foot_left: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     left_foot_right: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     left_hand_back: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     left_hand_left: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     left_hand_right: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     right_foot_left: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     right_foot_right: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     right_hand_back: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     right_hand_left: bool,
-    #[serde(deserialize_with="float_as_bool")]
+    #[serde(deserialize_with = "float_as_bool")]
     right_hand_right: bool,
 }
 
@@ -167,7 +169,6 @@ where
 {
     Ok(f32::deserialize(deserializer)? >= 0.5)
 }
-
 
 #[derive(Debug, Default, Deserialize)]
 #[repr(C)]
@@ -204,6 +205,38 @@ pub struct JointsArray {
     right_wrist_yaw: f32,
     left_hand: f32,
     right_hand: f32,
+}
+
+impl JointsArray {
+    pub fn into_lola(self) -> [f32; 25] {
+        [
+            self.head_yaw,
+            self.head_pitch,
+            self.left_shoulder_pitch,
+            self.left_shoulder_roll,
+            self.left_elbow_yaw,
+            self.left_elbow_roll,
+            self.left_wrist_yaw,
+            self.left_hip_yaw_pitch,
+            self.left_hip_roll,
+            self.left_hip_pitch,
+            self.left_knee_pitch,
+            self.left_ankle_pitch,
+            self.left_ankle_roll,
+            self.right_hip_roll,
+            self.right_hip_pitch,
+            self.right_knee_pitch,
+            self.right_ankle_pitch,
+            self.right_ankle_roll,
+            self.right_shoulder_pitch,
+            self.right_shoulder_roll,
+            self.right_elbow_yaw,
+            self.right_elbow_roll,
+            self.right_wrist_yaw,
+            self.left_hand,
+            self.right_hand,
+        ]
+    }
 }
 
 #[derive(Debug, Default, Deserialize)]
