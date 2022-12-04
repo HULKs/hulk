@@ -35,27 +35,27 @@ use serde::Serialize;
 #[allow(non_snake_case)]
 pub struct LolaControlFrame {
     #[serde(rename = "Chest")]
-    chest: [f32; 3],
+    pub chest: [f32; 3],
     #[serde(rename = "LEar")]
-    left_ear: [f32; 10],
+    pub left_ear: [f32; 10],
     #[serde(rename = "LEye")]
-    left_eye: [f32; 24],
+    pub left_eye: [f32; 24],
     #[serde(rename = "LFoot")]
-    left_foot: [f32; 3],
+    pub left_foot: [f32; 3],
     #[serde(rename = "Position")]
-    position: [f32; 25],
+    pub position: [f32; 25],
     #[serde(rename = "REar")]
-    right_ear: [f32; 10],
+    pub right_ear: [f32; 10],
     #[serde(rename = "REye")]
-    right_eye: [f32; 24],
+    pub right_eye: [f32; 24],
     #[serde(rename = "RFoot")]
-    right_foot: [f32; 3],
+    pub right_foot: [f32; 3],
     #[serde(rename = "Skull")]
-    skull: [f32; 12],
+    pub skull: [f32; 12],
     #[serde(rename = "Sonar")]
-    sonar: [bool; 2],
+    pub sonar: [bool; 2],
     #[serde(rename = "Stiffness")]
-    stiffness: [f32; 25],
+    pub stiffness: [f32; 25],
 }
 
 impl Default for LolaControlFrame {
