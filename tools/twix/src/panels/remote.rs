@@ -32,6 +32,10 @@ impl Panel for RemotePanel {
     }
 }
 
+fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
+    Some(gamepad.axis_data(axis)?.value())
+}
+
 impl Widget for &mut RemotePanel {
     fn ui(self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
         while let Some(Event { id, .. }) = self.gilrs.next_event() {
@@ -39,18 +43,9 @@ impl Widget for &mut RemotePanel {
         }
 
         if let Some(gamepad) = self.active_gamepad.map(|id| self.gilrs.gamepad(id)) {
-            let left = match gamepad.axis_data(Axis::LeftStickX) {
-                Some(data) => -data.value(), // inverted because left is negative on the joystick
-                _ => 0.0,
-            };
-            let forward = match gamepad.axis_data(Axis::LeftStickY) {
-                Some(data) => data.value(),
-                _ => 0.0,
-            };
-            let turn = match gamepad.axis_data(Axis::RightStickX) {
-                Some(data) => data.value(),
-                _ => 0.0,
-            };
+            let left = get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0);
+            let forward = get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0);
+            let turn = get_axis_value(gamepad, Axis::RightStickX).unwrap_or(0.0);
 
             let step = Step {
                 forward,
