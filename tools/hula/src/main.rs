@@ -8,6 +8,7 @@ use systemd::daemon::{notify, STATE_READY};
 use crate::proxy::Proxy;
 
 mod control_frame;
+mod idle;
 mod listener;
 mod lola;
 mod proxy;
