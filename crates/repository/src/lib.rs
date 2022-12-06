@@ -311,7 +311,7 @@ impl Repository {
 
         symlink(
             self.root
-                .join(format!("target/x86_64-aldebaran-linux-gnu/{profile}/nao")),
+                .join(format!("target/x86_64-aldebaran-linux-gnu/{profile}/hulk")),
             hulk_directory.join("bin/hulk"),
         )
         .await
