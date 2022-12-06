@@ -32,6 +32,7 @@ members = [
 # HuLA is built independently by yocto
 exclude = [
   "tools/hula",
+  "tools/aliveness",
 ]
 
 [workspace.dependencies]
