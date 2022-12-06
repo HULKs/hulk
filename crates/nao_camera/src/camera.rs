@@ -150,7 +150,6 @@ pub enum BufferError {
 pub struct Camera {
     file_descriptor: i32,
     queued_buffers: Vec<Option<Vec<u8>>>,
-    next_queued_buffer_index: usize,
 }
 
 impl Camera {
@@ -329,7 +328,6 @@ impl Camera {
         Ok(Self {
             file_descriptor,
             queued_buffers: vec![None; parameters.amount_of_buffers as usize],
-            next_queued_buffer_index: 0,
         })
     }
 
@@ -339,7 +337,6 @@ impl Camera {
 
     pub fn stop(&mut self) -> Result<Vec<Vec<u8>>, StreamingError> {
         stream_off(self.file_descriptor)?;
-        self.next_queued_buffer_index = 0;
         Ok(self
             .queued_buffers
             .iter_mut()
@@ -374,17 +371,12 @@ impl Camera {
     }
 
     pub fn queue(&mut self, buffer: Vec<u8>) -> Result<(), BufferError> {
-        let amount_of_buffers = self.queued_buffers.len();
-        let slot = &mut self.queued_buffers[self.next_queued_buffer_index];
-        if slot.is_some() {
+        let Some((buffer_index, slot)) = self.queued_buffers.iter_mut().enumerate().find(|(_index, slot)| slot.is_none()) else {
             return Err(BufferError::NoSlotAvailable {
                 non_fitting_buffer: buffer,
             });
-        }
+        };
         *slot = Some(buffer);
-        let buffer_index = self.next_queued_buffer_index;
-        self.next_queued_buffer_index += 1;
-        self.next_queued_buffer_index %= amount_of_buffers;
         queue(
             self.file_descriptor,
             buffer_index as u32,
