@@ -202,8 +202,13 @@ impl Modules {
                 }
             }
 
-            module_names.clear();
+            let unsorted_module_names: Vec<_> = module_names.drain(..).collect();
             module_names.extend(topological_sort);
+            for module_name in unsorted_module_names {
+                if !module_names.contains(&module_name) {
+                    module_names.push(module_name);
+                }
+            }
         }
 
         Ok(())
