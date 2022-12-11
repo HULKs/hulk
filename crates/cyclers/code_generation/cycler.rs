@@ -291,19 +291,13 @@ impl Cycler<'_> {
     }
 
     pub fn get_interpreted_modules(&self) -> Vec<Module> {
-        self.get_modules()
-            .modules
+        let modules = self.get_modules();
+        modules.cycler_modules_to_modules[self.get_cycler_module_name()]
             .iter()
-            .filter_map(|(module_name, module)| {
-                if module.cycler_module != self.get_cycler_module_name() {
-                    return None;
-                }
-
-                Some(Module {
-                    cycler_instances: self.get_cycler_instances(),
-                    module_name,
-                    module,
-                })
+            .map(|module_name| Module {
+                cycler_instances: self.get_cycler_instances(),
+                module_name,
+                module: modules.modules.get(module_name).expect("missing module"),
             })
             .collect()
     }
