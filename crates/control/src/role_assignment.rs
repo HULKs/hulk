@@ -11,7 +11,7 @@ use types::{
 pub struct RoleAssignment {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub forced_role: Parameter<Option<Role>, "control/role_assignment/forced_role?">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
@@ -45,7 +45,7 @@ pub struct MainOutputs {
 }
 
 impl RoleAssignment {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

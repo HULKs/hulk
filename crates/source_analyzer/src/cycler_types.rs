@@ -34,7 +34,7 @@ impl CyclerTypes {
                         modules.modules.values().any(|module| {
                             module
                                 .contexts
-                                .new_context
+                                .creation_context
                                 .iter()
                                 .chain(module.contexts.cycle_context.iter())
                                 .any(|field| match field {

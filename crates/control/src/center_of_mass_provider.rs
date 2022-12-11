@@ -7,7 +7,7 @@ use types::RobotKinematics;
 pub struct CenterOfMassProvider {}
 
 #[context]
-pub struct NewContext {}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -21,7 +21,7 @@ pub struct MainOutputs {
 }
 
 impl CenterOfMassProvider {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

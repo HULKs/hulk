@@ -6,7 +6,7 @@ use types::{SensorData, SolePressure};
 pub struct SolePressureFilter {}
 
 #[context]
-pub struct NewContext {}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -20,7 +20,7 @@ pub struct MainOutputs {
 }
 
 impl SolePressureFilter {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

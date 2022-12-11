@@ -6,7 +6,7 @@ use types::{Joints, MotionCommand, MotionSafeExits, MotionSelection, SensorData}
 pub struct StandUpFront {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub gyro_low_pass_filter_coefficient:
         Parameter<f32, "control/stand_up/gyro_low_pass_filter_coefficient">,
     pub gyro_low_pass_filter_tolerance:
@@ -36,7 +36,7 @@ pub struct MainOutputs {
 }
 
 impl StandUpFront {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

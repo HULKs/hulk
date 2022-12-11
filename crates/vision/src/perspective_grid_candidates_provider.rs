@@ -6,7 +6,7 @@ use types::{CameraMatrix, FilteredSegments, LineData, PerspectiveGridCandidates}
 pub struct PerspectiveGridCandidatesProvider {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub ball_radius: Parameter<f32, "field_dimensions/ball_radius">,
     pub fallback_radius:
         Parameter<f32, "perspective_grid_candidates_provider/$cycler_instance/fallback_radius">,
@@ -34,7 +34,7 @@ pub struct MainOutputs {
 }
 
 impl PerspectiveGridCandidatesProvider {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

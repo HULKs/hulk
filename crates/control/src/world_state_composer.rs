@@ -11,7 +11,7 @@ use types::{
 pub struct WorldStateComposer {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub player_number: Parameter<PlayerNumber, "player_number">,
 }
 
@@ -41,7 +41,7 @@ pub struct MainOutputs {
 }
 
 impl WorldStateComposer {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

@@ -6,7 +6,7 @@ use types::hardware::{IncomingMessage, Interface};
 pub struct MessageReceiver {}
 
 #[context]
-pub struct NewContext {}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -19,7 +19,7 @@ pub struct MainOutputs {
 }
 
 impl MessageReceiver {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

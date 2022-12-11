@@ -8,7 +8,7 @@ use types::{
 pub struct PenaltyShotDirectionEstimation {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub moving_distance_threshold:
         Parameter<f32, "control/penalty_shot_direction_estimation/moving_distance_threshold">,
@@ -32,7 +32,7 @@ pub struct MainOutputs {
 }
 
 impl PenaltyShotDirectionEstimation {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

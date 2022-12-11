@@ -11,7 +11,7 @@ use types::{
 pub struct RobotDetection {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub amount_of_segments_factor:
         Parameter<f32, "robot_detection/$cycler_instance/amount_of_segments_factor">,
     pub amount_score_exponent:
@@ -82,7 +82,7 @@ pub struct MainOutputs {
 }
 
 impl RobotDetection {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

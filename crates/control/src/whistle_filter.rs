@@ -6,7 +6,7 @@ use types::{FilteredWhistle, SensorData, Whistle};
 pub struct WhistleFilter {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub buffer_length: Parameter<usize, "control/whistle_filter/buffer_length">,
     pub minimum_detections: Parameter<usize, "control/whistle_filter/minimum_detections">,
 }
@@ -27,7 +27,7 @@ pub struct MainOutputs {
 }
 
 impl WhistleFilter {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

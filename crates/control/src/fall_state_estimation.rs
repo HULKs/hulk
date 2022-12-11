@@ -9,7 +9,7 @@ use types::{
 pub struct FallStateEstimation {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub fall_state_estimation:
         Parameter<FallStateEstimationConfiguration, "control/fall_state_estimation">,
 }
@@ -38,7 +38,7 @@ pub struct MainOutputs {
 }
 
 impl FallStateEstimation {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

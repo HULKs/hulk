@@ -8,7 +8,7 @@ pub struct JointCommandSender {
 }
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub center_head_position: Parameter<HeadJoints, "control/center_head_position">,
     pub penalized_pose: Parameter<Joints, "control/penalized_pose">,
     pub ready_pose: Parameter<Joints, "control/ready_pose">,
@@ -46,7 +46,7 @@ pub struct MainOutputs {
 }
 
 impl JointCommandSender {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_average_color: Default::default(),
         })

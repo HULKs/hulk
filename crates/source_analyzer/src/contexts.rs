@@ -16,7 +16,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Contexts {
-    pub new_context: Vec<Field>,
+    pub creation_context: Vec<Field>,
     pub cycle_context: Vec<Field>,
     pub main_outputs: Vec<Field>,
 }
@@ -27,7 +27,7 @@ impl Contexts {
         P: AsRef<Path>,
     {
         let uses = uses_from_items(&file.items);
-        let mut new_context = vec![];
+        let mut creation_context = vec![];
         let mut cycle_context = vec![];
         let mut main_outputs = vec![];
         for item in file.items.iter() {
@@ -48,8 +48,8 @@ impl Contexts {
                         .collect::<Result<_, _>>()
                         .wrap_err("failed to gather context fields")?;
                     match struct_item.ident.to_string().as_str() {
-                        "NewContext" => {
-                            new_context.append(&mut fields);
+                        "CreationContext" => {
+                            creation_context.append(&mut fields);
                         }
                         "CycleContext" => {
                             cycle_context.append(&mut fields);
@@ -60,7 +60,7 @@ impl Contexts {
                         _ => {
                             return new_syn_error_as_eyre_result(
                                 struct_item.ident.span(),
-                                "expected `NewContext`, `CycleContext`, or `MainOutputs`",
+                                "expected `CreationContext`, `CycleContext`, or `MainOutputs`",
                                 file_path,
                             );
                         }
@@ -71,7 +71,7 @@ impl Contexts {
         }
 
         Ok(Self {
-            new_context,
+            creation_context,
             cycle_context,
             main_outputs,
         })

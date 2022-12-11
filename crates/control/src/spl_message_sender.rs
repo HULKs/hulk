@@ -12,7 +12,7 @@ pub struct SplMessageSender;
 impl SplMessageSender {}
 
 impl SplMessageSender {
-    fn new(_context: NewContext) -> Result<Self> {
+    fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self)
     }
 

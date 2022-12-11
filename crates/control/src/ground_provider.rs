@@ -7,7 +7,7 @@ use types::{RobotKinematics, SensorData, SupportFoot};
 pub struct GroundProvider {}
 
 #[context]
-pub struct NewContext {}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -24,7 +24,7 @@ pub struct MainOutputs {
 }
 
 impl GroundProvider {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

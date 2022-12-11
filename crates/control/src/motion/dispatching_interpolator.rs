@@ -8,7 +8,7 @@ use types::{
 pub struct DispatchingInterpolator {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub penalized_pose: Parameter<Joints, "control/penalized_pose">,
     pub ready_pose: Parameter<Joints, "control/ready_pose">,
 
@@ -42,7 +42,7 @@ pub struct MainOutputs {
 }
 
 impl DispatchingInterpolator {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

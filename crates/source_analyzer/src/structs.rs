@@ -62,7 +62,7 @@ impl Structs {
                     }
                 }
                 for field in contexts
-                    .new_context
+                    .creation_context
                     .iter()
                     .chain(contexts.cycle_context.iter())
                 {
@@ -172,7 +172,7 @@ impl Structs {
                         | Field::PerceptionInput { .. }
                         | Field::RequiredInput { .. } => {}
                         _ => {
-                            bail!("unexpected field {field:?} in `NewContext` or `CycleContext`");
+                            bail!("unexpected field {field:?} in `CreationContext` or `CycleContext`");
                         }
                     }
                 }

@@ -6,7 +6,7 @@ use types::{HeadJoints, HeadJointsCommand, MotionCommand, SensorData};
 pub struct HeadMotion {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub center_head_position: Parameter<HeadJoints, "control/center_head_position">,
     pub inner_maximum_pitch: Parameter<f32, "control/head_motion/inner_maximum_pitch">,
     pub maximum_velocity: Parameter<HeadJoints, "control/head_motion/maximum_velocity">,
@@ -35,7 +35,7 @@ pub struct MainOutputs {
 }
 
 impl HeadMotion {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

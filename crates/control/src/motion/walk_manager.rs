@@ -6,7 +6,7 @@ use types::{MotionCommand, MotionSelection, Step, WalkCommand};
 pub struct WalkManager {}
 
 #[context]
-pub struct NewContext {}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -22,7 +22,7 @@ pub struct MainOutputs {
 }
 
 impl WalkManager {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 
