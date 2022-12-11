@@ -11,14 +11,14 @@ pub struct PenaltyShotDirectionEstimation {}
 pub struct CreationContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub moving_distance_threshold:
-        Parameter<f32, "control/penalty_shot_direction_estimation/moving_distance_threshold">,
+        Parameter<f32, "control.penalty_shot_direction_estimation.moving_distance_threshold">,
 }
 
 #[context]
 pub struct CycleContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub moving_distance_threshold:
-        Parameter<f32, "control/penalty_shot_direction_estimation/moving_distance_threshold">,
+        Parameter<f32, "control.penalty_shot_direction_estimation.moving_distance_threshold">,
 
     pub ball_position: RequiredInput<Option<BallPosition>, "ball_position?">,
     pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,

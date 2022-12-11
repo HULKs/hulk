@@ -11,7 +11,7 @@ pub struct OrientationFilter {}
 
 #[context]
 pub struct CreationContext {
-    pub orientation_filter: Parameter<OrientationFilterConfiguration, "control/orientation_filter">,
+    pub orientation_filter: Parameter<OrientationFilterConfiguration, "control.orientation_filter">,
 }
 
 #[context]
@@ -20,7 +20,7 @@ pub struct CycleContext {
     pub sole_pressure: Input<SolePressure, "sole_pressure">,
     pub support_foot: RequiredInput<Option<SupportFoot>, "support_foot?">,
 
-    pub orientation_filter: Parameter<OrientationFilterConfiguration, "control/orientation_filter">,
+    pub orientation_filter: Parameter<OrientationFilterConfiguration, "control.orientation_filter">,
 }
 
 #[context]

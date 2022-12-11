@@ -8,7 +8,7 @@ pub struct LookAt {}
 
 #[context]
 pub struct CreationContext {
-    pub minimum_bottom_focus_pitch: Parameter<f32, "control/look_at/minimum_bottom_focus_pitch">,
+    pub minimum_bottom_focus_pitch: Parameter<f32, "control.look_at.minimum_bottom_focus_pitch">,
 }
 
 #[context]
@@ -19,7 +19,7 @@ pub struct CycleContext {
     pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     pub sensor_data: Input<SensorData, "sensor_data">,
 
-    pub minimum_bottom_focus_pitch: Parameter<f32, "control/look_at/minimum_bottom_focus_pitch">,
+    pub minimum_bottom_focus_pitch: Parameter<f32, "control.look_at.minimum_bottom_focus_pitch">,
 }
 
 #[context]

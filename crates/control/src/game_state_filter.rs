@@ -12,7 +12,7 @@ pub struct GameStateFilter {}
 
 #[context]
 pub struct CreationContext {
-    pub config: Parameter<GameStateFilterConfiguration, "control/game_state_filter">,
+    pub config: Parameter<GameStateFilterConfiguration, "control.game_state_filter">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
 
@@ -27,7 +27,7 @@ pub struct CycleContext {
     pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     pub sensor_data: Input<SensorData, "sensor_data">,
 
-    pub config: Parameter<GameStateFilterConfiguration, "control/game_state_filter">,
+    pub config: Parameter<GameStateFilterConfiguration, "control.game_state_filter">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
 

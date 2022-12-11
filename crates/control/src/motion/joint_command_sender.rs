@@ -9,16 +9,16 @@ pub struct JointCommandSender {
 
 #[context]
 pub struct CreationContext {
-    pub center_head_position: Parameter<HeadJoints, "control/center_head_position">,
-    pub penalized_pose: Parameter<Joints, "control/penalized_pose">,
-    pub ready_pose: Parameter<Joints, "control/ready_pose">,
+    pub center_head_position: Parameter<HeadJoints, "control.center_head_position">,
+    pub penalized_pose: Parameter<Joints, "control.penalized_pose">,
+    pub ready_pose: Parameter<Joints, "control.ready_pose">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub center_head_position: Parameter<HeadJoints, "control/center_head_position">,
-    pub penalized_pose: Parameter<Joints, "control/penalized_pose">,
-    pub ready_pose: Parameter<Joints, "control/ready_pose">,
+    pub center_head_position: Parameter<HeadJoints, "control.center_head_position">,
+    pub penalized_pose: Parameter<Joints, "control.penalized_pose">,
+    pub ready_pose: Parameter<Joints, "control.ready_pose">,
 
     // pub arms_up_squat_joints_command:
     //     RequiredInput<Option<JointsCommand>, "arms_up_squat_joints_command?">,

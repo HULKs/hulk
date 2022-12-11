@@ -7,12 +7,12 @@ pub struct SupportFootEstimation {}
 
 #[context]
 pub struct CreationContext {
-    pub hysteresis: Parameter<f32, "control/support_foot_estimation/hysteresis">,
+    pub hysteresis: Parameter<f32, "control.support_foot_estimation.hysteresis">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub hysteresis: Parameter<f32, "control/support_foot_estimation/hysteresis">,
+    pub hysteresis: Parameter<f32, "control.support_foot_estimation.hysteresis">,
 
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub sensor_data: Input<SensorData, "sensor_data">,

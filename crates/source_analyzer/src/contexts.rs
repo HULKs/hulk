@@ -399,7 +399,7 @@ where
                     },
                 ))) => Ok((
                     type_argument.clone(),
-                    literal_argument.token().to_string().trim_matches('"').split('/').map(PathSegment::from).collect(),
+                    literal_argument.token().to_string().trim_matches('"').split('.').map(PathSegment::from).collect(),
                 )),
                 _ => new_syn_error_as_eyre_result(
                     arguments.span(),
@@ -444,7 +444,7 @@ where
                 ))) => Ok((
                     type_argument.clone(),
                     first_literal_argument.token().to_string().trim_matches('"').to_string(),
-                    second_literal_argument.token().to_string().trim_matches('"').split('/').map(PathSegment::from).collect(),
+                    second_literal_argument.token().to_string().trim_matches('"').split('.').map(PathSegment::from).collect(),
                 )),
                 _ => new_syn_error_as_eyre_result(
                     arguments.span(),
@@ -476,7 +476,7 @@ mod tests {
         let type_option_usize: Type = parse_str("Option<usize>").unwrap();
 
         // without optionals
-        let field = "AdditionalOutput<usize, \"a/b/c\">";
+        let field = "AdditionalOutput<usize, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -506,7 +506,7 @@ mod tests {
         }
 
         // optionals are not supported
-        let field = "AdditionalOutput<usize, \"a/b?/c\">";
+        let field = "AdditionalOutput<usize, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         assert!(Field::try_from_field(
@@ -517,7 +517,7 @@ mod tests {
         .is_err());
 
         // without optionals
-        let field = "HistoricInput<Option<usize>, \"a/b/c\">";
+        let field = "HistoricInput<Option<usize>, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -547,7 +547,7 @@ mod tests {
         }
 
         // with optionals
-        let field = "HistoricInput<Option<usize>, \"a/b?/c\">";
+        let field = "HistoricInput<Option<usize>, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -608,7 +608,7 @@ mod tests {
         }
 
         // from own cycler
-        let field = "Input<Option<usize>, \"a/b?/c\">";
+        let field = "Input<Option<usize>, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -639,7 +639,7 @@ mod tests {
         }
 
         // from foreign cycler
-        let field = "Input<Option<usize>, \"Control\", \"a/b?/c\">";
+        let field = "Input<Option<usize>, \"Control\", \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -671,7 +671,7 @@ mod tests {
         }
 
         // optionals are supported
-        let field = "Input<Option<usize>, \"a/b/c\">";
+        let field = "Input<Option<usize>, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         assert!(Field::try_from_field(
@@ -682,7 +682,7 @@ mod tests {
         .is_ok());
 
         // without optionals
-        let field = "Parameter<usize, \"a/b/c\">";
+        let field = "Parameter<usize, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -712,7 +712,7 @@ mod tests {
         }
 
         // with optionals and Option<T> data type
-        let field = "Parameter<Option<usize>, \"a/b?/c\">";
+        let field = "Parameter<Option<usize>, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -742,7 +742,7 @@ mod tests {
         }
 
         // without optionals
-        let field = "PerceptionInput<usize, \"Control\", \"a/b/c\">";
+        let field = "PerceptionInput<usize, \"Control\", \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -774,7 +774,7 @@ mod tests {
         }
 
         // with optionals and Option<T> data type
-        let field = "PerceptionInput<Option<usize>, \"Control\", \"a/b?/c\">";
+        let field = "PerceptionInput<Option<usize>, \"Control\", \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -806,7 +806,7 @@ mod tests {
         }
 
         // without optionals
-        let field = "PersistentState<usize, \"a/b/c\">";
+        let field = "PersistentState<usize, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -836,7 +836,7 @@ mod tests {
         }
 
         // optionals are supported
-        let field = "PersistentState<usize, \"a/b?/c\">";
+        let field = "PersistentState<usize, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         assert!(Field::try_from_field(
@@ -847,7 +847,7 @@ mod tests {
         .is_ok());
 
         // from own cycler, without optionals
-        let field = "RequiredInput<usize, \"a/b/c\">";
+        let field = "RequiredInput<usize, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         assert!(Field::try_from_field(
@@ -858,7 +858,7 @@ mod tests {
         .is_err());
 
         // from own cycler, with optionals but without Option<T> data type
-        let field = "RequiredInput<usize, \"a/b?/c\">";
+        let field = "RequiredInput<usize, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -889,7 +889,7 @@ mod tests {
         }
 
         // from foreign cycler, without optionals
-        let field = "RequiredInput<usize, \"Control\", \"a/b/c\">";
+        let field = "RequiredInput<usize, \"Control\", \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         assert!(Field::try_from_field(
@@ -900,7 +900,7 @@ mod tests {
         .is_err());
 
         // from foreign cycler, with optionals but without Option<T> data type
-        let field = "RequiredInput<usize, \"Control\", \"a/b?/c\">";
+        let field = "RequiredInput<usize, \"Control\", \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(

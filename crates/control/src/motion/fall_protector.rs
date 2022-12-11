@@ -9,7 +9,7 @@ pub struct FallProtector {}
 
 #[context]
 pub struct CreationContext {
-    pub fall_protection: Parameter<FallProtection, "control/fall_protection">,
+    pub fall_protection: Parameter<FallProtection, "control.fall_protection">,
 }
 
 #[context]
@@ -18,7 +18,7 @@ pub struct CycleContext {
     pub motion_selection: RequiredInput<Option<MotionSelection>, "motion_selection?">,
     pub sensor_data: Input<SensorData, "sensor_data">,
 
-    pub fall_protection: Parameter<FallProtection, "control/fall_protection">,
+    pub fall_protection: Parameter<FallProtection, "control.fall_protection">,
 }
 
 #[context]

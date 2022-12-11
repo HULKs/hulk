@@ -11,7 +11,7 @@ pub struct FallStateEstimation {}
 #[context]
 pub struct CreationContext {
     pub fall_state_estimation:
-        Parameter<FallStateEstimationConfiguration, "control/fall_state_estimation">,
+        Parameter<FallStateEstimationConfiguration, "control.fall_state_estimation">,
 }
 
 #[context]
@@ -25,7 +25,7 @@ pub struct CycleContext {
     pub forward_gravitational_difference: AdditionalOutput<f32, "forward_gravitational_difference">,
 
     pub fall_state_estimation:
-        Parameter<FallStateEstimationConfiguration, "control/fall_state_estimation">,
+        Parameter<FallStateEstimationConfiguration, "control.fall_state_estimation">,
 
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub sensor_data: Input<SensorData, "sensor_data">,
