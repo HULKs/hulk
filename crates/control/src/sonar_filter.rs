@@ -6,7 +6,7 @@ use types::{FallState, SensorData, SonarObstacle, SonarValues};
 pub struct SonarFilter {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub low_pass_filter_coefficient:
         Parameter<f32, "control/sonar_filter/low_pass_filter_coefficient">,
     pub maximal_detectable_distance:
@@ -39,7 +39,7 @@ pub struct MainOutputs {
 }
 
 impl SonarFilter {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

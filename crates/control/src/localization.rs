@@ -12,7 +12,7 @@ use types::{
 pub struct Localization {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub circle_measurement_noise:
         Parameter<Vector2<f32>, "control/localization/circle_measurement_noise">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -107,7 +107,7 @@ pub struct MainOutputs {
 }
 
 impl Localization {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

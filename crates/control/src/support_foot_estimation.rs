@@ -6,7 +6,7 @@ use types::{SensorData, SupportFoot};
 pub struct SupportFootEstimation {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub hysteresis: Parameter<f32, "control/support_foot_estimation/hysteresis">,
 }
 
@@ -25,7 +25,7 @@ pub struct MainOutputs {
 }
 
 impl SupportFootEstimation {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

@@ -6,7 +6,7 @@ use types::{JointsCommand, MotionSafeExits, MotionSelection, SensorData};
 pub struct ArmsUpSquat {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
@@ -25,7 +25,7 @@ pub struct MainOutputs {
 }
 
 impl ArmsUpSquat {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

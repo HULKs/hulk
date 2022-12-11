@@ -10,7 +10,7 @@ use types::{
 pub struct OrientationFilter {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub orientation_filter: Parameter<OrientationFilterConfiguration, "control/orientation_filter">,
 }
 
@@ -30,7 +30,7 @@ pub struct MainOutputs {
 }
 
 impl OrientationFilter {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

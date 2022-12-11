@@ -48,7 +48,7 @@ impl Module<'_> {
         let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
         self.module
             .contexts
-            .new_context
+            .creation_context
             .iter()
             .map(|field| match field {
                 Field::AdditionalOutput { name, .. } => {
@@ -117,7 +117,7 @@ impl Module<'_> {
 
         Ok(quote! {
             let #module_name_identifier_snake_case = #cycler_module_name_identifier::#(#path_segments::)*#module_name_identifier::new(
-                #cycler_module_name_identifier::#(#path_segments::)*NewContext {
+                #cycler_module_name_identifier::#(#path_segments::)*CreationContext {
                     #(#field_initializers,)*
                 },
             )

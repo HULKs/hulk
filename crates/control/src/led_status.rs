@@ -6,7 +6,7 @@ use types::{Ball, Leds, PrimaryState, SensorData};
 pub struct LedStatus {}
 
 #[context]
-pub struct NewContext {}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -24,7 +24,7 @@ pub struct MainOutputs {
 }
 
 impl LedStatus {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

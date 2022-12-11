@@ -11,7 +11,7 @@ use types::{
 pub struct GameStateFilter {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub config: Parameter<GameStateFilterConfiguration, "control/game_state_filter">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
@@ -41,7 +41,7 @@ pub struct MainOutputs {
 }
 
 impl GameStateFilter {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

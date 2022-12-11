@@ -11,7 +11,7 @@ use types::{
 pub struct Behavior {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub behavior: Parameter<BehaviorConfiguration, "control/behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub lost_ball_parameters: Parameter<LostBall, "control/behavior/lost_ball">,
@@ -40,7 +40,7 @@ pub struct MainOutputs {
 }
 
 impl Behavior {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

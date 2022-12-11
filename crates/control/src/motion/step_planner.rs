@@ -6,7 +6,7 @@ use types::{MotionCommand, SensorData, Step, SupportFoot};
 pub struct StepPlanner {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub injected_step: Parameter<Option<Step>, "control/step_planner/injected_step?">,
     pub inside_turn_ratio: Parameter<f32, "control/step_planner/inside_turn_ratio">,
     pub max_step_size: Parameter<Step, "control/step_planner/max_step_size">,
@@ -40,7 +40,7 @@ pub struct MainOutputs {
 }
 
 impl StepPlanner {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

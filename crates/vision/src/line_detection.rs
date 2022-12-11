@@ -8,7 +8,7 @@ use types::{CameraMatrix, FilteredSegments, ImageLines, LineData};
 pub struct LineDetection {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub allowed_line_length_in_field:
         Parameter<Range<f32>, "line_detection/$cycler_instance/allowed_line_length_in_field">,
     pub check_line_distance: Parameter<bool, "line_detection/$cycler_instance/check_line_distance">,
@@ -63,7 +63,7 @@ pub struct MainOutputs {
 }
 
 impl LineDetection {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

@@ -7,7 +7,7 @@ use types::{CameraMatrices, HeadJoints, MotionCommand, RobotKinematics, SensorDa
 pub struct LookAt {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub minimum_bottom_focus_pitch: Parameter<f32, "control/look_at/minimum_bottom_focus_pitch">,
 }
 
@@ -29,7 +29,7 @@ pub struct MainOutputs {
 }
 
 impl LookAt {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

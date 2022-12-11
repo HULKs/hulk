@@ -10,7 +10,7 @@ use types::{
 pub struct WalkingEngine {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub config: Parameter<WalkingEngineConfiguration, "control/walking_engine">,
     pub kick_steps: Parameter<KickSteps, "control/kick_steps">,
     pub ready_pose: Parameter<Joints, "control/ready_pose">,
@@ -45,7 +45,7 @@ pub struct MainOutputs {
 }
 
 impl WalkingEngine {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

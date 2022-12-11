@@ -8,7 +8,7 @@ use types::{
 pub struct LookAround {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub config: Parameter<LookAroundConfiguration, "control/look_around">,
 }
 
@@ -27,7 +27,7 @@ pub struct MainOutputs {
 }
 
 impl LookAround {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

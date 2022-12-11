@@ -12,7 +12,7 @@ use types::{
 pub struct BallFilter {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub hidden_validity_exponential_decay_factor:
         Parameter<f32, "control/ball_filter/hidden_validity_exponential_decay_factor">,
@@ -71,7 +71,7 @@ pub struct MainOutputs {
 }
 
 impl BallFilter {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

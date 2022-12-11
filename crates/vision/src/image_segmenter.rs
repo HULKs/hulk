@@ -12,7 +12,7 @@ use types::{
 pub struct ImageSegmenter {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub vertical_edge_detection_source: Parameter<
         EdgeDetectionSource,
         "image_segmenter/$cycler_instance/vertical_edge_detection_source",
@@ -50,7 +50,7 @@ pub struct MainOutputs {
 }
 
 impl ImageSegmenter {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

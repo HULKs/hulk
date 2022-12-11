@@ -8,7 +8,7 @@ use types::{SensorData, SolePressure};
 pub struct GroundContactDetector {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub hysteresis: Parameter<f32, "control/ground_contact_detector/hysteresis">,
     pub pressure_threshold: Parameter<f32, "control/ground_contact_detector/pressure_threshold">,
     pub timeout: Parameter<Duration, "control/ground_contact_detector/timeout">,
@@ -31,7 +31,7 @@ pub struct MainOutputs {
 }
 
 impl GroundContactDetector {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

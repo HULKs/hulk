@@ -7,7 +7,7 @@ use types::{CameraMatrix, FieldBorder, ImageSegments};
 pub struct FieldBorderDetection {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub angle_threshold: Parameter<f32, "field_border_detection/$cycler_instance/angle_threshold">,
     pub first_line_association_distance:
         Parameter<f32, "field_border_detection/$cycler_instance/first_line_association_distance">,
@@ -42,7 +42,7 @@ pub struct MainOutputs {
 }
 
 impl FieldBorderDetection {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

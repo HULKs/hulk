@@ -9,7 +9,7 @@ pub struct MessageFilter {
 }
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub hardware_interface: HardwareInterface,
     pub initial_value: Parameter<usize, "message_receiver/initial_value">,
     pub value: PersistentState<usize, "message_receiver/value">,
@@ -38,7 +38,7 @@ pub struct MainOutputs {
 }
 
 impl MessageFilter {
-    pub fn new(context: NewContext<impl Interface>) -> Result<Self> {
+    pub fn new(context: CreationContext<impl Interface>) -> Result<Self> {
         // context.hardware_interface.print_number(42);
         *context.value = 42;
         Ok(Self {

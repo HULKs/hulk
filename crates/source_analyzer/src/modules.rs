@@ -151,7 +151,7 @@ impl Modules {
             for consuming_module_name in module_names.iter() {
                 for field in self.modules[consuming_module_name]
                     .contexts
-                    .new_context
+                    .creation_context
                     .iter()
                     .chain(
                         self.modules[consuming_module_name]

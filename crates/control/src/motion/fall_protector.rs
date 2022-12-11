@@ -8,7 +8,7 @@ use types::{
 pub struct FallProtector {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub fall_protection: Parameter<FallProtection, "control/fall_protection">,
 }
 
@@ -28,7 +28,7 @@ pub struct MainOutputs {
 }
 
 impl FallProtector {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

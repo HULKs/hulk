@@ -6,7 +6,7 @@ use types::FieldColor;
 pub struct FieldColorDetection {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub blue_chromaticity_threshold:
         Parameter<f32, "field_color_detection/$cycler_instance/blue_chromaticity_threshold">,
     pub green_luminance_threshold:
@@ -40,7 +40,7 @@ pub struct MainOutputs {
 }
 
 impl FieldColorDetection {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

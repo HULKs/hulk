@@ -9,7 +9,7 @@ use types::{
 pub struct ObstacleFilter {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub goal_post_obstacle_radius:
         Parameter<f32, "control/obstacle_filter/goal_post_obstacle_radius">,
@@ -60,7 +60,7 @@ pub struct MainOutputs {
 }
 
 impl ObstacleFilter {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

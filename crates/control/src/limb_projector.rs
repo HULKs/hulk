@@ -7,7 +7,7 @@ use types::{CameraMatrices, ProjectedLimbs, RobotKinematics};
 pub struct LimbProjector {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub foot_bounding_polygon:
         Parameter<Vec<Point3<f32>>, "control/projected_limbs/foot_bounding_polygon">,
     pub knee_bounding_polygon:
@@ -44,7 +44,7 @@ pub struct MainOutputs {
 }
 
 impl LimbProjector {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

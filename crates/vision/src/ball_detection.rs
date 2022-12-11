@@ -9,7 +9,7 @@ use types::{
 pub struct BallDetection {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     // TODO: remove these configuration structs and explicitely list parameters
     pub ball_detection: Parameter<BallDetectionConfiguration, "ball_detection/$cycler_instance">,
     pub ball_radius: Parameter<f32, "field_dimensions/ball_radius">,
@@ -34,7 +34,7 @@ pub struct MainOutputs {
 }
 
 impl BallDetection {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

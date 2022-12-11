@@ -8,7 +8,7 @@ use types::{Buttons, SensorData};
 pub struct ButtonFilter {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub calibration_buttons_timeout:
         Parameter<Duration, "control/button_filter/calibration_buttons_timeout">,
     pub head_buttons_timeout: Parameter<Duration, "control/button_filter/head_buttons_timeout">,
@@ -30,7 +30,7 @@ pub struct MainOutputs {
 }
 
 impl ButtonFilter {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

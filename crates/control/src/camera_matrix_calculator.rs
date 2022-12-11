@@ -10,7 +10,7 @@ use types::{
 pub struct CameraMatrixCalculator {}
 
 #[context]
-pub struct NewContext {
+pub struct CreationContext {
     pub bottom_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters/vision_bottom">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -39,7 +39,7 @@ pub struct MainOutputs {
 }
 
 impl CameraMatrixCalculator {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 

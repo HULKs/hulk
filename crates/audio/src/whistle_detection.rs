@@ -8,7 +8,7 @@ use types::Whistle;
 pub struct WhistleDetection {}
 
 #[context]
-pub struct NewContext {}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -31,7 +31,7 @@ pub struct MainOutputs {
 }
 
 impl WhistleDetection {
-    pub fn new(_context: NewContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
     pub fn cycle(&mut self, _context: CycleContext) -> Result<MainOutputs> {
@@ -72,7 +72,7 @@ pub struct WhistleDetection {
 impl WhistleDetection {}
 
 impl WhistleDetection {
-    fn new(_context: NewContext) -> Result<Self> {
+    fn new(_context: CreationContext) -> Result<Self> {
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(NUMBER_OF_AUDIO_SAMPLES);
         Ok(Self { fft })
