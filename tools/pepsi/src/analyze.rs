@@ -27,6 +27,7 @@ pub enum Arguments {
         file_name: String,
     },
     DumpModules,
+    DumpSortedModules,
     DumpStructs,
 }
 
@@ -85,6 +86,12 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> Result<()
         Arguments::DumpModules => {
             let modules = Modules::try_from_crates_directory(repository.crates_directory())
                 .wrap_err("failed to get modules")?;
+            println!("{modules:#?}");
+        }
+        Arguments::DumpSortedModules => {
+            let mut modules = Modules::try_from_crates_directory(repository.crates_directory())
+                .wrap_err("failed to get modules")?;
+            modules.sort().wrap_err("failed to sort modules")?;
             println!("{modules:#?}");
         }
         Arguments::DumpStructs => {
