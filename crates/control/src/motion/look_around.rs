@@ -9,12 +9,12 @@ pub struct LookAround {}
 
 #[context]
 pub struct CreationContext {
-    pub config: Parameter<LookAroundConfiguration, "control/look_around">,
+    pub config: Parameter<LookAroundConfiguration, "control.look_around">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub config: Parameter<LookAroundConfiguration, "control/look_around">,
+    pub config: Parameter<LookAroundConfiguration, "control.look_around">,
 
     pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command?">,
     pub sensor_data: Input<SensorData, "sensor_data">,

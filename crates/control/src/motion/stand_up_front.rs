@@ -8,9 +8,9 @@ pub struct StandUpFront {}
 #[context]
 pub struct CreationContext {
     pub gyro_low_pass_filter_coefficient:
-        Parameter<f32, "control/stand_up/gyro_low_pass_filter_coefficient">,
+        Parameter<f32, "control.stand_up.gyro_low_pass_filter_coefficient">,
     pub gyro_low_pass_filter_tolerance:
-        Parameter<f32, "control/stand_up/gyro_low_pass_filter_tolerance">,
+        Parameter<f32, "control.stand_up.gyro_low_pass_filter_tolerance">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
@@ -22,9 +22,9 @@ pub struct CycleContext {
     pub sensor_data: Input<SensorData, "sensor_data">,
 
     pub gyro_low_pass_filter_coefficient:
-        Parameter<f32, "control/stand_up/gyro_low_pass_filter_coefficient">,
+        Parameter<f32, "control.stand_up.gyro_low_pass_filter_coefficient">,
     pub gyro_low_pass_filter_tolerance:
-        Parameter<f32, "control/stand_up/gyro_low_pass_filter_tolerance">,
+        Parameter<f32, "control.stand_up.gyro_low_pass_filter_tolerance">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }

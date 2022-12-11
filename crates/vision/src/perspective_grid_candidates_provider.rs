@@ -7,11 +7,11 @@ pub struct PerspectiveGridCandidatesProvider {}
 
 #[context]
 pub struct CreationContext {
-    pub ball_radius: Parameter<f32, "field_dimensions/ball_radius">,
+    pub ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
     pub fallback_radius:
-        Parameter<f32, "perspective_grid_candidates_provider/$cycler_instance/fallback_radius">,
+        Parameter<f32, "perspective_grid_candidates_provider.$cycler_instance.fallback_radius">,
     pub minimum_radius:
-        Parameter<f32, "perspective_grid_candidates_provider/$cycler_instance/minimum_radius">,
+        Parameter<f32, "perspective_grid_candidates_provider.$cycler_instance.minimum_radius">,
 }
 
 #[context]
@@ -20,11 +20,11 @@ pub struct CycleContext {
     pub filtered_segments: RequiredInput<Option<FilteredSegments>, "filtered_segments?">,
     pub line_data: RequiredInput<Option<LineData>, "line_data?">,
 
-    pub ball_radius: Parameter<f32, "field_dimensions/ball_radius">,
+    pub ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
     pub fallback_radius:
-        Parameter<f32, "perspective_grid_candidates_provider/$cycler_instance/fallback_radius">,
+        Parameter<f32, "perspective_grid_candidates_provider.$cycler_instance.fallback_radius">,
     pub minimum_radius:
-        Parameter<f32, "perspective_grid_candidates_provider/$cycler_instance/minimum_radius">,
+        Parameter<f32, "perspective_grid_candidates_provider.$cycler_instance.minimum_radius">,
 }
 
 #[context]

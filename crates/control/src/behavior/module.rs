@@ -12,9 +12,9 @@ pub struct Behavior {}
 
 #[context]
 pub struct CreationContext {
-    pub behavior: Parameter<BehaviorConfiguration, "control/behavior">,
+    pub behavior: Parameter<BehaviorConfiguration, "control.behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub lost_ball_parameters: Parameter<LostBall, "control/behavior/lost_ball">,
+    pub lost_ball_parameters: Parameter<LostBall, "control.behavior.lost_ball">,
 }
 
 #[context]
@@ -26,9 +26,9 @@ pub struct CycleContext {
     pub camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
     pub projected_limbs: RequiredInput<Option<ProjectedLimbs>, "projected_limbs?">,
 
-    pub behavior: Parameter<BehaviorConfiguration, "control/behavior">,
+    pub behavior: Parameter<BehaviorConfiguration, "control.behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub lost_ball_parameters: Parameter<LostBall, "control/behavior/lost_ball">,
+    pub lost_ball_parameters: Parameter<LostBall, "control.behavior.lost_ball">,
 
     pub world_state: RequiredInput<Option<WorldState>, "world_state?">,
 }

@@ -15,12 +15,12 @@ pub struct ImageSegmenter {}
 pub struct CreationContext {
     pub vertical_edge_detection_source: Parameter<
         EdgeDetectionSource,
-        "image_segmenter/$cycler_instance/vertical_edge_detection_source",
+        "image_segmenter.$cycler_instance.vertical_edge_detection_source",
     >,
     pub vertical_edge_threshold:
-        Parameter<i16, "image_segmenter/$cycler_instance/vertical_edge_threshold">,
+        Parameter<i16, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
     pub vertical_median_mode:
-        Parameter<MedianMode, "image_segmenter/$cycler_instance/vertical_median_mode">,
+        Parameter<MedianMode, "image_segmenter.$cycler_instance.vertical_median_mode">,
 }
 
 #[context]
@@ -35,12 +35,12 @@ pub struct CycleContext {
 
     pub vertical_edge_detection_source: Parameter<
         EdgeDetectionSource,
-        "image_segmenter/$cycler_instance/vertical_edge_detection_source",
+        "image_segmenter.$cycler_instance.vertical_edge_detection_source",
     >,
     pub vertical_edge_threshold:
-        Parameter<i16, "image_segmenter/$cycler_instance/vertical_edge_threshold">,
+        Parameter<i16, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
     pub vertical_median_mode:
-        Parameter<MedianMode, "image_segmenter/$cycler_instance/vertical_median_mode">,
+        Parameter<MedianMode, "image_segmenter.$cycler_instance.vertical_median_mode">,
 }
 
 #[context]

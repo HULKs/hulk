@@ -13,7 +13,7 @@ pub struct RoleAssignment {}
 #[context]
 pub struct CreationContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub forced_role: Parameter<Option<Role>, "control/role_assignment/forced_role?">,
+    pub forced_role: Parameter<Option<Role>, "control.role_assignment.forced_role?">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
     pub spl_network: Parameter<SplNetwork, "spl_network">,
 }
@@ -28,7 +28,7 @@ pub struct CycleContext {
     pub sensor_data: Input<SensorData, "sensor_data">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub forced_role: Parameter<Option<Role>, "control/role_assignment/forced_role?">,
+    pub forced_role: Parameter<Option<Role>, "control.role_assignment.forced_role?">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
     pub spl_network: Parameter<SplNetwork, "spl_network">,
     // TODO: wieder einkommentieren

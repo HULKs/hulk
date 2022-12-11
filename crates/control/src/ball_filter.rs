@@ -15,18 +15,18 @@ pub struct BallFilter {}
 pub struct CreationContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub hidden_validity_exponential_decay_factor:
-        Parameter<f32, "control/ball_filter/hidden_validity_exponential_decay_factor">,
-    pub hypothesis_merge_distance: Parameter<f32, "control/ball_filter/hypothesis_merge_distance">,
-    pub hypothesis_timeout: Parameter<Duration, "control/ball_filter/hypothesis_timeout">,
-    pub initial_covariance: Parameter<Vector4<f32>, "control/ball_filter/initial_covariance">,
+        Parameter<f32, "control.ball_filter.hidden_validity_exponential_decay_factor">,
+    pub hypothesis_merge_distance: Parameter<f32, "control.ball_filter.hypothesis_merge_distance">,
+    pub hypothesis_timeout: Parameter<Duration, "control.ball_filter.hypothesis_timeout">,
+    pub initial_covariance: Parameter<Vector4<f32>, "control.ball_filter.initial_covariance">,
     pub measurement_matching_distance:
-        Parameter<f32, "control/ball_filter/measurement_matching_distance">,
-    pub measurement_noise: Parameter<Vector2<f32>, "control/ball_filter/measurement_noise">,
-    pub process_noise: Parameter<Vector4<f32>, "control/ball_filter/process_noise">,
+        Parameter<f32, "control.ball_filter.measurement_matching_distance">,
+    pub measurement_noise: Parameter<Vector2<f32>, "control.ball_filter.measurement_noise">,
+    pub process_noise: Parameter<Vector4<f32>, "control.ball_filter.process_noise">,
     pub validity_discard_threshold:
-        Parameter<f32, "control/ball_filter/validity_discard_threshold">,
+        Parameter<f32, "control.ball_filter.validity_discard_threshold">,
     pub visible_validity_exponential_decay_factor:
-        Parameter<f32, "control/ball_filter/visible_validity_exponential_decay_factor">,
+        Parameter<f32, "control.ball_filter.visible_validity_exponential_decay_factor">,
 }
 
 #[context]
@@ -47,18 +47,18 @@ pub struct CycleContext {
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub hidden_validity_exponential_decay_factor:
-        Parameter<f32, "control/ball_filter/hidden_validity_exponential_decay_factor">,
-    pub hypothesis_merge_distance: Parameter<f32, "control/ball_filter/hypothesis_merge_distance">,
-    pub hypothesis_timeout: Parameter<Duration, "control/ball_filter/hypothesis_timeout">,
-    pub initial_covariance: Parameter<Vector4<f32>, "control/ball_filter/initial_covariance">,
+        Parameter<f32, "control.ball_filter.hidden_validity_exponential_decay_factor">,
+    pub hypothesis_merge_distance: Parameter<f32, "control.ball_filter.hypothesis_merge_distance">,
+    pub hypothesis_timeout: Parameter<Duration, "control.ball_filter.hypothesis_timeout">,
+    pub initial_covariance: Parameter<Vector4<f32>, "control.ball_filter.initial_covariance">,
     pub measurement_matching_distance:
-        Parameter<f32, "control/ball_filter/measurement_matching_distance">,
-    pub measurement_noise: Parameter<Vector2<f32>, "control/ball_filter/measurement_noise">,
-    pub process_noise: Parameter<Vector4<f32>, "control/ball_filter/process_noise">,
+        Parameter<f32, "control.ball_filter.measurement_matching_distance">,
+    pub measurement_noise: Parameter<Vector2<f32>, "control.ball_filter.measurement_noise">,
+    pub process_noise: Parameter<Vector4<f32>, "control.ball_filter.process_noise">,
     pub validity_discard_threshold:
-        Parameter<f32, "control/ball_filter/validity_discard_threshold">,
+        Parameter<f32, "control.ball_filter.validity_discard_threshold">,
     pub visible_validity_exponential_decay_factor:
-        Parameter<f32, "control/ball_filter/visible_validity_exponential_decay_factor">,
+        Parameter<f32, "control.ball_filter.visible_validity_exponential_decay_factor">,
 
     pub balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     pub balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,

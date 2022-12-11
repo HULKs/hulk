@@ -12,14 +12,14 @@ pub struct ObstacleFilter {}
 pub struct CreationContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub goal_post_obstacle_radius:
-        Parameter<f32, "control/obstacle_filter/goal_post_obstacle_radius">,
+        Parameter<f32, "control.obstacle_filter.goal_post_obstacle_radius">,
     // pub obstacle_filter:
-    //     Parameter<ObstacleFilter, "control/obstacle_filter">,
+    //     Parameter<ObstacleFilter, "control.obstacle_filter">,
     pub robot_obstacle_radius_at_foot_height:
-        Parameter<f32, "control/obstacle_filter/robot_obstacle_radius_at_foot_height">,
+        Parameter<f32, "control.obstacle_filter.robot_obstacle_radius_at_foot_height">,
     pub robot_obstacle_radius_at_hip_height:
-        Parameter<f32, "control/obstacle_filter/robot_obstacle_radius_at_hip_height">,
-    pub unknown_obstacle_radius: Parameter<f32, "control/obstacle_filter/unknown_obstacle_radius">,
+        Parameter<f32, "control.obstacle_filter.robot_obstacle_radius_at_hip_height">,
+    pub unknown_obstacle_radius: Parameter<f32, "control.obstacle_filter.unknown_obstacle_radius">,
 }
 
 #[context]
@@ -38,14 +38,14 @@ pub struct CycleContext {
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub goal_post_obstacle_radius:
-        Parameter<f32, "control/obstacle_filter/goal_post_obstacle_radius">,
+        Parameter<f32, "control.obstacle_filter.goal_post_obstacle_radius">,
     // pub obstacle_filter:
-    //     Parameter<ObstacleFilter, "control/obstacle_filter">,
+    //     Parameter<ObstacleFilter, "control.obstacle_filter">,
     pub robot_obstacle_radius_at_foot_height:
-        Parameter<f32, "control/obstacle_filter/robot_obstacle_radius_at_foot_height">,
+        Parameter<f32, "control.obstacle_filter.robot_obstacle_radius_at_foot_height">,
     pub robot_obstacle_radius_at_hip_height:
-        Parameter<f32, "control/obstacle_filter/robot_obstacle_radius_at_hip_height">,
-    pub unknown_obstacle_radius: Parameter<f32, "control/obstacle_filter/unknown_obstacle_radius">,
+        Parameter<f32, "control.obstacle_filter.robot_obstacle_radius_at_hip_height">,
+    pub unknown_obstacle_radius: Parameter<f32, "control.obstacle_filter.unknown_obstacle_radius">,
 
     pub detected_robots_bottom:
         PerceptionInput<Option<DetectedRobots>, "VisionBottom", "detected_robots?">,

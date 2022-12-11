@@ -9,8 +9,8 @@ pub struct DispatchingInterpolator {}
 
 #[context]
 pub struct CreationContext {
-    pub penalized_pose: Parameter<Joints, "control/penalized_pose">,
-    pub ready_pose: Parameter<Joints, "control/ready_pose">,
+    pub penalized_pose: Parameter<Joints, "control.penalized_pose">,
+    pub ready_pose: Parameter<Joints, "control.ready_pose">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
@@ -29,8 +29,8 @@ pub struct CycleContext {
     pub stand_up_front_positions: RequiredInput<Option<Joints>, "stand_up_front_positions?">,
     pub walk_joints_command: RequiredInput<Option<BodyJointsCommand>, "walk_joints_command?">,
 
-    pub penalized_pose: Parameter<Joints, "control/penalized_pose">,
-    pub ready_pose: Parameter<Joints, "control/ready_pose">,
+    pub penalized_pose: Parameter<Joints, "control.penalized_pose">,
+    pub ready_pose: Parameter<Joints, "control.ready_pose">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }

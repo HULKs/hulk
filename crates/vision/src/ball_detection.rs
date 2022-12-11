@@ -11,8 +11,8 @@ pub struct BallDetection {}
 #[context]
 pub struct CreationContext {
     // TODO: remove these configuration structs and explicitely list parameters
-    pub ball_detection: Parameter<BallDetectionConfiguration, "ball_detection/$cycler_instance">,
-    pub ball_radius: Parameter<f32, "field_dimensions/ball_radius">,
+    pub ball_detection: Parameter<BallDetectionConfiguration, "ball_detection.$cycler_instance">,
+    pub ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
 }
 
 #[context]
@@ -23,8 +23,8 @@ pub struct CycleContext {
     pub perspective_grid_candidates:
         RequiredInput<Option<PerspectiveGridCandidates>, "perspective_grid_candidates?">,
 
-    pub ball_detection: Parameter<BallDetectionConfiguration, "ball_detection/$cycler_instance">,
-    pub ball_radius: Parameter<f32, "field_dimensions/ball_radius">,
+    pub ball_detection: Parameter<BallDetectionConfiguration, "ball_detection.$cycler_instance">,
+    pub ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
 }
 
 #[context]

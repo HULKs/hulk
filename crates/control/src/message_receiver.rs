@@ -11,24 +11,24 @@ pub struct MessageFilter {
 #[context]
 pub struct CreationContext {
     pub hardware_interface: HardwareInterface,
-    pub initial_value: Parameter<usize, "message_receiver/initial_value">,
-    pub value: PersistentState<usize, "message_receiver/value">,
+    pub initial_value: Parameter<usize, "message_receiver.initial_value">,
+    pub value: PersistentState<usize, "message_receiver.value">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub step: Parameter<usize, "message_receiver/step">,
-    // pub test_a: Parameter<usize, "a/a/a">,
-    // pub test_b: Parameter<Option<usize>, "b?/a/a">,
-    // pub test_c: Parameter<Option<usize>, "c?/a?/a">,
-    // pub test_d: Parameter<Option<usize>, "d?/a?/a?">,
-    // pub test_e: Parameter<Option<usize>, "e/a?/a?">,
-    // pub test_f: Parameter<Option<usize>, "f/a/a?">,
+    pub step: Parameter<usize, "message_receiver.step">,
+    // pub test_a: Parameter<usize, "a.a.a">,
+    // pub test_b: Parameter<Option<usize>, "b?.a.a">,
+    // pub test_c: Parameter<Option<usize>, "c?.a?.a">,
+    // pub test_d: Parameter<Option<usize>, "d?.a?.a?">,
+    // pub test_e: Parameter<Option<usize>, "e.a?.a?">,
+    // pub test_f: Parameter<Option<usize>, "f.a.a?">,
     // pub hardware_interface: HardwareInterface,
     pub test: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
     // // pub test2: HistoricInput<Option<usize>, "value?">,
-    pub value: PersistentState<usize, "message_receiver/value">,
-    // pub output: AdditionalOutput<usize, "message_receiver/output">,
+    pub value: PersistentState<usize, "message_receiver.value">,
+    // pub output: AdditionalOutput<usize, "message_receiver.output">,
 }
 
 #[context]
