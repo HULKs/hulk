@@ -20,7 +20,7 @@ pub fn request_user_pointer_buffers(
     let mut query: v4l2_requestbuffers = unsafe { zeroed() };
     query.count = amount_of_buffers;
     query.type_ = v4l2_buf_type_V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    query.memory = v4l2_memory_V4L2_MEMORY_USERPTR as u32;
+    query.memory = v4l2_memory_V4L2_MEMORY_USERPTR;
     unsafe { vidioc_request_buffers(file_descriptor, &mut query as *mut _) }
         .map_err(|source| RequestBuffersError::BuffersNotRequested { source })?;
 
