@@ -19,7 +19,7 @@ pub fn queue(file_descriptor: i32, buffer_index: u32, buffer: &[u8]) -> Result<(
     let mut query: v4l2_buffer = unsafe { zeroed() };
     query.index = buffer_index;
     query.type_ = v4l2_buf_type_V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    query.memory = v4l2_memory_V4L2_MEMORY_USERPTR as u32;
+    query.memory = v4l2_memory_V4L2_MEMORY_USERPTR;
     query.m.userptr = buffer.as_ptr() as u64;
     query.length = buffer.len() as u32;
 
@@ -32,7 +32,7 @@ pub fn queue(file_descriptor: i32, buffer_index: u32, buffer: &[u8]) -> Result<(
 pub fn dequeue(file_descriptor: i32) -> Result<u32, QueueingError> {
     let mut query: v4l2_buffer = unsafe { zeroed() };
     query.type_ = v4l2_buf_type_V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    query.memory = v4l2_memory_V4L2_MEMORY_USERPTR as u32;
+    query.memory = v4l2_memory_V4L2_MEMORY_USERPTR;
 
     unsafe { vidioc_dequeue(file_descriptor, &mut query as *mut _) }
         .map_err(|source| QueueingError::BufferNotDequeued { source })?;
