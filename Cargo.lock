@@ -693,11 +693,19 @@ dependencies = [
 name = "control"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "color-eyre",
  "context_attribute",
  "filtering",
  "framework",
+ "itertools",
+ "log",
  "nalgebra",
+ "ordered-float",
+ "serde",
+ "serde_json",
+ "serialize_hierarchy",
+ "smallvec",
  "spl_network_messages",
  "types",
 ]

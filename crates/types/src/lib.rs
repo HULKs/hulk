@@ -29,9 +29,11 @@ mod led;
 mod limb;
 mod line;
 mod line_data;
+mod linear_interpolator;
 mod localization_update;
 mod message_event;
 mod motion_command;
+mod motion_file;
 mod motion_selection;
 mod obstacle_filter_hypothesis;
 mod obstacles;
@@ -92,12 +94,14 @@ pub use led::{Ear, Eye, Leds};
 pub use limb::{is_above_limbs, Limb, ProjectedLimbs};
 pub use line::{Line, Line2};
 pub use line_data::{ImageLines, LineData};
+pub use linear_interpolator::LinearInterpolator;
 pub use localization_update::LocalizationUpdate;
 pub use message_event::MessageEvent;
 pub use motion_command::{
     ArmMotion, Facing, FallDirection, HeadMotion, JumpDirection, KickDirection, KickVariant,
     MotionCommand, OrientationMode, SitDirection,
 };
+pub use motion_file::{MotionFile, MotionFileInterpolator};
 pub use motion_selection::{MotionSafeExits, MotionSelection, MotionType};
 pub use obstacle_filter_hypothesis::ObstacleFilterHypothesis;
 pub use obstacles::{Obstacle, ObstacleKind};

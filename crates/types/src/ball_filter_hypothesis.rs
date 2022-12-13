@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BallFilterHypothesis {
-    filter: KalmanFilter<4>,
-    validity: f32,
-    last_update: SystemTime,
+    pub filter: KalmanFilter<4>,
+    pub validity: f32,
+    pub last_update: SystemTime,
 }

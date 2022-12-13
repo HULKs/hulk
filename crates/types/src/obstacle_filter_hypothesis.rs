@@ -7,8 +7,8 @@ use crate::ObstacleKind;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ObstacleFilterHypothesis {
-    filter: KalmanFilter<2>,
-    measurement_count: usize,
-    last_update: SystemTime,
-    obstacle_kind: ObstacleKind,
+    pub filter: KalmanFilter<2>,
+    pub measurement_count: usize,
+    pub last_update: SystemTime,
+    pub obstacle_kind: ObstacleKind,
 }

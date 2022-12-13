@@ -153,7 +153,7 @@ impl Default for OutgoingMessage {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Samples {
     pub rate: u32,
     pub channels_of_samples: Arc<Vec<Vec<f32>>>,
