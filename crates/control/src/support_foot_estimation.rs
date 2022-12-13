@@ -1,9 +1,12 @@
 use color_eyre::Result;
 use context_attribute::context;
+use filtering::greater_than_with_hysteresis;
 use framework::MainOutput;
-use types::{SensorData, SupportFoot};
+use types::{SensorData, Side, SupportFoot};
 
-pub struct SupportFootEstimation {}
+pub struct SupportFootEstimation {
+    last_support_side: Side,
+}
 
 #[context]
 pub struct CreationContext {
@@ -21,15 +24,50 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub support_foot: MainOutput<Option<SupportFoot>>,
+    pub support_foot: MainOutput<SupportFoot>,
 }
 
 impl SupportFootEstimation {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_support_side: Side::Left,
+        })
     }
 
-    pub fn cycle(&mut self, _context: CycleContext) -> Result<MainOutputs> {
-        Ok(MainOutputs::default())
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        if !context.has_ground_contact {
+            return Ok(MainOutputs {
+                support_foot: SupportFoot {
+                    support_side: None,
+                    changed_this_cycle: false,
+                }
+                .into(),
+            });
+        }
+
+        let left_sum = context.sensor_data.force_sensitive_resistors.left.sum();
+        let right_sum = context.sensor_data.force_sensitive_resistors.right.sum();
+
+        let last_has_left_more_pressure = self.last_support_side == Side::Left;
+        let has_left_more_pressure = greater_than_with_hysteresis(
+            last_has_left_more_pressure,
+            left_sum,
+            right_sum,
+            *context.hysteresis,
+        );
+        let support_side = if has_left_more_pressure {
+            Side::Left
+        } else {
+            Side::Right
+        };
+        let changed_this_cycle = support_side != self.last_support_side;
+        self.last_support_side = support_side;
+        Ok(MainOutputs {
+            support_foot: SupportFoot {
+                support_side: Some(support_side),
+                changed_this_cycle,
+            }
+            .into(),
+        })
     }
 }

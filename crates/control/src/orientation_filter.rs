@@ -1,40 +1,62 @@
 use color_eyre::Result;
 use context_attribute::context;
+use filtering::OrientationFilterParameters;
 use framework::MainOutput;
 use nalgebra::UnitComplex;
-use types::{
-    configuration::OrientationFilter as OrientationFilterConfiguration, SensorData, SolePressure,
-    SupportFoot,
-};
+use types::{CycleInfo, SensorData, SolePressure, SupportFoot};
 
-pub struct OrientationFilter {}
+pub struct OrientationFilter {
+    orientation_filter: filtering::OrientationFilter,
+}
 
 #[context]
-pub struct CreationContext {
-    pub orientation_filter: Parameter<OrientationFilterConfiguration, "control.orientation_filter">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
     pub sensor_data: Input<SensorData, "sensor_data">,
+    pub cycle_info: Input<CycleInfo, "cycle_info">,
     pub sole_pressure: Input<SolePressure, "sole_pressure">,
-    pub support_foot: RequiredInput<Option<SupportFoot>, "support_foot?">,
+    pub support_foot: Input<SupportFoot, "support_foot">,
 
-    pub orientation_filter: Parameter<OrientationFilterConfiguration, "control.orientation_filter">,
+    pub orientation_filter_configuration:
+        Parameter<OrientationFilterParameters, "control.orientation_filter">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub robot_orientation: MainOutput<Option<UnitComplex<f32>>>,
+    pub robot_orientation: MainOutput<UnitComplex<f32>>,
 }
 
 impl OrientationFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            orientation_filter: filtering::OrientationFilter::default(),
+        })
     }
 
-    pub fn cycle(&mut self, _context: CycleContext) -> Result<MainOutputs> {
-        Ok(MainOutputs::default())
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let measured_acceleration = context
+            .sensor_data
+            .inertial_measurement_unit
+            .linear_acceleration;
+        let measured_angular_velocity = context
+            .sensor_data
+            .inertial_measurement_unit
+            .angular_velocity;
+        let cycle_duration = context.cycle_info.last_cycle_duration;
+        self.orientation_filter.update(
+            measured_acceleration,
+            measured_angular_velocity,
+            context.sole_pressure.left,
+            context.sole_pressure.right,
+            cycle_duration.as_secs_f32(),
+            context.orientation_filter_configuration,
+        );
+
+        Ok(MainOutputs {
+            robot_orientation: self.orientation_filter.yaw().into(),
+        })
     }
 }

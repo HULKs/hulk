@@ -9,7 +9,7 @@ pub enum OrientationMode {
     Override(UnitComplex<f32>),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub enum MotionCommand {
     ArmsUpSquat,
     FallProtection {
@@ -28,6 +28,7 @@ pub enum MotionCommand {
     StandUp {
         facing: Facing,
     },
+    #[default]
     Unstiff,
     Walk {
         head: HeadMotion,

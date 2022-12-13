@@ -1,9 +1,17 @@
 use color_eyre::Result;
 use context_attribute::context;
+use filtering::LowPassFilter;
 use framework::MainOutput;
-use types::{Joints, MotionCommand, MotionSafeExits, MotionSelection, SensorData};
+use nalgebra::Vector2;
+use types::{
+    CycleInfo, Facing, Joints, MotionCommand, MotionFile, MotionFileInterpolator, MotionSafeExits,
+    MotionSelection, MotionType, SensorData,
+};
 
-pub struct StandUpBack {}
+pub struct StandUpBack {
+    interpolator: MotionFileInterpolator,
+    filtered_gyro: LowPassFilter<Vector2<f32>>,
+}
 
 #[context]
 pub struct CreationContext {
@@ -17,9 +25,10 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: RequiredInput<Option<MotionCommand>, "motion_command?">,
-    pub motion_selection: RequiredInput<Option<MotionSelection>, "motion_selection?">,
+    pub motion_command: Input<MotionCommand, "motion_command">,
+    pub motion_selection: Input<MotionSelection, "motion_selection">,
     pub sensor_data: Input<SensorData, "sensor_data">,
+    pub cycle_info: Input<CycleInfo, "cycle_info">,
 
     pub gyro_low_pass_filter_coefficient:
         Parameter<f32, "control.stand_up.gyro_low_pass_filter_coefficient">,
@@ -32,15 +41,56 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub stand_up_back_positions: MainOutput<Option<Joints>>,
+    pub stand_up_back_positions: MainOutput<Joints>,
 }
 
 impl StandUpBack {
-    pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+    pub fn new(context: CreationContext) -> Result<Self> {
+        Ok(Self {
+            interpolator: MotionFile::from_path("etc/motions/stand_up_back_dortmund_2022.json")?
+                .into(),
+            filtered_gyro: LowPassFilter::with_alpha(
+                Vector2::zeros(),
+                *context.gyro_low_pass_filter_coefficient,
+            ),
+        })
     }
 
-    pub fn cycle(&mut self, _context: CycleContext) -> Result<MainOutputs> {
-        Ok(MainOutputs::default())
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let last_cycle_duration = context.cycle_info.last_cycle_duration;
+        let angular_velocity = context
+            .sensor_data
+            .inertial_measurement_unit
+            .angular_velocity;
+
+        self.filtered_gyro
+            .update(Vector2::new(angular_velocity.x, angular_velocity.y));
+
+        if context.motion_selection.current_motion == MotionType::StandUpBack {
+            self.interpolator.step(last_cycle_duration);
+        } else {
+            self.interpolator.reset();
+        }
+
+        context.motion_safe_exits[MotionType::StandUpBack] = false;
+        if self.interpolator.is_finished() {
+            match context.motion_command {
+                MotionCommand::StandUp { facing: Facing::Up } => self.interpolator.reset(),
+                _ => {
+                    if self.filtered_gyro.state().abs()
+                        < Vector2::new(
+                            *context.gyro_low_pass_filter_tolerance,
+                            *context.gyro_low_pass_filter_tolerance,
+                        )
+                    {
+                        context.motion_safe_exits[MotionType::StandUpBack] = true;
+                    }
+                }
+            };
+        }
+
+        Ok(MainOutputs {
+            stand_up_back_positions: self.interpolator.value().into(),
+        })
     }
 }

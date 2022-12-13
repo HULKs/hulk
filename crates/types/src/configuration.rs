@@ -4,25 +4,10 @@ use std::{path::PathBuf, time::Duration};
 use nalgebra::{Matrix3, Point2, Point3, Vector2, Vector3, Vector4};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use spl_network_messages::PlayerNumber;
 
 use crate::{
-    ArmJoints, FieldDimensions, HeadJoints, InitialPose, Joints, KickStep, KickVariant,
-    MotionCommand, Players, Role, Step,
+    ArmJoints, HeadJoints, InitialPose, KickStep, KickVariant, MotionCommand, Players, Role, Step,
 };
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct Configuration {
-    pub audio: Audio,
-    pub control: Control,
-    pub disable_communication_acceptor: bool,
-    pub field_dimensions: FieldDimensions,
-    #[leaf]
-    pub player_number: PlayerNumber,
-    pub spl_network: SplNetwork,
-    pub vision_top: Vision,
-    pub vision_bottom: Vision,
-}
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Audio {
@@ -35,39 +20,6 @@ pub struct WhistleDetection {
     pub background_noise_scaling: f32,
     pub whistle_scaling: f32,
     pub number_of_chunks: usize,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct Control {
-    pub ball_filter: BallFilter,
-    pub button_filter: ButtonFilter,
-    pub behavior: Behavior,
-    pub center_head_position: HeadJoints,
-    pub dispatching_head_interpolator: DispatchingHeadInterpolator,
-    pub fall_protection: FallProtection,
-    pub fall_state_estimation: FallStateEstimation,
-    pub game_state_filter: GameStateFilter,
-    pub ground_contact_detector: HighDetector,
-    pub head_motion: HeadMotion,
-    pub head_motion_limits: HeadMotionLimits,
-    pub localization: Localization,
-    pub look_around: LookAround,
-    pub look_at: LookAt,
-    pub obstacle_filter: ObstacleFilter,
-    pub orientation_filter: OrientationFilter,
-    pub penalized_pose: Joints,
-    pub penalty_shot_direction_estimation: PenaltyShotDirectionEstimation,
-    pub projected_limbs: ProjectedLimbs,
-    pub ready_pose: Joints,
-    pub role_assignment: RoleAssignment,
-    pub stand_up: StandUp,
-    pub step_planner: StepPlanner,
-    pub support_foot_estimation: SupportFootEstimation,
-    pub walking_engine: WalkingEngine,
-    pub kick_steps: KickSteps,
-    pub whistle_filter: WhistleFilter,
-    pub sonar_filter: SonarFilter,
-    pub sonar_obstacle: SonarObstacle,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -354,19 +306,6 @@ pub struct SplNetwork {
     pub striker_trusts_team_ball: Duration,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct Vision {
-    pub ball_detection: BallDetection,
-    pub image_segmenter: ImageSegmenter,
-    pub image_receiver: ImageReceiver,
-    pub line_detection: LineDetection,
-    pub field_border_detection: FieldBorderDetection,
-    pub field_color_detection: FieldColorDetection,
-    pub perspective_grid_candidates_provider: PerspectiveGridCandidatesProvider,
-    pub robot_detection: RobotDetection,
-    pub camera_matrix_parameters: CameraMatrixParameters,
-}
-
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub enum MedianMode {
     #[default]
@@ -443,16 +382,6 @@ pub struct LineDetection {
     pub maximum_number_of_lines: usize,
     pub maximum_projected_segment_length: f32,
     pub minimum_number_of_points_on_line: usize,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct OrientationFilter {
-    pub acceleration_threshold: f32,
-    pub delta_angular_velocity_threshold: f32,
-    pub angular_velocity_bias_weight: f32,
-    pub acceleration_weight: f32,
-    pub falling_threshold: f32,
-    pub force_sensitive_resistor_threshold: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
