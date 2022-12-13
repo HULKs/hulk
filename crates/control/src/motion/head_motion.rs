@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
