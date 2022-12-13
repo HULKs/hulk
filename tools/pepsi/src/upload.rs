@@ -1,9 +1,8 @@
-use std::{path::Path, time::Duration};
+use std::path::Path;
 
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 use futures::future::join_all;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use nao::{Nao, SystemctlAction};
 use repository::Repository;
 
@@ -11,6 +10,7 @@ use crate::{
     cargo::{cargo, Arguments as CargoArguments, Command},
     communication::{communication, Arguments as CommunicationArguments},
     parsers::{NaoAddress, NaoNumber},
+    progress_indicator::{ProgressIndicator, Task},
     results::gather_results,
 };
 
@@ -43,7 +43,7 @@ pub struct Arguments {
 async fn upload_with_progress(
     nao: Nao,
     hulk_directory: impl AsRef<Path>,
-    progress: &ProgressBar,
+    progress: &Task,
     arguments: &Arguments,
 ) -> anyhow::Result<()> {
     progress.set_message("Stopping HULK...");
@@ -104,30 +104,15 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         .await
         .wrap_err("failed to create upload directory")?;
 
-    let multi_progress = MultiProgress::new();
-    let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
-        .unwrap()
-        .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
-    let spinner_error_style =
-        ProgressStyle::with_template("{prefix:.bold.dim} {wide_msg:.red}").unwrap();
-
-    let spinner_success_style =
-        ProgressStyle::with_template("{prefix:.bold.dim} {wide_msg:.green}").unwrap();
+    let multi_progress = ProgressIndicator::new();
 
     let tasks = arguments.naos.iter().map(|nao_address| {
         let hulk_directory = hulk_directory.clone();
-        let multi_progress = multi_progress.clone();
         let arguments = &arguments;
-        let spinner_style = spinner_style.clone();
-        let spinner_error_style = spinner_error_style.clone();
-        let spinner_success_style = spinner_success_style.clone();
+        let multi_progress = multi_progress.clone();
 
         async move {
-            let spinner = ProgressBar::new(10)
-                .with_style(spinner_style)
-                .with_prefix(nao_address.to_string());
-            spinner.enable_steady_tick(Duration::from_millis(200));
-            let progress = multi_progress.add(spinner);
+            let progress = multi_progress.task(nao_address.to_string());
             let nao = Nao::new(nao_address.ip);
 
             if !arguments.skip_os_check && !nao.has_stable_os_version().await {
@@ -136,12 +121,10 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
 
             match upload_with_progress(nao, hulk_directory, &progress, arguments).await {
                 Ok(_) => {
-                    progress.set_style(spinner_success_style);
-                    progress.finish_with_message("✓ Done")
+                    progress.finish_with_success("Done");
                 }
                 Err(error) => {
-                    progress.set_style(spinner_error_style);
-                    progress.finish_with_message(format!("✗ {error}"));
+                    progress.finish_with_error(error);
                 }
             }
             Ok(())

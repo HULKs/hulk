@@ -41,6 +41,7 @@ mod player_number;
 mod post_game;
 mod power_off;
 mod pre_game;
+mod progress_indicator;
 mod reboot;
 mod results;
 mod sdk;
