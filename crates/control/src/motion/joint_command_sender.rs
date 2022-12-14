@@ -9,11 +9,7 @@ use types::{
 pub struct JointCommandSender {}
 
 #[context]
-pub struct CreationContext {
-    pub center_head_position: Parameter<HeadJoints, "control.center_head_position">,
-    pub penalized_pose: Parameter<Joints, "control.penalized_pose">,
-    pub ready_pose: Parameter<Joints, "control.ready_pose">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {

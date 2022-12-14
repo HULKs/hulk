@@ -16,12 +16,7 @@ pub struct DispatchingInterpolator {
 }
 
 #[context]
-pub struct CreationContext {
-    pub penalized_pose: Parameter<Joints, "control.penalized_pose">,
-    pub ready_pose: Parameter<Joints, "control.ready_pose">,
-
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {

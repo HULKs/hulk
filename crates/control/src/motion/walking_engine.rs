@@ -120,6 +120,7 @@ pub struct CreationContext {
 }
 
 #[context]
+#[derive(Debug)]
 pub struct CycleContext {
     pub step_adjustment: AdditionalOutput<StepAdjustment, "step_adjustment">,
     // TODO: ask hendrik how to do that

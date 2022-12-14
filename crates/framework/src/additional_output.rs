@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct AdditionalOutput<'context, DataType> {
     is_subscribed: bool,
     data: &'context mut Option<DataType>,
