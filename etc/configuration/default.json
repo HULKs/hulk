@@ -10,6 +10,18 @@
       "number_of_chunks": 16
     }
   },
+  "camera_matrix_parameters": {
+    "vision_bottom": {
+      "extrinsic_rotations": [0, 0, 0],
+      "focal_lengths": [0.95, 1.27],
+      "cc_optical_center": [0.5, 0.5]
+    },
+    "vision_top": {
+      "extrinsic_rotations": [0, 0, 0],
+      "focal_lengths": [0.95, 1.27],
+      "cc_optical_center": [0.5, 0.5]
+    }
+  },
   "control": {
     "fall_protection": {
       "ground_impact_head_stiffness": 0.2,
@@ -775,6 +787,10 @@
         [0.1, -0.06, 0.02]
       ]
     }
+  },
+  "message_receiver": {
+    "initial_value": 0,
+    "step": 0
   },
   "disable_communication_acceptor": false,
   "field_dimensions": {
