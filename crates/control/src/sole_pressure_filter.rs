@@ -37,6 +37,12 @@ impl SolePressureFilter {
         self.left_sole_pressure.update(left_sole_pressure);
         let right_sole_pressure = force_sensitive_resistors.right.sum();
         self.right_sole_pressure.update(right_sole_pressure);
-        Ok(MainOutputs::default())
+        Ok(MainOutputs {
+            sole_pressure: SolePressure {
+                left: self.left_sole_pressure.state(),
+                right: self.right_sole_pressure.state(),
+            }
+            .into(),
+        })
     }
 }
