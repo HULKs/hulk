@@ -4,7 +4,6 @@ use color_eyre::{eyre::WrapErr, install, Result};
 use cyclers::run;
 use parameters::Parameters;
 use serde_json::from_reader;
-use structs::Configuration;
 use tokio_util::sync::CancellationToken;
 
 #[cfg(feature = "nao")]
@@ -33,7 +32,10 @@ fn main() -> Result<()> {
         new_hardware_interface(keep_running.clone(), hardware_parameters),
     )
     .wrap_err("failed to create hardware interface")?;
-    let initial_configuration = Configuration::default();
+    let configuration_file = File::open("./etc/configuration/default.json")
+        .wrap_err("failed to open default configuration file")?;
+    let initial_configuration = serde_json::from_reader(configuration_file)
+        .wrap_err("failed to read default configuration")?;
     run(hardware_interface, initial_configuration, keep_running)
 }
 
