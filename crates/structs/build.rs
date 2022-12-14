@@ -6,7 +6,7 @@ use color_eyre::{
     Result,
 };
 use convert_case::{Case, Casing};
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use source_analyzer::{cycler_crates_from_crates_directory, StructHierarchy, Structs};
 
@@ -22,9 +22,17 @@ fn main() -> Result<()> {
 
     let configuration = match &structs.configuration {
         StructHierarchy::Struct { fields } => {
-            struct_hierarchy_to_token_stream("Configuration", fields)
-                .wrap_err("failed to generate struct `Configuration`")?
-        }
+            let structs = struct_hierarchy_to_token_stream(
+            "Configuration",
+            fields,
+            &[format_ident!("Serialize"), format_ident!("Deserialize")],
+        )
+        .wrap_err("failed to generate struct `Configuration`")?;
+            quote! {
+                use serde::{Serialize, Deserialize};
+                #structs
+            }
+        },
         StructHierarchy::Optional { .. } => bail!("unexpected optional variant as root-struct"),
         StructHierarchy::Field { .. } => bail!("unexpected field variant as root-struct"),
     };
@@ -35,7 +43,7 @@ fn main() -> Result<()> {
             let cycler_module_identifier = format_ident!("{}", cycler_module);
             let main_outputs = match &cycler_structs.main_outputs {
                 StructHierarchy::Struct { fields } => {
-                    struct_hierarchy_to_token_stream("MainOutputs", fields)
+                    struct_hierarchy_to_token_stream("MainOutputs", fields, &[])
                         .wrap_err("failed to generate struct `MainOutputs`")?
                 }
                 StructHierarchy::Optional { .. } => {
@@ -45,7 +53,7 @@ fn main() -> Result<()> {
             };
             let additional_outputs = match &cycler_structs.additional_outputs {
                 StructHierarchy::Struct { fields } => {
-                    struct_hierarchy_to_token_stream("AdditionalOutputs", fields)
+                    struct_hierarchy_to_token_stream("AdditionalOutputs", fields, &[])
                         .wrap_err("failed to generate struct `AdditionalOutputs`")?
                 }
                 StructHierarchy::Optional { .. } => {
@@ -55,7 +63,7 @@ fn main() -> Result<()> {
             };
             let persistent_state = match &cycler_structs.persistent_state {
                 StructHierarchy::Struct { fields } => {
-                    struct_hierarchy_to_token_stream("PersistentState", fields)
+                    struct_hierarchy_to_token_stream("PersistentState", fields, &[])
                         .wrap_err("failed to generate struct `PersistentState`")?
                 }
                 StructHierarchy::Optional { .. } => {
@@ -88,6 +96,7 @@ fn main() -> Result<()> {
 fn struct_hierarchy_to_token_stream(
     struct_name: &str,
     fields: &BTreeMap<String, StructHierarchy>,
+    additional_derives: &[Ident],
 ) -> Result<TokenStream> {
     let struct_name_identifier = format_ident!("{}", struct_name);
     let struct_fields: Vec<_> = fields
@@ -125,13 +134,13 @@ fn struct_hierarchy_to_token_stream(
         .map(|(name, struct_hierarchy)| match struct_hierarchy {
             StructHierarchy::Struct { fields } => {
                 let struct_name = format!("{}{}", struct_name, name.to_case(Case::Pascal));
-                struct_hierarchy_to_token_stream(&struct_name, fields)
+                struct_hierarchy_to_token_stream(&struct_name, fields, additional_derives)
                     .wrap_err_with(|| format!("failed to generate struct `{struct_name}`"))
             }
             StructHierarchy::Optional { child } => match &**child {
                 StructHierarchy::Struct { fields } => {
                     let struct_name = format!("{}{}", struct_name, name.to_case(Case::Pascal));
-                    struct_hierarchy_to_token_stream(&struct_name, fields)
+                    struct_hierarchy_to_token_stream(&struct_name, fields, additional_derives)
                         .wrap_err_with(|| format!("failed to generate struct `{struct_name}`"))
                 }
                 StructHierarchy::Optional { .. } => {
@@ -145,7 +154,7 @@ fn struct_hierarchy_to_token_stream(
         .wrap_err("failed to generate child structs")?;
 
     Ok(quote! {
-        #[derive(Clone, Debug, Default)]
+        #[derive(Clone, #(#additional_derives,)* Debug, Default)]
         pub struct #struct_name_identifier {
             #(#struct_fields,)*
         }
