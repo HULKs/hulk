@@ -6,32 +6,10 @@ use types::FieldColor;
 pub struct FieldColorDetection {}
 
 #[context]
-pub struct CreationContext {
-    pub blue_chromaticity_threshold:
-        Parameter<f32, "field_color_detection.$cycler_instance.blue_chromaticity_threshold">,
-    pub green_luminance_threshold:
-        Parameter<u8, "field_color_detection.$cycler_instance.green_luminance_threshold">,
-    pub lower_green_chromaticity_threshold:
-        Parameter<f32, "field_color_detection.$cycler_instance.lower_green_chromaticity_threshold">,
-    pub red_chromaticity_threshold:
-        Parameter<f32, "field_color_detection.$cycler_instance.red_chromaticity_threshold">,
-    pub upper_green_chromaticity_threshold:
-        Parameter<f32, "field_color_detection.$cycler_instance.upper_green_chromaticity_threshold">,
-}
+pub struct CreationContext {}
 
 #[context]
-pub struct CycleContext {
-    pub blue_chromaticity_threshold:
-        Parameter<f32, "field_color_detection.$cycler_instance.blue_chromaticity_threshold">,
-    pub green_luminance_threshold:
-        Parameter<u8, "field_color_detection.$cycler_instance.green_luminance_threshold">,
-    pub lower_green_chromaticity_threshold:
-        Parameter<f32, "field_color_detection.$cycler_instance.lower_green_chromaticity_threshold">,
-    pub red_chromaticity_threshold:
-        Parameter<f32, "field_color_detection.$cycler_instance.red_chromaticity_threshold">,
-    pub upper_green_chromaticity_threshold:
-        Parameter<f32, "field_color_detection.$cycler_instance.upper_green_chromaticity_threshold">,
-}
+pub struct CycleContext {}
 
 #[context]
 #[derive(Default)]

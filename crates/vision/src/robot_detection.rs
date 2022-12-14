@@ -1,40 +1,14 @@
-use std::ops::Range;
-
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    Ball, CameraMatrix, ClusterCone, DetectedRobots, FieldDimensions, FilteredSegments, LineData,
-    ScoredClusterPoint,
+    Ball, CameraMatrix, ClusterCone, DetectedRobots, FilteredSegments, LineData, ScoredClusterPoint,
 };
 
 pub struct RobotDetection {}
 
 #[context]
-pub struct CreationContext {
-    pub amount_of_segments_factor:
-        Parameter<f32, "robot_detection.$cycler_instance.amount_of_segments_factor">,
-    pub amount_score_exponent:
-        Parameter<f32, "robot_detection.$cycler_instance.amount_score_exponent">,
-    pub cluster_cone_radius: Parameter<f32, "robot_detection.$cycler_instance.cluster_cone_radius">,
-    pub cluster_distance_score_range:
-        Parameter<Range<f32>, "robot_detection.$cycler_instance.cluster_distance_score_range">,
-    pub detection_box_width: Parameter<f32, "robot_detection.$cycler_instance.detection_box_width">,
-    pub enable: Parameter<bool, "robot_detection.$cycler_instance.enable">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub ignore_ball_segments:
-        Parameter<bool, "robot_detection.$cycler_instance.ignore_ball_segments">,
-    pub ignore_line_segments:
-        Parameter<bool, "robot_detection.$cycler_instance.ignore_line_segments">,
-    pub luminance_score_exponent:
-        Parameter<f32, "robot_detection.$cycler_instance.luminance_score_exponent">,
-    pub maximum_cluster_distance:
-        Parameter<f32, "robot_detection.$cycler_instance.maximum_cluster_distance">,
-    pub minimum_cluster_score:
-        Parameter<f32, "robot_detection.$cycler_instance.minimum_cluster_score">,
-    pub minimum_consecutive_segments:
-        Parameter<usize, "robot_detection.$cycler_instance.minimum_consecutive_segments">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -45,29 +19,6 @@ pub struct CycleContext {
         Vec<Vec<ScoredClusterPoint>>,
         "robot_detection.clustered_cluster_points_in_ground",
     >,
-
-    pub amount_of_segments_factor:
-        Parameter<f32, "robot_detection.$cycler_instance.amount_of_segments_factor">,
-    pub amount_score_exponent:
-        Parameter<f32, "robot_detection.$cycler_instance.amount_score_exponent">,
-    pub cluster_cone_radius: Parameter<f32, "robot_detection.$cycler_instance.cluster_cone_radius">,
-    pub cluster_distance_score_range:
-        Parameter<Range<f32>, "robot_detection.$cycler_instance.cluster_distance_score_range">,
-    pub detection_box_width: Parameter<f32, "robot_detection.$cycler_instance.detection_box_width">,
-    pub enable: Parameter<bool, "robot_detection.$cycler_instance.enable">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub ignore_ball_segments:
-        Parameter<bool, "robot_detection.$cycler_instance.ignore_ball_segments">,
-    pub ignore_line_segments:
-        Parameter<bool, "robot_detection.$cycler_instance.ignore_line_segments">,
-    pub luminance_score_exponent:
-        Parameter<f32, "robot_detection.$cycler_instance.luminance_score_exponent">,
-    pub maximum_cluster_distance:
-        Parameter<f32, "robot_detection.$cycler_instance.maximum_cluster_distance">,
-    pub minimum_cluster_score:
-        Parameter<f32, "robot_detection.$cycler_instance.minimum_cluster_score">,
-    pub minimum_consecutive_segments:
-        Parameter<usize, "robot_detection.$cycler_instance.minimum_consecutive_segments">,
 
     pub balls: RequiredInput<Option<Vec<Ball>>, "balls?">,
     pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,

@@ -3,25 +3,12 @@ use std::time::Duration;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
-use types::{
-    configuration::{EdgeDetectionSource, MedianMode},
-    hardware::Image,
-    CameraMatrix, FieldColor, ImageSegments, ProjectedLimbs,
-};
+use types::{hardware::Image, CameraMatrix, FieldColor, ImageSegments, ProjectedLimbs};
 
 pub struct ImageSegmenter {}
 
 #[context]
-pub struct CreationContext {
-    pub vertical_edge_detection_source: Parameter<
-        EdgeDetectionSource,
-        "image_segmenter.$cycler_instance.vertical_edge_detection_source",
-    >,
-    pub vertical_edge_threshold:
-        Parameter<i16, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
-    pub vertical_median_mode:
-        Parameter<MedianMode, "image_segmenter.$cycler_instance.vertical_median_mode">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -32,15 +19,6 @@ pub struct CycleContext {
     pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     pub field_color: Input<FieldColor, "field_color">,
     pub projected_limbs: RequiredInput<Option<ProjectedLimbs>, "Control", "projected_limbs?">,
-
-    pub vertical_edge_detection_source: Parameter<
-        EdgeDetectionSource,
-        "image_segmenter.$cycler_instance.vertical_edge_detection_source",
-    >,
-    pub vertical_edge_threshold:
-        Parameter<i16, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
-    pub vertical_median_mode:
-        Parameter<MedianMode, "image_segmenter.$cycler_instance.vertical_median_mode">,
 }
 
 #[context]
