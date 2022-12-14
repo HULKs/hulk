@@ -3265,6 +3265,7 @@ dependencies = [
  "nalgebra",
  "proc-macro2",
  "quote",
+ "serde",
  "source_analyzer",
  "spl_network_messages",
  "types",
