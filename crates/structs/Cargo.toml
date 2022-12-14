@@ -7,6 +7,7 @@ version = "0.1.0"
 [dependencies]
 filtering = { workspace = true }
 nalgebra = { workspace = true }
+serde = { workspace = true }
 spl_network_messages = { workspace = true }
 types = { workspace = true }
 

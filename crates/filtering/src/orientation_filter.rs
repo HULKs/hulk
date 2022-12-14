@@ -1,6 +1,7 @@
 use nalgebra::{Quaternion, UnitComplex, UnitQuaternion, Vector3};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct OrientationFilterParameters {
     pub acceleration_threshold: f32,
     pub delta_angular_velocity_threshold: f32,
