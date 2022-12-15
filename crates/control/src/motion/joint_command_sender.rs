@@ -1,6 +1,6 @@
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
-use framework::MainOutput;
+use framework::AdditionalOutput;
 use types::{
     hardware::Interface, BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand,
     Leds, MotionSelection, MotionType, SensorData,
@@ -13,6 +13,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    pub positions: AdditionalOutput<Joints, "positions">,
+    pub stiffnesses: AdditionalOutput<Joints, "stiffnesses">,
+
     pub center_head_position: Parameter<HeadJoints, "control.center_head_position">,
     pub penalized_pose: Parameter<Joints, "control.penalized_pose">,
     pub ready_pose: Parameter<Joints, "control.ready_pose">,
@@ -35,17 +38,14 @@ pub struct CycleContext {
 
 #[context]
 #[derive(Default)]
-pub struct MainOutputs {
-    pub positions: MainOutput<Joints>,
-    pub stiffnesses: MainOutput<Joints>,
-}
+pub struct MainOutputs {}
 
 impl JointCommandSender {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext<impl Interface>) -> Result<MainOutputs> {
         let current_positions = context.sensor_data.positions;
         let dispatching_command = context.dispatching_command;
         let fall_protection_positions = context.fall_protection_command.positions;
@@ -88,9 +88,9 @@ impl JointCommandSender {
             .write_to_actuators(positions, stiffnesses, context.leds.clone())
             .wrap_err("failed to write to actuators")?;
 
-        Ok(MainOutputs {
-            positions: positions.into(),
-            stiffnesses: stiffnesses.into(),
-        })
+        context.positions.fill_on_subscription(|| positions);
+        context.stiffnesses.fill_on_subscription(|| stiffnesses);
+
+        Ok(MainOutputs {})
     }
 }
