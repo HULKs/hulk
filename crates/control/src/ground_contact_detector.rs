@@ -59,7 +59,7 @@ impl GroundContactDetector {
             .cycle_info
             .start_time
             .duration_since(self.last_time_switched)
-            .expect("Time ran backwards")
+            .expect("time ran backwards")
             > *context.timeout
         {
             self.has_ground_contact = has_pressure;
