@@ -1,0 +1,9 @@
+[package]
+edition = "2021"
+license = "GPL-3.0-only"
+name = "kinematics"
+version = "0.1.0"
+
+[dependencies]
+nalgebra = { workspace = true }
+types = { workspace = true }

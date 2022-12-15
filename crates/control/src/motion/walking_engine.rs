@@ -15,8 +15,6 @@ use types::{
     SensorData, Side, Step, StepAdjustment, SupportFoot, WalkCommand,
 };
 
-use crate::kinematics;
-
 use self::{
     arms::SwingingArm,
     balancing::{foot_leveling, gyro_balancing, step_adjustment},

@@ -9,6 +9,7 @@ members = [
   "crates/filtering",
   "crates/framework",
   "crates/hulk",
+  "crates/kinematics",
   "crates/nao",
   "crates/nao_camera",
   "crates/repository",
@@ -73,6 +74,7 @@ i2cdev = "0.5.1"
 image = "0.24.4"
 ipnetwork = "0.19.0"
 itertools = "0.10.5"
+kinematics = { path = "crates/kinematics" }
 libc = "0.2.137"
 log = "0.4.17"
 mlua = { version = "0.8.3", features = ["luajit", "serialize"] }

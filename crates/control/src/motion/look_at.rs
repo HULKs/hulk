@@ -1,12 +1,11 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use nalgebra::{Isometry3, Point2, point};
+use kinematics::{head_to_neck, neck_to_robot};
+use nalgebra::{point, Isometry3, Point2};
 use types::{
     CameraMatrices, HeadJoints, HeadMotion, Joints, MotionCommand, RobotKinematics, SensorData,
 };
-
-use crate::kinematics::{neck_to_robot, head_to_neck};
 
 pub struct LookAt {}
 
