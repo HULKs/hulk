@@ -196,7 +196,7 @@ impl Behavior {
             })
             .unwrap_or_else(|| {
                 panic!(
-                    "There has to be at least one action available, world_state: {:#?}",
+                    "there has to be at least one action available, world_state: {:#?}",
                     world_state
                 )
             });
