@@ -19,7 +19,7 @@ pub struct CycleContext {
     pub number_of_chunks: Parameter<usize, "audio.whistle_detection.number_of_chunks">,
     pub whistle_scaling: Parameter<f32, "audio.whistle_detection.whistle_scaling">,
 
-    pub samples: RequiredInput<Option<Samples>, "samples?">,
+    pub samples: Input<Samples, "samples">,
     pub audio_spectrums: AdditionalOutput<Vec<Vec<(f32, f32)>>, "audio_spectrums">,
     // pub detection_infos: AdditionalOutput<Vec<DetectionInfo>, "detection_infos">, // DetectionInfos bisher in src/audio/database.rs
 }

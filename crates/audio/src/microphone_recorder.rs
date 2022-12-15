@@ -16,7 +16,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub samples: MainOutput<Option<Samples>>,
+    pub samples: MainOutput<Samples>,
 }
 
 impl MicrophoneRecorder {
@@ -30,7 +30,7 @@ impl MicrophoneRecorder {
             .read_from_microphones()
             .wrap_err("failed to read from microphones")?;
         Ok(MainOutputs {
-            samples: Some(samples).into(),
+            samples: samples.into(),
         })
     }
 }
