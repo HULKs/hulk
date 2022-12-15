@@ -39,7 +39,7 @@ pub struct CycleContext {
 
     pub world_state: Input<WorldState, "world_state">,
 
-    pub config: Parameter<BehaviorConfiguration, "control.behavior">,
+    pub configuration: Parameter<BehaviorConfiguration, "control.behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub lost_ball_parameters: Parameter<LostBall, "control.behavior.lost_ball">,
 }
@@ -61,7 +61,7 @@ impl Behavior {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let world_state = context.world_state;
 
-        if let Some(command) = &context.config.injected_motion_command {
+        if let Some(command) = &context.configuration.injected_motion_command {
             return Ok(MainOutputs {
                 motion_command: command.clone().into(),
             });
@@ -119,23 +119,23 @@ impl Behavior {
         let walk_path_planner = WalkPathPlanner::new(
             context.field_dimensions,
             &world_state.obstacles,
-            &context.config.path_planning,
+            &context.configuration.path_planning,
         );
         let walk_and_stand = WalkAndStand::new(
             world_state,
-            &context.config.walk_and_stand,
+            &context.configuration.walk_and_stand,
             &walk_path_planner,
             &self.last_motion_command,
         );
         let look_action = LookAction::new(
             world_state,
             context.field_dimensions,
-            &context.config.look_action,
+            &context.configuration.look_action,
         );
         let defend = Defend::new(
             world_state,
             context.field_dimensions,
-            &context.config.role_positions,
+            &context.configuration.role_positions,
             &walk_and_stand,
             &look_action,
         );
@@ -156,7 +156,7 @@ impl Behavior {
                 Action::Dribble => dribble::execute(
                     world_state,
                     context.field_dimensions,
-                    &context.config.dribbling,
+                    &context.configuration.dribbling,
                     &walk_path_planner,
                     &mut context.path_obstacles,
                     &mut context.kick_targets,
@@ -169,7 +169,7 @@ impl Behavior {
                     &walk_path_planner,
                     &walk_and_stand,
                     context.field_dimensions,
-                    &context.config.search,
+                    &context.configuration.search,
                     &mut context.path_obstacles,
                 ),
                 Action::SearchForLostBall => lost_ball::execute(
@@ -182,7 +182,7 @@ impl Behavior {
                 Action::SupportStriker => support_striker::execute(
                     world_state,
                     context.field_dimensions,
-                    &context.config.role_positions,
+                    &context.configuration.role_positions,
                     &walk_and_stand,
                     &look_action,
                     &mut context.path_obstacles,
