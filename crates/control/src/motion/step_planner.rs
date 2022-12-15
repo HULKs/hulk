@@ -128,8 +128,6 @@ impl StepPlanner {
         }
 
         let step = compensate_with_return_offset(step, *context.walk_return_offset);
-
-        // clamp_step_to_walk_volume
         let step = clamp_step_to_walk_volume(
             step,
             context.max_step_size,
@@ -137,8 +135,6 @@ impl StepPlanner {
             *context.translation_exponent,
             *context.rotation_exponent,
         );
-
-        // clamp_to_anatomic_constraints
         let step = clamp_to_anatomic_constraints(step, support_side, *context.inside_turn_ratio);
 
         Ok(MainOutputs {
