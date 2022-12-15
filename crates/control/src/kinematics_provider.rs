@@ -1,10 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use nalgebra::{Isometry3, Translation};
-use types::{RobotDimensions, RobotKinematics, SensorData};
-
-use crate::kinematics::{
+use kinematics::{
     head_to_neck, left_ankle_to_left_tibia, left_elbow_to_left_upper_arm, left_foot_to_left_ankle,
     left_forearm_to_left_elbow, left_hip_to_left_pelvis, left_pelvis_to_robot,
     left_shoulder_to_robot, left_thigh_to_left_hip, left_tibia_to_left_thigh,
@@ -14,6 +11,8 @@ use crate::kinematics::{
     right_shoulder_to_robot, right_thigh_to_right_hip, right_tibia_to_right_thigh,
     right_upper_arm_to_right_shoulder, right_wrist_to_right_forearm,
 };
+use nalgebra::{Isometry3, Translation};
+use types::{RobotDimensions, RobotKinematics, SensorData};
 
 pub struct KinematicsProvider {}
 
