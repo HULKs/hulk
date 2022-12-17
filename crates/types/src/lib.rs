@@ -126,5 +126,5 @@ pub use step_adjustment::StepAdjustment;
 pub use step_plan::Step;
 pub use support_foot::{Side, SupportFoot};
 pub use walk_command::WalkCommand;
-pub use whistle::Whistle;
+pub use whistle::{DetectionInfo, Whistle};
 pub use world_state::{BallState, RobotState, WorldState};

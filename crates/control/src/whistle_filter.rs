@@ -45,12 +45,12 @@ impl WhistleFilter {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
 
-        for is_detected in context
+        for &is_detected in context
             .detected_whistle
             .persistent
             .values()
             .flatten()
-            .flat_map(|whistle| whistle.is_detected)
+            .flat_map(|whistle| &whistle.is_detected)
         {
             self.detection_buffer.push_front(is_detected);
         }
