@@ -2,9 +2,8 @@ use std::time::SystemTime;
 
 use color_eyre::Result;
 use context_attribute::context;
-use framework::MainOutput;
-use spl_network_messages::GameControllerStateMessage;
-use types::{CycleTime, GameControllerState, SensorData};
+use framework::{MainOutput, PerceptionInput};
+use types::{hardware::IncomingMessage, CycleTime, GameControllerState, SensorData};
 
 pub struct GameControllerFilter {
     game_controller_state: Option<GameControllerState>,
@@ -18,9 +17,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     pub sensor_data: Input<SensorData, "sensor_data">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
-    // TODO:
-    // pub game_controller_state_message:
-    //     PerceptionInput<GameControllerStateMessage, "SplNetwork", "game_controller_state_message">,
+    pub network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
 }
 
 #[context]
@@ -38,13 +35,16 @@ impl GameControllerFilter {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        // TODO:
-        // for game_controller_state_message in context
-        //     .game_controller_state_message
-        //     .persistent
-        //     .values()
-        //     .flatten()
-        for game_controller_state_message in &Vec::<GameControllerStateMessage>::new() {
+        for game_controller_state_message in context
+            .network_message
+            .persistent
+            .values()
+            .flatten()
+            .filter_map(|message| match message {
+                IncomingMessage::GameController(message) => Some(message),
+                IncomingMessage::Spl(_) => None,
+            })
+        {
             let game_state_changed = match &self.game_controller_state {
                 Some(game_controller_state) => {
                     game_controller_state.game_state != game_controller_state_message.game_state

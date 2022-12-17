@@ -1,13 +1,17 @@
 use std::time::{Duration, SystemTime};
 
-use color_eyre::Result;
+use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use nalgebra::{Isometry2, Point2};
-use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SplMessage, Team};
+use spl_network_messages::{
+    GameControllerReturnMessage, GamePhase, Penalty, PlayerNumber, SplMessage, Team,
+};
 use types::{
-    configuration::SplNetwork, hardware::IncomingMessage, BallPosition, CycleTime, FallState,
-    FieldDimensions, GameControllerState, Players, PrimaryState, Role, SensorData,
+    configuration::SplNetwork,
+    hardware::{IncomingMessage, Interface, OutgoingMessage},
+    BallPosition, CycleTime, FallState, FieldDimensions, GameControllerState, Players,
+    PrimaryState, Role, SensorData,
 };
 
 pub struct RoleAssignment {
@@ -41,7 +45,9 @@ pub struct CycleContext {
     pub forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
     pub spl_network: Parameter<SplNetwork, "spl_network">,
-    pub spl_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
+    pub network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
+
+    pub hardware: HardwareInterface,
 }
 
 #[context]
@@ -64,9 +70,8 @@ impl RoleAssignment {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
-        let ball = context.ball_position;
         let robot_to_field = context.robot_to_field.copied().unwrap_or_default();
         let primary_state = *context.primary_state;
         let mut role = self.role;
@@ -118,14 +123,20 @@ impl RoleAssignment {
 
         if send_game_controller_return_message {
             self.last_transmitted_game_controller_return_message = Some(cycle_start_time);
-            // TODO:
-            // self.game_controller_return_message_sender
-            //     .send(GameControllerReturnMessage {
-            //         player_number: *context.player_number,
-            //         fallen: matches!(fall_state, FallState::Fallen { .. }),
-            //         robot_to_field,
-            //         ball_position: seen_ball_to_network_ball_position(ball, cycle_start_time),
-            //     })?;
+            context
+                .hardware
+                .write_to_network(OutgoingMessage::GameController(
+                    GameControllerReturnMessage {
+                        player_number: *context.player_number,
+                        fallen: matches!(context.fall_state, FallState::Fallen { .. }),
+                        robot_to_field,
+                        ball_position: seen_ball_to_network_ball_position(
+                            context.ball_position,
+                            cycle_start_time,
+                        ),
+                    },
+                ))
+                .wrap_err("failed to write GameControllerReturnMessage to hardware")?;
         }
 
         let mut team_ball = self.team_ball;
@@ -147,46 +158,54 @@ impl RoleAssignment {
             }
         }
 
-        let network_robot_obstacles = vec![];
-        // TODO: Integrate spl message handling
-        // let mut spl_messages = context.spl_message.persistent.values().flatten().peekable();
-        // if spl_messages.peek().is_none() {
-        (role, send_spl_striker_message, team_ball) = process_role_state_machine(
-            role,
-            robot_to_field,
-            ball,
-            primary_state,
-            None,
-            send_spl_striker_message,
-            team_ball,
-            cycle_start_time,
-            context.game_controller_state,
-            *context.player_number,
-            context.spl_network.striker_trusts_team_ball,
-        );
-        // } else {
-        //     for spl_message in spl_messages {
-        //         self.last_received_spl_striker_message = Some(cycle_start_time);
-        //         let sender_position =
-        //             (robot_to_field.inverse() * spl_message.robot_to_field) * Point2::origin();
-        //         if spl_message.player_number != *context.player_number {
-        //             network_robot_obstacles.push(sender_position);
-        //         }
-        //         (role, send_spl_striker_message, team_ball) = process_role_state_machine(
-        //             role,
-        //             robot_to_field,
-        //             ball,
-        //             primary_state,
-        //             Some(spl_message),
-        //             send_spl_striker_message,
-        //             team_ball,
-        //             cycle_start_time,
-        //             context.game_controller_state,
-        //             *context.player_number,
-        //             context.spl_network.striker_trusts_team_ball,
-        //         );
-        //     }
-        // }
+        let mut network_robot_obstacles = vec![];
+        let mut spl_messages = context
+            .network_message
+            .persistent
+            .values()
+            .flatten()
+            .filter_map(|message| match message {
+                IncomingMessage::GameController(_) => None,
+                IncomingMessage::Spl(message) => Some(message),
+            })
+            .peekable();
+        if spl_messages.peek().is_none() {
+            (role, send_spl_striker_message, team_ball) = process_role_state_machine(
+                role,
+                robot_to_field,
+                context.ball_position,
+                primary_state,
+                None,
+                send_spl_striker_message,
+                team_ball,
+                cycle_start_time,
+                context.game_controller_state,
+                *context.player_number,
+                context.spl_network.striker_trusts_team_ball,
+            );
+        } else {
+            for spl_message in spl_messages {
+                self.last_received_spl_striker_message = Some(cycle_start_time);
+                let sender_position =
+                    (robot_to_field.inverse() * spl_message.robot_to_field) * Point2::origin();
+                if spl_message.player_number != *context.player_number {
+                    network_robot_obstacles.push(sender_position);
+                }
+                (role, send_spl_striker_message, team_ball) = process_role_state_machine(
+                    role,
+                    robot_to_field,
+                    context.ball_position,
+                    primary_state,
+                    Some(spl_message),
+                    send_spl_striker_message,
+                    team_ball,
+                    cycle_start_time,
+                    context.game_controller_state,
+                    *context.player_number,
+                    context.spl_network.striker_trusts_team_ball,
+                );
+            }
+        }
 
         if send_spl_striker_message
             && primary_state == PrimaryState::Playing
@@ -200,30 +219,32 @@ impl RoleAssignment {
                         .spl_network
                         .remaining_amount_of_messages_to_stop_sending
                 {
-                    // if ball.is_none() && team_ball.is_some() {
-                    //     // TODO:
-                    //     // self.spl_message_sender.send(SplMessage {
-                    //     //     player_number: *context.player_number,
-                    //     //     fallen: matches!(fall_state, FallState::Fallen { .. }),
-                    //     //     robot_to_field,
-                    //     //     ball_position: team_ball_to_network_ball_position(
-                    //     //         &team_ball,
-                    //     //         &robot_to_field,
-                    //     //         cycle_start_time,
-                    //     //     ),
-                    //     // })?;
-                    // } else {
-                    //     // TODO:
-                    //     // self.spl_message_sender.send(SplMessage {
-                    //     //     player_number: *context.player_number,
-                    //     //     fallen: matches!(fall_state, FallState::Fallen { .. }),
-                    //     //     robot_to_field,
-                    //     //     ball_position: seen_ball_to_network_ball_position(
-                    //     //         ball,
-                    //     //         cycle_start_time,
-                    //     //     ),
-                    //     // })?;
-                    // }
+                    if context.ball_position.is_none() && team_ball.is_some() {
+                        context
+                            .hardware
+                            .write_to_network(OutgoingMessage::Spl(SplMessage {
+                                player_number: *context.player_number,
+                                fallen: matches!(context.fall_state, FallState::Fallen { .. }),
+                                robot_to_field,
+                                ball_position: team_ball_to_network_ball_position(
+                                    team_ball,
+                                    robot_to_field,
+                                    cycle_start_time,
+                                ),
+                            }))?;
+                    } else {
+                        context
+                            .hardware
+                            .write_to_network(OutgoingMessage::Spl(SplMessage {
+                                player_number: *context.player_number,
+                                fallen: matches!(context.fall_state, FallState::Fallen { .. }),
+                                robot_to_field,
+                                ball_position: seen_ball_to_network_ball_position(
+                                    context.ball_position,
+                                    cycle_start_time,
+                                ),
+                            }))?;
+                    }
                 }
             }
         }
@@ -524,29 +545,28 @@ fn decide_if_claiming_striker_or_other_role(
     }
 }
 
-// TODO: use this methods for sending messages
-// fn seen_ball_to_network_ball_position(
-//     ball: &Option<BallPosition>,
-//     cycle_start_time: SystemTime,
-// ) -> Option<spl_network_messages::BallPosition> {
-//     ball.map(|ball| spl_network_messages::BallPosition {
-//         age: cycle_start_time.duration_since(ball.last_seen).unwrap(),
-//         relative_position: ball.position,
-//     })
-// }
-//
-// fn team_ball_to_network_ball_position(
-//     team_ball: &Option<BallPosition>,
-//     robot_to_field: Isometry2<f32>,
-//     cycle_start_time: SystemTime,
-// ) -> Option<spl_network_messages::BallPosition> {
-//     team_ball.map(|team_ball| spl_network_messages::BallPosition {
-//         age: cycle_start_time
-//             .duration_since(team_ball.last_seen)
-//             .unwrap(),
-//         relative_position: robot_to_field.inverse() * team_ball.position,
-//     })
-// }
+fn seen_ball_to_network_ball_position(
+    ball: Option<&BallPosition>,
+    cycle_start_time: SystemTime,
+) -> Option<spl_network_messages::BallPosition> {
+    ball.map(|ball| spl_network_messages::BallPosition {
+        age: cycle_start_time.duration_since(ball.last_seen).unwrap(),
+        relative_position: ball.position,
+    })
+}
+
+fn team_ball_to_network_ball_position(
+    team_ball: Option<BallPosition>,
+    robot_to_field: Isometry2<f32>,
+    cycle_start_time: SystemTime,
+) -> Option<spl_network_messages::BallPosition> {
+    team_ball.map(|team_ball| spl_network_messages::BallPosition {
+        age: cycle_start_time
+            .duration_since(team_ball.last_seen)
+            .unwrap(),
+        relative_position: robot_to_field.inverse() * team_ball.position,
+    })
+}
 
 fn team_ball_from_spl_message(
     cycle_start_time: SystemTime,
