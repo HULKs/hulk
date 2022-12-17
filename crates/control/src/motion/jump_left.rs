@@ -2,8 +2,8 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
-    CycleInfo, JointsCommand, MotionFile, MotionFileInterpolator, MotionSafeExits, MotionSelection,
-    MotionType, SensorData, Joints,
+    CycleTime, Joints, JointsCommand, MotionFile, MotionFileInterpolator, MotionSafeExits,
+    MotionSelection, MotionType, SensorData,
 };
 
 pub struct JumpLeft {
@@ -21,7 +21,7 @@ pub struct CycleContext {
 
     pub motion_selection: Input<MotionSelection, "motion_selection">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
 }
 
 #[context]
@@ -38,7 +38,7 @@ impl JumpLeft {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let last_cycle_duration = context.cycle_info.last_cycle_duration;
+        let last_cycle_duration = context.cycle_time.last_cycle_duration;
         if context.motion_selection.current_motion == MotionType::JumpLeft {
             self.interpolator.step(last_cycle_duration);
         } else {

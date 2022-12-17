@@ -7,7 +7,7 @@ use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use itertools::{chain, iproduct};
 use nalgebra::{distance, point, Isometry2, Matrix2, Point2};
 use types::{
-    configuration::ObstacleFilter as ObstacleFilterConfiguration, CycleInfo, DetectedRobots,
+    configuration::ObstacleFilter as ObstacleFilterConfiguration, CycleTime, DetectedRobots,
     FieldDimensions, Obstacle, ObstacleFilterHypothesis, ObstacleKind, SensorData, SonarObstacle,
 };
 
@@ -34,7 +34,7 @@ pub struct CycleContext {
     pub sonar_obstacles: HistoricInput<Vec<SonarObstacle>, "sonar_obstacles">,
 
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub goal_post_obstacle_radius:
@@ -68,7 +68,7 @@ impl ObstacleFilter {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let field_dimensions = context.field_dimensions;
-        let cycle_start_time = context.cycle_info.start_time;
+        let cycle_start_time = context.cycle_time.start_time;
         let measured_robots = context
             .detected_robots_top
             .persistent

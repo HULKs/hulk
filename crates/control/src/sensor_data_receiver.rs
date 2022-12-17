@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
-use types::{hardware::Interface, CycleInfo, SensorData};
+use types::{hardware::Interface, CycleTime, SensorData};
 
 pub struct SensorDataReceiver {
     last_cycle_start: SystemTime,
@@ -20,7 +20,7 @@ pub struct CycleContext {
 #[context]
 pub struct MainOutputs {
     pub sensor_data: MainOutput<SensorData>,
-    pub cycle_info: MainOutput<CycleInfo>,
+    pub cycle_time: MainOutput<CycleTime>,
 }
 
 impl SensorDataReceiver {
@@ -36,7 +36,7 @@ impl SensorDataReceiver {
             .read_from_sensors()
             .wrap_err("failed to read from sensors")?;
         let now = context.hardware_interface.get_now();
-        let cycle_info = CycleInfo {
+        let cycle_time = CycleTime {
             start_time: now,
             last_cycle_duration: now
                 .duration_since(self.last_cycle_start)
@@ -45,7 +45,7 @@ impl SensorDataReceiver {
         self.last_cycle_start = now;
         Ok(MainOutputs {
             sensor_data: sensor_data.into(),
-            cycle_info: cycle_info.into(),
+            cycle_time: cycle_time.into(),
         })
     }
 }

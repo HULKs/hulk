@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use types::{KickVariant, Side, Step, WalkCommand, configuration::KickSteps};
+use types::{configuration::KickSteps, KickVariant, Side, Step, WalkCommand};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum WalkState {

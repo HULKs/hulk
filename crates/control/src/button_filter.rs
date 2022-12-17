@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::TapDetector;
 use framework::MainOutput;
-use types::{Buttons, CycleInfo, SensorData};
+use types::{Buttons, CycleTime, SensorData};
 
 pub struct ButtonFilter {
     chest_button_tap_detector: TapDetector,
@@ -24,7 +24,7 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub calibration_buttons_timeout:
         Parameter<Duration, "control.button_filter.calibration_buttons_timeout">,
@@ -62,13 +62,13 @@ impl ButtonFilter {
         let head_buttons_touched_initially =
             head_buttons_touched && !self.last_head_buttons_touched;
         if head_buttons_touched_initially {
-            self.head_buttons_touched = context.cycle_info.start_time;
+            self.head_buttons_touched = context.cycle_time.start_time;
         }
         self.last_head_buttons_touched = head_buttons_touched;
 
         let debounced_head_buttons_touched = head_buttons_touched
             && context
-                .cycle_info
+                .cycle_time
                 .start_time
                 .duration_since(self.head_buttons_touched)
                 .unwrap()
@@ -79,13 +79,13 @@ impl ButtonFilter {
         let calibration_buttons_touched_initially =
             calibration_buttons_touched && !self.last_calibration_buttons_touched;
         if calibration_buttons_touched_initially {
-            self.calibration_buttons_touched = context.cycle_info.start_time;
+            self.calibration_buttons_touched = context.cycle_time.start_time;
         }
         self.last_calibration_buttons_touched = calibration_buttons_touched;
 
         let debounced_calibration_buttons_touched = calibration_buttons_touched
             && context
-                .cycle_info
+                .cycle_time
                 .start_time
                 .duration_since(self.calibration_buttons_touched)
                 .unwrap()

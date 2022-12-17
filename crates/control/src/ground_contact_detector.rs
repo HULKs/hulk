@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::greater_than_with_hysteresis;
 use framework::MainOutput;
-use types::{CycleInfo, SensorData, SolePressure};
+use types::{CycleTime, SensorData, SolePressure};
 
 pub struct GroundContactDetector {
     last_has_pressure: bool,
@@ -23,7 +23,7 @@ pub struct CreationContext {
 pub struct CycleContext {
     pub sensor_data: Input<SensorData, "sensor_data">,
     pub sole_pressure: Input<SolePressure, "sole_pressure">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub hysteresis: Parameter<f32, "control.ground_contact_detector.hysteresis">,
     pub pressure_threshold: Parameter<f32, "control.ground_contact_detector.pressure_threshold">,
@@ -53,10 +53,10 @@ impl GroundContactDetector {
             *context.hysteresis,
         );
         if self.last_has_pressure != has_pressure {
-            self.last_time_switched = context.cycle_info.start_time;
+            self.last_time_switched = context.cycle_time.start_time;
         }
         if context
-            .cycle_info
+            .cycle_time
             .start_time
             .duration_since(self.last_time_switched)
             .expect("time ran backwards")

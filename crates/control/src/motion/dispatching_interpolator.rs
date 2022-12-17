@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
-    BodyJointsCommand, CycleInfo, HeadJoints, Joints, JointsCommand, LinearInterpolator,
+    BodyJointsCommand, CycleTime, HeadJoints, Joints, JointsCommand, LinearInterpolator,
     MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
@@ -25,7 +25,7 @@ pub struct CycleContext {
     pub jump_right_joints_command: Input<JointsCommand, "jump_right_joints_command">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub sit_down_joints_command: Input<JointsCommand, "sit_down_joints_command">,
     pub stand_up_back_positions: Input<Joints, "stand_up_back_positions">,
     pub stand_up_front_positions: Input<Joints, "stand_up_front_positions">,
@@ -157,7 +157,7 @@ impl DispatchingInterpolator {
         }
 
         self.interpolator
-            .step(context.cycle_info.last_cycle_duration);
+            .step(context.cycle_time.last_cycle_duration);
 
         context.motion_safe_exits[MotionType::Dispatching] = self.interpolator.is_finished();
 
