@@ -14,7 +14,7 @@ pub fn write_token_stream(file_name: &str, token_stream: TokenStream) -> Result<
     {
         let mut file = File::create(&file_path)
             .wrap_err_with(|| format!("failed create file {file_path:?}"))?;
-        write!(file, "{}", token_stream)
+        write!(file, "{token_stream}")
             .wrap_err_with(|| format!("failed to write to file {file_path:?}"))?;
     }
 

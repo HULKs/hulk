@@ -198,7 +198,7 @@ impl TwixApp {
 }
 
 fn ip_to_socket_address(ip_address: &str) -> String {
-    format!("ws://{}:1337", ip_address)
+    format!("ws://{ip_address}:1337")
 }
 
 impl App for TwixApp {

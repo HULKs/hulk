@@ -93,7 +93,7 @@ fn generate_serde_serialization(fields: &Fields) -> Vec<TokenStream> {
             }
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
-            let error_message = format!("failed to serialize field `{}`", name);
+            let error_message = format!("failed to serialize field `{name}`");
             Some(quote! {
                 #pattern => serde_json::to_value(&self.#name).wrap_err(#error_message)
             })
@@ -123,7 +123,7 @@ fn generate_path_serialization(fields: &Fields) -> Vec<TokenStream> {
                     #pattern => color_eyre::eyre::bail!("cannot access leaf node with path `{}`", suffix)
                 }
             } else {
-                let error_message = format!("failed to serialize field `{}`", name);
+                let error_message = format!("failed to serialize field `{name}`");
                 quote! {
                     #pattern => self.#name.serialize_hierarchy(suffix).wrap_err(#error_message)
                 }
@@ -146,7 +146,7 @@ fn generate_serde_deserialization(fields: &Fields) -> Vec<TokenStream> {
             }
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
-            let error_message = format!("failed to deserialize field `{}`", name);
+            let error_message = format!("failed to deserialize field `{name}`");
             Some(quote! {
                 #pattern => {
                     self.#name = serde_json::from_value(data).wrap_err(#error_message)?;
@@ -174,7 +174,7 @@ fn generate_path_deserialization(fields: &Fields) -> Vec<TokenStream> {
                 .any(|attribute| attribute.path.is_ident("leaf"));
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
-            let error_message = format!("failed to deserialize field `{}`", name);
+            let error_message = format!("failed to deserialize field `{name}`");
             let code = if is_leaf {
                 quote! {
                     #pattern => color_eyre::eyre::bail!("cannot access leaf node with path `{}`", suffix)

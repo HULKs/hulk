@@ -202,7 +202,7 @@ fn calculate_walk_volume(
     let x = request.forward / max_forward;
     let y = request.left / max_step_size.left;
     let angle = request.turn / max_step_size.turn;
-    assert!(angle.abs() <= 1.0, "angle was {}", angle);
+    assert!(angle.abs() <= 1.0, "angle was {angle}");
     (x.abs().powf(translation_exponent) + y.abs().powf(translation_exponent))
         .powf(rotation_exponent / translation_exponent)
         + angle.abs().powf(rotation_exponent)

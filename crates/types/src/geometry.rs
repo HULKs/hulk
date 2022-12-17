@@ -133,7 +133,7 @@ impl LineSegment {
             f if f == 0.0 => Orientation::Colinear,
             f if f > 0.0 => Orientation::Clockwise,
             f if f < 0.0 => Orientation::Counterclockwise,
-            f => panic!("Directed cathetus was not a real number: {}", f),
+            f => panic!("directed cathetus was not a real number: {f}"),
         }
     }
 
@@ -589,7 +589,7 @@ mod tests {
                     end: center + end,
                 };
 
-                println!("angle: {} angle_distance {}", angle, angle_distance);
+                println!("angle: {angle} angle_distance {angle_distance}");
                 assert_relative_eq!(
                     arc.length(Orientation::Counterclockwise),
                     radius * angle_distance,

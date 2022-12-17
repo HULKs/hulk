@@ -351,7 +351,7 @@ fn spawn_connect(address: String, sender: mpsc::Sender<Message>) -> JoinHandle<(
                 .unwrap(),
             Err(error) => sender
                 .send(Message::ConnectionFailed {
-                    info: format!("{:#}", error),
+                    info: format!("{error:#}"),
                 })
                 .await
                 .unwrap(),
