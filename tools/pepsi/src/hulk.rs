@@ -30,7 +30,7 @@ pub async fn hulk(arguments: Arguments) -> Result<()> {
         let nao = Nao::new(nao_address.ip);
         nao.execute_systemctl(arguments.action, "hulk")
             .await
-            .wrap_err_with(|| format!("Failed to execute systemctl hulk on {nao_address}"))
+            .wrap_err_with(|| format!("failed to execute systemctl hulk on {nao_address}"))
     });
 
     let results = join_all(tasks).await;

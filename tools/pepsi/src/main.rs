@@ -196,8 +196,8 @@ async fn get_repository_root() -> Result<PathBuf> {
         let mut directory = read_dir(ancestor)
             .await
             .wrap_err_with(|| format!("failed to read directory {ancestor:?}"))?;
-        while let Some(child) = directory.next_entry().await.with_context(|| {
-            format!("Failed to get next directory entry while iterating {ancestor:?}")
+        while let Some(child) = directory.next_entry().await.wrap_err_with(|| {
+            format!("failed to get next directory entry while iterating {ancestor:?}")
         })? {
             if child.file_name() == ".git" {
                 return Ok(child
@@ -209,5 +209,5 @@ async fn get_repository_root() -> Result<PathBuf> {
         }
     }
 
-    bail!("Failed to find .git directory")
+    bail!("failed to find .git directory")
 }
