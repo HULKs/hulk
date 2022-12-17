@@ -32,16 +32,18 @@ where
             Ok(file) => file,
             Err(error) => return Some(Err(error)),
         };
-        match file.items.into_iter().any(|item| match item {
+        let has_cycler_instance = file.items.into_iter().any(|item| match item {
             Item::Enum(enum_item) => enum_item.ident == "CyclerInstance",
             _ => false,
-        }) {
-            true => file_path
-                .parent()
-                .and_then(|source_directory| source_directory.parent())
-                .map(|crate_directory| Ok(crate_directory.to_path_buf())),
-            false => None,
-        }
+        });
+        has_cycler_instance
+            .then(|| {
+                file_path
+                    .parent()
+                    .and_then(|source_directory| source_directory.parent())
+                    .map(|crate_directory| Ok(crate_directory.to_path_buf()))
+            })
+            .flatten()
     })
     .collect()
 }
