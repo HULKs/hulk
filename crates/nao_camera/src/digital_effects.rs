@@ -13,13 +13,13 @@ pub enum DigitalEffectsError {
 }
 
 pub fn disable_digital_effects(file_descriptor: i32) -> Result<(), DigitalEffectsError> {
-    let address = 0x5001;
-    let value = 0b00100011;
-    write_register(file_descriptor, 0x5001, 0b00100011).map_err(|source| {
+    const ADDRESS: u16 = 0x5001;
+    const VALUE: u16 = 0b00100011;
+    write_register(file_descriptor, ADDRESS, VALUE).map_err(|source| {
         DigitalEffectsError::RegisterNotWritten {
             source,
-            address,
-            value,
+            address: ADDRESS,
+            value: VALUE,
         }
     })?;
 
