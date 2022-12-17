@@ -49,6 +49,7 @@ impl WhistleDetection {
         let scratch = vec![Complex32::zero(); fft.get_inplace_scratch_len()];
         Ok(Self { fft, scratch })
     }
+
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         context.audio_spectrums.fill_on_subscription(Vec::new);
         context.detection_infos.fill_on_subscription(Vec::new);
