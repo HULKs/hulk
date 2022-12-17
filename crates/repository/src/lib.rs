@@ -332,9 +332,9 @@ impl Repository {
             .into_iter()
             .map(|(nao_number, hardware_ids)| {
                 Ok((
-                    nao_number.parse().wrap_err_with(|| {
-                        format!("Failed to parse NAO number: {nao_number:?}")
-                    })?,
+                    nao_number
+                        .parse()
+                        .wrap_err_with(|| format!("Failed to parse NAO number: {nao_number:?}"))?,
                     hardware_ids,
                 ))
             })
