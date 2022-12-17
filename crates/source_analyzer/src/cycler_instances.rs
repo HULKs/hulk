@@ -5,11 +5,11 @@ use color_eyre::{
     Result,
 };
 use proc_macro2::Span;
-use syn::Item;
+use syn::{Error, Item};
 
 use crate::{
-    cycler_crates::cycler_crates_from_crates_directory,
-    into_eyre_result::new_syn_error_as_eyre_result, parse::parse_rust_file,
+    cycler_crates::cycler_crates_from_crates_directory, into_eyre_result::SynContext,
+    parse::parse_rust_file,
 };
 
 #[derive(Debug)]
@@ -47,16 +47,9 @@ impl CyclerInstances {
                 Item::Enum(enum_item) if enum_item.ident == "CyclerInstance" => Some(enum_item),
                 _ => None,
             });
-            let enum_item = match enum_item {
-                Some(enum_item) => enum_item,
-                None => {
-                    return new_syn_error_as_eyre_result(
-                        Span::call_site(),
-                        "expected `CyclerInstances` enum",
-                        rust_file_path,
-                    )
-                }
-            };
+            let enum_item = enum_item
+                .ok_or_else(|| Error::new(Span::call_site(), "expected `CyclerInstances` enum"))
+                .syn_context(rust_file_path)?;
             for variant in enum_item.variants.iter() {
                 instances_to_modules.insert(variant.ident.to_string(), module.to_string());
                 modules_to_instances
