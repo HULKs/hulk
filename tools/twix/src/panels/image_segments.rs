@@ -125,7 +125,7 @@ impl Widget for &mut ImageSegmentsPanel {
         });
         let image_segments: ImageSegments = match self.value_buffer.require_latest() {
             Ok(value) => value,
-            Err(error) => return ui.label(format!("{:?}", error)),
+            Err(error) => return ui.label(format!("{error:?}")),
         };
 
         let (mut response, painter) = TwixPainter::allocate_new(ui);

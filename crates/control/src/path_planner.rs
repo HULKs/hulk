@@ -441,7 +441,7 @@ mod tests {
             .expect("Path error")
             .expect("Path was none");
 
-        println!("Map {:#?}", map);
+        println!("Map {map:#?}");
         println!(
             "Total cost: {:?}",
             path.iter().map(|segment| segment.length()).sum::<f32>()

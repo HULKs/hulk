@@ -93,7 +93,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         let hulk_directory = hulk_directory.clone();
         async move {
             let nao = Nao::new(nao_address.ip);
-            println!("Starting upload to {}", nao_address);
+            println!("Starting upload to {nao_address}");
             nao.upload(hulk_directory, !arguments.no_clean)
                 .await
                 .wrap_err_with(|| format!("failed to power {nao_address} off"))

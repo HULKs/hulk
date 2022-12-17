@@ -83,7 +83,7 @@ impl Widget for &mut MapPanel {
 
         let field_dimensions: FieldDimensions = match self.field_dimensions.get_latest() {
             Ok(value) => from_value(value).unwrap(),
-            Err(error) => return ui.label(format!("{:?}", error)),
+            Err(error) => return ui.label(format!("{error:?}")),
         };
         let (response, painter) = TwixPainter::allocate_new(ui);
         let mut painter = painter.with_map_transforms(&field_dimensions);

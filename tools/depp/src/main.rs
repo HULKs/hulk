@@ -35,7 +35,7 @@ fn main() -> Result<()> {
             continue;
         }
 
-        println!("    crate://crates.io/{}/{} \\", name, version);
+        println!("    crate://crates.io/{name}/{version} \\");
     }
 
     Ok(())

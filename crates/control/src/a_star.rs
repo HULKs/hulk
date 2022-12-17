@@ -229,7 +229,7 @@ mod test {
                 (0, 1) | (1, 2) => 1.0,
                 (0, 2) => 3.0,
                 (2, 2) => 0.0,
-                x => panic!("This distance should never be requested: {:?}", x),
+                x => panic!("this distance should never be requested: {x:?}"),
             }
         }
     }

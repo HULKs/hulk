@@ -280,11 +280,7 @@ mod tests {
     {
         assert_eq!(left.len(), right.len());
         for index in 0..left.len() {
-            assert_eq!(
-                left[index], right[index],
-                "left[{}] != right[{}]",
-                index, index
-            );
+            assert_eq!(left[index], right[index], "left[{index}] != right[{index}]",);
         }
     }
 

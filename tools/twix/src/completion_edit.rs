@@ -41,8 +41,8 @@ impl<'key> CompletionEdit<'key> {
     pub fn addresses(key: &'key mut String, numbers: Range<u8>) -> Self {
         let completion_items = chain!(
             once("localhost".to_string()),
-            numbers.clone().map(|number| format!("10.1.24.{}", number)),
-            numbers.map(|number| format!("10.0.24.{}", number))
+            numbers.clone().map(|number| format!("10.1.24.{number}")),
+            numbers.map(|number| format!("10.0.24.{number}"))
         )
         .collect();
 
@@ -243,7 +243,7 @@ fn extend_from_hierarchy(buffer: &mut Vec<String>, prefix: String, hierarchy: Hi
                 let new_prefix = if prefix.is_empty() {
                     key
                 } else {
-                    format!("{}.{}", prefix, key)
+                    format!("{prefix}.{key}")
                 };
                 extend_from_hierarchy(buffer, new_prefix, value);
             }

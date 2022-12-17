@@ -45,7 +45,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                           },
                       })
                       .collect();
-                  let error_message = format!("failed to create cycler `{}`", cycler_instance);
+                  let error_message = format!("failed to create cycler `{cycler_instance}`");
                   quote! {
                       let #cycler_variable_identifier = #cycler_module_name_identifier::Cycler::new(
                           ::#cycler_module_name_identifier::CyclerInstance::#cycler_instance_identifier,
@@ -127,7 +127,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                         format_ident!("{}_cycler", cycler_instance_snake_case);
                     let cycler_handle_identifier =
                         format_ident!("{}_handle", cycler_instance_snake_case);
-                    let error_message = format!("failed to start cycler `{}`", cycler_instance);
+                    let error_message = format!("failed to start cycler `{cycler_instance}`");
                     quote! {
                         let #cycler_handle_identifier = #cycler_variable_identifier
                             .start(keep_running.clone())
