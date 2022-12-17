@@ -25,7 +25,7 @@ pub fn path_to_accessor_token_stream(
         let path_contains_optional = path.iter().any(|segment| segment.is_optional);
         if !path_contains_optional {
             token_stream.append(TokenTree::Punct(Punct::new('&', Spacing::Alone)));
-            if let ReferenceType::Mutable = reference_type {
+            if ReferenceType::Mutable == reference_type {
                 token_stream.append(TokenTree::Ident(format_ident!("mut")));
             }
         }
@@ -114,7 +114,7 @@ pub fn path_to_accessor_token_stream(
                     if !next_segments_contain_optional {
                         new_token_stream_within_method
                             .append(TokenTree::Punct(Punct::new('&', Spacing::Alone)));
-                        if let ReferenceType::Mutable = reference_type {
+                        if ReferenceType::Mutable == reference_type {
                             new_token_stream_within_method
                                 .append(TokenTree::Ident(format_ident!("mut")));
                         }
