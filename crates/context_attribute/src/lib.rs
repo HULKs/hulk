@@ -44,8 +44,8 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                         PathArguments::AngleBracketed(arguments)
                             if arguments.args.len() == 2 || arguments.args.len() == 3 =>
                         {
+                            let has_additional_argument = arguments.args.len() == 3;
                             pop_string_argument(arguments);
-                            let has_additional_argument = arguments.args.len() == 2;
                             if has_additional_argument {
                                 pop_string_argument(arguments);
                             }
