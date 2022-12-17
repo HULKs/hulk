@@ -15,7 +15,7 @@ pub struct FallProtector {
 
 #[context]
 pub struct CreationContext {
-    pub fall_protection: Parameter<FallProtection, "control.fall_protection">,
+    pub fall_protection: Parameter<FallProtection, "fall_protection">,
 }
 
 #[context]
@@ -25,7 +25,7 @@ pub struct CycleContext {
     pub sensor_data: Input<SensorData, "sensor_data">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
 
-    pub fall_protection: Parameter<FallProtection, "control.fall_protection">,
+    pub fall_protection: Parameter<FallProtection, "fall_protection">,
 }
 
 #[context]

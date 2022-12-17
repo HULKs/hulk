@@ -16,9 +16,8 @@ pub struct StandUpFront {
 #[context]
 pub struct CreationContext {
     pub gyro_low_pass_filter_coefficient:
-        Parameter<f32, "control.stand_up.gyro_low_pass_filter_coefficient">,
-    pub gyro_low_pass_filter_tolerance:
-        Parameter<f32, "control.stand_up.gyro_low_pass_filter_tolerance">,
+        Parameter<f32, "stand_up.gyro_low_pass_filter_coefficient">,
+    pub gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
@@ -31,9 +30,8 @@ pub struct CycleContext {
     pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub gyro_low_pass_filter_coefficient:
-        Parameter<f32, "control.stand_up.gyro_low_pass_filter_coefficient">,
-    pub gyro_low_pass_filter_tolerance:
-        Parameter<f32, "control.stand_up.gyro_low_pass_filter_tolerance">,
+        Parameter<f32, "stand_up.gyro_low_pass_filter_coefficient">,
+    pub gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }

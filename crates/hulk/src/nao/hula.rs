@@ -273,6 +273,7 @@ pub struct StateStorage {
     /// Seconds since proxy start
     pub received_at: f32,
     pub robot_configuration: RobotConfiguration,
+    pub battery: Battery,
     pub inertial_measurement_unit: InertialMeasurementUnit,
     pub force_sensitive_resistors: ForceSensitiveResistors,
     pub touch_sensors: TouchSensors,

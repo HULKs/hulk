@@ -234,7 +234,7 @@ dependencies = [
  "cexpr 0.4.0",
  "clang-sys",
  "clap 2.34.0",
- "env_logger",
+ "env_logger 0.8.4",
  "lazy_static",
  "lazycell",
  "log",
@@ -245,6 +245,29 @@ dependencies = [
  "rustc-hash",
  "shlex 0.1.1",
  "which 3.1.1",
+]
+
+[[package]]
+name = "bindgen"
+version = "0.59.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bd2a9a458e8f4304c52c43ebb0cfbd520289f8379a52e329a38afda99bf8eb8"
+dependencies = [
+ "bitflags",
+ "cexpr 0.6.0",
+ "clang-sys",
+ "clap 2.34.0",
+ "env_logger 0.9.3",
+ "lazy_static",
+ "lazycell",
+ "log",
+ "peeking_take_while",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "rustc-hash",
+ "shlex 1.1.0",
+ "which 4.3.0",
 ]
 
 [[package]]
@@ -654,6 +677,28 @@ dependencies = [
  "tokio-tungstenite",
  "tokio-util",
  "uuid",
+]
+
+[[package]]
+name = "compiled-nn"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "965249483456cc610c75e699cc966fb62dfb1efb9e994401286c92c6cc7dbb2b"
+dependencies = [
+ "compiled-nn-bindings",
+]
+
+[[package]]
+name = "compiled-nn-bindings"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1acb7a5487a645e0c89f13fad1555634f34b54e7dfffdc85a07f2356f5f9c477"
+dependencies = [
+ "bindgen 0.59.2",
+ "cmake",
+ "glob",
+ "pkg-config",
+ "walkdir",
 ]
 
 [[package]]
@@ -1189,6 +1234,19 @@ name = "env_logger"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
+dependencies = [
+ "atty",
+ "humantime",
+ "log",
+ "regex",
+ "termcolor",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
 dependencies = [
  "atty",
  "humantime",
@@ -3729,11 +3787,16 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "vision"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "color-eyre",
+ "compiled-nn",
  "context_attribute",
  "filtering",
  "framework",
+ "itertools",
  "nalgebra",
+ "ordered-float",
+ "rand",
  "types",
 ]
 

@@ -246,7 +246,7 @@ impl Module<'_> {
                         Some(cycler_instance) => {
                             let identifier =
                                 format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
-                            quote! { #identifier }
+                            quote! { #identifier.main_outputs }
                         }
                         None => {
                             quote! { own_database_reference.main_outputs }

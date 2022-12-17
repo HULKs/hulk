@@ -109,9 +109,9 @@ pub struct WalkingEngine {
 
 #[context]
 pub struct CreationContext {
-    pub config: Parameter<WalkingEngineConfiguration, "control.walking_engine">,
-    pub kick_steps: Parameter<KickSteps, "control.kick_steps">,
-    pub ready_pose: Parameter<Joints, "control.ready_pose">,
+    pub config: Parameter<WalkingEngineConfiguration, "walking_engine">,
+    pub kick_steps: Parameter<KickSteps, "kick_steps">,
+    pub ready_pose: Parameter<Joints, "ready_pose">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
     pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
@@ -123,9 +123,9 @@ pub struct CycleContext {
     pub step_adjustment: AdditionalOutput<StepAdjustment, "step_adjustment">,
     // TODO: ask hendrik how to do that
     // pub walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
-    pub config: Parameter<WalkingEngineConfiguration, "control.walking_engine">,
-    pub kick_steps: Parameter<KickSteps, "control.kick_steps">,
-    pub ready_pose: Parameter<Joints, "control.ready_pose">,
+    pub config: Parameter<WalkingEngineConfiguration, "walking_engine">,
+    pub kick_steps: Parameter<KickSteps, "kick_steps">,
+    pub ready_pose: Parameter<Joints, "ready_pose">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
     pub walk_return_offset: PersistentState<Step, "walk_return_offset">,

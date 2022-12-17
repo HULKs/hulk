@@ -7,7 +7,7 @@ use std::{
 };
 
 use color_eyre::Result;
-use image::RgbImage;
+use image::{io::Reader, RgbImage};
 use spl_network_messages::{GameControllerReturnMessage, GameControllerStateMessage, SplMessage};
 
 use crate::{Rgb, YCbCr422, YCbCr444};
@@ -36,9 +36,9 @@ pub struct Ids {
 
 #[derive(Clone, Default)]
 pub struct Image {
-    pub buffer: Arc<Vec<YCbCr422>>,
-    pub width_422: u32,
-    pub height: u32,
+    buffer: Arc<Vec<YCbCr422>>,
+    width_422: u32,
+    height: u32,
 }
 
 impl Debug for Image {
@@ -53,6 +53,18 @@ impl Debug for Image {
 }
 
 impl Image {
+    pub fn zero(width: u32, height: u32) -> Self {
+        assert!(
+            width % 2 == 0,
+            "the Image type does not support odd widths. Dimensions were {width}x{height}",
+        );
+        Self::from_ycbcr_buffer(
+            vec![YCbCr422::default(); width as usize / 2 * height as usize],
+            width / 2,
+            height,
+        )
+    }
+
     pub fn from_ycbcr_buffer(buffer: Vec<YCbCr422>, width_422: u32, height: u32) -> Self {
         Self {
             buffer: Arc::new(buffer),
@@ -82,6 +94,26 @@ impl Image {
             width_422,
             height,
         }
+    }
+
+    pub fn load_from_444_png(path: impl AsRef<Path>) -> Result<Self> {
+        let png = Reader::open(path)?.decode()?.into_rgb8();
+
+        let width = png.width();
+        let height = png.height();
+        let rgb_pixels = png.into_vec();
+
+        let pixels = rgb_pixels
+            .chunks(6)
+            .map(|x| YCbCr422 {
+                y1: x[0],
+                cb: ((x[1] as u16 + x[4] as u16) / 2) as u8,
+                y2: x[3],
+                cr: ((x[2] as u16 + x[5] as u16) / 2) as u8,
+            })
+            .collect();
+
+        Ok(Self::from_ycbcr_buffer(pixels, width / 2, height))
     }
 
     pub fn save_to_ycbcr_444_file(&self, file: impl AsRef<Path>) -> Result<()> {
@@ -126,6 +158,43 @@ impl Image {
             }
         }
         Ok(image.save(file)?)
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width_422 * 2
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    fn coordinates_to_buffer_index(&self, x: u32, y: u32) -> usize {
+        let x_422 = x / 2;
+        (y * self.width_422 + x_422) as usize
+    }
+
+    pub fn at(&self, x: u32, y: u32) -> YCbCr444 {
+        let pixel = self.buffer[self.coordinates_to_buffer_index(x, y)];
+        let is_left_pixel = x % 2 == 0;
+        YCbCr444 {
+            y: if is_left_pixel { pixel.y1 } else { pixel.y2 },
+            cb: pixel.cb,
+            cr: pixel.cr,
+        }
+    }
+
+    pub fn try_at(&self, x: u32, y: u32) -> Option<YCbCr444> {
+        if x >= self.width() || y >= self.height() {
+            return None;
+        }
+        let pixel = self.buffer[self.coordinates_to_buffer_index(x, y)];
+        let is_left_pixel = x % 2 == 0;
+        let pixel = YCbCr444 {
+            y: if is_left_pixel { pixel.y1 } else { pixel.y2 },
+            cb: pixel.cb,
+            cr: pixel.cr,
+        };
+        Some(pixel)
     }
 }
 

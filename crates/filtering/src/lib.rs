@@ -3,6 +3,7 @@ mod kalman_filter;
 mod low_pass_filter;
 mod orientation_filter;
 mod pose_filter;
+pub mod statistics;
 mod tap_detector;
 
 pub use hysteresis::{greater_than_with_hysteresis, less_than_with_hysteresis};

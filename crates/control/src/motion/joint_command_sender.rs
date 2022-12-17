@@ -16,9 +16,9 @@ pub struct CycleContext {
     pub positions: AdditionalOutput<Joints, "positions">,
     pub stiffnesses: AdditionalOutput<Joints, "stiffnesses">,
 
-    pub center_head_position: Parameter<HeadJoints, "control.center_head_position">,
-    pub penalized_pose: Parameter<Joints, "control.penalized_pose">,
-    pub ready_pose: Parameter<Joints, "control.ready_pose">,
+    pub center_head_position: Parameter<HeadJoints, "center_head_position">,
+    pub penalized_pose: Parameter<Joints, "penalized_pose">,
+    pub ready_pose: Parameter<Joints, "ready_pose">,
 
     pub arms_up_squat_joints_command: Input<JointsCommand, "arms_up_squat_joints_command">,
     pub dispatching_command: Input<JointsCommand, "dispatching_command">,

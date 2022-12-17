@@ -20,7 +20,7 @@ pub struct CycleContext {
     pub support_foot: Input<SupportFoot, "support_foot">,
 
     pub orientation_filter_configuration:
-        Parameter<OrientationFilterParameters, "control.orientation_filter">,
+        Parameter<OrientationFilterParameters, "orientation_filter">,
 }
 
 #[context]

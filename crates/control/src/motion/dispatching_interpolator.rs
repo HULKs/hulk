@@ -31,8 +31,8 @@ pub struct CycleContext {
     pub stand_up_front_positions: Input<Joints, "stand_up_front_positions">,
     pub walk_joints_command: Input<BodyJointsCommand, "walk_joints_command">,
 
-    pub penalized_pose: Parameter<Joints, "control.penalized_pose">,
-    pub ready_pose: Parameter<Joints, "control.ready_pose">,
+    pub penalized_pose: Parameter<Joints, "penalized_pose">,
+    pub ready_pose: Parameter<Joints, "ready_pose">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
