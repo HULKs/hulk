@@ -1,26 +1,39 @@
-use std::ops::Range;
+use std::{f32::consts::PI, sync::Arc};
 
 use color_eyre::Result;
 use context_attribute::context;
+use filtering::statistics::{mean, standard_deviation};
 use framework::{AdditionalOutput, MainOutput};
-use types::{hardware::Samples, Whistle};
+use rustfft::{
+    num_complex::{Complex32, ComplexFloat},
+    num_traits::Zero,
+    Fft, FftPlanner,
+};
+use types::{
+    configuration::WhistleDetection as WhistleDetectionConfiguration, hardware::Samples,
+    DetectionInfo, Whistle,
+};
 
-pub struct WhistleDetection {}
+pub const AUDIO_SAMPLE_RATE: u32 = 44100;
+pub const NUMBER_OF_AUDIO_CHANNELS: usize = 4;
+pub const NUMBER_OF_AUDIO_SAMPLES: usize = 2048;
+const NUMBER_OF_FREQUENCY_SAMPLES: usize = NUMBER_OF_AUDIO_SAMPLES / 2;
+
+pub struct WhistleDetection {
+    fft: Arc<dyn Fft<f32>>,
+    scratch: Vec<Complex32>,
+}
 
 #[context]
 pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    // Parameter statt WhistleDetectionConfiguration
-    pub background_noise_scaling: Parameter<f32, "whistle_detection.background_noise_scaling">,
-    pub detection_band: Parameter<Range<f32>, "whistle_detection.detection_band">,
-    pub number_of_chunks: Parameter<usize, "whistle_detection.number_of_chunks">,
-    pub whistle_scaling: Parameter<f32, "whistle_detection.whistle_scaling">,
+    pub configuration: Parameter<WhistleDetectionConfiguration, "whistle_detection">,
 
     pub samples: Input<Samples, "samples">,
     pub audio_spectrums: AdditionalOutput<Vec<Vec<(f32, f32)>>, "audio_spectrums">,
-    // pub detection_infos: AdditionalOutput<Vec<DetectionInfo>, "detection_infos">, // DetectionInfos bisher in src/audio/database.rs
+    pub detection_infos: AdditionalOutput<Vec<DetectionInfo>, "detection_infos">,
 }
 
 #[context]
@@ -31,83 +44,40 @@ pub struct MainOutputs {
 
 impl WhistleDetection {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
-    }
-    pub fn cycle(&mut self, _context: CycleContext) -> Result<MainOutputs> {
-        Ok(MainOutputs::default())
-    }
-}
-
-/*
-use std::{f32::consts::PI, ops::Range, sync::Arc};
-
-use Result;
-use macros::{module, require_some};
-use nalgebra::ComplexField;
-use rustfft::{num_complex::Complex32, Fft, FftPlanner};
-
-use crate::{
-    hardware::{AUDIO_SAMPLE_RATE, NUMBER_OF_AUDIO_CHANNELS, NUMBER_OF_AUDIO_SAMPLES},
-    statistics::{mean, standard_deviation},
-    types::Whistle,
-};
-
-use types::WhistleDetection as WhistleDetectionConfiguration;
-
-use crate::audio::database::{AudioSamples, DetectionInfo};
-
-const NUMBER_OF_FREQUENCY_SAMPLES: usize = NUMBER_OF_AUDIO_SAMPLES / 2;
-
-pub struct WhistleDetection {
-    fft: Arc<dyn Fft<f32>>,
-}
-
-#[module(audio)]
-#[input(path = samples, data_type = AudioSamples)]
-#[parameter(path = audio.whistle_detection, data_type = WhistleDetectionConfiguration)]
-#[additional_output(path = audio_spectrums, data_type = Vec<Vec<(f32, f32)>>)]
-#[additional_output(path = detection_infos, data_type = Vec<DetectionInfo>)]
-#[main_output(name = detected_whistle, data_type = Whistle)]
-impl WhistleDetection {}
-
-impl WhistleDetection {
-    fn new(_context: CreationContext) -> Result<Self> {
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(NUMBER_OF_AUDIO_SAMPLES);
-        Ok(Self { fft })
+        let scratch = vec![Complex32::zero(); fft.get_inplace_scratch_len()];
+        Ok(Self { fft, scratch })
     }
-
-    fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        context.audio_spectrums.fill_on_subscription(Vec::new);
+        context.detection_infos.fill_on_subscription(Vec::new);
+        let is_detected = context
+            .samples
+            .channels_of_samples
+            .iter()
+            .map(|buffer| {
+                self.is_whistle_detected_in_buffer(
+                    buffer,
+                    context.configuration,
+                    &mut context.audio_spectrums,
+                    &mut context.detection_infos,
+                )
+            })
+            .collect();
         Ok(MainOutputs {
-            detected_whistle: Some(Whistle {
-                is_detected: is_whistle_detected_in_buffer(
-                    self.fft.clone(),
-                    require_some!(context.samples),
-                    &context.whistle_detection.detection_band,
-                    context.whistle_detection.background_noise_scaling,
-                    context.whistle_detection.whistle_scaling,
-                    context.whistle_detection.number_of_chunks,
-                    &mut context,
-                )?,
-            }),
+            detected_whistle: Whistle { is_detected }.into(),
         })
     }
-}
 
-fn is_whistle_detected_in_buffer(
-    fft: Arc<dyn Fft<f32>>,
-    buffers: &[[f32; NUMBER_OF_AUDIO_SAMPLES]; NUMBER_OF_AUDIO_CHANNELS],
-    detection_band: &Range<f32>,
-    background_noise_scaling: f32,
-    whistle_scaling: f32,
-    number_of_chunks: usize,
-    context: &mut CycleContext,
-) -> Result<[bool; NUMBER_OF_AUDIO_CHANNELS]> {
-    let mut audio_spectrums = Vec::new();
-    let mut detection_infos = Vec::new();
-    let frequency_resolution = AUDIO_SAMPLE_RATE as f32 / NUMBER_OF_AUDIO_SAMPLES as f32;
-    let mut is_detected = [false; NUMBER_OF_AUDIO_CHANNELS];
-    for (channel, buffer) in buffers.iter().enumerate() {
+    fn is_whistle_detected_in_buffer(
+        &mut self,
+        buffer: &[f32],
+        detection_parameters: &WhistleDetectionConfiguration,
+        audio_spectrums: &mut AdditionalOutput<Vec<Vec<(f32, f32)>>>,
+        detection_infos: &mut AdditionalOutput<Vec<DetectionInfo>>,
+    ) -> bool {
+        let frequency_resolution = AUDIO_SAMPLE_RATE as f32 / NUMBER_OF_AUDIO_SAMPLES as f32;
         let mut buffer: Vec<_> = buffer
             .iter()
             .enumerate()
@@ -118,7 +88,8 @@ fn is_whistle_detected_in_buffer(
                 Complex32::new(hann * sample, 0.0)
             })
             .collect();
-        fft.process(&mut buffer);
+        self.fft
+            .process_with_scratch(&mut buffer, &mut self.scratch);
         let absolute_values: Vec<_> = buffer
             .iter()
             .take(NUMBER_OF_FREQUENCY_SAMPLES)
@@ -127,43 +98,38 @@ fn is_whistle_detected_in_buffer(
                 normalized_sample.abs()
             })
             .collect();
-        if context.audio_spectrums.is_subscribed() {
+        audio_spectrums.mutate_on_subscription(|spectrums| {
             let spectrum = absolute_values
                 .iter()
                 .enumerate()
                 .map(|(i, &value)| (i as f32 * frequency_resolution, value))
                 .collect();
-            audio_spectrums.push(spectrum);
-        }
-        let (detected, detection_info) = spectrum_contains_whistle(
-            &absolute_values,
-            detection_band,
-            number_of_chunks,
-            background_noise_scaling,
-            whistle_scaling,
-            frequency_resolution,
-        );
-        is_detected[channel] = detected;
-        detection_infos.push(detection_info);
+            if let Some(spectrums) = spectrums {
+                spectrums.push(spectrum);
+            }
+        });
+        let (detected, detection_info) =
+            spectrum_contains_whistle(&absolute_values, detection_parameters, frequency_resolution);
+        detection_infos.mutate_on_subscription(|infos| {
+            if let Some(infos) = infos {
+                infos.push(detection_info);
+            }
+        });
+        detected
     }
-    context
-        .audio_spectrums
-        .on_subscription(move || audio_spectrums);
-    context
-        .detection_infos
-        .on_subscription(move || detection_infos);
-
-    Ok(is_detected)
 }
 
 fn spectrum_contains_whistle(
     absolute_values: &[f32],
-    detection_band: &Range<f32>,
-    number_of_chunks: usize,
-    background_noise_scaling: f32,
-    whistle_scaling: f32,
+    detection_parameters: &WhistleDetectionConfiguration,
     frequency_resolution: f32,
 ) -> (bool, DetectionInfo) {
+    let WhistleDetectionConfiguration {
+        detection_band,
+        background_noise_scaling,
+        whistle_scaling,
+        number_of_chunks,
+    } = detection_parameters;
     let overall_mean = mean(absolute_values);
     let overall_standard_deviation = standard_deviation(absolute_values, overall_mean);
     let background_noise_threshold =
@@ -243,4 +209,3 @@ fn spectrum_contains_whistle(
     detection_info.whistle_mean = Some(whistle_mean);
     (whistle_mean > whistle_threshold, detection_info)
 }
- */

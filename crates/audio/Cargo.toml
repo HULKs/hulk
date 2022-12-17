@@ -7,5 +7,7 @@ version = "0.1.0"
 [dependencies]
 color-eyre = { workspace = true }
 context_attribute = { workspace = true }
+filtering = { workspace = true }
 framework = { workspace = true }
+rustfft = { workspace = true }
 types = { workspace = true }
