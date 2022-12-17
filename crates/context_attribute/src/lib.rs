@@ -69,11 +69,7 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                             let data_type = get_data_type(arguments);
                             into_reference_with_lifetime(
                                 data_type,
-                                if first_segment.ident == "PersistentState" {
-                                    Some(Default::default())
-                                } else {
-                                    None
-                                },
+                                (first_segment.ident == "PersistentState").then(Mut::default),
                             );
                             requires_lifetime_parameter = true;
                             field.ty = data_type.clone();
