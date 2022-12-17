@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
-    CycleInfo, HeadJoints, HeadJointsCommand, HeadMotion as HeadMotionCommand, MotionCommand,
+    CycleTime, HeadJoints, HeadJointsCommand, HeadMotion as HeadMotionCommand, MotionCommand,
     SensorData,
 };
 
@@ -32,7 +32,7 @@ pub struct CycleContext {
     pub look_at: Input<HeadJoints, "look_at">,
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
 }
 
 #[context]
@@ -61,7 +61,7 @@ impl HeadMotion {
             None => Default::default(),
         };
         let maximum_movement =
-            *context.maximum_velocity * context.cycle_info.last_cycle_duration.as_secs_f32();
+            *context.maximum_velocity * context.cycle_time.last_cycle_duration.as_secs_f32();
 
         let controlled_request = HeadJoints {
             yaw: self.last_request.yaw

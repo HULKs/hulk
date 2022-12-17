@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
     configuration::{KickSteps, WalkingEngine as WalkingEngineConfiguration},
-    ArmJoints, BodyJoints, BodyJointsCommand, CycleInfo, InertialMeasurementUnitData, Joints,
+    ArmJoints, BodyJoints, BodyJointsCommand, CycleTime, InertialMeasurementUnitData, Joints,
     KickVariant, LegJoints, MotionCommand, MotionSafeExits, MotionType, RobotKinematics,
     SensorData, Side, Step, StepAdjustment, SupportFoot, WalkCommand,
 };
@@ -133,7 +133,7 @@ pub struct CycleContext {
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub support_foot: Input<SupportFoot, "support_foot">,
     pub walk_command: Input<WalkCommand, "walk_command">,
 }
@@ -159,7 +159,7 @@ impl WalkingEngine {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let last_cycle_duration = context.cycle_info.last_cycle_duration;
+        let last_cycle_duration = context.cycle_time.last_cycle_duration;
         self.filtered_gyro_y.update(
             context
                 .sensor_data
@@ -185,7 +185,7 @@ impl WalkingEngine {
             WalkState::Standing => self.reset(),
             WalkState::Starting(_) | WalkState::Walking(_) | WalkState::Stopping => {
                 self.walk_cycle(
-                    context.cycle_info.last_cycle_duration,
+                    context.cycle_time.last_cycle_duration,
                     context.config,
                     &mut context.step_adjustment,
                 );

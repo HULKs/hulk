@@ -7,7 +7,7 @@ use nalgebra::{distance, Isometry2, Point2, Vector2};
 use spl_network_messages::{GamePhase, GameState, PlayerNumber, Team};
 use types::{
     configuration::GameStateFilter as GameStateFilterConfiguration, BallPosition, Buttons,
-    CycleInfo, FieldDimensions, FilteredGameState, FilteredWhistle, GameControllerState,
+    CycleTime, FieldDimensions, FilteredGameState, FilteredWhistle, GameControllerState,
     SensorData,
 };
 
@@ -28,7 +28,7 @@ pub struct CreationContext {
 pub struct CycleContext {
     pub ball_position: Input<Option<BallPosition>, "ball_position?">,
     pub buttons: Input<Buttons, "buttons">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     pub sensor_data: Input<SensorData, "sensor_data">,
@@ -65,7 +65,7 @@ impl GameStateFilter {
             self.state,
             context.game_controller_state,
             context.filtered_whistle.is_detected,
-            context.cycle_info.start_time,
+            context.cycle_time.start_time,
             context.config,
             ball_detected_far_from_any_goal,
         );
@@ -81,7 +81,7 @@ impl GameStateFilter {
 
         let filtered_game_state = self.state.construct_filtered_game_state(
             context.game_controller_state,
-            context.cycle_info.start_time,
+            context.cycle_time.start_time,
             ball_detected_far_from_kick_off_point,
             context.config,
         );

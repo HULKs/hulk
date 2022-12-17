@@ -4,7 +4,7 @@ use filtering::LowPassFilter;
 use framework::MainOutput;
 use nalgebra::Vector2;
 use types::{
-    CycleInfo, Facing, Joints, MotionCommand, MotionFile, MotionFileInterpolator, MotionSafeExits,
+    CycleTime, Facing, Joints, MotionCommand, MotionFile, MotionFileInterpolator, MotionSafeExits,
     MotionSelection, MotionType, SensorData,
 };
 
@@ -28,7 +28,7 @@ pub struct CycleContext {
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub gyro_low_pass_filter_coefficient:
         Parameter<f32, "control.stand_up.gyro_low_pass_filter_coefficient">,
@@ -56,7 +56,7 @@ impl StandUpFront {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let last_cycle_duration = context.cycle_info.last_cycle_duration;
+        let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let angular_velocity = context
             .sensor_data
             .inertial_measurement_unit

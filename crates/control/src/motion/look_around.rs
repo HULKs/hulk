@@ -1,10 +1,10 @@
-use std::time::{SystemTime, UNIX_EPOCH, Duration};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
-    configuration::LookAround as LookAroundConfiguration, CycleInfo, HeadJoints, HeadMotion,
+    configuration::LookAround as LookAroundConfiguration, CycleTime, HeadJoints, HeadMotion,
     MotionCommand, SensorData, Side,
 };
 
@@ -41,7 +41,7 @@ pub struct CycleContext {
 
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
 }
 
 #[context]
@@ -62,12 +62,12 @@ impl LookAround {
         match context.motion_command.head_motion() {
             Some(HeadMotion::LookAround) => {
                 self.look_around(
-                    context.cycle_info.start_time,
+                    context.cycle_time.start_time,
                     context.config.look_around_timeout,
                 );
             }
             Some(HeadMotion::SearchForLostBall) => self.quick_search(
-                context.cycle_info.start_time,
+                context.cycle_time.start_time,
                 context.config.quick_search_timeout,
             ),
             _ => {

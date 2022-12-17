@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use spl_network_messages::GameControllerStateMessage;
-use types::{CycleInfo, GameControllerState, SensorData};
+use types::{CycleTime, GameControllerState, SensorData};
 
 pub struct GameControllerFilter {
     game_controller_state: Option<GameControllerState>,
@@ -17,7 +17,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     // TODO:
     // pub game_controller_state_message:
     //     PerceptionInput<GameControllerStateMessage, "SplNetwork", "game_controller_state_message">,
@@ -52,7 +52,7 @@ impl GameControllerFilter {
                 None => true,
             };
             if game_state_changed {
-                self.last_game_state_change = Some(context.cycle_info.start_time);
+                self.last_game_state_change = Some(context.cycle_time.start_time);
             }
             self.game_controller_state = Some(GameControllerState {
                 game_state: game_controller_state_message.game_state,

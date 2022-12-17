@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::{Ball, CycleInfo, Eye, Leds, PrimaryState, Rgb, SensorData};
+use types::{Ball, CycleTime, Eye, Leds, PrimaryState, Rgb, SensorData};
 
 pub struct LedStatus {
     blink_state: bool,
@@ -19,7 +19,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     pub primary_state: Input<PrimaryState, "primary_state">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     pub balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
@@ -43,13 +43,13 @@ impl LedStatus {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         if context
-            .cycle_info
+            .cycle_time
             .start_time
             .duration_since(self.last_blink_toggle)
             .unwrap()
             >= Duration::from_millis(500)
         {
-            self.last_blink_toggle = context.cycle_info.start_time;
+            self.last_blink_toggle = context.cycle_time.start_time;
             self.blink_state = !self.blink_state;
         }
 
@@ -89,7 +89,7 @@ impl LedStatus {
             .flatten()
             .find_map(|balls| {
                 if balls.is_some() {
-                    Some(context.cycle_info.start_time)
+                    Some(context.cycle_time.start_time)
                 } else {
                     None
                 }
@@ -98,7 +98,7 @@ impl LedStatus {
             self.last_ball_data_top = newer_ball_data_top;
         }
         let last_ball_data_top_too_old = context
-            .cycle_info
+            .cycle_time
             .start_time
             .duration_since(self.last_ball_data_top)
             .unwrap()
@@ -125,7 +125,7 @@ impl LedStatus {
             .flatten()
             .find_map(|balls| {
                 if balls.is_some() {
-                    Some(context.cycle_info.start_time)
+                    Some(context.cycle_time.start_time)
                 } else {
                     None
                 }
@@ -134,14 +134,14 @@ impl LedStatus {
             self.last_ball_data_bottom = newer_ball_data_bottom;
         }
         let last_ball_data_bottom_too_old = context
-            .cycle_info
+            .cycle_time
             .start_time
             .duration_since(self.last_ball_data_bottom)
             .unwrap()
             > Duration::from_secs(1);
 
         let (left_eye, right_eye) = Self::get_eyes(
-            context.cycle_info.start_time,
+            context.cycle_time.start_time,
             context.primary_state,
             at_least_one_ball_data_top,
             at_least_one_ball_data_bottom,

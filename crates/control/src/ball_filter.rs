@@ -9,7 +9,7 @@ use nalgebra::{
 };
 use types::{
     is_above_limbs, Ball, BallFilterHypothesis, BallPosition, CameraMatrices, CameraMatrix, Circle,
-    CycleInfo, FieldDimensions, Limb, ProjectedLimbs, SensorData,
+    CycleTime, FieldDimensions, Limb, ProjectedLimbs, SensorData,
 };
 
 pub struct BallFilter {
@@ -49,7 +49,7 @@ pub struct CycleContext {
 
     pub camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub hidden_validity_exponential_decay_factor:
@@ -127,7 +127,7 @@ impl BallFilter {
         }
 
         self.remove_hypotheses(
-            context.cycle_info.start_time,
+            context.cycle_time.start_time,
             *context.hypothesis_merge_distance,
             *context.hypothesis_timeout,
             *context.validity_discard_threshold,

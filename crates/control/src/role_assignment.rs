@@ -6,7 +6,7 @@ use framework::{MainOutput, PerceptionInput};
 use nalgebra::{Isometry2, Point2};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SplMessage, Team};
 use types::{
-    configuration::SplNetwork, hardware::IncomingMessage, BallPosition, CycleInfo, FallState,
+    configuration::SplNetwork, hardware::IncomingMessage, BallPosition, CycleTime, FallState,
     FieldDimensions, GameControllerState, Players, PrimaryState, Role, SensorData,
 };
 
@@ -35,7 +35,7 @@ pub struct CycleContext {
     pub primary_state: Input<PrimaryState, "primary_state">,
     pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub forced_role: Parameter<Option<Role>, "control.role_assignment.forced_role?">,
@@ -65,7 +65,7 @@ impl RoleAssignment {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let cycle_start_time = context.cycle_info.start_time;
+        let cycle_start_time = context.cycle_time.start_time;
         let ball = context.ball_position;
         let robot_to_field = context.robot_to_field.copied().unwrap_or_default();
         let primary_state = *context.primary_state;

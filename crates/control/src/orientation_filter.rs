@@ -3,7 +3,7 @@ use context_attribute::context;
 use filtering::OrientationFilterParameters;
 use framework::MainOutput;
 use nalgebra::UnitComplex;
-use types::{CycleInfo, SensorData, SolePressure, SupportFoot};
+use types::{CycleTime, SensorData, SolePressure, SupportFoot};
 
 pub struct OrientationFilter {
     orientation_filter: filtering::OrientationFilter,
@@ -15,7 +15,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub sole_pressure: Input<SolePressure, "sole_pressure">,
     pub support_foot: Input<SupportFoot, "support_foot">,
 
@@ -45,7 +45,7 @@ impl OrientationFilter {
             .sensor_data
             .inertial_measurement_unit
             .angular_velocity;
-        let cycle_duration = context.cycle_info.last_cycle_duration;
+        let cycle_duration = context.cycle_time.last_cycle_duration;
         self.orientation_filter.update(
             measured_acceleration,
             measured_angular_velocity,

@@ -23,16 +23,16 @@ fn main() -> Result<()> {
     let configuration = match &structs.configuration {
         StructHierarchy::Struct { fields } => {
             let structs = struct_hierarchy_to_token_stream(
-            "Configuration",
-            fields,
-            &[format_ident!("Serialize"), format_ident!("Deserialize")],
-        )
-        .wrap_err("failed to generate struct `Configuration`")?;
+                "Configuration",
+                fields,
+                &[format_ident!("Serialize"), format_ident!("Deserialize")],
+            )
+            .wrap_err("failed to generate struct `Configuration`")?;
             quote! {
                 use serde::{Serialize, Deserialize};
                 #structs
             }
-        },
+        }
         StructHierarchy::Optional { .. } => bail!("unexpected optional variant as root-struct"),
         StructHierarchy::Field { .. } => bail!("unexpected field variant as root-struct"),
     };

@@ -5,7 +5,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
-    configuration::FallProtection, BodyJoints, CycleInfo, FallDirection, HeadJoints, Joints,
+    configuration::FallProtection, BodyJoints, CycleTime, FallDirection, HeadJoints, Joints,
     JointsCommand, MotionCommand, MotionSelection, MotionType, SensorData,
 };
 
@@ -23,7 +23,7 @@ pub struct CycleContext {
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_info: Input<CycleInfo, "cycle_info">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub fall_protection: Parameter<FallProtection, "control.fall_protection">,
 }
@@ -46,7 +46,7 @@ impl FallProtector {
         let mut head_stiffness = 1.0;
 
         if context.motion_selection.current_motion != MotionType::FallProtection {
-            self.start_time = context.cycle_info.start_time;
+            self.start_time = context.cycle_time.start_time;
             return Ok(MainOutputs {
                 fall_protection_command: JointsCommand {
                     positions: current_positions,
