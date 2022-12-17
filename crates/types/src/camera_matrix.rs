@@ -162,7 +162,7 @@ impl CameraMatrix {
         &self,
         radius_in_robot_coordinates: f32,
         pixel_coordinates: &Point2<f32>,
-        resolution: &Vector2<usize>,
+        resolution: &Vector2<u32>,
     ) -> Result<f32> {
         let robot_coordinates =
             self.pixel_to_ground_with_z(pixel_coordinates, radius_in_robot_coordinates)?;
@@ -177,7 +177,7 @@ impl CameraMatrix {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Horizon {
     pub left_horizon_y: f32,
     pub right_horizon_y: f32,

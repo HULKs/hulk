@@ -13,11 +13,10 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     // Parameter statt WhistleDetectionConfiguration
-    pub background_noise_scaling:
-        Parameter<f32, "audio.whistle_detection.background_noise_scaling">,
-    pub detection_band: Parameter<Range<f32>, "audio.whistle_detection.detection_band">,
-    pub number_of_chunks: Parameter<usize, "audio.whistle_detection.number_of_chunks">,
-    pub whistle_scaling: Parameter<f32, "audio.whistle_detection.whistle_scaling">,
+    pub background_noise_scaling: Parameter<f32, "whistle_detection.background_noise_scaling">,
+    pub detection_band: Parameter<Range<f32>, "whistle_detection.detection_band">,
+    pub number_of_chunks: Parameter<usize, "whistle_detection.number_of_chunks">,
+    pub whistle_scaling: Parameter<f32, "whistle_detection.whistle_scaling">,
 
     pub samples: Input<Samples, "samples">,
     pub audio_spectrums: AdditionalOutput<Vec<Vec<(f32, f32)>>, "audio_spectrums">,

@@ -26,9 +26,9 @@ pub struct Behavior {
 
 #[context]
 pub struct CreationContext {
-    pub behavior: Parameter<BehaviorConfiguration, "control.behavior">,
+    pub behavior: Parameter<BehaviorConfiguration, "behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub lost_ball_parameters: Parameter<LostBall, "control.behavior.lost_ball">,
+    pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
 }
 
 #[context]
@@ -39,9 +39,9 @@ pub struct CycleContext {
 
     pub world_state: Input<WorldState, "world_state">,
 
-    pub configuration: Parameter<BehaviorConfiguration, "control.behavior">,
+    pub configuration: Parameter<BehaviorConfiguration, "behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub lost_ball_parameters: Parameter<LostBall, "control.behavior.lost_ball">,
+    pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
 }
 
 #[context]
