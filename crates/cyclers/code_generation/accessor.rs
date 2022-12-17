@@ -34,10 +34,9 @@ pub fn path_to_accessor_token_stream(
 
         for (index, segment) in path.iter().enumerate() {
             {
-                let token_stream = match &mut token_stream_within_method {
-                    Some(token_stream) => token_stream,
-                    None => &mut token_stream,
-                };
+                let token_stream = token_stream_within_method
+                    .as_mut()
+                    .unwrap_or(&mut token_stream);
 
                 token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
                 match (segment.is_variable, cycler_instance) {
