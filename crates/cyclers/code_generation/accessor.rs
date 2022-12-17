@@ -135,12 +135,12 @@ pub fn path_to_accessor_token_stream(
         token_stream
     }
 
-    let path_contains_variable = path.iter().any(|segment| {
+    for segment in path.iter() {
         if segment.is_variable && segment.name != "cycler_instance" {
             unimplemented!("only $cycler_instance is implemented");
         }
-        segment.is_variable
-    });
+    }
+    let path_contains_variable = path.iter().any(|segment| segment.is_variable);
     if path_contains_variable {
         let mut token_stream = TokenStream::default();
         token_stream.append(TokenTree::Ident(format_ident!("match")));
