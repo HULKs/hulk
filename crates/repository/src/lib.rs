@@ -45,8 +45,8 @@ impl Repository {
         self.root.join("crates")
     }
 
-    pub fn find_latest_file(&self, prefix: &str, file_name: &str) -> Result<PathBuf> {
-        let path = self.root.join(prefix).join(file_name);
+    pub fn find_latest_file(&self, pattern: &str) -> Result<PathBuf> {
+        let path = self.root.join(pattern);
         let matching_paths: Vec<_> = glob(
             path.to_str()
                 .ok_or_else(|| eyre!("failed to interpret path as Unicode"))?,

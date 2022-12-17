@@ -37,9 +37,8 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> Result<()
             crate_name,
             file_name,
         } => {
-            let prefix = format!("target/**/{crate_name}-*/**");
             let file_path = repository
-                .find_latest_file(&prefix, &file_name)
+                .find_latest_file(&format!("target/**/{crate_name}-*/**/{file_name}"))
                 .wrap_err("failed find latest build script output")?;
             PrettyPrinter::new()
                 .input_file(file_path)
@@ -71,7 +70,7 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> Result<()
         }
         Arguments::DumpLatest { file_name } => {
             let file_path = repository
-                .find_latest_file("target/**/out/**", &file_name)
+                .find_latest_file(&format!("target/**/out/**/{file_name}"))
                 .wrap_err("failed find latest generated file")?;
             PrettyPrinter::new()
                 .input_file(file_path)
