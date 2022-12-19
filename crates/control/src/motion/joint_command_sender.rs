@@ -85,7 +85,7 @@ impl JointCommandSender {
         };
         context
             .hardware_interface
-            .write_to_actuators(positions, stiffnesses, context.leds.clone())
+            .write_to_actuators(positions, stiffnesses, *context.leds)
             .wrap_err("failed to write to actuators")?;
 
         context.positions.fill_on_subscription(|| positions);
