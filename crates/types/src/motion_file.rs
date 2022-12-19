@@ -15,15 +15,12 @@ pub struct MotionFile {
 impl MotionFile {
     pub fn from_path(motion_file_path: impl AsRef<Path>) -> Result<Self> {
         let file = File::open(&motion_file_path).wrap_err_with(|| {
-            format!(
-                "failed to open motion file {}",
-                motion_file_path.as_ref().display()
-            )
+            format!("failed to open motion file {:?}", motion_file_path.as_ref())
         })?;
         from_reader(file).wrap_err_with(|| {
             format!(
-                "failed to parse motion file {}",
-                motion_file_path.as_ref().display()
+                "failed to parse motion file {:?}",
+                motion_file_path.as_ref()
             )
         })
     }
