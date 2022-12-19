@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path};
 
 use color_eyre::{eyre::WrapErr, Result};
 
-use crate::{CyclerInstances, Field, Modules};
+use crate::{CyclerInstances, Field, Nodes};
 
 #[derive(Debug)]
 pub struct CyclerTypes {
@@ -19,21 +19,20 @@ impl CyclerTypes {
     pub fn try_from_crates_directory(crates_directory: impl AsRef<Path>) -> Result<Self> {
         let cycler_instances = CyclerInstances::try_from_crates_directory(&crates_directory)
             .wrap_err("failed to get cycler_instances")?;
-        let modules = Modules::try_from_crates_directory(&crates_directory)
-            .wrap_err("failed to get modules")?;
+        let nodes =
+            Nodes::try_from_crates_directory(&crates_directory).wrap_err("failed to get nodes")?;
 
         Ok(Self {
             cycler_modules_to_cycler_types: cycler_instances
                 .modules_to_instances
                 .keys()
                 .map(|cycler_module_name| {
-                    let at_least_one_module_uses_this_cycler_module_via_perception_input =
-                        modules.modules.values().any(|module| {
-                            module
-                                .contexts
+                    let at_least_one_node_uses_this_cycler_module_via_perception_input =
+                        nodes.nodes.values().any(|node| {
+                            node.contexts
                                 .creation_context
                                 .iter()
-                                .chain(module.contexts.cycle_context.iter())
+                                .chain(node.contexts.cycle_context.iter())
                                 .any(|field| match field {
                                     Field::PerceptionInput {
                                         cycler_instance, ..
@@ -48,7 +47,7 @@ impl CyclerTypes {
                         });
                     (
                         cycler_module_name.clone(),
-                        match at_least_one_module_uses_this_cycler_module_via_perception_input {
+                        match at_least_one_node_uses_this_cycler_module_via_perception_input {
                             true => CyclerType::Perception,
                             false => CyclerType::RealTime,
                         },

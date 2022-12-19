@@ -13,7 +13,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
-    pub image: Input<Image, "image">, // required for correct module order
+    pub image: Input<Image, "image">, // required for correct node order
     pub instance: CyclerInstance,
 }
 

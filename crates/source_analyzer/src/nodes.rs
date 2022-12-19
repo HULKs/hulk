@@ -18,15 +18,15 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Modules {
-    pub modules: BTreeMap<String, Module>,
-    pub cycler_modules_to_modules: BTreeMap<String, Vec<String>>,
+pub struct Nodes {
+    pub nodes: BTreeMap<String, Node>,
+    pub cycler_modules_to_nodes: BTreeMap<String, Vec<String>>,
 }
 
-impl Modules {
+impl Nodes {
     pub fn try_from_crates_directory(crates_directory: impl AsRef<Path>) -> Result<Self> {
-        let mut modules = BTreeMap::new();
-        let mut cycler_modules_to_modules: BTreeMap<_, Vec<_>> = BTreeMap::new();
+        let mut nodes = BTreeMap::new();
+        let mut cycler_modules_to_nodes: BTreeMap<_, Vec<_>> = BTreeMap::new();
         for crate_directory in cycler_crates_from_crates_directory(&crates_directory)
             .wrap_err_with(|| {
                 format!(
@@ -64,7 +64,7 @@ impl Modules {
                 if !has_at_least_one_struct_with_context_attribute {
                     continue;
                 }
-                let module_name = rust_file
+                let node_name = rust_file
                     .items
                     .iter()
                     .find_map(|item| match item {
@@ -84,12 +84,12 @@ impl Modules {
                         }
                         _ => None,
                     })
-                    .ok_or_else(|| eyre!("failed to find module name in {rust_file_path:?}"))?;
+                    .ok_or_else(|| eyre!("failed to find node name in {rust_file_path:?}"))?;
                 let contexts = Contexts::try_from_file(&rust_file_path, &rust_file)
                     .wrap_err_with(|| format!("failed to get contexts in {rust_file_path:?}"))?;
                 let path_segments: Vec<_> = rust_file_path
                     .strip_prefix(crate_directory.join("src"))
-                    .wrap_err("failed to strip prefix of module's rust file path")?
+                    .wrap_err("failed to strip prefix of node's rust file path")?
                     .with_extension("")
                     .components()
                     .map(|component| match component {
@@ -100,58 +100,58 @@ impl Modules {
                         _ => bail!("unexpected path component"),
                     })
                     .collect::<Result<_, _>>()
-                    .wrap_err("failed to generate module's path")?;
-                let module = Module {
+                    .wrap_err("failed to generate node's path")?;
+                let node = Node {
                     cycler_module: cycler_module.to_string(),
                     path_segments,
                     contexts,
                 };
-                if let Some(overwritten_module) = modules.insert(module_name.to_string(), module) {
+                if let Some(overwritten_node) = nodes.insert(node_name.to_string(), node) {
                     bail!(
-                        "module `{}` is not allowed to exist in multiple cyclers `{}`, `{}`, and maybe more",
-                        module_name.to_string(),
+                        "node `{}` is not allowed to exist in multiple cyclers `{}`, `{}`, and maybe more",
+                        node_name.to_string(),
                         cycler_module.to_string(),
-                        overwritten_module.cycler_module,
+                        overwritten_node.cycler_module,
                     );
                 }
-                cycler_modules_to_modules
+                cycler_modules_to_nodes
                     .entry(cycler_module.to_string())
                     .or_default()
-                    .push(module_name.to_string());
+                    .push(node_name.to_string());
             }
         }
 
         Ok(Self {
-            modules,
-            cycler_modules_to_modules,
+            nodes,
+            cycler_modules_to_nodes,
         })
     }
 
     pub fn sort(&mut self) -> Result<()> {
-        for module_names in self.cycler_modules_to_modules.values_mut() {
-            if module_names.len() == 1 {
+        for node_names in self.cycler_modules_to_nodes.values_mut() {
+            if node_names.len() == 1 {
                 continue;
             }
 
-            let mut main_outputs_to_modules = HashMap::new();
+            let mut main_outputs_to_nodes = HashMap::new();
             let mut topological_sort: TopologicalSort<String> = TopologicalSort::new();
 
-            for module_name in module_names.iter() {
-                for field in self.modules[module_name].contexts.main_outputs.iter() {
+            for node_name in node_names.iter() {
+                for field in self.nodes[node_name].contexts.main_outputs.iter() {
                     if let Field::MainOutput { data_type, name } = field {
-                        main_outputs_to_modules
-                            .insert(name.to_string(), (module_name.clone(), data_type.clone()));
+                        main_outputs_to_nodes
+                            .insert(name.to_string(), (node_name.clone(), data_type.clone()));
                     }
                 }
             }
 
-            for consuming_module_name in module_names.iter() {
-                for field in self.modules[consuming_module_name]
+            for consuming_node_name in node_names.iter() {
+                for field in self.nodes[consuming_node_name]
                     .contexts
                     .creation_context
                     .iter()
                     .chain(
-                        self.modules[consuming_module_name]
+                        self.nodes[consuming_node_name]
                             .contexts
                             .cycle_context
                             .iter(),
@@ -179,19 +179,19 @@ impl Modules {
                         } => {
                             let first_segment = match path.first() {
                                 Some(PathSegment { name, is_variable: false, .. }) => name,
-                                Some(..) => bail!("unexpected variable segment as first segment for `{name}` in module `{consuming_module_name}` (not implemented)"),
-                                None => bail!("expected at least one path segment for `{name}` in module `{consuming_module_name}`"),
+                                Some(..) => bail!("unexpected variable segment as first segment for `{name}` in node `{consuming_node_name}` (not implemented)"),
+                                None => bail!("expected at least one path segment for `{name}` in node `{consuming_node_name}`"),
                             };
-                            let (producing_module_name, main_output_data_type) = match main_outputs_to_modules.get(first_segment) {
-                                Some(producing_module) => producing_module,
-                                None => bail!("failed to find producing module for `{name}` in module `{consuming_module_name}`"),
+                            let (producing_node_name, main_output_data_type) = match main_outputs_to_nodes.get(first_segment) {
+                                Some(producing_node) => producing_node,
+                                None => bail!("failed to find producing node for `{name}` in node `{consuming_node_name}`"),
                             };
                             if main_output_data_type != data_type {
-                                bail!("expected data type `{}` but `{name}` has `{}` in module `{consuming_module_name}`", main_output_data_type.to_token_stream(), data_type.to_token_stream());
+                                bail!("expected data type `{}` but `{name}` has `{}` in node `{consuming_node_name}`", main_output_data_type.to_token_stream(), data_type.to_token_stream());
                             }
                             topological_sort.add_dependency(
-                                producing_module_name.clone(),
-                                consuming_module_name.clone(),
+                                producing_node_name.clone(),
+                                consuming_node_name.clone(),
                             );
                         }
                         _ => {}
@@ -199,11 +199,11 @@ impl Modules {
                 }
             }
 
-            let unsorted_module_names: Vec<_> = module_names.drain(..).collect();
-            module_names.extend(topological_sort);
-            for module_name in unsorted_module_names {
-                if !module_names.contains(&module_name) {
-                    module_names.push(module_name);
+            let unsorted_node_names: Vec<_> = node_names.drain(..).collect();
+            node_names.extend(topological_sort);
+            for node_name in unsorted_node_names {
+                if !node_names.contains(&node_name) {
+                    node_names.push(node_name);
                 }
             }
         }
@@ -213,7 +213,7 @@ impl Modules {
 }
 
 #[derive(Debug)]
-pub struct Module {
+pub struct Node {
     pub cycler_module: String,
     pub path_segments: Vec<String>,
     pub contexts: Contexts,

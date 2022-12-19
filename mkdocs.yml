@@ -35,7 +35,7 @@ nav:
       - Process Entrypoint: framework/process_entrypoint.md
       - Runtime: framework/runtime.md
       - Cyclers: framework/cyclers.md
-      - Modules: framework/modules.md
+      - Nodes: framework/nodes.md
       - Databases & Types: framework/databases_and_types.md
       - Configuration: framework/configuration.md
       - Communication: framework/communication.md

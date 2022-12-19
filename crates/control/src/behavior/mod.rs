@@ -5,7 +5,7 @@ mod fall_safely;
 mod head;
 mod jump;
 mod lost_ball;
-pub mod module;
+pub mod node;
 mod penalize;
 mod prepare_jump;
 mod search;
