@@ -9,23 +9,23 @@ use source_analyzer::{CyclerInstances, Field};
 
 use super::{accessor::path_to_accessor_token_stream, reference_type::ReferenceType};
 
-pub struct Module<'a> {
+pub struct Node<'a> {
     pub cycler_instances: &'a CyclerInstances,
-    pub module_name: &'a str,
-    pub module: &'a source_analyzer::Module,
+    pub node_name: &'a str,
+    pub node: &'a source_analyzer::Node,
 }
 
-impl Module<'_> {
+impl Node<'_> {
     pub fn get_identifier(&self) -> Ident {
-        format_ident!("{}", self.module_name)
+        format_ident!("{}", self.node_name)
     }
 
     pub fn get_identifier_snake_case(&self) -> Ident {
-        format_ident!("{}", self.module_name.to_case(Case::Snake))
+        format_ident!("{}", self.node_name.to_case(Case::Snake))
     }
 
     pub fn get_path_segments(&self) -> Vec<Ident> {
-        self.module
+        self.node
             .path_segments
             .iter()
             .map(|segment| format_ident!("{}", segment))
@@ -33,20 +33,20 @@ impl Module<'_> {
     }
 
     pub fn get_field(&self) -> TokenStream {
-        let module_name_identifier_snake_case = self.get_identifier_snake_case();
-        let module_name_identifier = self.get_identifier();
+        let node_name_identifier_snake_case = self.get_identifier_snake_case();
+        let node_name_identifier = self.get_identifier();
         let path_segments = self.get_path_segments();
-        let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
+        let cycler_module_name_identifier = format_ident!("{}", self.node.cycler_module);
 
         quote! {
-            #module_name_identifier_snake_case:
-                #cycler_module_name_identifier::#(#path_segments::)*#module_name_identifier
+            #node_name_identifier_snake_case:
+                #cycler_module_name_identifier::#(#path_segments::)*#node_name_identifier
         }
     }
 
     pub fn get_initializer_field_initializers(&self) -> Result<Vec<TokenStream>> {
-        let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
-        self.module
+        let cycler_module_name_identifier = format_ident!("{}", self.node.cycler_module);
+        self.node
             .contexts
             .creation_context
             .iter()
@@ -76,7 +76,7 @@ impl Module<'_> {
                         ReferenceType::Immutable,
                         quote! { instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
-                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
+                        &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
                     Ok(quote! {
                         #name: #accessor
@@ -92,7 +92,7 @@ impl Module<'_> {
                         ReferenceType::Mutable,
                         quote! { instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
-                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
+                        &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
                     Ok(quote! {
                         #name: #accessor
@@ -106,17 +106,17 @@ impl Module<'_> {
     }
 
     pub fn get_initializer(&self) -> Result<TokenStream> {
-        let module_name_identifier_snake_case = self.get_identifier_snake_case();
-        let module_name_identifier = self.get_identifier();
+        let node_name_identifier_snake_case = self.get_identifier_snake_case();
+        let node_name_identifier = self.get_identifier();
         let path_segments = self.get_path_segments();
-        let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
+        let cycler_module_name_identifier = format_ident!("{}", self.node.cycler_module);
         let field_initializers = self
             .get_initializer_field_initializers()
             .wrap_err("failed to generate field initializers")?;
-        let error_message = format!("failed to create module `{}`", self.module_name);
+        let error_message = format!("failed to create node `{}`", self.node_name);
 
         Ok(quote! {
-            let #module_name_identifier_snake_case = #cycler_module_name_identifier::#(#path_segments::)*#module_name_identifier::new(
+            let #node_name_identifier_snake_case = #cycler_module_name_identifier::#(#path_segments::)*#node_name_identifier::new(
                 #cycler_module_name_identifier::#(#path_segments::)*CreationContext {
                     #(#field_initializers,)*
                 },
@@ -126,9 +126,9 @@ impl Module<'_> {
     }
 
     pub fn get_required_inputs_are_some(&self) -> Option<TokenStream> {
-        let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
+        let cycler_module_name_identifier = format_ident!("{}", self.node.cycler_module);
         let required_inputs_are_some: Vec<_> = self
-            .module
+            .node
             .contexts
             .cycle_context
             .iter()
@@ -154,7 +154,7 @@ impl Module<'_> {
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
-                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
+                        &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
                     // TODO: check if required input actually has at least one optional
                     Some(quote! {
@@ -173,8 +173,8 @@ impl Module<'_> {
     }
 
     pub fn get_execution_field_initializers(&self) -> Result<Vec<TokenStream>> {
-        let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
-        self.module
+        let cycler_module_name_identifier = format_ident!("{}", self.node.cycler_module);
+        self.node
             .contexts
             .cycle_context
             .iter()
@@ -186,7 +186,7 @@ impl Module<'_> {
                         ReferenceType::Mutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
-                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
+                        &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
                     // TODO: is_subscribed
                     Ok(quote! {
@@ -209,7 +209,7 @@ impl Module<'_> {
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
-                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
+                        &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
                     let historic_accessor = path_to_accessor_token_stream(
                         quote! { database },
@@ -217,7 +217,7 @@ impl Module<'_> {
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
-                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
+                        &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
                     Ok(quote! {
                         #name: [(now, #now_accessor)]
@@ -258,7 +258,7 @@ impl Module<'_> {
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
-                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
+                        &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
                     Ok(quote! {
                         #name: #accessor
@@ -274,7 +274,7 @@ impl Module<'_> {
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
-                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
+                        &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
                     Ok(quote! {
                         #name: #accessor
@@ -294,7 +294,7 @@ impl Module<'_> {
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
-                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
+                        &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
                     Ok(quote! {
                         #name: framework::PerceptionInput {
@@ -334,7 +334,7 @@ impl Module<'_> {
                         ReferenceType::Mutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
-                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
+                        &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
                     Ok(quote! {
                         #name: #accessor
@@ -362,7 +362,7 @@ impl Module<'_> {
                         ReferenceType::Immutable,
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
-                        &self.cycler_instances.modules_to_instances[&self.module.cycler_module],
+                        &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
                     Ok(quote! {
                         #name: #accessor .unwrap()
@@ -373,7 +373,7 @@ impl Module<'_> {
     }
 
     pub fn get_main_output_setters_from_cycle_result(&self) -> Vec<TokenStream> {
-        self.module
+        self.node
             .contexts
             .main_outputs
             .iter()
@@ -387,7 +387,7 @@ impl Module<'_> {
     }
 
     pub fn get_main_output_setters_from_default(&self) -> Vec<TokenStream> {
-        self.module
+        self.node
             .contexts
             .main_outputs
             .iter()
@@ -401,9 +401,9 @@ impl Module<'_> {
     }
 
     pub fn get_execution(&self) -> Result<TokenStream> {
-        let module_name_identifier_snake_case = self.get_identifier_snake_case();
+        let node_name_identifier_snake_case = self.get_identifier_snake_case();
         let path_segments = self.get_path_segments();
-        let cycler_module_name_identifier = format_ident!("{}", self.module.cycler_module);
+        let cycler_module_name_identifier = format_ident!("{}", self.node.cycler_module);
         let required_inputs_are_some = self.get_required_inputs_are_some();
         let field_initializers = self
             .get_execution_field_initializers()
@@ -411,9 +411,9 @@ impl Module<'_> {
         let main_output_setters_from_cycle_result =
             self.get_main_output_setters_from_cycle_result();
         let main_output_setters_from_default = self.get_main_output_setters_from_default();
-        let error_message = format!("failed to execute cycle of module `{}`", self.module_name);
-        let module_execution = quote! {
-            let main_outputs = self.#module_name_identifier_snake_case.cycle(
+        let error_message = format!("failed to execute cycle of node `{}`", self.node_name);
+        let node_execution = quote! {
+            let main_outputs = self.#node_name_identifier_snake_case.cycle(
                 #cycler_module_name_identifier::#(#path_segments::)*CycleContext {
                     #(#field_initializers,)*
                 },
@@ -425,14 +425,14 @@ impl Module<'_> {
         match required_inputs_are_some {
             Some(required_inputs_are_some) => Ok(quote! {
                 if #required_inputs_are_some {
-                    #module_execution
+                    #node_execution
                 } else {
                     #(#main_output_setters_from_default)*
                 }
             }),
             None => Ok(quote! {
                 {
-                    #module_execution
+                    #node_execution
                 }
             }),
         }

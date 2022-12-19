@@ -4,7 +4,7 @@ TODO: Elaborate
 
 - Error Handling
     - 3 ways to handle errors
-        - Set a main output to none: Happens when the module is unable to generate this output (e.g. when inputs are not available or there was a temporary error inside of the module)
+        - Set a main output to none: Happens when the node is unable to generate this output (e.g. when inputs are not available or there was a temporary error inside of the node)
             - Recoverable, expected to be resolved in the next cycle
         - Return `Err(...)` from `cycle()`
             - Unrecoverable, but framework is allowed to shutdown gracefully, expected that it will not improve in the next cycles/in the future

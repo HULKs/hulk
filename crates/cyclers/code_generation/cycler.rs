@@ -5,13 +5,13 @@ use color_eyre::{
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
-use source_analyzer::{CyclerInstances, CyclerType, CyclerTypes, Modules};
+use source_analyzer::{CyclerInstances, CyclerType, CyclerTypes, Nodes};
 
-use super::{module::Module, other_cycler::OtherCycler};
+use super::{node::Node, other_cycler::OtherCycler};
 
 pub fn get_cyclers<'a>(
     cycler_instances: &'a CyclerInstances,
-    modules: &'a Modules,
+    nodes: &'a Nodes,
     cycler_types: &'a CyclerTypes,
 ) -> Vec<Cycler<'a>> {
     cycler_instances
@@ -21,13 +21,13 @@ pub fn get_cyclers<'a>(
             match cycler_types.cycler_modules_to_cycler_types[cycler_module_name] {
                 CyclerType::Perception => Cycler::Perception {
                     cycler_instances,
-                    modules,
+                    nodes,
                     cycler_types,
                     cycler_module_name,
                 },
                 CyclerType::RealTime => Cycler::RealTime {
                     cycler_instances,
-                    modules,
+                    nodes,
                     cycler_types,
                     cycler_module_name,
                 },
@@ -56,13 +56,13 @@ pub fn generate_cyclers(cyclers: &[Cycler]) -> Result<TokenStream> {
 pub enum Cycler<'a> {
     Perception {
         cycler_instances: &'a CyclerInstances,
-        modules: &'a Modules,
+        nodes: &'a Nodes,
         cycler_types: &'a CyclerTypes,
         cycler_module_name: &'a str,
     },
     RealTime {
         cycler_instances: &'a CyclerInstances,
-        modules: &'a Modules,
+        nodes: &'a Nodes,
         cycler_types: &'a CyclerTypes,
         cycler_module_name: &'a str,
     },
@@ -80,10 +80,10 @@ impl Cycler<'_> {
         }
     }
 
-    pub fn get_modules(&self) -> &Modules {
+    pub fn get_nodes(&self) -> &Nodes {
         match self {
-            Cycler::Perception { modules, .. } => modules,
-            Cycler::RealTime { modules, .. } => modules,
+            Cycler::Perception { nodes, .. } => nodes,
+            Cycler::RealTime { nodes, .. } => nodes,
         }
     }
 
@@ -290,43 +290,43 @@ impl Cycler<'_> {
             .collect()
     }
 
-    pub fn get_interpreted_modules(&self) -> Vec<Module> {
-        let modules = self.get_modules();
-        modules.cycler_modules_to_modules[self.get_cycler_module_name()]
+    pub fn get_interpreted_nodes(&self) -> Vec<Node> {
+        let nodes = self.get_nodes();
+        nodes.cycler_modules_to_nodes[self.get_cycler_module_name()]
             .iter()
-            .map(|module_name| Module {
+            .map(|node_name| Node {
                 cycler_instances: self.get_cycler_instances(),
-                module_name,
-                module: modules.modules.get(module_name).expect("missing module"),
+                node_name,
+                node: nodes.nodes.get(node_name).expect("missing node"),
             })
             .collect()
     }
 
-    pub fn get_module_identifiers(&self) -> Vec<Ident> {
-        self.get_interpreted_modules()
+    pub fn get_node_identifiers(&self) -> Vec<Ident> {
+        self.get_interpreted_nodes()
             .into_iter()
-            .map(|module| module.get_identifier_snake_case())
+            .map(|node| node.get_identifier_snake_case())
             .collect()
     }
 
-    pub fn get_module_fields(&self) -> Vec<TokenStream> {
-        self.get_interpreted_modules()
+    pub fn get_node_fields(&self) -> Vec<TokenStream> {
+        self.get_interpreted_nodes()
             .into_iter()
-            .map(|module| module.get_field())
+            .map(|node| node.get_field())
             .collect()
     }
 
-    pub fn get_module_initializers(&self) -> Result<Vec<TokenStream>> {
-        self.get_interpreted_modules()
+    pub fn get_node_initializers(&self) -> Result<Vec<TokenStream>> {
+        self.get_interpreted_nodes()
             .into_iter()
-            .map(|module| module.get_initializer())
+            .map(|node| node.get_initializer())
             .collect()
     }
 
-    pub fn get_module_executions(&self) -> Result<Vec<TokenStream>> {
-        self.get_interpreted_modules()
+    pub fn get_node_executions(&self) -> Result<Vec<TokenStream>> {
+        self.get_interpreted_nodes()
             .into_iter()
-            .map(|module| module.get_execution())
+            .map(|node| node.get_execution())
             .collect()
     }
 
@@ -350,7 +350,7 @@ impl Cycler<'_> {
                 }
             }
         };
-        let module_fields = self.get_module_fields();
+        let node_fields = self.get_node_fields();
 
         quote! {
             #database_struct
@@ -364,7 +364,7 @@ impl Cycler<'_> {
                 configuration_reader: framework::Reader<structs::Configuration>,
                 #real_time_fields
                 persistent_state: structs::#cycler_module_name_identifier::PersistentState,
-                #(#module_fields,)*
+                #(#node_fields,)*
             }
         }
     }
@@ -373,9 +373,9 @@ impl Cycler<'_> {
         let own_producer_field = self.get_own_producer_field();
         let other_cycler_fields = self.get_other_cycler_fields();
         let cycler_module_name_identifier = self.get_cycler_module_name_identifier();
-        let module_initializers = self
-            .get_module_initializers()
-            .wrap_err("failed to get module initializers")?;
+        let node_initializers = self
+            .get_node_initializers()
+            .wrap_err("failed to get node initializers")?;
         let own_producer_identifier = self.get_own_producer_identifier();
         let other_cycler_identifiers = self.get_other_cycler_identifiers();
         let real_time_initializers = match self {
@@ -385,7 +385,7 @@ impl Cycler<'_> {
                 perception_databases: Default::default(),
             },
         };
-        let module_identifiers = self.get_module_identifiers();
+        let node_identifiers = self.get_node_identifiers();
 
         Ok(quote! {
             pub fn new(
@@ -399,7 +399,7 @@ impl Cycler<'_> {
                 use color_eyre::eyre::WrapErr;
                 let configuration = configuration_reader.next().clone();
                 let mut persistent_state = structs::#cycler_module_name_identifier::PersistentState::default();
-                #(#module_initializers)*
+                #(#node_initializers)*
                 Ok(Self {
                     instance,
                     hardware_interface,
@@ -409,7 +409,7 @@ impl Cycler<'_> {
                     configuration_reader,
                     #real_time_initializers
                     persistent_state,
-                    #(#module_identifiers,)*
+                    #(#node_identifiers,)*
                 })
             }
         })
@@ -444,32 +444,32 @@ impl Cycler<'_> {
     }
 
     pub fn get_cycle_method(&self) -> Result<TokenStream> {
-        let module_executions = self
-            .get_module_executions()
-            .wrap_err("failed to get module executions")?;
+        let node_executions = self
+            .get_node_executions()
+            .wrap_err("failed to get node executions")?;
 
-        if module_executions.is_empty() {
-            bail!("expected at least one module");
+        if node_executions.is_empty() {
+            bail!("expected at least one node");
         }
 
-        let before_first_module = quote! {
+        let before_first_node = quote! {
             let mut own_database = self.own_writer.next();
             let own_database_reference = {
                 use std::ops::DerefMut;
                 own_database.deref_mut()
             };
         };
-        let (first_module, remaining_modules) = module_executions.split_at(1);
-        let first_module = {
-            let first_module = &first_module[0];
+        let (first_node, remaining_nodes) = node_executions.split_at(1);
+        let first_node = {
+            let first_node = &first_node[0];
             quote! {
                 {
                     let configuration = self.configuration_reader.next();
-                    #first_module
+                    #first_node
                 }
             }
         };
-        let after_first_module = match self {
+        let after_first_node = match self {
             Cycler::Perception { .. } => quote! {
                 self.own_producer.announce();
             },
@@ -485,17 +485,17 @@ impl Cycler<'_> {
             }
         };
         let other_cycler_databases = self.get_perception_cycler_databases();
-        let remaining_modules = match remaining_modules.is_empty() {
+        let remaining_nodes = match remaining_nodes.is_empty() {
             true => Default::default(),
             false => quote! {
                 {
                     let configuration = self.configuration_reader.next();
                     #(#other_cycler_databases)*
-                    #(#remaining_modules)*
+                    #(#remaining_nodes)*
                 }
             },
         };
-        let after_remaining_modules = match self {
+        let after_remaining_nodes = match self {
             Cycler::Perception { .. } => quote! {
                 self.own_producer.finalize(own_database_reference.main_outputs.clone());
             },
@@ -516,11 +516,11 @@ impl Cycler<'_> {
             pub fn cycle(&mut self) -> color_eyre::Result<()> {
                 use color_eyre::eyre::WrapErr;
                 {
-                    #before_first_module
-                    #first_module
-                    #after_first_module
-                    #remaining_modules
-                    #after_remaining_modules
+                    #before_first_node
+                    #first_node
+                    #after_first_node
+                    #remaining_nodes
+                    #after_remaining_nodes
                 }
                 #after_dropping_database_writer_guard
                 Ok(())

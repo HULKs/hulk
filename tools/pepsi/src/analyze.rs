@@ -5,7 +5,7 @@ use clap::Subcommand;
 use color_eyre::{eyre::WrapErr, Result};
 
 use repository::Repository;
-use source_analyzer::{parse_rust_file, Contexts, CyclerInstances, CyclerTypes, Modules, Structs};
+use source_analyzer::{parse_rust_file, Contexts, CyclerInstances, CyclerTypes, Nodes, Structs};
 
 #[derive(Subcommand)]
 #[allow(clippy::enum_variant_names)]
@@ -26,8 +26,8 @@ pub enum Arguments {
         /// File name to dump (may contain wildcard characters usable by glob())
         file_name: String,
     },
-    DumpModules,
-    DumpSortedModules,
+    DumpNodes,
+    DumpSortedNodes,
     DumpStructs,
 }
 
@@ -82,16 +82,16 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> Result<()
                 .print()
                 .wrap_err("failed to print file")?;
         }
-        Arguments::DumpModules => {
-            let modules = Modules::try_from_crates_directory(repository.crates_directory())
-                .wrap_err("failed to get modules")?;
-            println!("{modules:#?}");
+        Arguments::DumpNodes => {
+            let nodes = Nodes::try_from_crates_directory(repository.crates_directory())
+                .wrap_err("failed to get nodes")?;
+            println!("{nodes:#?}");
         }
-        Arguments::DumpSortedModules => {
-            let mut modules = Modules::try_from_crates_directory(repository.crates_directory())
-                .wrap_err("failed to get modules")?;
-            modules.sort().wrap_err("failed to sort modules")?;
-            println!("{modules:#?}");
+        Arguments::DumpSortedNodes => {
+            let mut nodes = Nodes::try_from_crates_directory(repository.crates_directory())
+                .wrap_err("failed to get nodes")?;
+            nodes.sort().wrap_err("failed to sort nodes")?;
+            println!("{nodes:#?}");
         }
         Arguments::DumpStructs => {
             let structs = Structs::try_from_crates_directory(repository.crates_directory())

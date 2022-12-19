@@ -1,12 +1,12 @@
 # Cyclers
 
-A cycler in the HULKs robotic control software is a subcomponent that *cycles* modules.
+A cycler in the HULKs robotic control software is a subcomponent that *cycles* nodes.
 The name "cycler" comes from the characteristic that it contains a loop that iterates over incoming data and produces output data in each iteration.
 The cyclers call their internal `cycle()` function in each iteration.
 This `cycle()` function consists of three steps:
 
 1. *Prepare*: Wait for new data and prepare cycle
-2. *Process*: Run modules on the received data
+2. *Process*: Run nodes on the received data
 3. *Finalize*: E.g. send actuator commands or store data before starting the next cycle
 
 Multiple cyclers exist in the whole robotic control software. One of the main tasks of the framework is to allow cyclers to communicate with each other.
@@ -22,8 +22,8 @@ It receives sensor data from HULA/LoLA via the [Hardware Interface](./hardware_i
 The control cycler integrates data from all other perception cyclers in the filtering pipeline.
 Features for assisting in data integration in the filtering pipeline are explained in [Filtering](./filtering.md).
 The control cycler contains all robotics code that needs to be evaluated in each realtime cycle.
-In other words, all modules that are required to generate new outputs are included.
-Modules that can be excluded or need to much computation, for example the vision pipeline, are executed in their own perception cyclers.
+In other words, all nodes that are required to generate new outputs are included.
+Nodes that can be excluded or need to much computation, for example the vision pipeline, are executed in their own perception cyclers.
 
 ## Perception Cyclers
 

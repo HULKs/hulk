@@ -1,7 +1,7 @@
 # Vision
 
-TODO: Mention all modules or just the important ones?
-Modules of questionable importance:
+TODO: Mention all nodes or just the important ones?
+Nodes of questionable importance:
 
 - Field color detection
 - Camera matrix provider
@@ -13,7 +13,7 @@ The vision cycler runs twice in two separate threads to process the images from 
 Image resolution is determined by the hardware interface, but is currently set to 640x480 pixels for performance reasons.
 Most of the vision pipeline happens on a segmented version of the image for the same reason.
 
-Each cycler instance waits for the hardware interface to deliver it's respective camera image and then begins executing the modules listed below.
+Each cycler instance waits for the hardware interface to deliver it's respective camera image and then begins executing the nodes listed below.
 
 ## Camera Matrix Provider
 
@@ -21,9 +21,9 @@ Each cycler instance waits for the hardware interface to deliver it's respective
 
 ## Image Segmenter
 
-The first major module in the vision pipeline is the image segmenter.
+The first major node in the vision pipeline is the image segmenter.
 It iterates through the image and merges vertically adjacent pixels that are similar.
-This reduces the amount of elements subsequent modules have to process.
+This reduces the amount of elements subsequent nodes have to process.
 Instead of 480 pixels, each vertical scan line is reduced to just a dozen or so segments, depending on the image.
 A stride can be set to only generate scanlines for every n-th pixel column.
 Furthermore, segments which are above the horizon or overlap the robots limbs are discarded, resulting in a sparse image.
@@ -52,7 +52,7 @@ TODO: Why check parallelism and orthogonality? What do we do with this informati
 
 ## Perspective Grid Candidate Provider
 
-This module generates candidates for the [Ball Detection](#ball-detection).
+This node generates candidates for the [Ball Detection](#ball-detection).
 Starting from the bottom of the image, rows of circles are generated where the circle size matches the projected ball in the row's center.
 Candidates are only generated when the center of at least one filtered segment is inside the candidate circle's bounding box.
 
@@ -85,7 +85,7 @@ Debug view showing:
 
 ## Robot Detection
 
-Warning: This module is still work in progress.
+Warning: This node is still work in progress.
 
 For detecting robots, a clustering algorithm runs through each vertical scanline of the filtered image segments, ignoring segments that have been previously used by the ball detection or line detection.
 The last (bottom most) cluster in each scanline is then projected to the ground and clustered first using the score-weighted distance and then again using cones.

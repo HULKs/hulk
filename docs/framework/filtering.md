@@ -5,7 +5,7 @@ TODO: Elaborate
 - FutureQueue/Filtering
     - Overview: Time diagram/plot
     - Motivation: Filters need to have monotonic updates
-        - What needs a filter module to do in each cycle?
+        - What needs a filter node to do in each cycle?
             - Roll-back temporary measurements from last cycle
             - Apply persistent measurements
             - Temporarily apply temporary measurements
@@ -17,5 +17,5 @@ TODO: Elaborate
             - consume
     - PersistentDatabases consumes from multiple FutureQueues and reorganizes data
         - persistent vs. temporary
-    - PersistentInputs (Interface for the filter modules)
+    - PersistentInputs (Interface for the filter nodes)
         - persistent vs. temporary

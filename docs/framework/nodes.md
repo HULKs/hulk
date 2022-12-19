@@ -1,16 +1,16 @@
-# Modules
+# Nodes
 
-Modules usually contain robotics code and are interchangeable components within cyclers.
-Each module is characterized by a `cycle()` function which is called in each cycle.
-The function gets module's inputs as parameters to the `cycle()` function and returns module's outputs from it.
-In addition, modules consist of a state which is perserved between cycles.
+Nodes usually contain robotics code and are interchangeable components within cyclers.
+Each node is characterized by a `cycle()` function which is called in each cycle.
+The function gets node's inputs as parameters to the `cycle()` function and returns node's outputs from it.
+In addition, nodes consist of a state which is perserved between cycles.
 
-![module](./module.drawio.png)
+![node](./node.drawio.png)
 
-Modules are normal Rust structs where the struct's fields represent the state and a method called `cycle()` in the `impl` of the module represents the `cycle()` function.
-This concept allows to write modules in a very Rusty way.
-A module may have multiple inputs of different kinds which can be annotated to the module.
-Here is an example module, but for more information see [Macros](./macros.md):
+Nodes are normal Rust structs where the struct's fields represent the state and a method called `cycle()` in the `impl` of the node represents the `cycle()` function.
+This concept allows to write nodes in a very Rusty way.
+A node may have multiple inputs of different kinds which can be annotated to the node.
+Here is an example node, but for more information see [Macros](./macros.md):
 
 ```rust
 pub struct SolePressureFilter { // (1)
@@ -18,7 +18,7 @@ pub struct SolePressureFilter { // (1)
     right_sole_pressure: LowPassFilter<f32>,
 }
 
-#[module(control)] // (2)
+#[node(control)] // (2)
 #[parameter(path = low_pass_alpha, data_type = f32)] // (3)
 #[input(path = sensor_data, data_type = SensorData)] // (4)
 #[main_output(data_type = SolePressure)] // (5)
@@ -57,18 +57,18 @@ impl SolePressureFilter {
 }
 ```
 
-1. Module's state
-2. Module declaration with `module` [macro](./macros.md)
+1. Node's state
+2. Node declaration with `node` [macro](./macros.md)
 3. Configuration parameter of type `f32`
 4. Input of type `SensorData`
 5. Output of type `SolePressure`
-6. Empty `impl` to improve usability of language servers and code linters. If the module declaration would be attached to the `impl` below, when writing incomplete code, the macros would produce errors. This happens a lot if writing module implementation code.
-7. Will be called at construction of the module
+6. Empty `impl` to improve usability of language servers and code linters. If the node declaration would be attached to the `impl` below, when writing incomplete code, the macros would produce errors. This happens a lot if writing node implementation code.
+7. Will be called at construction of the node
 8. Use declared configuration parameter. Since it is a reference, we need to dereference it with `*`.
 9. Will be called every cycle
 
-This module consumes the type `SensorData` as input and produces the output `SolePressure`.
+This node consumes the type `SensorData` as input and produces the output `SolePressure`.
 It has two state variables `left_sole_pressure` and `right_sole_pressure`.
 
-This specification of module inputs and outputs leads to a dependency graph which allows to topologically sort modules s.t. all dependencies are met before executing the module's `cycle()`.
-The `build.rs` file automatically sorts modules based on this graph.
+This specification of node inputs and outputs leads to a dependency graph which allows to topologically sort nodes s.t. all dependencies are met before executing the node's `cycle()`.
+The `build.rs` file automatically sorts nodes based on this graph.

@@ -11,7 +11,7 @@ use syn::{
     TypePath,
 };
 
-use crate::{expand_variables_from_path, CyclerInstances, Field, Modules, PathSegment};
+use crate::{expand_variables_from_path, CyclerInstances, Field, Nodes, PathSegment};
 
 #[derive(Debug, Default)]
 pub struct Structs {
@@ -25,18 +25,18 @@ impl Structs {
 
         let cycler_instances = CyclerInstances::try_from_crates_directory(&crates_directory)
             .wrap_err("failed to get cycler instances")?;
-        let modules = Modules::try_from_crates_directory(&crates_directory)
-            .wrap_err("failed to get modules")?;
+        let nodes =
+            Nodes::try_from_crates_directory(&crates_directory).wrap_err("failed to get nodes")?;
 
-        for (cycler_module, module_names) in modules.cycler_modules_to_modules.iter() {
+        for (cycler_module, node_names) in nodes.cycler_modules_to_nodes.iter() {
             let cycler_structs = structs
                 .cycler_structs
                 .entry(cycler_module.clone())
                 .or_default();
             let cycler_instances = &cycler_instances.modules_to_instances[cycler_module];
 
-            for module_name in module_names.iter() {
-                let contexts = &modules.modules[module_name].contexts;
+            for node_name in node_names.iter() {
+                let contexts = &nodes.nodes[node_name].contexts;
 
                 for field in contexts.main_outputs.iter() {
                     match field {
