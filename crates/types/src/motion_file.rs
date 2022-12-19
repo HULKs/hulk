@@ -13,10 +13,7 @@ pub struct MotionFile {
 }
 
 impl MotionFile {
-    pub fn from_path<P>(motion_file_path: P) -> Result<Self>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn from_path(motion_file_path: impl AsRef<Path>) -> Result<Self> {
         let file = File::open(&motion_file_path).wrap_err_with(|| {
             format!(
                 "failed to open motion file {}",

@@ -16,10 +16,7 @@ pub enum CyclerType {
 }
 
 impl CyclerTypes {
-    pub fn try_from_crates_directory<P>(crates_directory: P) -> Result<Self>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn try_from_crates_directory(crates_directory: impl AsRef<Path>) -> Result<Self> {
         let cycler_instances = CyclerInstances::try_from_crates_directory(&crates_directory)
             .wrap_err("failed to get cycler_instances")?;
         let modules = Modules::try_from_crates_directory(&crates_directory)

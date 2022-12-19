@@ -19,10 +19,7 @@ pub struct CyclerInstances {
 }
 
 impl CyclerInstances {
-    pub fn try_from_crates_directory<P>(crates_directory: P) -> Result<Self>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn try_from_crates_directory(crates_directory: impl AsRef<Path>) -> Result<Self> {
         let mut instances_to_modules = BTreeMap::new();
         let mut modules_to_instances: BTreeMap<_, Vec<_>> = BTreeMap::new();
         for crate_directory in cycler_crates_from_crates_directory(&crates_directory)

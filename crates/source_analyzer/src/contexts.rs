@@ -22,10 +22,7 @@ pub struct Contexts {
 }
 
 impl Contexts {
-    pub fn try_from_file<P>(file_path: P, file: &File) -> Result<Self>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn try_from_file(file_path: impl AsRef<Path>, file: &File) -> Result<Self> {
         let uses = uses_from_items(&file.items);
         let mut creation_context = vec![];
         let mut cycle_context = vec![];
@@ -131,10 +128,11 @@ pub enum Field {
 }
 
 impl Field {
-    pub fn try_from_field<P>(file_path: P, field: &syn::Field, uses: &Uses) -> Result<Self>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn try_from_field(
+        file_path: impl AsRef<Path>,
+        field: &syn::Field,
+        uses: &Uses,
+    ) -> Result<Self> {
         let field_name = field
             .ident
             .as_ref()
@@ -346,10 +344,7 @@ pub fn expand_variables_from_path(
     Ok(paths)
 }
 
-fn extract_one_argument<P>(file_path: P, arguments: &PathArguments) -> Result<Type>
-where
-    P: AsRef<Path>,
-{
+fn extract_one_argument(file_path: impl AsRef<Path>, arguments: &PathArguments) -> Result<Type> {
     match arguments {
         PathArguments::AngleBracketed(arguments) => {
             if arguments.args.len() != 1 {
@@ -376,13 +371,10 @@ where
     }
 }
 
-fn extract_two_arguments<P>(
-    file_path: P,
+fn extract_two_arguments(
+    file_path: impl AsRef<Path>,
     arguments: &PathArguments,
-) -> Result<(Type, Vec<PathSegment>)>
-where
-    P: AsRef<Path>,
-{
+) -> Result<(Type, Vec<PathSegment>)> {
     match arguments {
         PathArguments::AngleBracketed(arguments) => {
             if arguments.args.len() != 2 {
@@ -416,13 +408,10 @@ where
     }
 }
 
-fn extract_three_arguments<P>(
-    file_path: P,
+fn extract_three_arguments(
+    file_path: impl AsRef<Path>,
     arguments: &PathArguments,
-) -> Result<(Type, String, Vec<PathSegment>)>
-where
-    P: AsRef<Path>,
-{
+) -> Result<(Type, String, Vec<PathSegment>)> {
     match arguments {
         PathArguments::AngleBracketed(arguments) => {
             if arguments.args.len() != 3 {

@@ -24,10 +24,7 @@ pub struct Modules {
 }
 
 impl Modules {
-    pub fn try_from_crates_directory<P>(crates_directory: P) -> Result<Self>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn try_from_crates_directory(crates_directory: impl AsRef<Path>) -> Result<Self> {
         let mut modules = BTreeMap::new();
         let mut cycler_modules_to_modules: BTreeMap<_, Vec<_>> = BTreeMap::new();
         for crate_directory in cycler_crates_from_crates_directory(&crates_directory)
