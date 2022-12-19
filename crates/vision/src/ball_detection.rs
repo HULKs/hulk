@@ -409,7 +409,8 @@ mod tests {
             }),
             merge_weight: None,
         };
-        let merge_weight = calculate_ball_merge_factor(&ball_candidate, vector!(90, 90), 1.0, 1.0, 1.0);
+        let merge_weight =
+            calculate_ball_merge_factor(&ball_candidate, vector!(90, 90), 1.0, 1.0, 1.0);
         assert_relative_eq!(merge_weight, 1.0);
     }
 
