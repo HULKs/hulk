@@ -5,10 +5,7 @@ use syn::{self, parse_file};
 
 use crate::into_eyre_result::SynContext;
 
-pub fn parse_rust_file<P>(file_path: P) -> Result<syn::File>
-where
-    P: AsRef<Path>,
-{
+pub fn parse_rust_file(file_path: impl AsRef<Path>) -> Result<syn::File> {
     let mut file = fs::File::open(&file_path)
         .wrap_err_with(|| format!("failed to open file {:?}", file_path.as_ref()))?;
     let mut buffer = String::new();

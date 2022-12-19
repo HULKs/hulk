@@ -48,10 +48,7 @@ impl Image422 {
         self.pixels.as_mut_slice()
     }
 
-    pub fn load_from_ycbcr_444_file<P>(file: P) -> Result<Image422>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn load_from_ycbcr_444_file(file: impl AsRef<Path>) -> Result<Image422> {
         let png = Reader::open(file)?.decode()?.into_rgb8();
 
         let width = png.width();
@@ -75,10 +72,7 @@ impl Image422 {
         })
     }
 
-    pub fn save_to_ycbcr_444_file<P>(&self, file: P) -> Result<()>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn save_to_ycbcr_444_file(&self, file: impl AsRef<Path>) -> Result<()> {
         let mut image = RgbImage::new(self.width() as u32 * 2, self.height() as u32);
         for y in 0..self.height() {
             for x in 0..self.width() {

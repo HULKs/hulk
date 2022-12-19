@@ -108,10 +108,7 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn download_logs<P>(&self, local_directory: P) -> Result<()>
-    where
-        P: AsRef<Path>,
-    {
+    pub async fn download_logs(&self, local_directory: impl AsRef<Path>) -> Result<()> {
         let status = self
             .ssh_to_nao()
             .arg("dmesg > /home/nao/hulk/logs/kernel.log")
@@ -170,10 +167,11 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn upload<P>(&self, local_directory: P, delete_remaining: bool) -> Result<()>
-    where
-        P: AsRef<Path>,
-    {
+    pub async fn upload(
+        &self,
+        local_directory: impl AsRef<Path>,
+        delete_remaining: bool,
+    ) -> Result<()> {
         let mut command = self.rsync_with_nao();
         command
             .arg("--keep-dirlinks")

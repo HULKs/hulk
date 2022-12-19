@@ -22,10 +22,7 @@ pub struct Configuration {
 }
 
 impl Configuration {
-    pub fn read_from<P>(path: P) -> anyhow::Result<Self>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn read_from(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let file = File::open(&path)
             .with_context(|| format!("Failed to open configuration file {:?}", path.as_ref()))?;
         from_reader(file).with_context(|| {

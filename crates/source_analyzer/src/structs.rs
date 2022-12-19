@@ -20,10 +20,7 @@ pub struct Structs {
 }
 
 impl Structs {
-    pub fn try_from_crates_directory<P>(crates_directory: P) -> Result<Self>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn try_from_crates_directory(crates_directory: impl AsRef<Path>) -> Result<Self> {
         let mut structs = Self::default();
 
         let cycler_instances = CyclerInstances::try_from_crates_directory(&crates_directory)

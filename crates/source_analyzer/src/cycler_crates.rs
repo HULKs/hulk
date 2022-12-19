@@ -6,10 +6,9 @@ use syn::Item;
 
 use crate::parse::parse_rust_file;
 
-pub fn cycler_crates_from_crates_directory<P>(crates_directory: P) -> Result<Vec<PathBuf>>
-where
-    P: AsRef<Path>,
-{
+pub fn cycler_crates_from_crates_directory(
+    crates_directory: impl AsRef<Path>,
+) -> Result<Vec<PathBuf>> {
     glob(
         crates_directory
             .as_ref()

@@ -58,10 +58,7 @@ impl Recording {
         });
     }
 
-    pub fn write_to<P>(&self, path: P) -> anyhow::Result<()>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn write_to(&self, path: impl AsRef<Path>) -> anyhow::Result<()> {
         let file = File::create(&path)
             .with_context(|| format!("Failed to create recording file {:?}", path.as_ref()))?;
         to_writer(file, &self).with_context(|| {
