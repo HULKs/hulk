@@ -225,43 +225,43 @@ impl From<Joints> for JointsArray {
 }
 
 impl From<JointsArray> for Joints {
-    fn from(val: JointsArray) -> Self {
+    fn from(joints: JointsArray) -> Self {
         Joints {
             head: HeadJoints {
-                yaw: val.head_yaw,
-                pitch: val.head_pitch,
+                yaw: joints.head_yaw,
+                pitch: joints.head_pitch,
             },
             left_arm: ArmJoints {
-                shoulder_pitch: val.left_shoulder_pitch,
-                shoulder_roll: val.left_shoulder_roll,
-                elbow_yaw: val.left_elbow_yaw,
-                elbow_roll: val.left_elbow_roll,
-                wrist_yaw: val.left_wrist_yaw,
-                hand: val.left_hand,
+                shoulder_pitch: joints.left_shoulder_pitch,
+                shoulder_roll: joints.left_shoulder_roll,
+                elbow_yaw: joints.left_elbow_yaw,
+                elbow_roll: joints.left_elbow_roll,
+                wrist_yaw: joints.left_wrist_yaw,
+                hand: joints.left_hand,
             },
             right_arm: ArmJoints {
-                shoulder_pitch: val.right_shoulder_pitch,
-                shoulder_roll: val.right_shoulder_roll,
-                elbow_yaw: val.right_elbow_yaw,
-                elbow_roll: val.right_elbow_roll,
-                wrist_yaw: val.right_wrist_yaw,
-                hand: val.right_hand,
+                shoulder_pitch: joints.right_shoulder_pitch,
+                shoulder_roll: joints.right_shoulder_roll,
+                elbow_yaw: joints.right_elbow_yaw,
+                elbow_roll: joints.right_elbow_roll,
+                wrist_yaw: joints.right_wrist_yaw,
+                hand: joints.right_hand,
             },
             left_leg: LegJoints {
-                hip_yaw_pitch: val.left_hip_yaw_pitch,
-                hip_roll: val.left_hip_roll,
-                hip_pitch: val.left_hip_pitch,
-                knee_pitch: val.left_knee_pitch,
-                ankle_pitch: val.left_ankle_pitch,
-                ankle_roll: val.left_ankle_roll,
+                hip_yaw_pitch: joints.left_hip_yaw_pitch,
+                hip_roll: joints.left_hip_roll,
+                hip_pitch: joints.left_hip_pitch,
+                knee_pitch: joints.left_knee_pitch,
+                ankle_pitch: joints.left_ankle_pitch,
+                ankle_roll: joints.left_ankle_roll,
             },
             right_leg: LegJoints {
-                hip_yaw_pitch: val.left_hip_yaw_pitch, //TODO
-                hip_roll: val.right_hip_roll,
-                hip_pitch: val.right_hip_pitch,
-                knee_pitch: val.right_knee_pitch,
-                ankle_pitch: val.right_ankle_pitch,
-                ankle_roll: val.right_ankle_roll,
+                hip_yaw_pitch: joints.left_hip_yaw_pitch, //TODO
+                hip_roll: joints.right_hip_roll,
+                hip_pitch: joints.right_hip_pitch,
+                knee_pitch: joints.right_knee_pitch,
+                ankle_pitch: joints.right_ankle_pitch,
+                ankle_roll: joints.right_ankle_roll,
             },
         }
     }
