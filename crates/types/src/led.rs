@@ -3,7 +3,7 @@ use serialize_hierarchy::SerializeHierarchy;
 
 use super::Rgb;
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Leds {
     pub left_ear: Ear,
     pub right_ear: Ear,
