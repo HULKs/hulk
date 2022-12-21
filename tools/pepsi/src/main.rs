@@ -43,7 +43,6 @@ mod power_off;
 mod pre_game;
 mod progress_indicator;
 mod reboot;
-mod results;
 mod sdk;
 mod shell;
 mod upload;

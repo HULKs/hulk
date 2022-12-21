@@ -9,7 +9,7 @@ use nao::{Nao, SystemctlAction};
 
 use crate::{
     parsers::{parse_systemctl_action, NaoAddress, SYSTEMCTL_ACTION_POSSIBLE_VALUES},
-    results::gather_results,
+    progress_indicator::ProgressIndicator,
 };
 
 #[derive(Args)]
@@ -26,15 +26,25 @@ pub struct Arguments {
 }
 
 pub async fn hulk(arguments: Arguments) -> Result<()> {
-    let tasks = arguments.naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.ip);
-        nao.execute_systemctl(arguments.action, "hulk")
-            .await
-            .wrap_err_with(|| format!("failed to execute systemctl hulk on {nao_address}"))
+    let multi_progress = ProgressIndicator::new();
+
+    let tasks = arguments.naos.into_iter().map(|nao_address| {
+        let multi_progress = multi_progress.clone();
+        async move {
+            let progress = multi_progress.task(nao_address.to_string());
+            let nao = Nao::new(nao_address.ip);
+
+            progress.set_message("Executing systemctl hulk...");
+
+            progress.finish_with(
+                nao.execute_systemctl(arguments.action, "hulk")
+                    .await
+                    .wrap_err_with(|| format!("failed to execute systemctl hulk on {nao_address}")),
+            )
+        }
     });
 
-    let results = join_all(tasks).await;
-    gather_results(results, "failed to execute some systemctl hulk tasks")?;
+    join_all(tasks).await;
 
     Ok(())
 }

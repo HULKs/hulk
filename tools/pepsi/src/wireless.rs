@@ -9,7 +9,7 @@ use nao::{Nao, Network};
 
 use crate::{
     parsers::{parse_network, NaoAddress, NETWORK_POSSIBLE_VALUES},
-    results::gather_results,
+    progress_indicator::ProgressIndicator,
 };
 
 #[derive(Subcommand)]
@@ -53,57 +53,64 @@ pub async fn wireless(arguments: Arguments) -> Result<()> {
 }
 
 async fn status(naos: Vec<NaoAddress>) {
-    let results = join_all(naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.ip);
-        (
-            nao_address,
-            nao.get_network_status()
-                .await
-                .wrap_err_with(|| format!("failed to get network status from {nao_address}")),
-        )
+    let multi_progress = ProgressIndicator::new();
+
+    join_all(naos.into_iter().map(|nao_address| {
+        let multi_progress = multi_progress.clone();
+        async move {
+            let progress = multi_progress.task(nao_address.to_string());
+            let nao = Nao::new(nao_address.ip);
+
+            progress.set_message("Retrieving network status...");
+            progress.finish_with(
+                nao.get_network_status()
+                    .await
+                    .wrap_err_with(|| format!("failed to get network status from {nao_address}")),
+            );
+        }
     }))
     .await;
-
-    for (nao_address, status_result) in results {
-        println!("{nao_address}");
-        match status_result {
-            Ok(status) => println!("{status}"),
-            Err(error) => println!("{error:?}"),
-        }
-    }
 }
 
 async fn available_networks(naos: Vec<NaoAddress>) {
-    let results = join_all(naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.ip);
-        (
-            nao_address,
-            nao.get_available_networks()
-                .await
-                .wrap_err_with(|| format!("failed to get available networks from {nao_address}")),
-        )
-    }))
-    .await;
+    let multi_progress = ProgressIndicator::new();
 
-    for (nao_address, available_networks_result) in results {
-        println!("{nao_address}");
-        match available_networks_result {
-            Ok(available_networks) => println!("{available_networks}"),
-            Err(error) => println!("{error:?}"),
-        }
-    }
+    let tasks =
+        naos.into_iter().map(|nao_address| {
+            let multi_progress = multi_progress.clone();
+            async move {
+                let progress = multi_progress.task(nao_address.to_string());
+                let nao = Nao::new(nao_address.ip);
+
+                progress.set_message("Retrieving available networks...");
+                progress.finish_with(nao.get_available_networks().await.wrap_err_with(|| {
+                    format!("failed to get available networks from {nao_address}")
+                }));
+            }
+        });
+
+    join_all(tasks).await;
 }
 
 async fn set(naos: Vec<NaoAddress>, network: Network) -> Result<()> {
-    let tasks = naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.ip);
-        nao.set_network(network)
-            .await
-            .wrap_err_with(|| format!("failed to set network on {nao_address}"))
+    let multi_progress = ProgressIndicator::new();
+
+    let tasks = naos.into_iter().map(|nao_address| {
+        let multi_progress = multi_progress.clone();
+        async move {
+            let progress = multi_progress.task(nao_address.to_string());
+            let nao = Nao::new(nao_address.ip);
+
+            progress.set_message("Retrieving available networks...");
+            progress.finish_with(
+                nao.set_network(network)
+                    .await
+                    .wrap_err_with(|| format!("failed to set network on {nao_address}")),
+            )
+        }
     });
 
-    let results = join_all(tasks).await;
-    gather_results(results, "Failed to execute some network setting tasks")?;
+    join_all(tasks).await;
 
     Ok(())
 }
