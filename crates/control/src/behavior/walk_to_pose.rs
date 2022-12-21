@@ -153,7 +153,10 @@ impl<'cycle> WalkAndStand<'cycle> {
         );
 
         if is_reached {
-            Some(MotionCommand::Stand { head })
+            Some(MotionCommand::Stand {
+                head,
+                is_energy_saving: true,
+            })
         } else {
             let path = self.walk_path_planner.plan(
                 target_pose * Point2::origin(),

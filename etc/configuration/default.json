@@ -188,6 +188,10 @@
       "minimum_samples_per_cluster": 3
     }
   },
+  "energy_saving_stand": {
+    "arm_stiffness": 0.1,
+    "leg_stiffness": 0.5
+  },
   "fall_protection": {
     "ground_impact_head_stiffness": 0.2,
     "left_arm_positions": {

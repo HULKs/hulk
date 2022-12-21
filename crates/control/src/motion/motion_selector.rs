@@ -76,7 +76,15 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         },
         MotionCommand::Penalized => MotionType::Penalized,
         MotionCommand::SitDown { .. } => MotionType::SitDown,
-        MotionCommand::Stand { .. } => MotionType::Stand,
+        MotionCommand::Stand {
+            is_energy_saving, ..
+        } => {
+            if *is_energy_saving {
+                MotionType::EnergySavingStand
+            } else {
+                MotionType::Stand
+            }
+        }
         MotionCommand::StandUp { facing } => match facing {
             Facing::Down => MotionType::StandUpFront,
             Facing::Up => MotionType::StandUpBack,

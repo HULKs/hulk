@@ -23,6 +23,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub arms_up_squat_joints_command: Input<JointsCommand<f32>, "arms_up_squat_joints_command">,
+    pub energy_saving_stand: Input<BodyJointsCommand<f32>, "energy_saving_stand_command">,
     pub jump_left_joints_command: Input<JointsCommand<f32>, "jump_left_joints_command">,
     pub jump_right_joints_command: Input<JointsCommand<f32>, "jump_right_joints_command">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
@@ -96,6 +97,10 @@ impl DispatchingInterpolator {
                 MotionType::Walk => Joints::from_head_and_body(
                     HeadJoints::fill(0.0),
                     context.walk_joints_command.positions,
+                ),
+                MotionType::EnergySavingStand => Joints::from_head_and_body(
+                    HeadJoints::fill(0.0),
+                    context.energy_saving_stand.positions,
                 ),
             };
 
