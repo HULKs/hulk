@@ -4,7 +4,7 @@ use futures::future::join_all;
 
 use nao::Nao;
 
-use crate::{parsers::NaoAddress, results::gather_results};
+use crate::{parsers::NaoAddress, progress_indicator::ProgressIndicator};
 
 #[derive(Args)]
 pub struct Arguments {
@@ -14,15 +14,25 @@ pub struct Arguments {
 }
 
 pub async fn reboot(arguments: Arguments) -> Result<()> {
-    let tasks = arguments.naos.into_iter().map(|nao_address| async move {
-        let nao = Nao::new(nao_address.ip);
-        nao.reboot()
-            .await
-            .wrap_err_with(|| format!("failed to reboot {nao_address}"))
+    let multi_progress = ProgressIndicator::new();
+
+    let tasks = arguments.naos.into_iter().map(|nao_address| {
+        let multi_progress = multi_progress.clone();
+        async move {
+            let progress = multi_progress.task(nao_address.to_string());
+            progress.set_message("Rebooting...");
+
+            let nao = Nao::new(nao_address.ip);
+
+            progress.finish_with(
+                nao.reboot()
+                    .await
+                    .wrap_err_with(|| format!("failed to reboot {nao_address}")),
+            );
+        }
     });
 
-    let results = join_all(tasks).await;
-    gather_results(results, "failed to execute some reboot tasks")?;
+    join_all(tasks).await;
 
     Ok(())
 }

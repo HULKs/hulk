@@ -11,7 +11,6 @@ use crate::{
     communication::{communication, Arguments as CommunicationArguments},
     parsers::{NaoAddress, NaoNumber},
     progress_indicator::{ProgressIndicator, Task},
-    results::gather_results,
 };
 
 #[derive(Args)]
@@ -46,6 +45,10 @@ async fn upload_with_progress(
     progress: &Task,
     arguments: &Arguments,
 ) -> anyhow::Result<()> {
+    if !arguments.skip_os_check && !nao.has_stable_os_version().await {
+        return Ok(());
+    }
+
     progress.set_message("Stopping HULK...");
     nao.execute_systemctl(SystemctlAction::Stop, "hulk")
         .await
@@ -115,24 +118,12 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
             let progress = multi_progress.task(nao_address.to_string());
             let nao = Nao::new(nao_address.ip);
 
-            if !arguments.skip_os_check && !nao.has_stable_os_version().await {
-                return Ok(());
-            }
-
-            match upload_with_progress(nao, hulk_directory, &progress, arguments).await {
-                Ok(_) => {
-                    progress.finish_with_success("Done");
-                }
-                Err(error) => {
-                    progress.finish_with_error(error);
-                }
-            }
-            Ok(())
+            progress
+                .finish_with(upload_with_progress(nao, hulk_directory, &progress, arguments).await)
         }
     });
 
-    let results = join_all(tasks).await;
-    gather_results(results, "failed to execute some upload tasks")?;
+    join_all(tasks).await;
 
     Ok(())
 }

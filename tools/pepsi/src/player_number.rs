@@ -9,7 +9,7 @@ use futures::future::join_all;
 
 use repository::Repository;
 
-use crate::{parsers::NaoNumberPlayerAssignment, results::gather_results};
+use crate::{parsers::NaoNumberPlayerAssignment, progress_indicator::ProgressIndicator};
 
 #[derive(Args)]
 pub struct Arguments {
@@ -41,21 +41,24 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
         bail!("Duplication in NAO to player number assignments")
     }
 
+    let multi_progress = ProgressIndicator::new();
+
     let tasks = arguments.assignments.into_iter().map(|assignment| {
         let head_id = &hardware_ids[&assignment.nao_number.number].head_id;
+        let multi_progress = multi_progress.clone();
         async move {
-            repository
-                .set_player_number(head_id, assignment.player_number)
-                .await
-                .wrap_err_with(|| format!("failed to set player number for {assignment:?}"))
+            let progress = multi_progress.task(format!("{}", assignment.nao_number));
+            progress.set_message("Setting player number...");
+            progress.finish_with(
+                repository
+                    .set_player_number(head_id, assignment.player_number)
+                    .await
+                    .wrap_err_with(|| format!("failed to set player number for {assignment:?}")),
+            );
         }
     });
 
-    let results = join_all(tasks).await;
-    gather_results(
-        results,
-        "failed to execute some player number setting tasks",
-    )?;
+    join_all(tasks).await;
 
     Ok(())
 }

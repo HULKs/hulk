@@ -4,7 +4,7 @@ use futures::future::join_all;
 
 use repository::Repository;
 
-use crate::{parsers::NaoNumber, results::gather_results};
+use crate::{parsers::NaoNumber, progress_indicator::ProgressIndicator};
 
 #[derive(Subcommand)]
 pub enum Arguments {
@@ -31,23 +31,28 @@ pub async fn communication(arguments: Arguments, repository: &Repository) -> Res
         Arguments::Disable { nao_numbers } => (false, nao_numbers),
     };
 
+    let multi_progress = ProgressIndicator::new();
+
     let tasks = nao_numbers.into_iter().map(|nao_number| {
+        let multi_progress = multi_progress.clone();
         let head_id = &hardware_ids[&nao_number.number].head_id;
         async move {
-            repository
-                .set_communication(head_id, enable)
-                .await
-                .wrap_err_with(|| {
-                    format!("failed to set communication enablement for {nao_number}")
-                })
+            let progress = multi_progress.task(format!("{}", nao_number));
+
+            progress.set_message("Setting communication...");
+
+            progress.finish_with(
+                repository
+                    .set_communication(head_id, enable)
+                    .await
+                    .wrap_err_with(|| {
+                        format!("failed to set communication enablement for {nao_number}")
+                    }),
+            )
         }
     });
 
-    let results = join_all(tasks).await;
-    gather_results(
-        results,
-        "failed to execute some communication setting tasks",
-    )?;
+    join_all(tasks).await;
 
     Ok(())
 }
