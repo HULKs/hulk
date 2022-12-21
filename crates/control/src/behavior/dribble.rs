@@ -137,7 +137,12 @@ pub fn execute(
     best_kick_decisions_output.fill_if_subscribed(|| best_kick_decision.copied());
     let best_kick_decision = match best_kick_decision {
         Some(decision) => decision,
-        None => return Some(MotionCommand::Stand { head }),
+        None => {
+            return Some(MotionCommand::Stand {
+                head,
+                is_energy_saving: false,
+            })
+        }
     };
 
     let relative_best_pose = best_kick_decision.relative_kick_pose;

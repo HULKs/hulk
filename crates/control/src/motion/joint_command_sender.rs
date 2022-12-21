@@ -23,6 +23,7 @@ pub struct CycleContext {
 
     pub arms_up_squat_joints_command: Input<JointsCommand<f32>, "arms_up_squat_joints_command">,
     pub dispatching_command: Input<JointsCommand<f32>, "dispatching_command">,
+    pub energy_saving_stand_command: Input<BodyJointsCommand<f32>, "energy_saving_stand_command">,
     pub fall_protection_command: Input<JointsCommand<f32>, "fall_protection_command">,
     pub head_joints_command: Input<HeadJointsCommand<f32>, "head_joints_command">,
     pub jump_left_joints_command: Input<JointsCommand<f32>, "jump_left_joints_command">,
@@ -82,6 +83,16 @@ impl JointCommandSender {
             MotionType::Walk => (
                 Joints::from_head_and_body(head_joints_command.positions, walk.positions),
                 Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),
+            ),
+            MotionType::EnergySavingStand => (
+                Joints::from_head_and_body(
+                    head_joints_command.positions,
+                    context.energy_saving_stand_command.positions,
+                ),
+                Joints::from_head_and_body(
+                    head_joints_command.stiffnesses,
+                    context.energy_saving_stand_command.stiffnesses,
+                ),
             ),
         };
         context

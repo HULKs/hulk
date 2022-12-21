@@ -6,6 +6,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     match world_state.robot.primary_state {
         PrimaryState::Initial => Some(MotionCommand::Stand {
             head: HeadMotion::ZeroAngles,
+            is_energy_saving: true,
         }),
         PrimaryState::Set => {
             let robot_to_field = world_state.robot.robot_to_field?;
@@ -13,6 +14,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
                 head: HeadMotion::LookAt {
                     target: robot_to_field.inverse() * Point2::origin(),
                 },
+                is_energy_saving: true,
             })
         }
         PrimaryState::Playing => {
@@ -30,6 +32,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
                     None,
                 ) => Some(MotionCommand::Stand {
                     head: HeadMotion::Center,
+                    is_energy_saving: true,
                 }),
                 _ => None,
             }

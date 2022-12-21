@@ -25,6 +25,7 @@ pub enum MotionCommand {
     },
     Stand {
         head: HeadMotion,
+        is_energy_saving: bool,
     },
     StandUp {
         facing: Facing,
@@ -49,7 +50,7 @@ impl MotionCommand {
     pub fn head_motion(&self) -> Option<HeadMotion> {
         match self {
             MotionCommand::SitDown { head }
-            | MotionCommand::Stand { head }
+            | MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }
             | MotionCommand::InWalkKick { head, .. } => Some(*head),
             MotionCommand::Penalized => Some(HeadMotion::ZeroAngles),

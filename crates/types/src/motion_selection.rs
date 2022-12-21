@@ -13,6 +13,7 @@ pub struct MotionSelection {
 pub enum MotionType {
     ArmsUpSquat,
     Dispatching,
+    EnergySavingStand,
     FallProtection,
     JumpLeft,
     JumpRight,
@@ -35,6 +36,7 @@ impl Default for MotionType {
 pub struct MotionSafeExits {
     arms_up_squat: bool,
     dispatching: bool,
+    energy_saving_stand: bool,
     fall_protection: bool,
     jump_left: bool,
     jump_right: bool,
@@ -52,6 +54,7 @@ impl Default for MotionSafeExits {
         Self {
             arms_up_squat: true,
             dispatching: false,
+            energy_saving_stand: true,
             fall_protection: true,
             jump_left: false,
             jump_right: false,
@@ -73,6 +76,7 @@ impl Index<MotionType> for MotionSafeExits {
         match motion_type {
             MotionType::ArmsUpSquat => &self.arms_up_squat,
             MotionType::Dispatching => &self.dispatching,
+            MotionType::EnergySavingStand => &self.energy_saving_stand,
             MotionType::JumpLeft => &self.jump_left,
             MotionType::JumpRight => &self.jump_right,
             MotionType::FallProtection => &self.fall_protection,
@@ -92,6 +96,7 @@ impl IndexMut<MotionType> for MotionSafeExits {
         match motion_type {
             MotionType::ArmsUpSquat => &mut self.arms_up_squat,
             MotionType::Dispatching => &mut self.dispatching,
+            MotionType::EnergySavingStand => &mut self.energy_saving_stand,
             MotionType::JumpLeft => &mut self.jump_left,
             MotionType::JumpRight => &mut self.jump_right,
             MotionType::FallProtection => &mut self.fall_protection,
