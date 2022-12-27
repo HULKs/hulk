@@ -189,7 +189,7 @@ pub struct CyclerStructs {
     pub persistent_state: StructHierarchy,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum StructHierarchy {
     Struct {
         fields: BTreeMap<String, StructHierarchy>,
@@ -236,9 +236,6 @@ impl StructHierarchy {
                 }
                 InsertionRule::BeginStruct => self.insert(insertion_rules.split_off(1)),
                 InsertionRule::AppendDataType { data_type } => {
-                    if !fields.is_empty() {
-                        bail!("failed to append data type in-place of non-empty struct");
-                    }
                     *self = StructHierarchy::Field {
                         data_type: data_type.clone(),
                     };
@@ -781,5 +778,52 @@ mod tests {
             },
             "{hierarchy:?} does not match"
         );
+    }
+
+    #[test]
+    fn insertion_rules_with_multiple_paths_result_in_correct_struct_hierarchy() {
+        let data_type = Type::Verbatim(Default::default());
+        let more_specific_insertion_rules = vec![
+            InsertionRule::BeginStruct,
+            InsertionRule::InsertField {
+                name: "a".to_string(),
+            },
+            InsertionRule::BeginStruct,
+            InsertionRule::InsertField {
+                name: "b".to_string(),
+            },
+            InsertionRule::AppendDataType {
+                data_type: data_type.clone(),
+            },
+        ];
+        let less_specific_insertion_rules = vec![
+            InsertionRule::BeginStruct,
+            InsertionRule::InsertField {
+                name: "a".to_string(),
+            },
+            InsertionRule::AppendDataType {
+                data_type: data_type.clone(),
+            },
+        ];
+        let mut hierarchy_less_specific_first = StructHierarchy::default();
+        hierarchy_less_specific_first
+            .insert(less_specific_insertion_rules.clone())
+            .unwrap();
+        hierarchy_less_specific_first
+            .insert(more_specific_insertion_rules.clone())
+            .unwrap();
+
+        let mut hierarchy_more_specific_first = StructHierarchy::default();
+        dbg!(&hierarchy_more_specific_first);
+        hierarchy_more_specific_first
+            .insert(more_specific_insertion_rules)
+            .unwrap();
+        dbg!(&hierarchy_more_specific_first);
+        hierarchy_more_specific_first
+            .insert(less_specific_insertion_rules)
+            .unwrap();
+        dbg!(&hierarchy_more_specific_first);
+
+        assert_eq!(hierarchy_less_specific_first, hierarchy_more_specific_first);
     }
 }
