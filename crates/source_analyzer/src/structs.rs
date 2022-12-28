@@ -516,46 +516,31 @@ mod tests {
         let mut hierarchy = StructHierarchy::default();
         hierarchy.insert(insertion_rules).unwrap();
 
-        assert!(
-            match &hierarchy {
-                StructHierarchy::Struct { fields }
-                    if fields.len() == 1
-                        && match fields.get(&"a".to_string()) {
-                            Some(a) => match a {
-                                StructHierarchy::Struct { fields }
-                                    if fields.len() == 1
-                                        && match fields.get(&"b".to_string()) {
-                                            Some(b) => match b {
-                                                StructHierarchy::Struct { fields }
-                                                    if fields.len() == 1
-                                                        && match fields.get(&"c".to_string()) {
-                                                            Some(c) => match c {
-                                                                StructHierarchy::Field {
-                                                                    data_type: matched_data_type,
-                                                                } if &data_type
-                                                                    == matched_data_type =>
-                                                                {
-                                                                    true
-                                                                }
-                                                                _ => false,
-                                                            },
-                                                            None => false,
-                                                        } =>
-                                                    true,
-                                                _ => false,
-                                            },
-                                            None => false,
-                                        } =>
-                                    true,
-                                _ => false,
-                            },
-                            None => false,
-                        } =>
-                    true,
-                _ => false,
-            },
-            "{hierarchy:?} does not match"
-        );
+        let StructHierarchy::Struct { fields } = &hierarchy else {
+            panic!("expected StructHierarchy::Struct");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(a) = fields.get(&"a".to_string()) else {
+            panic!("expected field `a`");
+        };
+        let StructHierarchy::Struct { fields } = a else {
+            panic!("expected StructHierarchy::Struct");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(b) = fields.get(&"b".to_string()) else {
+            panic!("expected field `b`");
+        };
+        let StructHierarchy::Struct { fields } = b else {
+            panic!("expected StructHierarchy::Struct");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(c) = fields.get(&"c".to_string()) else {
+            panic!("expected field `c`");
+        };
+        let StructHierarchy::Field { data_type: matched_data_type } = c else {
+            panic!("expected StructHierarchy::Field");
+        };
+        assert_eq!(matched_data_type, &data_type);
     }
 
     #[allow(clippy::collapsible_match, clippy::match_like_matches_macro)]
@@ -583,49 +568,34 @@ mod tests {
         let mut hierarchy = StructHierarchy::default();
         hierarchy.insert(insertion_rules).unwrap();
 
-        assert!(
-            match &hierarchy {
-                StructHierarchy::Struct { fields }
-                    if fields.len() == 1
-                        && match fields.get(&"a".to_string()) {
-                            Some(a) => match a {
-                                StructHierarchy::Optional { child } => match &**child {
-                                    StructHierarchy::Struct { fields }
-                                        if fields.len() == 1
-                                            && match fields.get(&"b".to_string()) {
-                                                Some(b) => match b {
-                                                    StructHierarchy::Struct { fields }
-                                                        if fields.len() == 1
-                                                            && match fields.get(&"c".to_string()) {
-                                                                Some(c) => match c {
-                                                                    StructHierarchy::Field {
-                                                                        data_type: matched_data_type,
-                                                                    } if &data_type
-                                                                        == matched_data_type =>
-                                                                    {
-                                                                        true
-                                                                    }
-                                                                    _ => false,
-                                                                },
-                                                                None => false,
-                                                            } =>
-                                                        true,
-                                                    _ => false,
-                                                },
-                                                None => false,
-                                            } =>
-                                        true,
-                                    _ => false,
-                                },
-                                _ => false,
-                            },
-                            None => false,
-                        } =>
-                    true,
-                _ => false,
-            },
-            "{hierarchy:?} does not match"
-        );
+        let StructHierarchy::Struct { fields } = &hierarchy else {
+            panic!("expected StructHierarchy::Struct");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(a) = fields.get(&"a".to_string()) else {
+            panic!("expected field `a`");
+        };
+        let StructHierarchy::Optional { child } = a else {
+            panic!("expected StructHierarchy::Optional");
+        };
+        let StructHierarchy::Struct { fields } = &**child else {
+            panic!("expected StructHierarchy::Struct");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(b) = fields.get(&"b".to_string()) else {
+            panic!("expected field `b`");
+        };
+        let StructHierarchy::Struct { fields } = b else {
+            panic!("expected StructHierarchy::Struct");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(c) = fields.get(&"c".to_string()) else {
+            panic!("expected field `c`");
+        };
+        let StructHierarchy::Field { data_type: matched_data_type } = c else {
+            panic!("expected StructHierarchy::Field");
+        };
+        assert_eq!(matched_data_type, &data_type);
     }
 
     #[allow(clippy::collapsible_match, clippy::match_like_matches_macro)]
@@ -654,52 +624,37 @@ mod tests {
         let mut hierarchy = StructHierarchy::default();
         hierarchy.insert(insertion_rules).unwrap();
 
-        assert!(
-            match &hierarchy {
-                StructHierarchy::Struct { fields }
-                    if fields.len() == 1
-                        && match fields.get(&"a".to_string()) {
-                            Some(a) => match a {
-                                StructHierarchy::Optional { child } => match &**child {
-                                    StructHierarchy::Struct { fields }
-                                        if fields.len() == 1
-                                            && match fields.get(&"b".to_string()) {
-                                                Some(b) => match b {
-                                                    StructHierarchy::Optional { child } => match &**child {
-                                                        StructHierarchy::Struct { fields }
-                                                            if fields.len() == 1
-                                                                && match fields.get(&"c".to_string()) {
-                                                                    Some(c) => match c {
-                                                                        StructHierarchy::Field {
-                                                                            data_type: matched_data_type,
-                                                                        } if &data_type
-                                                                            == matched_data_type =>
-                                                                        {
-                                                                            true
-                                                                        }
-                                                                        _ => false,
-                                                                    },
-                                                                    None => false,
-                                                                } =>
-                                                            true,
-                                                        _ => false,
-                                                    },
-                                                    _ => false,
-                                                },
-                                                None => false,
-                                            } =>
-                                        true,
-                                    _ => false,
-                                },
-                                _ => false,
-                            },
-                            None => false,
-                        } =>
-                    true,
-                _ => false,
-            },
-            "{hierarchy:?} does not match"
-        );
+        let StructHierarchy::Struct { fields } = &hierarchy else {
+            panic!("expected StructHierarchy::Struct");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(a) = fields.get(&"a".to_string()) else {
+            panic!("expected field `a`");
+        };
+        let StructHierarchy::Optional { child } = a else {
+            panic!("expected StructHierarchy::Optional");
+        };
+        let StructHierarchy::Struct { fields } = &**child else {
+            panic!("expected StructHierarchy::Struct");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(b) = fields.get(&"b".to_string()) else {
+            panic!("expected field `b`");
+        };
+        let StructHierarchy::Optional { child } = b else {
+            panic!("expected StructHierarchy::Optional");
+        };
+        let StructHierarchy::Struct { fields } = &**child else {
+            panic!("expected StructHierarchy::Struct");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(c) = fields.get(&"c".to_string()) else {
+            panic!("expected field `c`");
+        };
+        let StructHierarchy::Field { data_type: matched_data_type } = c else {
+            panic!("expected StructHierarchy::Field");
+        };
+        assert_eq!(matched_data_type, &data_type);
     }
 
     #[allow(clippy::collapsible_match, clippy::match_like_matches_macro)]
@@ -729,55 +684,40 @@ mod tests {
         let mut hierarchy = StructHierarchy::default();
         hierarchy.insert(insertion_rules).unwrap();
 
-        assert!(
-            match &hierarchy {
-                StructHierarchy::Struct { fields }
-                    if fields.len() == 1
-                        && match fields.get(&"a".to_string()) {
-                            Some(a) => match a {
-                                StructHierarchy::Optional { child } => match &**child {
-                                    StructHierarchy::Struct { fields }
-                                        if fields.len() == 1
-                                            && match fields.get(&"b".to_string()) {
-                                                Some(b) => match b {
-                                                    StructHierarchy::Optional { child } => match &**child {
-                                                        StructHierarchy::Struct { fields }
-                                                            if fields.len() == 1
-                                                                && match fields.get(&"c".to_string()) {
-                                                                    Some(c) => match c {
-                                                                        StructHierarchy::Optional { child } => match &**child {
-                                                                            StructHierarchy::Field {
-                                                                                data_type: matched_data_type,
-                                                                            } if &data_type
-                                                                                == matched_data_type =>
-                                                                            {
-                                                                                true
-                                                                            }
-                                                                            _ => false,
-                                                                        },
-                                                                        _ => false,
-                                                                    },
-                                                                    None => false,
-                                                                } =>
-                                                            true,
-                                                        _ => false,
-                                                    },
-                                                    _ => false,
-                                                },
-                                                None => false,
-                                            } =>
-                                        true,
-                                    _ => false,
-                                },
-                                _ => false,
-                            },
-                            None => false,
-                        } =>
-                    true,
-                _ => false,
-            },
-            "{hierarchy:?} does not match"
-        );
+        let StructHierarchy::Struct { fields } = &hierarchy else {
+            panic!("expected StructHierarchy::Struct");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(a) = fields.get(&"a".to_string()) else {
+            panic!("expected field `a`");
+        };
+        let StructHierarchy::Optional { child } = a else {
+            panic!("expected StructHierarchy::Optional");
+        };
+        let StructHierarchy::Struct { fields } = &**child else {
+            panic!("expected StructHierarchy::Struct");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(b) = fields.get(&"b".to_string()) else {
+            panic!("expected field `b`");
+        };
+        let StructHierarchy::Optional { child } = b else {
+            panic!("expected StructHierarchy::Optional");
+        };
+        let StructHierarchy::Struct { fields } = &**child else {
+            panic!("expected StructHierarchy::Struct");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(c) = fields.get(&"c".to_string()) else {
+            panic!("expected field `c`");
+        };
+        let StructHierarchy::Optional { child } = c else {
+            panic!("expected StructHierarchy::Optional");
+        };
+        let StructHierarchy::Field { data_type: matched_data_type } = &**child else {
+            panic!("expected StructHierarchy::Field");
+        };
+        assert_eq!(matched_data_type, &data_type);
     }
 
     #[test]
