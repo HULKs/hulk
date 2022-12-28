@@ -89,13 +89,13 @@ impl FallStateEstimation {
 
         context
             .filtered_roll_pitch
-            .fill_on_subscription(|| self.roll_pitch_filter.state());
+            .fill_if_subscribed(|| self.roll_pitch_filter.state());
         context
             .filtered_linear_acceleration
-            .fill_on_subscription(|| self.linear_acceleration_filter.state());
+            .fill_if_subscribed(|| self.linear_acceleration_filter.state());
         context
             .filtered_angular_velocity
-            .fill_on_subscription(|| self.angular_velocity_filter.state());
+            .fill_if_subscribed(|| self.angular_velocity_filter.state());
 
         const GRAVITATIONAL_CONSTANT: f32 = -9.81;
         let gravitational_force = vector![0.0, 0.0, GRAVITATIONAL_CONSTANT];
@@ -129,14 +129,14 @@ impl FallStateEstimation {
         };
         context
             .forward_gravitational_difference
-            .fill_on_subscription(|| {
+            .fill_if_subscribed(|| {
                 (self.linear_acceleration_filter.state()
                     - robot_to_fallen_down * gravitational_force)
                     .norm()
             });
         context
             .backward_gravitational_difference
-            .fill_on_subscription(|| {
+            .fill_if_subscribed(|| {
                 (self.linear_acceleration_filter.state() - robot_to_fallen_up * gravitational_force)
                     .norm()
             });

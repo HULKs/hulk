@@ -207,7 +207,7 @@ impl ObstacleFilter {
         });
         context
             .obstacle_filter_hypotheses
-            .fill_on_subscription(|| self.hypotheses.clone());
+            .fill_if_subscribed(|| self.hypotheses.clone());
         Ok(MainOutputs {
             obstacles: chain!(robot_obstacles, goal_post_obstacles)
                 .collect::<Vec<_>>()

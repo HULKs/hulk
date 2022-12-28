@@ -12,7 +12,7 @@ impl<'context, DataType> AdditionalOutput<'context, DataType> {
         }
     }
 
-    pub fn fill_on_subscription<Callback>(&mut self, callback: Callback)
+    pub fn fill_if_subscribed<Callback>(&mut self, callback: Callback)
     where
         Callback: FnOnce() -> DataType,
     {
@@ -21,7 +21,7 @@ impl<'context, DataType> AdditionalOutput<'context, DataType> {
         }
     }
 
-    pub fn mutate_on_subscription<Callback>(&mut self, callback: Callback)
+    pub fn mutate_if_subscribed<Callback>(&mut self, callback: Callback)
     where
         Callback: FnOnce(&mut Option<DataType>),
     {

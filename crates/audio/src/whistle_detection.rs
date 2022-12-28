@@ -51,8 +51,8 @@ impl WhistleDetection {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        context.audio_spectrums.fill_on_subscription(Vec::new);
-        context.detection_infos.fill_on_subscription(Vec::new);
+        context.audio_spectrums.fill_if_subscribed(Vec::new);
+        context.detection_infos.fill_if_subscribed(Vec::new);
         let is_detected = context
             .samples
             .channels_of_samples
@@ -99,7 +99,7 @@ impl WhistleDetection {
                 normalized_sample.abs()
             })
             .collect();
-        audio_spectrums.mutate_on_subscription(|spectrums| {
+        audio_spectrums.mutate_if_subscribed(|spectrums| {
             let spectrum = absolute_values
                 .iter()
                 .enumerate()
@@ -111,7 +111,7 @@ impl WhistleDetection {
         });
         let (detected, detection_info) =
             spectrum_contains_whistle(&absolute_values, detection_parameters, frequency_resolution);
-        detection_infos.mutate_on_subscription(|infos| {
+        detection_infos.mutate_if_subscribed(|infos| {
             if let Some(infos) = infos {
                 infos.push(detection_info);
             }

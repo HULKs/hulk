@@ -70,7 +70,7 @@ pub fn execute(
         &world_state.obstacles,
         parameters,
     );
-    kick_targets_output.fill_on_subscription(|| targets_to_kick_to.clone());
+    kick_targets_output.fill_if_subscribed(|| targets_to_kick_to.clone());
 
     let sides = [Side::Left, Side::Right];
     let mut kick_variants = Vec::new();
@@ -98,7 +98,7 @@ pub fn execute(
         .flatten()
         .collect();
 
-    kick_decisions_output.fill_on_subscription(|| {
+    kick_decisions_output.fill_if_subscribed(|| {
         kick_decisions
             .iter()
             .filter(|decision| {

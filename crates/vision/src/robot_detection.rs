@@ -84,7 +84,7 @@ impl RobotDetection {
         });
         context
             .cluster_points_in_pixel
-            .fill_on_subscription(|| scored_cluster_points_in_pixel.clone());
+            .fill_if_subscribed(|| scored_cluster_points_in_pixel.clone());
 
         let scored_cluster_points_in_ground =
             project_to_ground(scored_cluster_points_in_pixel, context.camera_matrix);
@@ -98,7 +98,7 @@ impl RobotDetection {
         );
         context
             .clustered_cluster_points_in_ground
-            .fill_on_subscription(|| clustered_cluster_points_in_ground.clone());
+            .fill_if_subscribed(|| clustered_cluster_points_in_ground.clone());
 
         let clusters_in_ground =
             map_clustered_cluster_points_to_scored_clusters(clustered_cluster_points_in_ground);
@@ -106,7 +106,7 @@ impl RobotDetection {
             filter_clusters_via_scores(clusters_in_ground, *context.minimum_cluster_score);
         let (clusters_in_ground, cluster_cones) =
             filter_clusters_via_cones(clusters_in_ground, *context.cluster_cone_radius);
-        context.cluster_cones.fill_on_subscription(|| cluster_cones);
+        context.cluster_cones.fill_if_subscribed(|| cluster_cones);
 
         Ok(MainOutputs {
             detected_robots: Some(DetectedRobots {
