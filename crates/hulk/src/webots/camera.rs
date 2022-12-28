@@ -6,7 +6,7 @@ use std::arch::x86_64::{
 };
 
 use color_eyre::{
-    eyre::{bail, WrapErr},
+    eyre::{eyre, WrapErr},
     Result,
 };
 use parking_lot::{Condvar, Mutex};
@@ -64,14 +64,12 @@ impl Camera {
     }
 
     pub fn read(&self) -> Result<Image> {
-        let bgra_buffer = match {
+        let bgra_buffer = {
             let mut bgra_buffer = self.buffer.lock();
             self.buffer_updated.wait(&mut bgra_buffer);
-            bgra_buffer.take()
-        } {
-            // TODO: ok_or_else(|| eyre!())
-            Some(bgra_buffer) => bgra_buffer,
-            None => bail!("no updated image found"),
+            bgra_buffer
+                .take()
+                .ok_or_else(|| eyre!("no updated image found"))?
         };
         assert_eq!(bgra_buffer.len(), 4 * 640 * 480);
         let mut ycbcr_buffer = vec![

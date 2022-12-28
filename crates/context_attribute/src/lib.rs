@@ -95,7 +95,6 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                     }
                     "CyclerInstance" | "MainOutput" => {}
                     "HardwareInterface" => {
-                        // TODO: maybe remove reference of Arc
                         requires_lifetime_parameter = true;
                         requires_hardware_interface_parameter = true;
                         field.ty = Type::Reference(TypeReference {
