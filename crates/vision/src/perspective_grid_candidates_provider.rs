@@ -5,7 +5,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{point, vector, Point2, Vector2};
 use types::{
-    hardware::Image, CameraMatrix, Circle, FilteredSegments, LineData, PerspectiveGridCandidates,
+    image::Image, CameraMatrix, Circle, FilteredSegments, LineData, PerspectiveGridCandidates,
     ScanLine, Segment,
 };
 

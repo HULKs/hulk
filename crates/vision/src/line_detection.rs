@@ -6,7 +6,7 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{distance, point, vector, Point2, Vector2};
 use ordered_float::NotNan;
 use types::{
-    hardware::Image, CameraMatrix, EdgeType, FilteredSegments, ImageLines, Line, LineData, Segment,
+    image::Image, CameraMatrix, EdgeType, FilteredSegments, ImageLines, Line, LineData, Segment,
 };
 
 use crate::ransac::{Ransac, RansacResult};
