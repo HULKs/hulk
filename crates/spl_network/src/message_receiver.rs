@@ -1,7 +1,7 @@
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
-use types::hardware::{IncomingMessage, Interface};
+use types::{hardware::Interface, messages::IncomingMessage};
 
 pub struct MessageReceiver {}
 

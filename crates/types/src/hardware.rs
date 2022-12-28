@@ -1,9 +1,11 @@
 use std::{fmt::Debug, sync::Arc, time::SystemTime};
 
 use color_eyre::Result;
-use spl_network_messages::{GameControllerReturnMessage, GameControllerStateMessage, SplMessage};
 
-use crate::image::Image;
+use crate::{
+    image::Image,
+    messages::{IncomingMessage, OutgoingMessage},
+};
 
 use super::{CameraPosition, Joints, Leds, SensorData};
 
@@ -25,30 +27,6 @@ pub trait Interface {
 pub struct Ids {
     pub body_id: String,
     pub head_id: String,
-}
-
-#[derive(Clone, Debug)]
-pub enum IncomingMessage {
-    GameController(GameControllerStateMessage),
-    Spl(SplMessage),
-}
-
-impl Default for IncomingMessage {
-    fn default() -> Self {
-        IncomingMessage::GameController(Default::default())
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum OutgoingMessage {
-    GameController(GameControllerReturnMessage),
-    Spl(SplMessage),
-}
-
-impl Default for OutgoingMessage {
-    fn default() -> Self {
-        OutgoingMessage::GameController(Default::default())
-    }
 }
 
 #[derive(Clone, Debug, Default)]
