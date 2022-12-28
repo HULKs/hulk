@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use color_eyre::Result;
 use communication::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use types::{Ball, CandidateEvaluation, Circle};
@@ -39,7 +40,7 @@ impl Overlay for BallDetection {
         }
     }
 
-    fn paint(&self, painter: &crate::twix_painter::TwixPainter) -> anyhow::Result<()> {
+    fn paint(&self, painter: &crate::twix_painter::TwixPainter) -> Result<()> {
         let filtered_balls: Vec<Circle> = self.filtered_balls.require_latest()?;
         for circle in filtered_balls.iter() {
             painter.circle_stroke(circle.center, circle.radius, Stroke::new(3.0, Color32::RED));
