@@ -1121,6 +1121,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_dock"
+version = "0.2.1"
+source = "git+https://github.com/knoellle/egui_dock/#f7d1a20df6fb767f4e20b4536cc6289f6ce51442"
+dependencies = [
+ "egui",
+ "serde",
+]
+
+[[package]]
 name = "egui_extras"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2618,7 +2627,7 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "pepsi"
-version = "2.4.0"
+version = "2.4.1"
 dependencies = [
  "bat",
  "clap 4.0.26",
@@ -3687,7 +3696,9 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "communication",
+ "convert_case",
  "eframe",
+ "egui_dock",
  "egui_extras",
  "fern",
  "fuzzy-matcher",
