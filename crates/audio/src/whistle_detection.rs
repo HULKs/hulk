@@ -10,7 +10,7 @@ use rustfft::{
     Fft, FftPlanner,
 };
 use types::{
-    configuration::WhistleDetection as WhistleDetectionConfiguration, hardware::Samples,
+    configuration::WhistleDetection as WhistleDetectionConfiguration, samples::Samples,
     DetectionInfo, Whistle,
 };
 

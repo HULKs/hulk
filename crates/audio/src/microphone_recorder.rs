@@ -1,7 +1,7 @@
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
-use types::hardware::{Interface, Samples};
+use types::{hardware::Interface, samples::Samples};
 
 pub struct MicrophoneRecorder {}
 

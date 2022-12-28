@@ -1,10 +1,11 @@
-use std::{fmt::Debug, sync::Arc, time::SystemTime};
+use std::{fmt::Debug, time::SystemTime};
 
 use color_eyre::Result;
 
 use crate::{
     image::Image,
     messages::{IncomingMessage, OutgoingMessage},
+    samples::Samples,
 };
 
 use super::{CameraPosition, Joints, Leds, SensorData};
@@ -27,10 +28,4 @@ pub trait Interface {
 pub struct Ids {
     pub body_id: String,
     pub head_id: String,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct Samples {
-    pub rate: u32,
-    pub channels_of_samples: Arc<Vec<Vec<f32>>>,
 }

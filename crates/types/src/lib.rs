@@ -48,6 +48,7 @@ mod robot_dimensions;
 mod robot_kinematics;
 mod robot_masses;
 mod roles;
+pub mod samples;
 mod sensor_data;
 mod sole_pressure;
 mod sonar_obstacle;
