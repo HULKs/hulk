@@ -33,17 +33,12 @@ impl CyclerTypes {
                                 .creation_context
                                 .iter()
                                 .chain(node.contexts.cycle_context.iter())
-                                .any(|field| match field {
+                                .any(|field| matches!(field, 
                                     Field::PerceptionInput {
                                         cycler_instance, ..
                                     } if &cycler_instances.instances_to_modules
-                                            [cycler_instance] // TODO: wenn der Benutzer einen Cycler angibt, der nicht existiert, panikiert hier was
-                                            == cycler_module_name =>
-                                    {
-                                        true
-                                    }
-                                    _ => false,
-                                })
+                                        [cycler_instance]
+                                        == cycler_module_name))
                         });
                     (
                         cycler_module_name.clone(),

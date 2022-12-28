@@ -260,7 +260,7 @@ impl StructHierarchy {
                     data_type: data_type_to_be_appended,
                 } => {
                     if data_type != data_type_to_be_appended {
-                        bail!( // TODO: Ja, wo denn?!
+                        bail!(
                             "unmatching data types: previous data type {} does not match data type {} to be appended",
                             data_type.to_token_stream(),
                             data_type_to_be_appended.to_token_stream(),

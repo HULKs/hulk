@@ -156,7 +156,6 @@ impl Node<'_> {
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
-                    // TODO: check if required input actually has at least one optional
                     Some(quote! {
                         #accessor .is_some()
                     })
