@@ -168,7 +168,7 @@ impl Structs {
                         | Field::Input { .. }
                         | Field::PerceptionInput { .. }
                         | Field::RequiredInput { .. } => {}
-                        _ => {
+                        Field::MainOutput { .. } => {
                             bail!(
                                 "unexpected field {field:?} in `CreationContext` or `CycleContext`"
                             );
