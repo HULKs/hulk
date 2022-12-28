@@ -137,11 +137,11 @@ impl BallFilter {
         });
         context
             .ball_filter_hypotheses
-            .fill_on_subscription(|| self.hypotheses.clone());
+            .fill_if_subscribed(|| self.hypotheses.clone());
         let ball_radius = context.field_dimensions.ball_radius;
         context
             .filtered_balls_in_image_top
-            .fill_on_subscription(|| {
+            .fill_if_subscribed(|| {
                 self.hypotheses
                     .iter()
                     .filter_map(|hypothesis| {
@@ -151,7 +151,7 @@ impl BallFilter {
             });
         context
             .filtered_balls_in_image_bottom
-            .fill_on_subscription(|| {
+            .fill_if_subscribed(|| {
                 self.hypotheses
                     .iter()
                     .filter_map(|hypothesis| {

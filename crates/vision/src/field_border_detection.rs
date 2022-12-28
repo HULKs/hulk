@@ -66,7 +66,7 @@ impl FieldBorderDetection {
             .collect();
         context
             .field_border_points
-            .fill_on_subscription(|| first_field_pixels.clone());
+            .fill_if_subscribed(|| first_field_pixels.clone());
         let ransac = Ransac::new(first_field_pixels);
         let border_lines = find_border_lines(
             ransac,

@@ -265,11 +265,11 @@ impl Localization {
 
             context
                 .measured_lines_in_field
-                .fill_on_subscription(Vec::new);
-            context.correspondence_lines.fill_on_subscription(Vec::new);
+                .fill_if_subscribed(Vec::new);
+            context.correspondence_lines.fill_if_subscribed(Vec::new);
             context
                 .updates
-                .fill_on_subscription(|| vec![vec![]; self.hypotheses.len()]);
+                .fill_if_subscribed(|| vec![vec![]; self.hypotheses.len()]);
 
             let line_datas = context
                 .line_data_top
@@ -315,7 +315,7 @@ impl Localization {
                                     })
                             })
                             .collect();
-                        context.measured_lines_in_field.mutate_on_subscription(
+                        context.measured_lines_in_field.mutate_if_subscribed(
                             |measured_lines_in_field| {
                                 if let Some(measured_lines_in_field) = measured_lines_in_field {
                                     measured_lines_in_field
@@ -334,7 +334,7 @@ impl Localization {
                                 &context,
                                 context.fit_errors.is_subscribed(),
                             );
-                        context.correspondence_lines.mutate_on_subscription(
+                        context.correspondence_lines.mutate_if_subscribed(
                             |correspondence_lines| {
                                 let next_correspondence_lines = field_mark_correspondences
                                     .iter()
@@ -390,7 +390,7 @@ impl Localization {
                                 &line_center_point,
                                 &Point2::from(robot_to_field.translation.vector),
                             );
-                            context.updates.mutate_on_subscription(|updates| {
+                            context.updates.mutate_if_subscribed(|updates| {
                                 if let Some(updates) = updates {
                                     updates[hypothesis_index].push({
                                         let robot_to_field =
@@ -485,10 +485,10 @@ impl Localization {
 
             context
                 .pose_hypotheses
-                .fill_on_subscription(|| self.hypotheses.clone());
+                .fill_if_subscribed(|| self.hypotheses.clone());
             context
                 .fit_errors
-                .fill_on_subscription(|| fit_errors_per_measurement);
+                .fill_if_subscribed(|| fit_errors_per_measurement);
 
             *context.robot_to_field = robot_to_field;
             return Ok(MainOutputs {

@@ -100,7 +100,7 @@ pub fn step_adjustment(
         Side::Left => (adjusted_swing_forward, adjusted_support_forward),
         Side::Right => (adjusted_support_forward, adjusted_swing_forward),
     };
-    step_adjustment_output.fill_on_subscription(|| StepAdjustment {
+    step_adjustment_output.fill_if_subscribed(|| StepAdjustment {
         adjustment,
         limited_adjustment,
         torso_tilt_shift,

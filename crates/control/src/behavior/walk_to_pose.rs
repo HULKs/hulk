@@ -66,7 +66,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         let path = planner
             .plan(Point2::origin(), clamped_target_in_robot)
             .unwrap();
-        path_obstacles_output.fill_on_subscription(|| planner.obstacles.clone());
+        path_obstacles_output.fill_if_subscribed(|| planner.obstacles.clone());
         path.unwrap_or_else(|| direct_path(Point2::origin(), Point2::origin()))
     }
 

@@ -69,7 +69,7 @@ impl SonarFilter {
         let obstacle_detected_on_right =
             (acceptance_range).contains(&self.filtered_sonar_right.state());
 
-        context.sonar_values.fill_on_subscription(|| SonarValues {
+        context.sonar_values.fill_if_subscribed(|| SonarValues {
             left_sonar: obstacle_detected_on_left,
             right_sonar: obstacle_detected_on_right,
             filtered_left_sonar_value: self.filtered_sonar_left.state(),

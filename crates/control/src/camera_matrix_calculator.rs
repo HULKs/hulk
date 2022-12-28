@@ -74,7 +74,7 @@ impl CameraMatrixCalculator {
         let field_dimensions = context.field_dimensions;
         context
             .projected_field_lines
-            .fill_on_subscription(|| ProjectedFieldLines {
+            .fill_if_subscribed(|| ProjectedFieldLines {
                 top: project_penalty_area_on_images(field_dimensions, &top_camera_matrix)
                     .unwrap_or_default(),
                 bottom: project_penalty_area_on_images(field_dimensions, &bottom_camera_matrix)

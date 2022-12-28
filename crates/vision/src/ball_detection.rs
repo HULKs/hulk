@@ -88,7 +88,7 @@ impl BallDetection {
         );
         context
             .ball_candidates
-            .fill_on_subscription(|| evaluations.clone());
+            .fill_if_subscribed(|| evaluations.clone());
 
         let mut detected_balls = evaluations
             .iter()

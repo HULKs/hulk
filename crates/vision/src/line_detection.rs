@@ -173,7 +173,7 @@ impl LineDetection {
         };
         context
             .lines_in_image
-            .fill_on_subscription(|| lines_in_image);
+            .fill_if_subscribed(|| lines_in_image);
         Ok(MainOutputs {
             line_data: Some(line_data).into(),
         })

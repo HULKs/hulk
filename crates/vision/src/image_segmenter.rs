@@ -81,7 +81,7 @@ impl ImageSegmenter {
         let end = Instant::now();
         context
             .image_segmenter_cycle_time
-            .fill_on_subscription(|| end - begin);
+            .fill_if_subscribed(|| end - begin);
         Ok(MainOutputs {
             image_segments: ImageSegments { scan_grid }.into(),
         })

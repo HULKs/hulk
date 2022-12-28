@@ -88,8 +88,8 @@ impl JointCommandSender {
             .write_to_actuators(positions, stiffnesses, *context.leds)
             .wrap_err("failed to write to actuators")?;
 
-        context.positions.fill_on_subscription(|| positions);
-        context.stiffnesses.fill_on_subscription(|| stiffnesses);
+        context.positions.fill_if_subscribed(|| positions);
+        context.stiffnesses.fill_if_subscribed(|| stiffnesses);
 
         Ok(MainOutputs {})
     }
