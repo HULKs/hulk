@@ -6,7 +6,7 @@ use alsa::{
 };
 use color_eyre::{eyre::WrapErr, Result};
 use serde::{de::Error, Deserialize, Deserializer};
-use types::hardware::Samples;
+use types::samples::Samples;
 
 pub struct Microphones {
     device: PCM,

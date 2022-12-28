@@ -13,9 +13,10 @@ use color_eyre::{
 };
 use tokio_util::sync::CancellationToken;
 use types::{
-    hardware::{self, Ids, Samples},
+    hardware::{self, Ids},
     image::Image,
     messages::{IncomingMessage, OutgoingMessage},
+    samples::Samples,
     CameraPosition, Joints, Leds, SensorData,
 };
 use webots::Robot;
