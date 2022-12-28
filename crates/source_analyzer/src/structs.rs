@@ -741,9 +741,7 @@ mod tests {
             InsertionRule::InsertField {
                 name: "a".to_string(),
             },
-            InsertionRule::AppendDataType {
-                data_type: data_type.clone(),
-            },
+            InsertionRule::AppendDataType { data_type },
         ];
         let mut hierarchy_less_specific_first = StructHierarchy::default();
         hierarchy_less_specific_first
