@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::{hardware::IncomingMessage, CycleTime, GameControllerState, SensorData};
+use types::{messages::IncomingMessage, CycleTime, GameControllerState, SensorData};
 
 pub struct GameControllerFilter {
     game_controller_state: Option<GameControllerState>,

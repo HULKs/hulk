@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::hardware::{IncomingMessage, Interface};
+use types::{hardware::Interface, messages::IncomingMessage};
 
 // TODO: dieses Modul weg, weil es nur zum Testen war?
 pub struct MessageFilter {

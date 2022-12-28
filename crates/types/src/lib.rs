@@ -32,6 +32,7 @@ mod line_data;
 mod linear_interpolator;
 mod localization_update;
 mod message_event;
+pub mod messages;
 mod motion_command;
 mod motion_file;
 mod motion_selection;

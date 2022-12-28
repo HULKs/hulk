@@ -16,7 +16,7 @@ use tokio::{
     sync::Mutex,
 };
 use tokio_util::sync::CancellationToken;
-use types::hardware::{IncomingMessage, OutgoingMessage};
+use types::messages::{IncomingMessage, OutgoingMessage};
 
 pub struct Network {
     parameters: Parameters,

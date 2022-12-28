@@ -9,7 +9,8 @@ use spl_network_messages::{
 };
 use types::{
     configuration::SplNetwork,
-    hardware::{IncomingMessage, Interface, OutgoingMessage},
+    hardware::Interface,
+    messages::{IncomingMessage, OutgoingMessage},
     BallPosition, CycleTime, FallState, FieldDimensions, GameControllerState, Players,
     PrimaryState, Role, SensorData,
 };
