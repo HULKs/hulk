@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{hardware::Image, CameraMatrices, CameraMatrix};
+use types::{image::Image, CameraMatrices, CameraMatrix};
 
 use crate::CyclerInstance;
 

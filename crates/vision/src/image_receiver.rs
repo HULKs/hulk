@@ -1,10 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{
-    hardware::{Image, Interface},
-    CameraPosition,
-};
+use types::{hardware::Interface, image::Image, CameraPosition};
 
 use crate::CyclerInstance;
 

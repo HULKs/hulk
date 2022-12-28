@@ -6,7 +6,7 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::point;
 use types::{
     configuration::{EdgeDetectionSource, MedianMode},
-    hardware::Image,
+    image::Image,
     is_above_limbs, CameraMatrix, EdgeType, FieldColor, Horizon, ImageSegments, Intensity, Limb,
     ProjectedLimbs, Rgb, RgbChannel, ScanGrid, ScanLine, Segment, YCbCr444,
 };

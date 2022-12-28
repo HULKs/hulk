@@ -4,7 +4,8 @@ use color_eyre::{eyre::WrapErr, Result};
 use parking_lot::Mutex;
 use tokio_util::sync::CancellationToken;
 use types::{
-    hardware::{self, Ids, Image, IncomingMessage, OutgoingMessage, Samples},
+    hardware::{self, Ids, IncomingMessage, OutgoingMessage, Samples},
+    image::Image,
     CameraPosition, Joints, Leds, SensorData,
 };
 

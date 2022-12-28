@@ -19,7 +19,7 @@ mod filtered_whistle;
 mod game_controller_state;
 mod geometry;
 pub mod hardware;
-mod image;
+pub mod image;
 mod image_segments;
 mod initial_pose;
 mod joints;
@@ -60,7 +60,6 @@ mod world_state;
 
 // TODO: convert all "mod" to "pub mod"
 
-pub use self::image::Image422;
 pub use ball::{Ball, CandidateEvaluation};
 pub use ball_filter_hypothesis::BallFilterHypothesis;
 pub use ball_position::BallPosition;
