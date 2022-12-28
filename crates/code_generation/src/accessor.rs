@@ -178,6 +178,8 @@ pub fn path_to_accessor_token_stream(
 mod tests {
     use super::*;
 
+    use quote::quote;
+
     #[test]
     fn paths_with_optionals_result_in_correct_accessor_token_streams() {
         let cases = [
@@ -185,25 +187,25 @@ mod tests {
             (
                 "$cycler_instance",
                 ReferenceType::Immutable,
-                quote! { match self.instance_name { CyclerInstance::InstanceA => &prefix.InstanceA, CyclerInstance::InstanceB => &prefix.InstanceB, } },
+                quote! { match self.instance_name { CyclerInstance::InstanceA => &prefix.instance_a, CyclerInstance::InstanceB => &prefix.instance_b, } },
             ),
             ("a", ReferenceType::Mutable, quote! { &mut prefix.a }),
             (
                 "$cycler_instance",
                 ReferenceType::Mutable,
-                quote! { match self.instance_name { CyclerInstance::InstanceA => &mut prefix.InstanceA, CyclerInstance::InstanceB => &mut prefix.InstanceB, } },
+                quote! { match self.instance_name { CyclerInstance::InstanceA => &mut prefix.instance_a, CyclerInstance::InstanceB => &mut prefix.instance_b, } },
             ),
             ("a/b", ReferenceType::Immutable, quote! { &prefix.a.b }),
             (
                 "a/$cycler_instance",
                 ReferenceType::Immutable,
-                quote! { match self.instance_name { CyclerInstance::InstanceA => &prefix.a.InstanceA, CyclerInstance::InstanceB => &prefix.a.InstanceB, } },
+                quote! { match self.instance_name { CyclerInstance::InstanceA => &prefix.a.instance_a, CyclerInstance::InstanceB => &prefix.a.instance_b, } },
             ),
             ("a/b", ReferenceType::Mutable, quote! { &mut prefix.a.b }),
             (
                 "a/$cycler_instance",
                 ReferenceType::Mutable,
-                quote! { match self.instance_name { CyclerInstance::InstanceA => &mut prefix.a.InstanceA, CyclerInstance::InstanceB => &mut prefix.a.InstanceB, } },
+                quote! { match self.instance_name { CyclerInstance::InstanceA => &mut prefix.a.instance_a, CyclerInstance::InstanceB => &mut prefix.a.instance_b, } },
             ),
             ("a/b/c", ReferenceType::Immutable, quote! { &prefix.a.b.c }),
             (
@@ -225,13 +227,13 @@ mod tests {
             (
                 "$cycler_instance?",
                 ReferenceType::Immutable,
-                quote! { match self.instance_name { CyclerInstance::InstanceA => prefix.InstanceA.as_ref(), CyclerInstance::InstanceB => prefix.InstanceB.as_ref(), } },
+                quote! { match self.instance_name { CyclerInstance::InstanceA => prefix.instance_a.as_ref(), CyclerInstance::InstanceB => prefix.instance_b.as_ref(), } },
             ),
             ("a?", ReferenceType::Mutable, quote! { prefix.a.as_mut() }),
             (
                 "$cycler_instance?",
                 ReferenceType::Mutable,
-                quote! { match self.instance_name { CyclerInstance::InstanceA => prefix.InstanceA.as_mut(), CyclerInstance::InstanceB => prefix.InstanceB.as_mut(), } },
+                quote! { match self.instance_name { CyclerInstance::InstanceA => prefix.instance_a.as_mut(), CyclerInstance::InstanceB => prefix.instance_b.as_mut(), } },
             ),
             (
                 "a?/b?/c",

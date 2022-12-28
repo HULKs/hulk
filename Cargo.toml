@@ -2,6 +2,7 @@
 members = [
   "crates/audio",
   "crates/build_script_helpers",
+  "crates/code_generation",
   "crates/communication",
   "crates/context_attribute",
   "crates/control",
@@ -45,6 +46,7 @@ byteorder = "1.4.3"
 chrono = "0.4.22"
 clap = { version = "4.0.22", features = ["derive"] }
 clap_complete = "4.0.5"
+code_generation = { path = "crates/code_generation" }
 color-eyre = "0.6.2"
 communication = { path = "crates/communication" }
 compiled-nn = "0.10.0"

@@ -12,8 +12,6 @@ use source_analyzer::{
     cycler_crates_from_crates_directory, CyclerInstances, CyclerTypes, Field, Nodes,
 };
 
-mod code_generation;
-
 fn main() -> Result<()> {
     for crate_directory in cycler_crates_from_crates_directory("..")
         .wrap_err("failed to get cycler crate directories from crates directory")?
