@@ -17,8 +17,7 @@ vision = { workspace = true }
 
 [build-dependencies]
 build_script_helpers = { workspace = true }
+code_generation = { workspace = true }
 color-eyre = { workspace = true }
-convert_case = { workspace = true }
-proc-macro2 = { workspace = true }
 quote = { workspace = true }
 source_analyzer = { workspace = true }

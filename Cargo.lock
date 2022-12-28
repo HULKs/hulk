@@ -612,6 +612,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "code_generation"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "source_analyzer",
+]
+
+[[package]]
 name = "color-eyre"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -942,11 +953,10 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "build_script_helpers",
+ "code_generation",
  "color-eyre",
  "control",
- "convert_case",
  "framework",
- "proc-macro2",
  "quote",
  "source_analyzer",
  "spl_network",
