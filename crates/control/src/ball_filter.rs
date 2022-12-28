@@ -139,16 +139,14 @@ impl BallFilter {
             .ball_filter_hypotheses
             .fill_if_subscribed(|| self.hypotheses.clone());
         let ball_radius = context.field_dimensions.ball_radius;
-        context
-            .filtered_balls_in_image_top
-            .fill_if_subscribed(|| {
-                self.hypotheses
-                    .iter()
-                    .filter_map(|hypothesis| {
-                        project_to_image(hypothesis, &context.camera_matrices.top, ball_radius)
-                    })
-                    .collect()
-            });
+        context.filtered_balls_in_image_top.fill_if_subscribed(|| {
+            self.hypotheses
+                .iter()
+                .filter_map(|hypothesis| {
+                    project_to_image(hypothesis, &context.camera_matrices.top, ball_radius)
+                })
+                .collect()
+        });
         context
             .filtered_balls_in_image_bottom
             .fill_if_subscribed(|| {

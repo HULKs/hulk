@@ -263,9 +263,7 @@ impl Localization {
         {
             let mut fit_errors_per_measurement = vec![];
 
-            context
-                .measured_lines_in_field
-                .fill_if_subscribed(Vec::new);
+            context.measured_lines_in_field.fill_if_subscribed(Vec::new);
             context.correspondence_lines.fill_if_subscribed(Vec::new);
             context
                 .updates
@@ -334,8 +332,9 @@ impl Localization {
                                 &context,
                                 context.fit_errors.is_subscribed(),
                             );
-                        context.correspondence_lines.mutate_if_subscribed(
-                            |correspondence_lines| {
+                        context
+                            .correspondence_lines
+                            .mutate_if_subscribed(|correspondence_lines| {
                                 let next_correspondence_lines = field_mark_correspondences
                                     .iter()
                                     .flat_map(|field_mark_correspondence| {
@@ -357,8 +356,7 @@ impl Localization {
                                 if let Some(correspondence_lines) = correspondence_lines {
                                     correspondence_lines.extend(next_correspondence_lines);
                                 }
-                            },
-                        );
+                            });
                         if context.fit_errors.is_subscribed() {
                             fit_errors_per_hypothesis.push(fit_errors);
                         }

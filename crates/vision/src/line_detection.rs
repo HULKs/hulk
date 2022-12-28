@@ -171,9 +171,7 @@ impl LineDetection {
             lines_in_robot,
             used_vertical_filtered_segments,
         };
-        context
-            .lines_in_image
-            .fill_if_subscribed(|| lines_in_image);
+        context.lines_in_image.fill_if_subscribed(|| lines_in_image);
         Ok(MainOutputs {
             line_data: Some(line_data).into(),
         })
