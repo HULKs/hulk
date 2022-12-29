@@ -142,11 +142,24 @@ where
             // process
             include!(concat!(env!("OUT_DIR"), "/control_cycler_run_cycles.rs"));
 
-            let positions = match control_database.main_outputs.positions {
-                Some(joints) => joints,
-                None => {
+            let (adjusted_positions, adjusted_stiffnesses) = match (
+                control_database.main_outputs.positions,
+                control_database.main_outputs.stiffnesses,
+                control_database.main_outputs.position_offsets,
+                control_database.main_outputs.stiffness_offsets,
+            ) {
+                (
+                    Some(positions),
+                    Some(stiffnesses),
+                    Some(position_offsets),
+                    Some(stiffness_offsets),
+                ) => (
+                    positions + position_offsets,
+                    stiffnesses + stiffness_offsets,
+                ),
+                _ => {
                     error!(
-                        "Joint angles were None. MainOutputs: {:#?}",
+                        "Something was None. MainOutputs: {:#?}",
                         control_database.main_outputs
                     );
                     panic!()
@@ -155,9 +168,10 @@ where
 
             let leds = control_database.main_outputs.leds.to_owned().unwrap();
 
-            self.hardware_interface.set_joint_positions(positions);
             self.hardware_interface
-                .set_joint_stiffnesses(control_database.main_outputs.stiffnesses.unwrap());
+                .set_joint_positions(adjusted_positions);
+            self.hardware_interface
+                .set_joint_stiffnesses(adjusted_stiffnesses);
             self.hardware_interface.set_leds(leds);
 
             self.historic_databases.update(

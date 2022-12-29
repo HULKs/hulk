@@ -46,6 +46,7 @@ pub struct MainOutputs {
     pub jump_left_joints_command: Option<JointsCommand>,
     pub jump_right_joints_command: Option<JointsCommand>,
     pub positions: Option<Joints>,
+    pub position_offsets: Option<Joints>,
     #[dont_serialize]
     #[serde(skip)]
     pub message_receivers: Option<MessageReceivers>,
@@ -73,6 +74,7 @@ pub struct MainOutputs {
     pub stand_up_front_positions: Option<Joints>,
     pub step_plan: Option<Step>,
     pub stiffnesses: Option<Joints>,
+    pub stiffness_offsets: Option<Joints>,
     pub support_foot: Option<SupportFoot>,
     pub team_ball: Option<BallPosition>,
     pub robot_to_ground: Option<Isometry3<f32>>,
