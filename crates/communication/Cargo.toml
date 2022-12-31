@@ -4,12 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+awaitgroup = { workspace = true }
+bincode = { workspace = true }
 byteorder = { workspace = true }
 color-eyre = { workspace = true }
+framework = { workspace = true }
 futures-util = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serialize_hierarchy = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true }
