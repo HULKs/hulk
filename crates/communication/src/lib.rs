@@ -6,6 +6,7 @@ mod parameter_subscription_manager;
 mod receiver;
 mod requester;
 mod responder;
+pub mod server;
 mod types;
 
 pub use crate::communication::Communication;
