@@ -462,9 +462,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         request_sender
             .send(ClientRequest {
@@ -494,9 +495,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -551,9 +553,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         request_sender
             .send(ClientRequest {
@@ -583,9 +586,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -640,9 +644,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         request_sender
             .send(ClientRequest {
@@ -672,9 +677,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -722,9 +728,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -777,9 +784,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         request_sender
             .send(ClientRequest {
@@ -807,9 +815,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         request_sender
             .send(ClientRequest {
@@ -837,9 +846,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -894,9 +904,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         database_changed.notify_one();
         let subscribed_data = response_receiver.recv().await.unwrap();
@@ -912,9 +923,10 @@ mod tests {
                 }
             )),
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         request_sender
             .send(ClientRequest {
@@ -942,14 +954,16 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         database_changed.notify_one();
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -1004,9 +1018,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver0.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver0.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         let (response_sender1, mut response_receiver1) = channel(1);
         request_sender
@@ -1037,9 +1052,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver1.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver1.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         database_changed.notify_one();
         let subscribed_data = response_receiver0.recv().await.unwrap();
@@ -1057,9 +1073,10 @@ mod tests {
                 }
             )),
         );
-        let Err(TryRecvError::Empty) = response_receiver0.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver0.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
         let subscribed_data = response_receiver1.recv().await.unwrap();
         assert_eq!(
             subscribed_data,
@@ -1073,9 +1090,10 @@ mod tests {
                 }
             )),
         );
-        let Err(TryRecvError::Empty) = response_receiver1.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver1.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         request_sender
             .send(ClientRequest {
@@ -1103,9 +1121,10 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver0.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver0.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         request_sender
             .send(ClientRequest {
@@ -1133,17 +1152,20 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
-        let Err(TryRecvError::Empty) = response_receiver1.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver1.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         database_changed.notify_one();
-        let Err(TryRecvError::Empty) = response_receiver0.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
-        let Err(TryRecvError::Empty) = response_receiver1.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver0.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
+        match response_receiver1.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -1189,9 +1211,10 @@ mod tests {
         // ensure that we are subscribed before continueing because GetNext has no synchronous response
         yield_now().await;
 
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         database_changed.notify_one();
         let subscribed_data = response_receiver.recv().await.unwrap();
@@ -1204,14 +1227,16 @@ mod tests {
                 }
             )),
         );
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         database_changed.notify_one();
-        let Err(TryRecvError::Empty) = response_receiver.try_recv() else {
-            panic!("unexpected result from try_recv()");
-        };
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
 
         drop(request_sender);
         provider_task.await.unwrap();

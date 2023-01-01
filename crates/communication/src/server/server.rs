@@ -64,7 +64,7 @@ impl Server {
                         .expect("successful thread creation should always wait for runtime_sender");
 
                     let acceptor_task = acceptor(keep_running.clone(), databases_sender);
-                    let databases_task = router(keep_running.clone(), databases_receiver);
+                    let databases_task = router(databases_receiver);
 
                     keep_running.cancelled().await;
 

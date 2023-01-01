@@ -20,7 +20,7 @@ pub enum Request {
     },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ClientRequest {
     pub request: DatabaseRequest,
     pub client: Client,
