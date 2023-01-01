@@ -37,7 +37,7 @@ pub enum BinaryResponse {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum DatabaseRequest {
-    GetHierarchy {
+    GetFields {
         id: usize,
     },
     GetNext {
@@ -61,7 +61,7 @@ pub enum DatabaseRequest {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum TextualDatabaseResponse {
-    GetHierarchy {
+    GetFields {
         id: usize,
         fields: BTreeMap<CyclerInstance, BTreeMap<Path, Type>>,
     },

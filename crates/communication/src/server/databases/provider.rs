@@ -33,7 +33,6 @@ pub fn provider<Database>(
 where
     Database: SerializeHierarchy + Send + Sync + 'static,
 {
-    // TODO: assert cycler_instance == request.cycler_instance?
     spawn(async move {
         let (request_sender, mut request_receiver) = channel(1);
 
@@ -51,7 +50,11 @@ where
         loop {
             select! {
                 request = request_receiver.recv() => match request {
-                    Some(request) => handle_client_request::<Database>(request, &mut subscriptions).await,
+                    Some(request) => handle_client_request::<Database>(
+                        request,
+                        cycler_instance,
+                        &mut subscriptions,
+                    ).await,
                     None => break,
                 },
                 _ = database_changed.notified() => {
@@ -64,19 +67,29 @@ where
 
 async fn handle_client_request<Database>(
     request: ClientRequest,
+    cycler_instance: &'static str,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
 ) where
     Database: SerializeHierarchy,
 {
     let is_get_next = matches!(request.request, DatabaseRequest::GetNext { .. });
     match request.request {
-        DatabaseRequest::GetHierarchy { id } => todo!(),
+        DatabaseRequest::GetFields { .. } => {
+            panic!("GetFields should be answered by database router");
+        }
         DatabaseRequest::GetNext {
-            id, path, format, ..
+            id,
+            cycler_instance: received_cycler_instance,
+            path,
+            format,
         }
         | DatabaseRequest::Subscribe {
-            id, path, format, ..
+            id,
+            cycler_instance: received_cycler_instance,
+            path,
+            format,
         } => {
+            assert_eq!(cycler_instance, received_cycler_instance);
             if Database::exists(&path) {
                 match subscriptions.entry((request.client.clone(), id)) {
                     Entry::Occupied(_) => {
@@ -293,12 +306,30 @@ mod tests {
             Ok(())
         }
 
-        fn exists(_field_path: &str) -> bool {
-            true
+        fn exists(field_path: &str) -> bool {
+            field_path == "a.b.c"
         }
 
         fn get_hierarchy() -> HierarchyType {
-            HierarchyType::GenericStruct
+            HierarchyType::Struct {
+                fields: [(
+                    "a".to_string(),
+                    HierarchyType::Struct {
+                        fields: [(
+                            "b".to_string(),
+                            HierarchyType::Struct {
+                                fields: [(
+                                    "c".to_string(),
+                                    HierarchyType::Primary { name: "bool" },
+                                )]
+                                .into(),
+                            },
+                        )]
+                        .into(),
+                    },
+                )]
+                .into(),
+            }
         }
     }
 
@@ -306,7 +337,11 @@ mod tests {
         cycler_instance: &'static str,
         database_changed: Arc<Notify>,
         database: Reader<impl SerializeHierarchy + Send + Sync + 'static>,
-    ) -> (JoinHandle<()>, Sender<ClientRequest>) {
+    ) -> (
+        JoinHandle<()>,
+        BTreeMap<String, String>,
+        Sender<ClientRequest>,
+    ) {
         let (databases_sender, mut databases_receiver) = channel(1);
         let join_handle = provider(
             databases_sender,
@@ -314,20 +349,20 @@ mod tests {
             database_changed,
             database,
         );
-        let request_sender = timeout(Duration::from_secs(1), async move {
+        let (fields, request_sender) = timeout(Duration::from_secs(1), async move {
             let Some(request) = databases_receiver.recv().await else {
                 panic!("expected request");
             };
-            let Request::RegisterCycler { cycler_instance: cycler_instance_to_register, fields: _, request_sender } = request else {
+            let Request::RegisterCycler { cycler_instance: cycler_instance_to_register, fields, request_sender } = request else {
                 panic!("expected Request::RegisterCycler");
             };
             assert_eq!(cycler_instance, cycler_instance_to_register);
             assert!(databases_receiver.recv().await.is_none());
-            request_sender
+            (fields, request_sender)
         })
         .await
         .unwrap();
-        (join_handle, request_sender)
+        (join_handle, fields, request_sender)
     }
 
     #[tokio::test]
@@ -337,12 +372,41 @@ mod tests {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, request_sender) = get_registered_request_sender_from_provider(
+        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
             "CyclerInstance",
             database_changed,
             database_reader,
         )
         .await;
+
+        drop(request_sender);
+        provider_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn fields_are_collected() {
+        let cycler_instance = "CyclerInstance";
+        let database_changed = Arc::new(Notify::new());
+        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+            existing_fields: Default::default(),
+        }]);
+
+        let (provider_task, fields, request_sender) = get_registered_request_sender_from_provider(
+            cycler_instance,
+            database_changed,
+            database_reader,
+        )
+        .await;
+
+        assert_eq!(
+            fields,
+            [
+                ("a".to_string(), "GenericStruct".to_string()),
+                ("a.b".to_string(), "GenericStruct".to_string()),
+                ("a.b.c".to_string(), "bool".to_string())
+            ]
+            .into()
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -356,7 +420,7 @@ mod tests {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, request_sender) = get_registered_request_sender_from_provider(
+        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
             cycler_instance,
             database_changed,
             database_reader,
@@ -446,7 +510,7 @@ mod tests {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, request_sender) = get_registered_request_sender_from_provider(
+        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
             cycler_instance,
             database_changed,
             database_reader,
@@ -535,7 +599,7 @@ mod tests {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, request_sender) = get_registered_request_sender_from_provider(
+        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
             cycler_instance,
             database_changed,
             database_reader,
@@ -624,7 +688,7 @@ mod tests {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, request_sender) = get_registered_request_sender_from_provider(
+        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
             cycler_instance,
             database_changed,
             database_reader,
@@ -674,7 +738,7 @@ mod tests {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, request_sender) = get_registered_request_sender_from_provider(
+        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
             cycler_instance,
             database_changed,
             database_reader,
@@ -791,7 +855,7 @@ mod tests {
             existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
-        let (provider_task, request_sender) = get_registered_request_sender_from_provider(
+        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
             cycler_instance,
             database_changed.clone(),
             database_reader,
@@ -901,7 +965,7 @@ mod tests {
             existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
-        let (provider_task, request_sender) = get_registered_request_sender_from_provider(
+        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
             cycler_instance,
             database_changed.clone(),
             database_reader,
@@ -1095,7 +1159,7 @@ mod tests {
             existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
-        let (provider_task, request_sender) = get_registered_request_sender_from_provider(
+        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
             cycler_instance,
             database_changed.clone(),
             database_reader,
