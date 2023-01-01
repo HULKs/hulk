@@ -53,13 +53,13 @@ async fn forward_client_request_to_provider(
     cached_cycler_instances: &mut HashMap<(Client, usize), String>,
 ) {
     match &request.request {
-        DatabaseRequest::GetHierarchy { id } => {
+        DatabaseRequest::GetFields { id } => {
             // TODO: directly generate BTreeMap in SerializeHierarchy
             let _ = request
                 .client
                 .response_sender
                 .send(Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::GetHierarchy {
+                    TextualDatabaseResponse::GetFields {
                         id: *id,
                         fields: request_channels_of_cyclers
                             .iter()
