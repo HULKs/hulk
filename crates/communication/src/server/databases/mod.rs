@@ -1,8 +1,11 @@
-use std::hash::{Hash, Hasher};
+use std::{
+    collections::BTreeMap,
+    hash::{Hash, Hasher},
+};
 
 use tokio::sync::mpsc::Sender;
 
-use super::messages::{DatabaseRequest, Format, Path, Response};
+use super::messages::{DatabaseRequest, Format, Path, Response, Type};
 
 pub mod provider;
 pub mod router;
@@ -12,6 +15,7 @@ pub enum Request {
     ClientRequest(ClientRequest),
     RegisterCycler {
         cycler_instance: String,
+        fields: BTreeMap<Path, Type>,
         request_sender: Sender<ClientRequest>,
     },
 }

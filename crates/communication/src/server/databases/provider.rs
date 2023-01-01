@@ -1,6 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
-    net::SocketAddr,
+    collections::{hash_map::Entry, BTreeMap, HashMap},
     sync::Arc,
 };
 
@@ -8,7 +7,7 @@ use framework::Reader;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use log::error;
 use serde_json::Value;
-use serialize_hierarchy::SerializeHierarchy;
+use serialize_hierarchy::{HierarchyType, SerializeHierarchy};
 use tokio::{
     select, spawn,
     sync::{
@@ -25,12 +24,15 @@ use crate::server::messages::{
 
 use super::{Client, ClientRequest, Request, Subscription};
 
-pub fn provider(
+pub fn provider<Database>(
     databases_sender: Sender<Request>,
     cycler_instance: &'static str,
     database_changed: Arc<Notify>,
-    database_reader: Reader<impl SerializeHierarchy + Send + Sync + 'static>,
-) -> JoinHandle<()> {
+    database_reader: Reader<Database>,
+) -> JoinHandle<()>
+where
+    Database: SerializeHierarchy + Send + Sync + 'static,
+{
     // TODO: assert cycler_instance == request.cycler_instance?
     spawn(async move {
         let (request_sender, mut request_receiver) = channel(1);
@@ -38,6 +40,7 @@ pub fn provider(
         databases_sender
             .send(Request::RegisterCycler {
                 cycler_instance: cycler_instance.to_string(),
+                fields: get_paths_from_hierarchy(Default::default(), Database::get_hierarchy()),
                 request_sender,
             })
             .await
@@ -48,7 +51,7 @@ pub fn provider(
         loop {
             select! {
                 request = request_receiver.recv() => match request {
-                    Some(request) => handle_client_request(request, &mut subscriptions).await,
+                    Some(request) => handle_client_request::<Database>(request, &mut subscriptions).await,
                     None => break,
                 },
                 _ = database_changed.notified() => {
@@ -59,10 +62,12 @@ pub fn provider(
     })
 }
 
-async fn handle_client_request(
+async fn handle_client_request<Database>(
     request: ClientRequest,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
-) {
+) where
+    Database: SerializeHierarchy,
+{
     let is_get_next = matches!(request.request, DatabaseRequest::GetNext { .. });
     match request.request {
         DatabaseRequest::GetHierarchy { id } => todo!(),
@@ -71,44 +76,59 @@ async fn handle_client_request(
         }
         | DatabaseRequest::Subscribe {
             id, path, format, ..
-        } => match subscriptions.entry((request.client.clone(), id)) {
-            Entry::Occupied(_) => {
-                let error_message = format!("already subscribed with id {id}");
+        } => {
+            if Database::exists(&path) {
+                match subscriptions.entry((request.client.clone(), id)) {
+                    Entry::Occupied(_) => {
+                        let error_message = format!("already subscribed with id {id}");
+                        let _ = request
+                            .client
+                            .response_sender
+                            .send(Response::Textual(TextualResponse::Databases(
+                                if is_get_next {
+                                    TextualDatabaseResponse::GetNext {
+                                        id,
+                                        result: Err(error_message),
+                                    }
+                                } else {
+                                    TextualDatabaseResponse::Subscribe {
+                                        id,
+                                        result: Err(error_message),
+                                    }
+                                },
+                            )))
+                            .await;
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(Subscription {
+                            path,
+                            format,
+                            once: is_get_next,
+                        });
+                        if !is_get_next {
+                            let _ = request
+                                .client
+                                .response_sender
+                                .send(Response::Textual(TextualResponse::Databases(
+                                    TextualDatabaseResponse::Subscribe { id, result: Ok(()) },
+                                )))
+                                .await;
+                        }
+                    }
+                }
+            } else {
                 let _ = request
                     .client
                     .response_sender
                     .send(Response::Textual(TextualResponse::Databases(
-                        if is_get_next {
-                            TextualDatabaseResponse::GetNext {
-                                id,
-                                result: Err(error_message),
-                            }
-                        } else {
-                            TextualDatabaseResponse::Subscribe {
-                                id,
-                                result: Err(error_message),
-                            }
+                        TextualDatabaseResponse::Subscribe {
+                            id,
+                            result: Err(format!("path {path:?} does not exist")),
                         },
                     )))
                     .await;
             }
-            Entry::Vacant(entry) => {
-                entry.insert(Subscription {
-                    path,
-                    format,
-                    once: is_get_next,
-                });
-                if !is_get_next {
-                    let _ = request
-                        .client
-                        .response_sender
-                        .send(Response::Textual(TextualResponse::Databases(
-                            TextualDatabaseResponse::Subscribe { id, result: Ok(()) },
-                        )))
-                        .await;
-                }
-            }
-        },
+        }
         DatabaseRequest::Unsubscribe {
             id,
             subscription_id,
@@ -213,6 +233,36 @@ async fn handle_notified_database(
     }
 }
 
+fn get_paths_from_hierarchy(prefix: String, hierarchy: HierarchyType) -> BTreeMap<String, String> {
+    match hierarchy {
+        HierarchyType::Primary { name } => [(prefix, name.to_string())].into(),
+        HierarchyType::Struct { fields } => {
+            let mut collected_fields = BTreeMap::new();
+            if !prefix.is_empty() {
+                collected_fields.insert(prefix.clone(), "GenericStruct".to_string());
+            }
+            for (name, nested_hierarchy) in fields {
+                let prefix = if prefix.is_empty() {
+                    name
+                } else {
+                    format!("{prefix}.{name}")
+                };
+                collected_fields.extend(get_paths_from_hierarchy(prefix, nested_hierarchy));
+            }
+            collected_fields
+        }
+        HierarchyType::GenericStruct => [(prefix, "GenericStruct".to_string())].into(),
+        HierarchyType::Option { nested } => get_paths_from_hierarchy(prefix, *nested)
+            .into_iter()
+            .map(|(path, data_type)| (path, format!("Option<{data_type}>")))
+            .collect(),
+        HierarchyType::Vec { nested } => get_paths_from_hierarchy(prefix, *nested)
+            .into_iter()
+            .map(|(path, data_type)| (path, format!("Vec<{data_type}>")))
+            .collect(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -243,12 +293,12 @@ mod tests {
             Ok(())
         }
 
-        fn exists(field_path: &str) -> bool {
-            todo!()
+        fn exists(_field_path: &str) -> bool {
+            true
         }
 
         fn get_hierarchy() -> HierarchyType {
-            todo!()
+            HierarchyType::GenericStruct
         }
     }
 
@@ -268,7 +318,7 @@ mod tests {
             let Some(request) = databases_receiver.recv().await else {
                 panic!("expected request");
             };
-            let Request::RegisterCycler { cycler_instance: cycler_instance_to_register, request_sender } = request else {
+            let Request::RegisterCycler { cycler_instance: cycler_instance_to_register, fields: _, request_sender } = request else {
                 panic!("expected Request::RegisterCycler");
             };
             assert_eq!(cycler_instance, cycler_instance_to_register);

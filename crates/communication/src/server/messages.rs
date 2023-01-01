@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 
+pub type CyclerInstance = String;
 pub type Path = String;
 pub type Reason = String;
+pub type Type = String;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Request {
@@ -40,13 +42,13 @@ pub enum DatabaseRequest {
     },
     GetNext {
         id: usize,
-        cycler_instance: String,
+        cycler_instance: CyclerInstance,
         path: Path,
         format: Format,
     },
     Subscribe {
         id: usize,
-        cycler_instance: String,
+        cycler_instance: CyclerInstance,
         path: Path,
         format: Format,
     },
@@ -54,13 +56,14 @@ pub enum DatabaseRequest {
         id: usize,
         subscription_id: usize,
     },
+    // TODO: Unsubscribe everything
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum TextualDatabaseResponse {
     GetHierarchy {
         id: usize,
-        hierarchy: BTreeMap<Path, String>,
+        fields: BTreeMap<CyclerInstance, BTreeMap<Path, Type>>,
     },
     GetNext {
         id: usize,
@@ -100,13 +103,13 @@ pub enum BinaryDatabaseResponse {
 pub enum InjectionRequest {
     Set {
         id: usize,
-        cycler_instance: String,
+        cycler_instance: CyclerInstance,
         path: Path,
         data: Value,
     },
     Unset {
         id: usize,
-        cycler_instance: String,
+        cycler_instance: CyclerInstance,
         path: Path,
     },
 }
