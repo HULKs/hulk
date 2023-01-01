@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 
 use tokio::{
     spawn,
@@ -8,7 +8,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 use crate::server::messages::{
-    DatabaseRequest, Response, TextualDatabaseResponse, TextualResponse,
+    DatabaseRequest, Path, Response, TextualDatabaseResponse, TextualResponse, Type,
 };
 
 use super::{Client, ClientRequest, Request};
@@ -36,9 +36,10 @@ pub fn router(
                 }
                 Request::RegisterCycler {
                     cycler_instance,
+                    fields,
                     request_sender,
                 } => {
-                    request_channels_of_cyclers.insert(cycler_instance, request_sender);
+                    request_channels_of_cyclers.insert(cycler_instance, (fields, request_sender));
                 }
             }
         }
@@ -48,11 +49,28 @@ pub fn router(
 
 async fn forward_client_request_to_provider(
     request: ClientRequest,
-    request_channels_of_cyclers: &HashMap<String, Sender<ClientRequest>>,
+    request_channels_of_cyclers: &HashMap<String, (BTreeMap<Path, Type>, Sender<ClientRequest>)>,
     cached_cycler_instances: &mut HashMap<(Client, usize), String>,
 ) {
     match &request.request {
-        DatabaseRequest::GetHierarchy { id } => todo!(),
+        DatabaseRequest::GetHierarchy { id } => {
+            // TODO: directly generate BTreeMap in SerializeHierarchy
+            let _ = request
+                .client
+                .response_sender
+                .send(Response::Textual(TextualResponse::Databases(
+                    TextualDatabaseResponse::GetHierarchy {
+                        id: *id,
+                        fields: request_channels_of_cyclers
+                            .iter()
+                            .map(|(cycler_instance, (fields, _request_sender))| {
+                                (cycler_instance.clone(), fields.clone())
+                            })
+                            .collect(),
+                    },
+                )))
+                .await;
+        }
         DatabaseRequest::GetNext {
             id,
             cycler_instance,
@@ -69,7 +87,7 @@ async fn forward_client_request_to_provider(
             }
 
             match request_channels_of_cyclers.get(cycler_instance) {
-                Some(request_channel) => {
+                Some((_fields, request_channel)) => {
                     let _ = request_channel.send(request).await;
                 }
                 None => {
@@ -111,7 +129,7 @@ async fn forward_client_request_to_provider(
             };
 
             match request_channels_of_cyclers.get(&cycler_instance) {
-                Some(request_channel) => {
+                Some((_fields, request_channel)) => {
                     let _ = request_channel.send(request).await;
                 }
                 None => {
