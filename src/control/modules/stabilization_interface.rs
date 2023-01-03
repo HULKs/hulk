@@ -66,7 +66,7 @@ impl StabilizationInterface {
         let positions = context.positions.clone();
         let stiffnesses = context.stiffnesses.clone();
         let stability = match context.fall_state {
-            FallState::Upright => 1.0 / (1.0 + *context.unstable_score as f32),
+            FallState::Upright => 1.0 - (0.3 * *context.unstable_score as f32),
             _ => 0.0,
         };
         let step_t = if context.step_t.is_nan() {0.0} else {*context.step_t};
