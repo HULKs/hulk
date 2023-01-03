@@ -73,11 +73,13 @@ pub struct MainOutputs {
     pub stand_up_back_positions: Option<Joints>,
     pub stand_up_front_positions: Option<Joints>,
     pub step_plan: Option<Step>,
+    pub step_t: Option<f32>,
     pub stiffnesses: Option<Joints>,
     pub stiffness_offsets: Option<Joints>,
     pub support_foot: Option<SupportFoot>,
     pub team_ball: Option<BallPosition>,
     pub robot_to_ground: Option<Isometry3<f32>>,
+    pub unstable_score: Option<usize>,
     #[leaf]
     pub walk_command: Option<WalkCommand>,
     pub walk_joints_command: Option<BodyJointsCommand>,

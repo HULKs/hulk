@@ -123,6 +123,8 @@ pub struct WalkingEngine {
 #[parameter(path = control.ready_pose, data_type = Joints)]
 #[additional_output(path = walking_engine, data_type = WalkingEngine)]
 #[additional_output(path = step_adjustment, data_type = StepAdjustment)]
+#[main_output(name = step_t, data_type = f32)]
+#[main_output(name = unstable_score, data_type = usize)]
 #[main_output(name = walk_joints_command, data_type = BodyJointsCommand)]
 impl WalkingEngine {}
 
@@ -297,6 +299,8 @@ impl WalkingEngine {
         };
 
         Ok(MainOutputs {
+            step_t: Some(self.t.as_secs_f32()/self.step_duration.as_secs_f32()),
+            unstable_score: Some(self.number_of_unstable_steps + self.remaining_stabilizing_steps),
             walk_joints_command: Some(BodyJointsCommand {
                 positions: BodyJoints {
                     left_arm,

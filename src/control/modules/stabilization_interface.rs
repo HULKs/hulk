@@ -41,10 +41,12 @@ pub struct StabilizationInterface {
 }
 
 #[module(control)]
-#[input(path = sensor_data, data_type = SensorData, required)]
-#[input(path = positions, data_type = Joints, required)]
-#[input(path = stiffnesses, data_type = Joints, required)]
 #[input(path = fall_state, data_type = FallState, required)]
+#[input(path = positions, data_type = Joints, required)]
+#[input(path = sensor_data, data_type = SensorData, required)]
+#[input(path = step_t, data_type = f32, required)]
+#[input(path = stiffnesses, data_type = Joints, required)]
+#[input(path = unstable_score, data_type = usize, required)]
 #[main_output(name = position_offsets, data_type = Joints)]
 #[main_output(name = stiffness_offsets, data_type = Joints)]
 impl StabilizationInterface {}
@@ -63,15 +65,14 @@ impl StabilizationInterface {
         let sensor_data = context.sensor_data.clone();
         let positions = context.positions.clone();
         let stiffnesses = context.stiffnesses.clone();
-        let stability = 1.0;
-        let fall_state = match context.fall_state {
-            FallState::Upright => 1.0,
-            FallState::Falling { .. } => 0.1,
-            FallState::Fallen { .. } => 0.0,
+        let stability = match context.fall_state {
+            FallState::Upright => 1.0 / (1.0 + *context.unstable_score as f32),
+            _ => 0.0,
         };
+        let step_t = if context.step_t.is_nan() {0.0} else {*context.step_t};
         <[f32; OBSERVATION_SIZE]>::try_from(
             [
-                [stability, fall_state].as_slice(),
+                [stability, step_t].as_slice(),
                 sensor_data.positions.to_angles().as_slice(),
                 positions.to_angles().as_slice(),
                 stiffnesses.to_angles().as_slice(),
