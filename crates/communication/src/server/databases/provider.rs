@@ -172,6 +172,10 @@ async fn handle_client_request<Database>(
                     .await;
             }
         }
+        DatabaseRequest::UnsubscribeEverything => {
+            subscriptions
+                .retain(|(client, _subscription_id), _subscription| &request.client != client);
+        }
     }
 }
 
@@ -840,6 +844,109 @@ mod tests {
                 Response::Textual(TextualResponse::Databases(
                     TextualDatabaseResponse::Unsubscribe {
                         id: 1337,
+                        result: Err(_),
+                    }
+                ))
+            ),
+            "unexpected {response:?}",
+        );
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
+
+        drop(request_sender);
+        provider_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn unsubscribe_after_unsubscribe_everything_results_in_error() {
+        let cycler_instance = "CyclerInstance";
+        let database_changed = Arc::new(Notify::new());
+        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+            existing_fields: [("a.b.c".to_string(), 42.into())].into(),
+        }]);
+
+        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
+            cycler_instance,
+            database_changed,
+            database_reader,
+        )
+        .await;
+
+        let (response_sender, mut response_receiver) = channel(1);
+        request_sender
+            .send(ClientRequest {
+                request: DatabaseRequest::Subscribe {
+                    id: 42,
+                    cycler_instance: cycler_instance.to_string(),
+                    path: "a.b.c".to_string(),
+                    format: Format::Textual,
+                },
+                client: Client {
+                    id: 1337,
+                    response_sender: response_sender.clone(),
+                },
+            })
+            .await
+            .unwrap();
+        let response = response_receiver.recv().await.unwrap();
+        assert!(
+            matches!(
+                response,
+                Response::Textual(TextualResponse::Databases(
+                    TextualDatabaseResponse::Subscribe {
+                        id: 42,
+                        result: Ok(()),
+                    }
+                ))
+            ),
+            "unexpected {response:?}",
+        );
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
+
+        request_sender
+            .send(ClientRequest {
+                request: DatabaseRequest::UnsubscribeEverything,
+                client: Client {
+                    id: 1337,
+                    response_sender: response_sender.clone(),
+                },
+            })
+            .await
+            .unwrap();
+
+        // ensure that we are subscribed before continueing because GetNext has no synchronous response
+        yield_now().await;
+
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
+
+        request_sender
+            .send(ClientRequest {
+                request: DatabaseRequest::Unsubscribe {
+                    id: 42,
+                    subscription_id: 1337,
+                },
+                client: Client {
+                    id: 1337,
+                    response_sender: response_sender.clone(),
+                },
+            })
+            .await
+            .unwrap();
+        let response = response_receiver.recv().await.unwrap();
+        assert!(
+            matches!(
+                response,
+                Response::Textual(TextualResponse::Databases(
+                    TextualDatabaseResponse::Unsubscribe {
+                        id: 42,
                         result: Err(_),
                     }
                 ))

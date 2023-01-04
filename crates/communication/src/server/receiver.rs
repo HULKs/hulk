@@ -7,7 +7,10 @@ use tokio_tungstenite::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::server::databases::{Client, ClientRequest};
+use crate::server::{
+    databases::{Client, ClientRequest},
+    messages::DatabaseRequest,
+};
 
 use super::{
     connection::ReceiverOrSenderError,
@@ -41,7 +44,15 @@ pub async fn receiver(
         _ = keep_only_self_running.cancelled() => {},
     }
 
-    // TODO: Unsubscribe everything
+    let _ = databases_sender
+        .send(databases::Request::ClientRequest(ClientRequest {
+            request: DatabaseRequest::UnsubscribeEverything,
+            client: Client {
+                id: client_id,
+                response_sender: response_sender.clone(),
+            },
+        }))
+        .await;
 }
 
 async fn handle_message(

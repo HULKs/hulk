@@ -56,7 +56,7 @@ pub enum DatabaseRequest {
         id: usize,
         subscription_id: usize,
     },
-    // TODO: Unsubscribe everything
+    UnsubscribeEverything,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
