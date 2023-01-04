@@ -31,7 +31,7 @@ pub fn acceptor(
     keep_running: CancellationToken,
     databases_sender: Sender<databases::Request>,
 ) -> JoinHandle<Result<(), AcceptError>> {
-    let mut next_client_id = AtomicUsize::default();
+    let next_client_id = AtomicUsize::default();
     println!("acceptor started");
     spawn(async move {
         let (error_sender, mut error_receiver) = unbounded_channel();
