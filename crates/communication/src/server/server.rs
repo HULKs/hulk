@@ -1,11 +1,12 @@
-use std::{collections::HashMap, io, sync::Arc, thread};
+use std::{io, sync::Arc, thread};
 
-use serde::Serialize;
+use framework::Reader;
+use serialize_hierarchy::SerializeHierarchy;
 use tokio::{
     runtime::{self, Runtime},
     sync::{
         mpsc::{channel, Sender},
-        oneshot, Mutex, Notify,
+        oneshot, Notify,
     },
 };
 use tokio_util::sync::CancellationToken;
@@ -14,7 +15,7 @@ use crate::server::databases::router::router;
 
 use super::{
     acceptor::{acceptor, AcceptError},
-    databases::Request,
+    databases::{provider::provider, Request},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -32,7 +33,6 @@ pub enum StartError {
 pub struct Server {
     runtime: Arc<Runtime>,
     databases_sender: Sender<Request>,
-    // cycler_database: Arc<Mutex<HashMap<String, Sender<DatabaseRequest>>>,
 }
 
 impl Server {
@@ -69,13 +69,14 @@ impl Server {
                     keep_running.cancelled().await;
 
                     let acceptor_task_result = acceptor_task.await;
-                    databases_task.await;
+                    let databases_task_result = databases_task.await;
 
                     let mut task_errors = vec![];
                     if let Err(error) = acceptor_task_result.expect("failed to join acceptor task")
                     {
                         task_errors.push(StartError::AcceptError(error));
                     }
+                    databases_task_result.expect("failed to join databases task");
 
                     if task_errors.is_empty() {
                         Ok(())
@@ -108,16 +109,20 @@ impl Server {
         })
     }
 
-    // pub fn register_cycler_instance<Database>(
-    //     &self,
-    //     cycler_instance: &str,
-    //     database_changed: Arc<Notify>,
-    //     database: Reader<Database>,
-    // ) {
-    //     // spawn database subscription manager
-    // }
-}
-
-struct Reader<T> {
-    value: T,
+    pub fn register_cycler_instance<Database>(
+        &self,
+        cycler_instance: &'static str,
+        database_changed: Arc<Notify>,
+        database_reader: Reader<Database>,
+    ) where
+        Database: SerializeHierarchy + Send + Sync + 'static,
+    {
+        let _guard = self.runtime.enter();
+        provider(
+            self.databases_sender.clone(),
+            cycler_instance,
+            database_changed,
+            database_reader,
+        );
+    }
 }
