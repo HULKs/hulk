@@ -1,7 +1,10 @@
 use futures_util::{stream::SplitStream, StreamExt};
 use serde_json::from_str;
 use tokio::{net::TcpStream, select, sync::mpsc::Sender};
-use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
+use tokio_tungstenite::{
+    tungstenite::{protocol::frame::coding::CloseCode, Message},
+    WebSocketStream,
+};
 use tokio_util::sync::CancellationToken;
 
 use crate::server::databases::{Client, ClientRequest};
@@ -52,11 +55,12 @@ async fn handle_message(
     let message = match message {
         Ok(message) => message,
         Err(error) => {
-            error_sender
-                .send(ReceiverOrSenderError::WebSocketMessageNotRead(error))
-                .await
-                .expect("receiver should always wait for all senders");
-            // send_close_from_error("Failed to read from websocket", error, message_sender).await;
+            send_error(
+                ReceiverOrSenderError::WebSocketMessageNotRead(error),
+                error_sender,
+                response_sender,
+            )
+            .await;
             keep_only_self_running.cancel();
             return;
         }
@@ -67,11 +71,12 @@ async fn handle_message(
             let request: Request = match from_str(&message) {
                 Ok(request) => request,
                 Err(error) => {
-                    error_sender
-                        .send(ReceiverOrSenderError::JsonNotDeserialized(error))
-                        .await
-                        .expect("receiver should always wait for all senders");
-                    // send_close_from_error("Failed to read from websocket", error, message_sender).await;
+                    send_error(
+                        ReceiverOrSenderError::JsonNotDeserialized(error),
+                        error_sender,
+                        response_sender,
+                    )
+                    .await;
                     keep_only_self_running.cancel();
                     return;
                 }
@@ -96,14 +101,34 @@ async fn handle_message(
             }
         }
         Message::Binary(_) => {
-            error_sender
-                .send(ReceiverOrSenderError::GotUnexpectedBinaryMessage)
-                .await
-                .expect("receiver should always wait for all senders");
-            // send_close_from_error("Failed to read from websocket", error, message_sender).await;
+            send_error(
+                ReceiverOrSenderError::GotUnexpectedBinaryMessage,
+                error_sender,
+                response_sender,
+            )
+            .await;
             keep_only_self_running.cancel();
             return;
         }
         _ => {}
     }
+}
+
+async fn send_error(
+    error: ReceiverOrSenderError,
+    error_sender: &Sender<ReceiverOrSenderError>,
+    response_sender: &Sender<Response>,
+) {
+    let reason = error.to_string();
+    error_sender
+        .send(error)
+        .await
+        .expect("receiver should always wait for all senders");
+    response_sender
+        .send(Response::Close {
+            code: CloseCode::Error,
+            reason,
+        })
+        .await
+        .expect("receiver should always wait for all senders");
 }

@@ -30,17 +30,17 @@ pub enum ConnectionError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ReceiverOrSenderError {
-    #[error("failed to serialize Bincode: {0}")]
+    #[error("failed to serialize Bincode")]
     BincodeNotSerialized(bincode::Error),
     #[error("got unexpected binary message")]
     GotUnexpectedBinaryMessage,
-    #[error("failed to deserialize JSON: {0}")]
+    #[error("failed to deserialize JSON")]
     JsonNotDeserialized(serde_json::Error),
-    #[error("failed to serialize JSON: {0}")]
+    #[error("failed to serialize JSON")]
     JsonNotSerialized(serde_json::Error),
-    #[error("failed to read WebSocket message: {0}")]
+    #[error("failed to read WebSocket message")]
     WebSocketMessageNotRead(tokio_tungstenite::tungstenite::Error),
-    #[error("failed to write WebSocket message: {0}")]
+    #[error("failed to write WebSocket message")]
     WebSocketMessageNotWritten(tokio_tungstenite::tungstenite::Error),
 }
 
