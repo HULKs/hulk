@@ -148,6 +148,11 @@ async fn forward_client_request_to_provider(
                 }
             }
         }
+        DatabaseRequest::UnsubscribeEverything => {
+            for (_fields, request_channel) in request_channels_of_cyclers.values() {
+                let _ = request_channel.send(request.clone()).await;
+            }
+        }
     }
 }
 
