@@ -13,3 +13,4 @@ rand_distr = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serialize_hierarchy = { workspace = true }
+types = { workspace = true }
