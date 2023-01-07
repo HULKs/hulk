@@ -14,4 +14,3 @@ color-eyre = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }
 serialize_hierarchy = { workspace = true }
-serialize_hierarchy_derive = { workspace = true }

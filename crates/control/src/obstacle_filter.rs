@@ -344,13 +344,13 @@ struct ObstacleFilterHypothesis {
     obstacle_kind: ObstacleKind,
 }
 
-impl Into<ObstacleFilterHypothesisSnapshot> for &ObstacleFilterHypothesis {
-    fn into(self) -> ObstacleFilterHypothesisSnapshot {
-        ObstacleFilterHypothesisSnapshot {
-            filter: (&self.filter).into(),
-            measurement_count: self.measurement_count,
-            last_update: self.last_update,
-            obstacle_kind: self.obstacle_kind,
+impl From<&ObstacleFilterHypothesis> for ObstacleFilterHypothesisSnapshot {
+    fn from(hypothesis: &ObstacleFilterHypothesis) -> Self {
+        Self {
+            filter: (&hypothesis.filter).into(),
+            measurement_count: hypothesis.measurement_count,
+            last_update: hypothesis.last_update,
+            obstacle_kind: hypothesis.obstacle_kind,
         }
     }
 }

@@ -38,13 +38,13 @@ pub fn acceptor(
 
         let listener = TcpListener::bind("[::]:1337")
             .await
-            .map_err(|error| AcceptError::TcpListenerNotBound(error))?;
+            .map_err(AcceptError::TcpListenerNotBound)?;
 
         println!("Entering accept loop...");
         loop {
             println!("Accepting...");
             let (stream, _) = select! {
-                result = listener.accept() => result.map_err(|error| AcceptError::NotAccepted(error))?,
+                result = listener.accept() => result.map_err(AcceptError::NotAccepted)?,
                 _ = keep_running.cancelled() => break,
             };
 

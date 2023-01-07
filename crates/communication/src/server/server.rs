@@ -85,7 +85,7 @@ impl Server {
                     }
                 })
             })
-            .map_err(|error| StartError::ThreadNotStarted(error))?;
+            .map_err(StartError::ThreadNotStarted)?;
 
         println!("Receiving runtime from task...");
         let (runtime, databases_sender) = match runtime_receiver

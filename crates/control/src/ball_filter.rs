@@ -337,12 +337,12 @@ struct BallFilterHypothesis {
     last_update: SystemTime,
 }
 
-impl Into<BallFilterHypothesisSnapshot> for &BallFilterHypothesis {
-    fn into(self) -> BallFilterHypothesisSnapshot {
-        BallFilterHypothesisSnapshot {
-            filter: (&self.filter).into(),
-            validity: self.validity,
-            last_update: self.last_update,
+impl From<&BallFilterHypothesis> for BallFilterHypothesisSnapshot {
+    fn from(hypothesis: &BallFilterHypothesis) -> Self {
+        Self {
+            filter: (&hypothesis.filter).into(),
+            validity: hypothesis.validity,
+            last_update: hypothesis.last_update,
         }
     }
 }
