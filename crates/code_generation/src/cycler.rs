@@ -362,6 +362,7 @@ impl Cycler<'_> {
                 #own_producer_field
                 #(#other_cycler_fields,)*
                 own_changed: std::sync::Arc<tokio::sync::Notify>,
+                own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
                 configuration_reader: framework::Reader<structs::Configuration>,
                 #real_time_fields
                 persistent_state: structs::#cycler_module_name_identifier::PersistentState,
@@ -396,6 +397,7 @@ impl Cycler<'_> {
                 #own_producer_field
                 #(#other_cycler_fields,)*
                 own_changed: std::sync::Arc<tokio::sync::Notify>,
+                own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
                 configuration_reader: framework::Reader<structs::Configuration>,
             ) -> color_eyre::Result<Self> {
                 use color_eyre::eyre::WrapErr;
@@ -409,6 +411,7 @@ impl Cycler<'_> {
                     #own_producer_identifier
                     #(#other_cycler_identifiers,)*
                     own_changed,
+                    own_subscribed_outputs_reader,
                     configuration_reader,
                     #real_time_initializers
                     persistent_state,
@@ -467,6 +470,7 @@ impl Cycler<'_> {
             let first_node = &first_node[0];
             quote! {
                 {
+                    let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
                     let configuration = self.configuration_reader.next();
                     #first_node
                 }
@@ -492,6 +496,7 @@ impl Cycler<'_> {
             true => Default::default(),
             false => quote! {
                 {
+                    let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
                     let configuration = self.configuration_reader.next();
                     #(#other_cycler_databases)*
                     #(#remaining_nodes)*

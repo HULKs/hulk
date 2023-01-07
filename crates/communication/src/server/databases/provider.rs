@@ -1,9 +1,9 @@
 use std::{
-    collections::{hash_map::Entry, BTreeMap, HashMap},
+    collections::{hash_map::Entry, BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 
-use framework::Reader;
+use framework::{Reader, Writer};
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use log::error;
 use serde_json::Value;
@@ -29,6 +29,7 @@ pub fn provider<Database>(
     cycler_instance: &'static str,
     database_changed: Arc<Notify>,
     database_reader: Reader<Database>,
+    subscribed_outputs_writer: Writer<HashSet<String>>,
 ) -> JoinHandle<()>
 where
     Database: SerializeHierarchy + Send + Sync + 'static,
@@ -48,18 +49,28 @@ where
 
         let mut subscriptions = HashMap::new();
         loop {
-            select! {
-                request = request_receiver.recv() => match request {
-                    Some(request) => handle_client_request::<Database>(
-                        request,
-                        cycler_instance,
-                        &mut subscriptions,
-                    ).await,
-                    None => break,
+            let subscriptions_changed = select! {
+                request = request_receiver.recv() => {
+                    match request {
+                        Some(request) => {
+                            handle_client_request::<Database>(
+                                request,
+                                cycler_instance,
+                                &mut subscriptions,
+                            ).await
+                        },
+                        None => break,
+                    }
                 },
                 _ = database_changed.notified() => {
-                    handle_notified_database(&database_reader, &mut subscriptions).await;
+                    handle_notified_database(&database_reader, &mut subscriptions).await
                 },
+            };
+            if subscriptions_changed {
+                write_subscribed_outputs_from_subscriptions(
+                    &mut subscriptions,
+                    &subscribed_outputs_writer,
+                );
             }
         }
     })
@@ -69,7 +80,8 @@ async fn handle_client_request<Database>(
     request: ClientRequest,
     cycler_instance: &'static str,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
-) where
+) -> bool
+where
     Database: SerializeHierarchy,
 {
     let is_get_next = matches!(request.request, DatabaseRequest::GetNext { .. });
@@ -111,6 +123,7 @@ async fn handle_client_request<Database>(
                                 },
                             )))
                             .await;
+                        false
                     }
                     Entry::Vacant(entry) => {
                         entry.insert(Subscription {
@@ -127,6 +140,7 @@ async fn handle_client_request<Database>(
                                 )))
                                 .await;
                         }
+                        true
                     }
                 }
             } else {
@@ -140,6 +154,7 @@ async fn handle_client_request<Database>(
                         },
                     )))
                     .await;
+                false
             }
         }
         DatabaseRequest::Unsubscribe {
@@ -162,6 +177,7 @@ async fn handle_client_request<Database>(
                         },
                     )))
                     .await;
+                false
             } else {
                 let _ = request
                     .client
@@ -170,21 +186,37 @@ async fn handle_client_request<Database>(
                         TextualDatabaseResponse::Unsubscribe { id, result: Ok(()) },
                     )))
                     .await;
+                true
             }
         }
         DatabaseRequest::UnsubscribeEverything => {
+            let amount_of_subscriptions_before = subscriptions.len();
             subscriptions
                 .retain(|(client, _subscription_id), _subscription| &request.client != client);
+            subscriptions.len() != amount_of_subscriptions_before
         }
     }
+}
+
+fn write_subscribed_outputs_from_subscriptions(
+    subscriptions: &mut HashMap<(Client, usize), Subscription>,
+    subscribed_outputs_writer: &Writer<HashSet<String>>,
+) {
+    let subscribed_outputs = subscriptions
+        .values()
+        .map(|subscription| subscription.path.clone())
+        .collect();
+    let mut subscribed_outputs_slot = subscribed_outputs_writer.next();
+    *subscribed_outputs_slot = subscribed_outputs;
 }
 
 async fn handle_notified_database(
     database_reader: &Reader<impl SerializeHierarchy>,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
-) {
+) -> bool {
     let mut get_next_items = HashMap::new();
     let mut subscribed_items: HashMap<Client, HashMap<usize, Value>> = HashMap::new();
+    let mut subscriptions_changed = false;
     {
         let database = database_reader.next();
         subscriptions.retain(|(client, subscription_id), subscription| {
@@ -197,6 +229,7 @@ async fn handle_notified_database(
             };
             if subscription.once {
                 get_next_items.insert((client.clone(), *subscription_id), data);
+                subscriptions_changed = true;
                 false
             } else {
                 subscribed_items
@@ -248,6 +281,7 @@ async fn handle_notified_database(
             error!("failed to send data to client: {error:?}");
         }
     }
+    subscriptions_changed
 }
 
 fn get_paths_from_hierarchy(prefix: String, hierarchy: HierarchyType) -> BTreeMap<String, String> {
@@ -346,13 +380,20 @@ mod tests {
         JoinHandle<()>,
         BTreeMap<String, String>,
         Sender<ClientRequest>,
+        Reader<HashSet<String>>,
     ) {
         let (databases_sender, mut databases_receiver) = channel(1);
+        let (subscribed_outputs_writer, subscribed_outputs_reader) = multiple_buffer_with_slots([
+            Default::default(),
+            Default::default(),
+            Default::default(),
+        ]);
         let join_handle = provider(
             databases_sender,
             cycler_instance,
             database_changed,
             database,
+            subscribed_outputs_writer,
         );
         let (fields, request_sender) = timeout(Duration::from_secs(1), async move {
             let Some(request) = databases_receiver.recv().await else {
@@ -367,7 +408,12 @@ mod tests {
         })
         .await
         .unwrap();
-        (join_handle, fields, request_sender)
+        (
+            join_handle,
+            fields,
+            request_sender,
+            subscribed_outputs_reader,
+        )
     }
 
     #[tokio::test]
@@ -377,12 +423,14 @@ mod tests {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
-            "CyclerInstance",
-            database_changed,
-            database_reader,
-        )
-        .await;
+        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                "CyclerInstance",
+                database_changed,
+                database_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -396,12 +444,14 @@ mod tests {
             existing_fields: Default::default(),
         }]);
 
-        let (provider_task, fields, request_sender) = get_registered_request_sender_from_provider(
-            cycler_instance,
-            database_changed,
-            database_reader,
-        )
-        .await;
+        let (provider_task, fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                cycler_instance,
+                database_changed,
+                database_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         assert_eq!(
             fields,
@@ -425,12 +475,14 @@ mod tests {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
-            cycler_instance,
-            database_changed,
-            database_reader,
-        )
-        .await;
+        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                cycler_instance,
+                database_changed,
+                database_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         const ID: usize = 42;
         let cycler_instance = cycler_instance.to_string();
@@ -471,13 +523,17 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path.clone()]),
+        );
 
         request_sender
             .send(ClientRequest {
                 request: DatabaseRequest::Subscribe {
                     id: ID,
                     cycler_instance,
-                    path,
+                    path: path.clone(),
                     format,
                 },
                 client: Client {
@@ -504,6 +560,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path]),
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -517,12 +577,14 @@ mod tests {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
-            cycler_instance,
-            database_changed,
-            database_reader,
-        )
-        .await;
+        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                cycler_instance,
+                database_changed,
+                database_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         const ID: usize = 42;
         let cycler_instance = cycler_instance.to_string();
@@ -562,13 +624,17 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path.clone()]),
+        );
 
         request_sender
             .send(ClientRequest {
                 request: DatabaseRequest::Subscribe {
                     id: ID,
                     cycler_instance,
-                    path,
+                    path: path.clone(),
                     format,
                 },
                 client: Client {
@@ -595,6 +661,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path]),
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -608,12 +678,14 @@ mod tests {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
-            cycler_instance,
-            database_changed,
-            database_reader,
-        )
-        .await;
+        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                cycler_instance,
+                database_changed,
+                database_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         let cycler_instance = cycler_instance.to_string();
         let path = "a.b.c".to_string();
@@ -653,13 +725,17 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path.clone()]),
+        );
 
         request_sender
             .send(ClientRequest {
                 request: DatabaseRequest::Subscribe {
                     id: 1337,
                     cycler_instance,
-                    path,
+                    path: path.clone(),
                     format,
                 },
                 client: Client {
@@ -686,6 +762,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path]),
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -699,12 +779,14 @@ mod tests {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
-            cycler_instance,
-            database_changed,
-            database_reader,
-        )
-        .await;
+        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                cycler_instance,
+                database_changed,
+                database_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
@@ -737,6 +819,7 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -750,14 +833,17 @@ mod tests {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
-            cycler_instance,
-            database_changed,
-            database_reader,
-        )
-        .await;
+        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                cycler_instance,
+                database_changed,
+                database_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         const SUBSCRIPTION_ID: usize = 42;
+        let path = "a.b.c".to_string();
         let client_id = 1337;
 
         let (response_sender, mut response_receiver) = channel(1);
@@ -766,7 +852,7 @@ mod tests {
                 request: DatabaseRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
-                    path: "a.b.c".to_string(),
+                    path: path.clone(),
                     format: Format::Textual,
                 },
                 client: Client {
@@ -793,6 +879,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path]),
+        );
 
         request_sender
             .send(ClientRequest {
@@ -824,6 +914,7 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         request_sender
             .send(ClientRequest {
@@ -855,6 +946,7 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -863,17 +955,20 @@ mod tests {
     #[tokio::test]
     async fn unsubscribe_after_unsubscribe_everything_results_in_error() {
         let cycler_instance = "CyclerInstance";
+        let path = "a.b.c".to_string();
         let database_changed = Arc::new(Notify::new());
         let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
-        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
-            cycler_instance,
-            database_changed,
-            database_reader,
-        )
-        .await;
+        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                cycler_instance,
+                database_changed,
+                database_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
@@ -881,7 +976,7 @@ mod tests {
                 request: DatabaseRequest::Subscribe {
                     id: 42,
                     cycler_instance: cycler_instance.to_string(),
-                    path: "a.b.c".to_string(),
+                    path: path.clone(),
                     format: Format::Textual,
                 },
                 client: Client {
@@ -908,6 +1003,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path]),
+        );
 
         request_sender
             .send(ClientRequest {
@@ -927,6 +1026,7 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         request_sender
             .send(ClientRequest {
@@ -958,6 +1058,7 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -973,12 +1074,14 @@ mod tests {
             existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
-        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
-            cycler_instance,
-            database_changed.clone(),
-            database_reader,
-        )
-        .await;
+        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                cycler_instance,
+                database_changed.clone(),
+                database_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         const SUBSCRIPTION_ID: usize = 42;
         let client_id = 1337;
@@ -1016,6 +1119,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path.clone()]),
+        );
 
         database_changed.notify_one();
         let subscribed_data = response_receiver.recv().await.unwrap();
@@ -1035,6 +1142,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path]),
+        );
 
         request_sender
             .send(ClientRequest {
@@ -1066,12 +1177,14 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         database_changed.notify_one();
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -1087,12 +1200,14 @@ mod tests {
             existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
-        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
-            cycler_instance,
-            database_changed.clone(),
-            database_reader,
-        )
-        .await;
+        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                cycler_instance,
+                database_changed.clone(),
+                database_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         const SUBSCRIPTION_ID: usize = 42;
         let client_id = 1337;
@@ -1130,6 +1245,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path.clone()]),
+        );
 
         let (response_sender1, mut response_receiver1) = channel(1);
         request_sender
@@ -1164,6 +1283,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path.clone()]),
+        );
 
         database_changed.notify_one();
         let subscribed_data = response_receiver0.recv().await.unwrap();
@@ -1202,6 +1325,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path.clone()]),
+        );
 
         request_sender
             .send(ClientRequest {
@@ -1233,6 +1360,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path]),
+        );
 
         request_sender
             .send(ClientRequest {
@@ -1264,6 +1395,7 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         database_changed.notify_one();
         match response_receiver0.try_recv() {
@@ -1274,6 +1406,7 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -1289,12 +1422,14 @@ mod tests {
             existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
-        let (provider_task, _fields, request_sender) = get_registered_request_sender_from_provider(
-            cycler_instance,
-            database_changed.clone(),
-            database_reader,
-        )
-        .await;
+        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                cycler_instance,
+                database_changed.clone(),
+                database_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         const SUBSCRIPTION_ID: usize = 42;
         let client_id = 1337;
@@ -1305,7 +1440,7 @@ mod tests {
                 request: DatabaseRequest::GetNext {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
-                    path,
+                    path: path.clone(),
                     format: Format::Textual,
                 },
                 client: Client {
@@ -1323,6 +1458,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path]),
+        );
 
         database_changed.notify_one();
         let subscribed_data = response_receiver.recv().await.unwrap();
@@ -1339,12 +1478,14 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         database_changed.notify_one();
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
         drop(request_sender);
         provider_task.await.unwrap();

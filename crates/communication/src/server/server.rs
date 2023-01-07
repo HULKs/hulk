@@ -1,6 +1,6 @@
-use std::{io, sync::Arc, thread};
+use std::{collections::HashSet, io, sync::Arc, thread};
 
-use framework::Reader;
+use framework::{Reader, Writer};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::{
     runtime::{self, Runtime},
@@ -96,7 +96,6 @@ impl Server {
             }
         };
 
-
         Ok(Self {
             runtime,
             databases_sender,
@@ -108,6 +107,7 @@ impl Server {
         cycler_instance: &'static str,
         database_changed: Arc<Notify>,
         database_reader: Reader<Database>,
+        subscribed_outputs_writer: Writer<HashSet<String>>,
     ) where
         Database: SerializeHierarchy + Send + Sync + 'static,
     {
@@ -117,6 +117,7 @@ impl Server {
             cycler_instance,
             database_changed,
             database_reader,
+            subscribed_outputs_writer,
         );
     }
 }

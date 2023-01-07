@@ -13,128 +13,6 @@ pub fn path_to_accessor_token_stream(
     cycler_instance_prefix: TokenStream,
     cycler_instances: &[String],
 ) -> TokenStream {
-    fn path_to_accessor_token_stream_with_cycler_instance(
-        prefix_token_stream: TokenStream,
-        path: &[PathSegment],
-        reference_type: ReferenceType,
-        cycler_instance: Option<&str>,
-    ) -> TokenStream {
-        let mut token_stream = TokenStream::default();
-        let mut token_stream_within_method = None;
-
-        let path_contains_optional = path.iter().any(|segment| segment.is_optional);
-        if !path_contains_optional {
-            token_stream.append(TokenTree::Punct(Punct::new('&', Spacing::Alone)));
-            if ReferenceType::Mutable == reference_type {
-                token_stream.append(TokenTree::Ident(format_ident!("mut")));
-            }
-        }
-
-        token_stream.extend(prefix_token_stream);
-
-        for (index, segment) in path.iter().enumerate() {
-            {
-                let token_stream = token_stream_within_method
-                    .as_mut()
-                    .unwrap_or(&mut token_stream);
-
-                token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
-                match (segment.is_variable, cycler_instance) {
-                    (true, Some(cycler_instance)) => {
-                        token_stream.append(TokenTree::Ident(format_ident!(
-                            "{}",
-                            cycler_instance.to_case(Case::Snake)
-                        )));
-                    }
-                    _ => {
-                        token_stream.append(TokenTree::Ident(format_ident!("{}", segment.name)));
-                    }
-                }
-            }
-
-            let is_last_segment = index == path.len() - 1;
-            if segment.is_optional {
-                match token_stream_within_method.take() {
-                    Some(mut token_stream_within_method) => {
-                        token_stream_within_method
-                            .append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
-                        match reference_type {
-                            ReferenceType::Immutable => token_stream_within_method
-                                .append(TokenTree::Ident(format_ident!("as_ref"))),
-                            ReferenceType::Mutable => token_stream_within_method
-                                .append(TokenTree::Ident(format_ident!("as_mut"))),
-                        }
-                        token_stream_within_method.append(TokenTree::Group(Group::new(
-                            Delimiter::Parenthesis,
-                            TokenStream::default(),
-                        )));
-
-                        token_stream.append(TokenTree::Group(Group::new(
-                            Delimiter::Parenthesis,
-                            token_stream_within_method,
-                        )));
-                    }
-                    None => {
-                        token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
-                        match reference_type {
-                            ReferenceType::Immutable => {
-                                token_stream.append(TokenTree::Ident(format_ident!("as_ref")))
-                            }
-                            ReferenceType::Mutable => {
-                                token_stream.append(TokenTree::Ident(format_ident!("as_mut")))
-                            }
-                        }
-                        token_stream.append(TokenTree::Group(Group::new(
-                            Delimiter::Parenthesis,
-                            TokenStream::default(),
-                        )));
-                    }
-                }
-
-                if !is_last_segment {
-                    token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
-                    let next_segments_contain_optional = path
-                        .iter()
-                        .skip(index + 1)
-                        .any(|segment| segment.is_optional);
-                    let method_name = match next_segments_contain_optional {
-                        true => "and_then",
-                        false => "map",
-                    };
-                    token_stream.append(TokenTree::Ident(format_ident!("{}", method_name)));
-
-                    let mut new_token_stream_within_method = TokenStream::default();
-                    new_token_stream_within_method
-                        .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
-                    new_token_stream_within_method
-                        .append(TokenTree::Ident(format_ident!("{}", segment.name)));
-                    new_token_stream_within_method
-                        .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
-                    if !next_segments_contain_optional {
-                        new_token_stream_within_method
-                            .append(TokenTree::Punct(Punct::new('&', Spacing::Alone)));
-                        if ReferenceType::Mutable == reference_type {
-                            new_token_stream_within_method
-                                .append(TokenTree::Ident(format_ident!("mut")));
-                        }
-                    }
-                    new_token_stream_within_method
-                        .append(TokenTree::Ident(format_ident!("{}", segment.name)));
-                    token_stream_within_method = Some(new_token_stream_within_method);
-                }
-            }
-        }
-
-        if let Some(token_stream_within_method) = token_stream_within_method.take() {
-            token_stream.append(TokenTree::Group(Group::new(
-                Delimiter::Parenthesis,
-                token_stream_within_method,
-            )));
-        }
-
-        token_stream
-    }
-
     for segment in path.iter() {
         if segment.is_variable && segment.name != "cycler_instance" {
             unimplemented!("only $cycler_instance is implemented");
@@ -172,6 +50,128 @@ pub fn path_to_accessor_token_stream(
             None,
         )
     }
+}
+
+fn path_to_accessor_token_stream_with_cycler_instance(
+    prefix_token_stream: TokenStream,
+    path: &[PathSegment],
+    reference_type: ReferenceType,
+    cycler_instance: Option<&str>,
+) -> TokenStream {
+    let mut token_stream = TokenStream::default();
+    let mut token_stream_within_method = None;
+
+    let path_contains_optional = path.iter().any(|segment| segment.is_optional);
+    if !path_contains_optional {
+        token_stream.append(TokenTree::Punct(Punct::new('&', Spacing::Alone)));
+        if ReferenceType::Mutable == reference_type {
+            token_stream.append(TokenTree::Ident(format_ident!("mut")));
+        }
+    }
+
+    token_stream.extend(prefix_token_stream);
+
+    for (index, segment) in path.iter().enumerate() {
+        {
+            let token_stream = token_stream_within_method
+                .as_mut()
+                .unwrap_or(&mut token_stream);
+
+            token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+            match (segment.is_variable, cycler_instance) {
+                (true, Some(cycler_instance)) => {
+                    token_stream.append(TokenTree::Ident(format_ident!(
+                        "{}",
+                        cycler_instance.to_case(Case::Snake)
+                    )));
+                }
+                _ => {
+                    token_stream.append(TokenTree::Ident(format_ident!("{}", segment.name)));
+                }
+            }
+        }
+
+        let is_last_segment = index == path.len() - 1;
+        if segment.is_optional {
+            match token_stream_within_method.take() {
+                Some(mut token_stream_within_method) => {
+                    token_stream_within_method
+                        .append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+                    match reference_type {
+                        ReferenceType::Immutable => token_stream_within_method
+                            .append(TokenTree::Ident(format_ident!("as_ref"))),
+                        ReferenceType::Mutable => token_stream_within_method
+                            .append(TokenTree::Ident(format_ident!("as_mut"))),
+                    }
+                    token_stream_within_method.append(TokenTree::Group(Group::new(
+                        Delimiter::Parenthesis,
+                        TokenStream::default(),
+                    )));
+
+                    token_stream.append(TokenTree::Group(Group::new(
+                        Delimiter::Parenthesis,
+                        token_stream_within_method,
+                    )));
+                }
+                None => {
+                    token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+                    match reference_type {
+                        ReferenceType::Immutable => {
+                            token_stream.append(TokenTree::Ident(format_ident!("as_ref")))
+                        }
+                        ReferenceType::Mutable => {
+                            token_stream.append(TokenTree::Ident(format_ident!("as_mut")))
+                        }
+                    }
+                    token_stream.append(TokenTree::Group(Group::new(
+                        Delimiter::Parenthesis,
+                        TokenStream::default(),
+                    )));
+                }
+            }
+
+            if !is_last_segment {
+                token_stream.append(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+                let next_segments_contain_optional = path
+                    .iter()
+                    .skip(index + 1)
+                    .any(|segment| segment.is_optional);
+                let method_name = match next_segments_contain_optional {
+                    true => "and_then",
+                    false => "map",
+                };
+                token_stream.append(TokenTree::Ident(format_ident!("{}", method_name)));
+
+                let mut new_token_stream_within_method = TokenStream::default();
+                new_token_stream_within_method
+                    .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
+                new_token_stream_within_method
+                    .append(TokenTree::Ident(format_ident!("{}", segment.name)));
+                new_token_stream_within_method
+                    .append(TokenTree::Punct(Punct::new('|', Spacing::Alone)));
+                if !next_segments_contain_optional {
+                    new_token_stream_within_method
+                        .append(TokenTree::Punct(Punct::new('&', Spacing::Alone)));
+                    if ReferenceType::Mutable == reference_type {
+                        new_token_stream_within_method
+                            .append(TokenTree::Ident(format_ident!("mut")));
+                    }
+                }
+                new_token_stream_within_method
+                    .append(TokenTree::Ident(format_ident!("{}", segment.name)));
+                token_stream_within_method = Some(new_token_stream_within_method);
+            }
+        }
+    }
+
+    if let Some(token_stream_within_method) = token_stream_within_method.take() {
+        token_stream.append(TokenTree::Group(Group::new(
+            Delimiter::Parenthesis,
+            token_stream_within_method,
+        )));
+    }
+
+    token_stream
 }
 
 #[cfg(test)]
