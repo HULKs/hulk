@@ -7,6 +7,8 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use source_analyzer::{CyclerInstances, Field};
 
+use crate::path::path_to_path_string_token_stream;
+
 use super::{accessor::path_to_accessor_token_stream, reference_type::ReferenceType};
 
 pub struct Node<'a> {
@@ -187,10 +189,20 @@ impl Node<'_> {
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
-                    // TODO: is_subscribed
+                    let path_string = path_to_path_string_token_stream(
+                        path,
+                        quote! { self.instance },
+                        quote! { #cycler_module_name_identifier::CyclerInstance:: },
+                        &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
+                    );
+                    let path_string_with_dot_suffix = format!("{}.", path_string);
                     Ok(quote! {
                         #name: framework::AdditionalOutput::new(
-                            false,
+                            own_subscribed_outputs
+                                .iter()
+                                .any(|subscribed_output|
+                                    subscribed_output == #path_string || subscribed_output.starts_with(#path_string_with_dot_suffix)
+                                ),
                             #accessor,
                         )
                     })

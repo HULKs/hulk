@@ -20,6 +20,8 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                     let cycler_instance_identifier = format_ident!("{}", cycler_instance);
                     let own_writer_identifier = format_ident!("{}_writer", cycler_instance_snake_case);
                     let own_reader_identifier = format_ident!("{}_reader", cycler_instance_snake_case);
+                    let own_subscribed_outputs_writer_identifier = format_ident!("{}_subscribed_outputs_writer", cycler_instance_snake_case);
+                    let own_subscribed_outputs_reader_identifier = format_ident!("{}_subscribed_outputs_reader", cycler_instance_snake_case);
                     let own_producer_identifier = match cycler {
                         Cycler::Perception { .. } => {
                             let own_producer_identifier = format_ident!("{}_producer", cycler_instance_snake_case);
@@ -50,6 +52,11 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                     let error_message = format!("failed to create cycler `{cycler_instance}`");
                     quote! {
                         let #cycler_database_changed_identifier = std::sync::Arc::new(tokio::sync::Notify::new());
+                        let (#own_subscribed_outputs_writer_identifier, #own_subscribed_outputs_reader_identifier) = framework::multiple_buffer_with_slots([
+                            Default::default(),
+                            Default::default(),
+                            Default::default(),
+                        ]);
                         let #cycler_variable_identifier = #cycler_module_name_identifier::Cycler::new(
                             ::#cycler_module_name_identifier::CyclerInstance::#cycler_instance_identifier,
                             hardware_interface.clone(),
@@ -57,6 +64,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                             #own_producer_identifier
                             #(#other_cycler_identifiers,)*
                             #cycler_database_changed_identifier.clone(),
+                            #own_subscribed_outputs_reader_identifier,
                             configuration_reader.clone(),
                         )
                         .wrap_err(#error_message)?;
@@ -64,6 +72,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                             #cycler_instance,
                             #cycler_database_changed_identifier,
                             #own_reader_identifier.clone(),
+                            #own_subscribed_outputs_writer_identifier,
                         );
                     }
                 })
