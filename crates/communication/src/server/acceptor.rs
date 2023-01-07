@@ -32,7 +32,6 @@ pub fn acceptor(
     databases_sender: Sender<databases::Request>,
 ) -> JoinHandle<Result<(), AcceptError>> {
     let next_client_id = AtomicUsize::default();
-    println!("acceptor started");
     spawn(async move {
         let (error_sender, mut error_receiver) = unbounded_channel();
 
@@ -40,16 +39,13 @@ pub fn acceptor(
             .await
             .map_err(AcceptError::TcpListenerNotBound)?;
 
-        println!("Entering accept loop...");
         loop {
-            println!("Accepting...");
             let (stream, _) = select! {
                 result = listener.accept() => result.map_err(AcceptError::NotAccepted)?,
                 _ = keep_running.cancelled() => break,
             };
 
             let client_id = next_client_id.fetch_add(1, Ordering::SeqCst);
-            println!("Starting connection {client_id} {stream:?}...");
             connection(
                 stream,
                 keep_running.clone(),
@@ -61,7 +57,6 @@ pub fn acceptor(
 
         let mut connection_errors = vec![];
         while let Some(error) = error_receiver.recv().await {
-            println!("connection error: {error:?}");
             connection_errors.push(error);
         }
 

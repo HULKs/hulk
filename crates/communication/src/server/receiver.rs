@@ -95,7 +95,6 @@ async fn handle_message(
 
             match request {
                 Request::Databases(request) => {
-                    println!("receiver: request: {request:?}");
                     databases_sender
                         .send(databases::Request::ClientRequest(ClientRequest {
                             request,

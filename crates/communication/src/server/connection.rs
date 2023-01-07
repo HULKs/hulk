@@ -99,7 +99,6 @@ pub fn connection(
         ));
 
         while let Some(error) = receiver_or_sender_error_receiver.recv().await {
-            println!("Error from connection {peer_address}: {error}");
             error!("Error from connection {peer_address}: {error}");
             connection_error_sender
                 .send(ConnectionError::ReceiverOrSenderError {
