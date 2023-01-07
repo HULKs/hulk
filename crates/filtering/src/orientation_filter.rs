@@ -1,15 +1,5 @@
 use nalgebra::{Quaternion, UnitComplex, UnitQuaternion, Vector3};
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct OrientationFilterParameters {
-    pub acceleration_threshold: f32,
-    pub delta_angular_velocity_threshold: f32,
-    pub angular_velocity_bias_weight: f32,
-    pub acceleration_weight: f32,
-    pub falling_threshold: f32,
-    pub force_sensitive_resistor_threshold: f32,
-}
+use types::orientation_filter::OrientationFilterParameters;
 
 const GRAVITATIONAL_CONSTANT: f32 = 9.81;
 

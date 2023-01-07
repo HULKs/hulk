@@ -1,12 +1,15 @@
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::OrientationFilterParameters;
+use filtering::OrientationFilter;
 use framework::MainOutput;
 use nalgebra::UnitComplex;
-use types::{CycleTime, SensorData, SolePressure, SupportFoot};
+use types::{
+    orientation_filter::OrientationFilterParameters, CycleTime, SensorData, SolePressure,
+    SupportFoot,
+};
 
 pub struct OrientationFilter {
-    orientation_filter: filtering::OrientationFilter,
+    orientation_filter: OrientationFilter,
 }
 
 #[context]
@@ -32,7 +35,7 @@ pub struct MainOutputs {
 impl OrientationFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            orientation_filter: filtering::OrientationFilter::default(),
+            orientation_filter: OrientationFilter::default(),
         })
     }
 
