@@ -23,7 +23,6 @@ members = [
   "crates/types",
   "crates/vision",
   "tools/camera_matrix_extractor",
-  "tools/communication_server",
   "tools/depp",
   "tools/fanta",
   "tools/pepsi",
