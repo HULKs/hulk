@@ -119,7 +119,6 @@ async fn handle_message(
             )
             .await;
             keep_only_self_running.cancel();
-            return;
         }
         _ => {}
     }

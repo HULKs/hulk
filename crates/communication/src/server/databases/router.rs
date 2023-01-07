@@ -101,7 +101,6 @@ async fn forward_client_request_to_provider(
                             },
                         )))
                         .await;
-                    return;
                 }
             }
         }
@@ -144,7 +143,6 @@ async fn forward_client_request_to_provider(
                             },
                         )))
                         .await;
-                    return;
                 }
             }
         }

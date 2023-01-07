@@ -58,13 +58,13 @@ impl<const STATE_DIMENSION: usize> KalmanFilter<STATE_DIMENSION> {
     }
 }
 
-impl<const STATE_DIMENSION: usize> Into<KalmanFilterSnapshot<STATE_DIMENSION>>
-    for &KalmanFilter<STATE_DIMENSION>
+impl<const STATE_DIMENSION: usize> From<&KalmanFilter<STATE_DIMENSION>>
+    for KalmanFilterSnapshot<STATE_DIMENSION>
 {
-    fn into(self) -> KalmanFilterSnapshot<STATE_DIMENSION> {
-        KalmanFilterSnapshot {
-            state: self.state,
-            covariance: self.covariance,
+    fn from(filter: &KalmanFilter<STATE_DIMENSION>) -> Self {
+        Self {
+            state: filter.state,
+            covariance: filter.covariance,
         }
     }
 }
