@@ -59,7 +59,7 @@ impl<const STATE_DIMENSION: usize> KalmanFilter<STATE_DIMENSION> {
 }
 
 impl<const STATE_DIMENSION: usize> Into<KalmanFilterSnapshot<STATE_DIMENSION>>
-    for KalmanFilter<STATE_DIMENSION>
+    for &KalmanFilter<STATE_DIMENSION>
 {
     fn into(self) -> KalmanFilterSnapshot<STATE_DIMENSION> {
         KalmanFilterSnapshot {

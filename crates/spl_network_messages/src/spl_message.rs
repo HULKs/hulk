@@ -21,7 +21,7 @@ use crate::{
     BallPosition, PlayerNumber, HULKS_TEAM_NUMBER,
 };
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct SplMessage {
     pub player_number: PlayerNumber,
     pub fallen: bool,

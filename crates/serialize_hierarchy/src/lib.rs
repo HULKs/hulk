@@ -1,7 +1,8 @@
 use std::{
     collections::{BTreeMap, HashSet},
-    ops::Range,
+    ops::{Deref, Range},
     path::PathBuf,
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -38,6 +39,27 @@ pub trait SerializeHierarchy {
     fn deserialize_hierarchy(&mut self, field_path: &str, data: Value) -> Result<()>;
     fn exists(field_path: &str) -> bool;
     fn get_hierarchy() -> HierarchyType;
+}
+
+impl<T> SerializeHierarchy for Arc<T>
+where
+    T: SerializeHierarchy,
+{
+    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
+        self.deref().serialize_hierarchy(field_path)
+    }
+
+    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> Result<()> {
+        bail!("Cannot deserialize into Arc with path: `{field_path}`")
+    }
+
+    fn exists(field_path: &str) -> bool {
+        T::exists(field_path)
+    }
+
+    fn get_hierarchy() -> HierarchyType {
+        T::get_hierarchy()
+    }
 }
 
 impl<T> SerializeHierarchy for Option<T>
@@ -140,6 +162,7 @@ serialize_hierarchy_primary_impl!(i16);
 serialize_hierarchy_primary_impl!(i32);
 serialize_hierarchy_primary_impl!(u8);
 serialize_hierarchy_primary_impl!(u16);
+serialize_hierarchy_primary_impl!(u32);
 serialize_hierarchy_primary_impl!(u64);
 serialize_hierarchy_primary_impl!(usize);
 // nalgebra

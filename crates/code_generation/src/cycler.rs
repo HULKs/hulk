@@ -112,7 +112,7 @@ impl Cycler<'_> {
     pub fn get_database_struct(&self) -> TokenStream {
         let cycler_module_name_identifier = self.get_cycler_module_name_identifier();
         quote! {
-            #[derive(Default)]
+            #[derive(Default, serde::Deserialize, serde::Serialize, serialize_hierarchy::SerializeHierarchy)]
             pub struct Database {
                 pub main_outputs: structs::#cycler_module_name_identifier::MainOutputs,
                 pub additional_outputs: structs::#cycler_module_name_identifier::AdditionalOutputs,
@@ -361,6 +361,7 @@ impl Cycler<'_> {
                 own_writer: framework::Writer<Database>,
                 #own_producer_field
                 #(#other_cycler_fields,)*
+                own_changed: std::sync::Arc<tokio::sync::Notify>,
                 configuration_reader: framework::Reader<structs::Configuration>,
                 #real_time_fields
                 persistent_state: structs::#cycler_module_name_identifier::PersistentState,
@@ -394,6 +395,7 @@ impl Cycler<'_> {
                 own_writer: framework::Writer<Database>,
                 #own_producer_field
                 #(#other_cycler_fields,)*
+                own_changed: std::sync::Arc<tokio::sync::Notify>,
                 configuration_reader: framework::Reader<structs::Configuration>,
             ) -> color_eyre::Result<Self> {
                 use color_eyre::eyre::WrapErr;
@@ -406,6 +408,7 @@ impl Cycler<'_> {
                     own_writer,
                     #own_producer_identifier
                     #(#other_cycler_identifiers,)*
+                    own_changed,
                     configuration_reader,
                     #real_time_initializers
                     persistent_state,
@@ -509,7 +512,7 @@ impl Cycler<'_> {
             },
         };
         let after_dropping_database_writer_guard = quote! {
-            // todo!("notify communication");
+            self.own_changed.notify_one();
         };
 
         Ok(quote! {

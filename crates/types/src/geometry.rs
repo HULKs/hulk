@@ -197,7 +197,7 @@ impl LineSegment {
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct TwoLineSegments(LineSegment, LineSegment);
+pub struct TwoLineSegments(pub LineSegment, pub LineSegment);
 
 impl SerializeHierarchy for TwoLineSegments {
     fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {

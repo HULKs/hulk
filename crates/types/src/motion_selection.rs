@@ -31,7 +31,7 @@ impl Default for MotionType {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct MotionSafeExits {
     arms_up_squat: bool,
     dispatching: bool,

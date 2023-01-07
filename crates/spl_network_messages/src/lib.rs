@@ -16,7 +16,7 @@ pub use game_controller_state_message::{
 use serialize_hierarchy::SerializeHierarchy;
 pub use spl_message::SplMessage;
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct BallPosition {
     pub relative_position: Point2<f32>,
     pub age: Duration,
@@ -24,17 +24,12 @@ pub struct BallPosition {
 
 pub const HULKS_TEAM_NUMBER: u8 = 24;
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize, SerializeHierarchy)]
 pub enum PlayerNumber {
     One,
     Two,
     Three,
     Four,
+    #[default]
     Five,
-}
-
-impl Default for PlayerNumber {
-    fn default() -> Self {
-        PlayerNumber::Five
-    }
 }

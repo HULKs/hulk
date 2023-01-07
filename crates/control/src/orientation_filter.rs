@@ -1,6 +1,5 @@
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::OrientationFilter;
 use framework::MainOutput;
 use nalgebra::UnitComplex;
 use types::{
@@ -9,7 +8,7 @@ use types::{
 };
 
 pub struct OrientationFilter {
-    orientation_filter: OrientationFilter,
+    orientation_filter: filtering::OrientationFilter,
 }
 
 #[context]
@@ -35,7 +34,7 @@ pub struct MainOutputs {
 impl OrientationFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            orientation_filter: OrientationFilter::default(),
+            orientation_filter: filtering::OrientationFilter::default(),
         })
     }
 
