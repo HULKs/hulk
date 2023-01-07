@@ -39,11 +39,9 @@ impl Server {
     pub fn start(keep_running: CancellationToken) -> Result<Self, StartError> {
         let (runtime_sender, runtime_receiver) = oneshot::channel();
 
-        println!("Starting thread...");
         let join_handle = thread::Builder::new()
             .name("communication".to_string())
             .spawn(move || {
-                println!("Starting runtime...");
                 let runtime = match runtime::Builder::new_current_thread().enable_all().build() {
                     Ok(runtime) => Arc::new(runtime),
                     Err(error) => {
@@ -54,10 +52,8 @@ impl Server {
                     }
                 };
 
-                println!("Starting initial task...");
                 let inner_runtime = runtime.clone();
                 runtime.block_on(async move {
-                    println!("Sending runtime to parent...");
                     let (databases_sender, databases_receiver) = channel(1);
                     runtime_sender
                         .send(Some((inner_runtime, databases_sender.clone())))
@@ -87,7 +83,6 @@ impl Server {
             })
             .map_err(StartError::ThreadNotStarted)?;
 
-        println!("Receiving runtime from task...");
         let (runtime, databases_sender) = match runtime_receiver
             .blocking_recv()
             .expect("successful thread creation should always send into runtime_sender")
@@ -101,7 +96,6 @@ impl Server {
             }
         };
 
-        println!("Done with start");
 
         Ok(Self {
             runtime,
