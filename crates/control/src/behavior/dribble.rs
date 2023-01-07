@@ -9,7 +9,7 @@ use types::{
     rotate_towards, Circle, FieldDimensions, HeadMotion, KickDecision, KickVariant, LineSegment,
     MotionCommand, Obstacle,
     OrientationMode::{self, AlignWithPath},
-    PathObstacle, Side, WorldState,
+    PathObstacle, Side, TwoLineSegments, WorldState,
 };
 
 use super::walk_to_pose::{hybrid_alignment, WalkPathPlanner};
@@ -262,7 +262,7 @@ fn find_targets_to_kick_to(
                 .min_by_key(|circle| NotNan::new(circle.center.coords.norm()).unwrap());
             match closest_intersecting_obstacle {
                 Some(circle) => {
-                    let (left_tangent, right_tangent) =
+                    let TwoLineSegments(left_tangent, right_tangent) =
                         circle.tangents_with_point(ball_position).unwrap();
                     [left_tangent.0, right_tangent.0]
                         .into_iter()

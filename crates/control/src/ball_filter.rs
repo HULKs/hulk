@@ -8,8 +8,9 @@ use nalgebra::{
     matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2, Vector2, Vector4,
 };
 use types::{
-    is_above_limbs, Ball, BallFilterHypothesis, BallPosition, CameraMatrices, CameraMatrix, Circle,
-    CycleTime, FieldDimensions, Limb, ProjectedLimbs, SensorData,
+    ball_filter_hypothesis::BallFilterHypothesisSnapshot, is_above_limbs, Ball, BallPosition,
+    CameraMatrices, CameraMatrix, Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs,
+    SensorData,
 };
 
 pub struct BallFilter {
@@ -35,7 +36,7 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub ball_filter_hypotheses:
-        AdditionalOutput<Vec<BallFilterHypothesis>, "ball_filter_hypotheses">,
+        AdditionalOutput<Vec<BallFilterHypothesisSnapshot>, "ball_filter_hypotheses">,
     pub filtered_balls_in_image_bottom:
         AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_bottom">,
     pub filtered_balls_in_image_top: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_top">,
@@ -135,9 +136,12 @@ impl BallFilter {
             position: Point2::from(hypothesis.filter.state().xy()),
             last_seen: hypothesis.last_update,
         });
-        context
-            .ball_filter_hypotheses
-            .fill_if_subscribed(|| self.hypotheses.clone());
+        context.ball_filter_hypotheses.fill_if_subscribed(|| {
+            self.hypotheses
+                .iter()
+                .map(|hypothesis| hypothesis.into())
+                .collect()
+        });
         let ball_radius = context.field_dimensions.ball_radius;
         context.filtered_balls_in_image_top.fill_if_subscribed(|| {
             self.hypotheses
@@ -323,6 +327,23 @@ impl BallFilter {
             }
         }
         self.hypotheses = deduplicated_hypotheses;
+    }
+}
+
+#[derive(Clone, Debug)]
+struct BallFilterHypothesis {
+    filter: KalmanFilter<4>,
+    validity: f32,
+    last_update: SystemTime,
+}
+
+impl Into<BallFilterHypothesisSnapshot> for &BallFilterHypothesis {
+    fn into(self) -> BallFilterHypothesisSnapshot {
+        BallFilterHypothesisSnapshot {
+            filter: (&self.filter).into(),
+            validity: self.validity,
+            last_update: self.last_update,
+        }
     }
 }
 

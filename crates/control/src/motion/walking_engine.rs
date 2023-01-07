@@ -7,7 +7,6 @@ use framework::{AdditionalOutput, MainOutput};
 use log::warn;
 use nalgebra::{Isometry3, Point3, Vector3};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{
     configuration::{KickSteps, WalkingEngine as WalkingEngineConfiguration},
     ArmJoints, BodyJoints, BodyJointsCommand, CycleTime, InertialMeasurementUnitData, Joints,
@@ -36,7 +35,7 @@ mod walk_state;
 /// The algorithm to compute the feet trajectories is loosely based on the work of Bernhard Hengst
 /// at the team rUNSWift. An explanation of this algorithm can be found in the team's research
 /// report from 2014 (<http://cgi.cse.unsw.edu.au/~robocup/2014ChampionTeamPaperReports/20140930-Bernhard.Hengst-Walk2014Report.pdf>).
-#[derive(Default, Debug, Clone, SerializeHierarchy, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct WalkingEngine {
     walk_state: WalkState,
 

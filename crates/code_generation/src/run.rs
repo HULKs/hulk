@@ -14,10 +14,12 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                 .iter()
                 .map(|cycler_instance| {
                     let cycler_instance_snake_case = cycler_instance.to_case(Case::Snake);
+                    let cycler_database_changed_identifier = format_ident!("{}_changed", cycler_instance_snake_case);
                     let cycler_variable_identifier = format_ident!("{}_cycler", cycler_instance_snake_case);
                     let cycler_module_name_identifier = cycler.get_cycler_module_name_identifier();
                     let cycler_instance_identifier = format_ident!("{}", cycler_instance);
                     let own_writer_identifier = format_ident!("{}_writer", cycler_instance_snake_case);
+                    let own_reader_identifier = format_ident!("{}_reader", cycler_instance_snake_case);
                     let own_producer_identifier = match cycler {
                         Cycler::Perception { .. } => {
                             let own_producer_identifier = format_ident!("{}_producer", cycler_instance_snake_case);
@@ -47,15 +49,22 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                         .collect();
                     let error_message = format!("failed to create cycler `{cycler_instance}`");
                     quote! {
+                        let #cycler_database_changed_identifier = std::sync::Arc::new(tokio::sync::Notify::new());
                         let #cycler_variable_identifier = #cycler_module_name_identifier::Cycler::new(
                             ::#cycler_module_name_identifier::CyclerInstance::#cycler_instance_identifier,
                             hardware_interface.clone(),
                             #own_writer_identifier,
                             #own_producer_identifier
                             #(#other_cycler_identifiers,)*
+                            #cycler_database_changed_identifier.clone(),
                             configuration_reader.clone(),
                         )
                         .wrap_err(#error_message)?;
+                        communication_server.register_cycler_instance(
+                            #cycler_instance,
+                            #cycler_database_changed_identifier,
+                            #own_reader_identifier.clone(),
+                        );
                     }
                 })
                 .collect::<Vec<_>>()
@@ -180,6 +189,9 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
             ]);
             #(#multiple_buffer_initializers)*
             #(#future_queue_initializers)*
+
+            let communication_server = communication::server::Server::start(keep_running.clone())
+                .wrap_err("failed to start communication server")?;
 
             #(#cycler_initializations)*
 

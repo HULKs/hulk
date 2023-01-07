@@ -35,7 +35,7 @@ impl Default for BallState {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct RobotState {
     pub robot_to_field: Option<Isometry2<f32>>,
     pub role: Role,
@@ -43,17 +43,4 @@ pub struct RobotState {
     pub fall_state: FallState,
     pub has_ground_contact: bool,
     pub player_number: PlayerNumber,
-}
-
-impl Default for RobotState {
-    fn default() -> Self {
-        Self {
-            robot_to_field: Default::default(),
-            role: Default::default(),
-            primary_state: PrimaryState::Unstiff,
-            fall_state: Default::default(),
-            has_ground_contact: Default::default(),
-            player_number: Default::default(),
-        }
-    }
 }

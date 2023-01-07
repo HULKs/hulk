@@ -1,4 +1,6 @@
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 use std::{
     fmt::{Debug, Error, Formatter},
     mem::{size_of, ManuallyDrop},
@@ -13,7 +15,8 @@ use nalgebra::Point2;
 use crate::{Rgb, YCbCr444};
 
 use super::color::YCbCr422;
-#[derive(Clone, Default)]
+
+#[derive(Clone, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Image {
     buffer: Arc<Vec<YCbCr422>>,
     width_422: u32,

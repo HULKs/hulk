@@ -269,6 +269,7 @@ fn get_paths_from_hierarchy(prefix: String, hierarchy: HierarchyType) -> BTreeMa
             collected_fields
         }
         HierarchyType::GenericStruct => [(prefix, "GenericStruct".to_string())].into(),
+        HierarchyType::GenericEnum => [(prefix, "GenericEnum".to_string())].into(),
         HierarchyType::Option { nested } => get_paths_from_hierarchy(prefix, *nested)
             .into_iter()
             .map(|(path, data_type)| (path, format!("Option<{data_type}>")))

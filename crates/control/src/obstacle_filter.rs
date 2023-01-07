@@ -7,8 +7,9 @@ use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use itertools::{chain, iproduct};
 use nalgebra::{distance, point, Isometry2, Matrix2, Point2};
 use types::{
-    configuration::ObstacleFilter as ObstacleFilterConfiguration, CycleTime, DetectedRobots,
-    FieldDimensions, Obstacle, ObstacleFilterHypothesis, ObstacleKind, SensorData, SonarObstacle,
+    configuration::ObstacleFilter as ObstacleFilterConfiguration,
+    obstacle_filter_hypothesis::ObstacleFilterHypothesisSnapshot, CycleTime, DetectedRobots,
+    FieldDimensions, Obstacle, ObstacleKind, SensorData, SonarObstacle,
 };
 
 pub struct ObstacleFilter {
@@ -24,7 +25,7 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub obstacle_filter_hypotheses:
-        AdditionalOutput<Vec<ObstacleFilterHypothesis>, "obstacle_filter_hypotheses">,
+        AdditionalOutput<Vec<ObstacleFilterHypothesisSnapshot>, "obstacle_filter_hypotheses">,
 
     pub current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
@@ -205,9 +206,12 @@ impl ObstacleFilter {
         let goal_post_obstacles = goal_posts.into_iter().map(|goal_post| {
             Obstacle::goal_post(goal_post, field_dimensions.goal_post_diameter / 2.0)
         });
-        context
-            .obstacle_filter_hypotheses
-            .fill_if_subscribed(|| self.hypotheses.clone());
+        context.obstacle_filter_hypotheses.fill_if_subscribed(|| {
+            self.hypotheses
+                .iter()
+                .map(|hypothesis| hypothesis.into())
+                .collect()
+        });
         Ok(MainOutputs {
             obstacles: chain!(robot_obstacles, goal_post_obstacles)
                 .collect::<Vec<_>>()
@@ -329,6 +333,25 @@ impl ObstacleFilter {
             }
         }
         self.hypotheses = deduplicated_hypotheses;
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ObstacleFilterHypothesis {
+    filter: KalmanFilter<2>,
+    measurement_count: usize,
+    last_update: SystemTime,
+    obstacle_kind: ObstacleKind,
+}
+
+impl Into<ObstacleFilterHypothesisSnapshot> for &ObstacleFilterHypothesis {
+    fn into(self) -> ObstacleFilterHypothesisSnapshot {
+        ObstacleFilterHypothesisSnapshot {
+            filter: (&self.filter).into(),
+            measurement_count: self.measurement_count,
+            last_update: self.last_update,
+            obstacle_kind: self.obstacle_kind,
+        }
     }
 }
 

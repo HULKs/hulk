@@ -5,9 +5,12 @@ name = "structs"
 version = "0.1.0"
 
 [dependencies]
+color-eyre = { workspace = true }
 filtering = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
+serialize_hierarchy = { workspace = true }
 spl_network_messages = { workspace = true }
 types = { workspace = true }
 
