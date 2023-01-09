@@ -20,7 +20,7 @@ pub fn router(mut request_receiver: Receiver<Request>) -> JoinHandle<()> {
         while let Some(request) = request_receiver.recv().await {
             match request {
                 Request::ClientRequest(request) => {
-                    forward_client_request_to_provider(
+                    handle_request(
                         request,
                         &request_channels_of_cyclers,
                         &mut cached_cycler_instances,
@@ -39,7 +39,7 @@ pub fn router(mut request_receiver: Receiver<Request>) -> JoinHandle<()> {
     })
 }
 
-async fn forward_client_request_to_provider(
+async fn handle_request(
     request: ClientRequest,
     request_channels_of_cyclers: &HashMap<String, (BTreeMap<Path, Type>, Sender<ClientRequest>)>,
     cached_cycler_instances: &mut HashMap<(Client, usize), String>,
