@@ -136,12 +136,9 @@ impl BallFilter {
             position: Point2::from(hypothesis.filter.state().xy()),
             last_seen: hypothesis.last_update,
         });
-        context.ball_filter_hypotheses.fill_if_subscribed(|| {
-            self.hypotheses
-                .iter()
-                .map(|hypothesis| hypothesis.into())
-                .collect()
-        });
+        context
+            .ball_filter_hypotheses
+            .fill_if_subscribed(|| self.hypotheses.iter().map(Into::into).collect());
         let ball_radius = context.field_dimensions.ball_radius;
         context.filtered_balls_in_image_top.fill_if_subscribed(|| {
             self.hypotheses

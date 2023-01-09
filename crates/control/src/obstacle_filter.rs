@@ -206,12 +206,9 @@ impl ObstacleFilter {
         let goal_post_obstacles = goal_posts.into_iter().map(|goal_post| {
             Obstacle::goal_post(goal_post, field_dimensions.goal_post_diameter / 2.0)
         });
-        context.obstacle_filter_hypotheses.fill_if_subscribed(|| {
-            self.hypotheses
-                .iter()
-                .map(|hypothesis| hypothesis.into())
-                .collect()
-        });
+        context
+            .obstacle_filter_hypotheses
+            .fill_if_subscribed(|| self.hypotheses.iter().map(Into::into).collect());
         Ok(MainOutputs {
             obstacles: chain!(robot_obstacles, goal_post_obstacles)
                 .collect::<Vec<_>>()
