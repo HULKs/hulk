@@ -5,7 +5,7 @@ use std::{
 
 use tokio::sync::mpsc::Sender;
 
-use super::messages::{DatabaseRequest, Format, Path, Response, Type};
+use super::messages::{OutputRequest, Format, Path, Response, Type};
 
 pub mod provider;
 pub mod router;
@@ -22,7 +22,7 @@ pub enum Request {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClientRequest {
-    pub request: DatabaseRequest,
+    pub request: OutputRequest,
     pub client: Client,
 }
 

@@ -7,7 +7,7 @@ use tokio::{
 };
 
 use crate::server::messages::{
-    DatabaseRequest, Path, Response, TextualDatabaseResponse, TextualResponse, Type,
+    OutputRequest, Path, Response, TextualOutputResponse, TextualResponse, Type,
 };
 
 use super::{Client, ClientRequest, Request};
@@ -45,13 +45,13 @@ async fn forward_client_request_to_provider(
     cached_cycler_instances: &mut HashMap<(Client, usize), String>,
 ) {
     match &request.request {
-        DatabaseRequest::GetFields { id } => {
+        OutputRequest::GetFields { id } => {
             // TODO: directly generate BTreeMap in SerializeHierarchy
             let _ = request
                 .client
                 .response_sender
-                .send(Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::GetFields {
+                .send(Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::GetFields {
                         id: *id,
                         fields: request_channels_of_cyclers
                             .iter()
@@ -63,17 +63,17 @@ async fn forward_client_request_to_provider(
                 )))
                 .await;
         }
-        DatabaseRequest::GetNext {
+        OutputRequest::GetNext {
             id,
             cycler_instance,
             ..
         }
-        | DatabaseRequest::Subscribe {
+        | OutputRequest::Subscribe {
             id,
             cycler_instance,
             ..
         } => {
-            if matches!(request.request, DatabaseRequest::Subscribe { .. }) {
+            if matches!(request.request, OutputRequest::Subscribe { .. }) {
                 cached_cycler_instances
                     .insert((request.client.clone(), *id), cycler_instance.clone());
             }
@@ -87,14 +87,14 @@ async fn forward_client_request_to_provider(
                     let _ = request
                         .client
                         .response_sender
-                        .send(Response::Textual(TextualResponse::Databases(
-                            if matches!(request.request, DatabaseRequest::GetNext { .. }) {
-                                TextualDatabaseResponse::GetNext {
+                        .send(Response::Textual(TextualResponse::Outputs(
+                            if matches!(request.request, OutputRequest::GetNext { .. }) {
+                                TextualOutputResponse::GetNext {
                                     id: *id,
                                     result: Err(error_message),
                                 }
                             } else {
-                                TextualDatabaseResponse::Subscribe {
+                                TextualOutputResponse::Subscribe {
                                     id: *id,
                                     result: Err(error_message),
                                 }
@@ -104,7 +104,7 @@ async fn forward_client_request_to_provider(
                 }
             }
         }
-        DatabaseRequest::Unsubscribe {
+        OutputRequest::Unsubscribe {
             id,
             subscription_id,
         } => {
@@ -117,8 +117,8 @@ async fn forward_client_request_to_provider(
                     let _ = request
                         .client
                         .response_sender
-                        .send(Response::Textual(TextualResponse::Databases(
-                            TextualDatabaseResponse::Subscribe {
+                        .send(Response::Textual(TextualResponse::Outputs(
+                            TextualOutputResponse::Subscribe {
                                 id: *id,
                                 result: Err(format!("unknown subscription ID {subscription_id}")),
                             },
@@ -136,8 +136,8 @@ async fn forward_client_request_to_provider(
                     let _ = request
                         .client
                         .response_sender
-                        .send(Response::Textual(TextualResponse::Databases(
-                            TextualDatabaseResponse::Subscribe {
+                        .send(Response::Textual(TextualResponse::Outputs(
+                            TextualOutputResponse::Subscribe {
                                 id: *id,
                                 result: Err(format!("unknown cycler_instance {cycler_instance:?}")),
                             },
@@ -146,7 +146,7 @@ async fn forward_client_request_to_provider(
                 }
             }
         }
-        DatabaseRequest::UnsubscribeEverything => {
+        OutputRequest::UnsubscribeEverything => {
             for (_fields, request_channel) in request_channels_of_cyclers.values() {
                 let _ = request_channel.send(request.clone()).await;
             }
@@ -191,7 +191,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(Request::ClientRequest(ClientRequest {
-                request: DatabaseRequest::GetFields { id: 42 },
+                request: OutputRequest::GetFields { id: 42 },
                 client: Client {
                     id: 1337,
                     response_sender,
@@ -202,8 +202,8 @@ mod tests {
         let response = response_receiver.recv().await.unwrap();
         assert_eq!(
             response,
-            Response::Textual(TextualResponse::Databases(
-                TextualDatabaseResponse::GetFields {
+            Response::Textual(TextualResponse::Outputs(
+                TextualOutputResponse::GetFields {
                     id: 42,
                     fields: [(cycler_instance.to_string(), fields)].into()
                 }
@@ -226,7 +226,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(Request::ClientRequest(ClientRequest {
-                request: DatabaseRequest::GetNext {
+                request: OutputRequest::GetNext {
                     id: 42,
                     cycler_instance: "CyclerInstance".to_string(),
                     path: "a.b.c".to_string(),
@@ -243,8 +243,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::GetNext {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::GetNext {
                         id: 42,
                         result: Err(_),
                     }
@@ -279,7 +279,7 @@ mod tests {
 
         let (response_sender, _response_receiver) = channel(1);
         let sent_client_request = ClientRequest {
-            request: DatabaseRequest::GetNext {
+            request: OutputRequest::GetNext {
                 id: 42,
                 cycler_instance: "CyclerInstance".to_string(),
                 path: "a.b.c".to_string(),
@@ -323,7 +323,7 @@ mod tests {
             response_sender,
         };
         let sent_client_request = ClientRequest {
-            request: DatabaseRequest::Subscribe {
+            request: OutputRequest::Subscribe {
                 id: 42,
                 cycler_instance: "CyclerInstance".to_string(),
                 path: "a.b.c".to_string(),
@@ -339,7 +339,7 @@ mod tests {
         assert_eq!(forwarded_client_request, sent_client_request);
 
         let sent_client_request = ClientRequest {
-            request: DatabaseRequest::Unsubscribe {
+            request: OutputRequest::Unsubscribe {
                 id: 1337,
                 subscription_id: 42,
             },

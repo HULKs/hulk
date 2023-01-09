@@ -8,13 +8,13 @@ use tokio_tungstenite::{
 use tokio_util::sync::CancellationToken;
 
 use crate::server::{
-    databases::{Client, ClientRequest},
-    messages::DatabaseRequest,
+    outputs::{Client, ClientRequest},
+    messages::OutputRequest,
 };
 
 use super::{
     connection::ReceiverOrSenderError,
-    databases,
+    outputs,
     messages::{Request, Response},
 };
 
@@ -25,7 +25,7 @@ pub async fn receiver(
     keep_only_self_running: CancellationToken,
     client_id: usize,
     response_sender: Sender<Response>,
-    databases_sender: Sender<databases::Request>,
+    outputs_sender: Sender<outputs::Request>,
 ) {
     select! {
         _ = async {
@@ -36,7 +36,7 @@ pub async fn receiver(
                     &keep_only_self_running,
                     client_id,
                     &response_sender,
-                    &databases_sender,
+                    &outputs_sender,
                 ).await;
             }
         } => {},
@@ -44,9 +44,9 @@ pub async fn receiver(
         _ = keep_only_self_running.cancelled() => {},
     }
 
-    let _ = databases_sender
-        .send(databases::Request::ClientRequest(ClientRequest {
-            request: DatabaseRequest::UnsubscribeEverything,
+    let _ = outputs_sender
+        .send(outputs::Request::ClientRequest(ClientRequest {
+            request: OutputRequest::UnsubscribeEverything,
             client: Client {
                 id: client_id,
                 response_sender: response_sender.clone(),
@@ -61,7 +61,7 @@ async fn handle_message(
     keep_only_self_running: &CancellationToken,
     client_id: usize,
     response_sender: &Sender<Response>,
-    databases_sender: &Sender<databases::Request>,
+    outputs_sender: &Sender<outputs::Request>,
 ) {
     let message = match message {
         Ok(message) => message,
@@ -94,9 +94,9 @@ async fn handle_message(
             };
 
             match request {
-                Request::Databases(request) => {
-                    databases_sender
-                        .send(databases::Request::ClientRequest(ClientRequest {
+                Request::Outputs(request) => {
+                    outputs_sender
+                        .send(outputs::Request::ClientRequest(ClientRequest {
                             request,
                             client: Client {
                                 id: client_id,

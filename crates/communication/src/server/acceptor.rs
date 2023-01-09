@@ -14,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::{
     connection::{connection, ConnectionError},
-    databases,
+    outputs,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -29,7 +29,7 @@ pub enum AcceptError {
 
 pub fn acceptor(
     keep_running: CancellationToken,
-    databases_sender: Sender<databases::Request>,
+    outputs_sender: Sender<outputs::Request>,
 ) -> JoinHandle<Result<(), AcceptError>> {
     let next_client_id = AtomicUsize::default();
     spawn(async move {
@@ -50,7 +50,7 @@ pub fn acceptor(
                 stream,
                 keep_running.clone(),
                 error_sender.clone(),
-                databases_sender.clone(),
+                outputs_sender.clone(),
                 client_id,
             );
         }
