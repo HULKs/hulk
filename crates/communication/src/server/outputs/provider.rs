@@ -18,8 +18,7 @@ use tokio::{
 };
 
 use crate::messages::{
-    OutputRequest, Response, TextualDataOrBinaryReference, TextualOutputResponse,
-    TextualResponse,
+    OutputRequest, Response, TextualDataOrBinaryReference, TextualOutputResponse, TextualResponse,
 };
 
 use super::{Client, ClientRequest, Request, Subscription};
@@ -49,7 +48,7 @@ where
 
         let mut subscriptions = HashMap::new();
         loop {
-            let subscriptions_changed = select! {
+            let subscriptions_state = select! {
                 request = request_receiver.recv() => {
                     match request {
                         Some(request) => {
@@ -66,7 +65,7 @@ where
                     handle_notified_output(&outputs_reader, &mut subscriptions).await
                 },
             };
-            if subscriptions_changed {
+            if subscriptions_state == SubscriptionsState::Changed {
                 write_subscribed_outputs_from_subscriptions(
                     &mut subscriptions,
                     &subscribed_outputs_writer,
@@ -76,11 +75,17 @@ where
     })
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum SubscriptionsState {
+    Changed,
+    Unchanged,
+}
+
 async fn handle_client_request<Output>(
     request: ClientRequest,
     cycler_instance: &'static str,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
-) -> bool
+) -> SubscriptionsState
 where
     Output: SerializeHierarchy,
 {
@@ -123,7 +128,7 @@ where
                                 },
                             )))
                             .await;
-                        false
+                        SubscriptionsState::Unchanged
                     }
                     Entry::Vacant(entry) => {
                         entry.insert(Subscription {
@@ -140,7 +145,7 @@ where
                                 )))
                                 .await;
                         }
-                        true
+                        SubscriptionsState::Changed
                     }
                 }
             } else {
@@ -154,7 +159,7 @@ where
                         },
                     )))
                     .await;
-                false
+                SubscriptionsState::Unchanged
             }
         }
         OutputRequest::Unsubscribe {
@@ -177,7 +182,7 @@ where
                         },
                     )))
                     .await;
-                false
+                SubscriptionsState::Unchanged
             } else {
                 let _ = request
                     .client
@@ -186,14 +191,18 @@ where
                         TextualOutputResponse::Unsubscribe { id, result: Ok(()) },
                     )))
                     .await;
-                true
+                SubscriptionsState::Changed
             }
         }
         OutputRequest::UnsubscribeEverything => {
             let amount_of_subscriptions_before = subscriptions.len();
             subscriptions
                 .retain(|(client, _subscription_id), _subscription| &request.client != client);
-            subscriptions.len() != amount_of_subscriptions_before
+            if subscriptions.len() != amount_of_subscriptions_before {
+                SubscriptionsState::Changed
+            } else {
+                SubscriptionsState::Unchanged
+            }
         }
     }
 }
@@ -213,10 +222,10 @@ fn write_subscribed_outputs_from_subscriptions(
 async fn handle_notified_output(
     outputs_reader: &Reader<impl SerializeHierarchy>,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
-) -> bool {
+) -> SubscriptionsState {
     let mut get_next_items = HashMap::new();
     let mut subscribed_items: HashMap<Client, HashMap<usize, Value>> = HashMap::new();
-    let mut subscriptions_changed = false;
+    let mut subscriptions_state = SubscriptionsState::Unchanged;
     {
         let output = outputs_reader.next();
         subscriptions.retain(|(client, subscription_id), subscription| {
@@ -229,7 +238,7 @@ async fn handle_notified_output(
             };
             if subscription.once {
                 get_next_items.insert((client.clone(), *subscription_id), data);
-                subscriptions_changed = true;
+                subscriptions_state = SubscriptionsState::Changed;
                 false
             } else {
                 subscribed_items
@@ -246,12 +255,10 @@ async fn handle_notified_output(
             .map(|((client, subscription_id), data)| {
                 (
                     client.response_sender,
-                    Response::Textual(TextualResponse::Outputs(
-                        TextualOutputResponse::GetNext {
-                            id: subscription_id,
-                            result: Ok(TextualDataOrBinaryReference::TextualData { data }),
-                        },
-                    )),
+                    Response::Textual(TextualResponse::Outputs(TextualOutputResponse::GetNext {
+                        id: subscription_id,
+                        result: Ok(TextualDataOrBinaryReference::TextualData { data }),
+                    })),
                 )
             })
             .chain(subscribed_items.into_iter().map(|(client, items)| {
@@ -281,7 +288,7 @@ async fn handle_notified_output(
             error!("failed to send data to client: {error:?}");
         }
     }
-    subscriptions_changed
+    subscriptions_state
 }
 
 fn get_paths_from_hierarchy(prefix: String, hierarchy: HierarchyType) -> BTreeMap<String, String> {
@@ -510,12 +517,10 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Subscribe {
-                        id: ID,
-                        result: Ok(()),
-                    }
-                ))
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
+                    id: ID,
+                    result: Ok(()),
+                }))
             ),
             "unexpected {response:?}",
         );
@@ -547,12 +552,10 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Subscribe {
-                        id: ID,
-                        result: Err(_),
-                    }
-                ))
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
+                    id: ID,
+                    result: Err(_),
+                }))
             ),
             "unexpected {response:?}",
         );
@@ -611,12 +614,10 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Subscribe {
-                        id: ID,
-                        result: Ok(()),
-                    }
-                ))
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
+                    id: ID,
+                    result: Ok(()),
+                }))
             ),
             "unexpected {response:?}",
         );
@@ -648,12 +649,10 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Subscribe {
-                        id: ID,
-                        result: Ok(()),
-                    }
-                ))
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
+                    id: ID,
+                    result: Ok(()),
+                }))
             ),
             "unexpected {response:?}",
         );
@@ -712,12 +711,10 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Subscribe {
-                        id: 42,
-                        result: Ok(()),
-                    }
-                ))
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
+                    id: 42,
+                    result: Ok(()),
+                }))
             ),
             "unexpected {response:?}",
         );
@@ -749,12 +746,10 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Subscribe {
-                        id: 1337,
-                        result: Ok(()),
-                    }
-                ))
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
+                    id: 1337,
+                    result: Ok(()),
+                }))
             ),
             "unexpected {response:?}",
         );
@@ -866,12 +861,10 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Subscribe {
-                        id: SUBSCRIPTION_ID,
-                        result: Ok(()),
-                    }
-                ))
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
+                    id: SUBSCRIPTION_ID,
+                    result: Ok(()),
+                }))
             ),
             "unexpected {response:?}",
         );
@@ -990,12 +983,10 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Subscribe {
-                        id: 42,
-                        result: Ok(()),
-                    }
-                ))
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
+                    id: 42,
+                    result: Ok(()),
+                }))
             ),
             "unexpected {response:?}",
         );
@@ -1106,12 +1097,10 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Subscribe {
-                        id: SUBSCRIPTION_ID,
-                        result: Ok(()),
-                    }
-                ))
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
+                    id: SUBSCRIPTION_ID,
+                    result: Ok(()),
+                }))
             ),
             "unexpected {response:?}",
         );
@@ -1232,12 +1221,10 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Subscribe {
-                        id: SUBSCRIPTION_ID,
-                        result: Ok(()),
-                    }
-                ))
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
+                    id: SUBSCRIPTION_ID,
+                    result: Ok(()),
+                }))
             ),
             "unexpected {response:?}",
         );
@@ -1270,12 +1257,10 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Subscribe {
-                        id: SUBSCRIPTION_ID,
-                        result: Ok(()),
-                    }
-                ))
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
+                    id: SUBSCRIPTION_ID,
+                    result: Ok(()),
+                }))
             ),
             "unexpected {response:?}",
         );
@@ -1467,12 +1452,10 @@ mod tests {
         let subscribed_data = response_receiver.recv().await.unwrap();
         assert_eq!(
             subscribed_data,
-            Response::Textual(TextualResponse::Outputs(
-                TextualOutputResponse::GetNext {
-                    id: SUBSCRIPTION_ID,
-                    result: Ok(TextualDataOrBinaryReference::TextualData { data: value })
-                }
-            )),
+            Response::Textual(TextualResponse::Outputs(TextualOutputResponse::GetNext {
+                id: SUBSCRIPTION_ID,
+                result: Ok(TextualDataOrBinaryReference::TextualData { data: value })
+            })),
         );
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
