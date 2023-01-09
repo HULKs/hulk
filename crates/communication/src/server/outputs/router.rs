@@ -46,7 +46,6 @@ async fn handle_request(
 ) {
     match &request.request {
         OutputRequest::GetFields { id } => {
-            // TODO: directly generate BTreeMap in SerializeHierarchy
             let _ = request
                 .client
                 .response_sender
@@ -111,7 +110,6 @@ async fn handle_request(
             let cycler_instance = match cached_cycler_instances
                 .entry((request.client.clone(), *subscription_id))
             {
-                // TODO: we remove the cache entry despite possible errors during unsubscription
                 Entry::Occupied(entry) => entry.remove(),
                 Entry::Vacant(_) => {
                     let _ = request
