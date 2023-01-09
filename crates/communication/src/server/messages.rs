@@ -11,7 +11,7 @@ pub type Type = String;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Request {
-    Databases(DatabaseRequest),
+    Outputs(OutputRequest),
     Injections(InjectionRequest),
     Parameters(ParameterRequest),
 }
@@ -29,18 +29,18 @@ pub enum Response {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum TextualResponse {
-    Databases(TextualDatabaseResponse),
+    Outputs(TextualOutputResponse),
     Injections(InjectionResponse),
     Parameters(ParameterResponse),
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum BinaryResponse {
-    Databases(BinaryDatabaseResponse),
+    Outputs(BinaryOutputResponse),
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub enum DatabaseRequest {
+pub enum OutputRequest {
     GetFields {
         id: usize,
     },
@@ -64,7 +64,7 @@ pub enum DatabaseRequest {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub enum TextualDatabaseResponse {
+pub enum TextualOutputResponse {
     GetFields {
         id: usize,
         fields: BTreeMap<CyclerInstance, BTreeMap<Path, Type>>,
@@ -93,7 +93,7 @@ pub enum TextualDataOrBinaryReference {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub enum BinaryDatabaseResponse {
+pub enum BinaryOutputResponse {
     GetNext {
         reference_id: usize,
         data: Vec<u8>,

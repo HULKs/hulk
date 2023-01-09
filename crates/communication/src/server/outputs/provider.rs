@@ -18,34 +18,34 @@ use tokio::{
 };
 
 use crate::server::messages::{
-    DatabaseRequest, Response, TextualDataOrBinaryReference, TextualDatabaseResponse,
+    OutputRequest, Response, TextualDataOrBinaryReference, TextualOutputResponse,
     TextualResponse,
 };
 
 use super::{Client, ClientRequest, Request, Subscription};
 
-pub fn provider<Database>(
-    databases_sender: Sender<Request>,
+pub fn provider<Output>(
+    outputs_sender: Sender<Request>,
     cycler_instance: &'static str,
-    database_changed: Arc<Notify>,
-    database_reader: Reader<Database>,
+    outputs_changed: Arc<Notify>,
+    outputs_reader: Reader<Output>,
     subscribed_outputs_writer: Writer<HashSet<String>>,
 ) -> JoinHandle<()>
 where
-    Database: SerializeHierarchy + Send + Sync + 'static,
+    Output: SerializeHierarchy + Send + Sync + 'static,
 {
     spawn(async move {
         let (request_sender, mut request_receiver) = channel(1);
 
-        databases_sender
+        outputs_sender
             .send(Request::RegisterCycler {
                 cycler_instance: cycler_instance.to_string(),
-                fields: get_paths_from_hierarchy(Default::default(), Database::get_hierarchy()),
+                fields: get_paths_from_hierarchy(Default::default(), Output::get_hierarchy()),
                 request_sender,
             })
             .await
             .expect("receiver should always wait for all senders");
-        drop(databases_sender);
+        drop(outputs_sender);
 
         let mut subscriptions = HashMap::new();
         loop {
@@ -53,7 +53,7 @@ where
                 request = request_receiver.recv() => {
                     match request {
                         Some(request) => {
-                            handle_client_request::<Database>(
+                            handle_client_request::<Output>(
                                 request,
                                 cycler_instance,
                                 &mut subscriptions,
@@ -62,8 +62,8 @@ where
                         None => break,
                     }
                 },
-                _ = database_changed.notified() => {
-                    handle_notified_database(&database_reader, &mut subscriptions).await
+                _ = outputs_changed.notified() => {
+                    handle_notified_output(&outputs_reader, &mut subscriptions).await
                 },
             };
             if subscriptions_changed {
@@ -76,47 +76,47 @@ where
     })
 }
 
-async fn handle_client_request<Database>(
+async fn handle_client_request<Output>(
     request: ClientRequest,
     cycler_instance: &'static str,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
 ) -> bool
 where
-    Database: SerializeHierarchy,
+    Output: SerializeHierarchy,
 {
-    let is_get_next = matches!(request.request, DatabaseRequest::GetNext { .. });
+    let is_get_next = matches!(request.request, OutputRequest::GetNext { .. });
     match request.request {
-        DatabaseRequest::GetFields { .. } => {
-            panic!("GetFields should be answered by database router");
+        OutputRequest::GetFields { .. } => {
+            panic!("GetFields should be answered by output router");
         }
-        DatabaseRequest::GetNext {
+        OutputRequest::GetNext {
             id,
             cycler_instance: received_cycler_instance,
             path,
             format,
         }
-        | DatabaseRequest::Subscribe {
+        | OutputRequest::Subscribe {
             id,
             cycler_instance: received_cycler_instance,
             path,
             format,
         } => {
             assert_eq!(cycler_instance, received_cycler_instance);
-            if Database::exists(&path) {
+            if Output::exists(&path) {
                 match subscriptions.entry((request.client.clone(), id)) {
                     Entry::Occupied(_) => {
                         let error_message = format!("already subscribed with id {id}");
                         let _ = request
                             .client
                             .response_sender
-                            .send(Response::Textual(TextualResponse::Databases(
+                            .send(Response::Textual(TextualResponse::Outputs(
                                 if is_get_next {
-                                    TextualDatabaseResponse::GetNext {
+                                    TextualOutputResponse::GetNext {
                                         id,
                                         result: Err(error_message),
                                     }
                                 } else {
-                                    TextualDatabaseResponse::Subscribe {
+                                    TextualOutputResponse::Subscribe {
                                         id,
                                         result: Err(error_message),
                                     }
@@ -135,8 +135,8 @@ where
                             let _ = request
                                 .client
                                 .response_sender
-                                .send(Response::Textual(TextualResponse::Databases(
-                                    TextualDatabaseResponse::Subscribe { id, result: Ok(()) },
+                                .send(Response::Textual(TextualResponse::Outputs(
+                                    TextualOutputResponse::Subscribe { id, result: Ok(()) },
                                 )))
                                 .await;
                         }
@@ -147,8 +147,8 @@ where
                 let _ = request
                     .client
                     .response_sender
-                    .send(Response::Textual(TextualResponse::Databases(
-                        TextualDatabaseResponse::Subscribe {
+                    .send(Response::Textual(TextualResponse::Outputs(
+                        TextualOutputResponse::Subscribe {
                             id,
                             result: Err(format!("path {path:?} does not exist")),
                         },
@@ -157,7 +157,7 @@ where
                 false
             }
         }
-        DatabaseRequest::Unsubscribe {
+        OutputRequest::Unsubscribe {
             id,
             subscription_id,
         } => {
@@ -168,8 +168,8 @@ where
                 let _ = request
                     .client
                     .response_sender
-                    .send(Response::Textual(TextualResponse::Databases(
-                        TextualDatabaseResponse::Unsubscribe {
+                    .send(Response::Textual(TextualResponse::Outputs(
+                        TextualOutputResponse::Unsubscribe {
                             id,
                             result: Err(format!(
                                 "never subscribed with subscription id {subscription_id}"
@@ -182,14 +182,14 @@ where
                 let _ = request
                     .client
                     .response_sender
-                    .send(Response::Textual(TextualResponse::Databases(
-                        TextualDatabaseResponse::Unsubscribe { id, result: Ok(()) },
+                    .send(Response::Textual(TextualResponse::Outputs(
+                        TextualOutputResponse::Unsubscribe { id, result: Ok(()) },
                     )))
                     .await;
                 true
             }
         }
-        DatabaseRequest::UnsubscribeEverything => {
+        OutputRequest::UnsubscribeEverything => {
             let amount_of_subscriptions_before = subscriptions.len();
             subscriptions
                 .retain(|(client, _subscription_id), _subscription| &request.client != client);
@@ -210,17 +210,17 @@ fn write_subscribed_outputs_from_subscriptions(
     *subscribed_outputs_slot = subscribed_outputs;
 }
 
-async fn handle_notified_database(
-    database_reader: &Reader<impl SerializeHierarchy>,
+async fn handle_notified_output(
+    outputs_reader: &Reader<impl SerializeHierarchy>,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
 ) -> bool {
     let mut get_next_items = HashMap::new();
     let mut subscribed_items: HashMap<Client, HashMap<usize, Value>> = HashMap::new();
     let mut subscriptions_changed = false;
     {
-        let database = database_reader.next();
+        let output = outputs_reader.next();
         subscriptions.retain(|(client, subscription_id), subscription| {
-            let data = match database.serialize_hierarchy(&subscription.path) {
+            let data = match output.serialize_hierarchy(&subscription.path) {
                 Ok(data) => data,
                 Err(error) => {
                     error!("failed to serialize {:?}: {error:?}", subscription.path);
@@ -246,8 +246,8 @@ async fn handle_notified_database(
             .map(|((client, subscription_id), data)| {
                 (
                     client.response_sender,
-                    Response::Textual(TextualResponse::Databases(
-                        TextualDatabaseResponse::GetNext {
+                    Response::Textual(TextualResponse::Outputs(
+                        TextualOutputResponse::GetNext {
                             id: subscription_id,
                             result: Ok(TextualDataOrBinaryReference::TextualData { data }),
                         },
@@ -257,8 +257,8 @@ async fn handle_notified_database(
             .chain(subscribed_items.into_iter().map(|(client, items)| {
                 (
                     client.response_sender,
-                    Response::Textual(TextualResponse::Databases(
-                        TextualDatabaseResponse::SubscribedData {
+                    Response::Textual(TextualResponse::Outputs(
+                        TextualOutputResponse::SubscribedData {
                             items: items
                                 .into_iter()
                                 .map(|(subscription_id, data)| {
@@ -328,11 +328,11 @@ mod tests {
 
     use super::*;
 
-    struct DatabaseMock {
+    struct OutputMock {
         existing_fields: HashMap<String, Value>,
     }
 
-    impl SerializeHierarchy for DatabaseMock {
+    impl SerializeHierarchy for OutputMock {
         fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
             self.existing_fields
                 .get(field_path)
@@ -374,36 +374,36 @@ mod tests {
 
     async fn get_registered_request_sender_from_provider(
         cycler_instance: &'static str,
-        database_changed: Arc<Notify>,
-        database: Reader<impl SerializeHierarchy + Send + Sync + 'static>,
+        outputs_changed: Arc<Notify>,
+        output: Reader<impl SerializeHierarchy + Send + Sync + 'static>,
     ) -> (
         JoinHandle<()>,
         BTreeMap<String, String>,
         Sender<ClientRequest>,
         Reader<HashSet<String>>,
     ) {
-        let (databases_sender, mut databases_receiver) = channel(1);
+        let (outputs_sender, mut outputs_receiver) = channel(1);
         let (subscribed_outputs_writer, subscribed_outputs_reader) = multiple_buffer_with_slots([
             Default::default(),
             Default::default(),
             Default::default(),
         ]);
         let join_handle = provider(
-            databases_sender,
+            outputs_sender,
             cycler_instance,
-            database_changed,
-            database,
+            outputs_changed,
+            output,
             subscribed_outputs_writer,
         );
         let (fields, request_sender) = timeout(Duration::from_secs(1), async move {
-            let Some(request) = databases_receiver.recv().await else {
+            let Some(request) = outputs_receiver.recv().await else {
                 panic!("expected request");
             };
             let Request::RegisterCycler { cycler_instance: cycler_instance_to_register, fields, request_sender } = request else {
                 panic!("expected Request::RegisterCycler");
             };
             assert_eq!(cycler_instance, cycler_instance_to_register);
-            assert!(databases_receiver.recv().await.is_none());
+            assert!(outputs_receiver.recv().await.is_none());
             (fields, request_sender)
         })
         .await
@@ -418,16 +418,16 @@ mod tests {
 
     #[tokio::test]
     async fn provider_registers_itself_at_router() {
-        let database_changed = Arc::new(Notify::new());
-        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
             get_registered_request_sender_from_provider(
                 "CyclerInstance",
-                database_changed,
-                database_reader,
+                outputs_changed,
+                outputs_reader,
             )
             .await;
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
@@ -439,16 +439,16 @@ mod tests {
     #[tokio::test]
     async fn fields_are_collected() {
         let cycler_instance = "CyclerInstance";
-        let database_changed = Arc::new(Notify::new());
-        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
             existing_fields: Default::default(),
         }]);
 
         let (provider_task, fields, request_sender, subscribed_outputs_reader) =
             get_registered_request_sender_from_provider(
                 cycler_instance,
-                database_changed,
-                database_reader,
+                outputs_changed,
+                outputs_reader,
             )
             .await;
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
@@ -470,16 +470,16 @@ mod tests {
     #[tokio::test]
     async fn subscriptions_with_same_subscription_ids_and_same_client_ids() {
         let cycler_instance = "CyclerInstance";
-        let database_changed = Arc::new(Notify::new());
-        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
             get_registered_request_sender_from_provider(
                 cycler_instance,
-                database_changed,
-                database_reader,
+                outputs_changed,
+                outputs_reader,
             )
             .await;
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
@@ -493,7 +493,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Subscribe {
+                request: OutputRequest::Subscribe {
                     id: ID,
                     cycler_instance: cycler_instance.clone(),
                     path: path.clone(),
@@ -510,8 +510,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Subscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Subscribe {
                         id: ID,
                         result: Ok(()),
                     }
@@ -530,7 +530,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Subscribe {
+                request: OutputRequest::Subscribe {
                     id: ID,
                     cycler_instance,
                     path: path.clone(),
@@ -547,8 +547,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Subscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Subscribe {
                         id: ID,
                         result: Err(_),
                     }
@@ -572,16 +572,16 @@ mod tests {
     #[tokio::test]
     async fn subscriptions_with_same_subscription_ids_and_different_client_ids() {
         let cycler_instance = "CyclerInstance";
-        let database_changed = Arc::new(Notify::new());
-        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
             get_registered_request_sender_from_provider(
                 cycler_instance,
-                database_changed,
-                database_reader,
+                outputs_changed,
+                outputs_reader,
             )
             .await;
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
@@ -594,7 +594,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Subscribe {
+                request: OutputRequest::Subscribe {
                     id: ID,
                     cycler_instance: cycler_instance.clone(),
                     path: path.clone(),
@@ -611,8 +611,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Subscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Subscribe {
                         id: ID,
                         result: Ok(()),
                     }
@@ -631,7 +631,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Subscribe {
+                request: OutputRequest::Subscribe {
                     id: ID,
                     cycler_instance,
                     path: path.clone(),
@@ -648,8 +648,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Subscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Subscribe {
                         id: ID,
                         result: Ok(()),
                     }
@@ -673,16 +673,16 @@ mod tests {
     #[tokio::test]
     async fn subscriptions_with_different_subscription_ids_and_same_client_ids() {
         let cycler_instance = "CyclerInstance";
-        let database_changed = Arc::new(Notify::new());
-        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
             get_registered_request_sender_from_provider(
                 cycler_instance,
-                database_changed,
-                database_reader,
+                outputs_changed,
+                outputs_reader,
             )
             .await;
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
@@ -695,7 +695,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Subscribe {
+                request: OutputRequest::Subscribe {
                     id: 42,
                     cycler_instance: cycler_instance.clone(),
                     path: path.clone(),
@@ -712,8 +712,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Subscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Subscribe {
                         id: 42,
                         result: Ok(()),
                     }
@@ -732,7 +732,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Subscribe {
+                request: OutputRequest::Subscribe {
                     id: 1337,
                     cycler_instance,
                     path: path.clone(),
@@ -749,8 +749,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Subscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Subscribe {
                         id: 1337,
                         result: Ok(()),
                     }
@@ -774,16 +774,16 @@ mod tests {
     #[tokio::test]
     async fn unsubscribe_unknown_subscription_results_in_error() {
         let cycler_instance = "CyclerInstance";
-        let database_changed = Arc::new(Notify::new());
-        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
             get_registered_request_sender_from_provider(
                 cycler_instance,
-                database_changed,
-                database_reader,
+                outputs_changed,
+                outputs_reader,
             )
             .await;
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
@@ -791,7 +791,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Unsubscribe {
+                request: OutputRequest::Unsubscribe {
                     id: 42,
                     subscription_id: 1337,
                 },
@@ -806,8 +806,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Unsubscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Unsubscribe {
                         id: 42,
                         result: Err(_),
                     }
@@ -828,16 +828,16 @@ mod tests {
     #[tokio::test]
     async fn unsubscribe_twice_results_in_error() {
         let cycler_instance = "CyclerInstance";
-        let database_changed = Arc::new(Notify::new());
-        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
             get_registered_request_sender_from_provider(
                 cycler_instance,
-                database_changed,
-                database_reader,
+                outputs_changed,
+                outputs_reader,
             )
             .await;
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
@@ -849,7 +849,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Subscribe {
+                request: OutputRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -866,8 +866,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Subscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Subscribe {
                         id: SUBSCRIPTION_ID,
                         result: Ok(()),
                     }
@@ -886,7 +886,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Unsubscribe {
+                request: OutputRequest::Unsubscribe {
                     id: 1337,
                     subscription_id: SUBSCRIPTION_ID,
                 },
@@ -901,8 +901,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Unsubscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Unsubscribe {
                         id: 1337,
                         result: Ok(()),
                     }
@@ -918,7 +918,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Unsubscribe {
+                request: OutputRequest::Unsubscribe {
                     id: 1337,
                     subscription_id: SUBSCRIPTION_ID,
                 },
@@ -933,8 +933,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Unsubscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Unsubscribe {
                         id: 1337,
                         result: Err(_),
                     }
@@ -956,16 +956,16 @@ mod tests {
     async fn unsubscribe_after_unsubscribe_everything_results_in_error() {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
-        let database_changed = Arc::new(Notify::new());
-        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
             get_registered_request_sender_from_provider(
                 cycler_instance,
-                database_changed,
-                database_reader,
+                outputs_changed,
+                outputs_reader,
             )
             .await;
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
@@ -973,7 +973,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Subscribe {
+                request: OutputRequest::Subscribe {
                     id: 42,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -990,8 +990,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Subscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Subscribe {
                         id: 42,
                         result: Ok(()),
                     }
@@ -1010,7 +1010,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::UnsubscribeEverything,
+                request: OutputRequest::UnsubscribeEverything,
                 client: Client {
                     id: 1337,
                     response_sender: response_sender.clone(),
@@ -1030,7 +1030,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Unsubscribe {
+                request: OutputRequest::Unsubscribe {
                     id: 42,
                     subscription_id: 1337,
                 },
@@ -1045,8 +1045,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Unsubscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Unsubscribe {
                         id: 42,
                         result: Err(_),
                     }
@@ -1065,20 +1065,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn data_from_notified_database_is_sent_to_subscribed_client() {
+    async fn data_from_notified_output_is_sent_to_subscribed_client() {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let database_changed = Arc::new(Notify::new());
-        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
             existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
             get_registered_request_sender_from_provider(
                 cycler_instance,
-                database_changed.clone(),
-                database_reader,
+                outputs_changed.clone(),
+                outputs_reader,
             )
             .await;
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
@@ -1089,7 +1089,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Subscribe {
+                request: OutputRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -1106,8 +1106,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Subscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Subscribe {
                         id: SUBSCRIPTION_ID,
                         result: Ok(()),
                     }
@@ -1124,12 +1124,12 @@ mod tests {
             HashSet::from_iter([path.clone()]),
         );
 
-        database_changed.notify_one();
+        outputs_changed.notify_one();
         let subscribed_data = response_receiver.recv().await.unwrap();
         assert_eq!(
             subscribed_data,
-            Response::Textual(TextualResponse::Databases(
-                TextualDatabaseResponse::SubscribedData {
+            Response::Textual(TextualResponse::Outputs(
+                TextualOutputResponse::SubscribedData {
                     items: [(
                         SUBSCRIPTION_ID,
                         TextualDataOrBinaryReference::TextualData { data: value }
@@ -1149,7 +1149,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Unsubscribe {
+                request: OutputRequest::Unsubscribe {
                     id: 1337,
                     subscription_id: SUBSCRIPTION_ID,
                 },
@@ -1164,8 +1164,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Unsubscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Unsubscribe {
                         id: 1337,
                         result: Ok(()),
                     }
@@ -1179,7 +1179,7 @@ mod tests {
         }
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
-        database_changed.notify_one();
+        outputs_changed.notify_one();
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
@@ -1195,16 +1195,16 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let database_changed = Arc::new(Notify::new());
-        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
             existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
             get_registered_request_sender_from_provider(
                 cycler_instance,
-                database_changed.clone(),
-                database_reader,
+                outputs_changed.clone(),
+                outputs_reader,
             )
             .await;
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
@@ -1215,7 +1215,7 @@ mod tests {
         let (response_sender0, mut response_receiver0) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Subscribe {
+                request: OutputRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -1232,8 +1232,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Subscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Subscribe {
                         id: SUBSCRIPTION_ID,
                         result: Ok(()),
                     }
@@ -1253,7 +1253,7 @@ mod tests {
         let (response_sender1, mut response_receiver1) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Subscribe {
+                request: OutputRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -1270,8 +1270,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Subscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Subscribe {
                         id: SUBSCRIPTION_ID,
                         result: Ok(()),
                     }
@@ -1288,12 +1288,12 @@ mod tests {
             HashSet::from_iter([path.clone()]),
         );
 
-        database_changed.notify_one();
+        outputs_changed.notify_one();
         let subscribed_data = response_receiver0.recv().await.unwrap();
         assert_eq!(
             subscribed_data,
-            Response::Textual(TextualResponse::Databases(
-                TextualDatabaseResponse::SubscribedData {
+            Response::Textual(TextualResponse::Outputs(
+                TextualOutputResponse::SubscribedData {
                     items: [(
                         SUBSCRIPTION_ID,
                         TextualDataOrBinaryReference::TextualData {
@@ -1311,8 +1311,8 @@ mod tests {
         let subscribed_data = response_receiver1.recv().await.unwrap();
         assert_eq!(
             subscribed_data,
-            Response::Textual(TextualResponse::Databases(
-                TextualDatabaseResponse::SubscribedData {
+            Response::Textual(TextualResponse::Outputs(
+                TextualOutputResponse::SubscribedData {
                     items: [(
                         SUBSCRIPTION_ID,
                         TextualDataOrBinaryReference::TextualData { data: value }
@@ -1332,7 +1332,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Unsubscribe {
+                request: OutputRequest::Unsubscribe {
                     id: 1337,
                     subscription_id: SUBSCRIPTION_ID,
                 },
@@ -1347,8 +1347,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Unsubscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Unsubscribe {
                         id: 1337,
                         result: Ok(()),
                     }
@@ -1367,7 +1367,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::Unsubscribe {
+                request: OutputRequest::Unsubscribe {
                     id: 1337,
                     subscription_id: SUBSCRIPTION_ID,
                 },
@@ -1382,8 +1382,8 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Databases(
-                    TextualDatabaseResponse::Unsubscribe {
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Unsubscribe {
                         id: 1337,
                         result: Ok(()),
                     }
@@ -1397,7 +1397,7 @@ mod tests {
         }
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
-        database_changed.notify_one();
+        outputs_changed.notify_one();
         match response_receiver0.try_recv() {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
@@ -1417,16 +1417,16 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let database_changed = Arc::new(Notify::new());
-        let (_database_writer, database_reader) = multiple_buffer_with_slots([DatabaseMock {
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
             existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
             get_registered_request_sender_from_provider(
                 cycler_instance,
-                database_changed.clone(),
-                database_reader,
+                outputs_changed.clone(),
+                outputs_reader,
             )
             .await;
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
@@ -1437,7 +1437,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: DatabaseRequest::GetNext {
+                request: OutputRequest::GetNext {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -1463,12 +1463,12 @@ mod tests {
             HashSet::from_iter([path]),
         );
 
-        database_changed.notify_one();
+        outputs_changed.notify_one();
         let subscribed_data = response_receiver.recv().await.unwrap();
         assert_eq!(
             subscribed_data,
-            Response::Textual(TextualResponse::Databases(
-                TextualDatabaseResponse::GetNext {
+            Response::Textual(TextualResponse::Outputs(
+                TextualOutputResponse::GetNext {
                     id: SUBSCRIPTION_ID,
                     result: Ok(TextualDataOrBinaryReference::TextualData { data: value })
                 }
@@ -1480,7 +1480,7 @@ mod tests {
         }
         assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
 
-        database_changed.notify_one();
+        outputs_changed.notify_one();
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),

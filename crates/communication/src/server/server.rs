@@ -11,11 +11,11 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::server::databases::router::router;
+use crate::server::outputs::router::router;
 
 use super::{
     acceptor::{acceptor, AcceptError},
-    databases::{provider::provider, Request},
+    outputs::{provider::provider, Request},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -32,7 +32,7 @@ pub enum StartError {
 
 pub struct Server {
     runtime: Arc<Runtime>,
-    databases_sender: Sender<Request>,
+    outputs_sender: Sender<Request>,
 }
 
 impl Server {
@@ -54,25 +54,25 @@ impl Server {
 
                 let inner_runtime = runtime.clone();
                 runtime.block_on(async move {
-                    let (databases_sender, databases_receiver) = channel(1);
+                    let (outputs_sender, outputs_receiver) = channel(1);
                     runtime_sender
-                        .send(Some((inner_runtime, databases_sender.clone())))
+                        .send(Some((inner_runtime, outputs_sender.clone())))
                         .expect("successful thread creation should always wait for runtime_sender");
 
-                    let acceptor_task = acceptor(keep_running.clone(), databases_sender);
-                    let databases_task = router(databases_receiver);
+                    let acceptor_task = acceptor(keep_running.clone(), outputs_sender);
+                    let outputs_task = router(outputs_receiver);
 
                     keep_running.cancelled().await;
 
                     let acceptor_task_result = acceptor_task.await;
-                    let databases_task_result = databases_task.await;
+                    let outputs_task_result = outputs_task.await;
 
                     let mut task_errors = vec![];
                     if let Err(error) = acceptor_task_result.expect("failed to join acceptor task")
                     {
                         task_errors.push(StartError::AcceptError(error));
                     }
-                    databases_task_result.expect("failed to join databases task");
+                    outputs_task_result.expect("failed to join outputs task");
 
                     if task_errors.is_empty() {
                         Ok(())
@@ -83,11 +83,11 @@ impl Server {
             })
             .map_err(StartError::ThreadNotStarted)?;
 
-        let (runtime, databases_sender) = match runtime_receiver
+        let (runtime, outputs_sender) = match runtime_receiver
             .blocking_recv()
             .expect("successful thread creation should always send into runtime_sender")
         {
-            Some((runtime, databases_sender)) => (runtime, databases_sender),
+            Some((runtime, outputs_sender)) => (runtime, outputs_sender),
             None => {
                 return Err(join_handle
                     .join()
@@ -98,25 +98,25 @@ impl Server {
 
         Ok(Self {
             runtime,
-            databases_sender,
+            outputs_sender,
         })
     }
 
-    pub fn register_cycler_instance<Database>(
+    pub fn register_cycler_instance<Output>(
         &self,
         cycler_instance: &'static str,
-        database_changed: Arc<Notify>,
-        database_reader: Reader<Database>,
+        outputs_changed: Arc<Notify>,
+        outputs_reader: Reader<Output>,
         subscribed_outputs_writer: Writer<HashSet<String>>,
     ) where
-        Database: SerializeHierarchy + Send + Sync + 'static,
+        Output: SerializeHierarchy + Send + Sync + 'static,
     {
         let _guard = self.runtime.enter();
         provider(
-            self.databases_sender.clone(),
+            self.outputs_sender.clone(),
             cycler_instance,
-            database_changed,
-            database_reader,
+            outputs_changed,
+            outputs_reader,
             subscribed_outputs_writer,
         );
     }
