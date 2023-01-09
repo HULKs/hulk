@@ -15,7 +15,7 @@ pub fn serialize_hierarchy(input: TokenStream) -> TokenStream {
         Data::Struct(data) => process_struct(&input, data),
         Data::Enum(data) => process_enum(&input, data),
         Data::Union(..) => {
-            abort_call_site!("`SerializeHierarchy` can only be derived for `struct`")
+            abort_call_site!("`SerializeHierarchy` can only be derived for `struct` or `enum`")
         }
     }
 }
