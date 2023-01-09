@@ -199,7 +199,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
             #(#multiple_buffer_initializers)*
             #(#future_queue_initializers)*
 
-            let communication_server = communication::server::Server::start(keep_running.clone())
+            let communication_server = communication::server::Runtime::start(keep_running.clone())
                 .wrap_err("failed to start communication server")?;
 
             #(#cycler_initializations)*

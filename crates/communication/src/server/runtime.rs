@@ -3,7 +3,7 @@ use std::{collections::HashSet, io, sync::Arc, thread};
 use framework::{Reader, Writer};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::{
-    runtime::{self, Runtime},
+    runtime::{self, Runtime as TokioRuntime},
     sync::{
         mpsc::{channel, Sender},
         oneshot, Notify,
@@ -30,12 +30,12 @@ pub enum StartError {
     RuntimeNotStarted(io::Error),
 }
 
-pub struct Server {
-    runtime: Arc<Runtime>,
+pub struct Runtime {
+    runtime: Arc<TokioRuntime>,
     outputs_sender: Sender<Request>,
 }
 
-impl Server {
+impl Runtime {
     pub fn start(keep_running: CancellationToken) -> Result<Self, StartError> {
         let (runtime_sender, runtime_receiver) = oneshot::channel();
 
