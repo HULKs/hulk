@@ -7,7 +7,7 @@ mod multiple_buffer;
 mod perception_databases;
 mod perception_input;
 
-pub use additional_output::AdditionalOutput;
+pub use additional_output::{should_be_filled, AdditionalOutput};
 pub use future_queue::{future_queue, Consumer, Item, Producer};
 pub use historic_databases::HistoricDatabases;
 pub use historic_input::HistoricInput;
