@@ -6,7 +6,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::server::messages::{
+use crate::messages::{
     OutputRequest, Path, Response, TextualOutputResponse, TextualResponse, Type,
 };
 
@@ -158,7 +158,7 @@ async fn forward_client_request_to_provider(
 mod tests {
     use tokio::sync::mpsc::{channel, error::TryRecvError};
 
-    use crate::server::messages::Format;
+    use crate::messages::Format;
 
     use super::*;
 
@@ -202,12 +202,10 @@ mod tests {
         let response = response_receiver.recv().await.unwrap();
         assert_eq!(
             response,
-            Response::Textual(TextualResponse::Outputs(
-                TextualOutputResponse::GetFields {
-                    id: 42,
-                    fields: [(cycler_instance.to_string(), fields)].into()
-                }
-            )),
+            Response::Textual(TextualResponse::Outputs(TextualOutputResponse::GetFields {
+                id: 42,
+                fields: [(cycler_instance.to_string(), fields)].into()
+            })),
         );
         match response_receiver.try_recv() {
             Err(TryRecvError::Disconnected) => {}
@@ -243,12 +241,10 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::GetNext {
-                        id: 42,
-                        result: Err(_),
-                    }
-                ))
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::GetNext {
+                    id: 42,
+                    result: Err(_),
+                }))
             ),
             "unexpected {response:?}",
         );

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use color_eyre::Result;
-use communication::CyclerOutput;
+use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{point, vector, Isometry2, Point2};
 use types::{CameraMatrix, FieldDimensions, Rgb};

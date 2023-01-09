@@ -1,4 +1,4 @@
-use communication::{
+use communication::client::{
     Communication, ConnectionStatus, Cycler, CyclerOutput, HierarchyType, OutputHierarchy,
 };
 

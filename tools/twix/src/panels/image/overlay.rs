@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::Cycler;
+use communication::client::Cycler;
 use convert_case::Casing;
 use eframe::egui::Ui;
 use serde_json::{json, Value};

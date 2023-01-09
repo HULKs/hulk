@@ -8,7 +8,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use crate::{
+use crate::client::{
     id_tracker::{self, get_message_id},
     requester, responder,
     types::SubscribedOutput,

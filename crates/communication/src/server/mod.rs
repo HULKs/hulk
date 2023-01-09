@@ -1,6 +1,5 @@
 mod acceptor;
 mod connection;
-mod messages;
 mod outputs;
 mod receiver;
 mod sender;

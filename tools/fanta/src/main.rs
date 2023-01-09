@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use clap::Parser;
 use color_eyre::{eyre::bail, Result};
-use communication::{Communication, CyclerOutput, SubscriberMessage};
+use communication::client::{Communication, CyclerOutput, SubscriberMessage};
 use log::{error, info};
 
 use crate::logging::setup_logger;

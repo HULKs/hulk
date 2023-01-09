@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use communication::CyclerOutput;
+use communication::client::CyclerOutput;
 use eframe::{
     egui::{ComboBox, Response, Ui, Widget},
     epaint::{Color32, Stroke},

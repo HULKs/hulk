@@ -5,7 +5,7 @@ use std::{
 
 use tokio::sync::mpsc::Sender;
 
-use super::messages::{OutputRequest, Format, Path, Response, Type};
+use crate::messages::{OutputRequest, Format, Path, Response, Type};
 
 pub mod provider;
 pub mod router;

@@ -6,7 +6,7 @@ use log::{error, info, warn};
 use tokio::{net::TcpStream, spawn, sync::mpsc, task::JoinHandle, time::sleep};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
-use crate::{
+use crate::client::{
     output_subscription_manager, parameter_subscription_manager,
     receiver::receiver as receiver_task, requester::requester, responder,
 };

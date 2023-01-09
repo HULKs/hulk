@@ -1,4 +1,4 @@
-use communication::{Communication, Cycler, CyclerOutput, Output, SubscriberMessage};
+use communication::client::{Communication, Cycler, CyclerOutput, Output, SubscriberMessage};
 use log::error;
 use tokio::{
     select, spawn,

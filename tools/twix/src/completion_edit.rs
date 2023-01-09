@@ -1,6 +1,6 @@
 use std::{iter::once, ops::Range};
 
-use communication::{HierarchyType, OutputHierarchy};
+use communication::client::{HierarchyType, OutputHierarchy};
 use eframe::egui::{
     text::CCursor, text_edit::CCursorRange, Area, Context, Frame, Id, Key, Modifiers, Order,
     Response, ScrollArea, TextEdit, Ui, Widget,

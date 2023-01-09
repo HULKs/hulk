@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use communication::CyclerOutput;
+use communication::client::CyclerOutput;
 use eframe::egui::{ScrollArea, Widget};
 use log::error;
 use serde_json::{json, Value};

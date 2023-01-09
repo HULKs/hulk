@@ -5,7 +5,7 @@ use std::{
 
 use color_eyre::Result;
 
-use communication::ConnectionStatus;
+use communication::client::ConnectionStatus;
 use completion_edit::CompletionEdit;
 use eframe::{
     egui::{
