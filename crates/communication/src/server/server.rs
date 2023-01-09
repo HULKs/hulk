@@ -91,7 +91,7 @@ impl Server {
             None => {
                 return Err(join_handle
                     .join()
-                    .expect("runtime thread cannot be joined")
+                    .expect("failed to join runtime thread")
                     .expect_err("runtime thread without runtime should return an error"));
             }
         };
