@@ -145,6 +145,8 @@ async fn handle_request(
             }
         }
         OutputRequest::UnsubscribeEverything => {
+            cached_cycler_instances
+                .retain(|(client, _subscription_id), _cycler_instance| client != &request.client);
             for (_fields, request_channel) in request_channels_of_cyclers.values() {
                 let _ = request_channel.send(request.clone()).await;
             }
