@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use color_eyre::{eyre::eyre, Result};
-use communication::Cycler;
+use communication::client::Cycler;
 use eframe::{
     egui::{Response, Ui, Widget},
     emath::Rect,

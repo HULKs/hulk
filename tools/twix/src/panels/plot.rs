@@ -11,7 +11,7 @@ use eframe::{
 };
 use log::{error, info};
 
-use communication::CyclerOutput;
+use communication::client::CyclerOutput;
 use serde_json::Value;
 
 use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::ValueBuffer};

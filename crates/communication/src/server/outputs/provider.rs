@@ -17,7 +17,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::server::messages::{
+use crate::messages::{
     OutputRequest, Response, TextualDataOrBinaryReference, TextualOutputResponse,
     TextualResponse,
 };
@@ -324,7 +324,7 @@ mod tests {
     use serialize_hierarchy::HierarchyType;
     use tokio::{sync::mpsc::error::TryRecvError, task::yield_now, time::timeout};
 
-    use crate::server::messages::Format;
+    use crate::messages::Format;
 
     use super::*;
 

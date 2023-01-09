@@ -6,7 +6,7 @@ use serde_json::{Map, Value};
 use tokio::{net::TcpStream, sync::mpsc::Sender};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
-use crate::{connector, parameter_subscription_manager, types::SubscribedOutput};
+use crate::client::{connector, parameter_subscription_manager, types::SubscribedOutput};
 
 use super::{output_subscription_manager, responder, Cycler};
 

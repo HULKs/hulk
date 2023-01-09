@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use color_eyre::Result;
-use communication::CyclerOutput;
+use communication::client::{Cycler, CyclerOutput};
 use eframe::epaint::{Color32, Stroke};
 use types::{Ball, CandidateEvaluation, Circle};
 
@@ -16,10 +16,10 @@ pub struct BallDetection {
 impl Overlay for BallDetection {
     const NAME: &'static str = "Ball Detection";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: communication::Cycler) -> Self {
+    fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: Cycler) -> Self {
         let camera_position = match selected_cycler {
-            communication::Cycler::VisionTop => "top",
-            communication::Cycler::VisionBottom => "bottom",
+            Cycler::VisionTop => "top",
+            Cycler::VisionBottom => "bottom",
             cycler => panic!("Invalid vision cycler: {cycler}"),
         };
         Self {

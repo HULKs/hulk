@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
-use communication::CyclerOutput;
+use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::Isometry2;
 use types::{FieldDimensions, PathObstacle};

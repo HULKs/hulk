@@ -1,4 +1,4 @@
-use communication::Cycler;
+use communication::client::Cycler;
 use eframe::egui::{ComboBox, Response, Ui, Widget};
 
 pub struct VisionCyclerSelector {

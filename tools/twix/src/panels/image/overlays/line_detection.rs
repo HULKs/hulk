@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use color_eyre::Result;
-use communication::{Cycler, CyclerOutput};
+use communication::client::{Cycler, CyclerOutput};
 use eframe::epaint::{Color32, Stroke};
 use types::ImageLines;
 

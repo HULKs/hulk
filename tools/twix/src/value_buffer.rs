@@ -4,7 +4,7 @@ use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
 };
-use communication::{Communication, CyclerOutput, SubscriberMessage};
+use communication::client::{Communication, CyclerOutput, SubscriberMessage};
 use log::error;
 use serde::Deserialize;
 use serde_json::{from_value, Value, Value::Array};

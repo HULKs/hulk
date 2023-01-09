@@ -5,7 +5,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use crate::{
+use crate::client::{
     connector::{self, connector, ConnectionStatus},
     parameter_subscription_manager::{self, parameter_subscription_manager},
     HierarchyType, OutputHierarchy, SubscriberMessage,

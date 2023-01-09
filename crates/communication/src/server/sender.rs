@@ -13,7 +13,9 @@ use tokio_tungstenite::{
 };
 use tokio_util::sync::CancellationToken;
 
-use super::{connection::ReceiverOrSenderError, messages::Response};
+use crate::messages::Response;
+
+use super::connection::ReceiverOrSenderError;
 
 pub async fn sender(
     mut writer: SplitSink<WebSocketStream<TcpStream>, Message>,
