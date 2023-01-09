@@ -34,3 +34,45 @@ impl<'context, DataType> AdditionalOutput<'context, DataType> {
         self.is_subscribed
     }
 }
+
+pub fn should_be_filled(subscribed_output: &str, additional_output_path: &str) -> bool {
+    let (longer_path, shorter_path) = if subscribed_output.len() >= additional_output_path.len() {
+        (subscribed_output, additional_output_path)
+    } else {
+        (additional_output_path, subscribed_output)
+    };
+    longer_path.starts_with(shorter_path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_be_filled_is_correct_for_type_hierarchy() {
+        let cases = [
+            ("a", "a", true),
+            ("a.b", "a", true),
+            ("a.b.c", "a", true),
+            ("a", "a.b", true),
+            ("a.b", "a.b", true),
+            ("a.b.c", "a.b", true),
+            ("a", "a.b.c", true),
+            ("a.b", "a.b.c", true),
+            ("a.b.c", "a.b.c", true),
+            ("a.d", "a", true),
+            ("a.d", "a.b", false),
+            ("a.d", "a.b.c", false),
+            ("a.b.d", "a", true),
+            ("a.b.d", "a.b", true),
+            ("a.b.d", "a.b.c", false),
+        ];
+        for (subscribed_output, additional_output_path, expected_should_be_filled) in cases {
+            assert_eq!(
+                should_be_filled(subscribed_output, additional_output_path),
+                expected_should_be_filled,
+                "subscribed_output={subscribed_output:?}, additional_output_path={additional_output_path:?}",
+            );
+        }
+    }
+}

@@ -195,14 +195,11 @@ impl Node<'_> {
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
                     );
-                    let path_string_with_dot_suffix = format!("{}.", path_string);
                     Ok(quote! {
                         #name: framework::AdditionalOutput::new(
                             own_subscribed_outputs
                                 .iter()
-                                .any(|subscribed_output|
-                                    subscribed_output == #path_string || subscribed_output.starts_with(#path_string_with_dot_suffix)
-                                ),
+                                .any(|subscribed_output| framework::should_be_filled(subscribed_output, #path_string)),
                             #accessor,
                         )
                     })
