@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use bincode::serialize;
 use futures_util::{stream::SplitSink, SinkExt};
 use serde_json::to_string;
@@ -57,7 +55,7 @@ pub async fn sender(
             }
             Response::Close { code, reason } => Message::Close(Some(CloseFrame {
                 code,
-                reason: Cow::from(reason),
+                reason: reason.into(),
             })),
         };
 
