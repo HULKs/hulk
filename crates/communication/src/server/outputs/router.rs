@@ -79,7 +79,10 @@ async fn handle_request(
 
             match request_channels_of_cyclers.get(cycler_instance) {
                 Some((_fields, request_channel)) => {
-                    let _ = request_channel.send(request).await;
+                    request_channel
+                        .send(request)
+                        .await
+                        .expect("receiver should always wait for all senders");
                 }
                 None => {
                     let error_message = format!("unknown cycler_instance {cycler_instance:?}");
@@ -128,7 +131,10 @@ async fn handle_request(
 
             match request_channels_of_cyclers.get(&cycler_instance) {
                 Some((_fields, request_channel)) => {
-                    let _ = request_channel.send(request).await;
+                    request_channel
+                        .send(request)
+                        .await
+                        .expect("receiver should always wait for all senders");
                 }
                 None => {
                     let _ = request
@@ -148,7 +154,10 @@ async fn handle_request(
             cached_cycler_instances
                 .retain(|(client, _subscription_id), _cycler_instance| client != &request.client);
             for (_fields, request_channel) in request_channels_of_cyclers.values() {
-                let _ = request_channel.send(request.clone()).await;
+                request_channel
+                    .send(request.clone())
+                    .await
+                    .expect("receiver should always wait for all senders");
             }
         }
     }
