@@ -12,11 +12,11 @@ This page serves a guide on how to setup and enable GitHub notifications from yo
 4. Ask one of our Dev-Leads for the secret
 5. Leave SSL verification on
 6. Select "Let me select individual events" and enable the following:
-    - Issues
     - Issue comments
-    - Pull requests
-    - Pull request reviews
+    - Issues
     - Pull request review comments
+    - Pull request reviews
+    - Pull requests
     - Pushes
 7. Activate it and add it
 8. Profit
