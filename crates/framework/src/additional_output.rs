@@ -41,7 +41,7 @@ pub fn should_be_filled(subscribed_output: &str, additional_output_path: &str) -
     } else {
         (additional_output_path, subscribed_output)
     };
-    longer_path.starts_with(shorter_path)
+    longer_path == shorter_path || longer_path.starts_with(&format!("{shorter_path}."))
 }
 
 #[cfg(test)]
@@ -66,6 +66,7 @@ mod tests {
             ("a.b.d", "a", true),
             ("a.b.d", "a.b", true),
             ("a.b.d", "a.b.c", false),
+            ("a.bd", "a.b", false),
         ];
         for (subscribed_output, additional_output_path, expected_should_be_filled) in cases {
             assert_eq!(
