@@ -98,7 +98,7 @@ impl<T> SerializeHierarchy for HashSet<T> {
     }
 
     fn exists(_field_path: &str) -> bool {
-        true
+        false
     }
 
     fn get_hierarchy() -> HierarchyType {
@@ -116,7 +116,7 @@ impl<T> SerializeHierarchy for Vec<T> {
     }
 
     fn exists(_field_path: &str) -> bool {
-        true
+        false
     }
 
     fn get_hierarchy() -> HierarchyType {
@@ -144,7 +144,7 @@ macro_rules! serialize_hierarchy_primary_impl {
             }
 
             fn exists(_field_path: &str) -> bool {
-                true
+                false
             }
 
             fn get_hierarchy() -> HierarchyType {
