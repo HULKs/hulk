@@ -1,4 +1,9 @@
-use std::{collections::HashSet, io, sync::Arc, thread};
+use std::{
+    collections::HashSet,
+    io,
+    sync::Arc,
+    thread::{self, JoinHandle},
+};
 
 use framework::{Reader, Writer};
 use serialize_hierarchy::SerializeHierarchy;
@@ -31,6 +36,7 @@ pub enum StartError {
 }
 
 pub struct Runtime {
+    join_handle: JoinHandle<Result<(), StartError>>,
     runtime: Arc<TokioRuntime>,
     outputs_sender: Sender<Request>,
 }
@@ -97,9 +103,14 @@ impl Runtime {
         };
 
         Ok(Self {
+            join_handle,
             runtime,
             outputs_sender,
         })
+    }
+
+    pub fn join(self) -> thread::Result<Result<(), StartError>> {
+        self.join_handle.join()
     }
 
     pub fn register_cycler_instance<Output>(
