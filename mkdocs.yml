@@ -78,6 +78,7 @@ nav:
       - Overview: workflow/overview.md
       - Development: workflow/development.md
       - Competition: workflow/competition.md
+      - GitHub Webhooks: workflow/github_webhooks.md
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
