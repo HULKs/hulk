@@ -191,6 +191,7 @@ impl Node<'_> {
                     );
                     let path_string = path_to_path_string_token_stream(
                         path,
+                        "additional_outputs",
                         quote! { self.instance },
                         quote! { #cycler_module_name_identifier::CyclerInstance:: },
                         &self.cycler_instances.modules_to_instances[&self.node.cycler_module],
