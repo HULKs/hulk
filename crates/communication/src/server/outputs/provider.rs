@@ -111,7 +111,7 @@ where
                 match subscriptions.entry((request.client.clone(), id)) {
                     Entry::Occupied(_) => {
                         let error_message = format!("already subscribed with id {id}");
-                        let _ = request
+                        request
                             .client
                             .response_sender
                             .send(Response::Textual(TextualResponse::Outputs(
@@ -127,7 +127,8 @@ where
                                     }
                                 },
                             )))
-                            .await;
+                            .await
+                            .expect("receiver should always wait for all senders");
                         SubscriptionsState::Unchanged
                     }
                     Entry::Vacant(entry) => {
@@ -137,19 +138,20 @@ where
                             once: is_get_next,
                         });
                         if !is_get_next {
-                            let _ = request
+                            request
                                 .client
                                 .response_sender
                                 .send(Response::Textual(TextualResponse::Outputs(
                                     TextualOutputResponse::Subscribe { id, result: Ok(()) },
                                 )))
-                                .await;
+                                .await
+                                .expect("receiver should always wait for all senders");
                         }
                         SubscriptionsState::Changed
                     }
                 }
             } else {
-                let _ = request
+                request
                     .client
                     .response_sender
                     .send(Response::Textual(TextualResponse::Outputs(
@@ -158,7 +160,8 @@ where
                             result: Err(format!("path {path:?} does not exist")),
                         },
                     )))
-                    .await;
+                    .await
+                    .expect("receiver should always wait for all senders");
                 SubscriptionsState::Unchanged
             }
         }
@@ -170,7 +173,7 @@ where
                 .remove(&(request.client.clone(), subscription_id))
                 .is_none()
             {
-                let _ = request
+                request
                     .client
                     .response_sender
                     .send(Response::Textual(TextualResponse::Outputs(
@@ -181,16 +184,18 @@ where
                             )),
                         },
                     )))
-                    .await;
+                    .await
+                    .expect("receiver should always wait for all senders");
                 SubscriptionsState::Unchanged
             } else {
-                let _ = request
+                request
                     .client
                     .response_sender
                     .send(Response::Textual(TextualResponse::Outputs(
                         TextualOutputResponse::Unsubscribe { id, result: Ok(()) },
                     )))
-                    .await;
+                    .await
+                    .expect("receiver should always wait for all senders");
                 SubscriptionsState::Changed
             }
         }

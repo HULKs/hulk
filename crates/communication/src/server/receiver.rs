@@ -40,7 +40,7 @@ pub async fn receiver(
         _ = keep_only_self_running.cancelled() => {},
     }
 
-    let _ = outputs_sender
+    outputs_sender
         .send(outputs::Request::ClientRequest(ClientRequest {
             request: OutputRequest::UnsubscribeEverything,
             client: Client {
@@ -48,7 +48,8 @@ pub async fn receiver(
                 response_sender: response_sender.clone(),
             },
         }))
-        .await;
+        .await
+        .expect("receiver should always wait for all senders");
 }
 
 async fn handle_message(
