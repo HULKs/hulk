@@ -46,7 +46,7 @@ async fn handle_request(
 ) {
     match &request.request {
         OutputRequest::GetFields { id } => {
-            let _ = request
+            request
                 .client
                 .response_sender
                 .send(Response::Textual(TextualResponse::Outputs(
@@ -60,7 +60,8 @@ async fn handle_request(
                             .collect(),
                     },
                 )))
-                .await;
+                .await
+                .expect("receiver should always wait for all senders");
         }
         OutputRequest::GetNext {
             id,
@@ -86,7 +87,7 @@ async fn handle_request(
                 }
                 None => {
                     let error_message = format!("unknown cycler_instance {cycler_instance:?}");
-                    let _ = request
+                    request
                         .client
                         .response_sender
                         .send(Response::Textual(TextualResponse::Outputs(
@@ -102,7 +103,8 @@ async fn handle_request(
                                 }
                             },
                         )))
-                        .await;
+                        .await
+                        .expect("receiver should always wait for all senders");
                 }
             }
         }
@@ -115,7 +117,7 @@ async fn handle_request(
             {
                 Entry::Occupied(entry) => entry.remove(),
                 Entry::Vacant(_) => {
-                    let _ = request
+                    request
                         .client
                         .response_sender
                         .send(Response::Textual(TextualResponse::Outputs(
@@ -124,7 +126,8 @@ async fn handle_request(
                                 result: Err(format!("unknown subscription ID {subscription_id}")),
                             },
                         )))
-                        .await;
+                        .await
+                        .expect("receiver should always wait for all senders");
                     return;
                 }
             };
@@ -137,7 +140,7 @@ async fn handle_request(
                         .expect("receiver should always wait for all senders");
                 }
                 None => {
-                    let _ = request
+                    request
                         .client
                         .response_sender
                         .send(Response::Textual(TextualResponse::Outputs(
@@ -146,7 +149,8 @@ async fn handle_request(
                                 result: Err(format!("unknown cycler_instance {cycler_instance:?}")),
                             },
                         )))
-                        .await;
+                        .await
+                        .expect("receiver should always wait for all senders");
                 }
             }
         }
