@@ -208,6 +208,17 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
 
             let mut encountered_error = false;
             #(#cycler_joins)*
+            match communication_server.join() {
+                Ok(Err(error)) => {
+                    encountered_error = true;
+                    println!("{error:?}");
+                },
+                Err(error) => {
+                    encountered_error = true;
+                    println!("{error:?}");
+                },
+                _ => {},
+            }
 
             if encountered_error {
                 color_eyre::eyre::bail!("at least one cycler exited with error");
