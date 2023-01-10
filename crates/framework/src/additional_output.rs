@@ -36,12 +36,9 @@ impl<'context, DataType> AdditionalOutput<'context, DataType> {
 }
 
 pub fn should_be_filled(subscribed_output: &str, additional_output_path: &str) -> bool {
-    let (longer_path, shorter_path) = if subscribed_output.len() >= additional_output_path.len() {
-        (subscribed_output, additional_output_path)
-    } else {
-        (additional_output_path, subscribed_output)
-    };
-    longer_path == shorter_path || longer_path.starts_with(&format!("{shorter_path}."))
+    subscribed_output == additional_output_path
+        || subscribed_output.starts_with(&format!("{additional_output_path}."))
+        || additional_output_path.starts_with(&format!("{subscribed_output}."))
 }
 
 #[cfg(test)]
