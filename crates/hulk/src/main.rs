@@ -1,4 +1,4 @@
-use std::{fmt::Debug, fs::File, path::Path, sync::Arc};
+use std::{fmt::Debug, fs::File, io::stdout, path::Path, sync::Arc};
 
 use color_eyre::{eyre::WrapErr, install, Result};
 use cyclers::run;
@@ -14,7 +14,29 @@ mod parameters;
 #[cfg(feature = "webots")]
 mod webots;
 
+fn setup_logger(is_verbose: bool) -> Result<(), fern::InitError> {
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "{}  {:<18}  {:>5}  {}",
+                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                record.target(),
+                record.level(),
+                message
+            ))
+        })
+        .level(if is_verbose {
+            log::LevelFilter::Debug
+        } else {
+            log::LevelFilter::Info
+        })
+        .chain(stdout())
+        .apply()?;
+    Ok(())
+}
+
 fn main() -> Result<()> {
+    setup_logger(true)?;
     install()?;
     let keep_running = CancellationToken::new();
     {

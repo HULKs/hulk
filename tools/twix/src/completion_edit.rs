@@ -1,6 +1,9 @@
 use std::{iter::once, ops::Range};
 
-use communication::client::{HierarchyType, OutputHierarchy};
+use communication::{
+    client::{HierarchyType, OutputHierarchy},
+    messages::Fields,
+};
 use eframe::egui::{
     text::CCursor, text_edit::CCursorRange, Area, Context, Frame, Id, Key, Modifiers, Order,
     Response, ScrollArea, TextEdit, Ui, Widget,
@@ -53,7 +56,10 @@ impl<'key> CompletionEdit<'key> {
     }
 
     pub fn outputs(key: &'key mut String, nao: &Nao) -> Self {
-        let completion_items = output_hierarchy_to_completion_items(nao.get_output_hierarchy());
+        let completion_items = nao
+            .get_output_fields()
+            .map(output_fields_to_completion_items)
+            .unwrap_or_default();
 
         Self {
             key,
@@ -193,45 +199,15 @@ impl Widget for CompletionEdit<'_> {
     }
 }
 
-pub fn output_hierarchy_to_completion_items(
-    output_hierarchy: Option<OutputHierarchy>,
-) -> Vec<String> {
-    output_hierarchy
-        .map(|output_hierarchy| {
-            let mut items = Vec::new();
-            extend_from_hierarchy(
-                &mut items,
-                "control.main".to_string(),
-                output_hierarchy.control.main,
-            );
-            extend_from_hierarchy(
-                &mut items,
-                "control.additional".to_string(),
-                output_hierarchy.control.additional,
-            );
-            extend_from_hierarchy(
-                &mut items,
-                "vision_top.main".to_string(),
-                output_hierarchy.vision_top.main,
-            );
-            extend_from_hierarchy(
-                &mut items,
-                "vision_top.additional".to_string(),
-                output_hierarchy.vision_top.additional,
-            );
-            extend_from_hierarchy(
-                &mut items,
-                "vision_bottom.main".to_string(),
-                output_hierarchy.vision_bottom.main,
-            );
-            extend_from_hierarchy(
-                &mut items,
-                "vision_bottom.additional".to_string(),
-                output_hierarchy.vision_bottom.additional,
-            );
-            items
+pub fn output_fields_to_completion_items(output_fields: Fields) -> Vec<String> {
+    output_fields
+        .iter()
+        .flat_map(|(cycler_instance, fields)| {
+            fields
+                .keys()
+                .map(move |field| format!("{cycler_instance}.{field}"))
         })
-        .unwrap_or_default()
+        .collect()
 }
 
 fn extend_from_hierarchy(buffer: &mut Vec<String>, prefix: String, hierarchy: HierarchyType) {

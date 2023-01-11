@@ -7,6 +7,8 @@ use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 pub type CyclerInstance = String;
 pub type Path = String;
 pub type Reason = String;
+pub type Type = String;
+pub type Fields = BTreeMap<CyclerInstance, BTreeSet<Path>>;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Request {
@@ -90,7 +92,7 @@ pub enum OutputsRequest {
 pub enum TextualOutputsResponse {
     GetFields {
         id: usize,
-        fields: BTreeMap<CyclerInstance, BTreeSet<Path>>,
+        fields: Fields,
     },
     GetNext {
         id: usize,

@@ -1,6 +1,6 @@
-use communication::client::{
+use communication::{client::{
     Communication, ConnectionStatus, Cycler, CyclerOutput, HierarchyType, OutputHierarchy,
-};
+}, messages::Fields};
 
 use serde_json::Value;
 use tokio::runtime::{Builder, Runtime};
@@ -54,9 +54,9 @@ impl Nao {
             .block_on(self.communication.subscribe_connection_updates())
     }
 
-    pub fn get_output_hierarchy(&self) -> Option<OutputHierarchy> {
+    pub fn get_output_fields(&self) -> Option<Fields> {
         self.runtime
-            .block_on(self.communication.get_output_hiearchy())
+            .block_on(self.communication.get_output_fields())
     }
 
     pub fn get_parameter_hierarchy(&self) -> Option<HierarchyType> {

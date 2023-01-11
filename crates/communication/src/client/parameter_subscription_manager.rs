@@ -167,21 +167,21 @@ async fn query_parameter_hierarchy(
         .unwrap();
     spawn(async move {
         let response = response_receiver.await.unwrap();
-        match response {
-            Ok(value) => {
-                let hierarchy = serde_json::from_value(value);
-                match hierarchy {
-                    Ok(hierarchy) => {
-                        manager
-                            .send(Message::UpdateParameterHierarchy { hierarchy })
-                            .await
-                            .unwrap();
-                    }
-                    Err(error) => error!("Failed to deserialize ParameterHierarchy: {}", error),
-                }
-            }
-            Err(error) => error!("Failed to get parameter hierarchy: {}", error),
-        }
+        // match response {
+        //     Ok(value) => {
+        //         let hierarchy = serde_json::from_value(value);
+        //         match hierarchy {
+        //             Ok(hierarchy) => {
+        //                 manager
+        //                     .send(Message::UpdateParameterHierarchy { hierarchy })
+        //                     .await
+        //                     .unwrap();
+        //             }
+        //             Err(error) => error!("Failed to deserialize ParameterHierarchy: {}", error),
+        //         }
+        //     }
+        //     Err(error) => error!("Failed to get parameter hierarchy: {}", error),
+        // }
     });
 }
 
@@ -211,9 +211,9 @@ async fn update_parameter_value(
         .unwrap();
     spawn(async move {
         let response = response_receiver.await.unwrap();
-        if let Err(error) = response {
-            error!("Failed to update parameter: {}", error)
-        }
+        // if let Err(error) = response {
+        //     error!("Failed to update parameter: {}", error)
+        // }
     });
 }
 
@@ -269,15 +269,15 @@ async fn subscribe(
     requester.send(request).await.unwrap();
     spawn(async move {
         let response = response_receiver.await.unwrap();
-        let message = match response {
-            Ok(_) => SubscriberMessage::SubscriptionSuccess,
-            Err(error) => SubscriberMessage::SubscriptionFailure { info: error },
-        };
-        for sender in subscribers {
-            if let Err(error) = sender.send(message.clone()).await {
-                error!("{error}");
-            }
-        }
+        // let message = match response {
+        //     Ok(_) => SubscriberMessage::SubscriptionSuccess,
+        //     Err(error) => SubscriberMessage::SubscriptionFailure { info: error },
+        // };
+        // for sender in subscribers {
+        //     if let Err(error) = sender.send(message.clone()).await {
+        //         error!("{error}");
+        //     }
+        // }
     });
 }
 
@@ -303,8 +303,8 @@ async fn unsubscribe(
     requester.send(request).await.unwrap();
     spawn(async move {
         let response = response_receiver.await.unwrap();
-        if let Err(error) = response {
-            error!("Failed to unsubscribe: {}", error)
-        };
+        // if let Err(error) = response {
+        //     error!("Failed to unsubscribe: {}", error)
+        // };
     });
 }

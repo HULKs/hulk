@@ -1,19 +1,27 @@
 use std::collections::HashMap;
 
 use log::{debug, error};
-use serde_json::Value;
 use tokio::sync::{mpsc, oneshot};
+
+use crate::messages::{Fields, Reason};
 
 #[derive(Debug)]
 pub enum Message {
     Await {
         id: usize,
-        response_sender: oneshot::Sender<Result<Value, String>>,
+        response_sender: oneshot::Sender<Response>,
     },
     Respond {
         id: usize,
-        response: Result<Value, String>,
+        response: Response,
     },
+}
+
+#[derive(Debug)]
+pub enum Response {
+    Fields(Fields),
+    Subscribe(Result<(), Reason>),
+    Unsubscribe(Result<(), Reason>),
 }
 
 pub async fn responder(mut receiver: mpsc::Receiver<Message>) {

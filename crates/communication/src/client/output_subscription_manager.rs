@@ -8,19 +8,22 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use crate::client::{
-    id_tracker::{self, get_message_id},
-    requester, responder,
-    types::SubscribedOutput,
-    Output, OutputHierarchy, SubscriberMessage,
+use crate::{
+    client::{
+        id_tracker::{self, get_message_id},
+        responder,
+        types::SubscribedOutput,
+        Output, SubscriberMessage,
+    },
+    messages::{Fields, OutputRequest, Request},
 };
 
-use super::{Cycler, CyclerOutput};
+use super::{responder::Response, Cycler, CyclerOutput};
 
 #[derive(Debug)]
 pub enum Message {
     Connect {
-        requester: mpsc::Sender<requester::Message>,
+        requester: mpsc::Sender<Request>,
     },
     Disconnect,
     Subscribe {
@@ -41,11 +44,11 @@ pub enum Message {
         image_id: u32,
         data: Vec<u8>,
     },
-    UpdateOutputHierarchy {
-        hierarchy: OutputHierarchy,
+    UpdateFields {
+        fields: Fields,
     },
-    GetOutputHierarchy {
-        response_sender: oneshot::Sender<Option<OutputHierarchy>>,
+    GetOutputFields {
+        response_sender: oneshot::Sender<Option<Fields>>,
     },
 }
 
@@ -178,12 +181,12 @@ pub async fn output_subscription_manager(
                     }
                 }
             }
-            Message::UpdateOutputHierarchy {
-                hierarchy: new_hierarchy,
+            Message::UpdateFields {
+                fields: new_hierarchy,
             } => {
                 hierarchy = Some(new_hierarchy);
             }
-            Message::GetOutputHierarchy { response_sender } => {
+            Message::GetOutputFields { response_sender } => {
                 if let Err(error) = response_sender.send(hierarchy.clone()) {
                     error!("{error:?}");
                 }
@@ -217,7 +220,7 @@ async fn query_output_hierarchy(
     manager: mpsc::Sender<Message>,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
-    requester: &mpsc::Sender<requester::Message>,
+    requester: &mpsc::Sender<Request>,
 ) -> Result<()> {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
@@ -227,27 +230,30 @@ async fn query_output_hierarchy(
             response_sender,
         })
         .await?;
-    requester
-        .send(requester::Message::GetOutputHierarchy { id: message_id })
-        .await?;
+    let request = Request::Outputs(OutputRequest::GetFields { id: message_id });
+    requester.send(request).await?;
     spawn(async move {
         let response = response_receiver.await.unwrap();
         match response {
-            Ok(value) => {
-                let hierarchy = serde_json::from_value(value);
-                match hierarchy {
-                    Ok(hierarchy) => {
-                        if let Err(error) = manager
-                            .send(Message::UpdateOutputHierarchy { hierarchy })
-                            .await
-                        {
-                            error!("{error}");
-                        };
-                    }
-                    Err(error) => error!("Failed to deserialize OutputHierarchy: {}", error),
-                }
+            Response::Fields(fields) => {
+                if let Err(error) = manager.send(Message::UpdateFields { fields }).await {
+                    error!("{error}");
+                };
             }
-            Err(error) => error!("Failed to get output hierarchy: {}", error),
+            response => error!("unexpected response: {response:?}"),
+            // Ok(value) => {
+            //     let hierarchy = serde_json::from_value(value);
+            //     match hierarchy {
+            //         Ok(hierarchy) => {
+            //             if let Err(error) = manager.send(Message::UpdateFields { hierarchy }).await
+            //             {
+            //                 error!("{error}");
+            //             };
+            //         }
+            //         Err(error) => error!("Failed to deserialize OutputHierarchy: {}", error),
+            //     }
+            // }
+            // Err(error) => error!("Failed to get output hierarchy: {}", error),
         }
     });
     Ok(())
@@ -260,7 +266,7 @@ async fn add_subscription(
     output_sender: mpsc::Sender<SubscriberMessage>,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
-    requester: &Option<mpsc::Sender<requester::Message>>,
+    requester: &Option<mpsc::Sender<Request>>,
 ) {
     match subscribed_outputs.entry(output.clone()) {
         Entry::Occupied(mut entry) => {
@@ -287,7 +293,7 @@ async fn subscribe(
     subscribers: Vec<mpsc::Sender<SubscriberMessage>>,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
-    requester: &mpsc::Sender<requester::Message>,
+    requester: &mpsc::Sender<Request>,
 ) {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
@@ -301,18 +307,31 @@ async fn subscribe(
         error!("{error}");
         return;
     }
-    let request = requester::Message::SubscribeOutput {
-        id: message_id,
-        output,
+    let path = match output.output {
+        Output::Main { path } => format!("main_outputs.{path}"),
+        Output::Additional { path } => format!("additional_outputs.{path}"),
+        Output::Image => todo!(),
     };
+    let request = Request::Outputs(OutputRequest::Subscribe {
+        id: message_id,
+        cycler_instance: output.cycler.to_string(),
+        path,
+        format: crate::messages::Format::Textual,
+    });
     if let Err(error) = requester.send(request).await {
         error!("{error}");
         return;
     }
     spawn(async move {
         let response = response_receiver.await.unwrap();
-        let message = match response {
-            Ok(_) => SubscriberMessage::SubscriptionSuccess,
+        let result = match response {
+            Response::Subscribe(result) => result,
+            response => return error!("unexpected response: {response:?}"),
+            // Ok(_) => SubscriberMessage::SubscriptionSuccess,
+            // Err(error) => SubscriberMessage::SubscriptionFailure { info: error },
+        };
+        let message = match result {
+            Ok(()) => SubscriberMessage::SubscriptionSuccess,
             Err(error) => SubscriberMessage::SubscriptionFailure { info: error },
         };
         for sender in subscribers {
@@ -327,7 +346,7 @@ async fn unsubscribe(
     output: CyclerOutput,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
-    requester: &mpsc::Sender<requester::Message>,
+    requester: &mpsc::Sender<Request>,
 ) {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
@@ -340,16 +359,20 @@ async fn unsubscribe(
     {
         error!("{error}")
     }
-    let request = requester::Message::UnsubscribeOutput {
+    let request = Request::Outputs(OutputRequest::Unsubscribe {
         id: message_id,
-        output,
-    };
+        subscription_id: 0, // TODO
+    });
     if let Err(error) = requester.send(request).await {
         error!("{error}")
     }
     spawn(async move {
         let response = response_receiver.await.unwrap();
-        if let Err(error) = response {
+        let result = match response {
+            Response::Unsubscribe(result) => result,
+            response => return error!("unexpected response: {response:?}"),
+        };
+        if let Err(error) = result {
             error!("Failed to unsubscribe: {}", error)
         };
     });
