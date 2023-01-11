@@ -5,6 +5,8 @@ use hula_types::Battery;
 use serde::Deserialize;
 use tokio::net::UdpSocket;
 
+mod socket;
+
 const BEACON_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 42);
 const BEACON_PORT: u16 = 4242;
 const BEACON_HEADER: &[u8; 6] = b"BEACON";
@@ -54,6 +56,11 @@ impl Aliveness {
             )
             .await
             .wrap_err("failed to send beacon")?;
+
+
+        
+
+        
         loop {
             println!("Waiting for responses");
             let mut receive_buffer = [0; 8192];
