@@ -1,7 +1,7 @@
 use std::collections::{hash_map::Entry, HashMap};
 
 use color_eyre::Result;
-use log::{error, info};
+use log::{error, info, warn};
 use tokio::{
     spawn,
     sync::{mpsc, oneshot},
@@ -11,11 +11,12 @@ use uuid::Uuid;
 use crate::{
     client::{
         id_tracker::{self, get_message_id},
-        responder,
-        types::SubscribedOutput,
-        Output, SubscriberMessage,
+        responder, Output, SubscriberMessage,
     },
-    messages::{Fields, OutputRequest, Request},
+    messages::{
+        Fields, OutputRequest, Request,
+        TextualDataOrBinaryReference::{self, BinaryReference, TextualData},
+    },
 };
 
 use super::{responder::Response, Cycler, CyclerOutput};
@@ -36,12 +37,10 @@ pub enum Message {
         uuid: Uuid,
     },
     Update {
-        cycler: Cycler,
-        outputs: Vec<SubscribedOutput>,
-        image_id: Option<u32>,
+        items: HashMap<usize, TextualDataOrBinaryReference>,
     },
     UpdateImage {
-        image_id: u32,
+        image_id: usize,
         data: Vec<u8>,
     },
     UpdateFields {
@@ -52,29 +51,33 @@ pub enum Message {
     },
 }
 
+#[derive(Default)]
+struct SubscriptionManager {
+    ids: HashMap<usize, CyclerOutput>,
+    subscriptions: HashMap<CyclerOutput, HashMap<Uuid, mpsc::Sender<SubscriberMessage>>>,
+}
+
 pub async fn output_subscription_manager(
     mut receiver: mpsc::Receiver<Message>,
     sender: mpsc::Sender<Message>,
     id_tracker: mpsc::Sender<id_tracker::Message>,
     responder: mpsc::Sender<responder::Message>,
 ) {
-    let mut subscribed_outputs: HashMap<
-        CyclerOutput,
-        HashMap<Uuid, mpsc::Sender<SubscriberMessage>>,
-    > = HashMap::new();
+    let mut manager = SubscriptionManager::default();
     let mut requester = None;
     let mut hierarchy = None;
-    let mut images: HashMap<u32, Vec<u8>> = HashMap::new();
-    let mut image_ids_waiting_for_image: HashMap<u32, Cycler> = HashMap::new();
+    let mut images: HashMap<usize, Vec<u8>> = HashMap::new();
+    let mut image_ids_waiting_for_image: HashMap<usize, Cycler> = HashMap::new();
 
     while let Some(message) = receiver.recv().await {
         match message {
             Message::Connect {
                 requester: new_requester,
             } => {
-                for (output, subscribers) in &subscribed_outputs {
+                assert!(manager.ids.is_empty());
+                for (output, subscribers) in &manager.subscriptions {
                     let subscribers = subscribers.values().cloned().collect();
-                    subscribe(
+                    if let Some(subscription_id) = subscribe(
                         output.clone(),
                         subscribers,
                         &id_tracker,
@@ -82,6 +85,9 @@ pub async fn output_subscription_manager(
                         &new_requester,
                     )
                     .await
+                    {
+                        manager.ids.insert(subscription_id, output.clone());
+                    }
                 }
                 match query_output_hierarchy(
                     sender.clone(),
@@ -99,6 +105,7 @@ pub async fn output_subscription_manager(
             }
             Message::Disconnect => {
                 requester = None;
+                manager.ids.clear();
             }
             Message::Subscribe {
                 output,
@@ -109,7 +116,7 @@ pub async fn output_subscription_manager(
                 match response_sender.send(uuid) {
                     Ok(()) => {
                         add_subscription(
-                            &mut subscribed_outputs,
+                            &mut manager,
                             uuid,
                             output,
                             output_sender,
@@ -124,58 +131,52 @@ pub async fn output_subscription_manager(
             }
             Message::Unsubscribe { output, uuid } => {
                 let mut is_empty = false;
-                if let Some(sender) = subscribed_outputs.get_mut(&output) {
+                if let Some(sender) = manager.subscriptions.get_mut(&output) {
                     sender.remove(&uuid);
                     is_empty = sender.is_empty();
                 }
                 if is_empty {
-                    subscribed_outputs.remove(&output);
+                    manager.subscriptions.remove(&output);
                     if let Some(requester) = &requester {
                         unsubscribe(output, &id_tracker, &responder, requester).await;
                     }
                 }
             }
-            Message::Update {
-                cycler,
-                outputs,
-                image_id,
-            } => {
-                let image_subscribers = subscribed_outputs.get(&CyclerOutput {
-                    cycler,
-                    output: Output::Image,
-                });
-                if let (Some(image_id), Some(senders)) = (image_id, image_subscribers) {
-                    match images.remove(&image_id) {
-                        Some(image) => {
-                            for sender in senders.values() {
-                                if let Err(error) = sender
-                                    .send(SubscriberMessage::UpdateImage {
-                                        data: image.clone(),
-                                    })
-                                    .await
-                                {
-                                    error!("{error}");
+            Message::Update { items } => {
+                for (subscription_id, value_or_reference) in items {
+                    let Some(output) = manager.ids.get(&subscription_id) else {
+                        warn!("unknown subscription_id: {subscription_id}");
+                        continue;
+                    };
+                    if let Some(senders) = manager.subscriptions.get(output) {
+                        match value_or_reference {
+                            TextualData { data } => {
+                                for sender in senders.values() {
+                                    if let Err(error) = sender
+                                        .send(SubscriberMessage::Update {
+                                            value: data.clone(),
+                                        })
+                                        .await
+                                    {
+                                        error!("{error}");
+                                    }
                                 }
                             }
-                        }
-                        None => {
-                            image_ids_waiting_for_image.insert(image_id, cycler);
-                        }
-                    }
-                }
-                for output in outputs {
-                    if let Some(senders) = subscribed_outputs.get(&CyclerOutput {
-                        cycler,
-                        output: output.output,
-                    }) {
-                        for sender in senders.values() {
-                            if let Err(error) = sender
-                                .send(SubscriberMessage::Update {
-                                    value: output.data.clone(),
-                                })
-                                .await
-                            {
-                                error!("{error}");
+                            BinaryReference { reference_id } => {
+                                if let Some(image) = images.remove(&reference_id) {
+                                    for sender in senders.values() {
+                                        if let Err(error) = sender
+                                            .send(SubscriberMessage::UpdateImage {
+                                                data: image.clone(),
+                                            })
+                                            .await
+                                        {
+                                            error!("{error}");
+                                        }
+                                    }
+                                } else {
+                                    image_ids_waiting_for_image.insert(reference_id, output.cycler);
+                                }
                             }
                         }
                     }
@@ -193,7 +194,7 @@ pub async fn output_subscription_manager(
             }
             Message::UpdateImage { image_id, data } => {
                 if let Some(cycler) = image_ids_waiting_for_image.get(&image_id) {
-                    let image_subscribers = subscribed_outputs.get(&CyclerOutput {
+                    let image_subscribers = manager.subscriptions.get(&CyclerOutput {
                         cycler: *cycler,
                         output: Output::Image,
                     });
@@ -260,7 +261,8 @@ async fn query_output_hierarchy(
 }
 
 async fn add_subscription(
-    subscribed_outputs: &mut HashMap<CyclerOutput, HashMap<Uuid, mpsc::Sender<SubscriberMessage>>>,
+    manager: &mut SubscriptionManager,
+    // subscribed_outputs: &mut HashMap<usize, Subscription>,
     uuid: Uuid,
     output: CyclerOutput,
     output_sender: mpsc::Sender<SubscriberMessage>,
@@ -268,20 +270,23 @@ async fn add_subscription(
     responder: &mpsc::Sender<responder::Message>,
     requester: &Option<mpsc::Sender<Request>>,
 ) {
-    match subscribed_outputs.entry(output.clone()) {
+    match manager.subscriptions.entry(output.clone()) {
         Entry::Occupied(mut entry) => {
             entry.get_mut().insert(uuid, output_sender);
         }
         Entry::Vacant(entry) => {
             if let Some(requester) = requester {
-                subscribe(
-                    output,
+                if let Some(subscription_id) = subscribe(
+                    output.clone(),
                     vec![output_sender.clone()],
                     id_tracker,
                     responder,
                     requester,
                 )
-                .await;
+                .await
+                {
+                    manager.ids.insert(subscription_id, output);
+                }
             };
             entry.insert(HashMap::new()).insert(uuid, output_sender);
         }
@@ -294,7 +299,7 @@ async fn subscribe(
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
     requester: &mpsc::Sender<Request>,
-) {
+) -> Option<usize> {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
     if let Err(error) = responder
@@ -305,7 +310,7 @@ async fn subscribe(
         .await
     {
         error!("{error}");
-        return;
+        return None;
     }
     let path = match output.output {
         Output::Main { path } => format!("main_outputs.{path}"),
@@ -320,7 +325,7 @@ async fn subscribe(
     });
     if let Err(error) = requester.send(request).await {
         error!("{error}");
-        return;
+        return None;
     }
     spawn(async move {
         let response = response_receiver.await.unwrap();
@@ -340,6 +345,8 @@ async fn subscribe(
             }
         }
     });
+
+    Some(message_id)
 }
 
 async fn unsubscribe(
