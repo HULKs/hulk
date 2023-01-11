@@ -25,9 +25,9 @@ impl FromStr for CyclerOutput {
             eyre!("expected '.' in subscription path (e.g. 'control.main.foo_bar')")
         })?;
         let cycler = match cycler_str {
-            "control" => Cycler::Control,
-            "vision_top" => Cycler::VisionTop,
-            "vision_bottom" => Cycler::VisionBottom,
+            "Control" => Cycler::Control,
+            "VisionTop" => Cycler::VisionTop,
+            "VisionBottom" => Cycler::VisionBottom,
             _ => bail!("unknown cycler '{cycler_str}'"),
         };
         let (output_str, path) = output_str.split_once('.').ok_or_else(|| {
@@ -57,9 +57,9 @@ pub enum Cycler {
 impl Display for Cycler {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Cycler::Control => f.write_str("control"),
-            Cycler::VisionTop => f.write_str("vision_top"),
-            Cycler::VisionBottom => f.write_str("vision_bottom"),
+            Cycler::Control => f.write_str("Control"),
+            Cycler::VisionTop => f.write_str("VisionTop"),
+            Cycler::VisionBottom => f.write_str("VisionBottom"),
         }
     }
 }

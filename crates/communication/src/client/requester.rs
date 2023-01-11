@@ -6,6 +6,8 @@ use serde_json::Value;
 use tokio::{net::TcpStream, sync::mpsc::Receiver};
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 
+use crate::messages::Request;
+
 use super::CyclerOutput;
 
 #[derive(Debug, Serialize)]
@@ -41,7 +43,7 @@ pub enum Message {
 }
 
 pub async fn requester(
-    mut receiver: Receiver<Message>,
+    mut receiver: Receiver<Request>,
     mut writer: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, tungstenite::Message>,
 ) {
     while let Some(request) = receiver.recv().await {

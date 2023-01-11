@@ -5,10 +5,13 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use crate::client::{
-    connector::{self, connector, ConnectionStatus},
-    parameter_subscription_manager::{self, parameter_subscription_manager},
-    HierarchyType, OutputHierarchy, SubscriberMessage,
+use crate::{
+    client::{
+        connector::{self, connector, ConnectionStatus},
+        parameter_subscription_manager::{self, parameter_subscription_manager},
+        HierarchyType, SubscriberMessage,
+    },
+    messages::Fields,
 };
 
 use super::{
@@ -139,10 +142,10 @@ impl Communication {
             .unwrap();
     }
 
-    pub async fn get_output_hiearchy(&self) -> Option<OutputHierarchy> {
+    pub async fn get_output_fields(&self) -> Option<Fields> {
         let (response_sender, response_receiver) = oneshot::channel();
         self.output_subscription_manager
-            .send(output_subscription_manager::Message::GetOutputHierarchy { response_sender })
+            .send(output_subscription_manager::Message::GetOutputFields { response_sender })
             .await
             .unwrap();
         response_receiver.await.unwrap()
