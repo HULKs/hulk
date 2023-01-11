@@ -3,7 +3,10 @@ use std::{
     sync::Arc,
 };
 
-use color_eyre::Result;
+use color_eyre::{
+    eyre::{bail, eyre},
+    Result,
+};
 
 use communication::client::ConnectionStatus;
 use completion_edit::CompletionEdit;
@@ -68,20 +71,25 @@ enum SelectablePanel {
 }
 
 impl SelectablePanel {
-    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Option<SelectablePanel> {
-        let name = value?.get("_panel_type")?.as_str()?;
+    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Result<SelectablePanel> {
+        let name = value
+            .ok_or(eyre!("Got none value"))?
+            .get("_panel_type")
+            .ok_or(eyre!("value has no _panel_type: {value:?}"))?
+            .as_str()
+            .ok_or(eyre!("_panel_type is not a string"))?;
         Self::try_from_name(name, nao, value)
     }
 
-    fn try_from_name(name: &str, nao: Arc<Nao>, value: Option<&Value>) -> Option<SelectablePanel> {
-        Some(match name.to_lowercase().as_str() {
+    fn try_from_name(name: &str, nao: Arc<Nao>, value: Option<&Value>) -> Result<SelectablePanel> {
+        Ok(match name.to_lowercase().as_str() {
             "text" => SelectablePanel::Text(TextPanel::new(nao, value)),
             "plot" => SelectablePanel::Plot(PlotPanel::new(nao, value)),
             "image" => SelectablePanel::Image(ImagePanel::new(nao, value)),
             "image segments" => SelectablePanel::ImageSegments(ImageSegmentsPanel::new(nao, value)),
             "map" => SelectablePanel::Map(MapPanel::new(nao, value)),
             "parameter" => SelectablePanel::Parameter(ParameterPanel::new(nao, value)),
-            _ => return None,
+            name => bail!("unexpected panel name: {name}"),
         })
     }
 
@@ -261,7 +269,7 @@ impl App for TwixApp {
                     CompletionEdit::select_all(&self.panel_selection, ui, panel_input.id);
                 }
                 if panel_input.changed() || panel_input.lost_focus() {
-                    if let Some(panel) = SelectablePanel::try_from_name(
+                    if let Ok(panel) = SelectablePanel::try_from_name(
                         &self.panel_selection,
                         self.nao.clone(),
                         None,
