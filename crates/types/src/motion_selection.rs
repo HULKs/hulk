@@ -9,7 +9,7 @@ pub struct MotionSelection {
     pub dispatching_motion: Option<MotionType>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum MotionType {
     ArmsUpSquat,
     Dispatching,

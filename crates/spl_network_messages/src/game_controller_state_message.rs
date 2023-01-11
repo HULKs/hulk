@@ -165,7 +165,7 @@ impl GamePhase {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum GameState {
     Initial,
     Ready,
@@ -187,7 +187,7 @@ impl GameState {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum Team {
     Hulks,
     Opponent,

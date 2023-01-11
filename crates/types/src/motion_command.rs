@@ -62,7 +62,7 @@ impl MotionCommand {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub enum HeadMotion {
     ZeroAngles,
     Center,
@@ -72,13 +72,13 @@ pub enum HeadMotion {
     Unstiff,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum ArmMotion {
     Swing,
     PullTight,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum KickDirection {
     Back,
     Front,
@@ -86,26 +86,26 @@ pub enum KickDirection {
     Right,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum KickVariant {
     Forward,
     Turn,
     Side,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum Facing {
     Down,
     Up,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum SitDirection {
     Down,
     Up,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum FallDirection {
     Backward,
     Forward,
@@ -113,7 +113,7 @@ pub enum FallDirection {
     Right,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum JumpDirection {
     Left,
     Right,
