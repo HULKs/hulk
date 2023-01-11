@@ -340,11 +340,11 @@ mod tests {
 
     use super::*;
 
-    struct OutputMock {
+    struct OutputsFake {
         existing_fields: HashMap<String, Value>,
     }
 
-    impl SerializeHierarchy for OutputMock {
+    impl SerializeHierarchy for OutputsFake {
         fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
             self.existing_fields
                 .get(field_path)
@@ -431,7 +431,7 @@ mod tests {
     #[tokio::test]
     async fn provider_registers_itself_at_router() {
         let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
@@ -452,7 +452,7 @@ mod tests {
     async fn fields_are_collected() {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
             existing_fields: Default::default(),
         }]);
 
@@ -483,7 +483,7 @@ mod tests {
     async fn subscriptions_with_same_subscription_ids_and_same_client_ids() {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
@@ -581,7 +581,7 @@ mod tests {
     async fn subscriptions_with_same_subscription_ids_and_different_client_ids() {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
@@ -678,7 +678,7 @@ mod tests {
     async fn subscriptions_with_different_subscription_ids_and_same_client_ids() {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
@@ -775,7 +775,7 @@ mod tests {
     async fn unsubscribe_unknown_subscription_results_in_error() {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
@@ -829,7 +829,7 @@ mod tests {
     async fn unsubscribe_twice_results_in_error() {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
@@ -955,7 +955,7 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
         let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42.into())].into(),
         }]);
 
@@ -1066,7 +1066,7 @@ mod tests {
         let path = "a.b.c".to_string();
         let value = Value::from(42);
         let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
             existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
@@ -1190,7 +1190,7 @@ mod tests {
         let path = "a.b.c".to_string();
         let value = Value::from(42);
         let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
             existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
@@ -1408,7 +1408,7 @@ mod tests {
         let path = "a.b.c".to_string();
         let value = Value::from(42);
         let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputMock {
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
             existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
