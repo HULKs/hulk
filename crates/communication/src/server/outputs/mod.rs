@@ -5,7 +5,7 @@ use std::{
 
 use tokio::sync::mpsc::Sender;
 
-use crate::messages::{OutputRequest, Format, Path, Response, Type};
+use crate::messages::{Format, OutputRequest, Path, Response, Type};
 
 pub mod provider;
 pub mod router;
@@ -20,7 +20,7 @@ pub enum Request {
     },
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClientRequest {
     pub request: OutputRequest,
     pub client: Client,

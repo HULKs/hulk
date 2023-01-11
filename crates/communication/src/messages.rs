@@ -9,14 +9,14 @@ pub type Path = String;
 pub type Reason = String;
 pub type Type = String;
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Request {
     Outputs(OutputRequest),
     Injections(InjectionRequest),
     Parameters(ParameterRequest),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Response {
     Textual(TextualResponse),
     #[allow(dead_code)] // TODO
@@ -27,19 +27,19 @@ pub enum Response {
     },
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum TextualResponse {
     Outputs(TextualOutputResponse),
     Injections(InjectionResponse),
     Parameters(ParameterResponse),
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum BinaryResponse {
     Outputs(BinaryOutputResponse),
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum OutputRequest {
     GetFields {
         id: usize,
@@ -63,7 +63,7 @@ pub enum OutputRequest {
     UnsubscribeEverything,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum TextualOutputResponse {
     GetFields {
         id: usize,
@@ -86,13 +86,13 @@ pub enum TextualOutputResponse {
     },
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum TextualDataOrBinaryReference {
     TextualData { data: Value },
     BinaryReference { reference_id: usize },
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum BinaryOutputResponse {
     GetNext {
         reference_id: usize,
@@ -103,7 +103,7 @@ pub enum BinaryOutputResponse {
     },
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum InjectionRequest {
     Set {
         id: usize,
@@ -118,7 +118,7 @@ pub enum InjectionRequest {
     },
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum InjectionResponse {
     Set {
         id: usize,
@@ -130,7 +130,7 @@ pub enum InjectionResponse {
     },
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ParameterRequest {
     GetHierarchy { id: usize },
     GetCurrent { id: usize, path: Path },
@@ -139,7 +139,7 @@ pub enum ParameterRequest {
     Update { id: usize, path: Path, data: Value },
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ParameterResponse {
     GetHierarchy {
         id: usize,
@@ -167,7 +167,7 @@ pub enum ParameterResponse {
     },
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Format {
     Textual,
     Binary,
