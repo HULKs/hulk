@@ -82,6 +82,7 @@ pub async fn receiver(
                             continue;
                         }
                     };
+                    println!("{message:?}");
                     match message {
                         TextualResponse::Outputs(outputs_message) => match outputs_message {
                             TextualOutputResponse::GetFields { id, fields } => {
@@ -96,9 +97,33 @@ pub async fn receiver(
                                 }
                             }
                             TextualOutputResponse::GetNext { id, result } => todo!(),
-                            TextualOutputResponse::Subscribe { id, result } => todo!(),
-                            TextualOutputResponse::Unsubscribe { id, result } => todo!(),
-                            TextualOutputResponse::SubscribedData { items } => todo!(),
+                            TextualOutputResponse::Subscribe { id, result } => {
+                                let response = responder::Response::Subscribe(result);
+                                if let Err(error) = responder
+                                    .send(responder::Message::Respond { id, response })
+                                    .await
+                                {
+                                    error!("{error}");
+                                }
+                            }
+                            TextualOutputResponse::Unsubscribe { id, result } => {
+                                let response = responder::Response::Unsubscribe(result);
+                                if let Err(error) = responder
+                                    .send(responder::Message::Respond { id, response })
+                                    .await
+                                {
+                                    error!("{error}");
+                                }
+                            }
+,
+                            TextualOutputResponse::SubscribedData { items } => {
+                                if let Err(error) = output_subscription_manager
+                                    .send(output_subscription_manager::Message::Update { items })
+                                    .await
+                                {
+                                    error!("{error}");
+                                }
+                            }
                         },
                         message => todo!("unimplemented message {message:?}"),
                     }
@@ -177,7 +202,7 @@ pub async fn receiver(
                 }
                 tokio_tungstenite::tungstenite::Message::Binary(data) => {
                     let length = LittleEndian::read_u32(&data[0..4]);
-                    let image_id = LittleEndian::read_u32(&data[4..8]);
+                    let image_id = LittleEndian::read_u32(&data[4..8]) as usize;
                     let data = data[8..].to_vec();
                     assert_eq!(length as usize, data.len());
 

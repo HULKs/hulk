@@ -157,7 +157,7 @@ async fn value_buffer(
                             }
                         }
                     },
-                    None => break,
+                    None => continue,
                 }
             }
             maybe_command = command_receiver.recv() => {
