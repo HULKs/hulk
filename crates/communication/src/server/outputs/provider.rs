@@ -48,7 +48,7 @@ where
         drop(outputs_sender);
 
         let mut subscriptions = HashMap::new();
-        let mut next_binary_reference_id = Wrapping(0_usize);
+        let mut next_binary_reference_id = Wrapping(0);
         loop {
             let subscriptions_state = select! {
                 request = request_receiver.recv() => {
