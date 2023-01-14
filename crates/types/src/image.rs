@@ -1,16 +1,22 @@
 use color_eyre::{eyre::Context, Result};
-use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
-use serde_bytes::Bytes;
+use serde::{
+    de::{self, Visitor},
+    ser::SerializeStruct,
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+use serde_bytes::{ByteBuf, Bytes};
 use serialize_hierarchy::SerializeHierarchy;
 use std::{
-    fmt::{Debug, Error, Formatter},
+    fmt::{self, Debug, Formatter},
     mem::{size_of, ManuallyDrop},
     ops::Index,
     path::Path,
     sync::Arc,
 };
 
-use image::{codecs::jpeg::JpegEncoder, io::Reader, RgbImage};
+use image::{
+    codecs::jpeg::JpegEncoder, io::Reader, load_from_memory_with_format, ImageFormat, RgbImage,
+};
 use nalgebra::Point2;
 
 use crate::{Rgb, YCbCr444};
@@ -19,7 +25,7 @@ use super::color::YCbCr422;
 
 const SERIALIZATION_JPEG_QUALITY: u8 = 40;
 
-#[derive(Clone, Default, Deserialize, SerializeHierarchy)]
+#[derive(Clone, Default, SerializeHierarchy)]
 pub struct Image {
     buffer: Arc<Vec<YCbCr422>>,
     width_422: u32,
@@ -27,10 +33,33 @@ pub struct Image {
 }
 
 impl Debug for Image {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), Error> {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        struct DebugBuffer {
+            buffer_length: usize,
+        }
+
+        impl Debug for DebugBuffer {
+            fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+                formatter.write_fmt(format_args!(
+                    "[{} element{}]",
+                    self.buffer_length,
+                    match self.buffer_length {
+                        0 => "s",
+                        1 => "",
+                        _ => "s...",
+                    }
+                ))
+            }
+        }
+
         formatter
             .debug_struct("Image")
-            .field("buffer", &"...")
+            .field(
+                "buffer",
+                &DebugBuffer {
+                    buffer_length: self.buffer.len(),
+                },
+            )
             .field("width_422", &self.width_422)
             .field("height", &self.height)
             .finish()
@@ -113,8 +142,19 @@ impl Image {
         Ok(image.save(file)?)
     }
 
+    pub fn load_from_rgb_file(path: impl AsRef<Path>) -> Result<Self> {
+        let png = Reader::open(path)?.decode()?.into_rgb8();
+
+        let width = png.width();
+        let height = png.height();
+
+        let pixels = buffer_422_from_rgb_image(png);
+
+        Ok(Self::from_ycbcr_buffer(pixels, width / 2, height))
+    }
+
     pub fn save_to_rgb_file(&self, file: impl AsRef<Path> + Debug) -> Result<()> {
-        RgbImage::from(self)
+        rgb_image_from_buffer_422(&self.buffer, self.width_422, self.height)
             .save(&file)
             .wrap_err_with(|| format!("failed to save image to {file:?}"))
     }
@@ -173,39 +213,60 @@ impl Index<Point2<usize>> for Image {
     }
 }
 
-impl From<&Image> for RgbImage {
-    fn from(image: &Image) -> Self {
-        let mut rgb_image = RgbImage::new(2 * image.width_422, image.height);
-        for y in 0..image.height {
-            for x in 0..image.width_422 {
-                let pixel = image.buffer[(y * image.width_422 + x) as usize];
-                let left_color: Rgb = YCbCr444 {
-                    y: pixel.y1,
-                    cb: pixel.cb,
-                    cr: pixel.cr,
-                }
-                .into();
-                let right_color: Rgb = YCbCr444 {
-                    y: pixel.y2,
-                    cb: pixel.cb,
-                    cr: pixel.cr,
-                }
-                .into();
-                rgb_image.put_pixel(
-                    x * 2,
-                    y,
-                    image::Rgb([left_color.r, left_color.g, left_color.b]),
-                );
-                rgb_image.put_pixel(
-                    x * 2 + 1,
-                    y,
-                    image::Rgb([right_color.r, right_color.g, right_color.b]),
-                );
-            }
-        }
+fn rgb_image_from_buffer_422(buffer: &[YCbCr422], width_422: u32, height: u32) -> RgbImage {
+    let mut rgb_image = RgbImage::new(2 * width_422, height);
 
-        rgb_image
+    for y in 0..height {
+        for x in 0..width_422 {
+            let pixel = buffer[(y * width_422 + x) as usize];
+            let left_color: Rgb = YCbCr444 {
+                y: pixel.y1,
+                cb: pixel.cb,
+                cr: pixel.cr,
+            }
+            .into();
+            let right_color: Rgb = YCbCr444 {
+                y: pixel.y2,
+                cb: pixel.cb,
+                cr: pixel.cr,
+            }
+            .into();
+            rgb_image.put_pixel(
+                x * 2,
+                y,
+                image::Rgb([left_color.r, left_color.g, left_color.b]),
+            );
+            rgb_image.put_pixel(
+                x * 2 + 1,
+                y,
+                image::Rgb([right_color.r, right_color.g, right_color.b]),
+            );
+        }
     }
+
+    rgb_image
+}
+
+fn buffer_422_from_rgb_image(rgb_image: RgbImage) -> Vec<YCbCr422> {
+    rgb_image
+        .into_vec()
+        .chunks(6)
+        .map(|pixel| {
+            let left_color: YCbCr444 = Rgb {
+                r: pixel[0],
+                g: pixel[1],
+                b: pixel[2],
+            }
+            .into();
+            let right_color: YCbCr444 = Rgb {
+                r: pixel[3],
+                g: pixel[4],
+                b: pixel[5],
+            }
+            .into();
+            [left_color, right_color].into()
+        })
+        .collect()
 }
 
 impl Serialize for Image {
@@ -218,7 +279,7 @@ impl Serialize for Image {
         if is_human_readable {
             state.serialize_field("buffer", &self.buffer)?;
         } else {
-            let rgb_image: RgbImage = self.into();
+            let rgb_image = rgb_image_from_buffer_422(&self.buffer, self.width_422, self.height);
             let mut rgb_image_buffer = vec![];
             {
                 let mut encoder = JpegEncoder::new_with_quality(
@@ -237,11 +298,129 @@ impl Serialize for Image {
     }
 }
 
+impl<'de> Deserialize<'de> for Image {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        enum Field {
+            CompactBuffer,
+            ReadableBuffer,
+            Width422,
+            Height,
+        }
+        const FIELDS: &'static [&'static str] = &["buffer", "width_422", "height"];
+
+        impl<'de> Deserialize<'de> for Field {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                struct FieldVisitor {
+                    is_human_readable: bool,
+                }
+
+                impl<'de> Visitor<'de> for FieldVisitor {
+                    type Value = Field;
+
+                    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+                        formatter.write_str("`buffer`, `width_422`, or `height`")
+                    }
+
+                    fn visit_str<E>(self, field: &str) -> std::result::Result<Self::Value, E>
+                    where
+                        E: de::Error,
+                    {
+                        match field {
+                            "buffer" => Ok(if self.is_human_readable {
+                                Field::ReadableBuffer
+                            } else {
+                                Field::CompactBuffer
+                            }),
+                            "width_422" => Ok(Field::Width422),
+                            "height" => Ok(Field::Height),
+                            _ => Err(de::Error::unknown_field(field, FIELDS)),
+                        }
+                    }
+                }
+
+                let is_human_readable = deserializer.is_human_readable();
+                deserializer.deserialize_identifier(FieldVisitor { is_human_readable })
+            }
+        }
+
+        struct ImageVisitor;
+
+        impl<'de> Visitor<'de> for ImageVisitor {
+            type Value = Image;
+
+            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+                formatter.write_str("struct Image")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: de::MapAccess<'de>,
+            {
+                let mut buffer = None;
+                let mut width_422 = None;
+                let mut height = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::CompactBuffer => {
+                            if buffer.is_some() {
+                                return Err(de::Error::duplicate_field("buffer"));
+                            }
+                            let rgb_image_buffer: ByteBuf = map.next_value()?;
+                            let rgb_image =
+                                load_from_memory_with_format(&rgb_image_buffer, ImageFormat::Jpeg)
+                                    .map_err(de::Error::custom)?
+                                    .into_rgb8();
+                            buffer = Some(Arc::new(buffer_422_from_rgb_image(rgb_image)));
+                        }
+                        Field::ReadableBuffer => {
+                            if buffer.is_some() {
+                                return Err(de::Error::duplicate_field("buffer"));
+                            }
+                            buffer = Some(map.next_value()?);
+                        }
+                        Field::Width422 => {
+                            if width_422.is_some() {
+                                return Err(de::Error::duplicate_field("width_422"));
+                            }
+                            width_422 = Some(map.next_value()?);
+                        }
+                        Field::Height => {
+                            if height.is_some() {
+                                return Err(de::Error::duplicate_field("height"));
+                            }
+                            height = Some(map.next_value()?);
+                        }
+                    }
+                }
+
+                let buffer = buffer.ok_or_else(|| de::Error::missing_field("buffer"))?;
+                let width_422 = width_422.ok_or_else(|| de::Error::missing_field("width_422"))?;
+                let height = height.ok_or_else(|| de::Error::missing_field("height"))?;
+
+                Ok(Image {
+                    buffer,
+                    width_422,
+                    height,
+                })
+            }
+        }
+
+        deserializer.deserialize_struct("Image", FIELDS, ImageVisitor)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::mem::transmute;
 
-    use serde_test::{assert_ser_tokens, Configure, Token};
+    use serde_test::{assert_tokens, Configure, Token};
 
     use super::*;
 
@@ -286,19 +465,51 @@ mod tests {
         );
     }
 
+    #[derive(Debug, Deserialize, Serialize)]
+    struct ImageTestingWrapper(Image);
+
+    impl PartialEq for ImageTestingWrapper {
+        fn eq(&self, other: &Self) -> bool {
+            let buffers_are_equal = if other.0.buffer.len() == 1
+                && other.0.buffer[0]
+                    == (YCbCr422 {
+                        y1: 63,
+                        cb: 127,
+                        y2: 191,
+                        cr: 255,
+                    }) {
+                // special case for test `compact_image_serialization` because of JPEG and YCbCr conversion losses
+                self.0.buffer.len() == 1
+                    && self.0.buffer[0]
+                        == YCbCr422 {
+                            y1: 75,
+                            cb: 129,
+                            y2: 151,
+                            cr: 216,
+                        }
+            } else {
+                self.0.buffer == other.0.buffer
+            };
+            buffers_are_equal
+                && self.0.width_422 == other.0.width_422
+                && self.0.height == other.0.height
+        }
+    }
+
     #[test]
-    fn image_serializes_with_compact_serializer() {
-        let image = Image {
+    fn compact_image_serialization() {
+        let image = ImageTestingWrapper(Image {
             buffer: Arc::new(vec![YCbCr422 {
-                y1: 0,
-                cb: 1,
-                y2: 2,
-                cr: 3,
+                y1: 63,
+                cb: 127,
+                y2: 191,
+                cr: 255,
             }]),
             width_422: 1,
             height: 1,
-        };
-        let rgb_image: RgbImage = (&image).into();
+        });
+        let rgb_image =
+            rgb_image_from_buffer_422(&image.0.buffer, image.0.width_422, image.0.height);
         let mut rgb_image_buffer = vec![];
         {
             let mut encoder =
@@ -311,9 +522,12 @@ mod tests {
         let static_rgb_image_buffer: &'static [u8] =
             unsafe { transmute(rgb_image_buffer.as_slice()) };
 
-        assert_ser_tokens(
+        assert_tokens(
             &image.compact(),
             &[
+                Token::NewtypeStruct {
+                    name: "TestingImageWrapper",
+                },
                 Token::Struct {
                     name: "Image",
                     len: 3,
@@ -330,8 +544,8 @@ mod tests {
     }
 
     #[test]
-    fn image_serializes_with_readable_serializer() {
-        let image = Image {
+    fn readable_image_serialization() {
+        let image = ImageTestingWrapper(Image {
             buffer: Arc::new(vec![YCbCr422 {
                 y1: 0,
                 cb: 1,
@@ -340,11 +554,14 @@ mod tests {
             }]),
             width_422: 1,
             height: 1,
-        };
+        });
 
-        assert_ser_tokens(
+        assert_tokens(
             &image.readable(),
             &[
+                Token::NewtypeStruct {
+                    name: "TestingImageWrapper",
+                },
                 Token::Struct {
                     name: "Image",
                     len: 3,
