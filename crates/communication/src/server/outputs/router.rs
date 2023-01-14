@@ -121,7 +121,7 @@ async fn handle_request(
                         .client
                         .response_sender
                         .send(Response::Textual(TextualResponse::Outputs(
-                            TextualOutputResponse::Subscribe {
+                            TextualOutputResponse::Unsubscribe {
                                 id: *id,
                                 result: Err(format!("unknown subscription ID {subscription_id}")),
                             },
@@ -144,7 +144,7 @@ async fn handle_request(
                         .client
                         .response_sender
                         .send(Response::Textual(TextualResponse::Outputs(
-                            TextualOutputResponse::Subscribe {
+                            TextualOutputResponse::Unsubscribe {
                                 id: *id,
                                 result: Err(format!("unknown cycler_instance {cycler_instance:?}")),
                             },
