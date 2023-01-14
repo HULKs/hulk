@@ -309,7 +309,7 @@ impl<'de> Deserialize<'de> for Image {
             Width422,
             Height,
         }
-        const FIELDS: &'static [&'static str] = &["buffer", "width_422", "height"];
+        const FIELDS: &[&str] = &["buffer", "width_422", "height"];
 
         impl<'de> Deserialize<'de> for Field {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -526,7 +526,7 @@ mod tests {
             &image.compact(),
             &[
                 Token::NewtypeStruct {
-                    name: "TestingImageWrapper",
+                    name: "ImageTestingWrapper",
                 },
                 Token::Struct {
                     name: "Image",
@@ -560,7 +560,7 @@ mod tests {
             &image.readable(),
             &[
                 Token::NewtypeStruct {
-                    name: "TestingImageWrapper",
+                    name: "ImageTestingWrapper",
                 },
                 Token::Struct {
                     name: "Image",

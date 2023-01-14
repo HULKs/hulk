@@ -20,10 +20,7 @@ pub enum Request {
 pub enum Response {
     Textual(TextualResponse),
     Binary(BinaryResponse),
-    Close {
-        code: CloseCode,
-        reason: Reason,
-    },
+    Close { code: CloseCode, reason: Reason },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
