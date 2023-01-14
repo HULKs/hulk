@@ -24,12 +24,7 @@ impl FromStr for CyclerOutput {
         let (cycler_str, output_str) = string.split_once('.').ok_or_else(|| {
             eyre!("expected '.' in subscription path (e.g. 'control.main.foo_bar')")
         })?;
-        let cycler = match cycler_str {
-            "Control" => Cycler::Control,
-            "VisionTop" => Cycler::VisionTop,
-            "VisionBottom" => Cycler::VisionBottom,
-            _ => bail!("unknown cycler '{cycler_str}'"),
-        };
+        let cycler = Cycler::from_str(cycler_str)?;
         let (output_str, path) = output_str.split_once('.').ok_or_else(|| {
             eyre!("expected '.' after output source (e.g. 'control.main.foo_bar')")
         })?;
@@ -61,6 +56,19 @@ impl Display for Cycler {
             Cycler::VisionTop => f.write_str("VisionTop"),
             Cycler::VisionBottom => f.write_str("VisionBottom"),
         }
+    }
+}
+
+impl FromStr for Cycler {
+    type Err = Report;
+
+    fn from_str(string: &str) -> Result<Self, Self::Err> {
+        Ok(match string {
+            "Control" => Cycler::Control,
+            "VisionTop" => Cycler::VisionTop,
+            "VisionBottom" => Cycler::VisionBottom,
+            _ => bail!("unknown cycler '{string}'"),
+        })
     }
 }
 

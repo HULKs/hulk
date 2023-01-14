@@ -21,15 +21,15 @@ impl Layer for ImageSegments {
 
     fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
         let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("control.main.robot_to_field").unwrap());
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
         let image_segments_bottom = nao
-            .subscribe_output(CyclerOutput::from_str("vision_bottom.main.image_segments").unwrap());
+            .subscribe_output(CyclerOutput::from_str("VisionBottom.main.image_segments").unwrap());
         let camera_matrix_bottom = nao
-            .subscribe_output(CyclerOutput::from_str("vision_bottom.main.camera_matrix").unwrap());
+            .subscribe_output(CyclerOutput::from_str("VisionBottom.main.camera_matrix").unwrap());
         let image_segments_top =
-            nao.subscribe_output(CyclerOutput::from_str("vision_top.main.image_segments").unwrap());
+            nao.subscribe_output(CyclerOutput::from_str("VisionTop.main.image_segments").unwrap());
         let camera_matrix_top =
-            nao.subscribe_output(CyclerOutput::from_str("vision_top.main.camera_matrix").unwrap());
+            nao.subscribe_output(CyclerOutput::from_str("VisionTop.main.camera_matrix").unwrap());
         Self {
             robot_to_field,
             image_segments_bottom,

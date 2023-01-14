@@ -21,11 +21,11 @@ impl Layer for KickDecisions {
 
     fn new(nao: Arc<Nao>) -> Self {
         let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("control.main.robot_to_field").unwrap());
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
         let kick_decisions = nao
-            .subscribe_output(CyclerOutput::from_str("control.additional.kick_decisions").unwrap());
+            .subscribe_output(CyclerOutput::from_str("Control.additional.kick_decisions").unwrap());
         let kick_targets = nao
-            .subscribe_output(CyclerOutput::from_str("control.additional.kick_targets").unwrap());
+            .subscribe_output(CyclerOutput::from_str("Control.additional.kick_targets").unwrap());
         Self {
             robot_to_field,
             kick_decisions,

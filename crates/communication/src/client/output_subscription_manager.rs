@@ -247,19 +247,6 @@ async fn query_output_hierarchy(
                 };
             }
             response => error!("unexpected response: {response:?}"),
-            // Ok(value) => {
-            //     let hierarchy = serde_json::from_value(value);
-            //     match hierarchy {
-            //         Ok(hierarchy) => {
-            //             if let Err(error) = manager.send(Message::UpdateFields { hierarchy }).await
-            //             {
-            //                 error!("{error}");
-            //             };
-            //         }
-            //         Err(error) => error!("Failed to deserialize OutputHierarchy: {}", error),
-            //     }
-            // }
-            // Err(error) => error!("Failed to get output hierarchy: {}", error),
         }
     });
     Ok(())
@@ -337,8 +324,6 @@ async fn subscribe(
         let result = match response {
             Response::Subscribe(result) => result,
             response => return error!("unexpected response: {response:?}"),
-            // Ok(_) => SubscriberMessage::SubscriptionSuccess,
-            // Err(error) => SubscriberMessage::SubscriptionFailure { info: error },
         };
         let message = match result {
             Ok(()) => SubscriberMessage::SubscriptionSuccess,
