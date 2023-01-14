@@ -137,8 +137,13 @@ pub async fn output_subscription_manager(
                 }
                 if is_empty {
                     manager.subscriptions.remove(&output);
-                    if let Some(requester) = &requester {
-                        unsubscribe(output, &id_tracker, &responder, requester).await;
+                    let maybe_subscription_id = manager
+                        .ids
+                        .iter()
+                        .find_map(|(id, other_output)| (&output == other_output).then_some(*id));
+                    if let (Some(requester), Some(id)) = (&requester, maybe_subscription_id) {
+                        manager.ids.remove(&id);
+                        unsubscribe(id, &id_tracker, &responder, requester).await;
                     }
                 }
             }
@@ -350,7 +355,7 @@ async fn subscribe(
 }
 
 async fn unsubscribe(
-    output: CyclerOutput,
+    subscription_id: usize,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
     requester: &mpsc::Sender<Request>,
@@ -368,7 +373,7 @@ async fn unsubscribe(
     }
     let request = Request::Outputs(OutputRequest::Unsubscribe {
         id: message_id,
-        subscription_id: 0, // TODO
+        subscription_id,
     });
     if let Err(error) = requester.send(request).await {
         error!("{error}")
