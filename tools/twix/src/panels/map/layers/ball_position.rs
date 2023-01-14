@@ -20,10 +20,10 @@ impl Layer for BallPosition {
 
     fn new(nao: Arc<Nao>) -> Self {
         let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("control.main.robot_to_field").unwrap());
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
         robot_to_field.set_buffer_size(100);
         let ball_position =
-            nao.subscribe_output(CyclerOutput::from_str("control.main.ball_position").unwrap());
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.ball_position").unwrap());
         ball_position.set_buffer_size(100);
         Self {
             robot_to_field,

@@ -19,7 +19,7 @@ impl Layer for RobotPose {
 
     fn new(nao: Arc<Nao>) -> Self {
         let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("control.main.robot_to_field").unwrap());
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
         Self { robot_to_field }
     }
 

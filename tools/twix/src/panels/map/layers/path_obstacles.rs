@@ -20,9 +20,9 @@ impl Layer for PathObstacles {
 
     fn new(nao: Arc<Nao>) -> Self {
         let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("control.main.robot_to_field").unwrap());
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
         let path_obstacles = nao
-            .subscribe_output(CyclerOutput::from_str("control.additional.path_obstacles").unwrap());
+            .subscribe_output(CyclerOutput::from_str("Control.additional.path_obstacles").unwrap());
         Self {
             robot_to_field,
             path_obstacles,

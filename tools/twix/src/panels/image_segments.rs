@@ -41,7 +41,7 @@ impl Panel for ImageSegmentsPanel {
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
         let value_buffer =
-            nao.subscribe_output(CyclerOutput::from_str("vision_top.main.image_segments").unwrap());
+            nao.subscribe_output(CyclerOutput::from_str("VisionTop.main.image_segments").unwrap());
         Self {
             nao,
             value_buffer,
@@ -81,16 +81,16 @@ impl Widget for &mut ImageSegmentsPanel {
             if camera_selection_changed || filtered_segments_checkbox.changed() {
                 let output = match (self.camera_position, self.use_filtered_segments) {
                     (CameraPosition::Top, false) => {
-                        CyclerOutput::from_str("vision_top.main.image_segments").unwrap()
+                        CyclerOutput::from_str("VisionTop.main.image_segments").unwrap()
                     }
                     (CameraPosition::Top, true) => {
-                        CyclerOutput::from_str("vision_top.main.filtered_segments").unwrap()
+                        CyclerOutput::from_str("VisionTop.main.filtered_segments").unwrap()
                     }
                     (CameraPosition::Bottom, false) => {
-                        CyclerOutput::from_str("vision_bottom.main.image_segments").unwrap()
+                        CyclerOutput::from_str("VisionBottom.main.image_segments").unwrap()
                     }
                     (CameraPosition::Bottom, true) => {
-                        CyclerOutput::from_str("vision_bottom.main.filtered_segments").unwrap()
+                        CyclerOutput::from_str("VisionBottom.main.filtered_segments").unwrap()
                     }
                 };
                 self.value_buffer = self.nao.subscribe_output(output);

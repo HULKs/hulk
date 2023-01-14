@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use color_eyre::{eyre::eyre, Result};
 use communication::client::Cycler;
@@ -35,15 +35,22 @@ impl Panel for ImagePanel {
     const NAME: &'static str = "Image";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let cycler_name = value
+        let cycler = value
             .and_then(|value| value.get("cycler"))
             .and_then(|value| value.as_str())
-            .unwrap_or("vision_top");
-        let cycler = match cycler_name {
-            "vision_top" => Cycler::VisionTop,
-            "vision_bottom" => Cycler::VisionBottom,
-            _ => panic!("Unknown cycler '{cycler_name}'"),
-        };
+            .map(Cycler::from_str)
+            .and_then(|cycler| match cycler {
+                Ok(cycler @ (Cycler::VisionTop | Cycler::VisionBottom)) => Some(cycler),
+                Ok(cycler) => {
+                    error!("Invalid vision cycler: {cycler}");
+                    None
+                }
+                Err(error) => {
+                    error!("{error}");
+                    None
+                }
+            })
+            .unwrap_or(Cycler::VisionTop);
         let image_buffer = nao.subscribe_image(cycler);
         let cycler_selector = VisionCyclerSelector::new(cycler);
         let overlays = Overlays::new(
@@ -60,20 +67,11 @@ impl Panel for ImagePanel {
     }
 
     fn save(&self) -> Value {
-        let cycler = match self.cycler_selector.selected_cycler() {
-            Cycler::VisionTop => "vision_top",
-            Cycler::VisionBottom => "vision_bottom",
-            cycler => {
-                error!("Invalid camera cycler: {cycler}");
-                "vision_top"
-            }
-        }
-        .to_string();
-
+        let cycler = self.cycler_selector.selected_cycler();
         let overlays = self.overlays.save();
 
         json!({
-            "cycler": cycler,
+            "cycler": cycler.to_string(),
             "overlays":overlays,
         })
     }

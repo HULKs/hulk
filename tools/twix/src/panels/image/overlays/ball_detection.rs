@@ -28,7 +28,7 @@ impl Overlay for BallDetection {
             ),
             filtered_balls: nao.subscribe_output(
                 CyclerOutput::from_str(&format!(
-                    "control.additional.filtered_balls_in_image_{}",
+                    "Control.additional.filtered_balls_in_image_{}",
                     camera_position,
                 ))
                 .unwrap(),
