@@ -12,7 +12,9 @@ nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true }
+serde_bytes = { workspace = true }
 serde_json = { workspace = true }
+serde_test = { workspace = true }
 serialize_hierarchy = { workspace = true }
 spl_network_messages = { workspace = true }
 tokio = { workspace = true }
