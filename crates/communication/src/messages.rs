@@ -19,7 +19,6 @@ pub enum Request {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Response {
     Textual(TextualResponse),
-    #[allow(dead_code)] // TODO
     Binary(BinaryResponse),
     Close {
         code: CloseCode,

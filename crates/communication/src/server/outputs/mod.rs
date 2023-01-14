@@ -52,7 +52,6 @@ impl Eq for Client {}
 #[derive(Debug)]
 struct Subscription {
     pub path: Path,
-    #[allow(dead_code)] // TODO
     pub format: Format,
     pub once: bool,
 }
