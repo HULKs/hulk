@@ -3199,6 +3199,7 @@ dependencies = [
 name = "serialize_hierarchy"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "color-eyre",
  "nalgebra",
  "serde",
@@ -3828,6 +3829,7 @@ name = "types"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "bincode",
  "color-eyre",
  "image",
  "nalgebra",

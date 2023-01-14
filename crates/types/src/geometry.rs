@@ -2,8 +2,7 @@ use approx::{AbsDiffEq, RelativeEq};
 use color_eyre::{eyre::bail, Result};
 use nalgebra::{distance, vector, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use serialize_hierarchy::{HierarchyType, SerializeHierarchy};
+use serialize_hierarchy::{Format, HierarchyType, SerializeHierarchy, SerializedValue};
 
 use std::f32::consts::PI;
 
@@ -200,11 +199,11 @@ impl LineSegment {
 pub struct TwoLineSegments(pub LineSegment, pub LineSegment);
 
 impl SerializeHierarchy for TwoLineSegments {
-    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
+    fn serialize_hierarchy(&self, field_path: &str, _format: Format) -> Result<SerializedValue> {
         bail!("cannot access TwoLineSegments with path: {}", field_path)
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> Result<()> {
+    fn deserialize_hierarchy(&mut self, field_path: &str, _data: SerializedValue) -> Result<()> {
         bail!("cannot access TwoLineSegments with path: {}", field_path)
     }
 

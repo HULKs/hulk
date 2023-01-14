@@ -6,6 +6,8 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+pub use bincode;
+use bincode::serialize;
 use color_eyre::{eyre::bail, Result};
 use nalgebra::{
     Isometry2, Isometry3, Point2, Point3, SMatrix, UnitComplex, Vector2, Vector3, Vector4,
@@ -35,21 +37,33 @@ pub enum HierarchyType {
 }
 
 pub trait SerializeHierarchy {
-    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value>;
-    fn deserialize_hierarchy(&mut self, field_path: &str, data: Value) -> Result<()>;
+    fn serialize_hierarchy(&self, field_path: &str, format: Format) -> Result<SerializedValue>;
+    fn deserialize_hierarchy(&mut self, field_path: &str, data: SerializedValue) -> Result<()>;
     fn exists(field_path: &str) -> bool;
     fn get_hierarchy() -> HierarchyType;
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Format {
+    Textual,
+    Binary,
+}
+
+#[derive(Clone, Debug)]
+pub enum SerializedValue {
+    Textual(Value),
+    Binary(Vec<u8>),
 }
 
 impl<T> SerializeHierarchy for Arc<T>
 where
     T: SerializeHierarchy,
 {
-    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
-        self.deref().serialize_hierarchy(field_path)
+    fn serialize_hierarchy(&self, field_path: &str, format: Format) -> Result<SerializedValue> {
+        self.deref().serialize_hierarchy(field_path, format)
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> Result<()> {
+    fn deserialize_hierarchy(&mut self, field_path: &str, _data: SerializedValue) -> Result<()> {
         bail!("Cannot deserialize into Arc with path: `{field_path}`")
     }
 
@@ -66,14 +80,19 @@ impl<T> SerializeHierarchy for Option<T>
 where
     T: SerializeHierarchy,
 {
-    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
+    fn serialize_hierarchy(&self, field_path: &str, format: Format) -> Result<SerializedValue> {
         match self {
-            Some(some) => some.serialize_hierarchy(field_path),
-            None => Ok(Value::Null),
+            Some(some) => some.serialize_hierarchy(field_path, format),
+            None => Ok(match format {
+                Format::Textual => SerializedValue::Textual(Value::Null),
+                Format::Binary => SerializedValue::Binary(
+                    serialize::<Option<()>>(&None).expect("failed to serialize None"),
+                ),
+            }),
         }
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> Result<()> {
+    fn deserialize_hierarchy(&mut self, field_path: &str, _data: SerializedValue) -> Result<()> {
         bail!("Cannot deserialize into Option with path: `{field_path}`")
     }
 
@@ -89,11 +108,11 @@ where
 }
 
 impl<T> SerializeHierarchy for HashSet<T> {
-    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
+    fn serialize_hierarchy(&self, field_path: &str, _format: Format) -> Result<SerializedValue> {
         bail!("cannot access HashSet with path: {}", field_path)
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> Result<()> {
+    fn deserialize_hierarchy(&mut self, field_path: &str, _data: SerializedValue) -> Result<()> {
         bail!("cannot access HashSet with path: {}", field_path)
     }
 
@@ -107,11 +126,11 @@ impl<T> SerializeHierarchy for HashSet<T> {
 }
 
 impl<T> SerializeHierarchy for Vec<T> {
-    fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
+    fn serialize_hierarchy(&self, field_path: &str, _format: Format) -> Result<SerializedValue> {
         bail!("cannot access Vec with path: {}", field_path)
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> Result<()> {
+    fn deserialize_hierarchy(&mut self, field_path: &str, _data: SerializedValue) -> Result<()> {
         bail!("cannot access Vec with path: {}", field_path)
     }
 
@@ -127,7 +146,11 @@ impl<T> SerializeHierarchy for Vec<T> {
 macro_rules! serialize_hierarchy_primary_impl {
     ($type:ty) => {
         impl SerializeHierarchy for $type {
-            fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
+            fn serialize_hierarchy(
+                &self,
+                field_path: &str,
+                _format: Format,
+            ) -> Result<SerializedValue> {
                 bail!(
                     "cannot access {} with path: {}",
                     stringify!($type),
@@ -135,7 +158,11 @@ macro_rules! serialize_hierarchy_primary_impl {
                 )
             }
 
-            fn deserialize_hierarchy(&mut self, field_path: &str, _data: Value) -> Result<()> {
+            fn deserialize_hierarchy(
+                &mut self,
+                field_path: &str,
+                _data: SerializedValue,
+            ) -> Result<()> {
                 bail!(
                     "cannot access {} with path: {}",
                     stringify!($type),
