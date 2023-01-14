@@ -1,13 +1,13 @@
 use std::{
     collections::{hash_map::Entry, BTreeMap, HashMap, HashSet},
+    num::Wrapping,
     sync::Arc,
 };
 
 use framework::{Reader, Writer};
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use log::error;
-use serde_json::Value;
-use serialize_hierarchy::{HierarchyType, SerializeHierarchy};
+use serialize_hierarchy::{HierarchyType, SerializeHierarchy, SerializedValue};
 use tokio::{
     select, spawn,
     sync::{
@@ -18,7 +18,8 @@ use tokio::{
 };
 
 use crate::messages::{
-    OutputRequest, Response, TextualDataOrBinaryReference, TextualOutputResponse, TextualResponse,
+    BinaryOutputResponse, BinaryResponse, Format, OutputRequest, Response,
+    TextualDataOrBinaryReference, TextualOutputResponse, TextualResponse,
 };
 
 use super::{Client, ClientRequest, Request, Subscription};
@@ -47,6 +48,7 @@ where
         drop(outputs_sender);
 
         let mut subscriptions = HashMap::new();
+        let mut next_binary_reference_id = Wrapping(0_usize);
         loop {
             let subscriptions_state = select! {
                 request = request_receiver.recv() => {
@@ -62,7 +64,7 @@ where
                     }
                 },
                 _ = outputs_changed.notified() => {
-                    handle_notified_output(&outputs_reader, &mut subscriptions).await
+                    handle_notified_output(&outputs_reader, &mut subscriptions, &mut next_binary_reference_id).await
                 },
             };
             if subscriptions_state == SubscriptionsState::Changed {
@@ -227,26 +229,57 @@ fn write_subscribed_outputs_from_subscriptions(
 async fn handle_notified_output(
     outputs_reader: &Reader<impl SerializeHierarchy>,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
+    next_binary_reference_id: &mut Wrapping<usize>,
 ) -> SubscriptionsState {
-    let mut get_next_items = HashMap::new();
-    let mut subscribed_items: HashMap<Client, HashMap<usize, Value>> = HashMap::new();
+    let mut textual_get_next_items = HashMap::new();
+    let mut textual_subscribed_items: HashMap<
+        Client,
+        HashMap<usize, TextualDataOrBinaryReference>,
+    > = HashMap::new();
+    let mut binary_get_next_items = HashMap::new();
+    let mut binary_subscribed_items: HashMap<Client, HashMap<usize, Vec<u8>>> = HashMap::new();
     let mut subscriptions_state = SubscriptionsState::Unchanged;
     {
         let output = outputs_reader.next();
         subscriptions.retain(|(client, subscription_id), subscription| {
-            let data = match output.serialize_hierarchy(&subscription.path) {
+            let format = match subscription.format {
+                Format::Textual => serialize_hierarchy::Format::Textual,
+                Format::Binary => serialize_hierarchy::Format::Binary,
+            };
+            let data = match output.serialize_hierarchy(&subscription.path, format) {
                 Ok(data) => data,
                 Err(error) => {
                     error!("failed to serialize {:?}: {error:?}", subscription.path);
                     return true;
                 }
             };
+            let data = match data {
+                SerializedValue::Textual(data) => {
+                    TextualDataOrBinaryReference::TextualData { data }
+                }
+                SerializedValue::Binary(data) => {
+                    let reference_id = next_binary_reference_id.0;
+                    *next_binary_reference_id += 1;
+                    if subscription.once {
+                        binary_get_next_items.insert(
+                            client.clone(),
+                            BinaryOutputResponse::GetNext { reference_id, data },
+                        );
+                    } else {
+                        binary_subscribed_items
+                            .entry(client.clone())
+                            .or_default()
+                            .insert(reference_id, data);
+                    }
+                    TextualDataOrBinaryReference::BinaryReference { reference_id }
+                }
+            };
             if subscription.once {
-                get_next_items.insert((client.clone(), *subscription_id), data);
+                textual_get_next_items.insert((client.clone(), *subscription_id), data);
                 subscriptions_state = SubscriptionsState::Changed;
                 false
             } else {
-                subscribed_items
+                textual_subscribed_items
                     .entry(client.clone())
                     .or_default()
                     .insert(*subscription_id, data);
@@ -255,35 +288,48 @@ async fn handle_notified_output(
         });
     }
     let send_results: Vec<_> = FuturesUnordered::from_iter(
-        get_next_items
+        textual_get_next_items
             .into_iter()
             .map(|((client, subscription_id), data)| {
                 (
                     client.response_sender,
                     Response::Textual(TextualResponse::Outputs(TextualOutputResponse::GetNext {
                         id: subscription_id,
-                        result: Ok(TextualDataOrBinaryReference::TextualData { data }),
+                        result: Ok(data),
                     })),
                 )
             })
-            .chain(subscribed_items.into_iter().map(|(client, items)| {
+            .chain(textual_subscribed_items.into_iter().map(|(client, items)| {
                 (
                     client.response_sender,
                     Response::Textual(TextualResponse::Outputs(
                         TextualOutputResponse::SubscribedData {
                             items: items
                                 .into_iter()
-                                .map(|(subscription_id, data)| {
-                                    (
-                                        subscription_id,
-                                        TextualDataOrBinaryReference::TextualData { data },
-                                    )
-                                })
+                                .map(|(subscription_id, data)| (subscription_id, data))
                                 .collect(),
                         },
                     )),
                 )
             }))
+            .chain(binary_get_next_items.into_iter().map(|(client, response)| {
+                (
+                    client.response_sender,
+                    Response::Binary(BinaryResponse::Outputs(response)),
+                )
+            }))
+            .chain(
+                binary_subscribed_items
+                    .into_iter()
+                    .map(|(client, referenced_items)| {
+                        (
+                            client.response_sender,
+                            Response::Binary(BinaryResponse::Outputs(
+                                BinaryOutputResponse::SubscribedData { referenced_items },
+                            )),
+                        )
+                    }),
+            )
             .map(|(response_sender, data)| async move { response_sender.send(data).await }),
     )
     .collect()
@@ -333,6 +379,7 @@ mod tests {
 
     use color_eyre::{eyre::eyre, Result};
     use framework::multiple_buffer_with_slots;
+    use serde_json::Value;
     use serialize_hierarchy::HierarchyType;
     use tokio::{sync::mpsc::error::TryRecvError, task::yield_now, time::timeout};
 
@@ -341,18 +388,22 @@ mod tests {
     use super::*;
 
     struct OutputsFake {
-        existing_fields: HashMap<String, Value>,
+        existing_fields: HashMap<String, SerializedValue>,
     }
 
     impl SerializeHierarchy for OutputsFake {
-        fn serialize_hierarchy(&self, field_path: &str) -> Result<Value> {
+        fn serialize_hierarchy(
+            &self,
+            field_path: &str,
+            _format: serialize_hierarchy::Format,
+        ) -> Result<SerializedValue> {
             self.existing_fields
                 .get(field_path)
                 .cloned()
                 .ok_or_else(|| eyre!("missing"))
         }
 
-        fn deserialize_hierarchy(&mut self, field_path: &str, data: Value) -> Result<()> {
+        fn deserialize_hierarchy(&mut self, field_path: &str, data: SerializedValue) -> Result<()> {
             self.existing_fields.insert(field_path.to_string(), data);
             Ok(())
         }
@@ -432,7 +483,7 @@ mod tests {
     async fn provider_registers_itself_at_router() {
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), 42.into())].into(),
+            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -484,7 +535,7 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), 42.into())].into(),
+            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -582,7 +633,7 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), 42.into())].into(),
+            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -679,7 +730,7 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), 42.into())].into(),
+            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -776,7 +827,7 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), 42.into())].into(),
+            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -830,7 +881,7 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), 42.into())].into(),
+            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -956,7 +1007,7 @@ mod tests {
         let path = "a.b.c".to_string();
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), 42.into())].into(),
+            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -1067,7 +1118,7 @@ mod tests {
         let value = Value::from(42);
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [(path.clone(), value.clone())].into(),
+            existing_fields: [(path.clone(), SerializedValue::Textual(value.clone()))].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -1191,7 +1242,7 @@ mod tests {
         let value = Value::from(42);
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [(path.clone(), value.clone())].into(),
+            existing_fields: [(path.clone(), SerializedValue::Textual(value.clone()))].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -1409,7 +1460,7 @@ mod tests {
         let value = Value::from(42);
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [(path.clone(), value.clone())].into(),
+            existing_fields: [(path.clone(), SerializedValue::Textual(value.clone()))].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
