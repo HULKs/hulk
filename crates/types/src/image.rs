@@ -1,5 +1,6 @@
-use color_eyre::Result;
-use serde::{Deserialize, Serialize};
+use color_eyre::{eyre::Context, Result};
+use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
+use serde_bytes::Bytes;
 use serialize_hierarchy::SerializeHierarchy;
 use std::{
     fmt::{Debug, Error, Formatter},
@@ -9,14 +10,16 @@ use std::{
     sync::Arc,
 };
 
-use image::{io::Reader, RgbImage};
+use image::{codecs::jpeg::JpegEncoder, io::Reader, RgbImage};
 use nalgebra::Point2;
 
 use crate::{Rgb, YCbCr444};
 
 use super::color::YCbCr422;
 
-#[derive(Clone, Default, Deserialize, Serialize, SerializeHierarchy)]
+const SERIALIZATION_JPEG_QUALITY: u8 = 40;
+
+#[derive(Clone, Default, Deserialize, SerializeHierarchy)]
 pub struct Image {
     buffer: Arc<Vec<YCbCr422>>,
     width_422: u32,
@@ -110,36 +113,10 @@ impl Image {
         Ok(image.save(file)?)
     }
 
-    pub fn save_to_rgb_file(&self, file: impl AsRef<Path>) -> Result<()> {
-        let mut image = RgbImage::new(2 * self.width_422, self.height);
-        for y in 0..self.height {
-            for x in 0..self.width_422 {
-                let pixel = self.buffer[(y * self.width_422 + x) as usize];
-                let left_color: Rgb = YCbCr444 {
-                    y: pixel.y1,
-                    cb: pixel.cb,
-                    cr: pixel.cr,
-                }
-                .into();
-                let right_color: Rgb = YCbCr444 {
-                    y: pixel.y2,
-                    cb: pixel.cb,
-                    cr: pixel.cr,
-                }
-                .into();
-                image.put_pixel(
-                    x * 2,
-                    y,
-                    image::Rgb([left_color.r, left_color.g, left_color.b]),
-                );
-                image.put_pixel(
-                    x * 2 + 1,
-                    y,
-                    image::Rgb([right_color.r, right_color.g, right_color.b]),
-                );
-            }
-        }
-        Ok(image.save(file)?)
+    pub fn save_to_rgb_file(&self, file: impl AsRef<Path> + Debug) -> Result<()> {
+        RgbImage::from(self)
+            .save(&file)
+            .wrap_err_with(|| format!("failed to save image to {file:?}"))
     }
 
     pub fn width(&self) -> u32 {
@@ -196,8 +173,76 @@ impl Index<Point2<usize>> for Image {
     }
 }
 
+impl From<&Image> for RgbImage {
+    fn from(image: &Image) -> Self {
+        let mut rgb_image = RgbImage::new(2 * image.width_422, image.height);
+        for y in 0..image.height {
+            for x in 0..image.width_422 {
+                let pixel = image.buffer[(y * image.width_422 + x) as usize];
+                let left_color: Rgb = YCbCr444 {
+                    y: pixel.y1,
+                    cb: pixel.cb,
+                    cr: pixel.cr,
+                }
+                .into();
+                let right_color: Rgb = YCbCr444 {
+                    y: pixel.y2,
+                    cb: pixel.cb,
+                    cr: pixel.cr,
+                }
+                .into();
+                rgb_image.put_pixel(
+                    x * 2,
+                    y,
+                    image::Rgb([left_color.r, left_color.g, left_color.b]),
+                );
+                rgb_image.put_pixel(
+                    x * 2 + 1,
+                    y,
+                    image::Rgb([right_color.r, right_color.g, right_color.b]),
+                );
+            }
+        }
+
+        rgb_image
+    }
+}
+
+impl Serialize for Image {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let is_human_readable = serializer.is_human_readable();
+        let mut state = serializer.serialize_struct("Image", 3)?;
+        if is_human_readable {
+            state.serialize_field("buffer", &self.buffer)?;
+        } else {
+            let rgb_image: RgbImage = self.into();
+            let mut rgb_image_buffer = vec![];
+            {
+                let mut encoder = JpegEncoder::new_with_quality(
+                    &mut rgb_image_buffer,
+                    SERIALIZATION_JPEG_QUALITY,
+                );
+                encoder
+                    .encode_image(&rgb_image)
+                    .expect("failed to encode image");
+            }
+            state.serialize_field("buffer", Bytes::new(rgb_image_buffer.as_slice()))?;
+        }
+        state.serialize_field("width_422", &self.width_422)?;
+        state.serialize_field("height", &self.height)?;
+        state.end()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::mem::transmute;
+
+    use serde_test::{assert_ser_tokens, Configure, Token};
+
     use super::*;
 
     #[test]
@@ -238,6 +283,94 @@ mod tests {
                 y2: 3,
                 cr: 4
             }
+        );
+    }
+
+    #[test]
+    fn image_serializes_with_compact_serializer() {
+        let image = Image {
+            buffer: Arc::new(vec![YCbCr422 {
+                y1: 0,
+                cb: 1,
+                y2: 2,
+                cr: 3,
+            }]),
+            width_422: 1,
+            height: 1,
+        };
+        let rgb_image: RgbImage = (&image).into();
+        let mut rgb_image_buffer = vec![];
+        {
+            let mut encoder =
+                JpegEncoder::new_with_quality(&mut rgb_image_buffer, SERIALIZATION_JPEG_QUALITY);
+            encoder
+                .encode_image(&rgb_image)
+                .expect("failed to encode image");
+        }
+        // serde_test::Token requires static lifetime and since the byte slice is not used anymore once leaving the test, it should be safe (tm)
+        let static_rgb_image_buffer: &'static [u8] =
+            unsafe { transmute(rgb_image_buffer.as_slice()) };
+
+        assert_ser_tokens(
+            &image.compact(),
+            &[
+                Token::Struct {
+                    name: "Image",
+                    len: 3,
+                },
+                Token::Str("buffer"),
+                Token::Bytes(static_rgb_image_buffer),
+                Token::Str("width_422"),
+                Token::U32(1),
+                Token::Str("height"),
+                Token::U32(1),
+                Token::StructEnd,
+            ],
+        );
+    }
+
+    #[test]
+    fn image_serializes_with_readable_serializer() {
+        let image = Image {
+            buffer: Arc::new(vec![YCbCr422 {
+                y1: 0,
+                cb: 1,
+                y2: 2,
+                cr: 3,
+            }]),
+            width_422: 1,
+            height: 1,
+        };
+
+        assert_ser_tokens(
+            &image.readable(),
+            &[
+                Token::Struct {
+                    name: "Image",
+                    len: 3,
+                },
+                Token::Str("buffer"),
+                Token::Seq { len: Some(1) },
+                Token::Struct {
+                    name: "YCbCr422",
+                    len: 4,
+                },
+                Token::Str("y1"),
+                Token::U8(0),
+                Token::Str("cb"),
+                Token::U8(1),
+                Token::Str("y2"),
+                Token::U8(2),
+                Token::Str("cr"),
+                Token::U8(3),
+                Token::StructEnd,
+                Token::SeqEnd,
+                Token::Str("width_422"),
+                Token::U32(1),
+                Token::Str("height"),
+                Token::U32(1),
+                Token::StructEnd,
+            ],
         );
     }
 }
