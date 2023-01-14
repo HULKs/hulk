@@ -1112,7 +1112,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn data_from_notified_output_is_sent_to_subscribed_client() {
+    async fn textual_data_from_notified_output_is_sent_to_subscribed_client() {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
         let value = Value::from(42);
@@ -1180,6 +1180,136 @@ mod tests {
                         TextualDataOrBinaryReference::TextualData { data: value }
                     )]
                     .into()
+                }
+            )),
+        );
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path]),
+        );
+
+        request_sender
+            .send(ClientRequest {
+                request: OutputRequest::Unsubscribe {
+                    id: 1337,
+                    subscription_id: SUBSCRIPTION_ID,
+                },
+                client: Client {
+                    id: client_id,
+                    response_sender: response_sender.clone(),
+                },
+            })
+            .await
+            .unwrap();
+        let response = response_receiver.recv().await.unwrap();
+        assert!(
+            matches!(
+                response,
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputResponse::Unsubscribe {
+                        id: 1337,
+                        result: Ok(()),
+                    }
+                ))
+            ),
+            "unexpected {response:?}",
+        );
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+
+        outputs_changed.notify_one();
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+
+        drop(request_sender);
+        provider_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn binary_data_from_notified_output_is_sent_to_subscribed_client() {
+        let cycler_instance = "CyclerInstance";
+        let path = "a.b.c".to_string();
+        let value = vec![42, 1, 3, 3, 7];
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+            existing_fields: [(path.clone(), SerializedValue::Binary(value.clone()))].into(),
+        }]);
+
+        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                cycler_instance,
+                outputs_changed.clone(),
+                outputs_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+
+        const SUBSCRIPTION_ID: usize = 42;
+        let client_id = 1337;
+
+        let (response_sender, mut response_receiver) = channel(1);
+        request_sender
+            .send(ClientRequest {
+                request: OutputRequest::Subscribe {
+                    id: SUBSCRIPTION_ID,
+                    cycler_instance: cycler_instance.to_string(),
+                    path: path.clone(),
+                    format: Format::Binary,
+                },
+                client: Client {
+                    id: client_id,
+                    response_sender: response_sender.clone(),
+                },
+            })
+            .await
+            .unwrap();
+        let response = response_receiver.recv().await.unwrap();
+        assert!(
+            matches!(
+                response,
+                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
+                    id: SUBSCRIPTION_ID,
+                    result: Ok(()),
+                }))
+            ),
+            "unexpected {response:?}",
+        );
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path.clone()]),
+        );
+
+        outputs_changed.notify_one();
+        let subscribed_data = response_receiver.recv().await.unwrap();
+        let Response::Textual(TextualResponse::Outputs(
+            TextualOutputResponse::SubscribedData { items }
+        )) = subscribed_data else {
+            panic!("unexpected subscribed data: {subscribed_data:?}");
+        };
+        assert_eq!(items.len(), 1);
+        let Some(TextualDataOrBinaryReference::BinaryReference { reference_id }) = items.get(&SUBSCRIPTION_ID) else {
+            panic!("an item with subscription ID {SUBSCRIPTION_ID} should exist");
+        };
+        let binary_data = response_receiver.recv().await.unwrap();
+        assert_eq!(
+            binary_data,
+            Response::Binary(BinaryResponse::Outputs(
+                BinaryOutputResponse::SubscribedData {
+                    referenced_items: [(*reference_id, value)].into()
                 }
             )),
         );
@@ -1454,7 +1584,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_next_forwards_data_once() {
+    async fn textual_get_next_forwards_data_once() {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
         let value = Value::from(42);
@@ -1511,6 +1641,91 @@ mod tests {
             Response::Textual(TextualResponse::Outputs(TextualOutputResponse::GetNext {
                 id: SUBSCRIPTION_ID,
                 result: Ok(TextualDataOrBinaryReference::TextualData { data: value })
+            })),
+        );
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+
+        outputs_changed.notify_one();
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+
+        drop(request_sender);
+        provider_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn binary_get_next_forwards_data_once() {
+        let cycler_instance = "CyclerInstance";
+        let path = "a.b.c".to_string();
+        let value = vec![42, 1, 3, 3, 7];
+        let outputs_changed = Arc::new(Notify::new());
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+            existing_fields: [(path.clone(), SerializedValue::Binary(value.clone()))].into(),
+        }]);
+
+        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(
+                cycler_instance,
+                outputs_changed.clone(),
+                outputs_reader,
+            )
+            .await;
+        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+
+        const SUBSCRIPTION_ID: usize = 42;
+        let client_id = 1337;
+
+        let (response_sender, mut response_receiver) = channel(1);
+        request_sender
+            .send(ClientRequest {
+                request: OutputRequest::GetNext {
+                    id: SUBSCRIPTION_ID,
+                    cycler_instance: cycler_instance.to_string(),
+                    path: path.clone(),
+                    format: Format::Binary,
+                },
+                client: Client {
+                    id: client_id,
+                    response_sender: response_sender.clone(),
+                },
+            })
+            .await
+            .unwrap();
+
+        // ensure that we are subscribed before continueing because GetNext has no synchronous response
+        yield_now().await;
+
+        match response_receiver.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            response => panic!("unexpected result from try_recv(): {response:?}"),
+        }
+        assert_eq!(
+            *subscribed_outputs_reader.next(),
+            HashSet::from_iter([path]),
+        );
+
+        outputs_changed.notify_one();
+        let subscribed_data = response_receiver.recv().await.unwrap();
+        let Response::Textual(TextualResponse::Outputs(
+            TextualOutputResponse::GetNext { id: SUBSCRIPTION_ID, result: Ok(
+                TextualDataOrBinaryReference::BinaryReference { reference_id }
+            )}
+        )) = subscribed_data else {
+            panic!("unexpected subscribed data: {subscribed_data:?}");
+        };
+        let binary_data = response_receiver.recv().await.unwrap();
+        assert_eq!(
+            binary_data,
+            Response::Binary(BinaryResponse::Outputs(BinaryOutputResponse::GetNext {
+                reference_id,
+                data: value,
             })),
         );
         match response_receiver.try_recv() {
