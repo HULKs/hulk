@@ -18,7 +18,8 @@ pub fn process_struct(input: &DeriveInput, data: &DataStruct) -> proc_macro::Tok
             fn serialize_hierarchy(
                 &self,
                 field_path: &str,
-            ) -> color_eyre::eyre::Result<serialize_hierarchy::serde_json::Value> {
+                format: serialize_hierarchy::Format,
+            ) -> color_eyre::eyre::Result<serialize_hierarchy::SerializedValue> {
                 use color_eyre::eyre::WrapErr;
                 let split = field_path.split_once(".");
                 match split {
@@ -36,7 +37,7 @@ pub fn process_struct(input: &DeriveInput, data: &DataStruct) -> proc_macro::Tok
             fn deserialize_hierarchy(
                 &mut self,
                 field_path: &str,
-                data: serialize_hierarchy::serde_json::Value,
+                data: serialize_hierarchy::SerializedValue,
             ) -> color_eyre::eyre::Result<()> {
                 use color_eyre::eyre::WrapErr;
                 let split = field_path.split_once(".");
@@ -94,7 +95,12 @@ fn generate_serde_serialization(fields: &Fields) -> Vec<TokenStream> {
             let pattern = name.to_string();
             let error_message = format!("failed to serialize field `{name}`");
             Some(quote! {
-                #pattern => serialize_hierarchy::serde_json::to_value(&self.#name).wrap_err(#error_message)
+                #pattern => match format {
+                    serialize_hierarchy::Format::Textual => serialize_hierarchy::serde_json::to_value(&self.#name)
+                        .wrap_err(#error_message).map(serialize_hierarchy::SerializedValue::Textual),
+                    serialize_hierarchy::Format::Binary => serialize_hierarchy::bincode::serialize(&self.#name)
+                        .wrap_err(#error_message).map(serialize_hierarchy::SerializedValue::Binary),
+                }
             })
         })
         .collect()
@@ -124,7 +130,7 @@ fn generate_path_serialization(fields: &Fields) -> Vec<TokenStream> {
             } else {
                 let error_message = format!("failed to serialize field `{name}`");
                 quote! {
-                    #pattern => self.#name.serialize_hierarchy(suffix).wrap_err(#error_message)
+                    #pattern => self.#name.serialize_hierarchy(suffix, format).wrap_err(#error_message)
                 }
             };
             Some(code)
@@ -148,7 +154,10 @@ fn generate_serde_deserialization(fields: &Fields) -> Vec<TokenStream> {
             let error_message = format!("failed to deserialize field `{name}`");
             Some(quote! {
                 #pattern => {
-                    self.#name = serialize_hierarchy::serde_json::from_value(data).wrap_err(#error_message)?;
+                    self.#name = match data {
+                        serialize_hierarchy::SerializedValue::Textual(data) => serialize_hierarchy::serde_json::from_value(data).wrap_err(#error_message),
+                        serialize_hierarchy::SerializedValue::Binary(data) => serialize_hierarchy::bincode::deserialize(&data).wrap_err(#error_message),
+                    }?;
                     Ok(())
                 }
             })

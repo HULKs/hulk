@@ -5,6 +5,7 @@ edition = "2021"
 license = "GPL-3.0-only"
 
 [dependencies]
+bincode = { workspace = true }
 color-eyre = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }

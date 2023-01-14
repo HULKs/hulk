@@ -8,7 +8,11 @@ use color_eyre::{
     Result,
 };
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::{HierarchyType, SerializeHierarchy};
+use serialize_hierarchy::{
+    bincode::{deserialize, serialize},
+    serde_json::{from_value, to_value},
+    Format, HierarchyType, SerializeHierarchy, SerializedValue,
+};
 use spl_network_messages::{Penalty, PlayerNumber, TeamState};
 
 #[derive(Clone, Copy, Default, Debug, Deserialize, Serialize)]
@@ -104,53 +108,79 @@ impl<T> SerializeHierarchy for Players<T>
 where
     T: Serialize + for<'de> Deserialize<'de> + SerializeHierarchy,
 {
-    fn serialize_hierarchy(&self, field_path: &str) -> Result<serde_json::Value> {
+    fn serialize_hierarchy(&self, field_path: &str, format: Format) -> Result<SerializedValue> {
         let split = field_path.split_once('.');
         match split {
             Some((field_name, suffix)) => match field_name {
                 "one" => self
                     .one
-                    .serialize_hierarchy(suffix)
+                    .serialize_hierarchy(suffix, format)
                     .wrap_err("failed to serialize field `one`"),
                 "two" => self
                     .two
-                    .serialize_hierarchy(suffix)
+                    .serialize_hierarchy(suffix, format)
                     .wrap_err("failed to serialize field `two`"),
                 "three" => self
                     .three
-                    .serialize_hierarchy(suffix)
+                    .serialize_hierarchy(suffix, format)
                     .wrap_err("failed to serialize field `three`"),
                 "four" => self
                     .four
-                    .serialize_hierarchy(suffix)
+                    .serialize_hierarchy(suffix, format)
                     .wrap_err("failed to serialize field `four`"),
                 "five" => self
                     .five
-                    .serialize_hierarchy(suffix)
+                    .serialize_hierarchy(suffix, format)
                     .wrap_err("failed to serialize field `five`"),
                 _ => bail!("no such field in type: `{}`", field_path),
             },
-            None => {
-                match field_path {
-                    "one" => {
-                        serde_json::to_value(&self.one).wrap_err("failed to serialize field `one`")
-                    }
-                    "two" => {
-                        serde_json::to_value(&self.two).wrap_err("failed to serialize field `two`")
-                    }
-                    "three" => serde_json::to_value(&self.three)
-                        .wrap_err("failed to serialize field `three`"),
-                    "four" => serde_json::to_value(&self.four)
-                        .wrap_err("failed to serialize field `four`"),
-                    "five" => serde_json::to_value(&self.five)
-                        .wrap_err("failed to serialize field `five`"),
-                    _ => bail!("no such field in type: `{}`", field_path),
-                }
-            }
+            None => match field_path {
+                "one" => match format {
+                    Format::Textual => to_value(&self.one)
+                        .wrap_err("failed to serialize field `one`")
+                        .map(SerializedValue::Textual),
+                    Format::Binary => serialize(&self.one)
+                        .wrap_err("failed to serialize field `one`")
+                        .map(SerializedValue::Binary),
+                },
+                "two" => match format {
+                    Format::Textual => to_value(&self.two)
+                        .wrap_err("failed to serialize field `two`")
+                        .map(SerializedValue::Textual),
+                    Format::Binary => serialize(&self.two)
+                        .wrap_err("failed to serialize field `two`")
+                        .map(SerializedValue::Binary),
+                },
+                "three" => match format {
+                    Format::Textual => to_value(&self.three)
+                        .wrap_err("failed to serialize field `three`")
+                        .map(SerializedValue::Textual),
+                    Format::Binary => serialize(&self.three)
+                        .wrap_err("failed to serialize field `three`")
+                        .map(SerializedValue::Binary),
+                },
+                "four" => match format {
+                    Format::Textual => to_value(&self.four)
+                        .wrap_err("failed to serialize field `four`")
+                        .map(SerializedValue::Textual),
+                    Format::Binary => serialize(&self.four)
+                        .wrap_err("failed to serialize field `four`")
+                        .map(SerializedValue::Binary),
+                },
+                "five" => match format {
+                    Format::Textual => to_value(&self.five)
+                        .wrap_err("failed to serialize field `five`")
+                        .map(SerializedValue::Textual),
+                    Format::Binary => serialize(&self.five)
+                        .wrap_err("failed to serialize field `five`")
+                        .map(SerializedValue::Binary),
+                },
+                _ => bail!("no such field in type: `{}`", field_path),
+            },
         }
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, data: serde_json::Value) -> Result<()> {
+    fn deserialize_hierarchy(&mut self, field_path: &str, data: SerializedValue) -> Result<()> {
         let split = field_path.split_once('.');
         match split {
             Some((field_name, suffix)) => match field_name {
@@ -178,28 +208,58 @@ where
             },
             None => match field_path {
                 "one" => {
-                    self.one = serde_json::from_value(data)
-                        .wrap_err("failed to deserialize field `one`")?;
+                    self.one = match data {
+                        SerializedValue::Textual(data) => {
+                            from_value(data).wrap_err("failed to deserialize field `one`")
+                        }
+                        SerializedValue::Binary(data) => {
+                            deserialize(&data).wrap_err("failed to deserialize field `one`")
+                        }
+                    }?;
                     Ok(())
                 }
                 "two" => {
-                    self.two = serde_json::from_value(data)
-                        .wrap_err("failed to deserialize field `two`")?;
+                    self.two = match data {
+                        SerializedValue::Textual(data) => {
+                            from_value(data).wrap_err("failed to deserialize field `two`")
+                        }
+                        SerializedValue::Binary(data) => {
+                            deserialize(&data).wrap_err("failed to deserialize field `two`")
+                        }
+                    }?;
                     Ok(())
                 }
                 "three" => {
-                    self.three = serde_json::from_value(data)
-                        .wrap_err("failed to deserialize field `three`")?;
+                    self.three = match data {
+                        SerializedValue::Textual(data) => {
+                            from_value(data).wrap_err("failed to deserialize field `three`")
+                        }
+                        SerializedValue::Binary(data) => {
+                            deserialize(&data).wrap_err("failed to deserialize field `three`")
+                        }
+                    }?;
                     Ok(())
                 }
                 "four" => {
-                    self.four = serde_json::from_value(data)
-                        .wrap_err("failed to deserialize field `four`")?;
+                    self.four = match data {
+                        SerializedValue::Textual(data) => {
+                            from_value(data).wrap_err("failed to deserialize field `four`")
+                        }
+                        SerializedValue::Binary(data) => {
+                            deserialize(&data).wrap_err("failed to deserialize field `four`")
+                        }
+                    }?;
                     Ok(())
                 }
                 "five" => {
-                    self.five = serde_json::from_value(data)
-                        .wrap_err("failed to deserialize field `five`")?;
+                    self.five = match data {
+                        SerializedValue::Textual(data) => {
+                            from_value(data).wrap_err("failed to deserialize field `five`")
+                        }
+                        SerializedValue::Binary(data) => {
+                            deserialize(&data).wrap_err("failed to deserialize field `five`")
+                        }
+                    }?;
                     Ok(())
                 }
                 _ => bail!("no such field in type: `{}`", field_path),
