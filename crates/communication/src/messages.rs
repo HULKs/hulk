@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -7,7 +7,6 @@ use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 pub type CyclerInstance = String;
 pub type Path = String;
 pub type Reason = String;
-pub type Type = String;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Request {
@@ -63,7 +62,7 @@ pub enum OutputRequest {
 pub enum TextualOutputResponse {
     GetFields {
         id: usize,
-        fields: BTreeMap<CyclerInstance, BTreeMap<Path, Type>>,
+        fields: BTreeMap<CyclerInstance, BTreeSet<Path>>,
     },
     GetNext {
         id: usize,
@@ -139,7 +138,7 @@ pub enum ParameterRequest {
 pub enum ParameterResponse {
     GetHierarchy {
         id: usize,
-        hierarchy: BTreeMap<Path, String>,
+        hierarchy: BTreeSet<Path>,
     },
     GetCurrent {
         id: usize,

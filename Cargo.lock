@@ -3200,11 +3200,11 @@ name = "serialize_hierarchy"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "color-eyre",
  "nalgebra",
  "serde",
  "serde_json",
  "serialize_hierarchy_derive",
+ "thiserror",
 ]
 
 [[package]]

@@ -5,74 +5,87 @@ use syn::{token::Colon2, DataStruct, DeriveInput, Fields, PathArguments, Type};
 pub fn process_struct(input: &DeriveInput, data: &DataStruct) -> proc_macro::TokenStream {
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    let serde_serialization = generate_serde_serialization(&data.fields);
-    let path_serialization = generate_path_serialization(&data.fields);
-    let serde_deserialization = generate_serde_deserialization(&data.fields);
-    let path_deserialization = generate_path_deserialization(&data.fields);
-    let path_exists_getter = generate_path_exists_getter(&data.fields);
-    let field_exists_getter = generate_field_exists_getter(&data.fields);
-    let hierarchy_insertions = generate_hierarchy_insertions(&data.fields);
+    let path_serializations = generate_path_serializations(&data.fields);
+    let serde_serializations = generate_serde_serializations(&data.fields);
+    let path_deserializations = generate_path_deserializations(&data.fields);
+    let serde_deserializations = generate_serde_deserializations(&data.fields);
+    let path_exists_getters = generate_path_exists_getters(&data.fields);
+    let field_exists_getters = generate_field_exists_getters(&data.fields);
+    let field_chains = generate_field_chains(&data.fields);
 
     let expanded = quote! {
         impl #impl_generics serialize_hierarchy::SerializeHierarchy for #name #ty_generics #where_clause {
-            fn serialize_hierarchy(
+            fn serialize_path<S>(
                 &self,
-                field_path: &str,
-                format: serialize_hierarchy::Format,
-            ) -> color_eyre::eyre::Result<serialize_hierarchy::SerializedValue> {
-                use color_eyre::eyre::WrapErr;
-                let split = field_path.split_once(".");
+                path: &str,
+            ) -> Result<S::Serialized, serialize_hierarchy::Error<S::Error>>
+            where
+                S: serialize_hierarchy::Serializer,
+                S::Error: std::error::Error,
+            {
+                let split = path.split_once('.');
                 match split {
-                    Some((field_name, suffix)) => match field_name {
-                        #(#path_serialization,)*
-                        _ => color_eyre::eyre::bail!("no such field in type: `{}`", field_path),
+                    Some((name, suffix)) => match name {
+                        #(#path_serializations,)*
+                        segment => Err(serialize_hierarchy::Error::UnexpectedPathSegment {
+                            segment: segment.to_string(),
+                        }),
                     },
-                    None => match field_path {
-                        #(#serde_serialization,)*
-                        _ => color_eyre::eyre::bail!("no such field in type: `{}`", field_path),
-                    },
+                    None => {
+                        match path {
+                            #(#serde_serializations,)*
+                            segment => Err(serialize_hierarchy::Error::UnexpectedPathSegment {
+                                segment: segment.to_string(),
+                            }),
+                        }
+                    }
                 }
             }
 
-            fn deserialize_hierarchy(
+            fn deserialize_path<S>(
                 &mut self,
-                field_path: &str,
-                data: serialize_hierarchy::SerializedValue,
-            ) -> color_eyre::eyre::Result<()> {
-                use color_eyre::eyre::WrapErr;
-                let split = field_path.split_once(".");
+                path: &str,
+                data: S::Serialized,
+            ) -> Result<(), serialize_hierarchy::Error<S::Error>>
+            where
+                S: serialize_hierarchy::Serializer,
+                S::Error: std::error::Error,
+            {
+                let split = path.split_once('.');
                 match split {
-                    Some((field_name, suffix)) => match field_name {
-                        #(#path_deserialization,)*
-                        _ => color_eyre::eyre::bail!("no such field in type: `{}`", field_path),
+                    Some((name, suffix)) => match name {
+                        #(#path_deserializations,)*
+                        name => Err(serialize_hierarchy::Error::UnexpectedPathSegment {
+                            segment: name.to_string(),
+                        }),
                     },
-                    None => match field_path {
-                        #(#serde_deserialization,)*
-                        _ => color_eyre::eyre::bail!("no such field in type: `{}`", field_path),
+                    None => match path {
+                        #(#serde_deserializations,)*
+                        name => Err(serialize_hierarchy::Error::UnexpectedPathSegment {
+                            segment: name.to_string(),
+                        }),
                     },
                 }
             }
 
-            fn exists(field_path: &str) -> bool {
-                let split = field_path.split_once(".");
+            fn exists(path: &str) -> bool {
+                let split = path.split_once('.');
                 match split {
-                    Some((field_name, suffix)) => match field_name {
-                        #(#path_exists_getter,)*
+                    Some((name, suffix)) => match name {
+                        #(#path_exists_getters,)*
                         _ => false,
                     },
-                    None => match field_path {
-                        #(#field_exists_getter,)*
+                    None => match path {
+                        #(#field_exists_getters,)*
                         _ => false,
                     },
                 }
             }
 
-            fn get_hierarchy() -> serialize_hierarchy::HierarchyType {
-                let mut fields = std::collections::BTreeMap::new();
-                #(#hierarchy_insertions;)*
-                serialize_hierarchy::HierarchyType::Struct {
-                    fields,
-                }
+            fn get_fields() -> std::collections::BTreeSet<String> {
+                std::iter::once(String::new())
+                    #(#field_chains)*
+                    .collect()
             }
         }
     };
@@ -80,7 +93,7 @@ pub fn process_struct(input: &DeriveInput, data: &DataStruct) -> proc_macro::Tok
     expanded.into()
 }
 
-fn generate_serde_serialization(fields: &Fields) -> Vec<TokenStream> {
+fn generate_path_serializations(fields: &Fields) -> Vec<TokenStream> {
     fields
         .into_iter()
         .filter_map(|field| {
@@ -93,20 +106,14 @@ fn generate_serde_serialization(fields: &Fields) -> Vec<TokenStream> {
             }
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
-            let error_message = format!("failed to serialize field `{name}`");
             Some(quote! {
-                #pattern => match format {
-                    serialize_hierarchy::Format::Textual => serialize_hierarchy::serde_json::to_value(&self.#name)
-                        .wrap_err(#error_message).map(serialize_hierarchy::SerializedValue::Textual),
-                    serialize_hierarchy::Format::Binary => serialize_hierarchy::bincode::serialize(&self.#name)
-                        .wrap_err(#error_message).map(serialize_hierarchy::SerializedValue::Binary),
-                }
+                #pattern => self.#name.serialize_path::<S>(suffix)
             })
         })
         .collect()
 }
 
-fn generate_path_serialization(fields: &Fields) -> Vec<TokenStream> {
+fn generate_serde_serializations(fields: &Fields) -> Vec<TokenStream> {
     fields
         .into_iter()
         .filter_map(|field| {
@@ -117,28 +124,16 @@ fn generate_path_serialization(fields: &Fields) -> Vec<TokenStream> {
             if dont_serialize {
                 return None;
             }
-            let is_leaf = field
-                .attrs
-                .iter()
-                .any(|attribute| attribute.path.is_ident("leaf"));
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
-            let code = if is_leaf {
-                quote! {
-                    #pattern => color_eyre::eyre::bail!("cannot access leaf node with path `{}`", suffix)
-                }
-            } else {
-                let error_message = format!("failed to serialize field `{name}`");
-                quote! {
-                    #pattern => self.#name.serialize_hierarchy(suffix, format).wrap_err(#error_message)
-                }
-            };
-            Some(code)
+            Some(quote! {
+                #pattern => S::serialize(&self.#name).map_err(serialize_hierarchy::Error::SerializationFailed)
+            })
         })
         .collect()
 }
 
-fn generate_serde_deserialization(fields: &Fields) -> Vec<TokenStream> {
+fn generate_path_deserializations(fields: &Fields) -> Vec<TokenStream> {
     fields
         .into_iter()
         .filter_map(|field| {
@@ -151,13 +146,29 @@ fn generate_serde_deserialization(fields: &Fields) -> Vec<TokenStream> {
             }
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
-            let error_message = format!("failed to deserialize field `{name}`");
+            Some(quote! {
+                #pattern => self.#name.deserialize_path::<S>(suffix, data)
+            })
+        })
+        .collect()
+}
+
+fn generate_serde_deserializations(fields: &Fields) -> Vec<TokenStream> {
+    fields
+        .into_iter()
+        .filter_map(|field| {
+            let dont_serialize = field
+                .attrs
+                .iter()
+                .any(|attribute| attribute.path.is_ident("dont_serialize"));
+            if dont_serialize {
+                return None;
+            }
+            let name = field.ident.as_ref().unwrap();
+            let pattern = name.to_string();
             Some(quote! {
                 #pattern => {
-                    self.#name = match data {
-                        serialize_hierarchy::SerializedValue::Textual(data) => serialize_hierarchy::serde_json::from_value(data).wrap_err(#error_message),
-                        serialize_hierarchy::SerializedValue::Binary(data) => serialize_hierarchy::bincode::deserialize(&data).wrap_err(#error_message),
-                    }?;
+                    self.#name = S::deserialize(data).map_err(serialize_hierarchy::Error::DeserializationFailed)?;
                     Ok(())
                 }
             })
@@ -165,7 +176,7 @@ fn generate_serde_deserialization(fields: &Fields) -> Vec<TokenStream> {
         .collect()
 }
 
-fn generate_path_deserialization(fields: &Fields) -> Vec<TokenStream> {
+fn generate_path_exists_getters(fields: &Fields) -> Vec<TokenStream> {
     fields
         .into_iter()
         .filter_map(|field| {
@@ -176,70 +187,27 @@ fn generate_path_deserialization(fields: &Fields) -> Vec<TokenStream> {
             if dont_serialize {
                 return None;
             }
-            let is_leaf = field
-                .attrs
-                .iter()
-                .any(|attribute| attribute.path.is_ident("leaf"));
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
-            let error_message = format!("failed to deserialize field `{name}`");
-            let code = if is_leaf {
-                quote! {
-                    #pattern => color_eyre::eyre::bail!("cannot access leaf node with path `{}`", suffix)
-                }
+            let field_type = if let Type::Path(type_path) = &field.ty {
+                let mut type_path = type_path.clone();
+                type_path.path.segments.iter_mut().for_each(|segment| {
+                    if let PathArguments::AngleBracketed(arguments) = &mut segment.arguments {
+                        arguments.colon2_token = Some(Colon2::default());
+                    }
+                });
+                type_path.into_token_stream()
             } else {
-                quote! {
-                    #pattern => self.#name.deserialize_hierarchy(suffix, data).wrap_err(#error_message)
-                }
+                field.ty.to_token_stream()
             };
-            Some(code)
+            Some(quote! {
+                #pattern => #field_type::exists(suffix)
+            })
         })
         .collect()
 }
 
-fn generate_hierarchy_insertions(fields: &Fields) -> Vec<TokenStream> {
-    fields
-        .into_iter()
-        .filter_map(|field| {
-            let dont_serialize = field
-                .attrs
-                .iter()
-                .any(|attribute| attribute.path.is_ident("dont_serialize"));
-            if dont_serialize {
-                return None;
-            }
-            let is_leaf = field
-                .attrs
-                .iter()
-                .any(|attribute| attribute.path.is_ident("leaf"));
-            let name = field.ident.as_ref().unwrap();
-            let pattern = name.to_string();
-            let code = if is_leaf {
-                quote! {
-                    fields.insert(#pattern.to_string(), serialize_hierarchy::HierarchyType::GenericStruct)
-                }
-            } else {
-                let field_type = if let Type::Path(type_path) = &field.ty {
-                    let mut type_path = type_path.clone();
-                    type_path.path.segments.iter_mut().for_each(|segment| {
-                        if let PathArguments::AngleBracketed(arguments) = &mut segment.arguments {
-                                arguments.colon2_token = Some(Colon2::default());
-                        }
-                    });
-                    type_path.into_token_stream()
-                } else {
-                    field.ty.to_token_stream()
-                };
-                quote! {
-                    fields.insert(#pattern.to_string(), #field_type::get_hierarchy())
-                }
-            };
-            Some(code)
-        })
-        .collect()
-}
-
-fn generate_field_exists_getter(fields: &Fields) -> Vec<TokenStream> {
+fn generate_field_exists_getters(fields: &Fields) -> Vec<TokenStream> {
     fields
         .into_iter()
         .filter_map(|field| {
@@ -259,7 +227,7 @@ fn generate_field_exists_getter(fields: &Fields) -> Vec<TokenStream> {
         .collect()
 }
 
-fn generate_path_exists_getter(fields: &Fields) -> Vec<TokenStream> {
+fn generate_field_chains(fields: &Fields) -> Vec<TokenStream> {
     fields
         .into_iter()
         .filter_map(|field| {
@@ -270,20 +238,13 @@ fn generate_path_exists_getter(fields: &Fields) -> Vec<TokenStream> {
             if dont_serialize {
                 return None;
             }
-            let is_leaf = field
-                .attrs
-                .iter()
-                .any(|attribute| attribute.path.is_ident("leaf"));
-            if is_leaf {
-                return None;
-            }
             let name = field.ident.as_ref().unwrap();
-            let pattern = name.to_string();
+            let pattern = format!("{}.{{}}", name);
             let field_type = if let Type::Path(type_path) = &field.ty {
                 let mut type_path = type_path.clone();
                 type_path.path.segments.iter_mut().for_each(|segment| {
                     if let PathArguments::AngleBracketed(arguments) = &mut segment.arguments {
-                        arguments.colon2_token = Some(Colon2::default());
+                            arguments.colon2_token = Some(Colon2::default());
                     }
                 });
                 type_path.into_token_stream()
@@ -291,7 +252,11 @@ fn generate_path_exists_getter(fields: &Fields) -> Vec<TokenStream> {
                 field.ty.to_token_stream()
             };
             Some(quote! {
-                #pattern => #field_type::exists(suffix)
+                .chain(
+                    #field_type::get_fields()
+                        .into_iter()
+                        .map(|name| format!(#pattern, name))
+                )
             })
         })
         .collect()

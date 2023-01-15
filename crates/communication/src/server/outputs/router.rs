@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, BTreeMap, HashMap};
+use std::collections::{hash_map::Entry, BTreeSet, HashMap};
 
 use tokio::{
     spawn,
@@ -6,9 +6,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::messages::{
-    OutputRequest, Path, Response, TextualOutputResponse, TextualResponse, Type,
-};
+use crate::messages::{OutputRequest, Path, Response, TextualOutputResponse, TextualResponse};
 
 use super::{Client, ClientRequest, Request};
 
@@ -41,7 +39,7 @@ pub fn router(mut request_receiver: Receiver<Request>) -> JoinHandle<()> {
 
 async fn handle_request(
     request: ClientRequest,
-    request_channels_of_cyclers: &HashMap<String, (BTreeMap<Path, Type>, Sender<ClientRequest>)>,
+    request_channels_of_cyclers: &HashMap<String, (BTreeSet<Path>, Sender<ClientRequest>)>,
     cached_cycler_instances: &mut HashMap<(Client, usize), String>,
 ) {
     match &request.request {
@@ -190,7 +188,7 @@ mod tests {
         let router_task = router(request_receiver);
 
         let cycler_instance = "CyclerInstance";
-        let fields: BTreeMap<String, String> = [("a.b.c".to_string(), "bool".to_string())].into();
+        let fields: BTreeSet<String> = ["a.b.c".to_string()].into();
         let (provider_request_sender, _provider_request_receiver) = channel(1);
         request_sender
             .send(Request::RegisterCycler {
