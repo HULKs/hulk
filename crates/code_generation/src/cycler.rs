@@ -548,7 +548,7 @@ impl Cycler<'_> {
         Ok(quote! {
             impl<Interface> Cycler<Interface>
             where
-                Interface: types::hardware::Interface + Send + Sync + 'static,
+                Interface: types::hardware::Interface + std::marker::Send + std::marker::Sync + 'static,
             {
                 #new_method
                 #start_method

@@ -5,7 +5,7 @@ use std::{
 
 use log::error;
 use tokio::{
-    net::TcpListener,
+    net::{TcpListener, ToSocketAddrs},
     select, spawn,
     sync::mpsc::{unbounded_channel, Sender},
     task::JoinHandle,
@@ -28,14 +28,20 @@ pub enum AcceptError {
 }
 
 pub fn acceptor(
+    addresses: Option<impl ToSocketAddrs + Send + Sync + 'static>,
     keep_running: CancellationToken,
     outputs_sender: Sender<outputs::Request>,
 ) -> JoinHandle<Result<(), AcceptError>> {
     let next_client_id = AtomicUsize::default();
     spawn(async move {
+        let Some(addresses) = addresses else {
+            // requested to disable Communication socket
+            return Ok(());
+        };
+
         let (error_sender, mut error_receiver) = unbounded_channel();
 
-        let listener = TcpListener::bind("[::]:1337")
+        let listener = TcpListener::bind(addresses)
             .await
             .map_err(AcceptError::TcpListenerNotBound)?;
 

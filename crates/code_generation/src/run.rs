@@ -186,10 +186,11 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
         pub fn run<Interface>(
             hardware_interface: std::sync::Arc<Interface>,
             initial_configuration: structs::Configuration,
+            addresses: Option<impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static>,
             keep_running: tokio_util::sync::CancellationToken,
         ) -> color_eyre::Result<()>
         where
-            Interface: types::hardware::Interface + Send + Sync + 'static,
+            Interface: types::hardware::Interface + std::marker::Send + std::marker::Sync + 'static,
         {
             use color_eyre::eyre::WrapErr;
 
@@ -199,7 +200,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
             #(#multiple_buffer_initializers)*
             #(#future_queue_initializers)*
 
-            let communication_server = communication::server::Runtime::start(keep_running.clone())
+            let communication_server = communication::server::Runtime::start(addresses, keep_running.clone())
                 .wrap_err("failed to start communication server")?;
 
             #(#cycler_initializations)*

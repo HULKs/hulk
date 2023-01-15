@@ -36,7 +36,12 @@ fn main() -> Result<()> {
         .wrap_err("failed to open default configuration file")?;
     let initial_configuration = serde_json::from_reader(configuration_file)
         .wrap_err("failed to read default configuration")?;
-    run(hardware_interface, initial_configuration, keep_running)
+    run(
+        hardware_interface,
+        initial_configuration,
+        Some("[::]:1337"),
+        keep_running,
+    )
 }
 
 fn cancel_on_error<T, E>(keep_running: &CancellationToken, result: Result<T, E>) -> Result<T, E> {
