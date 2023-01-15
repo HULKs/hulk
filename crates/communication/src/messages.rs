@@ -171,7 +171,6 @@ pub enum ParametersResponse {
     StoreToDisk {
         id: usize,
         result: Result<(), Reason>,
-        // TODO: maybe also in which ID to store?
     },
 }
 
