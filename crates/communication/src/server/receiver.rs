@@ -7,12 +7,9 @@ use tokio_tungstenite::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::{
-    messages::{OutputsRequest, Request, Response},
-    server::outputs::ClientRequest,
-};
+use crate::messages::{OutputsRequest, ParametersRequest, Request, Response};
 
-use super::{connection::ReceiverOrSenderError, outputs, Client};
+use super::{connection::ReceiverOrSenderError, outputs, parameters, Client};
 
 pub(crate) async fn receiver(
     mut reader: SplitStream<WebSocketStream<TcpStream>>,
@@ -22,6 +19,7 @@ pub(crate) async fn receiver(
     client_id: usize,
     response_sender: Sender<Response>,
     outputs_sender: Sender<outputs::Request>,
+    parameters_sender: Sender<parameters::ClientRequest>,
 ) {
     select! {
         _ = async {
@@ -33,6 +31,7 @@ pub(crate) async fn receiver(
                     client_id,
                     &response_sender,
                     &outputs_sender,
+                    &parameters_sender,
                 ).await;
             }
         } => {},
@@ -41,13 +40,23 @@ pub(crate) async fn receiver(
     }
 
     outputs_sender
-        .send(outputs::Request::ClientRequest(ClientRequest {
+        .send(outputs::Request::ClientRequest(outputs::ClientRequest {
             request: OutputsRequest::UnsubscribeEverything,
             client: Client {
                 id: client_id,
                 response_sender: response_sender.clone(),
             },
         }))
+        .await
+        .expect("receiver should always wait for all senders");
+    parameters_sender
+        .send(parameters::ClientRequest {
+            request: ParametersRequest::UnsubscribeEverything,
+            client: Client {
+                id: client_id,
+                response_sender: response_sender.clone(),
+            },
+        })
         .await
         .expect("receiver should always wait for all senders");
 }
@@ -59,6 +68,7 @@ async fn handle_message(
     client_id: usize,
     response_sender: &Sender<Response>,
     outputs_sender: &Sender<outputs::Request>,
+    parameters_sender: &Sender<parameters::ClientRequest>,
 ) {
     let message = match message {
         Ok(message) => message,
@@ -93,7 +103,7 @@ async fn handle_message(
             match request {
                 Request::Outputs(request) => {
                     outputs_sender
-                        .send(outputs::Request::ClientRequest(ClientRequest {
+                        .send(outputs::Request::ClientRequest(outputs::ClientRequest {
                             request,
                             client: Client {
                                 id: client_id,
@@ -104,7 +114,18 @@ async fn handle_message(
                         .expect("receiver should always wait for all senders");
                 }
                 Request::Injections(_) => todo!(),
-                Request::Parameters(_) => todo!(),
+                Request::Parameters(request) => {
+                    parameters_sender
+                        .send(parameters::ClientRequest {
+                            request,
+                            client: Client {
+                                id: client_id,
+                                response_sender: response_sender.clone(),
+                            },
+                        })
+                        .await
+                        .expect("receiver should always wait for all senders");
+                }
             }
         }
         Message::Binary(_) => {

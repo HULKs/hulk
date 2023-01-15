@@ -14,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::{
     connection::{connection, ConnectionError},
-    outputs,
+    outputs, parameters,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -31,6 +31,7 @@ pub(crate) fn acceptor(
     addresses: Option<impl ToSocketAddrs + Send + Sync + 'static>,
     keep_running: CancellationToken,
     outputs_sender: Sender<outputs::Request>,
+    parameters_sender: Sender<parameters::ClientRequest>,
 ) -> JoinHandle<Result<(), AcceptError>> {
     let next_client_id = AtomicUsize::default();
     spawn(async move {
@@ -57,6 +58,7 @@ pub(crate) fn acceptor(
                 keep_running.clone(),
                 error_sender.clone(),
                 outputs_sender.clone(),
+                parameters_sender.clone(),
                 client_id,
             );
         }

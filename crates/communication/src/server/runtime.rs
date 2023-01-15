@@ -10,7 +10,7 @@ use std::{
 };
 
 use framework::{multiple_buffer_with_slots, Reader, Writer};
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::{
     net::ToSocketAddrs,
@@ -27,7 +27,11 @@ use crate::server::outputs::router::router;
 use super::{
     acceptor::{acceptor, AcceptError},
     outputs::{provider::provider, Request},
-    parameters::directory::{deserialize, DirectoryError},
+    parameters::{
+        directory::{deserialize, DirectoryError},
+        storage::storage,
+        subscriptions::subscriptions,
+    },
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -53,7 +57,7 @@ pub struct Runtime<Parameters> {
 
 impl<Parameters> Runtime<Parameters>
 where
-    Parameters: Clone + DeserializeOwned + Send + SerializeHierarchy + Sync + 'static,
+    Parameters: Clone + DeserializeOwned + Send + Serialize + SerializeHierarchy + Sync + 'static,
 {
     pub fn start(
         addresses: Option<impl ToSocketAddrs + Send + Sync + 'static>,
@@ -81,7 +85,7 @@ where
                 let inner_runtime = runtime.clone();
                 runtime.block_on(async move {
                     let initial_parameters: Parameters =
-                        match deserialize(parameters_directory, &body_id, &head_id).await {
+                        match deserialize(&parameters_directory, &body_id, &head_id).await {
                             Ok(initial_parameters) => initial_parameters,
                             Err(source) => {
                                 runtime_sender.send(None).expect(
@@ -91,27 +95,53 @@ where
                             }
                         };
 
+                    let (outputs_sender, outputs_receiver) = channel(1);
+
                     let (parameters_writer, parameters_reader) = multiple_buffer_with_slots(
                         repeat_with(|| initial_parameters.clone())
                             .take(amount_of_parameters_slots + 1),
                     );
 
-                    let (outputs_sender, outputs_receiver) = channel(1);
+                    let (parameters_sender, parameters_receiver) = channel(1);
+                    let parameters_changed = Arc::new(Notify::new());
+                    let (parameters_storage_sender, parameters_storage_receiver) = channel(1);
+
                     runtime_sender
                         .send(Some((
                             inner_runtime,
                             outputs_sender.clone(),
-                            DebugWrapper(parameters_reader),
+                            DebugWrapper(parameters_reader.clone()),
                         )))
                         .expect("successful thread creation should always wait for runtime_sender");
 
-                    let acceptor_task = acceptor(addresses, keep_running.clone(), outputs_sender);
+                    let acceptor_task = acceptor(
+                        addresses,
+                        keep_running.clone(),
+                        outputs_sender,
+                        parameters_sender,
+                    );
                     let outputs_task = router(outputs_receiver);
+                    let parameters_subscriptions_task = subscriptions(
+                        parameters_receiver,
+                        parameters_reader,
+                        parameters_changed.clone(),
+                        parameters_storage_sender,
+                    );
+                    let parameters_storage_task = storage(
+                        parameters_writer,
+                        parameters_changed,
+                        parameters_storage_receiver,
+                        parameters_directory,
+                        body_id,
+                        head_id,
+                    );
 
                     keep_running.cancelled().await;
 
                     let acceptor_task_result = acceptor_task.await;
                     let outputs_task_result = outputs_task.await;
+                    let parameters_subscriptions_task_result = parameters_subscriptions_task.await;
+                    let parameters_storage_task_result = parameters_storage_task.await;
 
                     let mut task_errors = vec![];
                     if let Err(error) = acceptor_task_result.expect("failed to join acceptor task")
@@ -119,6 +149,8 @@ where
                         task_errors.push(StartError::AcceptError(error));
                     }
                     outputs_task_result.expect("failed to join outputs task");
+                    parameters_subscriptions_task_result.expect("failed to join outputs task");
+                    parameters_storage_task_result.expect("failed to join outputs task");
 
                     if task_errors.is_empty() {
                         Ok(())
