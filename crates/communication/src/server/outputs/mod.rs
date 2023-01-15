@@ -1,11 +1,11 @@
 use std::{
-    collections::BTreeMap,
+    collections::BTreeSet,
     hash::{Hash, Hasher},
 };
 
 use tokio::sync::mpsc::Sender;
 
-use crate::messages::{Format, OutputRequest, Path, Response, Type};
+use crate::messages::{Format, OutputRequest, Path, Response};
 
 pub mod provider;
 pub mod router;
@@ -15,7 +15,7 @@ pub enum Request {
     ClientRequest(ClientRequest),
     RegisterCycler {
         cycler_instance: String,
-        fields: BTreeMap<Path, Type>,
+        fields: BTreeSet<Path>,
         request_sender: Sender<ClientRequest>,
     },
 }

@@ -6,8 +6,8 @@ license = "GPL-3.0-only"
 
 [dependencies]
 bincode = { workspace = true }
-color-eyre = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serialize_hierarchy_derive = { workspace = true }
+thiserror = { workspace = true }

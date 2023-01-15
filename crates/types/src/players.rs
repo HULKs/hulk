@@ -1,18 +1,12 @@
 use std::{
-    collections::BTreeMap,
+    collections::BTreeSet,
+    iter::once,
     ops::{Index, IndexMut},
 };
 
-use color_eyre::{
-    eyre::{bail, WrapErr},
-    Result,
-};
-use serde::{Deserialize, Serialize};
-use serialize_hierarchy::{
-    bincode::{deserialize, serialize},
-    serde_json::{from_value, to_value},
-    Format, HierarchyType, SerializeHierarchy, SerializedValue,
-};
+use color_eyre::Result;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serialize_hierarchy::{Error, SerializeHierarchy, Serializer};
 use spl_network_messages::{Penalty, PlayerNumber, TeamState};
 
 #[derive(Clone, Copy, Default, Debug, Deserialize, Serialize)]
@@ -106,171 +100,91 @@ impl<T> Players<T> {
 
 impl<T> SerializeHierarchy for Players<T>
 where
-    T: Serialize + for<'de> Deserialize<'de> + SerializeHierarchy,
+    T: Serialize + DeserializeOwned + SerializeHierarchy,
 {
-    fn serialize_hierarchy(&self, field_path: &str, format: Format) -> Result<SerializedValue> {
-        let split = field_path.split_once('.');
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: std::error::Error,
+    {
+        let split = path.split_once('.');
         match split {
-            Some((field_name, suffix)) => match field_name {
-                "one" => self
-                    .one
-                    .serialize_hierarchy(suffix, format)
-                    .wrap_err("failed to serialize field `one`"),
-                "two" => self
-                    .two
-                    .serialize_hierarchy(suffix, format)
-                    .wrap_err("failed to serialize field `two`"),
-                "three" => self
-                    .three
-                    .serialize_hierarchy(suffix, format)
-                    .wrap_err("failed to serialize field `three`"),
-                "four" => self
-                    .four
-                    .serialize_hierarchy(suffix, format)
-                    .wrap_err("failed to serialize field `four`"),
-                "five" => self
-                    .five
-                    .serialize_hierarchy(suffix, format)
-                    .wrap_err("failed to serialize field `five`"),
-                _ => bail!("no such field in type: `{}`", field_path),
+            Some((name, suffix)) => match name {
+                "one" => self.one.serialize_path::<S>(suffix),
+                "two" => self.two.serialize_path::<S>(suffix),
+                "three" => self.three.serialize_path::<S>(suffix),
+                "four" => self.four.serialize_path::<S>(suffix),
+                "five" => self.five.serialize_path::<S>(suffix),
+                name => Err(Error::UnexpectedPathSegment {
+                    segment: name.to_string(),
+                }),
             },
-            None => match field_path {
-                "one" => match format {
-                    Format::Textual => to_value(&self.one)
-                        .wrap_err("failed to serialize field `one`")
-                        .map(SerializedValue::Textual),
-                    Format::Binary => serialize(&self.one)
-                        .wrap_err("failed to serialize field `one`")
-                        .map(SerializedValue::Binary),
-                },
-                "two" => match format {
-                    Format::Textual => to_value(&self.two)
-                        .wrap_err("failed to serialize field `two`")
-                        .map(SerializedValue::Textual),
-                    Format::Binary => serialize(&self.two)
-                        .wrap_err("failed to serialize field `two`")
-                        .map(SerializedValue::Binary),
-                },
-                "three" => match format {
-                    Format::Textual => to_value(&self.three)
-                        .wrap_err("failed to serialize field `three`")
-                        .map(SerializedValue::Textual),
-                    Format::Binary => serialize(&self.three)
-                        .wrap_err("failed to serialize field `three`")
-                        .map(SerializedValue::Binary),
-                },
-                "four" => match format {
-                    Format::Textual => to_value(&self.four)
-                        .wrap_err("failed to serialize field `four`")
-                        .map(SerializedValue::Textual),
-                    Format::Binary => serialize(&self.four)
-                        .wrap_err("failed to serialize field `four`")
-                        .map(SerializedValue::Binary),
-                },
-                "five" => match format {
-                    Format::Textual => to_value(&self.five)
-                        .wrap_err("failed to serialize field `five`")
-                        .map(SerializedValue::Textual),
-                    Format::Binary => serialize(&self.five)
-                        .wrap_err("failed to serialize field `five`")
-                        .map(SerializedValue::Binary),
-                },
-                _ => bail!("no such field in type: `{}`", field_path),
+            None => match path {
+                "one" => S::serialize(&self.one).map_err(Error::SerializationFailed),
+                "two" => S::serialize(&self.two).map_err(Error::SerializationFailed),
+                "three" => S::serialize(&self.three).map_err(Error::SerializationFailed),
+                "four" => S::serialize(&self.four).map_err(Error::SerializationFailed),
+                "five" => S::serialize(&self.five).map_err(Error::SerializationFailed),
+                name => Err(Error::UnexpectedPathSegment {
+                    segment: name.to_string(),
+                }),
             },
         }
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, data: SerializedValue) -> Result<()> {
-        let split = field_path.split_once('.');
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: std::error::Error,
+    {
+        let split = path.split_once('.');
         match split {
-            Some((field_name, suffix)) => match field_name {
-                "one" => self
-                    .one
-                    .deserialize_hierarchy(suffix, data)
-                    .wrap_err("failed to deserialize field `one`"),
-                "two" => self
-                    .two
-                    .deserialize_hierarchy(suffix, data)
-                    .wrap_err("failed to deserialize field `two`"),
-                "three" => self
-                    .three
-                    .deserialize_hierarchy(suffix, data)
-                    .wrap_err("failed to deserialize field `three`"),
-                "four" => self
-                    .four
-                    .deserialize_hierarchy(suffix, data)
-                    .wrap_err("failed to deserialize field `four`"),
-                "five" => self
-                    .five
-                    .deserialize_hierarchy(suffix, data)
-                    .wrap_err("failed to deserialize field `five`"),
-                _ => bail!("no such field in type: `{}`", field_path),
+            Some((name, suffix)) => match name {
+                "one" => self.one.deserialize_path::<S>(suffix, data),
+                "two" => self.two.deserialize_path::<S>(suffix, data),
+                "three" => self.three.deserialize_path::<S>(suffix, data),
+                "four" => self.four.deserialize_path::<S>(suffix, data),
+                "five" => self.five.deserialize_path::<S>(suffix, data),
+                name => Err(Error::UnexpectedPathSegment {
+                    segment: name.to_string(),
+                }),
             },
-            None => match field_path {
+            None => match path {
                 "one" => {
-                    self.one = match data {
-                        SerializedValue::Textual(data) => {
-                            from_value(data).wrap_err("failed to deserialize field `one`")
-                        }
-                        SerializedValue::Binary(data) => {
-                            deserialize(&data).wrap_err("failed to deserialize field `one`")
-                        }
-                    }?;
+                    self.one = S::deserialize(data).map_err(Error::DeserializationFailed)?;
                     Ok(())
                 }
                 "two" => {
-                    self.two = match data {
-                        SerializedValue::Textual(data) => {
-                            from_value(data).wrap_err("failed to deserialize field `two`")
-                        }
-                        SerializedValue::Binary(data) => {
-                            deserialize(&data).wrap_err("failed to deserialize field `two`")
-                        }
-                    }?;
+                    self.two = S::deserialize(data).map_err(Error::DeserializationFailed)?;
                     Ok(())
                 }
                 "three" => {
-                    self.three = match data {
-                        SerializedValue::Textual(data) => {
-                            from_value(data).wrap_err("failed to deserialize field `three`")
-                        }
-                        SerializedValue::Binary(data) => {
-                            deserialize(&data).wrap_err("failed to deserialize field `three`")
-                        }
-                    }?;
+                    self.three = S::deserialize(data).map_err(Error::DeserializationFailed)?;
                     Ok(())
                 }
                 "four" => {
-                    self.four = match data {
-                        SerializedValue::Textual(data) => {
-                            from_value(data).wrap_err("failed to deserialize field `four`")
-                        }
-                        SerializedValue::Binary(data) => {
-                            deserialize(&data).wrap_err("failed to deserialize field `four`")
-                        }
-                    }?;
+                    self.four = S::deserialize(data).map_err(Error::DeserializationFailed)?;
                     Ok(())
                 }
                 "five" => {
-                    self.five = match data {
-                        SerializedValue::Textual(data) => {
-                            from_value(data).wrap_err("failed to deserialize field `five`")
-                        }
-                        SerializedValue::Binary(data) => {
-                            deserialize(&data).wrap_err("failed to deserialize field `five`")
-                        }
-                    }?;
+                    self.five = S::deserialize(data).map_err(Error::DeserializationFailed)?;
                     Ok(())
                 }
-                _ => bail!("no such field in type: `{}`", field_path),
+                name => Err(Error::UnexpectedPathSegment {
+                    segment: name.to_string(),
+                }),
             },
         }
     }
 
-    fn exists(field_path: &str) -> bool {
-        let split = field_path.split_once('.');
+    fn exists(path: &str) -> bool {
+        let split = path.split_once('.');
         match split {
-            Some((field_name, suffix)) => match field_name {
+            Some((name, suffix)) => match name {
                 "one" => T::exists(suffix),
                 "two" => T::exists(suffix),
                 "three" => T::exists(suffix),
@@ -278,17 +192,37 @@ where
                 "five" => T::exists(suffix),
                 _ => false,
             },
-            None => matches!(field_path, "one" | "two" | "three" | "four" | "five"),
+            None => matches!(path, "one" | "two" | "three" | "four" | "five"),
         }
     }
 
-    fn get_hierarchy() -> HierarchyType {
-        let mut fields = BTreeMap::new();
-        fields.insert("one".to_string(), T::get_hierarchy());
-        fields.insert("two".to_string(), T::get_hierarchy());
-        fields.insert("three".to_string(), T::get_hierarchy());
-        fields.insert("four".to_string(), T::get_hierarchy());
-        fields.insert("five".to_string(), T::get_hierarchy());
-        HierarchyType::Struct { fields }
+    fn get_fields() -> BTreeSet<String> {
+        once(String::new())
+            .chain(
+                T::get_fields()
+                    .into_iter()
+                    .map(|name| format!("one.{name}")),
+            )
+            .chain(
+                T::get_fields()
+                    .into_iter()
+                    .map(|name| format!("two.{name}")),
+            )
+            .chain(
+                T::get_fields()
+                    .into_iter()
+                    .map(|name| format!("three.{name}")),
+            )
+            .chain(
+                T::get_fields()
+                    .into_iter()
+                    .map(|name| format!("four.{name}")),
+            )
+            .chain(
+                T::get_fields()
+                    .into_iter()
+                    .map(|name| format!("five.{name}")),
+            )
+            .collect()
     }
 }

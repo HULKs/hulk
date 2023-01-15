@@ -113,14 +113,14 @@ impl Runtime {
         self.join_handle.join()
     }
 
-    pub fn register_cycler_instance<Output>(
+    pub fn register_cycler_instance<Outputs>(
         &self,
         cycler_instance: &'static str,
         outputs_changed: Arc<Notify>,
-        outputs_reader: Reader<Output>,
+        outputs_reader: Reader<Outputs>,
         subscribed_outputs_writer: Writer<HashSet<String>>,
     ) where
-        Output: SerializeHierarchy + Send + Sync + 'static,
+        Outputs: SerializeHierarchy + Send + Sync + 'static,
     {
         let _guard = self.runtime.enter();
         provider(

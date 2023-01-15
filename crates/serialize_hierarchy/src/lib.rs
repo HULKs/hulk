@@ -1,5 +1,6 @@
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeSet, HashSet},
+    error,
     ops::{Deref, Range},
     path::PathBuf,
     sync::Arc,
@@ -7,72 +8,146 @@ use std::{
 };
 
 pub use bincode;
-use bincode::serialize;
-use color_eyre::{eyre::bail, Result};
+use bincode::{deserialize, serialize};
 use nalgebra::{
     Isometry2, Isometry3, Point2, Point3, SMatrix, UnitComplex, Vector2, Vector3, Vector4,
 };
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 pub use serde_json;
-use serde_json::Value;
+use serde_json::{from_value, to_value, Value};
 pub use serialize_hierarchy_derive::SerializeHierarchy;
 
-#[derive(Clone, Debug, Serialize)]
-#[serde(tag = "type")]
-pub enum HierarchyType {
-    Primary {
-        name: &'static str,
-    },
-    Struct {
-        fields: BTreeMap<String, HierarchyType>,
-    },
-    GenericStruct,
-    GenericEnum,
-    Option {
-        nested: Box<HierarchyType>,
-    },
-    Vec {
-        nested: Box<HierarchyType>,
-    },
-}
-
 pub trait SerializeHierarchy {
-    fn serialize_hierarchy(&self, field_path: &str, format: Format) -> Result<SerializedValue>;
-    fn deserialize_hierarchy(&mut self, field_path: &str, data: SerializedValue) -> Result<()>;
-    fn exists(field_path: &str) -> bool;
-    fn get_hierarchy() -> HierarchyType;
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error;
+
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error;
+
+    fn exists(path: &str) -> bool;
+
+    fn get_fields() -> BTreeSet<String>;
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Format {
-    Textual,
-    Binary,
+pub trait Serializer {
+    type Serialized;
+    type Error;
+
+    fn serialize<T>(value: &T) -> Result<Self::Serialized, Self::Error>
+    where
+        T: Serialize;
+
+    fn deserialize<T>(value: Self::Serialized) -> Result<T, Self::Error>
+    where
+        T: DeserializeOwned;
 }
 
-#[derive(Clone, Debug)]
-pub enum SerializedValue {
-    Textual(Value),
-    Binary(Vec<u8>),
+#[derive(Debug, thiserror::Error)]
+pub enum Error<E>
+where
+    E: error::Error,
+{
+    #[error("failed to serialize")]
+    SerializationFailed(E),
+    #[error("failed to deserialize")]
+    DeserializationFailed(E),
+    #[error("type {type_name} does not support serialization for path {path:?}")]
+    TypeDoesNotSupportSerialization {
+        type_name: &'static str,
+        path: String,
+    },
+    #[error("type {type_name} does not support deserialization for path {path:?}")]
+    TypeDoesNotSupportDeserialization {
+        type_name: &'static str,
+        path: String,
+    },
+    #[error("unexpected path segment {segment}")]
+    UnexpectedPathSegment { segment: String },
+}
+
+pub struct BinarySerializer;
+
+impl Serializer for BinarySerializer {
+    type Serialized = Vec<u8>;
+    type Error = bincode::Error;
+
+    fn serialize<T>(value: &T) -> Result<Self::Serialized, Self::Error>
+    where
+        T: Serialize,
+    {
+        serialize(value)
+    }
+
+    fn deserialize<T>(value: Self::Serialized) -> Result<T, Self::Error>
+    where
+        T: DeserializeOwned,
+    {
+        deserialize(value.as_slice())
+    }
+}
+
+pub struct TextualSerializer;
+
+impl Serializer for TextualSerializer {
+    type Serialized = Value;
+    type Error = serde_json::Error;
+
+    fn serialize<T>(value: &T) -> Result<Self::Serialized, Self::Error>
+    where
+        T: Serialize,
+    {
+        to_value(value)
+    }
+
+    fn deserialize<T>(value: Self::Serialized) -> Result<T, Self::Error>
+    where
+        T: DeserializeOwned,
+    {
+        from_value(value)
+    }
 }
 
 impl<T> SerializeHierarchy for Arc<T>
 where
     T: SerializeHierarchy,
 {
-    fn serialize_hierarchy(&self, field_path: &str, format: Format) -> Result<SerializedValue> {
-        self.deref().serialize_hierarchy(field_path, format)
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        self.deref().serialize_path::<S>(path)
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: SerializedValue) -> Result<()> {
-        bail!("Cannot deserialize into Arc with path: `{field_path}`")
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        Err(Error::TypeDoesNotSupportDeserialization {
+            type_name: "Arc",
+            path: path.to_string(),
+        })
     }
 
-    fn exists(field_path: &str) -> bool {
-        T::exists(field_path)
+    fn exists(path: &str) -> bool {
+        T::exists(path)
     }
 
-    fn get_hierarchy() -> HierarchyType {
-        T::get_hierarchy()
+    fn get_fields() -> BTreeSet<String> {
+        T::get_fields()
     }
 }
 
@@ -80,104 +155,148 @@ impl<T> SerializeHierarchy for Option<T>
 where
     T: SerializeHierarchy,
 {
-    fn serialize_hierarchy(&self, field_path: &str, format: Format) -> Result<SerializedValue> {
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
         match self {
-            Some(some) => some.serialize_hierarchy(field_path, format),
-            None => Ok(match format {
-                Format::Textual => SerializedValue::Textual(Value::Null),
-                Format::Binary => SerializedValue::Binary(
-                    serialize::<Option<()>>(&None).expect("failed to serialize None"),
-                ),
-            }),
+            Some(some) => some.serialize_path::<S>(path),
+            None => S::serialize(&(None as Option<()>)).map_err(Error::SerializationFailed),
         }
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: SerializedValue) -> Result<()> {
-        bail!("Cannot deserialize into Option with path: `{field_path}`")
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        Err(Error::TypeDoesNotSupportDeserialization {
+            type_name: "Option",
+            path: path.to_string(),
+        })
     }
 
-    fn exists(field_path: &str) -> bool {
-        T::exists(field_path)
+    fn exists(path: &str) -> bool {
+        T::exists(path)
     }
 
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::Option {
-            nested: Box::new(T::get_hierarchy()),
-        }
+    fn get_fields() -> BTreeSet<String> {
+        T::get_fields()
     }
 }
 
 impl<T> SerializeHierarchy for HashSet<T> {
-    fn serialize_hierarchy(&self, field_path: &str, _format: Format) -> Result<SerializedValue> {
-        bail!("cannot access HashSet with path: {}", field_path)
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        Err(Error::TypeDoesNotSupportSerialization {
+            type_name: "HashSet",
+            path: path.to_string(),
+        })
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: SerializedValue) -> Result<()> {
-        bail!("cannot access HashSet with path: {}", field_path)
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        Err(Error::TypeDoesNotSupportDeserialization {
+            type_name: "HashSet",
+            path: path.to_string(),
+        })
     }
 
-    fn exists(_field_path: &str) -> bool {
+    fn exists(_path: &str) -> bool {
         false
     }
 
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::GenericStruct
+    fn get_fields() -> BTreeSet<String> {
+        [String::new()].into()
     }
 }
 
 impl<T> SerializeHierarchy for Vec<T> {
-    fn serialize_hierarchy(&self, field_path: &str, _format: Format) -> Result<SerializedValue> {
-        bail!("cannot access Vec with path: {}", field_path)
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        Err(Error::TypeDoesNotSupportSerialization {
+            type_name: "Vec",
+            path: path.to_string(),
+        })
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: SerializedValue) -> Result<()> {
-        bail!("cannot access Vec with path: {}", field_path)
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        Err(Error::TypeDoesNotSupportDeserialization {
+            type_name: "Vec",
+            path: path.to_string(),
+        })
     }
 
-    fn exists(_field_path: &str) -> bool {
+    fn exists(_path: &str) -> bool {
         false
     }
 
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::GenericStruct
+    fn get_fields() -> BTreeSet<String> {
+        [String::new()].into()
     }
 }
 
 macro_rules! serialize_hierarchy_primary_impl {
     ($type:ty) => {
         impl SerializeHierarchy for $type {
-            fn serialize_hierarchy(
-                &self,
-                field_path: &str,
-                _format: Format,
-            ) -> Result<SerializedValue> {
-                bail!(
-                    "cannot access {} with path: {}",
-                    stringify!($type),
-                    field_path
-                )
+            fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+            where
+                S: Serializer,
+                S::Error: error::Error,
+            {
+                Err(Error::TypeDoesNotSupportSerialization {
+                    type_name: stringify!($type),
+                    path: path.to_string(),
+                })
             }
 
-            fn deserialize_hierarchy(
+            fn deserialize_path<S>(
                 &mut self,
-                field_path: &str,
-                _data: SerializedValue,
-            ) -> Result<()> {
-                bail!(
-                    "cannot access {} with path: {}",
-                    stringify!($type),
-                    field_path
-                )
+                path: &str,
+                _data: S::Serialized,
+            ) -> Result<(), Error<S::Error>>
+            where
+                S: Serializer,
+                S::Error: error::Error,
+            {
+                Err(Error::TypeDoesNotSupportDeserialization {
+                    type_name: stringify!($type),
+                    path: path.to_string(),
+                })
             }
 
-            fn exists(_field_path: &str) -> bool {
+            fn exists(_path: &str) -> bool {
                 false
             }
 
-            fn get_hierarchy() -> HierarchyType {
-                HierarchyType::Primary {
-                    name: stringify!($type),
-                }
+            fn get_fields() -> BTreeSet<String> {
+                [String::new()].into()
             }
         }
     };

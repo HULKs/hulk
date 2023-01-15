@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, BTreeMap, HashMap, HashSet},
+    collections::{hash_map::Entry, HashMap, HashSet},
     num::Wrapping,
     sync::Arc,
 };
@@ -7,7 +7,7 @@ use std::{
 use framework::{Reader, Writer};
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use log::error;
-use serialize_hierarchy::{HierarchyType, SerializeHierarchy, SerializedValue};
+use serialize_hierarchy::{BinarySerializer, SerializeHierarchy, TextualSerializer};
 use tokio::{
     select, spawn,
     sync::{
@@ -24,15 +24,15 @@ use crate::messages::{
 
 use super::{Client, ClientRequest, Request, Subscription};
 
-pub fn provider<Output>(
+pub fn provider<Outputs>(
     outputs_sender: Sender<Request>,
     cycler_instance: &'static str,
     outputs_changed: Arc<Notify>,
-    outputs_reader: Reader<Output>,
+    outputs_reader: Reader<Outputs>,
     subscribed_outputs_writer: Writer<HashSet<String>>,
 ) -> JoinHandle<()>
 where
-    Output: SerializeHierarchy + Send + Sync + 'static,
+    Outputs: SerializeHierarchy + Send + Sync + 'static,
 {
     spawn(async move {
         let (request_sender, mut request_receiver) = channel(1);
@@ -40,7 +40,7 @@ where
         outputs_sender
             .send(Request::RegisterCycler {
                 cycler_instance: cycler_instance.to_string(),
-                fields: get_paths_from_hierarchy(Default::default(), Output::get_hierarchy()),
+                fields: Outputs::get_fields(),
                 request_sender,
             })
             .await
@@ -54,7 +54,7 @@ where
                 request = request_receiver.recv() => {
                     match request {
                         Some(request) => {
-                            handle_client_request::<Output>(
+                            handle_client_request::<Outputs>(
                                 request,
                                 cycler_instance,
                                 &mut subscriptions,
@@ -83,13 +83,13 @@ enum SubscriptionsState {
     Unchanged,
 }
 
-async fn handle_client_request<Output>(
+async fn handle_client_request<Outputs>(
     request: ClientRequest,
     cycler_instance: &'static str,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
 ) -> SubscriptionsState
 where
-    Output: SerializeHierarchy,
+    Outputs: SerializeHierarchy,
 {
     let is_get_next = matches!(request.request, OutputRequest::GetNext { .. });
     match request.request {
@@ -109,7 +109,7 @@ where
             format,
         } => {
             assert_eq!(cycler_instance, received_cycler_instance);
-            if Output::exists(&path) {
+            if Outputs::exists(&path) {
                 match subscriptions.entry((request.client.clone(), id)) {
                     Entry::Occupied(_) => {
                         let error_message = format!("already subscribed with id {id}");
@@ -242,22 +242,26 @@ async fn handle_notified_output(
     {
         let output = outputs_reader.next();
         subscriptions.retain(|(client, subscription_id), subscription| {
-            let format = match subscription.format {
-                Format::Textual => serialize_hierarchy::Format::Textual,
-                Format::Binary => serialize_hierarchy::Format::Binary,
-            };
-            let data = match output.serialize_hierarchy(&subscription.path, format) {
-                Ok(data) => data,
-                Err(error) => {
-                    error!("failed to serialize {:?}: {error:?}", subscription.path);
-                    return true;
-                }
-            };
-            let data = match data {
-                SerializedValue::Textual(data) => {
+            let data = match subscription.format {
+                Format::Textual => {
+                    let data = match output.serialize_path::<TextualSerializer>(&subscription.path)
+                    {
+                        Ok(data) => data,
+                        Err(error) => {
+                            error!("failed to serialize {:?}: {error:?}", subscription.path);
+                            return true;
+                        }
+                    };
                     TextualDataOrBinaryReference::TextualData { data }
                 }
-                SerializedValue::Binary(data) => {
+                Format::Binary => {
+                    let data = match output.serialize_path::<BinarySerializer>(&subscription.path) {
+                        Ok(data) => data,
+                        Err(error) => {
+                            error!("failed to serialize {:?}: {error:?}", subscription.path);
+                            return true;
+                        }
+                    };
                     let reference_id = next_binary_reference_id.0;
                     *next_binary_reference_id += 1;
                     if subscription.once {
@@ -342,69 +346,57 @@ async fn handle_notified_output(
     subscriptions_state
 }
 
-fn get_paths_from_hierarchy(prefix: String, hierarchy: HierarchyType) -> BTreeMap<String, String> {
-    match hierarchy {
-        HierarchyType::Primary { name } => [(prefix, name.to_string())].into(),
-        HierarchyType::Struct { fields } => {
-            let mut collected_fields = BTreeMap::new();
-            if !prefix.is_empty() {
-                collected_fields.insert(prefix.clone(), "GenericStruct".to_string());
-            }
-            for (name, nested_hierarchy) in fields {
-                let prefix = if prefix.is_empty() {
-                    name
-                } else {
-                    format!("{prefix}.{name}")
-                };
-                collected_fields.extend(get_paths_from_hierarchy(prefix, nested_hierarchy));
-            }
-            collected_fields
-        }
-        HierarchyType::GenericStruct => [(prefix, "GenericStruct".to_string())].into(),
-        HierarchyType::GenericEnum => [(prefix, "GenericEnum".to_string())].into(),
-        HierarchyType::Option { nested } => get_paths_from_hierarchy(prefix, *nested)
-            .into_iter()
-            .map(|(path, data_type)| (path, format!("Option<{data_type}>")))
-            .collect(),
-        HierarchyType::Vec { nested } => get_paths_from_hierarchy(prefix, *nested)
-            .into_iter()
-            .map(|(path, data_type)| (path, format!("Vec<{data_type}>")))
-            .collect(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::{collections::BTreeSet, time::Duration};
 
-    use color_eyre::{eyre::eyre, Result};
+    use bincode::serialize;
     use framework::multiple_buffer_with_slots;
+    use serde::{de::DeserializeOwned, Serialize};
     use serde_json::Value;
-    use serialize_hierarchy::HierarchyType;
+    use serialize_hierarchy::{Error, Serializer};
     use tokio::{sync::mpsc::error::TryRecvError, task::yield_now, time::timeout};
 
     use crate::messages::Format;
 
     use super::*;
 
-    struct OutputsFake {
-        existing_fields: HashMap<String, SerializedValue>,
+    struct OutputsFake<T> {
+        existing_fields: HashMap<String, T>,
     }
 
-    impl SerializeHierarchy for OutputsFake {
-        fn serialize_hierarchy(
-            &self,
-            field_path: &str,
-            _format: serialize_hierarchy::Format,
-        ) -> Result<SerializedValue> {
-            self.existing_fields
-                .get(field_path)
-                .cloned()
-                .ok_or_else(|| eyre!("missing"))
+    impl<T> SerializeHierarchy for OutputsFake<T>
+    where
+        T: DeserializeOwned + Serialize,
+    {
+        fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+        where
+            S: Serializer,
+            S::Error: std::error::Error,
+        {
+            S::serialize(
+                self.existing_fields
+                    .get(path)
+                    .ok_or(Error::UnexpectedPathSegment {
+                        segment: path.to_string(),
+                    })?,
+            )
+            .map_err(Error::SerializationFailed)
         }
 
-        fn deserialize_hierarchy(&mut self, field_path: &str, data: SerializedValue) -> Result<()> {
-            self.existing_fields.insert(field_path.to_string(), data);
+        fn deserialize_path<S>(
+            &mut self,
+            path: &str,
+            data: S::Serialized,
+        ) -> Result<(), Error<S::Error>>
+        where
+            S: Serializer,
+            S::Error: std::error::Error,
+        {
+            self.existing_fields.insert(
+                path.to_string(),
+                S::deserialize(data).map_err(Error::DeserializationFailed)?,
+            );
             Ok(())
         }
 
@@ -412,26 +404,8 @@ mod tests {
             field_path == "a.b.c"
         }
 
-        fn get_hierarchy() -> HierarchyType {
-            HierarchyType::Struct {
-                fields: [(
-                    "a".to_string(),
-                    HierarchyType::Struct {
-                        fields: [(
-                            "b".to_string(),
-                            HierarchyType::Struct {
-                                fields: [(
-                                    "c".to_string(),
-                                    HierarchyType::Primary { name: "bool" },
-                                )]
-                                .into(),
-                            },
-                        )]
-                        .into(),
-                    },
-                )]
-                .into(),
-            }
+        fn get_fields() -> BTreeSet<String> {
+            ["a".to_string(), "a.b".to_string(), "a.b.c".to_string()].into()
         }
     }
 
@@ -441,7 +415,7 @@ mod tests {
         output: Reader<impl SerializeHierarchy + Send + Sync + 'static>,
     ) -> (
         JoinHandle<()>,
-        BTreeMap<String, String>,
+        BTreeSet<String>,
         Sender<ClientRequest>,
         Reader<HashSet<String>>,
     ) {
@@ -483,7 +457,7 @@ mod tests {
     async fn provider_registers_itself_at_router() {
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
+            existing_fields: [("a.b.c".to_string(), 42)].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -503,7 +477,7 @@ mod tests {
     async fn fields_are_collected() {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake::<()> {
             existing_fields: Default::default(),
         }]);
 
@@ -518,12 +492,7 @@ mod tests {
 
         assert_eq!(
             fields,
-            [
-                ("a".to_string(), "GenericStruct".to_string()),
-                ("a.b".to_string(), "GenericStruct".to_string()),
-                ("a.b.c".to_string(), "bool".to_string())
-            ]
-            .into()
+            ["a".to_string(), "a.b".to_string(), "a.b.c".to_string()].into(),
         );
 
         drop(request_sender);
@@ -535,7 +504,7 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
+            existing_fields: [("a.b.c".to_string(), 42)].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -633,7 +602,7 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
+            existing_fields: [("a.b.c".to_string(), 42)].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -730,7 +699,7 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
+            existing_fields: [("a.b.c".to_string(), 42)].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -827,7 +796,7 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
+            existing_fields: [("a.b.c".to_string(), 42)].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -881,7 +850,7 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
+            existing_fields: [("a.b.c".to_string(), 42)].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -1007,7 +976,7 @@ mod tests {
         let path = "a.b.c".to_string();
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [("a.b.c".to_string(), SerializedValue::Textual(42.into()))].into(),
+            existing_fields: [("a.b.c".to_string(), 42)].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -1118,7 +1087,7 @@ mod tests {
         let value = Value::from(42);
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [(path.clone(), SerializedValue::Textual(value.clone()))].into(),
+            existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -1240,9 +1209,10 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
         let value = vec![42, 1, 3, 3, 7];
+        let serialized_value = serialize(&value).unwrap();
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [(path.clone(), SerializedValue::Binary(value.clone()))].into(),
+            existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -1309,7 +1279,7 @@ mod tests {
             binary_data,
             Response::Binary(BinaryResponse::Outputs(
                 BinaryOutputResponse::SubscribedData {
-                    referenced_items: [(*reference_id, value)].into()
+                    referenced_items: [(*reference_id, serialized_value)].into()
                 }
             )),
         );
@@ -1372,7 +1342,7 @@ mod tests {
         let value = Value::from(42);
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [(path.clone(), SerializedValue::Textual(value.clone()))].into(),
+            existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -1590,7 +1560,7 @@ mod tests {
         let value = Value::from(42);
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [(path.clone(), SerializedValue::Textual(value.clone()))].into(),
+            existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -1665,9 +1635,10 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
         let value = vec![42, 1, 3, 3, 7];
+        let serialized_value = serialize(&value).unwrap();
         let outputs_changed = Arc::new(Notify::new());
         let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
-            existing_fields: [(path.clone(), SerializedValue::Binary(value.clone()))].into(),
+            existing_fields: [(path.clone(), value.clone())].into(),
         }]);
 
         let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
@@ -1725,7 +1696,7 @@ mod tests {
             binary_data,
             Response::Binary(BinaryResponse::Outputs(BinaryOutputResponse::GetNext {
                 reference_id,
-                data: value,
+                data: serialized_value,
             })),
         );
         match response_receiver.try_recv() {

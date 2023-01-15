@@ -1,10 +1,9 @@
 use approx::{AbsDiffEq, RelativeEq};
-use color_eyre::{eyre::bail, Result};
 use nalgebra::{distance, vector, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::{Format, HierarchyType, SerializeHierarchy, SerializedValue};
+use serialize_hierarchy::{Error, SerializeHierarchy, Serializer};
 
-use std::f32::consts::PI;
+use std::{collections::BTreeSet, error, f32::consts::PI};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Orientation {
@@ -199,20 +198,38 @@ impl LineSegment {
 pub struct TwoLineSegments(pub LineSegment, pub LineSegment);
 
 impl SerializeHierarchy for TwoLineSegments {
-    fn serialize_hierarchy(&self, field_path: &str, _format: Format) -> Result<SerializedValue> {
-        bail!("cannot access TwoLineSegments with path: {}", field_path)
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        Err(Error::TypeDoesNotSupportSerialization {
+            type_name: "TwoLineSegments",
+            path: path.to_string(),
+        })
     }
 
-    fn deserialize_hierarchy(&mut self, field_path: &str, _data: SerializedValue) -> Result<()> {
-        bail!("cannot access TwoLineSegments with path: {}", field_path)
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        Err(Error::TypeDoesNotSupportDeserialization {
+            type_name: "TwoLineSegments",
+            path: path.to_string(),
+        })
     }
 
-    fn exists(_field_path: &str) -> bool {
-        true
+    fn exists(_path: &str) -> bool {
+        false
     }
 
-    fn get_hierarchy() -> HierarchyType {
-        HierarchyType::GenericStruct
+    fn get_fields() -> BTreeSet<String> {
+        [String::new()].into()
     }
 }
 
