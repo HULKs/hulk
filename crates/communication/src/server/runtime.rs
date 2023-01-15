@@ -8,6 +8,7 @@ use std::{
 use framework::{Reader, Writer};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::{
+    net::ToSocketAddrs,
     runtime::{self, Runtime as TokioRuntime},
     sync::{
         mpsc::{channel, Sender},
@@ -42,7 +43,10 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn start(keep_running: CancellationToken) -> Result<Self, StartError> {
+    pub fn start(
+        addresses: Option<impl ToSocketAddrs + Send + Sync + 'static>,
+        keep_running: CancellationToken,
+    ) -> Result<Self, StartError> {
         let (runtime_sender, runtime_receiver) = oneshot::channel();
 
         let join_handle = thread::Builder::new()
@@ -65,7 +69,7 @@ impl Runtime {
                         .send(Some((inner_runtime, outputs_sender.clone())))
                         .expect("successful thread creation should always wait for runtime_sender");
 
-                    let acceptor_task = acceptor(keep_running.clone(), outputs_sender);
+                    let acceptor_task = acceptor(addresses, keep_running.clone(), outputs_sender);
                     let outputs_task = router(outputs_receiver);
 
                     keep_running.cancelled().await;
