@@ -6,11 +6,14 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::messages::{OutputRequest, Path, Response, TextualOutputResponse, TextualResponse};
+use crate::{
+    messages::{OutputsRequest, Path, Response, TextualOutputsResponse, TextualResponse},
+    server::Client,
+};
 
-use super::{Client, ClientRequest, Request};
+use super::{ClientRequest, Request};
 
-pub fn router(mut request_receiver: Receiver<Request>) -> JoinHandle<()> {
+pub(crate) fn router(mut request_receiver: Receiver<Request>) -> JoinHandle<()> {
     spawn(async move {
         let mut request_channels_of_cyclers = HashMap::new();
         let mut cached_cycler_instances = HashMap::new();
@@ -43,12 +46,12 @@ async fn handle_request(
     cached_cycler_instances: &mut HashMap<(Client, usize), String>,
 ) {
     match &request.request {
-        OutputRequest::GetFields { id } => {
+        OutputsRequest::GetFields { id } => {
             request
                 .client
                 .response_sender
                 .send(Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::GetFields {
+                    TextualOutputsResponse::GetFields {
                         id: *id,
                         fields: request_channels_of_cyclers
                             .iter()
@@ -61,17 +64,17 @@ async fn handle_request(
                 .await
                 .expect("receiver should always wait for all senders");
         }
-        OutputRequest::GetNext {
+        OutputsRequest::GetNext {
             id,
             cycler_instance,
             ..
         }
-        | OutputRequest::Subscribe {
+        | OutputsRequest::Subscribe {
             id,
             cycler_instance,
             ..
         } => {
-            if matches!(request.request, OutputRequest::Subscribe { .. }) {
+            if matches!(request.request, OutputsRequest::Subscribe { .. }) {
                 cached_cycler_instances
                     .insert((request.client.clone(), *id), cycler_instance.clone());
             }
@@ -89,13 +92,13 @@ async fn handle_request(
                         .client
                         .response_sender
                         .send(Response::Textual(TextualResponse::Outputs(
-                            if matches!(request.request, OutputRequest::GetNext { .. }) {
-                                TextualOutputResponse::GetNext {
+                            if matches!(request.request, OutputsRequest::GetNext { .. }) {
+                                TextualOutputsResponse::GetNext {
                                     id: *id,
                                     result: Err(error_message),
                                 }
                             } else {
-                                TextualOutputResponse::Subscribe {
+                                TextualOutputsResponse::Subscribe {
                                     id: *id,
                                     result: Err(error_message),
                                 }
@@ -106,7 +109,7 @@ async fn handle_request(
                 }
             }
         }
-        OutputRequest::Unsubscribe {
+        OutputsRequest::Unsubscribe {
             id,
             subscription_id,
         } => {
@@ -119,7 +122,7 @@ async fn handle_request(
                         .client
                         .response_sender
                         .send(Response::Textual(TextualResponse::Outputs(
-                            TextualOutputResponse::Unsubscribe {
+                            TextualOutputsResponse::Unsubscribe {
                                 id: *id,
                                 result: Err(format!("unknown subscription ID {subscription_id}")),
                             },
@@ -142,7 +145,7 @@ async fn handle_request(
                         .client
                         .response_sender
                         .send(Response::Textual(TextualResponse::Outputs(
-                            TextualOutputResponse::Unsubscribe {
+                            TextualOutputsResponse::Unsubscribe {
                                 id: *id,
                                 result: Err(format!("unknown cycler_instance {cycler_instance:?}")),
                             },
@@ -152,7 +155,7 @@ async fn handle_request(
                 }
             }
         }
-        OutputRequest::UnsubscribeEverything => {
+        OutputsRequest::UnsubscribeEverything => {
             cached_cycler_instances
                 .retain(|(client, _subscription_id), _cycler_instance| client != &request.client);
             for (_fields, request_channel) in request_channels_of_cyclers.values() {
@@ -202,7 +205,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(Request::ClientRequest(ClientRequest {
-                request: OutputRequest::GetFields { id: 42 },
+                request: OutputsRequest::GetFields { id: 42 },
                 client: Client {
                     id: 1337,
                     response_sender,
@@ -213,10 +216,12 @@ mod tests {
         let response = response_receiver.recv().await.unwrap();
         assert_eq!(
             response,
-            Response::Textual(TextualResponse::Outputs(TextualOutputResponse::GetFields {
-                id: 42,
-                fields: [(cycler_instance.to_string(), fields)].into()
-            })),
+            Response::Textual(TextualResponse::Outputs(
+                TextualOutputsResponse::GetFields {
+                    id: 42,
+                    fields: [(cycler_instance.to_string(), fields)].into()
+                }
+            )),
         );
         match response_receiver.try_recv() {
             Err(TryRecvError::Disconnected) => {}
@@ -235,7 +240,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(Request::ClientRequest(ClientRequest {
-                request: OutputRequest::GetNext {
+                request: OutputsRequest::GetNext {
                     id: 42,
                     cycler_instance: "CyclerInstance".to_string(),
                     path: "a.b.c".to_string(),
@@ -252,7 +257,7 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::GetNext {
+                Response::Textual(TextualResponse::Outputs(TextualOutputsResponse::GetNext {
                     id: 42,
                     result: Err(_),
                 }))
@@ -286,7 +291,7 @@ mod tests {
 
         let (response_sender, _response_receiver) = channel(1);
         let sent_client_request = ClientRequest {
-            request: OutputRequest::GetNext {
+            request: OutputsRequest::GetNext {
                 id: 42,
                 cycler_instance: "CyclerInstance".to_string(),
                 path: "a.b.c".to_string(),
@@ -330,7 +335,7 @@ mod tests {
             response_sender,
         };
         let sent_client_request = ClientRequest {
-            request: OutputRequest::Subscribe {
+            request: OutputsRequest::Subscribe {
                 id: 42,
                 cycler_instance: "CyclerInstance".to_string(),
                 path: "a.b.c".to_string(),
@@ -346,7 +351,7 @@ mod tests {
         assert_eq!(forwarded_client_request, sent_client_request);
 
         let sent_client_request = ClientRequest {
-            request: OutputRequest::Unsubscribe {
+            request: OutputsRequest::Unsubscribe {
                 id: 1337,
                 subscription_id: 42,
             },
