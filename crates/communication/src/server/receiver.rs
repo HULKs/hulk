@@ -11,6 +11,7 @@ use crate::messages::{OutputsRequest, ParametersRequest, Request, Response};
 
 use super::{connection::ReceiverOrSenderError, outputs, parameters, Client};
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn receiver(
     mut reader: SplitStream<WebSocketStream<TcpStream>>,
     error_sender: Sender<ReceiverOrSenderError>,
