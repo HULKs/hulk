@@ -1017,7 +1017,7 @@ mod tests {
                     response_sender,
                 },
                 id: 42,
-                path: path,
+                path,
                 data: value,
             }
         );

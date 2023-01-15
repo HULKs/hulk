@@ -10,7 +10,7 @@ use tokio::{
 use tokio_tungstenite::accept_async;
 use tokio_util::sync::CancellationToken;
 
-use super::{outputs, receiver::receiver, sender::sender, parameters};
+use super::{outputs, parameters, receiver::receiver, sender::sender};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConnectionError {

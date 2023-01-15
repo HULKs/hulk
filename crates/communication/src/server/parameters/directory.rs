@@ -31,6 +31,7 @@ pub enum DirectoryError {
 }
 
 #[derive(Debug, thiserror::Error)]
+#[allow(clippy::enum_variant_names)]
 pub enum SerializationError {
     #[error("failed to read {path:?}")]
     FileNotRead { source: io::Error, path: PathBuf },
@@ -185,23 +186,20 @@ fn prune_equal_branches(own: &mut Value, other: &Value) {
         *own = Value::Object(Default::default());
         return;
     }
-    match (own, other) {
-        (&mut Value::Object(ref mut own), &Value::Object(ref other)) => {
-            let mut keys_to_remove = vec![];
-            for (key, own_value) in own.iter_mut() {
-                if let Some(other_value) = other.get(key) {
-                    if own_value == other_value {
-                        keys_to_remove.push(key.clone());
-                        continue;
-                    }
-                    prune_equal_branches(own_value, other_value);
+    if let (&mut Value::Object(ref mut own), &Value::Object(ref other)) = (own, other) {
+        let mut keys_to_remove = vec![];
+        for (key, own_value) in own.iter_mut() {
+            if let Some(other_value) = other.get(key) {
+                if own_value == other_value {
+                    keys_to_remove.push(key.clone());
+                    continue;
                 }
-            }
-            for key in keys_to_remove {
-                own.remove(&key);
+                prune_equal_branches(own_value, other_value);
             }
         }
-        _ => {}
+        for key in keys_to_remove {
+            own.remove(&key);
+        }
     }
 }
 
