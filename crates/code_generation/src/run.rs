@@ -79,7 +79,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                 .collect::<Vec<_>>()
         })
         .collect();
-    let amount_of_parameters_slots = 2 + cycler_initializations.len() /* 2 writer slots + n-1 reader slots for other cyclers + 1 reader slot for communication */;
+    let amount_of_parameters_slots = 2 + cycler_initializations.len() /* 2 communication writer slots + n reader slots for other cyclers */;
     let default_slot_initializers_for_all_cyclers: Vec<_> = repeat(quote! { Default::default() })
         .take(2 + cycler_initializations.len() /* 2 writer slots + n-1 reader slots for other cyclers + 1 reader slot for communication */)
         .collect();

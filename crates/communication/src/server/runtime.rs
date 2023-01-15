@@ -80,9 +80,9 @@ where
 
                 let inner_runtime = runtime.clone();
                 runtime.block_on(async move {
-                    let initial_configuration: Parameters =
+                    let initial_parameters: Parameters =
                         match deserialize(parameters_directory, &body_id, &head_id).await {
-                            Ok(initial_configuration) => initial_configuration,
+                            Ok(initial_parameters) => initial_parameters,
                             Err(source) => {
                                 runtime_sender.send(None).expect(
                                 "successful thread creation should always wait for runtime_sender",
@@ -92,8 +92,8 @@ where
                         };
 
                     let (parameters_writer, parameters_reader) = multiple_buffer_with_slots(
-                        repeat_with(|| initial_configuration.clone())
-                            .take(amount_of_parameters_slots),
+                        repeat_with(|| initial_parameters.clone())
+                            .take(amount_of_parameters_slots + 1),
                     );
 
                     let (outputs_sender, outputs_receiver) = channel(1);

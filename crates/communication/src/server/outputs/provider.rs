@@ -17,14 +17,17 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::messages::{
-    BinaryOutputResponse, BinaryResponse, Format, OutputRequest, Response,
-    TextualDataOrBinaryReference, TextualOutputResponse, TextualResponse,
+use crate::{
+    messages::{
+        BinaryOutputsResponse, BinaryResponse, Format, OutputsRequest, Response,
+        TextualDataOrBinaryReference, TextualOutputsResponse, TextualResponse,
+    },
+    server::Client,
 };
 
-use super::{Client, ClientRequest, Request, Subscription};
+use super::{ClientRequest, Request, Subscription};
 
-pub fn provider<Outputs>(
+pub(crate) fn provider<Outputs>(
     outputs_sender: Sender<Request>,
     cycler_instance: &'static str,
     outputs_changed: Arc<Notify>,
@@ -91,18 +94,18 @@ async fn handle_client_request<Outputs>(
 where
     Outputs: SerializeHierarchy,
 {
-    let is_get_next = matches!(request.request, OutputRequest::GetNext { .. });
+    let is_get_next = matches!(request.request, OutputsRequest::GetNext { .. });
     match request.request {
-        OutputRequest::GetFields { .. } => {
+        OutputsRequest::GetFields { .. } => {
             panic!("GetFields should be answered by output router");
         }
-        OutputRequest::GetNext {
+        OutputsRequest::GetNext {
             id,
             cycler_instance: received_cycler_instance,
             path,
             format,
         }
-        | OutputRequest::Subscribe {
+        | OutputsRequest::Subscribe {
             id,
             cycler_instance: received_cycler_instance,
             path,
@@ -118,12 +121,12 @@ where
                             .response_sender
                             .send(Response::Textual(TextualResponse::Outputs(
                                 if is_get_next {
-                                    TextualOutputResponse::GetNext {
+                                    TextualOutputsResponse::GetNext {
                                         id,
                                         result: Err(error_message),
                                     }
                                 } else {
-                                    TextualOutputResponse::Subscribe {
+                                    TextualOutputsResponse::Subscribe {
                                         id,
                                         result: Err(error_message),
                                     }
@@ -144,7 +147,7 @@ where
                                 .client
                                 .response_sender
                                 .send(Response::Textual(TextualResponse::Outputs(
-                                    TextualOutputResponse::Subscribe { id, result: Ok(()) },
+                                    TextualOutputsResponse::Subscribe { id, result: Ok(()) },
                                 )))
                                 .await
                                 .expect("receiver should always wait for all senders");
@@ -157,7 +160,7 @@ where
                     .client
                     .response_sender
                     .send(Response::Textual(TextualResponse::Outputs(
-                        TextualOutputResponse::Subscribe {
+                        TextualOutputsResponse::Subscribe {
                             id,
                             result: Err(format!("path {path:?} does not exist")),
                         },
@@ -167,7 +170,7 @@ where
                 SubscriptionsState::Unchanged
             }
         }
-        OutputRequest::Unsubscribe {
+        OutputsRequest::Unsubscribe {
             id,
             subscription_id,
         } => {
@@ -179,7 +182,7 @@ where
                     .client
                     .response_sender
                     .send(Response::Textual(TextualResponse::Outputs(
-                        TextualOutputResponse::Unsubscribe {
+                        TextualOutputsResponse::Unsubscribe {
                             id,
                             result: Err(format!(
                                 "never subscribed with subscription id {subscription_id}"
@@ -194,14 +197,14 @@ where
                     .client
                     .response_sender
                     .send(Response::Textual(TextualResponse::Outputs(
-                        TextualOutputResponse::Unsubscribe { id, result: Ok(()) },
+                        TextualOutputsResponse::Unsubscribe { id, result: Ok(()) },
                     )))
                     .await
                     .expect("receiver should always wait for all senders");
                 SubscriptionsState::Changed
             }
         }
-        OutputRequest::UnsubscribeEverything => {
+        OutputsRequest::UnsubscribeEverything => {
             let amount_of_subscriptions_before = subscriptions.len();
             subscriptions
                 .retain(|(client, _subscription_id), _subscription| &request.client != client);
@@ -267,7 +270,7 @@ async fn handle_notified_output(
                     if subscription.once {
                         binary_get_next_items.insert(
                             client.clone(),
-                            BinaryOutputResponse::GetNext { reference_id, data },
+                            BinaryOutputsResponse::GetNext { reference_id, data },
                         );
                     } else {
                         binary_subscribed_items
@@ -297,7 +300,7 @@ async fn handle_notified_output(
             .map(|((client, subscription_id), data)| {
                 (
                     client.response_sender,
-                    Response::Textual(TextualResponse::Outputs(TextualOutputResponse::GetNext {
+                    Response::Textual(TextualResponse::Outputs(TextualOutputsResponse::GetNext {
                         id: subscription_id,
                         result: Ok(data),
                     })),
@@ -307,7 +310,7 @@ async fn handle_notified_output(
                 (
                     client.response_sender,
                     Response::Textual(TextualResponse::Outputs(
-                        TextualOutputResponse::SubscribedData {
+                        TextualOutputsResponse::SubscribedData {
                             items: items
                                 .into_iter()
                                 .map(|(subscription_id, data)| (subscription_id, data))
@@ -329,7 +332,7 @@ async fn handle_notified_output(
                         (
                             client.response_sender,
                             Response::Binary(BinaryResponse::Outputs(
-                                BinaryOutputResponse::SubscribedData { referenced_items },
+                                BinaryOutputsResponse::SubscribedData { referenced_items },
                             )),
                         )
                     }),
@@ -525,7 +528,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Subscribe {
+                request: OutputsRequest::Subscribe {
                     id: ID,
                     cycler_instance: cycler_instance.clone(),
                     path: path.clone(),
@@ -542,10 +545,12 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
-                    id: ID,
-                    result: Ok(()),
-                }))
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputsResponse::Subscribe {
+                        id: ID,
+                        result: Ok(()),
+                    }
+                ))
             ),
             "unexpected {response:?}",
         );
@@ -560,7 +565,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Subscribe {
+                request: OutputsRequest::Subscribe {
                     id: ID,
                     cycler_instance,
                     path: path.clone(),
@@ -577,10 +582,12 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
-                    id: ID,
-                    result: Err(_),
-                }))
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputsResponse::Subscribe {
+                        id: ID,
+                        result: Err(_),
+                    }
+                ))
             ),
             "unexpected {response:?}",
         );
@@ -622,7 +629,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Subscribe {
+                request: OutputsRequest::Subscribe {
                     id: ID,
                     cycler_instance: cycler_instance.clone(),
                     path: path.clone(),
@@ -639,10 +646,12 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
-                    id: ID,
-                    result: Ok(()),
-                }))
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputsResponse::Subscribe {
+                        id: ID,
+                        result: Ok(()),
+                    }
+                ))
             ),
             "unexpected {response:?}",
         );
@@ -657,7 +666,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Subscribe {
+                request: OutputsRequest::Subscribe {
                     id: ID,
                     cycler_instance,
                     path: path.clone(),
@@ -674,10 +683,12 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
-                    id: ID,
-                    result: Ok(()),
-                }))
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputsResponse::Subscribe {
+                        id: ID,
+                        result: Ok(()),
+                    }
+                ))
             ),
             "unexpected {response:?}",
         );
@@ -719,7 +730,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Subscribe {
+                request: OutputsRequest::Subscribe {
                     id: 42,
                     cycler_instance: cycler_instance.clone(),
                     path: path.clone(),
@@ -736,10 +747,12 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
-                    id: 42,
-                    result: Ok(()),
-                }))
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputsResponse::Subscribe {
+                        id: 42,
+                        result: Ok(()),
+                    }
+                ))
             ),
             "unexpected {response:?}",
         );
@@ -754,7 +767,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Subscribe {
+                request: OutputsRequest::Subscribe {
                     id: 1337,
                     cycler_instance,
                     path: path.clone(),
@@ -771,10 +784,12 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
-                    id: 1337,
-                    result: Ok(()),
-                }))
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputsResponse::Subscribe {
+                        id: 1337,
+                        result: Ok(()),
+                    }
+                ))
             ),
             "unexpected {response:?}",
         );
@@ -811,7 +826,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Unsubscribe {
+                request: OutputsRequest::Unsubscribe {
                     id: 42,
                     subscription_id: 1337,
                 },
@@ -827,7 +842,7 @@ mod tests {
             matches!(
                 response,
                 Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Unsubscribe {
+                    TextualOutputsResponse::Unsubscribe {
                         id: 42,
                         result: Err(_),
                     }
@@ -869,7 +884,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Subscribe {
+                request: OutputsRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -886,10 +901,12 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
-                    id: SUBSCRIPTION_ID,
-                    result: Ok(()),
-                }))
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputsResponse::Subscribe {
+                        id: SUBSCRIPTION_ID,
+                        result: Ok(()),
+                    }
+                ))
             ),
             "unexpected {response:?}",
         );
@@ -904,7 +921,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Unsubscribe {
+                request: OutputsRequest::Unsubscribe {
                     id: 1337,
                     subscription_id: SUBSCRIPTION_ID,
                 },
@@ -920,7 +937,7 @@ mod tests {
             matches!(
                 response,
                 Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Unsubscribe {
+                    TextualOutputsResponse::Unsubscribe {
                         id: 1337,
                         result: Ok(()),
                     }
@@ -936,7 +953,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Unsubscribe {
+                request: OutputsRequest::Unsubscribe {
                     id: 1337,
                     subscription_id: SUBSCRIPTION_ID,
                 },
@@ -952,7 +969,7 @@ mod tests {
             matches!(
                 response,
                 Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Unsubscribe {
+                    TextualOutputsResponse::Unsubscribe {
                         id: 1337,
                         result: Err(_),
                     }
@@ -991,7 +1008,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Subscribe {
+                request: OutputsRequest::Subscribe {
                     id: 42,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -1008,10 +1025,12 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
-                    id: 42,
-                    result: Ok(()),
-                }))
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputsResponse::Subscribe {
+                        id: 42,
+                        result: Ok(()),
+                    }
+                ))
             ),
             "unexpected {response:?}",
         );
@@ -1026,7 +1045,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::UnsubscribeEverything,
+                request: OutputsRequest::UnsubscribeEverything,
                 client: Client {
                     id: 1337,
                     response_sender: response_sender.clone(),
@@ -1046,7 +1065,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Unsubscribe {
+                request: OutputsRequest::Unsubscribe {
                     id: 42,
                     subscription_id: 1337,
                 },
@@ -1062,7 +1081,7 @@ mod tests {
             matches!(
                 response,
                 Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Unsubscribe {
+                    TextualOutputsResponse::Unsubscribe {
                         id: 42,
                         result: Err(_),
                     }
@@ -1105,7 +1124,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Subscribe {
+                request: OutputsRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -1122,10 +1141,12 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
-                    id: SUBSCRIPTION_ID,
-                    result: Ok(()),
-                }))
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputsResponse::Subscribe {
+                        id: SUBSCRIPTION_ID,
+                        result: Ok(()),
+                    }
+                ))
             ),
             "unexpected {response:?}",
         );
@@ -1143,7 +1164,7 @@ mod tests {
         assert_eq!(
             subscribed_data,
             Response::Textual(TextualResponse::Outputs(
-                TextualOutputResponse::SubscribedData {
+                TextualOutputsResponse::SubscribedData {
                     items: [(
                         SUBSCRIPTION_ID,
                         TextualDataOrBinaryReference::TextualData { data: value }
@@ -1163,7 +1184,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Unsubscribe {
+                request: OutputsRequest::Unsubscribe {
                     id: 1337,
                     subscription_id: SUBSCRIPTION_ID,
                 },
@@ -1179,7 +1200,7 @@ mod tests {
             matches!(
                 response,
                 Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Unsubscribe {
+                    TextualOutputsResponse::Unsubscribe {
                         id: 1337,
                         result: Ok(()),
                     }
@@ -1230,7 +1251,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Subscribe {
+                request: OutputsRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -1247,10 +1268,12 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
-                    id: SUBSCRIPTION_ID,
-                    result: Ok(()),
-                }))
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputsResponse::Subscribe {
+                        id: SUBSCRIPTION_ID,
+                        result: Ok(()),
+                    }
+                ))
             ),
             "unexpected {response:?}",
         );
@@ -1266,7 +1289,7 @@ mod tests {
         outputs_changed.notify_one();
         let subscribed_data = response_receiver.recv().await.unwrap();
         let Response::Textual(TextualResponse::Outputs(
-            TextualOutputResponse::SubscribedData { items }
+            TextualOutputsResponse::SubscribedData { items }
         )) = subscribed_data else {
             panic!("unexpected subscribed data: {subscribed_data:?}");
         };
@@ -1278,7 +1301,7 @@ mod tests {
         assert_eq!(
             binary_data,
             Response::Binary(BinaryResponse::Outputs(
-                BinaryOutputResponse::SubscribedData {
+                BinaryOutputsResponse::SubscribedData {
                     referenced_items: [(*reference_id, serialized_value)].into()
                 }
             )),
@@ -1294,7 +1317,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Unsubscribe {
+                request: OutputsRequest::Unsubscribe {
                     id: 1337,
                     subscription_id: SUBSCRIPTION_ID,
                 },
@@ -1310,7 +1333,7 @@ mod tests {
             matches!(
                 response,
                 Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Unsubscribe {
+                    TextualOutputsResponse::Unsubscribe {
                         id: 1337,
                         result: Ok(()),
                     }
@@ -1360,7 +1383,7 @@ mod tests {
         let (response_sender0, mut response_receiver0) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Subscribe {
+                request: OutputsRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -1377,10 +1400,12 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
-                    id: SUBSCRIPTION_ID,
-                    result: Ok(()),
-                }))
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputsResponse::Subscribe {
+                        id: SUBSCRIPTION_ID,
+                        result: Ok(()),
+                    }
+                ))
             ),
             "unexpected {response:?}",
         );
@@ -1396,7 +1421,7 @@ mod tests {
         let (response_sender1, mut response_receiver1) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Subscribe {
+                request: OutputsRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -1413,10 +1438,12 @@ mod tests {
         assert!(
             matches!(
                 response,
-                Response::Textual(TextualResponse::Outputs(TextualOutputResponse::Subscribe {
-                    id: SUBSCRIPTION_ID,
-                    result: Ok(()),
-                }))
+                Response::Textual(TextualResponse::Outputs(
+                    TextualOutputsResponse::Subscribe {
+                        id: SUBSCRIPTION_ID,
+                        result: Ok(()),
+                    }
+                ))
             ),
             "unexpected {response:?}",
         );
@@ -1434,7 +1461,7 @@ mod tests {
         assert_eq!(
             subscribed_data,
             Response::Textual(TextualResponse::Outputs(
-                TextualOutputResponse::SubscribedData {
+                TextualOutputsResponse::SubscribedData {
                     items: [(
                         SUBSCRIPTION_ID,
                         TextualDataOrBinaryReference::TextualData {
@@ -1453,7 +1480,7 @@ mod tests {
         assert_eq!(
             subscribed_data,
             Response::Textual(TextualResponse::Outputs(
-                TextualOutputResponse::SubscribedData {
+                TextualOutputsResponse::SubscribedData {
                     items: [(
                         SUBSCRIPTION_ID,
                         TextualDataOrBinaryReference::TextualData { data: value }
@@ -1473,7 +1500,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Unsubscribe {
+                request: OutputsRequest::Unsubscribe {
                     id: 1337,
                     subscription_id: SUBSCRIPTION_ID,
                 },
@@ -1489,7 +1516,7 @@ mod tests {
             matches!(
                 response,
                 Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Unsubscribe {
+                    TextualOutputsResponse::Unsubscribe {
                         id: 1337,
                         result: Ok(()),
                     }
@@ -1508,7 +1535,7 @@ mod tests {
 
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::Unsubscribe {
+                request: OutputsRequest::Unsubscribe {
                     id: 1337,
                     subscription_id: SUBSCRIPTION_ID,
                 },
@@ -1524,7 +1551,7 @@ mod tests {
             matches!(
                 response,
                 Response::Textual(TextualResponse::Outputs(
-                    TextualOutputResponse::Unsubscribe {
+                    TextualOutputsResponse::Unsubscribe {
                         id: 1337,
                         result: Ok(()),
                     }
@@ -1578,7 +1605,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::GetNext {
+                request: OutputsRequest::GetNext {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -1608,7 +1635,7 @@ mod tests {
         let subscribed_data = response_receiver.recv().await.unwrap();
         assert_eq!(
             subscribed_data,
-            Response::Textual(TextualResponse::Outputs(TextualOutputResponse::GetNext {
+            Response::Textual(TextualResponse::Outputs(TextualOutputsResponse::GetNext {
                 id: SUBSCRIPTION_ID,
                 result: Ok(TextualDataOrBinaryReference::TextualData { data: value })
             })),
@@ -1656,7 +1683,7 @@ mod tests {
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: OutputRequest::GetNext {
+                request: OutputsRequest::GetNext {
                     id: SUBSCRIPTION_ID,
                     cycler_instance: cycler_instance.to_string(),
                     path: path.clone(),
@@ -1685,7 +1712,7 @@ mod tests {
         outputs_changed.notify_one();
         let subscribed_data = response_receiver.recv().await.unwrap();
         let Response::Textual(TextualResponse::Outputs(
-            TextualOutputResponse::GetNext { id: SUBSCRIPTION_ID, result: Ok(
+            TextualOutputsResponse::GetNext { id: SUBSCRIPTION_ID, result: Ok(
                 TextualDataOrBinaryReference::BinaryReference { reference_id }
             )}
         )) = subscribed_data else {
@@ -1694,7 +1721,7 @@ mod tests {
         let binary_data = response_receiver.recv().await.unwrap();
         assert_eq!(
             binary_data,
-            Response::Binary(BinaryResponse::Outputs(BinaryOutputResponse::GetNext {
+            Response::Binary(BinaryResponse::Outputs(BinaryOutputsResponse::GetNext {
                 reference_id,
                 data: serialized_value,
             })),

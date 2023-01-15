@@ -10,9 +10,9 @@ pub type Reason = String;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Request {
-    Injections(InjectionRequest),
-    Outputs(OutputRequest),
-    Parameters(ParameterRequest),
+    Injections(InjectionsRequest),
+    Outputs(OutputsRequest),
+    Parameters(ParametersRequest),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -24,18 +24,18 @@ pub enum Response {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum TextualResponse {
-    Injections(InjectionResponse),
-    Outputs(TextualOutputResponse),
-    Parameters(ParameterResponse),
+    Injections(InjectionsResponse),
+    Outputs(TextualOutputsResponse),
+    Parameters(ParametersResponse),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum BinaryResponse {
-    Outputs(BinaryOutputResponse),
+    Outputs(BinaryOutputsResponse),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum InjectionRequest {
+pub enum InjectionsRequest {
     Set {
         id: usize,
         cycler_instance: CyclerInstance,
@@ -51,7 +51,7 @@ pub enum InjectionRequest {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum InjectionResponse {
+pub enum InjectionsResponse {
     Set {
         id: usize,
         result: Result<(), Reason>,
@@ -63,7 +63,7 @@ pub enum InjectionResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum OutputRequest {
+pub enum OutputsRequest {
     GetFields {
         id: usize,
     },
@@ -87,7 +87,7 @@ pub enum OutputRequest {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum TextualOutputResponse {
+pub enum TextualOutputsResponse {
     GetFields {
         id: usize,
         fields: BTreeMap<CyclerInstance, BTreeSet<Path>>,
@@ -116,7 +116,7 @@ pub enum TextualDataOrBinaryReference {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum BinaryOutputResponse {
+pub enum BinaryOutputsResponse {
     GetNext {
         reference_id: usize,
         data: Vec<u8>,
@@ -127,19 +127,19 @@ pub enum BinaryOutputResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum ParameterRequest {
+pub enum ParametersRequest {
     GetFields { id: usize },
     GetCurrent { id: usize, path: Path },
     Subscribe { id: usize, path: Path },
-    Unsubscribe { id: usize, path: Path },
-    Update { id: usize, path: Path, data: Value },
+    Unsubscribe { id: usize, subscription_id: usize },
     UnsubscribeEverything,
+    Update { id: usize, path: Path, data: Value },
     LoadFromDisk { id: usize },
     StoreToDisk { id: usize },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum ParameterResponse {
+pub enum ParametersResponse {
     GetFields {
         id: usize,
         fields: BTreeSet<Path>,

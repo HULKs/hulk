@@ -44,7 +44,7 @@ pub enum ReceiverOrSenderError {
     WebSocketMessageNotWritten(tokio_tungstenite::tungstenite::Error),
 }
 
-pub fn connection(
+pub(crate) fn connection(
     stream: TcpStream,
     keep_running: CancellationToken,
     connection_error_sender: UnboundedSender<ConnectionError>,

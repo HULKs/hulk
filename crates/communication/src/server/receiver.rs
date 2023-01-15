@@ -8,13 +8,13 @@ use tokio_tungstenite::{
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    messages::{OutputRequest, Request, Response},
-    server::outputs::{Client, ClientRequest},
+    messages::{OutputsRequest, Request, Response},
+    server::outputs::ClientRequest,
 };
 
-use super::{connection::ReceiverOrSenderError, outputs};
+use super::{connection::ReceiverOrSenderError, outputs, Client};
 
-pub async fn receiver(
+pub(crate) async fn receiver(
     mut reader: SplitStream<WebSocketStream<TcpStream>>,
     error_sender: Sender<ReceiverOrSenderError>,
     keep_running: CancellationToken,
@@ -42,7 +42,7 @@ pub async fn receiver(
 
     outputs_sender
         .send(outputs::Request::ClientRequest(ClientRequest {
-            request: OutputRequest::UnsubscribeEverything,
+            request: OutputsRequest::UnsubscribeEverything,
             client: Client {
                 id: client_id,
                 response_sender: response_sender.clone(),
