@@ -65,7 +65,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                             #(#other_cycler_identifiers,)*
                             #cycler_database_changed_identifier.clone(),
                             #own_subscribed_outputs_reader_identifier,
-                            configuration_reader.clone(),
+                            communication_server.get_parameters_reader(),
                         )
                         .wrap_err(#error_message)?;
                         communication_server.register_cycler_instance(
@@ -79,9 +79,7 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
                 .collect::<Vec<_>>()
         })
         .collect();
-    let configuration_slot_initializers_for_all_cyclers: Vec<_> = repeat(quote! { initial_configuration.clone() })
-        .take(2 + cycler_initializations.len() /* 2 writer slots + n-1 reader slots for other cyclers + 1 reader slot for communication */)
-        .collect();
+    let amount_of_parameters_slots = 2 + cycler_initializations.len() /* 2 writer slots + n-1 reader slots for other cyclers + 1 reader slot for communication */;
     let default_slot_initializers_for_all_cyclers: Vec<_> = repeat(quote! { Default::default() })
         .take(2 + cycler_initializations.len() /* 2 writer slots + n-1 reader slots for other cyclers + 1 reader slot for communication */)
         .collect();
@@ -185,8 +183,10 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
         #[allow(unused_imports, unused_variables)]
         pub fn run<Interface>(
             hardware_interface: std::sync::Arc<Interface>,
-            initial_configuration: structs::Configuration,
             addresses: Option<impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static>,
+            parameters_directory: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
+            body_id: String,
+            head_id: String,
             keep_running: tokio_util::sync::CancellationToken,
         ) -> color_eyre::Result<()>
         where
@@ -194,13 +194,11 @@ pub fn generate_run(cyclers: &[Cycler]) -> TokenStream {
         {
             use color_eyre::eyre::WrapErr;
 
-            let (configuration_writer, configuration_reader) = framework::multiple_buffer_with_slots([
-                #(#configuration_slot_initializers_for_all_cyclers,)*
-            ]);
             #(#multiple_buffer_initializers)*
             #(#future_queue_initializers)*
 
-            let communication_server = communication::server::Runtime::start(addresses, keep_running.clone())
+            let communication_server = communication::server::Runtime::start(
+                addresses, parameters_directory, body_id, head_id, #amount_of_parameters_slots, keep_running.clone())
                 .wrap_err("failed to start communication server")?;
 
             #(#cycler_initializations)*

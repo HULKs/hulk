@@ -18,13 +18,13 @@ pub enum ConnectionError {
     PeerAddressNotAvailable(io::Error),
     #[error("encountered error in connection {peer_address}")]
     ReceiverOrSenderError {
+        source: ReceiverOrSenderError,
         peer_address: SocketAddr,
-        error: ReceiverOrSenderError,
     },
     #[error("failed to accept WebSocket connection {peer_address} (handshake)")]
     WebSocketConnectionNotAccepted {
+        source: tokio_tungstenite::tungstenite::Error,
         peer_address: SocketAddr,
-        error: tokio_tungstenite::tungstenite::Error,
     },
 }
 
@@ -65,9 +65,9 @@ pub fn connection(
         let websocket_stream = select! {
             result = accept_async(stream) => match result {
                 Ok(websocket_stream) => websocket_stream,
-                Err(error) => {
+                Err(source) => {
                     connection_error_sender
-                        .send(ConnectionError::WebSocketConnectionNotAccepted{ peer_address, error })
+                        .send(ConnectionError::WebSocketConnectionNotAccepted{ source, peer_address })
                         .expect("receiver should always wait for all senders");
                     return;
                 }
@@ -102,8 +102,8 @@ pub fn connection(
             error!("Error from connection {peer_address}: {error}");
             connection_error_sender
                 .send(ConnectionError::ReceiverOrSenderError {
+                    source: error,
                     peer_address,
-                    error,
                 })
                 .expect("receiver should always wait for all senders");
         }

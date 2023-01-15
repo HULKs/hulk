@@ -10,8 +10,8 @@ pub type Reason = String;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Request {
-    Outputs(OutputRequest),
     Injections(InjectionRequest),
+    Outputs(OutputRequest),
     Parameters(ParameterRequest),
 }
 
@@ -24,14 +24,42 @@ pub enum Response {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum TextualResponse {
-    Outputs(TextualOutputResponse),
     Injections(InjectionResponse),
+    Outputs(TextualOutputResponse),
     Parameters(ParameterResponse),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum BinaryResponse {
     Outputs(BinaryOutputResponse),
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum InjectionRequest {
+    Set {
+        id: usize,
+        cycler_instance: CyclerInstance,
+        path: Path,
+        data: Value,
+    },
+    Unset {
+        id: usize,
+        cycler_instance: CyclerInstance,
+        path: Path,
+    },
+    UnsetEverything,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum InjectionResponse {
+    Set {
+        id: usize,
+        result: Result<(), Reason>,
+    },
+    Unset {
+        id: usize,
+        result: Result<(), Reason>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -99,46 +127,22 @@ pub enum BinaryOutputResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum InjectionRequest {
-    Set {
-        id: usize,
-        cycler_instance: CyclerInstance,
-        path: Path,
-        data: Value,
-    },
-    Unset {
-        id: usize,
-        cycler_instance: CyclerInstance,
-        path: Path,
-    },
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum InjectionResponse {
-    Set {
-        id: usize,
-        result: Result<(), Reason>,
-    },
-    Unset {
-        id: usize,
-        result: Result<(), Reason>,
-    },
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ParameterRequest {
-    GetHierarchy { id: usize },
+    GetFields { id: usize },
     GetCurrent { id: usize, path: Path },
     Subscribe { id: usize, path: Path },
     Unsubscribe { id: usize, path: Path },
     Update { id: usize, path: Path, data: Value },
+    UnsubscribeEverything,
+    LoadFromDisk { id: usize },
+    StoreToDisk { id: usize },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ParameterResponse {
-    GetHierarchy {
+    GetFields {
         id: usize,
-        hierarchy: BTreeSet<Path>,
+        fields: BTreeSet<Path>,
     },
     GetCurrent {
         id: usize,
@@ -159,6 +163,15 @@ pub enum ParameterResponse {
     Update {
         id: usize,
         result: Result<(), Reason>,
+    },
+    LoadFromDisk {
+        id: usize,
+        result: Result<(), Reason>,
+    },
+    StoreToDisk {
+        id: usize,
+        result: Result<(), Reason>,
+        // TODO: maybe also in which ID to store?
     },
 }
 
