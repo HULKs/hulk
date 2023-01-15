@@ -114,12 +114,15 @@ where
                         )))
                         .expect("successful thread creation should always wait for runtime_sender");
 
-                    let acceptor_task = acceptor(
-                        addresses,
-                        keep_running.clone(),
-                        outputs_sender,
-                        parameters_sender,
-                    );
+                    // only start acceptor if addresses is Some
+                    let acceptor_task = addresses.map(|addresses| {
+                        acceptor(
+                            addresses,
+                            keep_running.clone(),
+                            outputs_sender,
+                            parameters_sender,
+                        )
+                    });
                     let outputs_task = router(outputs_receiver);
                     let parameters_subscriptions_task = subscriptions(
                         parameters_receiver,
@@ -138,15 +141,21 @@ where
 
                     keep_running.cancelled().await;
 
-                    let acceptor_task_result = acceptor_task.await;
+                    let acceptor_task_result = match acceptor_task {
+                        Some(acceptor_task) => Some(acceptor_task.await),
+                        None => None,
+                    };
                     let outputs_task_result = outputs_task.await;
                     let parameters_subscriptions_task_result = parameters_subscriptions_task.await;
                     let parameters_storage_task_result = parameters_storage_task.await;
 
                     let mut task_errors = vec![];
-                    if let Err(error) = acceptor_task_result.expect("failed to join acceptor task")
-                    {
-                        task_errors.push(StartError::AcceptError(error));
+                    if let Some(acceptor_task_result) = acceptor_task_result {
+                        if let Err(error) =
+                            acceptor_task_result.expect("failed to join acceptor task")
+                        {
+                            task_errors.push(StartError::AcceptError(error));
+                        }
                     }
                     outputs_task_result.expect("failed to join outputs task");
                     parameters_subscriptions_task_result.expect("failed to join outputs task");

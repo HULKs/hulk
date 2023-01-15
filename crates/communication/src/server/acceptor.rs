@@ -28,18 +28,13 @@ pub enum AcceptError {
 }
 
 pub(crate) fn acceptor(
-    addresses: Option<impl ToSocketAddrs + Send + Sync + 'static>,
+    addresses: impl ToSocketAddrs + Send + Sync + 'static,
     keep_running: CancellationToken,
     outputs_sender: Sender<outputs::Request>,
     parameters_sender: Sender<parameters::ClientRequest>,
 ) -> JoinHandle<Result<(), AcceptError>> {
     let next_client_id = AtomicUsize::default();
     spawn(async move {
-        let Some(addresses) = addresses else {
-            // requested to disable Communication socket
-            return Ok(());
-        };
-
         let (error_sender, mut error_receiver) = unbounded_channel();
 
         let listener = TcpListener::bind(addresses)
