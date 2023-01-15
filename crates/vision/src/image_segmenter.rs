@@ -577,14 +577,14 @@ mod tests {
     #[test]
     fn image_vertical_color_three_pixels() {
         let image = Image::from_ycbcr_buffer(
+            1,
+            3,
             vec![
                 // only evaluating every second 422 pixel
                 YCbCr422::new(0, 10, 10, 10),
                 YCbCr422::new(0, 15, 14, 13),
                 YCbCr422::new(0, 10, 10, 10),
             ],
-            1,
-            3,
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -615,6 +615,8 @@ mod tests {
     #[test]
     fn image_vertical_color_twelve_pixels() {
         let image = Image::from_ycbcr_buffer(
+            1,
+            12,
             vec![
                 YCbCr422::new(0, 10, 10, 10),
                 YCbCr422::new(0, 10, 10, 10),
@@ -629,8 +631,6 @@ mod tests {
                 YCbCr422::new(0, 10, 10, 10),
                 YCbCr422::new(0, 10, 10, 10),
             ],
-            1,
-            12,
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -661,6 +661,8 @@ mod tests {
     #[test]
     fn image_with_three_vertical_increasing_segments_without_median() {
         let image = Image::from_ycbcr_buffer(
+            1,
+            12,
             vec![
                 // only evaluating every secondth pixel
                 YCbCr422::new(0, 0, 0, 0),
@@ -680,8 +682,6 @@ mod tests {
 
                                            // segment boundary will be here
             ],
-            1,
-            12,
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -724,6 +724,8 @@ mod tests {
     #[test]
     fn image_with_three_vertical_increasing_segments_with_median() {
         let image = Image::from_ycbcr_buffer(
+            1,
+            12,
             vec![
                 // only evaluating every second pixel
                 YCbCr422::new(0, 0, 0, 0),
@@ -742,8 +744,6 @@ mod tests {
                 YCbCr422::new(3, 0, 0, 0), // skipped
                                            // segment boundary will be here
             ],
-            1,
-            12,
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -798,6 +798,8 @@ mod tests {
     #[test]
     fn image_with_three_vertical_decreasing_segments_without_median() {
         let image = Image::from_ycbcr_buffer(
+            1,
+            12,
             vec![
                 // only evaluating every secondth 422 pixel
                 YCbCr422::new(3, 0, 0, 0),
@@ -817,8 +819,6 @@ mod tests {
 
                                            // segment boundary will be here
             ],
-            1,
-            12,
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -867,6 +867,8 @@ mod tests {
     #[test]
     fn image_with_three_vertical_decreasing_segments_with_median() {
         let image = Image::from_ycbcr_buffer(
+            1,
+            12,
             vec![
                 // only evaluating every secondth 422 pixel
                 YCbCr422::new(3, 0, 0, 0),
@@ -886,8 +888,6 @@ mod tests {
 
                                            // segment boundary will be here
             ],
-            1,
-            12,
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -942,6 +942,8 @@ mod tests {
     #[test]
     fn image_with_three_vertical_segments_with_higher_differences_without_median() {
         let image = Image::from_ycbcr_buffer(
+            1,
+            44,
             vec![
                 // only evaluating every secondth 422 pixel
                 YCbCr422::new(0, 0, 0, 0),
@@ -993,8 +995,6 @@ mod tests {
 
                                            // segment boundary will be here
             ],
-            1,
-            44,
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -1084,6 +1084,8 @@ mod tests {
     #[test]
     fn image_with_three_vertical_segments_with_higher_differences_with_median() {
         let image = Image::from_ycbcr_buffer(
+            1,
+            44,
             vec![
                 // only evaluating every secondth 422 pixel
                 YCbCr422::new(0, 0, 0, 0),
@@ -1135,8 +1137,6 @@ mod tests {
 
                                            // segment boundary will be here
             ],
-            1,
-            44,
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -1270,6 +1270,8 @@ mod tests {
     #[test]
     fn image_with_one_vertical_segment_with_increasing_differences_without_median() {
         let image = Image::from_ycbcr_buffer(
+            1,
+            16,
             vec![
                 // only evaluating every secondth 422 pixel
                 YCbCr422::new(0, 0, 0, 0),
@@ -1291,8 +1293,6 @@ mod tests {
 
                                             // segment boundary will be here
             ],
-            1,
-            16,
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -1335,6 +1335,8 @@ mod tests {
     #[test]
     fn image_with_one_vertical_segment_with_increasing_differences_with_median() {
         let image = Image::from_ycbcr_buffer(
+            1,
+            16,
             vec![
                 // only evaluating every secondth 422 pixel
                 YCbCr422::new(0, 0, 0, 0),
@@ -1356,8 +1358,6 @@ mod tests {
 
                                             // segment boundary will be here
             ],
-            1,
-            16,
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,

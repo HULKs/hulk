@@ -53,9 +53,9 @@ impl Camera {
             ])
             .wrap_err("failed to queue buffer")?;
         Ok(Image::from_raw_buffer(
-            buffer,
             self.parameters.width / 2,
             self.parameters.height,
+            buffer,
         ))
         // TODO: readd consecutive sequence number checking
     }

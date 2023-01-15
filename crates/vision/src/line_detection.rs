@@ -365,7 +365,7 @@ mod tests {
                     }
                 }
             }
-            Image::from_ycbcr_buffer(buffer, width_422, height)
+            Image::from_ycbcr_buffer(width_422, height, buffer)
         }
 
         let image_size = vector![10.0, 500.0];
