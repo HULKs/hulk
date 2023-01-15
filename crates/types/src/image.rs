@@ -41,7 +41,7 @@ impl Debug for Image {
         impl Debug for DebugBuffer {
             fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
                 formatter.write_fmt(format_args!(
-                    "[{} element{}]",
+                    "[{} pixel{}]",
                     self.buffer_length,
                     match self.buffer_length {
                         0 => "s",
