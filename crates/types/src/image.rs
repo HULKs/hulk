@@ -27,9 +27,9 @@ const SERIALIZATION_JPEG_QUALITY: u8 = 40;
 
 #[derive(Clone, Default, SerializeHierarchy)]
 pub struct Image {
-    buffer: Arc<Vec<YCbCr422>>,
     width_422: u32,
     height: u32,
+    buffer: Arc<Vec<YCbCr422>>,
 }
 
 impl Debug for Image {
@@ -54,14 +54,14 @@ impl Debug for Image {
 
         formatter
             .debug_struct("Image")
+            .field("width_422", &self.width_422)
+            .field("height", &self.height)
             .field(
                 "buffer",
                 &DebugBuffer {
                     buffer_length: self.buffer.len(),
                 },
             )
-            .field("width_422", &self.width_422)
-            .field("height", &self.height)
             .finish()
     }
 }
@@ -73,21 +73,21 @@ impl Image {
             "the Image type does not support odd widths. Dimensions were {width}x{height}",
         );
         Self::from_ycbcr_buffer(
-            vec![YCbCr422::default(); width as usize / 2 * height as usize],
             width / 2,
             height,
+            vec![YCbCr422::default(); width as usize / 2 * height as usize],
         )
     }
 
-    pub fn from_ycbcr_buffer(buffer: Vec<YCbCr422>, width_422: u32, height: u32) -> Self {
+    pub fn from_ycbcr_buffer(width_422: u32, height: u32, buffer: Vec<YCbCr422>) -> Self {
         Self {
-            buffer: Arc::new(buffer),
             width_422,
             height,
+            buffer: Arc::new(buffer),
         }
     }
 
-    pub fn from_raw_buffer(buffer: Vec<u8>, width_422: u32, height: u32) -> Self {
+    pub fn from_raw_buffer(width_422: u32, height: u32, buffer: Vec<u8>) -> Self {
         let mut buffer = ManuallyDrop::new(buffer);
 
         let u8_pointer = buffer.as_mut_ptr();
@@ -104,9 +104,9 @@ impl Image {
         let buffer = unsafe { Vec::from_raw_parts(ycbcr_pointer, ycbcr_length, ycbcr_capacity) };
 
         Self {
-            buffer: Arc::new(buffer),
             width_422,
             height,
+            buffer: Arc::new(buffer),
         }
     }
 
@@ -127,7 +127,7 @@ impl Image {
             })
             .collect();
 
-        Ok(Self::from_ycbcr_buffer(pixels, width / 2, height))
+        Ok(Self::from_ycbcr_buffer(width / 2, height, pixels))
     }
 
     pub fn save_to_ycbcr_444_file(&self, file: impl AsRef<Path>) -> Result<()> {
@@ -150,11 +150,11 @@ impl Image {
 
         let pixels = buffer_422_from_rgb_image(png);
 
-        Ok(Self::from_ycbcr_buffer(pixels, width / 2, height))
+        Ok(Self::from_ycbcr_buffer(width / 2, height, pixels))
     }
 
     pub fn save_to_rgb_file(&self, file: impl AsRef<Path> + Debug) -> Result<()> {
-        rgb_image_from_buffer_422(&self.buffer, self.width_422, self.height)
+        rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer)
             .save(&file)
             .wrap_err_with(|| format!("failed to save image to {file:?}"))
     }
@@ -213,7 +213,7 @@ impl Index<Point2<usize>> for Image {
     }
 }
 
-fn rgb_image_from_buffer_422(buffer: &[YCbCr422], width_422: u32, height: u32) -> RgbImage {
+fn rgb_image_from_buffer_422(width_422: u32, height: u32, buffer: &[YCbCr422]) -> RgbImage {
     let mut rgb_image = RgbImage::new(2 * width_422, height);
 
     for y in 0..height {
@@ -276,10 +276,12 @@ impl Serialize for Image {
     {
         let is_human_readable = serializer.is_human_readable();
         let mut state = serializer.serialize_struct("Image", 3)?;
+        state.serialize_field("width_422", &self.width_422)?;
+        state.serialize_field("height", &self.height)?;
         if is_human_readable {
             state.serialize_field("buffer", &self.buffer)?;
         } else {
-            let rgb_image = rgb_image_from_buffer_422(&self.buffer, self.width_422, self.height);
+            let rgb_image = rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer);
             let mut rgb_image_buffer = vec![];
             {
                 let mut encoder = JpegEncoder::new_with_quality(
@@ -292,8 +294,6 @@ impl Serialize for Image {
             }
             state.serialize_field("buffer", Bytes::new(rgb_image_buffer.as_slice()))?;
         }
-        state.serialize_field("width_422", &self.width_422)?;
-        state.serialize_field("height", &self.height)?;
         state.end()
     }
 }
@@ -304,12 +304,12 @@ impl<'de> Deserialize<'de> for Image {
         D: Deserializer<'de>,
     {
         enum Field {
-            CompactBuffer,
-            ReadableBuffer,
             Width422,
             Height,
+            CompactBuffer,
+            ReadableBuffer,
         }
-        const FIELDS: &[&str] = &["buffer", "width_422", "height"];
+        const FIELDS: &[&str] = &["width_422", "height", "buffer"];
 
         impl<'de> Deserialize<'de> for Field {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -324,7 +324,7 @@ impl<'de> Deserialize<'de> for Image {
                     type Value = Field;
 
                     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-                        formatter.write_str("`buffer`, `width_422`, or `height`")
+                        formatter.write_str("`width_422`, `height`, or `buffer`")
                     }
 
                     fn visit_str<E>(self, field: &str) -> std::result::Result<Self::Value, E>
@@ -332,13 +332,13 @@ impl<'de> Deserialize<'de> for Image {
                         E: de::Error,
                     {
                         match field {
+                            "width_422" => Ok(Field::Width422),
+                            "height" => Ok(Field::Height),
                             "buffer" => Ok(if self.is_human_readable {
                                 Field::ReadableBuffer
                             } else {
                                 Field::CompactBuffer
                             }),
-                            "width_422" => Ok(Field::Width422),
-                            "height" => Ok(Field::Height),
                             _ => Err(de::Error::unknown_field(field, FIELDS)),
                         }
                     }
@@ -362,12 +362,24 @@ impl<'de> Deserialize<'de> for Image {
             where
                 A: de::MapAccess<'de>,
             {
-                let mut buffer = None;
                 let mut width_422 = None;
                 let mut height = None;
+                let mut buffer = None;
 
                 while let Some(key) = map.next_key()? {
                     match key {
+                        Field::Width422 => {
+                            if width_422.is_some() {
+                                return Err(de::Error::duplicate_field("width_422"));
+                            }
+                            width_422 = Some(map.next_value()?);
+                        }
+                        Field::Height => {
+                            if height.is_some() {
+                                return Err(de::Error::duplicate_field("height"));
+                            }
+                            height = Some(map.next_value()?);
+                        }
                         Field::CompactBuffer => {
                             if buffer.is_some() {
                                 return Err(de::Error::duplicate_field("buffer"));
@@ -385,29 +397,17 @@ impl<'de> Deserialize<'de> for Image {
                             }
                             buffer = Some(map.next_value()?);
                         }
-                        Field::Width422 => {
-                            if width_422.is_some() {
-                                return Err(de::Error::duplicate_field("width_422"));
-                            }
-                            width_422 = Some(map.next_value()?);
-                        }
-                        Field::Height => {
-                            if height.is_some() {
-                                return Err(de::Error::duplicate_field("height"));
-                            }
-                            height = Some(map.next_value()?);
-                        }
                     }
                 }
 
-                let buffer = buffer.ok_or_else(|| de::Error::missing_field("buffer"))?;
                 let width_422 = width_422.ok_or_else(|| de::Error::missing_field("width_422"))?;
                 let height = height.ok_or_else(|| de::Error::missing_field("height"))?;
+                let buffer = buffer.ok_or_else(|| de::Error::missing_field("buffer"))?;
 
                 Ok(Image {
-                    buffer,
                     width_422,
                     height,
+                    buffer,
                 })
             }
         }
@@ -440,6 +440,8 @@ mod tests {
     #[test]
     fn image_can_be_indexed() {
         let image = Image::from_ycbcr_buffer(
+            2,
+            2,
             vec![
                 Default::default(),
                 Default::default(),
@@ -451,8 +453,6 @@ mod tests {
                     cr: 4,
                 },
             ],
-            2,
-            2,
         );
         assert_eq!(
             image[(1, 1)],
@@ -490,26 +490,26 @@ mod tests {
             } else {
                 self.0.buffer == other.0.buffer
             };
-            buffers_are_equal
-                && self.0.width_422 == other.0.width_422
+            self.0.width_422 == other.0.width_422
                 && self.0.height == other.0.height
+                && buffers_are_equal
         }
     }
 
     #[test]
     fn compact_image_serialization() {
         let image = ImageTestingWrapper(Image {
+            width_422: 1,
+            height: 1,
             buffer: Arc::new(vec![YCbCr422 {
                 y1: 63,
                 cb: 127,
                 y2: 191,
                 cr: 255,
             }]),
-            width_422: 1,
-            height: 1,
         });
         let rgb_image =
-            rgb_image_from_buffer_422(&image.0.buffer, image.0.width_422, image.0.height);
+            rgb_image_from_buffer_422(image.0.width_422, image.0.height, &image.0.buffer);
         let mut rgb_image_buffer = vec![];
         {
             let mut encoder =
@@ -532,12 +532,12 @@ mod tests {
                     name: "Image",
                     len: 3,
                 },
-                Token::Str("buffer"),
-                Token::Bytes(static_rgb_image_buffer),
                 Token::Str("width_422"),
                 Token::U32(1),
                 Token::Str("height"),
                 Token::U32(1),
+                Token::Str("buffer"),
+                Token::Bytes(static_rgb_image_buffer),
                 Token::StructEnd,
             ],
         );
@@ -546,14 +546,14 @@ mod tests {
     #[test]
     fn readable_image_serialization() {
         let image = ImageTestingWrapper(Image {
+            width_422: 1,
+            height: 1,
             buffer: Arc::new(vec![YCbCr422 {
                 y1: 0,
                 cb: 1,
                 y2: 2,
                 cr: 3,
             }]),
-            width_422: 1,
-            height: 1,
         });
 
         assert_tokens(
@@ -566,6 +566,10 @@ mod tests {
                     name: "Image",
                     len: 3,
                 },
+                Token::Str("width_422"),
+                Token::U32(1),
+                Token::Str("height"),
+                Token::U32(1),
                 Token::Str("buffer"),
                 Token::Seq { len: Some(1) },
                 Token::Struct {
@@ -582,10 +586,6 @@ mod tests {
                 Token::U8(3),
                 Token::StructEnd,
                 Token::SeqEnd,
-                Token::Str("width_422"),
-                Token::U32(1),
-                Token::Str("height"),
-                Token::U32(1),
                 Token::StructEnd,
             ],
         );
