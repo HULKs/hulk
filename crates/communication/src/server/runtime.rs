@@ -1,7 +1,6 @@
 use std::{
-    any::type_name,
     collections::HashSet,
-    fmt::{self, Debug, Formatter},
+    fmt::Debug,
     io,
     iter::repeat_with,
     path::Path,
@@ -75,7 +74,7 @@ where
                 let runtime = match runtime::Builder::new_current_thread().enable_all().build() {
                     Ok(runtime) => Arc::new(runtime),
                     Err(error) => {
-                        runtime_sender.send(None).expect(
+                        runtime_sender.send(None).ok().expect(
                             "successful thread creation should always wait for runtime_sender",
                         );
                         return Err(StartError::RuntimeNotStarted(error));
@@ -88,7 +87,7 @@ where
                         match deserialize(&parameters_directory, &body_id, &head_id).await {
                             Ok(initial_parameters) => initial_parameters,
                             Err(source) => {
-                                runtime_sender.send(None).expect(
+                                runtime_sender.send(None).ok().expect(
                                 "successful thread creation should always wait for runtime_sender",
                             );
                                 return Err(StartError::InitialParametersNotParsed(source));
@@ -110,8 +109,9 @@ where
                         .send(Some((
                             inner_runtime,
                             outputs_sender.clone(),
-                            DebugWrapper(parameters_reader.clone()),
+                            parameters_reader.clone(),
                         )))
+                        .ok()
                         .expect("successful thread creation should always wait for runtime_sender");
 
                     // only start acceptor if addresses is Some
@@ -175,7 +175,7 @@ where
             .expect("successful thread creation should always send into runtime_sender")
         {
             Some((runtime, outputs_sender, parameters_reader)) => {
-                (runtime, outputs_sender, parameters_reader.0)
+                (runtime, outputs_sender, parameters_reader)
             }
             None => {
                 return Err(join_handle
@@ -218,13 +218,5 @@ where
 
     pub fn get_parameters_reader(&self) -> Reader<Parameters> {
         self.parameters_reader.clone()
-    }
-}
-
-struct DebugWrapper<T>(T);
-
-impl<T> Debug for DebugWrapper<T> {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}", type_name::<T>())
     }
 }
