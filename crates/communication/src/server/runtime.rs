@@ -1,11 +1,16 @@
 use std::{
+    any::type_name,
     collections::HashSet,
+    fmt::{self, Debug, Formatter},
     io,
+    iter::repeat_with,
+    path::Path,
     sync::Arc,
     thread::{self, JoinHandle},
 };
 
-use framework::{Reader, Writer};
+use framework::{multiple_buffer_with_slots, Reader, Writer};
+use serde::de::DeserializeOwned;
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::{
     net::ToSocketAddrs,
@@ -22,6 +27,7 @@ use crate::server::outputs::router::router;
 use super::{
     acceptor::{acceptor, AcceptError},
     outputs::{provider::provider, Request},
+    parameters::directory::{deserialize, DirectoryError},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -34,17 +40,27 @@ pub enum StartError {
     ThreadNotStarted(io::Error),
     #[error("runtime not started")]
     RuntimeNotStarted(io::Error),
+    #[error("initial parameters not parsed")]
+    InitialParametersNotParsed(DirectoryError),
 }
 
-pub struct Runtime {
+pub struct Runtime<Parameters> {
     join_handle: JoinHandle<Result<(), StartError>>,
     runtime: Arc<TokioRuntime>,
     outputs_sender: Sender<Request>,
+    parameters_reader: Reader<Parameters>,
 }
 
-impl Runtime {
+impl<Parameters> Runtime<Parameters>
+where
+    Parameters: Clone + DeserializeOwned + Send + SerializeHierarchy + Sync + 'static,
+{
     pub fn start(
         addresses: Option<impl ToSocketAddrs + Send + Sync + 'static>,
+        parameters_directory: impl AsRef<Path> + Send + Sync + 'static,
+        body_id: String,
+        head_id: String,
+        amount_of_parameters_slots: usize,
         keep_running: CancellationToken,
     ) -> Result<Self, StartError> {
         let (runtime_sender, runtime_receiver) = oneshot::channel();
@@ -64,9 +80,29 @@ impl Runtime {
 
                 let inner_runtime = runtime.clone();
                 runtime.block_on(async move {
+                    let initial_configuration: Parameters =
+                        match deserialize(parameters_directory, &body_id, &head_id).await {
+                            Ok(initial_configuration) => initial_configuration,
+                            Err(source) => {
+                                runtime_sender.send(None).expect(
+                                "successful thread creation should always wait for runtime_sender",
+                            );
+                                return Err(StartError::InitialParametersNotParsed(source));
+                            }
+                        };
+
+                    let (parameters_writer, parameters_reader) = multiple_buffer_with_slots(
+                        repeat_with(|| initial_configuration.clone())
+                            .take(amount_of_parameters_slots),
+                    );
+
                     let (outputs_sender, outputs_receiver) = channel(1);
                     runtime_sender
-                        .send(Some((inner_runtime, outputs_sender.clone())))
+                        .send(Some((
+                            inner_runtime,
+                            outputs_sender.clone(),
+                            DebugWrapper(parameters_reader),
+                        )))
                         .expect("successful thread creation should always wait for runtime_sender");
 
                     let acceptor_task = acceptor(addresses, keep_running.clone(), outputs_sender);
@@ -93,11 +129,13 @@ impl Runtime {
             })
             .map_err(StartError::ThreadNotStarted)?;
 
-        let (runtime, outputs_sender) = match runtime_receiver
+        let (runtime, outputs_sender, parameters_reader) = match runtime_receiver
             .blocking_recv()
             .expect("successful thread creation should always send into runtime_sender")
         {
-            Some((runtime, outputs_sender)) => (runtime, outputs_sender),
+            Some((runtime, outputs_sender, parameters_reader)) => {
+                (runtime, outputs_sender, parameters_reader.0)
+            }
             None => {
                 return Err(join_handle
                     .join()
@@ -110,6 +148,7 @@ impl Runtime {
             join_handle,
             runtime,
             outputs_sender,
+            parameters_reader,
         })
     }
 
@@ -134,5 +173,17 @@ impl Runtime {
             outputs_reader,
             subscribed_outputs_writer,
         );
+    }
+
+    pub fn get_parameters_reader(&self) -> Reader<Parameters> {
+        self.parameters_reader.clone()
+    }
+}
+
+struct DebugWrapper<T>(T);
+
+impl<T> Debug for DebugWrapper<T> {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}", type_name::<T>())
     }
 }

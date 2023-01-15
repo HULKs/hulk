@@ -5,6 +5,7 @@ use cyclers::run;
 use parameters::Parameters;
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
+use types::hardware::Interface;
 
 #[cfg(feature = "nao")]
 mod nao;
@@ -32,14 +33,13 @@ fn main() -> Result<()> {
         new_hardware_interface(keep_running.clone(), hardware_parameters),
     )
     .wrap_err("failed to create hardware interface")?;
-    let configuration_file = File::open("./etc/configuration/default.json")
-        .wrap_err("failed to open default configuration file")?;
-    let initial_configuration = serde_json::from_reader(configuration_file)
-        .wrap_err("failed to read default configuration")?;
+    let ids = hardware_interface.get_ids();
     run(
         hardware_interface,
-        initial_configuration,
         Some("[::]:1337"),
+        "etc/configuration",
+        ids.body_id,
+        ids.head_id,
         keep_running,
     )
 }
