@@ -1,6 +1,6 @@
 use color_eyre::{eyre::Context, Result};
 use serde::{
-    de::{self, Visitor},
+    de::{self, MapAccess, SeqAccess, Visitor},
     ser::SerializeStruct,
     Deserialize, Deserializer, Serialize, Serializer,
 };
@@ -358,9 +358,30 @@ impl<'de> Deserialize<'de> for Image {
                 formatter.write_str("struct Image")
             }
 
+            fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let width_422 = sequence
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let height = sequence
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                let buffer = sequence
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(2, &self))?;
+
+                Ok(Image {
+                    width_422,
+                    height,
+                    buffer,
+                })
+            }
+
             fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
             where
-                A: de::MapAccess<'de>,
+                A: MapAccess<'de>,
             {
                 let mut width_422 = None;
                 let mut height = None;
@@ -421,6 +442,7 @@ mod tests {
     use std::mem::transmute;
 
     use serde_test::{assert_tokens, Configure, Token};
+    use serialize_hierarchy::bincode::{deserialize, serialize};
 
     use super::*;
 
@@ -589,5 +611,16 @@ mod tests {
                 Token::StructEnd,
             ],
         );
+    }
+
+    #[test]
+    fn serialization_and_deserialization_result_in_equality() {
+        let image = ImageTestingWrapper(Image {
+            width_422: 0,
+            height: 0,
+            buffer: Arc::new(vec![]),
+        });
+
+        assert_eq!(image, deserialize(&serialize(&image).unwrap()).unwrap());
     }
 }
