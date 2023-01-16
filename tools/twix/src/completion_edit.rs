@@ -201,10 +201,10 @@ impl Widget for CompletionEdit<'_> {
 
 pub fn output_fields_to_completion_items(output_fields: Fields) -> Vec<String> {
     output_fields
-        .iter()
+        .into_iter()
         .flat_map(|(cycler_instance, fields)| {
             fields
-                .keys()
+                .into_iter()
                 .map(move |field| format!("{cycler_instance}.{field}"))
         })
         .collect()
