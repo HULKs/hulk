@@ -40,7 +40,7 @@ pub async fn sender(
             }
             Response::Binary(binary) => {
                 let message_bytes = match serialize(&binary) {
-                    Ok(message_string) => message_string,
+                    Ok(message_bytes) => message_bytes,
                     Err(error) => {
                         error_sender
                             .send(ReceiverOrSenderError::BincodeNotSerialized(error))

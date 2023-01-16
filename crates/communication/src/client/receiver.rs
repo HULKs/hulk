@@ -1,14 +1,13 @@
-use byteorder::{ByteOrder, LittleEndian};
 use futures_util::{stream::SplitStream, StreamExt};
 use log::{debug, error, info};
 use serde::Deserialize;
-use serde_json::{Map, Value};
+use serde_json::Value;
 use tokio::{net::TcpStream, sync::mpsc::Sender};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use crate::{
     client::{connector, parameter_subscription_manager, types::SubscribedOutput},
-    messages::{TextualOutputResponse, TextualResponse},
+    messages::{BinaryOutputResponse, BinaryResponse, TextualOutputResponse, TextualResponse},
 };
 
 use super::{output_subscription_manager, responder, Cycler};
@@ -115,7 +114,6 @@ pub async fn receiver(
                                     error!("{error}");
                                 }
                             }
-,
                             TextualOutputResponse::SubscribedData { items } => {
                                 if let Err(error) = output_subscription_manager
                                     .send(output_subscription_manager::Message::Update { items })
@@ -201,15 +199,26 @@ pub async fn receiver(
                     break;
                 }
                 tokio_tungstenite::tungstenite::Message::Binary(data) => {
-                    let length = LittleEndian::read_u32(&data[0..4]);
-                    let image_id = LittleEndian::read_u32(&data[4..8]) as usize;
-                    let data = data[8..].to_vec();
-                    assert_eq!(length as usize, data.len());
-
-                    output_subscription_manager
-                        .send(output_subscription_manager::Message::UpdateImage { image_id, data })
-                        .await
-                        .unwrap();
+                    let response = match bincode::deserialize::<BinaryResponse>(&data) {
+                        Ok(payload) => payload,
+                        Err(error) => {
+                            error!("Failed to deserialize binary message content: {error:?}");
+                            continue;
+                        }
+                    };
+                    let message = match response {
+                        BinaryResponse::Outputs(binary_output_response) => {
+                            match binary_output_response {
+                                BinaryOutputResponse::GetNext { reference_id, data } => todo!(),
+                                BinaryOutputResponse::SubscribedData { referenced_items } => {
+                                    output_subscription_manager::Message::UpdateBinary {
+                                        referenced_items,
+                                    }
+                                }
+                            }
+                        }
+                    };
+                    output_subscription_manager.send(message).await.unwrap();
                 }
                 _ => {
                     error!("Got unsupported message type from socket");

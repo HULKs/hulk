@@ -5,12 +5,13 @@ edition = "2021"
 license = "GPL-3.0-only"
 
 [dependencies]
+bincode = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true }
-eframe = { workspace = true }
 convert_case = { workspace = true }
-egui_extras = { workspace = true }
+eframe = { workspace = true }
 egui_dock = { workspace = true }
+egui_extras = { workspace = true }
 fern = { workspace = true }
 fuzzy-matcher = { workspace = true }
 image = { workspace = true }

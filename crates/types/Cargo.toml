@@ -18,6 +18,7 @@ serde_test = { workspace = true }
 serialize_hierarchy = { workspace = true }
 spl_network_messages = { workspace = true }
 tokio = { workspace = true }
+bincode = { workspace = true }
 
 [build-dependencies]
 petgraph = { workspace = true }
