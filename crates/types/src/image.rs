@@ -349,7 +349,9 @@ impl<'de> Deserialize<'de> for Image {
             }
         }
 
-        struct ImageVisitor;
+        struct ImageVisitor {
+            is_human_readable: bool,
+        }
 
         impl<'de> Visitor<'de> for ImageVisitor {
             type Value = Image;
@@ -368,9 +370,20 @@ impl<'de> Deserialize<'de> for Image {
                 let height = sequence
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                let buffer = sequence
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(2, &self))?;
+                let buffer = if self.is_human_readable {
+                    sequence
+                        .next_element()?
+                        .ok_or_else(|| de::Error::invalid_length(2, &self))?
+                } else {
+                    let rgb_image_buffer: ByteBuf = sequence
+                        .next_element()?
+                        .ok_or_else(|| de::Error::invalid_length(2, &self))?;
+                    let rgb_image =
+                        load_from_memory_with_format(&rgb_image_buffer, ImageFormat::Jpeg)
+                            .map_err(de::Error::custom)?
+                            .into_rgb8();
+                    Arc::new(buffer_422_from_rgb_image(rgb_image))
+                };
 
                 Ok(Image {
                     width_422,
@@ -433,7 +446,8 @@ impl<'de> Deserialize<'de> for Image {
             }
         }
 
-        deserializer.deserialize_struct("Image", FIELDS, ImageVisitor)
+        let is_human_readable = deserializer.is_human_readable();
+        deserializer.deserialize_struct("Image", FIELDS, ImageVisitor { is_human_readable })
     }
 }
 
@@ -614,13 +628,20 @@ mod tests {
     }
 
     #[test]
-    fn serialization_and_deserialization_result_in_equality() {
+    fn compact_serialization_and_deserialization_result_in_equality() {
         let image = ImageTestingWrapper(Image {
-            width_422: 0,
-            height: 0,
-            buffer: Arc::new(vec![]),
+            width_422: 1,
+            height: 1,
+            buffer: Arc::new(vec![YCbCr422 {
+                y1: 63,
+                cb: 127,
+                y2: 191,
+                cr: 255,
+            }]),
         });
 
-        assert_eq!(image, deserialize(&serialize(&image).unwrap()).unwrap());
+        let deserialized_serialized_image: ImageTestingWrapper =
+            deserialize(&serialize(&image).unwrap()).unwrap();
+        assert_eq!(deserialized_serialized_image, image);
     }
 }
