@@ -14,12 +14,12 @@ use crate::{
         responder, Output, SubscriberMessage,
     },
     messages::{
-        Fields, OutputRequest, Request,
+        Fields, Format, OutputRequest, Request,
         TextualDataOrBinaryReference::{self, BinaryReference, TextualData},
     },
 };
 
-use super::{responder::Response, Cycler, CyclerOutput};
+use super::{responder::Response, CyclerOutput};
 
 #[derive(Debug)]
 pub enum Message {
@@ -39,9 +39,8 @@ pub enum Message {
     Update {
         items: HashMap<usize, TextualDataOrBinaryReference>,
     },
-    UpdateImage {
-        image_id: usize,
-        data: Vec<u8>,
+    UpdateBinary {
+        referenced_items: HashMap<usize, Vec<u8>>,
     },
     UpdateFields {
         fields: Fields,
@@ -66,8 +65,8 @@ pub async fn output_subscription_manager(
     let mut manager = SubscriptionManager::default();
     let mut requester = None;
     let mut hierarchy = None;
-    let mut images: HashMap<usize, Vec<u8>> = HashMap::new();
-    let mut image_ids_waiting_for_image: HashMap<usize, Cycler> = HashMap::new();
+    let mut binary_data_waiting_for_references: HashMap<usize, Vec<u8>> = HashMap::new();
+    let mut binary_references_waiting_for_data: HashMap<usize, CyclerOutput> = HashMap::new();
 
     while let Some(message) = receiver.recv().await {
         match message {
@@ -168,7 +167,9 @@ pub async fn output_subscription_manager(
                                 }
                             }
                             BinaryReference { reference_id } => {
-                                if let Some(image) = images.remove(&reference_id) {
+                                if let Some(image) =
+                                    binary_data_waiting_for_references.remove(&reference_id)
+                                {
                                     for sender in senders.values() {
                                         if let Err(error) = sender
                                             .send(SubscriberMessage::UpdateImage {
@@ -180,7 +181,8 @@ pub async fn output_subscription_manager(
                                         }
                                     }
                                 } else {
-                                    image_ids_waiting_for_image.insert(reference_id, output.cycler);
+                                    binary_references_waiting_for_data
+                                        .insert(reference_id, output.clone());
                                 }
                             }
                         }
@@ -197,24 +199,23 @@ pub async fn output_subscription_manager(
                     error!("{error:?}");
                 }
             }
-            Message::UpdateImage { image_id, data } => {
-                if let Some(cycler) = image_ids_waiting_for_image.get(&image_id) {
-                    let image_subscribers = manager.subscriptions.get(&CyclerOutput {
-                        cycler: *cycler,
-                        output: Output::Image,
-                    });
-                    if let Some(senders) = image_subscribers {
-                        for sender in senders.values() {
-                            if let Err(error) = sender
-                                .send(SubscriberMessage::UpdateImage { data: data.clone() })
-                                .await
-                            {
-                                error!("{error}");
+            Message::UpdateBinary { referenced_items } => {
+                for (reference_id, data) in referenced_items {
+                    if let Some(output) = binary_references_waiting_for_data.get(&reference_id) {
+                        let subscribers = manager.subscriptions.get(output);
+                        if let Some(senders) = subscribers {
+                            for sender in senders.values() {
+                                if let Err(error) = sender
+                                    .send(SubscriberMessage::UpdateImage { data: data.clone() })
+                                    .await
+                                {
+                                    error!("{error}");
+                                }
                             }
                         }
+                    } else {
+                        binary_data_waiting_for_references.insert(reference_id, data);
                     }
-                } else {
-                    images.insert(image_id, data);
                 }
             }
         }
@@ -304,16 +305,16 @@ async fn subscribe(
         error!("{error}");
         return None;
     }
-    let path = match output.output {
-        Output::Main { path } => format!("main_outputs.{path}"),
-        Output::Additional { path } => format!("additional_outputs.{path}"),
-        Output::Image => todo!(),
+    let (format, path) = match output.output {
+        Output::Main { path } => (Format::Textual, format!("main_outputs.{path}")),
+        Output::Additional { path } => (Format::Textual, format!("additional_outputs.{path}")),
+        Output::Image => (Format::Binary, "main_outputs.image".to_string()),
     };
     let request = Request::Outputs(OutputRequest::Subscribe {
         id: message_id,
         cycler_instance: output.cycler.to_string(),
         path,
-        format: crate::messages::Format::Textual,
+        format,
     });
     if let Err(error) = requester.send(request).await {
         error!("{error}");

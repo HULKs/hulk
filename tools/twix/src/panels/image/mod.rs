@@ -10,6 +10,7 @@ use egui_extras::RetainedImage;
 use log::error;
 use nalgebra::{vector, Similarity2};
 use serde_json::{json, Value};
+use types::image::ImageRaw;
 
 use crate::{
     image_buffer::ImageBuffer,
@@ -104,7 +105,8 @@ impl ImagePanel {
             .image_buffer
             .get_latest()
             .map_err(|error| eyre!("{error}"))?;
-        let image = RetainedImage::from_image_bytes("image", &image_data)
+        let image_raw = bincode::deserialize::<ImageRaw>(&image_data)?;
+        let image = RetainedImage::from_image_bytes("image", &image_raw.buffer)
             .map_err(|error| eyre!("{error}"))?;
         let image_size = image.size_vec2();
         let width_scale = ui.available_width() / image_size.x;
