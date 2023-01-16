@@ -69,11 +69,11 @@ impl Widget for &mut TextPanel {
                         Ok(value) => {
                             let content = match serde_json::to_string_pretty(&value) {
                                 Ok(pretty_string) => pretty_string,
-                                Err(error) => format!("{error:#?}"),
+                                Err(error) => error.to_string(),
                             };
                             ui.label(content)
                         }
-                        Err(error) => ui.label(format!("{error:#?}")),
+                        Err(error) => ui.label(error),
                     })
             });
         if let Some(response) = scroll_area.inner {
