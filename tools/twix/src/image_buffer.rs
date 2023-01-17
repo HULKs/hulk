@@ -69,7 +69,7 @@ async fn image_buffer(
                 match maybe_message {
                     Some(message) => {
                         match message {
-                            SubscriberMessage::UpdateImage{data: new_data} => {
+                            SubscriberMessage::UpdateBinary{data: new_data} => {
                                 image_data = Some(Ok(new_data));
                                 update_listeners.retain(|listener| {
                                     if let Err(TrySendError::Closed(_)) = listener.try_send(()) {
@@ -78,7 +78,7 @@ async fn image_buffer(
                                     true
                                 });
                             },
-                            SubscriberMessage::SubscriptionSuccess => (),
+                            SubscriberMessage::SubscriptionSuccess => {},
                             SubscriberMessage::SubscriptionFailure{info} => {
                                 image_data = Some(Err(info))
                             },

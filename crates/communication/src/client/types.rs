@@ -82,7 +82,7 @@ pub enum Output {
 
 #[derive(Debug, Clone)]
 pub enum SubscriberMessage {
-    UpdateImage { data: Vec<u8> },
+    UpdateBinary { data: Vec<u8> },
     Update { value: Value },
     SubscriptionSuccess,
     SubscriptionFailure { info: String },
