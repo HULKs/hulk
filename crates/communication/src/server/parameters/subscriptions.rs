@@ -131,7 +131,36 @@ async fn handle_request<Parameters>(
                 }
             };
 
-            respond(request, response).await;
+            let data = {
+                let parameters = parameters_reader.next();
+                parameters.serialize_path::<TextualSerializer>(path)
+            };
+            let data = match data {
+                Ok(data) => data,
+                Err(error) => {
+                    respond(
+                        request,
+                        ParametersResponse::Subscribe {
+                            id,
+                            result: Err(format!("failed to serialize: {error:?}")),
+                        },
+                    )
+                    .await;
+                    return;
+                }
+            };
+            respond(request.clone(), response).await;
+            request
+                .client
+                .response_sender
+                .send(Response::Textual(TextualResponse::Parameters(
+                    ParametersResponse::SubscribedData {
+                        subscription_id: id,
+                        data,
+                    },
+                )))
+                .await
+                .expect("receiver should always wait for all senders");
         }
         ParametersRequest::Unsubscribe {
             id,
