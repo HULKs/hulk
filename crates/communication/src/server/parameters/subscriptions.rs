@@ -81,7 +81,7 @@ async fn handle_request<Parameters>(
         ParametersRequest::GetCurrent { id, ref path } => {
             let data = {
                 let parameters = parameters_reader.next();
-                parameters.serialize_path::<TextualSerializer>(&path)
+                parameters.serialize_path::<TextualSerializer>(path)
             };
             let data = match data {
                 Ok(data) => data,
@@ -107,7 +107,7 @@ async fn handle_request<Parameters>(
             .await;
         }
         ParametersRequest::Subscribe { id, ref path } => {
-            if !Parameters::exists(&path) {
+            if !Parameters::exists(path) {
                 let error_message = format!("path {path:?} does not exist");
                 respond(
                     request,
@@ -310,7 +310,7 @@ mod tests {
             response,
             Response::Textual(TextualResponse::Parameters(ParametersResponse::GetFields {
                 id: 42,
-                fields: [String::new()].into()
+                fields: Default::default(),
             })),
         );
         match response_receiver.try_recv() {

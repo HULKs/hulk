@@ -245,7 +245,7 @@ fn generate_field_chains(fields: &Fields) -> Vec<TokenStream> {
                 let mut type_path = type_path.clone();
                 type_path.path.segments.iter_mut().for_each(|segment| {
                     if let PathArguments::AngleBracketed(arguments) = &mut segment.arguments {
-                            arguments.colon2_token = Some(Colon2::default());
+                        arguments.colon2_token = Some(Colon2::default());
                     }
                 });
                 type_path.into_token_stream()
