@@ -9,7 +9,10 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::messages::{ParametersResponse, Response, TextualResponse};
+use crate::{
+    messages::{ParametersResponse, Response, TextualResponse},
+    server::client::Client,
+};
 
 use super::{
     directory::{deserialize, serialize},
@@ -63,30 +66,26 @@ async fn handle_request<Parameters>(
             data,
         } => {
             if !Parameters::exists(&path) {
-                client
-                    .response_sender
-                    .send(Response::Textual(TextualResponse::Parameters(
-                        ParametersResponse::Update {
-                            id,
-                            result: Err(format!("path {path:?} does not exist")),
-                        },
-                    )))
-                    .await
-                    .expect("receiver should always wait for all senders");
+                respond(
+                    client,
+                    ParametersResponse::Update {
+                        id,
+                        result: Err(format!("path {path:?} does not exist")),
+                    },
+                )
+                .await;
                 return;
             }
 
             if let Err(error) = parameters.deserialize_path::<TextualSerializer>(&path, data) {
-                client
-                    .response_sender
-                    .send(Response::Textual(TextualResponse::Parameters(
-                        ParametersResponse::Update {
-                            id,
-                            result: Err(format!("failed to deserialize: {error:?}")),
-                        },
-                    )))
-                    .await
-                    .expect("receiver should always wait for all senders");
+                respond(
+                    client,
+                    ParametersResponse::Update {
+                        id,
+                        result: Err(format!("failed to deserialize: {error:?}")),
+                    },
+                )
+                .await;
                 return;
             }
 
@@ -96,28 +95,20 @@ async fn handle_request<Parameters>(
             }
             parameters_changed.notify_one();
 
-            client
-                .response_sender
-                .send(Response::Textual(TextualResponse::Parameters(
-                    ParametersResponse::Update { id, result: Ok(()) },
-                )))
-                .await
-                .expect("receiver should always wait for all senders");
+            respond(client, ParametersResponse::Update { id, result: Ok(()) }).await;
         }
         StorageRequest::LoadFromDisk { client, id } => {
             let parameters = match deserialize(parameters_directory, body_id, head_id).await {
                 Ok(parameters) => parameters,
                 Err(error) => {
-                    client
-                        .response_sender
-                        .send(Response::Textual(TextualResponse::Parameters(
-                            ParametersResponse::LoadFromDisk {
-                                id,
-                                result: Err(format!("failed to deserialize parameters: {error:?}")),
-                            },
-                        )))
-                        .await
-                        .expect("receiver should always wait for all senders");
+                    respond(
+                        client,
+                        ParametersResponse::LoadFromDisk {
+                            id,
+                            result: Err(format!("failed to deserialize parameters: {error:?}")),
+                        },
+                    )
+                    .await;
                     return;
                 }
             };
@@ -128,39 +119,41 @@ async fn handle_request<Parameters>(
             }
             parameters_changed.notify_one();
 
-            client
-                .response_sender
-                .send(Response::Textual(TextualResponse::Parameters(
-                    ParametersResponse::LoadFromDisk { id, result: Ok(()) },
-                )))
-                .await
-                .expect("receiver should always wait for all senders");
+            respond(
+                client,
+                ParametersResponse::LoadFromDisk { id, result: Ok(()) },
+            )
+            .await;
         }
         StorageRequest::StoreToDisk { client, id } => {
             if let Err(error) = serialize(parameters, parameters_directory, body_id, head_id).await
             {
-                client
-                    .response_sender
-                    .send(Response::Textual(TextualResponse::Parameters(
-                        ParametersResponse::StoreToDisk {
-                            id,
-                            result: Err(format!("failed to serialize parameters: {error:?}")),
-                        },
-                    )))
-                    .await
-                    .expect("receiver should always wait for all senders");
+                respond(
+                    client,
+                    ParametersResponse::StoreToDisk {
+                        id,
+                        result: Err(format!("failed to serialize parameters: {error:?}")),
+                    },
+                )
+                .await;
                 return;
             }
 
-            client
-                .response_sender
-                .send(Response::Textual(TextualResponse::Parameters(
-                    ParametersResponse::StoreToDisk { id, result: Ok(()) },
-                )))
-                .await
-                .expect("receiver should always wait for all senders");
+            respond(
+                client,
+                ParametersResponse::StoreToDisk { id, result: Ok(()) },
+            )
+            .await;
         }
     }
+}
+
+async fn respond(client: Client, response: ParametersResponse) {
+    client
+        .response_sender
+        .send(Response::Textual(TextualResponse::Parameters(response)))
+        .await
+        .expect("receiver should always wait for all senders");
 }
 
 #[cfg(test)]
