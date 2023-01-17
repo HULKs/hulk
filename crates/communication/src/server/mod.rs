@@ -1,5 +1,6 @@
 mod acceptor;
 mod client;
+mod client_request;
 mod connection;
 mod outputs;
 mod parameters;

@@ -8,10 +8,10 @@ use tokio::{
 
 use crate::{
     messages::{OutputsRequest, Path, Response, TextualOutputsResponse, TextualResponse},
-    server::client::Client,
+    server::{client::Client, client_request::ClientRequest},
 };
 
-use super::{ClientRequest, Request};
+use super::Request;
 
 pub fn router(mut request_receiver: Receiver<Request>) -> JoinHandle<()> {
     spawn(async move {
@@ -41,8 +41,11 @@ pub fn router(mut request_receiver: Receiver<Request>) -> JoinHandle<()> {
 }
 
 async fn handle_request(
-    request: ClientRequest,
-    request_channels_of_cyclers: &HashMap<String, (BTreeSet<Path>, Sender<ClientRequest>)>,
+    request: ClientRequest<OutputsRequest>,
+    request_channels_of_cyclers: &HashMap<
+        String,
+        (BTreeSet<Path>, Sender<ClientRequest<OutputsRequest>>),
+    >,
     cached_cycler_instances: &mut HashMap<(Client, usize), String>,
 ) {
     match &request.request {

@@ -12,9 +12,12 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
+use crate::messages::ParametersRequest;
+
 use super::{
+    client_request::ClientRequest,
     connection::{connection, ConnectionError},
-    outputs, parameters,
+    outputs,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -31,7 +34,7 @@ pub fn acceptor(
     addresses: impl ToSocketAddrs + Send + Sync + 'static,
     keep_running: CancellationToken,
     outputs_sender: Sender<outputs::Request>,
-    parameters_sender: Sender<parameters::ClientRequest>,
+    parameters_sender: Sender<ClientRequest<ParametersRequest>>,
 ) -> JoinHandle<Result<(), AcceptError>> {
     let next_client_id = AtomicUsize::default();
     spawn(async move {

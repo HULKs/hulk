@@ -18,13 +18,13 @@ use tokio::{
 
 use crate::{
     messages::{ParametersRequest, ParametersResponse, Path, Response, TextualResponse},
-    server::client::Client,
+    server::{client::Client, client_request::ClientRequest},
 };
 
-use super::{ClientRequest, StorageRequest};
+use super::StorageRequest;
 
 pub fn subscriptions<Parameters>(
-    mut request_receiver: Receiver<ClientRequest>,
+    mut request_receiver: Receiver<ClientRequest<ParametersRequest>>,
     parameters_reader: Reader<Parameters>,
     parameters_changed: Arc<Notify>,
     storage_request_sender: Sender<StorageRequest>,
@@ -59,7 +59,7 @@ where
 }
 
 async fn handle_request<Parameters>(
-    request: ClientRequest,
+    request: ClientRequest<ParametersRequest>,
     parameters_reader: &Reader<Parameters>,
     storage_request_sender: &Sender<StorageRequest>,
     subscriptions: &mut HashMap<(Client, usize), Path>,
@@ -195,7 +195,7 @@ async fn handle_request<Parameters>(
     }
 }
 
-async fn respond(request: ClientRequest, response: ParametersResponse) {
+async fn respond(request: ClientRequest<ParametersRequest>, response: ParametersResponse) {
     request
         .client
         .response_sender

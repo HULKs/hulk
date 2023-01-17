@@ -10,7 +10,9 @@ use tokio::{
 use tokio_tungstenite::accept_async;
 use tokio_util::sync::CancellationToken;
 
-use super::{outputs, parameters, receiver::receiver, sender::sender};
+use crate::messages::ParametersRequest;
+
+use super::{client_request::ClientRequest, outputs, receiver::receiver, sender::sender};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConnectionError {
@@ -49,7 +51,7 @@ pub fn connection(
     keep_running: CancellationToken,
     connection_error_sender: UnboundedSender<ConnectionError>,
     outputs_sender: Sender<outputs::Request>,
-    parameters_sender: Sender<parameters::ClientRequest>,
+    parameters_sender: Sender<ClientRequest<ParametersRequest>>,
     client_id: usize,
 ) {
     spawn(async move {

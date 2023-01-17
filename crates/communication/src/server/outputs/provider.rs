@@ -22,10 +22,10 @@ use crate::{
         BinaryOutputsResponse, BinaryResponse, Format, OutputsRequest, Response,
         TextualDataOrBinaryReference, TextualOutputsResponse, TextualResponse,
     },
-    server::client::Client,
+    server::{client::Client, client_request::ClientRequest},
 };
 
-use super::{ClientRequest, Request, Subscription};
+use super::{Request, Subscription};
 
 pub fn provider<Outputs>(
     outputs_sender: Sender<Request>,
@@ -87,7 +87,7 @@ enum SubscriptionsState {
 }
 
 async fn handle_client_request<Outputs>(
-    request: ClientRequest,
+    request: ClientRequest<OutputsRequest>,
     cycler_instance: &'static str,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
 ) -> SubscriptionsState
@@ -419,7 +419,7 @@ mod tests {
     ) -> (
         JoinHandle<()>,
         BTreeSet<String>,
-        Sender<ClientRequest>,
+        Sender<ClientRequest<OutputsRequest>>,
         Reader<HashSet<String>>,
     ) {
         let (outputs_sender, mut outputs_receiver) = channel(1);
