@@ -172,7 +172,7 @@ pub async fn output_subscription_manager(
                                 {
                                     for sender in senders.values() {
                                         if let Err(error) = sender
-                                            .send(SubscriberMessage::UpdateImage {
+                                            .send(SubscriberMessage::UpdateBinary {
                                                 data: image.clone(),
                                             })
                                             .await
@@ -206,7 +206,7 @@ pub async fn output_subscription_manager(
                         if let Some(senders) = subscribers {
                             for sender in senders.values() {
                                 if let Err(error) = sender
-                                    .send(SubscriberMessage::UpdateImage { data: data.clone() })
+                                    .send(SubscriberMessage::UpdateBinary { data: data.clone() })
                                     .await
                                 {
                                     error!("{error}");

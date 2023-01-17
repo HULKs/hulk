@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
                 error!("Failed to subscribe: {info:?}");
                 break;
             }
-            SubscriberMessage::UpdateImage { .. } => bail!("Cannot print Image data"),
+            SubscriberMessage::UpdateBinary { .. } => bail!("Cannot print binary data"),
         }
     }
     Ok(())

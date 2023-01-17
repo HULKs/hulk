@@ -151,8 +151,8 @@ async fn value_buffer(
                             },
                             SubscriberMessage::SubscriptionSuccess => (),
                             SubscriberMessage::SubscriptionFailure{info} => values = Some(Err(info)),
-                            SubscriberMessage::UpdateImage{..} => {
-                                error!("Got UpdateImage message on value buffer");
+                            SubscriberMessage::UpdateBinary{..} => {
+                                error!("Got UpdateBinary message in value buffer");
                                 break;
                             }
                         }
