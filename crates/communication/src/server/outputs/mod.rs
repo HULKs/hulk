@@ -4,13 +4,13 @@ use tokio::sync::mpsc::Sender;
 
 use crate::messages::{Format, OutputsRequest, Path};
 
-use super::Client;
+use super::client::Client;
 
 pub mod provider;
 pub mod router;
 
 #[derive(Debug)]
-pub(crate) enum Request {
+pub enum Request {
     ClientRequest(ClientRequest),
     RegisterCycler {
         cycler_instance: String,
@@ -20,7 +20,7 @@ pub(crate) enum Request {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct ClientRequest {
+pub struct ClientRequest {
     pub request: OutputsRequest,
     pub client: Client,
 }

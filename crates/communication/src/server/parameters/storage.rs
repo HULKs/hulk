@@ -16,7 +16,7 @@ use super::{
     StorageRequest,
 };
 
-pub(crate) fn storage<Parameters>(
+pub fn storage<Parameters>(
     parameters_writer: Writer<Parameters>,
     parameters_changed: Arc<Notify>,
     mut request_receiver: Receiver<StorageRequest>,
@@ -173,7 +173,7 @@ mod tests {
     use serialize_hierarchy::{Error, Serializer};
     use tokio::sync::mpsc::{channel, error::TryRecvError};
 
-    use crate::server::Client;
+    use crate::server::client::Client;
 
     use super::*;
 
