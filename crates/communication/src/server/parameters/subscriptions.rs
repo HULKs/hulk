@@ -69,19 +69,16 @@ async fn handle_request<Parameters>(
 {
     match request.request {
         ParametersRequest::GetFields { id } => {
-            request
-                .client
-                .response_sender
-                .send(Response::Textual(TextualResponse::Parameters(
-                    ParametersResponse::GetFields {
-                        id,
-                        fields: fields.clone(),
-                    },
-                )))
-                .await
-                .expect("receiver should always wait for all senders");
+            respond(
+                request,
+                ParametersResponse::GetFields {
+                    id,
+                    fields: fields.clone(),
+                },
+            )
+            .await;
         }
-        ParametersRequest::GetCurrent { id, path } => {
+        ParametersRequest::GetCurrent { id, ref path } => {
             let data = {
                 let parameters = parameters_reader.next();
                 parameters.serialize_path::<TextualSerializer>(&path)
@@ -89,45 +86,37 @@ async fn handle_request<Parameters>(
             let data = match data {
                 Ok(data) => data,
                 Err(error) => {
-                    request
-                        .client
-                        .response_sender
-                        .send(Response::Textual(TextualResponse::Parameters(
-                            ParametersResponse::GetCurrent {
-                                id,
-                                result: Err(format!("failed to serialize: {error:?}")),
-                            },
-                        )))
-                        .await
-                        .expect("receiver should always wait for all senders");
+                    respond(
+                        request,
+                        ParametersResponse::GetCurrent {
+                            id,
+                            result: Err(format!("failed to serialize: {error:?}")),
+                        },
+                    )
+                    .await;
                     return;
                 }
             };
-            request
-                .client
-                .response_sender
-                .send(Response::Textual(TextualResponse::Parameters(
-                    ParametersResponse::GetCurrent {
-                        id,
-                        result: Ok(data),
-                    },
-                )))
-                .await
-                .expect("receiver should always wait for all senders");
+            respond(
+                request,
+                ParametersResponse::GetCurrent {
+                    id,
+                    result: Ok(data),
+                },
+            )
+            .await;
         }
-        ParametersRequest::Subscribe { id, path } => {
+        ParametersRequest::Subscribe { id, ref path } => {
             if !Parameters::exists(&path) {
-                request
-                    .client
-                    .response_sender
-                    .send(Response::Textual(TextualResponse::Parameters(
-                        ParametersResponse::Subscribe {
-                            id,
-                            result: Err(format!("path {path:?} does not exist")),
-                        },
-                    )))
-                    .await
-                    .expect("receiver should always wait for all senders");
+                let error_message = format!("path {path:?} does not exist");
+                respond(
+                    request,
+                    ParametersResponse::Subscribe {
+                        id,
+                        result: Err(error_message),
+                    },
+                )
+                .await;
                 return;
             }
 
@@ -137,17 +126,12 @@ async fn handle_request<Parameters>(
                     result: Err(format!("already subscribed with id {id}")),
                 },
                 Entry::Vacant(entry) => {
-                    entry.insert(path);
+                    entry.insert(path.to_string());
                     ParametersResponse::Subscribe { id, result: Ok(()) }
                 }
             };
 
-            request
-                .client
-                .response_sender
-                .send(Response::Textual(TextualResponse::Parameters(response)))
-                .await
-                .expect("receiver should always wait for all senders");
+            respond(request, response).await;
         }
         ParametersRequest::Unsubscribe {
             id,
@@ -157,28 +141,22 @@ async fn handle_request<Parameters>(
                 .remove(&(request.client.clone(), subscription_id))
                 .is_none()
             {
-                request
-                    .client
-                    .response_sender
-                    .send(Response::Textual(TextualResponse::Parameters(
-                        ParametersResponse::Unsubscribe {
-                            id,
-                            result: Err(format!(
-                                "never subscribed with subscription id {subscription_id}"
-                            )),
-                        },
-                    )))
-                    .await
-                    .expect("receiver should always wait for all senders");
+                respond(
+                    request,
+                    ParametersResponse::Unsubscribe {
+                        id,
+                        result: Err(format!(
+                            "never subscribed with subscription id {subscription_id}"
+                        )),
+                    },
+                )
+                .await;
             } else {
-                request
-                    .client
-                    .response_sender
-                    .send(Response::Textual(TextualResponse::Parameters(
-                        ParametersResponse::Unsubscribe { id, result: Ok(()) },
-                    )))
-                    .await
-                    .expect("receiver should always wait for all senders");
+                respond(
+                    request,
+                    ParametersResponse::Unsubscribe { id, result: Ok(()) },
+                )
+                .await;
             }
         }
         ParametersRequest::UnsubscribeEverything => {
@@ -215,6 +193,15 @@ async fn handle_request<Parameters>(
                 .expect("receiver should always wait for all senders");
         }
     }
+}
+
+async fn respond(request: ClientRequest, response: ParametersResponse) {
+    request
+        .client
+        .response_sender
+        .send(Response::Textual(TextualResponse::Parameters(response)))
+        .await
+        .expect("receiver should always wait for all senders");
 }
 
 async fn handle_changed_parameters<Parameters>(
