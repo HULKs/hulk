@@ -83,7 +83,7 @@ pub fn process_struct(input: &DeriveInput, data: &DataStruct) -> proc_macro::Tok
             }
 
             fn get_fields() -> std::collections::BTreeSet<String> {
-                std::iter::once(String::new())
+                std::iter::empty::<std::string::String>()
                     #(#field_chains)*
                     .collect()
             }
@@ -239,6 +239,7 @@ fn generate_field_chains(fields: &Fields) -> Vec<TokenStream> {
                 return None;
             }
             let name = field.ident.as_ref().unwrap();
+            let name_string = name.to_string();
             let pattern = format!("{}.{{}}", name);
             let field_type = if let Type::Path(type_path) = &field.ty {
                 let mut type_path = type_path.clone();
@@ -252,6 +253,7 @@ fn generate_field_chains(fields: &Fields) -> Vec<TokenStream> {
                 field.ty.to_token_stream()
             };
             Some(quote! {
+                .chain(std::iter::once(#name_string.to_string()))
                 .chain(
                     #field_type::get_fields()
                         .into_iter()

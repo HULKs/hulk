@@ -222,7 +222,7 @@ impl<T> SerializeHierarchy for HashSet<T> {
     }
 
     fn get_fields() -> BTreeSet<String> {
-        [String::new()].into()
+        Default::default()
     }
 }
 
@@ -258,7 +258,7 @@ impl<T> SerializeHierarchy for Vec<T> {
     }
 
     fn get_fields() -> BTreeSet<String> {
-        [String::new()].into()
+        Default::default()
     }
 }
 
@@ -296,7 +296,7 @@ macro_rules! serialize_hierarchy_primary_impl {
             }
 
             fn get_fields() -> BTreeSet<String> {
-                [String::new()].into()
+                Default::default()
             }
         }
     };
@@ -329,3 +329,40 @@ serialize_hierarchy_primary_impl!(String);
 serialize_hierarchy_primary_impl!(Range<f32>);
 serialize_hierarchy_primary_impl!(Range<Duration>);
 serialize_hierarchy_primary_impl!(PathBuf);
+
+#[cfg(test)]
+mod tests {
+    use serde::Deserialize;
+
+    use crate as serialize_hierarchy;
+
+    use super::*;
+
+    #[derive(Deserialize, Serialize, SerializeHierarchy)]
+    struct Outer {
+        inner: Inner,
+    }
+
+    #[derive(Deserialize, Serialize, SerializeHierarchy)]
+    struct Inner {
+        field: bool,
+    }
+
+    #[test]
+    fn primitive_fields_are_empty() {
+        assert_eq!(bool::get_fields(), Default::default());
+    }
+
+    #[test]
+    fn flat_struct_fields_contain_fields() {
+        assert_eq!(Inner::get_fields(), ["field".to_string()].into());
+    }
+
+    #[test]
+    fn nested_struct_fields_contain_fields() {
+        assert_eq!(
+            Outer::get_fields(),
+            ["inner".to_string(), "inner.field".to_string()].into()
+        );
+    }
+}
