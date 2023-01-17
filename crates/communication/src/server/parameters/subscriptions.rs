@@ -131,32 +131,23 @@ async fn handle_request<Parameters>(
                 return;
             }
 
-            match subscriptions.entry((request.client.clone(), id)) {
-                Entry::Occupied(_) => {
-                    request
-                        .client
-                        .response_sender
-                        .send(Response::Textual(TextualResponse::Parameters(
-                            ParametersResponse::Subscribe {
-                                id,
-                                result: Err(format!("already subscribed with id {id}")),
-                            },
-                        )))
-                        .await
-                        .expect("receiver should always wait for all senders");
-                }
+            let response = match subscriptions.entry((request.client.clone(), id)) {
+                Entry::Occupied(_) => ParametersResponse::Subscribe {
+                    id,
+                    result: Err(format!("already subscribed with id {id}")),
+                },
                 Entry::Vacant(entry) => {
                     entry.insert(path);
-                    request
-                        .client
-                        .response_sender
-                        .send(Response::Textual(TextualResponse::Parameters(
-                            ParametersResponse::Subscribe { id, result: Ok(()) },
-                        )))
-                        .await
-                        .expect("receiver should always wait for all senders");
+                    ParametersResponse::Subscribe { id, result: Ok(()) }
                 }
-            }
+            };
+
+            request
+                .client
+                .response_sender
+                .send(Response::Textual(TextualResponse::Parameters(response)))
+                .await
+                .expect("receiver should always wait for all senders");
         }
         ParametersRequest::Unsubscribe {
             id,
