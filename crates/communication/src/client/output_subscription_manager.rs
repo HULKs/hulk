@@ -34,7 +34,6 @@ pub enum Message {
         response_sender: oneshot::Sender<Uuid>,
     },
     Unsubscribe {
-        output: CyclerOutput,
         uuid: Uuid,
     },
     Update {
@@ -134,7 +133,7 @@ pub async fn output_subscription_manager(
                     Err(error) => error!("{error}"),
                 };
             }
-            Message::Unsubscribe { output, uuid } => {
+            Message::Unsubscribe { uuid } => {
                 let mut subscriptions_to_remove = Vec::new();
                 manager.subscriptions.retain(|output_format, clients| {
                     if clients.remove(&uuid).is_none() {
@@ -155,7 +154,7 @@ pub async fn output_subscription_manager(
                 for subscription_id in subscriptions_to_remove {
                     if let Some(requester) = &requester {
                         manager.ids.remove(&subscription_id);
-                        unsubscribe(subscription_id, &id_tracker, &responder, &requester).await;
+                        unsubscribe(subscription_id, &id_tracker, &responder, requester).await;
                     }
                 }
             }
@@ -267,9 +266,9 @@ async fn query_output_hierarchy(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn add_subscription(
     manager: &mut SubscriptionManager,
-    // subscribed_outputs: &mut HashMap<usize, Subscription>,
     uuid: Uuid,
     output: CyclerOutput,
     format: Format,

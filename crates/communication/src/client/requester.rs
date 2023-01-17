@@ -8,22 +8,9 @@ use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 
 use crate::messages::Request;
 
-use super::CyclerOutput;
-
 #[derive(Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum Message {
-    GetOutputHierarchy {
-        id: usize,
-    },
-    SubscribeOutput {
-        id: usize,
-        output: CyclerOutput,
-    },
-    UnsubscribeOutput {
-        id: usize,
-        output: CyclerOutput,
-    },
     GetParameterHierarchy {
         id: usize,
     },
