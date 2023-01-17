@@ -26,11 +26,15 @@ impl ImageBuffer {
     pub fn new(communication: Communication, cycler: Cycler) -> Self {
         let output = CyclerOutput {
             cycler,
-            output: Output::Image,
+            output: Output::Main {
+                path: "image".to_string(),
+            },
         };
         let (command_sender, command_receiver) = mpsc::channel(10);
         spawn(async move {
-            let (uuid, receiver) = communication.subscribe_output(output.clone()).await;
+            let (uuid, receiver) = communication
+                .subscribe_output(output.clone(), communication::messages::Format::Binary)
+                .await;
             image_buffer(receiver, command_receiver).await;
             communication.unsubscribe_output(output, uuid).await;
         });

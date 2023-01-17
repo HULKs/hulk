@@ -4,7 +4,10 @@ use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
 };
-use communication::client::{Communication, CyclerOutput, SubscriberMessage};
+use communication::{
+    client::{Communication, CyclerOutput, SubscriberMessage},
+    messages::Format,
+};
 use log::error;
 use serde::Deserialize;
 use serde_json::{from_value, Value, Value::Array};
@@ -40,7 +43,9 @@ impl ValueBuffer {
     pub fn output(communication: Communication, output: CyclerOutput) -> Self {
         let (command_sender, command_receiver) = mpsc::channel(10);
         spawn(async move {
-            let (uuid, receiver) = communication.subscribe_output(output.clone()).await;
+            let (uuid, receiver) = communication
+                .subscribe_output(output.clone(), Format::Textual)
+                .await;
             value_buffer(receiver, command_receiver).await;
             communication.unsubscribe_output(output, uuid).await;
         });

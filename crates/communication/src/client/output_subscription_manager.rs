@@ -29,6 +29,7 @@ pub enum Message {
     Disconnect,
     Subscribe {
         output: CyclerOutput,
+        format: Format,
         subscriber: mpsc::Sender<SubscriberMessage>,
         response_sender: oneshot::Sender<Uuid>,
     },
@@ -52,8 +53,8 @@ pub enum Message {
 
 #[derive(Default)]
 struct SubscriptionManager {
-    ids: HashMap<usize, CyclerOutput>,
-    subscriptions: HashMap<CyclerOutput, HashMap<Uuid, mpsc::Sender<SubscriberMessage>>>,
+    ids: HashMap<usize, (CyclerOutput, Format)>,
+    subscriptions: HashMap<(CyclerOutput, Format), HashMap<Uuid, mpsc::Sender<SubscriberMessage>>>,
 }
 
 pub async fn output_subscription_manager(
@@ -74,10 +75,11 @@ pub async fn output_subscription_manager(
                 requester: new_requester,
             } => {
                 assert!(manager.ids.is_empty());
-                for (output, subscribers) in &manager.subscriptions {
+                for ((output, format), subscribers) in &manager.subscriptions {
                     let subscribers = subscribers.values().cloned().collect();
                     if let Some(subscription_id) = subscribe(
                         output.clone(),
+                        *format,
                         subscribers,
                         &id_tracker,
                         &responder,
@@ -85,7 +87,9 @@ pub async fn output_subscription_manager(
                     )
                     .await
                     {
-                        manager.ids.insert(subscription_id, output.clone());
+                        manager
+                            .ids
+                            .insert(subscription_id, (output.clone(), *format));
                     }
                 }
                 match query_output_hierarchy(
@@ -108,6 +112,7 @@ pub async fn output_subscription_manager(
             }
             Message::Subscribe {
                 output,
+                format,
                 subscriber: output_sender,
                 response_sender,
             } => {
@@ -118,6 +123,7 @@ pub async fn output_subscription_manager(
                             &mut manager,
                             uuid,
                             output,
+                            format,
                             output_sender,
                             &id_tracker,
                             &responder,
@@ -129,20 +135,27 @@ pub async fn output_subscription_manager(
                 };
             }
             Message::Unsubscribe { output, uuid } => {
-                let mut is_empty = false;
-                if let Some(sender) = manager.subscriptions.get_mut(&output) {
-                    sender.remove(&uuid);
-                    is_empty = sender.is_empty();
-                }
-                if is_empty {
-                    manager.subscriptions.remove(&output);
-                    let maybe_subscription_id = manager
-                        .ids
-                        .iter()
-                        .find_map(|(id, other_output)| (&output == other_output).then_some(*id));
-                    if let (Some(requester), Some(id)) = (&requester, maybe_subscription_id) {
-                        manager.ids.remove(&id);
-                        unsubscribe(id, &id_tracker, &responder, requester).await;
+                let mut subscriptions_to_remove = Vec::new();
+                manager.subscriptions.retain(|output_format, clients| {
+                    if clients.remove(&uuid).is_none() {
+                        return true;
+                    }
+
+                    if clients.is_empty() {
+                        let maybe_subscription_id =
+                            manager.ids.iter().find_map(|(id, other_output)| {
+                                (output_format == other_output).then_some(*id)
+                            });
+                        if let Some(id) = maybe_subscription_id {
+                            subscriptions_to_remove.push(id);
+                        }
+                    }
+                    !clients.is_empty()
+                });
+                for subscription_id in subscriptions_to_remove {
+                    if let Some(requester) = &requester {
+                        manager.ids.remove(&subscription_id);
+                        unsubscribe(subscription_id, &id_tracker, &responder, &requester).await;
                     }
                 }
             }
@@ -182,7 +195,7 @@ pub async fn output_subscription_manager(
                                     }
                                 } else {
                                     binary_references_waiting_for_data
-                                        .insert(reference_id, output.clone());
+                                        .insert(reference_id, output.0.clone());
                                 }
                             }
                         }
@@ -202,7 +215,8 @@ pub async fn output_subscription_manager(
             Message::UpdateBinary { referenced_items } => {
                 for (reference_id, data) in referenced_items {
                     if let Some(output) = binary_references_waiting_for_data.get(&reference_id) {
-                        let subscribers = manager.subscriptions.get(output);
+                        let subscribers =
+                            manager.subscriptions.get(&(output.clone(), Format::Binary));
                         if let Some(senders) = subscribers {
                             for sender in senders.values() {
                                 if let Err(error) = sender
@@ -258,12 +272,13 @@ async fn add_subscription(
     // subscribed_outputs: &mut HashMap<usize, Subscription>,
     uuid: Uuid,
     output: CyclerOutput,
+    format: Format,
     output_sender: mpsc::Sender<SubscriberMessage>,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
     requester: &Option<mpsc::Sender<Request>>,
 ) {
-    match manager.subscriptions.entry(output.clone()) {
+    match manager.subscriptions.entry((output.clone(), format)) {
         Entry::Occupied(mut entry) => {
             entry.get_mut().insert(uuid, output_sender);
         }
@@ -271,6 +286,7 @@ async fn add_subscription(
             if let Some(requester) = requester {
                 if let Some(subscription_id) = subscribe(
                     output.clone(),
+                    format,
                     vec![output_sender.clone()],
                     id_tracker,
                     responder,
@@ -278,7 +294,7 @@ async fn add_subscription(
                 )
                 .await
                 {
-                    manager.ids.insert(subscription_id, output);
+                    manager.ids.insert(subscription_id, (output, format));
                 }
             };
             entry.insert(HashMap::new()).insert(uuid, output_sender);
@@ -288,6 +304,7 @@ async fn add_subscription(
 
 async fn subscribe(
     output: CyclerOutput,
+    format: Format,
     subscribers: Vec<mpsc::Sender<SubscriberMessage>>,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
@@ -305,10 +322,9 @@ async fn subscribe(
         error!("{error}");
         return None;
     }
-    let (format, path) = match output.output {
-        Output::Main { path } => (Format::Textual, format!("main_outputs.{path}")),
-        Output::Additional { path } => (Format::Textual, format!("additional_outputs.{path}")),
-        Output::Image => (Format::Binary, "main_outputs.image".to_string()),
+    let path = match output.output {
+        Output::Main { path } => format!("main_outputs.{path}"),
+        Output::Additional { path } => format!("additional_outputs.{path}"),
     };
     let request = Request::Outputs(OutputRequest::Subscribe {
         id: message_id,
