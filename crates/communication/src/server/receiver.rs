@@ -101,15 +101,16 @@ async fn handle_message(
                 }
             };
 
+            let client = Client {
+                id: client_id,
+                response_sender: response_sender.clone(),
+            };
             match request {
                 Request::Outputs(request) => {
                     outputs_sender
                         .send(outputs::Request::ClientRequest(outputs::ClientRequest {
                             request,
-                            client: Client {
-                                id: client_id,
-                                response_sender: response_sender.clone(),
-                            },
+                            client,
                         }))
                         .await
                         .expect("receiver should always wait for all senders");
@@ -117,13 +118,7 @@ async fn handle_message(
                 Request::Injections(_) => todo!(),
                 Request::Parameters(request) => {
                     parameters_sender
-                        .send(parameters::ClientRequest {
-                            request,
-                            client: Client {
-                                id: client_id,
-                                response_sender: response_sender.clone(),
-                            },
-                        })
+                        .send(parameters::ClientRequest { request, client })
                         .await
                         .expect("receiver should always wait for all senders");
                 }
