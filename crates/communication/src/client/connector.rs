@@ -235,12 +235,12 @@ pub async fn connector(
                         })
                         .await
                         .unwrap();
-                    // parameter_subscription_manager
-                    //     .send(parameter_subscription_manager::Message::Connect {
-                    //         requester: requester_sender,
-                    //     })
-                    //     .await
-                    //     .unwrap();
+                    parameter_subscription_manager
+                        .send(parameter_subscription_manager::Message::Connect {
+                            requester: requester_sender,
+                        })
+                        .await
+                        .unwrap();
                     spawn(requester(requester_receiver, writer));
                     spawn(receiver_task(
                         reader,

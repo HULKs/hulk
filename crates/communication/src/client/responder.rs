@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use log::{debug, error};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::messages::{Fields, Reason};
+use crate::messages::{Fields, Path, Reason};
 
 #[derive(Debug)]
 pub enum Message {
@@ -20,6 +20,7 @@ pub enum Message {
 #[derive(Debug)]
 pub enum Response {
     Fields(Fields),
+    ParameterFields(BTreeSet<Path>),
     Subscribe(Result<(), Reason>),
     Unsubscribe(Result<(), Reason>),
 }

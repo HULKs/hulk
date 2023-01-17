@@ -1,6 +1,9 @@
-use communication::{client::{
-    Communication, ConnectionStatus, Cycler, CyclerOutput, HierarchyType, OutputHierarchy,
-}, messages::Fields};
+use std::collections::BTreeSet;
+
+use communication::{
+    client::{Communication, ConnectionStatus, Cycler, CyclerOutput},
+    messages::{Fields, Path},
+};
 
 use serde_json::Value;
 use tokio::runtime::{Builder, Runtime};
@@ -59,9 +62,9 @@ impl Nao {
             .block_on(self.communication.get_output_fields())
     }
 
-    pub fn get_parameter_hierarchy(&self) -> Option<HierarchyType> {
+    pub fn get_parameter_fields(&self) -> Option<BTreeSet<Path>> {
         self.runtime
-            .block_on(self.communication.get_parameter_hiearchy())
+            .block_on(self.communication.get_parameter_fields())
     }
 
     pub fn update_parameter_value(&self, path: &str, value: Value) {

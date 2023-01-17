@@ -68,10 +68,10 @@ impl<'key> CompletionEdit<'key> {
     }
 
     pub fn parameters(key: &'key mut String, nao: &Nao) -> Self {
-        let mut completion_items = Vec::new();
-        if let Some(parameter_hierarchy) = nao.get_parameter_hierarchy() {
-            extend_from_hierarchy(&mut completion_items, "".to_string(), parameter_hierarchy);
-        }
+        let completion_items = nao
+            .get_parameter_fields()
+            .map(|fields| fields.into_iter().collect())
+            .unwrap_or_default();
 
         Self {
             key,

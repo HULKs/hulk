@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{hash_map::Entry, BTreeSet, HashMap};
 
 use log::{error, info};
 use serde_json::Value;
@@ -8,15 +8,20 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use crate::client::{
-    id_tracker::{self, get_message_id},
-    requester, responder, HierarchyType, SubscriberMessage,
+use crate::{
+    client::{
+        id_tracker::{self, get_message_id},
+        responder, SubscriberMessage,
+    },
+    messages::{ParametersRequest, Path, Request},
 };
+
+use super::responder::Response;
 
 #[derive(Debug)]
 pub enum Message {
     Connect {
-        requester: mpsc::Sender<requester::Message>,
+        requester: mpsc::Sender<Request>,
     },
     Disconnect,
     Subscribe {
@@ -25,23 +30,28 @@ pub enum Message {
         response_sender: oneshot::Sender<Uuid>,
     },
     Unsubscribe {
-        path: String,
         uuid: Uuid,
     },
     Update {
         path: String,
         data: Value,
     },
-    UpdateParameterHierarchy {
-        hierarchy: HierarchyType,
+    UpdateFields {
+        fields: BTreeSet<Path>,
     },
-    GetParameterHierarchy {
-        response_sender: oneshot::Sender<Option<HierarchyType>>,
+    GetFields {
+        response_sender: oneshot::Sender<Option<BTreeSet<Path>>>,
     },
     UpdateParameterValue {
         path: String,
         value: Value,
     },
+}
+
+#[derive(Default)]
+struct SubscriptionManager {
+    ids: HashMap<usize, Path>,
+    subscriptions: HashMap<Path, HashMap<Uuid, mpsc::Sender<SubscriberMessage>>>,
 }
 
 pub async fn parameter_subscription_manager(
@@ -50,18 +60,18 @@ pub async fn parameter_subscription_manager(
     id_tracker: mpsc::Sender<id_tracker::Message>,
     responder: mpsc::Sender<responder::Message>,
 ) {
-    let mut subscribed_parameters: HashMap<String, HashMap<Uuid, mpsc::Sender<SubscriberMessage>>> =
-        HashMap::new();
+    let mut manager = SubscriptionManager::default();
     let mut requester = None;
-    let mut hierarchy = None;
+    let mut fields = None;
     while let Some(message) = receiver.recv().await {
         match message {
             Message::Connect {
                 requester: new_requester,
             } => {
-                for (path, subscribers) in &subscribed_parameters {
+                assert!(manager.ids.is_empty());
+                for (path, subscribers) in &manager.subscriptions {
                     let subscribers = subscribers.values().cloned().collect();
-                    subscribe(
+                    if let Some(subscription_id) = subscribe(
                         path.clone(),
                         subscribers,
                         &id_tracker,
@@ -69,6 +79,9 @@ pub async fn parameter_subscription_manager(
                         &new_requester,
                     )
                     .await
+                    {
+                        manager.ids.insert(subscription_id, path.clone());
+                    }
                 }
                 query_parameter_hierarchy(sender.clone(), &id_tracker, &responder, &new_requester)
                     .await;
@@ -76,6 +89,7 @@ pub async fn parameter_subscription_manager(
             }
             Message::Disconnect => {
                 requester = None;
+                manager.ids.clear();
             }
             Message::Subscribe {
                 path,
@@ -86,7 +100,7 @@ pub async fn parameter_subscription_manager(
                 match response_sender.send(uuid) {
                     Ok(()) => {
                         add_subscription(
-                            &mut subscribed_parameters,
+                            &mut manager,
                             uuid,
                             path,
                             subscriber,
@@ -99,21 +113,33 @@ pub async fn parameter_subscription_manager(
                     Err(error) => error!("{error}"),
                 };
             }
-            Message::Unsubscribe { path, uuid } => {
-                let mut is_empty = false;
-                if let Some(sender) = subscribed_parameters.get_mut(&path) {
-                    sender.remove(&uuid);
-                    is_empty = sender.is_empty();
-                }
-                if is_empty {
-                    subscribed_parameters.remove(&path);
+            Message::Unsubscribe { uuid } => {
+                let mut subscriptions_to_remove = Vec::new();
+                manager.subscriptions.retain(|path, clients| {
+                    if clients.remove(&uuid).is_none() {
+                        return true;
+                    }
+
+                    if clients.is_empty() {
+                        let maybe_subscription_id = manager
+                            .ids
+                            .iter()
+                            .find_map(|(id, other_path)| (path == other_path).then_some(*id));
+                        if let Some(id) = maybe_subscription_id {
+                            subscriptions_to_remove.push(id);
+                        }
+                    }
+                    !clients.is_empty()
+                });
+                for subscription_id in subscriptions_to_remove {
                     if let Some(requester) = &requester {
-                        unsubscribe(path, &id_tracker, &responder, requester).await;
+                        manager.ids.remove(&subscription_id);
+                        unsubscribe(subscription_id, &id_tracker, &responder, requester).await;
                     }
                 }
             }
             Message::Update { path, data } => {
-                if let Some(senders) = subscribed_parameters.get(&path) {
+                if let Some(senders) = manager.subscriptions.get(&path) {
                     for sender in senders.values() {
                         if let Err(error) = sender
                             .send(SubscriberMessage::Update {
@@ -126,19 +152,17 @@ pub async fn parameter_subscription_manager(
                     }
                 }
             }
-            Message::UpdateParameterHierarchy {
-                hierarchy: new_hierarchy,
-            } => {
-                hierarchy = Some(new_hierarchy);
+            Message::UpdateFields { fields: new_fields } => {
+                fields = Some(new_fields);
             }
-            Message::GetParameterHierarchy { response_sender } => {
-                if let Err(error) = response_sender.send(hierarchy.clone()) {
+            Message::GetFields { response_sender } => {
+                if let Err(error) = response_sender.send(fields.clone()) {
                     error!("{error:?}");
                 }
             }
             Message::UpdateParameterValue { path, value } => {
                 if let Some(requester) = &requester {
-                    update_parameter_value(path, value, requester, &id_tracker, &responder).await;
+                    update_parameter_value(path, value, &id_tracker, &responder, requester).await;
                 }
             }
         }
@@ -150,7 +174,7 @@ async fn query_parameter_hierarchy(
     manager: mpsc::Sender<Message>,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
-    requester: &mpsc::Sender<requester::Message>,
+    requester: &mpsc::Sender<Request>,
 ) {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
@@ -162,35 +186,29 @@ async fn query_parameter_hierarchy(
         .await
         .unwrap();
     requester
-        .send(requester::Message::GetParameterHierarchy { id: message_id })
+        .send(Request::Parameters(ParametersRequest::GetFields {
+            id: message_id,
+        }))
         .await
         .unwrap();
     spawn(async move {
         let response = response_receiver.await.unwrap();
-        // match response {
-        //     Ok(value) => {
-        //         let hierarchy = serde_json::from_value(value);
-        //         match hierarchy {
-        //             Ok(hierarchy) => {
-        //                 manager
-        //                     .send(Message::UpdateParameterHierarchy { hierarchy })
-        //                     .await
-        //                     .unwrap();
-        //             }
-        //             Err(error) => error!("Failed to deserialize ParameterHierarchy: {}", error),
-        //         }
-        //     }
-        //     Err(error) => error!("Failed to get parameter hierarchy: {}", error),
-        // }
+        match response {
+            Response::ParameterFields(fields) => manager
+                .send(Message::UpdateFields { fields })
+                .await
+                .unwrap(),
+            response => error!("unexpected response: {response:?}"),
+        }
     });
 }
 
 async fn update_parameter_value(
     path: String,
     value: Value,
-    requester: &mpsc::Sender<requester::Message>,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
+    requester: &mpsc::Sender<Request>,
 ) {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
@@ -202,11 +220,11 @@ async fn update_parameter_value(
         .await
         .unwrap();
     requester
-        .send(requester::Message::UpdateParameter {
+        .send(Request::Parameters(ParametersRequest::Update {
             id: message_id,
             path,
             data: value,
-        })
+        }))
         .await
         .unwrap();
     spawn(async move {
@@ -218,28 +236,31 @@ async fn update_parameter_value(
 }
 
 async fn add_subscription(
-    subscribed_parameters: &mut HashMap<String, HashMap<Uuid, mpsc::Sender<SubscriberMessage>>>,
+    manager: &mut SubscriptionManager,
     uuid: Uuid,
     path: String,
     subscriber: mpsc::Sender<SubscriberMessage>,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
-    requester: &Option<mpsc::Sender<requester::Message>>,
+    requester: &Option<mpsc::Sender<Request>>,
 ) {
-    match subscribed_parameters.entry(path.clone()) {
+    match manager.subscriptions.entry(path.clone()) {
         Entry::Occupied(mut entry) => {
             entry.get_mut().insert(uuid, subscriber);
         }
         Entry::Vacant(entry) => {
             if let Some(requester) = requester {
-                subscribe(
-                    path,
+                if let Some(subscription_id) = subscribe(
+                    path.clone(),
                     vec![subscriber.clone()],
                     id_tracker,
                     responder,
                     requester,
                 )
-                .await;
+                .await
+                {
+                    manager.ids.insert(subscription_id, path);
+                }
             };
             entry.insert(HashMap::new()).insert(uuid, subscriber);
         }
@@ -251,41 +272,49 @@ async fn subscribe(
     subscribers: Vec<mpsc::Sender<SubscriberMessage>>,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
-    requester: &mpsc::Sender<requester::Message>,
-) {
+    requester: &mpsc::Sender<Request>,
+) -> Option<usize> {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
-    responder
+    if let Err(error) = responder
         .send(responder::Message::Await {
             id: message_id,
             response_sender,
         })
         .await
-        .unwrap();
-    let request = requester::Message::SubscribeParameter {
+    {
+        error!("{error}");
+        return None;
+    }
+    let request = Request::Parameters(ParametersRequest::Subscribe {
         id: message_id,
         path,
-    };
+    });
     requester.send(request).await.unwrap();
     spawn(async move {
         let response = response_receiver.await.unwrap();
-        // let message = match response {
-        //     Ok(_) => SubscriberMessage::SubscriptionSuccess,
-        //     Err(error) => SubscriberMessage::SubscriptionFailure { info: error },
-        // };
-        // for sender in subscribers {
-        //     if let Err(error) = sender.send(message.clone()).await {
-        //         error!("{error}");
-        //     }
-        // }
+        let message = match response {
+            Response::Subscribe(Ok(_)) => SubscriberMessage::SubscriptionSuccess,
+            Response::Subscribe(Err(error)) => {
+                SubscriberMessage::SubscriptionFailure { info: error }
+            }
+            response => return error!("unexpected response: {response:?}"),
+        };
+        for sender in subscribers {
+            if let Err(error) = sender.send(message.clone()).await {
+                error!("{error}");
+            }
+        }
     });
+
+    Some(message_id)
 }
 
 async fn unsubscribe(
-    path: String,
+    subscription_id: usize,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
-    requester: &mpsc::Sender<requester::Message>,
+    requester: &mpsc::Sender<Request>,
 ) {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
@@ -296,10 +325,10 @@ async fn unsubscribe(
         })
         .await
         .unwrap();
-    let request = requester::Message::UnsubscribeParameter {
+    let request = Request::Parameters(ParametersRequest::Unsubscribe {
         id: message_id,
-        path,
-    };
+        subscription_id,
+    });
     requester.send(request).await.unwrap();
     spawn(async move {
         let response = response_receiver.await.unwrap();

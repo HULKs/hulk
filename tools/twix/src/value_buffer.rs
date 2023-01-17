@@ -59,7 +59,7 @@ impl ValueBuffer {
         spawn(async move {
             let (uuid, receiver) = communication.subscribe_parameter(path.clone()).await;
             value_buffer(receiver, command_receiver).await;
-            communication.unsubscribe_parameter(path, uuid).await;
+            communication.unsubscribe_parameter(uuid).await;
         });
         Self {
             sender: command_sender,

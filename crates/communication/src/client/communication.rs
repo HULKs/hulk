@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use serde_json::Value;
 use tokio::{
     spawn,
@@ -9,9 +11,9 @@ use crate::{
     client::{
         connector::{self, connector, ConnectionStatus},
         parameter_subscription_manager::{self, parameter_subscription_manager},
-        HierarchyType, SubscriberMessage,
+        SubscriberMessage,
     },
-    messages::{Fields, Format},
+    messages::{Fields, Format, Path},
 };
 
 use super::{
@@ -137,9 +139,9 @@ impl Communication {
         (uuid, subscriber_receiver)
     }
 
-    pub async fn unsubscribe_parameter(&self, path: String, uuid: Uuid) {
+    pub async fn unsubscribe_parameter(&self, uuid: Uuid) {
         self.parameter_subscription_manager
-            .send(parameter_subscription_manager::Message::Unsubscribe { path, uuid })
+            .send(parameter_subscription_manager::Message::Unsubscribe { uuid })
             .await
             .unwrap();
     }
@@ -153,12 +155,10 @@ impl Communication {
         response_receiver.await.unwrap()
     }
 
-    pub async fn get_parameter_hiearchy(&self) -> Option<HierarchyType> {
+    pub async fn get_parameter_fields(&self) -> Option<BTreeSet<Path>> {
         let (response_sender, response_receiver) = oneshot::channel();
         self.parameter_subscription_manager
-            .send(
-                parameter_subscription_manager::Message::GetParameterHierarchy { response_sender },
-            )
+            .send(parameter_subscription_manager::Message::GetFields { response_sender })
             .await
             .unwrap();
         response_receiver.await.unwrap()
