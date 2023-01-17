@@ -36,7 +36,7 @@ impl ImageBuffer {
                 .subscribe_output(output.clone(), communication::messages::Format::Binary)
                 .await;
             image_buffer(receiver, command_receiver).await;
-            communication.unsubscribe_output(output, uuid).await;
+            communication.unsubscribe_output(uuid).await;
         });
         Self {
             sender: command_sender,

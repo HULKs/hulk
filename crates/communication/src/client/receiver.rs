@@ -66,7 +66,7 @@ pub async fn receiver(
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     responder: Sender<responder::Message>,
     output_subscription_manager: Sender<output_subscription_manager::Message>,
-    parameter_subscription_manager: Sender<parameter_subscription_manager::Message>,
+    _parameter_subscription_manager: Sender<parameter_subscription_manager::Message>,
     connector: Sender<connector::Message>,
 ) {
     while let Some(message) = reader.next().await {
@@ -95,7 +95,7 @@ pub async fn receiver(
                                     error!("{error}");
                                 }
                             }
-                            TextualOutputResponse::GetNext { id, result } => todo!(),
+                            TextualOutputResponse::GetNext { id: _, result: _ } => todo!(),
                             TextualOutputResponse::Subscribe { id, result } => {
                                 let response = responder::Response::Subscribe(result);
                                 if let Err(error) = responder
@@ -125,35 +125,6 @@ pub async fn receiver(
                         },
                         message => todo!("unimplemented message {message:?}"),
                     }
-                    //         Payload::GetOutputHierarchyResult {
-                    //             id,
-                    //             ok,
-                    //             output_hierarchy,
-                    //         } => {
-                    //             let response = result_from_response(ok, None, output_hierarchy);
-                    //             if let Err(error) = responder
-                    //                 .send(responder::Message::Respond { id, response })
-                    //                 .await
-                    //             {
-                    //                 error!("{error}");
-                    //             }
-                    //         }
-                    //         Payload::OutputsUpdated {
-                    //             cycler,
-                    //             outputs,
-                    //             image_id,
-                    //         } => {
-                    //             if let Err(error) = output_subscription_manager
-                    //                 .send(output_subscription_manager::Message::Update {
-                    //                     cycler,
-                    //                     outputs,
-                    //                     image_id,
-                    //                 })
-                    //                 .await
-                    //             {
-                    //                 error!("{error}");
-                    //             }
-                    //         }
                     //         Payload::GetParameterHierarchyResult {
                     //             id,
                     //             ok,
@@ -178,9 +149,7 @@ pub async fn receiver(
                     //                 error!("{error}");
                     //             }
                     //         }
-                    //         Payload::SubscribeOutputResult { id, ok, reason }
-                    //         | Payload::UnsubscribeOutputResult { id, ok, reason }
-                    //         | Payload::SubscribeParameterResult { id, ok, reason }
+                    //         Payload::SubscribeParameterResult { id, ok, reason }
                     //         | Payload::UnsubscribeParameterResult { id, ok, reason }
                     //         | Payload::UpdateParameterResult { id, ok, reason } => {
                     //             let response =
@@ -209,7 +178,10 @@ pub async fn receiver(
                     let message = match response {
                         BinaryResponse::Outputs(binary_output_response) => {
                             match binary_output_response {
-                                BinaryOutputResponse::GetNext { reference_id, data } => todo!(),
+                                BinaryOutputResponse::GetNext {
+                                    reference_id: _,
+                                    data: _,
+                                } => todo!(),
                                 BinaryOutputResponse::SubscribedData { referenced_items } => {
                                     output_subscription_manager::Message::UpdateBinary {
                                         referenced_items,
@@ -239,15 +211,5 @@ pub async fn receiver(
                     .unwrap();
             }
         }
-    }
-}
-
-fn result_from_response(ok: bool, reason: Option<String>, value: Value) -> Result<Value, String> {
-    match ok {
-        true => Ok(value),
-        false => match reason {
-            Some(reason) => Err(reason),
-            None => Err("No reason specified".to_string()),
-        },
     }
 }

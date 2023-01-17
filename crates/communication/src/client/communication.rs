@@ -112,9 +112,9 @@ impl Communication {
         (uuid, subscriber_receiver)
     }
 
-    pub async fn unsubscribe_output(&self, output: CyclerOutput, uuid: Uuid) {
+    pub async fn unsubscribe_output(&self, uuid: Uuid) {
         self.output_subscription_manager
-            .send(output_subscription_manager::Message::Unsubscribe { output, uuid })
+            .send(output_subscription_manager::Message::Unsubscribe { uuid })
             .await
             .unwrap();
     }
