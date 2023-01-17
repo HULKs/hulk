@@ -8,12 +8,12 @@ use tokio::{
 
 use crate::{
     messages::{OutputsRequest, Path, Response, TextualOutputsResponse, TextualResponse},
-    server::Client,
+    server::client::Client,
 };
 
 use super::{ClientRequest, Request};
 
-pub(crate) fn router(mut request_receiver: Receiver<Request>) -> JoinHandle<()> {
+pub fn router(mut request_receiver: Receiver<Request>) -> JoinHandle<()> {
     spawn(async move {
         let mut request_channels_of_cyclers = HashMap::new();
         let mut cached_cycler_instances = HashMap::new();

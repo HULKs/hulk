@@ -22,12 +22,12 @@ use crate::{
         BinaryOutputsResponse, BinaryResponse, Format, OutputsRequest, Response,
         TextualDataOrBinaryReference, TextualOutputsResponse, TextualResponse,
     },
-    server::Client,
+    server::client::Client,
 };
 
 use super::{ClientRequest, Request, Subscription};
 
-pub(crate) fn provider<Outputs>(
+pub fn provider<Outputs>(
     outputs_sender: Sender<Request>,
     cycler_instance: &'static str,
     outputs_changed: Arc<Notify>,

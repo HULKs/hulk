@@ -9,10 +9,10 @@ use tokio_util::sync::CancellationToken;
 
 use crate::messages::{OutputsRequest, ParametersRequest, Request, Response};
 
-use super::{connection::ReceiverOrSenderError, outputs, parameters, Client};
+use super::{client::Client, connection::ReceiverOrSenderError, outputs, parameters};
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn receiver(
+pub async fn receiver(
     mut reader: SplitStream<WebSocketStream<TcpStream>>,
     error_sender: Sender<ReceiverOrSenderError>,
     keep_running: CancellationToken,

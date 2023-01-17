@@ -18,12 +18,12 @@ use tokio::{
 
 use crate::{
     messages::{ParametersRequest, ParametersResponse, Path, Response, TextualResponse},
-    server::Client,
+    server::client::Client,
 };
 
 use super::{ClientRequest, StorageRequest};
 
-pub(crate) fn subscriptions<Parameters>(
+pub fn subscriptions<Parameters>(
     mut request_receiver: Receiver<ClientRequest>,
     parameters_reader: Reader<Parameters>,
     parameters_changed: Arc<Notify>,
@@ -283,8 +283,6 @@ mod tests {
         sync::mpsc::{channel, error::TryRecvError},
         task::yield_now,
     };
-
-    use crate::server::Client;
 
     use super::*;
 

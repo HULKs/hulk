@@ -27,7 +27,7 @@ pub enum AcceptError {
     ConnectionsErrored(Vec<ConnectionError>),
 }
 
-pub(crate) fn acceptor(
+pub fn acceptor(
     addresses: impl ToSocketAddrs + Send + Sync + 'static,
     keep_running: CancellationToken,
     outputs_sender: Sender<outputs::Request>,
