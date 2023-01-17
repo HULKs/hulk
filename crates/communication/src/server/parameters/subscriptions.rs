@@ -150,17 +150,14 @@ async fn handle_request<Parameters>(
                 }
             };
             respond(request.clone(), response).await;
-            request
-                .client
-                .response_sender
-                .send(Response::Textual(TextualResponse::Parameters(
-                    ParametersResponse::SubscribedData {
-                        subscription_id: id,
-                        data,
-                    },
-                )))
-                .await
-                .expect("receiver should always wait for all senders");
+            respond(
+                request,
+                ParametersResponse::SubscribedData {
+                    subscription_id: id,
+                    data,
+                },
+            )
+            .await
         }
         ParametersRequest::Unsubscribe {
             id,
