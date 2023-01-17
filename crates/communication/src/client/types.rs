@@ -35,7 +35,6 @@ impl FromStr for CyclerOutput {
             "additional" | "additional_outputs" => Output::Additional {
                 path: path.to_string(),
             },
-            "image" => Output::Image,
             _ => bail!("unknown output '{output_str}'"),
         };
         Ok(CyclerOutput { cycler, output })
@@ -77,7 +76,6 @@ impl FromStr for Cycler {
 pub enum Output {
     Main { path: String },
     Additional { path: String },
-    Image,
 }
 
 #[derive(Debug, Clone)]
