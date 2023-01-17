@@ -7,9 +7,12 @@ use tokio_tungstenite::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::messages::{OutputsRequest, ParametersRequest, Request, Response};
+use crate::{
+    messages::{OutputsRequest, ParametersRequest, Request, Response},
+    server::client_request::ClientRequest,
+};
 
-use super::{client::Client, connection::ReceiverOrSenderError, outputs, parameters};
+use super::{client::Client, connection::ReceiverOrSenderError, outputs};
 
 #[allow(clippy::too_many_arguments)]
 pub async fn receiver(
@@ -20,7 +23,7 @@ pub async fn receiver(
     client_id: usize,
     response_sender: Sender<Response>,
     outputs_sender: Sender<outputs::Request>,
-    parameters_sender: Sender<parameters::ClientRequest>,
+    parameters_sender: Sender<ClientRequest<ParametersRequest>>,
 ) {
     select! {
         _ = async {
@@ -41,7 +44,7 @@ pub async fn receiver(
     }
 
     outputs_sender
-        .send(outputs::Request::ClientRequest(outputs::ClientRequest {
+        .send(outputs::Request::ClientRequest(ClientRequest {
             request: OutputsRequest::UnsubscribeEverything,
             client: Client {
                 id: client_id,
@@ -51,7 +54,7 @@ pub async fn receiver(
         .await
         .expect("receiver should always wait for all senders");
     parameters_sender
-        .send(parameters::ClientRequest {
+        .send(ClientRequest {
             request: ParametersRequest::UnsubscribeEverything,
             client: Client {
                 id: client_id,
@@ -69,7 +72,7 @@ async fn handle_message(
     client_id: usize,
     response_sender: &Sender<Response>,
     outputs_sender: &Sender<outputs::Request>,
-    parameters_sender: &Sender<parameters::ClientRequest>,
+    parameters_sender: &Sender<ClientRequest<ParametersRequest>>,
 ) {
     let message = match message {
         Ok(message) => message,
@@ -108,7 +111,7 @@ async fn handle_message(
             match request {
                 Request::Outputs(request) => {
                     outputs_sender
-                        .send(outputs::Request::ClientRequest(outputs::ClientRequest {
+                        .send(outputs::Request::ClientRequest(ClientRequest {
                             request,
                             client,
                         }))
@@ -118,7 +121,7 @@ async fn handle_message(
                 Request::Injections(_) => todo!(),
                 Request::Parameters(request) => {
                     parameters_sender
-                        .send(parameters::ClientRequest { request, client })
+                        .send(ClientRequest { request, client })
                         .await
                         .expect("receiver should always wait for all senders");
                 }
