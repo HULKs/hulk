@@ -14,7 +14,7 @@ use crate::{
         responder, Output, SubscriberMessage,
     },
     messages::{
-        Fields, Format, OutputRequest, Request,
+        Fields, Format, OutputsRequest, Request,
         TextualDataOrBinaryReference::{self, BinaryReference, TextualData},
     },
 };
@@ -250,7 +250,7 @@ async fn query_output_hierarchy(
             response_sender,
         })
         .await?;
-    let request = Request::Outputs(OutputRequest::GetFields { id: message_id });
+    let request = Request::Outputs(OutputsRequest::GetFields { id: message_id });
     requester.send(request).await?;
     spawn(async move {
         let response = response_receiver.await.unwrap();
@@ -325,7 +325,7 @@ async fn subscribe(
         Output::Main { path } => format!("main_outputs.{path}"),
         Output::Additional { path } => format!("additional_outputs.{path}"),
     };
-    let request = Request::Outputs(OutputRequest::Subscribe {
+    let request = Request::Outputs(OutputsRequest::Subscribe {
         id: message_id,
         cycler_instance: output.cycler.to_string(),
         path,
@@ -372,7 +372,7 @@ async fn unsubscribe(
     {
         error!("{error}")
     }
-    let request = Request::Outputs(OutputRequest::Unsubscribe {
+    let request = Request::Outputs(OutputsRequest::Unsubscribe {
         id: message_id,
         subscription_id,
     });

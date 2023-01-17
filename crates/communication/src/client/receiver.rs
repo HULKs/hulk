@@ -6,8 +6,15 @@ use tokio::{net::TcpStream, sync::mpsc::Sender};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use crate::{
-    client::{connector, parameter_subscription_manager, types::SubscribedOutput},
-    messages::{BinaryOutputResponse, BinaryResponse, TextualOutputResponse, TextualResponse},
+    client::{
+        connector, parameter_subscription_manager,
+        responder::{Message, Response},
+        types::SubscribedOutput,
+    },
+    messages::{
+        BinaryOutputsResponse, BinaryResponse, ParametersResponse, TextualOutputsResponse,
+        TextualResponse,
+    },
 };
 
 use super::{output_subscription_manager, responder, Cycler};
@@ -64,7 +71,7 @@ enum Payload {
 
 pub async fn receiver(
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    responder: Sender<responder::Message>,
+    responder: Sender<Message>,
     output_subscription_manager: Sender<output_subscription_manager::Message>,
     _parameter_subscription_manager: Sender<parameter_subscription_manager::Message>,
     connector: Sender<connector::Message>,
@@ -84,37 +91,17 @@ pub async fn receiver(
                     println!("{message:?}");
                     match message {
                         TextualResponse::Outputs(outputs_message) => match outputs_message {
-                            TextualOutputResponse::GetFields { id, fields } => {
-                                if let Err(error) = responder
-                                    .send(responder::Message::Respond {
-                                        id,
-                                        response: responder::Response::Fields(fields),
-                                    })
-                                    .await
-                                {
-                                    error!("{error}");
-                                }
+                            TextualOutputsResponse::GetFields { id, fields } => {
+                                respond(&responder, id, Response::Fields(fields)).await
                             }
-                            TextualOutputResponse::GetNext { id: _, result: _ } => todo!(),
-                            TextualOutputResponse::Subscribe { id, result } => {
-                                let response = responder::Response::Subscribe(result);
-                                if let Err(error) = responder
-                                    .send(responder::Message::Respond { id, response })
-                                    .await
-                                {
-                                    error!("{error}");
-                                }
+                            TextualOutputsResponse::GetNext { id: _, result: _ } => todo!(),
+                            TextualOutputsResponse::Subscribe { id, result } => {
+                                respond(&responder, id, Response::Subscribe(result)).await
                             }
-                            TextualOutputResponse::Unsubscribe { id, result } => {
-                                let response = responder::Response::Unsubscribe(result);
-                                if let Err(error) = responder
-                                    .send(responder::Message::Respond { id, response })
-                                    .await
-                                {
-                                    error!("{error}");
-                                }
+                            TextualOutputsResponse::Unsubscribe { id, result } => {
+                                respond(&responder, id, Response::Unsubscribe(result)).await
                             }
-                            TextualOutputResponse::SubscribedData { items } => {
+                            TextualOutputsResponse::SubscribedData { items } => {
                                 if let Err(error) = output_subscription_manager
                                     .send(output_subscription_manager::Message::Update { items })
                                     .await
@@ -122,6 +109,20 @@ pub async fn receiver(
                                     error!("{error}");
                                 }
                             }
+                        },
+                        TextualResponse::Parameters(parameters_message) => match parameters_message
+                        {
+                            ParametersResponse::GetFields { id, fields } => {
+                                respond(&responder, id, Response::ParameterFields(fields)).await
+                            }
+                            ParametersResponse::Subscribe { id, result } => {
+                                respond(&responder, id, Response::Subscribe(result)).await
+                            }
+                            ParametersResponse::Unsubscribe { id, result } => {
+                                respond(&responder, id, Response::Unsubscribe(result)).await
+                            }
+
+                            message => todo!("unimplemented message {message:?}"),
                         },
                         message => todo!("unimplemented message {message:?}"),
                     }
@@ -178,11 +179,11 @@ pub async fn receiver(
                     let message = match response {
                         BinaryResponse::Outputs(binary_output_response) => {
                             match binary_output_response {
-                                BinaryOutputResponse::GetNext {
+                                BinaryOutputsResponse::GetNext {
                                     reference_id: _,
                                     data: _,
                                 } => todo!(),
-                                BinaryOutputResponse::SubscribedData { referenced_items } => {
+                                BinaryOutputsResponse::SubscribedData { referenced_items } => {
                                     output_subscription_manager::Message::UpdateBinary {
                                         referenced_items,
                                     }
@@ -211,5 +212,11 @@ pub async fn receiver(
                     .unwrap();
             }
         }
+    }
+}
+
+async fn respond(responder: &Sender<responder::Message>, id: usize, response: responder::Response) {
+    if let Err(error) = responder.send(Message::Respond { id, response }).await {
+        error!("{error}");
     }
 }
