@@ -92,8 +92,8 @@ fn project_segment_to_field(
     camera_matrix: &CameraMatrix,
     robot_to_field: Isometry2<f32>,
 ) -> Result<(Point2<f32>, Point2<f32>, f32)> {
-    let start = point![x * 2.0, segment.start as f32];
-    let end = point![x * 2.0, segment.end as f32];
+    let start = point![x, segment.start as f32];
+    let end = point![x, segment.end as f32];
 
     let start_on_ground = camera_matrix.pixel_to_ground(&start)?;
     let end_on_ground = camera_matrix.pixel_to_ground(&end)?;

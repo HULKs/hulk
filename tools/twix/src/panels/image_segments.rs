@@ -142,7 +142,7 @@ impl Widget for &mut ImageSegmentsPanel {
                 .scan_grid
                 .vertical_scan_lines
                 .iter()
-                .find(|scanline| scanline.position * 2 >= x)
+                .find(|scanline| scanline.position >= x)
             {
                 if let Some(segment) = scanline.segments.iter().find(|segment| segment.end >= y) {
                     let start = segment.start;
@@ -169,8 +169,8 @@ impl Widget for &mut ImageSegmentsPanel {
             for segment in scanline.segments {
                 let ycbcr_color = segment.color;
                 let rgb_color = Rgb::from(ycbcr_color);
-                let start = point![x * 2.0, segment.start as f32];
-                let end = point![x * 2.0, segment.end as f32];
+                let start = point![x, segment.start as f32];
+                let end = point![x, segment.end as f32];
                 let original_color = Color32::from_rgb(rgb_color.r, rgb_color.g, rgb_color.b);
                 let medium_color = Color32::LIGHT_YELLOW;
                 let high_color = Color32::YELLOW;
