@@ -31,6 +31,7 @@ mod image_buffer;
 mod nao;
 mod panel;
 mod panels;
+mod raw_image;
 mod twix_painter;
 mod value_buffer;
 

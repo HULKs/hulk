@@ -3944,6 +3944,7 @@ dependencies = [
  "log",
  "nalgebra",
  "serde",
+ "serde_bytes",
  "serde_json",
  "tokio",
  "types",
