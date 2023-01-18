@@ -448,9 +448,10 @@ mod tests {
     async fn subscriptions_with_same_subscription_ids_and_same_client_ids() {
         let (request_sender, request_receiver) = channel(1);
         let path = "a.b.c".to_string();
+        let value = Value::from(42);
         let (_parameters_writer, parameters_reader) =
             multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), 42)].into(),
+                existing_fields: [(path.clone(), value.clone())].into(),
             }]);
         let parameters_changed = Arc::new(Notify::new());
         let (storage_request_sender, _storage_request_receiver) = channel(1);
@@ -489,6 +490,16 @@ mod tests {
                 }))
             ),
             "unexpected {response:?}",
+        );
+        let subscribed_data = response_receiver.recv().await.unwrap();
+        assert_eq!(
+            subscribed_data,
+            Response::Textual(TextualResponse::Parameters(
+                ParametersResponse::SubscribedData {
+                    subscription_id: ID,
+                    data: value,
+                }
+            )),
         );
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
@@ -532,9 +543,10 @@ mod tests {
     async fn subscriptions_with_same_subscription_ids_and_different_client_ids() {
         let (request_sender, request_receiver) = channel(1);
         let path = "a.b.c".to_string();
+        let value = Value::from(42);
         let (_parameters_writer, parameters_reader) =
             multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), 42)].into(),
+                existing_fields: [(path.clone(), value.clone())].into(),
             }]);
         let parameters_changed = Arc::new(Notify::new());
         let (storage_request_sender, _storage_request_receiver) = channel(1);
@@ -571,6 +583,16 @@ mod tests {
                 }))
             ),
             "unexpected {response:?}",
+        );
+        let subscribed_data = response_receiver.recv().await.unwrap();
+        assert_eq!(
+            subscribed_data,
+            Response::Textual(TextualResponse::Parameters(
+                ParametersResponse::SubscribedData {
+                    subscription_id: ID,
+                    data: value,
+                }
+            )),
         );
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
@@ -614,9 +636,10 @@ mod tests {
     async fn subscriptions_with_different_subscription_ids_and_same_client_ids() {
         let (request_sender, request_receiver) = channel(1);
         let path = "a.b.c".to_string();
+        let value = Value::from(42);
         let (_parameters_writer, parameters_reader) =
             multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), 42)].into(),
+                existing_fields: [(path.clone(), value.clone())].into(),
             }]);
         let parameters_changed = Arc::new(Notify::new());
         let (storage_request_sender, _storage_request_receiver) = channel(1);
@@ -653,6 +676,16 @@ mod tests {
                 }))
             ),
             "unexpected {response:?}",
+        );
+        let subscribed_data = response_receiver.recv().await.unwrap();
+        assert_eq!(
+            subscribed_data,
+            Response::Textual(TextualResponse::Parameters(
+                ParametersResponse::SubscribedData {
+                    subscription_id: 42,
+                    data: value,
+                }
+            )),
         );
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
@@ -749,9 +782,10 @@ mod tests {
     async fn unsubscribe_twice_results_in_error() {
         let (request_sender, request_receiver) = channel(1);
         let path = "a.b.c".to_string();
+        let value = Value::from(42);
         let (_parameters_writer, parameters_reader) =
             multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), 42)].into(),
+                existing_fields: [(path.clone(), value.clone())].into(),
             }]);
         let parameters_changed = Arc::new(Notify::new());
         let (storage_request_sender, _storage_request_receiver) = channel(1);
@@ -789,6 +823,16 @@ mod tests {
                 }))
             ),
             "unexpected {response:?}",
+        );
+        let subscribed_data = response_receiver.recv().await.unwrap();
+        assert_eq!(
+            subscribed_data,
+            Response::Textual(TextualResponse::Parameters(
+                ParametersResponse::SubscribedData {
+                    subscription_id: SUBSCRIPTION_ID,
+                    data: value,
+                }
+            )),
         );
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
@@ -865,9 +909,10 @@ mod tests {
     async fn unsubscribe_after_unsubscribe_everything_results_in_error() {
         let (request_sender, request_receiver) = channel(1);
         let path = "a.b.c".to_string();
+        let value = Value::from(42);
         let (_parameters_writer, parameters_reader) =
             multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), 42)].into(),
+                existing_fields: [(path.clone(), value.clone())].into(),
             }]);
         let parameters_changed = Arc::new(Notify::new());
         let (storage_request_sender, _storage_request_receiver) = channel(1);
@@ -906,6 +951,17 @@ mod tests {
             ),
             "unexpected {response:?}",
         );
+        let subscribed_data = response_receiver.recv().await.unwrap();
+        assert_eq!(
+            subscribed_data,
+            Response::Textual(TextualResponse::Parameters(
+                ParametersResponse::SubscribedData {
+                    subscription_id: SUBSCRIPTION_ID,
+                    data: value,
+                }
+            )),
+        );
+
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
@@ -1180,6 +1236,17 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
+
+        let subscribed_data = response_receiver.recv().await.unwrap();
+        assert_eq!(
+            subscribed_data,
+            Response::Textual(TextualResponse::Parameters(
+                ParametersResponse::SubscribedData {
+                    subscription_id: SUBSCRIPTION_ID,
+                    data: value.clone(),
+                }
+            )),
+        );
 
         parameters_changed.notify_one();
         let subscribed_data = response_receiver.recv().await.unwrap();
