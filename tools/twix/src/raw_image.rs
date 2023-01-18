@@ -154,24 +154,22 @@ impl<'de> Deserialize<'de> for RawImage {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use types::{image::Image, YCbCr422};
 
     use super::*;
 
     #[test]
     fn raw_image_can_deserialize_image_data() {
-        let image = Image {
-            width_422: 1,
-            height: 1,
-            buffer: Arc::new(vec![YCbCr422 {
+        let image = Image::from_ycbcr_buffer(
+            1,
+            1,
+            vec![YCbCr422 {
                 y1: 0,
                 cb: 1,
                 y2: 2,
                 cr: 3,
-            }]),
-        };
+            }],
+        );
 
         let data = bincode::serialize(&image).unwrap();
         let _new_image: RawImage = bincode::deserialize(&data).unwrap();
