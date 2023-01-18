@@ -57,12 +57,12 @@ cd yocto/
 
 === "HULKs Members"
 
-    HULKs members need the [HULKs/nao](https://github.com/HULKs/nao) repository, and the [HULKs/meta-nao](https://github.com/HULKs/meta-nao) and [HULKs/meta-hulks](https://github.com/HULKs/meta-hulks) layer.
+    HULKs members need the [HULKs/hulk](https://github.com/HULKs/hulk) repository, and the [HULKs/meta-nao](https://github.com/HULKs/meta-nao) and [HULKs/meta-hulks](https://github.com/HULKs/meta-hulks) layer.
     The rest should already be set up.
 
     ```sh
     # working directory is still `yocto`
-    git clone git@github.com:HULKs/nao
+    git clone git@github.com:HULKs/hulk
     git clone git@github.com:HULKs/meta-nao
     git clone git@github.com:HULKs/meta-hulks
     ```
@@ -74,7 +74,7 @@ cd yocto/
     ```sh
     # working directory is still `yocto`
     git clone git@github.com:HULKs/HULKsCodeRelease
-    mv HULKsCodeRelease nao
+    mv HULKsCodeRelease hulk
     #ln -s nao/yocto/meta-hulks meta-hulks
     #sed -i 's|path: "patches|path: "yocto/meta-hulks/patches|' meta-hulks/kas-project.yml
     cp -r nao/yocto/meta-hulks meta-hulks
@@ -143,10 +143,10 @@ All BitBake and Devtool commands shall be executed from this shell.
 
 ### Preparing the Build
 
-The NAO image contains the HULA binary (TODO: link to HULA) which is built from [HULKs/nao](https://github.com/HULKs/nao) or [HULKs/CodeRelease](https://github.com/HULKs/HULKsCodeRelease) (depending
+The NAO image contains the HULA binary (TODO: link to HULA) which is built from [HULKs/hulk](https://github.com/HULKs/hulk) or [HULKs/CodeRelease](https://github.com/HULKs/HULKsCodeRelease) (depending
 on whether you are a HULKs member or not).
 The HULA source code is located in `tools/hula`.
-The meta-hulks layer is set up to clone the private [HULKs/nao](https://github.com/HULKs/nao) repository and check out a specific version.
+The meta-hulks layer is set up to clone the private [HULKs/hulk](https://github.com/HULKs/hulk) repository and check out a specific version.
 This only works if the kas-container has SSH correctly set up and uses a SSH key that has access to the repository.
 Ensure that the SSH private key has appropriate permissions, usually `600`.
 Most often it is easier to clone the repository manually and point BitBake to use it.
