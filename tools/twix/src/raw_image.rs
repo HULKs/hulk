@@ -154,6 +154,7 @@ impl<'de> Deserialize<'de> for RawImage {
 
 #[cfg(test)]
 mod tests {
+    use bincode::{deserialize, serialize};
     use types::{image::Image, YCbCr422};
 
     use super::*;
@@ -171,7 +172,7 @@ mod tests {
             }],
         );
 
-        let data = bincode::serialize(&image).unwrap();
-        let _new_image: RawImage = bincode::deserialize(&data).unwrap();
+        let data = serialize(&image).unwrap();
+        let _new_image: RawImage = deserialize(&data).unwrap();
     }
 }
