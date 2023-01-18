@@ -19,6 +19,7 @@ itertools = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }
+serde_bytes = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }
