@@ -1,16 +1,14 @@
 use bincode::deserialize;
 use futures_util::{stream::SplitStream, StreamExt};
 use log::{debug, error, info};
-use serde::Deserialize;
-use serde_json::{Value, from_str};
+use serde_json::from_str;
 use tokio::{net::TcpStream, sync::mpsc::Sender};
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite};
+use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 
 use crate::{
     client::{
         connector, parameter_subscription_manager,
         responder::{Message, Response},
-        types::SubscribedOutput,
     },
     messages::{
         BinaryOutputsResponse, BinaryResponse, ParametersResponse, TextualOutputsResponse,
@@ -18,57 +16,7 @@ use crate::{
     },
 };
 
-use super::{output_subscription_manager, responder, Cycler};
-
-#[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
-#[allow(dead_code)]
-enum Payload {
-    GetOutputHierarchyResult {
-        id: usize,
-        ok: bool,
-        output_hierarchy: Value,
-    },
-    SubscribeOutputResult {
-        id: usize,
-        ok: bool,
-        reason: Option<String>,
-    },
-    UnsubscribeOutputResult {
-        id: usize,
-        ok: bool,
-        reason: Option<String>,
-    },
-    OutputsUpdated {
-        cycler: Cycler,
-        outputs: Vec<SubscribedOutput>,
-        image_id: Option<u32>,
-    },
-    GetParameterHierarchyResult {
-        id: usize,
-        ok: bool,
-        parameter_hierarchy: Value,
-    },
-    SubscribeParameterResult {
-        id: usize,
-        ok: bool,
-        reason: Option<String>,
-    },
-    UnsubscribeParameterResult {
-        id: usize,
-        ok: bool,
-        reason: Option<String>,
-    },
-    UpdateParameterResult {
-        id: usize,
-        ok: bool,
-        reason: Option<String>,
-    },
-    ParameterUpdated {
-        path: String,
-        data: Value,
-    },
-}
+use super::{output_subscription_manager, responder};
 
 pub async fn receiver(
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
