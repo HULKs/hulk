@@ -15,7 +15,7 @@ use crate::{
     image_buffer::ImageBuffer,
     nao::Nao,
     panel::Panel,
-    raw_image::RawImage,
+    compressed_image::CompressedImage,
     twix_painter::{CoordinateSystem, TwixPainter},
 };
 
@@ -105,7 +105,7 @@ impl ImagePanel {
             .image_buffer
             .get_latest()
             .map_err(|error| eyre!("{error}"))?;
-        let image_raw = bincode::deserialize::<RawImage>(&image_data)?;
+        let image_raw = bincode::deserialize::<CompressedImage>(&image_data)?;
         let image = RetainedImage::from_image_bytes("image", &image_raw.buffer)
             .map_err(|error| eyre!("{error}"))?;
         let image_size = image.size_vec2();
