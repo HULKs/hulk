@@ -89,7 +89,6 @@ pub async fn receiver(
                             continue;
                         }
                     };
-                    println!("{message:?}");
                     match message {
                         TextualResponse::Outputs(outputs_message) => match outputs_message {
                             TextualOutputsResponse::GetFields { id, fields } => {
