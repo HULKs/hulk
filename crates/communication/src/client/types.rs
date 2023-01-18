@@ -1,6 +1,6 @@
 use std::{
     collections::BTreeMap,
-    fmt::{self, Display},
+    fmt::{self, Display, Formatter},
     str::FromStr,
 };
 
@@ -49,7 +49,7 @@ pub enum Cycler {
 }
 
 impl Display for Cycler {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Cycler::Control => f.write_str("Control"),
             Cycler::VisionTop => f.write_str("VisionTop"),

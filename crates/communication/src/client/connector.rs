@@ -3,8 +3,14 @@ use std::time::Duration;
 use color_eyre::{eyre::WrapErr, Result};
 use futures_util::StreamExt;
 use log::{error, info, warn};
-use tokio::{net::TcpStream, spawn, sync::mpsc, task::JoinHandle, time::sleep};
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+use tokio::{
+    net::TcpStream,
+    spawn,
+    sync::mpsc::{channel, Receiver, Sender},
+    task::JoinHandle,
+    time::sleep,
+};
+use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 
 use crate::client::{
     output_subscription_manager, parameter_subscription_manager,
@@ -13,7 +19,7 @@ use crate::client::{
 
 #[derive(Debug)]
 pub enum Message {
-    SubscribeToUpdates(mpsc::Sender<ConnectionStatus>),
+    SubscribeToUpdates(Sender<ConnectionStatus>),
     SetConnect(bool),
     SetAddress(String),
     ReconnectTimerElapsed,
@@ -51,11 +57,11 @@ pub enum ConnectionStatus {
 }
 
 pub async fn connector(
-    mut receiver: mpsc::Receiver<Message>,
-    sender: mpsc::Sender<Message>,
-    output_subscription_manager: mpsc::Sender<output_subscription_manager::Message>,
-    parameter_subscription_manager: mpsc::Sender<parameter_subscription_manager::Message>,
-    responder: mpsc::Sender<responder::Message>,
+    mut receiver: Receiver<Message>,
+    sender: Sender<Message>,
+    output_subscription_manager: Sender<output_subscription_manager::Message>,
+    parameter_subscription_manager: Sender<parameter_subscription_manager::Message>,
+    responder: Sender<responder::Message>,
     initial_address: Option<String>,
     initial_connect: bool,
 ) {
@@ -228,7 +234,7 @@ pub async fn connector(
                 }
                 Message::Connected(ws_stream) => {
                     let (writer, reader) = (*ws_stream).split();
-                    let (requester_sender, requester_receiver) = mpsc::channel(10);
+                    let (requester_sender, requester_receiver) = channel(10);
                     output_subscription_manager
                         .send(output_subscription_manager::Message::Connect {
                             requester: requester_sender.clone(),
@@ -335,14 +341,14 @@ pub async fn connector(
     }
 }
 
-fn spawn_reconnect_timer(sender: mpsc::Sender<Message>) {
+fn spawn_reconnect_timer(sender: Sender<Message>) {
     spawn(async move {
         sleep(Duration::from_secs(1)).await;
         sender.send(Message::ReconnectTimerElapsed).await.unwrap();
     });
 }
 
-fn spawn_connect(address: String, sender: mpsc::Sender<Message>) -> JoinHandle<()> {
+fn spawn_connect(address: String, sender: Sender<Message>) -> JoinHandle<()> {
     spawn(async move {
         match try_connect(address).await {
             Ok(ws_stream) => sender
@@ -361,7 +367,7 @@ fn spawn_connect(address: String, sender: mpsc::Sender<Message>) -> JoinHandle<(
 
 async fn try_connect(address: String) -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>> {
     info!("Try connection to {}", address);
-    let (ws_stream, _response) = tokio_tungstenite::connect_async(&address)
+    let (ws_stream, _response) = connect_async(&address)
         .await
         .wrap_err_with(|| format!("cannot connect websocket to {address}"))?;
     Ok(ws_stream)
@@ -370,7 +376,7 @@ async fn try_connect(address: String) -> Result<WebSocketStream<MaybeTlsStream<T
 async fn replace_ongoing_connection(
     ongoing_connection: JoinHandle<()>,
     new_address: String,
-    sender: mpsc::Sender<Message>,
+    sender: Sender<Message>,
 ) -> ConnectionState {
     ongoing_connection.abort();
     match ongoing_connection.await {
