@@ -52,8 +52,9 @@ pub enum Message {
 
 #[derive(Default)]
 struct SubscriptionManager {
-    ids: HashMap<usize, (CyclerOutput, Format)>,
-    subscriptions: HashMap<(CyclerOutput, Format), HashMap<Uuid, mpsc::Sender<SubscriberMessage>>>,
+    ids_to_outputs: HashMap<usize, (CyclerOutput, Format)>,
+    outputs_to_subscribers:
+        HashMap<(CyclerOutput, Format), HashMap<Uuid, mpsc::Sender<SubscriberMessage>>>,
 }
 
 pub async fn output_subscription_manager(
@@ -64,7 +65,7 @@ pub async fn output_subscription_manager(
 ) {
     let mut manager = SubscriptionManager::default();
     let mut requester = None;
-    let mut hierarchy = None;
+    let mut fields = None;
     let mut binary_data_waiting_for_references: HashMap<usize, Vec<u8>> = HashMap::new();
     let mut binary_references_waiting_for_data: HashMap<usize, CyclerOutput> = HashMap::new();
 
@@ -73,8 +74,8 @@ pub async fn output_subscription_manager(
             Message::Connect {
                 requester: new_requester,
             } => {
-                assert!(manager.ids.is_empty());
-                for ((output, format), subscribers) in &manager.subscriptions {
+                assert!(manager.ids_to_outputs.is_empty());
+                for ((output, format), subscribers) in &manager.outputs_to_subscribers {
                     let subscribers = subscribers.values().cloned().collect();
                     if let Some(subscription_id) = subscribe(
                         output.clone(),
@@ -87,17 +88,12 @@ pub async fn output_subscription_manager(
                     .await
                     {
                         manager
-                            .ids
+                            .ids_to_outputs
                             .insert(subscription_id, (output.clone(), *format));
                     }
                 }
-                match query_output_hierarchy(
-                    sender.clone(),
-                    &id_tracker,
-                    &responder,
-                    &new_requester,
-                )
-                .await
+                match query_output_fields(sender.clone(), &id_tracker, &responder, &new_requester)
+                    .await
                 {
                     Ok(()) => requester = Some(new_requester),
                     Err(error) => {
@@ -107,7 +103,7 @@ pub async fn output_subscription_manager(
             }
             Message::Disconnect => {
                 requester = None;
-                manager.ids.clear();
+                manager.ids_to_outputs.clear();
             }
             Message::Subscribe {
                 output,
@@ -135,36 +131,41 @@ pub async fn output_subscription_manager(
             }
             Message::Unsubscribe { uuid } => {
                 let mut subscriptions_to_remove = Vec::new();
-                manager.subscriptions.retain(|output_format, clients| {
-                    if clients.remove(&uuid).is_none() {
-                        return true;
-                    }
-
-                    if clients.is_empty() {
-                        let maybe_subscription_id =
-                            manager.ids.iter().find_map(|(id, other_output)| {
-                                (output_format == other_output).then_some(*id)
-                            });
-                        if let Some(id) = maybe_subscription_id {
-                            subscriptions_to_remove.push(id);
+                manager
+                    .outputs_to_subscribers
+                    .retain(|output_format, clients| {
+                        if clients.remove(&uuid).is_none() {
+                            return true;
                         }
-                    }
-                    !clients.is_empty()
-                });
+
+                        if clients.is_empty() {
+                            let maybe_subscription_id =
+                                manager
+                                    .ids_to_outputs
+                                    .iter()
+                                    .find_map(|(id, other_output)| {
+                                        (output_format == other_output).then_some(*id)
+                                    });
+                            if let Some(id) = maybe_subscription_id {
+                                subscriptions_to_remove.push(id);
+                            }
+                        }
+                        !clients.is_empty()
+                    });
                 for subscription_id in subscriptions_to_remove {
                     if let Some(requester) = &requester {
-                        manager.ids.remove(&subscription_id);
+                        manager.ids_to_outputs.remove(&subscription_id);
                         unsubscribe(subscription_id, &id_tracker, &responder, requester).await;
                     }
                 }
             }
             Message::Update { items } => {
                 for (subscription_id, value_or_reference) in items {
-                    let Some(output) = manager.ids.get(&subscription_id) else {
+                    let Some(output) = manager.ids_to_outputs.get(&subscription_id) else {
                         warn!("unknown subscription_id: {subscription_id}");
                         continue;
                     };
-                    if let Some(senders) = manager.subscriptions.get(output) {
+                    if let Some(senders) = manager.outputs_to_subscribers.get(output) {
                         match value_or_reference {
                             TextualData { data } => {
                                 for sender in senders.values() {
@@ -201,21 +202,20 @@ pub async fn output_subscription_manager(
                     }
                 }
             }
-            Message::UpdateFields {
-                fields: new_hierarchy,
-            } => {
-                hierarchy = Some(new_hierarchy);
+            Message::UpdateFields { fields: new_fields } => {
+                fields = Some(new_fields);
             }
             Message::GetOutputFields { response_sender } => {
-                if let Err(error) = response_sender.send(hierarchy.clone()) {
+                if let Err(error) = response_sender.send(fields.clone()) {
                     error!("{error:?}");
                 }
             }
             Message::UpdateBinary { referenced_items } => {
                 for (reference_id, data) in referenced_items {
                     if let Some(output) = binary_references_waiting_for_data.get(&reference_id) {
-                        let subscribers =
-                            manager.subscriptions.get(&(output.clone(), Format::Binary));
+                        let subscribers = manager
+                            .outputs_to_subscribers
+                            .get(&(output.clone(), Format::Binary));
                         if let Some(senders) = subscribers {
                             for sender in senders.values() {
                                 if let Err(error) = sender
@@ -236,7 +236,7 @@ pub async fn output_subscription_manager(
     info!("Finished manager");
 }
 
-async fn query_output_hierarchy(
+async fn query_output_fields(
     manager: mpsc::Sender<Message>,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
@@ -277,7 +277,10 @@ async fn add_subscription(
     responder: &mpsc::Sender<responder::Message>,
     requester: &Option<mpsc::Sender<Request>>,
 ) {
-    match manager.subscriptions.entry((output.clone(), format)) {
+    match manager
+        .outputs_to_subscribers
+        .entry((output.clone(), format))
+    {
         Entry::Occupied(mut entry) => {
             entry.get_mut().insert(uuid, output_sender);
         }
@@ -293,7 +296,9 @@ async fn add_subscription(
                 )
                 .await
                 {
-                    manager.ids.insert(subscription_id, (output, format));
+                    manager
+                        .ids_to_outputs
+                        .insert(subscription_id, (output, format));
                 }
             };
             entry.insert(HashMap::new()).insert(uuid, output_sender);
