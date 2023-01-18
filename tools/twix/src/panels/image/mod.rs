@@ -12,10 +12,10 @@ use nalgebra::{vector, Similarity2};
 use serde_json::{json, Value};
 
 use crate::{
+    compressed_image::CompressedImage,
     image_buffer::ImageBuffer,
     nao::Nao,
     panel::Panel,
-    compressed_image::CompressedImage,
     twix_painter::{CoordinateSystem, TwixPainter},
 };
 
