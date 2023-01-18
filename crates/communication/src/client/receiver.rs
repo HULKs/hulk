@@ -1,9 +1,10 @@
+use bincode::deserialize;
 use futures_util::{stream::SplitStream, StreamExt};
 use log::{debug, error, info};
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{Value, from_str};
 use tokio::{net::TcpStream, sync::mpsc::Sender};
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite};
 
 use crate::{
     client::{
@@ -80,8 +81,8 @@ pub async fn receiver(
         debug!("Receiver got message: {message:?}");
         match message {
             Ok(message) => match message {
-                tokio_tungstenite::tungstenite::Message::Text(content) => {
-                    let message = match serde_json::from_str::<TextualResponse>(&content) {
+                tungstenite::Message::Text(content) => {
+                    let message = match from_str::<TextualResponse>(&content) {
                         Ok(payload) => payload,
                         Err(error) => {
                             error!("Failed to deserialize message content: {error:?}\nMessage was {content:#?}");
@@ -145,12 +146,12 @@ pub async fn receiver(
                         message => todo!("unimplemented message {message:?}"),
                     }
                 }
-                tokio_tungstenite::tungstenite::Message::Close(close_frame) => {
+                tungstenite::Message::Close(close_frame) => {
                     info!("closed: {close_frame:?}");
                     break;
                 }
-                tokio_tungstenite::tungstenite::Message::Binary(data) => {
-                    let response = match bincode::deserialize::<BinaryResponse>(&data) {
+                tungstenite::Message::Binary(data) => {
+                    let response = match deserialize::<BinaryResponse>(&data) {
                         Ok(payload) => payload,
                         Err(error) => {
                             error!("Failed to deserialize binary message content: {error:?}");

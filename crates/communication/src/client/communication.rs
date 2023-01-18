@@ -3,7 +3,10 @@ use std::collections::BTreeSet;
 use serde_json::Value;
 use tokio::{
     spawn,
-    sync::{mpsc, oneshot},
+    sync::{
+        mpsc::{self, Receiver},
+        oneshot,
+    },
 };
 use uuid::Uuid;
 
@@ -85,7 +88,7 @@ impl Communication {
             .unwrap();
     }
 
-    pub async fn subscribe_connection_updates(&self) -> mpsc::Receiver<ConnectionStatus> {
+    pub async fn subscribe_connection_updates(&self) -> Receiver<ConnectionStatus> {
         let (subscriber_sender, subscriber_receiver) = mpsc::channel(10);
         self.connector
             .send(connector::Message::SubscribeToUpdates(subscriber_sender))
@@ -98,7 +101,7 @@ impl Communication {
         &self,
         output: CyclerOutput,
         format: Format,
-    ) -> (Uuid, mpsc::Receiver<SubscriberMessage>) {
+    ) -> (Uuid, Receiver<SubscriberMessage>) {
         let (subscriber_sender, subscriber_receiver) = mpsc::channel(10);
         let (response_sender, response_receiver) = oneshot::channel();
         self.output_subscription_manager
@@ -121,10 +124,7 @@ impl Communication {
             .unwrap();
     }
 
-    pub async fn subscribe_parameter(
-        &self,
-        path: String,
-    ) -> (Uuid, mpsc::Receiver<SubscriberMessage>) {
+    pub async fn subscribe_parameter(&self, path: String) -> (Uuid, Receiver<SubscriberMessage>) {
         let (subscriber_sender, subscriber_receiver) = mpsc::channel(10);
         let (response_sender, response_receiver) = oneshot::channel();
         self.parameter_subscription_manager
