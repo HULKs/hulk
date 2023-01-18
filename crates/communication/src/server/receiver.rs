@@ -1,5 +1,4 @@
 use futures_util::{stream::SplitStream, StreamExt};
-use log::info;
 use serde_json::from_str;
 use tokio::{net::TcpStream, select, sync::mpsc::Sender};
 use tokio_tungstenite::{
@@ -94,7 +93,6 @@ async fn handle_message(
             let request: Request = match from_str(&message) {
                 Ok(request) => request,
                 Err(error) => {
-                    info!("message was: {message}");
                     send_error(
                         ReceiverOrSenderError::JsonNotDeserialized(error),
                         error_sender,
