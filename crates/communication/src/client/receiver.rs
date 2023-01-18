@@ -73,7 +73,7 @@ pub async fn receiver(
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     responder: Sender<Message>,
     output_subscription_manager: Sender<output_subscription_manager::Message>,
-    _parameter_subscription_manager: Sender<parameter_subscription_manager::Message>,
+    parameter_subscription_manager: Sender<parameter_subscription_manager::Message>,
     connector: Sender<connector::Message>,
 ) {
     while let Some(message) = reader.next().await {
@@ -121,48 +121,29 @@ pub async fn receiver(
                             ParametersResponse::Unsubscribe { id, result } => {
                                 respond(&responder, id, Response::Unsubscribe(result)).await
                             }
-
-                            message => todo!("unimplemented message {message:?}"),
+                            ParametersResponse::SubscribedData {
+                                subscription_id,
+                                data,
+                            } => {
+                                if let Err(error) = parameter_subscription_manager
+                                    .send(parameter_subscription_manager::Message::Update {
+                                        subscription_id,
+                                        data,
+                                    })
+                                    .await
+                                {
+                                    error!("{error}");
+                                }
+                            }
+                            ParametersResponse::Update { id, result } => {
+                                respond(&responder, id, Response::Update(result)).await
+                            }
+                            ParametersResponse::GetCurrent { id: _, result: _ } => todo!(),
+                            ParametersResponse::LoadFromDisk { id: _, result: _ } => todo!(),
+                            ParametersResponse::StoreToDisk { id: _, result: _ } => todo!(),
                         },
                         message => todo!("unimplemented message {message:?}"),
                     }
-                    //         Payload::GetParameterHierarchyResult {
-                    //             id,
-                    //             ok,
-                    //             parameter_hierarchy: hierarchy,
-                    //         } => {
-                    //             let response = result_from_response(ok, None, hierarchy);
-                    //             if let Err(error) = responder
-                    //                 .send(responder::Message::Respond { id, response })
-                    //                 .await
-                    //             {
-                    //                 error!("{error}");
-                    //             }
-                    //         }
-                    //         Payload::ParameterUpdated { path, data } => {
-                    //             if let Err(error) = parameter_subscription_manager
-                    //                 .send(parameter_subscription_manager::Message::Update {
-                    //                     path,
-                    //                     data,
-                    //                 })
-                    //                 .await
-                    //             {
-                    //                 error!("{error}");
-                    //             }
-                    //         }
-                    //         Payload::SubscribeParameterResult { id, ok, reason }
-                    //         | Payload::UnsubscribeParameterResult { id, ok, reason }
-                    //         | Payload::UpdateParameterResult { id, ok, reason } => {
-                    //             let response =
-                    //                 result_from_response(ok, reason, Value::Object(Map::new()));
-                    //             if let Err(error) = responder
-                    //                 .send(responder::Message::Respond { id, response })
-                    //                 .await
-                    //             {
-                    //                 error!("{error}");
-                    //             }
-                    //         }
-                    //     }
                 }
                 tokio_tungstenite::tungstenite::Message::Close(close_frame) => {
                     info!("closed: {close_frame:?}");

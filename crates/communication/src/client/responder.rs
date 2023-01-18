@@ -23,6 +23,7 @@ pub enum Response {
     ParameterFields(BTreeSet<Path>),
     Subscribe(Result<(), Reason>),
     Unsubscribe(Result<(), Reason>),
+    Update(Result<(), Reason>),
 }
 
 pub async fn responder(mut receiver: mpsc::Receiver<Message>) {
