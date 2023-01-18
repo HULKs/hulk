@@ -50,8 +50,8 @@ pub enum Message {
 
 #[derive(Default)]
 struct SubscriptionManager {
-    ids: HashMap<usize, Path>,
-    subscriptions: HashMap<Path, HashMap<Uuid, mpsc::Sender<SubscriberMessage>>>,
+    ids_to_paths: HashMap<usize, Path>,
+    paths_to_subscribers: HashMap<Path, HashMap<Uuid, mpsc::Sender<SubscriberMessage>>>,
 }
 
 pub async fn parameter_subscription_manager(
@@ -68,8 +68,8 @@ pub async fn parameter_subscription_manager(
             Message::Connect {
                 requester: new_requester,
             } => {
-                assert!(manager.ids.is_empty());
-                for (path, subscribers) in &manager.subscriptions {
+                assert!(manager.ids_to_paths.is_empty());
+                for (path, subscribers) in &manager.paths_to_subscribers {
                     let subscribers = subscribers.values().cloned().collect();
                     if let Some(subscription_id) = subscribe(
                         path.clone(),
@@ -80,7 +80,7 @@ pub async fn parameter_subscription_manager(
                     )
                     .await
                     {
-                        manager.ids.insert(subscription_id, path.clone());
+                        manager.ids_to_paths.insert(subscription_id, path.clone());
                     }
                 }
                 query_parameter_hierarchy(sender.clone(), &id_tracker, &responder, &new_requester)
@@ -89,7 +89,7 @@ pub async fn parameter_subscription_manager(
             }
             Message::Disconnect => {
                 requester = None;
-                manager.ids.clear();
+                manager.ids_to_paths.clear();
             }
             Message::Subscribe {
                 path,
@@ -115,14 +115,14 @@ pub async fn parameter_subscription_manager(
             }
             Message::Unsubscribe { uuid } => {
                 let mut subscriptions_to_remove = Vec::new();
-                manager.subscriptions.retain(|path, clients| {
+                manager.paths_to_subscribers.retain(|path, clients| {
                     if clients.remove(&uuid).is_none() {
                         return true;
                     }
 
                     if clients.is_empty() {
                         let maybe_subscription_id = manager
-                            .ids
+                            .ids_to_paths
                             .iter()
                             .find_map(|(id, other_path)| (path == other_path).then_some(*id));
                         if let Some(id) = maybe_subscription_id {
@@ -133,7 +133,7 @@ pub async fn parameter_subscription_manager(
                 });
                 for subscription_id in subscriptions_to_remove {
                     if let Some(requester) = &requester {
-                        manager.ids.remove(&subscription_id);
+                        manager.ids_to_paths.remove(&subscription_id);
                         unsubscribe(subscription_id, &id_tracker, &responder, requester).await;
                     }
                 }
@@ -142,10 +142,10 @@ pub async fn parameter_subscription_manager(
                 subscription_id,
                 data,
             } => {
-                let Some(path) = manager.ids.get(&subscription_id) else {
+                let Some(path) = manager.ids_to_paths.get(&subscription_id) else {
                     return warn!("Unknown subscription_id: {subscription_id}");
                 };
-                let Some(senders) = manager.subscriptions.get(path) else {
+                let Some(senders) = manager.paths_to_subscribers.get(path) else {
                     return warn!("Unknown subscription_id: {subscription_id}");
                 };
                 for sender in senders.values() {
@@ -255,7 +255,7 @@ async fn add_subscription(
     responder: &mpsc::Sender<responder::Message>,
     requester: &Option<mpsc::Sender<Request>>,
 ) {
-    match manager.subscriptions.entry(path.clone()) {
+    match manager.paths_to_subscribers.entry(path.clone()) {
         Entry::Occupied(mut entry) => {
             entry.get_mut().insert(uuid, subscriber);
         }
@@ -270,7 +270,7 @@ async fn add_subscription(
                 )
                 .await
                 {
-                    manager.ids.insert(subscription_id, path);
+                    manager.ids_to_paths.insert(subscription_id, path);
                 }
             };
             entry.insert(HashMap::new()).insert(uuid, subscriber);
