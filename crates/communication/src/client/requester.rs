@@ -1,33 +1,10 @@
 use color_eyre::eyre::WrapErr;
 use futures_util::{stream::SplitSink, SinkExt};
 use log::info;
-use serde::Serialize;
-use serde_json::Value;
 use tokio::{net::TcpStream, sync::mpsc::Receiver};
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 
 use crate::messages::Request;
-
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-pub enum Message {
-    GetParameterHierarchy {
-        id: usize,
-    },
-    SubscribeParameter {
-        id: usize,
-        path: String,
-    },
-    UnsubscribeParameter {
-        id: usize,
-        path: String,
-    },
-    UpdateParameter {
-        id: usize,
-        path: String,
-        data: Value,
-    },
-}
 
 pub async fn requester(
     mut receiver: Receiver<Request>,

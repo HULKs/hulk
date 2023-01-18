@@ -1,6 +1,6 @@
 use std::collections::{hash_map::Entry, BTreeSet, HashMap};
 
-use log::{error, info};
+use log::{error, info, warn};
 use serde_json::Value;
 use tokio::{
     spawn,
@@ -33,7 +33,7 @@ pub enum Message {
         uuid: Uuid,
     },
     Update {
-        path: String,
+        subscription_id: usize,
         data: Value,
     },
     UpdateFields {
@@ -138,17 +138,24 @@ pub async fn parameter_subscription_manager(
                     }
                 }
             }
-            Message::Update { path, data } => {
-                if let Some(senders) = manager.subscriptions.get(&path) {
-                    for sender in senders.values() {
-                        if let Err(error) = sender
-                            .send(SubscriberMessage::Update {
-                                value: data.clone(),
-                            })
-                            .await
-                        {
-                            error!("{error}");
-                        }
+            Message::Update {
+                subscription_id,
+                data,
+            } => {
+                let Some(path) = manager.ids.get(&subscription_id) else {
+                    return warn!("Unknown subscription_id: {subscription_id}");
+                };
+                let Some(senders) = manager.subscriptions.get(path) else {
+                    return warn!("Unknown subscription_id: {subscription_id}");
+                };
+                for sender in senders.values() {
+                    if let Err(error) = sender
+                        .send(SubscriberMessage::Update {
+                            value: data.clone(),
+                        })
+                        .await
+                    {
+                        error!("{error}");
                     }
                 }
             }
@@ -229,9 +236,13 @@ async fn update_parameter_value(
         .unwrap();
     spawn(async move {
         let response = response_receiver.await.unwrap();
-        // if let Err(error) = response {
-        //     error!("Failed to update parameter: {}", error)
-        // }
+        match response {
+            Response::Subscribe(Ok(_)) => {}
+            Response::Subscribe(Err(error)) => {
+                error!("Failed to update value: {}", error)
+            }
+            response => error!("unexpected response: {response:?}"),
+        };
     });
 }
 
@@ -332,8 +343,12 @@ async fn unsubscribe(
     requester.send(request).await.unwrap();
     spawn(async move {
         let response = response_receiver.await.unwrap();
-        // if let Err(error) = response {
-        //     error!("Failed to unsubscribe: {}", error)
-        // };
+        match response {
+            Response::Unsubscribe(Ok(_)) => {}
+            Response::Unsubscribe(Err(error)) => {
+                error!("Failed to unsubscribe: {}", error)
+            }
+            response => error!("unexpected response: {response:?}"),
+        };
     });
 }

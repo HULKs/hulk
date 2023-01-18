@@ -1,9 +1,6 @@
 use std::{iter::once, ops::Range};
 
-use communication::{
-    client::{HierarchyType, OutputHierarchy},
-    messages::Fields,
-};
+use communication::messages::Fields;
 use eframe::egui::{
     text::CCursor, text_edit::CCursorRange, Area, Context, Frame, Id, Key, Modifiers, Order,
     Response, ScrollArea, TextEdit, Ui, Widget,
@@ -208,25 +205,4 @@ pub fn output_fields_to_completion_items(output_fields: Fields) -> Vec<String> {
                 .map(move |field| format!("{cycler_instance}.{field}"))
         })
         .collect()
-}
-
-fn extend_from_hierarchy(buffer: &mut Vec<String>, prefix: String, hierarchy: HierarchyType) {
-    match hierarchy {
-        HierarchyType::Primary { .. } => buffer.push(prefix),
-        HierarchyType::Struct { fields } => {
-            buffer.push(prefix.clone());
-            for (key, value) in fields {
-                let new_prefix = if prefix.is_empty() {
-                    key
-                } else {
-                    format!("{prefix}.{key}")
-                };
-                extend_from_hierarchy(buffer, new_prefix, value);
-            }
-        }
-        HierarchyType::GenericStruct => buffer.push(prefix),
-        HierarchyType::GenericEnum => buffer.push(prefix),
-        HierarchyType::Option { nested } => extend_from_hierarchy(buffer, prefix, *nested),
-        HierarchyType::Vec { nested } => extend_from_hierarchy(buffer, prefix, *nested),
-    }
 }
