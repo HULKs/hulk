@@ -11,7 +11,7 @@ use color_eyre::{
 use tokio::process::Command;
 
 pub struct Nao {
-    host: Ipv4Addr,
+    pub host: Ipv4Addr,
 }
 
 impl Nao {
@@ -28,7 +28,7 @@ impl Nao {
         ]
     }
 
-    fn ssh_to_nao(&self) -> Command {
+    pub fn ssh_to_nao(&self) -> Command {
         let mut command = Command::new("ssh");
         for flag in self.get_ssh_flags() {
             command.arg(flag);

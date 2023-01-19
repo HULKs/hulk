@@ -35,6 +35,40 @@ pub struct Arguments {
     /// The NAOs to upload to e.g. 20w or 10.1.24.22
     #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
+    #[arg(long)]
+    pub skip_check_os: bool,
+}
+
+pub async fn check_os(nao: &Nao) -> bool {
+    let os_stable = "5.1.1";
+    let output = nao
+        .ssh_to_nao()
+        .arg("cat /etc/os-release")
+        .output()
+        .await
+        .unwrap();
+
+    let request = String::from_utf8(output.stdout).unwrap();
+    let lines = request.lines();
+    for line in lines {
+        if line.contains("VERSION_ID") {
+            let line_split: Vec<&str> = line.split('=').collect();
+            let os_version = line_split[1];
+
+            println!("Unstable version on {}", nao.host);
+            println!("Use '--skip-check-os' if you still want to proceed");
+            print!("Installed os: {}, ", os_version);
+            println!("Stable os: {}", os_stable);
+
+            if os_version == os_stable {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -90,7 +124,16 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         let hulk_directory = hulk_directory.clone();
         async move {
             let nao = Nao::new(nao_address.ip);
+
+
+            // check os-version
+            if !arguments.skip_check_os {
+                if !check_os(&nao).await {
+                    return Ok(());
+                }
+            }
             println!("Starting upload to {nao_address}");
+
             nao.upload(hulk_directory, !arguments.no_clean)
                 .await
                 .wrap_err_with(|| format!("failed to power {nao_address} off"))
@@ -110,4 +153,20 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+
+    fn test() {
+        let input = r#"ID=hulks-os
+    NAME="HULKs-OS"
+    VERSION="5.1.3 (langdale)"
+    VERSION_ID=5.1.3
+    PRETTY_NAME="HULKs-OS 5.1.3 (langdale)"
+    DISTRO_CODENAME="langdale"#;
+
+        let output = extractVersionNum(input);
+        assert_eq!(output, "5.1.3");
+    }
 }
