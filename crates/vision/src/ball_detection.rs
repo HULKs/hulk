@@ -216,7 +216,7 @@ fn evaluate_candidates(
                 radius: candidate.radius * ball_radius_enlargement_factor,
             };
             let sample = sample_grayscale(image, enlarged_candidate);
-            let preclassifier_confidence = preclassify_sample(preclassifier, &sample); 
+            let preclassifier_confidence = preclassify_sample(preclassifier, &sample);
 
             let mut detected_class = None;
             if preclassifier_confidence > preclassifier_confidence_threshold {
@@ -229,8 +229,8 @@ fn evaluate_candidates(
 
             let mut corrected_circle = None;
 
-            match detected_class {
-                Some(ref detected_class) => match detected_class.class {
+            if let Some(ref detected_class) = detected_class {
+                match detected_class.class {
                     DetectableClass::Ball => {
                         if detected_class.confidence > ball_confidence_threshold {
                             let raw_corrected_circle = position_sample(positioner, &sample);
@@ -249,8 +249,7 @@ fn evaluate_candidates(
                     DetectableClass::Feet => todo!(),
                     DetectableClass::RobotPart => todo!(),
                     DetectableClass::Other => todo!(),
-                },
-                None => {}
+                }
             }
 
             let classifier_confidence = detected_class.map(|dc| dc.confidence);
