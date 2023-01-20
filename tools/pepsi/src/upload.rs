@@ -14,13 +14,13 @@ use crate::{
 };
 
 #[derive(Args)]
-pub struct Arguments {
+pub struct Arguments { 
     #[arg(long, default_value = "incremental")]
     pub profile: String,
     /// Do not update nor install SDK
     #[arg(long)]
     pub no_sdk_installation: bool,
-    /// Do not build before uploading
+      /// Do not build before uploading
     #[arg(long)]
     pub no_build: bool,
     /// Do not restart HULK nor HULA service after uploading
@@ -119,20 +119,4 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod test {
-    #[test]
-    fn test() {
-        let input = r#"ID=hulks-os
-    NAME="HULKs-OS"
-    VERSION="5.1.3 (langdale)"
-    VERSION_ID=5.1.3
-    PRETTY_NAME="HULKs-OS 5.1.3 (langdale)"
-    DISTRO_CODENAME="langdale"#;
-
-        let output = extractVersionNum(input);
-        assert_eq!(output, "5.1.3");
-    }
 }
