@@ -16,6 +16,24 @@ struct NeuralNetworks {
     classifier: CompiledNN,
     positioner: CompiledNN,
 }
+pub struct ClassConfidences {
+    ball: f32,
+    feet: f32,
+    robot_part: f32,
+    other: f32,
+}
+
+enum DetectableClass {
+    Ball,
+    Feet,
+    RobotPart,
+    Other,
+}
+
+struct DetectedClass {
+    class: DetectableClass,
+    confidence: f32,
+}
 
 unsafe impl Send for NeuralNetworks {}
 
@@ -130,7 +148,7 @@ fn preclassify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
     network.output(0)[0]
 }
 
-fn classify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
+fn classify_sample(network: &mut CompiledNN, sample: &Sample) -> ClassConfidences {
     let input = network.input(0);
     for y in 0..SAMPLE_SIZE {
         for x in 0..SAMPLE_SIZE {
@@ -138,7 +156,12 @@ fn classify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
         }
     }
     network.apply();
-    network.output(0)[0]
+    ClassConfidences {
+        ball: network.output(0)[0],
+        feet: network.output(1)[0],
+        robot_part: network.output(2)[0],
+        other: network.output(3)[0],
+    }
 }
 
 fn position_sample(network: &mut CompiledNN, sample: &Sample) -> Circle {
@@ -177,7 +200,7 @@ fn evaluate_candidates(
     networks: &mut NeuralNetworks,
     maximum_number_of_candidate_evaluations: usize,
     ball_radius_enlargement_factor: f32,
-    classifier_confidence_threshold: f32,
+    ball_confidence_threshold: f32,
     preclassifier_confidence_threshold: f32,
 ) -> Vec<CandidateEvaluation> {
     let preclassifier = &mut networks.preclassifier;
@@ -193,37 +216,101 @@ fn evaluate_candidates(
                 radius: candidate.radius * ball_radius_enlargement_factor,
             };
             let sample = sample_grayscale(image, enlarged_candidate);
-            let preclassifier_confidence = preclassify_sample(preclassifier, &sample);
+            let preclassifier_confidence = preclassify_sample(preclassifier, &sample); // everything fits until here
 
-            let mut classifier_confidence = None;
+            let mut detected_class = None;
+            let mut detected_class_confidence = None;
             if preclassifier_confidence > preclassifier_confidence_threshold {
-                classifier_confidence = Some(classify_sample(classifier, &sample))
-            };
+                let class_confidences = classify_sample(classifier, &sample);
+                detected_class = decide_detected_class(
+                    class_confidences,
+                    0.5, // todo: parameter
+                );
+                if let Some(detected_class) = &detected_class {
+                    detected_class_confidence = Some(detected_class.confidence);
+                }
+            }
 
             let mut corrected_circle = None;
-            if classifier_confidence > Some(classifier_confidence_threshold) {
-                let raw_corrected_circle = position_sample(positioner, &sample);
 
-                corrected_circle = Some(Circle {
-                    center: candidate.center
-                        + (raw_corrected_circle.center.coords - vector![0.5, 0.5])
-                            * (candidate.radius * 2.0)
-                            * ball_radius_enlargement_factor,
-                    radius: raw_corrected_circle.radius
-                        * candidate.radius
-                        * ball_radius_enlargement_factor,
-                });
+            match detected_class {
+                Some(detected_class) => match detected_class.class {
+                    DetectableClass::Ball => {
+                        if detected_class.confidence > ball_confidence_threshold {
+                            let raw_corrected_circle = position_sample(positioner, &sample);
+
+                            corrected_circle = Some(Circle {
+                                center: candidate.center
+                                    + (raw_corrected_circle.center.coords - vector![0.5, 0.5])
+                                        * (candidate.radius * 2.0)
+                                        * ball_radius_enlargement_factor,
+                                radius: raw_corrected_circle.radius
+                                    * candidate.radius
+                                    * ball_radius_enlargement_factor,
+                            });
+                        }
+                    }
+                    DetectableClass::Feet => todo!(),
+                    DetectableClass::RobotPart => todo!(),
+                    DetectableClass::Other => todo!(),
+                },
+                None => {}
             }
 
             CandidateEvaluation {
                 candidate_circle: *candidate,
                 preclassifier_confidence,
-                classifier_confidence,
+                classifier_confidence: detected_class_confidence,
                 corrected_circle,
                 merge_weight: None,
             }
         })
         .collect()
+}
+
+fn decide_detected_class(
+    class_confidences: ClassConfidences,
+    acceptance_threshold: f32,
+) -> Option<DetectedClass> {
+    let confidences = [
+        class_confidences.ball,
+        class_confidences.feet,
+        class_confidences.robot_part,
+        class_confidences.other,
+    ];
+
+    let mut highest_confidence = 0.0;
+    let mut most_probable_class = 0;
+    for (current_class, &current_confidence) in confidences.iter().enumerate() {
+        if current_confidence > highest_confidence {
+            highest_confidence = current_confidence;
+            most_probable_class = current_class;
+        }
+    }
+
+    if confidences[most_probable_class] > acceptance_threshold {
+        match most_probable_class {
+            0 => Some(DetectedClass {
+                class: DetectableClass::Ball,
+                confidence: class_confidences.ball,
+            }),
+            1 => Some(DetectedClass {
+                class: DetectableClass::Feet,
+                confidence: class_confidences.feet,
+            }),
+            2 => Some(DetectedClass {
+                class: DetectableClass::RobotPart,
+                confidence: class_confidences.robot_part,
+            }),
+            3 => Some(DetectedClass {
+                class: DetectableClass::Other,
+                confidence: class_confidences.other,
+            }),
+            _ => None,
+        }
+    } else {
+        None
+    }
 }
 
 fn bounding_box_patch_intersection(circle: Circle, patch_candidate_circle: Circle) -> f32 {
