@@ -216,25 +216,21 @@ fn evaluate_candidates(
                 radius: candidate.radius * ball_radius_enlargement_factor,
             };
             let sample = sample_grayscale(image, enlarged_candidate);
-            let preclassifier_confidence = preclassify_sample(preclassifier, &sample); // everything fits until here
+            let preclassifier_confidence = preclassify_sample(preclassifier, &sample); 
 
             let mut detected_class = None;
-            let mut detected_class_confidence = None;
             if preclassifier_confidence > preclassifier_confidence_threshold {
-                let class_confidences = classify_sample(classifier, &sample);
+                let classifier_confidences = classify_sample(classifier, &sample);
                 detected_class = decide_detected_class(
-                    class_confidences,
+                    classifier_confidences,
                     0.5, // todo: parameter
                 );
-                if let Some(detected_class) = &detected_class {
-                    detected_class_confidence = Some(detected_class.confidence);
-                }
             }
 
             let mut corrected_circle = None;
 
             match detected_class {
-                Some(detected_class) => match detected_class.class {
+                Some(ref detected_class) => match detected_class.class {
                     DetectableClass::Ball => {
                         if detected_class.confidence > ball_confidence_threshold {
                             let raw_corrected_circle = position_sample(positioner, &sample);
@@ -257,10 +253,12 @@ fn evaluate_candidates(
                 None => {}
             }
 
+            let classifier_confidence = detected_class.map(|dc| dc.confidence);
+
             CandidateEvaluation {
                 candidate_circle: *candidate,
                 preclassifier_confidence,
-                classifier_confidence: detected_class_confidence,
+                classifier_confidence,
                 corrected_circle,
                 merge_weight: None,
             }
@@ -269,14 +267,14 @@ fn evaluate_candidates(
 }
 
 fn decide_detected_class(
-    class_confidences: ClassConfidences,
+    classifier_confidences: ClassConfidences,
     acceptance_threshold: f32,
 ) -> Option<DetectedClass> {
     let confidences = [
-        class_confidences.ball,
-        class_confidences.feet,
-        class_confidences.robot_part,
-        class_confidences.other,
+        classifier_confidences.ball,
+        classifier_confidences.feet,
+        classifier_confidences.robot_part,
+        classifier_confidences.other,
     ];
 
     let mut highest_confidence = 0.0;
@@ -292,21 +290,21 @@ fn decide_detected_class(
         match most_probable_class {
             0 => Some(DetectedClass {
                 class: DetectableClass::Ball,
-                confidence: class_confidences.ball,
+                confidence: classifier_confidences.ball,
             }),
             1 => Some(DetectedClass {
                 class: DetectableClass::Feet,
-                confidence: class_confidences.feet,
+                confidence: classifier_confidences.feet,
             }),
             2 => Some(DetectedClass {
                 class: DetectableClass::RobotPart,
-                confidence: class_confidences.robot_part,
+                confidence: classifier_confidences.robot_part,
             }),
             3 => Some(DetectedClass {
                 class: DetectableClass::Other,
-                confidence: class_confidences.other,
+                confidence: classifier_confidences.other,
             }),
-            _ => None,
+            _ => panic!("There has to be one class with highest probability"),
         }
     } else {
         None
@@ -452,10 +450,10 @@ mod tests {
                 radius: 16.0,
             },
         );
-        let confidence = classify_sample(&mut network, &sample);
+        let ball_confidence = classify_sample(&mut network, &sample).ball;
 
-        println!("{confidence:?}");
-        assert_relative_eq!(confidence, 1.0, epsilon = 0.01);
+        println!("{ball_confidence:?}");
+        assert_relative_eq!(ball_confidence, 1.0, epsilon = 0.01);
     }
 
     #[test]
