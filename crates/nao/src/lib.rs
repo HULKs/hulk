@@ -19,6 +19,38 @@ impl Nao {
         Self { host }
     }
 
+    pub async fn has_stable_os_version(&self) -> bool {
+        let os_stable = "5.2.0";
+        let output = self
+            .ssh_to_nao()
+            .arg("cat /etc/os-release")
+            .output()
+            .await
+            .unwrap();
+
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let lines = stdout.lines();
+
+        // let request = String::from_utf8(output.stdout).unwrap();
+        // let lines = request.lines();
+
+        for line in lines {
+            if line.contains("VERSION_ID") {
+                let Some((_, os_version)) = line.split_once('=') else { continue; };
+                if os_version != os_stable {
+                    println!("Unstable version on {}", self.host);
+                    println!("Use '--skip-check-os' if you still want to proceed");
+                    println!("Installed OS: {os_version}, stable OS: {os_stable}");
+                }
+                return os_version == os_stable;
+            }
+        }
+
+        println!("No version on {} detected!", self.host);
+
+        return false;
+    }
+
     fn get_ssh_flags(&self) -> Vec<String> {
         vec![
             "-lnao".to_string(),
