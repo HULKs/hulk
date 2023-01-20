@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 mod ball;
 pub mod ball_filter_hypothesis;
 mod ball_position;
