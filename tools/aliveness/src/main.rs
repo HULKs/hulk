@@ -4,28 +4,22 @@ use std::{
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
     ptr::read,
     sync::Arc,
-    time::Duration,
 };
 
 use color_eyre::eyre::{bail, eyre, ContextCompat, Result, WrapErr};
-use dbus::{
-    arg::Variant,
-    message::MatchRule,
-    nonblock::{Proxy, SyncConnection},
-    Path,
-};
-use dbus_tokio::connection;
-use futures_channel::mpsc::UnboundedReceiver;
 use futures_util::stream::StreamExt;
 use hula_types::{Battery, RobotState};
 use serde::Serialize;
-use serde_json::Value;
 use service_manager::{ServiceManager, SystemServices};
 use tokio::{
     io::AsyncReadExt,
     net::{UdpSocket, UnixStream},
     select,
     task::JoinHandle,
+};
+use zbus::{
+    zvariant::{self, OwnedObjectPath},
+    Connection, MatchRule, MessageStream, MessageType, Proxy,
 };
 
 mod service_manager;
@@ -81,56 +75,15 @@ impl RobotInfo {
     }
 }
 
-// #[derive(Debug)]
-// enum CarrierState {
-//     NoCarrier,
-//     Off,
-//     Degraded,
-//     Configuring,
-//     Routable,
-//     Configured,
-// }
-
-// impl TryFrom<&Variant<String>> for CarrierState {
-//     type Error = String;
-
-//     fn try_from(value: &Variant<String>) -> std::result::Result<Self, Self::Error> {
-//         println!("Match on '{}'", value.0);
-//         match &value.0[..] {
-//             "off" => Ok(CarrierState::Off),
-//             "no-carrier" => Ok(CarrierState::NoCarrier),
-//             "degraded" => Ok(CarrierState::Degraded),
-//             "configuring" => Ok(CarrierState::Configuring),
-//             "routable" => Ok(CarrierState::Routable),
-//             "configured" => Ok(CarrierState::Configured),
-//             _ => Err(format!("carrier state {} is unknown", value.0)),
-//         }
-//     }
-// }
-//
-//
-
-#[derive(Clone)]
-struct SocketInterface {
+struct MulticastSocket {
     interface_name: String,
     socket: Arc<UdpSocket>,
-    dbus_conn: Arc<SyncConnection>,
-}
-
-struct MulticastSocket {
-    interface: SocketInterface,
-    _handle: JoinHandle<Result<()>>,
-    _handle2: JoinHandle<Result<()>>,
+    dbus_conn: Connection,
 }
 
 impl MulticastSocket {
-    async fn bind(interface_name: String) -> Result<Self> {
-        let (ressource, dbus_conn) = connection::new_system_sync()?;
-
-        let _handle = tokio::spawn(async {
-            let err = ressource.await;
-            bail!("Lost connection to DBus: {}", err);
-        });
+    async fn bind(interface_name: String) -> Result<(Arc<UdpSocket>, JoinHandle<Result<()>>)> {
+        let dbus_conn = Connection::system().await?;
 
         let socket = Arc::new(
             UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, BEACON_PORT))
@@ -138,81 +91,65 @@ impl MulticastSocket {
                 .wrap_err("failed to bind beacon socket")?,
         );
 
-        let interface = SocketInterface {
+        let interface = Self {
             interface_name,
-            socket,
+            socket: socket.clone(),
             dbus_conn,
         };
 
         interface.join_multicast().await?;
 
-        let interface2 = interface.clone();
-
-        let _handle2 = tokio::spawn(async move {
-            Self::listen_for_network_change(interface2).await?;
-            bail!("Error");
-        });
-
-        Ok(Self {
-            interface,
-            _handle,
-            _handle2,
-        })
+        Ok((
+            socket,
+            tokio::spawn(async move { Self::listen_for_network_change(interface).await }),
+        ))
     }
 
-    async fn listen_for_network_change(interface: SocketInterface) -> Result<()> {
-        let match_rule =
-            MatchRule::new_signal("org.freedesktop.DBus.Properties", "PropertiesChanged")
-                .with_sender("org.freedesktop.network1")
-                .with_namespaced_path("/org/freedesktop/network1/link");
+    async fn listen_for_network_change(self) -> Result<()> {
+        let link_object = self.get_link_object().await?;
 
-        let (signal, mut stream): (_, UnboundedReceiver<(_, (String,))>) =
-            interface.dbus_conn.add_match(match_rule).await?.stream();
+        let rule = MatchRule::builder()
+            .msg_type(MessageType::Signal)
+            .sender("org.freedesktop.network1")?
+            .path(link_object)?
+            .interface("org.freedesktop.DBus.Properties")?
+            .member("PropertiesChanged")?
+            .build();
 
-        while let Some((msg, (_,))) = stream.next().await {
-            // let stream = stream.for_each(move |(msg, (_,)): (_, (String,))| async {
-            let flag =
-                if let (_, Some(data2)) = msg.get2::<String, HashMap<String, Variant<String>>>() {
-                    match data2.get("IPv4AddressState").map(|variant| &variant.0[..]) {
-                        Some("routable") => {
-                            drop(data2);
+        let mut stream = MessageStream::for_match_rule(rule, &self.dbus_conn, Some(1)).await?;
+
+        while let Some(Ok(msg)) = stream.next().await {
+            if let Ok((_, data, _)) =
+                msg.body::<(String, HashMap<String, zvariant::Value>, Vec<String>)>()
+            {
+                if let Some(zvariant::Value::Str(data)) = data.get("IPv4AddressState") {
+                    match data.as_str() {
+                        "routable" => {
                             println!("IPv4 Back online");
-                            true
-                            // interface.join_multicast().await?;
+                            self.join_multicast().await?;
                         }
-                        Some("off") => {
+                        "off" => {
                             println!("IPv4 offline");
-                            false
                         }
-                        _ => false,
+                        _ => (),
                     }
-                } else {
-                    false
-                };
-
-            if flag {
-                interface.join_multicast().await?;
+                }
             }
         }
 
-        interface.dbus_conn.remove_match(signal.token()).await?;
-        bail!("Lost connection to DBus")
+        bail!("failed to next ")
     }
-}
-
-impl SocketInterface {
-    async fn get_link_object(&self) -> Result<Path> {
+    async fn get_link_object(&self) -> Result<OwnedObjectPath> {
         // Get the link objects
         let proxy = Proxy::new(
+            &self.dbus_conn,
             "org.freedesktop.network1",
             "/org/freedesktop/network1",
-            Duration::from_secs(2),
-            self.dbus_conn.clone(),
-        );
+            "org.freedesktop.network1.Manager",
+        )
+        .await?;
 
-        let (links,): (Vec<(i32, String, Path<'static>)>,) = proxy
-            .method_call("org.freedesktop.network1.Manager", "ListLinks", ())
-            .await?;
+        let links: Vec<(i32, String, OwnedObjectPath)> = proxy.call("ListLinks", &()).await?;
 
         links
             .into_iter()
@@ -230,21 +167,18 @@ impl SocketInterface {
     }
 
     async fn get_ip(&self) -> Result<Option<Ipv4Addr>> {
-        println!("Test");
         let link_object = self.get_link_object().await?;
 
         let proxy = Proxy::new(
+            &self.dbus_conn,
             "org.freedesktop.network1",
             link_object,
-            Duration::from_secs(2),
-            self.dbus_conn.clone(),
-        );
+            "org.freedesktop.network1.Link",
+        )
+        .await?;
 
-        let (description,): (String,) = proxy
-            .method_call("org.freedesktop.network1.Link", "Describe", ())
-            .await?;
-
-        let description: Value = serde_json::from_str(&description)?;
+        let description: String = proxy.call("Describe", &()).await?;
+        let description: serde_json::Value = serde_json::from_str(&description)?;
 
         let address = description["Addresses"]
             .as_array()
@@ -268,9 +202,8 @@ impl SocketInterface {
     }
 
     async fn join_multicast(&self) -> Result<()> {
-        println!("Blubb2");
         if let Some(ip) = self.get_ip().await? {
-            println!("Joining multicast {ip}");
+            println!("Joining multicast on {ip}");
             self.socket
                 .join_multicast_v4(BEACON_MULTICAST_GROUP, ip)
                 .wrap_err_with(|| format!("failed to join multicast group on {ip}"))?;
@@ -300,9 +233,8 @@ async fn main() -> Result<()> {
     //     .join_multicast_v4(BEACON_MULTICAST_GROUP, interface_ip)
     //     .wrap_err_with(|| format!("failed to join multicast group on {interface_ip}"))?;
     // join_multicast(socket.clone()).await?;
-    let listener = MulticastSocket::bind("enp4s0".to_owned()).await?;
+    let (socket, _handle) = MulticastSocket::bind("enp4s0".to_owned()).await?;
     let service_manager = ServiceManager::connect().await?;
-    let socket = listener.interface.socket;
 
     let mut robot_info = RobotInfo::new(hulks_os_version, hostname);
     let mut buffer = [0; 1024];
