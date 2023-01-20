@@ -29,23 +29,18 @@ impl Nao {
             .unwrap();
 
         let stdout = String::from_utf8(output.stdout).unwrap();
-        let lines = stdout.lines();
 
-        // let request = String::from_utf8(output.stdout).unwrap();
-        // let lines = request.lines();
 
-        for line in lines {
-            if line.contains("VERSION_ID") {
-                let Some((_, os_version)) = line.split_once('=') else { continue; };
-                if os_version != os_stable {
-                    println!("Unstable version on {}", self.host);
-                    println!("Use '--skip-check-os' if you still want to proceed");
-                    println!("Installed OS: {os_version}, stable OS: {os_stable}");
-                }
-                return os_version == os_stable;
-            }
+	let Some(os_version) = extract_version_num(&stdout) else {return false};
+	
+	if os_version != os_stable {
+	    println!("Unstable version on {}", self.host);
+            println!("Use '--skip-check-os' if you still want to proceed");
+            println!("Installed OS: {os_version}, stable OS: {os_stable}");
         }
-
+	
+        return os_version == os_stable;
+	
         println!("No version on {} detected!", self.host);
 
         return false;
@@ -360,4 +355,34 @@ impl Display for Network {
             Network::SplF => formatter.write_str("SPL_F"),
         }
     }
+}
+
+fn extract_version_num(input:&str) -> Option<String>{
+    let lines = input.lines();
+        for line in lines {
+            if line.contains("VERSION_ID") {
+                let Some((_, os_version)) = line.split_once('=') else { continue; };
+		return Some(os_version.to_string());
+            }
+        }
+   None
+}    
+#[cfg(test)]
+mod test {
+    
+    use super::*;
+    
+    #[test]
+    fn extracts_version_num() {
+        let input = r#"ID=hulks-os
+    NAME="HULKs-OS"
+    VERSION="5.1.3 (langdale)"
+    VERSION_ID=5.1.3
+    PRETTY_NAME="HULKs-OS 5.1.3 (langdale)"
+    DISTRO_CODENAME="langdale"#;
+
+        let output = extract_version_num(input);
+        assert_eq!(output, Some("5.1.3".to_string()));
+    }
+    
 }
