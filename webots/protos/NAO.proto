@@ -1114,8 +1114,8 @@ PROTO NAO [
                                   rotation 1.000000 0.000000 0.000000 0.000000
                                   children [
                                     Cylinder {
-                                      radius 0.028
-                                      height 0.150
+                                      radius 0.025
+                                      height 0.133
                                     }
                                   ]
                                 }
@@ -1615,13 +1615,33 @@ PROTO NAO [
                                           Solid {
                                             translation -0.030000 -0.002500 0.082500
                                             rotation 0.000001 -0.707108 -0.707105 3.141591
-                                            name "LAnkleRollBothCollision_shape"
+                                            name "LAnkleRollBothCollision_shape_front"
                                             boundingObject Transform {
-                                              translation -0.003000 -0.060000 -0.005000
-                                              rotation 0.000000 1.000000 0.000000 0.000000
+                                              translation -0.003000 -0.0212500 -0.005000
+                                              rotation 0.000000 1.000000 0.000000 1.572728
                                               children [
-                                                Box {
-                                                   size 0.030000 0.155000 0.090000
+                                                Cylinder {
+                                                  radius 0.03875
+                                                  height 0.03
+                                                }
+                                              ]
+                                            }
+                                            physics Physics {
+                                              density -1
+                                              mass 0.001
+                                            }
+                                          }
+                                          Solid {
+                                            translation -0.030000 -0.002500 0.082500
+                                            rotation 0.000001 -0.707108 -0.707105 3.141591
+                                            name "LAnkleRollBothCollision_shape_rear"
+                                            boundingObject Transform {
+                                              translation -0.003000 -0.100000 -0.005000
+                                              rotation 0.000000 1.000000 0.000000 1.572728
+                                              children [
+                                                Cylinder {
+                                                  radius 0.03875
+                                                  height 0.03
                                                 }
                                               ]
                                             }
@@ -2276,19 +2296,35 @@ PROTO NAO [
                                           Solid {
                                             translation -0.030000 0.002500 0.082500
                                             rotation 0.000001 -0.707108 -0.707105 3.141591
-                                            name "RAnkleRollBothCollision_shape"
+                                            name "RAnkleRollBothCollision_shape_front"
                                             boundingObject Transform {
-                                              translation -0.003000 -0.060000 0.005000
-                                              rotation 0.000000 1.000000 0.000000 0.000000
+                                              translation -0.003000 -0.0212500 0.005000
+                                              rotation 0.000000 1.000000 0.000000 1.572728
                                               children [
-                                                Box {
-                                                   size 0.030000 0.155000 0.090000
+                                                Cylinder {
+                                                  radius 0.03875
+                                                  height 0.03
                                                 }
                                               ]
                                             }
                                             physics Physics {
                                               density -1
                                               mass 0.001
+                                            }
+                                          }
+                                          Solid {
+                                            translation -0.030000 0.002500 0.082500
+                                            rotation 0.000001 -0.707108 -0.707105 3.141591
+                                            name "RAnkleRollBothCollision_shape_rear"
+                                            boundingObject Transform {
+                                              translation -0.003000 -0.100000 0.005000
+                                              rotation 0.000000 1.000000 0.000000 1.572728
+                                              children [
+                                                Cylinder {
+                                                  radius 0.03875
+                                                  height 0.03
+                                                }
+                                              ]
                                             }
                                           }
                                           Solid {
@@ -3084,8 +3120,8 @@ PROTO NAO [
                                   rotation 1.000000 0.000000 0.000000 0.000000
                                   children [
                                     Cylinder {
-                                      radius 0.028
-                                      height 0.150
+                                      radius 0.025
+                                      height 0.133
                                     }
                                   ]
                                 }
