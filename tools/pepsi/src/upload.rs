@@ -36,39 +36,7 @@ pub struct Arguments {
     #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
     #[arg(long)]
-    pub skip_check_os: bool,
-}
-
-pub async fn check_os(nao: &Nao) -> bool {
-    let os_stable = "5.1.1";
-    let output = nao
-        .ssh_to_nao()
-        .arg("cat /etc/os-release")
-        .output()
-        .await
-        .unwrap();
-
-    let request = String::from_utf8(output.stdout).unwrap();
-    let lines = request.lines();
-    for line in lines {
-        if line.contains("VERSION_ID") {
-            let line_split: Vec<&str> = line.split('=').collect();
-            let os_version = line_split[1];
-
-            println!("Unstable version on {}", nao.host);
-            println!("Use '--skip-check-os' if you still want to proceed");
-            print!("Installed os: {}, ", os_version);
-            println!("Stable os: {}", os_stable);
-
-            if os_version == os_stable {
-                return true;
-            } else {
-                return false;
-            }
-        }
-    }
-
-    return true;
+    pub skip_has_stable_os_version: bool,
 }
 
 pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -125,10 +93,8 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         async move {
             let nao = Nao::new(nao_address.ip);
 
-
-            // check os-version
-            if !arguments.skip_check_os {
-                if !check_os(&nao).await {
+            if !arguments.skip_has_stable_os_version {
+                if !nao.has_stable_os_version().await {
                     return Ok(());
                 }
             }
@@ -157,7 +123,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
 
 #[cfg(test)]
 mod test {
-
+    #[test]
     fn test() {
         let input = r#"ID=hulks-os
     NAME="HULKs-OS"
