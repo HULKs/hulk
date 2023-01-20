@@ -1,4 +1,4 @@
-pub mod ball_detection;
+pub mod object_detection;
 pub mod camera_matrix_extractor;
 pub mod field_border_detection;
 pub mod field_color_detection;

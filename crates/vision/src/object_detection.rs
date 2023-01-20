@@ -133,6 +133,7 @@ impl BallDetection {
 
         Ok(MainOutputs {
             balls: Some(balls).into(),
+            // obstacles
         })
     }
 }
