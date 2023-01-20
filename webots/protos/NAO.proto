@@ -410,7 +410,7 @@ PROTO NAO [
                       children [
                         Transform {
                           translation 0.000000 0.000000 0.000000
-                          rotation 1.000000 0.000000 0.000000 1.570796
+                          rotation 1.000000 0.000000 0.000000 0.000000
                           children [
                             Cylinder {
                               radius 0.035
@@ -1111,7 +1111,7 @@ PROTO NAO [
                                 name "LElbowRollBothCollision_shape"
                                 boundingObject Transform {
                                   translation 0.000000 0.000000 0.000000
-                                  rotation 1.000000 0.000000 0.000000 1.570796
+                                  rotation 1.000000 0.000000 0.000000 0.000000
                                   children [
                                     Cylinder {
                                       radius 0.028
@@ -3081,7 +3081,7 @@ PROTO NAO [
                                 name "RElbowRollBothCollision_shape"
                                 boundingObject Transform {
                                   translation 0.000000 0.000000 0.000000
-                                  rotation 1.000000 0.000000 0.000000 1.570796
+                                  rotation 1.000000 0.000000 0.000000 0.000000
                                   children [
                                     Cylinder {
                                       radius 0.028
