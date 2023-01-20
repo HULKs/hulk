@@ -262,6 +262,144 @@ impl<T> SerializeHierarchy for Vec<T> {
     }
 }
 
+impl<T: Serialize + DeserializeOwned> SerializeHierarchy for Vector2<T> {
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        let idx = ["x", "y"].into_iter().position(|x| x == path);
+        match idx {
+            Some(i) => S::serialize(&self[i]).map_err(Error::SerializationFailed),
+            _ => Err(Error::UnexpectedPathSegment {
+                segment: String::from(path),
+            }),
+        }
+    }
+
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        let idx = ["x", "y"].into_iter().position(|x| x == path);
+        match idx {
+            Some(i) => {
+                let deserialized = S::deserialize(_data).map_err(Error::DeserializationFailed)?;
+                self[i] = deserialized;
+                Ok(())
+            }
+            None => Err(Error::UnexpectedPathSegment {
+                segment: String::from(path),
+            }),
+        }
+    }
+
+    fn exists(_path: &str) -> bool {
+        matches!(_path, "x" | "y")
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        ["x", "y"].into_iter().map(String::from).collect()
+    }
+}
+
+impl<T: Serialize + DeserializeOwned> SerializeHierarchy for Vector3<T> {
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        let idx = ["x", "y", "z"].into_iter().position(|x| x == path);
+        match idx {
+            Some(i) => S::serialize(&self[i]).map_err(Error::SerializationFailed),
+            _ => Err(Error::UnexpectedPathSegment {
+                segment: String::from(path),
+            }),
+        }
+    }
+
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        let idx = ["x", "y", "z"].into_iter().position(|x| x == path);
+        match idx {
+            Some(i) => {
+                let deserialized = S::deserialize(_data).map_err(Error::DeserializationFailed)?;
+                self[i] = deserialized;
+                Ok(())
+            }
+            None => Err(Error::UnexpectedPathSegment {
+                segment: String::from(path),
+            }),
+        }
+    }
+
+    fn exists(_path: &str) -> bool {
+        matches!(_path, "x" | "y" | "z")
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        ["x", "y", "z"].into_iter().map(String::from).collect()
+    }
+}
+
+impl<T: Serialize + DeserializeOwned> SerializeHierarchy for Vector4<T> {
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        let idx = ["x", "y", "z", "w"].into_iter().position(|x| x == path);
+        match idx {
+            Some(i) => S::serialize(&self[i]).map_err(Error::SerializationFailed),
+            _ => Err(Error::UnexpectedPathSegment {
+                segment: String::from(path),
+            }),
+        }
+    }
+
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        let idx = ["x", "y", "z", "w"].into_iter().position(|x| x == path);
+        match idx {
+            Some(i) => {
+                let deserialized = S::deserialize(_data).map_err(Error::DeserializationFailed)?;
+                self[i] = deserialized;
+                Ok(())
+            }
+            None => Err(Error::UnexpectedPathSegment {
+                segment: String::from(path),
+            }),
+        }
+    }
+
+    fn exists(_path: &str) -> bool {
+        matches!(_path, "x" | "y" | "z" | "w")
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        ["x", "y", "z", "w"].into_iter().map(String::from).collect()
+    }
+}
+
 macro_rules! serialize_hierarchy_primary_impl {
     ($type:ty) => {
         impl SerializeHierarchy for $type {
@@ -315,9 +453,6 @@ serialize_hierarchy_primary_impl!(usize);
 serialize_hierarchy_primary_impl!(Point2<f32>);
 serialize_hierarchy_primary_impl!(Point2<u16>);
 serialize_hierarchy_primary_impl!(Point3<f32>);
-serialize_hierarchy_primary_impl!(Vector2<f32>);
-serialize_hierarchy_primary_impl!(Vector3<f32>);
-serialize_hierarchy_primary_impl!(Vector4<f32>);
 serialize_hierarchy_primary_impl!(SMatrix<f32, 3, 3>);
 serialize_hierarchy_primary_impl!(Isometry2<f32>);
 serialize_hierarchy_primary_impl!(Isometry3<f32>);
