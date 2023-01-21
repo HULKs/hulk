@@ -48,7 +48,7 @@ impl Overlay for BallDetection {
 
         let ball_candidates: Vec<CandidateEvaluation> = self.ball_candidates.require_latest()?;
         for candidate in ball_candidates.iter() {
-            let circle = candidate.candidate_circle;
+            let circle = candidate.grid_element;
             painter.circle_stroke(
                 circle.center,
                 circle.radius,
@@ -67,7 +67,7 @@ impl Overlay for BallDetection {
         }
 
         for candidate in ball_candidates.iter() {
-            if let Some(circle) = candidate.corrected_circle {
+            if let Some(circle) = candidate.positioned_ball {
                 painter.circle_stroke(
                     circle.center,
                     circle.radius,

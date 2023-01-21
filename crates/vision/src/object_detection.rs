@@ -54,7 +54,7 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    pub ball_candidates: AdditionalOutput<Vec<CandidateEvaluation>, "ball_candidates">,
+    pub object_candidates: AdditionalOutput<Vec<CandidateEvaluation>, "object_candidates">,
 
     pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     pub perspective_grid_candidates:
@@ -69,6 +69,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub balls: MainOutput<Option<Vec<Ball>>>,
+    pub robots: MainOutput<Option<Vec<Circle>>>,
 }
 
 impl BallDetection {
@@ -105,12 +106,18 @@ impl BallDetection {
             context.configuration.classifier_confidence_threshold,
         );
         context
-            .ball_candidates
+            .object_candidates
             .fill_if_subscribed(|| evaluations.clone());
 
         let mut detected_balls = evaluations
             .iter()
-            .filter(|candidate| candidate.corrected_circle.is_some())
+            .filter(|candidate| candidate.positioned_ball.is_some())
+            .cloned()
+            .collect::<Vec<_>>();
+        
+        let mut detected_robots = evaluations
+            .iter()
+            .filter(|candidate| candidate.positioned_robot.is_some())
             .cloned()
             .collect::<Vec<_>>();
 
@@ -133,7 +140,7 @@ impl BallDetection {
 
         Ok(MainOutputs {
             balls: Some(balls).into(),
-            // obstacles
+            robots: None.into()
         })
     }
 }
@@ -228,20 +235,21 @@ fn evaluate_candidates(
                 );
             }
 
-            let mut corrected_circle = None;
+            let mut positioned_ball = None;
+            let mut positioned_robot = None;
 
             if let Some(ref detected_class) = detected_class {
                 match detected_class.class {
                     DetectableClass::Ball => {
                         if detected_class.confidence > ball_confidence_threshold {
-                            let raw_corrected_circle = position_sample(positioner, &sample);
+                            let raw_positioned_ball = position_sample(positioner, &sample);
 
-                            corrected_circle = Some(Circle {
+                            positioned_ball = Some(Circle {
                                 center: candidate.center
-                                    + (raw_corrected_circle.center.coords - vector![0.5, 0.5])
+                                    + (raw_positioned_ball.center.coords - vector![0.5, 0.5])
                                         * (candidate.radius * 2.0)
                                         * ball_radius_enlargement_factor,
-                                radius: raw_corrected_circle.radius
+                                radius: raw_positioned_ball.radius
                                     * candidate.radius
                                     * ball_radius_enlargement_factor,
                             });
@@ -256,10 +264,11 @@ fn evaluate_candidates(
             let classifier_confidence = detected_class.map(|dc| dc.confidence);
 
             CandidateEvaluation {
-                candidate_circle: *candidate,
+                grid_element: *candidate,
                 preclassifier_confidence,
                 classifier_confidence,
-                corrected_circle,
+                positioned_ball,
+                positioned_robot,
                 merge_weight: None,
             }
         })
@@ -339,8 +348,8 @@ fn calculate_ball_merge_factor(
 ) -> f32 {
     let confidence = ball.classifier_confidence.unwrap();
     let correction_proximity =
-        bounding_box_patch_intersection(ball.corrected_circle.unwrap(), ball.candidate_circle);
-    let image_containment = image_containment(ball.corrected_circle.unwrap(), image_size);
+        bounding_box_patch_intersection(ball.positioned_ball.unwrap(), ball.grid_element);
+    let image_containment = image_containment(ball.positioned_ball.unwrap(), image_size);
 
     confidence.powf(confidence_merge_factor)
         * correction_proximity.powf(correction_proximity_merge_factor)
@@ -355,7 +364,7 @@ fn merge_balls(balls: &[&CandidateEvaluation]) -> Circle {
 
     let total_weight: f32 = balls.iter().map(|ball| ball.merge_weight.unwrap()).sum();
     for ball in balls {
-        let ball_circle = ball.corrected_circle.unwrap();
+        let ball_circle = ball.positioned_ball.unwrap();
         let weight = ball.merge_weight.unwrap();
         circle.center += ball_circle.center.coords * weight / total_weight;
         circle.radius += ball_circle.radius * weight / total_weight;
@@ -368,7 +377,7 @@ fn cluster_balls(balls: &[CandidateEvaluation], merge_radius_factor: f32) -> Vec
     let mut clusters = Vec::<BallCluster>::new();
 
     for ball in balls {
-        let ball_circle = ball.corrected_circle.unwrap();
+        let ball_circle = ball.positioned_ball.unwrap();
         match clusters.iter_mut().find(|cluster| {
             (cluster.circle.center - ball_circle.center).norm_squared()
                 < (cluster.circle.radius * merge_radius_factor).powi(2)
@@ -482,13 +491,13 @@ mod tests {
     #[test]
     fn candidate_evaluation_simple() {
         let ball_candidate = CandidateEvaluation {
-            candidate_circle: Circle {
+            grid_element: Circle {
                 center: point![50.0, 50.0],
                 radius: 32.0,
             },
             preclassifier_confidence: 1.0,
             classifier_confidence: Some(1.0),
-            corrected_circle: Some(Circle {
+            positioned_ball: Some(Circle {
                 center: point![50.0, 50.0],
                 radius: 32.0,
             }),
@@ -502,16 +511,17 @@ mod tests {
     #[test]
     fn candidate_evaluation_complex() {
         let ball_candidate = CandidateEvaluation {
-            candidate_circle: Circle {
+            grid_element: Circle {
                 center: point![50.0, 50.0],
                 radius: 32.0,
             },
             preclassifier_confidence: 1.0,
             classifier_confidence: Some(0.5),
-            corrected_circle: Some(Circle {
+            positioned_ball: Some(Circle {
                 center: point![66.0, 50.0],
                 radius: 32.0,
             }),
+            positioned_robot: None,
             merge_weight: None,
         };
         let merge_weight =
@@ -561,7 +571,7 @@ mod tests {
 
         let mut additional_output_buffer = None;
         let context = CycleContext {
-            ball_candidates: AdditionalOutput::<Vec<CandidateEvaluation>>::new(
+            object_candidates: AdditionalOutput::<Vec<CandidateEvaluation>>::new(
                 false,
                 &mut additional_output_buffer,
             ),

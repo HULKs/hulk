@@ -7,10 +7,11 @@ use super::Circle;
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct CandidateEvaluation {
-    pub candidate_circle: Circle,
+    pub grid_element: Circle,
     pub preclassifier_confidence: f32,
     pub classifier_confidence: Option<f32>,
-    pub corrected_circle: Option<Circle>,
+    pub positioned_ball: Option<Circle>,
+    pub positioned_robot: Option<Circle>, // needs own datatype
     pub merge_weight: Option<f32>,
 }
 

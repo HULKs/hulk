@@ -1,4 +1,4 @@
-mod ball;
+mod objects;
 pub mod ball_filter_hypothesis;
 mod ball_position;
 mod buttons;
@@ -64,7 +64,7 @@ mod world_state;
 
 // TODO: convert all "mod" to "pub mod"
 
-pub use ball::{Ball, CandidateEvaluation};
+pub use objects::{Ball, CandidateEvaluation};
 pub use ball_position::BallPosition;
 pub use buttons::Buttons;
 pub use camera_matrix::{CameraMatrices, CameraMatrix, Horizon, ProjectedFieldLines};
