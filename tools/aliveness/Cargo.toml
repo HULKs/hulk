@@ -6,8 +6,6 @@ edition = "2021"
 [dependencies]
 color-eyre = "0.6.2"
 configparser = { version = "3.0.2", features = ["async-std"] }
-dbus = { version = "0.9.7", features = ["futures"] }
-dbus-tokio = "0.7.5"
 env_logger = "0.10.0"
 futures-channel = "0.3.25"
 futures-util = "0.3.25"
