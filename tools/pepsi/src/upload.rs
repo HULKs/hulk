@@ -44,7 +44,7 @@ async fn upload_with_progress(
     hulk_directory: impl AsRef<Path>,
     progress: &Task,
     arguments: &Arguments,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     if !arguments.skip_os_check && !nao.has_stable_os_version().await {
         return Ok(());
     }
@@ -52,18 +52,18 @@ async fn upload_with_progress(
     progress.set_message("Stopping HULK...");
     nao.execute_systemctl(SystemctlAction::Stop, "hulk")
         .await
-        .with_context(|| format!("failed to stop HULK service on {}", nao.host()))?;
+        .wrap_err_with(|| format!("failed to stop HULK service on {}", nao.host()))?;
 
     progress.set_message("Uploading...");
     nao.upload(hulk_directory, !arguments.no_clean)
         .await
-        .with_context(|| format!("failed to power {} off", nao.host()))?;
+        .wrap_err_with(|| format!("failed to power {} off", nao.host()))?;
 
     if !arguments.no_restart {
         progress.set_message("Restarting HULK...");
         nao.execute_systemctl(SystemctlAction::Start, "hulk")
             .await
-            .with_context(|| format!("failed to stop HULK service on {}", nao.host()))?;
+            .wrap_err_with(|| format!("failed to stop HULK service on {}", nao.host()))?;
     }
     Ok(())
 }

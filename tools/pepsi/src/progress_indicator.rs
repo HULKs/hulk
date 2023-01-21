@@ -1,4 +1,4 @@
-use std::{borrow::Cow, time::Duration};
+use std::{borrow::Cow, fmt::Display, time::Duration};
 
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
@@ -48,17 +48,17 @@ impl Task {
         self.progress.set_message(message)
     }
 
-    pub fn finish_with_success(&self, message: impl std::fmt::Display) {
+    pub fn finish_with_success(&self, message: impl Display) {
         self.progress.set_style(self.success_style.clone());
         self.progress.finish_with_message(format!("✓ {message}"));
     }
 
-    pub fn finish_with_error(&self, message: impl std::fmt::Display) {
+    pub fn finish_with_error(&self, message: impl Display) {
         self.progress.set_style(self.error_style.clone());
         self.progress.finish_with_message(format!("✗ {message}"));
     }
 
-    pub fn finish_with<T>(&self, result: Result<T, impl std::fmt::Display>) {
+    pub fn finish_with<T>(&self, result: Result<T, impl Display>) {
         match result {
             Ok(_) => self.finish_with_success("Done"),
             Err(message) => self.finish_with_error(message),
