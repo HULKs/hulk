@@ -5,7 +5,8 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, vector, Vector2};
 use types::{
     configuration::BallDetection as BallDetectionConfiguration, image::Image, Ball, CameraMatrix,
-    CandidateEvaluation, Circle, Feet, PerspectiveGridCandidates, Rectangle, RobotPart, PenaltySpot,
+    CandidateEvaluation, Circle, Feet, PenaltySpot, PerspectiveGridCandidates, Rectangle,
+    RobotPart,
 };
 
 pub const SAMPLE_SIZE: usize = 32;
@@ -71,9 +72,9 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub balls: MainOutput<Option<Vec<Ball>>>,
-    pub feet: MainOutput<Option<Vec<Feet>>>,
-    pub robot_parts: MainOutput<Option<Vec<RobotPart>>>,
-    pub penalty_spot: MainOutput<Option<Vec<PenaltySpot>>>,
+    pub feet: MainOutput<Option<Vec<Ball>>>,
+    pub robot_parts: MainOutput<Option<Vec<Ball>>>,
+    pub penalty_spot: MainOutput<Option<Vec<Ball>>>,
 }
 
 impl BallDetection {
@@ -153,16 +154,79 @@ fn collect_balls(context: &CycleContext, evaluations: &[CandidateEvaluation]) ->
     project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius)
 }
 
-fn collect_feet(context: &CycleContext, evaluations: &[CandidateEvaluation]) -> Vec<Feet> {
-    vec![]
+fn collect_feet(context: &CycleContext, evaluations: &[CandidateEvaluation]) -> Vec<Ball> {
+    let mut detected_feet = evaluations
+        .iter()
+        .filter(|candidate| candidate.positioned_feet.is_some())
+        .cloned()
+        .collect::<Vec<_>>();
+
+    for ball in &mut detected_feet {
+        ball.merge_weight = Some(calculate_ball_merge_factor(
+            ball,
+            vector!(context.image.width(), context.image.height()),
+            context.configuration.confidence_merge_factor,
+            context.configuration.correction_proximity_merge_factor,
+            context.configuration.image_containment_merge_factor,
+        ));
+    }
+
+    let clusters = cluster_balls(
+        &detected_feet,
+        context.configuration.cluster_merge_radius_factor,
+    );
+
+    project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius)
 }
 
-fn collect_robot_parts(context: &CycleContext, evaluations: &[CandidateEvaluation]) -> Vec<RobotPart> {
-    vec![]
+fn collect_robot_parts(context: &CycleContext, evaluations: &[CandidateEvaluation]) -> Vec<Ball> {
+    let mut detected_robot_parts = evaluations
+        .iter()
+        .filter(|candidate| candidate.positioned_robot_part.is_some())
+        .cloned()
+        .collect::<Vec<_>>();
+
+    for ball in &mut detected_robot_parts {
+        ball.merge_weight = Some(calculate_ball_merge_factor(
+            ball,
+            vector!(context.image.width(), context.image.height()),
+            context.configuration.confidence_merge_factor,
+            context.configuration.correction_proximity_merge_factor,
+            context.configuration.image_containment_merge_factor,
+        ));
+    }
+
+    let clusters = cluster_balls(
+        &detected_robot_parts,
+        context.configuration.cluster_merge_radius_factor,
+    );
+
+    project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius)
 }
 
-fn collect_penalty_spots(context: &CycleContext, evaluations: &[CandidateEvaluation]) -> Vec<PenaltySpot> {
-    vec![]
+fn collect_penalty_spots(context: &CycleContext, evaluations: &[CandidateEvaluation]) -> Vec<Ball> {
+    let mut detected_penalty_spots = evaluations
+        .iter()
+        .filter(|candidate| candidate.positioned_penalty_spot.is_some())
+        .cloned()
+        .collect::<Vec<_>>();
+
+    for ball in &mut detected_penalty_spots {
+        ball.merge_weight = Some(calculate_ball_merge_factor(
+            ball,
+            vector!(context.image.width(), context.image.height()),
+            context.configuration.confidence_merge_factor,
+            context.configuration.correction_proximity_merge_factor,
+            context.configuration.image_containment_merge_factor,
+        ));
+    }
+
+    let clusters = cluster_balls(
+        &detected_penalty_spots,
+        context.configuration.cluster_merge_radius_factor,
+    );
+
+    project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius)
 }
 
 fn preclassify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
@@ -257,9 +321,9 @@ fn evaluate_candidates(
             }
 
             let mut positioned_ball = None;
-            let positioned_feet = None;
-            let positioned_robot_part = None;
-            let positioned_penalty_spot = None;
+            let mut positioned_feet = None;
+            let mut positioned_robot_part = None;
+            let mut positioned_penalty_spot = None;
 
             if let Some(ref detected_class) = detected_class {
                 match detected_class.class {
@@ -278,10 +342,25 @@ fn evaluate_candidates(
                             });
                         }
                     }
-                    DetectableClass::Feet => todo!(),
-                    DetectableClass::RobotPart => todo!(),
-                    DetectableClass::PenaltySpot => todo!(),
-                    DetectableClass::Other => todo!(),
+                    DetectableClass::Feet => {
+                        positioned_feet = Some(Circle {
+                            center: candidate.center,
+                            radius: 3.0,
+                        })
+                    }
+                    DetectableClass::RobotPart => {
+                        positioned_robot_part = Some(Circle {
+                            center: candidate.center,
+                            radius: 5.0,
+                        })
+                    }
+                    DetectableClass::PenaltySpot => {
+                        positioned_penalty_spot = Some(Circle {
+                            center: candidate.center,
+                            radius: 7.0,
+                        })
+                    }
+                    DetectableClass::Other => {}
                 }
             }
 
@@ -456,7 +535,7 @@ mod tests {
     use super::*;
 
     const PRECLASSIFIER_PATH: &str = "../../etc/neural_networks/preclassifier.hdf5";
-    const CLASSIFIER_PATH: &str = "../../etc/neural_networks/classifier.hdf5";
+    const CLASSIFIER_PATH: &str = "../../etc/neural_networks/classifier_multiclass.hdf5";
     const POSITIONER_PATH: &str = "../../etc/neural_networks/positioner.hdf5";
 
     const BALL_SAMPLE_PATH: &str = "../../tests/data/ball_sample.png";
