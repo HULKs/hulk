@@ -110,6 +110,7 @@ serde_test = "1.0.152"
 serde-transcode = "1.1.1"
 serialize_hierarchy = { path = "crates/serialize_hierarchy" }
 serialize_hierarchy_derive = { path = "crates/serialize_hierarchy_derive" }
+simple-websockets = "0.1.4"
 smallvec = "1.9.0"
 source_analyzer = { path = "crates/source_analyzer" }
 spl_network = { path = "crates/spl_network" }
