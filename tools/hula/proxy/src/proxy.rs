@@ -10,7 +10,7 @@ use std::{
     ptr::read,
     slice::from_raw_parts,
     thread::sleep,
-    time::{Duration, Instant},
+    time::{Duration, Instant}, fs::remove_file,
 };
 
 use color_eyre::eyre::{bail, Result, WrapErr};
@@ -47,6 +47,7 @@ pub struct Proxy {
 impl Proxy {
     pub fn initialize() -> Result<Self> {
         let lola = wait_for_lola().wrap_err("failed to connect to LoLA")?;
+        remove_file(HULA_SOCKET_PATH).wrap_err("failed to unlink existing HuLA socket file")?;
         let hula = UnixListener::bind(HULA_SOCKET_PATH)
             .wrap_err_with(|| format!("failed to bind {HULA_SOCKET_PATH}"))?;
 
