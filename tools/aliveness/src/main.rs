@@ -1,9 +1,9 @@
 use std::{
     collections::HashMap,
+    env,
     mem::size_of,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
     ptr::read,
-    sync::Arc,
 };
 
 use color_eyre::eyre::{bail, eyre, ContextCompat, Result, WrapErr};
@@ -11,7 +11,7 @@ use futures_util::stream::StreamExt;
 use hula_types::{Battery, RobotState};
 use log::info;
 use serde::Serialize;
-use service_manager::{ServiceManager, SystemServices};
+use service_manager::SystemServices;
 use tokio::{
     io::AsyncReadExt,
     net::{UdpSocket, UnixStream},
@@ -100,10 +100,7 @@ impl AlivenessService {
     }
 }
 
-async fn listen_for_network_change(
-    interface_name: String,
-    service_manager: Arc<ServiceManager>,
-) -> Result<()> {
+async fn listen_for_network_change(interface_name: String) -> Result<()> {
     let dbus_conn = Connection::system().await?;
 
     let link_object = get_link_object(&interface_name, &dbus_conn).await?;
@@ -121,7 +118,7 @@ async fn listen_for_network_change(
     let mut service = None;
 
     if let Some(ip) = get_ip(&interface_name, &dbus_conn).await? {
-        service = Some(join_multicast(ip, interface_name.clone(), service_manager.clone()).await?);
+        service = Some(join_multicast(ip, dbus_conn.clone(), interface_name.clone()).await?);
     }
 
     while let Some(Ok(msg)) = stream.next().await {
@@ -136,8 +133,7 @@ async fn listen_for_network_change(
                             .await?
                             .ok_or(eyre!("failed to get IP"))?;
                         service = Some(
-                            join_multicast(ip, interface_name.clone(), service_manager.clone())
-                                .await?,
+                            join_multicast(ip, dbus_conn.clone(), interface_name.clone()).await?,
                         );
                     }
                     "off" => {
@@ -220,8 +216,8 @@ async fn get_ip(interface_name: &str, dbus_conn: &Connection) -> Result<Option<I
 
 async fn join_multicast(
     ip: Ipv4Addr,
+    dbus_conn: Connection,
     interface_name: String,
-    service_manager: Arc<ServiceManager>,
 ) -> Result<AlivenessService> {
     let mut robot_info = RobotInfo::initialize().await?;
 
@@ -267,8 +263,8 @@ async fn join_multicast(
                         let (num_bytes, peer) = message.wrap_err("failed to read from beacon socket").unwrap();
                         handle_beacon(
                             &socket,
+                            &dbus_conn,
                             &interface_name,
-                            &service_manager,
                             &robot_info,
                             &buffer[0..num_bytes],
                             peer,
@@ -287,17 +283,15 @@ async fn join_multicast(
 async fn main() -> Result<()> {
     env_logger::init();
 
-    let service_manager = Arc::new(ServiceManager::connect().await?);
+    let interface_name = env::args().skip(1).next().unwrap_or("enp4s0".to_owned());
 
-    let interface_name = "enp4s0".to_owned();
-
-    listen_for_network_change(interface_name, service_manager).await
+    listen_for_network_change(interface_name).await
 }
 
 async fn handle_beacon(
     socket: &UdpSocket,
+    dbus_conn: &Connection,
     interface_name: &str,
-    service_manager: &Arc<ServiceManager>,
     robot_info: &RobotInfo,
     message: &[u8],
     peer: SocketAddr,
@@ -306,7 +300,7 @@ async fn handle_beacon(
         bail!("invalid beacon header {message:?}");
     }
     info!("Received beacon from {peer}");
-    let system_services = SystemServices::query(service_manager).await?;
+    let system_services = SystemServices::query(dbus_conn).await?;
     let response = BeaconResponse {
         hostname: &robot_info.hostname,
         interface_name,

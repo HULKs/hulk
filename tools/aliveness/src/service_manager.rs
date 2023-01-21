@@ -1,11 +1,10 @@
-use std::{sync::Arc, time::Duration};
-
-use color_eyre::eyre::{Context, Result};
-use dbus::nonblock::{Proxy, SyncConnection};
-use dbus_tokio::connection::new_system_sync;
+use color_eyre::eyre::{bail, Result, WrapErr};
 use regex::Regex;
 use serde::Serialize;
-use tokio::{spawn, task::JoinHandle};
+use zbus::{
+    zvariant::{OwnedObjectPath, Value},
+    Connection, Error, Proxy,
+};
 
 #[derive(Debug, Serialize)]
 pub enum Service {
@@ -27,9 +26,9 @@ pub enum ActiveState {
     Unknown,
 }
 
-impl From<String> for ActiveState {
-    fn from(string: String) -> Self {
-        match string.as_ref() {
+impl From<&str> for ActiveState {
+    fn from(string: &str) -> Self {
+        match string {
             "activating" => ActiveState::Activating,
             "active" => ActiveState::Active,
             "deactivating" => ActiveState::Deactivating,
@@ -50,84 +49,66 @@ pub struct SystemServices {
 }
 
 impl SystemServices {
-    pub async fn query(manager: &ServiceManager) -> Result<Self> {
+    pub async fn query(dbus_conn: &Connection) -> Result<Self> {
         Ok(Self {
-            hal: manager.get_service_state(Service::Hal).await?,
-            hula: manager.get_service_state(Service::Hula).await?,
-            hulk: manager.get_service_state(Service::Hulk).await?,
-            lola: manager.get_service_state(Service::Lola).await?,
+            hal: get_service_state(dbus_conn, Service::Hal).await?,
+            hula: get_service_state(dbus_conn, Service::Hula).await?,
+            hulk: get_service_state(dbus_conn, Service::Hulk).await?,
+            lola: get_service_state(dbus_conn, Service::Lola).await?,
         })
     }
 }
 
-pub struct ServiceManager {
-    connection: Arc<SyncConnection>,
-    handle: JoinHandle<()>,
+async fn get_unit_path(
+    dbus_conn: &Connection,
+    service: Service,
+) -> Result<OwnedObjectPath, zbus::Error> {
+    let service_name = match service {
+        Service::Hal => "hal.service",
+        Service::Hula => "hula.service",
+        Service::Hulk => "hulk.service",
+        Service::Lola => "lola.service",
+    };
+
+    let proxy = Proxy::new(
+        dbus_conn,
+        "org.freedesktop.systemd1",
+        "/org/freedesktop/systemd1",
+        "org.freedesktop.systemd1.Manager",
+    )
+    .await?;
+
+    proxy.call("GetUnit", &(service_name,)).await
 }
 
-impl ServiceManager {
-    pub async fn connect() -> Result<Self> {
-        let (resource, connection) =
-            new_system_sync().wrap_err("failed to connect to dbus system bus")?;
-        let handle = spawn(async {
-            let error = resource.await;
-            panic!("Lost connection to D-Bus: {error}");
-        });
-        Ok(Self { connection, handle })
-    }
+async fn get_service_state(dbus_conn: &Connection, service: Service) -> Result<ActiveState> {
+    let regex = Regex::new(r"Unit \w+\.service not loaded").unwrap();
 
-    fn get_systemd_proxy(&self) -> Proxy<Arc<SyncConnection>> {
-        Proxy::new(
-            "org.freedesktop.systemd1",
-            "/org/freedesktop/systemd1",
-            Duration::from_millis(500),
-            self.connection.clone(),
-        )
-    }
+    let unit_path = match get_unit_path(dbus_conn, service).await {
+        Ok(unit_path) => unit_path,
+        Err(Error::MethodError(_, Some(msg), _)) if regex.is_match(&msg) => {
+            return Ok(ActiveState::NotLoaded);
+        }
+        Err(err) => {
+            return Err(err).wrap_err("failed to unit path");
+        }
+    };
 
-    async fn get_unit_path(&self, service: Service) -> Result<dbus::Path<'static>, dbus::Error> {
-        let service_name = match service {
-            Service::Hal => "hal.service",
-            Service::Hula => "hula.service",
-            Service::Hulk => "hulk.service",
-            Service::Lola => "lola.service",
-        };
-        self.get_systemd_proxy()
-            .method_call(
-                "org.freedesktop.systemd1.Manager",
-                "GetUnit",
-                (service_name,),
-            )
-            .await
-            .map(|r: (dbus::Path<'static>,)| r.0)
-    }
+    let proxy = Proxy::new(
+        dbus_conn,
+        "org.freedesktop.systemd1",
+        unit_path,
+        "org.freedesktop.DBus.Properties",
+    )
+    .await?;
 
-    pub async fn get_service_state(&self, service: Service) -> Result<ActiveState, dbus::Error> {
-        let regex = Regex::new(r"Unit \w+\.service not loaded").unwrap();
-        let unit_path = match self.get_unit_path(service).await {
-            Ok(unit_path) => unit_path,
-            Err(error) if error.message().is_some() && regex.is_match(error.message().unwrap()) => {
-                println!("{error}");
-                return Ok(ActiveState::NotLoaded);
-            }
-            Err(error) => {
-                return Err(error);
-            }
-        };
-        let service = Proxy::new(
-            "org.freedesktop.systemd1",
-            unit_path,
-            Duration::from_millis(500),
-            self.connection.clone(),
-        );
-        let response = service
-            .method_call(
-                "org.freedesktop.DBus.Properties",
-                "Get",
-                ("org.freedesktop.systemd1.Unit", "ActiveState"),
-            )
-            .await
-            .map(|r: (dbus::arg::Variant<String>,)| (r.0).0)?;
-        Ok(ActiveState::from(response))
+    if let Value::Str(state) = proxy
+        .call_method("Get", &("org.freedesktop.systemd1.Unit", "ActiveState"))
+        .await?
+        .body()?
+    {
+        Ok(ActiveState::from(state.as_str()))
+    } else {
+        bail!("failed to get state")
     }
 }
