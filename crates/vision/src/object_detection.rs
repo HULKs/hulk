@@ -250,10 +250,10 @@ fn classify_sample(network: &mut CompiledNN, sample: &Sample) -> ClassConfidence
     network.apply();
     ClassConfidences {
         ball: network.output(0)[0],
-        feet: network.output(1)[0],
-        robot_part: network.output(2)[0],
-        penalty_spot: network.output(3)[0],
-        other: network.output(4)[0],
+        feet: network.output(0)[1],
+        robot_part: network.output(0)[2],
+        penalty_spot: network.output(0)[3],
+        other: network.output(0)[4],
     }
 }
 
@@ -560,7 +560,7 @@ mod tests {
     #[test]
     fn classify_ball() {
         let mut network = CompiledNN::default();
-        network.compile(PRECLASSIFIER_PATH);
+        network.compile(CLASSIFIER_PATH);
         let sample = sample_grayscale(
             &Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
             Circle {
@@ -568,9 +568,13 @@ mod tests {
                 radius: 16.0,
             },
         );
-        let ball_confidence = classify_sample(&mut network, &sample).ball;
+        let confidence = classify_sample(&mut network, &sample);
+        let ball_confidence = confidence.ball;
+        let feet_confidence = confidence.feet;
+        let robot_part_confidence = confidence.robot_part;
+        let penalty_spot_confidence = confidence.penalty_spot;
 
-        println!("{ball_confidence:?}");
+        println!("Ball: {ball_confidence:?}, Feet: {feet_confidence:?}, RobotPart: {robot_part_confidence:?}, PenaltySpot: {penalty_spot_confidence:?}");
         assert_relative_eq!(ball_confidence, 1.0, epsilon = 0.01);
     }
 
