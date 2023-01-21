@@ -2,6 +2,7 @@ use color_eyre::Result;
 use compiled_nn::CompiledNN;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
+use itertools::Itertools;
 use nalgebra::{point, vector, Vector2};
 use types::{
     configuration::BallDetection as BallDetectionConfiguration, image::Image, Ball, CameraMatrix,
@@ -25,6 +26,7 @@ pub struct ClassConfidences {
     other: f32,
 }
 
+#[derive(Clone, Copy)]
 enum DetectableClass {
     Ball,
     Feet,
@@ -33,6 +35,7 @@ enum DetectableClass {
     Other,
 }
 
+#[derive(Clone, Copy)]
 struct DetectedClass {
     class: DetectableClass,
     confidence: f32,
@@ -75,6 +78,12 @@ pub struct MainOutputs {
     pub feet: MainOutput<Option<Vec<Ball>>>,
     pub robot_parts: MainOutput<Option<Vec<Ball>>>,
     pub penalty_spot: MainOutput<Option<Vec<Ball>>>,
+}
+
+impl DetectedClass {
+    fn new(class: DetectableClass, confidence: f32) -> Self {
+        DetectedClass { class, confidence }
+    }
 }
 
 impl BallDetection {
@@ -384,46 +393,22 @@ fn decide_detected_class(
     classifier_confidences: ClassConfidences,
     acceptance_threshold: f32,
 ) -> Option<DetectedClass> {
+    use DetectableClass::{Ball, Feet, PenaltySpot, RobotPart};
     let confidences = [
-        classifier_confidences.ball,
-        classifier_confidences.feet,
-        classifier_confidences.robot_part,
-        classifier_confidences.other,
+        DetectedClass::new(Ball, classifier_confidences.ball),
+        DetectedClass::new(Feet, classifier_confidences.feet),
+        DetectedClass::new(RobotPart, classifier_confidences.robot_part),
+        DetectedClass::new(PenaltySpot, classifier_confidences.penalty_spot),
     ];
 
-    let mut highest_confidence = 0.0;
-    let mut most_probable_class = 0;
-    for (current_class, &current_confidence) in confidences.iter().enumerate() {
-        if current_confidence > highest_confidence {
-            highest_confidence = current_confidence;
-            most_probable_class = current_class;
-        }
-    }
+    let most_probable_class = confidences
+        .iter()
+        .position_max_by(|&a, &b| a.confidence.total_cmp(&b.confidence))
+        .expect("There are always multiple elements in the confidence array");
 
-    if confidences[most_probable_class] > acceptance_threshold {
-        match most_probable_class {
-            0 => Some(DetectedClass {
-                class: DetectableClass::Ball,
-                confidence: classifier_confidences.ball,
-            }),
-            1 => Some(DetectedClass {
-                class: DetectableClass::Feet,
-                confidence: classifier_confidences.feet,
-            }),
-            2 => Some(DetectedClass {
-                class: DetectableClass::RobotPart,
-                confidence: classifier_confidences.robot_part,
-            }),
-            3 => Some(DetectedClass {
-                class: DetectableClass::PenaltySpot,
-                confidence: classifier_confidences.penalty_spot,
-            }),
-            4 => Some(DetectedClass {
-                class: DetectableClass::Other,
-                confidence: classifier_confidences.other,
-            }),
-            _ => panic!("There has to be one class with highest probability"),
-        }
+    let detected_class = confidences[most_probable_class];
+    if detected_class.confidence > acceptance_threshold {
+        Some(detected_class)
     } else {
         None
     }
