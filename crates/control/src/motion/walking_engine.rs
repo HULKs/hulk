@@ -319,6 +319,8 @@ impl WalkingEngine {
         };
 
         Ok(MainOutputs {
+            step_t: (self.t.as_secs_f32()/self.step_duration.as_secs_f32()).into(),
+            unstable_score: (self.number_of_unstable_steps + self.remaining_stabilizing_steps).into(),
             walk_joints_command: BodyJointsCommand {
                 positions: BodyJoints {
                     left_arm,
