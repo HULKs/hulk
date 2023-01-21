@@ -594,7 +594,6 @@ impl Joints<f32> {
         }
     }
 }
-
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
