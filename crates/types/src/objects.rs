@@ -11,12 +11,25 @@ pub struct CandidateEvaluation {
     pub preclassifier_confidence: f32,
     pub classifier_confidence: Option<f32>,
     pub positioned_ball: Option<Circle>,
-    pub positioned_robot: Option<Circle>, // needs own datatype
+    pub positioned_feet: Option<Circle>,
+    pub positioned_robot_part: Option<Circle>,
     pub merge_weight: Option<f32>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct Ball {
+    pub position: Point2<f32>,
+    pub image_location: Circle,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct Feet {
+    pub position: Point2<f32>,
+    pub image_location: Circle,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct RobotPart {
     pub position: Point2<f32>,
     pub image_location: Circle,
 }

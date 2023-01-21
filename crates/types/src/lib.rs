@@ -64,7 +64,7 @@ mod world_state;
 
 // TODO: convert all "mod" to "pub mod"
 
-pub use objects::{Ball, CandidateEvaluation};
+pub use objects::{Ball, Feet, RobotPart, CandidateEvaluation};
 pub use ball_position::BallPosition;
 pub use buttons::Buttons;
 pub use camera_matrix::{CameraMatrices, CameraMatrix, Horizon, ProjectedFieldLines};

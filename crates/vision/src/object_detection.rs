@@ -5,7 +5,7 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, vector, Vector2};
 use types::{
     configuration::BallDetection as BallDetectionConfiguration, image::Image, Ball, CameraMatrix,
-    CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
+    CandidateEvaluation, Circle, Feet, PerspectiveGridCandidates, Rectangle, RobotPart,
 };
 
 pub const SAMPLE_SIZE: usize = 32;
@@ -69,7 +69,8 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub balls: MainOutput<Option<Vec<Ball>>>,
-    pub robots: MainOutput<Option<Vec<Circle>>>,
+    pub feet: MainOutput<Option<Vec<Feet>>>,
+    pub robot_parts: MainOutput<Option<Vec<RobotPart>>>,
 }
 
 impl BallDetection {
@@ -105,44 +106,54 @@ impl BallDetection {
             context.configuration.preclassifier_confidence_threshold,
             context.configuration.classifier_confidence_threshold,
         );
+
         context
             .object_candidates
             .fill_if_subscribed(|| evaluations.clone());
 
-        let mut detected_balls = evaluations
-            .iter()
-            .filter(|candidate| candidate.positioned_ball.is_some())
-            .cloned()
-            .collect::<Vec<_>>();
-        
-        let mut detected_robots = evaluations
-            .iter()
-            .filter(|candidate| candidate.positioned_robot.is_some())
-            .cloned()
-            .collect::<Vec<_>>();
-
-        for ball in &mut detected_balls {
-            ball.merge_weight = Some(calculate_ball_merge_factor(
-                ball,
-                vector!(context.image.width(), context.image.height()),
-                context.configuration.confidence_merge_factor,
-                context.configuration.correction_proximity_merge_factor,
-                context.configuration.image_containment_merge_factor,
-            ));
-        }
-
-        let clusters = cluster_balls(
-            &detected_balls,
-            context.configuration.cluster_merge_radius_factor,
-        );
-
-        let balls = project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius);
+        let balls = collect_balls(&context, &evaluations);
+        let feet = collect_feet(&context, &evaluations);
+        let robot_parts = collect_robot_parts(&context, &evaluations);
 
         Ok(MainOutputs {
             balls: Some(balls).into(),
-            robots: None.into()
+            feet: Some(feet).into(),
+            robot_parts: Some(robot_parts).into() 
         })
     }
+}
+
+fn collect_balls(context: &CycleContext, evaluations: &[CandidateEvaluation]) -> Vec<Ball> {
+    let mut detected_balls = evaluations
+        .iter()
+        .filter(|candidate| candidate.positioned_ball.is_some())
+        .cloned()
+        .collect::<Vec<_>>();
+
+    for ball in &mut detected_balls {
+        ball.merge_weight = Some(calculate_ball_merge_factor(
+            ball,
+            vector!(context.image.width(), context.image.height()),
+            context.configuration.confidence_merge_factor,
+            context.configuration.correction_proximity_merge_factor,
+            context.configuration.image_containment_merge_factor,
+        ));
+    }
+
+    let clusters = cluster_balls(
+        &detected_balls,
+        context.configuration.cluster_merge_radius_factor,
+    );
+
+    project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius)
+}
+
+fn collect_feet(context: &CycleContext, evaluations: &[CandidateEvaluation]) -> Vec<Feet> {
+    vec![]
+}
+
+fn collect_robot_parts(context: &CycleContext, evaluations: &[CandidateEvaluation]) -> Vec<RobotPart> {
+    vec![]
 }
 
 fn preclassify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
@@ -236,7 +247,8 @@ fn evaluate_candidates(
             }
 
             let mut positioned_ball = None;
-            let mut positioned_robot = None;
+            let positioned_feet = None;
+            let positioned_robot_part = None;
 
             if let Some(ref detected_class) = detected_class {
                 match detected_class.class {
@@ -268,7 +280,8 @@ fn evaluate_candidates(
                 preclassifier_confidence,
                 classifier_confidence,
                 positioned_ball,
-                positioned_robot,
+                positioned_feet,
+                positioned_robot_part,
                 merge_weight: None,
             }
         })
@@ -501,6 +514,8 @@ mod tests {
                 center: point![50.0, 50.0],
                 radius: 32.0,
             }),
+            positioned_feet: None,
+            positioned_robot_part: None,
             merge_weight: None,
         };
         let merge_weight =
@@ -521,7 +536,8 @@ mod tests {
                 center: point![66.0, 50.0],
                 radius: 32.0,
             }),
-            positioned_robot: None,
+            positioned_feet: None,
+            positioned_robot_part: None,
             merge_weight: None,
         };
         let merge_weight =
