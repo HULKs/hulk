@@ -5,7 +5,7 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, vector, Vector2};
 use types::{
     configuration::BallDetection as BallDetectionConfiguration, image::Image, Ball, CameraMatrix,
-    CandidateEvaluation, Circle, Feet, PerspectiveGridCandidates, Rectangle, RobotPart,
+    CandidateEvaluation, Circle, Feet, PerspectiveGridCandidates, Rectangle, RobotPart, PenaltySpot,
 };
 
 pub const SAMPLE_SIZE: usize = 32;
@@ -20,6 +20,7 @@ pub struct ClassConfidences {
     ball: f32,
     feet: f32,
     robot_part: f32,
+    penalty_spot: f32,
     other: f32,
 }
 
@@ -27,6 +28,7 @@ enum DetectableClass {
     Ball,
     Feet,
     RobotPart,
+    PenaltySpot,
     Other,
 }
 
@@ -71,6 +73,7 @@ pub struct MainOutputs {
     pub balls: MainOutput<Option<Vec<Ball>>>,
     pub feet: MainOutput<Option<Vec<Feet>>>,
     pub robot_parts: MainOutput<Option<Vec<RobotPart>>>,
+    pub penalty_spot: MainOutput<Option<Vec<PenaltySpot>>>,
 }
 
 impl BallDetection {
@@ -114,11 +117,13 @@ impl BallDetection {
         let balls = collect_balls(&context, &evaluations);
         let feet = collect_feet(&context, &evaluations);
         let robot_parts = collect_robot_parts(&context, &evaluations);
+        let penalty_spot = collect_penalty_spots(&context, &evaluations);
 
         Ok(MainOutputs {
             balls: Some(balls).into(),
             feet: Some(feet).into(),
-            robot_parts: Some(robot_parts).into() 
+            robot_parts: Some(robot_parts).into(),
+            penalty_spot: Some(penalty_spot).into(),
         })
     }
 }
@@ -156,6 +161,10 @@ fn collect_robot_parts(context: &CycleContext, evaluations: &[CandidateEvaluatio
     vec![]
 }
 
+fn collect_penalty_spots(context: &CycleContext, evaluations: &[CandidateEvaluation]) -> Vec<PenaltySpot> {
+    vec![]
+}
+
 fn preclassify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
     let input = network.input(0);
     for y in 0..SAMPLE_SIZE {
@@ -179,7 +188,8 @@ fn classify_sample(network: &mut CompiledNN, sample: &Sample) -> ClassConfidence
         ball: network.output(0)[0],
         feet: network.output(1)[0],
         robot_part: network.output(2)[0],
-        other: network.output(3)[0],
+        penalty_spot: network.output(3)[0],
+        other: network.output(4)[0],
     }
 }
 
@@ -249,6 +259,7 @@ fn evaluate_candidates(
             let mut positioned_ball = None;
             let positioned_feet = None;
             let positioned_robot_part = None;
+            let positioned_penalty_spot = None;
 
             if let Some(ref detected_class) = detected_class {
                 match detected_class.class {
@@ -269,6 +280,7 @@ fn evaluate_candidates(
                     }
                     DetectableClass::Feet => todo!(),
                     DetectableClass::RobotPart => todo!(),
+                    DetectableClass::PenaltySpot => todo!(),
                     DetectableClass::Other => todo!(),
                 }
             }
@@ -282,6 +294,7 @@ fn evaluate_candidates(
                 positioned_ball,
                 positioned_feet,
                 positioned_robot_part,
+                positioned_penalty_spot,
                 merge_weight: None,
             }
         })
@@ -323,6 +336,10 @@ fn decide_detected_class(
                 confidence: classifier_confidences.robot_part,
             }),
             3 => Some(DetectedClass {
+                class: DetectableClass::PenaltySpot,
+                confidence: classifier_confidences.penalty_spot,
+            }),
+            4 => Some(DetectedClass {
                 class: DetectableClass::Other,
                 confidence: classifier_confidences.other,
             }),
@@ -516,6 +533,7 @@ mod tests {
             }),
             positioned_feet: None,
             positioned_robot_part: None,
+            positioned_penalty_spot: None,
             merge_weight: None,
         };
         let merge_weight =
@@ -538,6 +556,7 @@ mod tests {
             }),
             positioned_feet: None,
             positioned_robot_part: None,
+            positioned_penalty_spot: None,
             merge_weight: None,
         };
         let merge_weight =

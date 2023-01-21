@@ -13,6 +13,7 @@ pub struct CandidateEvaluation {
     pub positioned_ball: Option<Circle>,
     pub positioned_feet: Option<Circle>,
     pub positioned_robot_part: Option<Circle>,
+    pub positioned_penalty_spot: Option<Circle>,
     pub merge_weight: Option<f32>,
 }
 
@@ -30,6 +31,12 @@ pub struct Feet {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct RobotPart {
+    pub position: Point2<f32>,
+    pub image_location: Circle,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct PenaltySpot {
     pub position: Point2<f32>,
     pub image_location: Circle,
 }
