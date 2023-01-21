@@ -97,7 +97,9 @@ pub fn charging_skull(battery: &Battery) -> [f32; 12] {
     for (led, led_position) in led_positions.into_iter().enumerate() {
         skull[led] = if battery.charge > led_position {
             if battery.current > 0.0 {
-                interval_from_0_to_1 - led_position
+                let offsetted_seconds = interval_from_0_to_1 - led_position;
+                let fraction = 1.0 - (offsetted_seconds - offsetted_seconds.floor());
+                (fraction * 0.8) + 0.2
             } else {
                 1.0
             }
