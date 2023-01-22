@@ -18,6 +18,7 @@ struct NeuralNetworks {
     classifier: CompiledNN,
     positioner: CompiledNN,
 }
+
 pub struct ClassConfidences {
     ball: f32,
     feet: f32,
@@ -43,7 +44,6 @@ struct DetectedClass {
 
 unsafe impl Send for NeuralNetworks {}
 
-#[derive(Debug)]
 struct BallCluster<'a> {
     circle: Circle,
     members: Vec<&'a CandidateEvaluation>,
@@ -116,8 +116,8 @@ impl BallDetection {
                 .configuration
                 .maximum_number_of_candidate_evaluations,
             context.configuration.ball_radius_enlargement_factor,
-            context.configuration.preclassifier_confidence_threshold,
             context.configuration.classifier_confidence_threshold,
+            context.configuration.preclassifier_confidence_threshold,
         );
 
         context
@@ -170,21 +170,11 @@ fn collect_feet(context: &CycleContext, evaluations: &[CandidateEvaluation]) -> 
         .cloned()
         .collect::<Vec<_>>();
 
-    for ball in &mut detected_feet {
-        ball.merge_weight = Some(calculate_ball_merge_factor(
-            ball,
-            vector!(context.image.width(), context.image.height()),
-            context.configuration.confidence_merge_factor,
-            context.configuration.correction_proximity_merge_factor,
-            context.configuration.image_containment_merge_factor,
-        ));
-    }
-
-    let clusters = cluster_balls(
+    let clusters = cluster_feet(
         &detected_feet,
         context.configuration.cluster_merge_radius_factor,
     );
-
+    
     project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius)
 }
 
@@ -195,21 +185,11 @@ fn collect_robot_parts(context: &CycleContext, evaluations: &[CandidateEvaluatio
         .cloned()
         .collect::<Vec<_>>();
 
-    for ball in &mut detected_robot_parts {
-        ball.merge_weight = Some(calculate_ball_merge_factor(
-            ball,
-            vector!(context.image.width(), context.image.height()),
-            context.configuration.confidence_merge_factor,
-            context.configuration.correction_proximity_merge_factor,
-            context.configuration.image_containment_merge_factor,
-        ));
-    }
-
-    let clusters = cluster_balls(
+    let clusters = cluster_robot_parts(
         &detected_robot_parts,
         context.configuration.cluster_merge_radius_factor,
     );
-
+    
     project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius)
 }
 
@@ -220,21 +200,11 @@ fn collect_penalty_spots(context: &CycleContext, evaluations: &[CandidateEvaluat
         .cloned()
         .collect::<Vec<_>>();
 
-    for ball in &mut detected_penalty_spots {
-        ball.merge_weight = Some(calculate_ball_merge_factor(
-            ball,
-            vector!(context.image.width(), context.image.height()),
-            context.configuration.confidence_merge_factor,
-            context.configuration.correction_proximity_merge_factor,
-            context.configuration.image_containment_merge_factor,
-        ));
-    }
-
-    let clusters = cluster_balls(
+    let clusters = cluster_penalty_spots(
         &detected_penalty_spots,
         context.configuration.cluster_merge_radius_factor,
     );
-
+    
     project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius)
 }
 
@@ -302,7 +272,7 @@ fn evaluate_candidates(
     networks: &mut NeuralNetworks,
     maximum_number_of_candidate_evaluations: usize,
     ball_radius_enlargement_factor: f32,
-    ball_confidence_threshold: f32,
+    classifier_confidence_threshold: f32,
     preclassifier_confidence_threshold: f32,
 ) -> Vec<CandidateEvaluation> {
     let preclassifier = &mut networks.preclassifier;
@@ -323,10 +293,8 @@ fn evaluate_candidates(
             let mut detected_class = None;
             if preclassifier_confidence > preclassifier_confidence_threshold {
                 let classifier_confidences = classify_sample(classifier, &sample);
-                detected_class = decide_detected_class(
-                    classifier_confidences,
-                    0.5, // todo: parameter
-                );
+                detected_class =
+                    decide_detected_class(classifier_confidences, classifier_confidence_threshold);
             }
 
             let mut positioned_ball = None;
@@ -337,36 +305,34 @@ fn evaluate_candidates(
             if let Some(ref detected_class) = detected_class {
                 match detected_class.class {
                     DetectableClass::Ball => {
-                        if detected_class.confidence > ball_confidence_threshold {
-                            let raw_positioned_ball = position_sample(positioner, &sample);
+                        let raw_positioned_ball = position_sample(positioner, &sample);
 
-                            positioned_ball = Some(Circle {
-                                center: candidate.center
-                                    + (raw_positioned_ball.center.coords - vector![0.5, 0.5])
-                                        * (candidate.radius * 2.0)
-                                        * ball_radius_enlargement_factor,
-                                radius: raw_positioned_ball.radius
-                                    * candidate.radius
+                        positioned_ball = Some(Circle {
+                            center: candidate.center
+                                + (raw_positioned_ball.center.coords - vector![0.5, 0.5])
+                                    * (candidate.radius * 2.0)
                                     * ball_radius_enlargement_factor,
-                            });
-                        }
+                            radius: raw_positioned_ball.radius
+                                * candidate.radius
+                                * ball_radius_enlargement_factor,
+                        });
                     }
                     DetectableClass::Feet => {
                         positioned_feet = Some(Circle {
                             center: candidate.center,
-                            radius: 3.0,
+                            radius: 50.0,
                         })
                     }
                     DetectableClass::RobotPart => {
                         positioned_robot_part = Some(Circle {
                             center: candidate.center,
-                            radius: 5.0,
+                            radius: 60.0,
                         })
                     }
                     DetectableClass::PenaltySpot => {
                         positioned_penalty_spot = Some(Circle {
                             center: candidate.center,
-                            radius: 7.0,
+                            radius: 70.0,
                         })
                     }
                     DetectableClass::Other => {}
@@ -391,7 +357,7 @@ fn evaluate_candidates(
 
 fn decide_detected_class(
     classifier_confidences: ClassConfidences,
-    acceptance_threshold: f32,
+    classifier_confidence_threshold: f32,
 ) -> Option<DetectedClass> {
     use DetectableClass::{Ball, Feet, PenaltySpot, RobotPart};
     let confidences = [
@@ -407,7 +373,7 @@ fn decide_detected_class(
         .expect("There are always multiple elements in the confidence array");
 
     let detected_class = confidences[most_probable_class];
-    if detected_class.confidence > acceptance_threshold {
+    if detected_class.confidence > classifier_confidence_threshold {
         Some(detected_class)
     } else {
         None
@@ -490,6 +456,74 @@ fn cluster_balls(balls: &[CandidateEvaluation], merge_radius_factor: f32) -> Vec
     clusters
 }
 
+fn cluster_feet(objects: &[CandidateEvaluation], merge_radius_factor: f32) -> Vec<BallCluster> {
+    let mut clusters = Vec::<BallCluster>::new();
+
+    for test_object in objects {
+        let ball_circle = test_object.positioned_feet.unwrap();
+        match clusters.iter_mut().find(|cluster| {
+            (cluster.circle.center - ball_circle.center).norm_squared()
+                < (cluster.circle.radius * merge_radius_factor).powi(2)
+        }) {
+            Some(cluster) => {
+                cluster.members.push(test_object);
+                cluster.circle = merge_balls(cluster.members.as_slice());
+            }
+            None => clusters.push(BallCluster {
+                circle: ball_circle,
+                members: vec![test_object],
+            }),
+        }
+    }
+
+    clusters
+}
+
+fn cluster_robot_parts(objects: &[CandidateEvaluation], merge_radius_factor: f32) -> Vec<BallCluster> {
+    let mut clusters = Vec::<BallCluster>::new();
+
+    for test_object in objects {
+        let ball_circle = test_object.positioned_robot_part.unwrap();
+        match clusters.iter_mut().find(|cluster| {
+            (cluster.circle.center - ball_circle.center).norm_squared()
+                < (cluster.circle.radius * merge_radius_factor).powi(2)
+        }) {
+            Some(cluster) => {
+                cluster.members.push(test_object);
+                cluster.circle = merge_balls(cluster.members.as_slice());
+            }
+            None => clusters.push(BallCluster {
+                circle: ball_circle,
+                members: vec![test_object],
+            }),
+        }
+    }
+
+    clusters
+}
+
+fn cluster_penalty_spots(objects: &[CandidateEvaluation], merge_radius_factor: f32) -> Vec<BallCluster> {
+    let mut clusters = Vec::<BallCluster>::new();
+
+    for test_object in objects {
+        let ball_circle = test_object.positioned_penalty_spot.unwrap();
+        match clusters.iter_mut().find(|cluster| {
+            (cluster.circle.center - ball_circle.center).norm_squared()
+                < (cluster.circle.radius * merge_radius_factor).powi(2)
+        }) {
+            Some(cluster) => {
+                cluster.members.push(test_object);
+                cluster.circle = merge_balls(cluster.members.as_slice());
+            }
+            None => clusters.push(BallCluster {
+                circle: ball_circle,
+                members: vec![test_object],
+            }),
+        }
+    }
+
+    clusters
+}
 fn project_balls_to_ground(
     clusters: &[BallCluster],
     camera_matrix: &CameraMatrix,
