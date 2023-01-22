@@ -40,6 +40,7 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> Result<()
             let file_path = repository
                 .find_latest_file(&format!("target/**/{crate_name}-*/**/{file_name}"))
                 .wrap_err("failed find latest build script output")?;
+            println!("{}", file_path.display());
             PrettyPrinter::new()
                 .input_file(file_path)
                 .grid(true)
@@ -72,6 +73,7 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> Result<()
             let file_path = repository
                 .find_latest_file(&format!("target/**/out/**/{file_name}"))
                 .wrap_err("failed find latest generated file")?;
+            println!("{}", file_path.display());
             PrettyPrinter::new()
                 .input_file(file_path)
                 .grid(true)
