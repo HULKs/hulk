@@ -2,6 +2,7 @@
 members = [
   "crates/aliveness",
   "crates/audio",
+  "crates/behavior_simulator",
   "crates/build_script_helpers",
   "crates/code_generation",
   "crates/communication",

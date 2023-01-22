@@ -336,6 +336,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "behavior_simulator"
+version = "0.1.0"
+dependencies = [
+ "alsa",
+ "build_script_helpers",
+ "chrono",
+ "code_generation",
+ "color-eyre",
+ "communication",
+ "control",
+ "ctrlc",
+ "cyclers",
+ "fern",
+ "framework",
+ "i2cdev",
+ "log",
+ "nalgebra",
+ "nao_camera",
+ "parking_lot",
+ "quote",
+ "rand",
+ "serde",
+ "serde_json",
+ "serialize_hierarchy",
+ "source_analyzer",
+ "structs",
+ "tokio",
+ "tokio-util",
+ "types",
+ "v4l",
+ "webots",
+]
+
+[[package]]
 name = "bincode"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
