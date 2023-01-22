@@ -4,11 +4,14 @@ use std::{
     path::Path,
 };
 
+use std::str::from_utf8;
+    
 use color_eyre::{
     eyre::{bail, eyre, WrapErr},
     Result,
 };
 use tokio::process::Command;
+use hulks_os_version::HULKS_OS_VERSION;
 
 pub struct Nao {
     pub host: Ipv4Addr,
@@ -20,29 +23,24 @@ impl Nao {
     }
 
     pub async fn has_stable_os_version(&self) -> bool {
-        let os_stable = "5.2.0";
         let output = self
             .ssh_to_nao()
             .arg("cat /etc/os-release")
             .output()
             .await
             .unwrap();
-
-        let stdout = String::from_utf8(output.stdout).unwrap();
-
-
-	let Some(os_version) = extract_version_num(&stdout) else {
+	let stdout = from_utf8(&output.stdout).unwrap();
+	let Some(os_version) = extract_version_number(stdout) else {
 	    println!("No version on {} detected!", self.host);
 	    return false
 	};
-	
-	if os_version != os_stable {
+	if os_version != HULKS_OS_VERSION {
 	    println!("Unstable version on {}", self.host);
-            println!("Use '--skip-check-os' if you still want to proceed");
-            println!("Installed OS: {os_version}, stable OS: {os_stable}");
+            println!("Use '--skip-has-stable-os-version' if you still want to proceed");
+            println!("Installed OS: {os_version}, stable OS: {HULKS_OS_VERSION}");
         }
 	
-        return os_version == os_stable;
+        os_version == HULKS_OS_VERSION
     }
 
     fn get_ssh_flags(&self) -> Vec<String> {
@@ -130,7 +128,7 @@ impl Nao {
             .wrap_err("failed to remove the log directory")?;
 
         if !status.success() {
-            bail!("rm ssh command exited with {status}");
+	    bail!("rm ssh command exited with {status}");
         }
 
         Ok(())
@@ -288,10 +286,8 @@ impl Nao {
                 _ => format!("connect {network}"),
             }
         );
-
         let mut command = self.ssh_to_nao();
         command.arg(command_string);
-
         let status = command
             .status()
             .await
@@ -356,7 +352,7 @@ impl Display for Network {
     }
 }
 
-fn extract_version_num(input:&str) -> Option<String>{
+fn extract_version_number(input:&str) -> Option<String>{
     let lines = input.lines();
         for line in lines {
             if line.contains("VERSION_ID") {
@@ -365,14 +361,14 @@ fn extract_version_num(input:&str) -> Option<String>{
             }
         }
    None
-}    
+}
+
 #[cfg(test)]
 mod test {
-    
     use super::*;
     
     #[test]
-    fn extracts_version_num() {
+    fn extracts_version_number() {
         let input = r#"ID=hulks-os
     NAME="HULKs-OS"
     VERSION="5.1.3 (langdale)"
@@ -380,8 +376,7 @@ mod test {
     PRETTY_NAME="HULKs-OS 5.1.3 (langdale)"
     DISTRO_CODENAME="langdale"#;
 
-        let output = extract_version_num(input);
+        let output = extract_version_number(input);
         assert_eq!(output, Some("5.1.3".to_string()));
     }
-    
 }
