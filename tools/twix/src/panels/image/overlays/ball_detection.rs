@@ -9,8 +9,11 @@ use crate::{panels::image::overlay::Overlay, value_buffer::ValueBuffer};
 
 pub struct BallDetection {
     balls: ValueBuffer,
+    feet: ValueBuffer,
+    robot_parts: ValueBuffer,
+    penalty_spot: ValueBuffer,
     filtered_balls: ValueBuffer,
-    ball_candidates: ValueBuffer,
+    object_candidates: ValueBuffer,
 }
 
 impl Overlay for BallDetection {
@@ -26,6 +29,15 @@ impl Overlay for BallDetection {
             balls: nao.subscribe_output(
                 CyclerOutput::from_str(&format!("{}.main.balls", selected_cycler)).unwrap(),
             ),
+            feet: nao.subscribe_output(
+                CyclerOutput::from_str(&format!("{}.main.feet", selected_cycler)).unwrap(),
+            ),
+            robot_parts: nao.subscribe_output(
+                CyclerOutput::from_str(&format!("{}.main.robot_part", selected_cycler)).unwrap(),
+            ),
+            penalty_spot: nao.subscribe_output(
+                CyclerOutput::from_str(&format!("{}.main.penalty_spot", selected_cycler)).unwrap(),
+            ),
             filtered_balls: nao.subscribe_output(
                 CyclerOutput::from_str(&format!(
                     "Control.additional.filtered_balls_in_image_{}",
@@ -33,8 +45,8 @@ impl Overlay for BallDetection {
                 ))
                 .unwrap(),
             ),
-            ball_candidates: nao.subscribe_output(
-                CyclerOutput::from_str(&format!("{}.additional.ball_candidates", selected_cycler))
+            object_candidates: nao.subscribe_output(
+                CyclerOutput::from_str(&format!("{}.additional.object_candidates", selected_cycler))
                     .unwrap(),
             ),
         }
@@ -46,8 +58,8 @@ impl Overlay for BallDetection {
             painter.circle_stroke(circle.center, circle.radius, Stroke::new(3.0, Color32::RED));
         }
 
-        let ball_candidates: Vec<CandidateEvaluation> = self.ball_candidates.require_latest()?;
-        for candidate in ball_candidates.iter() {
+        let object_candidates: Vec<CandidateEvaluation> = self.object_candidates.require_latest()?;
+        for candidate in object_candidates.iter() {
             let circle = candidate.grid_element;
             painter.circle_stroke(
                 circle.center,
@@ -65,8 +77,38 @@ impl Overlay for BallDetection {
                 Stroke::new(2.0, Color32::GREEN),
             );
         }
+        
+        let feet: Vec<Ball> = self.feet.require_latest()?;
+        for penalty_spot in feet.iter() {
+            let circle = penalty_spot.image_location;
+            painter.circle_stroke(
+                circle.center,
+                circle.radius,
+                Stroke::new(2.0, Color32::DARK_RED),
+            );
+        }
 
-        for candidate in ball_candidates.iter() {
+        let robot_part: Vec<Ball> = self.robot_parts.require_latest()?;
+        for penalty_spot in robot_part.iter() {
+            let circle = penalty_spot.image_location;
+            painter.circle_stroke(
+                circle.center,
+                circle.radius,
+                Stroke::new(2.0, Color32::GRAY),
+            );
+        }
+
+        let penalty_spots: Vec<Ball> = self.penalty_spot.require_latest()?;
+        for penalty_spot in penalty_spots.iter() {
+            let circle = penalty_spot.image_location;
+            painter.circle_stroke(
+                circle.center,
+                circle.radius,
+                Stroke::new(2.0, Color32::DARK_GREEN),
+            );
+        }
+
+        for candidate in object_candidates.iter() {
             if let Some(circle) = candidate.positioned_ball {
                 painter.circle_stroke(
                     circle.center,
