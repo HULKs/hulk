@@ -12,6 +12,7 @@ members = [
   "crates/filtering",
   "crates/framework",
   "crates/hulk",
+  "crates/hulks_os_version",
   "crates/kinematics",
   "crates/nao",
   "crates/nao_camera",
@@ -76,6 +77,8 @@ fuzzy-matcher = "0.3.7"
 glob = "0.3.0"
 hardware = { path = "crates/hardware" }
 home = "0.5.4"
+hostname = "0.3.1"
+hulks_os_version = { path="crates/hulks_os_version" }
 i2cdev = "0.5.1"
 image = "0.24.4"
 itertools = "0.10.5"

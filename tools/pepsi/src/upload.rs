@@ -93,13 +93,11 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         async move {
             let nao = Nao::new(nao_address.ip);
 
-            if !arguments.skip_has_stable_os_version {
-                if !nao.has_stable_os_version().await {
-                    return Ok(());
-                }
+            if !arguments.skip_has_stable_os_version && !nao.has_stable_os_version().await {
+		return Ok(());
             }
+	    
             println!("Starting upload to {nao_address}");
-
             nao.upload(hulk_directory, !arguments.no_clean)
                 .await
                 .wrap_err_with(|| format!("failed to power {nao_address} off"))
