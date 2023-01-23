@@ -1,3 +1,5 @@
+use std::vec;
+
 use color_eyre::Result;
 use compiled_nn::CompiledNN;
 use context_attribute::context;
@@ -6,8 +8,8 @@ use itertools::Itertools;
 use nalgebra::{point, vector, Vector2};
 use types::{
     configuration::BallDetection as BallDetectionConfiguration, image::Image, Ball, CameraMatrix,
-    CandidateEvaluation, Circle, Feet, PenaltySpot, PerspectiveGridCandidates, Rectangle,
-    RobotPart,
+    CandidateEvaluation, Circle, ClassConfidences, DetectableClass, DetectedClass, Feet,
+    PenaltySpot, PerspectiveGridCandidates, Rectangle, RobotPart,
 };
 
 pub const SAMPLE_SIZE: usize = 32;
@@ -17,29 +19,6 @@ struct NeuralNetworks {
     preclassifier: CompiledNN,
     classifier: CompiledNN,
     positioner: CompiledNN,
-}
-
-pub struct ClassConfidences {
-    ball: f32,
-    feet: f32,
-    robot_part: f32,
-    penalty_spot: f32,
-    other: f32,
-}
-
-#[derive(Clone, Copy)]
-enum DetectableClass {
-    Ball,
-    Feet,
-    RobotPart,
-    PenaltySpot,
-    Other,
-}
-
-#[derive(Clone, Copy)]
-struct DetectedClass {
-    class: DetectableClass,
-    confidence: f32,
 }
 
 unsafe impl Send for NeuralNetworks {}
@@ -61,6 +40,7 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub object_candidates: AdditionalOutput<Vec<CandidateEvaluation>, "object_candidates">,
+    pub classifier_confidences: AdditionalOutput<Vec<f32>, "classifier_confidences">,
 
     pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     pub perspective_grid_candidates:
@@ -78,12 +58,6 @@ pub struct MainOutputs {
     pub feet: MainOutput<Option<Vec<Ball>>>,
     pub robot_parts: MainOutput<Option<Vec<Ball>>>,
     pub penalty_spot: MainOutput<Option<Vec<Ball>>>,
-}
-
-impl DetectedClass {
-    fn new(class: DetectableClass, confidence: f32) -> Self {
-        DetectedClass { class, confidence }
-    }
 }
 
 impl BallDetection {
@@ -109,6 +83,7 @@ impl BallDetection {
         let candidates = &context.perspective_grid_candidates.candidates;
 
         let evaluations = evaluate_candidates(
+            &context,
             candidates,
             context.image,
             &mut self.neural_networks,
@@ -174,7 +149,7 @@ fn collect_feet(context: &CycleContext, evaluations: &[CandidateEvaluation]) -> 
         &detected_feet,
         context.configuration.cluster_merge_radius_factor,
     );
-    
+
     project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius)
 }
 
@@ -189,7 +164,7 @@ fn collect_robot_parts(context: &CycleContext, evaluations: &[CandidateEvaluatio
         &detected_robot_parts,
         context.configuration.cluster_merge_radius_factor,
     );
-    
+
     project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius)
 }
 
@@ -204,7 +179,7 @@ fn collect_penalty_spots(context: &CycleContext, evaluations: &[CandidateEvaluat
         &detected_penalty_spots,
         context.configuration.cluster_merge_radius_factor,
     );
-    
+
     project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius)
 }
 
@@ -267,6 +242,7 @@ fn sample_grayscale(image: &Image, candidate: Circle) -> Sample {
 }
 
 fn evaluate_candidates(
+    context: &mut object_detection::CycleContext<'_>,
     candidates: &[Circle],
     image: &Image,
     networks: &mut NeuralNetworks,
@@ -293,6 +269,16 @@ fn evaluate_candidates(
             let mut detected_class = None;
             if preclassifier_confidence > preclassifier_confidence_threshold {
                 let classifier_confidences = classify_sample(classifier, &sample);
+
+                context.classifier_confidences.fill_if_subscribed(|| {
+                    vec![
+                        classifier_confidences.ball.clone(),
+                        classifier_confidences.feet.clone(),
+                        classifier_confidences.robot_part.clone(),
+                        classifier_confidences.penalty_spot.clone(),
+                    ]
+                });
+
                 detected_class =
                     decide_detected_class(classifier_confidences, classifier_confidence_threshold);
             }
@@ -479,7 +465,10 @@ fn cluster_feet(objects: &[CandidateEvaluation], merge_radius_factor: f32) -> Ve
     clusters
 }
 
-fn cluster_robot_parts(objects: &[CandidateEvaluation], merge_radius_factor: f32) -> Vec<BallCluster> {
+fn cluster_robot_parts(
+    objects: &[CandidateEvaluation],
+    merge_radius_factor: f32,
+) -> Vec<BallCluster> {
     let mut clusters = Vec::<BallCluster>::new();
 
     for test_object in objects {
@@ -502,7 +491,10 @@ fn cluster_robot_parts(objects: &[CandidateEvaluation], merge_radius_factor: f32
     clusters
 }
 
-fn cluster_penalty_spots(objects: &[CandidateEvaluation], merge_radius_factor: f32) -> Vec<BallCluster> {
+fn cluster_penalty_spots(
+    objects: &[CandidateEvaluation],
+    merge_radius_factor: f32,
+) -> Vec<BallCluster> {
     let mut clusters = Vec::<BallCluster>::new();
 
     for test_object in objects {

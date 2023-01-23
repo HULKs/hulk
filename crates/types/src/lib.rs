@@ -1,4 +1,3 @@
-mod objects;
 pub mod ball_filter_hypothesis;
 mod ball_position;
 mod buttons;
@@ -37,6 +36,7 @@ pub mod messages;
 mod motion_command;
 mod motion_file;
 mod motion_selection;
+mod objects;
 pub mod obstacle_filter_hypothesis;
 mod obstacles;
 pub mod orientation_filter;
@@ -64,7 +64,6 @@ mod world_state;
 
 // TODO: convert all "mod" to "pub mod"
 
-pub use objects::{Ball, Feet, RobotPart, PenaltySpot, CandidateEvaluation};
 pub use ball_position::BallPosition;
 pub use buttons::Buttons;
 pub use camera_matrix::{CameraMatrices, CameraMatrix, Horizon, ProjectedFieldLines};
@@ -107,6 +106,10 @@ pub use motion_command::{
 };
 pub use motion_file::{MotionFile, MotionFileInterpolator};
 pub use motion_selection::{MotionSafeExits, MotionSelection, MotionType};
+pub use objects::{
+    Ball, CandidateEvaluation, ClassConfidences, DetectableClass, DetectedClass, Feet, PenaltySpot,
+    RobotPart,
+};
 pub use obstacles::{Obstacle, ObstacleKind};
 pub use path_obstacles::{PathObstacle, PathObstacleShape};
 pub use penalty_shot_direction::PenaltyShotDirection;

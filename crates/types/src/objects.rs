@@ -18,6 +18,36 @@ pub struct CandidateEvaluation {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct ClassConfidences {
+    pub ball: f32,
+    pub feet: f32,
+    pub robot_part: f32,
+    pub penalty_spot: f32,
+    pub other: f32,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub enum DetectableClass {
+    Ball,
+    Feet,
+    RobotPart,
+    PenaltySpot,
+    Other,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub struct DetectedClass {
+    pub class: DetectableClass,
+    pub confidence: f32,
+}
+
+impl DetectedClass {
+    pub fn new(class: DetectableClass, confidence: f32) -> Self {
+        DetectedClass { class, confidence }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct Ball {
     pub position: Point2<f32>,
     pub image_location: Circle,
