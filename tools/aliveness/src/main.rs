@@ -4,6 +4,7 @@ use std::{
     mem::size_of,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
     ptr::read,
+    time::Duration,
 };
 
 use color_eyre::eyre::{bail, eyre, ContextCompat, Result, WrapErr};
@@ -16,7 +17,9 @@ use tokio::{
     io::AsyncReadExt,
     net::{UdpSocket, UnixStream},
     select,
+    sync::{mpsc, oneshot},
     task::JoinHandle,
+    time::interval,
 };
 use tokio_util::sync::CancellationToken;
 use zbus::{
@@ -27,6 +30,7 @@ use zbus::{
 mod service_manager;
 
 const HULA_SOCKET_PATH: &str = "/tmp/hula";
+const HULA_RETRY_TIMEOUT: Duration = Duration::from_secs(5);
 const BEACON_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 42);
 const BEACON_PORT: u16 = 4242;
 const BEACON_HEADER: &[u8; 6] = b"BEACON";
@@ -51,10 +55,57 @@ async fn load_hulks_os_version() -> Result<String> {
         .ok_or_else(|| eyre!("no VERSION_ID in {OS_RELEASE_PATH}"))
 }
 
-async fn read_from_hula(stream: &mut UnixStream) -> Result<RobotState> {
-    let mut read_buffer = [0; size_of::<RobotState>()];
-    stream.read_exact(&mut read_buffer).await?;
-    Ok(unsafe { read(read_buffer.as_ptr() as *const RobotState) })
+struct HulaService {
+    sender: mpsc::Sender<oneshot::Sender<RobotState>>,
+}
+
+impl HulaService {
+    fn new() -> Self {
+        let (tx, mut rx) = mpsc::channel::<oneshot::Sender<RobotState>>(1);
+
+        tokio::spawn(async move {
+            let mut read_buffer = [0; size_of::<RobotState>()];
+            let mut stream_opt = None;
+            let mut interval = interval(HULA_RETRY_TIMEOUT);
+
+            while let Some(response_channel) = rx.recv().await {
+                loop {
+                    let mut stream = match stream_opt {
+                        Some(stream) => stream,
+                        None => loop {
+                            match UnixStream::connect(HULA_SOCKET_PATH).await {
+                                Ok(stream) => break stream,
+                                Err(_) => {
+                                    info!(
+                                        "Could not connect to HuLA socket, trying again in {}s...",
+                                        HULA_RETRY_TIMEOUT.as_secs()
+                                    );
+                                    interval.tick().await;
+                                }
+                            }
+                        },
+                    };
+                    if stream.read_exact(&mut read_buffer).await.is_ok() {
+                        let state = unsafe { read(read_buffer.as_ptr() as *const RobotState) };
+                        stream_opt = Some(stream);
+                        response_channel
+                            .send(state)
+                            .expect("failed to send response");
+                        break;
+                    }
+                    stream_opt = None;
+                }
+            }
+        });
+
+        Self { sender: tx }
+    }
+
+    pub async fn read_from_hula(&mut self) -> Result<RobotState> {
+        let (tx, rx) = oneshot::channel();
+        self.sender.send(tx).await?;
+        Ok(rx.await?)
+    }
 }
 
 struct RobotInfo {
@@ -221,10 +272,6 @@ async fn join_multicast(
 ) -> Result<AlivenessService> {
     let mut robot_info = RobotInfo::initialize().await?;
 
-    let mut hula = UnixStream::connect(HULA_SOCKET_PATH)
-        .await
-        .wrap_err("failed to connect to HuLA socket")?;
-
     let socket = UdpSocket::bind(SocketAddrV4::new(BEACON_MULTICAST_GROUP, BEACON_PORT))
         .await
         .wrap_err("failed to bind beacon socket")?;
@@ -241,13 +288,14 @@ async fn join_multicast(
 
         tokio::spawn(async move {
             let mut buffer = [0; 1024];
+            let mut hula_service = HulaService::new();
 
             loop {
                 select! {
                     _ = token.cancelled() => {
                         break;
                     }
-                    result = read_from_hula(&mut hula) => {
+                    result = hula_service.read_from_hula() => {
                         let robot_state = result.wrap_err("failed to read from hula").unwrap();
                         robot_info.body_id = Some(
                             String::from_utf8(robot_state.robot_configuration.body_id.to_vec())
@@ -283,7 +331,7 @@ async fn join_multicast(
 async fn main() -> Result<()> {
     env_logger::init();
 
-    let interface_name = env::args().skip(1).next().unwrap_or("enp4s0".to_owned());
+    let interface_name = env::args().nth(1).unwrap_or_else(|| "enp4s0".to_owned());
 
     listen_for_network_change(interface_name).await
 }
