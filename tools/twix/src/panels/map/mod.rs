@@ -14,56 +14,63 @@ mod layers;
 
 pub struct MapPanel {
     field_dimensions: ValueBuffer,
+    transformation: Similarity2<f32>,
+
+    ball_position: EnabledLayer<layers::BallPosition>,
     field: EnabledLayer<layers::Field>,
     image_segments: EnabledLayer<layers::ImageSegments>,
-    robot_pose: EnabledLayer<layers::RobotPose>,
-    ball_position: EnabledLayer<layers::BallPosition>,
-    obstacles: EnabledLayer<layers::Obstacles>,
-    path_obstacles: EnabledLayer<layers::PathObstacles>,
-    path: EnabledLayer<layers::Path>,
     kick_decisions: EnabledLayer<layers::KickDecisions>,
-    transformation: Similarity2<f32>,
+    lines: EnabledLayer<layers::Lines>,
+    obstacles: EnabledLayer<layers::Obstacles>,
+    path: EnabledLayer<layers::Path>,
+    path_obstacles: EnabledLayer<layers::PathObstacles>,
+    robot_pose: EnabledLayer<layers::RobotPose>,
 }
 
 impl Panel for MapPanel {
     const NAME: &'static str = "Map";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
+        let ball_position = EnabledLayer::new(nao.clone(), value, false);
         let field = EnabledLayer::new(nao.clone(), value, true);
         let image_segments = EnabledLayer::new(nao.clone(), value, false);
-        let robot_pose = EnabledLayer::new(nao.clone(), value, true);
-        let ball_position = EnabledLayer::new(nao.clone(), value, false);
-        let obstacles = EnabledLayer::new(nao.clone(), value, false);
-        let path_obstacles = EnabledLayer::new(nao.clone(), value, false);
-        let path = EnabledLayer::new(nao.clone(), value, false);
         let kick_decisions = EnabledLayer::new(nao.clone(), value, false);
+        let lines = EnabledLayer::new(nao.clone(), value, false);
+        let obstacles = EnabledLayer::new(nao.clone(), value, false);
+        let path = EnabledLayer::new(nao.clone(), value, false);
+        let path_obstacles = EnabledLayer::new(nao.clone(), value, false);
+        let robot_pose = EnabledLayer::new(nao.clone(), value, true);
 
         let field_dimensions = nao.subscribe_parameter("field_dimensions");
         let transformation = Similarity2::identity();
         Self {
             field_dimensions,
+            transformation,
+
+            ball_position,
             field,
             image_segments,
-            robot_pose,
-            ball_position,
-            obstacles,
-            path_obstacles,
-            path,
             kick_decisions,
-            transformation,
+            lines,
+            obstacles,
+            path,
+            path_obstacles,
+            robot_pose,
         }
     }
 
     fn save(&self) -> Value {
         json!({
             "field": self.field.save(),
-            "image_segments": self.image_segments.save(),
-            "robot_pose": self.robot_pose.save(),
+
             "ball_position": self.ball_position.save(),
-            "obstacles": self.obstacles.save(),
-            "path_obstacles": self.path_obstacles.save(),
-            "path": self.path.save(),
+            "image_segments": self.image_segments.save(),
             "kick_decisions": self.kick_decisions.save(),
+            "lines": self.lines.save(),
+            "obstacles": self.obstacles.save(),
+            "path": self.path.save(),
+            "path_obstacles": self.path_obstacles.save(),
+            "robot_pose": self.robot_pose.save(),
         })
     }
 }
@@ -71,14 +78,15 @@ impl Panel for MapPanel {
 impl Widget for &mut MapPanel {
     fn ui(self, ui: &mut Ui) -> eframe::egui::Response {
         ui.menu_button("Overlays", |ui| {
+            self.ball_position.checkbox(ui);
             self.field.checkbox(ui);
             self.image_segments.checkbox(ui);
-            self.robot_pose.checkbox(ui);
-            self.ball_position.checkbox(ui);
-            self.obstacles.checkbox(ui);
-            self.path_obstacles.checkbox(ui);
-            self.path.checkbox(ui);
             self.kick_decisions.checkbox(ui);
+            self.lines.checkbox(ui);
+            self.obstacles.checkbox(ui);
+            self.path.checkbox(ui);
+            self.path_obstacles.checkbox(ui);
+            self.robot_pose.checkbox(ui);
         });
 
         let field_dimensions: FieldDimensions = match self.field_dimensions.get_latest() {
@@ -89,14 +97,15 @@ impl Widget for &mut MapPanel {
         let mut painter = painter.with_map_transforms(&field_dimensions);
         painter.append_transform(self.transformation);
 
+        let _ = self.ball_position.paint(&painter, &field_dimensions);
         let _ = self.field.paint(&painter, &field_dimensions);
         let _ = self.image_segments.paint(&painter, &field_dimensions);
-        let _ = self.robot_pose.paint(&painter, &field_dimensions);
-        let _ = self.ball_position.paint(&painter, &field_dimensions);
-        let _ = self.obstacles.paint(&painter, &field_dimensions);
-        let _ = self.path_obstacles.paint(&painter, &field_dimensions);
-        let _ = self.path.paint(&painter, &field_dimensions);
         let _ = self.kick_decisions.paint(&painter, &field_dimensions);
+        let _ = self.lines.paint(&painter, &field_dimensions);
+        let _ = self.obstacles.paint(&painter, &field_dimensions);
+        let _ = self.path.paint(&painter, &field_dimensions);
+        let _ = self.path_obstacles.paint(&painter, &field_dimensions);
+        let _ = self.robot_pose.paint(&painter, &field_dimensions);
 
         if let Some(pointer_position) = ui.input().pointer.interact_pos() {
             let pointer_in_world_before_zoom = painter.transform_pixel_to_world(pointer_position);
