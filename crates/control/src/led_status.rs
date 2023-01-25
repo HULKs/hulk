@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::{Ball, CycleTime, Eye, Leds, PrimaryState, Rgb, SensorData};
+use types::{Ball, CycleTime, Eye, Leds, PrimaryState, Rgb};
 
 pub struct LedStatus {
     blink_state: bool,
@@ -18,7 +18,6 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub primary_state: Input<PrimaryState, "primary_state">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
