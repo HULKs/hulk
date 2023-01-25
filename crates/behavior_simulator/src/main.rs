@@ -30,14 +30,14 @@ fn setup_logger(is_verbose: bool) -> Result<(), fern::InitError> {
 }
 
 fn run(keep_running: CancellationToken) -> Result<()> {
-    let interface = Interfake {}.into();
+    let interface = Interfake::default().into();
     let communication_server = Runtime::<structs::Configuration>::start(
         Some("[::]:1337"),
         "etc/configuration",
         "behavior_simulator".to_string(),
         "behavior_simulator".to_string(),
         2,
-        keep_running.clone(),
+        keep_running,
     )?;
 
     let (control_writer, control_reader) = framework::multiple_buffer_with_slots([
@@ -68,22 +68,7 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         control_subscribed_outputs_writer,
     );
 
-    let control_handle = control_cycler
-        .start(keep_running)
-        .wrap_err("failed to start cycler `Control`")?;
-
     let mut encountered_error = false;
-    match control_handle.join() {
-        Ok(Err(error)) => {
-            encountered_error = true;
-            println!("{error:?}");
-        }
-        Err(error) => {
-            encountered_error = true;
-            println!("{error:?}");
-        }
-        _ => {}
-    }
     match communication_server.join() {
         Ok(Err(error)) => {
             encountered_error = true;
