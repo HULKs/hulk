@@ -349,6 +349,96 @@ impl<T: Serialize + DeserializeOwned + Clone + Scalar, const N: usize> Serialize
     }
 }
 
+impl<T: Serialize + DeserializeOwned + Clone + Scalar> SerializeHierarchy for Point2<T> {
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        self.coords.serialize_path::<S>(path)
+    }
+
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        self.coords.deserialize_path::<S>(path, _data)
+    }
+
+    fn exists(path: &str) -> bool {
+        Vector2::<T>::exists(path)
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        Vector2::<T>::get_fields()
+    }
+}
+
+impl<T: Serialize + DeserializeOwned + Clone + Scalar> SerializeHierarchy for Point3<T> {
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        self.coords.serialize_path::<S>(path)
+    }
+
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        self.coords.deserialize_path::<S>(path, _data)
+    }
+
+    fn exists(path: &str) -> bool {
+        Vector3::<T>::exists(path)
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        Vector3::<T>::get_fields()
+    }
+}
+
+impl<T: Serialize + DeserializeOwned + Clone + Scalar> SerializeHierarchy for Point4<T> {
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        self.coords.serialize_path::<S>(path)
+    }
+
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        self.coords.deserialize_path::<S>(path, _data)
+    }
+
+    fn exists(path: &str) -> bool {
+        Vector4::<T>::exists(path)
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        Vector4::<T>::get_fields()
+    }
+}
+
 macro_rules! serialize_hierarchy_primary_impl {
     ($type:ty) => {
         impl SerializeHierarchy for $type {
