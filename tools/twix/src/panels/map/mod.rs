@@ -16,30 +16,30 @@ pub struct MapPanel {
     field_dimensions: ValueBuffer,
     transformation: Similarity2<f32>,
 
-    ball_position: EnabledLayer<layers::BallPosition>,
     field: EnabledLayer<layers::Field>,
     image_segments: EnabledLayer<layers::ImageSegments>,
-    kick_decisions: EnabledLayer<layers::KickDecisions>,
     lines: EnabledLayer<layers::Lines>,
+    path_obstacles: EnabledLayer<layers::PathObstacles>,
     obstacles: EnabledLayer<layers::Obstacles>,
     path: EnabledLayer<layers::Path>,
-    path_obstacles: EnabledLayer<layers::PathObstacles>,
     robot_pose: EnabledLayer<layers::RobotPose>,
+    ball_position: EnabledLayer<layers::BallPosition>,
+    kick_decisions: EnabledLayer<layers::KickDecisions>,
 }
 
 impl Panel for MapPanel {
     const NAME: &'static str = "Map";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let ball_position = EnabledLayer::new(nao.clone(), value, false);
         let field = EnabledLayer::new(nao.clone(), value, true);
         let image_segments = EnabledLayer::new(nao.clone(), value, false);
-        let kick_decisions = EnabledLayer::new(nao.clone(), value, false);
         let lines = EnabledLayer::new(nao.clone(), value, true);
+        let path_obstacles = EnabledLayer::new(nao.clone(), value, false);
         let obstacles = EnabledLayer::new(nao.clone(), value, false);
         let path = EnabledLayer::new(nao.clone(), value, false);
-        let path_obstacles = EnabledLayer::new(nao.clone(), value, false);
         let robot_pose = EnabledLayer::new(nao.clone(), value, true);
+        let ball_position = EnabledLayer::new(nao.clone(), value, false);
+        let kick_decisions = EnabledLayer::new(nao.clone(), value, false);
 
         let field_dimensions = nao.subscribe_parameter("field_dimensions");
         let transformation = Similarity2::identity();
@@ -47,30 +47,29 @@ impl Panel for MapPanel {
             field_dimensions,
             transformation,
 
-            ball_position,
             field,
             image_segments,
-            kick_decisions,
             lines,
+            path_obstacles,
             obstacles,
             path,
-            path_obstacles,
             robot_pose,
+            ball_position,
+            kick_decisions,
         }
     }
 
     fn save(&self) -> Value {
         json!({
             "field": self.field.save(),
-
-            "ball_position": self.ball_position.save(),
             "image_segments": self.image_segments.save(),
-            "kick_decisions": self.kick_decisions.save(),
             "lines": self.lines.save(),
+            "path_obstacles": self.path_obstacles.save(),
             "obstacles": self.obstacles.save(),
             "path": self.path.save(),
-            "path_obstacles": self.path_obstacles.save(),
             "robot_pose": self.robot_pose.save(),
+            "ball_position": self.ball_position.save(),
+            "kick_decisions": self.kick_decisions.save(),
         })
     }
 }
@@ -97,15 +96,16 @@ impl Widget for &mut MapPanel {
         let mut painter = painter.with_map_transforms(&field_dimensions);
         painter.append_transform(self.transformation);
 
-        let _ = self.ball_position.paint(&painter, &field_dimensions);
+        // draw largest layers first so they don't obscure smaller ones
         let _ = self.field.paint(&painter, &field_dimensions);
         let _ = self.image_segments.paint(&painter, &field_dimensions);
-        let _ = self.kick_decisions.paint(&painter, &field_dimensions);
         let _ = self.lines.paint(&painter, &field_dimensions);
+        let _ = self.path_obstacles.paint(&painter, &field_dimensions);
         let _ = self.obstacles.paint(&painter, &field_dimensions);
         let _ = self.path.paint(&painter, &field_dimensions);
-        let _ = self.path_obstacles.paint(&painter, &field_dimensions);
         let _ = self.robot_pose.paint(&painter, &field_dimensions);
+        let _ = self.ball_position.paint(&painter, &field_dimensions);
+        let _ = self.kick_decisions.paint(&painter, &field_dimensions);
 
         if let Some(pointer_position) = ui.input().pointer.interact_pos() {
             let pointer_in_world_before_zoom = painter.transform_pixel_to_world(pointer_position);
