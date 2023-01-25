@@ -1,14 +1,16 @@
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use clap::Args;
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{
+    eyre::{eyre, WrapErr},
+    Result,
+};
 use futures::future::join_all;
 use nao::{Nao, SystemctlAction};
-use repository::Repository;
+use repository::{HardwareIds, Repository};
 
 use crate::{
     cargo::{cargo, Arguments as CargoArguments, Command},
-    communication::{communication, Arguments as CommunicationArguments},
     parsers::{NaoAddress, NaoNumber},
     progress_indicator::{ProgressIndicator, Task},
 };
@@ -40,14 +42,31 @@ pub struct Arguments {
 }
 
 async fn upload_with_progress(
-    nao: Nao,
+    nao_address: &NaoAddress,
+    hardware_ids: HashMap<u8, HardwareIds>,
+    repository: &Repository,
     hulk_directory: impl AsRef<Path>,
     progress: &Task,
     arguments: &Arguments,
 ) -> Result<()> {
+    let nao_number: NaoNumber = (*nao_address)
+        .try_into()
+        .wrap_err("failed to convert NAO address into NAO numbers")?;
+    let nao = Nao::new(nao_address.ip);
+    let head_id = &hardware_ids
+        .get(&nao_number.number)
+        .ok_or_else(|| eyre!("no hardware ID found for {}", nao_number.number))?
+        .head_id;
+
     if !arguments.skip_os_check && !nao.has_stable_os_version().await {
         return Ok(());
     }
+
+    progress.set_message("Setting communication...");
+    repository
+        .set_communication(head_id, !arguments.no_communication)
+        .await
+        .wrap_err_with(|| format!("failed to set communication enablement for {nao_number}"))?;
 
     progress.set_message("Stopping HULK...");
     nao.execute_systemctl(SystemctlAction::Stop, "hulk")
@@ -69,13 +88,6 @@ async fn upload_with_progress(
 }
 
 pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let nao_numbers = arguments
-        .naos
-        .iter()
-        .map(|nao_address| (*nao_address).try_into())
-        .collect::<Result<Vec<NaoNumber>, _>>()
-        .wrap_err("failed to convert NAO address into NAO numbers")?;
-
     if !arguments.no_build {
         cargo(
             CargoArguments {
@@ -92,34 +104,37 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         .wrap_err("failed to build the code")?;
     }
 
-    communication(
-        match arguments.no_communication {
-            true => CommunicationArguments::Disable { nao_numbers },
-            false => CommunicationArguments::Enable { nao_numbers },
-        },
-        repository,
-    )
-    .await
-    .wrap_err("failed to set communication enablement directory")?;
-
     let (_temporary_directory, hulk_directory) = repository
         .create_upload_directory(arguments.profile.as_str())
         .await
         .wrap_err("failed to create upload directory")?;
 
+    let hardware_ids = repository
+        .get_hardware_ids()
+        .await
+        .wrap_err("failed to get hardware IDs")?;
+
     let multi_progress = ProgressIndicator::new();
 
     let tasks = arguments.naos.iter().map(|nao_address| {
-        let hulk_directory = hulk_directory.clone();
         let arguments = &arguments;
+        let repository = &repository;
+        let hulk_directory = hulk_directory.clone();
         let multi_progress = multi_progress.clone();
-
+        let hardware_ids = hardware_ids.clone();
         async move {
             let progress = multi_progress.task(nao_address.to_string());
-            let nao = Nao::new(nao_address.ip);
-
-            progress
-                .finish_with(upload_with_progress(nao, hulk_directory, &progress, arguments).await)
+            progress.finish_with(
+                upload_with_progress(
+                    nao_address,
+                    hardware_ids,
+                    repository,
+                    hulk_directory,
+                    &progress,
+                    arguments,
+                )
+                .await,
+            )
         }
     });
 

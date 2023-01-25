@@ -25,7 +25,7 @@ impl ProgressIndicator {
     }
 
     pub fn task(&self, prefix: String) -> Task {
-        let spinner = ProgressBar::new(10)
+        let spinner = ProgressBar::new_spinner()
             .with_style(self.default_style.clone())
             .with_prefix(prefix);
         spinner.enable_steady_tick(Duration::from_millis(100));

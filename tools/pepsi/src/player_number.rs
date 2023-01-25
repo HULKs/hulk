@@ -48,7 +48,9 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
         let multi_progress = multi_progress.clone();
         async move {
             let progress = multi_progress.task(format!("{}", assignment.nao_number));
+
             progress.set_message("Setting player number...");
+
             progress.finish_with(
                 repository
                     .set_player_number(head_id, assignment.player_number)
