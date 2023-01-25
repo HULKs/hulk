@@ -35,7 +35,7 @@ impl Panel for MapPanel {
         let field = EnabledLayer::new(nao.clone(), value, true);
         let image_segments = EnabledLayer::new(nao.clone(), value, false);
         let kick_decisions = EnabledLayer::new(nao.clone(), value, false);
-        let lines = EnabledLayer::new(nao.clone(), value, false);
+        let lines = EnabledLayer::new(nao.clone(), value, true);
         let obstacles = EnabledLayer::new(nao.clone(), value, false);
         let path = EnabledLayer::new(nao.clone(), value, false);
         let path_obstacles = EnabledLayer::new(nao.clone(), value, false);
