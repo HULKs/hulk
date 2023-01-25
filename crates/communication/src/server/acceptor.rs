@@ -61,6 +61,7 @@ pub fn acceptor(
             );
         }
 
+        drop(error_sender);
         let mut connection_errors = vec![];
         while let Some(error) = error_receiver.recv().await {
             connection_errors.push(error);
