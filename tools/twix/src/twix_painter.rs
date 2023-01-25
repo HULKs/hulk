@@ -455,7 +455,3 @@ fn sort_rect(rect: Rect) -> Rect {
         },
     }
 }
-
-pub fn to_444(point: Point2<f32>) -> Point2<f32> {
-    point![point.x * 2.0, point.y]
-}
