@@ -194,6 +194,7 @@ where
     }
 
     pub fn join(self) -> thread::Result<Result<(), StartError>> {
+        drop(self.outputs_sender);
         self.join_handle.join()
     }
 
