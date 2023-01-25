@@ -559,7 +559,7 @@ impl Display for CargoAction {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct HardwareIds {
     pub body_id: String,
     pub head_id: String,
