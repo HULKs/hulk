@@ -10,7 +10,7 @@ use std::{
 pub use bincode;
 use bincode::{deserialize, serialize};
 use nalgebra::{
-    Isometry2, Isometry3, Point2, Point3, SMatrix, UnitComplex, Vector2, Vector3, Vector4,
+    Isometry2, Isometry3, Point2, Point3, SMatrix, Scalar, UnitComplex, Vector2, Vector3, Vector4,
 };
 use serde::{de::DeserializeOwned, Serialize};
 pub use serde_json;
@@ -400,6 +400,98 @@ impl<T: Serialize + DeserializeOwned> SerializeHierarchy for Vector4<T> {
     }
 }
 
+impl<T: Serialize + DeserializeOwned + Clone + Scalar> SerializeHierarchy for Point2<T> {
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        let index = ["x", "y"].into_iter().position(|name| name == path);
+        match index {
+            Some(index) => S::serialize(&self[index]).map_err(Error::SerializationFailed),
+            _ => Err(Error::UnexpectedPathSegment {
+                segment: String::from(path),
+            }),
+        }
+    }
+
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        let index = ["x", "y"].into_iter().position(|name| name == path);
+        match index {
+            Some(index) => {
+                let deserialized = S::deserialize(_data).map_err(Error::DeserializationFailed)?;
+                self[index] = deserialized;
+                Ok(())
+            }
+            None => Err(Error::UnexpectedPathSegment {
+                segment: String::from(path),
+            }),
+        }
+    }
+
+    fn exists(path: &str) -> bool {
+        matches!(path, "x" | "y")
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        ["x", "y"].into_iter().map(String::from).collect()
+    }
+}
+
+impl<T: Serialize + DeserializeOwned + Clone + Scalar> SerializeHierarchy for Point3<T> {
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        let index = ["x", "y", "z"].into_iter().position(|name| name == path);
+        match index {
+            Some(index) => S::serialize(&self[index]).map_err(Error::SerializationFailed),
+            _ => Err(Error::UnexpectedPathSegment {
+                segment: String::from(path),
+            }),
+        }
+    }
+
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        let index = ["x", "y", "z"].into_iter().position(|name| name == path);
+        match index {
+            Some(index) => {
+                let deserialized = S::deserialize(_data).map_err(Error::DeserializationFailed)?;
+                self[index] = deserialized;
+                Ok(())
+            }
+            None => Err(Error::UnexpectedPathSegment {
+                segment: String::from(path),
+            }),
+        }
+    }
+
+    fn exists(path: &str) -> bool {
+        matches!(path, "x" | "y" | "z")
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        ["x", "y", "z"].into_iter().map(String::from).collect()
+    }
+}
+
 macro_rules! serialize_hierarchy_primary_impl {
     ($type:ty) => {
         impl SerializeHierarchy for $type {
@@ -450,9 +542,6 @@ serialize_hierarchy_primary_impl!(u32);
 serialize_hierarchy_primary_impl!(u64);
 serialize_hierarchy_primary_impl!(usize);
 // nalgebra
-serialize_hierarchy_primary_impl!(Point2<f32>);
-serialize_hierarchy_primary_impl!(Point2<u16>);
-serialize_hierarchy_primary_impl!(Point3<f32>);
 serialize_hierarchy_primary_impl!(SMatrix<f32, 3, 3>);
 serialize_hierarchy_primary_impl!(Isometry2<f32>);
 serialize_hierarchy_primary_impl!(Isometry3<f32>);
