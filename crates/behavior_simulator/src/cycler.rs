@@ -22,12 +22,11 @@ pub struct Database {
 )]
 pub struct SimulatorDatabase {}
 
-pub struct Cycler<Interface> {
+pub struct BehaviorCycler<Interface> {
     instance: control::CyclerInstance,
     hardware_interface: std::sync::Arc<Interface>,
     own_writer: framework::Writer<Database>,
     own_changed: std::sync::Arc<tokio::sync::Notify>,
-    own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
     configuration_reader: framework::Reader<structs::Configuration>,
     historic_databases: framework::HistoricDatabases<structs::control::MainOutputs>,
     perception_databases: framework::PerceptionDatabases,
@@ -78,7 +77,7 @@ pub struct Cycler<Interface> {
     // joint_command_sender: control::motion::joint_command_sender::JointCommandSender,
 }
 
-impl<Interface> Cycler<Interface>
+impl<Interface> BehaviorCycler<Interface>
 where
     Interface: types::hardware::Interface + std::marker::Send + std::marker::Sync + 'static,
 {
@@ -87,7 +86,6 @@ where
         hardware_interface: std::sync::Arc<Interface>,
         own_writer: framework::Writer<Database>,
         own_changed: std::sync::Arc<tokio::sync::Notify>,
-        own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
         configuration_reader: framework::Reader<structs::Configuration>,
     ) -> color_eyre::Result<Self> {
         let configuration = configuration_reader.next().clone();
@@ -180,7 +178,6 @@ where
             hardware_interface,
             own_writer,
             own_changed,
-            own_subscribed_outputs_reader,
             configuration_reader,
             historic_databases: Default::default(),
             perception_databases: Default::default(),
@@ -208,7 +205,6 @@ where
             };
             let now = self.hardware_interface.get_now();
             {
-                let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
                 let configuration = self.configuration_reader.next();
                 {
                     let main_outputs = self
@@ -261,34 +257,19 @@ where
                         .ball_filter
                         .cycle(control::ball_filter::CycleContext {
                             ball_filter_hypotheses: framework::AdditionalOutput::new(
-                                own_subscribed_outputs.iter().any(|subscribed_output| {
-                                    framework::should_be_filled(
-                                        subscribed_output,
-                                        "additional_outputs.ball_filter_hypotheses",
-                                    )
-                                }),
+                                true,
                                 &mut own_database_reference
                                     .additional_outputs
                                     .ball_filter_hypotheses,
                             ),
                             filtered_balls_in_image_bottom: framework::AdditionalOutput::new(
-                                own_subscribed_outputs.iter().any(|subscribed_output| {
-                                    framework::should_be_filled(
-                                        subscribed_output,
-                                        "additional_outputs.filtered_balls_in_image_bottom",
-                                    )
-                                }),
+                                true,
                                 &mut own_database_reference
                                     .additional_outputs
                                     .filtered_balls_in_image_bottom,
                             ),
                             filtered_balls_in_image_top: framework::AdditionalOutput::new(
-                                own_subscribed_outputs.iter().any(|subscribed_output| {
-                                    framework::should_be_filled(
-                                        subscribed_output,
-                                        "additional_outputs.filtered_balls_in_image_top",
-                                    )
-                                }),
+                                true,
                                 &mut own_database_reference
                                     .additional_outputs
                                     .filtered_balls_in_image_top,
@@ -627,30 +608,15 @@ where
                         .behavior
                         .cycle(control::behavior::node::CycleContext {
                             kick_decisions: framework::AdditionalOutput::new(
-                                own_subscribed_outputs.iter().any(|subscribed_output| {
-                                    framework::should_be_filled(
-                                        subscribed_output,
-                                        "additional_outputs.kick_decisions",
-                                    )
-                                }),
+                                true,
                                 &mut own_database_reference.additional_outputs.kick_decisions,
                             ),
                             kick_targets: framework::AdditionalOutput::new(
-                                own_subscribed_outputs.iter().any(|subscribed_output| {
-                                    framework::should_be_filled(
-                                        subscribed_output,
-                                        "additional_outputs.kick_targets",
-                                    )
-                                }),
+                                true,
                                 &mut own_database_reference.additional_outputs.kick_targets,
                             ),
                             path_obstacles: framework::AdditionalOutput::new(
-                                own_subscribed_outputs.iter().any(|subscribed_output| {
-                                    framework::should_be_filled(
-                                        subscribed_output,
-                                        "additional_outputs.path_obstacles",
-                                    )
-                                }),
+                                true,
                                 &mut own_database_reference.additional_outputs.path_obstacles,
                             ),
                             world_state: &own_database_reference.main_outputs.world_state,
