@@ -331,9 +331,9 @@ mod tests {
 
     use super::*;
 
-    const PRECLASSIFIER_PATH: &str = "../../etc/neural_networks/preclassifier.hdf5";
-    const CLASSIFIER_PATH: &str = "../../etc/neural_networks/classifier.hdf5";
-    const POSITIONER_PATH: &str = "../../etc/neural_networks/positioner.hdf5";
+    const PRECLASSIFIER_PATH: &str = "../../etc/neural_networks/preclassifier.onnx";
+    const CLASSIFIER_PATH: &str = "../../etc/neural_networks/classifier.onnx";
+    const POSITIONER_PATH: &str = "../../etc/neural_networks/positioner.onnx";
 
     const BALL_SAMPLE_PATH: &str = "../../tests/data/ball_sample.png";
 
