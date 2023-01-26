@@ -120,38 +120,38 @@ impl BallDetection {
 }
 
 fn preclassify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
-    let input = network.input(0);
+    let input = network.input_mut(0);
     for y in 0..SAMPLE_SIZE {
         for x in 0..SAMPLE_SIZE {
-            input[x + y * SAMPLE_SIZE] = sample[y][x];
+            input.data[x + y * SAMPLE_SIZE] = sample[y][x];
         }
     }
     network.apply();
-    network.output(0)[0]
+    network.output(0).data[0]
 }
 
 fn classify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
-    let input = network.input(0);
+    let input = network.input_mut(0);
     for y in 0..SAMPLE_SIZE {
         for x in 0..SAMPLE_SIZE {
-            input[x + y * SAMPLE_SIZE] = sample[y][x];
+            input.data[x + y * SAMPLE_SIZE] = sample[y][x];
         }
     }
     network.apply();
-    network.output(0)[0]
+    network.output(0).data[0]
 }
 
 fn position_sample(network: &mut CompiledNN, sample: &Sample) -> Circle {
-    let input = network.input(0);
+    let input = network.input_mut(0);
     for y in 0..SAMPLE_SIZE {
         for x in 0..SAMPLE_SIZE {
-            input[x + y * SAMPLE_SIZE] = sample[y][x];
+            input.data[x + y * SAMPLE_SIZE] = sample[y][x];
         }
     }
     network.apply();
     Circle {
-        center: point![network.output(0)[0], network.output(0)[1]],
-        radius: network.output(0)[2],
+        center: point![network.output(0).data[0], network.output(0).data[1]],
+        radius: network.output(0).data[2],
     }
 }
 
