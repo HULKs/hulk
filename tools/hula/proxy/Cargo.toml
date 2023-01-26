@@ -2,7 +2,7 @@
 edition = "2021"
 license = "GPL-3.0-only"
 name = "hula"
-version = "0.3.0"
+version = "0.3.1"
 homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
