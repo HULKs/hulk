@@ -52,6 +52,7 @@ pub struct Runtime<Parameters> {
     runtime: Arc<TokioRuntime>,
     outputs_sender: Sender<Request>,
     parameters_reader: Reader<Parameters>,
+    parameters_changed: Arc<Notify>,
 }
 
 impl<Parameters> Runtime<Parameters>
@@ -68,6 +69,8 @@ where
     ) -> Result<Self, StartError> {
         let (runtime_sender, runtime_receiver) = oneshot::channel();
 
+        let parameters_changed = Arc::new(Notify::new());
+        let self_parameters_changed = parameters_changed.clone();
         let join_handle = thread::Builder::new()
             .name("communication".to_string())
             .spawn(move || {
@@ -102,7 +105,6 @@ where
                     );
 
                     let (parameters_sender, parameters_receiver) = channel(1);
-                    let parameters_changed = Arc::new(Notify::new());
                     let (parameters_storage_sender, parameters_storage_receiver) = channel(1);
 
                     runtime_sender
@@ -132,7 +134,7 @@ where
                     );
                     let parameters_storage_task = storage(
                         parameters_writer,
-                        parameters_changed,
+                        parameters_changed.clone(),
                         parameters_storage_receiver,
                         parameters_directory,
                         body_id,
@@ -190,6 +192,7 @@ where
             runtime,
             outputs_sender,
             parameters_reader,
+            parameters_changed: self_parameters_changed,
         })
     }
 
@@ -219,5 +222,9 @@ where
 
     pub fn get_parameters_reader(&self) -> Reader<Parameters> {
         self.parameters_reader.clone()
+    }
+
+    pub fn get_parameters_changed(&self) -> Arc<Notify> {
+        self.parameters_changed.clone()
     }
 }
