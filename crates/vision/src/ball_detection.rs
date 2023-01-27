@@ -121,9 +121,9 @@ impl BallDetection {
 
 fn preclassify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
     let input = network.input_mut(0);
-    for y in 0..SAMPLE_SIZE {
-        for x in 0..SAMPLE_SIZE {
-            input.data[x + y * SAMPLE_SIZE] = sample[y][x];
+    for (y, row) in sample.iter().enumerate().take(SAMPLE_SIZE) {
+        for (x, pixel) in row.iter().enumerate().take(SAMPLE_SIZE) {
+            input.data[x + y * SAMPLE_SIZE] = *pixel;
         }
     }
     network.apply();
@@ -132,9 +132,9 @@ fn preclassify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
 
 fn classify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
     let input = network.input_mut(0);
-    for y in 0..SAMPLE_SIZE {
-        for x in 0..SAMPLE_SIZE {
-            input.data[x + y * SAMPLE_SIZE] = sample[y][x];
+    for (y, row) in sample.iter().enumerate().take(SAMPLE_SIZE) {
+        for (x, pixel) in row.iter().enumerate().take(SAMPLE_SIZE) {
+            input.data[x + y * SAMPLE_SIZE] = *pixel;
         }
     }
     network.apply();
@@ -143,9 +143,9 @@ fn classify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
 
 fn position_sample(network: &mut CompiledNN, sample: &Sample) -> Circle {
     let input = network.input_mut(0);
-    for y in 0..SAMPLE_SIZE {
-        for x in 0..SAMPLE_SIZE {
-            input.data[x + y * SAMPLE_SIZE] = sample[y][x];
+    for (y, row) in sample.iter().enumerate().take(SAMPLE_SIZE) {
+        for (x, pixel) in row.iter().enumerate().take(SAMPLE_SIZE) {
+            input.data[x + y * SAMPLE_SIZE] = *pixel;
         }
     }
     network.apply();
