@@ -25,6 +25,10 @@ PROTO NAO [
     synchronization IS synchronization
     selfCollision IS selfCollision
     children [
+      Receiver {
+        name "ChestButton Channel"
+        channel 1337
+      }
       Shape {
         appearance DEF MainSkin PBRAppearance {
           baseColor 0.9 0.9 0.9
