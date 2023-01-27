@@ -51,7 +51,7 @@ code_generation = { path = "crates/code_generation" }
 color-eyre = "0.6.2"
 colored = "2.0.0"
 communication = { path = "crates/communication" }
-compiled-nn = "0.10.0"
+compiled-nn = "0.11.0"
 context_attribute = { path = "crates/context_attribute" }
 control = { path = "crates/control" }
 convert_case = "0.6.0"
