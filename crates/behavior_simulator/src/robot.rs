@@ -15,7 +15,7 @@ impl Robot {
     pub fn new(index: usize, keep_running: CancellationToken) -> Self {
         let interface: Arc<_> = Interfake::default().into();
         let communication_server = Runtime::<structs::Configuration>::start(
-            Some(format!("[::]:{}", 1337 + 1 + index)),
+            None::<String>,
             "etc/configuration",
             format!("behavior_simulator{index}"),
             format!("behavior_simulator{index}"),
