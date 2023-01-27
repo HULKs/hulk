@@ -251,7 +251,7 @@ dependencies = [
  "cexpr 0.4.0",
  "clang-sys",
  "clap 2.34.0",
- "env_logger 0.8.4",
+ "env_logger",
  "lazy_static",
  "lazycell",
  "log",
@@ -262,29 +262,6 @@ dependencies = [
  "rustc-hash",
  "shlex 0.1.1",
  "which 3.1.1",
-]
-
-[[package]]
-name = "bindgen"
-version = "0.59.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bd2a9a458e8f4304c52c43ebb0cfbd520289f8379a52e329a38afda99bf8eb8"
-dependencies = [
- "bitflags",
- "cexpr 0.6.0",
- "clang-sys",
- "clap 2.34.0",
- "env_logger 0.9.3",
- "lazy_static",
- "lazycell",
- "log",
- "peeking_take_while",
- "proc-macro2",
- "quote",
- "regex",
- "rustc-hash",
- "shlex 1.1.0",
- "which 4.4.0",
 ]
 
 [[package]]
@@ -741,20 +718,20 @@ dependencies = [
 
 [[package]]
 name = "compiled-nn"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "965249483456cc610c75e699cc966fb62dfb1efb9e994401286c92c6cc7dbb2b"
+checksum = "3e473233defe805639cc331e84312e784fe6a1fb6d468cc065f7edc3aa93cada"
 dependencies = [
  "compiled-nn-bindings",
 ]
 
 [[package]]
 name = "compiled-nn-bindings"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1acb7a5487a645e0c89f13fad1555634f34b54e7dfffdc85a07f2356f5f9c477"
+checksum = "09d53e433fd01d80574b96de40ba90b6c6d3e8e529950889c630d21a01e6c13c"
 dependencies = [
- "bindgen 0.59.2",
+ "bindgen 0.63.0",
  "cmake",
  "glob",
  "pkg-config",
@@ -1349,19 +1326,6 @@ name = "env_logger"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
-dependencies = [
- "atty",
- "humantime",
- "log",
- "regex",
- "termcolor",
-]
-
-[[package]]
-name = "env_logger"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
 dependencies = [
  "atty",
  "humantime",
