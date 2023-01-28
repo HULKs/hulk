@@ -234,7 +234,7 @@ fn new_vertical_scan_line(
         EdgeType::ImageBorder,
     );
 
-    let mut segments = vec![];
+    let mut segments = Vec::with_capacity((end_y - start_y) as usize / stride);
     for y in (start_y..end_y).step_by(stride) {
         let pixel = pixel_to_edge_detection_value(image.at(position, y), edge_detection_source);
         let luminance_value = match median_mode {
