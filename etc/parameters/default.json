@@ -11,9 +11,9 @@
   "ball_detection": {
     "vision_top": {
       "minimal_radius": 42.0,
-      "preclassifier_neural_network": "etc/neural_networks/preclassifier.hdf5",
-      "classifier_neural_network": "etc/neural_networks/classifier.hdf5",
-      "positioner_neural_network": "etc/neural_networks/positioner.hdf5",
+      "preclassifier_neural_network": "preclassifier.hdf5",
+      "classifier_neural_network": "classifier.hdf5",
+      "positioner_neural_network": "positioner.hdf5",
       "maximum_number_of_candidate_evaluations": 75,
       "preclassifier_confidence_threshold": 0.9,
       "classifier_confidence_threshold": 0.9,
@@ -25,9 +25,9 @@
     },
     "vision_bottom": {
       "minimal_radius": 42.0,
-      "preclassifier_neural_network": "etc/neural_networks/preclassifier.hdf5",
-      "classifier_neural_network": "etc/neural_networks/classifier.hdf5",
-      "positioner_neural_network": "etc/neural_networks/positioner.hdf5",
+      "preclassifier_neural_network": "preclassifier.hdf5",
+      "classifier_neural_network": "classifier.hdf5",
+      "positioner_neural_network": "positioner.hdf5",
       "maximum_number_of_candidate_evaluations": 75,
       "preclassifier_confidence_threshold": 0.9,
       "classifier_confidence_threshold": 0.9,

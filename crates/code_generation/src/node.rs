@@ -73,7 +73,7 @@ impl Node<'_> {
                 }
                 Field::Parameter { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
-                        quote! { configuration },
+                        quote! { parameters },
                         path,
                         ReferenceType::Immutable,
                         quote! { instance },
@@ -278,7 +278,7 @@ impl Node<'_> {
                 }
                 Field::Parameter { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
-                        quote! { configuration },
+                        quote! { parameters },
                         path,
                         ReferenceType::Immutable,
                         quote! { self.instance },

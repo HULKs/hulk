@@ -1,5 +1,6 @@
 use nao_camera::Parameters as CameraParameters;
 use serde::Deserialize;
+use types::hardware::Paths;
 
 use crate::network::Parameters as NetworkParameters;
 
@@ -11,4 +12,5 @@ pub struct Parameters {
     pub network: NetworkParameters,
     pub camera_top: CameraParameters,
     pub camera_bottom: CameraParameters,
+    pub paths: Paths,
 }

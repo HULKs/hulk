@@ -1,6 +1,7 @@
-use std::{fmt::Debug, fs::File, io::stdout, path::Path, sync::Arc};
+use std::{env::args, fmt::Debug, fs::File, io::stdout, path::Path, sync::Arc};
 
 use color_eyre::{eyre::WrapErr, install, Result};
+use ctrlc::set_handler;
 use cyclers::run;
 use parameters::Parameters;
 use serde_json::from_reader;
@@ -38,16 +39,20 @@ fn setup_logger(is_verbose: bool) -> Result<(), fern::InitError> {
 fn main() -> Result<()> {
     setup_logger(true)?;
     install()?;
+    let hardware_parameters_path = args()
+        .skip(1)
+        .next()
+        .unwrap_or("etc/parameters/hardware.json".to_string());
     let keep_running = CancellationToken::new();
     {
         let keep_running = keep_running.clone();
-        ctrlc::set_handler(move || {
+        set_handler(move || {
             keep_running.cancel();
         })?;
     }
     let hardware_parameters = cancel_on_error(
         &keep_running,
-        parse_hardware_parameters("etc/configuration/hardware.json"),
+        parse_hardware_parameters(hardware_parameters_path),
     )
     .wrap_err("failed to parse hardware parameters")?;
     let hardware_interface = cancel_on_error(
@@ -56,10 +61,11 @@ fn main() -> Result<()> {
     )
     .wrap_err("failed to create hardware interface")?;
     let ids = hardware_interface.get_ids();
+    let paths = hardware_interface.get_paths();
     run(
         hardware_interface,
         Some("[::]:1337"),
-        "etc/configuration",
+        paths.parameters,
         ids.body_id,
         ids.head_id,
         keep_running,

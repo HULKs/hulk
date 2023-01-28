@@ -15,7 +15,7 @@ use crate::{expand_variables_from_path, CyclerInstances, Field, Nodes, PathSegme
 
 #[derive(Debug, Default)]
 pub struct Structs {
-    pub configuration: StructHierarchy,
+    pub parameters: StructHierarchy,
     pub cycler_structs: BTreeMap<String, CyclerStructs>,
 }
 
@@ -142,10 +142,10 @@ impl Structs {
                                 };
                                 let insertion_rules = path_to_insertion_rules(&path, &data_type);
                                 structs
-                                    .configuration
+                                    .parameters
                                     .insert(insertion_rules)
                                     .wrap_err_with(|| {
-                                        format!("failed to insert expanded path into configuration for parameter `{name}`")
+                                        format!("failed to insert expanded path into parameters for parameter `{name}`")
                                     })?;
                             }
                         }

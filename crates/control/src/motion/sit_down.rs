@@ -2,8 +2,8 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
-    CycleTime, Joints, JointsCommand, MotionFile, MotionFileInterpolator, MotionSafeExits,
-    MotionSelection, MotionType, SensorData,
+    hardware::Interface, CycleTime, Joints, JointsCommand, MotionFile, MotionFileInterpolator,
+    MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
 pub struct SitDown {
@@ -12,6 +12,8 @@ pub struct SitDown {
 
 #[context]
 pub struct CreationContext {
+    pub hardware_interface: HardwareInterface,
+
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
@@ -31,9 +33,10 @@ pub struct MainOutputs {
 }
 
 impl SitDown {
-    pub fn new(_context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext<impl Interface>) -> Result<Self> {
+        let paths = context.hardware_interface.get_paths();
         Ok(Self {
-            interpolator: MotionFile::from_path("etc/motions/sit_down.json")?.into(),
+            interpolator: MotionFile::from_path(paths.motions.join("sit_down.json"))?.into(),
         })
     }
 

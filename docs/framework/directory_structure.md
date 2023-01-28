@@ -12,7 +12,7 @@ The directory structure is organized as follows:
 - `.github/`: GitHub Pull Request template and Actions workflow for the Continuous Integration the HULKs are using for development
 - `docs/`: This documentation
 - `etc/`: All additional files necessary when deploying the code to a robot
-    - `configuration/`: Configuration files that are deployed to NAOs and are read during startup
+    - `parameters/`: Parameters files that are deployed to NAOs and are read during startup
     - `motions/`: Motion files that can be played back on a robot
     - `neural_networks/`: Neural network files for e.g. the ball detection
     - `poses/` and `sounds/`: Legacy files (may be removed at some time)

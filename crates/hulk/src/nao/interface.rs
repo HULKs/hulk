@@ -4,7 +4,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use parking_lot::Mutex;
 use tokio_util::sync::CancellationToken;
 use types::{
-    hardware::{self, Ids},
+    hardware::{self, Ids, Paths},
     image::Image,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
@@ -23,6 +23,7 @@ pub struct Interface {
     network: Network,
     camera_top: Mutex<Camera>,
     camera_bottom: Mutex<Camera>,
+    paths: Paths,
 }
 
 impl Interface {
@@ -57,6 +58,7 @@ impl Interface {
                 )
                 .wrap_err("failed to initialize bottom camera")?,
             ),
+            paths: parameters.paths,
         })
     }
 }
@@ -72,6 +74,10 @@ impl hardware::Interface for Interface {
 
     fn get_ids(&self) -> Ids {
         self.hula_wrapper.lock().get_ids()
+    }
+
+    fn get_paths(&self) -> Paths {
+        self.paths.clone()
     }
 
     fn read_from_sensors(&self) -> Result<SensorData> {

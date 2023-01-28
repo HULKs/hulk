@@ -170,57 +170,57 @@ impl Repository {
         .await
     }
 
-    fn configuration_root(&self) -> PathBuf {
-        self.root.join("etc/configuration")
+    fn parameters_root(&self) -> PathBuf {
+        self.root.join("etc/parameters")
     }
 
-    fn head_configuration(&self, head_id: &str) -> PathBuf {
-        self.configuration_root()
+    fn head_parameters(&self, head_id: &str) -> PathBuf {
+        self.parameters_root()
             .join(format!("head.{head_id}.json"))
     }
 
-    async fn read_configuration(&self, head_id: &str) -> Result<Value> {
-        let configuration_file_path = self.head_configuration(head_id);
-        let mut configuration_file = OpenOptions::new()
+    async fn read_parameters(&self, head_id: &str) -> Result<Value> {
+        let parameters_file_path = self.head_parameters(head_id);
+        let mut parameters_file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
-            .open(&configuration_file_path)
+            .open(&parameters_file_path)
             .await
-            .wrap_err_with(|| format!("Failed to open {}", configuration_file_path.display()))?;
+            .wrap_err_with(|| format!("Failed to open {}", parameters_file_path.display()))?;
 
         let mut contents = vec![];
-        configuration_file
+        parameters_file
             .read_to_end(&mut contents)
             .await
             .wrap_err_with(|| {
-                format!("Failed to read from {}", configuration_file_path.display())
+                format!("Failed to read from {}", parameters_file_path.display())
             })?;
         Ok(if contents.is_empty() {
             Value::Object(Default::default())
         } else {
             from_slice(&contents).wrap_err_with(|| {
-                format!("Failed to parse {}", configuration_file_path.display())
+                format!("Failed to parse {}", parameters_file_path.display())
             })?
         })
     }
 
-    async fn write_configuration(&self, head_id: &str, configuration: &Value) -> Result<()> {
-        let configuration_file_path = self.head_configuration(head_id);
-        let mut contents = to_vec_pretty(configuration).wrap_err_with(|| {
+    async fn write_parameters(&self, head_id: &str, parameters: &Value) -> Result<()> {
+        let parameters_file_path = self.head_parameters(head_id);
+        let mut contents = to_vec_pretty(parameters).wrap_err_with(|| {
             format!(
-                "Failed to dump configuration for {}",
-                configuration_file_path.display()
+                "Failed to dump parameters for {}",
+                parameters_file_path.display()
             )
         })?;
         contents.push(b'\n');
-        let mut configuration_file = File::create(&configuration_file_path)
+        let mut parameters_file = File::create(&parameters_file_path)
             .await
-            .wrap_err_with(|| format!("Failed to create {}", configuration_file_path.display()))?;
-        configuration_file
+            .wrap_err_with(|| format!("Failed to create {}", parameters_file_path.display()))?;
+        parameters_file
             .write_all(&contents)
             .await
-            .wrap_err_with(|| format!("Failed to parse {}", configuration_file_path.display()))?;
+            .wrap_err_with(|| format!("Failed to parse {}", parameters_file_path.display()))?;
         Ok(())
     }
 
@@ -229,36 +229,36 @@ impl Repository {
         head_id: &str,
         player_number: PlayerNumber,
     ) -> Result<()> {
-        let mut configuration = self
-            .read_configuration(head_id)
+        let mut parameters = self
+            .read_parameters(head_id)
             .await
-            .wrap_err("failed to read configuration")?;
+            .wrap_err("failed to read parameters")?;
 
-        configuration["player_number"] =
+        parameters["player_number"] =
             to_value(player_number).wrap_err("failed to serialize player number")?;
 
-        self.write_configuration(head_id, &configuration)
+        self.write_parameters(head_id, &parameters)
             .await
-            .wrap_err("failed to write configuration")
+            .wrap_err("failed to write parameters")
     }
 
     pub async fn set_communication(&self, head_id: &str, enable: bool) -> Result<()> {
-        let mut configuration = self
-            .read_configuration(head_id)
+        let mut parameters = self
+            .read_parameters(head_id)
             .await
-            .wrap_err("failed to read configuration")?;
+            .wrap_err("failed to read parameters")?;
 
         if enable {
-            if let Value::Object(ref mut object) = configuration {
+            if let Value::Object(ref mut object) = parameters {
                 object.remove("disable_communication_acceptor");
             }
         } else {
-            configuration["disable_communication_acceptor"] = Value::Bool(true);
+            parameters["disable_communication_acceptor"] = Value::Bool(true);
         }
 
-        self.write_configuration(head_id, &configuration)
+        self.write_parameters(head_id, &parameters)
             .await
-            .wrap_err("failed to write configuration")
+            .wrap_err("failed to write parameters")
     }
 
     pub async fn install_sdk(
@@ -321,7 +321,7 @@ impl Repository {
     }
 
     pub async fn get_hardware_ids(&self) -> Result<HashMap<u8, HardwareIds>> {
-        let hardware_ids_path = self.root.join("etc/configuration/hardware_ids.json");
+        let hardware_ids_path = self.root.join("etc/parameters/hardware_ids.json");
         let mut hardware_ids = File::open(&hardware_ids_path)
             .await
             .wrap_err_with(|| format!("Failed to open {}", hardware_ids_path.display()))?;
@@ -352,7 +352,7 @@ impl Repository {
         .map(|target_name| async move {
             (
                 target_name,
-                read_link(self.configuration_root().join(target_name))
+                read_link(self.parameters_root().join(target_name))
                     .await
                     .wrap_err_with(|| format!("failed reading location symlink for {target_name}")),
             )
@@ -382,8 +382,8 @@ impl Repository {
     }
 
     pub async fn set_location(&self, target: &str, location: &str) -> Result<()> {
-        let target_location = self.configuration_root().join(format!("{target}_location"));
-        let new_location = self.configuration_root().join(location);
+        let target_location = self.parameters_root().join(format!("{target}_location"));
+        let new_location = self.parameters_root().join(location);
         let _ = remove_file(&target_location).await;
         symlink(&new_location, &target_location)
             .await
@@ -394,10 +394,10 @@ impl Repository {
     }
 
     pub async fn list_available_locations(&self) -> Result<BTreeSet<String>> {
-        let configuration_path = self.root.join("etc/configuration");
-        let mut locations = read_dir(configuration_path)
+        let parameters_path = self.root.join("etc/parameters");
+        let mut locations = read_dir(parameters_path)
             .await
-            .wrap_err("failed configuration root")?;
+            .wrap_err("failed parameters root")?;
         let mut results = BTreeSet::new();
         while let Ok(Some(entry)) = locations.next_entry().await {
             if entry.path().is_dir() && !entry.path().is_symlink() {

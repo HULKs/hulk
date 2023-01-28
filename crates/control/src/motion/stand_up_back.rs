@@ -4,8 +4,8 @@ use filtering::LowPassFilter;
 use framework::MainOutput;
 use nalgebra::Vector2;
 use types::{
-    CycleTime, Facing, Joints, MotionCommand, MotionFile, MotionFileInterpolator, MotionSafeExits,
-    MotionSelection, MotionType, SensorData,
+    hardware::Interface, CycleTime, Facing, Joints, MotionCommand, MotionFile,
+    MotionFileInterpolator, MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
 pub struct StandUpBack {
@@ -15,6 +15,8 @@ pub struct StandUpBack {
 
 #[context]
 pub struct CreationContext {
+    pub hardware_interface: HardwareInterface,
+
     pub gyro_low_pass_filter_coefficient:
         Parameter<f32, "stand_up.gyro_low_pass_filter_coefficient">,
     pub gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
@@ -43,10 +45,13 @@ pub struct MainOutputs {
 }
 
 impl StandUpBack {
-    pub fn new(context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext<impl Interface>) -> Result<Self> {
+        let paths = context.hardware_interface.get_paths();
         Ok(Self {
-            interpolator: MotionFile::from_path("etc/motions/stand_up_back_dortmund_2022.json")?
-                .into(),
+            interpolator: MotionFile::from_path(
+                paths.motions.join("stand_up_back_dortmund_2022.json"),
+            )?
+            .into(),
             filtered_gyro: LowPassFilter::with_alpha(
                 Vector2::zeros(),
                 *context.gyro_low_pass_filter_coefficient,

@@ -74,6 +74,11 @@
       "flip_sensor": false,
 
       "amount_of_buffers": 3
+    },
+    "paths": {
+      "parameters": "/etc/hulk",
+      "motions": "/usr/share/hulk/motions",
+      "neural_networks": "/usr/share/hulk/neural_networks"
     }
   },
   "webots": {
@@ -81,6 +86,11 @@
       "game_controller_state_port": 3838,
       "game_controller_return_port": 3939,
       "spl_port": 10024
+    },
+    "paths": {
+      "parameters": "etc/parameters",
+      "motions": "etc/motions",
+      "neural_networks": "etc/neural_networks"
     }
   }
 }
