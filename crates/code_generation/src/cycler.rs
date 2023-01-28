@@ -524,6 +524,8 @@ impl Cycler<'_> {
             pub fn cycle(&mut self) -> color_eyre::Result<()> {
                 use color_eyre::eyre::WrapErr;
                 {
+                    let instance_name = format!("{:?}", self.instance);
+                    let itt_domain = ittapi::Domain::new(&instance_name);
                     #before_first_node
                     #first_node
                     #after_first_node

@@ -10,6 +10,7 @@ color-eyre = { workspace = true }
 control = { workspace = true }
 communication = { workspace = true }
 framework = { workspace = true }
+ittapi = { workspace = true }
 spl_network = { workspace = true }
 serde = { workspace = true }
 serialize_hierarchy = { workspace = true }

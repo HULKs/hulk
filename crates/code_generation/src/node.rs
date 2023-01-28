@@ -421,13 +421,17 @@ impl Node<'_> {
             self.get_main_output_setters_from_cycle_result();
         let main_output_setters_from_default = self.get_main_output_setters_from_default();
         let error_message = format!("failed to execute cycle of node `{}`", self.node_name);
+        let node_name = self.node_name;
         let node_execution = quote! {
-            let main_outputs = self.#node_name_identifier_snake_case.cycle(
-                #cycler_module_name_identifier::#(#path_segments::)*CycleContext {
-                    #(#field_initializers,)*
-                },
-            )
-            .wrap_err(#error_message)?;
+            let main_outputs = {
+                let _task = ittapi::Task::begin(&itt_domain, #node_name);
+                self.#node_name_identifier_snake_case.cycle(
+                    #cycler_module_name_identifier::#(#path_segments::)*CycleContext {
+                        #(#field_initializers,)*
+                    },
+                )
+                .wrap_err(#error_message)?
+            };
             #(#main_output_setters_from_cycle_result)*
         };
 
