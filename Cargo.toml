@@ -125,3 +125,7 @@ vision = { path = "crates/vision" }
 [profile.incremental]
 inherits = "release"
 incremental = true
+
+[profile.release-with-debug]
+inherits = "release"
+debug = true
