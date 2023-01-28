@@ -7,12 +7,14 @@ use std::{
     time::Duration,
 };
 
+use aliveness::{
+    service_manager::SystemServices, BeaconResponse, BEACON_HEADER, BEACON_MULTICAST_GROUP,
+    BEACON_PORT,
+};
 use color_eyre::eyre::{bail, eyre, ContextCompat, Result, WrapErr};
 use futures_util::stream::StreamExt;
 use hula_types::{Battery, RobotState};
 use log::info;
-use serde::Serialize;
-use service_manager::SystemServices;
 use tokio::{
     io::AsyncReadExt,
     net::{UdpSocket, UnixStream},
@@ -27,25 +29,9 @@ use zbus::{
     Connection, MatchRule, MessageStream, MessageType, Proxy,
 };
 
-mod service_manager;
-
 const HULA_SOCKET_PATH: &str = "/tmp/hula";
 const HULA_RETRY_TIMEOUT: Duration = Duration::from_secs(5);
-const BEACON_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 42);
-const BEACON_PORT: u16 = 4242;
-const BEACON_HEADER: &[u8; 6] = b"BEACON";
 const OS_RELEASE_PATH: &str = "/etc/os-release";
-
-#[derive(Clone, Debug, Serialize)]
-pub struct BeaconResponse<'a> {
-    pub hostname: &'a str,
-    pub interface_name: &'a str,
-    pub system_services: SystemServices,
-    pub hulks_os_version: &'a str,
-    pub body_id: &'a Option<String>,
-    pub head_id: &'a Option<String>,
-    pub battery: Option<Battery>,
-}
 
 async fn load_hulks_os_version() -> Result<String> {
     let mut os_release = configparser::ini::Ini::new();
@@ -272,7 +258,7 @@ async fn join_multicast(
 ) -> Result<AlivenessService> {
     let mut robot_info = RobotInfo::initialize().await?;
 
-    let socket = UdpSocket::bind(SocketAddrV4::new(BEACON_MULTICAST_GROUP, BEACON_PORT))
+    let socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, BEACON_PORT))
         .await
         .wrap_err("failed to bind beacon socket")?;
     socket
@@ -352,11 +338,11 @@ async fn handle_beacon(
     let response = BeaconResponse {
         hostname: &robot_info.hostname,
         interface_name,
-        system_services,
+        system_services: &system_services,
         hulks_os_version: &robot_info.hulks_os_version,
         body_id: &robot_info.body_id,
         head_id: &robot_info.head_id,
-        battery: robot_info.battery,
+        battery: &robot_info.battery,
     };
     let send_buffer = serde_json::to_vec(&response).wrap_err("failed to serialize response")?;
     socket
