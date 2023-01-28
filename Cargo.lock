@@ -724,18 +724,18 @@ dependencies = [
 
 [[package]]
 name = "compiled-nn"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e473233defe805639cc331e84312e784fe6a1fb6d468cc065f7edc3aa93cada"
+checksum = "1995a40abb8030d5e84cac9cc8917f1a79ea11bf32bf0cc90a64e7a578e1dc4d"
 dependencies = [
  "compiled-nn-bindings",
 ]
 
 [[package]]
 name = "compiled-nn-bindings"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09d53e433fd01d80574b96de40ba90b6c6d3e8e529950889c630d21a01e6c13c"
+checksum = "015b3be08e86208bcf26d3aa12d46348380e24d88f1bc8ac0eb98af5f8fd4860"
 dependencies = [
  "bindgen 0.63.0",
  "cmake",
