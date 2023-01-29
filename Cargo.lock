@@ -4744,9 +4744,9 @@ dependencies = [
 
 [[package]]
 name = "webots"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29fd777e625588a5ab3c9375a0141b5d2e8d7b6f89f162f278569026bcd5c020"
+checksum = "3083408c9e5238ad2b2387b3aead4ab542c23099ffdad06e9b669bf54416eca8"
 dependencies = [
  "thiserror",
  "webots-bindings",
@@ -4754,9 +4754,9 @@ dependencies = [
 
 [[package]]
 name = "webots-bindings"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09427a817ddb0b03d313f627c8fcb742fa6e1351ebe507e5e351ea6787f8935e"
+checksum = "7bb9ce5f1071baa0f5ff18bd07e37743fef2aabc79895fd6381e7c9451b8f233"
 dependencies = [
  "bindgen 0.63.0",
  "walkdir",
