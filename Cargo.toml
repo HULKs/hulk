@@ -132,7 +132,7 @@ types = { path = "crates/types" }
 uuid = { version = "1.1.2", features = ["v4"] }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", branch = "hulksChanges" }
 walkdir = "2.3.2"
-webots = { version = "0.6.0" }
+webots = { version = "0.7.0" }
 vision = { path = "crates/vision" }
 zbus = { version = "3.7.0", features = ["tokio"] }
 
