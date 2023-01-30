@@ -9,11 +9,13 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
   libhdf5-dev \
   libluajit-5.1-dev \
   libsystemd-dev \
+  libudev-dev \
   ninja-build \
   python3 \
   python3-click \
   python3-git \
   rsync \
+  zstd \
   && rm --recursive --force /var/lib/apt/lists/*
 
 RUN rustup component add clippy rustfmt
