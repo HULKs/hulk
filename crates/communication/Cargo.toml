@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-awaitgroup = { workspace = true }
 bincode = { workspace = true }
 byteorder = { workspace = true }
 color-eyre = { workspace = true }

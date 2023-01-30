@@ -10,17 +10,13 @@ color-eyre = { workspace = true }
 image = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
-parking_lot = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }
-serde_test = { workspace = true }
 serialize_hierarchy = { workspace = true }
 spl_network_messages = { workspace = true }
-tokio = { workspace = true }
 bincode = { workspace = true }
 
 [build-dependencies]
-petgraph = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
