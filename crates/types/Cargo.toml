@@ -16,7 +16,3 @@ serde_json = { workspace = true }
 serialize_hierarchy = { workspace = true }
 spl_network_messages = { workspace = true }
 bincode = { workspace = true }
-
-[build-dependencies]
-proc-macro2 = { workspace = true }
-quote = { workspace = true }

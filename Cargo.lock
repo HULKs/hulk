@@ -3853,8 +3853,6 @@ dependencies = [
  "image",
  "nalgebra",
  "ordered-float",
- "proc-macro2",
- "quote",
  "serde",
  "serde_bytes",
  "serde_json",
