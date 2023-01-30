@@ -1,5 +1,6 @@
 use std::{io::stdout, sync::Arc};
 
+use chrono::Duration;
 use color_eyre::{eyre::bail, install, Result};
 use communication::server::Runtime;
 use framework::{Reader, Writer};
@@ -42,6 +43,7 @@ struct Configuration {
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 struct MainOutputs {
     x: f32,
+    database: cycler::Database,
 }
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 struct BehaviorDatabase {
@@ -54,6 +56,7 @@ async fn timeline_server(
     parameters_changed: Arc<Notify>,
     outputs_writer: Writer<BehaviorDatabase>,
     outputs_changed: Arc<Notify>,
+    frames: Vec<Vec<cycler::Database>>,
 ) {
     loop {
         select! {
@@ -61,7 +64,9 @@ async fn timeline_server(
                 {
                     let mut outputs = outputs_writer.next();
                     let parameters = parameters_reader.next();
+
                     outputs.main_outputs.x = (parameters.time as f32).sin();
+                    outputs.main_outputs.database = frames[parameters.time][0].clone();
                 }
                 outputs_changed.notify_waiters();
             }
@@ -72,15 +77,26 @@ async fn timeline_server(
     }
 }
 
+struct State {
+    time_elapsed: Duration,
+    robots: Vec<Robot>,
+}
+
+impl State {
+    fn new(keep_running: CancellationToken, robot_count: usize) -> Self {
+        let robots: Vec<_> = (0..robot_count)
+            .map(|index| Robot::new(index, keep_running.clone()))
+            .collect();
+
+        Self {
+            time_elapsed: Duration::zero(),
+            robots,
+        }
+    }
+}
+
 fn run(keep_running: CancellationToken) -> Result<()> {
     let runtime = tokio::runtime::Runtime::new()?;
-    let mut robots: Vec<_> = {
-        let keep_running = keep_running.clone();
-
-        (0..5)
-            .map(|index| Robot::new(index, keep_running.clone()))
-            .collect()
-    };
     let (outputs_writer, outputs_reader) = framework::multiple_buffer_with_slots([
         Default::default(),
         Default::default(),
@@ -111,6 +127,21 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         subscribed_outputs_writer,
     );
 
+    let mut state = State::new(keep_running.clone(), 1);
+
+    let mut frames = Vec::new();
+    for frame_index in 0..20 {
+        let mut robot_frames = Vec::new();
+
+        for robot in &mut state.robots {
+            println!("cycling");
+            robot.chest_button_pressed = frame_index == 1 || frame_index == 5;
+            robot.cycle().unwrap();
+            robot_frames.push(robot.get_database());
+        }
+        frames.push(robot_frames);
+    }
+
     {
         let parameters_changed = communication_server.get_parameters_changed();
         let parameters_reader = communication_server.get_parameters_reader();
@@ -121,15 +152,10 @@ fn run(keep_running: CancellationToken) -> Result<()> {
                 parameters_changed,
                 outputs_writer,
                 outputs_changed,
+                frames,
             )
             .await
         });
-    }
-    for _frame_index in 0..50 {
-        for robot in &mut robots {
-            println!("cycling");
-            robot.cycle().unwrap();
-        }
     }
 
     let mut encountered_error = false;

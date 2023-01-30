@@ -1,14 +1,23 @@
-use std::sync::Arc;
+use std::{ops::DerefMut, sync::Arc};
 
 use color_eyre::Result;
 use communication::server::Runtime;
+use framework::Reader;
+use nalgebra::Isometry2;
 use tokio_util::sync::CancellationToken;
 
-use crate::{cycler::BehaviorCycler, interfake::Interfake};
+use crate::{
+    cycler::{BehaviorCycler, Database},
+    interfake::Interfake,
+};
 
 pub struct Robot {
     pub interface: Arc<Interfake>,
     pub cycler: BehaviorCycler<Interfake>,
+    control_reader: Reader<Database>,
+    pub robot_to_field: Isometry2<f32>,
+    pub chest_button_pressed: bool,
+    pub database_writer: framework::Writer<Database>,
 }
 
 impl Robot {
@@ -24,38 +33,58 @@ impl Robot {
         )
         .unwrap();
 
-        let (control_writer, control_reader) = framework::multiple_buffer_with_slots([
+        let (database_writer, database_reader) = framework::multiple_buffer_with_slots([
+            Default::default(),
             Default::default(),
             Default::default(),
             Default::default(),
         ]);
 
-        let control_changed = std::sync::Arc::new(tokio::sync::Notify::new());
-        let (control_subscribed_outputs_writer, _control_subscribed_outputs_reader) =
+        let database_changed = std::sync::Arc::new(tokio::sync::Notify::new());
+        let (subscribed_outputs_writer, _subscribed_outputs_reader) =
             framework::multiple_buffer_with_slots([
                 Default::default(),
                 Default::default(),
                 Default::default(),
             ]);
         let cycler = BehaviorCycler::new(
-            control::CyclerInstance::Control,
             interface.clone(),
-            control_writer,
-            control_changed.clone(),
+            database_changed.clone(),
             communication_server.get_parameters_reader(),
         )
         .unwrap();
         communication_server.register_cycler_instance(
             "Control",
-            control_changed,
-            control_reader,
-            control_subscribed_outputs_writer,
+            database_changed,
+            database_reader.clone(),
+            subscribed_outputs_writer,
         );
 
-        Self { interface, cycler }
+        Self {
+            interface,
+            cycler,
+            control_reader: database_reader,
+            robot_to_field: Isometry2::default(),
+            chest_button_pressed: false,
+            database_writer,
+        }
     }
 
     pub fn cycle(&mut self) -> Result<()> {
-        self.cycler.cycle()
+        let mut own_database = self.database_writer.next();
+        let own_database_reference = own_database.deref_mut();
+
+        own_database_reference
+            .main_outputs
+            .buttons
+            .is_chest_button_pressed = self.chest_button_pressed;
+        own_database_reference.main_outputs.robot_to_field = Some(self.robot_to_field);
+
+        self.cycler.cycle(own_database_reference)
+    }
+
+    pub fn get_database(&self) -> Database {
+        let database = self.control_reader.next();
+        database.clone()
     }
 }
