@@ -8,6 +8,7 @@ use color_eyre::{
 };
 use tokio::fs::read_dir;
 
+use aliveness::{aliveness, Arguments as AlivenessArguments};
 use analyze::{analyze, Arguments as AnalyzeArguments};
 use cargo::{cargo, Arguments as CargoArguments, Command as CargoCommand};
 use communication::{communication, Arguments as CommunicationArguments};
@@ -25,6 +26,7 @@ use shell::{shell, Arguments as ShellArguments};
 use upload::{upload, Arguments as UploadArguments};
 use wireless::{wireless, Arguments as WirelessArguments};
 
+mod aliveness;
 mod analyze;
 mod cargo;
 mod communication;
@@ -58,6 +60,9 @@ async fn main() -> Result<()> {
         Command::Analyze(arguments) => analyze(arguments, &repository)
             .await
             .wrap_err("failed to execute analyze command")?,
+        Command::Aliveness(arguments) => aliveness(arguments)
+            .await
+            .wrap_err("failed to execute aliveness command")?,
         Command::Build(arguments) => cargo(arguments, &repository, CargoCommand::Build)
             .await
             .wrap_err("failed to execute build command")?,
@@ -135,6 +140,9 @@ enum Command {
     /// Analyze source code
     #[clap(subcommand)]
     Analyze(AnalyzeArguments),
+    /// Get aliveness information from NAOs
+    #[clap(subcommand)]
+    Aliveness(AlivenessArguments),
     /// Builds the code for a target
     Build(CargoArguments),
     /// Checks the code with cargo check

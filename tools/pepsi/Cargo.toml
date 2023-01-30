@@ -5,6 +5,7 @@ name = "pepsi"
 version = "2.4.1"
 
 [dependencies]
+aliveness-client = { workspace = true }
 bat = { workspace = true }
 clap = { workspace = true }
 clap_complete = { workspace = true }
@@ -13,6 +14,8 @@ futures = { workspace = true }
 nao = { workspace = true }
 regex = { workspace = true }
 repository = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 source_analyzer = { workspace = true }
 spl_network_messages = { workspace = true }
 tokio = { workspace = true }
