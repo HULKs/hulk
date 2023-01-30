@@ -8,7 +8,6 @@ use spl_network_messages::{GamePhase, GameState, PlayerNumber, Team};
 use types::{
     configuration::GameStateFilter as GameStateFilterConfiguration, BallPosition, Buttons,
     CycleTime, FieldDimensions, FilteredGameState, FilteredWhistle, GameControllerState,
-    SensorData,
 };
 
 pub struct GameStateFilter {
@@ -31,7 +30,6 @@ pub struct CycleContext {
     pub cycle_time: Input<CycleTime, "cycle_time">,
     pub filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
 
     pub config: Parameter<GameStateFilterConfiguration, "game_state_filter">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,

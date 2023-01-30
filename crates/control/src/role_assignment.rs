@@ -11,8 +11,7 @@ use types::{
     configuration::SplNetwork,
     hardware::Interface,
     messages::{IncomingMessage, OutgoingMessage},
-    BallPosition, CycleTime, FallState, FieldDimensions, GameControllerState, InitialPose, Players,
-    PrimaryState, Role, SensorData,
+    BallPosition, CycleTime, FallState, FieldDimensions, GameControllerState, InitialPose, Players, PrimaryState, Role,
 };
 
 use crate::localization::generate_initial_pose;
@@ -28,7 +27,6 @@ pub struct RoleAssignment {
 
 #[context]
 pub struct CreationContext {
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
     pub spl_network: Parameter<SplNetwork, "spl_network">,
@@ -41,7 +39,6 @@ pub struct CycleContext {
     pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
     pub primary_state: Input<PrimaryState, "primary_state">,
     pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,

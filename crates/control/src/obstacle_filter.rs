@@ -9,7 +9,7 @@ use nalgebra::{distance, point, Isometry2, Matrix2, Point2};
 use types::{
     configuration::ObstacleFilter as ObstacleFilterConfiguration,
     obstacle_filter_hypothesis::ObstacleFilterHypothesisSnapshot, CycleTime, DetectedRobots,
-    FieldDimensions, Obstacle, ObstacleKind, SensorData, SonarObstacle,
+    FieldDimensions, Obstacle, ObstacleKind, SonarObstacle,
 };
 
 pub struct ObstacleFilter {
@@ -33,7 +33,6 @@ pub struct CycleContext {
     pub robot_to_field: HistoricInput<Option<Isometry2<f32>>, "robot_to_field?">,
     pub sonar_obstacles: HistoricInput<Vec<SonarObstacle>, "sonar_obstacles">,
 
-    pub sensor_data: Input<SensorData, "sensor_data">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
