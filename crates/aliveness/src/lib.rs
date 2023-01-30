@@ -1,5 +1,5 @@
 use std::{
-    net::{Ipv4Addr, SocketAddrV4},
+    net::{IpAddr, Ipv4Addr, SocketAddrV4},
     time::Duration,
 };
 
@@ -43,7 +43,7 @@ impl Aliveness {
     pub async fn query(
         timeout: Duration,
         ips: Option<Vec<Ipv4Addr>>,
-    ) -> Result<Vec<AlivenessState>> {
+    ) -> Result<Vec<(IpAddr, AlivenessState)>> {
         let socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))
             .await
             .wrap_err("failed to bind beacon socket")?;
@@ -61,9 +61,9 @@ impl Aliveness {
         loop {
             select! {
                 message = socket.recv_from(&mut receive_buffer) => {
-                    let (num_bytes, _) = message.wrap_err("failed to receive beacon response")?;
-                    aliveness_states.push(serde_json::from_slice(&receive_buffer[0..num_bytes])
-                        .wrap_err("failed to deserialize beacon response")?);
+                    let (num_bytes, peer) = message.wrap_err("failed to receive beacon response")?;
+                    aliveness_states.push((peer.ip(), serde_json::from_slice(&receive_buffer[0..num_bytes])
+                        .wrap_err("failed to deserialize beacon response")?));
                 }
                 _ = sleep(timeout) => {
                     break Ok(aliveness_states);
