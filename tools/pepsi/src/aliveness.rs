@@ -3,6 +3,7 @@ use std::{
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
     iter::zip,
+    net::IpAddr,
     time::Duration,
 };
 
@@ -178,6 +179,7 @@ impl DisplayGrid for Ids {
 
 #[derive(Serialize)]
 struct All {
+    hostname: String,
     interface_name: String,
     hulks_os_version: String,
     #[serde(flatten)]
@@ -191,6 +193,7 @@ struct All {
 impl From<AlivenessState> for All {
     fn from(state: AlivenessState) -> Self {
         Self {
+            hostname: state.hostname,
             interface_name: state.interface_name,
             hulks_os_version: state.hulks_os_version,
             services: Services::from(state.system_services),
@@ -204,9 +207,10 @@ impl From<AlivenessState> for All {
 impl Display for All {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         const INDENTATION: usize = 2;
-        const COL_SPACING: usize = 4;
+        const COL_SPACING: usize = 3;
 
         let Self {
+            hostname,
             interface_name,
             hulks_os_version,
             services,
@@ -244,44 +248,42 @@ impl Display for All {
 
         write!(
             f,
-            "{:INDENTATION$}Interface name:    {interface_name}\n\
+            "{:INDENTATION$}Hostname:          {hostname}\n\
+            {:INDENTATION$}Interface name:    {interface_name}\n\
             {:INDENTATION$}HULKs-OS version:  {hulks_os_version}\n\
             {:INDENTATION$}Services:          {services}\n\
             {:INDENTATION$}Battery:           {battery}\n\
             {:INDENTATION$}Head ID:           {head_id}\n\
             {:INDENTATION$}Body ID:           {body_id}\n",
-            "", "", "", "", "", ""
+            "", "", "", "", "", "", ""
         )
     }
 }
 
 #[derive(Serialize)]
 struct AlivenessList<T> {
-    entries: BTreeMap<String, T>,
+    entries: BTreeMap<IpAddr, T>,
 }
 
-impl<T: From<AlivenessState>> From<Vec<AlivenessState>> for AlivenessList<T> {
-    fn from(states: Vec<AlivenessState>) -> Self {
+impl<T: From<AlivenessState>> From<Vec<(IpAddr, AlivenessState)>> for AlivenessList<T> {
+    fn from(states: Vec<(IpAddr, AlivenessState)>) -> Self {
         Self {
-            entries: states
-                .into_iter()
-                .map(|s| (s.hostname.clone(), T::from(s)))
-                .collect(),
+            entries: states.into_iter().map(|(ip, s)| (ip, T::from(s))).collect(),
         }
     }
 }
 
 impl<T: DisplayGrid> Display for AlivenessList<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        const HOSTNAME_SPACING: usize = 2;
-        const COL_SPACING: usize = 4;
+        const IP_SPACING: usize = 2;
+        const COL_SPACING: usize = 3;
         const MAX_COLS: usize = 4;
 
         let mut col_widths: [usize; MAX_COLS] = [0; MAX_COLS];
-        let mut cells: Vec<(&str, Vec<String>)> = Vec::new();
+        let mut cells = Vec::new();
 
-        for (hostname, entry) in self.entries.iter() {
-            cells.push((hostname, entry.format_grid()));
+        for (ip, entry) in self.entries.iter() {
+            cells.push((ip, entry.format_grid()));
         }
 
         for (_, row) in cells.iter() {
@@ -294,8 +296,8 @@ impl<T: DisplayGrid> Display for AlivenessList<T> {
             }
         }
 
-        for (hostname, row) in cells.iter() {
-            write!(f, "[{}]{:HOSTNAME_SPACING$}", hostname, "")?;
+        for (ip, row) in cells.iter() {
+            write!(f, "[{}]{:IP_SPACING$}", ip, "")?;
             for (i, cell) in row.iter().enumerate() {
                 let spacing = if i == 0 { 0 } else { COL_SPACING };
                 write!(f, "{0:spacing$}{1:<2$}", "", cell, col_widths[i])?
@@ -368,14 +370,14 @@ async fn all(arguments: SubcommandArguments) -> Result<()> {
     if arguments.json {
         println!("{}", serde_json::to_string(&all)?);
     } else {
-        for (hostname, entry) in all.entries {
-            print!("[{hostname}]\n{entry}\n");
+        for (ip, entry) in all.entries {
+            print!("[{ip}]\n{entry}\n");
         }
     }
     Ok(())
 }
 
-async fn query_aliveness(arguments: &SubcommandArguments) -> Result<Vec<AlivenessState>> {
+async fn query_aliveness(arguments: &SubcommandArguments) -> Result<Vec<(IpAddr, AlivenessState)>> {
     let timeout = Duration::from_millis(arguments.timeout);
     let ips = arguments
         .naos
