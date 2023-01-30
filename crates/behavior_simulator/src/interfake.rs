@@ -37,9 +37,9 @@ impl Interface for Interfake {
 
     fn write_to_actuators(
         &self,
-        positions: Joints,
-        stiffnesses: Joints,
-        leds: types::Leds,
+        _positions: Joints,
+        _stiffnesses: Joints,
+        _leds: types::Leds,
     ) -> Result<()> {
         unimplemented!()
     }
@@ -54,13 +54,13 @@ impl Interface for Interfake {
         Ok(())
     }
 
-    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<Image> {
+    fn read_from_camera(&self, _camera_position: CameraPosition) -> Result<Image> {
         unimplemented!()
     }
 }
 
 impl Interfake {
-    fn outgoing_messages(&self) -> Vec<OutgoingMessage> {
+    fn take_outgoing_messages(&self) -> Vec<OutgoingMessage> {
         take(&mut self.messages.lock().unwrap())
     }
 }
