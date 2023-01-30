@@ -37,6 +37,7 @@ exclude = [
 
 [workspace.dependencies]
 alsa = "0.7.0"
+aliveness-client = { path = "crates/aliveness" }
 approx = "0.5.1"
 audio = { path = "crates/audio" }
 awaitgroup = "0.6.0"
