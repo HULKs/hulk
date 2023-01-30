@@ -123,6 +123,10 @@ walkdir = "2.3.2"
 webots = { version = "0.6.0" }
 vision = { path = "crates/vision" }
 
+[profile.release-lto]
+inherits = "release"
+lto = true
+
 [profile.incremental]
 inherits = "release"
 incremental = true

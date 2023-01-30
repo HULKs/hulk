@@ -16,7 +16,7 @@ use crate::{
 
 #[derive(Args)]
 pub struct Arguments {
-    #[arg(long, default_value = "release")]
+    #[arg(long, default_value = "release-lto")]
     pub profile: String,
     /// Do not update nor install SDK
     #[arg(long)]
