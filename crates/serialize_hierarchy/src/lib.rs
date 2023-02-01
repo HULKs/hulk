@@ -406,13 +406,7 @@ impl<T: Serialize + DeserializeOwned + Clone + Scalar> SerializeHierarchy for Po
         S: Serializer,
         S::Error: error::Error,
     {
-        let index = ["x", "y"].into_iter().position(|name| name == path);
-        match index {
-            Some(index) => S::serialize(&self[index]).map_err(Error::SerializationFailed),
-            _ => Err(Error::UnexpectedPathSegment {
-                segment: String::from(path),
-            }),
-        }
+        self.coords.serialize_path::<S>(path)
     }
 
     fn deserialize_path<S>(
@@ -424,25 +418,15 @@ impl<T: Serialize + DeserializeOwned + Clone + Scalar> SerializeHierarchy for Po
         S: Serializer,
         S::Error: error::Error,
     {
-        let index = ["x", "y"].into_iter().position(|name| name == path);
-        match index {
-            Some(index) => {
-                let deserialized = S::deserialize(_data).map_err(Error::DeserializationFailed)?;
-                self[index] = deserialized;
-                Ok(())
-            }
-            None => Err(Error::UnexpectedPathSegment {
-                segment: String::from(path),
-            }),
-        }
+        self.coords.deserialize_path::<S>(path, _data)
     }
 
     fn exists(path: &str) -> bool {
-        matches!(path, "x" | "y")
+        Vector2::<T>::exists(path)
     }
 
     fn get_fields() -> BTreeSet<String> {
-        ["x", "y"].into_iter().map(String::from).collect()
+        Vector2::<T>::get_fields()
     }
 }
 
@@ -452,13 +436,7 @@ impl<T: Serialize + DeserializeOwned + Clone + Scalar> SerializeHierarchy for Po
         S: Serializer,
         S::Error: error::Error,
     {
-        let index = ["x", "y", "z"].into_iter().position(|name| name == path);
-        match index {
-            Some(index) => S::serialize(&self[index]).map_err(Error::SerializationFailed),
-            _ => Err(Error::UnexpectedPathSegment {
-                segment: String::from(path),
-            }),
-        }
+        self.coords.serialize_path::<S>(path)
     }
 
     fn deserialize_path<S>(
@@ -470,25 +448,15 @@ impl<T: Serialize + DeserializeOwned + Clone + Scalar> SerializeHierarchy for Po
         S: Serializer,
         S::Error: error::Error,
     {
-        let index = ["x", "y", "z"].into_iter().position(|name| name == path);
-        match index {
-            Some(index) => {
-                let deserialized = S::deserialize(_data).map_err(Error::DeserializationFailed)?;
-                self[index] = deserialized;
-                Ok(())
-            }
-            None => Err(Error::UnexpectedPathSegment {
-                segment: String::from(path),
-            }),
-        }
+        self.coords.deserialize_path::<S>(path, _data)
     }
 
     fn exists(path: &str) -> bool {
-        matches!(path, "x" | "y" | "z")
+        Vector3::<T>::exists(path)
     }
 
     fn get_fields() -> BTreeSet<String> {
-        ["x", "y", "z"].into_iter().map(String::from).collect()
+        Vector3::<T>::get_fields()
     }
 }
 
