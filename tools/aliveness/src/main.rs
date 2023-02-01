@@ -14,7 +14,7 @@ use aliveness::{
 use color_eyre::eyre::{bail, eyre, ContextCompat, Result, WrapErr};
 use futures_util::stream::StreamExt;
 use hula_types::{Battery, RobotState};
-use log::info;
+use log::{error, info};
 use tokio::{
     io::AsyncReadExt,
     net::{UdpSocket, UnixStream},
@@ -74,9 +74,7 @@ impl HulaService {
                     if stream.read_exact(&mut read_buffer).await.is_ok() {
                         let state = unsafe { read(read_buffer.as_ptr() as *const RobotState) };
                         stream_opt = Some(stream);
-                        response_channel
-                            .send(state)
-                            .expect("failed to send response");
+                        let _ = response_channel.send(state);
                         break;
                     }
                     stream_opt = None;
@@ -303,7 +301,9 @@ async fn join_multicast(
                             &buffer[0..num_bytes],
                             peer,
                         )
-                        .await.unwrap();
+                        .await.unwrap_or_else(|err| {
+                            error!("{err}");
+                        });
                     }
                 }
             }
