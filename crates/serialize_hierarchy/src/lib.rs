@@ -284,7 +284,7 @@ impl<T: Serialize + DeserializeOwned, const N: usize> SerializeHierarchy
     fn deserialize_path<S>(
         &mut self,
         path: &str,
-        _data: S::Serialized,
+        data: S::Serialized,
     ) -> Result<(), Error<S::Error>>
     where
         S: Serializer,
@@ -295,7 +295,7 @@ impl<T: Serialize + DeserializeOwned, const N: usize> SerializeHierarchy
             .position(|name| name == &path);
         match index {
             Some(index) => {
-                let deserialized = S::deserialize(_data).map_err(Error::DeserializationFailed)?;
+                let deserialized = S::deserialize(data).map_err(Error::DeserializationFailed)?;
                 self[index] = deserialized;
                 Ok(())
             }
@@ -331,43 +331,13 @@ impl<T: Serialize + DeserializeOwned + Clone + Scalar, const N: usize> Serialize
     fn deserialize_path<S>(
         &mut self,
         path: &str,
-        _data: S::Serialized,
+        data: S::Serialized,
     ) -> Result<(), Error<S::Error>>
     where
         S: Serializer,
         S::Error: error::Error,
     {
-        self.coords.deserialize_path::<S>(path, _data)
-    }
-
-    fn exists(path: &str) -> bool {
-        Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::exists(path)
-    }
-
-    fn get_fields() -> BTreeSet<String> {
-        Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::get_fields()
-    }
-}
-
-impl<T: Serialize + DeserializeOwned + Clone + Scalar> SerializeHierarchy for Point2<T> {
-    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
-    where
-        S: Serializer,
-        S::Error: error::Error,
-    {
-        self.coords.serialize_path::<S>(path)
-    }
-
-    fn deserialize_path<S>(
-        &mut self,
-        path: &str,
-        _data: S::Serialized,
-    ) -> Result<(), Error<S::Error>>
-    where
-        S: Serializer,
-        S::Error: error::Error,
-    {
-        self.coords.deserialize_path::<S>(path, _data)
+        self.coords.deserialize_path::<S>(path, data)
     }
 
     fn exists(path: &str) -> bool {
