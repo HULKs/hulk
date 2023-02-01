@@ -10,8 +10,7 @@ use std::{
 pub use bincode;
 use bincode::{deserialize, serialize};
 use nalgebra::{
-    ArrayStorage, Const, Isometry2, Isometry3, Matrix, Point, SMatrix, Scalar, UnitComplex,
-    Vector2, U1,
+    ArrayStorage, Const, Isometry2, Isometry3, Matrix, Point, SMatrix, Scalar, UnitComplex, U1,
 };
 use serde::{de::DeserializeOwned, Serialize};
 pub use serde_json;
@@ -272,7 +271,7 @@ impl<T: Serialize + DeserializeOwned, const N: usize> SerializeHierarchy
         S::Error: error::Error,
     {
         let index = ["x", "y", "z", "w", "v", "u"][0..N]
-            .into_iter()
+            .iter()
             .position(|name| name == &path);
         match index {
             Some(index) => S::serialize(&self[index]).map_err(Error::SerializationFailed),
@@ -292,7 +291,7 @@ impl<T: Serialize + DeserializeOwned, const N: usize> SerializeHierarchy
         S::Error: error::Error,
     {
         let index = ["x", "y", "z", "w", "v", "u"][0..N]
-            .into_iter()
+            .iter()
             .position(|name| name == &path);
         match index {
             Some(index) => {
@@ -312,7 +311,7 @@ impl<T: Serialize + DeserializeOwned, const N: usize> SerializeHierarchy
 
     fn get_fields() -> BTreeSet<String> {
         ["x", "y", "z", "w", "v", "u"][0..N]
-            .into_iter()
+            .iter()
             .map(|path| String::from(*path))
             .collect()
     }
