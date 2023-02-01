@@ -10,7 +10,8 @@ use std::{
 pub use bincode;
 use bincode::{deserialize, serialize};
 use nalgebra::{
-    Isometry2, Isometry3, Point2, Point3, SMatrix, Scalar, UnitComplex, Vector2, Vector3, Vector4,
+    Isometry2, Isometry3, Point2, Point3, Point4, SMatrix, Scalar, UnitComplex, Vector2, Vector3,
+    Vector4,
 };
 use serde::{de::DeserializeOwned, Serialize};
 pub use serde_json;
@@ -457,6 +458,36 @@ impl<T: Serialize + DeserializeOwned + Clone + Scalar> SerializeHierarchy for Po
 
     fn get_fields() -> BTreeSet<String> {
         Vector3::<T>::get_fields()
+    }
+}
+
+impl<T: Serialize + DeserializeOwned + Clone + Scalar> SerializeHierarchy for Point4<T> {
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        self.coords.serialize_path::<S>(path)
+    }
+
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        self.coords.deserialize_path::<S>(path, _data)
+    }
+
+    fn exists(path: &str) -> bool {
+        Vector4::<T>::exists(path)
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        Vector4::<T>::get_fields()
     }
 }
 
