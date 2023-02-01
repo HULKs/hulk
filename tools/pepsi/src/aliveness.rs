@@ -142,9 +142,7 @@ impl DisplayGrid for Battery {
         if let Some(battery) = self.battery {
             vec![
                 format!("Charge: {:.0}%", battery.charge * 100.0),
-                format!("Status: {:.0}", battery.status),
                 format!("Current: {:.0}mA", battery.current * 1000.0),
-                format!("Temperature: {:.1}°C", battery.temperature),
             ]
         } else {
             vec![format!("Unknown")]
@@ -173,7 +171,7 @@ impl DisplayGrid for Ids {
         let body_id = self.body_id.as_ref().unwrap_or(&unknown);
         let head_id = self.head_id.as_ref().unwrap_or(&unknown);
 
-        vec![format!("Body ID: {body_id}"), format!("Head ID: {head_id}")]
+        vec![format!("Head ID: {head_id}"), format!("Body ID: {body_id}")]
     }
 }
 
