@@ -1,7 +1,6 @@
 use std::{env::current_dir, path::PathBuf};
 
 use clap::{CommandFactory, Parser, Subcommand};
-use clap_complete::generate;
 use color_eyre::{
     eyre::{bail, eyre, WrapErr},
     Result,
@@ -12,6 +11,7 @@ use crate::aliveness::{aliveness, Arguments as AlivenessArguments};
 use analyze::{analyze, Arguments as AnalyzeArguments};
 use cargo::{cargo, Arguments as CargoArguments, Command as CargoCommand};
 use communication::{communication, Arguments as CommunicationArguments};
+use completions::{completions, Arguments as CompletionArguments};
 use hulk::{hulk, Arguments as HulkArguments};
 use location::{location, Arguments as LocationArguments};
 use logs::{logs, Arguments as LogsArguments};
@@ -30,6 +30,7 @@ mod aliveness;
 mod analyze;
 mod cargo;
 mod communication;
+mod completions;
 mod hulk;
 mod location;
 mod logs;
@@ -75,12 +76,9 @@ async fn main() -> Result<()> {
         Command::Communication(arguments) => communication(arguments, &repository)
             .await
             .wrap_err("failed to execute communication command")?,
-        Command::Completions { shell } => generate(
-            shell,
-            &mut Arguments::command(),
-            "pepsi",
-            &mut std::io::stdout(),
-        ),
+        Command::Completions(arguments) => completions(arguments, Arguments::command())
+            .await
+            .wrap_err("failed to execute completion command")?,
         Command::Hulk(arguments) => hulk(arguments)
             .await
             .wrap_err("failed to execute hulk command")?,
@@ -152,10 +150,7 @@ enum Command {
     #[command(subcommand)]
     Communication(CommunicationArguments),
     /// Generates shell completion files
-    Completions {
-        #[clap(name = "shell")]
-        shell: clap_complete::shells::Shell,
-    },
+    Completions(CompletionArguments),
     /// Control the HULK service
     Hulk(HulkArguments),
     /// Control the configured location
