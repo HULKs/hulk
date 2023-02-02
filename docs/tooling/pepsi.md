@@ -25,18 +25,18 @@ The simulation is paused automatically until the binary starts.
 
 This command does the following:
 
-- checks if a toolchain is installed, downloads, and installs one if necessary
-- builds the code for the NAO target
-- uploads binary, configuration, motion files, neural networks, etc. to the NAO(s)
-- restarts HULK service on the NAO(s)
+-   checks if a toolchain is installed, downloads, and installs one if necessary
+-   builds the code for the NAO target
+-   uploads binary, configuration, motion files, neural networks, etc. to the NAO(s)
+-   restarts HULK service on the NAO(s)
 
 ## Interaction with the NAO
 
 NAOs are identified either by IP or by number.
 Numbers are converted to IPs as follows:
 
-- `{number}` -> `10.1.24.{number}`
-- `{number}w` -> `10.0.24.{number}`
+-   `{number}` -> `10.1.24.{number}`
+-   `{number}w` -> `10.0.24.{number}`
 
 Many subcommands can act on multiple robots concurrently.
 
@@ -44,7 +44,7 @@ Many subcommands can act on multiple robots concurrently.
 
 `wireless`, `reboot`, `poweroff`, and `hulk` directly interact with the robot(s), whereas `communication`, and `playernumber` only change the local configuration.
 
-`pregame` combines deactivating aliveness & communication (to avoid sending illegal messages), assigning playernumbers, setting a wifi network, uploading, and restarting the HULK service.
+`pregame` combines deactivating communication (to avoid sending illegal messages), assigning playernumbers, setting a wifi network, uploading, and restarting the HULK service.
 
 `logs` or and `postgame` can be used after a (test-)game to download logs, the latter also shuts down the HULKs binary and disables wifi.
 
@@ -53,6 +53,14 @@ Many subcommands can act on multiple robots concurrently.
 For subcommands that build a binary, you can specify a target and a build profile.
 These include `build`, `run`, `check`, and `clippy`.
 However `upload` and `pregame` only supports a profiles, since it doesn't make sense to upload a webots binary to the nao.
+
+## Aliveness
+
+Using the `aliveness` subcommand, pepsi can query information from NAOs connected via ethernet. Different verbosities (`summary`, `servicese`, `battery`, `ids`, and `all`). Using `-j` or `--json` the aliveness information can also be returned as JSON for further processing in e.g. status bars.
+
+You can alse set a timeout via `-t` or `--timeout` (defaulting to 200ms) and specify NAO addresses (e.g. `22` or `10.1.24.22`) for querying the aliveness information only from specific NAOs.
+
+Further information on the information available via aliveness as well as the details to the protocol can be found [here](./aliveness.md).
 
 ## Shell Completion
 
