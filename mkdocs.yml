@@ -47,6 +47,7 @@ nav:
       - Logging: framework/logging.md
   - Tooling:
       - Overview: tooling/overview.md
+      - Pepsi: tooling/aliveness.md
       - Pepsi: tooling/pepsi.md
       - Twix: tooling/twix.md
       - Depp: tooling/depp.md
