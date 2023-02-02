@@ -180,3 +180,16 @@ async fn query_aliveness_list(arguments: &Arguments) -> Result<AlivenessList, Al
     let responses = query_aliveness(arguments.timeout, ips).await?;
     Ok(responses.into_iter().collect())
 }
+
+pub async fn completions() -> Result<Vec<u8>, AlivenessError> {
+    const COMPLETIONS_TIMEOUT: Duration = Duration::from_millis(200);
+    let aliveness_states = query_aliveness(COMPLETIONS_TIMEOUT, None).await?;
+    let completions = aliveness_states
+        .iter()
+        .filter_map(|(ip, _)| match ip {
+            IpAddr::V4(ip) => Some(ip.octets()[3]),
+            _ => None,
+        })
+        .collect();
+    Ok(completions)
+}
