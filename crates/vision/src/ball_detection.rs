@@ -4,8 +4,8 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, vector, Vector2};
 use types::{
-    configuration::BallDetection as BallDetectionConfiguration, image::Image, Ball, CameraMatrix,
-    CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
+    configuration::BallDetection as BallDetectionConfiguration, hardware::Interface, image::Image,
+    Ball, CameraMatrix, CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
 };
 
 pub const SAMPLE_SIZE: usize = 32;
@@ -31,6 +31,7 @@ pub struct BallDetection {
 
 #[context]
 pub struct CreationContext {
+    pub hardware_interface: HardwareInterface,
     pub configuration: Parameter<BallDetectionConfiguration, "ball_detection.$cycler_instance">,
 }
 
@@ -54,15 +55,29 @@ pub struct MainOutputs {
 }
 
 impl BallDetection {
-    pub fn new(context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext<impl Interface>) -> Result<Self> {
+        let paths = context.hardware_interface.get_paths();
+
         let mut preclassifier = CompiledNN::default();
-        preclassifier.compile(&context.configuration.preclassifier_neural_network);
+        preclassifier.compile(
+            paths
+                .neural_networks
+                .join(&context.configuration.preclassifier_neural_network),
+        );
 
         let mut classifier = CompiledNN::default();
-        classifier.compile(&context.configuration.classifier_neural_network);
+        classifier.compile(
+            paths
+                .neural_networks
+                .join(&context.configuration.classifier_neural_network),
+        );
 
         let mut positioner = CompiledNN::default();
-        positioner.compile(&context.configuration.positioner_neural_network);
+        positioner.compile(
+            paths
+                .neural_networks
+                .join(&context.configuration.positioner_neural_network),
+        );
 
         let neural_networks = NeuralNetworks {
             preclassifier,

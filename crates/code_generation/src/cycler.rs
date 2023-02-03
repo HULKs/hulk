@@ -363,7 +363,7 @@ impl Cycler<'_> {
                 #(#other_cycler_fields,)*
                 own_changed: std::sync::Arc<tokio::sync::Notify>,
                 own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
-                configuration_reader: framework::Reader<structs::Configuration>,
+                parameters_reader: framework::Reader<structs::Parameters>,
                 #real_time_fields
                 persistent_state: structs::#cycler_module_name_identifier::PersistentState,
                 #(#node_fields,)*
@@ -398,10 +398,10 @@ impl Cycler<'_> {
                 #(#other_cycler_fields,)*
                 own_changed: std::sync::Arc<tokio::sync::Notify>,
                 own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
-                configuration_reader: framework::Reader<structs::Configuration>,
+                parameters_reader: framework::Reader<structs::Parameters>,
             ) -> color_eyre::Result<Self> {
                 use color_eyre::eyre::WrapErr;
-                let configuration = configuration_reader.next().clone();
+                let parameters = parameters_reader.next().clone();
                 let mut persistent_state = structs::#cycler_module_name_identifier::PersistentState::default();
                 #(#node_initializers)*
                 Ok(Self {
@@ -412,7 +412,7 @@ impl Cycler<'_> {
                     #(#other_cycler_identifiers,)*
                     own_changed,
                     own_subscribed_outputs_reader,
-                    configuration_reader,
+                    parameters_reader,
                     #real_time_initializers
                     persistent_state,
                     #(#node_identifiers,)*
@@ -471,7 +471,7 @@ impl Cycler<'_> {
             quote! {
                 {
                     let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
-                    let configuration = self.configuration_reader.next();
+                    let parameters = self.parameters_reader.next();
                     #first_node
                 }
             }
@@ -497,7 +497,7 @@ impl Cycler<'_> {
             false => quote! {
                 {
                     let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
-                    let configuration = self.configuration_reader.next();
+                    let parameters = self.parameters_reader.next();
                     #(#other_cycler_databases)*
                     #(#remaining_nodes)*
                 }

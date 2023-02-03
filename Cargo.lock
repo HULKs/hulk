@@ -1083,7 +1083,6 @@ dependencies = [
 name = "depp"
 version = "0.1.0"
 dependencies = [
- "color-eyre",
  "toml",
 ]
 

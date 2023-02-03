@@ -20,14 +20,14 @@ fn main() -> Result<()> {
     let structs = Structs::try_from_crates_directory("..")
         .wrap_err("failed to get structs from crates directory")?;
 
-    let configuration = match &structs.configuration {
+    let parameters = match &structs.parameters {
         StructHierarchy::Struct { fields } => {
             let structs = struct_hierarchy_to_token_stream(
-                "Configuration",
+                "Parameters",
                 fields,
                 quote! { #[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize, serialize_hierarchy::SerializeHierarchy)] },
             )
-            .wrap_err("failed to generate struct `Configuration`")?;
+            .wrap_err("failed to generate struct `Parameters`")?;
             quote! {
                 #structs
             }
@@ -88,7 +88,7 @@ fn main() -> Result<()> {
         .collect::<Result<Vec<_>, _>>()?;
 
     let token_stream = quote! {
-        #configuration
+        #parameters
         #(#cyclers)*
     };
 

@@ -1,6 +1,7 @@
-use std::{fmt::Debug, time::SystemTime};
+use std::{fmt::Debug, path::PathBuf, time::SystemTime};
 
 use color_eyre::Result;
+use serde::Deserialize;
 
 use crate::{
     image::Image,
@@ -15,6 +16,7 @@ pub trait Interface {
 
     fn get_now(&self) -> SystemTime;
     fn get_ids(&self) -> Ids;
+    fn get_paths(&self) -> Paths;
     fn read_from_sensors(&self) -> Result<SensorData>;
     fn write_to_actuators(&self, positions: Joints, stiffnesses: Joints, leds: Leds) -> Result<()>;
 
@@ -28,4 +30,11 @@ pub trait Interface {
 pub struct Ids {
     pub body_id: String,
     pub head_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Paths {
+    pub parameters: PathBuf,
+    pub motions: PathBuf,
+    pub neural_networks: PathBuf,
 }

@@ -13,7 +13,7 @@ use color_eyre::{
 };
 use tokio_util::sync::CancellationToken;
 use types::{
-    hardware::{self, Ids},
+    hardware::{self, Ids, Paths},
     image::Image,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
@@ -51,6 +51,8 @@ pub struct Interface {
     keep_running: CancellationToken,
 
     simulator_audio_synchronization: Barrier,
+
+    paths: Paths,
 }
 
 impl Interface {
@@ -78,6 +80,8 @@ impl Interface {
             keep_running,
 
             simulator_audio_synchronization: Barrier::new(2),
+
+            paths: parameters.paths,
         })
     }
 
@@ -137,6 +141,10 @@ impl hardware::Interface for Interface {
             body_id: name.to_string(),
             head_id: name.to_string(),
         }
+    }
+
+    fn get_paths(&self) -> Paths {
+        self.paths.clone()
     }
 
     fn read_from_sensors(&self) -> Result<SensorData> {
