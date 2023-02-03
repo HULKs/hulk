@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::{select, sync::Notify};
 use tokio_util::sync::CancellationToken;
+use types::PrimaryState;
 
 mod cycler;
 mod interfake;
@@ -84,13 +85,17 @@ struct State {
 
 impl State {
     fn new(keep_running: CancellationToken, robot_count: usize) -> Self {
-        let robots: Vec<_> = (0..robot_count)
-            .map(|index| Robot::new(index, keep_running.clone()))
-            .collect();
+        let robots: Vec<_> = (0..robot_count).map(|index| Robot::new(index)).collect();
 
         Self {
             time_elapsed: Duration::zero(),
             robots,
+        }
+    }
+
+    pub fn stiffen_robots(&mut self) {
+        for robot in &mut self.robots {
+            robot.primary_state = PrimaryState::Playing;
         }
     }
 }
@@ -128,20 +133,38 @@ fn run(keep_running: CancellationToken) -> Result<()> {
     );
 
     let mut state = State::new(keep_running.clone(), 1);
+    state.stiffen_robots();
 
     let mut frames = Vec::new();
-    for frame_index in 0..20 {
+    for _frame_index in 0..20 {
         let mut robot_frames = Vec::new();
 
         for robot in &mut state.robots {
             println!("cycling");
-            robot.chest_button_pressed = frame_index == 1 || frame_index == 5;
             robot.cycle().unwrap();
-            robot_frames.push(robot.get_database());
+            let database = robot.database.clone();
+            println!("{:?}", database.main_outputs.motion_command);
+            // match database.main_outputs.motion_command {
+            //     types::MotionCommand::Walk {
+            //         head,
+            //         path,
+            //         left_arm,
+            //         right_arm,
+            //         orientation_mode,
+            //     } => todo!(),
+            //     types::MotionCommand::InWalkKick {
+            //         head,
+            //         kick,
+            //         kicking_side,
+            //     } => todo!(),
+            //     _ => {}
+            // }
+            robot_frames.push(database);
         }
         frames.push(robot_frames);
     }
 
+    keep_running.cancel();
     {
         let parameters_changed = communication_server.get_parameters_changed();
         let parameters_reader = communication_server.get_parameters_reader();
