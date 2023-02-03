@@ -84,7 +84,7 @@ struct State {
 }
 
 impl State {
-    fn new(keep_running: CancellationToken, robot_count: usize) -> Self {
+    fn new(robot_count: usize) -> Self {
         let robots: Vec<_> = (0..robot_count).map(|index| Robot::new(index)).collect();
 
         Self {
@@ -132,7 +132,7 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         subscribed_outputs_writer,
     );
 
-    let mut state = State::new(keep_running.clone(), 1);
+    let mut state = State::new(1);
     state.stiffen_robots();
 
     let mut frames = Vec::new();
@@ -212,11 +212,4 @@ fn main() -> Result<()> {
         })?;
     }
     run(keep_running)
-}
-
-fn cancel_on_error<T, E>(keep_running: &CancellationToken, result: Result<T, E>) -> Result<T, E> {
-    if result.is_err() {
-        keep_running.cancel();
-    }
-    result
 }
