@@ -14,6 +14,7 @@ use types::PrimaryState;
 mod cycler;
 mod interfake;
 mod robot;
+mod state;
 
 fn setup_logger(is_verbose: bool) -> Result<(), fern::InitError> {
     fern::Dispatch::new()
@@ -78,28 +79,6 @@ async fn timeline_server(
     }
 }
 
-struct State {
-    time_elapsed: Duration,
-    robots: Vec<Robot>,
-}
-
-impl State {
-    fn new(robot_count: usize) -> Self {
-        let robots: Vec<_> = (0..robot_count).map(|index| Robot::new(index)).collect();
-
-        Self {
-            time_elapsed: Duration::zero(),
-            robots,
-        }
-    }
-
-    pub fn stiffen_robots(&mut self) {
-        for robot in &mut self.robots {
-            robot.primary_state = PrimaryState::Playing;
-        }
-    }
-}
-
 fn run(keep_running: CancellationToken) -> Result<()> {
     let runtime = tokio::runtime::Runtime::new()?;
     let (outputs_writer, outputs_reader) = framework::multiple_buffer_with_slots([
@@ -132,34 +111,17 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         subscribed_outputs_writer,
     );
 
-    let mut state = State::new(1);
+    let mut state = state::State::new(1);
     state.stiffen_robots();
 
     let mut frames = Vec::new();
     for _frame_index in 0..20 {
         let mut robot_frames = Vec::new();
 
-        for robot in &mut state.robots {
-            println!("cycling");
-            robot.cycle().unwrap();
-            let database = robot.database.clone();
-            println!("{:?}", database.main_outputs.motion_command);
-            // match database.main_outputs.motion_command {
-            //     types::MotionCommand::Walk {
-            //         head,
-            //         path,
-            //         left_arm,
-            //         right_arm,
-            //         orientation_mode,
-            //     } => todo!(),
-            //     types::MotionCommand::InWalkKick {
-            //         head,
-            //         kick,
-            //         kicking_side,
-            //     } => todo!(),
-            //     _ => {}
-            // }
-            robot_frames.push(database);
+        state.cycle();
+
+        for robot in &state.robots {
+            robot_frames.push(robot.database.clone());
         }
         frames.push(robot_frames);
     }
