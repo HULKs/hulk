@@ -20,6 +20,7 @@ pub async fn completions(arguments: Arguments, mut command: Command) -> Result<(
         let separator = match arguments.shell {
             Shell::Bash => ' ',
             Shell::Fish => '\n',
+            Shell::Zsh => '\n',
             _ => ' ',
         };
 
@@ -80,6 +81,17 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                     );
                 }
             }
+        }
+        Shell::Zsh => {
+            let re = Regex::new("(::naos -- .*):").unwrap();
+            let completions = re.replace_all(&static_completions, "$1:_pepsi__complete_naos");
+            println!(
+                "{completions}\n(( $+functions[_pepsi__complete_naos] )) ||\n\
+                _pepsi__complete_naos() {{\n    \
+                    local commands; commands=(\"${{(@f)$({completion_cmd})}}\")\n    \
+                    _describe -t commands 'pepsi complete naos' commands \"$@\"\n\
+                }}"
+            );
         }
         _ => print!("{static_completions}"),
     };
