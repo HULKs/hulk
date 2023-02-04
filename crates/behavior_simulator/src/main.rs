@@ -1,4 +1,4 @@
-use std::{io::stdout, sync::Arc};
+use std::{io::stdout, sync::Arc, time::Duration};
 
 use color_eyre::{eyre::bail, install, Result};
 use communication::server::Runtime;
@@ -113,10 +113,10 @@ fn run(keep_running: CancellationToken) -> Result<()> {
     state.stiffen_robots();
 
     let mut frames = Vec::new();
-    for _frame_index in 0..20 {
+    for _frame_index in 0..1000 {
         let mut robot_frames = Vec::new();
 
-        state.cycle();
+        state.cycle(Duration::from_millis(12));
 
         for robot in &state.robots {
             robot_frames.push(robot.database.clone());
@@ -124,7 +124,7 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         frames.push(robot_frames);
     }
 
-    keep_running.cancel();
+    // keep_running.cancel();
     {
         let parameters_changed = communication_server.get_parameters_changed();
         let parameters_reader = communication_server.get_parameters_reader();

@@ -22,7 +22,10 @@ use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 
 use nao::Nao;
 use panel::Panel;
-use panels::{ImagePanel, ImageSegmentsPanel, MapPanel, ParameterPanel, PlotPanel, TextPanel};
+use panels::{
+    BehaviorSimulatorPanel, ImagePanel, ImageSegmentsPanel, MapPanel, ParameterPanel, PlotPanel,
+    TextPanel,
+};
 use serde_json::{from_str, to_string, Value};
 use tokio::sync::mpsc;
 
@@ -63,6 +66,7 @@ fn main() {
 
 #[allow(clippy::large_enum_variant)]
 enum SelectablePanel {
+    BehaviorSimulator(BehaviorSimulatorPanel),
     Text(TextPanel),
     Plot(PlotPanel),
     Image(ImagePanel),
@@ -84,6 +88,9 @@ impl SelectablePanel {
 
     fn try_from_name(name: &str, nao: Arc<Nao>, value: Option<&Value>) -> Result<SelectablePanel> {
         Ok(match name.to_lowercase().as_str() {
+            "behavior simulator" => {
+                SelectablePanel::BehaviorSimulator(BehaviorSimulatorPanel::new(nao, value))
+            }
             "text" => SelectablePanel::Text(TextPanel::new(nao, value)),
             "plot" => SelectablePanel::Plot(PlotPanel::new(nao, value)),
             "image" => SelectablePanel::Image(ImagePanel::new(nao, value)),
@@ -96,6 +103,7 @@ impl SelectablePanel {
 
     fn save(&self) -> Value {
         let mut value = match self {
+            SelectablePanel::BehaviorSimulator(panel) => panel.save(),
             SelectablePanel::Text(panel) => panel.save(),
             SelectablePanel::Plot(panel) => panel.save(),
             SelectablePanel::Image(panel) => panel.save(),
@@ -112,6 +120,7 @@ impl SelectablePanel {
 impl Widget for &mut SelectablePanel {
     fn ui(self, ui: &mut Ui) -> eframe::egui::Response {
         match self {
+            SelectablePanel::BehaviorSimulator(panel) => panel.ui(ui),
             SelectablePanel::Text(panel) => panel.ui(ui),
             SelectablePanel::Plot(panel) => panel.ui(ui),
             SelectablePanel::Image(panel) => panel.ui(ui),
@@ -125,6 +134,7 @@ impl Widget for &mut SelectablePanel {
 impl Display for SelectablePanel {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let panel_name = match self {
+            SelectablePanel::BehaviorSimulator(_) => BehaviorSimulatorPanel::NAME,
             SelectablePanel::Text(_) => TextPanel::NAME,
             SelectablePanel::Plot(_) => PlotPanel::NAME,
             SelectablePanel::Image(_) => ImagePanel::NAME,
@@ -256,6 +266,7 @@ impl App for TwixApp {
                 let panel_input = CompletionEdit::new(
                     &mut self.panel_selection,
                     vec![
+                        "Behavior Simulator".to_string(),
                         "Text".to_string(),
                         "Plot".to_string(),
                         "Image".to_string(),
