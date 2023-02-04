@@ -1,6 +1,6 @@
-use chrono::Duration;
-use nalgebra::{Translation2, Translation3};
-use types::{LineSegment, PrimaryState};
+use nalgebra::Translation2;
+use std::time::Duration;
+use types::{LineSegment, MotionCommand, PathSegment, PrimaryState};
 
 use crate::robot::Robot;
 
@@ -14,7 +14,7 @@ impl State {
         let robots: Vec<_> = (0..robot_count).map(|index| Robot::new(index)).collect();
 
         Self {
-            time_elapsed: Duration::zero(),
+            time_elapsed: Duration::ZERO,
             robots,
         }
     }
@@ -25,7 +25,7 @@ impl State {
         }
     }
 
-    pub fn cycle(&mut self) {
+    pub fn cycle(&mut self, time_step: Duration) {
         for robot in &mut self.robots {
             println!("cycling");
             robot.cycle().unwrap();
@@ -36,31 +36,32 @@ impl State {
                 database.main_outputs.robot_to_field.unwrap().translation
             );
             match database.main_outputs.motion_command {
-                types::MotionCommand::Walk {
+                MotionCommand::Walk {
                     head,
                     path,
-                    left_arm,
-                    right_arm,
                     orientation_mode,
+                    ..
                 } => {
                     if let Some(robot_to_field) =
                         robot.database.main_outputs.robot_to_field.as_mut()
                     {
                         let position = match path[0] {
-                            types::PathSegment::LineSegment(LineSegment(start, end)) => {
+                            PathSegment::LineSegment(LineSegment(start, end)) => {
                                 println!("{:?}", path);
                                 println!("{:?}", start);
                                 println!("{:?}", end);
                                 end
                             }
-                            types::PathSegment::Arc(arc, _orientation) => arc.end,
-                        } * 0.5;
+                            PathSegment::Arc(arc, _orientation) => arc.end,
+                        }
+                        .coords
+                        .cap_magnitude(0.3 * time_step.as_secs_f32());
                         println!("{:?}", position);
                         robot_to_field
                             .append_translation_mut(&Translation2::new(position.x, position.y));
                     }
                 }
-                types::MotionCommand::InWalkKick {
+                MotionCommand::InWalkKick {
                     head,
                     kick,
                     kicking_side,

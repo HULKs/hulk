@@ -1,3 +1,4 @@
+mod behavior_simulator;
 mod image;
 mod image_segments;
 mod map;
@@ -6,6 +7,7 @@ mod plot;
 mod text;
 
 pub use self::image::ImagePanel;
+pub use behavior_simulator::BehaviorSimulatorPanel;
 pub use image_segments::ImageSegmentsPanel;
 pub use map::MapPanel;
 pub use parameter::ParameterPanel;

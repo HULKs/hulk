@@ -58,7 +58,7 @@ impl Robot {
         // [ ] ball position
         // [ ] fall state
         // [ ] game controller state
-        // [ ] robot to field
+        // [x] robot to field
         // [ ] cycle time
         // [ ] messages
         // [ ] filtered game state
