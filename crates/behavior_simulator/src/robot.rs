@@ -14,11 +14,8 @@ use crate::{
 pub struct Robot {
     pub interface: Arc<Interfake>,
     pub cycler: BehaviorCycler<Interfake>,
-    pub robot_to_field: Isometry2<f32>,
-    pub chest_button_pressed: bool,
 
     pub database: Database,
-    pub primary_state: PrimaryState,
 }
 
 impl Robot {
@@ -46,20 +43,38 @@ impl Robot {
         keep_running.cancel();
         communication_server.join().unwrap().unwrap();
 
+        let mut database = Database::default();
+        database.main_outputs.robot_to_field = Some(Default::default());
+
         Self {
             interface,
             cycler,
-            robot_to_field: Isometry2::default(),
-            chest_button_pressed: false,
-            primary_state: PrimaryState::Unstiff,
-            database: Database::default(),
+            database,
         }
     }
 
     pub fn cycle(&mut self) -> Result<()> {
-        self.database.main_outputs.buttons.is_chest_button_pressed = self.chest_button_pressed;
-        self.database.main_outputs.primary_state = self.primary_state;
-        self.database.main_outputs.robot_to_field = Some(self.robot_to_field);
+        // Inputs to consider:
+        // [ ] ball position
+        // [ ] fall state
+        // [ ] game controller state
+        // [ ] robot to field
+        // [ ] cycle time
+        // [ ] messages
+        // [ ] filtered game state
+        // [ ] penalty shot direction
+        // [x] team ball
+        // [ ] has ground contact
+        // [ ] obstacles
+        // [ ] primary state
+        // [x] role
+        // [ ] world state
+
+        // config:
+        // forced role
+        // player number
+        // spl network
+        // behavior
 
         self.cycler.cycle(&mut self.database)
     }
