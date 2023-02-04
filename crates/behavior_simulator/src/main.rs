@@ -6,8 +6,9 @@ use framework::{Reader, Writer};
 
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use tokio::{select, sync::Notify};
+use tokio::{select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
+use types::FieldDimensions;
 
 mod cycler;
 mod interfake;
@@ -38,12 +39,13 @@ fn setup_logger(is_verbose: bool) -> Result<(), fern::InitError> {
 #[derive(Clone, Serialize, Deserialize, SerializeHierarchy)]
 struct Configuration {
     time: usize,
+    field_dimensions: FieldDimensions,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 struct MainOutputs {
     x: f32,
-    database: cycler::Database,
+    frame_count: usize,
 }
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 struct BehaviorDatabase {
@@ -56,29 +58,43 @@ async fn timeline_server(
     parameters_changed: Arc<Notify>,
     outputs_writer: Writer<BehaviorDatabase>,
     outputs_changed: Arc<Notify>,
+    control_writer: Writer<cycler::Database>,
+    control_changed: Arc<Notify>,
     frames: Vec<Vec<cycler::Database>>,
 ) {
+    let mut interval = interval(Duration::from_secs(5));
     loop {
         select! {
-            _ = parameters_changed.notified() => {
-                {
-                    let mut outputs = outputs_writer.next();
-                    let parameters = parameters_reader.next();
-
-                    outputs.main_outputs.x = (parameters.time as f32).sin();
-                    outputs.main_outputs.database = frames[parameters.time][0].clone();
-                }
-                outputs_changed.notify_waiters();
-            }
+            _ = parameters_changed.notified() => { }
+            _ = interval.tick() => { }
             _ = keep_running.cancelled() => {
                 break
             }
         }
+        {
+            let mut outputs = outputs_writer.next();
+            let mut control = control_writer.next();
+            let parameters = parameters_reader.next();
+
+            outputs.main_outputs.x = (parameters.time as f32).sin();
+            outputs.main_outputs.frame_count = frames.len();
+            *control = frames[parameters.time][0].clone();
+        }
+        outputs_changed.notify_waiters();
+        control_changed.notify_waiters();
     }
 }
 
 fn run(keep_running: CancellationToken) -> Result<()> {
-    let runtime = tokio::runtime::Runtime::new()?;
+    let communication_server = Runtime::<Configuration>::start(
+        Some("[::]:1337"),
+        "tools/behavior-simulator",
+        "behavior_simulator".to_string(),
+        "behavior_simulator".to_string(),
+        2,
+        keep_running.clone(),
+    )?;
+
     let (outputs_writer, outputs_reader) = framework::multiple_buffer_with_slots([
         Default::default(),
         Default::default(),
@@ -93,20 +109,31 @@ fn run(keep_running: CancellationToken) -> Result<()> {
             Default::default(),
         ]);
 
-    let communication_server = Runtime::<Configuration>::start(
-        Some("[::]:1337"),
-        "tools/behavior-simulator",
-        "behavior_simulator".to_string(),
-        "behavior_simulator".to_string(),
-        2,
-        keep_running.clone(),
-    )?;
-
     communication_server.register_cycler_instance(
         "BehaviorSimulator",
         outputs_changed.clone(),
         outputs_reader,
         subscribed_outputs_writer,
+    );
+
+    let (control_writer, control_reader) = framework::multiple_buffer_with_slots([
+        Default::default(),
+        Default::default(),
+        Default::default(),
+    ]);
+
+    let control_changed = std::sync::Arc::new(tokio::sync::Notify::new());
+    let (subscribed_control_writer, _subscribed_control_reader) =
+        framework::multiple_buffer_with_slots([
+            Default::default(),
+            Default::default(),
+            Default::default(),
+        ]);
+    communication_server.register_cycler_instance(
+        "Control",
+        control_changed.clone(),
+        control_reader,
+        subscribed_control_writer,
     );
 
     let mut state = state::State::new(1);
@@ -125,6 +152,7 @@ fn run(keep_running: CancellationToken) -> Result<()> {
     }
 
     // keep_running.cancel();
+    let runtime = tokio::runtime::Runtime::new()?;
     {
         let parameters_changed = communication_server.get_parameters_changed();
         let parameters_reader = communication_server.get_parameters_reader();
@@ -135,6 +163,8 @@ fn run(keep_running: CancellationToken) -> Result<()> {
                 parameters_changed,
                 outputs_writer,
                 outputs_changed,
+                control_writer,
+                control_changed,
                 frames,
             )
             .await
