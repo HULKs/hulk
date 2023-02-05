@@ -5,11 +5,9 @@ name = "behavior_simulator"
 version = "0.1.0"
 
 [lib]
-src = "src/lib.rs"
 name = "behavior_simulator"
 
 [[bin]]
-src = "src/main.rs"
 name = "behavior_simulator"
 
 [dependencies]

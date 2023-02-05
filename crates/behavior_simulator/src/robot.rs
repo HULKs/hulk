@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 use communication::server::Runtime;
-use nalgebra::{Translation2, UnitComplex, UnitQuaternion};
+use nalgebra::{Translation2, UnitComplex};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
