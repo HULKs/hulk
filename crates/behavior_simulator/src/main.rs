@@ -64,7 +64,7 @@ async fn timeline_server(
     control_changed: Arc<Notify>,
     frames: Vec<Vec<cycler::Database>>,
 ) {
-    let mut interval = interval(Duration::from_secs(5));
+    let mut interval = interval(Duration::from_secs(1));
     loop {
         select! {
             _ = parameters_changed.notified() => { }
