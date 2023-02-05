@@ -1,4 +1,4 @@
-use nalgebra::{point, Isometry2, Point2, Translation2, UnitComplex};
+use nalgebra::{point, Isometry2, Point2, Translation2, UnitComplex, Vector2};
 use std::time::{Duration, UNIX_EPOCH};
 use types::{LineSegment, MotionCommand, PathSegment, PrimaryState};
 
@@ -8,6 +8,7 @@ pub struct State {
     pub time_elapsed: Duration,
     pub robots: Vec<Robot>,
     pub ball: Option<Point2<f32>>,
+    pub ball_velocity: Vector2<f32>,
 }
 
 impl State {
@@ -18,6 +19,7 @@ impl State {
             time_elapsed: Duration::ZERO,
             robots,
             ball: None,
+            ball_velocity: Vector2::new(0.0, 1.0),
         }
     }
 
@@ -92,6 +94,10 @@ impl State {
                 } => {}
                 _ => {}
             }
+        }
+        if let Some(ball) = self.ball.as_mut() {
+            *ball += self.ball_velocity * time_step.as_secs_f32();
+            self.ball_velocity *= 0.98;
         }
         self.time_elapsed += time_step;
     }
