@@ -48,15 +48,13 @@ impl State {
 
             robot.cycle().unwrap();
 
-            let database = robot.database.clone();
-
             let robot_to_field = robot
                 .database
                 .main_outputs
                 .robot_to_field
                 .as_mut()
                 .expect("Simulated robots should always have a known pose");
-            match database.main_outputs.motion_command {
+            match &robot.database.main_outputs.motion_command {
                 MotionCommand::Walk {
                     path,
                     orientation_mode,
@@ -78,7 +76,7 @@ impl State {
                                 UnitComplex::from_cos_sin_unchecked(step.x, step.y)
                             }
                         }
-                        types::OrientationMode::Override(orientation) => orientation,
+                        types::OrientationMode::Override(orientation) => *orientation,
                     };
                     robot_to_field.append_rotation_wrt_center_mut(&orientation);
                     *robot_to_field = Isometry2::new(
