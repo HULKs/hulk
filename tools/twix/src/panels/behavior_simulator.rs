@@ -81,7 +81,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
             .response;
 
         if self.playing || ui.button(">>").clicked() {
-            new_time = Some(new_time.unwrap_or(self.chosen_time) + 100);
+            new_time = Some(new_time.unwrap_or(self.chosen_time) + 10);
             self.nao
                 .update_parameter_value("time", self.chosen_time.into());
         }
