@@ -239,8 +239,8 @@ async fn update_parameter_value(
     spawn(async move {
         let response = response_receiver.await.unwrap();
         match response {
-            Response::Subscribe(Ok(_)) => {}
-            Response::Subscribe(Err(error)) => {
+            Response::Update(Ok(_)) => {}
+            Response::Update(Err(error)) => {
                 error!("Failed to update value: {}", error)
             }
             response => error!("unexpected response: {response:?}"),
