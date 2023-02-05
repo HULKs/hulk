@@ -45,8 +45,10 @@ impl Widget for &mut BehaviorSimulatorPanel {
         }
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
+                ui.style_mut().spacing.slider_width = ui.available_size().x - 100.0;
                 if ui
-                    .add(
+                    .add_sized(
+                        ui.available_size(),
                         Slider::new(
                             &mut self.chosen_time,
                             0..=self
