@@ -36,7 +36,11 @@ impl Layer for BallPosition {
         let ball_positions: Vec<Option<types::BallPosition>> =
             self.ball_position.parse_buffered()?;
 
-        for (ball, robot_to_field) in ball_positions.iter().zip(robot_to_fields.iter()) {
+        for (ball, robot_to_field) in ball_positions
+            .iter()
+            .rev()
+            .zip(robot_to_fields.iter().rev())
+        {
             if let Some(ball) = ball {
                 painter.circle_filled(
                     robot_to_field.unwrap_or_default() * ball.position,
