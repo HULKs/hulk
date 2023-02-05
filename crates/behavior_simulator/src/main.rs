@@ -1,4 +1,8 @@
-use std::{io::stdout, sync::Arc, time::Duration};
+use std::{
+    io::stdout,
+    sync::Arc,
+    time::{self, Duration},
+};
 
 use color_eyre::{eyre::bail, install, Result};
 use communication::server::Runtime;
@@ -140,6 +144,8 @@ fn run(keep_running: CancellationToken) -> Result<()> {
     state.stiffen_robots();
 
     let mut frames = Vec::new();
+
+    let start = time::Instant::now();
     for _frame_index in 0..10000 {
         let mut robot_frames = Vec::new();
 
@@ -150,6 +156,8 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         }
         frames.push(robot_frames);
     }
+    let duration = time::Instant::now() - start;
+    println!("Took {:.2} seconds", duration.as_secs_f32());
 
     let runtime = tokio::runtime::Runtime::new()?;
     {
