@@ -45,7 +45,7 @@ impl Robot {
         let mut database = Database::default();
 
         let (y, x) = (index as f32).sin_cos();
-        let position = Translation2::new(x, y);
+        let position = Translation2::new(x * 2.0, y * 2.0);
         database.main_outputs.robot_to_field = Some(nalgebra::Isometry2::from_parts(
             position,
             UnitComplex::from_angle(0.0),
