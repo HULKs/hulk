@@ -117,6 +117,10 @@ impl State {
         if let Some(ball) = self.ball.as_mut() {
             *ball += self.ball_velocity * time_step.as_secs_f32();
             self.ball_velocity *= 0.98;
+
+            if ball.x.abs() > 4.5 && ball.y < 0.75 {
+                *ball = Point2::origin();
+            }
         }
         self.time_elapsed += time_step;
     }
