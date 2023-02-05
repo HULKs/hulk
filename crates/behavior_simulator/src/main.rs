@@ -14,7 +14,7 @@ use tokio::{select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
 use types::FieldDimensions;
 
-mod cycler;
+pub mod cycler;
 mod interfake;
 mod robot;
 mod state;
@@ -49,6 +49,7 @@ struct Configuration {
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 struct MainOutputs {
     frame_count: usize,
+    databases: Vec<cycler::Database>,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
@@ -82,6 +83,7 @@ async fn timeline_server(
             let parameters = parameters_reader.next();
 
             outputs.main_outputs.frame_count = frames.len();
+            outputs.main_outputs.databases = frames[parameters.time].clone();
             *control = frames[parameters.time][0].clone();
         }
         outputs_changed.notify_waiters();
@@ -140,7 +142,7 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         subscribed_control_writer,
     );
 
-    let mut state = state::State::new(1);
+    let mut state = state::State::new(2);
     state.stiffen_robots();
 
     let mut frames = Vec::new();

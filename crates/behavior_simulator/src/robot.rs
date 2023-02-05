@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 use communication::server::Runtime;
+use nalgebra::{Translation2, UnitComplex, UnitQuaternion};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -42,7 +43,13 @@ impl Robot {
         communication_server.join().unwrap().unwrap();
 
         let mut database = Database::default();
-        database.main_outputs.robot_to_field = Some(Default::default());
+
+        let (y, x) = (index as f32).sin_cos();
+        let position = Translation2::new(x, y);
+        database.main_outputs.robot_to_field = Some(nalgebra::Isometry2::from_parts(
+            position,
+            UnitComplex::from_angle(0.0),
+        ));
 
         Self {
             interface,

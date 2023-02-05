@@ -4,6 +4,14 @@ license = "GPL-3.0-only"
 name = "behavior_simulator"
 version = "0.1.0"
 
+[lib]
+src = "src/lib.rs"
+name = "behavior_simulator"
+
+[[bin]]
+src = "src/main.rs"
+name = "behavior_simulator"
+
 [dependencies]
 alsa = { optional = true, workspace = true }
 chrono = { workspace = true }
