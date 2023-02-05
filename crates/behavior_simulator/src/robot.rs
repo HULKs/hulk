@@ -2,9 +2,7 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 use communication::server::Runtime;
-use nalgebra::Isometry2;
 use tokio_util::sync::CancellationToken;
-use types::PrimaryState;
 
 use crate::{
     cycler::{BehaviorCycler, Database},
@@ -35,7 +33,7 @@ impl Robot {
         let database_changed = std::sync::Arc::new(tokio::sync::Notify::new());
         let cycler = BehaviorCycler::new(
             interface.clone(),
-            database_changed.clone(),
+            database_changed,
             communication_server.get_parameters_reader(),
         )
         .unwrap();

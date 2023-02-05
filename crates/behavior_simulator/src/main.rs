@@ -53,6 +53,7 @@ struct BehaviorDatabase {
     main_outputs: MainOutputs,
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn timeline_server(
     keep_running: CancellationToken,
     parameters_reader: Reader<Configuration>,
@@ -141,7 +142,7 @@ fn run(keep_running: CancellationToken) -> Result<()> {
     state.stiffen_robots();
 
     let mut frames = Vec::new();
-    for _frame_index in 0..1000 {
+    for _frame_index in 0..10000 {
         let mut robot_frames = Vec::new();
 
         state.cycle(Duration::from_millis(12));
@@ -152,7 +153,6 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         frames.push(robot_frames);
     }
 
-    // keep_running.cancel();
     let runtime = tokio::runtime::Runtime::new()?;
     {
         let parameters_changed = communication_server.get_parameters_changed();
