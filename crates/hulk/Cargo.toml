@@ -5,7 +5,7 @@ name = "hulk"
 version = "0.1.0"
 
 [features]
-nao = ["alsa", "nao_camera", "v4l"]
+nao = ["alsa", "nao_camera"]
 
 [dependencies]
 alsa = { optional = true, workspace = true }
@@ -26,5 +26,4 @@ structs = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
-v4l = { optional = true, workspace = true }
 webots = { optional = true, workspace = true }
