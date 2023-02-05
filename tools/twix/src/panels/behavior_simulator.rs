@@ -9,10 +9,13 @@ use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 
 pub struct BehaviorSimulatorPanel {
     nao: Arc<Nao>,
+    update_notify_receiver: mpsc::Receiver<()>,
+
     chosen_time: usize,
+    playing: bool,
+
     value_buffer: ValueBuffer,
     frame_count: ValueBuffer,
-    update_notify_receiver: mpsc::Receiver<()>,
 }
 
 impl Panel for BehaviorSimulatorPanel {
@@ -28,10 +31,13 @@ impl Panel for BehaviorSimulatorPanel {
         );
         Self {
             nao,
+            update_notify_receiver,
+
             chosen_time: 0,
+            playing: false,
+
             value_buffer,
             frame_count,
-            update_notify_receiver,
         }
     }
 }
@@ -43,32 +49,47 @@ impl Widget for &mut BehaviorSimulatorPanel {
                 self.chosen_time = value;
             }
         }
-        ui.vertical(|ui| {
-            ui.horizontal(|ui| {
-                ui.style_mut().spacing.slider_width = ui.available_size().x - 100.0;
-                if ui
-                    .add_sized(
-                        ui.available_size(),
-                        Slider::new(
-                            &mut self.chosen_time,
-                            0..=self
-                                .frame_count
-                                .get_latest()
-                                .ok()
-                                .and_then(|v| v.as_u64())
-                                .unwrap_or(1) as usize
-                                - 1,
+        let mut new_time = None;
+        let response = ui
+            .vertical(|ui| {
+                ui.horizontal(|ui| {
+                    ui.style_mut().spacing.slider_width = ui.available_size().x - 100.0;
+                    let mut time = self.chosen_time;
+                    if ui
+                        .add_sized(
+                            ui.available_size(),
+                            Slider::new(
+                                &mut time,
+                                0..=self
+                                    .frame_count
+                                    .get_latest()
+                                    .ok()
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(1) as usize
+                                    - 1,
+                            )
+                            .smart_aim(false)
+                            .text("Time"),
                         )
-                        .smart_aim(false)
-                        .text("Time"),
-                    )
-                    .changed()
-                {
-                    self.nao
-                        .update_parameter_value("time", self.chosen_time.into());
-                };
-            });
-        })
-        .response
+                        .changed()
+                    {
+                        new_time = Some(time);
+                    };
+                });
+                ui.checkbox(&mut self.playing, "Play");
+            })
+            .response;
+
+        if self.playing || ui.button(">>").clicked() {
+            new_time = Some(new_time.unwrap_or(self.chosen_time) + 100);
+            self.nao
+                .update_parameter_value("time", self.chosen_time.into());
+        }
+        if let Some(new_time) = new_time {
+            self.chosen_time = new_time % self.frame_count.require_latest().unwrap_or(1);
+            self.nao
+                .update_parameter_value("time", self.chosen_time.into());
+        }
+        response
     }
 }
