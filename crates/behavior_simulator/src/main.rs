@@ -47,6 +47,7 @@ struct MainOutputs {
     x: f32,
     frame_count: usize,
 }
+
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 struct BehaviorDatabase {
     main_outputs: MainOutputs,

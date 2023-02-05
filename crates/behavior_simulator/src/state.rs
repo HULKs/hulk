@@ -32,22 +32,21 @@ impl State {
 
         for robot in &mut self.robots {
             let robot_to_field = robot.database.main_outputs.robot_to_field.unwrap();
-            if self.time_elapsed.as_secs_f32() > 6.0 {
+
+            if self.ball.is_none() && self.time_elapsed.as_secs_f32() > 6.0 {
                 self.ball = Some(point![1.0, 0.0]);
             }
+
             if let Some(position) = self.ball {
                 robot.database.main_outputs.ball_position = Some(types::BallPosition {
                     position: robot_to_field.inverse() * position,
                     last_seen: now,
                 })
             }
+
             robot.cycle().unwrap();
+
             let database = robot.database.clone();
-            println!("{:?}", database.main_outputs.motion_command);
-            println!(
-                "{:?}",
-                database.main_outputs.robot_to_field.unwrap().translation
-            );
             match database.main_outputs.motion_command {
                 MotionCommand::Walk {
                     head,
