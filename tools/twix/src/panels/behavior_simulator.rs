@@ -59,6 +59,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
                                 .unwrap_or(1) as usize
                                 - 1,
                         )
+                        .smart_aim(false)
                         .text("Time"),
                     )
                     .changed()
