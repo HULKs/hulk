@@ -1,4 +1,4 @@
-use nalgebra::{point, Point2, Translation2};
+use nalgebra::{point, Isometry2, Point2, Translation2, UnitComplex};
 use std::time::{Duration, UNIX_EPOCH};
 use types::{LineSegment, MotionCommand, PathSegment, PrimaryState};
 
@@ -48,21 +48,47 @@ impl State {
 
             let database = robot.database.clone();
             match database.main_outputs.motion_command {
-                MotionCommand::Walk { path, .. } => {
+                MotionCommand::Walk {
+                    path,
+                    orientation_mode,
+                    ..
+                } => {
                     if let Some(robot_to_field) =
                         robot.database.main_outputs.robot_to_field.as_mut()
                     {
-                        let position = match path[0] {
+                        let step = match path[0] {
                             PathSegment::LineSegment(LineSegment(_start, end)) => end,
                             PathSegment::Arc(arc, _orientation) => arc.end,
                         }
                         .coords
                         .cap_magnitude(0.3 * time_step.as_secs_f32());
-                        robot_to_field
-                            .append_translation_mut(&Translation2::new(position.x, position.y));
+                        robot_to_field.append_translation_mut(&Translation2::new(step.x, step.y));
+                        let orientation = match orientation_mode {
+                            types::OrientationMode::AlignWithPath => {
+                                if step.norm_squared() < f32::EPSILON {
+                                    UnitComplex::identity()
+                                } else {
+                                    UnitComplex::from_cos_sin_unchecked(step.x, step.y)
+                                }
+                            }
+                            types::OrientationMode::Override(orientation) => orientation,
+                        };
+                        robot_to_field.append_rotation_wrt_center_mut(&orientation);
+                        *robot_to_field = Isometry2::new(
+                            robot_to_field.translation.vector,
+                            robot_to_field.rotation.angle()
+                                + (orientation.angle()).clamp(
+                                    0.0,
+                                    std::f32::consts::FRAC_PI_2 * time_step.as_secs_f32(),
+                                ),
+                        )
                     }
                 }
-                MotionCommand::InWalkKick { .. } => todo!(),
+                MotionCommand::InWalkKick {
+                    head,
+                    kick,
+                    kicking_side,
+                } => {}
                 _ => {}
             }
         }
