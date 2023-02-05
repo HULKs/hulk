@@ -33,21 +33,6 @@ impl State {
         let now = UNIX_EPOCH + self.time_elapsed;
 
         for robot in &mut self.robots {
-            let robot_to_field = robot.database.main_outputs.robot_to_field.unwrap();
-
-            if self.ball.is_none() && self.time_elapsed.as_secs_f32() > 6.0 {
-                self.ball = Some(point![1.0, 0.0]);
-            }
-
-            if let Some(position) = self.ball {
-                robot.database.main_outputs.ball_position = Some(types::BallPosition {
-                    position: robot_to_field.inverse() * position,
-                    last_seen: now,
-                })
-            }
-
-            robot.cycle().unwrap();
-
             let robot_to_field = robot
                 .database
                 .main_outputs
@@ -111,7 +96,25 @@ impl State {
                 }
                 _ => {}
             }
+            let robot_to_field = robot
+                .database
+                .main_outputs
+                .robot_to_field
+                .expect("Simulated robots should always have a known pose");
+
+            if self.ball.is_none() && self.time_elapsed.as_secs_f32() > 6.0 {
+                self.ball = Some(point![1.0, 0.0]);
+            }
+
+            if let Some(position) = self.ball {
+                robot.database.main_outputs.ball_position = Some(types::BallPosition {
+                    position: robot_to_field.inverse() * position,
+                    last_seen: now,
+                })
+            }
+            robot.cycle().unwrap();
         }
+
         if let Some(ball) = self.ball.as_mut() {
             *ball += self.ball_velocity * time_step.as_secs_f32();
             self.ball_velocity *= 0.98;
@@ -120,6 +123,7 @@ impl State {
                 *ball = Point2::origin();
             }
         }
+
         self.time_elapsed += time_step;
     }
 }

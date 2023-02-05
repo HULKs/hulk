@@ -60,7 +60,7 @@ impl Robot {
 
     pub fn cycle(&mut self) -> Result<()> {
         // Inputs to consider:
-        // [ ] ball position
+        // [x] ball position
         // [ ] fall state
         // [ ] game controller state
         // [x] robot to field
