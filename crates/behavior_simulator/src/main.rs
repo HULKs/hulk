@@ -84,7 +84,7 @@ async fn timeline_server(
 
             outputs.main_outputs.frame_count = frames.len();
             outputs.main_outputs.databases = frames[parameters.time].clone();
-            *control = frames[parameters.time][0].clone();
+            *control = frames[parameters.time][2].clone();
         }
         outputs_changed.notify_waiters();
         control_changed.notify_waiters();

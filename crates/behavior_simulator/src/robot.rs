@@ -65,10 +65,10 @@ impl Robot {
         // Inputs to consider:
         // [x] ball position
         // [ ] fall state
-        // [ ] game controller state
+        // [x] game controller state
         // [x] robot to field
         // [ ] cycle time
-        // [ ] messages
+        // [x] messages
         // [ ] filtered game state
         // [ ] penalty shot direction
         // [x] team ball
