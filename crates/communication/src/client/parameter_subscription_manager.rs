@@ -1,5 +1,6 @@
 use std::collections::{hash_map::Entry, BTreeSet, HashMap};
 
+use color_eyre::eyre::Result;
 use log::{error, info, warn};
 use serde_json::Value;
 use tokio::{
@@ -170,8 +171,22 @@ pub async fn parameter_subscription_manager(
                 }
             }
             Message::UpdateParameterValue { path, value } => {
-                if let Some(requester) = &requester {
-                    update_parameter_value(path, value, &id_tracker, &responder, requester).await;
+                if let Some(some_requester) = requester {
+                    match update_parameter_value(
+                        path,
+                        value,
+                        &id_tracker,
+                        &responder,
+                        &some_requester,
+                    )
+                    .await
+                    {
+                        Ok(_) => requester = Some(some_requester),
+                        Err(error) => {
+                            error!("{error}");
+                            requester = None
+                        }
+                    }
                 }
             }
         }
@@ -218,7 +233,7 @@ async fn update_parameter_value(
     id_tracker: &mpsc::Sender<id_tracker::Message>,
     responder: &mpsc::Sender<responder::Message>,
     requester: &mpsc::Sender<Request>,
-) {
+) -> Result<()> {
     let message_id = get_message_id(id_tracker).await;
     let (response_sender, response_receiver) = oneshot::channel();
     responder
@@ -226,16 +241,14 @@ async fn update_parameter_value(
             id: message_id,
             response_sender,
         })
-        .await
-        .unwrap();
+        .await?;
     requester
         .send(Request::Parameters(ParametersRequest::Update {
             id: message_id,
             path,
             data: value,
         }))
-        .await
-        .unwrap();
+        .await?;
     spawn(async move {
         let response = response_receiver.await.unwrap();
         match response {
@@ -246,6 +259,8 @@ async fn update_parameter_value(
             response => error!("unexpected response: {response:?}"),
         };
     });
+
+    Ok(())
 }
 
 async fn add_subscription(
