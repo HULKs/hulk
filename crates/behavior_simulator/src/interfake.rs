@@ -60,7 +60,7 @@ impl Interface for Interfake {
 }
 
 impl Interfake {
-    fn take_outgoing_messages(&self) -> Vec<OutgoingMessage> {
+    fn _take_outgoing_messages(&self) -> Vec<OutgoingMessage> {
         take(&mut self.messages.lock().unwrap())
     }
 }

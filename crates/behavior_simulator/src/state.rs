@@ -1,5 +1,5 @@
 use nalgebra::{point, Point2, Translation2};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, UNIX_EPOCH};
 use types::{LineSegment, MotionCommand, PathSegment, PrimaryState};
 
 use crate::robot::Robot;
@@ -12,7 +12,7 @@ pub struct State {
 
 impl State {
     pub fn new(robot_count: usize) -> Self {
-        let robots: Vec<_> = (0..robot_count).map(|index| Robot::new(index)).collect();
+        let robots: Vec<_> = (0..robot_count).map(Robot::new).collect();
 
         Self {
             time_elapsed: Duration::ZERO,
@@ -48,36 +48,21 @@ impl State {
 
             let database = robot.database.clone();
             match database.main_outputs.motion_command {
-                MotionCommand::Walk {
-                    head,
-                    path,
-                    orientation_mode,
-                    ..
-                } => {
+                MotionCommand::Walk { path, .. } => {
                     if let Some(robot_to_field) =
                         robot.database.main_outputs.robot_to_field.as_mut()
                     {
                         let position = match path[0] {
-                            PathSegment::LineSegment(LineSegment(start, end)) => {
-                                println!("{:?}", path);
-                                println!("{:?}", start);
-                                println!("{:?}", end);
-                                end
-                            }
+                            PathSegment::LineSegment(LineSegment(_start, end)) => end,
                             PathSegment::Arc(arc, _orientation) => arc.end,
                         }
                         .coords
                         .cap_magnitude(0.3 * time_step.as_secs_f32());
-                        println!("{:?}", position);
                         robot_to_field
                             .append_translation_mut(&Translation2::new(position.x, position.y));
                     }
                 }
-                MotionCommand::InWalkKick {
-                    head,
-                    kick,
-                    kicking_side,
-                } => todo!(),
+                MotionCommand::InWalkKick { .. } => todo!(),
                 _ => {}
             }
         }
