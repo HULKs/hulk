@@ -44,7 +44,6 @@ struct Configuration {
 
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 struct MainOutputs {
-    x: f32,
     frame_count: usize,
 }
 
@@ -78,7 +77,6 @@ async fn timeline_server(
             let mut control = control_writer.next();
             let parameters = parameters_reader.next();
 
-            outputs.main_outputs.x = (parameters.time as f32).sin();
             outputs.main_outputs.frame_count = frames.len();
             *control = frames[parameters.time][0].clone();
         }
