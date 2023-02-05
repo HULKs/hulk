@@ -142,7 +142,7 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         subscribed_control_writer,
     );
 
-    let mut state = state::State::new(2);
+    let mut state = state::State::new(5);
     state.stiffen_robots();
 
     let mut frames = Vec::new();

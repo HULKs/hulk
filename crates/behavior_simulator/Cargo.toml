@@ -29,6 +29,7 @@ rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serialize_hierarchy = { workspace = true }
+spl_network_messages = { workspace = true }
 structs = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }

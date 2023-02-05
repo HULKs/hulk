@@ -52,3 +52,20 @@ impl Display for PlayerNumber {
         write!(formatter, "{number}")
     }
 }
+
+impl TryFrom<usize> for PlayerNumber {
+    type Error = ();
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        let number = match value {
+            1 => PlayerNumber::One,
+            2 => PlayerNumber::Two,
+            3 => PlayerNumber::Three,
+            4 => PlayerNumber::Four,
+            5 => PlayerNumber::Five,
+            _ => return Err(()),
+        };
+
+        Ok(number)
+    }
+}
