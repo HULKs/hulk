@@ -1,5 +1,5 @@
-use nalgebra::Translation2;
-use std::time::Duration;
+use nalgebra::{point, Point2, Translation2};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use types::{LineSegment, MotionCommand, PathSegment, PrimaryState};
 
 use crate::robot::Robot;
@@ -7,6 +7,7 @@ use crate::robot::Robot;
 pub struct State {
     pub time_elapsed: Duration,
     pub robots: Vec<Robot>,
+    pub ball: Option<Point2<f32>>,
 }
 
 impl State {
@@ -16,6 +17,7 @@ impl State {
         Self {
             time_elapsed: Duration::ZERO,
             robots,
+            ball: None,
         }
     }
 
@@ -26,8 +28,19 @@ impl State {
     }
 
     pub fn cycle(&mut self, time_step: Duration) {
+        let now = UNIX_EPOCH + self.time_elapsed;
+
         for robot in &mut self.robots {
-            println!("cycling");
+            let robot_to_field = robot.database.main_outputs.robot_to_field.unwrap();
+            if self.time_elapsed.as_secs_f32() > 6.0 {
+                self.ball = Some(point![1.0, 0.0]);
+            }
+            if let Some(position) = self.ball {
+                robot.database.main_outputs.ball_position = Some(types::BallPosition {
+                    position: robot_to_field.inverse() * position,
+                    last_seen: now,
+                })
+            }
             robot.cycle().unwrap();
             let database = robot.database.clone();
             println!("{:?}", database.main_outputs.motion_command);
@@ -69,5 +82,6 @@ impl State {
                 _ => {}
             }
         }
+        self.time_elapsed += time_step;
     }
 }
