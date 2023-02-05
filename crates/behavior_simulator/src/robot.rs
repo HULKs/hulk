@@ -1,9 +1,10 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
 
 use color_eyre::Result;
 use communication::server::Runtime;
 use nalgebra::{Translation2, UnitComplex};
 use tokio_util::sync::CancellationToken;
+use types::messages::IncomingMessage;
 
 use crate::{
     cycler::{BehaviorCycler, Database},
@@ -15,6 +16,7 @@ pub struct Robot {
     pub cycler: BehaviorCycler<Interfake>,
 
     pub database: Database,
+    pub configuration: structs::Configuration,
 }
 
 impl Robot {
@@ -31,13 +33,12 @@ impl Robot {
         )
         .unwrap();
 
+        let mut configuration = communication_server.get_parameters_reader().next().clone();
+        configuration.player_number = (index + 1).try_into().unwrap();
+
         let database_changed = std::sync::Arc::new(tokio::sync::Notify::new());
-        let cycler = BehaviorCycler::new(
-            interface.clone(),
-            database_changed,
-            communication_server.get_parameters_reader(),
-        )
-        .unwrap();
+        let cycler =
+            BehaviorCycler::new(interface.clone(), database_changed, &configuration).unwrap();
 
         keep_running.cancel();
         communication_server.join().unwrap().unwrap();
@@ -54,11 +55,13 @@ impl Robot {
         Self {
             interface,
             cycler,
+
             database,
+            configuration,
         }
     }
 
-    pub fn cycle(&mut self) -> Result<()> {
+    pub fn cycle(&mut self, messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>) -> Result<()> {
         // Inputs to consider:
         // [x] ball position
         // [ ] fall state
@@ -81,6 +84,7 @@ impl Robot {
         // spl network
         // behavior
 
-        self.cycler.cycle(&mut self.database)
+        self.cycler
+            .cycle(&mut self.database, &self.configuration, messages)
     }
 }

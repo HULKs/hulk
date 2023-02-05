@@ -361,6 +361,7 @@ dependencies = [
  "serde_json",
  "serialize_hierarchy",
  "source_analyzer",
+ "spl_network_messages",
  "structs",
  "tokio",
  "tokio-util",
