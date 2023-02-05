@@ -121,6 +121,7 @@ impl State {
 
             if ball.x.abs() > 4.5 && ball.y < 0.75 {
                 *ball = Point2::origin();
+                self.ball_velocity = Vector2::zeros();
             }
         }
 
