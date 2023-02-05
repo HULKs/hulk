@@ -105,7 +105,7 @@ impl State {
                         let strength = 1.0;
                         let direction = match kick {
                             types::KickVariant::Forward => vector![1.0, 0.0],
-                            types::KickVariant::Turn => vector![0.707, 0.707 * -side],
+                            types::KickVariant::Turn => vector![0.707, 0.707 * side],
                             types::KickVariant::Side => vector![0.0, 1.0 * -side],
                         };
                         self.ball_velocity += *robot_to_field * direction * strength;
