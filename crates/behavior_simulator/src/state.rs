@@ -1,4 +1,4 @@
-use nalgebra::{point, Isometry2, Point2, Translation2, UnitComplex, Vector2};
+use nalgebra::{point, vector, Isometry2, Point2, Translation2, UnitComplex, Vector2};
 use std::time::{Duration, UNIX_EPOCH};
 use types::{LineSegment, MotionCommand, PathSegment, PrimaryState};
 
@@ -49,49 +49,68 @@ impl State {
             robot.cycle().unwrap();
 
             let database = robot.database.clone();
+
+            let robot_to_field = robot
+                .database
+                .main_outputs
+                .robot_to_field
+                .as_mut()
+                .expect("Simulated robots should always have a known pose");
             match database.main_outputs.motion_command {
                 MotionCommand::Walk {
                     path,
                     orientation_mode,
                     ..
                 } => {
-                    if let Some(robot_to_field) =
-                        robot.database.main_outputs.robot_to_field.as_mut()
-                    {
-                        let step = robot_to_field.rotation
-                            * match path[0] {
-                                PathSegment::LineSegment(LineSegment(_start, end)) => end,
-                                PathSegment::Arc(arc, _orientation) => arc.end,
+                    let step = robot_to_field.rotation
+                        * match path[0] {
+                            PathSegment::LineSegment(LineSegment(_start, end)) => end,
+                            PathSegment::Arc(arc, _orientation) => arc.end,
+                        }
+                        .coords
+                        .cap_magnitude(0.3 * time_step.as_secs_f32());
+                    robot_to_field.append_translation_mut(&Translation2::new(step.x, step.y));
+                    let orientation = match orientation_mode {
+                        types::OrientationMode::AlignWithPath => {
+                            if step.norm_squared() < f32::EPSILON {
+                                UnitComplex::identity()
+                            } else {
+                                UnitComplex::from_cos_sin_unchecked(step.x, step.y)
                             }
-                            .coords
-                            .cap_magnitude(0.3 * time_step.as_secs_f32());
-                        robot_to_field.append_translation_mut(&Translation2::new(step.x, step.y));
-                        let orientation = match orientation_mode {
-                            types::OrientationMode::AlignWithPath => {
-                                if step.norm_squared() < f32::EPSILON {
-                                    UnitComplex::identity()
-                                } else {
-                                    UnitComplex::from_cos_sin_unchecked(step.x, step.y)
-                                }
-                            }
-                            types::OrientationMode::Override(orientation) => orientation,
-                        };
-                        robot_to_field.append_rotation_wrt_center_mut(&orientation);
-                        *robot_to_field = Isometry2::new(
-                            robot_to_field.translation.vector,
-                            robot_to_field.rotation.angle()
-                                + (orientation.angle()).clamp(
-                                    0.0,
-                                    std::f32::consts::FRAC_PI_2 * time_step.as_secs_f32(),
-                                ),
-                        )
-                    }
+                        }
+                        types::OrientationMode::Override(orientation) => orientation,
+                    };
+                    robot_to_field.append_rotation_wrt_center_mut(&orientation);
+                    *robot_to_field = Isometry2::new(
+                        robot_to_field.translation.vector,
+                        robot_to_field.rotation.angle()
+                            + (orientation.angle())
+                                .clamp(0.0, std::f32::consts::FRAC_PI_2 * time_step.as_secs_f32()),
+                    )
                 }
                 MotionCommand::InWalkKick {
-                    head,
+                    head: _,
                     kick,
                     kicking_side,
-                } => {}
+                } => {
+                    if let Some(_ball) = self.ball {
+                        let side = match kicking_side {
+                            types::Side::Left => 1.0,
+                            types::Side::Right => -1.0,
+                        };
+
+                        // TODO: Check if ball is even in range
+                        // let kick_location = robot_to_field * ();
+
+                        let strength = 1.0;
+                        let direction = match kick {
+                            types::KickVariant::Forward => vector![1.0, 0.0],
+                            types::KickVariant::Turn => vector![0.707, 0.707 * -side],
+                            types::KickVariant::Side => vector![0.0, 1.0 * -side],
+                        };
+                        self.ball_velocity += *robot_to_field * direction * strength;
+                    }
+                }
                 _ => {}
             }
         }
