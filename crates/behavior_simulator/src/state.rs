@@ -56,12 +56,13 @@ impl State {
                     if let Some(robot_to_field) =
                         robot.database.main_outputs.robot_to_field.as_mut()
                     {
-                        let step = match path[0] {
-                            PathSegment::LineSegment(LineSegment(_start, end)) => end,
-                            PathSegment::Arc(arc, _orientation) => arc.end,
-                        }
-                        .coords
-                        .cap_magnitude(0.3 * time_step.as_secs_f32());
+                        let step = robot_to_field.rotation
+                            * match path[0] {
+                                PathSegment::LineSegment(LineSegment(_start, end)) => end,
+                                PathSegment::Arc(arc, _orientation) => arc.end,
+                            }
+                            .coords
+                            .cap_magnitude(0.3 * time_step.as_secs_f32());
                         robot_to_field.append_translation_mut(&Translation2::new(step.x, step.y));
                         let orientation = match orientation_mode {
                             types::OrientationMode::AlignWithPath => {
