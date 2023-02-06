@@ -28,6 +28,18 @@ pub enum Arguments {
     All(SubcommandArguments),
 }
 
+impl Arguments {
+    fn subcommand_arguments(&self) -> &SubcommandArguments {
+        match self {
+            Arguments::Summary(arguments) => arguments,
+            Arguments::Services(arguments) => arguments,
+            Arguments::Battery(arguments) => arguments,
+            Arguments::Ids(arguments) => arguments,
+            Arguments::All(arguments) => arguments,
+        }
+    }
+}
+
 #[derive(Args)]
 pub struct SubcommandArguments {
     /// Output aliveness information as json
@@ -97,12 +109,14 @@ struct Services {
 
 impl From<AlivenessState> for Services {
     fn from(state: AlivenessState) -> Self {
-        Self::from(state.system_services)
+        Self {
+            services: state.system_services,
+        }
     }
 }
 
-impl From<aliveness_client::SystemServices> for Services {
-    fn from(system_services: aliveness_client::SystemServices) -> Self {
+impl From<SystemServices> for Services {
+    fn from(system_services: SystemServices) -> Self {
         Self {
             services: system_services,
         }
@@ -258,128 +272,94 @@ impl Display for All {
     }
 }
 
-#[derive(Serialize)]
-struct AlivenessList<T> {
-    entries: BTreeMap<IpAddr, T>,
-}
+type AlivenessList<T> = BTreeMap<IpAddr, T>;
 
-impl<T: From<AlivenessState>> From<Vec<(IpAddr, AlivenessState)>> for AlivenessList<T> {
-    fn from(states: Vec<(IpAddr, AlivenessState)>) -> Self {
-        Self {
-            entries: states.into_iter().map(|(ip, s)| (ip, T::from(s))).collect(),
+fn print_grid<T>(data: AlivenessList<T>)
+where
+    T: DisplayGrid,
+{
+    const IP_SPACING: usize = 2;
+    const COL_SPACING: usize = 3;
+    const MAX_COLS: usize = 4;
+
+    let mut col_widths: [usize; MAX_COLS] = [0; MAX_COLS];
+    let mut cells = Vec::new();
+
+    for (ip, entry) in data.iter() {
+        cells.push((ip, entry.format_grid()));
+    }
+
+    for (_, row) in cells.iter() {
+        let widths = row.iter().map(|s| s.len());
+
+        for (i, w) in widths.enumerate() {
+            if w > col_widths[i] {
+                col_widths[i] = w;
+            }
         }
     }
-}
 
-impl<T: DisplayGrid> Display for AlivenessList<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        const IP_SPACING: usize = 2;
-        const COL_SPACING: usize = 3;
-        const MAX_COLS: usize = 4;
-
-        let mut col_widths: [usize; MAX_COLS] = [0; MAX_COLS];
-        let mut cells = Vec::new();
-
-        for (ip, entry) in self.entries.iter() {
-            cells.push((ip, entry.format_grid()));
+    for (ip, row) in cells.iter() {
+        print!("[{}]{:IP_SPACING$}", ip, "");
+        for (i, cell) in row.iter().enumerate() {
+            let spacing = if i == 0 { 0 } else { COL_SPACING };
+            print!("{0:spacing$}{1:<2$}", "", cell, col_widths[i]);
         }
-
-        for (_, row) in cells.iter() {
-            let widths = row.iter().map(|s| s.len());
-
-            for (i, w) in widths.enumerate() {
-                if w > col_widths[i] {
-                    col_widths[i] = w;
-                }
-            }
-        }
-
-        for (ip, row) in cells.iter() {
-            write!(f, "[{}]{:IP_SPACING$}", ip, "")?;
-            for (i, cell) in row.iter().enumerate() {
-                let spacing = if i == 0 { 0 } else { COL_SPACING };
-                write!(f, "{0:spacing$}{1:<2$}", "", cell, col_widths[i])?
-            }
-            writeln!(f)?
-        }
-
-        Ok(())
+        println!("");
     }
 }
 
 pub async fn aliveness(arguments: Arguments) -> Result<()> {
+    let subcommand_arguments = arguments.subcommand_arguments();
+    let states = query_aliveness(subcommand_arguments).await?;
+    let print_json = subcommand_arguments.json;
     match arguments {
-        Arguments::Summary(arguments) => summary(arguments).await?,
-        Arguments::Services(arguments) => services(arguments).await?,
-        Arguments::Battery(arguments) => battery(arguments).await?,
-        Arguments::Ids(arguments) => ids(arguments).await?,
-        Arguments::All(arguments) => all(arguments).await?,
+        Arguments::Summary(_) => print_states::<Summary>(states, print_json).await?,
+        Arguments::Services(_) => print_states::<Services>(states, print_json).await?,
+        Arguments::Battery(_) => print_states::<Battery>(states, print_json).await?,
+        Arguments::Ids(_) => print_states::<Ids>(states, print_json).await?,
+        Arguments::All(_) => print_all(states, print_json).await?,
     };
     Ok(())
 }
 
-async fn summary(arguments: SubcommandArguments) -> Result<()> {
-    let aliveness_states = query_aliveness(&arguments).await?;
-    let summary = AlivenessList::<Summary>::from(aliveness_states);
-    if arguments.json {
-        println!("{}", serde_json::to_string(&summary)?);
+async fn print_states<T>(states: AlivenessList<AlivenessState>, print_json: bool) -> Result<()>
+where
+    T: From<AlivenessState> + Serialize + DisplayGrid,
+{
+    let data: AlivenessList<_> = states
+        .into_iter()
+        .map(|(ip, state)| (ip, T::from(state)))
+        .collect();
+    if print_json {
+        println!("{}", serde_json::to_string(&data)?);
     } else {
-        print!("{summary}");
+        print_grid(data);
     }
     Ok(())
 }
 
-async fn services(arguments: SubcommandArguments) -> Result<()> {
-    let aliveness_states = query_aliveness(&arguments).await?;
-    let services = AlivenessList::<Services>::from(aliveness_states);
-    if arguments.json {
-        println!("{}", serde_json::to_string(&services)?);
+async fn print_all(states: AlivenessList<AlivenessState>, print_json: bool) -> Result<()> {
+    let data: AlivenessList<_> = states
+        .into_iter()
+        .map(|(ip, state)| (ip, All::from(state)))
+        .collect();
+    if print_json {
+        println!("{}", serde_json::to_string(&data)?);
     } else {
-        print!("{services}");
-    }
-    Ok(())
-}
-
-async fn battery(arguments: SubcommandArguments) -> Result<()> {
-    let aliveness_states = query_aliveness(&arguments).await?;
-    let battery = AlivenessList::<Battery>::from(aliveness_states);
-    if arguments.json {
-        println!("{}", serde_json::to_string(&battery)?);
-    } else {
-        print!("{battery}");
-    }
-    Ok(())
-}
-
-async fn ids(arguments: SubcommandArguments) -> Result<()> {
-    let aliveness_states = query_aliveness(&arguments).await?;
-    let ids = AlivenessList::<Ids>::from(aliveness_states);
-    if arguments.json {
-        println!("{}", serde_json::to_string(&ids)?);
-    } else {
-        print!("{ids}");
-    }
-    Ok(())
-}
-
-async fn all(arguments: SubcommandArguments) -> Result<()> {
-    let aliveness_states = query_aliveness(&arguments).await?;
-    let all = AlivenessList::<All>::from(aliveness_states);
-    if arguments.json {
-        println!("{}", serde_json::to_string(&all)?);
-    } else {
-        for (ip, entry) in all.entries {
+        for (ip, entry) in data {
             print!("[{ip}]\n{entry}\n");
         }
     }
     Ok(())
 }
 
-async fn query_aliveness(arguments: &SubcommandArguments) -> Result<Vec<(IpAddr, AlivenessState)>> {
+async fn query_aliveness(arguments: &SubcommandArguments) -> Result<AlivenessList<AlivenessState>> {
     let timeout = Duration::from_millis(arguments.timeout);
     let ips = arguments
         .naos
         .as_ref()
         .map(|v| v.iter().map(|n| n.ip).collect());
-    Aliveness::query(timeout, ips).await
+    let responses = Aliveness::query(timeout, ips).await?;
+    Ok(responses.into_iter().collect())
 }
