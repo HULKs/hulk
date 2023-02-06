@@ -6,6 +6,7 @@ use std::{
     mem::take,
     time::{Duration, UNIX_EPOCH},
 };
+use structs::control::AdditionalOutputs;
 use types::{
     messages::{IncomingMessage, OutgoingMessage},
     LineSegment, MotionCommand, PathSegment, PrimaryState,
@@ -52,6 +53,8 @@ impl State {
                 .robot_to_field
                 .as_mut()
                 .expect("Simulated robots should always have a known pose");
+
+            robot.database.additional_outputs = AdditionalOutputs::default();
             match &robot.database.main_outputs.motion_command {
                 MotionCommand::Walk {
                     path,
