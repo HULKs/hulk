@@ -1,0 +1,6 @@
+{
+  "walking_engine": {
+    "stable_step_deviation": { "nanos": 100000000, "secs": 0 },
+    "torso_shift_offset": 0.023
+  }
+}
