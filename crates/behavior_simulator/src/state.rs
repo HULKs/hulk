@@ -81,8 +81,10 @@ impl State {
                     *robot_to_field = Isometry2::new(
                         robot_to_field.translation.vector + robot_to_field.rotation * step,
                         robot_to_field.rotation.angle()
-                            + (orientation.angle())
-                                .clamp(0.0, std::f32::consts::FRAC_PI_2 * time_step.as_secs_f32()),
+                            + orientation.angle().clamp(
+                                -std::f32::consts::FRAC_PI_4 * time_step.as_secs_f32(),
+                                std::f32::consts::FRAC_PI_4 * time_step.as_secs_f32(),
+                            ),
                     )
                 }
                 MotionCommand::InWalkKick {
