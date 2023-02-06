@@ -27,6 +27,7 @@ use upload::{upload, Arguments as UploadArguments};
 use wireless::{wireless, Arguments as WirelessArguments};
 
 mod aliveness;
+mod aliveness_types;
 mod analyze;
 mod cargo;
 mod communication;
