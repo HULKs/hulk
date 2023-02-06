@@ -1,43 +1,18 @@
 use std::{collections::BTreeMap, net::IpAddr, time::Duration};
 
-use aliveness_client::{Aliveness, AlivenessState};
-use clap::{arg, Args, Subcommand};
+use aliveness_client::{Aliveness, AlivenessState, ServiceState, SystemServices};
+use clap::{arg, Args};
 use color_eyre::Result;
-use serde::Serialize;
+use colored::Colorize;
+use repository::SDK_VERSION;
 
-use crate::{
-    aliveness_types::{All, Battery, DisplayGrid, Ids, Services, Summary},
-    parsers::NaoAddress,
-};
-
-#[derive(Subcommand)]
-pub enum Arguments {
-    /// Show a summary of the aliveness information
-    Summary(SubcommandArguments),
-    /// Show the status of the systemd services
-    Services(SubcommandArguments),
-    /// Show detailed battery information
-    Battery(SubcommandArguments),
-    /// Show the body and head IDs
-    Ids(SubcommandArguments),
-    /// Show all information available via aliveness
-    All(SubcommandArguments),
-}
-
-impl Arguments {
-    fn subcommand_arguments(&self) -> &SubcommandArguments {
-        match self {
-            Arguments::Summary(arguments) => arguments,
-            Arguments::Services(arguments) => arguments,
-            Arguments::Battery(arguments) => arguments,
-            Arguments::Ids(arguments) => arguments,
-            Arguments::All(arguments) => arguments,
-        }
-    }
-}
+use crate::parsers::NaoAddress;
 
 #[derive(Args)]
-pub struct SubcommandArguments {
+pub struct Arguments {
+    /// Output verbose version of the aliveness information
+    #[arg(long, short = 'v')]
+    verbose: bool,
     /// Output aliveness information as json
     #[arg(long, short = 'j')]
     json: bool,
@@ -48,89 +23,135 @@ pub struct SubcommandArguments {
     naos: Option<Vec<NaoAddress>>,
 }
 
-type AlivenessList<T> = BTreeMap<IpAddr, T>;
-
-fn print_grid<T>(data: AlivenessList<T>)
-where
-    T: DisplayGrid,
-{
-    const IP_SPACING: usize = 2;
-    const COL_SPACING: usize = 3;
-    const MAX_COLS: usize = 4;
-
-    let mut col_widths: [usize; MAX_COLS] = [0; MAX_COLS];
-    let mut cells = Vec::new();
-
-    for (ip, entry) in data.iter() {
-        cells.push((ip, entry.format_grid()));
-    }
-
-    for (_, row) in cells.iter() {
-        let widths = row.iter().map(|s| s.len());
-
-        for (i, w) in widths.enumerate() {
-            if w > col_widths[i] {
-                col_widths[i] = w;
-            }
-        }
-    }
-
-    for (ip, row) in cells.iter() {
-        print!("[{}]{:IP_SPACING$}", ip, "");
-        for (i, cell) in row.iter().enumerate() {
-            let spacing = if i == 0 { 0 } else { COL_SPACING };
-            print!("{0:spacing$}{1:<2$}", "", cell, col_widths[i]);
-        }
-        println!("");
-    }
-}
+type AlivenessList = BTreeMap<IpAddr, AlivenessState>;
 
 pub async fn aliveness(arguments: Arguments) -> Result<()> {
-    let subcommand_arguments = arguments.subcommand_arguments();
-    let states = query_aliveness(subcommand_arguments).await?;
-    let print_json = subcommand_arguments.json;
-    match arguments {
-        Arguments::Summary(_) => print_states::<Summary>(states, print_json).await?,
-        Arguments::Services(_) => print_states::<Services>(states, print_json).await?,
-        Arguments::Battery(_) => print_states::<Battery>(states, print_json).await?,
-        Arguments::Ids(_) => print_states::<Ids>(states, print_json).await?,
-        Arguments::All(_) => print_all(states, print_json).await?,
-    };
-    Ok(())
-}
-
-async fn print_states<T>(states: AlivenessList<AlivenessState>, print_json: bool) -> Result<()>
-where
-    T: From<AlivenessState> + Serialize + DisplayGrid,
-{
-    let data: AlivenessList<_> = states
-        .into_iter()
-        .map(|(ip, state)| (ip, T::from(state)))
-        .collect();
-    if print_json {
-        println!("{}", serde_json::to_string(&data)?);
+    let states = query_aliveness(&arguments).await?;
+    if arguments.json {
+        println!("{}", serde_json::to_string(&states)?);
+    } else if arguments.verbose {
+        print_verbose(&states);
     } else {
-        print_grid(data);
+        print_summary(&states);
     }
     Ok(())
 }
 
-async fn print_all(states: AlivenessList<AlivenessState>, print_json: bool) -> Result<()> {
-    let data: AlivenessList<_> = states
-        .into_iter()
-        .map(|(ip, state)| (ip, All::from(state)))
-        .collect();
-    if print_json {
-        println!("{}", serde_json::to_string(&data)?);
-    } else {
-        for (ip, entry) in data {
-            print!("[{ip}]\n{entry}\n");
+fn print_summary(states: &AlivenessList) {
+    const SPACING: usize = 3;
+    const CHARGE_OK_THRESHOLD: f32 = 0.95;
+    const CHARGING_ICON: &str = "󱐋";
+    const DISCHARGING_ICON: &str = "󰁽";
+    const OS_ICON: &str = "󱑞";
+    const ALL_OK_ICON: &str = "✔";
+
+    for (ip, state) in states.iter() {
+        let id = match ip {
+            IpAddr::V4(ip) => ip.octets()[3],
+            IpAddr::V6(ip) => ip.octets()[15],
+        };
+
+        let mut output = String::new();
+
+        if let Some(battery) = state.battery {
+            if battery.charge < CHARGE_OK_THRESHOLD {
+                let charge = (battery.charge * 100.0) as u32;
+                let icon = if battery.current >= 0.0 {
+                    CHARGING_ICON
+                } else {
+                    DISCHARGING_ICON
+                };
+
+                output.push_str(&format!("{icon} {charge}%{:SPACING$}", ""))
+            }
+        }
+
+        let version = &state.hulks_os_version;
+        if version != SDK_VERSION {
+            output.push_str(&format!("{OS_ICON} {version}{:SPACING$}", ""))
+        }
+
+        let SystemServices {
+            hal,
+            hula,
+            hulk,
+            lola,
+        } = state.system_services;
+        match hal {
+            ServiceState::Active => (),
+            _ => output.push_str(&format!("HAL: {hal}{:SPACING$}", "")),
+        }
+        match hula {
+            ServiceState::Active => (),
+            _ => output.push_str(&format!("HuLA: {hula}{:SPACING$}", "")),
+        }
+        match hulk {
+            ServiceState::Active => (),
+            _ => output.push_str(&format!("HULK: {hulk}{:SPACING$}", "")),
+        }
+        match lola {
+            ServiceState::Active => (),
+            _ => output.push_str(&format!("LoLA: {lola}{:SPACING$}", "")),
+        }
+
+        if output.is_empty() {
+            println!("[{id}] {}", ALL_OK_ICON.green());
+        } else {
+            println!("[{id}] {output}");
         }
     }
-    Ok(())
 }
 
-async fn query_aliveness(arguments: &SubcommandArguments) -> Result<AlivenessList<AlivenessState>> {
+fn print_verbose(states: &AlivenessList) {
+    const INDENTATION: usize = 2;
+    const SPACING: usize = 3;
+
+    for (ip, state) in states.iter() {
+        let AlivenessState {
+            hostname,
+            interface_name,
+            system_services,
+            hulks_os_version,
+            body_id,
+            head_id,
+            battery,
+        } = state;
+
+        let SystemServices {
+            hal,
+            hula,
+            hulk,
+            lola,
+        } = system_services;
+
+        let unknown = "Unknown".to_owned();
+        let body_id = body_id.as_ref().unwrap_or(&unknown);
+        let head_id = head_id.as_ref().unwrap_or(&unknown);
+        let battery = battery.map_or_else(
+            || unknown.clone(),
+            |b| {
+                let charge = (b.charge * 100.0) as u32;
+                let current = (b.current * 1000.0) as u32;
+                format!("Charge: {charge:.0}%{:SPACING$}Current: {current:.0}mA", "")
+            },
+        );
+
+        println!(
+            "[{ip}]\n\
+            {:INDENTATION$}Hostname:          {hostname}\n\
+            {:INDENTATION$}Interface name:    {interface_name}\n\
+            {:INDENTATION$}HULKs-OS version:  {hulks_os_version}\n\
+            {:INDENTATION$}Services:          HAL: {hal}{:SPACING$}HuLA: {hula}{:SPACING$}\
+                                              HULK: {hulk}{:SPACING$}LoLA: {lola}\n\
+            {:INDENTATION$}Battery:           {battery}\n\
+            {:INDENTATION$}Head ID:           {head_id}\n\
+            {:INDENTATION$}Body ID:           {body_id}\n",
+            "", "", "", "", "", "", "", "", "", ""
+        )
+    }
+}
+
+async fn query_aliveness(arguments: &Arguments) -> Result<AlivenessList> {
     let timeout = Duration::from_millis(arguments.timeout);
     let ips = arguments
         .naos

@@ -21,7 +21,7 @@ pub struct BeaconResponse<'a> {
     pub battery: &'a Option<Battery>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AlivenessState {
     pub hostname: String,
     pub interface_name: String,

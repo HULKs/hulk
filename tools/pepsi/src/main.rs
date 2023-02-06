@@ -27,7 +27,6 @@ use upload::{upload, Arguments as UploadArguments};
 use wireless::{wireless, Arguments as WirelessArguments};
 
 mod aliveness;
-mod aliveness_types;
 mod analyze;
 mod cargo;
 mod communication;
@@ -142,7 +141,6 @@ enum Command {
     #[clap(subcommand)]
     Analyze(AnalyzeArguments),
     /// Get aliveness information from NAOs
-    #[clap(subcommand)]
     Aliveness(AlivenessArguments),
     /// Builds the code for a target
     Build(CargoArguments),
