@@ -483,7 +483,7 @@ PROTO NAO [
                 name "HeadPitch_link"
                 physics Physics {
                   density -1
-                  mass 0.659730
+                  mass 0.559730
                   centerOfMass [ 0.057186 0.001089 0.001463 ]
                   inertiaMatrix [
                     6.803740e-04 7.147021e-04 7.709700e-04
@@ -1129,7 +1129,7 @@ PROTO NAO [
                                 rotation 0.000000 0.000000 -1.000000 1.570800
                                 name "LElbowRollSphereCollision_shape"
                                 boundingObject Sphere {
-                                  radius 0.035
+                                  radius 0.0325
                                 }
                                 physics Physics {
                                   density -1
@@ -1615,33 +1615,30 @@ PROTO NAO [
                                           Solid {
                                             translation -0.030000 -0.002500 0.082500
                                             rotation 0.000001 -0.707108 -0.707105 3.141591
-                                            name "LAnkleRollBothCollision_shape_front"
-                                            boundingObject Transform {
-                                              translation -0.003000 -0.0212500 -0.005000
-                                              rotation 0.000000 1.000000 0.000000 1.572728
+                                            name "LAnkleRollBothCollision"
+                                            boundingObject Group {
                                               children [
-                                                Cylinder {
-                                                  radius 0.03875
-                                                  height 0.03
+                                                Transform { # Is front collision cylinder
+                                                  translation 0.007000 -0.0212500 -0.005000
+                                                  rotation 0.000000 1.000000 0.000000 1.572728
+                                                  children [
+                                                    Cylinder {
+                                                    radius 0.03875
+                                                    height 0.01
+                                                    }
+                                                  ]
                                                 }
-                                              ]
-                                            }
-                                            physics Physics {
-                                              density -1
-                                              mass 0.001
-                                            }
-                                          }
-                                          Solid {
-                                            translation -0.030000 -0.002500 0.082500
-                                            rotation 0.000001 -0.707108 -0.707105 3.141591
-                                            name "LAnkleRollBothCollision_shape_rear"
-                                            boundingObject Transform {
-                                              translation -0.003000 -0.100000 -0.005000
-                                              rotation 0.000000 1.000000 0.000000 1.572728
-                                              children [
-                                                Cylinder {
-                                                  radius 0.03875
-                                                  height 0.03
+                                                Transform { # Is back collision cylinder
+                                                  translation 0.007000 -0.119375 -0.005000
+                                                  rotation 0.000000 1.000000 0.000000 1.572728
+                                                  scale 1 0.5 1
+                                                  children [
+                                                    Cylinder {
+                                                      radius 0.03875
+                                                      height 0.01
+                                                      subdivision 6
+                                                    }
+                                                  ]
                                                 }
                                               ]
                                             }
@@ -2296,35 +2293,36 @@ PROTO NAO [
                                           Solid {
                                             translation -0.030000 0.002500 0.082500
                                             rotation 0.000001 -0.707108 -0.707105 3.141591
-                                            name "RAnkleRollBothCollision_shape_front"
-                                            boundingObject Transform {
-                                              translation -0.003000 -0.0212500 0.005000
-                                              rotation 0.000000 1.000000 0.000000 1.572728
+                                            name "RAnkleRollBothCollision"
+                                            boundingObject Group {
                                               children [
-                                                Cylinder {
-                                                  radius 0.03875
-                                                  height 0.03
+                                                Transform { # Is front collision cylinder
+                                                  translation 0.007000 -0.0212500 0.005000
+                                                  rotation 0.000000 1.000000 0.000000 1.572728
+                                                  children [
+                                                    Cylinder {
+                                                    radius 0.03875
+                                                    height 0.01
+                                                    }
+                                                  ]
+                                                }
+                                                Transform { # Is back collision cylinder
+                                                  translation 0.007000 -0.119375 0.005000
+                                                  rotation 0.000000 1.000000 0.000000 1.572728
+                                                  scale 1 0.5 1
+                                                  children [
+                                                    Cylinder {
+                                                      radius 0.03875
+                                                      height 0.01
+                                                      subdivision 6
+                                                    }
+                                                  ]
                                                 }
                                               ]
                                             }
                                             physics Physics {
                                               density -1
                                               mass 0.001
-                                            }
-                                          }
-                                          Solid {
-                                            translation -0.030000 0.002500 0.082500
-                                            rotation 0.000001 -0.707108 -0.707105 3.141591
-                                            name "RAnkleRollBothCollision_shape_rear"
-                                            boundingObject Transform {
-                                              translation -0.003000 -0.100000 0.005000
-                                              rotation 0.000000 1.000000 0.000000 1.572728
-                                              children [
-                                                Cylinder {
-                                                  radius 0.03875
-                                                  height 0.03
-                                                }
-                                              ]
                                             }
                                           }
                                           Solid {
@@ -3135,7 +3133,7 @@ PROTO NAO [
                                 rotation 0.000000 0.000000 -1.000000 1.570800
                                 name "RElbowRollSphereCollision_shape"
                                 boundingObject Sphere {
-                                  radius 0.035
+                                  radius 0.0325
                                 }
                                 physics Physics {
                                   density -1
@@ -3234,8 +3232,27 @@ PROTO NAO [
         translation 0.000600 0.000000 -0.015000
         rotation 0.000000 1.000000 0.000000 0.000000
         name "TorsoDownCollision_shape"
-        boundingObject Box {
-          size 0.09 0.09 0.09
+        boundingObject Group {
+          children [
+            Transform {
+              translation 0.000000 0.000000 0.000000
+              rotation 0.000000 0.000000 0.000000 0.000000
+              children [
+                Box {
+                  size 0.09 0.09 0.06
+                }
+              ]
+            }
+            Transform {
+              translation 0.000000 0.000000 0.050000
+              rotation 0.000000 0.000000 0.000000 0.000000
+              children [
+                Box {
+                  size 0.11 0.12 0.04
+                }
+              ]
+            }
+          ]
         }
         physics Physics {
           density -1
@@ -3246,9 +3263,32 @@ PROTO NAO [
         translation 0.001900 0.000000 0.100000
         rotation 0.000000 1.000000 0.000000 0.000000
         name "TorsoUpCollision_shape"
-        boundingObject Box {
-          size 0.10 0.25 0.08
+        boundingObject Group {
+          children [
+            Transform {
+              translation 0.000000 0.087500 0.000000
+              rotation 0.000000 0.000000 0.000000 0.000000
+              children [
+                Sphere {
+                  radius 0.045
+                }
+              ]
+            }
+            Transform {
+              translation 0.000000 -0.087500 0.000000
+              rotation 0.000000 0.000000 0.000000 0.000000
+              children [
+                Sphere {
+                  radius 0.045
+                }
+              ]
+            }
+          ]
         }
+        
+        #boundingObject Box {
+        #  size 0.10 0.25 0.08
+        #}
         physics Physics {
           density -1
           mass 0.001
