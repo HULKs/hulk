@@ -61,14 +61,12 @@ impl State {
                     orientation_mode,
                     ..
                 } => {
-                    let step = robot_to_field.rotation
-                        * match path[0] {
-                            PathSegment::LineSegment(LineSegment(_start, end)) => end,
-                            PathSegment::Arc(arc, _orientation) => arc.end,
-                        }
-                        .coords
-                        .cap_magnitude(0.3 * time_step.as_secs_f32());
-                    robot_to_field.append_translation_mut(&Translation2::new(step.x, step.y));
+                    let step = match path[0] {
+                        PathSegment::LineSegment(LineSegment(_start, end)) => end,
+                        PathSegment::Arc(arc, _orientation) => arc.end,
+                    }
+                    .coords
+                    .cap_magnitude(0.3 * time_step.as_secs_f32());
                     let orientation = match orientation_mode {
                         types::OrientationMode::AlignWithPath => {
                             if step.norm_squared() < f32::EPSILON {
@@ -79,9 +77,9 @@ impl State {
                         }
                         types::OrientationMode::Override(orientation) => *orientation,
                     };
-                    robot_to_field.append_rotation_wrt_center_mut(&orientation);
+
                     *robot_to_field = Isometry2::new(
-                        robot_to_field.translation.vector,
+                        robot_to_field.translation.vector + robot_to_field.rotation * step,
                         robot_to_field.rotation.angle()
                             + (orientation.angle())
                                 .clamp(0.0, std::f32::consts::FRAC_PI_2 * time_step.as_secs_f32()),
