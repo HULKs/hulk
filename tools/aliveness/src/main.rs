@@ -34,14 +34,6 @@ const HULA_SOCKET_PATH: &str = "/tmp/hula";
 const HULA_RETRY_TIMEOUT: Duration = Duration::from_secs(5);
 const OS_RELEASE_PATH: &str = "/etc/os-release";
 
-async fn load_hulks_os_version() -> Result<String> {
-    let mut os_release = Ini::new();
-    os_release.load_async(OS_RELEASE_PATH).await.unwrap();
-    os_release
-        .get("default", "VERSION_ID")
-        .ok_or_else(|| eyre!("no VERSION_ID in {OS_RELEASE_PATH}"))
-}
-
 struct HulaService {
     sender: mpsc::Sender<oneshot::Sender<RobotState>>,
 }
@@ -108,7 +100,7 @@ struct RobotInfo {
 
 impl RobotInfo {
     async fn initialize() -> Result<Self> {
-        let hulks_os_version = load_hulks_os_version()
+        let hulks_os_version = get_hulks_os_version()
             .await
             .wrap_err("failed to load HULKs-OS version")?;
         let hostname = hostname::get()
@@ -252,6 +244,14 @@ async fn get_ip(interface_name: &str, dbus_conn: &Connection) -> Result<Option<I
         });
 
     Ok(address)
+}
+
+async fn get_hulks_os_version() -> Result<String> {
+    let mut os_release = Ini::new();
+    os_release.load_async(OS_RELEASE_PATH).await.unwrap();
+    os_release
+        .get("default", "VERSION_ID")
+        .ok_or_else(|| eyre!("no VERSION_ID in {OS_RELEASE_PATH}"))
 }
 
 async fn join_multicast(
