@@ -6,8 +6,9 @@ use colored::Colorize;
 
 use crate::parsers::NaoAddress;
 use aliveness::{
+    query_aliveness,
     service_manager::{ServiceState, SystemServices},
-    Aliveness, AlivenessState,
+    AlivenessState,
 };
 use repository::SDK_VERSION;
 
@@ -29,7 +30,7 @@ pub struct Arguments {
 type AlivenessList = BTreeMap<IpAddr, AlivenessState>;
 
 pub async fn aliveness(arguments: Arguments) -> Result<()> {
-    let states = query_aliveness(&arguments).await?;
+    let states = query_aliveness_list(&arguments).await?;
     if arguments.json {
         println!("{}", serde_json::to_string(&states)?);
     } else if arguments.verbose {
@@ -154,12 +155,12 @@ fn print_verbose(states: &AlivenessList) {
     }
 }
 
-async fn query_aliveness(arguments: &Arguments) -> Result<AlivenessList> {
+async fn query_aliveness_list(arguments: &Arguments) -> Result<AlivenessList> {
     let timeout = Duration::from_millis(arguments.timeout);
     let ips = arguments
         .naos
         .as_ref()
         .map(|v| v.iter().map(|n| n.ip).collect());
-    let responses = Aliveness::query(timeout, ips).await?;
+    let responses = query_aliveness(timeout, ips).await?;
     Ok(responses.into_iter().collect())
 }
