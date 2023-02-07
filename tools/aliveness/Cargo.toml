@@ -1,9 +1,10 @@
 [package]
-name = "aliveness"
+name = "aliveness-service"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+aliveness = { path = "../../crates/aliveness" }
 color-eyre = "0.6.2"
 configparser = { version = "3.0.2", features = ["async-std"] }
 env_logger = "0.10.0"

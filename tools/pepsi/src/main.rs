@@ -8,7 +8,7 @@ use color_eyre::{
 };
 use tokio::fs::read_dir;
 
-use aliveness::{aliveness, Arguments as AlivenessArguments};
+use crate::aliveness::{aliveness, Arguments as AlivenessArguments};
 use analyze::{analyze, Arguments as AnalyzeArguments};
 use cargo::{cargo, Arguments as CargoArguments, Command as CargoCommand};
 use communication::{communication, Arguments as CommunicationArguments};

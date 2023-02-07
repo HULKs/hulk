@@ -8,7 +8,7 @@ use zbus::{
     Connection, Error, Proxy,
 };
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 enum Service {
     Hal,
     Hula,
