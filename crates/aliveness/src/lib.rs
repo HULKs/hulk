@@ -28,11 +28,10 @@ impl Aliveness {
     }
 
     async fn send_beacons_unicast(socket: &UdpSocket, ips: Vec<Ipv4Addr>) -> Result<()> {
-        let futures = FuturesUnordered::new();
-
-        for ip in ips {
-            futures.push(socket.send_to(BEACON_HEADER, SocketAddrV4::new(ip, BEACON_PORT)));
-        }
+        let futures: FuturesUnordered<_> = ips
+            .into_iter()
+            .map(|ip| socket.send_to(BEACON_HEADER, SocketAddrV4::new(ip, BEACON_PORT)))
+            .collect();
 
         let results: Vec<_> = futures.collect().await;
         let result: Result<Vec<_>, _> = results.into_iter().collect();
@@ -49,9 +48,9 @@ impl Aliveness {
             .wrap_err("failed to bind beacon socket")?;
 
         if let Some(ips) = ips {
-            Aliveness::send_beacons_unicast(&socket, ips).await?;
+            Self::send_beacons_unicast(&socket, ips).await?;
         } else {
-            Aliveness::send_beacon_multicast(&socket).await?;
+            Self::send_beacon_multicast(&socket).await?;
         }
 
         let mut receive_buffer = [0; 8192];
