@@ -1,12 +1,15 @@
 use std::{collections::BTreeMap, net::IpAddr, time::Duration};
 
-use aliveness_client::{Aliveness, AlivenessState, ServiceState, SystemServices};
 use clap::{arg, Args};
 use color_eyre::Result;
 use colored::Colorize;
-use repository::SDK_VERSION;
 
 use crate::parsers::NaoAddress;
+use aliveness::{
+    service_manager::{ServiceState, SystemServices},
+    Aliveness, AlivenessState,
+};
+use repository::SDK_VERSION;
 
 #[derive(Args)]
 pub struct Arguments {

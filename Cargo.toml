@@ -31,13 +31,13 @@ members = [
 ]
 # HuLA and Aliveness are built independently by yocto
 exclude = [
-  "tools/hula",
   "tools/aliveness",
+  "tools/hula",
 ]
 
 [workspace.dependencies]
 alsa = "0.7.0"
-aliveness-client = { path = "crates/aliveness" }
+aliveness = { path = "crates/aliveness" }
 approx = "0.5.1"
 audio = { path = "crates/audio" }
 awaitgroup = "0.6.0"
@@ -124,6 +124,7 @@ v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", branch =
 walkdir = "2.3.2"
 webots = { version = "0.6.0" }
 vision = { path = "crates/vision" }
+zbus = { version = "3.7.0", features = ["tokio"] }
 
 [profile.incremental]
 inherits = "release"
