@@ -54,9 +54,9 @@ fn print_summary(states: &AlivenessList) {
         let mut output = String::new();
 
         if let Some(battery) = state.battery {
-            if battery.charge < CHARGE_OK_THRESHOLD {
+            if battery.charge < CHARGE_OK_THRESHOLD || battery.current.is_sign_negative() {
                 let charge = (battery.charge * 100.0) as u32;
-                let icon = if battery.current >= 0.0 {
+                let icon = if battery.current.is_sign_positive() {
                     CHARGING_ICON
                 } else {
                     DISCHARGING_ICON
