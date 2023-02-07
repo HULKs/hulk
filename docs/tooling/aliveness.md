@@ -6,13 +6,13 @@ Aliveness is a system for querying status information from NAOs in the network. 
 
 The following information can be queried from NAOs connected via Ethernet:
 
--   Hostname
--   Current HULKs-OS version
--   States of the systemd services for HAL, HuLA, HULK and LoLA
--   Battery charge state and current
--   Head ID
--   Body ID
--   Name of the interface the beacon is received from (currently always enp4s0)
+- Hostname
+- Current HULKs-OS version
+- States of the systemd services for HAL, HuLA, HULK and LoLA
+- Battery charge state and current
+- Head ID
+- Body ID
+- Name of the interface the beacon is received from (currently always enp4s0)
 
 ## Aliveness service
 
@@ -22,22 +22,22 @@ When receiving a UDP packet with content `BEACON`, it responds by sending the ab
 
 ## Aliveness client
 
-Pepsi includes a fully featured aliveness client with multiple verbosity levels and export options, see [here](./pepsi.md#aliveness) for further information.
+Pepsi includes a fully featured aliveness client with different verbosity levels and export options, see [here](./pepsi.md#aliveness) for further information.
 
 Example usage:
 
 ```
-./pepsi aliveness summary
-./pepsi aliveness services --json
-./pepsi aliveness battery --timeout 500
-./pepsi aliveness all 27 32
+./pepsi aliveness
+./pepsi aliveness 27 32
+./pepsi aliveness --json
+./pepsi aliveness --timeout 500 -v
 ```
 
 When executing any of the aliveness subcommands in pepsi, it will send the aforementioned beacon message to the multicast address or to a list of NAO IP addresses. It then collects all responses within a timeout and filters their content according to the chosen verbosity level.
 
 ## Potential firewall issues
 
-When no NAO addresses are specified, the beacon is send via multicast and the answers are received via unicast.
+When no NAO addresses are specified, the beacon is sent via multicast and the answers are received via unicast.
 Since the answers are from a different IP addresses, most firewalls may block them.
 
 In this case, the user has change their firewall settings to allow the incoming messages, e.g. for ufw by adding the following rule:
