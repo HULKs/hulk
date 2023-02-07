@@ -25,18 +25,18 @@ The simulation is paused automatically until the binary starts.
 
 This command does the following:
 
--   checks if a toolchain is installed, downloads, and installs one if necessary
--   builds the code for the NAO target
--   uploads binary, configuration, motion files, neural networks, etc. to the NAO(s)
--   restarts HULK service on the NAO(s)
+- checks if a toolchain is installed, downloads, and installs one if necessary
+- builds the code for the NAO target
+- uploads binary, configuration, motion files, neural networks, etc. to the NAO(s)
+- restarts HULK service on the NAO(s)
 
 ## Interaction with the NAO
 
 NAOs are identified either by IP or by number.
 Numbers are converted to IPs as follows:
 
--   `{number}` -> `10.1.24.{number}`
--   `{number}w` -> `10.0.24.{number}`
+- `{number}` -> `10.1.24.{number}`
+- `{number}w` -> `10.0.24.{number}`
 
 Many subcommands can act on multiple robots concurrently.
 
@@ -56,9 +56,9 @@ However `upload` and `pregame` only supports a profiles, since it doesn't make s
 
 ## Aliveness
 
-Using the `aliveness` subcommand, pepsi can query information from NAOs connected via ethernet. Different verbosities (`summary`, `servicese`, `battery`, `ids`, and `all`). Using `-j` or `--json` the aliveness information can also be returned as JSON for further processing in e.g. status bars.
+Using the `aliveness` subcommand, pepsi can query information from NAOs connected via ethernet. By default, only irregular information like non-active services, outdated HULKs-OS versions and battery charge levels below 95% are displayed. Using `-v`/`--verbose` or `-j`/`--json`, you can retrieve all information available via aliveness in either a human- or machine-readable format.
 
-You can alse set a timeout via `-t` or `--timeout` (defaulting to 200ms) and specify NAO addresses (e.g. `22` or `10.1.24.22`) for querying the aliveness information only from specific NAOs.
+You can also set a timeout via `-t`/`--timeout` (defaulting to 200ms) and specify NAO addresses (e.g. `22` or `10.1.24.22`) for querying the aliveness information only from specific NAOs.
 
 Further information on the information available via aliveness as well as the details to the protocol can be found [here](./aliveness.md).
 
