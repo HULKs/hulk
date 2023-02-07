@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    env,
+    env::args,
     mem::size_of,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
     ptr::read,
@@ -8,24 +8,25 @@ use std::{
 };
 
 use aliveness::{
-    service_manager::SystemServices, BeaconResponse, BEACON_HEADER, BEACON_MULTICAST_GROUP,
+    service_manager::SystemServices, AlivenessState, BEACON_HEADER, BEACON_MULTICAST_GROUP,
     BEACON_PORT,
 };
 use color_eyre::eyre::{bail, eyre, ContextCompat, Result, WrapErr};
+use configparser::ini::Ini;
 use futures_util::stream::StreamExt;
 use hula_types::{Battery, RobotState};
 use log::{error, info};
 use tokio::{
     io::AsyncReadExt,
     net::{UdpSocket, UnixStream},
-    select,
+    select, spawn,
     sync::{mpsc, oneshot},
     task::JoinHandle,
     time::interval,
 };
 use tokio_util::sync::CancellationToken;
 use zbus::{
-    zvariant::{self, OwnedObjectPath},
+    zvariant::{OwnedObjectPath, Value},
     Connection, MatchRule, MessageStream, MessageType, Proxy,
 };
 
@@ -34,7 +35,7 @@ const HULA_RETRY_TIMEOUT: Duration = Duration::from_secs(5);
 const OS_RELEASE_PATH: &str = "/etc/os-release";
 
 async fn load_hulks_os_version() -> Result<String> {
-    let mut os_release = configparser::ini::Ini::new();
+    let mut os_release = Ini::new();
     os_release.load_async(OS_RELEASE_PATH).await.unwrap();
     os_release
         .get("default", "VERSION_ID")
@@ -46,17 +47,17 @@ struct HulaService {
 }
 
 impl HulaService {
-    fn new() -> Self {
-        let (tx, mut rx) = mpsc::channel::<oneshot::Sender<RobotState>>(1);
+    fn create_sender() -> mpsc::Sender<oneshot::Sender<RobotState>> {
+        let (sender, mut receiver) = mpsc::channel::<oneshot::Sender<RobotState>>(1);
 
-        tokio::spawn(async move {
+        spawn(async move {
             let mut read_buffer = [0; size_of::<RobotState>()];
-            let mut stream_opt = None;
+            let mut stream_option = None;
             let mut interval = interval(HULA_RETRY_TIMEOUT);
 
-            while let Some(response_channel) = rx.recv().await {
+            while let Some(response_channel) = receiver.recv().await {
                 loop {
-                    let mut stream = match stream_opt {
+                    let mut stream = match stream_option {
                         Some(stream) => stream,
                         None => loop {
                             match UnixStream::connect(HULA_SOCKET_PATH).await {
@@ -73,22 +74,27 @@ impl HulaService {
                     };
                     if stream.read_exact(&mut read_buffer).await.is_ok() {
                         let state = unsafe { read(read_buffer.as_ptr() as *const RobotState) };
-                        stream_opt = Some(stream);
+                        stream_option = Some(stream);
                         let _ = response_channel.send(state);
                         break;
                     }
-                    stream_opt = None;
+                    stream_option = None;
                 }
             }
         });
 
-        Self { sender: tx }
+        sender
+    }
+
+    pub fn new() -> Self {
+        let sender = Self::create_sender();
+        Self { sender }
     }
 
     pub async fn read_from_hula(&mut self) -> Result<RobotState> {
-        let (tx, rx) = oneshot::channel();
-        self.sender.send(tx).await?;
-        Ok(rx.await?)
+        let (sender, receiver) = oneshot::channel();
+        self.sender.send(sender).await?;
+        Ok(receiver.await?)
     }
 }
 
@@ -157,10 +163,8 @@ async fn listen_for_network_change(interface_name: String) -> Result<()> {
     }
 
     while let Some(Ok(msg)) = stream.next().await {
-        if let Ok((_, data, _)) =
-            msg.body::<(String, HashMap<String, zvariant::Value>, Vec<String>)>()
-        {
-            if let Some(zvariant::Value::Str(data)) = data.get("IPv4AddressState") {
+        if let Ok((_, data, _)) = msg.body::<(String, HashMap<String, Value>, Vec<String>)>() {
+            if let Some(Value::Str(data)) = data.get("IPv4AddressState") {
                 match data.as_str() {
                     "routable" => {
                         info!("IPv4 on {} back online", interface_name);
@@ -187,6 +191,7 @@ async fn listen_for_network_change(interface_name: String) -> Result<()> {
 
     bail!("failed to get next message")
 }
+
 async fn get_link_object(interface_name: &str, dbus_conn: &Connection) -> Result<OwnedObjectPath> {
     // Get the link objects
     let proxy = Proxy::new(
@@ -209,7 +214,7 @@ async fn get_link_object(interface_name: &str, dbus_conn: &Connection) -> Result
             }
         })
         .context(format!(
-            "No DBus path for interface {} found",
+            "no DBus path for interface {} found",
             interface_name
         ))
 }
@@ -270,7 +275,7 @@ async fn join_multicast(
     let handle = {
         let token = token.clone();
 
-        tokio::spawn(async move {
+        spawn(async move {
             let mut buffer = [0; 1024];
             let mut hula_service = HulaService::new();
 
@@ -317,7 +322,7 @@ async fn join_multicast(
 async fn main() -> Result<()> {
     env_logger::init();
 
-    let interface_name = env::args().nth(1).unwrap_or_else(|| "enp4s0".to_owned());
+    let interface_name = args().nth(1).unwrap_or_else(|| "enp4s0".to_owned());
 
     listen_for_network_change(interface_name).await
 }
@@ -335,14 +340,14 @@ async fn handle_beacon(
     }
     info!("Received beacon from {peer}");
     let system_services = SystemServices::query(dbus_conn).await?;
-    let response = BeaconResponse {
-        hostname: &robot_info.hostname,
-        interface_name,
-        system_services: &system_services,
-        hulks_os_version: &robot_info.hulks_os_version,
-        body_id: &robot_info.body_id,
-        head_id: &robot_info.head_id,
-        battery: &robot_info.battery,
+    let response = AlivenessState {
+        hostname: robot_info.hostname.to_owned(),
+        interface_name: interface_name.to_owned(),
+        system_services,
+        hulks_os_version: robot_info.hulks_os_version.to_owned(),
+        body_id: robot_info.body_id.to_owned(),
+        head_id: robot_info.head_id.to_owned(),
+        battery: robot_info.battery.to_owned(),
     };
     let send_buffer = serde_json::to_vec(&response).wrap_err("failed to serialize response")?;
     socket
