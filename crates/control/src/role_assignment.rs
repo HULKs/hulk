@@ -11,9 +11,11 @@ use types::{
     configuration::SplNetwork,
     hardware::Interface,
     messages::{IncomingMessage, OutgoingMessage},
-    BallPosition, CycleTime, FallState, FieldDimensions, GameControllerState, Players,
+    BallPosition, CycleTime, FallState, FieldDimensions, GameControllerState, InitialPose, Players,
     PrimaryState, Role, SensorData,
 };
+
+use crate::localization::generate_initial_pose;
 
 pub struct RoleAssignment {
     last_received_spl_striker_message: Option<SystemTime>,
@@ -44,6 +46,7 @@ pub struct CycleContext {
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
+    pub initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
     pub spl_network: Parameter<SplNetwork, "spl_network">,
     pub network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
@@ -73,9 +76,20 @@ impl RoleAssignment {
 
     pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
-        let robot_to_field = context.robot_to_field.copied().unwrap_or_default();
         let primary_state = *context.primary_state;
         let mut role = self.role;
+
+        let robot_to_field =
+            context
+                .robot_to_field
+                .copied()
+                .unwrap_or_else(|| match context.primary_state {
+                    PrimaryState::Initial => generate_initial_pose(
+                        &context.initial_poses[*context.player_number],
+                        context.field_dimensions,
+                    ),
+                    _ => Default::default(),
+                });
 
         if !self.role_initialized
             || primary_state == PrimaryState::Ready
