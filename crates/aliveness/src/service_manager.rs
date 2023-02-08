@@ -66,18 +66,18 @@ pub struct SystemServices {
 }
 
 impl SystemServices {
-    pub async fn query(dbus_conn: &Connection) -> Result<Self> {
+    pub async fn query(dbus_connection: &Connection) -> Result<Self> {
         Ok(Self {
-            hal: get_service_state(dbus_conn, Service::Hal).await?,
-            hula: get_service_state(dbus_conn, Service::Hula).await?,
-            hulk: get_service_state(dbus_conn, Service::Hulk).await?,
-            lola: get_service_state(dbus_conn, Service::Lola).await?,
+            hal: get_service_state(dbus_connection, Service::Hal).await?,
+            hula: get_service_state(dbus_connection, Service::Hula).await?,
+            hulk: get_service_state(dbus_connection, Service::Hulk).await?,
+            lola: get_service_state(dbus_connection, Service::Lola).await?,
         })
     }
 }
 
 async fn get_unit_path(
-    dbus_conn: &Connection,
+    dbus_connection: &Connection,
     service: Service,
 ) -> Result<OwnedObjectPath, zbus::Error> {
     let service_name = match service {
@@ -88,7 +88,7 @@ async fn get_unit_path(
     };
 
     let proxy = Proxy::new(
-        dbus_conn,
+        dbus_connection,
         "org.freedesktop.systemd1",
         "/org/freedesktop/systemd1",
         "org.freedesktop.systemd1.Manager",
@@ -98,21 +98,21 @@ async fn get_unit_path(
     proxy.call("GetUnit", &(service_name,)).await
 }
 
-async fn get_service_state(dbus_conn: &Connection, service: Service) -> Result<ServiceState> {
+async fn get_service_state(dbus_connection: &Connection, service: Service) -> Result<ServiceState> {
     let regex = Regex::new(r"Unit \w+\.service not loaded").unwrap();
 
-    let unit_path = match get_unit_path(dbus_conn, service).await {
+    let unit_path = match get_unit_path(dbus_connection, service).await {
         Ok(unit_path) => unit_path,
-        Err(Error::MethodError(_, Some(msg), _)) if regex.is_match(&msg) => {
+        Err(Error::MethodError(_, Some(message), _)) if regex.is_match(&message) => {
             return Ok(ServiceState::NotLoaded);
         }
-        Err(err) => {
-            return Err(err).wrap_err("failed to unit path");
+        Err(error) => {
+            return Err(error).wrap_err("failed to unit path");
         }
     };
 
     let proxy = Proxy::new(
-        dbus_conn,
+        dbus_connection,
         "org.freedesktop.systemd1",
         unit_path,
         "org.freedesktop.DBus.Properties",

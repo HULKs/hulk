@@ -160,7 +160,7 @@ async fn query_aliveness_list(arguments: &Arguments) -> Result<AlivenessList> {
     let ips = arguments
         .naos
         .as_ref()
-        .map(|v| v.iter().map(|n| n.ip).collect());
+        .map(|naos| naos.iter().map(|nao| nao.ip).collect());
     let responses = query_aliveness(timeout, ips).await?;
     Ok(responses.into_iter().collect())
 }

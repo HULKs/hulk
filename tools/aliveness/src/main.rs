@@ -134,9 +134,9 @@ impl AlivenessService {
 }
 
 async fn listen_for_network_change(interface_name: String) -> Result<()> {
-    let dbus_conn = Connection::system().await?;
+    let dbus_connection = Connection::system().await?;
 
-    let link_object = get_link_object(&interface_name, &dbus_conn).await?;
+    let link_object = get_link_object(&interface_name, &dbus_connection).await?;
 
     let rule = MatchRule::builder()
         .msg_type(MessageType::Signal)
@@ -146,33 +146,35 @@ async fn listen_for_network_change(interface_name: String) -> Result<()> {
         .member("PropertiesChanged")?
         .build();
 
-    let mut stream = MessageStream::for_match_rule(rule, &dbus_conn, Some(1)).await?;
+    let mut stream = MessageStream::for_match_rule(rule, &dbus_connection, Some(1)).await?;
 
-    let mut service = None;
+    let mut service_option = None;
 
-    if let Some(ip) = get_ip(&interface_name, &dbus_conn).await? {
-        service = Some(join_multicast(ip, dbus_conn.clone(), interface_name.clone()).await?);
+    if let Some(ip) = get_ip(&interface_name, &dbus_connection).await? {
+        service_option =
+            Some(join_multicast(ip, dbus_connection.clone(), interface_name.clone()).await?);
     }
 
-    while let Some(Ok(msg)) = stream.next().await {
-        if let Ok((_, data, _)) = msg.body::<(String, HashMap<String, Value>, Vec<String>)>() {
+    while let Some(Ok(message)) = stream.next().await {
+        if let Ok((_, data, _)) = message.body::<(String, HashMap<String, Value>, Vec<String>)>() {
             if let Some(Value::Str(data)) = data.get("IPv4AddressState") {
                 match data.as_str() {
                     "routable" => {
                         info!("IPv4 on {} back online", interface_name);
-                        let ip = get_ip(&interface_name, &dbus_conn)
+                        let ip = get_ip(&interface_name, &dbus_connection)
                             .await?
                             .ok_or(eyre!("failed to get IP"))?;
-                        service = Some(
-                            join_multicast(ip, dbus_conn.clone(), interface_name.clone()).await?,
+                        service_option = Some(
+                            join_multicast(ip, dbus_connection.clone(), interface_name.clone())
+                                .await?,
                         );
                     }
                     "off" => {
                         info!("IPv4 on {} offline", interface_name);
-                        if let Some(s) = service {
-                            s.cancel();
-                            s.join().await;
-                            service = None;
+                        if let Some(service) = service_option {
+                            service.cancel();
+                            service.join().await;
+                            service_option = None;
                         }
                     }
                     _ => (),
@@ -184,10 +186,12 @@ async fn listen_for_network_change(interface_name: String) -> Result<()> {
     bail!("failed to get next message")
 }
 
-async fn get_link_object(interface_name: &str, dbus_conn: &Connection) -> Result<OwnedObjectPath> {
-    // Get the link objects
+async fn get_link_object(
+    interface_name: &str,
+    dbus_connection: &Connection,
+) -> Result<OwnedObjectPath> {
     let proxy = Proxy::new(
-        dbus_conn,
+        dbus_connection,
         "org.freedesktop.network1",
         "/org/freedesktop/network1",
         "org.freedesktop.network1.Manager",
@@ -211,11 +215,11 @@ async fn get_link_object(interface_name: &str, dbus_conn: &Connection) -> Result
         ))
 }
 
-async fn get_ip(interface_name: &str, dbus_conn: &Connection) -> Result<Option<Ipv4Addr>> {
-    let link_object = get_link_object(interface_name, dbus_conn).await?;
+async fn get_ip(interface_name: &str, dbus_connection: &Connection) -> Result<Option<Ipv4Addr>> {
+    let link_object = get_link_object(interface_name, dbus_connection).await?;
 
     let proxy = Proxy::new(
-        dbus_conn,
+        dbus_connection,
         "org.freedesktop.network1",
         link_object,
         "org.freedesktop.network1.Link",
@@ -256,7 +260,7 @@ async fn get_hulks_os_version() -> Result<String> {
 
 async fn join_multicast(
     ip: Ipv4Addr,
-    dbus_conn: Connection,
+    dbus_connection: Connection,
     interface_name: String,
 ) -> Result<AlivenessService> {
     let mut robot_info = RobotInfo::initialize().await?;
@@ -300,7 +304,7 @@ async fn join_multicast(
                         let (num_bytes, peer) = message.wrap_err("failed to read from beacon socket").unwrap();
                         handle_beacon(
                             &socket,
-                            &dbus_conn,
+                            &dbus_connection,
                             &interface_name,
                             &robot_info,
                             &buffer[0..num_bytes],
@@ -329,7 +333,7 @@ async fn main() -> Result<()> {
 
 async fn handle_beacon(
     socket: &UdpSocket,
-    dbus_conn: &Connection,
+    dbus_connection: &Connection,
     interface_name: &str,
     robot_info: &RobotInfo,
     message: &[u8],
@@ -339,7 +343,7 @@ async fn handle_beacon(
         bail!("invalid beacon header {message:?}");
     }
     info!("Received beacon from {peer}");
-    let system_services = SystemServices::query(dbus_conn).await?;
+    let system_services = SystemServices::query(dbus_connection).await?;
     let response = AlivenessState {
         hostname: robot_info.hostname.to_owned(),
         interface_name: interface_name.to_owned(),
