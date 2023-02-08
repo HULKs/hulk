@@ -13,6 +13,7 @@ use aliveness::{
 };
 use color_eyre::eyre::{bail, eyre, ContextCompat, Result, WrapErr};
 use configparser::ini::Ini;
+use constants::HULA_SOCKET_PATH;
 use futures_util::stream::StreamExt;
 use hula_types::{Battery, RobotState};
 use log::{error, info};
@@ -30,7 +31,6 @@ use zbus::{
     Connection, MatchRule, MessageStream, MessageType, Proxy,
 };
 
-const HULA_SOCKET_PATH: &str = "/tmp/hula";
 const HULA_RETRY_TIMEOUT: Duration = Duration::from_secs(5);
 const OS_RELEASE_PATH: &str = "/etc/os-release";
 

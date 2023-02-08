@@ -9,6 +9,7 @@ homepage = "https://github.com/hulks/hulk"
 chrono = "0.4.23"
 clap = { version = "4.0.29", features = ["derive"] }
 color-eyre = "0.6.2"
+constants = { path = "../../../crates/constants" }
 env_logger = "0.10.0"
 epoll = "4.3.1"
 hula-types = { path = "../types/" }

@@ -21,8 +21,8 @@ use log::{debug, error, info, warn};
 use rmp_serde::{encode::write_named, from_slice};
 
 use crate::idle::{charging_skull, send_idle};
+use constants::HULA_SOCKET_PATH;
 
-const HULA_SOCKET_PATH: &str = "/tmp/hula";
 const LOLA_SOCKET_PATH: &str = "/tmp/robocup";
 const LOLA_SOCKET_RETRY_COUNT: usize = 60;
 const LOLA_SOCKET_RETRY_INTERVAL: Duration = Duration::from_secs(1);
