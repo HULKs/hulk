@@ -30,12 +30,12 @@ dependencies = [
 name = "aliveness"
 version = "0.1.0"
 dependencies = [
- "color-eyre",
  "futures-util",
  "hula-types",
  "regex",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "zbus",
 ]

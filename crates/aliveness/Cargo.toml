@@ -5,11 +5,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-color-eyre = { workspace = true }
 futures-util = { workspace = true }
 hula-types = { path = "../../tools/hula/types/" }
 regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true } 
 zbus = { workspace = true }

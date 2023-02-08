@@ -1,9 +1,9 @@
 use std::{
+    io,
     net::{IpAddr, Ipv4Addr, SocketAddrV4},
     time::Duration,
 };
 
-use color_eyre::eyre::{Result, WrapErr};
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use tokio::{net::UdpSocket, time};
 
@@ -28,36 +28,64 @@ pub struct AlivenessState {
     pub battery: Option<Battery>,
 }
 
-async fn send_beacon_multicast(socket: &UdpSocket) -> Result<()> {
+#[derive(Debug, thiserror::Error)]
+pub enum AlivenessError {
+    #[error("failed to send beacon via multicast")]
+    MulticastNotSent(io::Error),
+    #[error("failed to send beacon via unicast")]
+    UnicastNotSent(Vec<io::Error>),
+    #[error("failed to bind beacon socket")]
+    SocketNotBound(io::Error),
+    #[error("failed to receive beacon response")]
+    ReceiveFailed(io::Error),
+    #[error("failed to bind beacon socket")]
+    DeserializeFailed(serde_json::Error),
+}
+
+async fn send_beacon_multicast(socket: &UdpSocket) -> Result<(), AlivenessError> {
     socket
         .send_to(
             BEACON_HEADER,
             SocketAddrV4::new(BEACON_MULTICAST_GROUP, BEACON_PORT),
         )
         .await
-        .wrap_err("failed to send beacon via multicast")?;
+        .map_err(AlivenessError::MulticastNotSent)?;
     Ok(())
 }
 
-async fn send_beacons_unicast(socket: &UdpSocket, ips: Vec<Ipv4Addr>) -> Result<()> {
-    let futures: FuturesUnordered<_> = ips
+async fn send_beacons_unicast(
+    socket: &UdpSocket,
+    ips: Vec<Ipv4Addr>,
+) -> Result<(), AlivenessError> {
+    let results: Vec<_> = ips
         .into_iter()
         .map(|ip| socket.send_to(BEACON_HEADER, SocketAddrV4::new(ip, BEACON_PORT)))
+        .collect::<FuturesUnordered<_>>()
+        .collect()
+        .await;
+
+    let errors: Vec<_> = results
+        .into_iter()
+        .filter_map(|result| match result {
+            Err(error) => Some(error),
+            Ok(_) => None,
+        })
         .collect();
 
-    let results: Vec<_> = futures.collect().await;
-    let result: Result<Vec<_>, _> = results.into_iter().collect();
-    result.wrap_err("failed to send beacon via unicast")?;
-    Ok(())
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(AlivenessError::UnicastNotSent(errors))
+    }
 }
 
 pub async fn query_aliveness(
     timeout: Duration,
     ips: Option<Vec<Ipv4Addr>>,
-) -> Result<Vec<(IpAddr, AlivenessState)>> {
+) -> Result<Vec<(IpAddr, AlivenessState)>, AlivenessError> {
     let socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))
         .await
-        .wrap_err("failed to bind beacon socket")?;
+        .map_err(AlivenessError::SocketNotBound)?;
 
     if let Some(ips) = ips {
         send_beacons_unicast(&socket, ips).await?;
@@ -71,11 +99,11 @@ pub async fn query_aliveness(
 
     loop {
         if let Ok(message) = time::timeout(timeout, socket.recv_from(&mut receive_buffer)).await {
-            let (num_bytes, peer) = message.wrap_err("failed to receive beacon response")?;
+            let (num_bytes, peer) = message.map_err(AlivenessError::ReceiveFailed)?;
             aliveness_states.push((
                 peer.ip(),
                 serde_json::from_slice(&receive_buffer[0..num_bytes])
-                    .wrap_err("failed to deserialize beacon response")?,
+                    .map_err(AlivenessError::DeserializeFailed)?,
             ));
         } else {
             break Ok(aliveness_states);
