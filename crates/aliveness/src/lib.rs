@@ -5,7 +5,7 @@ use std::{
 
 use color_eyre::eyre::{Result, WrapErr};
 use futures_util::{stream::FuturesUnordered, StreamExt};
-use tokio::{net::UdpSocket, select, time::sleep};
+use tokio::{net::UdpSocket, time};
 
 pub use hula_types::Battery;
 use serde::{Deserialize, Serialize};
@@ -70,15 +70,15 @@ pub async fn query_aliveness(
     let mut aliveness_states = Vec::new();
 
     loop {
-        select! {
-            message = socket.recv_from(&mut receive_buffer) => {
-                let (num_bytes, peer) = message.wrap_err("failed to receive beacon response")?;
-                aliveness_states.push((peer.ip(), serde_json::from_slice(&receive_buffer[0..num_bytes])
-                    .wrap_err("failed to deserialize beacon response")?));
-            }
-            _ = sleep(timeout) => {
-                break Ok(aliveness_states);
-            }
+        if let Ok(message) = time::timeout(timeout, socket.recv_from(&mut receive_buffer)).await {
+            let (num_bytes, peer) = message.wrap_err("failed to receive beacon response")?;
+            aliveness_states.push((
+                peer.ip(),
+                serde_json::from_slice(&receive_buffer[0..num_bytes])
+                    .wrap_err("failed to deserialize beacon response")?,
+            ));
+        } else {
+            break Ok(aliveness_states);
         }
     }
 }
