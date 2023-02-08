@@ -21,10 +21,15 @@ pub struct Arguments {
     #[arg(long, short = 'j')]
     json: bool,
     /// Timeout in ms for waiting for responses
-    #[arg(long, short = 't', default_value = "200")]
-    timeout: u64,
+    #[arg(long, short = 't', value_parser = parse_duration, default_value = "200")]
+    timeout: Duration,
     /// The NAOs to show the aliveness information from, e.g. 20w or 10.1.24.22
     naos: Option<Vec<NaoAddress>>,
+}
+
+fn parse_duration(arg: &str) -> Result<Duration> {
+    let milliseconds = arg.parse()?;
+    Ok(Duration::from_millis(milliseconds))
 }
 
 type AlivenessList = BTreeMap<IpAddr, AlivenessState>;
@@ -156,11 +161,10 @@ fn print_verbose(states: &AlivenessList) {
 }
 
 async fn query_aliveness_list(arguments: &Arguments) -> Result<AlivenessList> {
-    let timeout = Duration::from_millis(arguments.timeout);
     let ips = arguments
         .naos
         .as_ref()
         .map(|naos| naos.iter().map(|nao| nao.ip).collect());
-    let responses = query_aliveness(timeout, ips).await?;
+    let responses = query_aliveness(arguments.timeout, ips).await?;
     Ok(responses.into_iter().collect())
 }
