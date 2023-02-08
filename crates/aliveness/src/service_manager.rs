@@ -1,6 +1,5 @@
 use std::fmt::Display;
 
-use color_eyre::eyre::{bail, Result, WrapErr};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zbus::{
@@ -66,7 +65,7 @@ pub struct SystemServices {
 }
 
 impl SystemServices {
-    pub async fn query(dbus_connection: &Connection) -> Result<Self> {
+    pub async fn query(dbus_connection: &Connection) -> Result<Self, Error> {
         Ok(Self {
             hal: get_service_state(dbus_connection, Service::Hal).await?,
             hula: get_service_state(dbus_connection, Service::Hula).await?,
@@ -79,7 +78,7 @@ impl SystemServices {
 async fn get_unit_path(
     dbus_connection: &Connection,
     service: Service,
-) -> Result<OwnedObjectPath, zbus::Error> {
+) -> Result<OwnedObjectPath, Error> {
     let service_name = match service {
         Service::Hal => "hal.service",
         Service::Hula => "hula.service",
@@ -98,7 +97,10 @@ async fn get_unit_path(
     proxy.call("GetUnit", &(service_name,)).await
 }
 
-async fn get_service_state(dbus_connection: &Connection, service: Service) -> Result<ServiceState> {
+async fn get_service_state(
+    dbus_connection: &Connection,
+    service: Service,
+) -> Result<ServiceState, Error> {
     let regex = Regex::new(r"Unit \w+\.service not loaded").unwrap();
 
     let unit_path = match get_unit_path(dbus_connection, service).await {
@@ -106,9 +108,7 @@ async fn get_service_state(dbus_connection: &Connection, service: Service) -> Re
         Err(Error::MethodError(_, Some(message), _)) if regex.is_match(&message) => {
             return Ok(ServiceState::NotLoaded);
         }
-        Err(error) => {
-            return Err(error).wrap_err("failed to unit path");
-        }
+        Err(error) => return Err(error),
     };
 
     let proxy = Proxy::new(
@@ -126,6 +126,6 @@ async fn get_service_state(dbus_connection: &Connection, service: Service) -> Re
     {
         Ok(ServiceState::from(state.as_str()))
     } else {
-        bail!("failed to get state")
+        Err(Error::Failure("failed to get state".to_owned()))
     }
 }

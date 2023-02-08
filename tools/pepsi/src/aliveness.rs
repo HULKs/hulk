@@ -1,14 +1,13 @@
-use std::{collections::BTreeMap, net::IpAddr, time::Duration};
+use std::{collections::BTreeMap, net::IpAddr, num::ParseIntError, time::Duration};
 
 use clap::{arg, Args};
-use color_eyre::Result;
 use colored::Colorize;
 
 use crate::parsers::NaoAddress;
 use aliveness::{
     query_aliveness,
     service_manager::{ServiceState, SystemServices},
-    AlivenessState,
+    AlivenessError, AlivenessState,
 };
 use repository::SDK_VERSION;
 
@@ -27,17 +26,30 @@ pub struct Arguments {
     naos: Option<Vec<NaoAddress>>,
 }
 
-fn parse_duration(arg: &str) -> Result<Duration> {
+fn parse_duration(arg: &str) -> Result<Duration, ParseIntError> {
     let milliseconds = arg.parse()?;
     Ok(Duration::from_millis(milliseconds))
 }
 
 type AlivenessList = BTreeMap<IpAddr, AlivenessState>;
 
-pub async fn aliveness(arguments: Arguments) -> Result<()> {
-    let states = query_aliveness_list(&arguments).await?;
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("failed to query aliveness")]
+    QueryFailed(AlivenessError),
+    #[error("failed to serialize data")]
+    SerializeFailed(serde_json::Error),
+}
+
+pub async fn aliveness(arguments: Arguments) -> Result<(), Error> {
+    let states = query_aliveness_list(&arguments)
+        .await
+        .map_err(Error::QueryFailed)?;
     if arguments.json {
-        println!("{}", serde_json::to_string(&states)?);
+        println!(
+            "{}",
+            serde_json::to_string(&states).map_err(Error::SerializeFailed)?
+        );
     } else if arguments.verbose {
         print_verbose(&states);
     } else {
@@ -160,7 +172,7 @@ fn print_verbose(states: &AlivenessList) {
     }
 }
 
-async fn query_aliveness_list(arguments: &Arguments) -> Result<AlivenessList> {
+async fn query_aliveness_list(arguments: &Arguments) -> Result<AlivenessList, AlivenessError> {
     let ips = arguments
         .naos
         .as_ref()
