@@ -10,17 +10,21 @@ use std::{
     },
     ptr::read,
     slice::from_raw_parts,
+    sync::{Arc, Mutex},
     thread::sleep,
     time::{Duration, Instant},
 };
 
 use color_eyre::eyre::{bail, Result, WrapErr};
 use epoll::{ControlOptions, Event, Events};
-use hula_types::{Battery, HulaControlFrame, RobotState};
+use hula_types::{HulaControlFrame, RobotState};
 use log::{debug, error, info, warn};
 use rmp_serde::{encode::write_named, from_slice};
 
-use crate::idle::{charging_skull, send_idle};
+use crate::{
+    idle::{charging_skull, send_idle},
+    SharedState,
+};
 use constants::HULA_SOCKET_PATH;
 
 const LOLA_SOCKET_PATH: &str = "/tmp/robocup";
@@ -43,10 +47,11 @@ pub struct Proxy {
     lola: UnixStream,
     hula: UnixListener,
     epoll_fd: RawFd,
+    shared_state: Arc<Mutex<SharedState>>,
 }
 
 impl Proxy {
-    pub fn initialize() -> Result<Self> {
+    pub fn initialize(shared_state: Arc<Mutex<SharedState>>) -> Result<Self> {
         let lola = wait_for_lola().wrap_err("failed to connect to LoLA")?;
         remove_file(HULA_SOCKET_PATH)
             .or_else(|error| match error.kind() {
@@ -67,6 +72,7 @@ impl Proxy {
             lola,
             hula,
             epoll_fd,
+            shared_state,
         })
     }
 
@@ -75,7 +81,6 @@ impl Proxy {
         let mut connections = HashMap::new();
         let mut events = [Event::new(Events::empty(), 0); 16];
         let mut writer = BufWriter::with_capacity(786, self.lola.try_clone()?);
-        let mut battery = None;
 
         debug!("Entering epoll loop...");
         loop {
@@ -84,11 +89,21 @@ impl Proxy {
             for event in &events[0..number_of_events] {
                 let notified_fd = event.data as i32;
                 if notified_fd == self.lola.as_raw_fd() {
-                    handle_lola_event(&mut self.lola, &mut connections, proxy_start, &mut battery)?;
+                    handle_lola_event(
+                        &mut self.lola,
+                        &mut connections,
+                        proxy_start,
+                        &self.shared_state,
+                    )?;
                 } else if notified_fd == self.hula.as_raw_fd() {
                     register_connection(&mut self.hula, &mut connections, self.epoll_fd)?;
                 } else {
-                    handle_connection_event(&mut connections, notified_fd, &mut writer, &battery)?;
+                    handle_connection_event(
+                        &mut connections,
+                        notified_fd,
+                        &mut writer,
+                        &self.shared_state,
+                    )?;
                 }
             }
 
@@ -96,7 +111,7 @@ impl Proxy {
                 .values()
                 .any(|connection| connection.is_sending_control_frames)
             {
-                send_idle(&mut writer, &battery).wrap_err(
+                send_idle(&mut writer, &self.shared_state).wrap_err(
                     "a shadowy flight into the dangerous world of a man who does not exist",
                 )?;
             }
@@ -113,12 +128,18 @@ fn handle_lola_event(
     lola: &mut UnixStream,
     connections: &mut HashMap<RawFd, Connection>,
     proxy_start: Instant,
-    battery: &mut Option<Battery>,
+    shared_state: &Arc<Mutex<SharedState>>,
 ) -> Result<()> {
     let since_start = proxy_start.elapsed();
     let mut robot_state = read_lola_message(lola).wrap_err("failed to read lola message")?;
     robot_state.received_at = since_start.as_secs_f32();
-    *battery = Some(robot_state.battery);
+    {
+        let mut shared_state = shared_state.lock().unwrap();
+        shared_state.battery = Some(robot_state.battery);
+        if shared_state.configuration.is_none() {
+            shared_state.configuration = Some(robot_state.robot_configuration);
+        }
+    }
 
     if connections.is_empty() {
         return Ok(());
@@ -180,7 +201,7 @@ fn handle_connection_event(
     connections: &mut HashMap<RawFd, Connection>,
     notified_fd: RawFd,
     writer: &mut BufWriter<UnixStream>,
-    battery: &Option<Battery>,
+    shared_state: &Arc<Mutex<SharedState>>,
 ) -> Result<()> {
     match connections.get_mut(&notified_fd) {
         Some(connection) => {
@@ -195,7 +216,7 @@ fn handle_connection_event(
                 return Ok(());
             };
             let control_frame = unsafe { read(read_buffer.as_ptr() as *const HulaControlFrame) };
-            let skull = match battery {
+            let skull = match &shared_state.lock().unwrap().battery {
                 Some(battery) => charging_skull(battery),
                 _ => Default::default(),
             };

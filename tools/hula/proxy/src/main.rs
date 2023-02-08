@@ -1,5 +1,8 @@
+use std::sync::{Arc, Mutex};
+
 use clap::Parser;
 use color_eyre::eyre::{Result, WrapErr};
+use hula_types::{Battery, RobotConfiguration};
 use log::{debug, LevelFilter};
 use systemd::daemon::{notify, STATE_READY};
 
@@ -19,6 +22,12 @@ struct Arguments {
     verbose: bool,
 }
 
+#[derive(Default)]
+pub struct SharedState {
+    pub battery: Option<Battery>,
+    pub configuration: Option<RobotConfiguration>,
+}
+
 fn main() -> Result<()> {
     let matches = Arguments::parse();
     env_logger::builder()
@@ -32,7 +41,9 @@ fn main() -> Result<()> {
         )
         .init();
 
-    let proxy = Proxy::initialize().wrap_err("failed to initialize proxy")?;
+    let shared_state = Arc::new(Mutex::new(SharedState::default()));
+
+    let proxy = Proxy::initialize(shared_state).wrap_err("failed to initialize proxy")?;
     notify(false, [(STATE_READY, "1")].iter())
         .wrap_err("failed to contact SystemD for ready notification")?;
     debug!("Initialized Proxy. HuLA ready");
