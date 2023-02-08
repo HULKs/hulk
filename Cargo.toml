@@ -5,6 +5,7 @@ members = [
   "crates/build_script_helpers",
   "crates/code_generation",
   "crates/communication",
+  "crates/constants",
   "crates/context_attribute",
   "crates/control",
   "crates/cyclers",

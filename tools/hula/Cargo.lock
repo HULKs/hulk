@@ -182,6 +182,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "constants"
+version = "0.1.0"
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -350,6 +354,7 @@ dependencies = [
  "chrono",
  "clap",
  "color-eyre",
+ "constants",
  "env_logger",
  "epoll",
  "hula-types",

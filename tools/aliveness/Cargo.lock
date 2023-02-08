@@ -47,6 +47,7 @@ dependencies = [
  "aliveness",
  "color-eyre",
  "configparser",
+ "constants",
  "env_logger",
  "futures-channel",
  "futures-util",
@@ -327,6 +328,10 @@ checksum = "5458d9d1a587efaf5091602c59d299696a3877a439c8f6d461a2d3cce11df87a"
 dependencies = [
  "async-std",
 ]
+
+[[package]]
+name = "constants"
+version = "0.1.0"
 
 [[package]]
 name = "cpufeatures"
