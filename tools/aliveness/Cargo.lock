@@ -645,6 +645,7 @@ name = "hula-types"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "zbus",
 ]
 
 [[package]]
