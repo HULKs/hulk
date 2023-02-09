@@ -8,6 +8,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use types::{hardware::Ids, Joints, Leds, SensorData};
 
 use super::hula::{read_from_hula, write_to_hula, ControlStorage};
+use constants::HULA_SOCKET_PATH;
 
 pub struct HulaWrapper {
     now: SystemTime,
@@ -17,7 +18,8 @@ pub struct HulaWrapper {
 
 impl HulaWrapper {
     pub fn new() -> Result<Self> {
-        let mut stream = UnixStream::connect("/tmp/hula").wrap_err("failed to open HULA socket")?;
+        let mut stream =
+            UnixStream::connect(HULA_SOCKET_PATH).wrap_err("failed to open HULA socket")?;
         let state_storage = read_from_hula(&mut stream).wrap_err("failed to read from HULA")?;
         let ids = Ids {
             body_id: from_utf8(&state_storage.robot_configuration.body_id)

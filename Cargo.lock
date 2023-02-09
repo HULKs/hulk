@@ -2157,6 +2157,7 @@ dependencies = [
  "alsa",
  "chrono",
  "color-eyre",
+ "constants",
  "ctrlc",
  "cyclers",
  "fern",
