@@ -6,8 +6,9 @@ use hula_types::{Battery, RobotConfiguration};
 use log::{debug, LevelFilter};
 use systemd::daemon::{notify, STATE_READY};
 
-use crate::proxy::Proxy;
+use crate::{dbus::serve_dbus, proxy::Proxy};
 
+mod dbus;
 mod idle;
 mod proxy;
 
@@ -42,6 +43,7 @@ fn main() -> Result<()> {
         .init();
 
     let shared_state = Arc::new(Mutex::new(SharedState::default()));
+    let _handle = serve_dbus(shared_state.clone());
 
     let proxy = Proxy::initialize(shared_state).wrap_err("failed to initialize proxy")?;
     notify(false, [(STATE_READY, "1")].iter())
