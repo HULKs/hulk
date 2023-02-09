@@ -73,3 +73,12 @@ Example:
 ```
 
 Refer to your shell's completion documentation for details.
+
+The shells completions for fish, zsh and bash include dynamic suggestions for all pepsi subcommands taking a NAO address as an argument (e.g. `pepsi upload`).
+Those suggestions are retrieved using the aliveness service and require a version of pepsi to be installed in the `PATH`, e.g. by using
+
+```
+cargo install --path tools/pepsi
+```
+
+and adding `~/.cargo/bin` to the `PATH`.
