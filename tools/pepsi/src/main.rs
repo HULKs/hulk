@@ -50,30 +50,30 @@ mod wireless;
 async fn main() -> Result<()> {
     let arguments = Arguments::parse();
     let repository_root = match arguments.repository_root {
-        Some(repository_root) => repository_root,
+        Some(repository_root) => Ok(repository_root),
         None => get_repository_root()
             .await
-            .wrap_err("failed to get repository root")?,
+            .wrap_err("failed to get repository root"),
     };
-    let repository = Repository::new(repository_root);
+    let repository = repository_root.map(Repository::new);
 
     match arguments.command {
-        Command::Analyze(arguments) => analyze(arguments, &repository)
+        Command::Analyze(arguments) => analyze(arguments, &repository?)
             .await
             .wrap_err("failed to execute analyze command")?,
         Command::Aliveness(arguments) => aliveness(arguments)
             .await
             .wrap_err("failed to execute aliveness command")?,
-        Command::Build(arguments) => cargo(arguments, &repository, CargoCommand::Build)
+        Command::Build(arguments) => cargo(arguments, &repository?, CargoCommand::Build)
             .await
             .wrap_err("failed to execute build command")?,
-        Command::Check(arguments) => cargo(arguments, &repository, CargoCommand::Check)
+        Command::Check(arguments) => cargo(arguments, &repository?, CargoCommand::Check)
             .await
             .wrap_err("failed to execute check command")?,
-        Command::Clippy(arguments) => cargo(arguments, &repository, CargoCommand::Clippy)
+        Command::Clippy(arguments) => cargo(arguments, &repository?, CargoCommand::Clippy)
             .await
             .wrap_err("failed to execute clippy command")?,
-        Command::Communication(arguments) => communication(arguments, &repository)
+        Command::Communication(arguments) => communication(arguments, &repository?)
             .await
             .wrap_err("failed to execute communication command")?,
         Command::Completions(arguments) => completions(arguments, Arguments::command())
@@ -82,13 +82,13 @@ async fn main() -> Result<()> {
         Command::Hulk(arguments) => hulk(arguments)
             .await
             .wrap_err("failed to execute hulk command")?,
-        Command::Location(arguments) => location(arguments, &repository)
+        Command::Location(arguments) => location(arguments, &repository?)
             .await
             .wrap_err("failed to execute location command")?,
         Command::Logs(arguments) => logs(arguments)
             .await
             .wrap_err("failed to execute logs command")?,
-        Command::Playernumber(arguments) => player_number(arguments, &repository)
+        Command::Playernumber(arguments) => player_number(arguments, &repository?)
             .await
             .wrap_err("failed to execute player_number command")?,
         Command::Postgame(arguments) => post_game(arguments)
@@ -97,22 +97,22 @@ async fn main() -> Result<()> {
         Command::Poweroff(arguments) => power_off(arguments)
             .await
             .wrap_err("failed to execute power_off command")?,
-        Command::Pregame(arguments) => pre_game(arguments, &repository)
+        Command::Pregame(arguments) => pre_game(arguments, &repository?)
             .await
             .wrap_err("failed to execute pre_game command")?,
         Command::Reboot(arguments) => reboot(arguments)
             .await
             .wrap_err("failed to execute reboot command")?,
-        Command::Run(arguments) => cargo(arguments, &repository, CargoCommand::Run)
+        Command::Run(arguments) => cargo(arguments, &repository?, CargoCommand::Run)
             .await
             .wrap_err("failed to execute run command")?,
-        Command::Sdk(arguments) => sdk(arguments, &repository)
+        Command::Sdk(arguments) => sdk(arguments, &repository?)
             .await
             .wrap_err("failed to execute sdk command")?,
         Command::Shell(arguments) => shell(arguments)
             .await
             .wrap_err("failed to execute shell command")?,
-        Command::Upload(arguments) => upload(arguments, &repository)
+        Command::Upload(arguments) => upload(arguments, &repository?)
             .await
             .wrap_err("failed to execute upload command")?,
         Command::Wireless(arguments) => wireless(arguments)
