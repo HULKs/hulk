@@ -1,4 +1,5 @@
 use serde::{Deserialize, Deserializer, Serialize};
+use zbus::zvariant::Type;
 
 #[derive(Debug, Default, Deserialize)]
 #[repr(C)]
@@ -66,7 +67,7 @@ where
         .ok_or_else(|| serde::de::Error::custom("version is not a number"))
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, Type)]
 #[repr(C)]
 pub struct Battery {
     pub charge: f32,

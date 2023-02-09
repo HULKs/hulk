@@ -1,6 +1,8 @@
 [workspace]
-
 members = [
   "types",
   "proxy",
 ]
+
+[workspace.dependencies]
+zbus = "3.7.0"

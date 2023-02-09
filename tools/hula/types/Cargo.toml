@@ -7,3 +7,4 @@ homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
 serde = { version = "1.0.149", features = ["derive"] }
+zbus = { workspace = true }
