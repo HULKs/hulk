@@ -11,6 +11,7 @@ nao = ["alsa", "nao_camera", "v4l"]
 [dependencies]
 alsa = { optional = true, workspace = true }
 color-eyre = { workspace = true }
+constants = { workspace = true }
 chrono = { workspace = true }
 ctrlc = { workspace = true }
 cyclers = { workspace = true }
