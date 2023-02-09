@@ -1,10 +1,7 @@
 use std::{
     collections::HashMap,
     env::args,
-    mem::size_of,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
-    ptr::read,
-    time::Duration,
 };
 
 use aliveness::{
@@ -12,111 +9,20 @@ use aliveness::{
     BEACON_PORT,
 };
 use color_eyre::eyre::{bail, eyre, ContextCompat, Result, WrapErr};
-use configparser::ini::Ini;
-use constants::HULA_SOCKET_PATH;
 use futures_util::stream::StreamExt;
-use hula_types::{Battery, RobotState};
 use log::{error, info};
-use tokio::{
-    io::AsyncReadExt,
-    net::{UdpSocket, UnixStream},
-    select, spawn,
-    sync::{mpsc, oneshot},
-    task::JoinHandle,
-    time::interval,
-};
+use tokio::{net::UdpSocket, select, spawn, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
-use zbus::{
-    zvariant::{OwnedObjectPath, Value},
-    Connection, MatchRule, MessageStream, MessageType, Proxy,
-};
+use zbus::zvariant::{OwnedObjectPath, Value};
+use zbus::Connection;
+use zbus::MatchRule;
+use zbus::MessageStream;
+use zbus::MessageType;
+use zbus::Proxy;
 
-const HULA_RETRY_TIMEOUT: Duration = Duration::from_secs(5);
-const OS_RELEASE_PATH: &str = "/etc/os-release";
+use crate::robot_info::RobotInfo;
 
-struct HulaService {
-    sender: mpsc::Sender<oneshot::Sender<RobotState>>,
-}
-
-impl HulaService {
-    fn create_sender() -> mpsc::Sender<oneshot::Sender<RobotState>> {
-        let (sender, mut receiver) = mpsc::channel::<oneshot::Sender<RobotState>>(1);
-
-        spawn(async move {
-            let mut read_buffer = [0; size_of::<RobotState>()];
-            let mut stream_option = None;
-            let mut interval = interval(HULA_RETRY_TIMEOUT);
-
-            while let Some(response_channel) = receiver.recv().await {
-                loop {
-                    let mut stream = match stream_option {
-                        Some(stream) => stream,
-                        None => loop {
-                            match UnixStream::connect(HULA_SOCKET_PATH).await {
-                                Ok(stream) => break stream,
-                                Err(_) => {
-                                    info!(
-                                        "Could not connect to HuLA socket, trying again in {}s...",
-                                        HULA_RETRY_TIMEOUT.as_secs()
-                                    );
-                                    interval.tick().await;
-                                }
-                            }
-                        },
-                    };
-                    if stream.read_exact(&mut read_buffer).await.is_ok() {
-                        let state = unsafe { read(read_buffer.as_ptr() as *const RobotState) };
-                        stream_option = Some(stream);
-                        let _ = response_channel.send(state);
-                        break;
-                    }
-                    stream_option = None;
-                }
-            }
-        });
-
-        sender
-    }
-
-    pub fn new() -> Self {
-        let sender = Self::create_sender();
-        Self { sender }
-    }
-
-    pub async fn read_from_hula(&mut self) -> Result<RobotState> {
-        let (sender, receiver) = oneshot::channel();
-        self.sender.send(sender).await?;
-        Ok(receiver.await?)
-    }
-}
-
-struct RobotInfo {
-    hulks_os_version: String,
-    hostname: String,
-    body_id: Option<String>,
-    head_id: Option<String>,
-    battery: Option<Battery>,
-}
-
-impl RobotInfo {
-    async fn initialize() -> Result<Self> {
-        let hulks_os_version = get_hulks_os_version()
-            .await
-            .wrap_err("failed to load HULKs-OS version")?;
-        let hostname = hostname::get()
-            .wrap_err("failed to query hostname")?
-            .into_string()
-            .map_err(|hostname| eyre!("invalid utf8 in hostname: {hostname:?}"))?;
-
-        Ok(Self {
-            hulks_os_version,
-            hostname,
-            body_id: None,
-            head_id: None,
-            battery: None,
-        })
-    }
-}
+mod robot_info;
 
 struct AlivenessService {
     token: CancellationToken,
@@ -250,14 +156,6 @@ async fn get_ip(interface_name: &str, dbus_connection: &Connection) -> Result<Op
     Ok(address)
 }
 
-async fn get_hulks_os_version() -> Result<String> {
-    let mut os_release = Ini::new();
-    os_release.load_async(OS_RELEASE_PATH).await.unwrap();
-    os_release
-        .get("default", "VERSION_ID")
-        .ok_or_else(|| eyre!("no VERSION_ID in {OS_RELEASE_PATH}"))
-}
-
 async fn join_multicast(
     ip: Ipv4Addr,
     dbus_connection: Connection,
@@ -275,30 +173,16 @@ async fn join_multicast(
     info!("Joined multicast on {}", ip);
 
     let token = CancellationToken::new();
+    let mut buffer = [0; 1024];
 
     let handle = {
         let token = token.clone();
 
         spawn(async move {
-            let mut buffer = [0; 1024];
-            let mut hula_service = HulaService::new();
-
             loop {
                 select! {
                     _ = token.cancelled() => {
                         break;
-                    }
-                    result = hula_service.read_from_hula() => {
-                        let robot_state = result.wrap_err("failed to read from hula").unwrap();
-                        robot_info.body_id = Some(
-                            String::from_utf8(robot_state.robot_configuration.body_id.to_vec())
-                                .wrap_err("invalid utf8 in body_id").unwrap(),
-                        );
-                        robot_info.head_id = Some(
-                            String::from_utf8(robot_state.robot_configuration.head_id.to_vec())
-                                .wrap_err("invalid utf8 in head_id").unwrap(),
-                        );
-                        robot_info.battery = Some(robot_state.battery);
                     }
                     message = socket.recv_from(&mut buffer) => {
                         let (num_bytes, peer) = message.wrap_err("failed to read from beacon socket").unwrap();
@@ -306,7 +190,7 @@ async fn join_multicast(
                             &socket,
                             &dbus_connection,
                             &interface_name,
-                            &robot_info,
+                            &mut robot_info,
                             &buffer[0..num_bytes],
                             peer,
                         )
@@ -335,7 +219,7 @@ async fn handle_beacon(
     socket: &UdpSocket,
     dbus_connection: &Connection,
     interface_name: &str,
-    robot_info: &RobotInfo,
+    robot_info: &mut RobotInfo,
     message: &[u8],
     peer: SocketAddr,
 ) -> Result<()> {
@@ -349,9 +233,9 @@ async fn handle_beacon(
         interface_name: interface_name.to_owned(),
         system_services,
         hulks_os_version: robot_info.hulks_os_version.to_owned(),
-        body_id: robot_info.body_id.to_owned(),
-        head_id: robot_info.head_id.to_owned(),
-        battery: robot_info.battery.to_owned(),
+        body_id: robot_info.body_id().await.to_owned(),
+        head_id: robot_info.head_id().await.to_owned(),
+        battery: robot_info.battery().await.to_owned(),
     };
     let send_buffer = serde_json::to_vec(&response).wrap_err("failed to serialize response")?;
     socket

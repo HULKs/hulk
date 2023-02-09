@@ -8,6 +8,7 @@ use zbus::{
 };
 
 use crate::SharedState;
+use constants::{HULA_DBUS_PATH, HULA_DBUS_SERVICE};
 
 struct RobotInfo {
     shared_state: Arc<Mutex<SharedState>>,
@@ -43,7 +44,7 @@ impl RobotInfo {
 pub fn serve_dbus(shared_state: Arc<Mutex<SharedState>>) -> Result<Connection, Error> {
     let robot_info = RobotInfo { shared_state };
     ConnectionBuilder::session()?
-        .name("org.hulks.hula")?
-        .serve_at("/org/hulks/HuLA", robot_info)?
+        .name(HULA_DBUS_SERVICE)?
+        .serve_at(HULA_DBUS_PATH, robot_info)?
         .build()
 }

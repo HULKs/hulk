@@ -67,7 +67,7 @@ where
         .ok_or_else(|| serde::de::Error::custom("version is not a number"))
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize, Type)]
 #[repr(C)]
 pub struct Battery {
     pub charge: f32,
