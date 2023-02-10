@@ -1,8 +1,9 @@
 [package]
-edition = "2021"
-license = "GPL-3.0-only"
 name = "nao"
 version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
 color-eyre = { workspace = true }

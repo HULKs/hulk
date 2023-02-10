@@ -1,8 +1,9 @@
 [package]
-edition = "2021"
 name = "spl_network_messages"
 version = "0.1.0"
+edition = "2021"
 license = "GPL-3.0-only"
+homepage = "https://github.com/hulks/hulk"
 
 [build-dependencies]
 bindgen = { workspace = true }
