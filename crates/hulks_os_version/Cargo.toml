@@ -3,5 +3,3 @@ edition = "2021"
 license = "GPL-3.0-only"
 name = "hulks_os_version"
 version = "0.1.
-
-[dependencies]
