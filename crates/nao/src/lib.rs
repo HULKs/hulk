@@ -368,7 +368,7 @@ mod test {
     use super::*;
     
     #[test]
-    fn extracts_version_number() {
+    fn matches_stable_os_version() {
         let input = r#"ID=hulks-os
     NAME="HULKs-OS"
     VERSION="5.1.3 (langdale)"
