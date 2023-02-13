@@ -168,7 +168,7 @@ impl JointCommandSender {
                     // respond with observation
                     let responder = self.clients.get(&client_id).unwrap();
                     let mut bytes = [0; OBSERVATION_SIZE * 4];
-                    let observation = self.compose_observation(&positions, &stiffnesses, &context);
+                    let observation = self.compose_observation(&current_positions, &stiffnesses, &context);
                     LittleEndian::write_f32_into(&observation, &mut bytes);
                     responder.send(simple_websockets::Message::Binary(bytes.into()));
                 }
