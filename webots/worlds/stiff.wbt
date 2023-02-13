@@ -33,7 +33,7 @@ Field {
 SupervisorTelevision {
   translation -3.52798e-06 3.76 0.59
   rotation 0 0 1 -1.5707953071795862
-  controller "start_playing"
+  controller "stiff"
 }
 SPLBall {
   translation -2.5 -1 0.04997841800014322
