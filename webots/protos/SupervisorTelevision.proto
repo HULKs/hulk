@@ -11,7 +11,7 @@ PROTO SupervisorTelevision [
   field MFString   textureUrl    "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/television/protos/textures/television.jpg"  # Defines the texture used for the television.
   field SFInt32    displayWidth  128                        # Defines the width of the internal Display device.
   field SFInt32    displayHeight 64                         # Defines the height of the internal Display device.
-  field SFString   controller    "start_playing"            # Defines the controller used to display images using the internal Display device.
+  field SFString   controller    "<none>"            # Defines the controller used to display images using the internal Display device.
   field SFString   window        "<none>"                   # Is `Robot.window`.
   field SFBool     supervisor     TRUE                      # Is `Robot.supervisor`.
 ]
