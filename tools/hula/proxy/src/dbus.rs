@@ -43,7 +43,7 @@ impl RobotInfo {
 
 pub fn serve_dbus(shared_state: Arc<Mutex<SharedState>>) -> Result<Connection, Error> {
     let robot_info = RobotInfo { shared_state };
-    ConnectionBuilder::session()?
+    ConnectionBuilder::system()?
         .name(HULA_DBUS_SERVICE)?
         .serve_at(HULA_DBUS_PATH, robot_info)?
         .build()

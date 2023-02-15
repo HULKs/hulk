@@ -161,7 +161,7 @@ async fn join_multicast(
     dbus_connection: Connection,
     interface_name: String,
 ) -> Result<AlivenessService> {
-    let mut robot_info = RobotInfo::initialize().await?;
+    let mut robot_info = RobotInfo::initialize(&dbus_connection).await?;
 
     let socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, BEACON_PORT))
         .await
@@ -206,15 +206,6 @@ async fn join_multicast(
     Ok(AlivenessService { token, handle })
 }
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() -> Result<()> {
-    env_logger::init();
-
-    let interface_name = args().nth(1).unwrap_or_else(|| "enp4s0".to_owned());
-
-    listen_for_network_change(interface_name).await
-}
-
 async fn handle_beacon(
     socket: &UdpSocket,
     dbus_connection: &Connection,
@@ -243,4 +234,13 @@ async fn handle_beacon(
         .await
         .wrap_err_with(|| format!("failed to send beacon response to peer at {peer}"))?;
     Ok(())
+}
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<()> {
+    env_logger::init();
+
+    let interface_name = args().nth(1).unwrap_or_else(|| "enp4s0".to_owned());
+
+    listen_for_network_change(interface_name).await
 }
