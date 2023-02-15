@@ -23,11 +23,10 @@ pub struct RobotInfo {
     pub body_id: Option<String>,
     pub head_id: Option<String>,
     proxy: RobotInfoProxy<'static>,
-    _connection: Connection,
 }
 
 impl RobotInfo {
-    pub async fn initialize() -> Result<Self> {
+    pub async fn initialize(connection: &Connection) -> Result<Self> {
         let hulks_os_version = get_hulks_os_version()
             .await
             .wrap_err("failed to load HULKs-OS version")?;
@@ -36,8 +35,7 @@ impl RobotInfo {
             .into_string()
             .map_err(|hostname| eyre!("invalid utf8 in hostname: {hostname:?}"))?;
 
-        let _connection = Connection::session().await?;
-        let proxy = RobotInfoProxy::new(&_connection)
+        let proxy = RobotInfoProxy::new(connection)
             .await
             .wrap_err("failed to connect to dbus proxy")?;
 
@@ -47,7 +45,6 @@ impl RobotInfo {
             body_id: None,
             head_id: None,
             proxy,
-            _connection,
         })
     }
 
