@@ -20,21 +20,21 @@ pub struct Robot {
 }
 
 impl Robot {
-    pub fn new(index: usize) -> Self {
+    pub fn new(player_number: usize) -> Self {
         let interface: Arc<_> = Interfake::default().into();
         let keep_running = CancellationToken::new();
         let communication_server = Runtime::<structs::Configuration>::start(
             None::<String>,
             "etc/configuration",
-            format!("behavior_simulator{index}"),
-            format!("behavior_simulator{index}"),
+            format!("behavior_simulator{player_number}"),
+            format!("behavior_simulator{player_number}"),
             2,
             keep_running.clone(),
         )
         .unwrap();
 
         let mut configuration = communication_server.get_parameters_reader().next().clone();
-        configuration.player_number = (index + 1).try_into().unwrap();
+        configuration.player_number = player_number.try_into().unwrap();
 
         let database_changed = std::sync::Arc::new(tokio::sync::Notify::new());
         let cycler =
@@ -45,7 +45,7 @@ impl Robot {
 
         let mut database = Database::default();
 
-        let (y, x) = (index as f32).sin_cos();
+        let (y, x) = (player_number as f32).sin_cos();
         let position = Translation2::new(x * 2.0, y * 2.0);
         database.main_outputs.robot_to_field = Some(nalgebra::Isometry2::from_parts(
             position,

@@ -54,7 +54,7 @@ impl Display for PlayerNumber {
 }
 
 impl TryFrom<usize> for PlayerNumber {
-    type Error = ();
+    type Error = &'static str;
 
     fn try_from(value: usize) -> Result<Self, Self::Error> {
         let number = match value {
@@ -63,7 +63,7 @@ impl TryFrom<usize> for PlayerNumber {
             3 => PlayerNumber::Three,
             4 => PlayerNumber::Four,
             5 => PlayerNumber::Five,
-            _ => return Err(()),
+            _ => return Err("invalid player number"),
         };
 
         Ok(number)

@@ -1,4 +1,5 @@
 use std::{
+    fs::read_to_string,
     io::stdout,
     sync::Arc,
     time::{self, Duration},
@@ -8,11 +9,14 @@ use color_eyre::{eyre::bail, install, Result};
 use communication::server::Runtime;
 use framework::{Reader, Writer};
 
+use mlua::Lua;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::{select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
 use types::FieldDimensions;
+
+use crate::state::State;
 
 pub mod cycler;
 mod interfake;
@@ -101,6 +105,10 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         keep_running.clone(),
     )?;
 
+    let lua = Lua::new();
+    let script_text = read_to_string("test.lua").unwrap();
+    let script = lua.load(&script_text);
+
     let (outputs_writer, outputs_reader) = framework::multiple_buffer_with_slots([
         Default::default(),
         Default::default(),
@@ -142,8 +150,11 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         subscribed_control_writer,
     );
 
-    let mut state = state::State::new(5);
-    state.stiffen_robots();
+    let mut state = State::new();
+
+    lua.globals().set("state", state.inner.clone()).unwrap();
+    script.exec().unwrap();
+    state.inner.lock().stiffen_robots();
 
     let mut frames = Vec::new();
 
@@ -151,9 +162,9 @@ fn run(keep_running: CancellationToken) -> Result<()> {
     for _frame_index in 0..10000 {
         let mut robot_frames = Vec::new();
 
-        state.cycle(Duration::from_millis(12));
+        state.cycle(&lua);
 
-        for robot in &state.robots {
+        for robot in &state.inner.lock().robots {
             robot_frames.push(robot.database.clone());
         }
         frames.push(robot_frames);

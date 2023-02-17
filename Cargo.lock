@@ -352,6 +352,7 @@ dependencies = [
  "framework",
  "i2cdev",
  "log",
+ "mlua",
  "nalgebra",
  "nao_camera",
  "parking_lot",
@@ -471,6 +472,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69cce20737498f97b993470a6e536b8523f0af7892a4f928cceb1ac5e52ebe7e"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "bstr"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba3569f383e8f1598449f1a423e72e99569137b47740b1da11ef19af3d5c3223"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -1566,6 +1576,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "erased-serde"
+version = "0.3.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4ca605381c017ec7a5fef5e548f1cfaa419ed0f6df6367339300db74c92aa7d"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "errno"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1958,7 +1977,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "029d74589adefde59de1a0c4f4732695c32805624aec7b68d91503d4dba79afc"
 dependencies = [
  "aho-corasick",
- "bstr",
+ "bstr 1.1.0",
  "fnv",
  "log",
  "regex",
@@ -2048,7 +2067,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d19fc6687bc64b6719a839cd24f2c700bcb05ffeb684d19da6a637c2455a7ba1"
 dependencies = [
  "atty",
- "bstr",
+ "bstr 1.1.0",
  "globset",
  "lazy_static",
  "log",
@@ -2556,6 +2575,23 @@ dependencies = [
  "log",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.42.0",
+]
+
+[[package]]
+name = "mlua"
+version = "0.8.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ee2ad7a9aa69056b148d9d590344bc155d3ce0d2200e3b2838f7034f6ba33c1"
+dependencies = [
+ "bstr 0.2.17",
+ "cc",
+ "erased-serde",
+ "num-traits",
+ "once_cell",
+ "parking_lot",
+ "pkg-config",
+ "rustc-hash",
+ "serde",
 ]
 
 [[package]]
