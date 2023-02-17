@@ -1,9 +1,12 @@
+use mlua::{Function, Lua};
 use nalgebra::{point, vector, Isometry2, Point2, UnitComplex, Vector2};
+use parking_lot::Mutex;
 use spl_network_messages::SplMessage;
 use std::{
     collections::BTreeMap,
     iter::once,
     mem::take,
+    sync::Arc,
     time::{Duration, UNIX_EPOCH},
 };
 use structs::control::AdditionalOutputs;
@@ -14,7 +17,7 @@ use types::{
 
 use crate::robot::Robot;
 
-pub struct State {
+pub struct InnerState {
     pub time_elapsed: Duration,
     pub robots: Vec<Robot>,
     pub ball: Option<Point2<f32>>,
@@ -22,9 +25,13 @@ pub struct State {
     pub messages: Vec<(usize, SplMessage)>,
 }
 
-impl State {
-    pub fn new(robot_count: usize) -> Self {
-        let robots: Vec<_> = (0..robot_count).map(Robot::new).collect();
+pub struct State {
+    pub inner: Arc<Mutex<InnerState>>,
+}
+
+impl InnerState {
+    pub fn new() -> Self {
+        let robots = Vec::new();
 
         Self {
             time_elapsed: Duration::ZERO,
@@ -35,13 +42,7 @@ impl State {
         }
     }
 
-    pub fn stiffen_robots(&mut self) {
-        for robot in &mut self.robots {
-            robot.database.main_outputs.primary_state = PrimaryState::Playing;
-        }
-    }
-
-    pub fn cycle(&mut self, time_step: Duration) {
+    pub fn cycle(&mut self, time_step: Duration) -> bool {
         let now = UNIX_EPOCH + self.time_elapsed;
 
         let incoming_messages = take(&mut self.messages);
@@ -151,16 +152,70 @@ impl State {
             }
         }
 
+        let mut goal_scored = false;
+
         if let Some(ball) = self.ball.as_mut() {
             *ball += self.ball_velocity * time_step.as_secs_f32();
             self.ball_velocity *= 0.98;
 
             if ball.x.abs() > 4.5 && ball.y < 0.75 {
-                *ball = Point2::origin();
-                self.ball_velocity = Vector2::zeros();
+                goal_scored = true;
             }
         }
 
         self.time_elapsed += time_step;
+
+        goal_scored
+    }
+
+    pub fn spawn_robot(&mut self, number: usize) {
+        println!("Spawning robot {number}");
+        self.robots.push(Robot::new(number));
+    }
+
+    pub fn stiffen_robots(&mut self) {
+        for robot in &mut self.robots {
+            robot.database.main_outputs.primary_state = PrimaryState::Playing;
+        }
+    }
+}
+
+impl State {
+    pub fn new() -> Self {
+        let inner = Arc::new(Mutex::new(InnerState::new()));
+
+        Self { inner }
+    }
+
+    pub fn cycle(&mut self, lua: &Lua) {
+        let goal_scored = {
+            let mut inner = self.inner.lock();
+            inner.cycle(Duration::from_millis(12))
+        };
+
+        if goal_scored {
+            if let Ok(on_goal) = lua.globals().get::<_, Function>("on_goal") {
+                on_goal.call::<_, ()>(()).unwrap();
+            }
+        }
+    }
+}
+
+impl mlua::UserData for InnerState {
+    fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(_fields: &mut F) {}
+
+    fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+        methods.add_method_mut("spawn_robot", |_, this, number| {
+            this.spawn_robot(number);
+
+            Ok(())
+        });
+        methods.add_method_mut("return_ball_to_center", |_, this, ()| {
+            if let Some(ball) = this.ball.as_mut() {
+                *ball = Point2::origin();
+                this.ball_velocity = Vector2::zeros()
+            }
+            Ok(())
+        });
     }
 }

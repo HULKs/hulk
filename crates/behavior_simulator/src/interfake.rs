@@ -49,7 +49,6 @@ impl Interface for Interfake {
     }
 
     fn write_to_network(&self, message: OutgoingMessage) -> Result<()> {
-        println!("Sending message: {message:#?}");
         self.messages.lock().unwrap().push(message);
         Ok(())
     }

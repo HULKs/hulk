@@ -85,7 +85,7 @@ ittapi = "0.3.3"
 kinematics = { path = "crates/kinematics" }
 libc = "0.2.137"
 log = "0.4.17"
-mlua = { version = "0.8.3", features = ["luajit", "serialize"] }
+mlua = { version = "0.8.3", features = ["luajit", "serialize", "parking_lot"] }
 nalgebra = { version = "0.31.1", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }

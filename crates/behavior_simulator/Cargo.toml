@@ -22,6 +22,7 @@ fern = { workspace = true }
 framework = { workspace = true }
 i2cdev = { workspace = true }
 log = { workspace = true }
+mlua = { workspace = true }
 nalgebra = { workspace = true }
 nao_camera = { optional = true, workspace = true }
 parking_lot = { workspace = true }
