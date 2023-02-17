@@ -26,7 +26,10 @@ pub async fn completions(arguments: Arguments, mut command: Command) -> Result<(
             _ => ' ',
         };
         let colon = match arguments.complete_assignments {
-            true => ":",
+            true => match arguments.shell {
+                Shell::Zsh => "\\:",
+                _ => ":",
+            },
             false => "",
         };
 
