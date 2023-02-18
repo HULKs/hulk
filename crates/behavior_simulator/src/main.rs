@@ -16,7 +16,7 @@ use tokio::{select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
 use types::FieldDimensions;
 
-use crate::state::State;
+use crate::state::Simulator;
 
 pub mod cycler;
 mod interfake;
@@ -150,7 +150,7 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         subscribed_control_writer,
     );
 
-    let mut state = State::new();
+    let mut state = Simulator::new();
 
     lua.globals().set("state", state.inner.clone()).unwrap();
     script.exec().unwrap();
