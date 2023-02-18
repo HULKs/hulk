@@ -22,7 +22,7 @@ enum Event {
     Goal,
 }
 
-pub struct InnerState {
+pub struct State {
     pub time_elapsed: Duration,
     pub robots: Vec<Robot>,
     pub ball: Option<Point2<f32>>,
@@ -30,11 +30,11 @@ pub struct InnerState {
     pub messages: Vec<(usize, SplMessage)>,
 }
 
-pub struct State {
-    pub inner: Arc<Mutex<InnerState>>,
+pub struct Simulator {
+    pub inner: Arc<Mutex<State>>,
 }
 
-impl InnerState {
+impl State {
     pub fn new() -> Self {
         let robots = Vec::new();
 
@@ -185,9 +185,9 @@ impl InnerState {
     }
 }
 
-impl State {
+impl Simulator {
     pub fn new() -> Self {
-        let inner = Arc::new(Mutex::new(InnerState::new()));
+        let inner = Arc::new(Mutex::new(State::new()));
 
         Self { inner }
     }
@@ -215,7 +215,7 @@ impl State {
     }
 }
 
-impl mlua::UserData for InnerState {
+impl mlua::UserData for State {
     fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(_fields: &mut F) {
         _fields.add_field_method_get("time",  |_, this| {
             Ok(this.time_elapsed.as_secs_f32())
