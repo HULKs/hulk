@@ -200,7 +200,11 @@ impl State {
 
         for event in events {
             match event {
-                Event::Cycle => {},
+                Event::Cycle => {
+                    if let Ok(on_cycle) = lua.globals().get::<_, Function>("on_cycle") {
+                        on_cycle.call::<_, ()>(()).unwrap();
+                    }
+                },
                 Event::Goal => {
                     if let Ok(on_goal) = lua.globals().get::<_, Function>("on_goal") {
                         on_goal.call::<_, ()>(()).unwrap();
