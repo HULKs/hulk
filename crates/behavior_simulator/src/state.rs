@@ -17,6 +17,11 @@ use types::{
 
 use crate::robot::Robot;
 
+enum Event {
+    Cycle,
+    Goal,
+}
+
 pub struct InnerState {
     pub time_elapsed: Duration,
     pub robots: Vec<Robot>,
@@ -42,10 +47,12 @@ impl InnerState {
         }
     }
 
-    pub fn cycle(&mut self, time_step: Duration) -> bool {
+    fn cycle(&mut self, time_step: Duration) -> Vec<Event> {
         let now = UNIX_EPOCH + self.time_elapsed;
 
         let incoming_messages = take(&mut self.messages);
+
+        let mut events = vec![Event::Cycle];
 
         for (index, robot) in self.robots.iter_mut().enumerate() {
             let robot_to_field = robot
@@ -152,20 +159,18 @@ impl InnerState {
             }
         }
 
-        let mut goal_scored = false;
-
         if let Some(ball) = self.ball.as_mut() {
             *ball += self.ball_velocity * time_step.as_secs_f32();
             self.ball_velocity *= 0.98;
 
             if ball.x.abs() > 4.5 && ball.y < 0.75 {
-                goal_scored = true;
+                events.push(Event::Goal);
             }
         }
 
         self.time_elapsed += time_step;
 
-        goal_scored
+        events
     }
 
     pub fn spawn_robot(&mut self, number: usize) {
@@ -188,14 +193,19 @@ impl State {
     }
 
     pub fn cycle(&mut self, lua: &Lua) {
-        let goal_scored = {
+        let events = {
             let mut inner = self.inner.lock();
             inner.cycle(Duration::from_millis(12))
         };
 
-        if goal_scored {
-            if let Ok(on_goal) = lua.globals().get::<_, Function>("on_goal") {
-                on_goal.call::<_, ()>(()).unwrap();
+        for event in events {
+            match event {
+                Event::Cycle => {},
+                Event::Goal => {
+                    if let Ok(on_goal) = lua.globals().get::<_, Function>("on_goal") {
+                        on_goal.call::<_, ()>(()).unwrap();
+                    }
+                }
             }
         }
     }
