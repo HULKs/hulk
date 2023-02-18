@@ -216,7 +216,11 @@ impl State {
 }
 
 impl mlua::UserData for InnerState {
-    fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(_fields: &mut F) {}
+    fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(_fields: &mut F) {
+        _fields.add_field_method_get("time",  |_, this| {
+            Ok(this.time_elapsed.as_secs_f32())
+        })
+    }
 
     fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
         methods.add_method_mut("spawn_robot", |_, this, number| {
