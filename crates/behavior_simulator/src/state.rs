@@ -22,11 +22,25 @@ enum Event {
     Goal,
 }
 
+#[derive(Default)]
+pub struct Ball {
+    pub position: Point2<f32>,
+    pub velocity: Vector2<f32>,
+}
+
+impl Ball {
+    fn new(position: Point2<f32>) -> Self {
+        Self {
+            position,
+            velocity: Vector2::zeros(),
+        }
+    }
+}
+
 pub struct State {
     pub time_elapsed: Duration,
     pub robots: Vec<Robot>,
-    pub ball: Option<Point2<f32>>,
-    pub ball_velocity: Vector2<f32>,
+    pub ball: Option<Ball>,
     pub messages: Vec<(usize, SplMessage)>,
 }
 
@@ -42,7 +56,6 @@ impl State {
             time_elapsed: Duration::ZERO,
             robots,
             ball: None,
-            ball_velocity: Vector2::new(0.0, 1.0),
             messages: Vec::new(),
         }
     }
@@ -100,7 +113,7 @@ impl State {
                     kick,
                     kicking_side,
                 } => {
-                    if let Some(_ball) = self.ball {
+                    if let Some(ball) = self.ball.as_mut() {
                         let side = match kicking_side {
                             types::Side::Left => 1.0,
                             types::Side::Right => -1.0,
@@ -115,7 +128,7 @@ impl State {
                             types::KickVariant::Turn => vector![0.707, 0.707 * side],
                             types::KickVariant::Side => vector![0.0, 1.0 * -side],
                         };
-                        self.ball_velocity += *robot_to_field * direction * strength;
+                        ball.velocity += *robot_to_field * direction * strength;
                     }
                 }
                 _ => {}
@@ -139,13 +152,13 @@ impl State {
             let messages = incoming_messages.iter().collect();
             let messages = BTreeMap::from_iter(once((now, messages)));
             if self.ball.is_none() && self.time_elapsed.as_secs_f32() > 6.0 {
-                self.ball = Some(point![1.0, 0.0]);
+                self.ball = Some(Ball::new(point![1.0, 0.0]));
             }
             robot.database.main_outputs.cycle_time.start_time = now;
 
-            if let Some(position) = self.ball {
+            if let Some(ball) = &self.ball {
                 robot.database.main_outputs.ball_position = Some(types::BallPosition {
-                    position: robot_to_field.inverse() * position,
+                    position: robot_to_field.inverse() * ball.position,
                     last_seen: now,
                 })
             }
@@ -160,10 +173,10 @@ impl State {
         }
 
         if let Some(ball) = self.ball.as_mut() {
-            *ball += self.ball_velocity * time_step.as_secs_f32();
-            self.ball_velocity *= 0.98;
+            ball.position += ball.velocity * time_step.as_secs_f32();
+            ball.velocity *= 0.98;
 
-            if ball.x.abs() > 4.5 && ball.y < 0.75 {
+            if ball.position.x.abs() > 4.5 && ball.position.y < 0.75 {
                 events.push(Event::Goal);
             }
         }
@@ -230,8 +243,8 @@ impl mlua::UserData for State {
         });
         methods.add_method_mut("return_ball_to_center", |_, this, ()| {
             if let Some(ball) = this.ball.as_mut() {
-                *ball = Point2::origin();
-                this.ball_velocity = Vector2::zeros()
+                ball.position = Point2::origin();
+                ball.velocity = Vector2::zeros()
             }
             Ok(())
         });
