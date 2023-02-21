@@ -6,5 +6,5 @@ license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
-serde = { version = "1.0.149", features = ["derive"] }
+serde = { workspace = true }
 zbus = { workspace = true }

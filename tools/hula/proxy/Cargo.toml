@@ -6,14 +6,14 @@ license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
-chrono = "0.4.23"
-clap = { version = "4.0.29", features = ["derive"] }
-color-eyre = "0.6.2"
-constants = { path = "../../../crates/constants" }
-env_logger = "0.10.0"
-epoll = "4.3.1"
-hula-types = { path = "../types/" }
-log = "0.4.17"
-rmp-serde = "1.1.1"
-systemd = "0.10.0"
+chrono = { workspace = true }
+clap = { workspace = true }
+color-eyre = { workspace = true }
+constants = { workspace = true }
+env_logger = { workspace = true }
+epoll = { workspace = true }
+hula-types = { workspace = true }
+log = { workspace = true }
+rmp-serde = { workspace = true }
+systemd = { workspace = true }
 zbus = { workspace = true }
