@@ -5,7 +5,6 @@ use hula_types::Battery;
 
 use zbus::{dbus_proxy, zvariant::Optional, Connection};
 
-// It is unfortunately not possible to deduplicate those values since they are literals
 #[dbus_proxy(
     default_service = "org.hulks.hula",
     interface = "org.hulks.hula",
