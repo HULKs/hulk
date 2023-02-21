@@ -49,26 +49,19 @@ impl RobotInfo {
     }
 
     pub async fn battery(&self) -> Option<Battery> {
-        match self.proxy.battery().await {
-            Ok(battery) => Option::from(battery),
-            Err(_) => None,
-        }
+        self.proxy.battery().await.ok().and_then(Option::from)
     }
 
     pub async fn body_id(&mut self) -> Option<String> {
         if self.head_id.is_none() {
-            if let Ok(head_id) = self.proxy.body_id().await {
-                self.head_id = Option::from(head_id)
-            }
+            self.head_id = self.proxy.head_id().await.ok().and_then(Option::from)
         }
         self.head_id.clone()
     }
 
     pub async fn head_id(&mut self) -> Option<String> {
         if self.body_id.is_none() {
-            if let Ok(body_id) = self.proxy.body_id().await {
-                self.body_id = Option::from(body_id)
-            }
+            self.body_id = self.proxy.body_id().await.ok().and_then(Option::from)
         }
         self.body_id.clone()
     }

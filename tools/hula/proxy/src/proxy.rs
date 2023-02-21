@@ -111,7 +111,8 @@ impl Proxy {
                 .values()
                 .any(|connection| connection.is_sending_control_frames)
             {
-                send_idle(&mut writer, &self.shared_state).wrap_err(
+                let battery = self.shared_state.lock().unwrap().battery;
+                send_idle(&mut writer, battery).wrap_err(
                     "a shadowy flight into the dangerous world of a man who does not exist",
                 )?;
             }

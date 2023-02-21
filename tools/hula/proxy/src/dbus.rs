@@ -17,23 +17,19 @@ struct RobotInfo {
 #[dbus_interface(name = "org.hulks.hula")]
 impl RobotInfo {
     fn head_id(&self) -> Optional<String> {
-        match self.shared_state.lock().unwrap().configuration {
-            Some(configuration) => {
-                let head_id = configuration.head_id.to_vec();
-                Optional::from(Some(String::from_utf8(head_id).unwrap()))
-            }
-            None => Optional::from(None),
-        }
+        let configuration = self.shared_state.lock().unwrap().configuration;
+        Optional::from(configuration.and_then(|configuration| {
+            let head_id = configuration.head_id.to_vec();
+            String::from_utf8(head_id).ok()
+        }))
     }
 
     fn body_id(&self) -> Optional<String> {
-        match self.shared_state.lock().unwrap().configuration {
-            Some(configuration) => {
-                let body_id = configuration.body_id.to_vec();
-                Optional::from(Some(String::from_utf8(body_id).unwrap()))
-            }
-            None => Optional::from(None),
-        }
+        let configuration = self.shared_state.lock().unwrap().configuration;
+        Optional::from(configuration.and_then(|configuration| {
+            let body_id = configuration.body_id.to_vec();
+            String::from_utf8(body_id).ok()
+        }))
     }
 
     fn battery(&self) -> Optional<Battery> {
