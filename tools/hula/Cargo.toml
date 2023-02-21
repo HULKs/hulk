@@ -5,4 +5,15 @@ members = [
 ]
 
 [workspace.dependencies]
+chrono = "0.4.23"
+clap = { version = "4.0.29", features = ["derive"] }
+color-eyre = "0.6.2"
+constants = { path = "../../crates/constants" }
+env_logger = "0.10.0"
+epoll = "4.3.1"
+hula-types = { path = "types/" }
+log = "0.4.17"
+rmp-serde = "1.1.1"
+serde = { version = "1.0.149", features = ["derive"] }
+systemd = "0.10.0"
 zbus = "3.7.0"
