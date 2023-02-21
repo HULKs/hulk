@@ -2,15 +2,12 @@ use std::{
     f32::consts::PI,
     io::{BufWriter, Write},
     os::unix::net::UnixStream,
-    sync::{Arc, Mutex},
     time::UNIX_EPOCH,
 };
 
 use color_eyre::eyre::{Result, WrapErr};
 use hula_types::{Battery, LolaControlFrame};
 use rmp_serde::encode::write_named;
-
-use crate::SharedState;
 
 pub fn knight_rider_eyes() -> ([f32; 24], [f32; 24]) {
     let since_epoch = UNIX_EPOCH.elapsed().expect("time ran backwards");
@@ -113,13 +110,10 @@ pub fn charging_skull(battery: &Battery) -> [f32; 12] {
     skull
 }
 
-pub fn send_idle(
-    writer: &mut BufWriter<UnixStream>,
-    shared_state: &Arc<Mutex<SharedState>>,
-) -> Result<()> {
+pub fn send_idle(writer: &mut BufWriter<UnixStream>, battery: Option<Battery>) -> Result<()> {
     let mut control_frame = LolaControlFrame::default();
     (control_frame.left_eye, control_frame.right_eye) = knight_rider_eyes();
-    if let Some(battery) = &shared_state.lock().unwrap().battery {
+    if let Some(battery) = &battery {
         control_frame.skull = charging_skull(battery);
     }
     write_named(writer, &control_frame).wrap_err("failed to serialize control message")?;
