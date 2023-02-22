@@ -42,10 +42,11 @@ pub struct State {
     pub robots: Vec<Robot>,
     pub ball: Option<Ball>,
     pub messages: Vec<(usize, SplMessage)>,
+    arc: Option<Arc<Mutex<Self>>>,
 }
 
 pub struct Simulator {
-    pub inner: Arc<Mutex<State>>,
+    pub state: Arc<Mutex<State>>,
 }
 
 impl State {
@@ -200,15 +201,16 @@ impl State {
 
 impl Simulator {
     pub fn new() -> Self {
-        let inner = Arc::new(Mutex::new(State::new()));
+        let state = Arc::new(Mutex::new(State::new()));
+        state.lock().arc = Some(state.clone());
 
-        Self { inner }
+        Self { state }
     }
 
     pub fn cycle(&mut self, lua: &Lua) {
         let events = {
-            let mut inner = self.inner.lock();
-            inner.cycle(Duration::from_millis(12))
+            let mut state = self.state.lock();
+            state.cycle(Duration::from_millis(12))
         };
 
         for event in events {
@@ -217,7 +219,7 @@ impl Simulator {
                     if let Ok(on_cycle) = lua.globals().get::<_, Function>("on_cycle") {
                         on_cycle.call::<_, ()>(()).unwrap();
                     }
-                },
+                }
                 Event::Goal => {
                     if let Ok(on_goal) = lua.globals().get::<_, Function>("on_goal") {
                         on_goal.call::<_, ()>(()).unwrap();
