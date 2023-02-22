@@ -168,10 +168,10 @@ impl WalkingEngine {
         if self.t.is_zero() {
             self.initialize_step_states_from_request(
                 *context.walk_command,
-                context.support_foot.support_side,
+                context.support_foot.support_side, //Löschen
                 context.config,
                 context.kick_steps,
-            );
+            ); //Kein Groundcontact
         }
 
         match &self.walk_state {
@@ -186,9 +186,15 @@ impl WalkingEngine {
             WalkState::Kicking(..) => self.kick_cycle(last_cycle_duration),
         }
 
-        let has_support_changed = match context.support_foot.support_side {
-            Some(support_side) => self.swing_side.opposite() != support_side,
-            None => true,
+        let has_support_changed = match self.swing_side {
+            Side::Left => {
+                context.sensor_data.force_sensitive_resistors.left.sum()
+                    > context.sensor_data.force_sensitive_resistors.right.sum()
+            }
+            Side::Right => {
+                context.sensor_data.force_sensitive_resistors.right.sum()
+                    > context.sensor_data.force_sensitive_resistors.left.sum()
+            }
         };
         if has_support_changed && self.t > context.config.minimal_step_duration {
             let deviation_from_plan = self
@@ -343,7 +349,7 @@ impl WalkingEngine {
     fn initialize_step_states_from_request(
         &mut self,
         walk_command: WalkCommand,
-        measured_support_side: Option<Side>,
+        measured_support_side: Option<Side>, //Irrelevant
         config: &WalkingEngineConfiguration,
         kick_steps: &KickSteps,
     ) {
@@ -354,7 +360,7 @@ impl WalkingEngine {
             self.walk_state
                 .next_walk_state(walk_command, self.swing_side, kick_steps);
         let support_side = match measured_support_side {
-            Some(support_side) => support_side,
+            Some(_) => self.swing_side, //Nicht die gemessene sondern die andere Seite nehmen
             None => {
                 self.current_step = Step::zero();
                 self.step_duration = Duration::ZERO;
