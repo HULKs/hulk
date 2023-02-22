@@ -152,9 +152,9 @@ fn run(keep_running: CancellationToken) -> Result<()> {
 
     let mut state = Simulator::new();
 
-    lua.globals().set("state", state.inner.clone()).unwrap();
+    lua.globals().set("state", state.state.clone()).unwrap();
     script.exec().unwrap();
-    state.inner.lock().stiffen_robots();
+    state.state.lock().stiffen_robots();
 
     let mut frames = Vec::new();
 
@@ -164,7 +164,7 @@ fn run(keep_running: CancellationToken) -> Result<()> {
 
         state.cycle(&lua);
 
-        for robot in &state.inner.lock().robots {
+        for robot in &state.state.lock().robots {
             robot_frames.push(robot.database.clone());
         }
         frames.push(robot_frames);
