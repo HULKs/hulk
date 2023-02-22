@@ -3285,10 +3285,6 @@ PROTO NAO [
             }
           ]
         }
-        
-        #boundingObject Box {
-        #  size 0.10 0.25 0.08
-        #}
         physics Physics {
           density -1
           mass 0.001
