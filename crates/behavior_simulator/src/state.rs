@@ -1,4 +1,4 @@
-use mlua::{Function, Lua};
+use mlua::{Function, Lua, UserData};
 use nalgebra::{point, vector, Isometry2, Point2, UnitComplex, Vector2};
 use parking_lot::Mutex;
 use spl_network_messages::SplMessage;
@@ -22,7 +22,7 @@ enum Event {
     Goal,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Ball {
     pub position: Point2<f32>,
     pub velocity: Vector2<f32>,
@@ -58,6 +58,7 @@ impl State {
             robots,
             ball: None,
             messages: Vec::new(),
+            arc: None,
         }
     }
 
@@ -230,10 +231,31 @@ impl Simulator {
     }
 }
 
-impl mlua::UserData for State {
-    fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(_fields: &mut F) {
-        _fields.add_field_method_get("time",  |_, this| {
-            Ok(this.time_elapsed.as_secs_f32())
+struct BallProxy {
+    state: Arc<Mutex<State>>,
+}
+
+impl UserData for BallProxy {
+    fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(fields: &mut F) {
+        fields.add_field_method_get("x", |_, this| {
+            Ok(this.state.lock().ball.as_ref().unwrap().position.x)
+        });
+        fields.add_field_method_set("x", |_, this, value| {
+            this.state.lock().ball.as_mut().unwrap().position.x = value;
+            Ok(())
+        });
+    }
+
+    fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(_methods: &mut M) {}
+}
+
+impl UserData for State {
+    fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(fields: &mut F) {
+        fields.add_field_method_get("time", |_, this| Ok(this.time_elapsed.as_secs_f32()));
+        fields.add_field_method_get("ball", |_, this| {
+            Ok(BallProxy {
+                state: this.arc.as_ref().unwrap().clone(),
+            })
         })
     }
 

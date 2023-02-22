@@ -8,11 +8,12 @@ state:spawn_robot(5)
 
 function on_goal()
   print("Goal scored, resetting ball!")
-  state:return_ball_to_center();
+  -- state:return_ball_to_center();
+  print("Ball was at x: " .. state.ball.x)
+  state.ball.x = 0;
 end
 
 function on_cycle()
-  print(state.time)
   if state.time > 100 then
     state:return_ball_to_center();
   end
