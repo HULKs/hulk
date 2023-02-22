@@ -43,7 +43,7 @@ fn main() -> Result<()> {
         .init();
 
     let shared_state = Arc::new(Mutex::new(SharedState::default()));
-    let _handle = serve_dbus(shared_state.clone());
+    let _connection = serve_dbus(shared_state.clone()).wrap_err("failed to initialize DBus")?;
 
     let proxy = Proxy::initialize(shared_state).wrap_err("failed to initialize proxy")?;
     notify(false, [(STATE_READY, "1")].iter())
