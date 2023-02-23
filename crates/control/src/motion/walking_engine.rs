@@ -166,12 +166,19 @@ impl WalkingEngine {
         );
 
         if self.t.is_zero() {
-            self.initialize_step_states_from_request(
-                *context.walk_command,
-                context.support_foot.support_side, //Löschen
-                context.config,
-                context.kick_steps,
-            ); //Kein Groundcontact
+            if matches!(context.support_foot.support_side, Some(_)) {
+                self.initialize_step_states_from_request(
+                    *context.walk_command,
+                    self.swing_side,
+                    context.config,
+                    context.kick_steps,
+                );
+            } else {
+                self.current_step = Step::zero();
+                self.step_duration = Duration::ZERO;
+                self.swing_side = Side::Left;
+                self.max_swing_foot_lift = 0.0;
+            }
         }
 
         match &self.walk_state {
@@ -349,7 +356,7 @@ impl WalkingEngine {
     fn initialize_step_states_from_request(
         &mut self,
         walk_command: WalkCommand,
-        measured_support_side: Option<Side>, //Irrelevant
+        support_side: Side,
         config: &WalkingEngineConfiguration,
         kick_steps: &KickSteps,
     ) {
@@ -359,16 +366,6 @@ impl WalkingEngine {
         self.walk_state =
             self.walk_state
                 .next_walk_state(walk_command, self.swing_side, kick_steps);
-        let support_side = match measured_support_side {
-            Some(_) => self.swing_side, //Nicht die gemessene sondern die andere Seite nehmen
-            None => {
-                self.current_step = Step::zero();
-                self.step_duration = Duration::ZERO;
-                self.swing_side = Side::Left;
-                self.max_swing_foot_lift = 0.0;
-                return;
-            }
-        };
 
         if self.number_of_timeouted_steps >= config.max_number_of_timeouted_steps {
             self.current_step = config.emergency_step;
