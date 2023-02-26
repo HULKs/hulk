@@ -11,7 +11,7 @@ pub struct BehaviorSimulatorPanel {
     nao: Arc<Nao>,
     update_notify_receiver: mpsc::Receiver<()>,
 
-    chosen_time: usize,
+    chosen_frame: usize,
     playing: bool,
 
     value_buffer: ValueBuffer,
@@ -22,7 +22,7 @@ impl Panel for BehaviorSimulatorPanel {
     const NAME: &'static str = "Behavior Simulator";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let value_buffer = nao.subscribe_parameter("time");
+        let value_buffer = nao.subscribe_parameter("frame");
         let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
         value_buffer.listen_to_updates(update_notify_sender);
 
@@ -33,7 +33,7 @@ impl Panel for BehaviorSimulatorPanel {
             nao,
             update_notify_receiver,
 
-            chosen_time: 0,
+            chosen_frame: 0,
             playing: false,
 
             value_buffer,
@@ -46,20 +46,20 @@ impl Widget for &mut BehaviorSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         while self.update_notify_receiver.try_recv().is_ok() {
             if let Ok(value) = self.value_buffer.require_latest() {
-                self.chosen_time = value;
+                self.chosen_frame = value;
             }
         }
-        let mut new_time = None;
+        let mut new_frame = None;
         let response = ui
             .vertical(|ui| {
                 ui.horizontal(|ui| {
                     ui.style_mut().spacing.slider_width = ui.available_size().x - 100.0;
-                    let mut time = self.chosen_time;
+                    let mut frame = self.chosen_frame;
                     if ui
                         .add_sized(
                             ui.available_size(),
                             Slider::new(
-                                &mut time,
+                                &mut frame,
                                 0..=self
                                     .frame_count
                                     .get_latest()
@@ -69,11 +69,11 @@ impl Widget for &mut BehaviorSimulatorPanel {
                                     - 1,
                             )
                             .smart_aim(false)
-                            .text("Time"),
+                            .text("Frame"),
                         )
                         .changed()
                     {
-                        new_time = Some(time);
+                        new_frame = Some(frame);
                     };
                 });
                 ui.checkbox(&mut self.playing, "Play");
@@ -81,14 +81,14 @@ impl Widget for &mut BehaviorSimulatorPanel {
             .response;
 
         if self.playing || ui.button(">>").clicked() {
-            new_time = Some(new_time.unwrap_or(self.chosen_time) + 10);
+            new_frame = Some(new_frame.unwrap_or(self.chosen_frame) + 10);
             self.nao
-                .update_parameter_value("time", self.chosen_time.into());
+                .update_parameter_value("frame", self.chosen_frame.into());
         }
-        if let Some(new_time) = new_time {
-            self.chosen_time = new_time % self.frame_count.require_latest().unwrap_or(1);
+        if let Some(new_frame) = new_frame {
+            self.chosen_frame = new_frame % self.frame_count.require_latest().unwrap_or(1);
             self.nao
-                .update_parameter_value("time", self.chosen_time.into());
+                .update_parameter_value("frame", self.chosen_frame.into());
         }
         response
     }
