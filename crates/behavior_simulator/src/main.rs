@@ -155,17 +155,19 @@ fn run(keep_running: CancellationToken) -> Result<()> {
 
     let mut simulator = Simulator::new();
     simulator.execute_script("test.lua");
-    let mut frames = Vec::new();
+    let mut frames = Vec::with_capacity(10_000);
 
     let start = time::Instant::now();
-    for _frame_index in 0..10000 {
-        let mut robot_frames = Vec::new();
-
+    for _frame_index in 0..10_000 {
         simulator.cycle();
 
-        for robot in &simulator.state.lock().robots {
-            robot_frames.push(robot.database.clone());
-        }
+        let robot_frames = simulator
+            .state
+            .lock()
+            .robots
+            .iter()
+            .map(|robot| robot.database.clone())
+            .collect();
         frames.push(robot_frames);
     }
     let duration = time::Instant::now() - start;
