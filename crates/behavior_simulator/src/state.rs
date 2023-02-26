@@ -197,7 +197,8 @@ impl State {
     fn get_lua_state(&self) -> LuaState {
         LuaState {
             time_elapsed: self.time_elapsed.as_secs_f32(),
-            robots: self.robots.iter().map(LuaRobot::new).collect(),
+            // robots: self.robots.iter().map(LuaRobot::new).collect(),
+            robots: Default::default(),
             ball: self.ball.clone(),
             messages: self.messages.clone(),
         }
