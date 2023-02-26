@@ -44,7 +44,7 @@ fn setup_logger(is_verbose: bool) -> Result<(), fern::InitError> {
 
 #[derive(Clone, Serialize, Deserialize, SerializeHierarchy)]
 struct Configuration {
-    time: usize,
+    frame: usize,
     field_dimensions: FieldDimensions,
 }
 
@@ -79,16 +79,20 @@ async fn timeline_server(
                 break
             }
         }
+
+        let frame = parameters_reader.next().frame;
+
         {
             let mut outputs = outputs_writer.next();
-            let mut control = control_writer.next();
-            let parameters = parameters_reader.next();
-
             outputs.main_outputs.frame_count = frames.len();
-            outputs.main_outputs.databases = frames[parameters.time].clone();
-            *control = frames[parameters.time][2].clone();
+            outputs.main_outputs.databases = frames[frame].clone();
         }
         outputs_changed.notify_waiters();
+
+        {
+            let mut control = control_writer.next();
+            *control = frames[frame][2].clone();
+        }
         control_changed.notify_waiters();
     }
 }
