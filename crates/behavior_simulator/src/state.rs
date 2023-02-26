@@ -1,6 +1,6 @@
 use crate::cycler::Database;
 use mlua::{Function, Lua, LuaSerdeExt};
-use nalgebra::{point, vector, Isometry2, Point2, UnitComplex, Vector2};
+use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::SplMessage;
@@ -153,9 +153,7 @@ impl State {
             });
             let messages = incoming_messages.iter().collect();
             let messages = BTreeMap::from_iter(once((now, messages)));
-            if self.ball.is_none() && self.time_elapsed.as_secs_f32() > 6.0 {
-                self.ball = Some(Ball::new(point![1.0, 0.0]));
-            }
+
             robot.database.main_outputs.cycle_time.start_time = now;
 
             if let Some(ball) = &self.ball {
