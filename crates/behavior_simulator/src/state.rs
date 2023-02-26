@@ -45,6 +45,7 @@ impl Ball {
 
 pub struct State {
     pub time_elapsed: Duration,
+    pub cycle_count: usize,
     pub robots: Vec<Robot>,
     pub ball: Option<Ball>,
     pub messages: Vec<(usize, SplMessage)>,
@@ -56,6 +57,7 @@ impl State {
 
         Self {
             time_elapsed: Duration::ZERO,
+            cycle_count: 0,
             robots,
             ball: None,
             messages: Vec::new(),
@@ -182,6 +184,7 @@ impl State {
         }
 
         self.time_elapsed += time_step;
+        self.cycle_count += 1;
 
         events
     }
@@ -195,6 +198,7 @@ impl State {
     fn get_lua_state(&self) -> LuaState {
         LuaState {
             time_elapsed: self.time_elapsed.as_secs_f32(),
+            cycle_count: self.cycle_count,
             // robots: self.robots.iter().map(LuaRobot::new).collect(),
             robots: Default::default(),
             ball: self.ball.clone(),
@@ -204,6 +208,7 @@ impl State {
 
     fn load_lua_state(&mut self, lua_state: LuaState) {
         self.ball = lua_state.ball;
+        self.cycle_count = lua_state.cycle_count;
         while self.robots.len() < lua_state.robots.len() {
             self.robots.push(Robot::new(1));
         }
@@ -217,6 +222,7 @@ impl State {
 #[derive(Deserialize, Serialize)]
 struct LuaState {
     pub time_elapsed: f32,
+    pub cycle_count: usize,
     pub robots: Vec<LuaRobot>,
     pub ball: Option<Ball>,
     pub messages: Vec<(usize, SplMessage)>,
