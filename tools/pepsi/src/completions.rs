@@ -72,8 +72,9 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
         Shell::Fish => {
             print!("{static_completions}");
 
-            const COMPLETION_SUBCOMMANDS: [(&str, &str); 12] = [
+            const COMPLETION_SUBCOMMANDS: [(&str, &str); 13] = [
                 ("aliveness", ""),
+                ("gammaray", ""),
                 ("hulk", ""),
                 ("logs", "delete"),
                 ("logs", "downloads"),
