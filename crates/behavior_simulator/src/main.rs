@@ -157,8 +157,6 @@ fn run(keep_running: CancellationToken) -> Result<()> {
     simulator.execute_script("test.lua");
     let mut frames = Vec::new();
 
-    simulator.state.lock().stiffen_robots();
-
     let start = time::Instant::now();
     for _frame_index in 0..10000 {
         let mut robot_frames = Vec::new();

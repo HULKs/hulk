@@ -59,20 +59,36 @@ impl Simulator {
 
         self.serialze_state();
 
-        for event in events {
-            match event {
-                Event::Cycle => {
-                    if let Ok(on_cycle) = self.lua.globals().get::<_, Function>("on_cycle") {
-                        on_cycle.call::<_, ()>(()).unwrap();
+        self.lua
+            .scope(|scope| {
+                self.lua.globals().set(
+                    "set_robot_penalized",
+                    scope.create_function(|_, (number, penalized): (usize, bool)| {
+                        self.state.lock().robots[number - 1].penalized = penalized;
+
+                        Ok(())
+                    })?,
+                )?;
+
+                for event in events {
+                    match event {
+                        Event::Cycle => {
+                            if let Ok(on_cycle) = self.lua.globals().get::<_, Function>("on_cycle")
+                            {
+                                on_cycle.call::<_, ()>(()).unwrap();
+                            }
+                        }
+                        Event::Goal => {
+                            if let Ok(on_goal) = self.lua.globals().get::<_, Function>("on_goal") {
+                                on_goal.call::<_, ()>(()).unwrap();
+                            }
+                        }
                     }
                 }
-                Event::Goal => {
-                    if let Ok(on_goal) = self.lua.globals().get::<_, Function>("on_goal") {
-                        on_goal.call::<_, ()>(()).unwrap();
-                    }
-                }
-            }
-        }
+
+                Ok(())
+            })
+            .unwrap();
 
         self.deserialize_state();
     }
