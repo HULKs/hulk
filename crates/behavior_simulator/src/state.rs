@@ -15,7 +15,7 @@ use std::{
 use structs::{control::AdditionalOutputs, Configuration};
 use types::{
     messages::{IncomingMessage, OutgoingMessage},
-    LineSegment, MotionCommand, PathSegment, PrimaryState,
+    BallPosition, LineSegment, MotionCommand, PathSegment, PrimaryState,
 };
 
 use crate::robot::Robot;
@@ -32,15 +32,6 @@ enum Event {
 pub struct Ball {
     pub position: Point2<f32>,
     pub velocity: Vector2<f32>,
-}
-
-impl Ball {
-    fn new(position: Point2<f32>) -> Self {
-        Self {
-            position,
-            velocity: Vector2::zeros(),
-        }
-    }
 }
 
 pub struct State {
