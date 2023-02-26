@@ -13,7 +13,6 @@ spawn_robot(5)
 
 function on_goal()
   print("Goal scored, resetting ball!")
-  -- state:return_ball_to_center();
   print("Ball: " .. inspect(state.ball))
   print("Ball was at x: " .. state.ball.position[1] .. " y: " .. state.ball.position[2])
   state.ball = Null

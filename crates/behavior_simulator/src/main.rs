@@ -14,12 +14,13 @@ use tokio::{select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
 use types::FieldDimensions;
 
-use crate::state::Simulator;
-
-pub mod cycler;
+mod cycler;
 mod interfake;
 mod robot;
+mod simulator;
 mod state;
+
+use crate::simulator::Simulator;
 
 fn setup_logger(is_verbose: bool) -> Result<(), fern::InitError> {
     fern::Dispatch::new()

@@ -1,15 +1,11 @@
 use crate::cycler::Database;
-use mlua::{Function, Lua, LuaSerdeExt};
 use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
-use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::SplMessage;
 use std::{
     collections::BTreeMap,
-    fs::read_to_string,
     iter::once,
     mem::take,
-    sync::Arc,
     time::{Duration, UNIX_EPOCH},
 };
 use structs::{control::AdditionalOutputs, Configuration};
@@ -20,10 +16,7 @@ use types::{
 
 use crate::robot::Robot;
 
-const SERIALIZE_OPTIONS: mlua::SerializeOptions =
-    mlua::SerializeOptions::new().serialize_none_to_null(false);
-
-enum Event {
+pub enum Event {
     Cycle,
     Goal,
 }
@@ -55,7 +48,7 @@ impl State {
         }
     }
 
-    fn cycle(&mut self, time_step: Duration) -> Vec<Event> {
+    pub fn cycle(&mut self, time_step: Duration) -> Vec<Event> {
         let now = UNIX_EPOCH + self.time_elapsed;
 
         let incoming_messages = take(&mut self.messages);
@@ -185,10 +178,11 @@ impl State {
         }
     }
 
-    fn get_lua_state(&self) -> LuaState {
+    pub fn get_lua_state(&self) -> LuaState {
         LuaState {
             time_elapsed: self.time_elapsed.as_secs_f32(),
             cycle_count: self.cycle_count,
+            // TODO: Expose robot data to lua again
             // robots: self.robots.iter().map(LuaRobot::new).collect(),
             robots: Default::default(),
             ball: self.ball.clone(),
@@ -196,7 +190,7 @@ impl State {
         }
     }
 
-    fn load_lua_state(&mut self, lua_state: LuaState) {
+    pub fn load_lua_state(&mut self, lua_state: LuaState) {
         self.ball = lua_state.ball;
         self.cycle_count = lua_state.cycle_count;
         while self.robots.len() < lua_state.robots.len() {
@@ -210,7 +204,7 @@ impl State {
 }
 
 #[derive(Deserialize, Serialize)]
-struct LuaState {
+pub struct LuaState {
     pub time_elapsed: f32,
     pub cycle_count: usize,
     pub robots: Vec<LuaRobot>,
@@ -219,93 +213,16 @@ struct LuaState {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-struct LuaRobot {
+pub struct LuaRobot {
     database: Database,
     configuration: Configuration,
 }
 
 impl LuaRobot {
-    fn new(robot: &Robot) -> Self {
+    pub fn new(robot: &Robot) -> Self {
         Self {
             database: robot.database.clone(),
             configuration: robot.configuration.clone(),
         }
-    }
-}
-
-pub struct Simulator {
-    pub state: Arc<Mutex<State>>,
-    lua: Lua,
-}
-
-impl Simulator {
-    pub fn new() -> Self {
-        let state = Arc::new(Mutex::new(State::new()));
-
-        let lua = Lua::new();
-        let script_text = read_to_string("test.lua").unwrap();
-        let script = lua.load(&script_text).set_name("test.lua").unwrap();
-
-        let new_robot = lua
-            .create_function(|lua, number: usize| {
-                let robot = Robot::new(number);
-                Ok(lua.to_value(&LuaRobot::new(&robot)))
-            })
-            .unwrap();
-        lua.globals().set("new_robot", new_robot).unwrap();
-
-        lua.globals()
-            .set(
-                "state",
-                lua.to_value_with(&state.lock().get_lua_state(), SERIALIZE_OPTIONS)
-                    .unwrap(),
-            )
-            .unwrap();
-
-        script.exec().unwrap();
-
-        state
-            .lock()
-            .load_lua_state(lua.from_value(lua.globals().get("state").unwrap()).unwrap());
-
-        Self { state, lua }
-    }
-
-    pub fn cycle(&mut self) {
-        let events = {
-            let mut state = self.state.lock();
-            state.cycle(Duration::from_millis(12))
-        };
-
-        self.lua
-            .globals()
-            .set(
-                "state",
-                self.lua
-                    .to_value_with(&self.state.lock().get_lua_state(), SERIALIZE_OPTIONS)
-                    .unwrap(),
-            )
-            .unwrap();
-
-        for event in events {
-            match event {
-                Event::Cycle => {
-                    if let Ok(on_cycle) = self.lua.globals().get::<_, Function>("on_cycle") {
-                        on_cycle.call::<_, ()>(()).unwrap();
-                    }
-                }
-                Event::Goal => {
-                    if let Ok(on_goal) = self.lua.globals().get::<_, Function>("on_goal") {
-                        on_goal.call::<_, ()>(()).unwrap();
-                    }
-                }
-            }
-        }
-
-        self.state.lock().load_lua_state(
-            self.lua
-                .from_value(self.lua.globals().get("state").unwrap())
-                .unwrap(),
-        );
     }
 }
