@@ -1,10 +1,12 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
+    ffi::OsStr,
     fmt::Display,
     fs::Permissions,
     io::{self, ErrorKind},
     os::unix::prelude::PermissionsExt,
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 use color_eyre::{
@@ -286,7 +288,7 @@ impl Repository {
             let installer_name = format!("HULKs-OS-toolchain-{version}.sh");
             let installer_path = downloads_directory.join(&installer_name);
             if !installer_path.exists() {
-                download_sdk(&downloads_directory, &version, &installer_name)
+                download_sdk(&downloads_directory, version, &installer_name)
                     .await
                     .wrap_err("failed to download SDK")?;
             }
@@ -416,6 +418,75 @@ impl Repository {
     }
 }
 
+async fn download_with_fallback(
+    output_path: impl AsRef<OsStr>,
+    url: &str,
+    fallback_url: &str,
+    connect_timeout: Duration,
+) -> Result<()> {
+    let status = Command::new("curl")
+        .arg("--connect-timeout")
+        .arg(connect_timeout.as_secs_f32().to_string())
+        .arg("--progress-bar")
+        .arg("--output")
+        .arg(&output_path)
+        .arg(url)
+        .status()
+        .await
+        .context("Failed to spawn command")?;
+
+    if !status.success() {
+        println!("Falling back to downloading from {fallback_url}");
+        let status = Command::new("curl")
+            .arg("--location")
+            .arg("--progress-bar")
+            .arg("--output")
+            .arg(&output_path)
+            .arg(fallback_url)
+            .status()
+            .await
+            .context("Failed to spawn command")?;
+
+        if !status.success() {
+            bail!("curl exited with {status}");
+        }
+    }
+
+    Ok(())
+}
+
+async fn download_image(
+    downloads_directory: impl AsRef<Path>,
+    version: &str,
+    image_name: &str,
+) -> Result<()> {
+    if !downloads_directory.as_ref().exists() {
+        create_dir_all(&downloads_directory)
+            .await
+            .context("Failed to create download directory")?;
+    }
+    let image_path = downloads_directory.as_ref().join(image_name);
+    let url = format!("http://bighulk.hulks.dev/image/{image_name}");
+    let fallback_url =
+        format!("https://github.com/HULKs/meta-hulks/releases/download/{version}/{image_name}");
+
+    println!("Downloading image from {url}");
+    download_with_fallback(&image_path, &url, &fallback_url, Duration::from_secs(5)).await
+}
+
+pub async fn get_image_path(version: &str) -> Result<PathBuf> {
+    let downloads_directory = home_dir()
+        .ok_or_else(|| eyre!("cannot find HOME directory"))?
+        .join(".naosdk/images");
+    let image_name = format!("nao-image-HULKs-OS-{version}.ext3.gz.opn");
+    let image_path = downloads_directory.join(&image_name);
+
+    if !image_path.exists() {
+        download_image(downloads_directory, version, &image_name).await?;
+    }
+    Ok(image_path)
+}
+
 async fn download_sdk(
     downloads_directory: impl AsRef<Path>,
     version: &str,
@@ -428,38 +499,11 @@ async fn download_sdk(
     }
     let installer_path = downloads_directory.as_ref().join(installer_name);
     let url = format!("http://bighulk.hulks.dev/sdk/{installer_name}");
+    let fallback_url =
+        format!("https://github.com/HULKs/meta-hulks/releases/download/{version}/{installer_name}");
 
     println!("Downloading SDK from {url}");
-    let status = Command::new("curl")
-        .arg("--connect-timeout")
-        .arg("10")
-        .arg("--progress-bar")
-        .arg("--output")
-        .arg(&installer_path)
-        .arg(url)
-        .status()
-        .await
-        .context("Failed to spawn command")?;
-
-    if !status.success() {
-        let fallback_url = format!(
-            "https://github.com/HULKs/meta-hulks/releases/download/{version}/{installer_name}"
-        );
-        println!("Falling back to downloading SDK from {fallback_url}");
-        let status = Command::new("curl")
-            .arg("--location")
-            .arg("--progress-bar")
-            .arg("--output")
-            .arg(&installer_path)
-            .arg(fallback_url)
-            .status()
-            .await
-            .context("Failed to spawn command")?;
-
-        if !status.success() {
-            bail!("curl exited with {status}");
-        }
-    }
+    download_with_fallback(&installer_path, &url, &fallback_url, Duration::from_secs(5)).await?;
 
     set_permissions(&installer_path, Permissions::from_mode(0o755))
         .await
