@@ -153,18 +153,18 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         subscribed_control_writer,
     );
 
-    let mut state = Simulator::new();
+    let mut simulator = Simulator::new();
     let mut frames = Vec::new();
 
-    state.state.lock().stiffen_robots();
+    simulator.state.lock().stiffen_robots();
 
     let start = time::Instant::now();
     for _frame_index in 0..10000 {
         let mut robot_frames = Vec::new();
 
-        state.cycle();
+        simulator.cycle();
 
-        for robot in &state.state.lock().robots {
+        for robot in &simulator.state.lock().robots {
             robot_frames.push(robot.database.clone());
         }
         frames.push(robot_frames);
