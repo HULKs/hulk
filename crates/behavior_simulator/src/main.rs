@@ -55,7 +55,7 @@ struct MainOutputs {
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
-struct BehaviorDatabase {
+struct BehaviorSimulatorDatabase {
     main_outputs: MainOutputs,
 }
 
@@ -64,7 +64,7 @@ async fn timeline_server(
     keep_running: CancellationToken,
     parameters_reader: Reader<Configuration>,
     parameters_changed: Arc<Notify>,
-    outputs_writer: Writer<BehaviorDatabase>,
+    outputs_writer: Writer<BehaviorSimulatorDatabase>,
     outputs_changed: Arc<Notify>,
     control_writer: Writer<cycler::Database>,
     control_changed: Arc<Notify>,
