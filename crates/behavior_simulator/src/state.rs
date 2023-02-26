@@ -149,12 +149,11 @@ impl State {
 
             robot.database.main_outputs.cycle_time.start_time = now;
 
-            if let Some(ball) = &self.ball {
-                robot.database.main_outputs.ball_position = Some(types::BallPosition {
+            robot.database.main_outputs.ball_position =
+                self.ball.as_ref().map(|ball| BallPosition {
                     position: robot_to_field.inverse() * ball.position,
                     last_seen: now,
-                })
-            }
+                });
 
             robot.cycle(messages).unwrap();
 
