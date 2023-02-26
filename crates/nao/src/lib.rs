@@ -275,6 +275,22 @@ impl Nao {
 
         Ok(())
     }
+
+    pub async fn flash_image(&self, image_path: impl AsRef<Path>) -> Result<()> {
+        let status = self
+            .rsync_with_nao()
+            .arg(image_path.as_ref().to_str().unwrap())
+            .arg(format!("{}:/data/.image/", self.host))
+            .status()
+            .await
+            .wrap_err("failed to execute rsync command")?;
+
+        if !status.success() {
+            bail!("failed to upload image")
+        }
+
+        self.reboot().await
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
