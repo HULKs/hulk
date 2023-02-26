@@ -11,7 +11,7 @@ use std::{
 use structs::{control::AdditionalOutputs, Configuration};
 use types::{
     messages::{IncomingMessage, OutgoingMessage},
-    BallPosition, LineSegment, MotionCommand, PathSegment, PrimaryState,
+    BallPosition, FilteredGameState, LineSegment, MotionCommand, PathSegment, PrimaryState,
 };
 
 use crate::robot::Robot;
@@ -33,6 +33,8 @@ pub struct State {
     pub robots: Vec<Robot>,
     pub ball: Option<Ball>,
     pub messages: Vec<(usize, SplMessage)>,
+
+    pub filtered_game_state: FilteredGameState,
 }
 
 impl State {
@@ -45,6 +47,7 @@ impl State {
             robots,
             ball: None,
             messages: Vec::new(),
+            filtered_game_state: FilteredGameState::Initial,
         }
     }
 
@@ -148,11 +151,15 @@ impl State {
                     last_seen: now,
                 });
 
-            robot.database.main_outputs.primary_state = if robot.penalized {
-                PrimaryState::Penalized
-            } else {
-                PrimaryState::Playing
-            };
+            robot.database.main_outputs.primary_state =
+                match (robot.penalized, self.filtered_game_state) {
+                    (true, _) => PrimaryState::Penalized,
+                    (false, FilteredGameState::Initial) => PrimaryState::Initial,
+                    (false, FilteredGameState::Ready { .. }) => PrimaryState::Ready,
+                    (false, FilteredGameState::Set) => PrimaryState::Set,
+                    (false, FilteredGameState::Playing { .. }) => PrimaryState::Playing,
+                    (false, FilteredGameState::Finished) => PrimaryState::Finished,
+                };
 
             robot.cycle(messages).unwrap();
 
@@ -187,6 +194,8 @@ impl State {
             robots: Default::default(),
             ball: self.ball.clone(),
             messages: self.messages.clone(),
+
+            filtered_game_state: self.filtered_game_state,
         }
     }
 
@@ -200,6 +209,8 @@ impl State {
             robot.database = lua_robot.database;
             robot.configuration = lua_robot.configuration;
         }
+
+        self.filtered_game_state = lua_state.filtered_game_state;
     }
 }
 
@@ -210,6 +221,8 @@ pub struct LuaState {
     pub robots: Vec<LuaRobot>,
     pub ball: Option<Ball>,
     pub messages: Vec<(usize, SplMessage)>,
+
+    pub filtered_game_state: FilteredGameState,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
