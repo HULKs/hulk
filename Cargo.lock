@@ -3040,6 +3040,7 @@ dependencies = [
  "clap_complete",
  "color-eyre",
  "colored 2.0.0",
+ "constants",
  "futures",
  "nao",
  "regex",
@@ -3343,6 +3344,7 @@ name = "repository"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "constants",
  "futures",
  "glob",
  "home",

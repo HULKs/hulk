@@ -12,6 +12,7 @@ use analyze::{analyze, Arguments as AnalyzeArguments};
 use cargo::{cargo, Arguments as CargoArguments, Command as CargoCommand};
 use communication::{communication, Arguments as CommunicationArguments};
 use completions::{completions, Arguments as CompletionArguments};
+use gammaray::{gammaray, Arguments as GammarayArguments};
 use hulk::{hulk, Arguments as HulkArguments};
 use location::{location, Arguments as LocationArguments};
 use logs::{logs, Arguments as LogsArguments};
@@ -31,6 +32,7 @@ mod analyze;
 mod cargo;
 mod communication;
 mod completions;
+mod gammaray;
 mod hulk;
 mod location;
 mod logs;
@@ -79,6 +81,9 @@ async fn main() -> Result<()> {
         Command::Completions(arguments) => completions(arguments, Arguments::command())
             .await
             .wrap_err("failed to execute completion command")?,
+        Command::Gammaray(arguments) => gammaray(arguments)
+            .await
+            .wrap_err("failed to execute gammaray command")?,
         Command::Hulk(arguments) => hulk(arguments)
             .await
             .wrap_err("failed to execute hulk command")?,
@@ -151,6 +156,8 @@ enum Command {
     Communication(CommunicationArguments),
     /// Generates shell completion files
     Completions(CompletionArguments),
+    /// Flash a HULKs-OS image to NAOs
+    Gammaray(GammarayArguments),
     /// Control the HULK service
     Hulk(HulkArguments),
     /// Control the configured location
