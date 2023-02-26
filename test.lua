@@ -15,17 +15,15 @@ function on_goal()
   print("Goal scored, resetting ball!")
   -- state:return_ball_to_center();
   print("Ball: " .. inspect(state.ball))
-  print("Ball was at x: " .. state.ball.x)
-  state.ball.position[1] = 0;
+  print("Ball was at x: " .. state.ball.position[1] .. " y: " .. state.ball.position[2])
+  state.ball = Null
 end
 
 function on_cycle()
-  -- if state.time > 100 then
-  --   state:return_ball_to_center();
-  -- end
-  -- print(state.robots)
-  -- print("ball: " .. inspect(state.ball))
-  if state.ball ~= nil then
-    state.ball.x = 0;
+  if state.ball == nil and state.cycle_count % 1000 == 0 then
+    state.ball = {
+      position = { 0.0, 0.0 },
+      velocity = { 0.0, 0.0 },
+    }
   end
 end
