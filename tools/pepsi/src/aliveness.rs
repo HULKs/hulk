@@ -9,7 +9,7 @@ use aliveness::{
     service_manager::{ServiceState, SystemServices},
     AlivenessError, AlivenessState,
 };
-use repository::SDK_VERSION;
+use constants::OS_VERSION;
 
 #[derive(Args)]
 pub struct Arguments {
@@ -88,7 +88,7 @@ fn print_summary(states: &AlivenessList) {
         }
 
         let version = &state.hulks_os_version;
-        if version != SDK_VERSION {
+        if version != OS_VERSION {
             output.push_str(&format!("{OS_ICON} {version}{:SPACING$}", ""))
         }
 

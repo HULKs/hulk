@@ -13,6 +13,7 @@ use color_eyre::{
     eyre::{bail, eyre, Context},
     Result,
 };
+use constants::SDK_VERSION;
 use futures::future::join_all;
 use glob::glob;
 use home::home_dir;
@@ -29,8 +30,6 @@ use tokio::{
 };
 
 use spl_network_messages::PlayerNumber;
-
-pub const SDK_VERSION: &str = "5.7.0";
 
 pub struct Repository {
     root: PathBuf,
