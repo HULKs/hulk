@@ -70,7 +70,11 @@ async fn timeline_server(
     control_changed: Arc<Notify>,
     frames: Vec<Vec<cycler::Database>>,
 ) {
+    // Hack to provide frame count to clients initially
+    // Can be removed if communication sends message for
+    // subscribed outputs like it does for parameters
     let mut interval = interval(Duration::from_secs(1));
+
     loop {
         select! {
             _ = parameters_changed.notified() => { }
