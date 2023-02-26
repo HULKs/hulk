@@ -154,6 +154,7 @@ fn run(keep_running: CancellationToken) -> Result<()> {
     );
 
     let mut simulator = Simulator::new();
+    simulator.execute_script("test.lua");
     let mut frames = Vec::new();
 
     simulator.state.lock().stiffen_robots();

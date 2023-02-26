@@ -1,4 +1,4 @@
-use std::{fs::read_to_string, sync::Arc, time::Duration};
+use std::{fs::read_to_string, path::Path, sync::Arc, time::Duration};
 
 use mlua::{Function, Lua, LuaSerdeExt};
 use parking_lot::Mutex;
@@ -21,8 +21,6 @@ impl Simulator {
         let state = Arc::new(Mutex::new(State::new()));
 
         let lua = Lua::new();
-        let script_text = read_to_string("test.lua").unwrap();
-        let script = lua.load(&script_text).set_name("test.lua").unwrap();
 
         let new_robot = lua
             .create_function(|lua, number: usize| {
@@ -32,21 +30,25 @@ impl Simulator {
             .unwrap();
         lua.globals().set("new_robot", new_robot).unwrap();
 
-        lua.globals()
-            .set(
-                "state",
-                lua.to_value_with(&state.lock().get_lua_state(), SERIALIZE_OPTIONS)
-                    .unwrap(),
-            )
-            .unwrap();
+        Self { state, lua }
+    }
 
+    pub fn execute_script(&mut self, file_name: impl AsRef<Path>) {
+        self.serialze_state();
+
+        let script_text = read_to_string(&file_name).unwrap();
+        let script = self
+            .lua
+            .load(&script_text)
+            .set_name(file_name.as_ref().file_name().unwrap().to_str().unwrap())
+            .unwrap();
         script.exec().unwrap();
 
-        state
-            .lock()
-            .load_lua_state(lua.from_value(lua.globals().get("state").unwrap()).unwrap());
-
-        Self { state, lua }
+        self.state.lock().load_lua_state(
+            self.lua
+                .from_value(self.lua.globals().get("state").unwrap())
+                .unwrap(),
+        );
     }
 
     pub fn cycle(&mut self) {
@@ -55,15 +57,7 @@ impl Simulator {
             state.cycle(Duration::from_millis(12))
         };
 
-        self.lua
-            .globals()
-            .set(
-                "state",
-                self.lua
-                    .to_value_with(&self.state.lock().get_lua_state(), SERIALIZE_OPTIONS)
-                    .unwrap(),
-            )
-            .unwrap();
+        self.serialze_state();
 
         for event in events {
             match event {
@@ -80,6 +74,22 @@ impl Simulator {
             }
         }
 
+        self.deserialize_state();
+    }
+
+    fn serialze_state(&mut self) {
+        self.lua
+            .globals()
+            .set(
+                "state",
+                self.lua
+                    .to_value_with(&self.state.lock().get_lua_state(), SERIALIZE_OPTIONS)
+                    .unwrap(),
+            )
+            .unwrap();
+    }
+
+    fn deserialize_state(&mut self) {
         self.state.lock().load_lua_state(
             self.lua
                 .from_value(self.lua.globals().get("state").unwrap())
