@@ -1,5 +1,5 @@
 use crate::cycler::Database;
-use mlua::{Function, Lua, LuaSerdeExt, UserData};
+use mlua::{Function, Lua, LuaSerdeExt};
 use nalgebra::{point, vector, Isometry2, Point2, UnitComplex, Vector2};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -313,43 +313,5 @@ impl Simulator {
                 .from_value(self.lua.globals().get("state").unwrap())
                 .unwrap(),
         );
-    }
-}
-
-struct BallProxy {
-    state: Arc<Mutex<State>>,
-}
-
-impl UserData for BallProxy {
-    fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(fields: &mut F) {
-        fields.add_field_method_get("x", |_, this| {
-            Ok(this.state.lock().ball.as_ref().unwrap().position.x)
-        });
-        fields.add_field_method_set("x", |_, this, value| {
-            this.state.lock().ball.as_mut().unwrap().position.x = value;
-            Ok(())
-        });
-    }
-
-    fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(_methods: &mut M) {}
-}
-
-impl UserData for LuaState {
-    fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(_fields: &mut F) {}
-
-    fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method_mut("spawn_robot", |_, this, number: usize| {
-            let robot = Robot::new(number);
-            this.robots.push(LuaRobot::new(&robot));
-
-            Ok(())
-        });
-        methods.add_method_mut("return_ball_to_center", |_, this, ()| {
-            if let Some(ball) = this.ball.as_mut() {
-                ball.position = Point2::origin();
-                ball.velocity = Vector2::zeros()
-            }
-            Ok(())
-        });
     }
 }
