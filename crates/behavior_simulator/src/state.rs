@@ -148,6 +148,12 @@ impl State {
                     last_seen: now,
                 });
 
+            robot.database.main_outputs.primary_state = if robot.penalized {
+                PrimaryState::Penalized
+            } else {
+                PrimaryState::Playing
+            };
+
             robot.cycle(messages).unwrap();
 
             for message in robot.interface.take_outgoing_messages() {
@@ -170,12 +176,6 @@ impl State {
         self.cycle_count += 1;
 
         events
-    }
-
-    pub fn stiffen_robots(&mut self) {
-        for robot in &mut self.robots {
-            robot.database.main_outputs.primary_state = PrimaryState::Playing;
-        }
     }
 
     pub fn get_lua_state(&self) -> LuaState {

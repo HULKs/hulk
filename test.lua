@@ -25,4 +25,9 @@ function on_cycle()
       velocity = { 0.0, 0.0 },
     }
   end
+
+  if state.cycle_count == 5000 then
+    set_robot_penalized(4, true);
+    set_robot_penalized(5, true);
+  end
 end

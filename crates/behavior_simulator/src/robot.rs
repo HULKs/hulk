@@ -17,6 +17,8 @@ pub struct Robot {
 
     pub database: Database,
     pub configuration: structs::Configuration,
+
+    pub penalized: bool,
 }
 
 impl Robot {
@@ -58,6 +60,8 @@ impl Robot {
 
             database,
             configuration,
+
+            penalized: false,
         }
     }
 
