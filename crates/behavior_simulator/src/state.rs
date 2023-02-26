@@ -1,15 +1,18 @@
-use mlua::{Function, Lua, UserData};
+use crate::cycler::Database;
+use mlua::{Function, Lua, LuaSerdeExt, UserData};
 use nalgebra::{point, vector, Isometry2, Point2, UnitComplex, Vector2};
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 use spl_network_messages::SplMessage;
 use std::{
     collections::BTreeMap,
+    fs::read_to_string,
     iter::once,
     mem::take,
     sync::Arc,
     time::{Duration, UNIX_EPOCH},
 };
-use structs::control::AdditionalOutputs;
+use structs::{control::AdditionalOutputs, Configuration};
 use types::{
     messages::{IncomingMessage, OutgoingMessage},
     LineSegment, MotionCommand, PathSegment, PrimaryState,
@@ -17,12 +20,15 @@ use types::{
 
 use crate::robot::Robot;
 
+const SERIALIZE_OPTIONS: mlua::SerializeOptions =
+    mlua::SerializeOptions::new().serialize_none_to_null(false);
+
 enum Event {
     Cycle,
     Goal,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Deserialize, Serialize)]
 pub struct Ball {
     pub position: Point2<f32>,
     pub velocity: Vector2<f32>,
@@ -42,11 +48,6 @@ pub struct State {
     pub robots: Vec<Robot>,
     pub ball: Option<Ball>,
     pub messages: Vec<(usize, SplMessage)>,
-    arc: Option<Arc<Mutex<Self>>>,
-}
-
-pub struct Simulator {
-    pub state: Arc<Mutex<State>>,
 }
 
 impl State {
@@ -58,7 +59,6 @@ impl State {
             robots,
             ball: None,
             messages: Vec::new(),
-            arc: None,
         }
     }
 
@@ -188,46 +188,130 @@ impl State {
         events
     }
 
-    pub fn spawn_robot(&mut self, number: usize) {
-        println!("Spawning robot {number}");
-        self.robots.push(Robot::new(number));
-    }
-
     pub fn stiffen_robots(&mut self) {
         for robot in &mut self.robots {
             robot.database.main_outputs.primary_state = PrimaryState::Playing;
         }
     }
+
+    fn get_lua_state(&self) -> LuaState {
+        LuaState {
+            time_elapsed: self.time_elapsed.as_secs_f32(),
+            robots: self.robots.iter().map(LuaRobot::new).collect(),
+            ball: self.ball.clone(),
+            messages: self.messages.clone(),
+        }
+    }
+
+    fn load_lua_state(&mut self, lua_state: LuaState) {
+        self.ball = lua_state.ball;
+        while self.robots.len() < lua_state.robots.len() {
+            self.robots.push(Robot::new(1));
+        }
+        for (robot, lua_robot) in self.robots.iter_mut().zip(lua_state.robots.into_iter()) {
+            robot.database = lua_robot.database;
+            robot.configuration = lua_robot.configuration;
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+struct LuaState {
+    pub time_elapsed: f32,
+    pub robots: Vec<LuaRobot>,
+    pub ball: Option<Ball>,
+    pub messages: Vec<(usize, SplMessage)>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+struct LuaRobot {
+    database: Database,
+    configuration: Configuration,
+}
+
+impl LuaRobot {
+    fn new(robot: &Robot) -> Self {
+        Self {
+            database: robot.database.clone(),
+            configuration: robot.configuration.clone(),
+        }
+    }
+}
+
+pub struct Simulator {
+    pub state: Arc<Mutex<State>>,
+    lua: Lua,
 }
 
 impl Simulator {
     pub fn new() -> Self {
         let state = Arc::new(Mutex::new(State::new()));
-        state.lock().arc = Some(state.clone());
 
-        Self { state }
+        let lua = Lua::new();
+        let script_text = read_to_string("test.lua").unwrap();
+        let script = lua.load(&script_text).set_name("test.lua").unwrap();
+
+        let new_robot = lua
+            .create_function(|lua, number: usize| {
+                let robot = Robot::new(number);
+                Ok(lua.to_value(&LuaRobot::new(&robot)))
+            })
+            .unwrap();
+        lua.globals().set("new_robot", new_robot).unwrap();
+
+        lua.globals()
+            .set(
+                "state",
+                lua.to_value_with(&state.lock().get_lua_state(), SERIALIZE_OPTIONS)
+                    .unwrap(),
+            )
+            .unwrap();
+
+        script.exec().unwrap();
+
+        state
+            .lock()
+            .load_lua_state(lua.from_value(lua.globals().get("state").unwrap()).unwrap());
+
+        Self { state, lua }
     }
 
-    pub fn cycle(&mut self, lua: &Lua) {
+    pub fn cycle(&mut self) {
         let events = {
             let mut state = self.state.lock();
             state.cycle(Duration::from_millis(12))
         };
 
+        self.lua
+            .globals()
+            .set(
+                "state",
+                self.lua
+                    .to_value_with(&self.state.lock().get_lua_state(), SERIALIZE_OPTIONS)
+                    .unwrap(),
+            )
+            .unwrap();
+
         for event in events {
             match event {
                 Event::Cycle => {
-                    if let Ok(on_cycle) = lua.globals().get::<_, Function>("on_cycle") {
+                    if let Ok(on_cycle) = self.lua.globals().get::<_, Function>("on_cycle") {
                         on_cycle.call::<_, ()>(()).unwrap();
                     }
                 }
                 Event::Goal => {
-                    if let Ok(on_goal) = lua.globals().get::<_, Function>("on_goal") {
+                    if let Ok(on_goal) = self.lua.globals().get::<_, Function>("on_goal") {
                         on_goal.call::<_, ()>(()).unwrap();
                     }
                 }
             }
         }
+
+        self.state.lock().load_lua_state(
+            self.lua
+                .from_value(self.lua.globals().get("state").unwrap())
+                .unwrap(),
+        );
     }
 }
 
@@ -249,19 +333,13 @@ impl UserData for BallProxy {
     fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(_methods: &mut M) {}
 }
 
-impl UserData for State {
-    fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(fields: &mut F) {
-        fields.add_field_method_get("time", |_, this| Ok(this.time_elapsed.as_secs_f32()));
-        fields.add_field_method_get("ball", |_, this| {
-            Ok(BallProxy {
-                state: this.arc.as_ref().unwrap().clone(),
-            })
-        })
-    }
+impl UserData for LuaState {
+    fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(_fields: &mut F) {}
 
     fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method_mut("spawn_robot", |_, this, number| {
-            this.spawn_robot(number);
+        methods.add_method_mut("spawn_robot", |_, this, number: usize| {
+            let robot = Robot::new(number);
+            this.robots.push(LuaRobot::new(&robot));
 
             Ok(())
         });

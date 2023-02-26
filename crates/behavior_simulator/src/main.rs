@@ -105,10 +105,6 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         keep_running.clone(),
     )?;
 
-    let lua = Lua::new();
-    let script_text = read_to_string("test.lua").unwrap();
-    let script = lua.load(&script_text);
-
     let (outputs_writer, outputs_reader) = framework::multiple_buffer_with_slots([
         Default::default(),
         Default::default(),
@@ -151,18 +147,16 @@ fn run(keep_running: CancellationToken) -> Result<()> {
     );
 
     let mut state = Simulator::new();
+    let mut frames = Vec::new();
 
-    lua.globals().set("state", state.state.clone()).unwrap();
-    script.exec().unwrap();
     state.state.lock().stiffen_robots();
 
-    let mut frames = Vec::new();
 
     let start = time::Instant::now();
     for _frame_index in 0..10000 {
         let mut robot_frames = Vec::new();
 
-        state.cycle(&lua);
+        state.cycle();
 
         for robot in &state.state.lock().robots {
             robot_frames.push(robot.database.clone());
