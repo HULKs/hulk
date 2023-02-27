@@ -27,7 +27,6 @@ function on_cycle()
   end
 
   if state.cycle_count == 1000 then
-    print(inspect(state.filtered_game_state))
     state.filtered_game_state = {
       Playing = {
         ball_is_free = true
