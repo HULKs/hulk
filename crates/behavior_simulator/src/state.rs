@@ -11,8 +11,8 @@ use std::{
 use structs::{control::AdditionalOutputs, Configuration};
 use types::{
     messages::{IncomingMessage, OutgoingMessage},
-    BallPosition, FilteredGameState, GameControllerState, LineSegment, MotionCommand, PathSegment,
-    Players, PrimaryState,
+    BallPosition, FilteredGameState, GameControllerState, KickVariant, LineSegment, MotionCommand,
+    OrientationMode, PathSegment, Players, PrimaryState, Side,
 };
 
 use crate::robot::Robot;
@@ -104,14 +104,14 @@ impl State {
                     .coords
                     .cap_magnitude(0.3 * time_step.as_secs_f32());
                     let orientation = match orientation_mode {
-                        types::OrientationMode::AlignWithPath => {
+                        OrientationMode::AlignWithPath => {
                             if step.norm_squared() < f32::EPSILON {
                                 UnitComplex::identity()
                             } else {
                                 UnitComplex::from_cos_sin_unchecked(step.x, step.y)
                             }
                         }
-                        types::OrientationMode::Override(orientation) => *orientation,
+                        OrientationMode::Override(orientation) => *orientation,
                     };
 
                     *robot_to_field = Isometry2::new(
@@ -130,8 +130,8 @@ impl State {
                 } => {
                     if let Some(ball) = self.ball.as_mut() {
                         let side = match kicking_side {
-                            types::Side::Left => 1.0,
-                            types::Side::Right => -1.0,
+                            Side::Left => 1.0,
+                            Side::Right => -1.0,
                         };
 
                         // TODO: Check if ball is even in range
@@ -139,9 +139,9 @@ impl State {
 
                         let strength = 1.0;
                         let direction = match kick {
-                            types::KickVariant::Forward => vector![1.0, 0.0],
-                            types::KickVariant::Turn => vector![0.707, 0.707 * side],
-                            types::KickVariant::Side => vector![0.0, 1.0 * -side],
+                            KickVariant::Forward => vector![1.0, 0.0],
+                            KickVariant::Turn => vector![0.707, 0.707 * side],
+                            KickVariant::Side => vector![0.0, 1.0 * -side],
                         };
                         ball.velocity += *robot_to_field * direction * strength;
                     }
@@ -155,10 +155,10 @@ impl State {
                     (*sender != index).then_some(IncomingMessage::Spl(*message))
                 })
                 .collect();
-            robot.database.main_outputs.game_controller_state = Some(types::GameControllerState {
-                game_state: spl_network_messages::GameState::Playing,
-                game_phase: spl_network_messages::GamePhase::Normal,
-                kicking_team: spl_network_messages::Team::Uncertain,
+            robot.database.main_outputs.game_controller_state = Some(GameControllerState {
+                game_state: GameState::Playing,
+                game_phase: GamePhase::Normal,
+                kicking_team: Team::Uncertain,
                 last_game_state_change: now,
                 penalties: Default::default(),
                 remaining_amount_of_messages: 1200,
