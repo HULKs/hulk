@@ -1,6 +1,7 @@
 use std::{fs::read_to_string, path::Path, sync::Arc, time::Duration};
 
-use mlua::{Function, Lua, LuaSerdeExt};
+use mlua::{Function, Lua, LuaSerdeExt, Value};
+use nalgebra::{Isometry2, Vector2};
 use parking_lot::Mutex;
 
 use crate::{
@@ -70,6 +71,21 @@ impl Simulator {
                     })?,
                 )?;
 
+                self.lua.globals().set(
+                    "set_robot_pose",
+                    scope.create_function(
+                        |lua, (number, position, angle): (usize, Value, f32)| {
+                            let position: Vector2<f32> = lua.from_value(position)?;
+
+                            self.state.lock().robots[number - 1]
+                                .database
+                                .main_outputs
+                                .robot_to_field = Some(Isometry2::new(position, angle));
+
+                            Ok(())
+                        },
+                    )?,
+                )?;
                 for event in events {
                     match event {
                         Event::Cycle => {
