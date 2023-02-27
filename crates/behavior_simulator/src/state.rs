@@ -192,6 +192,7 @@ impl State {
             for message in robot.interface.take_outgoing_messages() {
                 if let OutgoingMessage::Spl(message) = message {
                     self.messages.push((index, message));
+                    self.game_controller_state.remaining_amount_of_messages -= 1
                 }
             }
         }
