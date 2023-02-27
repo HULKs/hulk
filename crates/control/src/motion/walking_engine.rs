@@ -11,7 +11,7 @@ use types::{
     configuration::{KickSteps, WalkingEngine as WalkingEngineConfiguration},
     ArmJoints, BodyJoints, BodyJointsCommand, CycleTime, InertialMeasurementUnitData, Joints,
     KickVariant, LegJoints, MotionCommand, MotionSafeExits, MotionType, RobotKinematics,
-    SensorData, Side, Step, StepAdjustment, SupportFoot, WalkCommand,
+    SensorData, Side, Step, StepAdjustment, WalkCommand,
 };
 
 use self::{
@@ -127,7 +127,7 @@ pub struct CycleContext {
     pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     pub sensor_data: Input<SensorData, "sensor_data">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub support_foot: Input<SupportFoot, "support_foot">,
+    pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub walk_command: Input<WalkCommand, "walk_command">,
 }
 
@@ -165,19 +165,23 @@ impl WalkingEngine {
             &context.sensor_data.inertial_measurement_unit,
         );
 
-        if self.t.is_zero() {
-            if matches!(context.support_foot.support_side, Some(_)) {
-                self.initialize_step_states_from_request(
-                    *context.walk_command,
-                    self.swing_side,
-                    context.config,
-                    context.kick_steps,
-                );
-            } else {
-                self.current_step = Step::zero();
-                self.step_duration = Duration::ZERO;
-                self.swing_side = Side::Left;
-                self.max_swing_foot_lift = 0.0;
+        let is_step_started_this_cycle = self.t.is_zero();
+        if is_step_started_this_cycle {
+            match context.has_ground_contact {
+                true => {
+                    self.initialize_step_states_from_request(
+                        *context.walk_command,
+                        self.swing_side,
+                        context.config,
+                        context.kick_steps,
+                    );
+                }
+                false => {
+                    self.current_step = Step::zero();
+                    self.step_duration = Duration::ZERO;
+                    self.swing_side = Side::Left;
+                    self.max_swing_foot_lift = 0.0;
+                }
             }
         }
 
