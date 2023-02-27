@@ -50,4 +50,8 @@ function on_cycle()
     set_robot_penalized(4, true);
     set_robot_penalized(5, true);
   end
+
+  if state.cycle_count == 10000 then
+    state.finished = true
+  end
 end

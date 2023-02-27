@@ -153,24 +153,25 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         subscribed_control_writer,
     );
 
-    let cycle_count = 10_000;
-
     let mut simulator = Simulator::new();
     simulator.execute_script("test.lua");
-    let mut frames = Vec::with_capacity(cycle_count);
+    let mut frames = Vec::new();
 
     let start = time::Instant::now();
-    for _frame_index in 0..cycle_count {
+    loop {
         simulator.cycle();
 
-        let robot_frames = simulator
-            .state
-            .lock()
+        let state = simulator.state.lock();
+        let robot_frames = state
             .robots
             .iter()
             .map(|robot| robot.database.clone())
             .collect();
         frames.push(robot_frames);
+
+        if state.finished {
+            break;
+        }
     }
     let duration = time::Instant::now() - start;
     println!("Took {:.2} seconds", duration.as_secs_f32());

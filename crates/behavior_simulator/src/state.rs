@@ -35,6 +35,8 @@ pub struct State {
     pub ball: Option<Ball>,
     pub messages: Vec<(usize, SplMessage)>,
 
+    pub finished: bool,
+
     pub game_controller_state: GameControllerState,
     pub filtered_game_state: FilteredGameState,
 }
@@ -65,6 +67,8 @@ impl State {
             robots,
             ball: None,
             messages: Vec::new(),
+
+            finished: false,
 
             game_controller_state,
             filtered_game_state: FilteredGameState::Initial,
@@ -217,6 +221,8 @@ impl State {
             ball: self.ball.clone(),
             messages: self.messages.clone(),
 
+            finished: self.finished,
+
             game_controller_state: self.game_controller_state,
             filtered_game_state: self.filtered_game_state,
         }
@@ -233,6 +239,8 @@ impl State {
             robot.configuration = lua_robot.configuration;
         }
 
+        self.finished = lua_state.finished;
+
         self.game_controller_state = lua_state.game_controller_state;
         self.filtered_game_state = lua_state.filtered_game_state;
     }
@@ -245,6 +253,8 @@ pub struct LuaState {
     pub robots: Vec<LuaRobot>,
     pub ball: Option<Ball>,
     pub messages: Vec<(usize, SplMessage)>,
+
+    pub finished: bool,
 
     pub game_controller_state: GameControllerState,
     pub filtered_game_state: FilteredGameState,
