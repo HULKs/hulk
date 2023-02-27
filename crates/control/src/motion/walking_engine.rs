@@ -197,15 +197,11 @@ impl WalkingEngine {
             WalkState::Kicking(..) => self.kick_cycle(last_cycle_duration),
         }
 
+        let left_foot_pressure = context.sensor_data.force_sensitive_resistors.left.sum();
+        let right_foot_pressure = context.sensor_data.force_sensitive_resistors.right.sum();
         let has_support_changed = match self.swing_side {
-            Side::Left => {
-                context.sensor_data.force_sensitive_resistors.left.sum()
-                    > context.sensor_data.force_sensitive_resistors.right.sum()
-            }
-            Side::Right => {
-                context.sensor_data.force_sensitive_resistors.right.sum()
-                    > context.sensor_data.force_sensitive_resistors.left.sum()
-            }
+            Side::Left => left_foot_pressure > right_foot_pressure,
+            Side::Right => right_foot_pressure > left_foot_pressure,
         };
         if has_support_changed && self.t > context.config.minimal_step_duration {
             let deviation_from_plan = self
