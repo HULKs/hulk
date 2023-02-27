@@ -1,7 +1,7 @@
 use crate::cycler::Database;
 use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::SplMessage;
+use spl_network_messages::{GamePhase, GameState, SplMessage, Team};
 use std::{
     collections::BTreeMap,
     iter::once,
@@ -11,7 +11,8 @@ use std::{
 use structs::{control::AdditionalOutputs, Configuration};
 use types::{
     messages::{IncomingMessage, OutgoingMessage},
-    BallPosition, FilteredGameState, LineSegment, MotionCommand, PathSegment, PrimaryState,
+    BallPosition, FilteredGameState, GameControllerState, LineSegment, MotionCommand, PathSegment,
+    Players, PrimaryState,
 };
 
 use crate::robot::Robot;
@@ -34,6 +35,7 @@ pub struct State {
     pub ball: Option<Ball>,
     pub messages: Vec<(usize, SplMessage)>,
 
+    pub game_controller_state: GameControllerState,
     pub filtered_game_state: FilteredGameState,
 }
 
@@ -41,12 +43,30 @@ impl State {
     pub fn new() -> Self {
         let robots = Vec::new();
 
+        let game_controller_state = GameControllerState {
+            game_state: GameState::Initial,
+            game_phase: GamePhase::Normal,
+            kicking_team: Team::Hulks,
+            last_game_state_change: UNIX_EPOCH,
+            penalties: Players {
+                one: None,
+                two: None,
+                three: None,
+                four: None,
+                five: None,
+            },
+            remaining_amount_of_messages: 1200,
+            set_play: None,
+        };
+
         Self {
             time_elapsed: Duration::ZERO,
             cycle_count: 0,
             robots,
             ball: None,
             messages: Vec::new(),
+
+            game_controller_state,
             filtered_game_state: FilteredGameState::Initial,
         }
     }
@@ -160,6 +180,8 @@ impl State {
                     (false, FilteredGameState::Playing { .. }) => PrimaryState::Playing,
                     (false, FilteredGameState::Finished) => PrimaryState::Finished,
                 };
+            robot.database.main_outputs.filtered_game_state = Some(self.filtered_game_state);
+            robot.database.main_outputs.game_controller_state = Some(self.game_controller_state);
 
             robot.cycle(messages).unwrap();
 
@@ -195,6 +217,7 @@ impl State {
             ball: self.ball.clone(),
             messages: self.messages.clone(),
 
+            game_controller_state: self.game_controller_state,
             filtered_game_state: self.filtered_game_state,
         }
     }
@@ -210,6 +233,7 @@ impl State {
             robot.configuration = lua_robot.configuration;
         }
 
+        self.game_controller_state = lua_state.game_controller_state;
         self.filtered_game_state = lua_state.filtered_game_state;
     }
 }
@@ -222,6 +246,7 @@ pub struct LuaState {
     pub ball: Option<Ball>,
     pub messages: Vec<(usize, SplMessage)>,
 
+    pub game_controller_state: GameControllerState,
     pub filtered_game_state: FilteredGameState,
 }
 

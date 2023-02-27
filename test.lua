@@ -35,7 +35,17 @@ function on_cycle()
     }
   end
 
+  if state.cycle_count == 3000 then
+    state.game_controller_state.set_play = "PushingFreeKick"
+    state.game_controller_state.kicking_team = "Opponent"
+    state.filtered_game_state.Playing.ball_is_free = false
+  end
+
   if state.cycle_count == 5000 then
+    state.filtered_game_state.Playing.ball_is_free = true
+  end
+
+  if state.cycle_count == 7000 then
     set_robot_penalized(4, true);
     set_robot_penalized(5, true);
   end
