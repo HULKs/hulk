@@ -290,8 +290,8 @@
   "walking_engine": {
     "arm_stiffness": 0.8,
     "backward_foot_support_offset": -0.025,
-    "base_foot_lift": 0.019,
-    "base_step_duration": { "nanos": 260000000, "secs": 0 },
+    "base_foot_lift": 0.015,
+    "base_step_duration": { "nanos": 280000000, "secs": 0 },
     "emergency_foot_lift": 0.03,
     "emergency_step": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
     "emergency_step_duration": { "nanos": 280000000, "secs": 0 },
