@@ -1,13 +1,16 @@
 use std::{
     io::stdout,
     sync::Arc,
-    time::{self, Duration},
+    time::{Duration, Instant},
 };
 
+use chrono::Local;
 use color_eyre::{eyre::bail, install, Result};
-use communication::server::Runtime;
-use framework::{Reader, Writer};
+use cycler::Database;
+use fern::Dispatch;
+use framework::{multiple_buffer_with_slots, Reader, Writer};
 
+use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::{select, sync::Notify, time::interval};
@@ -23,20 +26,20 @@ mod state;
 use crate::simulator::Simulator;
 
 fn setup_logger(is_verbose: bool) -> Result<(), fern::InitError> {
-    fern::Dispatch::new()
+    Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
                 "{}  {:<18}  {:>5}  {}",
-                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                Local::now().format("%Y-%m-%d %H:%M:%S"),
                 record.target(),
                 record.level(),
                 message
             ))
         })
         .level(if is_verbose {
-            log::LevelFilter::Debug
+            LevelFilter::Debug
         } else {
-            log::LevelFilter::Info
+            LevelFilter::Info
         })
         .chain(stdout())
         .apply()?;
@@ -52,7 +55,7 @@ struct Configuration {
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 struct MainOutputs {
     frame_count: usize,
-    databases: Vec<cycler::Database>,
+    databases: Vec<Database>,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
@@ -67,9 +70,9 @@ async fn timeline_server(
     parameters_changed: Arc<Notify>,
     outputs_writer: Writer<BehaviorSimulatorDatabase>,
     outputs_changed: Arc<Notify>,
-    control_writer: Writer<cycler::Database>,
+    control_writer: Writer<Database>,
     control_changed: Arc<Notify>,
-    frames: Vec<Vec<cycler::Database>>,
+    frames: Vec<Vec<Database>>,
 ) {
     // Hack to provide frame count to clients initially
     // Can be removed if communication sends message for
@@ -103,7 +106,7 @@ async fn timeline_server(
 }
 
 fn run(keep_running: CancellationToken) -> Result<()> {
-    let communication_server = Runtime::<Configuration>::start(
+    let communication_server = communication::server::Runtime::<Configuration>::start(
         Some("[::]:1337"),
         "tools/behavior-simulator",
         "behavior_simulator".to_string(),
@@ -112,19 +115,12 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         keep_running.clone(),
     )?;
 
-    let (outputs_writer, outputs_reader) = framework::multiple_buffer_with_slots([
-        Default::default(),
-        Default::default(),
-        Default::default(),
-    ]);
+    let (outputs_writer, outputs_reader) =
+        multiple_buffer_with_slots([Default::default(), Default::default(), Default::default()]);
 
-    let outputs_changed = std::sync::Arc::new(tokio::sync::Notify::new());
+    let outputs_changed = Arc::new(Notify::new());
     let (subscribed_outputs_writer, _subscribed_outputs_reader) =
-        framework::multiple_buffer_with_slots([
-            Default::default(),
-            Default::default(),
-            Default::default(),
-        ]);
+        multiple_buffer_with_slots([Default::default(), Default::default(), Default::default()]);
 
     communication_server.register_cycler_instance(
         "BehaviorSimulator",
@@ -133,19 +129,12 @@ fn run(keep_running: CancellationToken) -> Result<()> {
         subscribed_outputs_writer,
     );
 
-    let (control_writer, control_reader) = framework::multiple_buffer_with_slots([
-        Default::default(),
-        Default::default(),
-        Default::default(),
-    ]);
+    let (control_writer, control_reader) =
+        multiple_buffer_with_slots([Default::default(), Default::default(), Default::default()]);
 
-    let control_changed = std::sync::Arc::new(tokio::sync::Notify::new());
+    let control_changed = Arc::new(Notify::new());
     let (subscribed_control_writer, _subscribed_control_reader) =
-        framework::multiple_buffer_with_slots([
-            Default::default(),
-            Default::default(),
-            Default::default(),
-        ]);
+        multiple_buffer_with_slots([Default::default(), Default::default(), Default::default()]);
     communication_server.register_cycler_instance(
         "Control",
         control_changed.clone(),
@@ -157,7 +146,7 @@ fn run(keep_running: CancellationToken) -> Result<()> {
     simulator.execute_script("test.lua");
     let mut frames = Vec::new();
 
-    let start = time::Instant::now();
+    let start = Instant::now();
     loop {
         simulator.cycle();
 
@@ -173,7 +162,7 @@ fn run(keep_running: CancellationToken) -> Result<()> {
             break;
         }
     }
-    let duration = time::Instant::now() - start;
+    let duration = Instant::now() - start;
     println!("Took {:.2} seconds", duration.as_secs_f32());
 
     let runtime = tokio::runtime::Runtime::new()?;

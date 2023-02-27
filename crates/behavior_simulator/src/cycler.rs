@@ -1,33 +1,39 @@
-use std::{collections::BTreeMap, time::SystemTime};
+use std::{
+    collections::BTreeMap,
+    marker::{Send, Sync},
+    sync::Arc,
+    time::SystemTime,
+};
 
-use color_eyre::eyre::Context;
-use types::messages::IncomingMessage;
+use color_eyre::{eyre::Context, Result};
+use control::{
+    behavior::node::{self, Behavior},
+    role_assignment::{self, RoleAssignment},
+    world_state_composer::{self, WorldStateComposer},
+};
+use framework::{AdditionalOutput, PerceptionInput};
+use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
+use structs::{
+    control::{AdditionalOutputs, MainOutputs},
+    Configuration,
+};
+use tokio::sync::Notify;
+use types::{hardware, messages::IncomingMessage};
 
-#[derive(
-    Clone,
-    Default,
-    serde :: Deserialize,
-    serde :: Serialize,
-    serialize_hierarchy :: SerializeHierarchy,
-)]
+#[derive(Clone, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Database {
-    pub main_outputs: structs::control::MainOutputs,
-    pub additional_outputs: structs::control::AdditionalOutputs,
+    pub main_outputs: MainOutputs,
+    pub additional_outputs: AdditionalOutputs,
     pub simulator_database: SimulatorDatabase,
 }
 
-#[derive(
-    Clone,
-    Default,
-    serde :: Deserialize,
-    serde :: Serialize,
-    serialize_hierarchy :: SerializeHierarchy,
-)]
+#[derive(Clone, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct SimulatorDatabase {}
 
 pub struct BehaviorCycler<Interface> {
-    hardware_interface: std::sync::Arc<Interface>,
-    own_changed: std::sync::Arc<tokio::sync::Notify>,
+    hardware_interface: Arc<Interface>,
+    own_changed: Arc<Notify>,
     // historic_databases: framework::HistoricDatabases<structs::control::MainOutputs>,
 
     // sensor_data_receiver: control::sensor_data_receiver::SensorDataReceiver,
@@ -52,10 +58,10 @@ pub struct BehaviorCycler<Interface> {
     // localization: control::localization::Localization,
     // penalty_shot_direction_estimation:
     //     control::penalty_shot_direction_estimation::PenaltyShotDirectionEstimation,
-    role_assignment: control::role_assignment::RoleAssignment,
+    role_assignment: RoleAssignment,
     // obstacle_filter: control::obstacle_filter::ObstacleFilter,
-    world_state_composer: control::world_state_composer::WorldStateComposer,
-    behavior: control::behavior::node::Behavior,
+    world_state_composer: WorldStateComposer,
+    behavior: Behavior,
     // step_planner: control::motion::step_planner::StepPlanner,
     // look_at: control::motion::look_at::LookAt,
     // motion_selector: control::motion::motion_selector::MotionSelector,
@@ -77,34 +83,29 @@ pub struct BehaviorCycler<Interface> {
 
 impl<Interface> BehaviorCycler<Interface>
 where
-    Interface: types::hardware::Interface + std::marker::Send + std::marker::Sync + 'static,
+    Interface: hardware::Interface + Send + Sync + 'static,
 {
     pub fn new(
-        hardware_interface: std::sync::Arc<Interface>,
-        own_changed: std::sync::Arc<tokio::sync::Notify>,
-        configuration: &structs::Configuration,
-    ) -> color_eyre::Result<Self> {
-        let role_assignment = control::role_assignment::RoleAssignment::new(
-            control::role_assignment::CreationContext {
-                forced_role: configuration.role_assignment.forced_role.as_ref(),
-                player_number: &configuration.player_number,
-                spl_network: &configuration.spl_network,
-            },
-        )
+        hardware_interface: Arc<Interface>,
+        own_changed: Arc<Notify>,
+        configuration: &Configuration,
+    ) -> Result<Self> {
+        let role_assignment = RoleAssignment::new(role_assignment::CreationContext {
+            forced_role: configuration.role_assignment.forced_role.as_ref(),
+            player_number: &configuration.player_number,
+            spl_network: &configuration.spl_network,
+        })
         .wrap_err("failed to create node `RoleAssignment`")?;
-        let world_state_composer = control::world_state_composer::WorldStateComposer::new(
-            control::world_state_composer::CreationContext {
-                player_number: &configuration.player_number,
-            },
-        )
+        let world_state_composer = WorldStateComposer::new(world_state_composer::CreationContext {
+            player_number: &configuration.player_number,
+        })
         .wrap_err("failed to create node `WorldStateComposer`")?;
-        let behavior =
-            control::behavior::node::Behavior::new(control::behavior::node::CreationContext {
-                behavior: &configuration.behavior,
-                field_dimensions: &configuration.field_dimensions,
-                lost_ball_parameters: &configuration.behavior.lost_ball,
-            })
-            .wrap_err("failed to create node `Behavior`")?;
+        let behavior = Behavior::new(node::CreationContext {
+            behavior: &configuration.behavior,
+            field_dimensions: &configuration.field_dimensions,
+            lost_ball_parameters: &configuration.behavior.lost_ball,
+        })
+        .wrap_err("failed to create node `Behavior`")?;
 
         Ok(Self {
             hardware_interface,
@@ -119,16 +120,15 @@ where
     pub fn cycle(
         &mut self,
         own_database: &mut Database,
-        configuration: &structs::Configuration,
+        configuration: &Configuration,
         incoming_messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>,
-    ) -> color_eyre::Result<()> {
-        use color_eyre::eyre::WrapErr;
+    ) -> Result<()> {
         {
             {
                 {
                     let main_outputs = self
                         .role_assignment
-                        .cycle(control::role_assignment::CycleContext {
+                        .cycle(role_assignment::CycleContext {
                             ball_position: own_database.main_outputs.ball_position.as_ref(),
                             fall_state: &own_database.main_outputs.fall_state,
                             game_controller_state: own_database
@@ -141,7 +141,7 @@ where
                             forced_role: configuration.role_assignment.forced_role.as_ref(),
                             player_number: &configuration.player_number,
                             spl_network: &configuration.spl_network,
-                            network_message: framework::PerceptionInput {
+                            network_message: PerceptionInput {
                                 persistent: incoming_messages,
                                 temporary: Default::default(),
                             },
@@ -156,7 +156,7 @@ where
                 {
                     let main_outputs = self
                         .world_state_composer
-                        .cycle(control::world_state_composer::CycleContext {
+                        .cycle(world_state_composer::CycleContext {
                             ball_position: own_database.main_outputs.ball_position.as_ref(),
                             filtered_game_state: own_database
                                 .main_outputs
@@ -185,16 +185,16 @@ where
                 {
                     let main_outputs = self
                         .behavior
-                        .cycle(control::behavior::node::CycleContext {
-                            kick_decisions: framework::AdditionalOutput::new(
+                        .cycle(node::CycleContext {
+                            kick_decisions: AdditionalOutput::new(
                                 true,
                                 &mut own_database.additional_outputs.kick_decisions,
                             ),
-                            kick_targets: framework::AdditionalOutput::new(
+                            kick_targets: AdditionalOutput::new(
                                 true,
                                 &mut own_database.additional_outputs.kick_targets,
                             ),
-                            path_obstacles: framework::AdditionalOutput::new(
+                            path_obstacles: AdditionalOutput::new(
                                 true,
                                 &mut own_database.additional_outputs.path_obstacles,
                             ),

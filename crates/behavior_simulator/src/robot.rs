@@ -2,7 +2,9 @@ use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
 
 use color_eyre::Result;
 use communication::server::Runtime;
-use nalgebra::{Translation2, UnitComplex};
+use nalgebra::{Isometry2, Translation2, UnitComplex};
+use structs::Configuration;
+use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 use types::messages::IncomingMessage;
 
@@ -16,7 +18,7 @@ pub struct Robot {
     pub cycler: BehaviorCycler<Interfake>,
 
     pub database: Database,
-    pub configuration: structs::Configuration,
+    pub configuration: Configuration,
 
     pub penalized: bool,
 }
@@ -25,7 +27,7 @@ impl Robot {
     pub fn new(player_number: usize) -> Self {
         let interface: Arc<_> = Interfake::default().into();
         let keep_running = CancellationToken::new();
-        let communication_server = Runtime::<structs::Configuration>::start(
+        let communication_server = Runtime::<Configuration>::start(
             None::<String>,
             "etc/configuration",
             format!("behavior_simulator{player_number}"),
@@ -38,7 +40,7 @@ impl Robot {
         let mut configuration = communication_server.get_parameters_reader().next().clone();
         configuration.player_number = player_number.try_into().unwrap();
 
-        let database_changed = std::sync::Arc::new(tokio::sync::Notify::new());
+        let database_changed = Arc::new(Notify::new());
         let cycler =
             BehaviorCycler::new(interface.clone(), database_changed, &configuration).unwrap();
 
@@ -49,7 +51,7 @@ impl Robot {
 
         let (y, x) = (player_number as f32).sin_cos();
         let position = Translation2::new(x * 2.0, y * 2.0);
-        database.main_outputs.robot_to_field = Some(nalgebra::Isometry2::from_parts(
+        database.main_outputs.robot_to_field = Some(Isometry2::from_parts(
             position,
             UnitComplex::from_angle(0.0),
         ));

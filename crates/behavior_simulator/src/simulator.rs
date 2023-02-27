@@ -1,6 +1,6 @@
 use std::{fs::read_to_string, path::Path, sync::Arc, time::Duration};
 
-use mlua::{Function, Lua, LuaSerdeExt, Value};
+use mlua::{Function, Lua, LuaSerdeExt, SerializeOptions, Value};
 use nalgebra::{Isometry2, Vector2};
 use parking_lot::Mutex;
 
@@ -9,8 +9,7 @@ use crate::{
     state::{Event, LuaRobot, State},
 };
 
-const SERIALIZE_OPTIONS: mlua::SerializeOptions =
-    mlua::SerializeOptions::new().serialize_none_to_null(false);
+const SERIALIZE_OPTIONS: SerializeOptions = SerializeOptions::new().serialize_none_to_null(false);
 
 pub struct Simulator {
     pub state: Arc<Mutex<State>>,
