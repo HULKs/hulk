@@ -43,6 +43,7 @@ function on_cycle()
 
   if state.cycle_count == 5000 then
     state.filtered_game_state.Playing.ball_is_free = true
+    set_robot_pose(1, {3.0, 2.5}, 0.0)
   end
 
   if state.cycle_count == 7000 then
