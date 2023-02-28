@@ -31,6 +31,8 @@ use tokio::{
 
 use spl_network_messages::PlayerNumber;
 
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
 pub struct Repository {
     root: PathBuf,
 }
@@ -464,7 +466,7 @@ async fn download_image(
     ];
 
     println!("Downloading image from {}", urls[0]);
-    download_with_fallback(&image_path, urls, Duration::from_secs(5)).await
+    download_with_fallback(&image_path, urls, CONNECT_TIMEOUT).await
 }
 
 pub async fn get_image_path(version: &str) -> Result<PathBuf> {
@@ -497,7 +499,7 @@ async fn download_sdk(
     ];
 
     println!("Downloading SDK from {}", urls[0]);
-    download_with_fallback(&installer_path, urls, Duration::from_secs(5)).await?;
+    download_with_fallback(&installer_path, urls, CONNECT_TIMEOUT).await?;
 
     set_permissions(&installer_path, Permissions::from_mode(0o755))
         .await

@@ -1,4 +1,4 @@
-use std::{iter::repeat, path::PathBuf};
+use std::path::PathBuf;
 
 use clap::Args;
 use color_eyre::{eyre::Context, Result};
@@ -28,14 +28,14 @@ pub async fn gammaray(arguments: Arguments) -> Result<()> {
         Some(image_path) => image_path,
         None => get_image_path(version).await?,
     };
+    let image_path = image_path.as_path();
 
     let results: Vec<_> = arguments
         .naos
         .into_iter()
-        .zip(repeat(image_path))
-        .map(|(nao_address, image_path)| async move {
+        .map(|nao_address| async move {
             let nao = Nao::new(nao_address.ip);
-            // nao.flash_image(image_path.clone())
+            println!("Starting image upload to {nao_address}");
             nao.flash_image(image_path)
                 .await
                 .wrap_err_with(|| format!("failed to flash image to {nao_address}"))
