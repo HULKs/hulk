@@ -43,7 +43,8 @@ class NAOEnv(gym.GoalEnv):
         self.fps_count = 0
         self.step_ctr = 0
         self.start_time = time.time()
-        self.ws = create_connection("ws://localhost:9990")
+        self.nao_websocket = create_connection("ws://localhost:9990")
+        self.webots_supervisor_websocket = create_connection("ws://localhost:9980")
         global CACHED_ENV
         CACHED_ENV = self
         self.action_space = spaces.Box(-3., 3.,
@@ -55,7 +56,6 @@ class NAOEnv(gym.GoalEnv):
         self.initial_obs = None
 
         #start webots
-
         self.initial_obs = self.reset()
 
     def seed(self, seed=None):
@@ -69,9 +69,17 @@ class NAOEnv(gym.GoalEnv):
         super().reset()
         self.seed()
         action = np.array([0.0 for _ in range(ACTION_SIZE)])
+
+        #self.webots_supervisor_websocket.send("reset")
+        #self.step_ctr = 0
+        #time.sleep(10.00)
+        #self.nao_websocket = create_connection("ws://localhost:9990")
+        #self.webots_supervisor_websocket = create_connection("ws://localhost:9980")
+
         obs, r, done, info = self.step(action)
         self.step_ctr = 0
         time.sleep(1.00)
+
         obs, r, done, info = self.step(action)
         return obs
 
@@ -81,7 +89,6 @@ class NAOEnv(gym.GoalEnv):
 #    	    return 1.0
 #    	else:
 #    	    return 0.0
-    	
 
     def _done(self, most_recent_stability, initial_stability):
         return False
@@ -93,10 +100,10 @@ class NAOEnv(gym.GoalEnv):
         full_action = [0.0 for _ in range(FULL_ACTION_SIZE)]
         full_action[2] = action[0]
         action_bin = struct.pack('%sf' % len(full_action), *full_action)
-        self.ws.send_binary(action_bin)
+        self.nao_websocket.send_binary(action_bin)
 
         # receive observation
-        observation_bin = self.ws.recv()
+        observation_bin = self.nao_websocket.recv()
         obs = struct.unpack('%sf' % FULL_OBSERVATION_SIZE, observation_bin)
 
         obs = {'observation': np.array([obs[4]]), 'achieved_goal': np.array([obs[4]]),
@@ -112,6 +119,6 @@ class NAOEnv(gym.GoalEnv):
 
         r = self.compute_reward(obs['achieved_goal'], obs['desired_goal'], info)
         self.step_ctr += 1
-        #print(obs['achieved_goal'], obs['desired_goal'], action, r)
+        print(obs['achieved_goal'], obs['desired_goal'], action, r)
         return obs, r, done, info
 
