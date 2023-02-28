@@ -419,39 +419,32 @@ impl Repository {
 
 async fn download_with_fallback(
     output_path: impl AsRef<OsStr>,
-    url: &str,
-    fallback_url: &str,
+    urls: Vec<String>,
     connect_timeout: Duration,
 ) -> Result<()> {
-    let status = Command::new("curl")
-        .arg("--connect-timeout")
-        .arg(connect_timeout.as_secs_f32().to_string())
-        .arg("--progress-bar")
-        .arg("--output")
-        .arg(&output_path)
-        .arg(url)
-        .status()
-        .await
-        .context("Failed to spawn command")?;
+    for (i, url) in urls.iter().enumerate() {
+        if i > 0 {
+            println!("Falling back to downloading from {url}");
+        }
 
-    if !status.success() {
-        println!("Falling back to downloading from {fallback_url}");
         let status = Command::new("curl")
+            .arg("--connect-timeout")
+            .arg(connect_timeout.as_secs_f32().to_string())
             .arg("--location")
             .arg("--progress-bar")
             .arg("--output")
             .arg(&output_path)
-            .arg(fallback_url)
+            .arg(url)
             .status()
             .await
             .context("Failed to spawn command")?;
 
-        if !status.success() {
-            bail!("curl exited with {status}");
+        if status.success() {
+            return Ok(());
         }
     }
 
-    Ok(())
+    bail!("curl exited with status")
 }
 
 async fn download_image(
@@ -465,12 +458,13 @@ async fn download_image(
             .context("Failed to create download directory")?;
     }
     let image_path = downloads_directory.as_ref().join(image_name);
-    let url = format!("http://bighulk.hulks.dev/image/{image_name}");
-    let fallback_url =
-        format!("https://github.com/HULKs/meta-hulks/releases/download/{version}/{image_name}");
+    let urls = vec![
+        format!("http://bighulk.hulks.dev/image/{image_name}"),
+        format!("https://github.com/HULKs/meta-hulks/releases/download/{version}/{image_name}"),
+    ];
 
-    println!("Downloading image from {url}");
-    download_with_fallback(&image_path, &url, &fallback_url, Duration::from_secs(5)).await
+    println!("Downloading image from {}", urls[0]);
+    download_with_fallback(&image_path, urls, Duration::from_secs(5)).await
 }
 
 pub async fn get_image_path(version: &str) -> Result<PathBuf> {
@@ -497,12 +491,13 @@ async fn download_sdk(
             .context("Failed to create download directory")?;
     }
     let installer_path = downloads_directory.as_ref().join(installer_name);
-    let url = format!("http://bighulk.hulks.dev/sdk/{installer_name}");
-    let fallback_url =
-        format!("https://github.com/HULKs/meta-hulks/releases/download/{version}/{installer_name}");
+    let urls = vec![
+        format!("http://bighulk.hulks.dev/sdk/{installer_name}"),
+        format!("https://github.com/HULKs/meta-hulks/releases/download/{version}/{installer_name}"),
+    ];
 
-    println!("Downloading SDK from {url}");
-    download_with_fallback(&installer_path, &url, &fallback_url, Duration::from_secs(5)).await?;
+    println!("Downloading SDK from {}", urls[0]);
+    download_with_fallback(&installer_path, urls, Duration::from_secs(5)).await?;
 
     set_permissions(&installer_path, Permissions::from_mode(0o755))
         .await
