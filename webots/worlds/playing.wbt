@@ -44,4 +44,5 @@ NAO {
   name "webots2"
   controller "hulk"
   supervisor TRUE
+  selfCollision TRUE
 }
