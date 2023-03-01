@@ -3,8 +3,14 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{cycler::Database, simulator::{Simulator, Frame}};
-use color_eyre::{eyre::bail, Result};
+use crate::{
+    cycler::Database,
+    simulator::{Frame, Simulator},
+};
+use color_eyre::{
+    eyre::{bail, Context},
+    Result,
+};
 use framework::{multiple_buffer_with_slots, Reader, Writer};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
@@ -109,10 +115,10 @@ pub fn run(keep_running: CancellationToken) -> Result<()> {
     );
 
     let mut simulator = Simulator::new();
-    simulator.execute_script("test.lua");
+    simulator.execute_script("test.lua")?;
 
     let start = Instant::now();
-    let frames = simulator.run();
+    let frames = simulator.run().context("failed to run simulation")?;
     let duration = Instant::now() - start;
     println!("Took {:.2} seconds", duration.as_secs_f32());
 

@@ -1,6 +1,9 @@
 use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
 
-use color_eyre::Result;
+use color_eyre::{
+    eyre::{eyre, Context},
+    Result,
+};
 use communication::server::Runtime;
 use nalgebra::{Isometry2, Translation2, UnitComplex};
 use structs::Configuration;
@@ -24,7 +27,7 @@ pub struct Robot {
 }
 
 impl Robot {
-    pub fn new(player_number: usize) -> Self {
+    pub fn try_new(player_number: usize) -> Result<Self> {
         let interface: Arc<_> = Interfake::default().into();
         let keep_running = CancellationToken::new();
         let communication_server = Runtime::<Configuration>::start(
@@ -35,17 +38,19 @@ impl Robot {
             2,
             keep_running.clone(),
         )
-        .unwrap();
+        .context("failed to start communication server")?;
 
         let mut configuration = communication_server.get_parameters_reader().next().clone();
-        configuration.player_number = player_number.try_into().unwrap();
+        configuration.player_number = player_number
+            .try_into()
+            .map_err(|_| eyre!("invalid player number provided {player_number}"))?;
 
         let database_changed = Arc::new(Notify::new());
-        let cycler =
-            BehaviorCycler::new(interface.clone(), database_changed, &configuration).unwrap();
+        let cycler = BehaviorCycler::new(interface.clone(), database_changed, &configuration)
+            .context("failed to create cycler")?;
 
         keep_running.cancel();
-        communication_server.join().unwrap().unwrap();
+        communication_server.join().expect("communication failed")?;
 
         let mut database = Database::default();
 
@@ -56,7 +61,7 @@ impl Robot {
             UnitComplex::from_angle(0.0),
         ));
 
-        Self {
+        Ok(Self {
             interface,
             cycler,
 
@@ -64,7 +69,7 @@ impl Robot {
             configuration,
 
             penalized: false,
-        }
+        })
     }
 
     pub fn cycle(&mut self, messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>) -> Result<()> {

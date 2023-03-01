@@ -1,13 +1,14 @@
-use crate::cycler::Database;
-use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
-use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, GameState, SplMessage, Team};
 use std::{
     collections::BTreeMap,
     iter::once,
     mem::take,
     time::{Duration, UNIX_EPOCH},
 };
+
+use color_eyre::Result;
+use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
+use serde::{Deserialize, Serialize};
+use spl_network_messages::{GamePhase, GameState, SplMessage, Team};
 use structs::{control::AdditionalOutputs, Configuration};
 use types::{
     messages::{IncomingMessage, OutgoingMessage},
@@ -15,7 +16,7 @@ use types::{
     OrientationMode, PathSegment, Players, PrimaryState, Side,
 };
 
-use crate::robot::Robot;
+use crate::{cycler::Database, robot::Robot};
 
 pub enum Event {
     Cycle,
@@ -75,7 +76,7 @@ impl State {
         }
     }
 
-    pub fn cycle(&mut self, time_step: Duration) -> Vec<Event> {
+    pub fn cycle(&mut self, time_step: Duration) -> Result<Vec<Event>> {
         let now = UNIX_EPOCH + self.time_elapsed;
 
         let incoming_messages = take(&mut self.messages);
@@ -187,7 +188,7 @@ impl State {
             robot.database.main_outputs.filtered_game_state = Some(self.filtered_game_state);
             robot.database.main_outputs.game_controller_state = Some(self.game_controller_state);
 
-            robot.cycle(messages).unwrap();
+            robot.cycle(messages)?;
 
             for message in robot.interface.take_outgoing_messages() {
                 if let OutgoingMessage::Spl(message) = message {
@@ -209,7 +210,7 @@ impl State {
         self.time_elapsed += time_step;
         self.cycle_count += 1;
 
-        events
+        Ok(events)
     }
 
     pub fn get_lua_state(&self) -> LuaState {
@@ -229,11 +230,12 @@ impl State {
         }
     }
 
-    pub fn load_lua_state(&mut self, lua_state: LuaState) {
+    pub fn load_lua_state(&mut self, lua_state: LuaState) -> Result<()> {
         self.ball = lua_state.ball;
         self.cycle_count = lua_state.cycle_count;
         while self.robots.len() < lua_state.robots.len() {
-            self.robots.push(Robot::new(1));
+            self.robots
+                .push(Robot::try_new(1).expect("Creating dummy robot should never fail"));
         }
         for (robot, lua_robot) in self.robots.iter_mut().zip(lua_state.robots.into_iter()) {
             robot.database = lua_robot.database;
@@ -244,6 +246,8 @@ impl State {
 
         self.game_controller_state = lua_state.game_controller_state;
         self.filtered_game_state = lua_state.filtered_game_state;
+
+        Ok(())
     }
 }
 

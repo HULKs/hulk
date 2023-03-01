@@ -1,7 +1,11 @@
 use std::{fs::read_to_string, path::Path, sync::Arc, time::Duration};
 
 use crate::cycler::Database;
-use mlua::{Function, Lua, LuaSerdeExt, SerializeOptions, Value};
+use color_eyre::{
+    eyre::{eyre, Context},
+    Result,
+};
+use mlua::{Error as LuaError, Function, Lua, LuaSerdeExt, SerializeOptions, Value};
 use nalgebra::{Isometry2, Vector2};
 use parking_lot::Mutex;
 
@@ -26,40 +30,40 @@ impl Simulator {
         let state = Arc::new(Mutex::new(State::new()));
 
         let lua = Lua::new();
-
         let new_robot = lua
             .create_function(|lua, number: usize| {
-                let robot = Robot::new(number);
+                let robot = Robot::try_new(number).map_err(LuaError::external)?;
                 Ok(lua.to_value(&LuaRobot::new(&robot)))
             })
-            .unwrap();
-        lua.globals().set("new_robot", new_robot).unwrap();
+            .expect("failed to create function new_robot");
+        lua.globals()
+            .set("new_robot", new_robot)
+            .expect("failed to insert new_robot");
 
         Self { state, lua }
     }
 
-    pub fn execute_script(&mut self, file_name: impl AsRef<Path>) {
-        self.serialze_state();
+    pub fn execute_script(&mut self, file_name: impl AsRef<Path>) -> Result<()> {
+        self.serialze_state()?;
 
-        let script_text = read_to_string(&file_name).unwrap();
-        let script = self
-            .lua
-            .load(&script_text)
-            .set_name(file_name.as_ref().file_name().unwrap().to_str().unwrap())
-            .unwrap();
-        script.exec().unwrap();
+        let script_text = read_to_string(&file_name)?;
+        let script = self.lua.load(&script_text).set_name(
+            file_name
+                .as_ref()
+                .file_name()
+                .ok_or_else(|| eyre!("path contains no filename"))?
+                .to_str()
+                .ok_or_else(|| eyre!("filename is not valid unicode"))?,
+        )?;
+        script.exec().context("failed to execute scenario script")?;
 
-        self.state.lock().load_lua_state(
-            self.lua
-                .from_value(self.lua.globals().get("state").unwrap())
-                .unwrap(),
-        );
+        self.deserialize_state()
     }
 
-    pub fn run(&mut self) -> Vec<Frame> {
+    pub fn run(&mut self) -> Result<Vec<Frame>> {
         let mut frames = Vec::new();
         loop {
-            self.cycle();
+            self.cycle()?;
 
             let state = self.state.lock();
             let robot_databases = state
@@ -76,83 +80,86 @@ impl Simulator {
             }
         }
 
-        frames
+        Ok(frames)
     }
 
-    pub fn cycle(&mut self) {
+    pub fn cycle(&mut self) -> Result<()> {
         let events = {
             let mut state = self.state.lock();
-            state.cycle(Duration::from_millis(12))
+            state.cycle(Duration::from_millis(12))?
         };
 
-        self.serialze_state();
+        self.serialze_state()?;
 
-        self.lua
-            .scope(|scope| {
-                self.lua.globals().set(
-                    "set_robot_penalized",
-                    scope.create_function(|_, (number, penalized): (usize, bool)| {
-                        self.state.lock().robots[number - 1].penalized = penalized;
+        self.lua.scope(|scope| {
+            self.lua.globals().set(
+                "set_robot_penalized",
+                scope.create_function(|_, (number, penalized): (usize, bool)| {
+                    self.state.lock().robots[number - 1].penalized = penalized;
 
-                        Ok(())
-                    })?,
-                )?;
+                    Ok(())
+                })?,
+            )?;
 
-                self.lua.globals().set(
-                    "set_robot_pose",
-                    scope.create_function(
-                        |lua, (number, position, angle): (usize, Value, f32)| {
-                            let position: Vector2<f32> = lua.from_value(position)?;
+            self.lua.globals().set(
+                "set_robot_pose",
+                scope.create_function(|lua, (number, position, angle): (usize, Value, f32)| {
+                    let position: Vector2<f32> = lua.from_value(position)?;
 
-                            self.state.lock().robots[number - 1]
-                                .database
-                                .main_outputs
-                                .robot_to_field = Some(Isometry2::new(position, angle));
+                    self.state.lock().robots[number - 1]
+                        .database
+                        .main_outputs
+                        .robot_to_field = Some(Isometry2::new(position, angle));
 
-                            Ok(())
-                        },
-                    )?,
-                )?;
-                for event in events {
-                    match event {
-                        Event::Cycle => {
-                            if let Ok(on_cycle) = self.lua.globals().get::<_, Function>("on_cycle")
-                            {
-                                on_cycle.call::<_, ()>(()).unwrap();
-                            }
+                    Ok(())
+                })?,
+            )?;
+            for event in events {
+                match event {
+                    Event::Cycle => {
+                        if let Ok(on_cycle) = self.lua.globals().get::<_, Function>("on_cycle") {
+                            on_cycle.call::<_, ()>(())?;
                         }
-                        Event::Goal => {
-                            if let Ok(on_goal) = self.lua.globals().get::<_, Function>("on_goal") {
-                                on_goal.call::<_, ()>(()).unwrap();
-                            }
+                    }
+                    Event::Goal => {
+                        if let Ok(on_goal) = self.lua.globals().get::<_, Function>("on_goal") {
+                            on_goal.call::<_, ()>(())?;
                         }
                     }
                 }
+            }
 
-                Ok(())
-            })
-            .unwrap();
+            Ok(())
+        })?;
 
-        self.deserialize_state();
+        self.deserialize_state()
     }
 
-    fn serialze_state(&mut self) {
+    fn serialze_state(&mut self) -> Result<()> {
+        let lua_state = self.state.lock().get_lua_state();
+        let value = self
+            .lua
+            .to_value_with(&lua_state, SERIALIZE_OPTIONS)
+            .context("failed to serialize lua state")?;
         self.lua
             .globals()
-            .set(
-                "state",
-                self.lua
-                    .to_value_with(&self.state.lock().get_lua_state(), SERIALIZE_OPTIONS)
-                    .unwrap(),
-            )
-            .unwrap();
+            .set("state", value)
+            .context("failed to set state in lua globals")
     }
 
-    fn deserialize_state(&mut self) {
-        self.state.lock().load_lua_state(
-            self.lua
-                .from_value(self.lua.globals().get("state").unwrap())
-                .unwrap(),
-        );
+    fn deserialize_state(&mut self) -> Result<()> {
+        let value = self
+            .lua
+            .globals()
+            .get("state")
+            .context("failed to retrieve state from lua")?;
+        let lua_state = self
+            .lua
+            .from_value(value)
+            .context("failed to deserialize state")?;
+        self.state
+            .lock()
+            .load_lua_state(lua_state)
+            .context("failed to load lua state")
     }
 }
