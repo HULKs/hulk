@@ -22,6 +22,7 @@ pub struct MapPanel {
     path_obstacles: EnabledLayer<layers::PathObstacles>,
     obstacles: EnabledLayer<layers::Obstacles>,
     path: EnabledLayer<layers::Path>,
+    behavior_simulator: EnabledLayer<layers::BehaviorSimulator>,
     robot_pose: EnabledLayer<layers::RobotPose>,
     ball_position: EnabledLayer<layers::BallPosition>,
     kick_decisions: EnabledLayer<layers::KickDecisions>,
@@ -37,6 +38,7 @@ impl Panel for MapPanel {
         let path_obstacles = EnabledLayer::new(nao.clone(), value, false);
         let obstacles = EnabledLayer::new(nao.clone(), value, false);
         let path = EnabledLayer::new(nao.clone(), value, false);
+        let behavior_simulator = EnabledLayer::new(nao.clone(), value, false);
         let robot_pose = EnabledLayer::new(nao.clone(), value, true);
         let ball_position = EnabledLayer::new(nao.clone(), value, false);
         let kick_decisions = EnabledLayer::new(nao.clone(), value, false);
@@ -53,6 +55,7 @@ impl Panel for MapPanel {
             path_obstacles,
             obstacles,
             path,
+            behavior_simulator,
             robot_pose,
             ball_position,
             kick_decisions,
@@ -67,6 +70,7 @@ impl Panel for MapPanel {
             "path_obstacles": self.path_obstacles.save(),
             "obstacles": self.obstacles.save(),
             "path": self.path.save(),
+            "behavior_simulator": self.behavior_simulator.save(),
             "robot_pose": self.robot_pose.save(),
             "ball_position": self.ball_position.save(),
             "kick_decisions": self.kick_decisions.save(),
@@ -103,6 +107,7 @@ impl Widget for &mut MapPanel {
         let _ = self.path_obstacles.paint(&painter, &field_dimensions);
         let _ = self.obstacles.paint(&painter, &field_dimensions);
         let _ = self.path.paint(&painter, &field_dimensions);
+        let _ = self.behavior_simulator.paint(&painter, &field_dimensions);
         let _ = self.robot_pose.paint(&painter, &field_dimensions);
         let _ = self.ball_position.paint(&painter, &field_dimensions);
         let _ = self.kick_decisions.paint(&painter, &field_dimensions);
