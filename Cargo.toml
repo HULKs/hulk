@@ -2,7 +2,6 @@
 members = [
   "crates/aliveness",
   "crates/audio",
-  "crates/behavior_simulator",
   "crates/build_script_helpers",
   "crates/code_generation",
   "crates/communication",
@@ -25,6 +24,7 @@ members = [
   "crates/structs",
   "crates/types",
   "crates/vision",
+  "tools/behavior_simulator",
   "tools/camera_matrix_extractor",
   "tools/depp",
   "tools/fanta",
@@ -42,7 +42,7 @@ alsa = "0.7.0"
 aliveness = { path = "crates/aliveness" }
 approx = "0.5.1"
 audio = { path = "crates/audio" }
-behavior_simulator = { path = "crates/behavior_simulator" }
+behavior_simulator = { path = "tools/behavior_simulator" }
 awaitgroup = "0.6.0"
 base64 = "0.13.0"
 bat = { version = "0.21.0", default-features = false, features = ["regex-onig", "paging"] }
