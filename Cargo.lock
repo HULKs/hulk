@@ -341,6 +341,7 @@ version = "0.1.0"
 dependencies = [
  "build_script_helpers",
  "chrono",
+ "clap 4.1.1",
  "code_generation",
  "color-eyre",
  "communication",
