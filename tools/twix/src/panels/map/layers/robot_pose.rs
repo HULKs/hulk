@@ -20,9 +20,7 @@ impl Layer for RobotPose {
     fn new(nao: Arc<Nao>) -> Self {
         let robot_to_field =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
-        Self {
-            robot_to_field,
-        }
+        Self { robot_to_field }
     }
 
     fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
