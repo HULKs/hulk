@@ -28,7 +28,7 @@ impl Layer for RobotPose {
     fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
         let robot_to_field: Isometry2<f32> = self.robot_to_field.require_latest()?;
 
-        let pose_color = Color32::from_white_alpha(127);
+        let pose_color = Color32::from_white_alpha(187);
         let pose_stroke = Stroke {
             width: 0.02,
             color: Color32::BLACK,
