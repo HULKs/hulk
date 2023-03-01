@@ -1,4 +1,4 @@
-use std::{fs::read_to_string, path::Path, sync::Arc, time::Duration};
+use std::{collections::HashMap, fs::read_to_string, path::Path, sync::Arc, time::Duration};
 
 use crate::cycler::Database;
 use color_eyre::{
@@ -8,6 +8,7 @@ use color_eyre::{
 use mlua::{Error as LuaError, Function, Lua, LuaSerdeExt, SerializeOptions, Value};
 use nalgebra::{Isometry2, Vector2};
 use parking_lot::Mutex;
+use spl_network_messages::PlayerNumber;
 
 use crate::{
     robot::Robot,
@@ -17,7 +18,7 @@ use crate::{
 const SERIALIZE_OPTIONS: SerializeOptions = SerializeOptions::new().serialize_none_to_null(false);
 
 pub struct Frame {
-    pub robots: Vec<Database>,
+    pub robots: HashMap<PlayerNumber, Database>,
 }
 
 pub struct Simulator {
@@ -31,8 +32,11 @@ impl Simulator {
 
         let lua = Lua::new();
         let new_robot = lua
-            .create_function(|lua, number: usize| {
-                let robot = Robot::try_new(number).map_err(LuaError::external)?;
+            .create_function(|lua, player_number: usize| {
+                let player_number = player_number.try_into().map_err(|_| {
+                    LuaError::external(eyre!("invalid player number provided {player_number}"))
+                })?;
+                let robot = Robot::try_new(player_number).map_err(LuaError::external)?;
                 Ok(lua.to_value(&LuaRobot::new(&robot)))
             })
             .expect("failed to create function new_robot");
@@ -69,7 +73,7 @@ impl Simulator {
             let robot_databases = state
                 .robots
                 .iter()
-                .map(|robot| robot.database.clone())
+                .map(|(player_number, robot)| (*player_number, robot.database.clone()))
                 .collect();
             frames.push(Frame {
                 robots: robot_databases,
@@ -94,8 +98,16 @@ impl Simulator {
         self.lua.scope(|scope| {
             self.lua.globals().set(
                 "set_robot_penalized",
-                scope.create_function(|_, (number, penalized): (usize, bool)| {
-                    self.state.lock().robots[number - 1].penalized = penalized;
+                scope.create_function(|_, (player_number, penalized): (usize, bool)| {
+                    let player_number = player_number.try_into().map_err(|_| {
+                        LuaError::external(eyre!("invalid player number provided {player_number}"))
+                    })?;
+                    self.state
+                        .lock()
+                        .robots
+                        .get_mut(&player_number)
+                        .unwrap()
+                        .penalized = penalized;
 
                     Ok(())
                 })?,
@@ -103,16 +115,27 @@ impl Simulator {
 
             self.lua.globals().set(
                 "set_robot_pose",
-                scope.create_function(|lua, (number, position, angle): (usize, Value, f32)| {
-                    let position: Vector2<f32> = lua.from_value(position)?;
+                scope.create_function(
+                    |lua, (player_number, position, angle): (usize, Value, f32)| {
+                        let player_number = player_number.try_into().map_err(|_| {
+                            LuaError::external(eyre!(
+                                "invalid player number provided {player_number}"
+                            ))
+                        })?;
+                        let position: Vector2<f32> = lua.from_value(position)?;
 
-                    self.state.lock().robots[number - 1]
-                        .database
-                        .main_outputs
-                        .robot_to_field = Some(Isometry2::new(position, angle));
+                        self.state
+                            .lock()
+                            .robots
+                            .get_mut(&player_number)
+                            .unwrap()
+                            .database
+                            .main_outputs
+                            .robot_to_field = Some(Isometry2::new(position, angle));
 
-                    Ok(())
-                })?,
+                        Ok(())
+                    },
+                )?,
             )?;
             for event in events {
                 match event {

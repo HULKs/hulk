@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     error,
     ops::{Deref, Range},
     path::PathBuf,
@@ -249,6 +249,42 @@ impl<T> SerializeHierarchy for Vec<T> {
     {
         Err(Error::TypeDoesNotSupportDeserialization {
             type_name: "Vec",
+            path: path.to_string(),
+        })
+    }
+
+    fn exists(_path: &str) -> bool {
+        false
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        Default::default()
+    }
+}
+
+impl<K, V> SerializeHierarchy for HashMap<K, V> {
+    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        Err(Error::TypeDoesNotSupportSerialization {
+            type_name: "HashMap",
+            path: path.to_string(),
+        })
+    }
+
+    fn deserialize_path<S>(
+        &mut self,
+        path: &str,
+        _data: S::Serialized,
+    ) -> Result<(), Error<S::Error>>
+    where
+        S: Serializer,
+        S::Error: error::Error,
+    {
+        Err(Error::TypeDoesNotSupportDeserialization {
+            type_name: "HashMap",
             path: path.to_string(),
         })
     }

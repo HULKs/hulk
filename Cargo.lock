@@ -4278,6 +4278,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
+ "spl_network_messages",
  "tokio",
  "types",
 ]

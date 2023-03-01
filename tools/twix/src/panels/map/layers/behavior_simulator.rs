@@ -1,9 +1,11 @@
-use std::{str::FromStr, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
+use behavior_simulator::cycler::Database;
 use color_eyre::Result;
 use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::Isometry2;
+use spl_network_messages::PlayerNumber;
 use types::FieldDimensions;
 
 use crate::{
@@ -24,10 +26,9 @@ impl Layer for BehaviorSimulator {
     }
 
     fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
-        let databases: Vec<behavior_simulator::cycler::Database> =
-            self.databases.require_latest()?;
+        let databases: HashMap<PlayerNumber, Database> = self.databases.require_latest()?;
 
-        for database in &databases {
+        for database in databases.values() {
             let robot_to_field: Isometry2<f32> = database.main_outputs.robot_to_field.unwrap();
 
             let pose_color = Color32::from_white_alpha(63);
