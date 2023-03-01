@@ -11,7 +11,8 @@ pub struct BehaviorSimulatorPanel {
     nao: Arc<Nao>,
     update_notify_receiver: mpsc::Receiver<()>,
 
-    chosen_frame: usize,
+    selected_frame: usize,
+    selected_robot: usize,
     playing: bool,
 
     value_buffer: ValueBuffer,
@@ -22,7 +23,7 @@ impl Panel for BehaviorSimulatorPanel {
     const NAME: &'static str = "Behavior Simulator";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let value_buffer = nao.subscribe_parameter("frame");
+        let value_buffer = nao.subscribe_parameter("selected_frame");
         let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
         value_buffer.listen_to_updates(update_notify_sender);
 
@@ -33,7 +34,8 @@ impl Panel for BehaviorSimulatorPanel {
             nao,
             update_notify_receiver,
 
-            chosen_frame: 0,
+            selected_frame: 0,
+            selected_robot: 0,
             playing: false,
 
             value_buffer,
@@ -46,7 +48,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         while self.update_notify_receiver.try_recv().is_ok() {
             if let Ok(value) = self.value_buffer.require_latest() {
-                self.chosen_frame = value;
+                self.selected_frame = value;
             }
         }
         let mut new_frame = None;
@@ -54,7 +56,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
             .vertical(|ui| {
                 ui.horizontal(|ui| {
                     ui.style_mut().spacing.slider_width = ui.available_size().x - 100.0;
-                    let mut frame = self.chosen_frame;
+                    let mut frame = self.selected_frame;
                     if ui
                         .add_sized(
                             ui.available_size(),
@@ -76,19 +78,35 @@ impl Widget for &mut BehaviorSimulatorPanel {
                         new_frame = Some(frame);
                     };
                 });
+                ui.horizontal(|ui| {
+                    if ui
+                        .add_sized(
+                            ui.available_size(),
+                            Slider::new(&mut self.selected_robot, 1..=5)
+                                .smart_aim(false)
+                                .text("Robot"),
+                        )
+                        .changed()
+                    {
+                        self.nao.update_parameter_value(
+                            "selected_robot",
+                            (self.selected_robot - 1).into(),
+                        );
+                    };
+                });
                 ui.checkbox(&mut self.playing, "Play");
             })
             .response;
 
         if self.playing || ui.button(">>").clicked() {
-            new_frame = Some(new_frame.unwrap_or(self.chosen_frame) + 10);
+            new_frame = Some(new_frame.unwrap_or(self.selected_frame) + 10);
             self.nao
-                .update_parameter_value("frame", self.chosen_frame.into());
+                .update_parameter_value("selected_frame", self.selected_frame.into());
         }
         if let Some(new_frame) = new_frame {
-            self.chosen_frame = new_frame % self.frame_count.require_latest().unwrap_or(1);
+            self.selected_frame = new_frame % self.frame_count.require_latest().unwrap_or(1);
             self.nao
-                .update_parameter_value("frame", self.chosen_frame.into());
+                .update_parameter_value("selected_frame", self.selected_frame.into());
         }
         response
     }
