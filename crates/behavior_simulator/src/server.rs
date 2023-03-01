@@ -1,4 +1,5 @@
 use std::{
+    path::Path,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -77,7 +78,7 @@ async fn timeline_server(
     }
 }
 
-pub fn run(keep_running: CancellationToken) -> Result<()> {
+pub fn run(keep_running: CancellationToken, scenario_file: impl AsRef<Path>) -> Result<()> {
     let communication_server = communication::server::Runtime::<Configuration>::start(
         Some("[::]:1337"),
         "tools/behavior-simulator",
@@ -115,7 +116,7 @@ pub fn run(keep_running: CancellationToken) -> Result<()> {
     );
 
     let mut simulator = Simulator::new();
-    simulator.execute_script("test.lua")?;
+    simulator.execute_script(scenario_file)?;
 
     let start = Instant::now();
     let frames = simulator.run().context("failed to run simulation")?;

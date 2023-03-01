@@ -20,6 +20,7 @@ end
 
 function on_cycle()
   if state.ball == nil and state.cycle_count % 1000 == 0 then
+    print(inspect(state))
     state.ball = {
       position = { 0.0, 0.0 },
       velocity = { 0.0, 0.0 },

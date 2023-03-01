@@ -1,6 +1,7 @@
-use std::io::stdout;
+use std::{io::stdout, path::PathBuf};
 
 use chrono::Local;
+use clap::Parser;
 use color_eyre::{install, Result};
 use fern::{Dispatch, InitError};
 use log::LevelFilter;
@@ -12,6 +13,11 @@ mod robot;
 mod server;
 mod simulator;
 mod state;
+
+#[derive(Parser)]
+struct Arguments {
+    scenario_file: PathBuf,
+}
 
 fn setup_logger(is_verbose: bool) -> Result<(), InitError> {
     Dispatch::new()
@@ -46,5 +52,7 @@ fn main() -> Result<()> {
         })?;
     }
 
-    server::run(keep_running)
+    let arguments = Arguments::parse();
+
+    server::run(keep_running, arguments.scenario_file)
 }
