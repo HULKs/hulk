@@ -15,7 +15,7 @@ function on_goal()
   print("Goal scored, resetting ball!")
   print("Ball: " .. inspect(state.ball))
   print("Ball was at x: " .. state.ball.position[1] .. " y: " .. state.ball.position[2])
-  state.ball = Null
+  state.ball = nil
 end
 
 function on_cycle()
