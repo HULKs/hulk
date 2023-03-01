@@ -6,8 +6,8 @@ license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
-bincode = { workspace = true }
 behavior_simulator = { workspace = true }
+bincode = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true }
 convert_case = { workspace = true }
@@ -23,5 +23,6 @@ nalgebra = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }
+spl_network_messages = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }

@@ -1,11 +1,9 @@
-use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
+use std::{collections::BTreeMap, convert::Into, sync::Arc, time::SystemTime};
 
-use color_eyre::{
-    eyre::{eyre, Context},
-    Result,
-};
+use color_eyre::{eyre::Context, Result};
 use communication::server::Runtime;
 use nalgebra::{Isometry2, Translation2, UnitComplex};
+use spl_network_messages::PlayerNumber;
 use structs::Configuration;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
@@ -27,23 +25,21 @@ pub struct Robot {
 }
 
 impl Robot {
-    pub fn try_new(player_number: usize) -> Result<Self> {
+    pub fn try_new(player_number: PlayerNumber) -> Result<Self> {
         let interface: Arc<_> = Interfake::default().into();
         let keep_running = CancellationToken::new();
         let communication_server = Runtime::<Configuration>::start(
             None::<String>,
             "etc/configuration",
-            format!("behavior_simulator{player_number}"),
-            format!("behavior_simulator{player_number}"),
+            format!("behavior_simulator{}", Into::<usize>::into(player_number)),
+            format!("behavior_simulator{}", Into::<usize>::into(player_number)),
             2,
             keep_running.clone(),
         )
         .context("failed to start communication server")?;
 
         let mut configuration = communication_server.get_parameters_reader().next().clone();
-        configuration.player_number = player_number
-            .try_into()
-            .map_err(|_| eyre!("invalid player number provided {player_number}"))?;
+        configuration.player_number = player_number;
 
         let database_changed = Arc::new(Notify::new());
         let cycler = BehaviorCycler::new(interface.clone(), database_changed, &configuration)
@@ -54,7 +50,7 @@ impl Robot {
 
         let mut database = Database::default();
 
-        let (y, x) = (player_number as f32).sin_cos();
+        let (y, x) = (Into::<usize>::into(player_number) as f32).sin_cos();
         let position = Translation2::new(x * 2.0, y * 2.0);
         database.main_outputs.robot_to_field = Some(Isometry2::from_parts(
             position,

@@ -69,3 +69,15 @@ impl TryFrom<usize> for PlayerNumber {
         Ok(number)
     }
 }
+
+impl From<PlayerNumber> for usize {
+    fn from(val: PlayerNumber) -> Self {
+        match val {
+            PlayerNumber::One => 1,
+            PlayerNumber::Two => 2,
+            PlayerNumber::Three => 3,
+            PlayerNumber::Four => 4,
+            PlayerNumber::Five => 5,
+        }
+    }
+}

@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::Path,
     sync::Arc,
     time::{Duration, Instant},
@@ -15,6 +16,7 @@ use color_eyre::{
 use framework::{multiple_buffer_with_slots, Reader, Writer};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
+use spl_network_messages::PlayerNumber;
 use tokio::{select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
 use types::FieldDimensions;
@@ -29,7 +31,7 @@ struct Configuration {
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 struct MainOutputs {
     frame_count: usize,
-    databases: Vec<Database>,
+    databases: HashMap<PlayerNumber, Database>,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
@@ -73,9 +75,13 @@ async fn timeline_server(
 
         {
             let mut control = control_writer.next();
-            *control = frames[parameters.selected_frame]
-                .robots
-                .get(parameters.selected_robot)
+            *control = parameters
+                .selected_robot
+                .try_into()
+                .ok()
+                .and_then(|player_number| {
+                    frames[parameters.selected_frame].robots.get(&player_number)
+                })
                 .cloned()
                 .unwrap_or_default();
         }

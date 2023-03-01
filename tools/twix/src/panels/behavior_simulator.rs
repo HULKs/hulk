@@ -88,10 +88,8 @@ impl Widget for &mut BehaviorSimulatorPanel {
                         )
                         .changed()
                     {
-                        self.nao.update_parameter_value(
-                            "selected_robot",
-                            (self.selected_robot - 1).into(),
-                        );
+                        self.nao
+                            .update_parameter_value("selected_robot", self.selected_robot.into());
                     };
                 });
                 ui.checkbox(&mut self.playing, "Play");

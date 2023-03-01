@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     iter::once,
     mem::take,
     time::{Duration, UNIX_EPOCH},
@@ -8,7 +8,7 @@ use std::{
 use color_eyre::Result;
 use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, GameState, SplMessage, Team};
+use spl_network_messages::{GamePhase, GameState, PlayerNumber, SplMessage, Team};
 use structs::{control::AdditionalOutputs, Configuration};
 use types::{
     messages::{IncomingMessage, OutgoingMessage},
@@ -32,9 +32,9 @@ pub struct Ball {
 pub struct State {
     pub time_elapsed: Duration,
     pub cycle_count: usize,
-    pub robots: Vec<Robot>,
+    pub robots: HashMap<PlayerNumber, Robot>,
     pub ball: Option<Ball>,
-    pub messages: Vec<(usize, SplMessage)>,
+    pub messages: Vec<(PlayerNumber, SplMessage)>,
 
     pub finished: bool,
 
@@ -44,7 +44,7 @@ pub struct State {
 
 impl State {
     pub fn new() -> Self {
-        let robots = Vec::new();
+        let robots = HashMap::new();
 
         let game_controller_state = GameControllerState {
             game_state: GameState::Initial,
@@ -83,7 +83,7 @@ impl State {
 
         let mut events = vec![Event::Cycle];
 
-        for (index, robot) in self.robots.iter_mut().enumerate() {
+        for (player_number, robot) in self.robots.iter_mut() {
             let robot_to_field = robot
                 .database
                 .main_outputs
@@ -153,7 +153,7 @@ impl State {
             let incoming_messages: Vec<_> = incoming_messages
                 .iter()
                 .filter_map(|(sender, message)| {
-                    (*sender != index).then_some(IncomingMessage::Spl(*message))
+                    (sender != player_number).then_some(IncomingMessage::Spl(*message))
                 })
                 .collect();
             robot.database.main_outputs.game_controller_state = Some(GameControllerState {
@@ -192,7 +192,7 @@ impl State {
 
             for message in robot.interface.take_outgoing_messages() {
                 if let OutgoingMessage::Spl(message) = message {
-                    self.messages.push((index, message));
+                    self.messages.push((*player_number, message));
                     self.game_controller_state.remaining_amount_of_messages -= 1
                 }
             }
@@ -233,13 +233,12 @@ impl State {
     pub fn load_lua_state(&mut self, lua_state: LuaState) -> Result<()> {
         self.ball = lua_state.ball;
         self.cycle_count = lua_state.cycle_count;
-        while self.robots.len() < lua_state.robots.len() {
-            self.robots
-                .push(Robot::try_new(1).expect("Creating dummy robot should never fail"));
-        }
-        for (robot, lua_robot) in self.robots.iter_mut().zip(lua_state.robots.into_iter()) {
+        for lua_robot in lua_state.robots {
+            let mut robot = Robot::try_new(lua_robot.configuration.player_number)
+                .expect("Creating dummy robot should never fail");
             robot.database = lua_robot.database;
             robot.configuration = lua_robot.configuration;
+            self.robots.insert(robot.configuration.player_number, robot);
         }
 
         self.finished = lua_state.finished;
@@ -257,7 +256,7 @@ pub struct LuaState {
     pub cycle_count: usize,
     pub robots: Vec<LuaRobot>,
     pub ball: Option<Ball>,
-    pub messages: Vec<(usize, SplMessage)>,
+    pub messages: Vec<(PlayerNumber, SplMessage)>,
 
     pub finished: bool,
 
