@@ -1,5 +1,6 @@
 use std::{fs::read_to_string, path::Path, sync::Arc, time::Duration};
 
+use crate::cycler::Database;
 use mlua::{Function, Lua, LuaSerdeExt, SerializeOptions, Value};
 use nalgebra::{Isometry2, Vector2};
 use parking_lot::Mutex;
@@ -10,6 +11,10 @@ use crate::{
 };
 
 const SERIALIZE_OPTIONS: SerializeOptions = SerializeOptions::new().serialize_none_to_null(false);
+
+pub struct Frame {
+    pub robots: Vec<Database>,
+}
 
 pub struct Simulator {
     pub state: Arc<Mutex<State>>,
@@ -49,6 +54,29 @@ impl Simulator {
                 .from_value(self.lua.globals().get("state").unwrap())
                 .unwrap(),
         );
+    }
+
+    pub fn run(&mut self) -> Vec<Frame> {
+        let mut frames = Vec::new();
+        loop {
+            self.cycle();
+
+            let state = self.state.lock();
+            let robot_databases = state
+                .robots
+                .iter()
+                .map(|robot| robot.database.clone())
+                .collect();
+            frames.push(Frame {
+                robots: robot_databases,
+            });
+
+            if state.finished {
+                break;
+            }
+        }
+
+        frames
     }
 
     pub fn cycle(&mut self) {

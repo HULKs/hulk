@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{cycler::Database, simulator::Simulator};
+use crate::{cycler::Database, simulator::{Simulator, Frame}};
 use color_eyre::{eyre::bail, Result};
 use framework::{multiple_buffer_with_slots, Reader, Writer};
 use serde::{Deserialize, Serialize};
@@ -38,7 +38,7 @@ async fn timeline_server(
     outputs_changed: Arc<Notify>,
     control_writer: Writer<Database>,
     control_changed: Arc<Notify>,
-    frames: Vec<Vec<Database>>,
+    frames: Vec<Frame>,
 ) {
     // Hack to provide frame count to clients initially.
     // Can be removed if communication sends data for
@@ -59,13 +59,13 @@ async fn timeline_server(
         {
             let mut outputs = outputs_writer.next();
             outputs.main_outputs.frame_count = frames.len();
-            outputs.main_outputs.databases = frames[frame].clone();
+            outputs.main_outputs.databases = frames[frame].robots.clone();
         }
         outputs_changed.notify_waiters();
 
         {
             let mut control = control_writer.next();
-            *control = frames[frame][2].clone();
+            *control = frames[frame].robots[2].clone();
         }
         control_changed.notify_waiters();
     }
@@ -110,24 +110,9 @@ pub fn run(keep_running: CancellationToken) -> Result<()> {
 
     let mut simulator = Simulator::new();
     simulator.execute_script("test.lua");
-    let mut frames = Vec::new();
 
     let start = Instant::now();
-    loop {
-        simulator.cycle();
-
-        let state = simulator.state.lock();
-        let robot_frames = state
-            .robots
-            .iter()
-            .map(|robot| robot.database.clone())
-            .collect();
-        frames.push(robot_frames);
-
-        if state.finished {
-            break;
-        }
-    }
+    let frames = simulator.run();
     let duration = Instant::now() - start;
     println!("Took {:.2} seconds", duration.as_secs_f32());
 
