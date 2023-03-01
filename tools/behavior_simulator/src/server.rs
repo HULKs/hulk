@@ -92,7 +92,7 @@ async fn timeline_server(
 pub fn run(keep_running: CancellationToken, scenario_file: impl AsRef<Path>) -> Result<()> {
     let communication_server = communication::server::Runtime::<Configuration>::start(
         Some("[::]:1337"),
-        "tools/behavior-simulator",
+        "tools/behavior_simulator",
         "behavior_simulator".to_string(),
         "behavior_simulator".to_string(),
         2,
