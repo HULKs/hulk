@@ -48,6 +48,8 @@ Many subcommands can act on multiple robots concurrently.
 
 `logs` or and `postgame` can be used after a (test-)game to download logs, the latter also shuts down the HULKs binary and disables wifi.
 
+`gammaray` is used for flashing a HULKs-OS image to one or more robots.
+
 ## Build Options
 
 For subcommands that build a binary, you can specify a target and a build profile.

@@ -38,6 +38,10 @@ See [Nao Image and SDK](./nao_image_and_sdk.md) to learn how to acquire or build
 
 ## Flashing the Firmware
 
+You can flash the firmware both using [pepsi](../tooling/pepsi.md) or manually using an USB stick.
+
+Flashing with pepsi is done using the `gammaray` subcommand and is the preferred option. The following steps are only necessary for manual flashing with an USB stick.
+
 ### Preparing a Flash-Stick
 
 First, the firmware image has to be flashed to a USB stick.
