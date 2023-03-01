@@ -21,7 +21,8 @@ use types::FieldDimensions;
 
 #[derive(Clone, Serialize, Deserialize, SerializeHierarchy)]
 struct Configuration {
-    frame: usize,
+    selected_frame: usize,
+    selected_robot: usize,
     field_dimensions: FieldDimensions,
 }
 
@@ -61,18 +62,22 @@ async fn timeline_server(
             }
         }
 
-        let frame = parameters_reader.next().frame;
+        let parameters = parameters_reader.next();
 
         {
             let mut outputs = outputs_writer.next();
             outputs.main_outputs.frame_count = frames.len();
-            outputs.main_outputs.databases = frames[frame].robots.clone();
+            outputs.main_outputs.databases = frames[parameters.selected_frame].robots.clone();
         }
         outputs_changed.notify_waiters();
 
         {
             let mut control = control_writer.next();
-            *control = frames[frame].robots[2].clone();
+            *control = frames[parameters.selected_frame]
+                .robots
+                .get(parameters.selected_robot)
+                .cloned()
+                .unwrap_or_default();
         }
         control_changed.notify_waiters();
     }
