@@ -40,7 +40,7 @@ impl Panel for MapPanel {
         let path = EnabledLayer::new(nao.clone(), value, false);
         let behavior_simulator = EnabledLayer::new(nao.clone(), value, false);
         let robot_pose = EnabledLayer::new(nao.clone(), value, true);
-        let ball_position = EnabledLayer::new(nao.clone(), value, false);
+        let ball_position = EnabledLayer::new(nao.clone(), value, true);
         let kick_decisions = EnabledLayer::new(nao.clone(), value, false);
 
         let field_dimensions = nao.subscribe_parameter("field_dimensions");
