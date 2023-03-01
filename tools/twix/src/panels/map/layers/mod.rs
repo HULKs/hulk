@@ -1,4 +1,5 @@
 mod ball_position;
+mod behavior_simulator;
 mod field;
 mod image_segments;
 mod kick_decisions;
@@ -8,6 +9,7 @@ mod path;
 mod path_obstacles;
 mod robot_pose;
 
+pub use self::behavior_simulator::BehaviorSimulator;
 pub use ball_position::BallPosition;
 pub use field::Field;
 pub use image_segments::ImageSegments;
