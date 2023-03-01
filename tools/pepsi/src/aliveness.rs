@@ -65,6 +65,7 @@ fn print_summary(states: &AlivenessList) {
     const DISCHARGING_ICON: &str = "󰁽";
     const OS_ICON: &str = "󱑞";
     const ALL_OK_ICON: &str = "✔";
+    const UNKNOWN_CHARGE: &str = "?";
 
     for (ip, state) in states.iter() {
         let id = match ip {
@@ -82,10 +83,14 @@ fn print_summary(states: &AlivenessList) {
                 } else {
                     DISCHARGING_ICON
                 };
-
                 output.push_str(&format!("{icon} {charge}%{:SPACING$}", ""))
             }
-        }
+        } else {
+            output.push_str(&format!(
+                "{DISCHARGING_ICON}{UNKNOWN_CHARGE}{:SPACING$}",
+                ""
+            ))
+        };
 
         let version = &state.hulks_os_version;
         if version != OS_VERSION {
