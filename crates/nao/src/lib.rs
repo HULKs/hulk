@@ -37,15 +37,17 @@ impl Nao {
         command
     }
 
-    fn rsync_with_nao(&self) -> Command {
+    fn rsync_with_nao(&self, mkpath: bool) -> Command {
         let mut command = Command::new("rsync");
         let ssh_flags = self.get_ssh_flags().join(" ");
         command
             .arg("--compress")
-            .arg("--mkpath")
             .arg("--recursive")
             .arg("--times")
             .arg(format!("--rsh=ssh {ssh_flags}"));
+        if mkpath {
+            command.arg("--mkpath");
+        }
         command
     }
 
@@ -121,7 +123,7 @@ impl Nao {
         }
 
         let status = self
-            .rsync_with_nao()
+            .rsync_with_nao(true)
             .arg(format!("{}:hulk/logs/", self.host))
             .arg(local_directory.as_ref().to_str().unwrap())
             .status()
@@ -172,7 +174,7 @@ impl Nao {
         local_directory: impl AsRef<Path>,
         delete_remaining: bool,
     ) -> Result<()> {
-        let mut command = self.rsync_with_nao();
+        let mut command = self.rsync_with_nao(true);
         command
             .arg("--keep-dirlinks")
             .arg("--copy-links")
@@ -278,7 +280,7 @@ impl Nao {
 
     pub async fn flash_image(&self, image_path: impl AsRef<Path>) -> Result<()> {
         let status = self
-            .rsync_with_nao()
+            .rsync_with_nao(false)
             .arg(image_path.as_ref().to_str().unwrap())
             .arg(format!("{}:/data/.image/", self.host))
             .status()
