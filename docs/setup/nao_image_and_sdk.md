@@ -10,32 +10,15 @@ The SDK contains a full cross-compilation toolchain that is self-contained and c
 
 ## Use an Existing Yocto SDK with the HULKs Code
 
-=== "HULKs Members"
+You can just use [pepsi](../tooling/pepsi.md) to compile and upload to a booted NAO.
+Within the HULKs repository, use the following command to e.g. upload to NAO 42:
 
-    HULKs members can just use the Pepsi tool (TODO: link to Pepsi) to compile and upload to a booted NAO.
-    This needs to be done in the lab or with VPN access to the BigHULK.
-    Within the HULKs repository, use the following command to e.g. upload to NAO 42:
+```sh
+./pepsi upload 42
+```
 
-    ```sh
-    ./pepsi upload 42
-    ```
-
-    You will be asked to install the SDK during the compilation process.
-    Just choose the defaults if unsure or ask your fellow HULK.
-
-=== "Non HULKs Members"
-
-    Non HULKs members need to copy the Yocto SDK to the local downloads folder to prevent the Pepsi tool (TODO: link to Pepsi) from downloading it during compilation.
-    For instructions on how to build the image and SDK refer to the section [Image & SDK Creation](#image-sdk-creation).
-
-    ```sh
-    mkdir -p sdk/downloads/
-    cp .../HULKs-OS-toolchain-[...].sh sdk/downloads/
-    ./pepsi upload 42
-    ```
-
-    You will be asked to install the SDK during the compilation process.
-    Just choose the defaults if unsure.
+Pepsi will automatically download the SDK from the BigHULK or GitHub and ask you to install it during the compilation process.
+Just choose the defaults if unsure.
 
 ## Image & SDK Creation
 
