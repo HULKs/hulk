@@ -432,6 +432,7 @@ async fn download_with_fallback(
         let status = Command::new("curl")
             .arg("--connect-timeout")
             .arg(connect_timeout.as_secs_f32().to_string())
+            .arg("--fail")
             .arg("--location")
             .arg("--progress-bar")
             .arg("--output")
@@ -446,7 +447,7 @@ async fn download_with_fallback(
         }
     }
 
-    bail!("curl exited with status")
+    bail!("curl exited with error")
 }
 
 async fn download_image(
