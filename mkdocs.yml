@@ -77,6 +77,7 @@ nav:
           - Motion Files: robotics/motion/motion_files.md
   - Workflow:
       - Overview: workflow/overview.md
+      - Leadership: workflow/leadership.md
       - Development: workflow/development.md
       - Competition: workflow/competition.md
       - GitHub Webhooks: workflow/github_webhooks.md
