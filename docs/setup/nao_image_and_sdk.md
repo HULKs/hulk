@@ -17,8 +17,7 @@ Within the HULKs repository, use the following command to e.g. upload to NAO 42:
 ./pepsi upload 42
 ```
 
-Pepsi will automatically download the SDK from the BigHULK or GitHub and ask you to install it during the compilation process.
-Just choose the defaults if unsure.
+Pepsi will automatically download the SDK from the BigHULK (internal server only accessible in the HULKs lab network) or GitHub and ask you to install it during the compilation process.
 
 ## Image & SDK Creation
 
@@ -161,17 +160,9 @@ Thus small changes afterwards might only take a few minutes.
 
 As soon as the build has successfully finished, the image can be deployed.
 After BitBake ran all tasks up to nao-image, a new `.opn` file is generated in `build/tmp/deploy/images/nao-v6/nao-image-HULKs-OS-[...].ext3.gz.opn`.
-The image can now be flashed to a USB flash drive:
+The image can now be flashed to a NAO as described in the [NAO setup section](./nao_setup.md#flashing-the-firmware).
 
-```sh
-dd if=nao-image-HULKs-OS-[...].ext3.gz.opn.opn of=/dev/sdb status=progress
-sync
-```
-
-A RoboCupper image needs to be flashed first because the Yocto `.opn` does not flash the chestboard (which needs up-to-date software).
-Now flash the NAO with the Yocto image.
-The flashing process may take 1-3 minutes.
-It is finished if the HULA process displays a red LED animation in the eyes.
+Make sure a RoboCupper image has been flashed before flashing the first Yocto image, since the latter does not flash the chestboard (which needs up-to-date software). This step is not required for flashing subsequent Yocto images.
 
 ### Building the SDK
 
@@ -199,17 +190,18 @@ The HULKs use semantic versioning for the Yocto images and SDKs.
 This means that versions are increased depending on the severity of changes.
 The following policy exists for the HULKs:
 
--   Images have major, minor, and patch version numbers (e.g. 4.2.3), SDKs have only have major and minor (e.g. 4.2)
--   Same version numbers of images and SDKs are compatible to each other
+-   Both images and SDKs have major, minor, and patch version numbers (e.g. 4.2.3)
+-   Images and SDKs with the same major and minor version number are compatible with each other
 -   Major changes, refactorings, implementations result in the increase of the major version number
 -   Minor changes, additions and iterations result in the increase of the minor version number
 -   Changes in the image that do not require SDK recreation, result in the increase of the patch version number (which only requires to create a new image)
 
 Before building new images, the version number needs to be set in `meta-hulks/conf/distro/HULKsOS.conf`.
 Only change the `DISTRO_VERSION`, the `SDK_VERSION` is automatically derived from the `DISTRO_VERSION`.
-Once new SDKs are deployed at the BigHULKs for HULKs members or in the local downloads directory `sdk/downloads` in the HULKs repository for non HULKs members, the Pepsi tool needs to learn to use the new SDK.
-Therefore update the version in `crates/repository/src/lib.rs` in the variable `SDK_VERSION`.
-Successive builds with Pepsi will use the new version.
+
+Once a new image and/or SDK is released, pepsi needs to know the new version numbers.
+Therefore update the variables `OS_VERSION` and/or `SDK_VERSION` in `crates/constants/src/lib.rs`.
+Successive builds with pepsi will use the new version.
 
 ### Advanced: Upgrade Rust Version
 
