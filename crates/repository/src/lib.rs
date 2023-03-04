@@ -421,12 +421,13 @@ impl Repository {
 
 async fn download_with_fallback(
     output_path: impl AsRef<OsStr>,
-    urls: Vec<String>,
+    urls: impl IntoIterator<Item = impl AsRef<OsStr>>,
     connect_timeout: Duration,
 ) -> Result<()> {
-    for (i, url) in urls.iter().enumerate() {
+    for (i, url) in urls.into_iter().enumerate() {
+        let url = url.as_ref();
         if i > 0 {
-            println!("Falling back to downloading from {url}");
+            println!("Falling back to downloading from {url:?}");
         }
 
         let status = Command::new("curl")
@@ -461,7 +462,7 @@ async fn download_image(
             .context("Failed to create download directory")?;
     }
     let image_path = downloads_directory.as_ref().join(image_name);
-    let urls = vec![
+    let urls = [
         format!("http://bighulk.hulks.dev/image/{image_name}"),
         format!("https://github.com/HULKs/meta-hulks/releases/download/{version}/{image_name}"),
     ];
@@ -494,7 +495,7 @@ async fn download_sdk(
             .context("Failed to create download directory")?;
     }
     let installer_path = downloads_directory.as_ref().join(installer_name);
-    let urls = vec![
+    let urls = [
         format!("http://bighulk.hulks.dev/sdk/{installer_name}"),
         format!("https://github.com/HULKs/meta-hulks/releases/download/{version}/{installer_name}"),
     ];
