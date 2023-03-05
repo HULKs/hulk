@@ -55,7 +55,6 @@ impl Repository {
                 .ok_or_else(|| eyre!("failed to interpret path as Unicode"))?,
         )
         .wrap_err("failed to execute glob() over target directory")?
-        .into_iter()
         .map(|entry| {
             let path = entry.wrap_err("failed to get glob() entry")?;
             let metadata = path
