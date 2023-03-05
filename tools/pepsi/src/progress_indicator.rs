@@ -1,5 +1,7 @@
 use std::{borrow::Cow, fmt::Display, time::Duration};
 
+use color_eyre::Result;
+use futures_util::{stream::FuturesUnordered, Future, StreamExt};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 #[derive(Clone)]
@@ -34,6 +36,27 @@ impl ProgressIndicator {
             error_style: self.error_style.clone(),
             success_style: self.success_style.clone(),
         }
+    }
+
+    pub async fn map_tasks<T, F>(
+        items: impl IntoIterator<Item = T>,
+        message: impl Into<Cow<'static, str>> + Clone,
+        task: impl Fn(T) -> F + Copy,
+    ) where
+        T: ToString + Clone,
+        F: Future<Output = Result<()>>,
+    {
+        let multi_progress = Self::new();
+        items
+            .into_iter()
+            .map(|item| {
+                let progress = multi_progress.task(item.to_string());
+                progress.set_message(message.clone());
+                async move { progress.finish_with(task(item).await) }
+            })
+            .collect::<FuturesUnordered<_>>()
+            .collect::<Vec<_>>()
+            .await;
     }
 }
 

@@ -3,7 +3,6 @@ use clap::{
     Args,
 };
 use color_eyre::{eyre::WrapErr, Result};
-use futures_util::{stream::FuturesUnordered, StreamExt};
 
 use nao::{Nao, SystemctlAction};
 
@@ -26,31 +25,18 @@ pub struct Arguments {
 }
 
 pub async fn hulk(arguments: Arguments) -> Result<()> {
-    let multi_progress = ProgressIndicator::new();
-
-    arguments
-        .naos
-        .into_iter()
-        .map(|nao_address| {
-            let multi_progress = multi_progress.clone();
-            async move {
-                let progress = multi_progress.task(nao_address.to_string());
-                let nao = Nao::new(nao_address.ip);
-
-                progress.set_message("Executing systemctl hulk...");
-
-                progress.finish_with(
-                    nao.execute_systemctl(arguments.action, "hulk")
-                        .await
-                        .wrap_err_with(|| {
-                            format!("failed to execute systemctl hulk on {nao_address}")
-                        }),
-                )
-            }
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect::<Vec<_>>()
-        .await;
+    ProgressIndicator::map_tasks(
+        arguments.naos,
+        "Executing systemctl hulk...",
+        |nao_address| async move {
+            let nao = Nao::new(nao_address.ip);
+            nao.execute_systemctl(arguments.action, "hulk")
+                .await
+                .wrap_err_with(|| format!("failed to execute systemctl hulk on {nao_address}"))
+                .map(|_| ())
+        },
+    )
+    .await;
 
     Ok(())
 }
