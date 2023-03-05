@@ -5,7 +5,7 @@ use color_eyre::{
     eyre::{bail, WrapErr},
     Result,
 };
-use futures::future::join_all;
+use futures_util::{stream::FuturesUnordered, StreamExt};
 
 use repository::Repository;
 
@@ -43,24 +43,30 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
 
     let multi_progress = ProgressIndicator::new();
 
-    let tasks = arguments.assignments.into_iter().map(|assignment| {
-        let head_id = &hardware_ids[&assignment.nao_number.number].head_id;
-        let multi_progress = multi_progress.clone();
-        async move {
-            let progress = multi_progress.task(format!("{}", assignment.nao_number));
+    arguments
+        .assignments
+        .into_iter()
+        .map(|assignment| {
+            let head_id = &hardware_ids[&assignment.nao_number.number].head_id;
+            let multi_progress = multi_progress.clone();
+            async move {
+                let progress = multi_progress.task(format!("{}", assignment.nao_number));
 
-            progress.set_message("Setting player number...");
+                progress.set_message("Setting player number...");
 
-            progress.finish_with(
-                repository
-                    .set_player_number(head_id, assignment.player_number)
-                    .await
-                    .wrap_err_with(|| format!("failed to set player number for {assignment:?}")),
-            );
-        }
-    });
-
-    join_all(tasks).await;
+                progress.finish_with(
+                    repository
+                        .set_player_number(head_id, assignment.player_number)
+                        .await
+                        .wrap_err_with(|| {
+                            format!("failed to set player number for {assignment:?}")
+                        }),
+                );
+            }
+        })
+        .collect::<FuturesUnordered<_>>()
+        .collect::<Vec<_>>()
+        .await;
 
     Ok(())
 }

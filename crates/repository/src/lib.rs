@@ -14,7 +14,7 @@ use color_eyre::{
     Result,
 };
 use constants::SDK_VERSION;
-use futures::future::join_all;
+use futures_util::{stream::FuturesUnordered, StreamExt};
 use glob::glob;
 use home::home_dir;
 use serde::Deserialize;
@@ -345,7 +345,7 @@ impl Repository {
     }
 
     pub async fn get_configured_locations(&self) -> Result<BTreeMap<String, Option<String>>> {
-        let tasks = [
+        let results: Vec<_> = [
             "nao_location",
             "webots_location",
             "behavior_simulator_location",
@@ -358,8 +358,11 @@ impl Repository {
                     .await
                     .wrap_err_with(|| format!("failed reading location symlink for {target_name}")),
             )
-        });
-        let results = join_all(tasks).await;
+        })
+        .collect::<FuturesUnordered<_>>()
+        .collect()
+        .await;
+
         results
             .into_iter()
             .map(|(target_name, path)| match path {
