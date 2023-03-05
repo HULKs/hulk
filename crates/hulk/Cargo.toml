@@ -24,6 +24,7 @@ parking_lot = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+spl_network = { workspace = true }
 structs = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
