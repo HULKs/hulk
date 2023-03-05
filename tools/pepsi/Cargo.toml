@@ -13,7 +13,7 @@ clap_complete = { workspace = true }
 color-eyre = { workspace = true }
 colored = { workspace = true }
 constants = { workspace = true }
-futures = { workspace = true }
+futures-util = { workspace = true }
 indicatif = { workspace = true }
 nao = { workspace = true }
 regex = { workspace = true }

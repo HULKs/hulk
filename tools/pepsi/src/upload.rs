@@ -5,7 +5,7 @@ use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
 };
-use futures::future::join_all;
+use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::{Nao, SystemctlAction};
 use repository::{HardwareIds, Repository};
 
@@ -116,29 +116,33 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
 
     let multi_progress = ProgressIndicator::new();
 
-    let tasks = arguments.naos.iter().map(|nao_address| {
-        let arguments = &arguments;
-        let repository = &repository;
-        let hulk_directory = hulk_directory.clone();
-        let multi_progress = multi_progress.clone();
-        let hardware_ids = hardware_ids.clone();
-        async move {
-            let progress = multi_progress.task(nao_address.to_string());
-            progress.finish_with(
-                upload_with_progress(
-                    nao_address,
-                    hardware_ids,
-                    repository,
-                    hulk_directory,
-                    &progress,
-                    arguments,
+    arguments
+        .naos
+        .iter()
+        .map(|nao_address| {
+            let arguments = &arguments;
+            let repository = &repository;
+            let hulk_directory = hulk_directory.clone();
+            let multi_progress = multi_progress.clone();
+            let hardware_ids = hardware_ids.clone();
+            async move {
+                let progress = multi_progress.task(nao_address.to_string());
+                progress.finish_with(
+                    upload_with_progress(
+                        nao_address,
+                        hardware_ids,
+                        repository,
+                        hulk_directory,
+                        &progress,
+                        arguments,
+                    )
+                    .await,
                 )
-                .await,
-            )
-        }
-    });
-
-    join_all(tasks).await;
+            }
+        })
+        .collect::<FuturesUnordered<_>>()
+        .collect::<Vec<_>>()
+        .await;
 
     Ok(())
 }

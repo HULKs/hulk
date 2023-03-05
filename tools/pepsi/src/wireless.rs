@@ -3,7 +3,7 @@ use clap::{
     Subcommand,
 };
 use color_eyre::{eyre::WrapErr, Result};
-use futures::future::join_all;
+use futures_util::{stream::FuturesUnordered, StreamExt};
 
 use nao::{Nao, Network};
 
@@ -55,28 +55,31 @@ pub async fn wireless(arguments: Arguments) -> Result<()> {
 async fn status(naos: Vec<NaoAddress>) {
     let multi_progress = ProgressIndicator::new();
 
-    join_all(naos.into_iter().map(|nao_address| {
-        let multi_progress = multi_progress.clone();
-        async move {
-            let progress = multi_progress.task(nao_address.to_string());
-            let nao = Nao::new(nao_address.ip);
+    naos.into_iter()
+        .map(|nao_address| {
+            let multi_progress = multi_progress.clone();
+            async move {
+                let progress = multi_progress.task(nao_address.to_string());
+                let nao = Nao::new(nao_address.ip);
 
-            progress.set_message("Retrieving network status...");
-            progress.finish_with(
-                nao.get_network_status()
-                    .await
-                    .wrap_err_with(|| format!("failed to get network status from {nao_address}")),
-            );
-        }
-    }))
-    .await;
+                progress.set_message("Retrieving network status...");
+                progress.finish_with(
+                    nao.get_network_status().await.wrap_err_with(|| {
+                        format!("failed to get network status from {nao_address}")
+                    }),
+                );
+            }
+        })
+        .collect::<FuturesUnordered<_>>()
+        .collect()
+        .await
 }
 
 async fn available_networks(naos: Vec<NaoAddress>) {
     let multi_progress = ProgressIndicator::new();
 
-    let tasks =
-        naos.into_iter().map(|nao_address| {
+    naos.into_iter()
+        .map(|nao_address| {
             let multi_progress = multi_progress.clone();
             async move {
                 let progress = multi_progress.task(nao_address.to_string());
@@ -87,30 +90,33 @@ async fn available_networks(naos: Vec<NaoAddress>) {
                     format!("failed to get available networks from {nao_address}")
                 }));
             }
-        });
-
-    join_all(tasks).await;
+        })
+        .collect::<FuturesUnordered<_>>()
+        .collect::<Vec<_>>()
+        .await;
 }
 
 async fn set(naos: Vec<NaoAddress>, network: Network) -> Result<()> {
     let multi_progress = ProgressIndicator::new();
 
-    let tasks = naos.into_iter().map(|nao_address| {
-        let multi_progress = multi_progress.clone();
-        async move {
-            let progress = multi_progress.task(nao_address.to_string());
-            let nao = Nao::new(nao_address.ip);
+    naos.into_iter()
+        .map(|nao_address| {
+            let multi_progress = multi_progress.clone();
+            async move {
+                let progress = multi_progress.task(nao_address.to_string());
+                let nao = Nao::new(nao_address.ip);
 
-            progress.set_message("Retrieving available networks...");
-            progress.finish_with(
-                nao.set_network(network)
-                    .await
-                    .wrap_err_with(|| format!("failed to set network on {nao_address}")),
-            )
-        }
-    });
-
-    join_all(tasks).await;
+                progress.set_message("Retrieving available networks...");
+                progress.finish_with(
+                    nao.set_network(network)
+                        .await
+                        .wrap_err_with(|| format!("failed to set network on {nao_address}")),
+                )
+            }
+        })
+        .collect::<FuturesUnordered<_>>()
+        .collect::<Vec<_>>()
+        .await;
 
     Ok(())
 }
