@@ -187,17 +187,14 @@ impl GameState {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(
+    Default, Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy,
+)]
 pub enum Team {
     Hulks,
     Opponent,
+    #[default]
     Uncertain,
-}
-
-impl Default for Team {
-    fn default() -> Self {
-        Team::Uncertain
-    }
 }
 
 impl Team {
@@ -225,19 +222,14 @@ impl SetPlay {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Default, Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub enum SetPlay {
+    #[default]
     GoalKick,
     PushingFreeKick,
     CornerKick,
     KickIn,
     PenaltyKick,
-}
-
-impl Default for SetPlay {
-    fn default() -> Self {
-        SetPlay::GoalKick
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
