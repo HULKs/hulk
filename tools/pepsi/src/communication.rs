@@ -1,6 +1,5 @@
 use clap::Subcommand;
 use color_eyre::{eyre::WrapErr, Result};
-use futures_util::{stream::FuturesUnordered, StreamExt};
 
 use repository::Repository;
 
@@ -31,31 +30,18 @@ pub async fn communication(arguments: Arguments, repository: &Repository) -> Res
         Arguments::Disable { nao_numbers } => (false, nao_numbers),
     };
 
-    let multi_progress = ProgressIndicator::new();
-
-    nao_numbers
-        .into_iter()
-        .map(|nao_number| {
-            let multi_progress = multi_progress.clone();
-            let head_id = &hardware_ids[&nao_number.number].head_id;
-            async move {
-                let progress = multi_progress.task(format!("{}", nao_number));
-
-                progress.set_message("Setting communication...");
-
-                progress.finish_with(
-                    repository
-                        .set_communication(head_id, enable)
-                        .await
-                        .wrap_err_with(|| {
-                            format!("failed to set communication enablement for {nao_number}")
-                        }),
-                )
-            }
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect::<Vec<_>>()
-        .await;
+    ProgressIndicator::map_tasks(nao_numbers, "Setting communication...", |nao_number| {
+        let head_id = &hardware_ids[&nao_number.number].head_id;
+        async move {
+            repository
+                .set_communication(head_id, enable)
+                .await
+                .wrap_err_with(|| {
+                    format!("failed to set communication enablement for {nao_number}")
+                })
+        }
+    })
+    .await;
 
     Ok(())
 }

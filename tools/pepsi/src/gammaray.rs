@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 
 use clap::Args;
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{eyre::WrapErr, Result};
+
 use constants::OS_VERSION;
-use futures::{stream::FuturesUnordered, StreamExt};
 use nao::Nao;
 use repository::get_image_path;
 
-use crate::{parsers::NaoAddress, results::gather_results};
+use crate::{parsers::NaoAddress, progress_indicator::ProgressIndicator};
 
 #[derive(Args)]
 pub struct Arguments {
@@ -30,19 +30,17 @@ pub async fn gammaray(arguments: Arguments) -> Result<()> {
     };
     let image_path = image_path.as_path();
 
-    let results: Vec<_> = arguments
-        .naos
-        .into_iter()
-        .map(|nao_address| async move {
+    ProgressIndicator::map_tasks(
+        arguments.naos,
+        "Uploading image...",
+        |nao_address| async move {
             let nao = Nao::new(nao_address.ip);
-            println!("Starting image upload to {nao_address}");
             nao.flash_image(image_path)
                 .await
                 .wrap_err_with(|| format!("failed to flash image to {nao_address}"))
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect()
-        .await;
+        },
+    )
+    .await;
 
-    gather_results(results, "failed to execute some image flashing tasks")
+    Ok(())
 }

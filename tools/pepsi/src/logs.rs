@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Subcommand;
 use color_eyre::{eyre::WrapErr, Result};
-use futures_util::{stream::FuturesUnordered, StreamExt};
 
 use nao::Nao;
 
@@ -27,56 +26,32 @@ pub enum Arguments {
 }
 
 pub async fn logs(arguments: Arguments) -> Result<()> {
-    let multi_progress = ProgressIndicator::new();
-
     match arguments {
         Arguments::Delete { naos } => {
-            naos.into_iter()
-                .map(|nao_address| {
-                    let multi_progress = multi_progress.clone();
-                    async move {
-                        let progress = multi_progress.task(nao_address.to_string());
-                        progress.set_message("Deleting logs...");
-
-                        let nao = Nao::new(nao_address.ip);
-
-                        progress.finish_with(
-                            nao.delete_logs().await.wrap_err_with(|| {
-                                format!("failed to delete logs on {nao_address}")
-                            }),
-                        )
-                    }
-                })
-                .collect::<FuturesUnordered<_>>()
-                .collect::<Vec<_>>()
-                .await
+            ProgressIndicator::map_tasks(naos, "Deleting logs...", |nao_address| async move {
+                let nao = Nao::new(nao_address.ip);
+                nao.delete_logs()
+                    .await
+                    .wrap_err_with(|| format!("failed to delete logs on {nao_address}"))
+            })
+            .await
         }
         Arguments::Download {
             log_directory,
             naos,
         } => {
-            naos.into_iter()
-                .map(|nao_address| {
-                    let multi_progress = multi_progress.clone();
-                    let log_directory = log_directory.join(nao_address.to_string());
-                    async move {
-                        let progress = multi_progress.task(nao_address.to_string());
-                        progress.set_message("Downloading logs...");
-
-                        let nao = Nao::new(nao_address.ip);
-
-                        progress.finish_with(
-                            nao.download_logs(log_directory).await.wrap_err_with(|| {
-                                format!("failed to download logs on {nao_address}")
-                            }),
-                        )
-                    }
-                })
-                .collect::<FuturesUnordered<_>>()
-                .collect::<Vec<_>>()
-                .await
+            ProgressIndicator::map_tasks(naos, "Downloading logs...", |nao_address| {
+                let log_directory = log_directory.join(nao_address.to_string());
+                async move {
+                    let nao = Nao::new(nao_address.ip);
+                    nao.download_logs(log_directory)
+                        .await
+                        .wrap_err_with(|| format!("failed to download logs from {nao_address}"))
+                }
+            })
+            .await
         }
-    };
+    }
 
     Ok(())
 }

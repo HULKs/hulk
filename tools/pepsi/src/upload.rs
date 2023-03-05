@@ -123,10 +123,9 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
             let arguments = &arguments;
             let repository = &repository;
             let hulk_directory = hulk_directory.clone();
-            let multi_progress = multi_progress.clone();
             let hardware_ids = hardware_ids.clone();
+            let progress = multi_progress.task(nao_address.to_string());
             async move {
-                let progress = multi_progress.task(nao_address.to_string());
                 progress.finish_with(
                     upload_with_progress(
                         nao_address,

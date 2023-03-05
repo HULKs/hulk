@@ -3,7 +3,6 @@ use clap::{
     Subcommand,
 };
 use color_eyre::{eyre::WrapErr, Result};
-use futures_util::{stream::FuturesUnordered, StreamExt};
 
 use nao::{Nao, Network};
 
@@ -44,79 +43,52 @@ pub async fn wireless(arguments: Arguments) -> Result<()> {
     match arguments {
         Arguments::Status { naos } => status(naos).await,
         Arguments::List { naos } => available_networks(naos).await,
-        Arguments::Set { network, naos } => set(naos, network)
-            .await
-            .wrap_err("failed to execute set command")?,
+        Arguments::Set { network, naos } => set(naos, network).await,
     };
 
     Ok(())
 }
 
 async fn status(naos: Vec<NaoAddress>) {
-    let multi_progress = ProgressIndicator::new();
-
-    naos.into_iter()
-        .map(|nao_address| {
-            let multi_progress = multi_progress.clone();
-            async move {
-                let progress = multi_progress.task(nao_address.to_string());
-                let nao = Nao::new(nao_address.ip);
-
-                progress.set_message("Retrieving network status...");
-                progress.finish_with(
-                    nao.get_network_status().await.wrap_err_with(|| {
-                        format!("failed to get network status from {nao_address}")
-                    }),
-                );
-            }
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect()
-        .await
+    ProgressIndicator::map_tasks(
+        naos,
+        "Retrieving network status...",
+        |nao_address| async move {
+            let nao = Nao::new(nao_address.ip);
+            nao.get_network_status()
+                .await
+                .wrap_err_with(|| format!("failed to get network status from {nao_address}"))
+                .map(|_| ())
+        },
+    )
+    .await;
 }
 
 async fn available_networks(naos: Vec<NaoAddress>) {
-    let multi_progress = ProgressIndicator::new();
-
-    naos.into_iter()
-        .map(|nao_address| {
-            let multi_progress = multi_progress.clone();
-            async move {
-                let progress = multi_progress.task(nao_address.to_string());
-                let nao = Nao::new(nao_address.ip);
-
-                progress.set_message("Retrieving available networks...");
-                progress.finish_with(nao.get_available_networks().await.wrap_err_with(|| {
-                    format!("failed to get available networks from {nao_address}")
-                }));
-            }
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect::<Vec<_>>()
-        .await;
+    ProgressIndicator::map_tasks(
+        naos,
+        "Retrieving available networks...",
+        |nao_address| async move {
+            let nao = Nao::new(nao_address.ip);
+            nao.get_available_networks()
+                .await
+                .wrap_err_with(|| format!("failed to get available networks from {nao_address}"))
+                .map(|_| ())
+        },
+    )
+    .await;
 }
 
-async fn set(naos: Vec<NaoAddress>, network: Network) -> Result<()> {
-    let multi_progress = ProgressIndicator::new();
-
-    naos.into_iter()
-        .map(|nao_address| {
-            let multi_progress = multi_progress.clone();
-            async move {
-                let progress = multi_progress.task(nao_address.to_string());
-                let nao = Nao::new(nao_address.ip);
-
-                progress.set_message("Retrieving available networks...");
-                progress.finish_with(
-                    nao.set_network(network)
-                        .await
-                        .wrap_err_with(|| format!("failed to set network on {nao_address}")),
-                )
-            }
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect::<Vec<_>>()
-        .await;
-
-    Ok(())
+async fn set(naos: Vec<NaoAddress>, network: Network) {
+    ProgressIndicator::map_tasks(
+        naos,
+        "Retrieving available networks...",
+        |nao_address| async move {
+            let nao = Nao::new(nao_address.ip);
+            nao.set_network(network)
+                .await
+                .wrap_err_with(|| format!("failed to set network on {nao_address}"))
+        },
+    )
+    .await;
 }

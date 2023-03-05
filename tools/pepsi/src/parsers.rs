@@ -175,6 +175,12 @@ impl FromStr for NaoNumberPlayerAssignment {
     }
 }
 
+impl Display for NaoNumberPlayerAssignment {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        self.nao_number.fmt(formatter)
+    }
+}
+
 fn parse_assignment(input: &str) -> Result<(&str, PlayerNumber)> {
     let (prefix, player_number) = input.rsplit_once(':').ok_or_else(|| eyre!("missing `:`"))?;
     let player_number = match player_number {
