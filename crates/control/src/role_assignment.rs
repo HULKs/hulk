@@ -15,7 +15,7 @@ use types::{
     PrimaryState, Role, SensorData,
 };
 
-use crate::localization::generate_initial_pose;
+use crate::control::localization::generate_initial_pose;
 
 pub struct RoleAssignment {
     last_received_spl_striker_message: Option<SystemTime>,

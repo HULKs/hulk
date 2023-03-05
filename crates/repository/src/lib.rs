@@ -101,7 +101,7 @@ impl Repository {
                 "--workspace --all-features --all-targets ".to_string()
             } else {
                 format!(
-                    "--features {target} --manifest-path={} ",
+                    "--features {target} --bin {target} --manifest-path={} ",
                     self.root.join("crates/hulk/Cargo.toml").display()
                 )
             }
@@ -313,7 +313,7 @@ impl Repository {
 
         symlink(
             self.root
-                .join(format!("target/x86_64-aldebaran-linux-gnu/{profile}/hulk")),
+                .join(format!("target/x86_64-aldebaran-linux-gnu/{profile}/nao")),
             hulk_directory.join("bin/hulk"),
         )
         .await
