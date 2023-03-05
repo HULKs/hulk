@@ -2130,6 +2130,7 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
+ "spl_network",
  "structs",
  "tokio",
  "tokio-util",
@@ -3766,6 +3767,10 @@ dependencies = [
  "color-eyre",
  "context_attribute",
  "framework",
+ "log",
+ "serde",
+ "thiserror",
+ "tokio",
  "types",
 ]
 

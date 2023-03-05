@@ -1,7 +1,16 @@
 use std::{sync::Arc, time::SystemTime};
 
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{
+    eyre::{eyre, Error, WrapErr},
+    Result,
+};
 use parking_lot::Mutex;
+use serde::Deserialize;
+use spl_network::endpoint::{Endpoint, Ports};
+use tokio::{
+    runtime::{Builder, Runtime},
+    select,
+};
 use tokio_util::sync::CancellationToken;
 use types::{
     hardware::{self, Ids},
@@ -11,23 +20,37 @@ use types::{
     CameraPosition, Joints, Leds, SensorData,
 };
 
-use crate::network::Network;
-
 use super::{
-    camera::Camera, hula_wrapper::HulaWrapper, microphones::Microphones, parameters::Parameters,
+    camera::Camera,
+    hula_wrapper::HulaWrapper,
+    microphones::{self, Microphones},
 };
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Parameters {
+    pub microphones: microphones::Parameters,
+    pub spl_network_ports: Ports,
+    pub camera_top: nao_camera::Parameters,
+    pub camera_bottom: nao_camera::Parameters,
+}
 
 pub struct Interface {
     hula_wrapper: Mutex<HulaWrapper>,
     microphones: Mutex<Microphones>,
-    network: Network,
+    spl_network_endpoint: Endpoint,
+    async_runtime: Runtime,
     camera_top: Mutex<Camera>,
     camera_bottom: Mutex<Camera>,
+    keep_running: CancellationToken,
 }
 
 impl Interface {
     pub fn new(keep_running: CancellationToken, parameters: Parameters) -> Result<Self> {
         let i2c_head_mutex = Arc::new(Mutex::new(()));
+        let runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .wrap_err("failed to create tokio runtime")?;
 
         Ok(Self {
             hula_wrapper: Mutex::new(
@@ -37,8 +60,10 @@ impl Interface {
                 Microphones::new(parameters.microphones)
                     .wrap_err("failed to initialize microphones")?,
             ),
-            network: Network::new(keep_running, parameters.network)
-                .wrap_err("failed to initialize network")?,
+            spl_network_endpoint: runtime
+                .block_on(Endpoint::new(parameters.spl_network_ports))
+                .wrap_err("failed to initialize SPL network")?,
+            async_runtime: runtime,
             camera_top: Mutex::new(
                 Camera::new(
                     "/dev/video-top",
@@ -57,6 +82,7 @@ impl Interface {
                 )
                 .wrap_err("failed to initialize bottom camera")?,
             ),
+            keep_running,
         })
     }
 }
@@ -85,11 +111,22 @@ impl hardware::Interface for Interface {
     }
 
     fn read_from_network(&self) -> Result<IncomingMessage> {
-        self.network.read()
+        self.async_runtime.block_on(async {
+            select! {
+                result =  self.spl_network_endpoint.read() => {
+                    result.map_err(Error::from)
+                },
+                _ = self.keep_running.cancelled() => {
+                    Err(eyre!("termination requested"))
+                }
+            }
+        })
     }
 
     fn write_to_network(&self, message: OutgoingMessage) -> Result<()> {
-        self.network.write(message)
+        self.async_runtime
+            .block_on(self.spl_network_endpoint.write(message));
+        Ok(())
     }
 
     fn read_from_camera(&self, camera_position: CameraPosition) -> Result<Image> {

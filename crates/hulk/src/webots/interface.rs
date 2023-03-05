@@ -8,8 +8,14 @@ use std::{
 };
 
 use color_eyre::{
-    eyre::{bail, WrapErr},
+    eyre::{bail, eyre, Error, WrapErr},
     Result,
+};
+use serde::Deserialize;
+use spl_network::endpoint::{Endpoint, Ports};
+use tokio::{
+    runtime::{Builder, Runtime},
+    select,
 };
 use tokio_util::sync::CancellationToken;
 use types::{
@@ -21,16 +27,19 @@ use types::{
 };
 use webots::Robot;
 
-use crate::network::Network;
-
 use super::{
     camera::Camera, force_sensitive_resistor_devices::ForceSensitiveResistorDevices,
     intertial_measurement_unit_devices::InertialMeasurementUnitDevices,
     joint_devices::JointDevices, keyboard_device::KeyboardDevice,
-    sonar_sensor_devices::SonarSensorDevices, Parameters,
+    sonar_sensor_devices::SonarSensorDevices,
 };
 
 pub const SIMULATION_TIME_STEP: i32 = 10;
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Parameters {
+    pub spl_network_ports: Ports,
+}
 
 pub struct Interface {
     _robot: Robot,
@@ -42,25 +51,24 @@ pub struct Interface {
     keyboard: KeyboardDevice,
     top_camera: Camera,
     bottom_camera: Camera,
-
     top_camera_requested: AtomicBool,
     bottom_camera_requested: AtomicBool,
-
-    network: Network,
-
+    spl_network_endpoint: Endpoint,
+    async_runtime: Runtime,
     keep_running: CancellationToken,
-
     simulator_audio_synchronization: Barrier,
 }
 
 impl Interface {
-    #[allow(dead_code)]
     pub fn new(keep_running: CancellationToken, parameters: Parameters) -> Result<Self> {
         let robot = Default::default();
+        let runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .wrap_err("failed to create tokio runtime")?;
 
         Ok(Self {
             _robot: robot,
-
             inertial_measurement_unit: Default::default(),
             sonar_sensors: Default::default(),
             force_sensitive_resistors: Default::default(),
@@ -68,15 +76,13 @@ impl Interface {
             keyboard: Default::default(),
             top_camera: Camera::new(CameraPosition::Top),
             bottom_camera: Camera::new(CameraPosition::Bottom),
-
             top_camera_requested: AtomicBool::new(false),
             bottom_camera_requested: AtomicBool::new(false),
-
-            network: Network::new(keep_running.clone(), parameters.network)
-                .wrap_err("failed to initialize network")?,
-
+            spl_network_endpoint: runtime
+                .block_on(Endpoint::new(parameters.spl_network_ports))
+                .wrap_err("failed to initialize SPL network")?,
+            async_runtime: runtime,
             keep_running,
-
             simulator_audio_synchronization: Barrier::new(2),
         })
     }
@@ -319,15 +325,22 @@ impl hardware::Interface for Interface {
     }
 
     fn read_from_network(&self) -> Result<IncomingMessage> {
-        let result = self.network.read();
-        if self.keep_running.is_cancelled() {
-            bail!("termination requested");
-        }
-        result
+        self.async_runtime.block_on(async {
+            select! {
+                result =  self.spl_network_endpoint.read() => {
+                    result.map_err(Error::from)
+                },
+                _ = self.keep_running.cancelled() => {
+                    Err(eyre!("termination requested"))
+                }
+            }
+        })
     }
 
     fn write_to_network(&self, message: OutgoingMessage) -> Result<()> {
-        self.network.write(message)
+        self.async_runtime
+            .block_on(self.spl_network_endpoint.write(message));
+        Ok(())
     }
 
     fn read_from_camera(&self, camera_position: CameraPosition) -> Result<Image> {
