@@ -1,9 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    marker::{Send, Sync},
-    sync::Arc,
-    time::SystemTime,
-};
+use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
 
 use color_eyre::{eyre::Context, Result};
 use control::{
@@ -83,7 +78,7 @@ pub struct BehaviorCycler<Interface> {
 
 impl<Interface> BehaviorCycler<Interface>
 where
-    Interface: hardware::Interface + Send + Sync + 'static,
+    Interface: hardware::Interface,
 {
     pub fn new(
         hardware_interface: Arc<Interface>,

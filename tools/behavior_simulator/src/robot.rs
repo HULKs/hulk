@@ -3,7 +3,6 @@ use std::{collections::BTreeMap, convert::Into, sync::Arc, time::SystemTime};
 use color_eyre::{eyre::Context, Result};
 use communication::server::parameters::directory::deserialize;
 use control::localization::generate_initial_pose;
-use nalgebra::{Isometry2, Translation2, UnitComplex};
 use spl_network_messages::PlayerNumber;
 use structs::Configuration;
 use types::messages::IncomingMessage;
