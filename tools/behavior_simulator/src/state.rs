@@ -68,9 +68,7 @@ impl State {
             robots,
             ball: None,
             messages: Vec::new(),
-
             finished: false,
-
             game_controller_state,
             filtered_game_state: FilteredGameState::Initial,
         }
