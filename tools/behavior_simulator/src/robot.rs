@@ -1,12 +1,11 @@
 use std::{collections::BTreeMap, convert::Into, sync::Arc, time::SystemTime};
 
 use color_eyre::{eyre::Context, Result};
-use communication::server::Runtime;
+use communication::server::parameters::directory::deserialize;
+use control::localization::generate_initial_pose;
 use nalgebra::{Isometry2, Translation2, UnitComplex};
 use spl_network_messages::PlayerNumber;
 use structs::Configuration;
-use tokio::sync::Notify;
-use tokio_util::sync::CancellationToken;
 use types::messages::IncomingMessage;
 
 use crate::{
@@ -27,26 +26,23 @@ pub struct Robot {
 impl Robot {
     pub fn try_new(player_number: PlayerNumber) -> Result<Self> {
         let interface: Arc<_> = Interfake::default().into();
-        let keep_running = CancellationToken::new();
-        let communication_server = Runtime::<Configuration>::start(
-            None::<String>,
-            "etc/configuration",
-            format!("behavior_simulator{}", Into::<usize>::into(player_number)),
-            format!("behavior_simulator{}", Into::<usize>::into(player_number)),
-            2,
-            keep_running.clone(),
-        )
-        .context("failed to start communication server")?;
 
-        let mut configuration = communication_server.get_parameters_reader().next().clone();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let mut configuration: Configuration = runtime.block_on(async {
+            deserialize(
+                "etc/configuration",
+                &format!("behavior_simulator{}", Into::<usize>::into(player_number)),
+                &format!("behavior_simulator{}", Into::<usize>::into(player_number)),
+            )
+            .await
+            .wrap_err("could not load initial parameters")
+        })?;
         configuration.player_number = player_number;
 
-        let database_changed = Arc::new(Notify::new());
-        let cycler = BehaviorCycler::new(interface.clone(), database_changed, &configuration)
+        let cycler = BehaviorCycler::new(interface.clone(), Default::default(), &configuration)
             .context("failed to create cycler")?;
-
-        keep_running.cancel();
-        communication_server.join().expect("communication failed")?;
 
         let mut database = Database::default();
 
