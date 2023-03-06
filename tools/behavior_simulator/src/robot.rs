@@ -46,11 +46,9 @@ impl Robot {
 
         let mut database = Database::default();
 
-        let (y, x) = (Into::<usize>::into(player_number) as f32).sin_cos();
-        let position = Translation2::new(x * 2.0, y * 2.0);
-        database.main_outputs.robot_to_field = Some(Isometry2::from_parts(
-            position,
-            UnitComplex::from_angle(0.0),
+        database.main_outputs.robot_to_field = Some(generate_initial_pose(
+            &configuration.localization.initial_poses[player_number],
+            &configuration.field_dimensions,
         ));
 
         Ok(Self {
