@@ -255,9 +255,7 @@ pub struct LuaState {
     pub robots: Vec<LuaRobot>,
     pub ball: Option<Ball>,
     pub messages: Vec<(PlayerNumber, SplMessage)>,
-
     pub finished: bool,
-
     pub game_controller_state: GameControllerState,
     pub filtered_game_state: FilteredGameState,
 }
