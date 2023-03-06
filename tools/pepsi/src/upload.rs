@@ -127,12 +127,13 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
     arguments
         .naos
         .iter()
-        .map(|nao_address| {
+        .map(|nao_address| (nao_address, multi_progress.task(nao_address.to_string())))
+        .map(|(nao_address, progress)| {
             let arguments = &arguments;
             let head_id = get_head_id(nao_address, &hardware_ids);
             let hulk_directory = hulk_directory.clone();
-            let progress = multi_progress.task(nao_address.to_string());
 
+            progress.enable_steady_tick();
             async move {
                 match head_id {
                     Ok(head_id) => progress.finish_with(
