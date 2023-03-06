@@ -44,10 +44,6 @@ impl Nao {
         true
     }
 
-    pub fn host(&self) -> &Ipv4Addr {
-        &self.host
-    }
-
     fn get_ssh_flags(&self) -> Vec<String> {
         vec![
             "-lnao".to_string(),
