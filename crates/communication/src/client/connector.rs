@@ -314,6 +314,14 @@ pub async fn connector(
                 Message::ConnectionFailed { info } => {
                     error!("Connection failed: {}", info);
                     spawn_reconnect_timer(sender.clone());
+                    output_subscription_manager
+                        .send(output_subscription_manager::Message::Disconnect)
+                        .await
+                        .unwrap();
+                    parameter_subscription_manager
+                        .send(parameter_subscription_manager::Message::Disconnect)
+                        .await
+                        .unwrap();
                     ConnectionState::Disconnected {
                         connect: true,
                         address: Some(address),
