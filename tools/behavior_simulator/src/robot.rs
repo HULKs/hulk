@@ -19,7 +19,7 @@ pub struct Robot {
     pub database: Database,
     pub configuration: Configuration,
 
-    pub penalized: bool,
+    pub is_penalized: bool,
 }
 
 impl Robot {
@@ -53,11 +53,9 @@ impl Robot {
         Ok(Self {
             interface,
             cycler,
-
             database,
             configuration,
-
-            penalized: false,
+            is_penalized: false,
         })
     }
 

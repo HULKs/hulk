@@ -107,7 +107,7 @@ impl Simulator {
                         .robots
                         .get_mut(&player_number)
                         .unwrap()
-                        .penalized = penalized;
+                        .is_penalized = penalized;
 
                     Ok(())
                 })?,
