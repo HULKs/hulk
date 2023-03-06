@@ -62,28 +62,6 @@ impl Robot {
     }
 
     pub fn cycle(&mut self, messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>) -> Result<()> {
-        // Inputs to consider:
-        // [x] ball position
-        // [ ] fall state
-        // [x] game controller state
-        // [x] robot to field
-        // [ ] cycle time
-        // [x] messages
-        // [ ] filtered game state
-        // [ ] penalty shot direction
-        // [x] team ball
-        // [ ] has ground contact
-        // [ ] obstacles
-        // [ ] primary state
-        // [x] role
-        // [ ] world state
-
-        // config:
-        // forced role
-        // player number
-        // spl network
-        // behavior
-
         self.cycler
             .cycle(&mut self.database, &self.configuration, messages)
     }
