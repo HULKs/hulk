@@ -177,7 +177,7 @@ impl State {
                 });
 
             robot.database.main_outputs.primary_state =
-                match (robot.penalized, self.filtered_game_state) {
+                match (robot.is_penalized, self.filtered_game_state) {
                     (true, _) => PrimaryState::Penalized,
                     (false, FilteredGameState::Initial) => PrimaryState::Initial,
                     (false, FilteredGameState::Ready { .. }) => PrimaryState::Ready,
