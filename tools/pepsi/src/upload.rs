@@ -41,22 +41,30 @@ pub struct Arguments {
     pub skip_os_check: bool,
 }
 
-async fn upload_with_progress(
+fn get_head_id<'a>(
     nao_address: &NaoAddress,
-    hardware_ids: HashMap<u8, HardwareIds>,
-    repository: &Repository,
-    hulk_directory: impl AsRef<Path>,
-    progress: &Task,
-    arguments: &Arguments,
-) -> Result<()> {
+    hardware_ids: &'a HashMap<u8, HardwareIds>,
+) -> Result<&'a str> {
     let nao_number: NaoNumber = (*nao_address)
         .try_into()
         .wrap_err("failed to convert NAO address into NAO numbers")?;
-    let nao = Nao::new(nao_address.ip);
     let head_id = &hardware_ids
         .get(&nao_number.number)
         .ok_or_else(|| eyre!("no hardware ID found for {}", nao_number.number))?
         .head_id;
+
+    Ok(head_id)
+}
+
+async fn upload_with_progress(
+    nao_address: &NaoAddress,
+    head_id: &str,
+    hulk_directory: impl AsRef<Path>,
+    repository: &Repository,
+    arguments: &Arguments,
+    progress: &Task,
+) -> Result<()> {
+    let nao = Nao::new(nao_address.ip);
 
     if !arguments.skip_os_check && !nao.has_stable_os_version().await {
         return Ok(());
@@ -66,23 +74,23 @@ async fn upload_with_progress(
     repository
         .set_communication(head_id, !arguments.no_communication)
         .await
-        .wrap_err_with(|| format!("failed to set communication enablement for {nao_number}"))?;
+        .wrap_err_with(|| format!("failed to set communication enablement for {head_id}"))?;
 
     progress.set_message("Stopping HULK...");
     nao.execute_systemctl(SystemctlAction::Stop, "hulk")
         .await
-        .wrap_err_with(|| format!("failed to stop HULK service on {}", nao.host()))?;
+        .wrap_err_with(|| format!("failed to stop HULK service on {nao_address}"))?;
 
     progress.set_message("Uploading...");
     nao.upload(hulk_directory, !arguments.no_clean)
         .await
-        .wrap_err_with(|| format!("failed to power {} off", nao.host()))?;
+        .wrap_err_with(|| format!("failed to upload binary to {nao_address}"))?;
 
     if !arguments.no_restart {
         progress.set_message("Restarting HULK...");
         nao.execute_systemctl(SystemctlAction::Start, "hulk")
             .await
-            .wrap_err_with(|| format!("failed to stop HULK service on {}", nao.host()))?;
+            .wrap_err_with(|| format!("failed to stop HULK service on {nao_address}"))?;
     }
     Ok(())
 }
@@ -121,22 +129,25 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         .iter()
         .map(|nao_address| {
             let arguments = &arguments;
-            let repository = &repository;
+            let head_id = get_head_id(nao_address, &hardware_ids);
             let hulk_directory = hulk_directory.clone();
-            let hardware_ids = hardware_ids.clone();
             let progress = multi_progress.task(nao_address.to_string());
+
             async move {
-                progress.finish_with(
-                    upload_with_progress(
-                        nao_address,
-                        hardware_ids,
-                        repository,
-                        hulk_directory,
-                        &progress,
-                        arguments,
-                    )
-                    .await,
-                )
+                match head_id {
+                    Ok(head_id) => progress.finish_with(
+                        upload_with_progress(
+                            nao_address,
+                            head_id,
+                            hulk_directory,
+                            repository,
+                            arguments,
+                            &progress,
+                        )
+                        .await,
+                    ),
+                    Err(message) => progress.finish_with_error(message),
+                }
             }
         })
         .collect::<FuturesUnordered<_>>()
