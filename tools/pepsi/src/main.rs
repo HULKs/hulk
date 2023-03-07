@@ -2,6 +2,7 @@ use std::{env::current_dir, path::PathBuf};
 
 use clap::{CommandFactory, Parser, Subcommand};
 use color_eyre::{
+    config::HookBuilder,
     eyre::{bail, eyre, WrapErr},
     Result,
 };
@@ -50,6 +51,8 @@ mod wireless;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    HookBuilder::new().display_env_section(false).install()?;
+
     let arguments = Arguments::parse();
     let repository_root = match arguments.repository_root {
         Some(repository_root) => Ok(repository_root),
