@@ -14,7 +14,6 @@ color-eyre = { workspace = true }
 constants = { workspace = true }
 chrono = { workspace = true }
 ctrlc = { workspace = true }
-cyclers = { workspace = true }
 fern = { workspace = true }
 i2cdev = { workspace = true }
 log = { workspace = true }
@@ -24,10 +23,33 @@ parking_lot = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-spl_network = { workspace = true }
-structs = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
 v4l = { optional = true, workspace = true }
 webots = { optional = true, workspace = true }
+kinematics = { workspace = true }
+framework = { workspace = true }
+context_attribute = { workspace = true }
+spl_network_messages = { workspace = true }
+filtering = { workspace = true }
+thiserror = { workspace = true }
+compiled-nn = { workspace = true }
+smallvec = { workspace = true }
+ordered-float = { workspace = true }
+itertools = { workspace = true }
+approx = { workspace = true }
+serialize_hierarchy = { workspace = true }
+rustfft = { workspace = true }
+ittapi = { workspace = true }
+communication = { workspace = true }
+
+[build-dependencies]
+code_generation = { workspace = true }
+color-eyre = { workspace = true }
+convert_case = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+source_analyzer = { workspace = true }
+toml = { workspace = true }
+serde = { workspace = true }

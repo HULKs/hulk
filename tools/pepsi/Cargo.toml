@@ -24,3 +24,4 @@ source_analyzer = { workspace = true }
 spl_network_messages = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+toml = { workspace = true }

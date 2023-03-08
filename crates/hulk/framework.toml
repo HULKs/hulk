@@ -1,0 +1,84 @@
+[[cyclers]]
+name = "Vision"
+kind = "Perception"
+instances = ["Top", "Bottom"]
+module = "vision"
+nodes = [
+  { module = "image_receiver", is_setup = true },
+  { module = "ball_detection" },
+  { module = "field_border_detection" },
+  { module = "line_detection" },
+  { module = "perspective_grid_candidates_provider" },
+  { module = "robot_detection" },
+  { module = "camera_matrix_extractor" },
+  { module = "field_color_detection" },
+  { module = "image_segmenter" },
+  { module = "segment_filter" },
+]
+
+[[cyclers]]
+name = "Control"
+kind = "RealTime"
+module = "control"
+nodes = [
+  { module = "sensor_data_receiver", is_setup = true },
+  { module = "behavior::node" },
+  { module = "ball_filter" },
+  { module = "button_filter" },
+  { module = "camera_matrix_calculator" },
+  { module = "center_of_mass_provider" },
+  { module = "fall_state_estimation" },
+  { module = "game_controller_filter" },
+  { module = "game_state_filter" },
+  { module = "ground_contact_detector" },
+  { module = "ground_provider" },
+  { module = "kinematics_provider" },
+  { module = "led_status" },
+  { module = "limb_projector" },
+  { module = "localization" },
+  { module = "obstacle_filter" },
+  { module = "odometry" },
+  { module = "orientation_filter" },
+  { module = "penalty_shot_direction_estimation" },
+  { module = "primary_state_filter" },
+  { module = "role_assignment" },
+  { module = "sole_pressure_filter" },
+  { module = "sonar_filter" },
+  { module = "support_foot_estimation" },
+  { module = "whistle_filter" },
+  { module = "world_state_composer" },
+
+  { module = "motion::arms_up_squat" },
+  { module = "motion::dispatching_interpolator" },
+  { module = "motion::fall_protector" },
+  { module = "motion::head_motion" },
+  { module = "motion::joint_command_sender" },
+  { module = "motion::jump_left" },
+  { module = "motion::jump_right" },
+  { module = "motion::look_around" },
+  { module = "motion::look_at" },
+  { module = "motion::motion_selector" },
+  { module = "motion::sit_down" },
+  { module = "motion::stand_up_back" },
+  { module = "motion::stand_up_front" },
+  { module = "motion::step_planner" },
+  { module = "motion::walk_manager" },
+  { module = "motion::walking_engine" },
+]
+
+[[cyclers]]
+name = "SplNetwork"
+kind = "Perception"
+module = "spl_network"
+nodes = [
+  { module = "message_receiver", is_setup = true },
+]
+
+[[cyclers]]
+name = "Audio"
+kind = "Perception"
+module = "audio"
+nodes = [
+  { module = "microphone_recorder", is_setup = true },
+  { module = "whistle_detection" },
+]

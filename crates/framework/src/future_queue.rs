@@ -1,8 +1,6 @@
-use std::{sync::Arc, time::SystemTime};
+use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
 
 use parking_lot::Mutex;
-
-use crate::Update;
 
 struct Slot<T> {
     timestamp: Option<SystemTime>,
@@ -56,6 +54,16 @@ impl<T> Producer<T> {
         let mut slots = self.slots.lock();
         slots.last_mut().unwrap().data = Some(data);
     }
+}
+
+pub struct Update<T> {
+    pub items: Vec<Item<T>>,
+    pub first_timestamp_of_non_finalized_database: Option<SystemTime>,
+}
+
+pub trait Updates<Databases> {
+    fn first_timestamp_of_temporary_databases(&self) -> Option<SystemTime>;
+    fn push_to_databases(self, databases: &mut BTreeMap<SystemTime, Databases>);
 }
 
 pub struct Consumer<T> {

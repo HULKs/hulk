@@ -143,7 +143,7 @@ struct Arguments {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Analyze source code
+    // /// Analyze source code
     #[clap(subcommand)]
     Analyze(AnalyzeArguments),
     /// Get aliveness information from NAOs

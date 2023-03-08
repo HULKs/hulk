@@ -120,9 +120,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.68"
+version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cb2f989d18dd141ab8ae82f64d1a8cdd37e0840f73a406896cf5e99502fab61"
+checksum = "224afbd727c3d6e4b90103ece64b8d1b67fbb1973b1046c2281eed3f3803f800"
 
 [[package]]
 name = "approx"
@@ -260,18 +260,6 @@ dependencies = [
  "hermit-abi 0.1.19",
  "libc",
  "winapi",
-]
-
-[[package]]
-name = "audio"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "context_attribute",
- "filtering",
- "framework",
- "rustfft",
- "types",
 ]
 
 [[package]]
@@ -448,15 +436,6 @@ dependencies = [
  "once_cell",
  "regex-automata",
  "serde",
-]
-
-[[package]]
-name = "build_script_helpers"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "proc-macro2",
- "source_analyzer",
 ]
 
 [[package]]
@@ -726,12 +705,12 @@ dependencies = [
 name = "code_generation"
 version = "0.1.0"
 dependencies = [
- "color-eyre",
  "convert_case",
  "itertools",
  "proc-macro2",
  "quote",
  "source_analyzer",
+ "thiserror",
 ]
 
 [[package]]
@@ -895,28 +874,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "control"
-version = "0.1.0"
-dependencies = [
- "approx",
- "color-eyre",
- "context_attribute",
- "filtering",
- "framework",
- "itertools",
- "kinematics",
- "log",
- "nalgebra",
- "ordered-float",
- "serde",
- "serde_json",
- "serialize_hierarchy",
- "smallvec",
- "spl_network_messages",
- "types",
 ]
 
 [[package]]
@@ -1139,30 +1096,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "cyclers"
-version = "0.1.0"
-dependencies = [
- "audio",
- "build_script_helpers",
- "code_generation",
- "color-eyre",
- "communication",
- "control",
- "framework",
- "ittapi",
- "quote",
- "serde",
- "serialize_hierarchy",
- "source_analyzer",
- "spl_network",
- "structs",
- "tokio",
- "tokio-util",
- "types",
- "vision",
 ]
 
 [[package]]
@@ -1743,14 +1676,12 @@ dependencies = [
 name = "framework"
 version = "0.1.0"
 dependencies = [
- "build_script_helpers",
  "color-eyre",
  "convert_case",
  "parking_lot",
  "proc-macro2",
  "quote",
  "source_analyzer",
- "structs",
  "types",
 ]
 
@@ -2116,24 +2047,42 @@ name = "hulk"
 version = "0.1.0"
 dependencies = [
  "alsa",
+ "approx",
  "chrono",
+ "code_generation",
  "color-eyre",
+ "communication",
+ "compiled-nn",
  "constants",
+ "context_attribute",
+ "convert_case",
  "ctrlc",
- "cyclers",
  "fern",
+ "filtering",
+ "framework",
  "i2cdev",
+ "itertools",
+ "ittapi",
+ "kinematics",
  "log",
  "nalgebra",
  "nao_camera",
+ "ordered-float",
  "parking_lot",
+ "proc-macro2",
+ "quote",
  "rand",
+ "rustfft",
  "serde",
  "serde_json",
- "spl_network",
- "structs",
+ "serialize_hierarchy",
+ "smallvec",
+ "source_analyzer",
+ "spl_network_messages",
+ "thiserror",
  "tokio",
  "tokio-util",
+ "toml",
  "types",
  "v4l",
  "webots",
@@ -3033,6 +2982,7 @@ dependencies = [
  "spl_network_messages",
  "thiserror",
  "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -3742,12 +3692,16 @@ dependencies = [
 name = "source_analyzer"
 version = "0.1.0"
 dependencies = [
- "color-eyre",
  "convert_case",
  "glob",
+ "itertools",
  "proc-macro2",
  "quote",
+ "serde",
  "syn",
+ "thiserror",
+ "threadbound",
+ "toml",
  "topological-sort",
 ]
 
@@ -3758,20 +3712,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f6002a767bff9e83f8eeecf883ecb8011875a21ae8da43bffb817a57e78cc09"
 dependencies = [
  "lock_api",
-]
-
-[[package]]
-name = "spl_network"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "context_attribute",
- "framework",
- "log",
- "serde",
- "thiserror",
- "tokio",
- "types",
 ]
 
 [[package]]
@@ -3845,25 +3785,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "structs"
-version = "0.1.0"
-dependencies = [
- "build_script_helpers",
- "color-eyre",
- "convert_case",
- "filtering",
- "nalgebra",
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "serialize_hierarchy",
- "source_analyzer",
- "spl_network_messages",
- "types",
 ]
 
 [[package]]
@@ -3958,6 +3879,12 @@ checksum = "5516c27b78311c50bf42c071425c560ac799b11c30b31f87e3081965fe5e0180"
 dependencies = [
  "once_cell",
 ]
+
+[[package]]
+name = "threadbound"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b61d8ab119a378ae1221abf5a3d77fd9686ebaeda630f52cc00e2a50cfb061a"
 
 [[package]]
 name = "threadpool"
@@ -4350,23 +4277,6 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
-
-[[package]]
-name = "vision"
-version = "0.1.0"
-dependencies = [
- "approx",
- "color-eyre",
- "compiled-nn",
- "context_attribute",
- "filtering",
- "framework",
- "itertools",
- "nalgebra",
- "ordered-float",
- "rand",
- "types",
-]
 
 [[package]]
 name = "waker-fn"

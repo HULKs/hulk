@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use syn::{Ident, Item, UseTree};
+use syn::{File, Ident, Item, UseTree};
 
 pub type Uses = HashMap<Ident, Vec<Ident>>;
 
-pub fn uses_from_items(items: &[Item]) -> Uses {
-    items
+pub fn uses_from_file(file: &File) -> Uses {
+    file.items
         .iter()
         .filter_map(|item| match item {
             Item::Use(use_item) => Some(use_item.tree.extract_uses(vec![])),

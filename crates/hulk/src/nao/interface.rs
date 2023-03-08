@@ -6,7 +6,6 @@ use color_eyre::{
 };
 use parking_lot::Mutex;
 use serde::Deserialize;
-use spl_network::endpoint::{Endpoint, Ports};
 use tokio::{
     runtime::{Builder, Runtime},
     select,
@@ -19,6 +18,8 @@ use types::{
     samples::Samples,
     CameraPosition, Joints, Leds, SensorData,
 };
+
+use crate::spl_network::endpoint::{Endpoint, Ports};
 
 use super::{
     camera::Camera,

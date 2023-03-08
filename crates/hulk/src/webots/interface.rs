@@ -12,7 +12,6 @@ use color_eyre::{
     Result,
 };
 use serde::Deserialize;
-use spl_network::endpoint::{Endpoint, Ports};
 use tokio::{
     runtime::{Builder, Runtime},
     select,
@@ -26,6 +25,8 @@ use types::{
     CameraPosition, Joints, Leds, SensorData,
 };
 use webots::Robot;
+
+use crate::spl_network::endpoint::{Endpoint, Ports};
 
 use super::{
     camera::Camera, force_sensitive_resistor_devices::ForceSensitiveResistorDevices,

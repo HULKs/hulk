@@ -1,9 +1,17 @@
+#![recursion_limit = "256"]
 use std::io::stdout;
 
 use color_eyre::eyre::Result;
 
+mod audio;
+mod control;
+pub mod cyclers;
 #[cfg(feature = "nao")]
 pub mod nao;
+mod perception_databases;
+mod spl_network;
+mod structs;
+mod vision;
 #[cfg(feature = "webots")]
 pub mod webots;
 

@@ -5,7 +5,9 @@ use clap::Subcommand;
 use color_eyre::{eyre::WrapErr, Result};
 
 use repository::Repository;
-use source_analyzer::{parse_rust_file, Contexts, CyclerInstances, CyclerTypes, Nodes, Structs};
+use source_analyzer::{
+    contexts::Contexts, cycler::Cyclers, node::parse_rust_file, structs::Structs,
+};
 
 #[derive(Subcommand)]
 #[allow(clippy::enum_variant_names)]
@@ -20,14 +22,11 @@ pub enum Arguments {
         /// File path to a Rust file containing a module with context structs
         file_path: PathBuf,
     },
-    DumpCyclerInstances,
-    DumpCyclerTypes,
+    DumpCyclers,
     DumpLatest {
         /// File name to dump (may contain wildcard characters usable by glob())
         file_name: String,
     },
-    DumpNodes,
-    DumpSortedNodes,
     DumpStructs,
 }
 
@@ -51,22 +50,14 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> Result<()
                 .wrap_err("failed to print file")?;
         }
         Arguments::DumpContexts { file_path } => {
-            let file = parse_rust_file(&file_path).wrap_err("failed to parse rust file")?;
-            let context = Contexts::try_from_file(file_path, &file)
-                .wrap_err("failed to get contexts from rust file")?;
-            println!("{context:#?}");
+            let file = parse_rust_file(file_path).wrap_err("failed to parse rust file")?;
+            let context =
+                Contexts::try_from_file(&file).wrap_err("failed to get contexts from rust file")?;
+            println!("{context}");
         }
-        Arguments::DumpCyclerInstances => {
-            let cycler_instances =
-                CyclerInstances::try_from_crates_directory(repository.crates_directory())
-                    .wrap_err("failed to get cycler instances")?;
-            println!("{cycler_instances:#?}");
-        }
-        Arguments::DumpCyclerTypes => {
-            let cycler_types =
-                CyclerTypes::try_from_crates_directory(repository.crates_directory())
-                    .wrap_err("failed to get cycler types")?;
-            println!("{cycler_types:#?}");
+        Arguments::DumpCyclers => {
+            let cyclers = Cyclers::try_from_directory("crates/hulk/")?;
+            println!("{cyclers}");
         }
         Arguments::DumpLatest { file_name } => {
             let file_path = repository
@@ -82,20 +73,9 @@ pub async fn analyze(arguments: Arguments, repository: &Repository) -> Result<()
                 .print()
                 .wrap_err("failed to print file")?;
         }
-        Arguments::DumpNodes => {
-            let nodes = Nodes::try_from_crates_directory(repository.crates_directory())
-                .wrap_err("failed to get nodes")?;
-            println!("{nodes:#?}");
-        }
-        Arguments::DumpSortedNodes => {
-            let mut nodes = Nodes::try_from_crates_directory(repository.crates_directory())
-                .wrap_err("failed to get nodes")?;
-            nodes.sort().wrap_err("failed to sort nodes")?;
-            println!("{nodes:#?}");
-        }
         Arguments::DumpStructs => {
-            let structs = Structs::try_from_crates_directory(repository.crates_directory())
-                .wrap_err("failed to get structs")?;
+            let cyclers = Cyclers::try_from_directory("crates/hulk/")?;
+            let structs = Structs::try_from_cyclers(&cyclers)?;
             println!("{structs:#?}");
         }
     }
