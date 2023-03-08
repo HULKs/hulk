@@ -117,12 +117,7 @@ impl Widget for &mut MapPanel {
 }
 
 impl MapPanel {
-    fn apply_zoom_and_pan(
-        &mut self,
-        ui: &mut Ui,
-        painter: &mut TwixPainter,
-        response: &Response,
-    ) {
+    fn apply_zoom_and_pan(&mut self, ui: &mut Ui, painter: &mut TwixPainter, response: &Response) {
         let pointer_position = match ui.input().pointer.interact_pos() {
             Some(position) if response.rect.contains(position) => position,
             _ => return,
