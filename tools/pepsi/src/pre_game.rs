@@ -33,6 +33,9 @@ pub struct Arguments {
     /// Enable communication
     #[arg(long)]
     pub with_communication: bool,
+    /// Skip the OS version check
+    #[arg(long)]
+    pub skip_os_check: bool,
     /// The location to use for configuration
     location: String,
     /// The network to connect the wireless device to (None disconnects from anything)
@@ -44,7 +47,6 @@ pub struct Arguments {
     /// The NAOs to upload to with player number assignments e.g. 20w:2 or 10.1.24.22:5 (player numbers start from 1)
     #[arg(required = true)]
     pub assignments: Vec<NaoAddressPlayerAssignment>,
-    pub skip_os_check: bool,
 }
 
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -82,8 +84,8 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
             no_restart: arguments.no_restart,
             no_clean: arguments.no_clean,
             no_communication: !arguments.with_communication,
-            naos: naos.clone(),
             skip_os_check: arguments.skip_os_check,
+            naos: naos.clone(),
         },
         repository,
     )

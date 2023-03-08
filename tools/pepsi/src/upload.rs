@@ -2,9 +2,10 @@ use std::{collections::HashMap, path::Path};
 
 use clap::Args;
 use color_eyre::{
-    eyre::{eyre, WrapErr},
+    eyre::{bail, eyre, WrapErr},
     Result,
 };
+use constants::OS_VERSION;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::{Nao, SystemctlAction};
 use repository::{HardwareIds, Repository};
@@ -34,11 +35,12 @@ pub struct Arguments {
     /// Do not enable communication
     #[arg(long)]
     pub no_communication: bool,
+    /// Skip the OS version check
+    #[arg(long)]
+    pub skip_os_check: bool,
     /// The NAOs to upload to e.g. 20w or 10.1.24.22
     #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
-    #[arg(long)]
-    pub skip_os_check: bool,
 }
 
 fn get_head_id<'a>(
@@ -66,8 +68,15 @@ async fn upload_with_progress(
 ) -> Result<()> {
     let nao = Nao::new(nao_address.ip);
 
-    if !arguments.skip_os_check && !nao.has_stable_os_version().await {
-        return Ok(());
+    if !arguments.skip_os_check {
+        progress.set_message("Checking OS version...");
+        let os_version = nao
+            .get_os_version()
+            .await
+            .wrap_err("failed to get OS version of {nao_address}")?;
+        if os_version != OS_VERSION {
+            bail!("mismatched OS versions: Expected {OS_VERSION}, found {os_version}");
+        }
     }
 
     progress.set_message("Setting communication...");
