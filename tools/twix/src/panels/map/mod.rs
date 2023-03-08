@@ -108,19 +108,22 @@ impl Widget for &mut MapPanel {
         let _ = self.kick_decisions.paint(&painter, &field_dimensions);
 
         if let Some(pointer_position) = ui.input().pointer.interact_pos() {
-            let pointer_in_world_before_zoom = painter.transform_pixel_to_world(pointer_position);
-            let zoom_factor = 1.01_f32.powf(ui.input().scroll_delta.y);
-            let zoom_transform = Similarity2::from_scaling(zoom_factor);
-            painter.append_transform(zoom_transform);
-            let pointer_in_pixel_after_zoom =
-                painter.transform_world_to_pixel(pointer_in_world_before_zoom);
-            let shift_from_zoom = pointer_position - pointer_in_pixel_after_zoom;
-            let pixel_drag = vector![response.drag_delta().x, response.drag_delta().y];
-            self.transformation.append_scaling_mut(zoom_factor);
-            self.transformation
-                .append_translation_mut(&Translation2::from(
-                    pixel_drag + vector![shift_from_zoom.x, shift_from_zoom.y],
-                ));
+            if response.rect.contains(pointer_position) {
+                let pointer_in_world_before_zoom =
+                    painter.transform_pixel_to_world(pointer_position);
+                let zoom_factor = 1.01_f32.powf(ui.input().scroll_delta.y);
+                let zoom_transform = Similarity2::from_scaling(zoom_factor);
+                painter.append_transform(zoom_transform);
+                let pointer_in_pixel_after_zoom =
+                    painter.transform_world_to_pixel(pointer_in_world_before_zoom);
+                let shift_from_zoom = pointer_position - pointer_in_pixel_after_zoom;
+                let pixel_drag = vector![response.drag_delta().x, response.drag_delta().y];
+                self.transformation.append_scaling_mut(zoom_factor);
+                self.transformation
+                    .append_translation_mut(&Translation2::from(
+                        pixel_drag + vector![shift_from_zoom.x, shift_from_zoom.y],
+                    ));
+            }
         }
 
         if response.double_clicked() {
