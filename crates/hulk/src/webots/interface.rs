@@ -20,7 +20,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use types::{
     hardware::{self, Ids},
-    image::Image,
+    image::NaoImage,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
     CameraPosition, Joints, Leds, SensorData,
@@ -343,7 +343,7 @@ impl hardware::Interface for Interface {
         Ok(())
     }
 
-    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<Image> {
+    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<NaoImage> {
         let result = match camera_position {
             CameraPosition::Top => {
                 self.top_camera_requested.store(true, Ordering::SeqCst);
