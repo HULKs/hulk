@@ -33,7 +33,6 @@ pub async fn hulk(arguments: Arguments) -> Result<()> {
             nao.execute_systemctl(arguments.action, "hulk")
                 .await
                 .wrap_err_with(|| format!("failed to execute systemctl hulk on {nao_address}"))
-                .map(|_| ())
         },
     )
     .await;
