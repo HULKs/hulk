@@ -14,7 +14,8 @@ use std::{
 };
 
 use image::{
-    codecs::jpeg::JpegEncoder, io::Reader, load_from_memory_with_format, ImageFormat, RgbImage,
+    codecs::jpeg::JpegEncoder, io::Reader, load_from_memory_with_format, GrayImage, ImageBuffer,
+    ImageFormat, Luma, RgbImage,
 };
 use nalgebra::Point2;
 
@@ -28,7 +29,7 @@ const SERIALIZATION_JPEG_QUALITY: u8 = 40;
 pub struct NaoImage {
     width_422: u32,
     height: u32,
-    buffer: Arc<Vec<YCbCr422>>,
+    pub buffer: Arc<Vec<YCbCr422>>,
 }
 
 impl SerializeHierarchy for NaoImage {
@@ -300,6 +301,23 @@ impl EncodeJpeg for NaoImage {
             .encode_image(&rgb_image)
             .expect("failed to encode image");
         jpeg_buffer
+    }
+}
+
+#[derive(Clone, Default, Deserialize, Debug, SerializeHierarchy)]
+pub struct YImage {
+    width: u32,
+    height: u32,
+    buffer: Arc<Vec<u8>>,
+}
+
+impl YImage {
+    pub fn from_vec(width: u32, height: u32, buffer: Vec<u8>) -> Self {
+        Self {
+            width,
+            height,
+            buffer: Arc::new(buffer),
+        }
     }
 }
 
