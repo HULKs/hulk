@@ -79,7 +79,11 @@ impl From<()> for TaskMessage {
 
 impl From<String> for TaskMessage {
     fn from(value: String) -> Self {
-        Self::Message(value)
+        if value.is_empty() {
+            Self::EmptyMessage
+        } else {
+            Self::Message(value)
+        }
     }
 }
 

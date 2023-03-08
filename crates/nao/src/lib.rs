@@ -90,8 +90,8 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn execute_systemctl(&self, action: SystemctlAction, unit: &str) -> Result<i32> {
-        let status = self
+    pub async fn execute_systemctl(&self, action: SystemctlAction, unit: &str) -> Result<String> {
+        let output = self
             .ssh_to_nao()
             .arg("systemctl")
             .arg(match action {
@@ -103,18 +103,24 @@ impl Nao {
                 SystemctlAction::Stop => "stop",
             })
             .arg(unit)
-            .status()
+            .output()
             .await
             .wrap_err("failed to execute systemctl ssh command")?;
 
-        let only_check_for_non_status_action = !matches!(action, SystemctlAction::Status);
-        if only_check_for_non_status_action && !status.success() {
-            bail!("systemctl ssh command exited with {status}");
+        let status = output.status;
+
+        if !status.success() {
+            let systemctl_status_successful = matches!(action, SystemctlAction::Status)
+                && status
+                    .code()
+                    .ok_or_else(|| eyre!("failed to extract exit code from {status:?}"))?
+                    != 255;
+            if !systemctl_status_successful {
+                bail!("systemctl ssh command exited with {status}");
+            }
         }
 
-        status
-            .code()
-            .ok_or_else(|| eyre!("failed to extract exit code from {status:?}"))
+        String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")
     }
 
     pub async fn delete_logs(&self) -> Result<()> {
