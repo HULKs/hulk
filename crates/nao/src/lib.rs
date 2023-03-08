@@ -11,7 +11,7 @@ use color_eyre::{
     Result,
 };
 use tokio::process::Command;
-use hulks_os_version::HULKS_OS_VERSION;
+use constants::OS_VERSION;
 
 pub struct Nao {
     pub host: Ipv4Addr,
@@ -34,13 +34,13 @@ impl Nao {
 	    println!("No version on {} detected!", self.host);
 	    return false
 	};
-	if os_version != HULKS_OS_VERSION {
+	if os_version != OS_VERSION {
 	    println!("Unstable version on {}", self.host);
             println!("Use '--skip-has-stable-os-version' if you still want to proceed");
-            println!("Installed OS: {os_version}, stable OS: {HULKS_OS_VERSION}");
+            println!("Installed OS: {os_version}, stable OS: {OS_VERSION}");
         }
 	
-        os_version == HULKS_OS_VERSION
+        os_version == OS_VERSION
     }
 
     fn get_ssh_flags(&self) -> Vec<String> {

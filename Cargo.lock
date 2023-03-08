@@ -2178,10 +2178,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hulks_os_version"
-version = "0.1.0"
-
-[[package]]
 name = "humantime"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2595,7 +2591,7 @@ name = "nao"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "hulks_os_version",
+ "constants",
  "tokio",
 ]
 
