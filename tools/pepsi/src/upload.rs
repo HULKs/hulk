@@ -93,7 +93,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         async move {
             let nao = Nao::new(nao_address.ip);
 
-            if !arguments.skip_check_os && !nao.has_stable_os_version().await {
+            if !arguments.skip_os_check && !nao.has_stable_os_version().await {
 		return Ok(());
             }
 	    
