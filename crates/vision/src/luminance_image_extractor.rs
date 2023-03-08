@@ -17,7 +17,6 @@ pub struct CreationContext {}
 pub struct CycleContext {
     pub instance: CyclerInstance,
     pub image: Input<Image, "image">,
-    pub duration: AdditionalOutput<f32, "luminance_image_extractor_timing">,
 }
 
 #[context]
@@ -31,7 +30,6 @@ impl LuminanceImageExtractor {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let start_time = Instant::now();
         let grayscale_buffer: Vec<_> = context
             .image
             .buffer
@@ -56,8 +54,6 @@ impl LuminanceImageExtractor {
             .unwrap();
         let luminance_image =
             YImage::from_vec(dst_width.get(), dst_height.get(), dst_image.into_vec());
-        let took = Instant::now() - start_time;
-        context.duration.fill_if_subscribed(|| took.as_secs_f32());
         Ok(MainOutputs {
             luminance_image: luminance_image.into(),
         })
