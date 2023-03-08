@@ -2,12 +2,9 @@ use std::{num::NonZeroU32, time::Instant};
 
 use color_eyre::Result;
 use context_attribute::context;
-use fast_image_resize::{DynamicImageView, FilterType, ImageView, PixelType, ResizeAlg, Resizer};
+use fast_image_resize::{DynamicImageView, FilterType, ImageView, ResizeAlg, Resizer};
 use framework::{AdditionalOutput, MainOutput};
-use types::{
-    hardware::Interface,
-    image::{Image, YImage},
-};
+use types::image::{Image, YImage};
 
 use crate::CyclerInstance;
 

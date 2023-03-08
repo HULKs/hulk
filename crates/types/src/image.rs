@@ -14,8 +14,8 @@ use std::{
 };
 
 use image::{
-    codecs::jpeg::JpegEncoder, io::Reader, load_from_memory_with_format, GrayImage, ImageBuffer,
-    ImageFormat, Luma, RgbImage,
+    codecs::jpeg::JpegEncoder, io::Reader, load_from_memory_with_format, ImageBuffer, ImageFormat,
+    Luma, RgbImage,
 };
 use nalgebra::Point2;
 
