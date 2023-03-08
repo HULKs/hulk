@@ -5,7 +5,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{point, vector, Point2, Vector2};
 use types::{
-    image::Image, CameraMatrix, Circle, FilteredSegments, LineData, PerspectiveGridCandidates,
+    image::NaoImage, CameraMatrix, Circle, FilteredSegments, LineData, PerspectiveGridCandidates,
     ScanLine, Segment,
 };
 
@@ -25,7 +25,7 @@ pub struct CycleContext {
     pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     pub filtered_segments: Input<FilteredSegments, "filtered_segments">,
     pub line_data: RequiredInput<Option<LineData>, "line_data?">,
-    pub image: Input<Image, "image">,
+    pub image: Input<NaoImage, "image">,
 
     pub ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
     pub fallback_radius:

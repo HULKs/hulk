@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{image::Image, CameraMatrices, CameraMatrix};
+use types::{image::NaoImage, CameraMatrices, CameraMatrix};
 
 use crate::CyclerInstance;
 
@@ -13,7 +13,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
-    pub image: Input<Image, "image">, // required for correct node order
+    pub image: Input<NaoImage, "image">, // required for correct node order
     pub instance: CyclerInstance,
 }
 

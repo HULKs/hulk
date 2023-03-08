@@ -3,7 +3,7 @@ use std::{fmt::Debug, time::SystemTime};
 use color_eyre::Result;
 
 use crate::{
-    image::Image,
+    image::NaoImage,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
 };
@@ -21,7 +21,7 @@ pub trait Interface {
     fn read_from_network(&self) -> Result<IncomingMessage>;
     fn write_to_network(&self, message: OutgoingMessage) -> Result<()>;
 
-    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<Image>;
+    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<NaoImage>;
 }
 
 #[derive(Clone, Debug)]

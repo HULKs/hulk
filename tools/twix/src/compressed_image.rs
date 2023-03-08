@@ -155,13 +155,13 @@ impl<'de> Deserialize<'de> for CompressedImage {
 #[cfg(test)]
 mod tests {
     use bincode::{deserialize, serialize};
-    use types::{image::Image, YCbCr422};
+    use types::{image::NaoImage, YCbCr422};
 
     use super::*;
 
     #[test]
     fn raw_image_can_deserialize_image_data() {
-        let image = Image::from_ycbcr_buffer(
+        let image = NaoImage::from_ycbcr_buffer(
             1,
             1,
             vec![YCbCr422 {

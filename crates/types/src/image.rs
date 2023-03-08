@@ -26,13 +26,13 @@ use super::color::YCbCr422;
 const SERIALIZATION_JPEG_QUALITY: u8 = 40;
 
 #[derive(Clone, Default, SerializeHierarchy)]
-pub struct Image {
+pub struct NaoImage {
     width_422: u32,
     height: u32,
     buffer: Arc<Vec<YCbCr422>>,
 }
 
-impl Debug for Image {
+impl Debug for NaoImage {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         struct DebugBuffer {
             buffer_length: usize,
@@ -66,7 +66,7 @@ impl Debug for Image {
     }
 }
 
-impl Image {
+impl NaoImage {
     pub fn zero(width: u32, height: u32) -> Self {
         assert!(
             width % 2 == 0,
@@ -197,7 +197,7 @@ impl Image {
     }
 }
 
-impl Index<(usize, usize)> for Image {
+impl Index<(usize, usize)> for NaoImage {
     type Output = YCbCr422;
 
     fn index(&self, (x, y): (usize, usize)) -> &Self::Output {
@@ -205,7 +205,7 @@ impl Index<(usize, usize)> for Image {
     }
 }
 
-impl Index<Point2<usize>> for Image {
+impl Index<Point2<usize>> for NaoImage {
     type Output = YCbCr422;
 
     fn index(&self, position: Point2<usize>) -> &Self::Output {
@@ -269,7 +269,7 @@ fn buffer_422_from_rgb_image(rgb_image: RgbImage) -> Vec<YCbCr422> {
         .collect()
 }
 
-impl Serialize for Image {
+impl Serialize for NaoImage {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -298,7 +298,7 @@ impl Serialize for Image {
     }
 }
 
-impl<'de> Deserialize<'de> for Image {
+impl<'de> Deserialize<'de> for NaoImage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -354,7 +354,7 @@ impl<'de> Deserialize<'de> for Image {
         }
 
         impl<'de> Visitor<'de> for ImageVisitor {
-            type Value = Image;
+            type Value = NaoImage;
 
             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
                 formatter.write_str("struct Image")
@@ -385,7 +385,7 @@ impl<'de> Deserialize<'de> for Image {
                     Arc::new(buffer_422_from_rgb_image(rgb_image))
                 };
 
-                Ok(Image {
+                Ok(NaoImage {
                     width_422,
                     height,
                     buffer,
@@ -438,7 +438,7 @@ impl<'de> Deserialize<'de> for Image {
                 let height = height.ok_or_else(|| de::Error::missing_field("height"))?;
                 let buffer = buffer.ok_or_else(|| de::Error::missing_field("buffer"))?;
 
-                Ok(Image {
+                Ok(NaoImage {
                     width_422,
                     height,
                     buffer,
@@ -462,20 +462,20 @@ mod tests {
 
     #[test]
     fn image_has_zero_constructor() {
-        let image = Image::zero(10, 12);
+        let image = NaoImage::zero(10, 12);
         assert!(image.buffer.iter().all(|&x| x == YCbCr422::default()));
     }
 
     #[test]
     fn image_has_width_and_height() {
-        let image = Image::zero(10, 12);
+        let image = NaoImage::zero(10, 12);
         assert_eq!(image.width(), 10);
         assert_eq!(image.height(), 12);
     }
 
     #[test]
     fn image_can_be_indexed() {
-        let image = Image::from_ycbcr_buffer(
+        let image = NaoImage::from_ycbcr_buffer(
             2,
             2,
             vec![
@@ -502,7 +502,7 @@ mod tests {
     }
 
     #[derive(Debug, Deserialize, Serialize)]
-    struct ImageTestingWrapper(Image);
+    struct ImageTestingWrapper(NaoImage);
 
     impl PartialEq for ImageTestingWrapper {
         fn eq(&self, other: &Self) -> bool {
@@ -534,7 +534,7 @@ mod tests {
 
     #[test]
     fn compact_image_serialization() {
-        let image = ImageTestingWrapper(Image {
+        let image = ImageTestingWrapper(NaoImage {
             width_422: 1,
             height: 1,
             buffer: Arc::new(vec![YCbCr422 {
@@ -581,7 +581,7 @@ mod tests {
 
     #[test]
     fn readable_image_serialization() {
-        let image = ImageTestingWrapper(Image {
+        let image = ImageTestingWrapper(NaoImage {
             width_422: 1,
             height: 1,
             buffer: Arc::new(vec![YCbCr422 {
@@ -629,7 +629,7 @@ mod tests {
 
     #[test]
     fn compact_serialization_and_deserialization_result_in_equality() {
-        let image = ImageTestingWrapper(Image {
+        let image = ImageTestingWrapper(NaoImage {
             width_422: 1,
             height: 1,
             buffer: Arc::new(vec![YCbCr422 {

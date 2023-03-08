@@ -10,7 +10,7 @@ use color_eyre::{
 };
 use nao_camera::{reset_camera_device, Camera as NaoCamera, Parameters, PollingError};
 use parking_lot::Mutex;
-use types::{image::Image, CameraPosition};
+use types::{image::NaoImage, CameraPosition};
 
 pub struct Camera {
     camera: Option<NaoCamera>,
@@ -38,7 +38,7 @@ impl Camera {
         Ok(camera)
     }
 
-    pub fn read(&mut self) -> Result<Image> {
+    pub fn read(&mut self) -> Result<NaoImage> {
         self.wait_for_device()
             .wrap_err("failed to wait for device")?;
         let camera = self.camera.as_mut().unwrap();
@@ -52,7 +52,7 @@ impl Camera {
                 }
             ])
             .wrap_err("failed to queue buffer")?;
-        Ok(Image::from_raw_buffer(
+        Ok(NaoImage::from_raw_buffer(
             self.parameters.width / 2,
             self.parameters.height,
             buffer,

@@ -6,7 +6,7 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::point;
 use types::{
     configuration::{EdgeDetectionSource, MedianMode},
-    image::Image,
+    image::NaoImage,
     is_above_limbs, CameraMatrix, EdgeType, FieldColor, Horizon, ImageSegments, Intensity, Limb,
     ProjectedLimbs, Rgb, RgbChannel, ScanGrid, ScanLine, Segment, YCbCr444,
 };
@@ -22,7 +22,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     pub image_segmenter_cycle_time: AdditionalOutput<Duration, "image_segmenter_cycle_time">,
 
-    pub image: Input<Image, "image">,
+    pub image: Input<NaoImage, "image">,
 
     pub camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
     pub field_color: Input<FieldColor, "field_color">,
@@ -90,7 +90,7 @@ impl ImageSegmenter {
 
 #[allow(clippy::too_many_arguments)]
 fn new_grid(
-    image: &Image,
+    image: &NaoImage,
     horizon: &Horizon,
     field_color: &FieldColor,
     horizontal_stride: usize,
@@ -179,7 +179,7 @@ fn median_of_five(first: u8, second: u8, third: u8, fourth: u8, fifth: u8) -> u8
 
 #[allow(clippy::too_many_arguments)]
 fn new_vertical_scan_line(
-    image: &Image,
+    image: &NaoImage,
     field_color: &FieldColor,
     position: u32,
     stride: usize,
@@ -315,7 +315,7 @@ fn pixel_to_edge_detection_value(
 
 fn set_color_in_vertical_segment(
     mut segment: Segment,
-    image: &Image,
+    image: &NaoImage,
     x: u32,
     field_color: &FieldColor,
 ) -> Segment {
@@ -485,9 +485,10 @@ mod tests {
 
     #[test]
     fn maximum_with_sign_switch() {
-        let image =
-            Image::load_from_444_png("../../tests/data/white_wall_with_a_little_desk_in_front.png")
-                .unwrap();
+        let image = NaoImage::load_from_444_png(
+            "../../tests/data/white_wall_with_a_little_desk_in_front.png",
+        )
+        .unwrap();
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
@@ -522,7 +523,7 @@ mod tests {
 
     #[test]
     fn image_with_one_vertical_segment_without_median() {
-        let image = Image::zero(6, 3);
+        let image = NaoImage::zero(6, 3);
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
@@ -549,7 +550,7 @@ mod tests {
 
     #[test]
     fn image_with_one_vertical_segment_with_median() {
-        let image = Image::zero(6, 3);
+        let image = NaoImage::zero(6, 3);
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
@@ -576,7 +577,7 @@ mod tests {
 
     #[test]
     fn image_vertical_color_three_pixels() {
-        let image = Image::from_ycbcr_buffer(
+        let image = NaoImage::from_ycbcr_buffer(
             1,
             3,
             vec![
@@ -614,7 +615,7 @@ mod tests {
 
     #[test]
     fn image_vertical_color_twelve_pixels() {
-        let image = Image::from_ycbcr_buffer(
+        let image = NaoImage::from_ycbcr_buffer(
             1,
             12,
             vec![
@@ -660,7 +661,7 @@ mod tests {
 
     #[test]
     fn image_with_three_vertical_increasing_segments_without_median() {
-        let image = Image::from_ycbcr_buffer(
+        let image = NaoImage::from_ycbcr_buffer(
             1,
             12,
             vec![
@@ -723,7 +724,7 @@ mod tests {
 
     #[test]
     fn image_with_three_vertical_increasing_segments_with_median() {
-        let image = Image::from_ycbcr_buffer(
+        let image = NaoImage::from_ycbcr_buffer(
             1,
             12,
             vec![
@@ -797,7 +798,7 @@ mod tests {
 
     #[test]
     fn image_with_three_vertical_decreasing_segments_without_median() {
-        let image = Image::from_ycbcr_buffer(
+        let image = NaoImage::from_ycbcr_buffer(
             1,
             12,
             vec![
@@ -866,7 +867,7 @@ mod tests {
 
     #[test]
     fn image_with_three_vertical_decreasing_segments_with_median() {
-        let image = Image::from_ycbcr_buffer(
+        let image = NaoImage::from_ycbcr_buffer(
             1,
             12,
             vec![
@@ -941,7 +942,7 @@ mod tests {
 
     #[test]
     fn image_with_three_vertical_segments_with_higher_differences_without_median() {
-        let image = Image::from_ycbcr_buffer(
+        let image = NaoImage::from_ycbcr_buffer(
             1,
             44,
             vec![
@@ -1083,7 +1084,7 @@ mod tests {
 
     #[test]
     fn image_with_three_vertical_segments_with_higher_differences_with_median() {
-        let image = Image::from_ycbcr_buffer(
+        let image = NaoImage::from_ycbcr_buffer(
             1,
             44,
             vec![
@@ -1269,7 +1270,7 @@ mod tests {
 
     #[test]
     fn image_with_one_vertical_segment_with_increasing_differences_without_median() {
-        let image = Image::from_ycbcr_buffer(
+        let image = NaoImage::from_ycbcr_buffer(
             1,
             16,
             vec![
@@ -1334,7 +1335,7 @@ mod tests {
 
     #[test]
     fn image_with_one_vertical_segment_with_increasing_differences_with_median() {
-        let image = Image::from_ycbcr_buffer(
+        let image = NaoImage::from_ycbcr_buffer(
             1,
             16,
             vec![
