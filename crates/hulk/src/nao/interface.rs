@@ -5,7 +5,7 @@ use parking_lot::Mutex;
 use tokio_util::sync::CancellationToken;
 use types::{
     hardware::{self, Ids},
-    image::Image,
+    image::NaoImage,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
     CameraPosition, Joints, Leds, SensorData,
@@ -92,7 +92,7 @@ impl hardware::Interface for Interface {
         self.network.write(message)
     }
 
-    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<Image> {
+    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<NaoImage> {
         match camera_position {
             CameraPosition::Top => self.camera_top.lock().read(),
             CameraPosition::Bottom => self.camera_bottom.lock().read(),

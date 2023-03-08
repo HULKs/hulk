@@ -10,7 +10,7 @@ use color_eyre::{
     Result,
 };
 use parking_lot::{Condvar, Mutex};
-use types::{image::Image, CameraPosition, YCbCr422};
+use types::{image::NaoImage, CameraPosition, YCbCr422};
 use webots::Robot;
 
 use super::interface::SIMULATION_TIME_STEP;
@@ -63,7 +63,7 @@ impl Camera {
         self.buffer_updated.notify_all();
     }
 
-    pub fn read(&self) -> Result<Image> {
+    pub fn read(&self) -> Result<NaoImage> {
         let bgra_buffer = {
             let mut bgra_buffer = self.buffer.lock();
             self.buffer_updated.wait(&mut bgra_buffer);
@@ -82,7 +82,7 @@ impl Camera {
             320 * 480
         ];
         bgra_444_to_ycbcr_422(&bgra_buffer, &mut ycbcr_buffer);
-        Ok(Image::from_ycbcr_buffer(320, 480, ycbcr_buffer))
+        Ok(NaoImage::from_ycbcr_buffer(320, 480, ycbcr_buffer))
     }
 }
 
