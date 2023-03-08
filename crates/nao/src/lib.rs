@@ -31,16 +31,17 @@ impl Nao {
             .unwrap();
         let stdout = from_utf8(&output.stdout).unwrap();
         let Some(os_version) = extract_version_number(stdout) else {
-        println!("No version on {} detected!", self.host);
-        return false
+            println!("No version on {} detected!", self.host);
+            return false;
         };
         if os_version != OS_VERSION {
             println!("Unstable version on {}", self.host);
             println!("Use '--skip-has-stable-os-version' if you still want to proceed");
             println!("Installed OS: {os_version}, stable OS: {OS_VERSION}");
+            return false;
         }
 
-        os_version == OS_VERSION
+        true
     }
 
     fn get_ssh_flags(&self) -> Vec<String> {
