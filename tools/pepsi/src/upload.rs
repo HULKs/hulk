@@ -36,7 +36,7 @@ pub struct Arguments {
     #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
     #[arg(long)]
-    pub skip_has_stable_os_version: bool,
+    pub skip_os_check: bool,
 }
 
 pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -93,7 +93,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         async move {
             let nao = Nao::new(nao_address.ip);
 
-            if !arguments.skip_has_stable_os_version && !nao.has_stable_os_version().await {
+            if !arguments.skip_check_os && !nao.has_stable_os_version().await {
 		return Ok(());
             }
 	    
