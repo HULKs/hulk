@@ -5,13 +5,13 @@ use std::{
 };
 
 use std::str::from_utf8;
-    
+
 use color_eyre::{
     eyre::{bail, eyre, WrapErr},
     Result,
 };
-use tokio::process::Command;
 use constants::OS_VERSION;
+use tokio::process::Command;
 
 pub struct Nao {
     host: Ipv4Addr,
@@ -29,17 +29,17 @@ impl Nao {
             .output()
             .await
             .unwrap();
-	let stdout = from_utf8(&output.stdout).unwrap();
-	let Some(os_version) = extract_version_number(stdout) else {
-	    println!("No version on {} detected!", self.host);
-	    return false
-	};
-	if os_version != OS_VERSION {
-	    println!("Unstable version on {}", self.host);
+        let stdout = from_utf8(&output.stdout).unwrap();
+        let Some(os_version) = extract_version_number(stdout) else {
+        println!("No version on {} detected!", self.host);
+        return false
+        };
+        if os_version != OS_VERSION {
+            println!("Unstable version on {}", self.host);
             println!("Use '--skip-has-stable-os-version' if you still want to proceed");
             println!("Installed OS: {os_version}, stable OS: {OS_VERSION}");
         }
-	
+
         os_version == OS_VERSION
     }
 
@@ -128,7 +128,7 @@ impl Nao {
             .wrap_err("failed to remove the log directory")?;
 
         if !status.success() {
-	    bail!("rm ssh command exited with {status}");
+            bail!("rm ssh command exited with {status}");
         }
 
         Ok(())
@@ -352,21 +352,21 @@ impl Display for Network {
     }
 }
 
-fn extract_version_number(input:&str) -> Option<String>{
+fn extract_version_number(input: &str) -> Option<String> {
     let lines = input.lines();
-        for line in lines {
-            if line.contains("VERSION_ID") {
-                let Some((_, os_version)) = line.split_once('=') else { continue; };
-		return Some(os_version.to_string());
-            }
+    for line in lines {
+        if line.contains("VERSION_ID") {
+            let Some((_, os_version)) = line.split_once('=') else { continue; };
+            return Some(os_version.to_string());
         }
-   None
+    }
+    None
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    
+
     #[test]
     fn matches_stable_os_version() {
         let input = r#"ID=hulks-os

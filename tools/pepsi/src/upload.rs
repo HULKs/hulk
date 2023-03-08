@@ -14,13 +14,13 @@ use crate::{
 };
 
 #[derive(Args)]
-pub struct Arguments { 
+pub struct Arguments {
     #[arg(long, default_value = "incremental")]
     pub profile: String,
     /// Do not update nor install SDK
     #[arg(long)]
     pub no_sdk_installation: bool,
-      /// Do not build before uploading
+    /// Do not build before uploading
     #[arg(long)]
     pub no_build: bool,
     /// Do not restart HULK nor HULA service after uploading
@@ -94,9 +94,9 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
             let nao = Nao::new(nao_address.ip);
 
             if !arguments.skip_os_check && !nao.has_stable_os_version().await {
-		return Ok(());
+                return Ok(());
             }
-	    
+
             println!("Starting upload to {nao_address}");
             nao.upload(hulk_directory, !arguments.no_clean)
                 .await
