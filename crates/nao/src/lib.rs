@@ -14,7 +14,7 @@ use tokio::process::Command;
 use constants::OS_VERSION;
 
 pub struct Nao {
-    pub host: Ipv4Addr,
+    host: Ipv4Addr,
 }
 
 impl Nao {
@@ -52,7 +52,7 @@ impl Nao {
         ]
     }
 
-    pub fn ssh_to_nao(&self) -> Command {
+    fn ssh_to_nao(&self) -> Command {
         let mut command = Command::new("ssh");
         for flag in self.get_ssh_flags() {
             command.arg(flag);
