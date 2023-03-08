@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use fast_image_resize::{DynamicImageView, FilterType, ImageView, ResizeAlg, Resizer};
 use framework::{AdditionalOutput, MainOutput};
-use types::image::{Image, YImage};
+use types::image::{GrayscaleImage, Image};
 
 use crate::CyclerInstance;
 
@@ -21,7 +21,7 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub luminance_image: MainOutput<YImage>,
+    pub luminance_image: MainOutput<GrayscaleImage>,
 }
 
 impl LuminanceImageExtractor {
@@ -53,7 +53,7 @@ impl LuminanceImageExtractor {
             .resize(&DynamicImageView::U8(y_image), &mut dst_image.view_mut())
             .unwrap();
         let luminance_image =
-            YImage::from_vec(dst_width.get(), dst_height.get(), dst_image.into_vec());
+            GrayscaleImage::from_vec(dst_width.get(), dst_height.get(), dst_image.into_vec());
         Ok(MainOutputs {
             luminance_image: luminance_image.into(),
         })
