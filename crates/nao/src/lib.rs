@@ -4,13 +4,10 @@ use std::{
     path::Path,
 };
 
-use std::str::from_utf8;
-
 use color_eyre::{
     eyre::{bail, eyre, WrapErr},
     Result,
 };
-use constants::OS_VERSION;
 use tokio::process::Command;
 
 pub struct Nao {
@@ -22,26 +19,16 @@ impl Nao {
         Self { host }
     }
 
-    pub async fn has_stable_os_version(&self) -> bool {
+    pub async fn get_os_version(&self) -> Result<String> {
         let output = self
             .ssh_to_nao()
             .arg("cat /etc/os-release")
             .output()
             .await
-            .unwrap();
-        let stdout = from_utf8(&output.stdout).unwrap();
-        let Some(os_version) = extract_version_number(stdout) else {
-            println!("No version on {} detected!", self.host);
-            return false;
-        };
-        if os_version != OS_VERSION {
-            println!("Unstable version on {}", self.host);
-            println!("Use '--skip-has-stable-os-version' if you still want to proceed");
-            println!("Installed OS: {os_version}, stable OS: {OS_VERSION}");
-            return false;
-        }
+            .wrap_err("failed to execute cat ssh command")?;
 
-        true
+        let stdout = String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")?;
+        extract_version_number(&stdout).ok_or_else(|| eyre!("could not extract version number"))
     }
 
     fn get_ssh_flags(&self) -> Vec<String> {
