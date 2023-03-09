@@ -6,7 +6,7 @@ use std::{
 use framework::Reader;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use log::error;
-use serialize_hierarchy::{SerializeHierarchy, TextualSerializer};
+use serialize_hierarchy::SerializeHierarchy;
 use tokio::{
     select, spawn,
     sync::{
@@ -81,7 +81,7 @@ async fn handle_request<Parameters>(
         ParametersRequest::GetCurrent { id, ref path } => {
             let data = {
                 let parameters = parameters_reader.next();
-                parameters.serialize_path::<TextualSerializer>(path)
+                parameters.serialize_path(path, serde_json::value::Serializer)
             };
             let data = match data {
                 Ok(data) => data,
@@ -133,7 +133,7 @@ async fn handle_request<Parameters>(
 
             let data = {
                 let parameters = parameters_reader.next();
-                parameters.serialize_path::<TextualSerializer>(path)
+                parameters.serialize_path(path, serde_json::value::Serializer)
             };
             let data = match data {
                 Ok(data) => data,
@@ -241,7 +241,7 @@ async fn handle_changed_parameters<Parameters>(
         subscriptions
             .iter()
             .filter_map(|((client, subscription_id), path)| {
-                let data = match parameters.serialize_path::<TextualSerializer>(path) {
+                let data = match parameters.serialize_path(path, serde_json::value::Serializer) {
                     Ok(data) => data,
                     Err(error) => {
                         error!("failed to serialize {:?}: {error:?}", path);
@@ -280,9 +280,9 @@ async fn handle_changed_parameters<Parameters>(
 #[cfg(test)]
 mod tests {
     use framework::multiple_buffer_with_slots;
-    use serde::{de::DeserializeOwned, Serialize};
+    use serde::{de::DeserializeOwned, Deserializer, Serialize, Serializer};
     use serde_json::Value;
-    use serialize_hierarchy::{Error, Serializer};
+    use serialize_hierarchy::Error;
     use tokio::{
         sync::mpsc::{channel, error::TryRecvError},
         task::yield_now,
@@ -356,33 +356,30 @@ mod tests {
     where
         T: DeserializeOwned + Serialize,
     {
-        fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+        fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
         where
             S: Serializer,
-            S::Error: std::error::Error,
         {
-            S::serialize(
-                self.existing_fields
-                    .get(path)
-                    .ok_or(Error::UnexpectedPathSegment {
-                        segment: path.to_string(),
-                    })?,
-            )
-            .map_err(Error::SerializationFailed)
+            self.existing_fields
+                .get(path)
+                .ok_or(Error::UnexpectedPathSegment {
+                    segment: path.to_string(),
+                })?
+                .serialize(serializer)
+                .map_err(Error::SerializationFailed)
         }
 
-        fn deserialize_path<S>(
+        fn deserialize_path<'de, D>(
             &mut self,
             path: &str,
-            data: S::Serialized,
-        ) -> Result<(), Error<S::Error>>
+            deserializer: D,
+        ) -> Result<(), Error<D::Error>>
         where
-            S: Serializer,
-            S::Error: std::error::Error,
+            D: Deserializer<'de>,
         {
             self.existing_fields.insert(
                 path.to_string(),
-                S::deserialize(data).map_err(Error::DeserializationFailed)?,
+                T::deserialize(deserializer).map_err(Error::DeserializationFailed)?,
             );
             Ok(())
         }

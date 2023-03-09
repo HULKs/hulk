@@ -1,9 +1,9 @@
 use approx::{AbsDiffEq, RelativeEq};
 use nalgebra::{distance, vector, Point2, UnitComplex, Vector2};
-use serde::{Deserialize, Serialize};
-use serialize_hierarchy::{Error, SerializeHierarchy, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serialize_hierarchy::{Error, SerializeHierarchy};
 
-use std::{collections::BTreeSet, error, f32::consts::PI};
+use std::{collections::BTreeSet, f32::consts::PI};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Orientation {
@@ -198,10 +198,9 @@ impl LineSegment {
 pub struct TwoLineSegments(pub LineSegment, pub LineSegment);
 
 impl SerializeHierarchy for TwoLineSegments {
-    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    fn serialize_path<S>(&self, path: &str, _serializer: S) -> Result<S::Ok, Error<S::Error>>
     where
         S: Serializer,
-        S::Error: error::Error,
     {
         Err(Error::TypeDoesNotSupportSerialization {
             type_name: "TwoLineSegments",
@@ -209,14 +208,13 @@ impl SerializeHierarchy for TwoLineSegments {
         })
     }
 
-    fn deserialize_path<S>(
+    fn deserialize_path<'de, D>(
         &mut self,
         path: &str,
-        _data: S::Serialized,
-    ) -> Result<(), Error<S::Error>>
+        _deserializer: D,
+    ) -> Result<(), Error<D::Error>>
     where
-        S: Serializer,
-        S::Error: error::Error,
+        D: Deserializer<'de>,
     {
         Err(Error::TypeDoesNotSupportDeserialization {
             type_name: "TwoLineSegments",

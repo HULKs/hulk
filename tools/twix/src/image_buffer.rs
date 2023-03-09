@@ -27,7 +27,7 @@ impl ImageBuffer {
         let output = CyclerOutput {
             cycler,
             output: Output::Main {
-                path: "image".to_string(),
+                path: "image.jpeg".to_string(),
             },
         };
         let (command_sender, command_receiver) = mpsc::channel(10);
