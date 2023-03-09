@@ -379,18 +379,17 @@ mod tests {
     where
         T: DeserializeOwned + Serialize,
     {
-        fn serialize_path<S>(&self, path: &str) -> Result<S::Ok, Error<S::Error>>
+        fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
         where
             S: Serializer,
         {
-            S::serialize(
-                self.existing_fields
-                    .get(path)
-                    .ok_or(Error::UnexpectedPathSegment {
-                        segment: path.to_string(),
-                    })?,
-            )
-            .map_err(Error::SerializationFailed)
+            self.existing_fields
+                .get(path)
+                .ok_or(Error::UnexpectedPathSegment {
+                    segment: path.to_string(),
+                })?
+                .serialize(serializer)
+                .map_err(Error::SerializationFailed)
         }
 
         fn deserialize_path<'de, D>(
