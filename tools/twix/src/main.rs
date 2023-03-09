@@ -30,7 +30,6 @@ use serde_json::{from_str, to_string, Value};
 use tokio::sync::mpsc;
 
 mod completion_edit;
-mod compressed_image;
 mod image_buffer;
 mod nao;
 mod panel;

@@ -2,7 +2,7 @@ use std::{path::Path, sync::Arc};
 
 use framework::Writer;
 use serde::{de::DeserializeOwned, Serialize};
-use serialize_hierarchy::{SerializeHierarchy, TextualSerializer};
+use serialize_hierarchy::SerializeHierarchy;
 use tokio::{
     spawn,
     sync::{mpsc::Receiver, Notify},
@@ -77,7 +77,7 @@ async fn handle_request<Parameters>(
                 return;
             }
 
-            if let Err(error) = parameters.deserialize_path::<TextualSerializer>(&path, data) {
+            if let Err(error) = parameters.deserialize_path(&path, data) {
                 respond(
                     client,
                     ParametersResponse::Update {
@@ -161,9 +161,9 @@ mod tests {
     use std::collections::{BTreeSet, HashMap};
 
     use framework::multiple_buffer_with_slots;
-    use serde::Deserialize;
+    use serde::{Deserialize, Deserializer, Serializer};
     use serde_json::Value;
-    use serialize_hierarchy::{Error, Serializer};
+    use serialize_hierarchy::Error;
     use tokio::sync::mpsc::{channel, error::TryRecvError};
 
     use crate::server::client::Client;
@@ -197,7 +197,7 @@ mod tests {
     where
         T: DeserializeOwned + Serialize,
     {
-        fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+        fn serialize_path<S>(&self, path: &str) -> Result<S::Ok, Error<S::Error>>
         where
             S: Serializer,
             S::Error: std::error::Error,
@@ -212,18 +212,17 @@ mod tests {
             .map_err(Error::SerializationFailed)
         }
 
-        fn deserialize_path<S>(
+        fn deserialize_path<'de, D>(
             &mut self,
             path: &str,
-            data: S::Serialized,
-        ) -> Result<(), Error<S::Error>>
+            deserializer: D,
+        ) -> Result<(), Error<D::Error>>
         where
-            S: Serializer,
-            S::Error: std::error::Error,
+            D: Deserializer<'de>,
         {
             self.existing_fields.insert(
                 path.to_string(),
-                S::deserialize(data).map_err(Error::DeserializationFailed)?,
+                T::deserialize(deserializer).map_err(Error::DeserializationFailed)?,
             );
             Ok(())
         }

@@ -1,12 +1,11 @@
-use color_eyre::{eyre::Context, Result};
+use color_eyre::eyre::{self, Context};
 use serde::{
-    de::{self, MapAccess, SeqAccess, Visitor},
-    ser::SerializeStruct,
+    de::{self, Error},
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use serde_bytes::{ByteBuf, Bytes};
 use serialize_hierarchy::SerializeHierarchy;
 use std::{
+    collections::BTreeSet,
     fmt::{self, Debug, Formatter},
     mem::{size_of, ManuallyDrop},
     ops::Index,
@@ -25,11 +24,74 @@ use super::color::YCbCr422;
 
 const SERIALIZATION_JPEG_QUALITY: u8 = 40;
 
-#[derive(Clone, Default, SerializeHierarchy)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub struct NaoImage {
     width_422: u32,
     height: u32,
     buffer: Arc<Vec<YCbCr422>>,
+}
+
+impl SerializeHierarchy for NaoImage {
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize_hierarchy::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        match path {
+            "jpeg" => self
+                .encode_as_jpeg()
+                .serialize(serializer)
+                .map_err(serialize_hierarchy::Error::SerializationFailed),
+            _ => Err(serialize_hierarchy::Error::UnexpectedPathSegment {
+                segment: path.to_string(),
+            }),
+        }
+    }
+
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), serialize_hierarchy::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+        <D as Deserializer<'de>>::Error: de::Error,
+    {
+        match path {
+            "jpeg" => {
+                let jpeg_buffer = Vec::<u8>::deserialize(deserializer)
+                    .map_err(serialize_hierarchy::Error::DeserializationFailed)?;
+                let rgb_image = match load_from_memory_with_format(&jpeg_buffer, ImageFormat::Jpeg)
+                {
+                    Ok(ok) => ok,
+                    Err(error) => {
+                        return Err(serialize_hierarchy::Error::DeserializationFailed(
+                            <D as Deserializer>::Error::custom(error),
+                        ))
+                    }
+                }
+                .into_rgb8();
+                self.width_422 = rgb_image.width() / 2;
+                self.height = rgb_image.height() / 2;
+                self.buffer = Arc::new(buffer_422_from_rgb_image(rgb_image));
+                Ok(())
+            }
+            _ => Err(serialize_hierarchy::Error::UnexpectedPathSegment {
+                segment: path.to_string(),
+            }),
+        }
+    }
+
+    fn exists(path: &str) -> bool {
+        matches!(path, "raw" | "jpeg")
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        ["jpeg".to_string()].into_iter().collect()
+    }
 }
 
 impl Debug for NaoImage {
@@ -110,7 +172,7 @@ impl NaoImage {
         }
     }
 
-    pub fn load_from_444_png(path: impl AsRef<Path>) -> Result<Self> {
+    pub fn load_from_444_png(path: impl AsRef<Path>) -> eyre::Result<Self> {
         let png = Reader::open(path)?.decode()?.into_rgb8();
 
         let width = png.width();
@@ -130,7 +192,7 @@ impl NaoImage {
         Ok(Self::from_ycbcr_buffer(width / 2, height, pixels))
     }
 
-    pub fn save_to_ycbcr_444_file(&self, file: impl AsRef<Path>) -> Result<()> {
+    pub fn save_to_ycbcr_444_file(&self, file: impl AsRef<Path>) -> eyre::Result<()> {
         let mut image = RgbImage::new(2 * self.width_422, self.height);
         for y in 0..self.height {
             for x in 0..self.width_422 {
@@ -142,7 +204,7 @@ impl NaoImage {
         Ok(image.save(file)?)
     }
 
-    pub fn load_from_rgb_file(path: impl AsRef<Path>) -> Result<Self> {
+    pub fn load_from_rgb_file(path: impl AsRef<Path>) -> eyre::Result<Self> {
         let png = Reader::open(path)?.decode()?.into_rgb8();
 
         let width = png.width();
@@ -153,7 +215,7 @@ impl NaoImage {
         Ok(Self::from_ycbcr_buffer(width / 2, height, pixels))
     }
 
-    pub fn save_to_rgb_file(&self, file: impl AsRef<Path> + Debug) -> Result<()> {
+    pub fn save_to_rgb_file(&self, file: impl AsRef<Path> + Debug) -> eyre::Result<()> {
         rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer)
             .save(&file)
             .wrap_err_with(|| format!("failed to save image to {file:?}"))
@@ -194,14 +256,6 @@ impl NaoImage {
             cr: pixel.cr,
         };
         Some(pixel)
-    }
-}
-
-impl Index<(usize, usize)> for NaoImage {
-    type Output = YCbCr422;
-
-    fn index(&self, (x, y): (usize, usize)) -> &Self::Output {
-        &self.buffer[y * self.width_422 as usize + x]
     }
 }
 
@@ -269,187 +323,175 @@ fn buffer_422_from_rgb_image(rgb_image: RgbImage) -> Vec<YCbCr422> {
         .collect()
 }
 
-impl Serialize for NaoImage {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let is_human_readable = serializer.is_human_readable();
-        let mut state = serializer.serialize_struct("Image", 3)?;
-        state.serialize_field("width_422", &self.width_422)?;
-        state.serialize_field("height", &self.height)?;
-        if is_human_readable {
-            state.serialize_field("buffer", &self.buffer)?;
-        } else {
-            let rgb_image = rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer);
-            let mut rgb_image_buffer = vec![];
-            {
-                let mut encoder = JpegEncoder::new_with_quality(
-                    &mut rgb_image_buffer,
-                    SERIALIZATION_JPEG_QUALITY,
-                );
-                encoder
-                    .encode_image(&rgb_image)
-                    .expect("failed to encode image");
-            }
-            state.serialize_field("buffer", Bytes::new(rgb_image_buffer.as_slice()))?;
-        }
-        state.end()
+trait EncodeJpeg {
+    fn encode_as_jpeg(&self) -> Vec<u8>;
+}
+
+impl EncodeJpeg for NaoImage {
+    fn encode_as_jpeg(&self) -> Vec<u8> {
+        let rgb_image = rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer);
+        let mut jpeg_buffer = vec![];
+        let mut encoder =
+            JpegEncoder::new_with_quality(&mut jpeg_buffer, SERIALIZATION_JPEG_QUALITY);
+        encoder
+            .encode_image(&rgb_image)
+            .expect("failed to encode image");
+        jpeg_buffer
     }
 }
 
-impl<'de> Deserialize<'de> for NaoImage {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        enum Field {
-            Width422,
-            Height,
-            CompactBuffer,
-            ReadableBuffer,
-        }
-        const FIELDS: &[&str] = &["width_422", "height", "buffer"];
+// impl<'de> Deserialize<'de> for NaoImage {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         enum Field {
+//             Width422,
+//             Height,
+//             CompactBuffer,
+//             ReadableBuffer,
+//         }
+//         const FIELDS: &[&str] = &["width_422", "height", "buffer"];
 
-        impl<'de> Deserialize<'de> for Field {
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                struct FieldVisitor {
-                    is_human_readable: bool,
-                }
+//         impl<'de> Deserialize<'de> for Field {
+//             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//             where
+//                 D: Deserializer<'de>,
+//             {
+//                 struct FieldVisitor {
+//                     is_human_readable: bool,
+//                 }
 
-                impl<'de> Visitor<'de> for FieldVisitor {
-                    type Value = Field;
+//                 impl<'de> Visitor<'de> for FieldVisitor {
+//                     type Value = Field;
 
-                    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-                        formatter.write_str("`width_422`, `height`, or `buffer`")
-                    }
+//                     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+//                         formatter.write_str("`width_422`, `height`, or `buffer`")
+//                     }
 
-                    fn visit_str<E>(self, field: &str) -> std::result::Result<Self::Value, E>
-                    where
-                        E: de::Error,
-                    {
-                        match field {
-                            "width_422" => Ok(Field::Width422),
-                            "height" => Ok(Field::Height),
-                            "buffer" => Ok(if self.is_human_readable {
-                                Field::ReadableBuffer
-                            } else {
-                                Field::CompactBuffer
-                            }),
-                            _ => Err(de::Error::unknown_field(field, FIELDS)),
-                        }
-                    }
-                }
+//                     fn visit_str<E>(self, field: &str) -> std::result::Result<Self::Value, E>
+//                     where
+//                         E: de::Error,
+//                     {
+//                         match field {
+//                             "width_422" => Ok(Field::Width422),
+//                             "height" => Ok(Field::Height),
+//                             "buffer" => Ok(if self.is_human_readable {
+//                                 Field::ReadableBuffer
+//                             } else {
+//                                 Field::CompactBuffer
+//                             }),
+//                             _ => Err(de::Error::unknown_field(field, FIELDS)),
+//                         }
+//                     }
+//                 }
 
-                let is_human_readable = deserializer.is_human_readable();
-                deserializer.deserialize_identifier(FieldVisitor { is_human_readable })
-            }
-        }
+//                 let is_human_readable = deserializer.is_human_readable();
+//                 deserializer.deserialize_identifier(FieldVisitor { is_human_readable })
+//             }
+//         }
 
-        struct ImageVisitor {
-            is_human_readable: bool,
-        }
+//         struct ImageVisitor {
+//             is_human_readable: bool,
+//         }
 
-        impl<'de> Visitor<'de> for ImageVisitor {
-            type Value = NaoImage;
+//         impl<'de> Visitor<'de> for ImageVisitor {
+//             type Value = NaoImage;
 
-            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-                formatter.write_str("struct Image")
-            }
+//             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+//                 formatter.write_str("struct Image")
+//             }
 
-            fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                let width_422 = sequence
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let height = sequence
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                let buffer = if self.is_human_readable {
-                    sequence
-                        .next_element()?
-                        .ok_or_else(|| de::Error::invalid_length(2, &self))?
-                } else {
-                    let rgb_image_buffer: ByteBuf = sequence
-                        .next_element()?
-                        .ok_or_else(|| de::Error::invalid_length(2, &self))?;
-                    let rgb_image =
-                        load_from_memory_with_format(&rgb_image_buffer, ImageFormat::Jpeg)
-                            .map_err(de::Error::custom)?
-                            .into_rgb8();
-                    Arc::new(buffer_422_from_rgb_image(rgb_image))
-                };
+//             fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+//             where
+//                 A: SeqAccess<'de>,
+//             {
+//                 let width_422 = sequence
+//                     .next_element()?
+//                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+//                 let height = sequence
+//                     .next_element()?
+//                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+//                 let buffer = if self.is_human_readable {
+//                     sequence
+//                         .next_element()?
+//                         .ok_or_else(|| de::Error::invalid_length(2, &self))?
+//                 } else {
+//                     let rgb_image_buffer: ByteBuf = sequence
+//                         .next_element()?
+//                         .ok_or_else(|| de::Error::invalid_length(2, &self))?;
+//                     let rgb_image =
+//                         load_from_memory_with_format(&rgb_image_buffer, ImageFormat::Jpeg)
+//                             .map_err(de::Error::custom)?
+//                             .into_rgb8();
+//                     Arc::new(buffer_422_from_rgb_image(rgb_image))
+//                 };
 
-                Ok(NaoImage {
-                    width_422,
-                    height,
-                    buffer,
-                })
-            }
+//                 Ok(NaoImage {
+//                     width_422,
+//                     height,
+//                     buffer,
+//                 })
+//             }
 
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-            where
-                A: MapAccess<'de>,
-            {
-                let mut width_422 = None;
-                let mut height = None;
-                let mut buffer = None;
+//             fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+//             where
+//                 A: MapAccess<'de>,
+//             {
+//                 let mut width_422 = None;
+//                 let mut height = None;
+//                 let mut buffer = None;
 
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        Field::Width422 => {
-                            if width_422.is_some() {
-                                return Err(de::Error::duplicate_field("width_422"));
-                            }
-                            width_422 = Some(map.next_value()?);
-                        }
-                        Field::Height => {
-                            if height.is_some() {
-                                return Err(de::Error::duplicate_field("height"));
-                            }
-                            height = Some(map.next_value()?);
-                        }
-                        Field::CompactBuffer => {
-                            if buffer.is_some() {
-                                return Err(de::Error::duplicate_field("buffer"));
-                            }
-                            let rgb_image_buffer: ByteBuf = map.next_value()?;
-                            let rgb_image =
-                                load_from_memory_with_format(&rgb_image_buffer, ImageFormat::Jpeg)
-                                    .map_err(de::Error::custom)?
-                                    .into_rgb8();
-                            buffer = Some(Arc::new(buffer_422_from_rgb_image(rgb_image)));
-                        }
-                        Field::ReadableBuffer => {
-                            if buffer.is_some() {
-                                return Err(de::Error::duplicate_field("buffer"));
-                            }
-                            buffer = Some(map.next_value()?);
-                        }
-                    }
-                }
+//                 while let Some(key) = map.next_key()? {
+//                     match key {
+//                         Field::Width422 => {
+//                             if width_422.is_some() {
+//                                 return Err(de::Error::duplicate_field("width_422"));
+//                             }
+//                             width_422 = Some(map.next_value()?);
+//                         }
+//                         Field::Height => {
+//                             if height.is_some() {
+//                                 return Err(de::Error::duplicate_field("height"));
+//                             }
+//                             height = Some(map.next_value()?);
+//                         }
+//                         Field::CompactBuffer => {
+//                             if buffer.is_some() {
+//                                 return Err(de::Error::duplicate_field("buffer"));
+//                             }
+//                             let rgb_image_buffer: ByteBuf = map.next_value()?;
+//                             let rgb_image =
+//                                 load_from_memory_with_format(&rgb_image_buffer, ImageFormat::Jpeg)
+//                                     .map_err(de::Error::custom)?
+//                                     .into_rgb8();
+//                             buffer = Some(Arc::new(buffer_422_from_rgb_image(rgb_image)));
+//                         }
+//                         Field::ReadableBuffer => {
+//                             if buffer.is_some() {
+//                                 return Err(de::Error::duplicate_field("buffer"));
+//                             }
+//                             buffer = Some(map.next_value()?);
+//                         }
+//                     }
+//                 }
 
-                let width_422 = width_422.ok_or_else(|| de::Error::missing_field("width_422"))?;
-                let height = height.ok_or_else(|| de::Error::missing_field("height"))?;
-                let buffer = buffer.ok_or_else(|| de::Error::missing_field("buffer"))?;
+//                 let width_422 = width_422.ok_or_else(|| de::Error::missing_field("width_422"))?;
+//                 let height = height.ok_or_else(|| de::Error::missing_field("height"))?;
+//                 let buffer = buffer.ok_or_else(|| de::Error::missing_field("buffer"))?;
 
-                Ok(NaoImage {
-                    width_422,
-                    height,
-                    buffer,
-                })
-            }
-        }
+//                 Ok(NaoImage {
+//                     width_422,
+//                     height,
+//                     buffer,
+//                 })
+//             }
+//         }
 
-        let is_human_readable = deserializer.is_human_readable();
-        deserializer.deserialize_struct("Image", FIELDS, ImageVisitor { is_human_readable })
-    }
-}
+//         let is_human_readable = deserializer.is_human_readable();
+//         deserializer.deserialize_struct("Image", FIELDS, ImageVisitor { is_human_readable })
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -490,15 +532,7 @@ mod tests {
                 },
             ],
         );
-        assert_eq!(
-            image[(1, 1)],
-            YCbCr422 {
-                y1: 1,
-                cb: 2,
-                y2: 3,
-                cr: 4
-            }
-        );
+        assert_eq!(image.at(1, 1), YCbCr444 { y: 1, cb: 2, cr: 4 });
     }
 
     #[derive(Debug, Deserialize, Serialize)]

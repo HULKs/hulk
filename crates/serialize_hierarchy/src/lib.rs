@@ -8,46 +8,29 @@ use std::{
 };
 
 pub use bincode;
-use bincode::{deserialize, serialize};
 use nalgebra::{
     ArrayStorage, Const, Isometry2, Isometry3, Matrix, Point, SMatrix, Scalar, UnitComplex, U1,
 };
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 pub use serde_json;
-use serde_json::{from_value, to_value, Value};
 pub use serialize_hierarchy_derive::SerializeHierarchy;
 
 pub trait SerializeHierarchy {
-    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
     where
-        S: Serializer,
-        S::Error: error::Error;
+        S: Serializer;
 
-    fn deserialize_path<S>(
+    fn deserialize_path<'de, D>(
         &mut self,
         path: &str,
-        data: S::Serialized,
-    ) -> Result<(), Error<S::Error>>
+        deserializer: D,
+    ) -> Result<(), Error<D::Error>>
     where
-        S: Serializer,
-        S::Error: error::Error;
+        D: Deserializer<'de>;
 
     fn exists(path: &str) -> bool;
 
     fn get_fields() -> BTreeSet<String>;
-}
-
-pub trait Serializer {
-    type Serialized;
-    type Error;
-
-    fn serialize<T>(value: &T) -> Result<Self::Serialized, Self::Error>
-    where
-        T: Serialize;
-
-    fn deserialize<T>(value: Self::Serialized) -> Result<T, Self::Error>
-    where
-        T: DeserializeOwned;
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -73,68 +56,20 @@ where
     UnexpectedPathSegment { segment: String },
 }
 
-pub struct BinarySerializer;
-
-impl Serializer for BinarySerializer {
-    type Serialized = Vec<u8>;
-    type Error = bincode::Error;
-
-    fn serialize<T>(value: &T) -> Result<Self::Serialized, Self::Error>
-    where
-        T: Serialize,
-    {
-        serialize(value)
-    }
-
-    fn deserialize<T>(value: Self::Serialized) -> Result<T, Self::Error>
-    where
-        T: DeserializeOwned,
-    {
-        deserialize(value.as_slice())
-    }
-}
-
-pub struct TextualSerializer;
-
-impl Serializer for TextualSerializer {
-    type Serialized = Value;
-    type Error = serde_json::Error;
-
-    fn serialize<T>(value: &T) -> Result<Self::Serialized, Self::Error>
-    where
-        T: Serialize,
-    {
-        to_value(value)
-    }
-
-    fn deserialize<T>(value: Self::Serialized) -> Result<T, Self::Error>
-    where
-        T: DeserializeOwned,
-    {
-        from_value(value)
-    }
-}
-
 impl<T> SerializeHierarchy for Arc<T>
 where
     T: SerializeHierarchy,
 {
-    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
     where
         S: Serializer,
-        S::Error: error::Error,
     {
-        self.deref().serialize_path::<S>(path)
+        self.deref().serialize_path(path, serializer)
     }
 
-    fn deserialize_path<S>(
-        &mut self,
-        path: &str,
-        _data: S::Serialized,
-    ) -> Result<(), Error<S::Error>>
+    fn deserialize_path<'de, D>(&mut self, path: &str, _data: D) -> Result<(), Error<D::Error>>
     where
-        S: Serializer,
-        S::Error: error::Error,
+        D: Deserializer<'de>,
     {
         Err(Error::TypeDoesNotSupportDeserialization {
             type_name: "Arc",
@@ -155,25 +90,21 @@ impl<T> SerializeHierarchy for Option<T>
 where
     T: SerializeHierarchy,
 {
-    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
     where
         S: Serializer,
-        S::Error: error::Error,
     {
         match self {
-            Some(some) => some.serialize_path::<S>(path),
-            None => S::serialize(&(None as Option<()>)).map_err(Error::SerializationFailed),
+            Some(some) => some.serialize_path(path, serializer),
+            None => (None as Option<()>)
+                .serialize(serializer)
+                .map_err(Error::SerializationFailed),
         }
     }
 
-    fn deserialize_path<S>(
-        &mut self,
-        path: &str,
-        _data: S::Serialized,
-    ) -> Result<(), Error<S::Error>>
+    fn deserialize_path<'de, D>(&mut self, path: &str, _data: D) -> Result<(), Error<D::Error>>
     where
-        S: Serializer,
-        S::Error: error::Error,
+        D: Deserializer<'de>,
     {
         Err(Error::TypeDoesNotSupportDeserialization {
             type_name: "Option",
@@ -191,10 +122,9 @@ where
 }
 
 impl<T> SerializeHierarchy for HashSet<T> {
-    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    fn serialize_path<S>(&self, path: &str, _serializer: S) -> Result<S::Ok, Error<S::Error>>
     where
         S: Serializer,
-        S::Error: error::Error,
     {
         Err(Error::TypeDoesNotSupportSerialization {
             type_name: "HashSet",
@@ -202,14 +132,9 @@ impl<T> SerializeHierarchy for HashSet<T> {
         })
     }
 
-    fn deserialize_path<S>(
-        &mut self,
-        path: &str,
-        _data: S::Serialized,
-    ) -> Result<(), Error<S::Error>>
+    fn deserialize_path<'de, D>(&mut self, path: &str, _data: D) -> Result<(), Error<D::Error>>
     where
-        S: Serializer,
-        S::Error: error::Error,
+        D: Deserializer<'de>,
     {
         Err(Error::TypeDoesNotSupportDeserialization {
             type_name: "HashSet",
@@ -227,10 +152,9 @@ impl<T> SerializeHierarchy for HashSet<T> {
 }
 
 impl<T> SerializeHierarchy for Vec<T> {
-    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    fn serialize_path<S>(&self, path: &str, _serializer: S) -> Result<S::Ok, Error<S::Error>>
     where
         S: Serializer,
-        S::Error: error::Error,
     {
         Err(Error::TypeDoesNotSupportSerialization {
             type_name: "Vec",
@@ -238,14 +162,9 @@ impl<T> SerializeHierarchy for Vec<T> {
         })
     }
 
-    fn deserialize_path<S>(
-        &mut self,
-        path: &str,
-        _data: S::Serialized,
-    ) -> Result<(), Error<S::Error>>
+    fn deserialize_path<'de, D>(&mut self, path: &str, _data: D) -> Result<(), Error<D::Error>>
     where
-        S: Serializer,
-        S::Error: error::Error,
+        D: Deserializer<'de>,
     {
         Err(Error::TypeDoesNotSupportDeserialization {
             type_name: "Vec",
@@ -301,37 +220,38 @@ impl<K, V> SerializeHierarchy for HashMap<K, V> {
 impl<T: Serialize + DeserializeOwned, const N: usize> SerializeHierarchy
     for Matrix<T, Const<N>, U1, ArrayStorage<T, N, 1>>
 {
-    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
     where
         S: Serializer,
-        S::Error: error::Error,
     {
         let index = ["x", "y", "z", "w", "v", "u"][0..N]
             .iter()
             .position(|name| name == &path);
         match index {
-            Some(index) => S::serialize(&self[index]).map_err(Error::SerializationFailed),
+            Some(index) => self[index]
+                .serialize(serializer)
+                .map_err(Error::SerializationFailed),
             _ => Err(Error::UnexpectedPathSegment {
                 segment: String::from(path),
             }),
         }
     }
 
-    fn deserialize_path<S>(
+    fn deserialize_path<'de, D>(
         &mut self,
         path: &str,
-        data: S::Serialized,
-    ) -> Result<(), Error<S::Error>>
+        deserializer: D,
+    ) -> Result<(), Error<D::Error>>
     where
-        S: Serializer,
-        S::Error: error::Error,
+        D: Deserializer<'de>,
     {
         let index = ["x", "y", "z", "w", "v", "u"][0..N]
             .iter()
             .position(|name| name == &path);
         match index {
             Some(index) => {
-                let deserialized = S::deserialize(data).map_err(Error::DeserializationFailed)?;
+                let deserialized = <T as Deserialize>::deserialize(deserializer)
+                    .map_err(Error::DeserializationFailed)?;
                 self[index] = deserialized;
                 Ok(())
             }
@@ -356,24 +276,23 @@ impl<T: Serialize + DeserializeOwned, const N: usize> SerializeHierarchy
 impl<T: Serialize + DeserializeOwned + Clone + Scalar, const N: usize> SerializeHierarchy
     for Point<T, N>
 {
-    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
     where
         S: Serializer,
         S::Error: error::Error,
     {
-        self.coords.serialize_path::<S>(path)
+        self.coords.serialize_path(path, serializer)
     }
 
-    fn deserialize_path<S>(
+    fn deserialize_path<'de, D>(
         &mut self,
         path: &str,
-        data: S::Serialized,
-    ) -> Result<(), Error<S::Error>>
+        deserializer: D,
+    ) -> Result<(), Error<D::Error>>
     where
-        S: Serializer,
-        S::Error: error::Error,
+        D: Deserializer<'de>,
     {
-        self.coords.deserialize_path::<S>(path, data)
+        self.coords.deserialize_path(path, deserializer)
     }
 
     fn exists(path: &str) -> bool {
@@ -388,7 +307,11 @@ impl<T: Serialize + DeserializeOwned + Clone + Scalar, const N: usize> Serialize
 macro_rules! serialize_hierarchy_primary_impl {
     ($type:ty) => {
         impl SerializeHierarchy for $type {
-            fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+            fn serialize_path<S>(
+                &self,
+                path: &str,
+                _serializer: S,
+            ) -> Result<S::Ok, Error<S::Error>>
             where
                 S: Serializer,
                 S::Error: error::Error,
@@ -399,14 +322,13 @@ macro_rules! serialize_hierarchy_primary_impl {
                 })
             }
 
-            fn deserialize_path<S>(
+            fn deserialize_path<'de, D>(
                 &mut self,
                 path: &str,
-                _data: S::Serialized,
-            ) -> Result<(), Error<S::Error>>
+                _data: D,
+            ) -> Result<(), Error<D::Error>>
             where
-                S: Serializer,
-                S::Error: error::Error,
+                D: Deserializer<'de>,
             {
                 Err(Error::TypeDoesNotSupportDeserialization {
                     type_name: stringify!($type),

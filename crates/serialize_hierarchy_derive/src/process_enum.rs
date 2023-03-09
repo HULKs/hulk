@@ -11,10 +11,10 @@ pub fn process_enum(input: &DeriveInput, _data: &DataEnum) -> proc_macro::TokenS
             fn serialize_path<S>(
                 &self,
                 path: &str,
-            ) -> Result<S::Serialized, serialize_hierarchy::Error<S::Error>>
+                serializer: S,
+            ) -> Result<S::Ok, serialize_hierarchy::Error<S::Error>>
             where
-                S: serialize_hierarchy::Serializer,
-                S::Error: std::error::Error,
+                S: serde::Serializer,
             {
                 Err(serialize_hierarchy::Error::TypeDoesNotSupportSerialization {
                     type_name: #name_string,
@@ -22,14 +22,13 @@ pub fn process_enum(input: &DeriveInput, _data: &DataEnum) -> proc_macro::TokenS
                 })
             }
 
-            fn deserialize_path<S>(
+            fn deserialize_path<'de, D>(
                 &mut self,
                 path: &str,
-                _data: S::Serialized,
-            ) -> Result<(), serialize_hierarchy::Error<S::Error>>
+                _deserializer: D,
+            ) -> Result<(), serialize_hierarchy::Error<D::Error>>
             where
-                S: serialize_hierarchy::Serializer,
-                S::Error: std::error::Error,
+                D: serde::Deserializer<'de>,
             {
                 Err(serialize_hierarchy::Error::TypeDoesNotSupportDeserialization {
                     type_name: #name_string,

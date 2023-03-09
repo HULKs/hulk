@@ -5,8 +5,8 @@ use std::{
 };
 
 use color_eyre::Result;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serialize_hierarchy::{Error, SerializeHierarchy, Serializer};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
+use serialize_hierarchy::{Error, SerializeHierarchy};
 use spl_network_messages::{Penalty, PlayerNumber, TeamState};
 
 #[derive(Clone, Copy, Default, Debug, Deserialize, Serialize)]
@@ -102,29 +102,43 @@ impl<T> SerializeHierarchy for Players<T>
 where
     T: Serialize + DeserializeOwned + SerializeHierarchy,
 {
-    fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+    fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
     where
         S: Serializer,
-        S::Error: std::error::Error,
     {
         let split = path.split_once('.');
         match split {
             Some((name, suffix)) => match name {
-                "one" => self.one.serialize_path::<S>(suffix),
-                "two" => self.two.serialize_path::<S>(suffix),
-                "three" => self.three.serialize_path::<S>(suffix),
-                "four" => self.four.serialize_path::<S>(suffix),
-                "five" => self.five.serialize_path::<S>(suffix),
+                "one" => self.one.serialize_path(suffix, serializer),
+                "two" => self.two.serialize_path(suffix, serializer),
+                "three" => self.three.serialize_path(suffix, serializer),
+                "four" => self.four.serialize_path(suffix, serializer),
+                "five" => self.five.serialize_path(suffix, serializer),
                 name => Err(Error::UnexpectedPathSegment {
                     segment: name.to_string(),
                 }),
             },
             None => match path {
-                "one" => S::serialize(&self.one).map_err(Error::SerializationFailed),
-                "two" => S::serialize(&self.two).map_err(Error::SerializationFailed),
-                "three" => S::serialize(&self.three).map_err(Error::SerializationFailed),
-                "four" => S::serialize(&self.four).map_err(Error::SerializationFailed),
-                "five" => S::serialize(&self.five).map_err(Error::SerializationFailed),
+                "one" => self
+                    .one
+                    .serialize(serializer)
+                    .map_err(Error::SerializationFailed),
+                "two" => self
+                    .two
+                    .serialize(serializer)
+                    .map_err(Error::SerializationFailed),
+                "three" => self
+                    .three
+                    .serialize(serializer)
+                    .map_err(Error::SerializationFailed),
+                "four" => self
+                    .four
+                    .serialize(serializer)
+                    .map_err(Error::SerializationFailed),
+                "five" => self
+                    .five
+                    .serialize(serializer)
+                    .map_err(Error::SerializationFailed),
                 name => Err(Error::UnexpectedPathSegment {
                     segment: name.to_string(),
                 }),
@@ -132,46 +146,50 @@ where
         }
     }
 
-    fn deserialize_path<S>(
+    fn deserialize_path<'de, D>(
         &mut self,
         path: &str,
-        data: S::Serialized,
-    ) -> Result<(), Error<S::Error>>
+        deserializer: D,
+    ) -> Result<(), Error<D::Error>>
     where
-        S: Serializer,
-        S::Error: std::error::Error,
+        D: Deserializer<'de>,
     {
         let split = path.split_once('.');
         match split {
             Some((name, suffix)) => match name {
-                "one" => self.one.deserialize_path::<S>(suffix, data),
-                "two" => self.two.deserialize_path::<S>(suffix, data),
-                "three" => self.three.deserialize_path::<S>(suffix, data),
-                "four" => self.four.deserialize_path::<S>(suffix, data),
-                "five" => self.five.deserialize_path::<S>(suffix, data),
+                "one" => self.one.deserialize_path(suffix, deserializer),
+                "two" => self.two.deserialize_path(suffix, deserializer),
+                "three" => self.three.deserialize_path(suffix, deserializer),
+                "four" => self.four.deserialize_path(suffix, deserializer),
+                "five" => self.five.deserialize_path(suffix, deserializer),
                 name => Err(Error::UnexpectedPathSegment {
                     segment: name.to_string(),
                 }),
             },
             None => match path {
                 "one" => {
-                    self.one = S::deserialize(data).map_err(Error::DeserializationFailed)?;
+                    self.one =
+                        T::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
                     Ok(())
                 }
                 "two" => {
-                    self.two = S::deserialize(data).map_err(Error::DeserializationFailed)?;
+                    self.two =
+                        T::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
                     Ok(())
                 }
                 "three" => {
-                    self.three = S::deserialize(data).map_err(Error::DeserializationFailed)?;
+                    self.three =
+                        T::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
                     Ok(())
                 }
                 "four" => {
-                    self.four = S::deserialize(data).map_err(Error::DeserializationFailed)?;
+                    self.four =
+                        T::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
                     Ok(())
                 }
                 "five" => {
-                    self.five = S::deserialize(data).map_err(Error::DeserializationFailed)?;
+                    self.five =
+                        T::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
                     Ok(())
                 }
                 name => Err(Error::UnexpectedPathSegment {
