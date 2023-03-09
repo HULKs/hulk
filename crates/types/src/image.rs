@@ -6,7 +6,7 @@ use serde::{
 use serialize_hierarchy::SerializeHierarchy;
 use std::{
     collections::BTreeSet,
-    fmt::{self, Debug, Formatter},
+    fmt::Debug,
     mem::{size_of, ManuallyDrop},
     ops::Index,
     path::Path,
@@ -24,7 +24,7 @@ use super::color::YCbCr422;
 
 const SERIALIZATION_JPEG_QUALITY: u8 = 40;
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct NaoImage {
     width_422: u32,
     height: u32,
@@ -88,40 +88,6 @@ impl SerializeHierarchy for NaoImage {
 
     fn get_fields() -> BTreeSet<String> {
         ["jpeg".to_string()].into_iter().collect()
-    }
-}
-
-impl Debug for NaoImage {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        struct DebugBuffer {
-            buffer_length: usize,
-        }
-
-        impl Debug for DebugBuffer {
-            fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-                formatter.write_fmt(format_args!(
-                    "[{} pixel{}]",
-                    self.buffer_length,
-                    match self.buffer_length {
-                        0 => "s",
-                        1 => "",
-                        _ => "s...",
-                    }
-                ))
-            }
-        }
-
-        formatter
-            .debug_struct("Image")
-            .field("width_422", &self.width_422)
-            .field("height", &self.height)
-            .field(
-                "buffer",
-                &DebugBuffer {
-                    buffer_length: self.buffer.len(),
-                },
-            )
-            .finish()
     }
 }
 
@@ -337,163 +303,8 @@ impl EncodeJpeg for NaoImage {
     }
 }
 
-// impl<'de> Deserialize<'de> for NaoImage {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         enum Field {
-//             Width422,
-//             Height,
-//             CompactBuffer,
-//             ReadableBuffer,
-//         }
-//         const FIELDS: &[&str] = &["width_422", "height", "buffer"];
-
-//         impl<'de> Deserialize<'de> for Field {
-//             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//             where
-//                 D: Deserializer<'de>,
-//             {
-//                 struct FieldVisitor {
-//                     is_human_readable: bool,
-//                 }
-
-//                 impl<'de> Visitor<'de> for FieldVisitor {
-//                     type Value = Field;
-
-//                     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-//                         formatter.write_str("`width_422`, `height`, or `buffer`")
-//                     }
-
-//                     fn visit_str<E>(self, field: &str) -> std::result::Result<Self::Value, E>
-//                     where
-//                         E: de::Error,
-//                     {
-//                         match field {
-//                             "width_422" => Ok(Field::Width422),
-//                             "height" => Ok(Field::Height),
-//                             "buffer" => Ok(if self.is_human_readable {
-//                                 Field::ReadableBuffer
-//                             } else {
-//                                 Field::CompactBuffer
-//                             }),
-//                             _ => Err(de::Error::unknown_field(field, FIELDS)),
-//                         }
-//                     }
-//                 }
-
-//                 let is_human_readable = deserializer.is_human_readable();
-//                 deserializer.deserialize_identifier(FieldVisitor { is_human_readable })
-//             }
-//         }
-
-//         struct ImageVisitor {
-//             is_human_readable: bool,
-//         }
-
-//         impl<'de> Visitor<'de> for ImageVisitor {
-//             type Value = NaoImage;
-
-//             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-//                 formatter.write_str("struct Image")
-//             }
-
-//             fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
-//             where
-//                 A: SeqAccess<'de>,
-//             {
-//                 let width_422 = sequence
-//                     .next_element()?
-//                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-//                 let height = sequence
-//                     .next_element()?
-//                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-//                 let buffer = if self.is_human_readable {
-//                     sequence
-//                         .next_element()?
-//                         .ok_or_else(|| de::Error::invalid_length(2, &self))?
-//                 } else {
-//                     let rgb_image_buffer: ByteBuf = sequence
-//                         .next_element()?
-//                         .ok_or_else(|| de::Error::invalid_length(2, &self))?;
-//                     let rgb_image =
-//                         load_from_memory_with_format(&rgb_image_buffer, ImageFormat::Jpeg)
-//                             .map_err(de::Error::custom)?
-//                             .into_rgb8();
-//                     Arc::new(buffer_422_from_rgb_image(rgb_image))
-//                 };
-
-//                 Ok(NaoImage {
-//                     width_422,
-//                     height,
-//                     buffer,
-//                 })
-//             }
-
-//             fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-//             where
-//                 A: MapAccess<'de>,
-//             {
-//                 let mut width_422 = None;
-//                 let mut height = None;
-//                 let mut buffer = None;
-
-//                 while let Some(key) = map.next_key()? {
-//                     match key {
-//                         Field::Width422 => {
-//                             if width_422.is_some() {
-//                                 return Err(de::Error::duplicate_field("width_422"));
-//                             }
-//                             width_422 = Some(map.next_value()?);
-//                         }
-//                         Field::Height => {
-//                             if height.is_some() {
-//                                 return Err(de::Error::duplicate_field("height"));
-//                             }
-//                             height = Some(map.next_value()?);
-//                         }
-//                         Field::CompactBuffer => {
-//                             if buffer.is_some() {
-//                                 return Err(de::Error::duplicate_field("buffer"));
-//                             }
-//                             let rgb_image_buffer: ByteBuf = map.next_value()?;
-//                             let rgb_image =
-//                                 load_from_memory_with_format(&rgb_image_buffer, ImageFormat::Jpeg)
-//                                     .map_err(de::Error::custom)?
-//                                     .into_rgb8();
-//                             buffer = Some(Arc::new(buffer_422_from_rgb_image(rgb_image)));
-//                         }
-//                         Field::ReadableBuffer => {
-//                             if buffer.is_some() {
-//                                 return Err(de::Error::duplicate_field("buffer"));
-//                             }
-//                             buffer = Some(map.next_value()?);
-//                         }
-//                     }
-//                 }
-
-//                 let width_422 = width_422.ok_or_else(|| de::Error::missing_field("width_422"))?;
-//                 let height = height.ok_or_else(|| de::Error::missing_field("height"))?;
-//                 let buffer = buffer.ok_or_else(|| de::Error::missing_field("buffer"))?;
-
-//                 Ok(NaoImage {
-//                     width_422,
-//                     height,
-//                     buffer,
-//                 })
-//             }
-//         }
-
-//         let is_human_readable = deserializer.is_human_readable();
-//         deserializer.deserialize_struct("Image", FIELDS, ImageVisitor { is_human_readable })
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
-    use std::mem::transmute;
-
     use serde_test::{assert_tokens, Configure, Token};
     use serialize_hierarchy::bincode::{deserialize, serialize};
 
@@ -529,7 +340,7 @@ mod tests {
                 },
             ],
         );
-        assert_eq!(image.at(1, 1), YCbCr444 { y: 1, cb: 2, cr: 4 });
+        assert_eq!(image.at(2, 1), YCbCr444 { y: 1, cb: 2, cr: 4 });
     }
 
     #[derive(Debug, Deserialize, Serialize)]
@@ -537,77 +348,11 @@ mod tests {
 
     impl PartialEq for ImageTestingWrapper {
         fn eq(&self, other: &Self) -> bool {
-            let buffers_are_equal = if other.0.buffer.len() == 1
-                && other.0.buffer[0]
-                    == (YCbCr422 {
-                        y1: 63,
-                        cb: 127,
-                        y2: 191,
-                        cr: 255,
-                    }) {
-                // special case for test `compact_image_serialization` because of JPEG and YCbCr conversion losses
-                self.0.buffer.len() == 1
-                    && self.0.buffer[0]
-                        == YCbCr422 {
-                            y1: 75,
-                            cb: 129,
-                            y2: 151,
-                            cr: 216,
-                        }
-            } else {
-                self.0.buffer == other.0.buffer
-            };
+            let buffers_are_equal = self.0.buffer == other.0.buffer;
             self.0.width_422 == other.0.width_422
                 && self.0.height == other.0.height
                 && buffers_are_equal
         }
-    }
-
-    #[test]
-    fn compact_image_serialization() {
-        let image = ImageTestingWrapper(NaoImage {
-            width_422: 1,
-            height: 1,
-            buffer: Arc::new(vec![YCbCr422 {
-                y1: 63,
-                cb: 127,
-                y2: 191,
-                cr: 255,
-            }]),
-        });
-        let rgb_image =
-            rgb_image_from_buffer_422(image.0.width_422, image.0.height, &image.0.buffer);
-        let mut rgb_image_buffer = vec![];
-        {
-            let mut encoder =
-                JpegEncoder::new_with_quality(&mut rgb_image_buffer, SERIALIZATION_JPEG_QUALITY);
-            encoder
-                .encode_image(&rgb_image)
-                .expect("failed to encode image");
-        }
-        // serde_test::Token requires static lifetime and since the byte slice is not used anymore once leaving the test, it should be safe (tm)
-        let static_rgb_image_buffer: &'static [u8] =
-            unsafe { transmute(rgb_image_buffer.as_slice()) };
-
-        assert_tokens(
-            &image.compact(),
-            &[
-                Token::NewtypeStruct {
-                    name: "ImageTestingWrapper",
-                },
-                Token::Struct {
-                    name: "Image",
-                    len: 3,
-                },
-                Token::Str("width_422"),
-                Token::U32(1),
-                Token::Str("height"),
-                Token::U32(1),
-                Token::Str("buffer"),
-                Token::Bytes(static_rgb_image_buffer),
-                Token::StructEnd,
-            ],
-        );
     }
 
     #[test]
@@ -630,7 +375,7 @@ mod tests {
                     name: "ImageTestingWrapper",
                 },
                 Token::Struct {
-                    name: "Image",
+                    name: "NaoImage",
                     len: 3,
                 },
                 Token::Str("width_422"),
