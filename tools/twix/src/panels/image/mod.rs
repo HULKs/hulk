@@ -12,7 +12,6 @@ use nalgebra::{vector, Similarity2};
 use serde_json::{json, Value};
 
 use crate::{
-    compressed_image::CompressedImage,
     image_buffer::ImageBuffer,
     nao::Nao,
     panel::Panel,
@@ -105,8 +104,8 @@ impl ImagePanel {
             .image_buffer
             .get_latest()
             .map_err(|error| eyre!("{error}"))?;
-        let image_raw = bincode::deserialize::<CompressedImage>(&image_data)?;
-        let image = RetainedImage::from_image_bytes("image", &image_raw.buffer)
+        let image_raw = bincode::deserialize::<Vec<u8>>(&image_data)?;
+        let image = RetainedImage::from_image_bytes("image", &image_raw)
             .map_err(|error| eyre!("{error}"))?;
         let image_size = image.size_vec2();
         let width_scale = ui.available_width() / image_size.x;

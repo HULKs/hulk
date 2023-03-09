@@ -4,10 +4,11 @@ use std::{
     sync::Arc,
 };
 
+use bincode::{DefaultOptions, Options};
 use framework::{Reader, Writer};
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use log::error;
-use serialize_hierarchy::{BinarySerializer, SerializeHierarchy, TextualSerializer};
+use serialize_hierarchy::SerializeHierarchy;
 use tokio::{
     select, spawn,
     sync::{
@@ -247,7 +248,8 @@ async fn handle_notified_output(
         subscriptions.retain(|(client, subscription_id), subscription| {
             let data = match subscription.format {
                 Format::Textual => {
-                    let data = match output.serialize_path::<TextualSerializer>(&subscription.path)
+                    let data = match output
+                        .serialize_path(&subscription.path, serde_json::value::Serializer)
                     {
                         Ok(data) => data,
                         Err(error) => {
@@ -258,25 +260,30 @@ async fn handle_notified_output(
                     TextualDataOrBinaryReference::TextualData { data }
                 }
                 Format::Binary => {
-                    let data = match output.serialize_path::<BinarySerializer>(&subscription.path) {
-                        Ok(data) => data,
-                        Err(error) => {
-                            error!("failed to serialize {:?}: {error:?}", subscription.path);
-                            return true;
-                        }
-                    };
+                    let mut writer = Vec::new();
+                    let options = DefaultOptions::new()
+                        .with_fixint_encoding()
+                        .allow_trailing_bytes();
+                    let mut serializer = bincode::Serializer::new(&mut writer, options);
+                    if let Err(error) = output.serialize_path(&subscription.path, &mut serializer) {
+                        error!("failed to serialize {:?}: {error:?}", subscription.path);
+                        return true;
+                    }
                     let reference_id = next_binary_reference_id.0;
                     *next_binary_reference_id += 1;
                     if subscription.once {
                         binary_get_next_items.insert(
                             client.clone(),
-                            BinaryOutputsResponse::GetNext { reference_id, data },
+                            BinaryOutputsResponse::GetNext {
+                                reference_id,
+                                data: writer,
+                            },
                         );
                     } else {
                         binary_subscribed_items
                             .entry(client.clone())
                             .or_default()
-                            .insert(reference_id, data);
+                            .insert(reference_id, writer);
                     }
                     TextualDataOrBinaryReference::BinaryReference { reference_id }
                 }
@@ -355,9 +362,9 @@ mod tests {
 
     use bincode::serialize;
     use framework::multiple_buffer_with_slots;
-    use serde::{de::DeserializeOwned, Serialize};
+    use serde::{de::DeserializeOwned, Deserializer, Serialize, Serializer};
     use serde_json::Value;
-    use serialize_hierarchy::{Error, Serializer};
+    use serialize_hierarchy::Error;
     use tokio::{sync::mpsc::error::TryRecvError, task::yield_now, time::timeout};
 
     use crate::messages::Format;
@@ -372,10 +379,9 @@ mod tests {
     where
         T: DeserializeOwned + Serialize,
     {
-        fn serialize_path<S>(&self, path: &str) -> Result<S::Serialized, Error<S::Error>>
+        fn serialize_path<S>(&self, path: &str) -> Result<S::Ok, Error<S::Error>>
         where
             S: Serializer,
-            S::Error: std::error::Error,
         {
             S::serialize(
                 self.existing_fields
@@ -387,18 +393,17 @@ mod tests {
             .map_err(Error::SerializationFailed)
         }
 
-        fn deserialize_path<S>(
+        fn deserialize_path<'de, D>(
             &mut self,
             path: &str,
-            data: S::Serialized,
-        ) -> Result<(), Error<S::Error>>
+            deserializer: D,
+        ) -> Result<(), Error<D::Error>>
         where
-            S: Serializer,
-            S::Error: std::error::Error,
+            D: Deserializer<'de>,
         {
             self.existing_fields.insert(
                 path.to_string(),
-                S::deserialize(data).map_err(Error::DeserializationFailed)?,
+                T::deserialize(deserializer).map_err(Error::DeserializationFailed)?,
             );
             Ok(())
         }

@@ -18,11 +18,12 @@ pub fn process_struct(input: &DeriveInput, data: &DataStruct) -> proc_macro::Tok
             fn serialize_path<S>(
                 &self,
                 path: &str,
-            ) -> Result<S::Serialized, serialize_hierarchy::Error<S::Error>>
+                serializer: S,
+            ) -> Result<S::Ok, serialize_hierarchy::Error<S::Error>>
             where
-                S: serialize_hierarchy::Serializer,
-                S::Error: std::error::Error,
+                S: serde::Serializer,
             {
+                use serde::Serialize;
                 let split = path.split_once('.');
                 match split {
                     Some((name, suffix)) => match name {
@@ -42,15 +43,15 @@ pub fn process_struct(input: &DeriveInput, data: &DataStruct) -> proc_macro::Tok
                 }
             }
 
-            fn deserialize_path<S>(
+            fn deserialize_path<'de, D>(
                 &mut self,
                 path: &str,
-                data: S::Serialized,
-            ) -> Result<(), serialize_hierarchy::Error<S::Error>>
+                deserializer: D,
+            ) -> Result<(), serialize_hierarchy::Error<D::Error>>
             where
-                S: serialize_hierarchy::Serializer,
-                S::Error: std::error::Error,
+                D: serde::Deserializer<'de>,
             {
+                use serde::Deserialize;
                 let split = path.split_once('.');
                 match split {
                     Some((name, suffix)) => match name {
@@ -107,7 +108,7 @@ fn generate_path_serializations(fields: &Fields) -> Vec<TokenStream> {
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
             Some(quote! {
-                #pattern => self.#name.serialize_path::<S>(suffix)
+                #pattern => self.#name.serialize_path(suffix, serializer)
             })
         })
         .collect()
@@ -127,7 +128,7 @@ fn generate_serde_serializations(fields: &Fields) -> Vec<TokenStream> {
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
             Some(quote! {
-                #pattern => S::serialize(&self.#name).map_err(serialize_hierarchy::Error::SerializationFailed)
+                #pattern => (&self.#name).serialize(serializer).map_err(serialize_hierarchy::Error::SerializationFailed)
             })
         })
         .collect()
@@ -147,7 +148,7 @@ fn generate_path_deserializations(fields: &Fields) -> Vec<TokenStream> {
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
             Some(quote! {
-                #pattern => self.#name.deserialize_path::<S>(suffix, data)
+                #pattern => self.#name.deserialize_path(suffix, deserializer)
             })
         })
         .collect()
@@ -166,9 +167,10 @@ fn generate_serde_deserializations(fields: &Fields) -> Vec<TokenStream> {
             }
             let name = field.ident.as_ref().unwrap();
             let pattern = name.to_string();
+            let field_type = &field.ty;
             Some(quote! {
                 #pattern => {
-                    self.#name = S::deserialize(data).map_err(serialize_hierarchy::Error::DeserializationFailed)?;
+                    self.#name = <#field_type as Deserialize>::deserialize(deserializer).map_err(serialize_hierarchy::Error::DeserializationFailed)?;
                     Ok(())
                 }
             })
