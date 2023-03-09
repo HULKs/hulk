@@ -64,16 +64,13 @@ impl SerializeHierarchy for NaoImage {
             "jpeg" => {
                 let jpeg_buffer = Vec::<u8>::deserialize(deserializer)
                     .map_err(serialize_hierarchy::Error::DeserializationFailed)?;
-                let rgb_image = match load_from_memory_with_format(&jpeg_buffer, ImageFormat::Jpeg)
-                {
-                    Ok(ok) => ok,
-                    Err(error) => {
-                        return Err(serialize_hierarchy::Error::DeserializationFailed(
+                let rgb_image = load_from_memory_with_format(&jpeg_buffer, ImageFormat::Jpeg)
+                    .map_err(|error| {
+                        serialize_hierarchy::Error::DeserializationFailed(
                             <D as Deserializer>::Error::custom(error),
-                        ))
-                    }
-                }
-                .into_rgb8();
+                        )
+                    })?
+                    .into_rgb8();
                 self.width_422 = rgb_image.width() / 2;
                 self.height = rgb_image.height() / 2;
                 self.buffer = Arc::new(buffer_422_from_rgb_image(rgb_image));
