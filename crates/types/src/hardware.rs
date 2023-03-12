@@ -3,8 +3,8 @@ use std::{fmt::Debug, time::SystemTime};
 use color_eyre::Result;
 
 use crate::{
-    image::NaoImage,
     messages::{IncomingMessage, OutgoingMessage},
+    nao_image::NaoImage,
     samples::Samples,
 };
 

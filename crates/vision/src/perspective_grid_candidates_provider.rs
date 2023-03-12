@@ -5,8 +5,8 @@ use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{point, vector, Point2, Vector2};
 use types::{
-    image::NaoImage, CameraMatrix, Circle, FilteredSegments, LineData, PerspectiveGridCandidates,
-    ScanLine, Segment,
+    nao_image::NaoImage, CameraMatrix, Circle, FilteredSegments, LineData,
+    PerspectiveGridCandidates, ScanLine, Segment,
 };
 
 #[derive(Clone, Copy, Debug)]

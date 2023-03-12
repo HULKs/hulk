@@ -8,10 +8,14 @@ use std::{
 };
 
 pub use bincode;
+use image::ImageError;
 use nalgebra::{
     ArrayStorage, Const, Isometry2, Isometry3, Matrix, Point, SMatrix, Scalar, UnitComplex, U1,
 };
-use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    de::{self, DeserializeOwned},
+    ser, Deserialize, Deserializer, Serialize, Serializer,
+};
 pub use serde_json;
 pub use serialize_hierarchy_derive::SerializeHierarchy;
 
@@ -345,6 +349,71 @@ macro_rules! serialize_hierarchy_primary_impl {
             }
         }
     };
+}
+
+const SERIALIZATION_JPEG_QUALITY: u8 = 100;
+
+pub trait EncodeJpeg {
+    fn encode_as_jpeg(&self, quality: u8) -> Result<Vec<u8>, ImageError>;
+}
+
+pub trait DecodeJpeg
+where
+    Self: Sized,
+{
+    fn decode_from_jpeg(jpeg: Vec<u8>) -> Result<Self, ImageError>;
+}
+
+impl<Image> SerializeHierarchy for Image
+where
+    Image: EncodeJpeg + DecodeJpeg,
+{
+    fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        match path {
+            "jpeg" => self
+                .encode_as_jpeg(SERIALIZATION_JPEG_QUALITY)
+                .map_err(|error| Error::SerializationFailed(ser::Error::custom(error)))?
+                .serialize(serializer)
+                .map_err(Error::SerializationFailed),
+            _ => Err(Error::UnexpectedPathSegment {
+                segment: path.to_string(),
+            }),
+        }
+    }
+
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+        <D as Deserializer<'de>>::Error: de::Error,
+    {
+        match path {
+            "jpeg" => {
+                let jpeg_buffer =
+                    Vec::<u8>::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
+                *self = Image::decode_from_jpeg(jpeg_buffer)
+                    .map_err(|error| Error::DeserializationFailed(de::Error::custom(error)))?;
+                Ok(())
+            }
+            _ => Err(Error::UnexpectedPathSegment {
+                segment: path.to_string(),
+            }),
+        }
+    }
+
+    fn exists(path: &str) -> bool {
+        matches!(path, "jpeg")
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        ["jpeg".to_string()].into_iter().collect()
+    }
 }
 
 serialize_hierarchy_primary_impl!(bool);

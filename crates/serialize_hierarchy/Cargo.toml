@@ -12,3 +12,4 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serialize_hierarchy_derive = { workspace = true }
 thiserror = { workspace = true }
+image = { workspace = true }

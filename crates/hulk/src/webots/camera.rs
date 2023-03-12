@@ -10,7 +10,7 @@ use color_eyre::{
     Result,
 };
 use parking_lot::{Condvar, Mutex};
-use types::{image::NaoImage, CameraPosition, YCbCr422};
+use types::{nao_image::NaoImage, CameraPosition, YCbCr422};
 use webots::Robot;
 
 use super::interface::SIMULATION_TIME_STEP;
