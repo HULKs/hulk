@@ -3,7 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use color_eyre::{eyre::eyre, Result};
 use communication::client::Cycler;
 use eframe::{
-    egui::{Response, Ui, Widget},
+    egui::{Response, TextureFilter, Ui, Widget},
     emath::Rect,
 };
 use egui_extras::RetainedImage;
@@ -106,7 +106,8 @@ impl ImagePanel {
             .map_err(|error| eyre!("{error}"))?;
         let image_raw = bincode::deserialize::<Vec<u8>>(&image_data)?;
         let image = RetainedImage::from_image_bytes("image", &image_raw)
-            .map_err(|error| eyre!("{error}"))?;
+            .map_err(|error| eyre!("{error}"))?
+            .with_texture_filter(TextureFilter::Nearest);
         let image_size = image.size_vec2();
         let width_scale = ui.available_width() / image_size.x;
         let height_scale = ui.available_height() / image_size.y;

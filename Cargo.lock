@@ -3632,6 +3632,7 @@ name = "serialize_hierarchy"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "image",
  "nalgebra",
  "serde",
  "serde_json",

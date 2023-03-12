@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{image::NaoImage, CameraMatrices, CameraMatrix};
+use types::{nao_image::NaoImage, CameraMatrices, CameraMatrix};
 
 use crate::CyclerInstance;
 

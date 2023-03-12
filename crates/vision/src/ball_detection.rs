@@ -4,7 +4,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, vector, Vector2};
 use types::{
-    configuration::BallDetection as BallDetectionConfiguration, image::NaoImage, Ball,
+    configuration::BallDetection as BallDetectionConfiguration, nao_image::NaoImage, Ball,
     CameraMatrix, CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
 };
 
