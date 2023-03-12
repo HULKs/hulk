@@ -45,6 +45,7 @@ pub struct CycleContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
     pub initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
+    pub optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
     pub spl_network: Parameter<SplNetwork, "spl_network">,
     pub network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
@@ -89,21 +90,15 @@ impl RoleAssignment {
                     _ => Default::default(),
                 });
 
-        let optional_roles = vec![
-            Role::DefenderRight,
-            Role::StrikerSupporter,
-            Role::DefenderLeft,
-        ];
-
         if !self.role_initialized
             || primary_state == PrimaryState::Ready
             || primary_state == PrimaryState::Set
         {
             role = match context.player_number {
                 PlayerNumber::One => Role::Keeper,
-                PlayerNumber::Two => optional_roles[0],
-                PlayerNumber::Three => optional_roles[1],
-                PlayerNumber::Four => optional_roles[2],
+                PlayerNumber::Two => context.optional_roles[0],
+                PlayerNumber::Three => context.optional_roles[1],
+                PlayerNumber::Four => context.optional_roles[2],
                 PlayerNumber::Five => Role::Striker,
             };
             self.role_initialized = true;
@@ -201,7 +196,7 @@ impl RoleAssignment {
                 context.game_controller_state,
                 *context.player_number,
                 context.spl_network.striker_trusts_team_ball,
-                &optional_roles,
+                context.optional_roles,
             );
         } else {
             for spl_message in spl_messages {
@@ -223,7 +218,7 @@ impl RoleAssignment {
                     context.game_controller_state,
                     *context.player_number,
                     context.spl_network.striker_trusts_team_ball,
-                    &optional_roles,
+                    context.optional_roles,
                 );
             }
         }
@@ -723,7 +718,7 @@ fn pick_role_with_penalties(
     // assign optional roles
     let mut optional_role_index = 0;
 
-    if unassigned_robots > len(optional_roles) {
+    if unassigned_robots > optional_roles.len() {
         panic!("role_assignment not possible: not enough optional_roles available")
     }
 
@@ -750,6 +745,6 @@ fn needs_assignment(
     player_number: PlayerNumber,
     penalties: &Players<Option<Penalty>>,
     role_assignment: &Players<Option<Role>>,
-) -> Bool {
+) -> bool {
     role_assignment[player_number].is_none() && penalties[player_number].is_none()
 }

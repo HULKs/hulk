@@ -77,6 +77,7 @@ pub struct Behavior {
     pub dribbling: Dribbling,
     pub injected_motion_command: Option<MotionCommand>,
     pub lost_ball: LostBall,
+    pub optional_roles: Vec<Role>,
     pub path_planning: PathPlanning,
     pub role_positions: RolePositions,
     pub walk_and_stand: WalkAndStand,
