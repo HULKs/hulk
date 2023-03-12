@@ -771,6 +771,7 @@
     }
   },
   "behavior": {
+    "optional_roles": ["DefenderRight", "StrikerSupporter", "DefenderLeft"],
     "injected_motion_command": null,
     "role_positions": {
       "defender_aggressive_ring_radius": 2.0,
