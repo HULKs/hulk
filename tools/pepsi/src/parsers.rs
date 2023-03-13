@@ -177,7 +177,7 @@ impl FromStr for NaoNumberPlayerAssignment {
 
 impl Display for NaoNumberPlayerAssignment {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        self.nao_number.fmt(formatter)
+        write!(formatter, "{}:{}", self.nao_number, self.player_number)
     }
 }
 

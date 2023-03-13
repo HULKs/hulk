@@ -3,7 +3,10 @@ mod game_controller_return_message;
 mod game_controller_state_message;
 mod spl_message;
 
-use std::time::Duration;
+use std::{
+    fmt::{self, Display, Formatter},
+    time::Duration,
+};
 
 use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
@@ -34,4 +37,18 @@ pub enum PlayerNumber {
     Four,
     #[default]
     Five,
+}
+
+impl Display for PlayerNumber {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        let number = match self {
+            PlayerNumber::One => "1",
+            PlayerNumber::Two => "2",
+            PlayerNumber::Three => "3",
+            PlayerNumber::Four => "4",
+            PlayerNumber::Five => "5",
+        };
+
+        write!(formatter, "{number}")
+    }
 }
