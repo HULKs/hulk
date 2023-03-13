@@ -1,9 +1,4 @@
-use std::collections::BTreeSet;
-
 use image::ImageError;
-use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
-
-use crate::{error::Error, SerializeHierarchy};
 
 pub const SERIALIZATION_JPEG_QUALITY: u8 = 40;
 
