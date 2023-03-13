@@ -10,7 +10,7 @@ use crate::{
     simulator::{Frame, Simulator},
 };
 use color_eyre::{
-    eyre::{bail, Context},
+    eyre::{bail, WrapErr},
     Result,
 };
 use framework::{multiple_buffer_with_slots, Reader, Writer};

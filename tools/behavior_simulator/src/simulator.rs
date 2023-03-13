@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs::read_to_string, path::Path, sync::Arc, time:
 
 use crate::cycler::Database;
 use color_eyre::{
-    eyre::{eyre, Context},
+    eyre::{eyre, WrapErr},
     Result,
 };
 use mlua::{Error as LuaError, Function, Lua, LuaSerdeExt, SerializeOptions, Value};

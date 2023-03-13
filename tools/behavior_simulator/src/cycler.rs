@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{eyre::WrapErr, Result};
 use control::{
     behavior::node::{self, Behavior},
     role_assignment::{self, RoleAssignment},
