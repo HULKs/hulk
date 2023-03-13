@@ -31,16 +31,16 @@ impl Simulator {
         let state = Arc::new(Mutex::new(State::new()));
 
         let lua = Lua::new();
-        let new_robot = lua
+        let create_robot = lua
             .create_function(|lua, player_number: usize| {
                 let player_number = to_player_number(player_number).map_err(LuaError::external)?;
                 let robot = Robot::try_new(player_number).map_err(LuaError::external)?;
                 Ok(lua.to_value(&LuaRobot::new(&robot)))
             })
-            .expect("failed to create function new_robot");
+            .expect("failed to create function create_robot");
         lua.globals()
-            .set("new_robot", new_robot)
-            .expect("failed to insert new_robot");
+            .set("create_robot", create_robot)
+            .expect("failed to insert create_robot");
 
         Self { state, lua }
     }
