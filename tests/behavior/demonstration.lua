@@ -2,7 +2,7 @@ local inspect = require 'inspect'
 print("Hello world from lua!")
 
 function spawn_robot(number)
-  table.insert(state.robots, new_robot(number))
+  table.insert(state.robots, create_robot(number))
 end
 
 spawn_robot(1)
