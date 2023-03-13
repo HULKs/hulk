@@ -59,7 +59,9 @@ impl Simulator {
                 .to_str()
                 .ok_or_else(|| eyre!("filename is not valid unicode"))?,
         )?;
-        script.exec().context("failed to execute scenario script")?;
+        script
+            .exec()
+            .wrap_err("failed to execute scenario script")?;
 
         self.deserialize_state()
     }
@@ -163,11 +165,11 @@ impl Simulator {
         let value = self
             .lua
             .to_value_with(&lua_state, SERIALIZE_OPTIONS)
-            .context("failed to serialize lua state")?;
+            .wrap_err("failed to serialize lua state")?;
         self.lua
             .globals()
             .set("state", value)
-            .context("failed to set state in lua globals")
+            .wrap_err("failed to set state in lua globals")
     }
 
     fn deserialize_state(&mut self) -> Result<()> {
@@ -175,14 +177,14 @@ impl Simulator {
             .lua
             .globals()
             .get("state")
-            .context("failed to retrieve state from lua")?;
+            .wrap_err("failed to retrieve state from lua")?;
         let lua_state = self
             .lua
             .from_value(value)
-            .context("failed to deserialize state")?;
+            .wrap_err("failed to deserialize state")?;
         self.state
             .lock()
             .load_lua_state(lua_state)
-            .context("failed to load lua state")
+            .wrap_err("failed to load lua state")
     }
 }

@@ -41,7 +41,7 @@ impl Robot {
         configuration.player_number = player_number;
 
         let cycler = BehaviorCycler::new(interface.clone(), Default::default(), &configuration)
-            .context("failed to create cycler")?;
+            .wrap_err("failed to create cycler")?;
 
         let mut database = Database::default();
 
