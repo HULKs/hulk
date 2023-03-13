@@ -1058,7 +1058,7 @@ mod tests {
             .await
             .unwrap();
 
-        // ensure that we are subscribed before continueing because GetNext has no synchronous response
+        // ensure that we are subscribed before continuing because GetNext has no synchronous response
         yield_now().await;
 
         match response_receiver.try_recv() {
@@ -1623,7 +1623,7 @@ mod tests {
             .await
             .unwrap();
 
-        // ensure that we are subscribed before continueing because GetNext has no synchronous response
+        // ensure that we are subscribed before continuing because GetNext has no synchronous response
         yield_now().await;
 
         match response_receiver.try_recv() {
@@ -1701,7 +1701,7 @@ mod tests {
             .await
             .unwrap();
 
-        // ensure that we are subscribed before continueing because GetNext has no synchronous response
+        // ensure that we are subscribed before continuing because GetNext has no synchronous response
         yield_now().await;
 
         match response_receiver.try_recv() {
