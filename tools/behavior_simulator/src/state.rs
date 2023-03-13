@@ -1,6 +1,5 @@
 use std::{
     collections::{BTreeMap, HashMap},
-    iter::once,
     mem::take,
     time::{Duration, UNIX_EPOCH},
 };
@@ -152,7 +151,7 @@ impl State {
                     (sender != player_number).then_some(IncomingMessage::Spl(*message))
                 })
                 .collect();
-            let messages = BTreeMap::from_iter(once((now, incoming_messages.iter().collect())));
+            let messages = BTreeMap::from_iter([(now, incoming_messages.iter().collect())]);
 
             robot.database.main_outputs.cycle_time.start_time = now;
 
