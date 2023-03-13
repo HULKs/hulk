@@ -1,9 +1,9 @@
-use std::{num::NonZeroU32, time::Instant};
+use std::num::NonZeroU32;
 
 use color_eyre::Result;
 use context_attribute::context;
 use fast_image_resize::{DynamicImageView, FilterType, ImageView, ResizeAlg, Resizer};
-use framework::{AdditionalOutput, MainOutput};
+use framework::MainOutput;
 use types::{grayscale_image::GrayscaleImage, nao_image::NaoImage};
 
 use crate::CyclerInstance;
