@@ -33,9 +33,7 @@ impl Simulator {
         let lua = Lua::new();
         let new_robot = lua
             .create_function(|lua, player_number: usize| {
-                let player_number = to_player_number(player_number).map_err(|_| {
-                    LuaError::external(eyre!("invalid player number provided {player_number}"))
-                })?;
+                let player_number = to_player_number(player_number).map_err(LuaError::external)?;
                 let robot = Robot::try_new(player_number).map_err(LuaError::external)?;
                 Ok(lua.to_value(&LuaRobot::new(&robot)))
             })
@@ -101,9 +99,8 @@ impl Simulator {
             self.lua.globals().set(
                 "set_robot_penalized",
                 scope.create_function(|_, (player_number, penalized): (usize, bool)| {
-                    let player_number = to_player_number(player_number).map_err(|_| {
-                        LuaError::external(eyre!("invalid player number provided {player_number}"))
-                    })?;
+                    let player_number =
+                        to_player_number(player_number).map_err(LuaError::external)?;
                     self.state
                         .lock()
                         .robots
@@ -119,11 +116,8 @@ impl Simulator {
                 "set_robot_pose",
                 scope.create_function(
                     |lua, (player_number, position, angle): (usize, Value, f32)| {
-                        let player_number = to_player_number(player_number).map_err(|_| {
-                            LuaError::external(eyre!(
-                                "invalid player number provided {player_number}"
-                            ))
-                        })?;
+                        let player_number =
+                            to_player_number(player_number).map_err(LuaError::external)?;
                         let position: Vector2<f32> = lua.from_value(position)?;
 
                         self.state
