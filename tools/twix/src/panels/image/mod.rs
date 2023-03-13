@@ -3,13 +3,14 @@ use std::{str::FromStr, sync::Arc};
 use color_eyre::{eyre::eyre, Result};
 use communication::client::Cycler;
 use eframe::{
-    egui::{Response, TextureFilter, Ui, Widget},
+    egui::{ComboBox, Response, TextureFilter, Ui, Widget},
     emath::Rect,
 };
 use egui_extras::RetainedImage;
 use log::error;
 use nalgebra::{vector, Similarity2};
-use serde_json::{json, Value};
+use serde::{Deserialize, Serialize};
+use serde_json::{from_value, json, Value};
 
 use crate::{
     image_buffer::ImageBuffer,
@@ -24,11 +25,27 @@ mod cycler_selector;
 mod overlay;
 mod overlays;
 
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
+enum ImageKind {
+    YCbCr422,
+    Luminance,
+}
+
+impl ImageKind {
+    fn as_path(&self) -> &str {
+        match self {
+            ImageKind::YCbCr422 => "image",
+            ImageKind::Luminance => "luminance_image",
+        }
+    }
+}
+
 pub struct ImagePanel {
     nao: Arc<Nao>,
     image_buffer: ImageBuffer,
     cycler_selector: VisionCyclerSelector,
     overlays: Overlays,
+    image_kind: ImageKind,
 }
 
 impl Panel for ImagePanel {
@@ -51,7 +68,11 @@ impl Panel for ImagePanel {
                 }
             })
             .unwrap_or(Cycler::VisionTop);
-        let image_buffer = nao.subscribe_image(cycler);
+        let image_kind = value
+            .and_then(|value| value.get("image_kind"))
+            .and_then(|value| from_value(value.clone()).ok())
+            .unwrap_or(ImageKind::YCbCr422);
+        let image_buffer = nao.subscribe_image(cycler, image_kind.as_path());
         let cycler_selector = VisionCyclerSelector::new(cycler);
         let overlays = Overlays::new(
             nao.clone(),
@@ -63,6 +84,7 @@ impl Panel for ImagePanel {
             image_buffer,
             cycler_selector,
             overlays,
+            image_kind,
         }
     }
 
@@ -81,9 +103,35 @@ impl Widget for &mut ImagePanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.horizontal(|ui| {
             if self.cycler_selector.ui(ui).changed() {
-                self.image_buffer = self
-                    .nao
-                    .subscribe_image(self.cycler_selector.selected_cycler());
+                self.image_buffer = self.nao.subscribe_image(
+                    self.cycler_selector.selected_cycler(),
+                    self.image_kind.as_path(),
+                );
+                self.overlays
+                    .update_cycler(self.cycler_selector.selected_cycler());
+            }
+            let mut image_selection_changed = false;
+            ComboBox::from_label("Image")
+                .selected_text(format!("{:?}", self.image_kind))
+                .show_ui(ui, |ui| {
+                    if ui
+                        .selectable_value(&mut self.image_kind, ImageKind::YCbCr422, "YCbCr422")
+                        .changed()
+                    {
+                        image_selection_changed = true;
+                    };
+                    if ui
+                        .selectable_value(&mut self.image_kind, ImageKind::Luminance, "Luminance")
+                        .changed()
+                    {
+                        image_selection_changed = true;
+                    }
+                });
+            if image_selection_changed {
+                self.image_buffer = self.nao.subscribe_image(
+                    self.cycler_selector.selected_cycler(),
+                    self.image_kind.as_path(),
+                );
                 self.overlays
                     .update_cycler(self.cycler_selector.selected_cycler());
             }
