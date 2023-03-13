@@ -135,16 +135,8 @@ impl Simulator {
             )?;
             for event in events {
                 match event {
-                    Event::Cycle => {
-                        if let Ok(on_cycle) = self.lua.globals().get::<_, Function>("on_cycle") {
-                            on_cycle.call::<_, ()>(())?;
-                        }
-                    }
-                    Event::Goal => {
-                        if let Ok(on_goal) = self.lua.globals().get::<_, Function>("on_goal") {
-                            on_goal.call::<_, ()>(())?;
-                        }
-                    }
+                    Event::Cycle => self.execute_event_callback("on_cycle")?,
+                    Event::Goal => self.execute_event_callback("on_goal")?,
                 }
             }
 
@@ -152,6 +144,14 @@ impl Simulator {
         })?;
 
         self.deserialize_state()
+    }
+
+    fn execute_event_callback(&self, name: &str) -> Result<(), LuaError> {
+        if let Ok(on_goal) = self.lua.globals().get::<_, Function>(name) {
+            on_goal.call(())?;
+        }
+
+        Ok(())
     }
 
     fn serialze_state(&mut self) -> Result<()> {
