@@ -7,9 +7,6 @@ use quote::ToTokens;
 use syn::Type;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Ident, Meta, NestedMeta};
 
-// mod process_enum;
-// mod process_struct;
-
 const SERIALIZE_HIERARCHY: &str = "serialize_hierarchy";
 const SKIP: &str = "skip";
 const AS_JPEG: &str = "as_jpeg";
