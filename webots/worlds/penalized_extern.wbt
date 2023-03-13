@@ -40,10 +40,3 @@ NAO {
   controller "<extern>"
   supervisor TRUE
 }
-
-NAO {
-  translation -3 0 0.333369
-  rotation 0 0 1 1.57079632679
-  name "testrobot"
-  supervisor TRUE
-}
