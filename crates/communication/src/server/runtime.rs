@@ -69,8 +69,6 @@ where
     ) -> Result<Self, StartError> {
         let (runtime_sender, runtime_receiver) = oneshot::channel();
 
-        let parameters_changed = Arc::new(Notify::new());
-        let self_parameters_changed = parameters_changed.clone();
         let join_handle = thread::Builder::new()
             .name("communication".to_string())
             .spawn(move || {
@@ -99,6 +97,7 @@ where
 
                     let (outputs_sender, outputs_receiver) = channel(1);
 
+                    let parameters_changed = Arc::new(Notify::new());
                     let (parameters_writer, parameters_reader) = multiple_buffer_with_slots(
                         repeat_with(|| initial_parameters.clone())
                             .take(amount_of_parameters_slots + 1),
@@ -112,6 +111,7 @@ where
                             inner_runtime,
                             outputs_sender.clone(),
                             parameters_reader.clone(),
+                            parameters_changed.clone(),
                         )))
                         .ok()
                         .expect("successful thread creation should always wait for runtime_sender");
@@ -172,27 +172,26 @@ where
             })
             .map_err(StartError::ThreadNotStarted)?;
 
-        let (runtime, outputs_sender, parameters_reader) = match runtime_receiver
-            .blocking_recv()
-            .expect("successful thread creation should always send into runtime_sender")
-        {
-            Some((runtime, outputs_sender, parameters_reader)) => {
-                (runtime, outputs_sender, parameters_reader)
-            }
-            None => {
-                return Err(join_handle
-                    .join()
-                    .expect("failed to join runtime thread")
-                    .expect_err("runtime thread without runtime should return an error"));
-            }
-        };
+        let (runtime, outputs_sender, parameters_reader, parameters_changed) =
+            match runtime_receiver
+                .blocking_recv()
+                .expect("successful thread creation should always send into runtime_sender")
+            {
+                Some(response) => response,
+                None => {
+                    return Err(join_handle
+                        .join()
+                        .expect("failed to join runtime thread")
+                        .expect_err("runtime thread without runtime should return an error"));
+                }
+            };
 
         Ok(Self {
             join_handle,
             runtime,
             outputs_sender,
             parameters_reader,
-            parameters_changed: self_parameters_changed,
+            parameters_changed,
         })
     }
 
