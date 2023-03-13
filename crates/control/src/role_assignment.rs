@@ -11,7 +11,8 @@ use types::{
     configuration::SplNetwork,
     hardware::Interface,
     messages::{IncomingMessage, OutgoingMessage},
-    BallPosition, CycleTime, FallState, FieldDimensions, GameControllerState, InitialPose, Players, PrimaryState, Role,
+    BallPosition, CycleTime, FallState, FieldDimensions, GameControllerState, InitialPose, Players,
+    PrimaryState, Role,
 };
 
 use crate::localization::generate_initial_pose;
