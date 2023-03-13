@@ -14,7 +14,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use types::{
     hardware::{self, Ids},
-    image::NaoImage,
+    nao_image::NaoImage,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
     CameraPosition, Joints, Leds, SensorData,
