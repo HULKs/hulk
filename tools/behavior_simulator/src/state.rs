@@ -152,17 +152,7 @@ impl State {
                     (sender != player_number).then_some(IncomingMessage::Spl(*message))
                 })
                 .collect();
-            robot.database.main_outputs.game_controller_state = Some(GameControllerState {
-                game_state: GameState::Playing,
-                game_phase: GamePhase::Normal,
-                kicking_team: Team::Uncertain,
-                last_game_state_change: now,
-                penalties: Default::default(),
-                remaining_amount_of_messages: 1200,
-                set_play: None,
-            });
-            let messages = incoming_messages.iter().collect();
-            let messages = BTreeMap::from_iter(once((now, messages)));
+            let messages = BTreeMap::from_iter(once((now, incoming_messages.iter().collect())));
 
             robot.database.main_outputs.cycle_time.start_time = now;
 
