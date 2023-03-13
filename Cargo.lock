@@ -4442,6 +4442,7 @@ dependencies = [
  "framework",
  "image",
  "itertools",
+ "ittapi",
  "nalgebra",
  "ordered-float",
  "rand",
