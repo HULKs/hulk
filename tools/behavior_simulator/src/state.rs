@@ -35,9 +35,7 @@ pub struct State {
     pub robots: HashMap<PlayerNumber, Robot>,
     pub ball: Option<Ball>,
     pub messages: Vec<(PlayerNumber, SplMessage)>,
-
     pub finished: bool,
-
     pub game_controller_state: GameControllerState,
     pub filtered_game_state: FilteredGameState,
 }
