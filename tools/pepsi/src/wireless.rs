@@ -78,15 +78,11 @@ async fn available_networks(naos: Vec<NaoAddress>) {
 }
 
 async fn set(naos: Vec<NaoAddress>, network: Network) {
-    ProgressIndicator::map_tasks(
-        naos,
-        "Retrieving available networks...",
-        |nao_address| async move {
-            let nao = Nao::new(nao_address.ip);
-            nao.set_network(network)
-                .await
-                .wrap_err_with(|| format!("failed to set network on {nao_address}"))
-        },
-    )
+    ProgressIndicator::map_tasks(naos, "Setting network...", |nao_address| async move {
+        let nao = Nao::new(nao_address.ip);
+        nao.set_network(network)
+            .await
+            .wrap_err_with(|| format!("failed to set network on {nao_address}"))
+    })
     .await;
 }
