@@ -7,6 +7,7 @@ use std::{
 
 use crate::{
     cycler::Database,
+    robot::to_player_number,
     simulator::{Frame, Simulator},
 };
 use color_eyre::{
@@ -75,9 +76,7 @@ async fn timeline_server(
 
         {
             let mut control = control_writer.next();
-            *control = parameters
-                .selected_robot
-                .try_into()
+            *control = to_player_number(parameters.selected_robot)
                 .ok()
                 .and_then(|player_number| {
                     frames[parameters.selected_frame].robots.get(&player_number)

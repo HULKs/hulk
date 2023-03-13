@@ -38,7 +38,6 @@ pub enum PlayerNumber {
     #[default]
     Five,
 }
-
 impl Display for PlayerNumber {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         let number = match self {
@@ -50,34 +49,5 @@ impl Display for PlayerNumber {
         };
 
         write!(formatter, "{number}")
-    }
-}
-
-impl TryFrom<usize> for PlayerNumber {
-    type Error = &'static str;
-
-    fn try_from(value: usize) -> Result<Self, Self::Error> {
-        let number = match value {
-            1 => PlayerNumber::One,
-            2 => PlayerNumber::Two,
-            3 => PlayerNumber::Three,
-            4 => PlayerNumber::Four,
-            5 => PlayerNumber::Five,
-            _ => return Err("invalid player number"),
-        };
-
-        Ok(number)
-    }
-}
-
-impl From<PlayerNumber> for usize {
-    fn from(val: PlayerNumber) -> Self {
-        match val {
-            PlayerNumber::One => 1,
-            PlayerNumber::Two => 2,
-            PlayerNumber::Three => 3,
-            PlayerNumber::Four => 4,
-            PlayerNumber::Five => 5,
-        }
     }
 }
