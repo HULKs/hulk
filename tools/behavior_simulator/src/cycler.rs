@@ -86,7 +86,9 @@ where
                     primary_state: &own_database.main_outputs.primary_state,
                     robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
                     cycle_time: &own_database.main_outputs.cycle_time,
+                    field_dimensions: &configuration.field_dimensions,
                     forced_role: configuration.role_assignment.forced_role.as_ref(),
+                    initial_poses: &configuration.localization.initial_poses,
                     player_number: &configuration.player_number,
                     spl_network: &configuration.spl_network,
                     network_message: PerceptionInput {
