@@ -49,6 +49,31 @@ fn process_input(input: DeriveInput) -> syn::Result<TokenStream> {
     let path_exists_getters = generate_path_exists_getters(serializable_children.clone());
     let field_exists_getters = generate_field_exists_getters(serializable_children.clone());
     let field_chains = generate_field_chains(serializable_children.clone());
+    let jpeg_serialization = if as_jpeg {
+        quote! {
+            "jpeg" => self
+                .encode_as_jpeg(serialize_hierarchy::SERIALIZATION_JPEG_QUALITY)
+                .map_err(|error| serialize_hierarchy::Error::SerializationFailed(serde::ser::Error::custom(error)))?
+                .serialize(serializer)
+                .map_err(serialize_hierarchy::Error::SerializationFailed),
+        }
+    } else {
+        quote! {}
+    };
+    let jpeg_exists_getter = if as_jpeg {
+        quote! {
+            "jpeg" => true,
+        }
+    } else {
+        quote! {}
+    };
+    let jpeg_field_chain = if as_jpeg {
+        quote! {
+            .chain(std::iter::once("jpeg".to_string()))
+        }
+    } else {
+        quote! {}
+    };
 
     let implementation = quote! {
         impl #impl_generics serialize_hierarchy::SerializeHierarchy for #name #ty_generics #where_clause {
@@ -72,6 +97,7 @@ fn process_input(input: DeriveInput) -> syn::Result<TokenStream> {
                     None => {
                         match path {
                             #(#serde_serializations,)*
+                            #jpeg_serialization
                             segment => Err(serialize_hierarchy::Error::UnexpectedPathSegment {
                                 segment: segment.to_string(),
                             }),
@@ -115,6 +141,7 @@ fn process_input(input: DeriveInput) -> syn::Result<TokenStream> {
                     },
                     None => match path {
                         #(#field_exists_getters,)*
+                        #jpeg_exists_getter
                         _ => false,
                     },
                 }
@@ -123,6 +150,7 @@ fn process_input(input: DeriveInput) -> syn::Result<TokenStream> {
             fn get_fields() -> std::collections::BTreeSet<String> {
                 std::iter::empty::<std::string::String>()
                     #(#field_chains)*
+                    #jpeg_field_chain
                     .collect()
             }
         }

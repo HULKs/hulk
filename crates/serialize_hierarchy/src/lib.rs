@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 pub use bincode;
 pub use error::Error;
 
-pub use jpeg::{DecodeJpeg, EncodeJpeg};
+pub use jpeg::{DecodeJpeg, EncodeJpeg, SERIALIZATION_JPEG_QUALITY};
 use serde::{Deserializer, Serializer};
 pub use serde_json;
 pub use serialize_hierarchy_derive::SerializeHierarchy;
