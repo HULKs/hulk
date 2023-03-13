@@ -32,8 +32,8 @@ impl Robot {
         let mut configuration: Configuration = runtime.block_on(async {
             deserialize(
                 "etc/configuration",
-                &format!("behavior_simulator{}", Into::<usize>::into(player_number)),
-                &format!("behavior_simulator{}", Into::<usize>::into(player_number)),
+                &format!("behavior_simulator{}", from_player_number(player_number)),
+                &format!("behavior_simulator{}", from_player_number(player_number)),
             )
             .await
             .wrap_err("could not load initial parameters")
@@ -62,5 +62,28 @@ impl Robot {
     pub fn cycle(&mut self, messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>) -> Result<()> {
         self.cycler
             .cycle(&mut self.database, &self.configuration, messages)
+    }
+}
+
+pub fn to_player_number(value: usize) -> Result<PlayerNumber, &'static str> {
+    let number = match value {
+        1 => PlayerNumber::One,
+        2 => PlayerNumber::Two,
+        3 => PlayerNumber::Three,
+        4 => PlayerNumber::Four,
+        5 => PlayerNumber::Five,
+        _ => return Err("invalid player number"),
+    };
+
+    Ok(number)
+}
+
+pub fn from_player_number(val: PlayerNumber) -> usize {
+    match val {
+        PlayerNumber::One => 1,
+        PlayerNumber::Two => 2,
+        PlayerNumber::Three => 3,
+        PlayerNumber::Four => 4,
+        PlayerNumber::Five => 5,
     }
 }

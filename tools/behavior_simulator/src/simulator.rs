@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs::read_to_string, path::Path, sync::Arc, time::Duration};
 
-use crate::cycler::Database;
+use crate::{cycler::Database, robot::to_player_number};
 use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
@@ -33,7 +33,7 @@ impl Simulator {
         let lua = Lua::new();
         let new_robot = lua
             .create_function(|lua, player_number: usize| {
-                let player_number = player_number.try_into().map_err(|_| {
+                let player_number = to_player_number(player_number).map_err(|_| {
                     LuaError::external(eyre!("invalid player number provided {player_number}"))
                 })?;
                 let robot = Robot::try_new(player_number).map_err(LuaError::external)?;
@@ -101,7 +101,7 @@ impl Simulator {
             self.lua.globals().set(
                 "set_robot_penalized",
                 scope.create_function(|_, (player_number, penalized): (usize, bool)| {
-                    let player_number = player_number.try_into().map_err(|_| {
+                    let player_number = to_player_number(player_number).map_err(|_| {
                         LuaError::external(eyre!("invalid player number provided {player_number}"))
                     })?;
                     self.state
@@ -119,7 +119,7 @@ impl Simulator {
                 "set_robot_pose",
                 scope.create_function(
                     |lua, (player_number, position, angle): (usize, Value, f32)| {
-                        let player_number = player_number.try_into().map_err(|_| {
+                        let player_number = to_player_number(player_number).map_err(|_| {
                             LuaError::external(eyre!(
                                 "invalid player number provided {player_number}"
                             ))
