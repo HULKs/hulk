@@ -93,12 +93,13 @@ pub fn run(
     keep_running: CancellationToken,
     scenario_file: impl AsRef<Path>,
 ) -> Result<()> {
+    let parameter_slots = 3; // 2 for communication writer + 1 reader for timeline_server
     let communication_server = communication::server::Runtime::<Configuration>::start(
         addresses,
         "tools/behavior_simulator",
         "behavior_simulator".to_string(),
         "behavior_simulator".to_string(),
-        2,
+        parameter_slots,
         keep_running.clone(),
     )?;
 
