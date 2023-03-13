@@ -91,10 +91,12 @@ impl Panel for ImagePanel {
     fn save(&self) -> Value {
         let cycler = self.cycler_selector.selected_cycler();
         let overlays = self.overlays.save();
+        let image_kind = format!("{:?}", self.image_kind);
 
         json!({
             "cycler": cycler.to_string(),
-            "overlays":overlays,
+            "overlays": overlays,
+            "image_kind": image_kind,
         })
     }
 }
