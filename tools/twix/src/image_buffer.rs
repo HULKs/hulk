@@ -23,11 +23,11 @@ pub struct ImageBuffer {
 }
 
 impl ImageBuffer {
-    pub fn new(communication: Communication, cycler: Cycler) -> Self {
+    pub fn new(communication: Communication, cycler: Cycler, path: &str) -> Self {
         let output = CyclerOutput {
             cycler,
             output: Output::Main {
-                path: "luminance_image.jpeg".to_string(),
+                path: format!("{path}.jpeg"),
             },
         };
         let (command_sender, command_receiver) = mpsc::channel(10);

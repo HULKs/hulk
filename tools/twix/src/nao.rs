@@ -41,9 +41,9 @@ impl Nao {
         ValueBuffer::output(self.communication.clone(), output)
     }
 
-    pub fn subscribe_image(&self, cycler: Cycler) -> ImageBuffer {
+    pub fn subscribe_image(&self, cycler: Cycler, path: &str) -> ImageBuffer {
         let _guard = self.runtime.enter();
-        ImageBuffer::new(self.communication.clone(), cycler)
+        ImageBuffer::new(self.communication.clone(), cycler, path)
     }
 
     pub fn subscribe_parameter(&self, path: &str) -> ValueBuffer {
