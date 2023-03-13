@@ -19,4 +19,3 @@ nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 rand = { workspace = true }
 types = { workspace = true }
-ittapi = { workspace = true }

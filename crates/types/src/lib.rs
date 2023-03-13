@@ -21,7 +21,6 @@ mod game_controller_state;
 mod geometry;
 pub mod grayscale_image;
 pub mod hardware;
-//pub mod image;
 mod image_segments;
 mod initial_pose;
 mod joints;
