@@ -16,6 +16,8 @@ mod state;
 
 #[derive(Parser)]
 struct Arguments {
+    #[arg(short, long, default_value = "[::]:1337")]
+    listen_address: String,
     scenario_file: PathBuf,
 }
 
@@ -54,5 +56,9 @@ fn main() -> Result<()> {
 
     let arguments = Arguments::parse();
 
-    server::run(keep_running, arguments.scenario_file)
+    server::run(
+        Some(arguments.listen_address),
+        keep_running,
+        arguments.scenario_file,
+    )
 }
