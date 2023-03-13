@@ -7,8 +7,8 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 pub struct ProgressIndicator {
     multi_progress: MultiProgress,
     default_style: ProgressStyle,
-    error_style: ProgressStyle,
     success_style: ProgressStyle,
+    error_style: ProgressStyle,
 }
 
 impl ProgressIndicator {
@@ -19,8 +19,8 @@ impl ProgressIndicator {
                 .unwrap()
                 // The last char is ignored as it provides a final state
                 .tick_chars("⠏⠋⠙⠹⢸⣰⣠⣄⣆⡇ "),
-            error_style: ProgressStyle::with_template("{prefix:.bold.dim} {msg}").unwrap(),
             success_style: ProgressStyle::with_template("{prefix:.bold.dim} {msg}").unwrap(),
+            error_style: ProgressStyle::with_template("{prefix:.bold.dim} {msg}").unwrap(),
         }
     }
 
@@ -31,17 +31,17 @@ impl ProgressIndicator {
         spinner.enable_steady_tick(Duration::from_millis(100));
         Task {
             progress: self.multi_progress.add(spinner),
-            error_style: self.error_style.clone(),
             success_style: self.success_style.clone(),
+            error_style: self.error_style.clone(),
         }
     }
 
     pub async fn map_tasks<T, F, M>(
         items: impl IntoIterator<Item = T>,
-        message: impl Into<Cow<'static, str>> + Clone,
+        message: &'static str,
         task: impl Fn(T) -> F + Copy,
     ) where
-        T: ToString + Clone,
+        T: ToString,
         F: Future<Output = Result<M>>,
         M: Into<TaskMessage>,
     {
@@ -51,7 +51,7 @@ impl ProgressIndicator {
             .map(|item| (multi_progress.task(item.to_string()), item))
             .map(|(progress, item)| {
                 progress.enable_steady_tick();
-                progress.set_message(message.clone());
+                progress.set_message(message);
                 async move { progress.finish_with(task(item).await) }
             })
             .collect::<FuturesUnordered<_>>()
@@ -62,8 +62,8 @@ impl ProgressIndicator {
 
 pub struct Task {
     progress: ProgressBar,
-    error_style: ProgressStyle,
     success_style: ProgressStyle,
+    error_style: ProgressStyle,
 }
 
 pub enum TaskMessage {
