@@ -13,11 +13,12 @@ use image::{
 };
 use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::{DecodeJpeg, EncodeJpeg};
+use serialize_hierarchy::{DecodeJpeg, EncodeJpeg, SerializeHierarchy};
 
 use crate::{Rgb, YCbCr422, YCbCr444};
 
-#[derive(Clone, Default, Serialize, Deserialize, Debug)]
+#[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy, Debug)]
+#[serialize_hierarchy(as_jpeg)]
 pub struct NaoImage {
     width_422: u32,
     height: u32,

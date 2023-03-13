@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use image::{codecs::jpeg::JpegEncoder, ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::{DecodeJpeg, EncodeJpeg};
+use serialize_hierarchy::{DecodeJpeg, EncodeJpeg, SerializeHierarchy};
 
-#[derive(Clone, Default, Serialize, Deserialize, Debug)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug, SerializeHierarchy)]
 pub struct GrayscaleImage {
     width: u32,
     height: u32,
