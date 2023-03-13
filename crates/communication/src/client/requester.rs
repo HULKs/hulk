@@ -21,7 +21,7 @@ pub async fn requester(
     writer.close().await.unwrap();
 }
 
-pub async fn forward_message(
+async fn forward_message(
     request: Request,
     writer: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
 ) -> Result<()> {
