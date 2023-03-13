@@ -18,7 +18,7 @@ use framework::{multiple_buffer_with_slots, Reader, Writer};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::PlayerNumber;
-use tokio::{select, sync::Notify, time::interval};
+use tokio::{net::ToSocketAddrs, select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
 use types::FieldDimensions;
 
@@ -88,9 +88,13 @@ async fn timeline_server(
     }
 }
 
-pub fn run(keep_running: CancellationToken, scenario_file: impl AsRef<Path>) -> Result<()> {
+pub fn run(
+    addresses: Option<impl ToSocketAddrs + Send + Sync + 'static>,
+    keep_running: CancellationToken,
+    scenario_file: impl AsRef<Path>,
+) -> Result<()> {
     let communication_server = communication::server::Runtime::<Configuration>::start(
-        Some("[::]:1337"),
+        addresses,
         "tools/behavior_simulator",
         "behavior_simulator".to_string(),
         "behavior_simulator".to_string(),
