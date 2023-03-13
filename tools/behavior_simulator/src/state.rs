@@ -74,17 +74,26 @@ impl State {
     pub fn cycle(&mut self, time_step: Duration) -> Result<Vec<Event>> {
         let now = UNIX_EPOCH + self.time_elapsed;
 
-        let incoming_messages = take(&mut self.messages);
-
         let mut events = vec![Event::Cycle];
 
-        for (player_number, robot) in self.robots.iter_mut() {
+        self.move_robots(time_step);
+        self.cycle_robots(now)?;
+        events.extend(self.move_ball(time_step));
+
+        self.time_elapsed += time_step;
+        self.cycle_count += 1;
+
+        Ok(events)
+    }
+
+    fn move_robots(&mut self, time_step: Duration) {
+        for robot in self.robots.values_mut() {
             let robot_to_field = robot
                 .database
                 .main_outputs
                 .robot_to_field
                 .as_mut()
-                .expect("Simulated robots should always have a known pose");
+                .expect("simulated robots should always have a known pose");
 
             robot.database.additional_outputs = AdditionalOutputs::default();
             match &robot.database.main_outputs.motion_command {
@@ -144,6 +153,19 @@ impl State {
                 }
                 _ => {}
             }
+        }
+    }
+
+    fn cycle_robots(&mut self, now: std::time::SystemTime) -> Result<()> {
+        let incoming_messages = take(&mut self.messages);
+
+        for (player_number, robot) in self.robots.iter_mut() {
+            let robot_to_field = robot
+                .database
+                .main_outputs
+                .robot_to_field
+                .as_mut()
+                .expect("simulated robots should always have a known pose");
 
             let incoming_messages: Vec<_> = incoming_messages
                 .iter()
@@ -183,6 +205,11 @@ impl State {
             }
         }
 
+        Ok(())
+    }
+
+    fn move_ball(&mut self, time_step: Duration) -> Vec<Event> {
+        let mut events = Vec::new();
         if let Some(ball) = self.ball.as_mut() {
             ball.position += ball.velocity * time_step.as_secs_f32();
             ball.velocity *= 0.98;
@@ -191,11 +218,7 @@ impl State {
                 events.push(Event::Goal);
             }
         }
-
-        self.time_elapsed += time_step;
-        self.cycle_count += 1;
-
-        Ok(events)
+        events
     }
 
     pub fn get_lua_state(&self) -> LuaState {
