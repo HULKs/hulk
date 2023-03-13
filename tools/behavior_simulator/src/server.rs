@@ -130,7 +130,7 @@ pub fn run(keep_running: CancellationToken, scenario_file: impl AsRef<Path>) -> 
     simulator.execute_script(scenario_file)?;
 
     let start = Instant::now();
-    let frames = simulator.run().context("failed to run simulation")?;
+    let frames = simulator.run().wrap_err("failed to run simulation")?;
     let duration = Instant::now() - start;
     println!("Took {:.2} seconds", duration.as_secs_f32());
 
