@@ -65,14 +65,14 @@ impl Robot {
     }
 }
 
-pub fn to_player_number(value: usize) -> Result<PlayerNumber, &'static str> {
+pub fn to_player_number(value: usize) -> Result<PlayerNumber, String> {
     let number = match value {
         1 => PlayerNumber::One,
         2 => PlayerNumber::Two,
         3 => PlayerNumber::Three,
         4 => PlayerNumber::Four,
         5 => PlayerNumber::Five,
-        _ => return Err("invalid player number"),
+        number => return Err(format!("invalid player number: {number}")),
     };
 
     Ok(number)
