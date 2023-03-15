@@ -1,4 +1,5 @@
 use splines::{Interpolation, Key, Spline};
+use thiserror::Error;
 
 use crate::{Joints, MotionFile};
 use std::time::Duration;
@@ -8,6 +9,12 @@ pub struct SplineMotionFileInterpolator {
     current_time: Duration,
     start_time: Duration,
     end_time: Duration,
+}
+
+#[derive(Error, Debug)]
+pub enum InterpolatorError {
+    #[error("accessed interpolator defined for [{min}s, {max}s] at {current}s")]
+    OutOfBoundsAccess { min: f32, max: f32, current: f32 },
 }
 
 impl From<MotionFile> for SplineMotionFileInterpolator {
@@ -58,8 +65,6 @@ impl SplineMotionFileInterpolator {
         interpolator.add(left_helper);
         interpolator.add(right_helper);
 
-        println!("Start time is {:?}, End time is {:?}", start_time, end_time);
-
         Self {
             interpolator,
             current_time,
@@ -68,24 +73,27 @@ impl SplineMotionFileInterpolator {
         }
     }
 
-    pub fn step(&mut self, time_step: Duration) -> Joints {
+    pub fn advance_by(&mut self, time_step: Duration) {
         self.current_time += time_step;
-        self.value()
     }
 
-    pub fn value(&self) -> Joints {
+    pub fn value(&self) -> Result<Joints, InterpolatorError> {
         if self.current_time <= self.start_time {
-            self.interpolator.sample(self.start_time.as_secs_f32())
+            self.interpolator.keys().iter().nth(1).map(|key| key.value)
         } else if self.current_time >= self.end_time {
-            self.interpolator.sample(self.end_time.as_secs_f32())
+            self.interpolator
+                .keys()
+                .iter()
+                .rev()
+                .nth(1)
+                .map(|key| key.value)
         } else {
             self.interpolator.sample(self.current_time.as_secs_f32())
         }
-        .unwrap_or_else(|| {
-            panic!(
-                "the interpolator was sampled at {}s where no key is present",
-                self.current_time.as_secs_f32()
-            )
+        .ok_or(InterpolatorError::OutOfBoundsAccess {
+            min: self.start_time.as_secs_f32(),
+            max: self.end_time.as_secs_f32(),
+            current: self.current_time.as_secs_f32(),
         })
     }
 

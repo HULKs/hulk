@@ -65,7 +65,7 @@ impl StandUpBack {
             .update(Vector2::new(angular_velocity.x, angular_velocity.y));
 
         if context.motion_selection.current_motion == MotionType::StandUpBack {
-            self.interpolator.step(last_cycle_duration);
+            self.interpolator.advance_by(last_cycle_duration);
         } else {
             self.interpolator.reset();
         }
@@ -88,7 +88,7 @@ impl StandUpBack {
         }
 
         Ok(MainOutputs {
-            stand_up_back_positions: self.interpolator.value().into(),
+            stand_up_back_positions: self.interpolator.value()?.into(),
         })
     }
 }
