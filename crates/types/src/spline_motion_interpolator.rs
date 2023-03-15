@@ -50,17 +50,17 @@ impl SplineMotionFileInterpolator {
         let left_helper = Key::new(
             2. * keys[0].t.as_secs_f32() - keys[1].t.as_secs_f32(),
             keys[1].value,
-            Interpolation::CatmullRom,
+            Interpolation::Linear,
         );
         let right_helper = Key::new(
             2. * keys[last_key_index].t.as_secs_f32() - keys[last_key_index - 1].t.as_secs_f32(),
             keys[last_key_index - 1].value,
-            Interpolation::CatmullRom,
+            Interpolation::Linear,
         );
 
         let mut interpolator = Spline::from_iter(
             keys.into_iter()
-                .map(|key| Key::new(key.t.as_secs_f32(), key.value, Interpolation::CatmullRom)),
+                .map(|key| Key::new(key.t.as_secs_f32(), key.value, Interpolation::Linear)),
         );
         interpolator.add(left_helper);
         interpolator.add(right_helper);
