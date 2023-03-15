@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::read_to_string, path::Path, sync::Arc, time::Duration};
+use std::{fs::read_to_string, path::Path, sync::Arc, time::Duration};
 
 use crate::{cycler::Database, robot::to_player_number};
 use color_eyre::{
@@ -8,7 +8,7 @@ use color_eyre::{
 use mlua::{Error as LuaError, Function, Lua, LuaSerdeExt, SerializeOptions, Value};
 use nalgebra::{Isometry2, Vector2};
 use parking_lot::Mutex;
-use spl_network_messages::PlayerNumber;
+use types::Players;
 
 use crate::{
     robot::Robot,
@@ -18,7 +18,7 @@ use crate::{
 const SERIALIZE_OPTIONS: SerializeOptions = SerializeOptions::new().serialize_none_to_null(false);
 
 pub struct Frame {
-    pub robots: HashMap<PlayerNumber, Database>,
+    pub robots: Players<Option<Database>>,
 }
 
 pub struct Simulator {
@@ -70,14 +70,11 @@ impl Simulator {
             self.cycle()?;
 
             let state = self.state.lock();
-            let robot_databases = state
-                .robots
-                .iter()
-                .map(|(player_number, robot)| (*player_number, robot.database.clone()))
-                .collect();
-            frames.push(Frame {
-                robots: robot_databases,
-            });
+            let mut robots = Players::<Option<Database>>::default();
+            for (player_number, robot) in &state.robots {
+                robots[*player_number] = Some(robot.database.clone())
+            }
+            frames.push(Frame { robots });
 
             if state.finished {
                 break;
