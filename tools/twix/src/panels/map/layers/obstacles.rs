@@ -30,7 +30,7 @@ impl Layer for Obstacles {
     }
 
     fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
-        let robot_to_field: Isometry2<f32> = self.robot_to_field.require_latest()?;
+        let robot_to_field: Isometry2<f32> = self.robot_to_field.parse_latest().unwrap_or_default();
         let obstacles: Vec<Obstacle> = self.obstacles.require_latest()?;
 
         let hip_height_stroke = Stroke {
