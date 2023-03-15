@@ -1,31 +1,14 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::Isometry2;
-use types::{FieldDimensions, Players};
+use types::FieldDimensions;
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    nao::Nao, panels::map::layer::Layer, players_value_buffer::PlayersValueBuffer,
+    twix_painter::TwixPainter,
 };
-
-struct PlayersValueBuffer(Players<ValueBuffer>);
-
-impl PlayersValueBuffer {
-    pub fn try_new(nao: Arc<Nao>, prefix: &str, output: &str) -> Result<Self> {
-        let buffers = Players {
-            one: nao.subscribe_output(CyclerOutput::from_str(&format!("{prefix}.one.{output}"))?),
-            two: nao.subscribe_output(CyclerOutput::from_str(&format!("{prefix}.two.{output}"))?),
-            three: nao
-                .subscribe_output(CyclerOutput::from_str(&format!("{prefix}.three.{output}"))?),
-            four: nao.subscribe_output(CyclerOutput::from_str(&format!("{prefix}.four.{output}"))?),
-            five: nao.subscribe_output(CyclerOutput::from_str(&format!("{prefix}.five.{output}"))?),
-        };
-
-        Ok(Self(buffers))
-    }
-}
 
 pub struct BehaviorSimulator {
     robot_to_field: PlayersValueBuffer,
