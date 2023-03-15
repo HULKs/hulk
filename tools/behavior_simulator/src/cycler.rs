@@ -6,25 +6,11 @@ use control::{
     role_assignment::{self, RoleAssignment},
     world_state_composer::{self, WorldStateComposer},
 };
+use cyclers::control::Database;
 use framework::{AdditionalOutput, PerceptionInput};
-use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
-use structs::{
-    control::{AdditionalOutputs, MainOutputs},
-    Configuration,
-};
+use structs::Configuration;
 use tokio::sync::Notify;
 use types::{hardware, messages::IncomingMessage};
-
-#[derive(Clone, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct Database {
-    pub main_outputs: MainOutputs,
-    pub additional_outputs: AdditionalOutputs,
-    pub simulator_database: SimulatorDatabase,
-}
-
-#[derive(Clone, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct SimulatorDatabase {}
 
 pub struct BehaviorCycler<Interface> {
     hardware_interface: Arc<Interface>,

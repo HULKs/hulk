@@ -5,7 +5,6 @@ use std::{
 };
 
 use crate::{
-    cycler::Database,
     robot::to_player_number,
     simulator::{Frame, Simulator},
 };
@@ -13,6 +12,7 @@ use color_eyre::{
     eyre::{bail, WrapErr},
     Result,
 };
+use cyclers::control::Database;
 use framework::{multiple_buffer_with_slots, Reader, Writer};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;

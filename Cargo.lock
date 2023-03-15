@@ -4261,7 +4261,6 @@ dependencies = [
 name = "twix"
 version = "0.1.0"
 dependencies = [
- "behavior_simulator",
  "bincode",
  "color-eyre",
  "communication",
