@@ -167,21 +167,18 @@ impl WalkingEngine {
 
         let is_step_started_this_cycle = self.t.is_zero();
         if is_step_started_this_cycle {
-            match context.has_ground_contact {
-                true => {
-                    self.initialize_step_states_from_request(
-                        *context.walk_command,
-                        self.swing_side,
-                        context.config,
-                        context.kick_steps,
-                    );
-                }
-                false => {
-                    self.current_step = Step::zero();
-                    self.step_duration = Duration::ZERO;
-                    self.swing_side = Side::Left;
-                    self.max_swing_foot_lift = 0.0;
-                }
+            if *context.has_ground_contact {
+                self.initialize_step_states_from_request(
+                    *context.walk_command,
+                    self.swing_side,
+                    context.config,
+                    context.kick_steps,
+                );
+            } else {
+                self.current_step = Step::zero();
+                self.step_duration = Duration::ZERO;
+                self.swing_side = Side::Left;
+                self.max_swing_foot_lift = 0.0;
             }
         }
 
