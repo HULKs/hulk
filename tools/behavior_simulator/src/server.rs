@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     path::Path,
     sync::Arc,
     time::{Duration, Instant},
@@ -17,10 +16,9 @@ use color_eyre::{
 use framework::{multiple_buffer_with_slots, Reader, Writer};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use spl_network_messages::PlayerNumber;
 use tokio::{net::ToSocketAddrs, select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
-use types::FieldDimensions;
+use types::{FieldDimensions, Players};
 
 #[derive(Clone, Serialize, Deserialize, SerializeHierarchy)]
 struct Configuration {
@@ -32,7 +30,7 @@ struct Configuration {
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 struct MainOutputs {
     frame_count: usize,
-    databases: HashMap<PlayerNumber, Database>,
+    databases: Players<Option<Database>>,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
@@ -79,9 +77,8 @@ async fn timeline_server(
             *control = to_player_number(parameters.selected_robot)
                 .ok()
                 .and_then(|player_number| {
-                    frames[parameters.selected_frame].robots.get(&player_number)
+                    frames[parameters.selected_frame].robots[player_number].clone()
                 })
-                .cloned()
                 .unwrap_or_default();
         }
         control_changed.notify_waiters();
