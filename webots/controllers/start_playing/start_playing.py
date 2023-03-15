@@ -1,17 +1,26 @@
 from controller import Supervisor
-import websockets
+from simple_websocket_server import WebSocketServer, WebSocket
+from threading import Thread
 
 TIME_STEP = 10
 
 supervisor = Supervisor()
-
-async def command_handler(ws, path):
-    message = await ws.recv()
-    if message == "reset":
-        supervisor.simulatorReset()
-
-webots_supervisor_websocket = websockets.serve(command_handler, "localhost", 9980)
 chest_button_channel = supervisor.getDevice('ChestButton Channel')
+scene_control_server = None
+
+class SceneControl(WebSocket):
+    def handle(self):
+        if self.data == "reset":
+            supervisor.worldReload()
+            scene_control_server.close()
+
+def run_scene_control_server():
+    scene_control_server = WebSocketServer("localhost", 9980, SceneControl)
+    scene_control_server.serve_forever()
+
+websocket_thread = Thread(target=run_scene_control_server)
+websocket_thread.start()
+
 count = 0
 pressed = 0
 
