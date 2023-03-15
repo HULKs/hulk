@@ -12,6 +12,7 @@ class SceneControl(WebSocket):
     def handle(self):
         if self.data == "reset":
             supervisor.worldReload()
+            scene_control_server.close()
 
 def run_scene_control_server():
     scene_control_server = WebSocketServer("localhost", 9980, SceneControl)
@@ -28,6 +29,3 @@ while supervisor.step(TIME_STEP) != -1:
         pressed += 1
         chest_button_channel.send(b'\x01')
     count += 1
-
-scene_control_server.close()
-websocket_thread.join()
