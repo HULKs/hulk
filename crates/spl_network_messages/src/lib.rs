@@ -38,6 +38,7 @@ pub enum PlayerNumber {
     #[default]
     Five,
 }
+
 impl Display for PlayerNumber {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         let number = match self {
