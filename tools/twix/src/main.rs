@@ -35,9 +35,9 @@ mod image_buffer;
 mod nao;
 mod panel;
 mod panels;
+mod players_value_buffer;
 mod twix_painter;
 mod value_buffer;
-mod players_value_buffer;
 
 fn setup_logger() -> Result<(), InitError> {
     Dispatch::new()
