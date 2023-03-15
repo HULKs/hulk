@@ -4319,6 +4319,7 @@ dependencies = [
  "serialize_hierarchy",
  "spl_network_messages",
  "splines",
+ "thiserror",
  "tokio",
 ]
 
