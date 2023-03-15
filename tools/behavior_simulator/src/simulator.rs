@@ -1,10 +1,11 @@
 use std::{fs::read_to_string, path::Path, sync::Arc, time::Duration};
 
-use crate::{cycler::Database, robot::to_player_number};
+use crate::robot::to_player_number;
 use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
 };
+use cyclers::control::Database;
 use mlua::{Error as LuaError, Function, Lua, LuaSerdeExt, SerializeOptions, Value};
 use nalgebra::{Isometry2, Vector2};
 use parking_lot::Mutex;

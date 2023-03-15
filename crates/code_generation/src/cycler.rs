@@ -112,7 +112,7 @@ impl Cycler<'_> {
     pub fn get_database_struct(&self) -> TokenStream {
         let cycler_module_name_identifier = self.get_cycler_module_name_identifier();
         quote! {
-            #[derive(Default, serde::Deserialize, serde::Serialize, serialize_hierarchy::SerializeHierarchy)]
+            #[derive(Clone, Default, serde::Deserialize, serde::Serialize, serialize_hierarchy::SerializeHierarchy)]
             pub struct Database {
                 pub main_outputs: structs::#cycler_module_name_identifier::MainOutputs,
                 pub additional_outputs: structs::#cycler_module_name_identifier::AdditionalOutputs,

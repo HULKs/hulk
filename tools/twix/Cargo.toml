@@ -6,7 +6,6 @@ license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
-behavior_simulator = { workspace = true }
 bincode = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true }

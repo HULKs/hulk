@@ -5,6 +5,7 @@ use std::{
 };
 
 use color_eyre::Result;
+use cyclers::control::Database;
 use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, GameState, PlayerNumber, SplMessage, Team};
@@ -15,7 +16,7 @@ use types::{
     OrientationMode, PathSegment, Players, PrimaryState, Side,
 };
 
-use crate::{cycler::Database, robot::Robot};
+use crate::robot::Robot;
 
 pub enum Event {
     Cycle,
