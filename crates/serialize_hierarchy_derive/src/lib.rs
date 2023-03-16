@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use proc_macro2::TokenStream;
+use proc_macro_error::abort;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
 use quote::ToTokens;
@@ -15,23 +16,21 @@ const AS_JPEG: &str = "as_jpeg";
 #[proc_macro_error]
 pub fn serialize_hierarchy(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    process_input(input)
-        .unwrap_or_else(|error| error.into_compile_error())
-        .into()
+    process_input(input).into()
 }
 
-fn process_input(input: DeriveInput) -> syn::Result<TokenStream> {
+fn process_input(input: DeriveInput) -> TokenStream {
     let children = match &input.data {
-        Data::Struct(data) => read_children(data)?,
+        Data::Struct(data) => read_children(data),
         Data::Enum(..) => Vec::new(),
         Data::Union(data) => {
-            return Err(syn::Error::new_spanned(
+            abort!(
                 data.union_token,
                 "`SerializeHierarchy` can only be derived for `struct` or `enum`",
-            ))
+            )
         }
     };
-    let type_attributes = parse_attributes(&input.attrs)?;
+    let type_attributes = parse_attributes(&input.attrs);
     let as_jpeg = type_attributes.contains(&TypeAttribute::AsJpeg);
 
     let name = &input.ident;
@@ -152,7 +151,7 @@ fn process_input(input: DeriveInput) -> syn::Result<TokenStream> {
             }
         }
     };
-    Ok(implementation)
+    implementation
 }
 
 fn generate_path_serializations<'a>(
@@ -255,35 +254,28 @@ enum TypeAttribute {
     AsJpeg,
 }
 
-fn parse_attributes(attrs: &[syn::Attribute]) -> syn::Result<HashSet<TypeAttribute>> {
-    let meta_items = attrs
-        .iter()
-        .map(parse_meta_items)
-        .collect::<Result<Vec<_>, _>>()?;
+fn parse_attributes(attrs: &[syn::Attribute]) -> HashSet<TypeAttribute> {
+    let meta_items = attrs.iter().map(parse_meta_items).collect::<Vec<_>>();
 
     meta_items
         .into_iter()
         .flatten()
         .map(|meta| match meta {
-            NestedMeta::Meta(Meta::Path(word)) if word.is_ident(AS_JPEG) => {
-                Ok(TypeAttribute::AsJpeg)
-            }
+            NestedMeta::Meta(Meta::Path(word)) if word.is_ident(AS_JPEG) => TypeAttribute::AsJpeg,
             NestedMeta::Meta(meta_item) => {
                 let path = meta_item
                     .path()
                     .into_token_stream()
                     .to_string()
                     .replace(' ', "");
-                let message = format!("unknown attribute `{}`", path);
-                Err(syn::Error::new_spanned(meta_item.path(), message))
+                abort!(meta_item.path(), "unknown attribute `{}`", path)
             }
 
             NestedMeta::Lit(lit) => {
-                let message = "unexpected literal in attribute";
-                Err(syn::Error::new_spanned(lit, message))
+                abort!(lit, "unexpected literal in attribute")
             }
         })
-        .collect::<Result<HashSet<_>, _>>()
+        .collect()
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -298,37 +290,30 @@ struct Child {
     ty: Type,
 }
 
-fn parse_meta_items(attribute: &syn::Attribute) -> syn::Result<Vec<NestedMeta>> {
+fn parse_meta_items(attribute: &syn::Attribute) -> Vec<NestedMeta> {
     if !attribute.path.is_ident(SERIALIZE_HIERARCHY) {
-        return Ok(Vec::new());
+        return Vec::new();
     }
     match attribute.parse_meta() {
-        Ok(Meta::List(meta)) => Ok(meta.nested.into_iter().collect()),
-        Ok(other) => Err(syn::Error::new_spanned(
-            other,
-            "expected #[serialize_hierarchy(...)]",
-        )),
-        Err(error) => Err(error),
+        Ok(Meta::List(meta)) => meta.nested.into_iter().collect(),
+        Ok(other) => abort!(other, "expected #[serialize_hierarchy(...)]",),
+        Err(error) => abort!(error.span(), error.to_string()),
     }
 }
 
-fn read_children(input: &DataStruct) -> syn::Result<Vec<Child>> {
+fn read_children(input: &DataStruct) -> Vec<Child> {
     input
         .fields
         .iter()
         .map(|field| {
-            let meta_items = field
-                .attrs
-                .iter()
-                .map(parse_meta_items)
-                .collect::<Result<Vec<_>, _>>()?;
+            let meta_items = field.attrs.iter().map(parse_meta_items).collect::<Vec<_>>();
 
             let attributes = meta_items
                 .into_iter()
                 .flatten()
                 .map(|meta| match meta {
                     NestedMeta::Meta(Meta::Path(word)) if word.is_ident(SKIP) => {
-                        Ok(ChildAttribute::Skip)
+                        ChildAttribute::Skip
                     }
                     NestedMeta::Meta(meta_item) => {
                         let path = meta_item
@@ -336,26 +321,24 @@ fn read_children(input: &DataStruct) -> syn::Result<Vec<Child>> {
                             .into_token_stream()
                             .to_string()
                             .replace(' ', "");
-                        let message = format!("unknown attribute `{}`", path);
-                        Err(syn::Error::new_spanned(meta_item.path(), message))
+                        abort!(meta_item.path(), "unknown attribute `{}`", path)
                     }
 
                     NestedMeta::Lit(lit) => {
-                        let message = "unexpected literal in attribute";
-                        Err(syn::Error::new_spanned(lit, message))
+                        abort!(lit, "unexpected literal in attribute")
                     }
                 })
-                .collect::<Result<HashSet<_>, _>>()?;
+                .collect();
             let identifier = field
                 .ident
                 .clone()
-                .ok_or_else(|| syn::Error::new_spanned(field, "field has to be named"))?;
+                .unwrap_or_else(|| abort!(field, "field has to be named"));
             let ty = field.ty.clone();
-            Ok(Child {
+            Child {
                 attributes,
                 identifier,
                 ty,
-            })
+            }
         })
         .collect()
 }
