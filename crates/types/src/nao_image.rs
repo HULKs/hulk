@@ -22,7 +22,7 @@ use crate::{Rgb, YCbCr422, YCbCr444};
 pub struct NaoImage {
     width_422: u32,
     height: u32,
-    pub buffer: Arc<Vec<YCbCr422>>,
+    buffer: Arc<Vec<YCbCr422>>,
 }
 
 impl EncodeJpeg for NaoImage {
@@ -50,6 +50,10 @@ impl DecodeJpeg for NaoImage {
 }
 
 impl NaoImage {
+    pub fn buffer(&self) -> &[YCbCr422] {
+        &self.buffer
+    }
+
     pub fn zero(width: u32, height: u32) -> Self {
         assert!(
             width % 2 == 0,
