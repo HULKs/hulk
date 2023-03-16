@@ -49,7 +49,7 @@ fn process_input(input: DeriveInput) -> TokenStream {
         (
             quote! {
                 "jpeg" => self
-                    .encode_as_jpeg(serialize_hierarchy::SERIALIZATION_JPEG_QUALITY)
+                    .encode_as_jpeg(Self::DEFAULT_QUALITY)
                     .map_err(|error| serialize_hierarchy::Error::SerializationFailed(serde::ser::Error::custom(error)))?
                     .serialize(serializer)
                     .map_err(serialize_hierarchy::Error::SerializationFailed),

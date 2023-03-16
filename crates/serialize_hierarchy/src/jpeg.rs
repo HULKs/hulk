@@ -1,6 +1,5 @@
-pub const SERIALIZATION_JPEG_QUALITY: u8 = 40;
-
 pub trait EncodeJpeg {
+    const DEFAULT_QUALITY: u8;
     type Error;
     fn encode_as_jpeg(&self, quality: u8) -> Result<Vec<u8>, Self::Error>;
 }
