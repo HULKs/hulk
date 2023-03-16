@@ -3,6 +3,7 @@ use std::{fs::File, path::Path, time::Duration};
 use color_eyre::eyre::{Result, WrapErr};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::from_reader;
+use splines::{impl_Interpolate, Interpolation, Key, Spline};
 
 use crate::Joints;
 
