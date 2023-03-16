@@ -290,7 +290,7 @@ fn parse_meta_items(attribute: &syn::Attribute) -> Vec<NestedMeta> {
     }
     match attribute.parse_meta() {
         Ok(Meta::List(meta)) => meta.nested.into_iter().collect(),
-        Ok(other) => abort!(other, "expected #[serialize_hierarchy(...)]",),
+        Ok(other) => abort!(other, "expected `#[serialize_hierarchy(...)]`",),
         Err(error) => abort!(error.span(), error.to_string()),
     }
 }
