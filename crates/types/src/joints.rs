@@ -1,6 +1,6 @@
 use std::{
     iter::Sum,
-    ops::{Add, Mul, Sub},
+    ops::{Add, Div, Mul, Sub},
 };
 
 use approx::{AbsDiffEq, RelativeEq};
@@ -424,6 +424,14 @@ impl Mul<f32> for Joints {
             left_leg: self.left_leg * scale_factor,
             right_leg: self.right_leg * scale_factor,
         }
+    }
+}
+
+impl Div<f32> for Joints {
+    type Output = Joints;
+
+    fn div(self, scale_factor: f32) -> Self::Output {
+        self * (1. / scale_factor)
     }
 }
 
