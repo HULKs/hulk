@@ -35,16 +35,17 @@ fn process_input(input: DeriveInput) -> TokenStream {
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    let serializable_children = children
+    let serializable_children: Vec<_> = children
         .iter()
-        .filter(|child| !child.attributes.contains(&ChildAttribute::Skip));
-    let path_serializations = generate_path_serializations(serializable_children.clone());
-    let serde_serializations = generate_serde_serializations(serializable_children.clone());
-    let path_deserializations = generate_path_deserializations(serializable_children.clone());
-    let serde_deserializations = generate_serde_deserializations(serializable_children.clone());
-    let path_exists_getters = generate_path_exists_getters(serializable_children.clone());
-    let field_exists_getters = generate_field_exists_getters(serializable_children.clone());
-    let field_chains = generate_field_chains(serializable_children.clone());
+        .filter(|child| !child.attributes.contains(&ChildAttribute::Skip))
+        .collect();
+    let path_serializations = generate_path_serializations(&serializable_children);
+    let serde_serializations = generate_serde_serializations(&serializable_children);
+    let path_deserializations = generate_path_deserializations(&serializable_children);
+    let serde_deserializations = generate_serde_deserializations(&serializable_children);
+    let path_exists_getters = generate_path_exists_getters(&serializable_children);
+    let field_exists_getters = generate_field_exists_getters(&serializable_children);
+    let field_chains = generate_field_chains(&serializable_children);
     let (jpeg_serialization, jpeg_exists_getter, jpeg_field_chain) = if as_jpeg {
         (
             quote! {
@@ -148,46 +149,44 @@ fn process_input(input: DeriveInput) -> TokenStream {
     implementation
 }
 
-fn generate_path_serializations<'a>(
-    children: impl 'a + IntoIterator<Item = &'a Child>,
-) -> impl 'a + Iterator<Item = TokenStream> {
-    children.into_iter().map(|child| {
-        let identifier = &child.identifier;
-        let pattern = identifier.to_string();
-        quote! {
-            #pattern => self.#identifier.serialize_path(suffix, serializer)
-        }
-    })
+fn generate_path_serializations(children: &[&Child]) -> Vec<TokenStream> {
+    children
+        .iter()
+        .map(|child| {
+            let identifier = &child.identifier;
+            let pattern = identifier.to_string();
+            quote! {
+                #pattern => self.#identifier.serialize_path(suffix, serializer)
+            }
+        })
+        .collect()
 }
 
-fn generate_serde_serializations<'a>(
-    children: impl 'a + IntoIterator<Item = &'a Child>,
-) -> impl 'a + Iterator<Item = TokenStream> {
-    children.into_iter().map(|child| {
+fn generate_serde_serializations(children: &[&Child]) -> Vec<TokenStream> {
+    children.iter().map(|child| {
         let identifier = &child.identifier;
         let pattern = identifier.to_string();
         quote! {
             #pattern => self.#identifier.serialize(serializer).map_err(serialize_hierarchy::Error::SerializationFailed)
         }
-    })
+    }).collect()
 }
 
-fn generate_path_deserializations<'a>(
-    children: impl 'a + IntoIterator<Item = &'a Child>,
-) -> impl 'a + Iterator<Item = TokenStream> {
-    children.into_iter().map(|child| {
-        let identifier = &child.identifier;
-        let pattern = identifier.to_string();
-        quote! {
-            #pattern => self.#identifier.deserialize_path(suffix, deserializer)
-        }
-    })
+fn generate_path_deserializations(children: &[&Child]) -> Vec<TokenStream> {
+    children
+        .iter()
+        .map(|child| {
+            let identifier = &child.identifier;
+            let pattern = identifier.to_string();
+            quote! {
+                #pattern => self.#identifier.deserialize_path(suffix, deserializer)
+            }
+        })
+        .collect()
 }
 
-fn generate_serde_deserializations<'a>(
-    children: impl 'a + IntoIterator<Item = &'a Child>,
-) -> impl 'a + Iterator<Item = TokenStream> {
-    children.into_iter().map(|child| {
+fn generate_serde_deserializations(children: &[&Child]) -> Vec<TokenStream> {
+    children.iter().map(|child| {
         let identifier = &child.identifier;
         let pattern = identifier.to_string();
         let ty = &child.ty;
@@ -198,49 +197,52 @@ fn generate_serde_deserializations<'a>(
             }
 
         }
-    })
+    }).collect()
 }
 
-fn generate_path_exists_getters<'a>(
-    children: impl 'a + IntoIterator<Item = &'a Child>,
-) -> impl 'a + Iterator<Item = TokenStream> {
-    children.into_iter().map(|child| {
-        let pattern = child.identifier.to_string();
-        let ty = &child.ty;
-        quote! {
-            #pattern => <#ty as serialize_hierarchy::SerializeHierarchy>::exists(suffix)
-        }
-    })
+fn generate_path_exists_getters(children: &[&Child]) -> Vec<TokenStream> {
+    children
+        .iter()
+        .map(|child| {
+            let pattern = child.identifier.to_string();
+            let ty = &child.ty;
+            quote! {
+                #pattern => <#ty as serialize_hierarchy::SerializeHierarchy>::exists(suffix)
+            }
+        })
+        .collect()
 }
 
-fn generate_field_exists_getters<'a>(
-    children: impl 'a + IntoIterator<Item = &'a Child>,
-) -> impl 'a + Iterator<Item = TokenStream> {
-    children.into_iter().map(|child| {
-        let pattern = child.identifier.to_string();
-        quote! {
-            #pattern => true
-        }
-    })
+fn generate_field_exists_getters(children: &[&Child]) -> Vec<TokenStream> {
+    children
+        .iter()
+        .map(|child| {
+            let pattern = child.identifier.to_string();
+            quote! {
+                #pattern => true
+            }
+        })
+        .collect()
 }
 
-fn generate_field_chains<'a>(
-    children: impl 'a + IntoIterator<Item = &'a Child>,
-) -> impl 'a + Iterator<Item = TokenStream> {
-    children.into_iter().map(|child| {
-        let identifier = &child.identifier;
-        let name_string = identifier.to_string();
-        let pattern = format!("{}.{{}}", identifier);
-        let ty = &child.ty;
-        quote! {
-            .chain(std::iter::once(#name_string.to_string()))
-            .chain(
-                <#ty as serialize_hierarchy::SerializeHierarchy>::get_fields()
-                    .into_iter()
-                    .map(|name| format!(#pattern, name))
-            )
-        }
-    })
+fn generate_field_chains(children: &[&Child]) -> Vec<TokenStream> {
+    children
+        .iter()
+        .map(|child| {
+            let identifier = &child.identifier;
+            let name_string = identifier.to_string();
+            let pattern = format!("{}.{{}}", identifier);
+            let ty = &child.ty;
+            quote! {
+                .chain(std::iter::once(#name_string.to_string()))
+                .chain(
+                    <#ty as serialize_hierarchy::SerializeHierarchy>::get_fields()
+                        .into_iter()
+                        .map(|name| format!(#pattern, name))
+                )
+            }
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
