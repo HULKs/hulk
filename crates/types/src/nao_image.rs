@@ -26,6 +26,7 @@ pub struct NaoImage {
 }
 
 impl EncodeJpeg for NaoImage {
+    const DEFAULT_QUALITY: u8 = 40;
     type Error = ImageError;
 
     fn encode_as_jpeg(&self, quality: u8) -> Result<Vec<u8>, Self::Error> {
