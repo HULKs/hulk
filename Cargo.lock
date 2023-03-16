@@ -1098,6 +1098,7 @@ dependencies = [
  "serialize_hierarchy",
  "smallvec",
  "spl_network_messages",
+ "splines",
  "types",
 ]
 
@@ -3828,6 +3829,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "splines"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "345f11dca845086e60f1076569dedb4c2026e8dfe420d2900de8683142480bcf"
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4301,6 +4308,7 @@ dependencies = [
  "serde_test",
  "serialize_hierarchy",
  "spl_network_messages",
+ "splines",
  "tokio",
 ]
 

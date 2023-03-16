@@ -4,12 +4,12 @@ use filtering::LowPassFilter;
 use framework::MainOutput;
 use nalgebra::Vector2;
 use types::{
-    CycleTime, Facing, Joints, MotionCommand, MotionFile, MotionFileInterpolator, MotionSafeExits,
-    MotionSelection, MotionType, SensorData,
+    CycleTime, Facing, Joints, MotionCommand, MotionFile, MotionSafeExits, MotionSelection,
+    MotionType, SensorData, SplineMotionFileInterpolator,
 };
 
 pub struct StandUpFront {
-    interpolator: MotionFileInterpolator,
+    interpolator: SplineMotionFileInterpolator,
     filtered_gyro: LowPassFilter<Vector2<f32>>,
 }
 

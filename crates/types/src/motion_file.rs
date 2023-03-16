@@ -3,13 +3,14 @@ use std::{fs::File, path::Path, time::Duration};
 use color_eyre::eyre::{Result, WrapErr};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::from_reader;
+use splines::{impl_Interpolate, Interpolation, Key, Spline};
 
-use crate::{Joints, LinearInterpolator};
+use crate::Joints;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct MotionFile {
-    initial_positions: Joints,
-    frames: Vec<MotionFileFrame>,
+    pub initial_positions: Joints,
+    pub frames: Vec<MotionFileFrame>,
 }
 
 impl MotionFile {
@@ -27,13 +28,13 @@ impl MotionFile {
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
-struct MotionFileFrame {
+pub struct MotionFileFrame {
     #[serde(
         serialize_with = "serialize_float_seconds",
         deserialize_with = "deserialize_float_seconds"
     )]
-    duration: Duration,
-    positions: Joints,
+    pub duration: Duration,
+    pub positions: Joints,
 }
 
 fn serialize_float_seconds<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
@@ -50,68 +51,55 @@ where
     Ok(Duration::from_secs_f32(f32::deserialize(deserializer)?))
 }
 
+impl_Interpolate!(f32, Joints, std::f32::consts::PI);
 pub struct MotionFileInterpolator {
-    interpolators: Vec<LinearInterpolator<Joints>>,
-    interpolator_index: usize,
+    interpolators: Spline<f32, Joints>,
+    current_time: Duration,
 }
 
 impl From<MotionFile> for MotionFileInterpolator {
     fn from(motion_file: MotionFile) -> Self {
         assert!(!motion_file.frames.is_empty());
-        let mut interpolators = vec![LinearInterpolator::new(
+
+        let mut current_time = Duration::ZERO;
+        let mut keys = vec![Key::new(
+            current_time.as_secs_f32(),
             motion_file.initial_positions,
-            motion_file.frames[0].positions,
-            motion_file.frames[0].duration,
+            Interpolation::Linear,
         )];
-        interpolators.extend(
-            motion_file
-                .frames
-                .iter()
-                .zip(motion_file.frames.iter().skip(1))
-                .map(|(start_frame, end_frame)| {
-                    LinearInterpolator::new(
-                        start_frame.positions,
-                        end_frame.positions,
-                        end_frame.duration,
-                    )
-                }),
-        );
+
+        keys.extend(motion_file.frames.into_iter().map(|frame| {
+            current_time += frame.duration;
+            Key::new(
+                current_time.as_secs_f32(),
+                frame.positions,
+                Interpolation::Linear,
+            )
+        }));
+
         Self {
-            interpolators,
-            interpolator_index: 0,
+            interpolators: Spline::from_vec(keys),
+            current_time: Duration::ZERO,
         }
     }
 }
 
 impl MotionFileInterpolator {
     pub fn reset(&mut self) {
-        self.interpolators
-            .iter_mut()
-            .for_each(|interpolator| interpolator.reset());
-        self.interpolator_index = 0;
+        self.current_time = Duration::ZERO;
     }
 
     pub fn step(&mut self, time_step: Duration) -> Joints {
-        let mut remaining_time_step = time_step;
-        loop {
-            let current_interpolator = &self.interpolators[self.interpolator_index];
-            let remaining_duration = current_interpolator.remaining_duration();
-            if remaining_time_step < remaining_duration
-                || self.interpolator_index >= self.interpolators.len() - 1
-            {
-                break;
-            }
-            remaining_time_step -= remaining_duration;
-            self.interpolator_index += 1;
-        }
-        self.interpolators[self.interpolator_index].step(remaining_time_step)
+        self.current_time += time_step;
+        self.value()
     }
 
     pub fn value(&self) -> Joints {
-        self.interpolators[self.interpolator_index].value()
+        let arg: f32 = self.current_time.as_secs_f32();
+        self.interpolators.clamped_sample(arg).unwrap()
     }
 
     pub fn is_finished(&self) -> bool {
-        self.interpolators.last().unwrap().is_finished()
+        self.interpolators.keys().last().unwrap().t <= self.current_time.as_secs_f32()
     }
 }
