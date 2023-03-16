@@ -359,7 +359,7 @@ mod tests {
 
     use bincode::serialize;
     use framework::multiple_buffer_with_slots;
-    use serde::{de::DeserializeOwned, Deserializer, Serialize, Serializer};
+    use serde::{de::Deserialize, Deserializer, Serialize, Serializer};
     use serde_json::Value;
     use serialize_hierarchy::Error;
     use tokio::{sync::mpsc::error::TryRecvError, task::yield_now, time::timeout};
@@ -374,7 +374,7 @@ mod tests {
 
     impl<T> SerializeHierarchy for OutputsFake<T>
     where
-        T: DeserializeOwned + Serialize,
+        for<'a> T: Deserialize<'a> + Serialize,
     {
         fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
         where
