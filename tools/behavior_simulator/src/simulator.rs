@@ -95,8 +95,8 @@ impl Simulator {
 
         self.lua.scope(|scope| {
             self.lua.globals().set(
-                "set_robot_penalized",
-                scope.create_function(|_, (player_number, penalized): (usize, bool)| {
+                "penalize",
+                scope.create_function(|_, player_number: usize| {
                     let player_number =
                         to_player_number(player_number).map_err(LuaError::external)?;
                     self.state
@@ -104,7 +104,22 @@ impl Simulator {
                         .robots
                         .get_mut(&player_number)
                         .unwrap()
-                        .is_penalized = penalized;
+                        .is_penalized = true;
+
+                    Ok(())
+                })?,
+            )?;
+            self.lua.globals().set(
+                "unpenalize",
+                scope.create_function(|_, player_number: usize| {
+                    let player_number =
+                        to_player_number(player_number).map_err(LuaError::external)?;
+                    self.state
+                        .lock()
+                        .robots
+                        .get_mut(&player_number)
+                        .unwrap()
+                        .is_penalized = false;
 
                     Ok(())
                 })?,
