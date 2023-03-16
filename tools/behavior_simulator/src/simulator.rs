@@ -28,7 +28,7 @@ pub struct Simulator {
 }
 
 impl Simulator {
-    pub fn new() -> Self {
+    pub fn try_new() -> Result<Self> {
         let state = Arc::new(Mutex::new(State::new()));
 
         let lua = Lua::new();
@@ -38,12 +38,12 @@ impl Simulator {
                 let robot = Robot::try_new(player_number).map_err(LuaError::external)?;
                 Ok(lua.to_value(&LuaRobot::new(&robot)))
             })
-            .expect("failed to create function create_robot");
+            .wrap_err("failed to create function create_robot")?;
         lua.globals()
             .set("create_robot", create_robot)
-            .expect("failed to insert create_robot");
+            .wrap_err("failed to insert create_robot")?;
 
-        Self { state, lua }
+        Ok(Self { state, lua })
     }
 
     pub fn execute_script(&mut self, file_name: impl AsRef<Path>) -> Result<()> {
