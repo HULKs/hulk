@@ -20,8 +20,8 @@ pub fn serialize_hierarchy(input: proc_macro::TokenStream) -> proc_macro::TokenS
 }
 
 fn process_input(input: DeriveInput) -> TokenStream {
-    let children = match &input.data {
-        Data::Struct(data) => read_children(data),
+    let fields = match &input.data {
+        Data::Struct(data) => read_fields(data),
         Data::Enum(..) => Vec::new(),
         Data::Union(data) => {
             abort!(
@@ -35,17 +35,17 @@ fn process_input(input: DeriveInput) -> TokenStream {
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    let serializable_children: Vec<_> = children
+    let serializable_fields: Vec<_> = fields
         .iter()
-        .filter(|child| !child.attributes.contains(&ChildAttribute::Skip))
+        .filter(|field| !field.attributes.contains(&FieldAttribute::Skip))
         .collect();
-    let path_serializations = generate_path_serializations(&serializable_children);
-    let serde_serializations = generate_serde_serializations(&serializable_children);
-    let path_deserializations = generate_path_deserializations(&serializable_children);
-    let serde_deserializations = generate_serde_deserializations(&serializable_children);
-    let path_exists_getters = generate_path_exists_getters(&serializable_children);
-    let field_exists_getters = generate_field_exists_getters(&serializable_children);
-    let field_chains = generate_field_chains(&serializable_children);
+    let path_serializations = generate_path_serializations(&serializable_fields);
+    let serde_serializations = generate_serde_serializations(&serializable_fields);
+    let path_deserializations = generate_path_deserializations(&serializable_fields);
+    let serde_deserializations = generate_serde_deserializations(&serializable_fields);
+    let path_exists_getters = generate_path_exists_getters(&serializable_fields);
+    let field_exists_getters = generate_field_exists_getters(&serializable_fields);
+    let field_chains = generate_field_chains(&serializable_fields);
     let (jpeg_serialization, jpeg_exists_getter, jpeg_field_chain) = if as_jpeg {
         (
             quote! {
@@ -149,11 +149,11 @@ fn process_input(input: DeriveInput) -> TokenStream {
     implementation
 }
 
-fn generate_path_serializations(children: &[&Child]) -> Vec<TokenStream> {
-    children
+fn generate_path_serializations(fields: &[&Field]) -> Vec<TokenStream> {
+    fields
         .iter()
-        .map(|child| {
-            let identifier = &child.identifier;
+        .map(|field| {
+            let identifier = &field.identifier;
             let pattern = identifier.to_string();
             quote! {
                 #pattern => self.#identifier.serialize_path(suffix, serializer)
@@ -162,9 +162,9 @@ fn generate_path_serializations(children: &[&Child]) -> Vec<TokenStream> {
         .collect()
 }
 
-fn generate_serde_serializations(children: &[&Child]) -> Vec<TokenStream> {
-    children.iter().map(|child| {
-        let identifier = &child.identifier;
+fn generate_serde_serializations(fields: &[&Field]) -> Vec<TokenStream> {
+    fields.iter().map(|field| {
+        let identifier = &field.identifier;
         let pattern = identifier.to_string();
         quote! {
             #pattern => self.#identifier.serialize(serializer).map_err(serialize_hierarchy::Error::SerializationFailed)
@@ -172,11 +172,11 @@ fn generate_serde_serializations(children: &[&Child]) -> Vec<TokenStream> {
     }).collect()
 }
 
-fn generate_path_deserializations(children: &[&Child]) -> Vec<TokenStream> {
-    children
+fn generate_path_deserializations(fields: &[&Field]) -> Vec<TokenStream> {
+    fields
         .iter()
-        .map(|child| {
-            let identifier = &child.identifier;
+        .map(|field| {
+            let identifier = &field.identifier;
             let pattern = identifier.to_string();
             quote! {
                 #pattern => self.#identifier.deserialize_path(suffix, deserializer)
@@ -185,11 +185,11 @@ fn generate_path_deserializations(children: &[&Child]) -> Vec<TokenStream> {
         .collect()
 }
 
-fn generate_serde_deserializations(children: &[&Child]) -> Vec<TokenStream> {
-    children.iter().map(|child| {
-        let identifier = &child.identifier;
+fn generate_serde_deserializations(fields: &[&Field]) -> Vec<TokenStream> {
+    fields.iter().map(|field| {
+        let identifier = &field.identifier;
         let pattern = identifier.to_string();
-        let ty = &child.ty;
+        let ty = &field.ty;
         quote! {
             #pattern => {
                 self.#identifier = <#ty as Deserialize>::deserialize(deserializer).map_err(serialize_hierarchy::Error::DeserializationFailed)?;
@@ -200,12 +200,12 @@ fn generate_serde_deserializations(children: &[&Child]) -> Vec<TokenStream> {
     }).collect()
 }
 
-fn generate_path_exists_getters(children: &[&Child]) -> Vec<TokenStream> {
-    children
+fn generate_path_exists_getters(fields: &[&Field]) -> Vec<TokenStream> {
+    fields
         .iter()
-        .map(|child| {
-            let pattern = child.identifier.to_string();
-            let ty = &child.ty;
+        .map(|field| {
+            let pattern = field.identifier.to_string();
+            let ty = &field.ty;
             quote! {
                 #pattern => <#ty as serialize_hierarchy::SerializeHierarchy>::exists(suffix)
             }
@@ -213,11 +213,11 @@ fn generate_path_exists_getters(children: &[&Child]) -> Vec<TokenStream> {
         .collect()
 }
 
-fn generate_field_exists_getters(children: &[&Child]) -> Vec<TokenStream> {
-    children
+fn generate_field_exists_getters(fields: &[&Field]) -> Vec<TokenStream> {
+    fields
         .iter()
-        .map(|child| {
-            let pattern = child.identifier.to_string();
+        .map(|field| {
+            let pattern = field.identifier.to_string();
             quote! {
                 #pattern => true
             }
@@ -225,14 +225,14 @@ fn generate_field_exists_getters(children: &[&Child]) -> Vec<TokenStream> {
         .collect()
 }
 
-fn generate_field_chains(children: &[&Child]) -> Vec<TokenStream> {
-    children
+fn generate_field_chains(fields: &[&Field]) -> Vec<TokenStream> {
+    fields
         .iter()
-        .map(|child| {
-            let identifier = &child.identifier;
+        .map(|field| {
+            let identifier = &field.identifier;
             let name_string = identifier.to_string();
             let pattern = format!("{}.{{}}", identifier);
-            let ty = &child.ty;
+            let ty = &field.ty;
             quote! {
                 .chain(std::iter::once(#name_string.to_string()))
                 .chain(
@@ -275,13 +275,13 @@ fn parse_attributes(attrs: &[syn::Attribute]) -> HashSet<TypeAttribute> {
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-enum ChildAttribute {
+enum FieldAttribute {
     Skip,
 }
 
 #[derive(Debug)]
-struct Child {
-    attributes: HashSet<ChildAttribute>,
+struct Field {
+    attributes: HashSet<FieldAttribute>,
     identifier: Ident,
     ty: Type,
 }
@@ -297,7 +297,7 @@ fn parse_meta_items(attribute: &syn::Attribute) -> Vec<NestedMeta> {
     }
 }
 
-fn read_children(input: &DataStruct) -> Vec<Child> {
+fn read_fields(input: &DataStruct) -> Vec<Field> {
     input
         .fields
         .iter()
@@ -309,7 +309,7 @@ fn read_children(input: &DataStruct) -> Vec<Child> {
                 .flatten()
                 .map(|meta| match meta {
                     NestedMeta::Meta(Meta::Path(word)) if word.is_ident(SKIP) => {
-                        ChildAttribute::Skip
+                        FieldAttribute::Skip
                     }
                     NestedMeta::Meta(meta_item) => {
                         let path = meta_item
@@ -330,7 +330,7 @@ fn read_children(input: &DataStruct) -> Vec<Child> {
                 .clone()
                 .unwrap_or_else(|| abort!(field, "field has to be named"));
             let ty = field.ty.clone();
-            Child {
+            Field {
                 attributes,
                 identifier,
                 ty,
