@@ -41,16 +41,16 @@ impl LuminanceImageExtractor {
             NonZeroU32::new(context.image.height()).unwrap(),
             &grayscale_buffer,
         )?;
-        let dst_width = NonZeroU32::new(80).unwrap();
-        let dst_height = NonZeroU32::new(60).unwrap();
-        let mut dst_image =
-            fast_image_resize::Image::new(dst_width, dst_height, y_image.pixel_type());
+        let new_width = NonZeroU32::new(80).unwrap();
+        let new_height = NonZeroU32::new(60).unwrap();
+        let mut new_image =
+            fast_image_resize::Image::new(new_width, new_height, y_image.pixel_type());
         let mut resizer = Resizer::new(ResizeAlg::Convolution(FilterType::Hamming));
         resizer
-            .resize(&DynamicImageView::U8(y_image), &mut dst_image.view_mut())
+            .resize(&DynamicImageView::U8(y_image), &mut new_image.view_mut())
             .unwrap();
         let luminance_image =
-            GrayscaleImage::from_vec(dst_width.get(), dst_height.get(), dst_image.into_vec());
+            GrayscaleImage::from_vec(new_width.get(), new_height.get(), new_image.into_vec());
         Ok(MainOutputs {
             luminance_image: luminance_image.into(),
         })
