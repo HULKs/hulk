@@ -31,7 +31,7 @@ fn process_input(input: DeriveInput) -> TokenStream {
         }
     };
     let type_attributes = parse_attributes(&input.attrs);
-    let as_jpeg = type_attributes.contains(&TypeAttribute::AsJpeg);
+    let contains_as_jpeg = type_attributes.contains(&TypeAttribute::AsJpeg);
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -46,7 +46,7 @@ fn process_input(input: DeriveInput) -> TokenStream {
     let path_exists_getters = generate_path_exists_getters(&serializable_fields);
     let field_exists_getters = generate_field_exists_getters(&serializable_fields);
     let field_chains = generate_field_chains(&serializable_fields);
-    let (jpeg_serialization, jpeg_exists_getter, jpeg_field_chain) = if as_jpeg {
+    let (jpeg_serialization, jpeg_exists_getter, jpeg_field_chain) = if contains_as_jpeg {
         (
             quote! {
                 "jpeg" => self
