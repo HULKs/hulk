@@ -9,7 +9,7 @@ use serde::{Deserializer, Serializer};
 
 use crate::{error::Error, SerializeHierarchy};
 
-macro_rules! not_supported {
+macro_rules! implement_as_not_supported {
     ($type:ty) => {
         impl SerializeHierarchy for $type {
             fn serialize_path<S>(
@@ -91,24 +91,24 @@ macro_rules! not_supported {
 }
 
 // primary types
-not_supported!(bool);
-not_supported!(f32);
-not_supported!(i16);
-not_supported!(i32);
-not_supported!(u8);
-not_supported!(u16);
-not_supported!(u32);
-not_supported!(u64);
-not_supported!(usize);
+implement_as_not_supported!(bool);
+implement_as_not_supported!(f32);
+implement_as_not_supported!(i16);
+implement_as_not_supported!(i32);
+implement_as_not_supported!(u8);
+implement_as_not_supported!(u16);
+implement_as_not_supported!(u32);
+implement_as_not_supported!(u64);
+implement_as_not_supported!(usize);
 // nalgebra
-not_supported!(SMatrix<f32, 3, 3>);
-not_supported!(Isometry2<f32>);
-not_supported!(Isometry3<f32>);
-not_supported!(UnitComplex<f32>);
+implement_as_not_supported!(SMatrix<f32, 3, 3>);
+implement_as_not_supported!(Isometry2<f32>);
+implement_as_not_supported!(Isometry3<f32>);
+implement_as_not_supported!(UnitComplex<f32>);
 // stdlib
-not_supported!(SystemTime);
-not_supported!(Duration);
-not_supported!(String);
-not_supported!(PathBuf);
-not_supported!(Vec<T>, T);
-not_supported!(HashSet<T>, T);
+implement_as_not_supported!(SystemTime);
+implement_as_not_supported!(Duration);
+implement_as_not_supported!(String);
+implement_as_not_supported!(PathBuf);
+implement_as_not_supported!(Vec<T>, T);
+implement_as_not_supported!(HashSet<T>, T);
