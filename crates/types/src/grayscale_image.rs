@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use image::{
-    codecs::jpeg::JpegEncoder, load_from_memory_with_format, ImageBuffer, ImageFormat, Luma,
+    codecs::jpeg::JpegEncoder, load_from_memory_with_format, ImageBuffer, ImageError, ImageFormat,
+    Luma,
 };
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::{DecodeJpeg, EncodeJpeg, SerializeHierarchy};
@@ -25,7 +26,9 @@ impl GrayscaleImage {
 }
 
 impl EncodeJpeg for GrayscaleImage {
-    fn encode_as_jpeg(&self, quality: u8) -> Result<Vec<u8>, image::ImageError> {
+    type Error = ImageError;
+
+    fn encode_as_jpeg(&self, quality: u8) -> Result<Vec<u8>, Self::Error> {
         let gray_image = ImageBuffer::<Luma<u8>, &[u8]>::from_raw(
             self.width,
             self.height,
@@ -40,7 +43,9 @@ impl EncodeJpeg for GrayscaleImage {
 }
 
 impl DecodeJpeg for GrayscaleImage {
-    fn decode_from_jpeg(jpeg: Vec<u8>) -> Result<Self, image::ImageError> {
+    type Error = ImageError;
+
+    fn decode_from_jpeg(jpeg: Vec<u8>) -> Result<Self, Self::Error> {
         let luma_image = load_from_memory_with_format(&jpeg, ImageFormat::Jpeg)?.into_luma8();
         Ok(Self {
             width: luma_image.width(),

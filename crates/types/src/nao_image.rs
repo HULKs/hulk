@@ -26,7 +26,9 @@ pub struct NaoImage {
 }
 
 impl EncodeJpeg for NaoImage {
-    fn encode_as_jpeg(&self, quality: u8) -> Result<Vec<u8>, ImageError> {
+    type Error = ImageError;
+
+    fn encode_as_jpeg(&self, quality: u8) -> Result<Vec<u8>, Self::Error> {
         let rgb_image = rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer);
         let mut jpeg_buffer = vec![];
         let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, quality);
@@ -36,7 +38,9 @@ impl EncodeJpeg for NaoImage {
 }
 
 impl DecodeJpeg for NaoImage {
-    fn decode_from_jpeg(jpeg: Vec<u8>) -> Result<Self, ImageError> {
+    type Error = ImageError;
+
+    fn decode_from_jpeg(jpeg: Vec<u8>) -> Result<Self, Self::Error> {
         let rgb_image = load_from_memory_with_format(&jpeg, ImageFormat::Jpeg)?.into_rgb8();
         let width_422 = rgb_image.width() / 2;
         let height = rgb_image.height() / 2;
