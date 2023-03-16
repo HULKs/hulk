@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use communication::client::CyclerOutput;
-use eframe::egui::{ScrollArea, Widget};
+use eframe::egui::{Label, ScrollArea, Sense, Widget};
 use log::error;
 use serde_json::{json, Value};
 
@@ -71,7 +71,13 @@ impl Widget for &mut TextPanel {
                                 Ok(pretty_string) => pretty_string,
                                 Err(error) => error.to_string(),
                             };
-                            ui.label(content)
+                            let label = ui.add(Label::new(&content).sense(Sense::click()));
+                            if label.clicked() {
+                                ui.output().copied_text = content;
+                            }
+                            label.on_hover_ui_at_pointer(|ui| {
+                                ui.label("Click to copy");
+                            })
                         }
                         Err(error) => ui.label(error),
                     })
