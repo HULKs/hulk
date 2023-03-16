@@ -76,7 +76,6 @@ fn process_input(input: DeriveInput) -> TokenStream {
             where
                 S: serde::Serializer,
             {
-                use serde::Serialize;
                 let split = path.split_once('.');
                 match split {
                     Some((name, suffix)) => match name {
@@ -105,7 +104,6 @@ fn process_input(input: DeriveInput) -> TokenStream {
             where
                 D: serde::Deserializer<'de>,
             {
-                use serde::Deserialize;
                 let split = path.split_once('.');
                 match split {
                     Some((name, suffix)) => match name {
@@ -167,7 +165,7 @@ fn generate_serde_serializations(fields: &[&Field]) -> Vec<TokenStream> {
         let identifier = &field.identifier;
         let pattern = identifier.to_string();
         quote! {
-            #pattern => self.#identifier.serialize(serializer).map_err(serialize_hierarchy::Error::SerializationFailed)
+            #pattern => serde::Serialize::serialize(&self.#identifier, serializer).map_err(serialize_hierarchy::Error::SerializationFailed)
         }
     }).collect()
 }
@@ -192,7 +190,7 @@ fn generate_serde_deserializations(fields: &[&Field]) -> Vec<TokenStream> {
         let ty = &field.ty;
         quote! {
             #pattern => {
-                self.#identifier = <#ty as Deserialize>::deserialize(deserializer).map_err(serialize_hierarchy::Error::DeserializationFailed)?;
+                self.#identifier = <#ty as serde::Deserialize>::deserialize(deserializer).map_err(serialize_hierarchy::Error::DeserializationFailed)?;
                 Ok(())
             }
 
