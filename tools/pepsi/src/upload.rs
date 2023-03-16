@@ -73,7 +73,7 @@ async fn upload_with_progress(
         let os_version = nao
             .get_os_version()
             .await
-            .wrap_err("failed to get OS version of {nao_address}")?;
+            .wrap_err_with(|| format!("failed to get OS version of {nao_address}"))?;
         if os_version != OS_VERSION {
             bail!("mismatched OS versions: Expected {OS_VERSION}, found {os_version}");
         }
