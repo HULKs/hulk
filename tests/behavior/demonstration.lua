@@ -47,8 +47,8 @@ function on_cycle()
   end
 
   if state.cycle_count == 7000 then
-    set_robot_penalized(4, true);
-    set_robot_penalized(5, true);
+    penalize(4);
+    penalize(5);
   end
 
   if state.cycle_count == 10000 then
