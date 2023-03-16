@@ -260,11 +260,11 @@ async fn handle_notified_output(
                     TextualDataOrBinaryReference::TextualData { data }
                 }
                 Format::Binary => {
-                    let mut writer = Vec::new();
+                    let mut data = Vec::new();
                     let options = DefaultOptions::new()
                         .with_fixint_encoding()
                         .allow_trailing_bytes();
-                    let mut serializer = bincode::Serializer::new(&mut writer, options);
+                    let mut serializer = bincode::Serializer::new(&mut data, options);
                     if let Err(error) = output.serialize_path(&subscription.path, &mut serializer) {
                         error!("failed to serialize {:?}: {error:?}", subscription.path);
                         return true;
@@ -274,16 +274,13 @@ async fn handle_notified_output(
                     if subscription.once {
                         binary_get_next_items.insert(
                             client.clone(),
-                            BinaryOutputsResponse::GetNext {
-                                reference_id,
-                                data: writer,
-                            },
+                            BinaryOutputsResponse::GetNext { reference_id, data },
                         );
                     } else {
                         binary_subscribed_items
                             .entry(client.clone())
                             .or_default()
-                            .insert(reference_id, writer);
+                            .insert(reference_id, data);
                     }
                     TextualDataOrBinaryReference::BinaryReference { reference_id }
                 }
