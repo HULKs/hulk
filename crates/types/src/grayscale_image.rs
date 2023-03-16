@@ -7,7 +7,7 @@ use image::{
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::{DecodeJpeg, EncodeJpeg, SerializeHierarchy};
 
-#[derive(Clone, Default, Serialize, Deserialize, Debug, SerializeHierarchy)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(as_jpeg)]
 pub struct GrayscaleImage {
     width: u32,
