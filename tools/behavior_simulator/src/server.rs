@@ -127,7 +127,7 @@ pub fn run(
         subscribed_control_writer,
     );
 
-    let mut simulator = Simulator::new();
+    let mut simulator = Simulator::try_new()?;
     simulator.execute_script(scenario_file)?;
 
     let start = Instant::now();
