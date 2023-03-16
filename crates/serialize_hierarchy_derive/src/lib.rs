@@ -264,7 +264,6 @@ fn parse_attributes(attrs: &[syn::Attribute]) -> HashSet<TypeAttribute> {
                     .replace(' ', "");
                 abort!(meta_item.path(), "unknown attribute `{}`", path)
             }
-
             NestedMeta::Lit(lit) => {
                 abort!(lit, "unexpected literal in attribute")
             }
