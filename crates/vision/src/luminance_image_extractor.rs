@@ -32,7 +32,7 @@ impl LuminanceImageExtractor {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let grayscale_buffer: Vec<_> = context
             .image
-            .buffer
+            .buffer()
             .iter()
             .flat_map(|pixel| [pixel.y1, pixel.y2])
             .collect();
