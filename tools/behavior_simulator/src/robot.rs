@@ -13,10 +13,8 @@ use crate::{cycler::BehaviorCycler, interfake::Interfake};
 pub struct Robot {
     pub interface: Arc<Interfake>,
     pub cycler: BehaviorCycler<Interfake>,
-
     pub database: Database,
     pub configuration: Configuration,
-
     pub is_penalized: bool,
 }
 
