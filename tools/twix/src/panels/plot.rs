@@ -4,7 +4,7 @@ use eframe::{
     egui::{
         plot::{Line, PlotPoints},
         widgets::plot::Plot as EguiPlot,
-        DragValue, Response, TextEdit, TextStyle, Ui, Widget,
+        CollapsingHeader, DragValue, Response, TextEdit, TextStyle, Ui, Widget,
     },
     epaint::Color32,
 };
@@ -102,15 +102,19 @@ impl Panel for PlotPanel {
     }
 }
 
-impl Widget for &mut PlotPanel {
-    fn ui(self, ui: &mut Ui) -> Response {
-        let plot = EguiPlot::new(ui.id().with("value_plot"))
+impl PlotPanel {
+    fn plot(&self, ui: &mut Ui) -> Response {
+        EguiPlot::new(ui.id().with("value_plot"))
             .view_aspect(2.0)
             .show(ui, |plot_ui| {
                 for line in self.line_datas.iter().map(|entry| entry.plot()) {
                     plot_ui.line(line);
                 }
-            });
+            })
+            .response
+    }
+
+    fn show_menu(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             if ui
                 .add(
@@ -137,7 +141,14 @@ impl Widget for &mut PlotPanel {
                 ));
             }
         });
-        for line_data in self.line_datas.iter_mut() {
+    }
+}
+
+impl Widget for &mut PlotPanel {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let plot_response = self.plot(ui);
+        self.show_menu(ui);
+        for (i, line_data) in self.line_datas.iter_mut().enumerate() {
             ui.horizontal_top(|ui| {
                 let subscription_field = ui.add(CompletionEdit::outputs(
                     &mut line_data.output_key,
@@ -158,22 +169,28 @@ impl Widget for &mut PlotPanel {
                     };
                 }
                 ui.color_edit_button_srgba(&mut line_data.color);
-                ui.collapsing("Conversion Function", |ui| {
-                    ui.horizontal(|ui| {
-                        let latest_value = get_latest_value(&line_data.value_buffer);
-                        let content = latest_value
-                            .and_then(|value| {
-                                to_string_pretty(&value).wrap_err("failed to prettify value")
-                            })
-                            .unwrap_or_else(|error| error.to_string());
-                        ui.label(content);
-                        let code_edit = TextEdit::multiline(&mut line_data.lua_text)
-                            .font(TextStyle::Monospace)
-                            .code_editor()
-                            .lock_focus(true);
-                        if ui.add(code_edit).changed() {
-                            line_data.lua_error =
-                                match line_data.lua.load(&line_data.lua_text).eval::<Function>() {
+                let id_source = ui.id().with("conversion_collapse").with(i);
+                CollapsingHeader::new("Conversion Function")
+                    .id_source(id_source)
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            let latest_value = get_latest_value(&line_data.value_buffer);
+                            let content = latest_value
+                                .and_then(|value| {
+                                    to_string_pretty(&value).wrap_err("failed to prettify value")
+                                })
+                                .unwrap_or_else(|error| error.to_string());
+                            ui.label(content);
+                            let code_edit = TextEdit::multiline(&mut line_data.lua_text)
+                                .font(TextStyle::Monospace)
+                                .code_editor()
+                                .lock_focus(true);
+                            if ui.add(code_edit).changed() {
+                                line_data.lua_error = match line_data
+                                    .lua
+                                    .load(&line_data.lua_text)
+                                    .eval::<Function>()
+                                {
                                     Ok(function) => {
                                         line_data
                                             .lua
@@ -184,27 +201,28 @@ impl Widget for &mut PlotPanel {
                                     }
                                     Err(error) => Some(format!("{error:#}")),
                                 };
-                        }
-                        if let Some(error) = &line_data.lua_error {
-                            ui.colored_label(Color32::RED, error);
-                        } else if let Ok(value) = get_latest_value(&line_data.value_buffer) {
-                            let lua_function: Function =
-                                line_data.lua.globals().get("conversion_function").unwrap();
-                            let value = lua_function.call::<_, f64>(line_data.lua.to_value(&value));
-                            match value {
-                                Ok(value) => {
-                                    ui.label(value.to_string());
-                                }
-                                Err(error) => {
-                                    ui.colored_label(Color32::RED, error.to_string());
+                            }
+                            if let Some(error) = &line_data.lua_error {
+                                ui.colored_label(Color32::RED, error);
+                            } else if let Ok(value) = get_latest_value(&line_data.value_buffer) {
+                                let lua_function: Function =
+                                    line_data.lua.globals().get("conversion_function").unwrap();
+                                let value =
+                                    lua_function.call::<_, f64>(line_data.lua.to_value(&value));
+                                match value {
+                                    Ok(value) => {
+                                        ui.label(value.to_string());
+                                    }
+                                    Err(error) => {
+                                        ui.colored_label(Color32::RED, error.to_string());
+                                    }
                                 }
                             }
-                        }
+                        });
                     });
-                });
             });
         }
-        plot.response
+        plot_response
     }
 }
 
