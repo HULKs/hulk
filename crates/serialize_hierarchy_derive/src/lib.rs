@@ -249,11 +249,9 @@ enum TypeAttribute {
 }
 
 fn parse_attributes(attrs: &[syn::Attribute]) -> HashSet<TypeAttribute> {
-    let meta_items = attrs.iter().map(parse_meta_items).collect::<Vec<_>>();
-
-    meta_items
-        .into_iter()
-        .flatten()
+    attrs
+        .iter()
+        .flat_map(parse_meta_items)
         .map(|meta| match meta {
             NestedMeta::Meta(Meta::Path(word)) if word.is_ident(AS_JPEG) => TypeAttribute::AsJpeg,
             NestedMeta::Meta(meta_item) => {
@@ -299,11 +297,10 @@ fn read_fields(input: &DataStruct) -> Vec<Field> {
         .fields
         .iter()
         .map(|field| {
-            let meta_items = field.attrs.iter().map(parse_meta_items).collect::<Vec<_>>();
-
-            let attributes = meta_items
-                .into_iter()
-                .flatten()
+            let attributes = field
+                .attrs
+                .iter()
+                .flat_map(parse_meta_items)
                 .map(|meta| match meta {
                     NestedMeta::Meta(Meta::Path(word)) if word.is_ident(SKIP) => {
                         FieldAttribute::Skip
