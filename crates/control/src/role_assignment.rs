@@ -96,21 +96,9 @@ impl RoleAssignment {
         {
             role = match context.player_number {
                 PlayerNumber::One => Role::Keeper,
-                PlayerNumber::Two => context
-                    .optional_roles
-                    .get(0)
-                    .copied()
-                    .unwrap_or_default(),
-                PlayerNumber::Three => context
-                    .optional_roles
-                    .get(1)
-                    .copied()
-                    .unwrap_or_default(),
-                PlayerNumber::Four => context
-                    .optional_roles
-                    .get(2)
-                    .copied()
-                    .unwrap_or_default(),
+                PlayerNumber::Two => context.optional_roles.get(0).copied().unwrap_or_default(),
+                PlayerNumber::Three => context.optional_roles.get(1).copied().unwrap_or_default(),
+                PlayerNumber::Four => context.optional_roles.get(2).copied().unwrap_or_default(),
                 PlayerNumber::Five => Role::Striker,
             };
             self.role_initialized = true;
