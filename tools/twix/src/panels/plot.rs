@@ -17,6 +17,19 @@ use serde_json::{to_string_pretty, Value};
 
 use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 
+const DEFAULT_LINE_COLORS: &[Color32] = &[
+    Color32::from_rgb(31, 119, 180),
+    Color32::from_rgb(255, 127, 14),
+    Color32::from_rgb(44, 160, 44),
+    Color32::from_rgb(214, 39, 40),
+    Color32::from_rgb(148, 103, 189),
+    Color32::from_rgb(140, 86, 75),
+    Color32::from_rgb(227, 119, 194),
+    Color32::from_rgb(127, 127, 127),
+    Color32::from_rgb(188, 189, 34),
+    Color32::from_rgb(23, 190, 207),
+];
+
 struct LineData {
     output_key: String,
     value_buffer: Option<ValueBuffer>,
@@ -27,7 +40,7 @@ struct LineData {
 }
 
 impl LineData {
-    fn new() -> Self {
+    fn new(color: Color32) -> Self {
         let lua = Lua::new();
         let lua_text = "function (value)\n  return value\nend".to_string();
         lua.globals()
@@ -39,15 +52,13 @@ impl LineData {
         Self {
             output_key: String::new(),
             value_buffer: None,
-            color: Color32::TRANSPARENT,
+            color,
             lua,
             lua_text,
             lua_error: None,
         }
     }
-}
 
-impl LineData {
     fn plot(&self) -> Line {
         let lua_function: Function = self.lua.globals().get("conversion_function").unwrap();
         let values = self
@@ -118,7 +129,12 @@ impl Widget for &mut PlotPanel {
                 }
             }
             if ui.button("Add").clicked() {
-                self.line_datas.push(LineData::new());
+                self.line_datas.push(LineData::new(
+                    DEFAULT_LINE_COLORS
+                        .get(self.line_datas.len())
+                        .copied()
+                        .unwrap_or(Color32::TRANSPARENT),
+                ));
             }
         });
         for line_data in self.line_datas.iter_mut() {
