@@ -96,9 +96,9 @@ impl RoleAssignment {
         {
             role = match context.player_number {
                 PlayerNumber::One => Role::Keeper,
-                PlayerNumber::Two => context.optional_roles[0],
-                PlayerNumber::Three => context.optional_roles[1],
-                PlayerNumber::Four => context.optional_roles[2],
+                PlayerNumber::Two => *context.optional_roles.get(0).unwrap_or(&Role::default()),
+                PlayerNumber::Three => *context.optional_roles.get(1).unwrap_or(&Role::default()),
+                PlayerNumber::Four => *context.optional_roles.get(2).unwrap_or(&Role::default()),
                 PlayerNumber::Five => Role::Striker,
             };
             self.role_initialized = true;
@@ -293,7 +293,7 @@ fn process_role_state_machine(
     game_controller_state: Option<&GameControllerState>,
     player_number: PlayerNumber,
     striker_trusts_team_ball: Duration,
-    optional_roles: &Vec<Role>,
+    optional_roles: &[Role],
 ) -> (Role, bool, Option<BallPosition>) {
     if let Some(game_controller_state) = game_controller_state {
         match game_controller_state.game_phase {
@@ -546,7 +546,7 @@ fn decide_if_claiming_striker_or_other_role(
     player_number: PlayerNumber,
     cycle_start_time: SystemTime,
     game_controller_state: Option<&GameControllerState>,
-    optional_roles: &Vec<Role>,
+    optional_roles: &[Role],
 ) -> (Role, bool, Option<BallPosition>) {
     if am_better_striker(
         current_pose,
@@ -634,7 +634,7 @@ fn generate_role(
     own_player_number: PlayerNumber,
     game_controller_state: Option<&GameControllerState>,
     striker_player_number: PlayerNumber,
-    optional_roles: &Vec<Role>,
+    optional_roles: &[Role],
 ) -> Role {
     if let Some(state) = game_controller_state {
         pick_role_with_penalties(
@@ -652,7 +652,7 @@ fn pick_role_with_penalties(
     own_player_number: PlayerNumber,
     penalties: &Players<Option<Penalty>>,
     striker_player_number: PlayerNumber,
-    optional_roles: &Vec<Role>,
+    optional_roles: &[Role],
 ) -> Role {
     let mut role_assignment: Players<Option<Role>> = Players {
         one: None,
@@ -662,11 +662,7 @@ fn pick_role_with_penalties(
         five: None,
     };
 
-    // assign essential roles: Keeper xor ReplacementKeeper, and Striker
-
-    // Striker
     role_assignment[striker_player_number] = Some(Role::Striker);
-    let mut keeper_or_replacement_keeper_found = false;
     let mut unassigned_robots = 4;
 
     if penalties[PlayerNumber::One].is_some() {
@@ -685,60 +681,24 @@ fn pick_role_with_penalties(
         unassigned_robots -= 1;
     }
 
-    // Keeper
-    if unassigned_robots > 0 && needs_assignment(PlayerNumber::One, penalties, &role_assignment) {
-        role_assignment[PlayerNumber::One] = Some(Role::Keeper);
-        keeper_or_replacement_keeper_found = true;
-        unassigned_robots -= 1;
+    if unassigned_robots > 0 {
+        unassigned_robots =
+            assign_keeper_or_replacement_keeper(unassigned_robots, penalties, &mut role_assignment);
     }
 
-    // ReplacementKeeper
-    if !keeper_or_replacement_keeper_found
-        && needs_assignment(PlayerNumber::Two, penalties, &role_assignment)
-    {
-        role_assignment[PlayerNumber::Two] = Some(Role::ReplacementKeeper);
-        unassigned_robots -= 1;
-    } else if !keeper_or_replacement_keeper_found
-        && needs_assignment(PlayerNumber::Three, penalties, &role_assignment)
-    {
-        role_assignment[PlayerNumber::Three] = Some(Role::ReplacementKeeper);
-        unassigned_robots -= 1;
-    } else if !keeper_or_replacement_keeper_found
-        && needs_assignment(PlayerNumber::Four, penalties, &role_assignment)
-    {
-        role_assignment[PlayerNumber::Four] = Some(Role::ReplacementKeeper);
-        unassigned_robots -= 1;
-    } else if !keeper_or_replacement_keeper_found
-        && needs_assignment(PlayerNumber::Five, penalties, &role_assignment)
-    {
-        role_assignment[PlayerNumber::Five] = Some(Role::ReplacementKeeper);
-        unassigned_robots -= 1;
-    }
-
-    // assign optional roles
-    let mut optional_role_index = 0;
-
-    if unassigned_robots > optional_roles.len() {
-        panic!("role_assignment not possible: not enough optional_roles available")
-    }
-
-    while unassigned_robots > 0 {
+    for optional_role in optional_roles.iter().take(unassigned_robots) {
         if needs_assignment(PlayerNumber::Two, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Two] = Some(optional_roles[optional_role_index]);
+            role_assignment[PlayerNumber::Two] = Some(*optional_role);
         } else if needs_assignment(PlayerNumber::Three, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Three] = Some(optional_roles[optional_role_index]);
+            role_assignment[PlayerNumber::Three] = Some(*optional_role);
         } else if needs_assignment(PlayerNumber::Four, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Four] = Some(optional_roles[optional_role_index]);
+            role_assignment[PlayerNumber::Four] = Some(*optional_role);
         } else if needs_assignment(PlayerNumber::Five, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Five] = Some(optional_roles[optional_role_index]);
-        } else {
-            panic!("role_assignment failed: inconsistent unassigned_robots count")
+            role_assignment[PlayerNumber::Five] = Some(*optional_role);
         }
-        unassigned_robots -= 1;
-        optional_role_index += 1;
     }
 
-    role_assignment[own_player_number].unwrap()
+    role_assignment[own_player_number].unwrap_or_default()
 }
 
 fn needs_assignment(
@@ -747,4 +707,31 @@ fn needs_assignment(
     role_assignment: &Players<Option<Role>>,
 ) -> bool {
     role_assignment[player_number].is_none() && penalties[player_number].is_none()
+}
+
+fn assign_keeper_or_replacement_keeper(
+    unassigned_robots: usize,
+    penalties: &Players<Option<Penalty>>,
+    role_assignment: &mut Players<Option<Role>>,
+) -> usize {
+    if needs_assignment(PlayerNumber::One, penalties, role_assignment) {
+        role_assignment[PlayerNumber::One] = Some(Role::Keeper);
+        return unassigned_robots - 1;
+    }
+
+    if needs_assignment(PlayerNumber::Two, penalties, role_assignment) {
+        role_assignment[PlayerNumber::Two] = Some(Role::ReplacementKeeper);
+        return unassigned_robots - 1;
+    } else if needs_assignment(PlayerNumber::Three, penalties, role_assignment) {
+        role_assignment[PlayerNumber::Three] = Some(Role::ReplacementKeeper);
+        return unassigned_robots - 1;
+    } else if needs_assignment(PlayerNumber::Four, penalties, role_assignment) {
+        role_assignment[PlayerNumber::Four] = Some(Role::ReplacementKeeper);
+        return unassigned_robots - 1;
+    } else if needs_assignment(PlayerNumber::Five, penalties, role_assignment) {
+        role_assignment[PlayerNumber::Five] = Some(Role::ReplacementKeeper);
+        return unassigned_robots - 1;
+    }
+
+    unassigned_robots
 }
