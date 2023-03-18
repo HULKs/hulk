@@ -85,7 +85,7 @@ ittapi = "0.3.3"
 kinematics = { path = "crates/kinematics" }
 libc = "0.2.137"
 log = "0.4.17"
-mlua = { version = "0.8.3", features = ["luajit", "serialize", "parking_lot"] }
+mlua = { version = "0.8.7", features = ["luajit", "serialize", "parking_lot"] }
 nalgebra = { version = "0.31.1", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }
@@ -106,6 +106,7 @@ serde = { version = "1.0.145", features = ["derive", "rc"] }
 serde_bytes = "0.11.8"
 serde_json = "1.0.91"
 serde_test = "1.0.152"
+serde-transcode = "1.1.1"
 serialize_hierarchy = { path = "crates/serialize_hierarchy" }
 serialize_hierarchy_derive = { path = "crates/serialize_hierarchy_derive" }
 smallvec = "1.9.0"

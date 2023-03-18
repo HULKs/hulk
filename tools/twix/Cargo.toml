@@ -18,10 +18,12 @@ fuzzy-matcher = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
+mlua = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }
+serde-transcode = { workspace = true }
 spl_network_messages = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }
