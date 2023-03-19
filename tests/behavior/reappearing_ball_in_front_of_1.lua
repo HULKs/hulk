@@ -52,6 +52,13 @@ function on_cycle()
         }
     end
 
+    if state.cycle_count == 1800 then
+        state.ball = {
+            position = { -3.8, 0.0 },
+            velocity = { 0.0, 0.0 },
+        }
+    end
+
     if state.cycle_count == game_end_time then
         state.finished = true
     end

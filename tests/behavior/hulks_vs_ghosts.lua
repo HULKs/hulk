@@ -52,6 +52,41 @@ function on_cycle()
         }
     end
 
+    if state.cycle_count == 1800 then
+        state.ball = {
+            position = { state.ball.position[1], state.ball.position[2] },
+            velocity = { -1.0, -1.0 },
+        }
+    end
+
+    if state.cycle_count == 2200 then
+        state.ball = {
+            position = { state.ball.position[1], state.ball.position[2] },
+            velocity = { -2.0, 3.0 },
+        }
+    end
+
+    if state.cycle_count == 2500 then
+        state.ball = {
+            position = { state.ball.position[1], state.ball.position[2] },
+            velocity = { -4.0, 0.0 },
+        }
+    end
+
+    if state.cycle_count == 4000 then
+        state.ball = {
+            position = { state.ball.position[1], state.ball.position[2] },
+            velocity = { -7.0, -4.0 },
+        }
+    end
+
+    if state.cycle_count == 4500 then
+        state.ball = {
+            position = { state.ball.position[1], state.ball.position[2] },
+            velocity = { 0.0, 2.0 },
+        }
+    end
+
     if state.cycle_count == game_end_time then
         state.finished = true
     end
