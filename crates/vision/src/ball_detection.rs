@@ -4,7 +4,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, vector, Vector2};
 use types::{
-    configuration::BallDetection as BallDetectionConfiguration, nao_image::NaoImage, Ball,
+    configuration::BallDetection as BallDetectionConfiguration, ycbcr422_image::YCbCr422Image, Ball,
     CameraMatrix, CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
 };
 
@@ -41,7 +41,7 @@ pub struct CycleContext {
     pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     pub perspective_grid_candidates:
         RequiredInput<Option<PerspectiveGridCandidates>, "perspective_grid_candidates?">,
-    pub image: Input<NaoImage, "image">,
+    pub image: Input<YCbCr422Image, "image">,
 
     pub configuration: Parameter<BallDetectionConfiguration, "ball_detection.$cycler_instance">,
     pub ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
@@ -155,7 +155,7 @@ fn position_sample(network: &mut CompiledNN, sample: &Sample) -> Circle {
     }
 }
 
-fn sample_grayscale(image: &NaoImage, candidate: Circle) -> Sample {
+fn sample_grayscale(image: &YCbCr422Image, candidate: Circle) -> Sample {
     let top_left = candidate.center - vector![candidate.radius, candidate.radius];
     let image_pixels_per_sample_pixel = candidate.radius * 2.0 / SAMPLE_SIZE as f32;
 
@@ -173,7 +173,7 @@ fn sample_grayscale(image: &NaoImage, candidate: Circle) -> Sample {
 
 fn evaluate_candidates(
     candidates: &[Circle],
-    image: &NaoImage,
+    image: &YCbCr422Image,
     networks: &mut NeuralNetworks,
     maximum_number_of_candidate_evaluations: usize,
     ball_radius_enlargement_factor: f32,
@@ -342,7 +342,7 @@ mod tests {
         let mut network = CompiledNN::default();
         network.compile(CLASSIFIER_PATH);
         let sample = sample_grayscale(
-            &NaoImage::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
+            &YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
             Circle {
                 center: point![16.0, 16.0],
                 radius: 16.0,
@@ -359,7 +359,7 @@ mod tests {
         let mut network = CompiledNN::default();
         network.compile(PRECLASSIFIER_PATH);
         let sample = sample_grayscale(
-            &NaoImage::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
+            &YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
             Circle {
                 center: point![16.0, 16.0],
                 radius: 16.0,
@@ -376,7 +376,7 @@ mod tests {
         let mut network = CompiledNN::default();
         network.compile(POSITIONER_PATH);
         let sample = sample_grayscale(
-            &NaoImage::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
+            &YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
             Circle {
                 center: point![16.0, 16.0],
                 radius: 16.0,
@@ -437,7 +437,7 @@ mod tests {
     #[test]
     fn cycle_with_loaded_image() -> Result<()> {
         let filename = "../../tests/data/rome_bottom_ball.png";
-        let image = NaoImage::load_from_444_png(Path::new(filename))?;
+        let image = YCbCr422Image::load_from_444_png(Path::new(filename))?;
         let configuration = BallDetectionConfiguration {
             minimal_radius: 0.0,
             preclassifier_neural_network: PathBuf::from(PRECLASSIFIER_PATH),

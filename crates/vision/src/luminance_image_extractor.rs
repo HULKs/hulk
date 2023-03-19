@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use fast_image_resize::{DynamicImageView, FilterType, ImageView, ResizeAlg, Resizer};
 use framework::MainOutput;
-use types::{grayscale_image::GrayscaleImage, nao_image::NaoImage};
+use types::{grayscale_image::GrayscaleImage, ycbcr422_image::YCbCr422Image};
 
 use crate::CyclerInstance;
 
@@ -16,7 +16,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub instance: CyclerInstance,
-    pub image: Input<NaoImage, "image">,
+    pub image: Input<YCbCr422Image, "image">,
 }
 
 #[context]
