@@ -8,10 +8,6 @@ use quote::ToTokens;
 use syn::Type;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Ident, Meta, NestedMeta};
 
-const SERIALIZE_HIERARCHY: &str = "serialize_hierarchy";
-const SKIP: &str = "skip";
-const AS_JPEG: &str = "as_jpeg";
-
 #[proc_macro_derive(SerializeHierarchy, attributes(serialize_hierarchy))]
 #[proc_macro_error]
 pub fn serialize_hierarchy(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -253,7 +249,7 @@ fn parse_attributes(attrs: &[syn::Attribute]) -> HashSet<TypeAttribute> {
         .iter()
         .flat_map(parse_meta_items)
         .map(|meta| match meta {
-            NestedMeta::Meta(Meta::Path(word)) if word.is_ident(AS_JPEG) => TypeAttribute::AsJpeg,
+            NestedMeta::Meta(Meta::Path(word)) if word.is_ident("as_jpeg") => TypeAttribute::AsJpeg,
             NestedMeta::Meta(meta_item) => {
                 let path = meta_item
                     .path()
@@ -282,7 +278,7 @@ struct Field {
 }
 
 fn parse_meta_items(attribute: &syn::Attribute) -> Vec<NestedMeta> {
-    if !attribute.path.is_ident(SERIALIZE_HIERARCHY) {
+    if !attribute.path.is_ident("serialize_hierarchy") {
         return Vec::new();
     }
     match attribute.parse_meta() {
@@ -302,7 +298,7 @@ fn read_fields(input: &DataStruct) -> Vec<Field> {
                 .iter()
                 .flat_map(parse_meta_items)
                 .map(|meta| match meta {
-                    NestedMeta::Meta(Meta::Path(word)) if word.is_ident(SKIP) => {
+                    NestedMeta::Meta(Meta::Path(word)) if word.is_ident("skip") => {
                         FieldAttribute::Skip
                     }
                     NestedMeta::Meta(meta_item) => {
