@@ -75,6 +75,7 @@ where
                     field_dimensions: &configuration.field_dimensions,
                     forced_role: configuration.role_assignment.forced_role.as_ref(),
                     initial_poses: &configuration.localization.initial_poses,
+                    optional_roles: &configuration.behavior.optional_roles,
                     player_number: &configuration.player_number,
                     spl_network: &configuration.spl_network,
                     network_message: PerceptionInput {
