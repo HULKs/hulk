@@ -17,7 +17,7 @@ use serialize_hierarchy::{DecodeJpeg, EncodeJpeg, SerializeHierarchy};
 
 use crate::{Rgb, YCbCr422, YCbCr444};
 
-#[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy, Debug)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(as_jpeg)]
 pub struct NaoImage {
     width_422: u32,
