@@ -4,8 +4,8 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, vector, Vector2};
 use types::{
-    configuration::BallDetection as BallDetectionConfiguration, ycbcr422_image::YCbCr422Image, Ball,
-    CameraMatrix, CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
+    configuration::BallDetection as BallDetectionConfiguration, ycbcr422_image::YCbCr422Image,
+    Ball, CameraMatrix, CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
 };
 
 pub const SAMPLE_SIZE: usize = 32;
