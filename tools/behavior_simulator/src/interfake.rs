@@ -7,8 +7,8 @@ use std::{
 use color_eyre::Result;
 use types::{
     hardware::{Ids, Interface},
-    image::Image,
     messages::{IncomingMessage, OutgoingMessage},
+    nao_image::NaoImage,
     samples::Samples,
     CameraPosition, Joints, SensorData,
 };
@@ -53,7 +53,7 @@ impl Interface for Interfake {
         Ok(())
     }
 
-    fn read_from_camera(&self, _camera_position: CameraPosition) -> Result<Image> {
+    fn read_from_camera(&self, _camera_position: CameraPosition) -> Result<NaoImage> {
         unimplemented!()
     }
 }
