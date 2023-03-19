@@ -62,7 +62,7 @@ function on_cycle()
                 },
             }
         };
-        set_robot_pose(5,{-3.2,3}, -1.5707963267948966);
+        set_robot_pose(5, { -3.2, 3 }, -1.5707963267948966);
     end
 
     if state.cycle_count == game_end_time then
