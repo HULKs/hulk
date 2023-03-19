@@ -6,8 +6,8 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{distance, point, vector, Point2, Vector2};
 use ordered_float::NotNan;
 use types::{
-    nao_image::NaoImage, CameraMatrix, EdgeType, FilteredSegments, ImageLines, Line, LineData,
-    Segment,
+    ycbcr422_image::YCbCr422Image, CameraMatrix, EdgeType, FilteredSegments, ImageLines, Line,
+    LineData, Segment,
 };
 
 use crate::ransac::{Ransac, RansacResult};
@@ -42,7 +42,7 @@ pub struct CycleContext {
 
     pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     pub filtered_segments: Input<FilteredSegments, "filtered_segments">,
-    pub image: Input<NaoImage, "image">,
+    pub image: Input<YCbCr422Image, "image">,
 }
 
 #[context]
@@ -176,7 +176,7 @@ impl LineDetection {
     }
 }
 
-fn get_gradient(image: &NaoImage, point: Point2<u16>) -> Vector2<f32> {
+fn get_gradient(image: &YCbCr422Image, point: Point2<u16>) -> Vector2<f32> {
     if point.x < 1
         || point.y < 1
         || point.x > image.width() as u16 - 2
@@ -215,7 +215,7 @@ fn get_gradient(image: &NaoImage, point: Point2<u16>) -> Vector2<f32> {
 fn filter_segments_for_lines(
     camera_matrix: &CameraMatrix,
     filtered_segments: &FilteredSegments,
-    image: &NaoImage,
+    image: &YCbCr422Image,
     check_line_segments_projection: bool,
     maximum_projected_segment_length: f32,
     gradient_alignment: f32,
@@ -257,7 +257,7 @@ fn filter_segments_for_lines(
 fn is_line_segment(
     segment: &Segment,
     scan_line_position: u16,
-    image: &NaoImage,
+    image: &YCbCr422Image,
     camera_matrix: &CameraMatrix,
     check_line_segments_projection: bool,
     maximum_projected_segment_length: f32,
@@ -353,7 +353,7 @@ mod tests {
             }
         }
 
-        fn create_image(width: u32, height: u32) -> NaoImage {
+        fn create_image(width: u32, height: u32) -> YCbCr422Image {
             let width_422 = width / 2;
             let mut buffer = vec![YCbCr422::default(); (width_422 * height) as usize];
             for y in 0..height {
@@ -363,7 +363,7 @@ mod tests {
                     }
                 }
             }
-            NaoImage::from_ycbcr_buffer(width_422, height, buffer)
+            YCbCr422Image::from_ycbcr_buffer(width_422, height, buffer)
         }
 
         let image_size = vector![10.0, 500.0];
@@ -422,7 +422,7 @@ mod tests {
 
     #[test]
     fn gradient_of_zero_image() {
-        let image = NaoImage::zero(4, 4);
+        let image = YCbCr422Image::zero(4, 4);
         let point = point![1, 1];
         assert_eq!(get_gradient(&image, point), vector![0.0, 0.0]);
     }

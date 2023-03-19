@@ -4,8 +4,8 @@ use color_eyre::Result;
 
 use crate::{
     messages::{IncomingMessage, OutgoingMessage},
-    nao_image::NaoImage,
     samples::Samples,
+    ycbcr422_image::YCbCr422Image,
 };
 
 use super::{CameraPosition, Joints, Leds, SensorData};
@@ -21,7 +21,7 @@ pub trait Interface {
     fn read_from_network(&self) -> Result<IncomingMessage>;
     fn write_to_network(&self, message: OutgoingMessage) -> Result<()>;
 
-    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<NaoImage>;
+    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image>;
 }
 
 #[derive(Clone, Debug)]

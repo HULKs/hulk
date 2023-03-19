@@ -8,8 +8,8 @@ use color_eyre::Result;
 use types::{
     hardware::{Ids, Interface},
     messages::{IncomingMessage, OutgoingMessage},
-    nao_image::NaoImage,
     samples::Samples,
+    ycbcr422_image::YCbCr422Image,
     CameraPosition, Joints, SensorData,
 };
 
@@ -53,7 +53,7 @@ impl Interface for Interfake {
         Ok(())
     }
 
-    fn read_from_camera(&self, _camera_position: CameraPosition) -> Result<NaoImage> {
+    fn read_from_camera(&self, _camera_position: CameraPosition) -> Result<YCbCr422Image> {
         unimplemented!()
     }
 }

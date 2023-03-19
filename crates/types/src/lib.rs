@@ -38,7 +38,6 @@ pub mod messages;
 mod motion_command;
 mod motion_file;
 mod motion_selection;
-pub mod nao_image;
 pub mod obstacle_filter_hypothesis;
 mod obstacles;
 pub mod orientation_filter;
@@ -63,6 +62,7 @@ mod support_foot;
 mod walk_command;
 mod whistle;
 mod world_state;
+pub mod ycbcr422_image;
 
 // TODO: convert all "mod" to "pub mod"
 

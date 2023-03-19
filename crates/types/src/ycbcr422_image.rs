@@ -19,13 +19,13 @@ use crate::{Rgb, YCbCr422, YCbCr444};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(as_jpeg)]
-pub struct NaoImage {
+pub struct YCbCr422Image {
     width_422: u32,
     height: u32,
     buffer: Arc<Vec<YCbCr422>>,
 }
 
-impl EncodeJpeg for NaoImage {
+impl EncodeJpeg for YCbCr422Image {
     const DEFAULT_QUALITY: u8 = 40;
     type Error = ImageError;
 
@@ -38,7 +38,7 @@ impl EncodeJpeg for NaoImage {
     }
 }
 
-impl DecodeJpeg for NaoImage {
+impl DecodeJpeg for YCbCr422Image {
     type Error = ImageError;
 
     fn decode_from_jpeg(jpeg: Vec<u8>) -> Result<Self, Self::Error> {
@@ -54,7 +54,7 @@ impl DecodeJpeg for NaoImage {
     }
 }
 
-impl NaoImage {
+impl YCbCr422Image {
     pub fn buffer(&self) -> &[YCbCr422] {
         &self.buffer
     }
@@ -189,7 +189,7 @@ impl NaoImage {
     }
 }
 
-impl Index<Point2<usize>> for NaoImage {
+impl Index<Point2<usize>> for YCbCr422Image {
     type Output = YCbCr422;
 
     fn index(&self, position: Point2<usize>) -> &Self::Output {

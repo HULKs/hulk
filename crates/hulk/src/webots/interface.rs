@@ -21,8 +21,8 @@ use tokio_util::sync::CancellationToken;
 use types::{
     hardware::{self, Ids},
     messages::{IncomingMessage, OutgoingMessage},
-    nao_image::NaoImage,
     samples::Samples,
+    ycbcr422_image::YCbCr422Image,
     CameraPosition, Joints, Leds, SensorData,
 };
 use webots::Robot;
@@ -343,7 +343,7 @@ impl hardware::Interface for Interface {
         Ok(())
     }
 
-    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<NaoImage> {
+    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image> {
         let result = match camera_position {
             CameraPosition::Top => {
                 self.top_camera_requested.store(true, Ordering::SeqCst);

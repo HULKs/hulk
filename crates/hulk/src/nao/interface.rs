@@ -15,8 +15,8 @@ use tokio_util::sync::CancellationToken;
 use types::{
     hardware::{self, Ids},
     messages::{IncomingMessage, OutgoingMessage},
-    nao_image::NaoImage,
     samples::Samples,
+    ycbcr422_image::YCbCr422Image,
     CameraPosition, Joints, Leds, SensorData,
 };
 
@@ -129,7 +129,7 @@ impl hardware::Interface for Interface {
         Ok(())
     }
 
-    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<NaoImage> {
+    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image> {
         match camera_position {
             CameraPosition::Top => self.camera_top.lock().read(),
             CameraPosition::Bottom => self.camera_bottom.lock().read(),

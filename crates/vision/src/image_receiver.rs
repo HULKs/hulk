@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{hardware::Interface, nao_image::NaoImage, CameraPosition};
+use types::{hardware::Interface, ycbcr422_image::YCbCr422Image, CameraPosition};
 
 use crate::CyclerInstance;
 
@@ -18,7 +18,7 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub image: MainOutput<NaoImage>,
+    pub image: MainOutput<YCbCr422Image>,
 }
 
 impl ImageReceiver {
