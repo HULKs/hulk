@@ -9,6 +9,8 @@ pub enum Role {
     DefenderRight,
     Keeper,
     Loser,
+    MidfielderLeft,
+    MidfielderRight,
     ReplacementKeeper,
     Searcher,
     #[default]

@@ -13,6 +13,8 @@ pub enum Action {
     DefendRight,
     Jump,
     PrepareJump,
+    SupportLeft,
+    SupportRight,
     SupportStriker,
     Search,
     SearchForLostBall,

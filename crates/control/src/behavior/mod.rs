@@ -12,6 +12,8 @@ mod search;
 mod sit_down;
 mod stand;
 mod stand_up;
+mod support_left;
+mod support_right;
 mod support_striker;
 mod unstiff;
 mod walk_to_kick_off;
