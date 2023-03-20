@@ -10,7 +10,7 @@ use crate::{nao::Nao, value_buffer::ValueBuffer};
 pub struct PlayersValueBuffer(pub Players<ValueBuffer>);
 
 impl PlayersValueBuffer {
-    pub fn try_new(nao: &Arc<Nao>, prefix: &str, output: &str) -> Result<Self> {
+    pub fn try_new(nao: Arc<Nao>, prefix: &str, output: &str) -> Result<Self> {
         let buffers = Players {
             one: nao.subscribe_output(CyclerOutput::from_str(&format!("{prefix}.one.{output}"))?),
             two: nao.subscribe_output(CyclerOutput::from_str(&format!("{prefix}.two.{output}"))?),
