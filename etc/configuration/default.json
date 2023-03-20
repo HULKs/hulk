@@ -781,16 +781,22 @@
   "behavior": {
     "optional_roles": [
       "DefenderRight",
-      "StrikerSupporter",
       "DefenderLeft",
       "StrikerSupporter",
-      "StrikerSupporter"
+      "MidfielderLeft",
+      "MidfielderRight"
     ],
     "injected_motion_command": null,
     "role_positions": {
       "defender_aggressive_ring_radius": 2.0,
       "defender_passive_ring_radius": 1.7,
       "defender_y_offset": 0.6,
+      "left_midfielder_distance_to_ball": 2.5,
+      "left_midfielder_maximum_x_in_ready_and_when_ball_is_not_free": -2.0,
+      "left_midfielder_minimum_x": 2.25,
+      "right_midfielder_distance_to_ball": 2.5,
+      "right_midfielder_maximum_x_in_ready_and_when_ball_is_not_free": -2.0,
+      "right_midfielder_minimum_x": 2.25,
       "striker_supporter_distance_to_ball": 1.2,
       "striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free": -1.0,
       "striker_supporter_minimum_x": 2.0,

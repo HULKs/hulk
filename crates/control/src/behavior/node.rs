@@ -14,8 +14,8 @@ use super::{
     defend::Defend,
     dribble, fall_safely,
     head::LookAction,
-    jump, lost_ball, penalize, prepare_jump, search, sit_down, stand, stand_up, support_striker,
-    unstiff, walk_to_kick_off,
+    jump, lost_ball, penalize, prepare_jump, search, sit_down, stand, stand_up, support_left,
+    support_right, support_striker, unstiff, walk_to_kick_off,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
 
@@ -96,6 +96,8 @@ impl Behavior {
                 _ => actions.push(Action::DefendGoal),
             },
             Role::Loser => actions.push(Action::SearchForLostBall),
+            Role::MidfielderLeft => actions.push(Action::SupportLeft),
+            Role::MidfielderRight => actions.push(Action::SupportRight),
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
             Role::Searcher => actions.push(Action::Search),
             Role::Striker => match world_state.filtered_game_state {
@@ -111,9 +113,7 @@ impl Behavior {
                     actions.push(Action::DefendKickOff);
                 }
             },
-            Role::StrikerSupporter => {
-                actions.push(Action::SupportStriker);
-            }
+            Role::StrikerSupporter => actions.push(Action::SupportStriker),
         };
 
         let walk_path_planner = WalkPathPlanner::new(
@@ -177,6 +177,22 @@ impl Behavior {
                     self.absolute_last_known_ball_position,
                     &walk_path_planner,
                     context.lost_ball_parameters,
+                    &mut context.path_obstacles,
+                ),
+                Action::SupportLeft => support_left::execute(
+                    world_state,
+                    context.field_dimensions,
+                    &context.configuration.role_positions,
+                    &walk_and_stand,
+                    &look_action,
+                    &mut context.path_obstacles,
+                ),
+                Action::SupportRight => support_right::execute(
+                    world_state,
+                    context.field_dimensions,
+                    &context.configuration.role_positions,
+                    &walk_and_stand,
+                    &look_action,
                     &mut context.path_obstacles,
                 ),
                 Action::SupportStriker => support_striker::execute(
