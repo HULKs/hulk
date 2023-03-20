@@ -6,7 +6,7 @@ use eframe::{
     epaint::{Color32, PathShape, Rounding, Shape, Stroke},
 };
 use nalgebra::{point, vector, Isometry2, Point2, Rotation2, Similarity2, Vector2};
-use types::{Arc, Circle, FieldDimensions, Orientation};
+use types::{Arc, Circle, FieldDimensions, Orientation, PathSegment};
 
 pub enum CoordinateSystem {
     RightHand,
@@ -309,6 +309,37 @@ impl TwixPainter {
             fill_color,
             Stroke::default(),
         )));
+    }
+
+    pub fn path(
+        &self,
+        robot_to_field: Isometry2<f32>,
+        path: Vec<PathSegment>,
+        line_color: Color32,
+        arc_color: Color32,
+        width: f32,
+    ) {
+        for segment in path {
+            match segment {
+                PathSegment::LineSegment(line_segment) => self.line_segment(
+                    robot_to_field * line_segment.0,
+                    robot_to_field * line_segment.1,
+                    Stroke {
+                        width,
+                        color: line_color,
+                    },
+                ),
+                PathSegment::Arc(arc, orientation) => self.arc(
+                    arc,
+                    orientation,
+                    Stroke {
+                        width,
+                        color: arc_color,
+                    },
+                    robot_to_field,
+                ),
+            }
+        }
     }
 
     pub fn pose(

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::Isometry2;
-use types::{FieldDimensions, MotionCommand, PathSegment};
+use types::{FieldDimensions, MotionCommand};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, players_value_buffer::PlayersValueBuffer,
@@ -51,35 +51,22 @@ impl Layer for BehaviorSimulator {
                 width: 0.02,
                 color: Color32::BLACK,
             };
-            painter.pose(robot_to_field, 0.15, 0.25, pose_color, pose_stroke);
 
             let Ok(motion_command): Result<MotionCommand> = self.motion_command.0[player_number].parse_latest() else {
                 continue
             };
 
             if let MotionCommand::Walk { path, .. } = motion_command {
-                for segment in path {
-                    match segment {
-                        PathSegment::LineSegment(line_segment) => painter.line_segment(
-                            robot_to_field * line_segment.0,
-                            robot_to_field * line_segment.1,
-                            Stroke {
-                                width: 0.025,
-                                color: TRANSPARENT_BLUE,
-                            },
-                        ),
-                        PathSegment::Arc(arc, orientation) => painter.arc(
-                            arc,
-                            orientation,
-                            Stroke {
-                                width: 0.025,
-                                color: TRANSPARENT_LIGHT_BLUE,
-                            },
-                            robot_to_field,
-                        ),
-                    }
-                }
+                painter.path(
+                    robot_to_field,
+                    path,
+                    TRANSPARENT_BLUE,
+                    TRANSPARENT_LIGHT_BLUE,
+                    0.025,
+                );
             }
+
+            painter.pose(robot_to_field, 0.15, 0.25, pose_color, pose_stroke);
         }
 
         Ok(())
