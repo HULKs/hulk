@@ -20,13 +20,13 @@ impl Layer for BehaviorSimulator {
 
     fn new(nao: Arc<Nao>) -> Self {
         let robot_to_field = PlayersValueBuffer::try_new(
-            &nao,
+            nao.clone(),
             "BehaviorSimulator.main.databases",
             "main_outputs.robot_to_field",
         )
         .unwrap();
         let motion_command = PlayersValueBuffer::try_new(
-            &nao,
+            nao,
             "BehaviorSimulator.main.databases",
             "main_outputs.motion_command",
         )
