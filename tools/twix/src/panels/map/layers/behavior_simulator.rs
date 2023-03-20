@@ -54,6 +54,9 @@ impl Layer for BehaviorSimulator {
                 continue
             };
 
+            let transparent_blue = Color32::from_rgba_unmultiplied(0, 0, 255, 150);
+            let transparent_light_blue = Color32::from_rgba_unmultiplied(173, 216, 230, 150);
+
             if let MotionCommand::Walk { path, .. } = motion_command {
                 for segment in path {
                     match segment {
@@ -62,7 +65,7 @@ impl Layer for BehaviorSimulator {
                             robot_to_field * line_segment.1,
                             Stroke {
                                 width: 0.025,
-                                color: Color32::from_rgba_unmultiplied(0, 0, 255, 63),
+                                color: transparent_blue,
                             },
                         ),
                         PathSegment::Arc(arc, orientation) => painter.arc(
@@ -70,7 +73,7 @@ impl Layer for BehaviorSimulator {
                             orientation,
                             Stroke {
                                 width: 0.025,
-                                color: Color32::from_rgba_unmultiplied(0xAD, 0xD8, 0xE6, 63),
+                                color: transparent_light_blue,
                             },
                             robot_to_field,
                         ),
