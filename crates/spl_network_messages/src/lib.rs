@@ -35,8 +35,10 @@ pub enum PlayerNumber {
     Two,
     Three,
     Four,
-    #[default]
     Five,
+    Six,
+    #[default]
+    Seven,
 }
 
 impl Display for PlayerNumber {
@@ -47,6 +49,8 @@ impl Display for PlayerNumber {
             PlayerNumber::Three => "3",
             PlayerNumber::Four => "4",
             PlayerNumber::Five => "5",
+            PlayerNumber::Six => "6",
+            PlayerNumber::Seven => "7",
         };
 
         write!(formatter, "{number}")

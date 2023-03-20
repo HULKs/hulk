@@ -10,6 +10,8 @@ spawn_robot(2)
 spawn_robot(3)
 spawn_robot(4)
 spawn_robot(5)
+spawn_robot(6)
+spawn_robot(7)
 
 function on_goal()
   print("Goal scored, resetting ball!")

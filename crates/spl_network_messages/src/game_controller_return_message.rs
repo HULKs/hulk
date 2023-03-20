@@ -58,6 +58,8 @@ impl From<GameControllerReturnMessage> for RoboCupGameControlReturnData {
                 PlayerNumber::Three => 3,
                 PlayerNumber::Four => 4,
                 PlayerNumber::Five => 5,
+                PlayerNumber::Six => 6,
+                PlayerNumber::Seven => 7,
             },
             teamNum: HULKS_TEAM_NUMBER,
             fallen: u8::from(message.fallen),
