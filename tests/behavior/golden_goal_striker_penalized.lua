@@ -10,6 +10,8 @@ spawn_robot(2)
 spawn_robot(3)
 spawn_robot(4)
 spawn_robot(5)
+spawn_robot(6)
+spawn_robot(7)
 
 local game_end_time = -1.0
 
@@ -53,8 +55,8 @@ function on_cycle()
     end
 
     if state.cycle_count == 2200 then
-        penalize(5);
-        state.game_controller_state.penalties.five = {
+        penalize(7);
+        state.game_controller_state.penalties.seven = {
             Manual = {
                 remaining = {
                     nanos = 0,
@@ -62,7 +64,7 @@ function on_cycle()
                 },
             }
         };
-        set_robot_pose(5, { -3.2, 3 }, -1.5707963267948966);
+        set_robot_pose(7, { -3.2, 3 }, -1.5707963267948966);
     end
 
     if state.cycle_count == game_end_time then

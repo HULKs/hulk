@@ -580,22 +580,30 @@
     "initial_hypothesis_score": 10.0,
     "initial_poses": {
       "one": {
-        "center_line_offset_x": -3.0,
+        "center_line_offset_x": -4.0,
         "side": "Left"
       },
       "two": {
-        "center_line_offset_x": -2.0,
+        "center_line_offset_x": -3.0,
         "side": "Right"
       },
       "three": {
-        "center_line_offset_x": -2.0,
+        "center_line_offset_x": -3.0,
         "side": "Left"
       },
       "four": {
-        "center_line_offset_x": -1.0,
+        "center_line_offset_x": -2.0,
         "side": "Right"
       },
       "five": {
+        "center_line_offset_x": -2.0,
+        "side": "Left"
+      },
+      "six": {
+        "center_line_offset_x": -1.0,
+        "side": "Right"
+      },
+      "seven": {
         "center_line_offset_x": -1.0,
         "side": "Left"
       }
@@ -771,7 +779,13 @@
     }
   },
   "behavior": {
-    "optional_roles": ["DefenderRight", "StrikerSupporter", "DefenderLeft"],
+    "optional_roles": [
+      "DefenderRight",
+      "StrikerSupporter",
+      "DefenderLeft",
+      "StrikerSupporter",
+      "StrikerSupporter"
+    ],
     "injected_motion_command": null,
     "role_positions": {
       "defender_aggressive_ring_radius": 2.0,
@@ -968,7 +982,7 @@
     "goal_post_diameter": 0.1,
     "goal_depth": 0.5
   },
-  "player_number": "Five",
+  "player_number": "Seven",
   "spl_network": {
     "game_controller_return_message_interval": {
       "nanos": 0,

@@ -55,6 +55,8 @@ impl State {
                 three: None,
                 four: None,
                 five: None,
+                six: None,
+                seven: None,
             },
             remaining_amount_of_messages: 1200,
             set_play: None,

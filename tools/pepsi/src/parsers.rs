@@ -189,6 +189,8 @@ fn parse_assignment(input: &str) -> Result<(&str, PlayerNumber)> {
         "3" => PlayerNumber::Three,
         "4" => PlayerNumber::Four,
         "5" => PlayerNumber::Five,
+        "6" => PlayerNumber::Six,
+        "7" => PlayerNumber::Seven,
         _ => bail!("unexpected player number {player_number}"),
     };
     Ok((prefix, player_number))

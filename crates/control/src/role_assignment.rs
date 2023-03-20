@@ -99,7 +99,9 @@ impl RoleAssignment {
                 PlayerNumber::Two => context.optional_roles.get(0).copied().unwrap_or_default(),
                 PlayerNumber::Three => context.optional_roles.get(1).copied().unwrap_or_default(),
                 PlayerNumber::Four => context.optional_roles.get(2).copied().unwrap_or_default(),
-                PlayerNumber::Five => Role::Striker,
+                PlayerNumber::Five => context.optional_roles.get(3).copied().unwrap_or_default(),
+                PlayerNumber::Six => context.optional_roles.get(4).copied().unwrap_or_default(),
+                PlayerNumber::Seven => Role::Striker,
             };
             self.role_initialized = true;
             self.last_received_spl_striker_message = Some(cycle_start_time);
@@ -660,10 +662,12 @@ fn pick_role_with_penalties(
         three: None,
         four: None,
         five: None,
+        six: None,
+        seven: None,
     };
 
     role_assignment[striker_player_number] = Some(Role::Striker);
-    let mut unassigned_robots = 4;
+    let mut unassigned_robots = 6;
 
     if penalties[PlayerNumber::One].is_some() {
         unassigned_robots -= 1;
@@ -678,6 +682,12 @@ fn pick_role_with_penalties(
         unassigned_robots -= 1;
     }
     if penalties[PlayerNumber::Five].is_some() {
+        unassigned_robots -= 1;
+    }
+    if penalties[PlayerNumber::Six].is_some() {
+        unassigned_robots -= 1;
+    }
+    if penalties[PlayerNumber::Seven].is_some() {
         unassigned_robots -= 1;
     }
 
@@ -695,6 +705,10 @@ fn pick_role_with_penalties(
             role_assignment[PlayerNumber::Four] = Some(*optional_role);
         } else if needs_assignment(PlayerNumber::Five, penalties, &role_assignment) {
             role_assignment[PlayerNumber::Five] = Some(*optional_role);
+        } else if needs_assignment(PlayerNumber::Six, penalties, &role_assignment) {
+            role_assignment[PlayerNumber::Six] = Some(*optional_role);
+        } else if needs_assignment(PlayerNumber::Seven, penalties, &role_assignment) {
+            role_assignment[PlayerNumber::Seven] = Some(*optional_role);
         }
     }
 

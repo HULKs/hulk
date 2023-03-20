@@ -18,6 +18,9 @@ impl PlayersValueBuffer {
                 .subscribe_output(CyclerOutput::from_str(&format!("{prefix}.three.{output}"))?),
             four: nao.subscribe_output(CyclerOutput::from_str(&format!("{prefix}.four.{output}"))?),
             five: nao.subscribe_output(CyclerOutput::from_str(&format!("{prefix}.five.{output}"))?),
+            six: nao.subscribe_output(CyclerOutput::from_str(&format!("{prefix}.six.{output}"))?),
+            seven: nao
+                .subscribe_output(CyclerOutput::from_str(&format!("{prefix}.seven.{output}"))?),
         };
 
         Ok(Self(buffers))

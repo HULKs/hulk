@@ -68,6 +68,8 @@ pub fn to_player_number(value: usize) -> Result<PlayerNumber, String> {
         3 => PlayerNumber::Three,
         4 => PlayerNumber::Four,
         5 => PlayerNumber::Five,
+        6 => PlayerNumber::Six,
+        7 => PlayerNumber::Seven,
         number => return Err(format!("invalid player number: {number}")),
     };
 
@@ -81,5 +83,7 @@ pub fn from_player_number(val: PlayerNumber) -> usize {
         PlayerNumber::Three => 3,
         PlayerNumber::Four => 4,
         PlayerNumber::Five => 5,
+        PlayerNumber::Six => 6,
+        PlayerNumber::Seven => 7,
     }
 }
