@@ -2,9 +2,9 @@ use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
 use communication::client::CyclerOutput;
-use eframe::epaint::{Color32, Stroke};
+use eframe::epaint::Color32;
 use nalgebra::Isometry2;
-use types::{FieldDimensions, MotionCommand, PathSegment};
+use types::{FieldDimensions, MotionCommand};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -34,27 +34,13 @@ impl Layer for Path {
         let motion_command: MotionCommand = self.motion_command.require_latest()?;
 
         if let MotionCommand::Walk { path, .. } = motion_command {
-            for segment in path {
-                match segment {
-                    PathSegment::LineSegment(line_segment) => painter.line_segment(
-                        robot_to_field * line_segment.0,
-                        robot_to_field * line_segment.1,
-                        Stroke {
-                            width: 0.025,
-                            color: Color32::BLUE,
-                        },
-                    ),
-                    PathSegment::Arc(arc, orientation) => painter.arc(
-                        arc,
-                        orientation,
-                        Stroke {
-                            width: 0.025,
-                            color: Color32::LIGHT_BLUE,
-                        },
-                        robot_to_field,
-                    ),
-                }
-            }
+            painter.path(
+                robot_to_field,
+                path,
+                Color32::BLUE,
+                Color32::LIGHT_BLUE,
+                0.025,
+            );
         }
         Ok(())
     }
