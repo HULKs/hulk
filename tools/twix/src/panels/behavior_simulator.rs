@@ -82,7 +82,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
                     if ui
                         .add_sized(
                             ui.available_size(),
-                            Slider::new(&mut self.selected_robot, 1..=5)
+                            Slider::new(&mut self.selected_robot, 1..=7)
                                 .smart_aim(false)
                                 .text("Robot"),
                         )
