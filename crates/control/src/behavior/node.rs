@@ -6,7 +6,7 @@ use spl_network_messages::{GamePhase, Team};
 use types::{
     configuration::{Behavior as BehaviorConfiguration, LostBall},
     FieldDimensions, FilteredGameState, GameControllerState, KickDecision, MotionCommand,
-    PathObstacle, Role, WorldState,
+    PathObstacle, Role, Side, WorldState,
 };
 
 use super::{
@@ -14,8 +14,8 @@ use super::{
     defend::Defend,
     dribble, fall_safely,
     head::LookAction,
-    jump, lost_ball, penalize, prepare_jump, search, sit_down, stand, stand_up, support_left,
-    support_right, support_striker, unstiff, walk_to_kick_off,
+    jump, lost_ball, penalize, prepare_jump, search, sit_down, stand, stand_up, support, unstiff,
+    walk_to_kick_off,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
 
@@ -179,26 +179,62 @@ impl Behavior {
                     context.lost_ball_parameters,
                     &mut context.path_obstacles,
                 ),
-                Action::SupportLeft => support_left::execute(
+                Action::SupportLeft => support::execute(
                     world_state,
                     context.field_dimensions,
-                    &context.configuration.role_positions,
+                    Some(Side::Left),
+                    context
+                        .configuration
+                        .role_positions
+                        .left_midfielder_distance_to_ball,
+                    context
+                        .configuration
+                        .role_positions
+                        .left_midfielder_maximum_x_in_ready_and_when_ball_is_not_free,
+                    context
+                        .configuration
+                        .role_positions
+                        .left_midfielder_minimum_x,
                     &walk_and_stand,
                     &look_action,
                     &mut context.path_obstacles,
                 ),
-                Action::SupportRight => support_right::execute(
+                Action::SupportRight => support::execute(
                     world_state,
                     context.field_dimensions,
-                    &context.configuration.role_positions,
+                    Some(Side::Right),
+                    context
+                        .configuration
+                        .role_positions
+                        .right_midfielder_distance_to_ball,
+                    context
+                        .configuration
+                        .role_positions
+                        .right_midfielder_maximum_x_in_ready_and_when_ball_is_not_free,
+                    context
+                        .configuration
+                        .role_positions
+                        .right_midfielder_minimum_x,
                     &walk_and_stand,
                     &look_action,
                     &mut context.path_obstacles,
                 ),
-                Action::SupportStriker => support_striker::execute(
+                Action::SupportStriker => support::execute(
                     world_state,
                     context.field_dimensions,
-                    &context.configuration.role_positions,
+                    None,
+                    context
+                        .configuration
+                        .role_positions
+                        .striker_supporter_distance_to_ball,
+                    context
+                        .configuration
+                        .role_positions
+                        .striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free,
+                    context
+                        .configuration
+                        .role_positions
+                        .striker_supporter_minimum_x,
                     &walk_and_stand,
                     &look_action,
                     &mut context.path_obstacles,
