@@ -52,11 +52,9 @@ impl Layer for BehaviorSimulator {
                 color: Color32::BLACK,
             };
 
-            let Ok(motion_command): Result<MotionCommand> = self.motion_command.0[player_number].parse_latest() else {
-                continue
-            };
-
-            if let MotionCommand::Walk { path, .. } = motion_command {
+            if let Ok(MotionCommand::Walk { path, .. }) =
+                self.motion_command.0[player_number].parse_latest()
+            {
                 painter.path(
                     robot_to_field,
                     path,
