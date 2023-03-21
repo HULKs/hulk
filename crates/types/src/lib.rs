@@ -8,6 +8,7 @@ mod camera_position;
 mod color;
 pub mod configuration;
 mod cycle_time;
+mod detected_feet;
 mod detected_robots;
 mod fall_state;
 mod field_border;
@@ -73,7 +74,8 @@ pub use camera_matrix::{CameraMatrices, CameraMatrix, Horizon, ProjectedFieldLin
 pub use camera_position::CameraPosition;
 pub use color::{Intensity, Rgb, RgbChannel, YCbCr422, YCbCr444};
 pub use cycle_time::CycleTime;
-pub use detected_robots::{ClusterCone, DetectedRobots, ScoredCluster, ScoredClusterPoint};
+pub use detected_feet::{ClusterCone, DetectedFeet, ScoredCluster, ScoredClusterPoint};
+pub use detected_robots::DetectedRobots;
 pub use fall_state::FallState;
 pub use field_border::FieldBorder;
 pub use field_color::FieldColor;

@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use communication::{
-    client::{Communication, ConnectionStatus, Cycler, CyclerOutput},
+    client::{Communication, ConnectionStatus, CyclerOutput},
     messages::{Fields, Path},
 };
 
@@ -41,9 +41,9 @@ impl Nao {
         ValueBuffer::output(self.communication.clone(), output)
     }
 
-    pub fn subscribe_image(&self, cycler: Cycler, path: &str) -> ImageBuffer {
+    pub fn subscribe_image(&self, output: CyclerOutput) -> ImageBuffer {
         let _guard = self.runtime.enter();
-        ImageBuffer::new(self.communication.clone(), cycler, path)
+        ImageBuffer::new(self.communication.clone(), output)
     }
 
     pub fn subscribe_parameter(&self, path: &str) -> ValueBuffer {

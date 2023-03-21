@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use color_eyre::{eyre::eyre, Result};
-use communication::client::Cycler;
+use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::{
     egui::{ComboBox, Response, TextureFilter, Ui, Widget},
     emath::Rect,
@@ -32,10 +32,14 @@ enum ImageKind {
 }
 
 impl ImageKind {
-    fn as_path(&self) -> &str {
+    fn as_output(&self) -> Output {
         match self {
-            ImageKind::YCbCr422 => "image",
-            ImageKind::Luminance => "luminance_image",
+            ImageKind::YCbCr422 => Output::Main {
+                path: "image.jpeg".to_string(),
+            },
+            ImageKind::Luminance => Output::Additional {
+                path: "robot_detection.luminance_image.jpeg".to_string(),
+            },
         }
     }
 }
@@ -72,7 +76,11 @@ impl Panel for ImagePanel {
             .and_then(|value| value.get("image_kind"))
             .and_then(|value| from_value(value.clone()).ok())
             .unwrap_or(ImageKind::YCbCr422);
-        let image_buffer = nao.subscribe_image(cycler, image_kind.as_path());
+        let output = CyclerOutput {
+            cycler,
+            output: image_kind.as_output(),
+        };
+        let image_buffer = nao.subscribe_image(output);
         let cycler_selector = VisionCyclerSelector::new(cycler);
         let overlays = Overlays::new(
             nao.clone(),
@@ -105,10 +113,11 @@ impl Widget for &mut ImagePanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.horizontal(|ui| {
             if self.cycler_selector.ui(ui).changed() {
-                self.image_buffer = self.nao.subscribe_image(
-                    self.cycler_selector.selected_cycler(),
-                    self.image_kind.as_path(),
-                );
+                let output = CyclerOutput {
+                    cycler: self.cycler_selector.selected_cycler(),
+                    output: self.image_kind.as_output(),
+                };
+                self.image_buffer = self.nao.subscribe_image(output);
                 self.overlays
                     .update_cycler(self.cycler_selector.selected_cycler());
             }
@@ -130,10 +139,11 @@ impl Widget for &mut ImagePanel {
                     }
                 });
             if image_selection_changed {
-                self.image_buffer = self.nao.subscribe_image(
-                    self.cycler_selector.selected_cycler(),
-                    self.image_kind.as_path(),
-                );
+                let output = CyclerOutput {
+                    cycler: self.cycler_selector.selected_cycler(),
+                    output: self.image_kind.as_output(),
+                };
+                self.image_buffer = self.nao.subscribe_image(output);
                 self.overlays
                     .update_cycler(self.cycler_selector.selected_cycler());
             }
