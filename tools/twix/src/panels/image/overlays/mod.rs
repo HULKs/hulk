@@ -1,5 +1,7 @@
 mod ball_detection;
 mod line_detection;
+mod penalty_boxes;
 
 pub use ball_detection::BallDetection;
 pub use line_detection::LineDetection;
+pub use penalty_boxes::PenaltyBoxes;
