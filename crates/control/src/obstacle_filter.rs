@@ -8,7 +8,7 @@ use itertools::{chain, iproduct};
 use nalgebra::{distance, point, Isometry2, Matrix2, Point2};
 use types::{
     configuration::ObstacleFilter as ObstacleFilterConfiguration,
-    obstacle_filter_hypothesis::ObstacleFilterHypothesisSnapshot, CycleTime, DetectedRobots,
+    obstacle_filter_hypothesis::ObstacleFilterHypothesisSnapshot, CycleTime, DetectedFeet,
     FieldDimensions, Obstacle, ObstacleKind, SonarObstacle,
 };
 
@@ -44,10 +44,9 @@ pub struct CycleContext {
         Parameter<f32, "obstacle_filter.robot_obstacle_radius_at_hip_height">,
     pub unknown_obstacle_radius: Parameter<f32, "obstacle_filter.unknown_obstacle_radius">,
 
-    pub detected_robots_bottom:
-        PerceptionInput<Option<DetectedRobots>, "VisionBottom", "detected_robots?">,
-    pub detected_robots_top:
-        PerceptionInput<Option<DetectedRobots>, "VisionTop", "detected_robots?">,
+    pub detected_feet_bottom:
+        PerceptionInput<Option<DetectedFeet>, "VisionBottom", "detected_feet?">,
+    pub detected_feet_top: PerceptionInput<Option<DetectedFeet>, "VisionTop", "detected_feet?">,
 }
 
 #[context]
@@ -67,10 +66,10 @@ impl ObstacleFilter {
         let field_dimensions = context.field_dimensions;
         let cycle_start_time = context.cycle_time.start_time;
         let measured_robots = context
-            .detected_robots_top
+            .detected_feet_top
             .persistent
             .iter()
-            .zip(context.detected_robots_bottom.persistent.values());
+            .zip(context.detected_feet_bottom.persistent.values());
         for ((detection_time, robots_top), robots_bottom) in measured_robots {
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
@@ -113,7 +112,7 @@ impl ObstacleFilter {
                     .filter_map(|data| data.as_ref());
 
                 for obstacles in measured_robots_in_control_cycle {
-                    for obstacle in obstacles.robot_positions.iter() {
+                    for obstacle in obstacles.positions.iter() {
                         self.update_hypotheses_with_measurement(
                             obstacle.center,
                             ObstacleKind::Robot,

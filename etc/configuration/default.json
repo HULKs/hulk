@@ -150,7 +150,7 @@
       "fallback_radius": 42.0
     }
   },
-  "robot_detection": {
+  "feet_detection": {
     "vision_top": {
       "enable": false,
       "amount_of_segments_factor": 0.3,
