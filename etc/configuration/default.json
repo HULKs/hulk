@@ -150,6 +150,16 @@
       "fallback_radius": 42.0
     }
   },
+  "robot_detection": {
+    "vision_top": {
+      "neural_network": "etc/neural_networks/robot_detector.hdf5",
+      "object_threshold": 0.9
+    },
+    "vision_bottom": {
+      "neural_network": "etc/neural_networks/robot_detector.hdf5",
+      "object_threshold": 0.9
+    }
+  },
   "feet_detection": {
     "vision_top": {
       "enable": false,
@@ -169,7 +179,7 @@
       "minimum_consecutive_segments": 7
     },
     "vision_bottom": {
-      "enable": false,
+      "enable": true,
       "amount_of_segments_factor": 0.3,
       "amount_score_exponent": 1.0,
       "cluster_cone_radius": 0.3,
