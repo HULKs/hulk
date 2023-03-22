@@ -5,7 +5,7 @@ use framework::MainOutput;
 use nalgebra::Vector2;
 use types::{
     CycleTime, Facing, Joints, MotionCommand, MotionFile, MotionSafeExits, MotionSelection,
-    MotionType, SensorData, SplineMotionFileInterpolator,
+    MotionType, SensorData,
 };
 
 use crate::spline_interpolator::SplineInterpolator;
