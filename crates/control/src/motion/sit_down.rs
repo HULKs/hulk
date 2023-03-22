@@ -2,12 +2,14 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
-    CycleTime, Joints, JointsCommand, MotionFile, MotionFileInterpolator, MotionSafeExits,
-    MotionSelection, MotionType, SensorData,
+    CycleTime, Joints, JointsCommand, MotionFile, MotionSafeExits, MotionSelection, MotionType,
+    SensorData,
 };
 
+use crate::spline_motion_interpolator::SplineInterpolator;
+
 pub struct SitDown {
-    interpolator: MotionFileInterpolator,
+    interpolator: SplineInterpolator,
 }
 
 #[context]
@@ -33,14 +35,14 @@ pub struct MainOutputs {
 impl SitDown {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            interpolator: MotionFile::from_path("etc/motions/sit_down.json")?.into(),
+            interpolator: MotionFile::from_path("etc/motions/sit_down.json")?.try_into()?,
         })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         if context.motion_selection.current_motion == MotionType::SitDown {
-            self.interpolator.step(last_cycle_duration);
+            self.interpolator.advance_by(last_cycle_duration);
         } else {
             self.interpolator.reset();
         }
@@ -49,7 +51,7 @@ impl SitDown {
 
         Ok(MainOutputs {
             sit_down_joints_command: JointsCommand {
-                positions: self.interpolator.value(),
+                positions: self.interpolator.value()?,
                 stiffnesses: Joints::fill(if self.interpolator.is_finished() {
                     0.0
                 } else {

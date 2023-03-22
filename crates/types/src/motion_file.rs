@@ -3,7 +3,6 @@ use std::{fs::File, path::Path, time::Duration};
 use color_eyre::eyre::{Result, WrapErr};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::from_reader;
-use splines::{impl_Interpolate, Interpolation, Key, Spline};
 
 use crate::Joints;
 
@@ -49,57 +48,4 @@ where
     D: Deserializer<'de>,
 {
     Ok(Duration::from_secs_f32(f32::deserialize(deserializer)?))
-}
-
-impl_Interpolate!(f32, Joints, std::f32::consts::PI);
-pub struct MotionFileInterpolator {
-    interpolators: Spline<f32, Joints>,
-    current_time: Duration,
-}
-
-impl From<MotionFile> for MotionFileInterpolator {
-    fn from(motion_file: MotionFile) -> Self {
-        assert!(!motion_file.frames.is_empty());
-
-        let mut current_time = Duration::ZERO;
-        let mut keys = vec![Key::new(
-            current_time.as_secs_f32(),
-            motion_file.initial_positions,
-            Interpolation::Linear,
-        )];
-
-        keys.extend(motion_file.frames.into_iter().map(|frame| {
-            current_time += frame.duration;
-            Key::new(
-                current_time.as_secs_f32(),
-                frame.positions,
-                Interpolation::Linear,
-            )
-        }));
-
-        Self {
-            interpolators: Spline::from_vec(keys),
-            current_time: Duration::ZERO,
-        }
-    }
-}
-
-impl MotionFileInterpolator {
-    pub fn reset(&mut self) {
-        self.current_time = Duration::ZERO;
-    }
-
-    pub fn step(&mut self, time_step: Duration) -> Joints {
-        self.current_time += time_step;
-        self.value()
-    }
-
-    pub fn value(&self) -> Joints {
-        let arg: f32 = self.current_time.as_secs_f32();
-        self.interpolators.clamped_sample(arg).unwrap()
-    }
-
-    pub fn is_finished(&self) -> bool {
-        self.interpolators.keys().last().unwrap().t <= self.current_time.as_secs_f32()
-    }
 }

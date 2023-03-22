@@ -22,4 +22,5 @@ serialize_hierarchy = { workspace = true }
 smallvec = { workspace = true }
 splines = { workspace = true }
 spl_network_messages = { workspace = true }
+thiserror = { workspace = true }
 types = { workspace = true }
