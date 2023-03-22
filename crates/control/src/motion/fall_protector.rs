@@ -93,55 +93,36 @@ impl FallProtector {
         let fall_protection_command = match context.motion_command {
             MotionCommand::FallProtection {
                 direction: FallDirection::Forward,
-            } => {
-                self.interpolator.reset();
-                JointsCommand {
-                    positions: Joints::from_head_and_body(
-                        HeadJoints {
-                            yaw: 0.0,
-                            pitch: -0.672,
-                        },
-                        BodyJoints {
-                            left_arm: context.fall_protection.left_arm_positions,
-                            right_arm: context.fall_protection.right_arm_positions,
-                            left_leg: current_positions.left_leg,
-                            right_leg: current_positions.right_leg,
-                        },
-                    ),
-                    stiffnesses,
-                }
-            }
-            MotionCommand::FallProtection {
-                direction: FallDirection::Backward,
-            } => {
-                self.interpolator.set_initial_positions(current_positions);
-
-                let last_cycle_duration = context.cycle_time.last_cycle_duration;
-                self.interpolator.step(last_cycle_duration);
-
-                JointsCommand {
-                    positions: self.interpolator.value(),
-                    stiffnesses: Joints::fill(0.8),
-                }
-            }
-            _ => {
-                self.interpolator.reset();
-                JointsCommand {
-                    positions: Joints::from_head_and_body(
-                        HeadJoints {
-                            yaw: 0.0,
-                            pitch: 0.5149,
-                        },
-                        BodyJoints {
-                            left_arm: context.fall_protection.left_arm_positions,
-                            right_arm: context.fall_protection.right_arm_positions,
-                            left_leg: current_positions.left_leg,
-                            right_leg: current_positions.right_leg,
-                        },
-                    ),
-                    stiffnesses,
-                }
-            }
+            } => JointsCommand {
+                positions: Joints::from_head_and_body(
+                    HeadJoints {
+                        yaw: 0.0,
+                        pitch: -0.672,
+                    },
+                    BodyJoints {
+                        left_arm: context.fall_protection.left_arm_positions,
+                        right_arm: context.fall_protection.right_arm_positions,
+                        left_leg: current_positions.left_leg,
+                        right_leg: current_positions.right_leg,
+                    },
+                ),
+                stiffnesses,
+            },
+            _ => JointsCommand {
+                positions: Joints::from_head_and_body(
+                    HeadJoints {
+                        yaw: 0.0,
+                        pitch: 0.5149,
+                    },
+                    BodyJoints {
+                        left_arm: context.fall_protection.left_arm_positions,
+                        right_arm: context.fall_protection.right_arm_positions,
+                        left_leg: current_positions.left_leg,
+                        right_leg: current_positions.right_leg,
+                    },
+                ),
+                stiffnesses,
+            },
         };
 
         Ok(MainOutputs {
