@@ -97,8 +97,11 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 }
             })
             .collect();
-        if message.playersPerTeam >= MAX_NUM_PLAYERS {
-            bail!("unexpected number of players per team");
+        if message.playersPerTeam > MAX_NUM_PLAYERS {
+            bail!(
+                "unexpected number of players per team. Expected: {MAX_NUM_PLAYERS}. Got: {}",
+                message.playersPerTeam
+            );
         }
         let hulks_players = (0..message.playersPerTeam)
             .map(|player_index| {
