@@ -1,15 +1,17 @@
-use color_eyre::Result;
+use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use nalgebra::Vector2;
 use types::{
     CycleTime, Facing, Joints, MotionCommand, MotionFile, MotionSafeExits, MotionSelection,
-    MotionType, SensorData, SplineMotionFileInterpolator,
+    MotionType, SensorData,
 };
 
+use crate::spline_motion_interpolator::SplineInterpolator;
+
 pub struct StandUpBack {
-    interpolator: SplineMotionFileInterpolator,
+    interpolator: SplineInterpolator,
     filtered_gyro: LowPassFilter<Vector2<f32>>,
 }
 
@@ -46,7 +48,7 @@ impl StandUpBack {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
             interpolator: MotionFile::from_path("etc/motions/stand_up_back_dortmund_2022.json")?
-                .into(),
+                .try_into()?,
             filtered_gyro: LowPassFilter::with_alpha(
                 Vector2::zeros(),
                 *context.gyro_low_pass_filter_coefficient,
@@ -88,7 +90,11 @@ impl StandUpBack {
         }
 
         Ok(MainOutputs {
-            stand_up_back_positions: self.interpolator.value()?.into(),
+            stand_up_back_positions: self
+                .interpolator
+                .value()
+                .wrap_err("error computing interpolation in stand up back")?
+                .into(),
         })
     }
 }

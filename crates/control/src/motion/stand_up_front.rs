@@ -1,15 +1,17 @@
-use color_eyre::Result;
+use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use nalgebra::Vector2;
 use types::{
     CycleTime, Facing, Joints, MotionCommand, MotionFile, MotionSafeExits, MotionSelection,
-    MotionType, SensorData, SplineMotionFileInterpolator,
+    MotionType, SensorData,
 };
 
+use crate::spline_motion_interpolator::SplineInterpolator;
+
 pub struct StandUpFront {
-    interpolator: SplineMotionFileInterpolator,
+    interpolator: SplineInterpolator,
     filtered_gyro: LowPassFilter<Vector2<f32>>,
 }
 
@@ -45,7 +47,7 @@ pub struct MainOutputs {
 impl StandUpFront {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
-            interpolator: MotionFile::from_path("etc/motions/stand_up_front.json")?.into(),
+            interpolator: MotionFile::from_path("etc/motions/stand_up_front.json")?.try_into()?,
             filtered_gyro: LowPassFilter::with_alpha(
                 Vector2::zeros(),
                 *context.gyro_low_pass_filter_coefficient,
@@ -89,7 +91,11 @@ impl StandUpFront {
         }
 
         Ok(MainOutputs {
-            stand_up_front_positions: self.interpolator.value()?.into(),
+            stand_up_front_positions: self
+                .interpolator
+                .value()
+                .wrap_err("error computing interpolation in stand up front")?
+                .into(),
         })
     }
 }

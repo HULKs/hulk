@@ -1,4 +1,5 @@
 use std::{
+    f32::consts::PI,
     iter::Sum,
     ops::{Add, Div, Mul, Sub},
 };
@@ -6,6 +7,7 @@ use std::{
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
+use splines::impl_Interpolate;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct HeadJoints {
@@ -330,6 +332,7 @@ impl Add for BodyJoints {
     }
 }
 
+impl_Interpolate!(f32, Joints, PI);
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct Joints {
     pub head: HeadJoints,

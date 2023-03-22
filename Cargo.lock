@@ -1100,6 +1100,7 @@ dependencies = [
  "smallvec",
  "spl_network_messages",
  "splines",
+ "thiserror",
  "types",
 ]
 

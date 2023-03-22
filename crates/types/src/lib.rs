@@ -58,7 +58,6 @@ mod sensor_data;
 mod sole_pressure;
 mod sonar_obstacle;
 mod sonar_values;
-pub mod spline_motion_interpolator;
 mod step_adjustment;
 mod step_plan;
 mod support_foot;
@@ -109,7 +108,7 @@ pub use motion_command::{
     ArmMotion, Facing, FallDirection, HeadMotion, JumpDirection, KickDirection, KickVariant,
     MotionCommand, OrientationMode, SitDirection,
 };
-pub use motion_file::{MotionFile, MotionFileFrame, MotionFileInterpolator};
+pub use motion_file::{MotionFile, MotionFileFrame};
 pub use motion_selection::{MotionSafeExits, MotionSelection, MotionType};
 pub use obstacles::{Obstacle, ObstacleKind};
 pub use path_obstacles::{PathObstacle, PathObstacleShape};
@@ -129,7 +128,6 @@ pub use sensor_data::{
 pub use sole_pressure::SolePressure;
 pub use sonar_obstacle::SonarObstacle;
 pub use sonar_values::SonarValues;
-pub use spline_motion_interpolator::SplineMotionFileInterpolator;
 pub use step_adjustment::StepAdjustment;
 pub use step_plan::Step;
 pub use support_foot::{Side, SupportFoot};
