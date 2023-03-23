@@ -669,46 +669,29 @@ fn pick_role_with_penalties(
     role_assignment[striker_player_number] = Some(Role::Striker);
     let mut unassigned_robots = 6;
 
-    if penalties[PlayerNumber::One].is_some() {
-        unassigned_robots -= 1;
-    }
-    if penalties[PlayerNumber::Two].is_some() {
-        unassigned_robots -= 1;
-    }
-    if penalties[PlayerNumber::Three].is_some() {
-        unassigned_robots -= 1;
-    }
-    if penalties[PlayerNumber::Four].is_some() {
-        unassigned_robots -= 1;
-    }
-    if penalties[PlayerNumber::Five].is_some() {
-        unassigned_robots -= 1;
-    }
-    if penalties[PlayerNumber::Six].is_some() {
-        unassigned_robots -= 1;
-    }
-    if penalties[PlayerNumber::Seven].is_some() {
-        unassigned_robots -= 1;
-    }
+    unassigned_robots -= penalties
+        .iter()
+        .filter(|(_player, &penalty)| penalty.is_some())
+        .count();
 
     if unassigned_robots > 0 {
         unassigned_robots =
             assign_keeper_or_replacement_keeper(unassigned_robots, penalties, &mut role_assignment);
     }
 
-    for optional_role in optional_roles.iter().take(unassigned_robots) {
+    for &optional_role in optional_roles.iter().take(unassigned_robots) {
         if needs_assignment(PlayerNumber::Two, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Two] = Some(*optional_role);
+            role_assignment[PlayerNumber::Two] = Some(optional_role);
         } else if needs_assignment(PlayerNumber::Three, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Three] = Some(*optional_role);
+            role_assignment[PlayerNumber::Three] = Some(optional_role);
         } else if needs_assignment(PlayerNumber::Four, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Four] = Some(*optional_role);
+            role_assignment[PlayerNumber::Four] = Some(optional_role);
         } else if needs_assignment(PlayerNumber::Five, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Five] = Some(*optional_role);
+            role_assignment[PlayerNumber::Five] = Some(optional_role);
         } else if needs_assignment(PlayerNumber::Six, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Six] = Some(*optional_role);
+            role_assignment[PlayerNumber::Six] = Some(optional_role);
         } else if needs_assignment(PlayerNumber::Seven, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Seven] = Some(*optional_role);
+            role_assignment[PlayerNumber::Seven] = Some(optional_role);
         }
     }
 
@@ -744,6 +727,12 @@ fn assign_keeper_or_replacement_keeper(
         return unassigned_robots - 1;
     } else if needs_assignment(PlayerNumber::Five, penalties, role_assignment) {
         role_assignment[PlayerNumber::Five] = Some(Role::ReplacementKeeper);
+        return unassigned_robots - 1;
+    } else if needs_assignment(PlayerNumber::Six, penalties, role_assignment) {
+        role_assignment[PlayerNumber::Six] = Some(Role::ReplacementKeeper);
+        return unassigned_robots - 1;
+    } else if needs_assignment(PlayerNumber::Seven, penalties, role_assignment) {
+        role_assignment[PlayerNumber::Seven] = Some(Role::ReplacementKeeper);
         return unassigned_robots - 1;
     }
 
