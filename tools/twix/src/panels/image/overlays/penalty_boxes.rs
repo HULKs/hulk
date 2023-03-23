@@ -19,7 +19,8 @@ impl Overlay for PenaltyBoxes {
     fn new(nao: Arc<crate::nao::Nao>, selected_cycler: Cycler) -> Self {
         let top_or_bottom = match selected_cycler {
             Cycler::VisionTop => "top",
-            _ => "bottom",
+            Cycler::VisionBottom => "bottom",
+            cycler => panic!("Invalid vision cycler: {cycler}"),
         };
         Self {
             penalty_boxes: nao.subscribe_output(CyclerOutput {
