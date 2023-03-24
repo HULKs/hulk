@@ -32,6 +32,7 @@ function on_cycle()
 
   if state.cycle_count == 100 then
     state.game_controller_state.game_state = "Ready"
+    state.game_controller_state.kicking_team = "Opponent"
     state.filtered_game_state = {
       Ready = {
         kicking_team = "Opponent"
@@ -39,8 +40,8 @@ function on_cycle()
     }
   end
 
-  if state.cycle_count == 1100 then
-    state.filtered_game_state.game_state = "Set"
+  if state.cycle_count == 1200 then
+    state.game_controller_state.game_state = "Set"
     state.filtered_game_state = "Set"
   end
 
@@ -49,6 +50,7 @@ function on_cycle()
       position = { 0.0, 0.0 },
       velocity = { -1.0, 3.0 },
     }
+    state.game_controller_state.game_state = "Playing"
     state.filtered_game_state = {
       Playing = {
         ball_is_free = true
@@ -80,7 +82,36 @@ function on_cycle()
   if state.cycle_count == 2650 then
     state.game_controller_state.set_play = "PenaltyKick"
     state.game_controller_state.kicking_team = "Opponent"
-    state.filtered_game_state.Playing.ball_is_free = false
+    state.filtered_game_state = {
+      Ready = {
+        kicking_team = "Opponent"
+      }
+    }
+    --Missing behavior starts here
+  end
+
+  if state.cycle_count == 3700 then
+    state.game_controller_state.game_state= "Set"
+    state.filtered_game_state = "Set"
+  end
+
+  if state.cycle_count == 4000 then
+    state.game_controller_state.game_state = "Playing"
+    state.filtered_game_state = {
+      Playing = {
+        ball_is_free = false
+      }
+    }
+  end
+  
+  if state.cycle_count == 4400 then
+    state.game_controller_state.set_play = null
+    state.filtered_game_state = {
+      Playing = {
+        ball_is_free = true
+      }
+    }
+    --"Missing behavior ends here"
   end
 
   if state.cycle_count == game_end_time then
