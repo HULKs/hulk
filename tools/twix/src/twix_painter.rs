@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::f32::consts::{PI, TAU};
 
 use eframe::{
     egui::{Painter, Response, Sense, Ui},
@@ -468,6 +468,22 @@ impl TwixPainter {
 
         let stroke = self.transform_stroke(stroke);
 
+        self.painter
+            .add(Shape::Path(PathShape::line(points, stroke)));
+    }
+
+    #[allow(unused)]
+    pub fn ellipse(&self, position: Vector2<f32>, w: f32, h: f32, theta: f32, stroke: Stroke) {
+        let samples = 360;
+        let points = (0..samples + 1)
+            .map(|i| {
+                let t = i as f32 * TAU / samples as f32;
+                let x = w * theta.cos() * t.cos() - h * theta.sin() * t.sin();
+                let y = w * theta.sin() * t.cos() + h * theta.cos() * t.sin();
+                self.transform_world_to_pixel(point![x, y] + position)
+            })
+            .collect();
+        let stroke = self.transform_stroke(stroke);
         self.painter
             .add(Shape::Path(PathShape::line(points, stroke)));
     }
