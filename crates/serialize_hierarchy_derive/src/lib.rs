@@ -42,6 +42,7 @@ fn process_input(input: DeriveInput) -> TokenStream {
     let path_exists_getters = generate_path_exists_getters(&serializable_fields);
     let field_exists_getters = generate_field_exists_getters(&serializable_fields);
     let field_chains = generate_field_chains(&serializable_fields);
+    let path_field_chains = generate_path_field_chains(&serializable_fields);
     let (jpeg_serialization, jpeg_exists_getter, jpeg_field_chain) = if contains_as_jpeg {
         (
             quote! {
@@ -135,6 +136,7 @@ fn process_input(input: DeriveInput) -> TokenStream {
             fn get_fields() -> std::collections::BTreeSet<String> {
                 std::iter::empty::<std::string::String>()
                     #(#field_chains)*
+                    #(#path_field_chains)*
                     #jpeg_field_chain
                     .collect()
             }
@@ -146,6 +148,7 @@ fn process_input(input: DeriveInput) -> TokenStream {
 fn generate_path_serializations(fields: &[&Field]) -> Vec<TokenStream> {
     fields
         .iter()
+        .filter(|field| !field.attributes.contains(&FieldAttribute::Leaf))
         .map(|field| {
             let identifier = &field.identifier;
             let pattern = identifier.to_string();
@@ -169,6 +172,7 @@ fn generate_serde_serializations(fields: &[&Field]) -> Vec<TokenStream> {
 fn generate_path_deserializations(fields: &[&Field]) -> Vec<TokenStream> {
     fields
         .iter()
+        .filter(|field| !field.attributes.contains(&FieldAttribute::Leaf))
         .map(|field| {
             let identifier = &field.identifier;
             let pattern = identifier.to_string();
@@ -197,6 +201,7 @@ fn generate_serde_deserializations(fields: &[&Field]) -> Vec<TokenStream> {
 fn generate_path_exists_getters(fields: &[&Field]) -> Vec<TokenStream> {
     fields
         .iter()
+        .filter(|field| !field.attributes.contains(&FieldAttribute::Leaf))
         .map(|field| {
             let pattern = field.identifier.to_string();
             let ty = &field.ty;
@@ -223,12 +228,23 @@ fn generate_field_chains(fields: &[&Field]) -> Vec<TokenStream> {
     fields
         .iter()
         .map(|field| {
-            let identifier = &field.identifier;
-            let name_string = identifier.to_string();
-            let pattern = format!("{}.{{}}", identifier);
-            let ty = &field.ty;
+            let name_string = field.identifier.to_string();
             quote! {
                 .chain(std::iter::once(#name_string.to_string()))
+            }
+        })
+        .collect()
+}
+
+fn generate_path_field_chains(fields: &[&Field]) -> Vec<TokenStream> {
+    fields
+        .iter()
+        .filter(|field| !field.attributes.contains(&FieldAttribute::Leaf))
+        .map(|field| {
+            let identifier = &field.identifier;
+            let pattern = format!("{identifier}.{{}}");
+            let ty = &field.ty;
+            quote! {
                 .chain(
                     <#ty as serialize_hierarchy::SerializeHierarchy>::get_fields()
                         .into_iter()
@@ -268,6 +284,7 @@ fn parse_attributes(attrs: &[syn::Attribute]) -> HashSet<TypeAttribute> {
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 enum FieldAttribute {
     Skip,
+    Leaf,
 }
 
 #[derive(Debug)]
@@ -300,6 +317,9 @@ fn read_fields(input: &DataStruct) -> Vec<Field> {
                 .map(|meta| match meta {
                     NestedMeta::Meta(Meta::Path(word)) if word.is_ident("skip") => {
                         FieldAttribute::Skip
+                    }
+                    NestedMeta::Meta(Meta::Path(word)) if word.is_ident("leaf") => {
+                        FieldAttribute::Leaf
                     }
                     NestedMeta::Meta(meta_item) => {
                         let path = meta_item
