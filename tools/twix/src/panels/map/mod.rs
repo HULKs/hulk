@@ -28,6 +28,7 @@ pub struct MapPanel {
     kick_decisions: EnabledLayer<layers::KickDecisions>,
     feet_detection: EnabledLayer<layers::FeetDetection>,
     ball_filter: EnabledLayer<layers::BallFilter>,
+    obstacle_filter: EnabledLayer<layers::ObstacleFilter>,
 }
 
 impl Panel for MapPanel {
@@ -46,6 +47,7 @@ impl Panel for MapPanel {
         let kick_decisions = EnabledLayer::new(nao.clone(), value, false);
         let feet_detection = EnabledLayer::new(nao.clone(), value, false);
         let ball_filter = EnabledLayer::new(nao.clone(), value, false);
+        let obstacle_filter = EnabledLayer::new(nao.clone(), value, false);
 
         let field_dimensions = nao.subscribe_parameter("field_dimensions");
         let transformation = Similarity2::identity();
@@ -65,6 +67,7 @@ impl Panel for MapPanel {
             kick_decisions,
             feet_detection,
             ball_filter,
+            obstacle_filter,
         }
     }
 
@@ -82,6 +85,7 @@ impl Panel for MapPanel {
             "kick_decisions": self.kick_decisions.save(),
             "feet_detection": self.feet_detection.save(),
             "ball_filter": self.ball_filter.save(),
+            "obstacle_filter": self.obstacle_filter.save(),
         })
     }
 }
@@ -101,6 +105,7 @@ impl Widget for &mut MapPanel {
             self.kick_decisions.checkbox(ui);
             self.feet_detection.checkbox(ui);
             self.ball_filter.checkbox(ui);
+            self.obstacle_filter.checkbox(ui);
         });
 
         let field_dimensions: FieldDimensions = match self.field_dimensions.get_latest() {
@@ -124,6 +129,7 @@ impl Widget for &mut MapPanel {
         let _ = self.kick_decisions.paint(&painter, &field_dimensions);
         let _ = self.feet_detection.paint(&painter, &field_dimensions);
         let _ = self.ball_filter.paint(&painter, &field_dimensions);
+        let _ = self.obstacle_filter.paint(&painter, &field_dimensions);
 
         self.apply_zoom_and_pan(ui, &mut painter, &response);
         if response.double_clicked() {
