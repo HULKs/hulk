@@ -60,13 +60,17 @@
   },
   "image_segmenter": {
     "vision_top": {
+      "horizontal_stride": 4,
+      "vertical_stride": 2,
       "vertical_edge_detection_source": "Luminance",
       "vertical_edge_threshold": 16,
       "vertical_median_mode": "ThreePixels"
     },
     "vision_bottom": {
+      "horizontal_stride": 4,
+      "vertical_stride": 8,
       "vertical_edge_detection_source": "Luminance",
-      "vertical_edge_threshold": 16,
+      "vertical_edge_threshold": 20,
       "vertical_median_mode": "ThreePixels"
     }
   },
