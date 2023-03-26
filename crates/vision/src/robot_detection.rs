@@ -38,9 +38,11 @@ pub struct CycleContext {
     pub image: Input<YCbCr422Image, "image">,
     pub luminance_image: AdditionalOutput<GrayscaleImage, "robot_detection.luminance_image">,
     pub object_threshold: Parameter<f32, "robot_detection.$cycler_instance.object_threshold">,
+    pub enable: Parameter<bool, "robot_detection.$cycler_instance.enable">,
 }
 
 #[context]
+#[derive(Default)]
 pub struct MainOutputs {
     pub detected_robots: MainOutput<DetectedRobots>,
 }
@@ -53,6 +55,10 @@ impl RobotDetection {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        if !context.enable {
+            return Ok(MainOutputs::default());
+        }
+
         let luminance_image = generate_luminance_image(context.image)?;
         context
             .luminance_image

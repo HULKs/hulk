@@ -152,10 +152,12 @@
   },
   "robot_detection": {
     "vision_top": {
+      "enable": false,
       "neural_network": "etc/neural_networks/robot_detector.hdf5",
       "object_threshold": 0.9
     },
     "vision_bottom": {
+      "enable": false,
       "neural_network": "etc/neural_networks/robot_detector.hdf5",
       "object_threshold": 0.9
     }
@@ -163,37 +165,17 @@
   "feet_detection": {
     "vision_top": {
       "enable": false,
-      "amount_of_segments_factor": 0.3,
-      "amount_score_exponent": 1.0,
-      "cluster_cone_radius": 0.3,
-      "cluster_distance_score_range": {
-        "start": 0.9,
-        "end": 1.0
-      },
-      "detection_box_width": 0.25,
-      "ignore_ball_segments": true,
-      "ignore_line_segments": true,
-      "luminance_score_exponent": 0.5,
       "maximum_cluster_distance": 0.3,
-      "minimum_cluster_score": 3,
-      "minimum_consecutive_segments": 7
+      "minimum_consecutive_segments": 7,
+      "minimum_luminance_standard_deviation": 7,
+      "minimum_samples_per_cluster": 3
     },
     "vision_bottom": {
       "enable": true,
-      "amount_of_segments_factor": 0.3,
-      "amount_score_exponent": 1.0,
-      "cluster_cone_radius": 0.3,
-      "cluster_distance_score_range": {
-        "start": 0.9,
-        "end": 1.0
-      },
-      "detection_box_width": 0.25,
-      "ignore_ball_segments": true,
-      "ignore_line_segments": true,
-      "luminance_score_exponent": 0.5,
       "maximum_cluster_distance": 0.3,
-      "minimum_cluster_score": 3,
-      "minimum_consecutive_segments": 7
+      "minimum_consecutive_segments": 7,
+      "minimum_luminance_standard_deviation": 7,
+      "minimum_samples_per_cluster": 3
     }
   },
   "fall_protection": {
