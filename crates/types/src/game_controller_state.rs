@@ -2,7 +2,7 @@ use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use spl_network_messages::{GamePhase, GameState, Penalty, SetPlay, Team};
+use spl_network_messages::{GamePhase, GameState, Penalty, SubState, Team};
 
 use super::Players;
 
@@ -14,5 +14,5 @@ pub struct GameControllerState {
     pub last_game_state_change: SystemTime,
     pub penalties: Players<Option<Penalty>>,
     pub remaining_amount_of_messages: u16,
-    pub set_play: Option<SetPlay>,
+    pub sub_state: Option<SubState>,
 }

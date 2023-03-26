@@ -36,7 +36,7 @@ function on_cycle()
   end
 
   if state.cycle_count == 3000 then
-    state.game_controller_state.set_play = "PushingFreeKick"
+    state.game_controller_state.sub_state = "PushingFreeKick"
     state.game_controller_state.kicking_team = "Opponent"
     state.filtered_game_state.Playing.ball_is_free = false
   end

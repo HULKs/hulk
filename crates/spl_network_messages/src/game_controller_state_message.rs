@@ -31,7 +31,7 @@ use crate::{
 pub struct GameControllerStateMessage {
     pub game_phase: GamePhase,
     pub game_state: GameState,
-    pub set_play: Option<SetPlay>,
+    pub sub_state: Option<SubState>,
     pub half: Half,
     pub remaining_time_in_half: Duration,
     pub secondary_time: Duration,
@@ -113,7 +113,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
         Ok(GameControllerStateMessage {
             game_phase: GamePhase::try_from(message.gamePhase, message.kickingTeam)?,
             game_state: GameState::try_from(message.state)?,
-            set_play: SetPlay::try_from(message.setPlay)?,
+            sub_state: SubState::try_from(message.setPlay)?,
             half: message.firstHalf.try_into()?,
             remaining_time_in_half: Duration::from_secs(message.secsRemaining.max(0).try_into()?),
             secondary_time: Duration::from_secs(message.secondaryTime.max(0).try_into()?),
@@ -208,22 +208,22 @@ impl Team {
     }
 }
 
-impl SetPlay {
-    fn try_from(set_play: u8) -> Result<Option<Self>> {
-        match set_play {
+impl SubState {
+    fn try_from(sub_state: u8) -> Result<Option<Self>> {
+        match sub_state {
             SET_PLAY_NONE => Ok(None),
-            SET_PLAY_GOAL_KICK => Ok(Some(SetPlay::GoalKick)),
-            SET_PLAY_PUSHING_FREE_KICK => Ok(Some(SetPlay::PushingFreeKick)),
-            SET_PLAY_CORNER_KICK => Ok(Some(SetPlay::CornerKick)),
-            SET_PLAY_KICK_IN => Ok(Some(SetPlay::KickIn)),
-            SET_PLAY_PENALTY_KICK => Ok(Some(SetPlay::PenaltyKick)),
-            _ => bail!("unexpected set play"),
+            SET_PLAY_GOAL_KICK => Ok(Some(SubState::GoalKick)),
+            SET_PLAY_PUSHING_FREE_KICK => Ok(Some(SubState::PushingFreeKick)),
+            SET_PLAY_CORNER_KICK => Ok(Some(SubState::CornerKick)),
+            SET_PLAY_KICK_IN => Ok(Some(SubState::KickIn)),
+            SET_PLAY_PENALTY_KICK => Ok(Some(SubState::PenaltyKick)),
+            _ => bail!("unexpected sub state"),
         }
     }
 }
 
 #[derive(Default, Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
-pub enum SetPlay {
+pub enum SubState {
     #[default]
     GoalKick,
     PushingFreeKick,

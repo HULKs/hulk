@@ -57,7 +57,7 @@ impl State {
                 five: None,
             },
             remaining_amount_of_messages: 1200,
-            set_play: None,
+            sub_state: None,
         };
 
         Self {

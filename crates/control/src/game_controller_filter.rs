@@ -63,7 +63,7 @@ impl GameControllerFilter {
                 remaining_amount_of_messages: game_controller_state_message
                     .hulks_team
                     .remaining_amount_of_messages,
-                set_play: game_controller_state_message.set_play,
+                sub_state: game_controller_state_message.sub_state,
             });
         }
         Ok(MainOutputs {
