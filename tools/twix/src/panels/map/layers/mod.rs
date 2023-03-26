@@ -1,3 +1,4 @@
+mod ball_filter;
 mod ball_position;
 mod behavior_simulator;
 mod feet_detection;
@@ -11,6 +12,7 @@ mod path_obstacles;
 mod robot_pose;
 
 pub use self::behavior_simulator::BehaviorSimulator;
+pub use ball_filter::BallFilter;
 pub use ball_position::BallPosition;
 pub use feet_detection::FeetDetection;
 pub use field::Field;

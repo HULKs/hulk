@@ -1,11 +1,11 @@
-use std::f32::consts::{PI, TAU};
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use eframe::{
     egui::{Painter, Response, Sense, Ui},
     emath::{Pos2, Rect},
     epaint::{Color32, PathShape, Rounding, Shape, Stroke},
 };
-use nalgebra::{point, vector, Isometry2, Point2, Rotation2, Similarity2, Vector2};
+use nalgebra::{point, vector, Isometry2, Point2, Rotation2, SMatrix, Similarity2, Vector2};
 use types::{Arc, Circle, FieldDimensions, Orientation, PathSegment};
 
 pub enum CoordinateSystem {
@@ -472,10 +472,9 @@ impl TwixPainter {
             .add(Shape::Path(PathShape::line(points, stroke)));
     }
 
-    #[allow(unused)]
     pub fn ellipse(
         &self,
-        position: Vector2<f32>,
+        position: Point2<f32>,
         w: f32,
         h: f32,
         theta: f32,
@@ -488,13 +487,35 @@ impl TwixPainter {
                 let t = i as f32 * TAU / samples as f32;
                 let x = w * theta.cos() * t.cos() - h * theta.sin() * t.sin();
                 let y = w * theta.sin() * t.cos() + h * theta.cos() * t.sin();
-                self.transform_world_to_pixel(point![x, y] + position)
+                self.transform_world_to_pixel(position + vector![x, y])
             })
             .collect();
         let stroke = self.transform_stroke(stroke);
         self.painter.add(Shape::Path(PathShape::convex_polygon(
             points, fill_color, stroke,
         )));
+    }
+
+    pub fn covariance(
+        &self,
+        position: Point2<f32>,
+        covariance: SMatrix<f32, 2, 2>,
+        stroke: Stroke,
+        fill_color: Color32,
+    ) {
+        let a = covariance.m11;
+        let b = covariance.m12;
+        let c = covariance.m22;
+        let l1 = (a + c) / 2.0 + (((a - c) / 2.0).powi(2) + b.powi(2)).sqrt();
+        let l2 = (a + c) / 2.0 - (((a - c) / 2.0).powi(2) + b.powi(2)).sqrt();
+        let theta = if b == 0.0 && a >= c {
+            0.0
+        } else if b == 0.0 && a < c {
+            FRAC_PI_2
+        } else {
+            b.atan2(l1 - a)
+        };
+        self.ellipse(position, l1.sqrt(), l2.sqrt(), theta, stroke, fill_color)
     }
 }
 
