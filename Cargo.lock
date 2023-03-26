@@ -1786,7 +1786,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serialize_hierarchy",
- "types",
 ]
 
 [[package]]
@@ -4300,6 +4299,7 @@ dependencies = [
  "approx",
  "bincode",
  "color-eyre",
+ "filtering",
  "image",
  "nalgebra",
  "ordered-float",

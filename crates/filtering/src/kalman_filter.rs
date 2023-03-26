@@ -1,7 +1,7 @@
 use nalgebra::{SMatrix, SVector};
-use types::kalman_filter::KalmanFilterSnapshot;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KalmanFilter<const STATE_DIMENSION: usize> {
     state: SVector<f32, STATE_DIMENSION>,
     covariance: SMatrix<f32, STATE_DIMENSION, STATE_DIMENSION>,
@@ -55,16 +55,5 @@ impl<const STATE_DIMENSION: usize> KalmanFilter<STATE_DIMENSION> {
 
     pub fn covariance(&self) -> SMatrix<f32, STATE_DIMENSION, STATE_DIMENSION> {
         self.covariance
-    }
-}
-
-impl<const STATE_DIMENSION: usize> From<&KalmanFilter<STATE_DIMENSION>>
-    for KalmanFilterSnapshot<STATE_DIMENSION>
-{
-    fn from(filter: &KalmanFilter<STATE_DIMENSION>) -> Self {
-        Self {
-            state: filter.state,
-            covariance: filter.covariance,
-        }
     }
 }

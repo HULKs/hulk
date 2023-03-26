@@ -7,13 +7,12 @@ use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use itertools::{chain, iproduct};
 use nalgebra::{distance, point, Isometry2, Matrix2, Point2};
 use types::{
-    configuration::ObstacleFilter as ObstacleFilterConfiguration,
-    obstacle_filter_hypothesis::ObstacleFilterHypothesisSnapshot, CycleTime, DetectedFeet,
-    FieldDimensions, Obstacle, ObstacleKind, SonarObstacle,
+    configuration::ObstacleFilter as ObstacleFilterConfiguration, obstacle_filter::Hypothesis,
+    CycleTime, DetectedFeet, FieldDimensions, Obstacle, ObstacleKind, SonarObstacle,
 };
 
 pub struct ObstacleFilter {
-    hypotheses: Vec<ObstacleFilterHypothesis>,
+    hypotheses: Vec<Hypothesis>,
 }
 
 #[context]
@@ -24,8 +23,7 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    pub obstacle_filter_hypotheses:
-        AdditionalOutput<Vec<ObstacleFilterHypothesisSnapshot>, "obstacle_filter_hypotheses">,
+    pub obstacle_filter_hypotheses: AdditionalOutput<Vec<Hypothesis>, "obstacle_filter_hypotheses">,
 
     pub current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
@@ -203,7 +201,7 @@ impl ObstacleFilter {
         });
         context
             .obstacle_filter_hypotheses
-            .fill_if_subscribed(|| self.hypotheses.iter().map(Into::into).collect());
+            .fill_if_subscribed(|| self.hypotheses.clone());
         Ok(MainOutputs {
             obstacles: chain!(robot_obstacles, goal_post_obstacles)
                 .collect::<Vec<_>>()
@@ -279,7 +277,7 @@ impl ObstacleFilter {
         initial_covariance: Matrix2<f32>,
     ) {
         let initial_state = detected_position.coords;
-        let new_hypothesis = ObstacleFilterHypothesis {
+        let new_hypothesis = Hypothesis {
             filter: KalmanFilter::new(initial_state, initial_covariance),
             obstacle_kind,
             measurement_count: 1,
@@ -299,7 +297,7 @@ impl ObstacleFilter {
                 .expect("Time has run backwards")
                 < hypothesis_timeout
         });
-        let mut deduplicated_hypotheses = Vec::<ObstacleFilterHypothesis>::new();
+        let mut deduplicated_hypotheses = Vec::<Hypothesis>::new();
         for hypothesis in self.hypotheses.drain(..) {
             let hypothesis_in_merge_distance =
                 deduplicated_hypotheses
@@ -325,25 +323,6 @@ impl ObstacleFilter {
             }
         }
         self.hypotheses = deduplicated_hypotheses;
-    }
-}
-
-#[derive(Debug, Clone)]
-struct ObstacleFilterHypothesis {
-    filter: KalmanFilter<2>,
-    measurement_count: usize,
-    last_update: SystemTime,
-    obstacle_kind: ObstacleKind,
-}
-
-impl From<&ObstacleFilterHypothesis> for ObstacleFilterHypothesisSnapshot {
-    fn from(hypothesis: &ObstacleFilterHypothesis) -> Self {
-        Self {
-            filter: (&hypothesis.filter).into(),
-            measurement_count: hypothesis.measurement_count,
-            last_update: hypothesis.last_update,
-            obstacle_kind: hypothesis.obstacle_kind,
-        }
     }
 }
 

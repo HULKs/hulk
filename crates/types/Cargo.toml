@@ -20,6 +20,7 @@ serialize_hierarchy = { workspace = true }
 spl_network_messages = { workspace = true }
 tokio = { workspace = true }
 bincode = { workspace = true }
+filtering = { workspace = true }
 
 [build-dependencies]
 petgraph = { workspace = true }

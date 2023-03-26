@@ -9,13 +9,12 @@ use nalgebra::{
 };
 use projection::Projection;
 use types::{
-    ball_filter_hypothesis::BallFilterHypothesisSnapshot, is_above_limbs, Ball, BallPosition,
-    CameraMatrices, CameraMatrix, Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs,
-    SensorData,
+    ball_filter::Hypothesis, is_above_limbs, Ball, BallPosition, CameraMatrices, CameraMatrix,
+    Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs, SensorData,
 };
 
 pub struct BallFilter {
-    hypotheses: Vec<BallFilterHypothesis>,
+    hypotheses: Vec<Hypothesis>,
 }
 
 #[context]
@@ -36,8 +35,7 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    pub ball_filter_hypotheses:
-        AdditionalOutput<Vec<BallFilterHypothesisSnapshot>, "ball_filter_hypotheses">,
+    pub ball_filter_hypotheses: AdditionalOutput<Vec<Hypothesis>, "ball_filter_hypotheses">,
     pub filtered_balls_in_image_bottom:
         AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_bottom">,
     pub filtered_balls_in_image_top: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_top">,
@@ -139,7 +137,7 @@ impl BallFilter {
         });
         context
             .ball_filter_hypotheses
-            .fill_if_subscribed(|| self.hypotheses.iter().map(Into::into).collect());
+            .fill_if_subscribed(|| self.hypotheses.clone());
         let ball_radius = context.field_dimensions.ball_radius;
         context.filtered_balls_in_image_top.fill_if_subscribed(|| {
             self.hypotheses
@@ -257,7 +255,7 @@ impl BallFilter {
         });
     }
 
-    fn find_best_hypothesis(&self) -> Option<&BallFilterHypothesis> {
+    fn find_best_hypothesis(&self) -> Option<&Hypothesis> {
         self.hypotheses
             .iter()
             .max_by(|a, b| a.validity.total_cmp(&b.validity))
@@ -275,7 +273,7 @@ impl BallFilter {
             0.0,
             0.0
         ];
-        let new_hypothesis = BallFilterHypothesis {
+        let new_hypothesis = Hypothesis {
             filter: KalmanFilter::new(initial_state, initial_covariance),
             validity: 1.0,
             last_update: detection_time,
@@ -303,7 +301,7 @@ impl BallFilter {
                 && hypothesis.validity > validity_discard_threshold
                 && is_inside_field
         });
-        let mut deduplicated_hypotheses = Vec::<BallFilterHypothesis>::new();
+        let mut deduplicated_hypotheses = Vec::<Hypothesis>::new();
         for hypothesis in self.hypotheses.drain(..) {
             let hypothesis_in_merge_distance =
                 deduplicated_hypotheses
@@ -328,25 +326,8 @@ impl BallFilter {
     }
 }
 
-#[derive(Clone, Debug)]
-struct BallFilterHypothesis {
-    filter: KalmanFilter<4>,
-    validity: f32,
-    last_update: SystemTime,
-}
-
-impl From<&BallFilterHypothesis> for BallFilterHypothesisSnapshot {
-    fn from(hypothesis: &BallFilterHypothesis) -> Self {
-        Self {
-            filter: (&hypothesis.filter).into(),
-            validity: hypothesis.validity,
-            last_update: hypothesis.last_update,
-        }
-    }
-}
-
 fn project_to_image(
-    hypothesis: &BallFilterHypothesis,
+    hypothesis: &Hypothesis,
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
 ) -> Option<Circle> {
@@ -364,7 +345,7 @@ fn project_to_image(
 }
 
 fn is_visible_to_camera(
-    hypothesis: &BallFilterHypothesis,
+    hypothesis: &Hypothesis,
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
     projected_limbs_bottom: &[Limb],
