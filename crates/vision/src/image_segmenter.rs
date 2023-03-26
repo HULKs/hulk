@@ -30,6 +30,8 @@ pub struct CycleContext {
     pub projected_limbs: Input<Option<ProjectedLimbs>, "Control", "projected_limbs?">,
     pub instance: CyclerInstance,
 
+    pub horizontal_stride: Parameter<usize, "image_segmenter.$cycler_instance.horizontal_stride">,
+    pub vertical_stride: Parameter<usize, "image_segmenter.$cycler_instance.vertical_stride">,
     pub vertical_edge_detection_source: Parameter<
         EdgeDetectionSource,
         "image_segmenter.$cycler_instance.vertical_edge_detection_source",
@@ -63,8 +65,6 @@ impl ImageSegmenter {
                     }
                 });
 
-        let horizontal_stride = 4;
-        let vertical_stride = 2;
         let horizon = context
             .camera_matrix
             .map_or(Horizon::default(), |camera_matrix| camera_matrix.horizon);
@@ -72,8 +72,8 @@ impl ImageSegmenter {
             context.image,
             &horizon,
             context.field_color,
-            horizontal_stride,
-            vertical_stride,
+            *context.horizontal_stride,
+            *context.vertical_stride,
             *context.vertical_edge_detection_source,
             *context.vertical_edge_threshold,
             *context.vertical_median_mode,
