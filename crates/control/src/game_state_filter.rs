@@ -236,7 +236,7 @@ impl State {
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterConfiguration,
     ) -> FilteredGameState {
-        let is_in_set_play = matches!(game_controller_state.set_play, Some(_));
+        let is_in_sub_state = matches!(game_controller_state.sub_state, Some(_));
         let opponent_is_kicking_team = matches!(
             game_controller_state.kicking_team,
             Team::Opponent | Team::Uncertain
@@ -259,13 +259,13 @@ impl State {
                 let opponent_kick_off = opponent_is_kicking_team
                     && kick_off_grace_period
                     && !ball_detected_far_from_kick_off_point;
-                let opponent_set_play = opponent_is_kicking_team && is_in_set_play;
+                let opponent_sub_state = opponent_is_kicking_team && is_in_sub_state;
                 FilteredGameState::Playing {
-                    ball_is_free: !opponent_kick_off && !opponent_set_play,
+                    ball_is_free: !opponent_kick_off && !opponent_sub_state,
                 }
             }
             State::Playing => FilteredGameState::Playing {
-                ball_is_free: !(is_in_set_play && opponent_is_kicking_team),
+                ball_is_free: !(is_in_sub_state && opponent_is_kicking_team),
             },
             State::WhistleInPlaying { .. } => FilteredGameState::Ready {
                 kicking_team: Team::Uncertain,
