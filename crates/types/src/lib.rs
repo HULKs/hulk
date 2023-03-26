@@ -1,6 +1,6 @@
 #![recursion_limit = "256"]
 mod ball;
-pub mod ball_filter_hypothesis;
+pub mod ball_filter;
 mod ball_position;
 mod buttons;
 mod camera_matrix;
@@ -40,9 +40,8 @@ pub mod messages;
 mod motion_command;
 mod motion_file;
 mod motion_selection;
-pub mod obstacle_filter_hypothesis;
+pub mod obstacle_filter;
 mod obstacles;
-pub mod orientation_filter;
 mod path_obstacles;
 mod penalty_shot_direction;
 mod perspective_grid_candidates;
@@ -136,3 +135,5 @@ pub use support_foot::{Side, SupportFoot};
 pub use walk_command::WalkCommand;
 pub use whistle::{DetectionInfo, Whistle};
 pub use world_state::{BallState, RobotState, WorldState};
+
+pub use filtering::orientation_filter::OrientationFilterParameters;
