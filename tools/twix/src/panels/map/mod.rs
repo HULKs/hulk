@@ -26,6 +26,7 @@ pub struct MapPanel {
     robot_pose: EnabledLayer<layers::RobotPose>,
     ball_position: EnabledLayer<layers::BallPosition>,
     kick_decisions: EnabledLayer<layers::KickDecisions>,
+    feet_detection: EnabledLayer<layers::FeetDetection>,
 }
 
 impl Panel for MapPanel {
@@ -42,6 +43,7 @@ impl Panel for MapPanel {
         let robot_pose = EnabledLayer::new(nao.clone(), value, true);
         let ball_position = EnabledLayer::new(nao.clone(), value, true);
         let kick_decisions = EnabledLayer::new(nao.clone(), value, false);
+        let feet_detection = EnabledLayer::new(nao.clone(), value, false);
 
         let field_dimensions = nao.subscribe_parameter("field_dimensions");
         let transformation = Similarity2::identity();
@@ -59,6 +61,7 @@ impl Panel for MapPanel {
             robot_pose,
             ball_position,
             kick_decisions,
+            feet_detection,
         }
     }
 
@@ -74,6 +77,7 @@ impl Panel for MapPanel {
             "robot_pose": self.robot_pose.save(),
             "ball_position": self.ball_position.save(),
             "kick_decisions": self.kick_decisions.save(),
+            "feet_detection": self.feet_detection.save(),
         })
     }
 }
@@ -91,6 +95,7 @@ impl Widget for &mut MapPanel {
             self.robot_pose.checkbox(ui);
             self.ball_position.checkbox(ui);
             self.kick_decisions.checkbox(ui);
+            self.feet_detection.checkbox(ui);
         });
 
         let field_dimensions: FieldDimensions = match self.field_dimensions.get_latest() {
@@ -112,6 +117,7 @@ impl Widget for &mut MapPanel {
         let _ = self.robot_pose.paint(&painter, &field_dimensions);
         let _ = self.ball_position.paint(&painter, &field_dimensions);
         let _ = self.kick_decisions.paint(&painter, &field_dimensions);
+        let _ = self.feet_detection.paint(&painter, &field_dimensions);
 
         self.apply_zoom_and_pan(ui, &mut painter, &response);
         if response.double_clicked() {
