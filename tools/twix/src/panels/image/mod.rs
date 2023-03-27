@@ -3,7 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use color_eyre::{eyre::eyre, Result};
 use communication::client::Cycler;
 use eframe::{
-    egui::{ComboBox, Response, Ui, Widget, TextureOptions},
+    egui::{ComboBox, Response, TextureOptions, Ui, Widget},
     emath::Rect,
 };
 use egui_extras::RetainedImage;
