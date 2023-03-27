@@ -3,7 +3,6 @@ use std::f32::consts::PI;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use ordered_float::Float;
 use types::{
     CycleTime, HeadJoints, HeadJointsCommand, HeadMotion as HeadMotionCommand, MotionCommand,
     SensorData,
@@ -77,8 +76,9 @@ impl HeadMotion {
 
         let pitch_max = if controlled_request.yaw.abs() > *context.outer_yaw {
             *context.outer_maximum_pitch
+        } else if *context.outer_yaw == 0.0 {
+            *context.outer_maximum_pitch
         } else {
-            assert!(context.outer_yaw.is_normal());
             let interpolation_factor =
                 0.5 * (1.0 + (PI / *context.outer_yaw * controlled_request.yaw).cos());
             *context.outer_maximum_pitch
