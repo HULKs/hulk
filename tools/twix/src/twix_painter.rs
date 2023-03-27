@@ -473,9 +473,17 @@ impl TwixPainter {
     }
 
     #[allow(unused)]
-    pub fn ellipse(&self, position: Vector2<f32>, w: f32, h: f32, theta: f32, stroke: Stroke) {
+    pub fn ellipse(
+        &self,
+        position: Vector2<f32>,
+        w: f32,
+        h: f32,
+        theta: f32,
+        stroke: Stroke,
+        fill_color: Color32,
+    ) {
         let samples = 360;
-        let points = (0..samples + 1)
+        let points = (0..samples)
             .map(|i| {
                 let t = i as f32 * TAU / samples as f32;
                 let x = w * theta.cos() * t.cos() - h * theta.sin() * t.sin();
@@ -484,8 +492,9 @@ impl TwixPainter {
             })
             .collect();
         let stroke = self.transform_stroke(stroke);
-        self.painter
-            .add(Shape::Path(PathShape::line(points, stroke)));
+        self.painter.add(Shape::Path(PathShape::convex_polygon(
+            points, fill_color, stroke,
+        )));
     }
 }
 
