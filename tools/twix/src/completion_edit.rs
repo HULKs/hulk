@@ -17,11 +17,11 @@ struct CompletionState {
 
 impl CompletionState {
     fn load(ctx: &Context, id: Id) -> Option<Self> {
-        ctx.data().get_temp(id)
+        ctx.data_mut(|data| data.get_temp(id))
     }
 
     fn store(self, ctx: &Context, id: Id) {
-        ctx.data().insert_temp(id, self);
+        ctx.data_mut(|data| data.insert_temp(id, self));
     }
 }
 
@@ -95,7 +95,7 @@ impl Widget for CompletionEdit<'_> {
             .ui(ui);
 
         let popup_id = response.id.with("completion_popup");
-        let is_open = ui.memory().is_popup_open(popup_id);
+        let is_open = ui.memory(|memory| memory.is_popup_open(popup_id));
         let mut state = CompletionState::load(ui.ctx(), popup_id).unwrap_or_default();
         let matcher = SkimMatcherV2::default();
         let mut completion_text_items: Vec<_> = self
@@ -110,7 +110,7 @@ impl Widget for CompletionEdit<'_> {
         completion_text_items.sort_by_key(|(score, _)| -*score);
 
         if response.has_focus() != is_open {
-            ui.memory().toggle_popup(popup_id);
+            ui.memory_mut(|memory| memory.toggle_popup(popup_id));
             if response.gained_focus() {
                 CompletionEdit::select_all(self.key, ui, response.id);
             }
@@ -126,30 +126,31 @@ impl Widget for CompletionEdit<'_> {
 
         if is_open {
             if !completion_text_items.is_empty() {
-                let mut input = ui.input_mut();
-                if input.consume_key(Modifiers::NONE, Key::ArrowDown)
-                    || input.consume_key(Modifiers::NONE, Key::Tab)
-                {
-                    state.selected_item = Some(
-                        (state.selected_item.unwrap_or(-1) + 1)
-                            % (completion_text_items.len() as i64),
-                    );
-                } else if input.consume_key(Modifiers::NONE, Key::ArrowUp)
-                    || input.consume_key(eframe::egui::Modifiers::SHIFT, Key::Tab)
-                {
-                    state.selected_item = Some(
-                        (state
-                            .selected_item
-                            .unwrap_or(completion_text_items.len() as i64)
-                            - 1)
-                            % (completion_text_items.len() as i64),
-                    );
-                }
+                ui.input_mut(|input| {
+                    if input.consume_key(Modifiers::NONE, Key::ArrowDown)
+                        || input.consume_key(Modifiers::NONE, Key::Tab)
+                    {
+                        state.selected_item = Some(
+                            (state.selected_item.unwrap_or(-1) + 1)
+                                % (completion_text_items.len() as i64),
+                        );
+                    } else if input.consume_key(Modifiers::NONE, Key::ArrowUp)
+                        || input.consume_key(eframe::egui::Modifiers::SHIFT, Key::Tab)
+                    {
+                        state.selected_item = Some(
+                            (state
+                                .selected_item
+                                .unwrap_or(completion_text_items.len() as i64)
+                                - 1)
+                                % (completion_text_items.len() as i64),
+                        );
+                    }
+                });
             } else {
                 state.selected_item = None;
             }
 
-            if ui.input().key_pressed(Key::Enter) {
+            if ui.input(|input| input.key_pressed(Key::Enter)) {
                 if state.selected_item.is_some() {
                     *self.key = completion_text_items
                         .get(state.selected_item.unwrap() as usize)
@@ -177,16 +178,16 @@ impl Widget for CompletionEdit<'_> {
                                 if label.is_pointer_button_down_on() {
                                     *self.key = completion_item.1.clone();
                                     response.mark_changed();
-                                    ui.memory().close_popup();
+                                    ui.memory_mut(|memory| memory.close_popup());
                                 }
                             }
                         });
                     })
                 });
-            if ui.input().key_pressed(Key::Escape)
+            if ui.input(|input| input.key_pressed(Key::Escape))
                 || response.union(area.response).clicked_elsewhere()
             {
-                ui.memory().close_popup();
+                ui.memory_mut(|memory| memory.close_popup());
             }
         } else {
             state.selected_item = None;

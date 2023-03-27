@@ -73,7 +73,7 @@ impl Widget for &mut TextPanel {
                             };
                             let label = ui.add(Label::new(&content).sense(Sense::click()));
                             if label.clicked() {
-                                ui.output().copied_text = content;
+                                ui.output_mut(|output| output.copied_text = content);
                             }
                             label.on_hover_ui_at_pointer(|ui| {
                                 ui.label("Click to copy");

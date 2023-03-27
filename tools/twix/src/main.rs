@@ -54,7 +54,7 @@ fn setup_logger() -> Result<(), InitError> {
     Ok(())
 }
 
-fn main() {
+fn main() -> Result<(), eframe::Error> {
     setup_logger().unwrap();
     let options = NativeOptions::default();
     run_native(
@@ -230,7 +230,7 @@ impl App for TwixApp {
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
                 let address_input = CompletionEdit::addresses(&mut self.ip_address, 21..33).ui(ui);
-                if ui.input_mut().consume_key(Modifiers::CTRL, Key::O) {
+                if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::O)) {
                     address_input.request_focus();
                     CompletionEdit::select_all(&self.ip_address, ui, address_input.id);
                 }
@@ -276,7 +276,7 @@ impl App for TwixApp {
                     ],
                 )
                 .ui(ui);
-                if ui.input_mut().consume_key(Modifiers::CTRL, Key::P) {
+                if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::P)) {
                     panel_input.request_focus();
                     CompletionEdit::select_all(&self.panel_selection, ui, panel_input.id);
                 }
@@ -294,7 +294,7 @@ impl App for TwixApp {
             })
         });
         CentralPanel::default().show(context, |ui| {
-            if ui.input_mut().consume_key(Modifiers::CTRL, Key::T) {
+            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::T)) {
                 let tab = SelectablePanel::Text(TextPanel::new(self.nao.clone(), None));
                 self.tree.push_to_focused_leaf(tab);
             }
