@@ -74,9 +74,7 @@ impl HeadMotion {
                     .clamp(-maximum_movement.pitch, maximum_movement.pitch),
         };
 
-        let pitch_max = if controlled_request.yaw.abs() > *context.outer_yaw {
-            *context.outer_maximum_pitch
-        } else if *context.outer_yaw == 0.0 {
+        let pitch_max = if controlled_request.yaw.abs() >= *context.outer_yaw {
             *context.outer_maximum_pitch
         } else {
             let interpolation_factor =
