@@ -154,7 +154,7 @@ fn create_boxes(
         .collect()
 }
 
-fn map_to_zero_one(x: f32) -> f32 {
+fn standard_logistic(x: f32) -> f32 {
     1.0 / (1.0 + (-x).exp())
 }
 
@@ -165,7 +165,7 @@ fn boxes_from_output(
     camera_image_size: Vector2<f32>,
     box_scalings: &[Vector2<f32>; 4],
 ) -> [Box; NUMBER_OF_SCALINGS] {
-    let values = values.map(map_to_zero_one);
+    let values = values.map(standard_logistic);
     [
         box_from_network_data(
             Vector2::new(values[0], values[1]),
