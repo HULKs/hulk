@@ -3,7 +3,7 @@ mod ball;
 pub mod ball_filter;
 mod ball_position;
 mod buttons;
-mod camera_matrix;
+pub mod camera_matrix;
 mod camera_position;
 mod color;
 pub mod configuration;
