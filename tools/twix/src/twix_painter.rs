@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
+use std::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, PI, TAU};
 
 use eframe::{
     egui::{Painter, Response, Sense, Ui},
@@ -516,6 +516,33 @@ impl TwixPainter {
             b.atan2(l1 - a)
         };
         self.ellipse(position, l1.sqrt(), l2.sqrt(), theta, stroke, fill_color)
+    }
+
+    pub fn target(&self, position: Point2<f32>, radius: f32, stroke: Stroke, fill_color: Color32) {
+        self.circle_filled(position, radius, fill_color);
+        self.circle_stroke(position, radius, stroke);
+        self.line_segment(
+            point![
+                position.x - FRAC_1_SQRT_2 * radius,
+                position.y + FRAC_1_SQRT_2 * radius
+            ],
+            point![
+                position.x + FRAC_1_SQRT_2 * radius,
+                position.y - FRAC_1_SQRT_2 * radius
+            ],
+            stroke,
+        );
+        self.line_segment(
+            point![
+                position.x + FRAC_1_SQRT_2 * radius,
+                position.y + FRAC_1_SQRT_2 * radius
+            ],
+            point![
+                position.x - FRAC_1_SQRT_2 * radius,
+                position.y - FRAC_1_SQRT_2 * radius
+            ],
+            stroke,
+        );
     }
 }
 
