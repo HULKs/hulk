@@ -39,10 +39,10 @@ impl Mul<f32> for HeadJoints {
 impl Add for HeadJoints {
     type Output = HeadJoints;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(self, right: Self) -> Self::Output {
         Self::Output {
-            yaw: self.yaw + rhs.yaw,
-            pitch: self.pitch + rhs.pitch,
+            yaw: self.yaw + right.yaw,
+            pitch: self.pitch + right.pitch,
         }
     }
 }
@@ -75,14 +75,14 @@ impl Mul<f32> for ArmJoints {
 impl Add for ArmJoints {
     type Output = ArmJoints;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(self, right: Self) -> Self::Output {
         Self::Output {
-            shoulder_pitch: self.shoulder_pitch + rhs.shoulder_pitch,
-            shoulder_roll: self.shoulder_roll + rhs.shoulder_roll,
-            elbow_yaw: self.elbow_yaw + rhs.elbow_yaw,
-            elbow_roll: self.elbow_roll + rhs.elbow_roll,
-            wrist_yaw: self.wrist_yaw + rhs.wrist_yaw,
-            hand: self.hand + rhs.hand,
+            shoulder_pitch: self.shoulder_pitch + right.shoulder_pitch,
+            shoulder_roll: self.shoulder_roll + right.shoulder_roll,
+            elbow_yaw: self.elbow_yaw + right.elbow_yaw,
+            elbow_roll: self.elbow_roll + right.elbow_roll,
+            wrist_yaw: self.wrist_yaw + right.wrist_yaw,
+            hand: self.hand + right.hand,
         }
     }
 }
@@ -115,14 +115,14 @@ impl Mul<f32> for LegJoints {
 impl Add for LegJoints {
     type Output = LegJoints;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(self, right: Self) -> Self::Output {
         Self::Output {
-            hip_yaw_pitch: self.hip_yaw_pitch + rhs.hip_yaw_pitch,
-            hip_roll: self.hip_roll + rhs.hip_roll,
-            hip_pitch: self.hip_pitch + rhs.hip_pitch,
-            knee_pitch: self.knee_pitch + rhs.knee_pitch,
-            ankle_pitch: self.ankle_pitch + rhs.ankle_pitch,
-            ankle_roll: self.ankle_roll + rhs.ankle_roll,
+            hip_yaw_pitch: self.hip_yaw_pitch + right.hip_yaw_pitch,
+            hip_roll: self.hip_roll + right.hip_roll,
+            hip_pitch: self.hip_pitch + right.hip_pitch,
+            knee_pitch: self.knee_pitch + right.knee_pitch,
+            ankle_pitch: self.ankle_pitch + right.ankle_pitch,
+            ankle_roll: self.ankle_roll + right.ankle_roll,
         }
     }
 }
@@ -162,12 +162,12 @@ impl Mul<f32> for BodyJoints {
 impl Add for BodyJoints {
     type Output = BodyJoints;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(self, right: Self) -> Self::Output {
         Self::Output {
-            left_arm: self.left_arm + rhs.left_arm,
-            right_arm: self.right_arm + rhs.right_arm,
-            left_leg: self.left_leg + rhs.left_leg,
-            right_leg: self.right_leg + rhs.right_leg,
+            left_arm: self.left_arm + right.left_arm,
+            right_arm: self.right_arm + right.right_arm,
+            left_leg: self.left_leg + right.left_leg,
+            right_leg: self.right_leg + right.right_leg,
         }
     }
 }
@@ -255,13 +255,13 @@ impl Mul<f32> for Joints {
 impl Add for Joints {
     type Output = Joints;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(self, right: Self) -> Self::Output {
         Self::Output {
-            head: self.head + rhs.head,
-            left_arm: self.left_arm + rhs.left_arm,
-            right_arm: self.right_arm + rhs.right_arm,
-            left_leg: self.left_leg + rhs.left_leg,
-            right_leg: self.right_leg + rhs.right_leg,
+            head: self.head + right.head,
+            left_arm: self.left_arm + right.left_arm,
+            right_arm: self.right_arm + right.right_arm,
+            left_leg: self.left_leg + right.left_leg,
+            right_leg: self.right_leg + right.right_leg,
         }
     }
 }

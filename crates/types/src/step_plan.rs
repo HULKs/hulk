@@ -31,11 +31,11 @@ impl Step {
 impl Sub<Step> for Step {
     type Output = Step;
 
-    fn sub(self, rhs: Step) -> Self::Output {
+    fn sub(self, right: Step) -> Self::Output {
         Self {
-            forward: self.forward - rhs.forward,
-            left: self.left - rhs.left,
-            turn: self.turn - rhs.turn,
+            forward: self.forward - right.forward,
+            left: self.left - right.left,
+            turn: self.turn - right.turn,
         }
     }
 }
