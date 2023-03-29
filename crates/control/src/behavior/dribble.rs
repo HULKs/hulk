@@ -104,7 +104,7 @@ pub fn execute(
         kick_decisions
             .iter()
             .filter(|decision| {
-                !is_inside_any_obstacle(
+                is_inside_any_obstacle(
                     decision.relative_kick_pose,
                     &world_state.obstacles,
                     parameters.kick_pose_obstacle_radius,
