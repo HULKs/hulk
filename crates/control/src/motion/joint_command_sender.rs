@@ -14,6 +14,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub positions: AdditionalOutput<Joints, "positions">,
+    pub positions_difference: AdditionalOutput<Joints, "positions_difference">,
     pub stiffnesses: AdditionalOutput<Joints, "stiffnesses">,
 
     pub center_head_position: Parameter<HeadJoints, "center_head_position">,
@@ -89,6 +90,9 @@ impl JointCommandSender {
             .wrap_err("failed to write to actuators")?;
 
         context.positions.fill_if_subscribed(|| positions);
+        context
+            .positions_difference
+            .fill_if_subscribed(|| positions - current_positions);
         context.stiffnesses.fill_if_subscribed(|| stiffnesses);
 
         Ok(MainOutputs {})

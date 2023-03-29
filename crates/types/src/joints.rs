@@ -1,6 +1,6 @@
 use std::{
     iter::Sum,
-    ops::{Add, Mul},
+    ops::{Add, Mul, Sub},
 };
 
 use approx::{AbsDiffEq, RelativeEq};
@@ -56,6 +56,17 @@ impl Add for HeadJoints {
         Self::Output {
             yaw: self.yaw + right.yaw,
             pitch: self.pitch + right.pitch,
+        }
+    }
+}
+
+impl Sub for HeadJoints {
+    type Output = HeadJoints;
+
+    fn sub(self, right: Self) -> Self::Output {
+        Self::Output {
+            yaw: self.yaw - right.yaw,
+            pitch: self.pitch - right.pitch,
         }
     }
 }
@@ -124,6 +135,21 @@ impl Add for ArmJoints {
     }
 }
 
+impl Sub for ArmJoints {
+    type Output = ArmJoints;
+
+    fn sub(self, right: Self) -> Self::Output {
+        Self::Output {
+            shoulder_pitch: self.shoulder_pitch - right.shoulder_pitch,
+            shoulder_roll: self.shoulder_roll - right.shoulder_roll,
+            elbow_yaw: self.elbow_yaw - right.elbow_yaw,
+            elbow_roll: self.elbow_roll - right.elbow_roll,
+            wrist_yaw: self.wrist_yaw - right.wrist_yaw,
+            hand: self.hand - right.hand,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct LegJoints {
     pub hip_yaw_pitch: f32,
@@ -184,6 +210,21 @@ impl Add for LegJoints {
             knee_pitch: self.knee_pitch + right.knee_pitch,
             ankle_pitch: self.ankle_pitch + right.ankle_pitch,
             ankle_roll: self.ankle_roll + right.ankle_roll,
+        }
+    }
+}
+
+impl Sub for LegJoints {
+    type Output = LegJoints;
+
+    fn sub(self, right: Self) -> Self::Output {
+        Self::Output {
+            hip_yaw_pitch: self.hip_yaw_pitch - right.hip_yaw_pitch,
+            hip_roll: self.hip_roll - right.hip_roll,
+            hip_pitch: self.hip_pitch - right.hip_pitch,
+            knee_pitch: self.knee_pitch - right.knee_pitch,
+            ankle_pitch: self.ankle_pitch - right.ankle_pitch,
+            ankle_roll: self.ankle_roll - right.ankle_roll,
         }
     }
 }
@@ -396,6 +437,20 @@ impl Add for Joints {
             right_arm: self.right_arm + right.right_arm,
             left_leg: self.left_leg + right.left_leg,
             right_leg: self.right_leg + right.right_leg,
+        }
+    }
+}
+
+impl Sub for Joints {
+    type Output = Joints;
+
+    fn sub(self, right: Self) -> Self::Output {
+        Self::Output {
+            head: self.head - right.head,
+            left_arm: self.left_arm - right.left_arm,
+            right_arm: self.right_arm - right.right_arm,
+            left_leg: self.left_leg - right.left_leg,
+            right_leg: self.right_leg - right.right_leg,
         }
     }
 }
