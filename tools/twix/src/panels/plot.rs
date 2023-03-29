@@ -13,7 +13,8 @@ use log::{error, info};
 use color_eyre::eyre::{eyre, Result, WrapErr};
 use communication::client::CyclerOutput;
 use mlua::{Function, Lua, LuaSerdeExt};
-use serde_json::{to_string_pretty, Value};
+use serde_json::{json, to_string_pretty, Value};
+use serde::{Deserialize, Serialize};
 
 use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 
@@ -30,8 +31,10 @@ const DEFAULT_LINE_COLORS: &[Color32] = &[
     Color32::from_rgb(23, 190, 207),
 ];
 
+#[derive(Serialize, Deserialize)]
 struct LineData {
     output_key: String,
+    #[serde(skip)]
     value_buffer: Option<ValueBuffer>,
     color: Color32,
     lua: Lua,
@@ -84,6 +87,32 @@ impl LineData {
     }
 }
 
+impl LineData {
+    fn new(output_key: String, nao: &Nao, buffer_size: usize, color: Color32) -> Self {
+        let mut line_data = LineData {
+            output_key,
+            value_buffer: None,
+            color,
+        };
+        line_data.subscribe_key(nao, buffer_size);
+        line_data
+    }
+
+    fn subscribe_key(&mut self, nao: &Nao, buffer_size: usize) {
+        self.value_buffer = match CyclerOutput::from_str(&self.output_key) {
+            Ok(output) => {
+                let buffer = nao.subscribe_output(output);
+                buffer.set_buffer_size(buffer_size);
+                Some(buffer)
+            }
+            Err(error) => {
+                error!("Failed to subscribe: {:#}", error);
+                None
+            }
+        };
+    }
+}
+
 pub struct PlotPanel {
     line_datas: Vec<LineData>,
     buffer_size: usize,
@@ -93,12 +122,38 @@ pub struct PlotPanel {
 impl Panel for PlotPanel {
     const NAME: &'static str = "Plot";
 
-    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        Self {
-            nao,
-            line_datas: Vec::new(),
+    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
+        let line_datas =
+            if let Some(line_datas) = value.and_then(|value| value["subscribe_keys"].as_array()) {
+                line_datas
+                    .iter()
+                    .map(|line_data| {
+                        LineData::new(
+                            line_data["output_key"]
+                                .as_str()
+                                .unwrap_or_default()
+                                .to_owned(),
+                            &nao,
+                            1000,
+                            serde_json::from_value(line_data["color"].clone()).unwrap_or_default(),
+                        )
+                    })
+                    .collect()
+            } else {
+                vec![]
+            };
+
+        PlotPanel {
+            line_datas,
             buffer_size: 1_000,
+            nao,
         }
+    }
+
+    fn save(&self) -> Value {
+        json!({
+            "subscribe_keys": self.line_datas.iter().filter_map(|line_data| serde_json::to_value(line_data).ok()).collect::<Vec<Value>>(),
+        })
     }
 }
 
