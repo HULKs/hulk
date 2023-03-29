@@ -5,6 +5,7 @@ use eframe::{
         plot::{Line, PlotPoints},
         widgets::plot::Plot as EguiPlot,
         CollapsingHeader, DragValue, Response, TextEdit, TextStyle, Ui, Widget,
+        Button
     },
     epaint::Color32,
 };
@@ -123,6 +124,8 @@ impl Panel for PlotPanel {
     const NAME: &'static str = "Plot";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
+        const DEFAULT_BUFFER_SIZE: usize = 1_000;
+
         let line_datas =
             if let Some(line_datas) = value.and_then(|value| value["subscribe_keys"].as_array()) {
                 line_datas
@@ -134,7 +137,7 @@ impl Panel for PlotPanel {
                                 .unwrap_or_default()
                                 .to_owned(),
                             &nao,
-                            1000,
+                            DEFAULT_BUFFER_SIZE,
                             serde_json::from_value(line_data["color"].clone()).unwrap_or_default(),
                         )
                     })
@@ -145,7 +148,7 @@ impl Panel for PlotPanel {
 
         PlotPanel {
             line_datas,
-            buffer_size: 1_000,
+            buffer_size: DEFAULT_BUFFER_SIZE,
             nao,
         }
     }
@@ -203,8 +206,14 @@ impl Widget for &mut PlotPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         let plot_response = self.plot(ui);
         self.show_menu(ui);
+        let mut line_data_to_remove = Vec::new();
         for (i, line_data) in self.line_datas.iter_mut().enumerate() {
             ui.horizontal_top(|ui| {
+                let button = Button::new(RichText::new("x").color(Color32::WHITE).strong())
+                    .fill(Color32::RED);
+                if ui.add(button).clicked() {
+                    line_data_to_remove.push(i);
+                }
                 let subscription_field = ui.add(CompletionEdit::outputs(
                     &mut line_data.output_key,
                     self.nao.as_ref(),
@@ -277,6 +286,11 @@ impl Widget for &mut PlotPanel {
                     });
             });
         }
+
+        for line_data_idx in line_data_to_remove.into_iter().rev() {
+            self.line_datas.remove(line_data_idx);
+        }
+
         plot_response
     }
 }
