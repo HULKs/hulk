@@ -1,4 +1,4 @@
-use color_eyre::Result;
+use color_eyre::{Result, eyre::Context};
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
@@ -6,7 +6,7 @@ use types::{
     SensorData,
 };
 
-use crate::spline_motion_interpolator::SplineInterpolator;
+use crate::spline_interpolator::SplineInterpolator;
 
 pub struct SitDown {
     interpolator: SplineInterpolator,
@@ -51,7 +51,7 @@ impl SitDown {
 
         Ok(MainOutputs {
             sit_down_joints_command: JointsCommand {
-                positions: self.interpolator.value()?,
+                positions: self.interpolator.value().wrap_err("error computing interpolation in sit_down")?,
                 stiffnesses: Joints::fill(if self.interpolator.is_finished() {
                     0.0
                 } else {
