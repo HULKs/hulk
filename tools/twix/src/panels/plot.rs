@@ -4,8 +4,7 @@ use eframe::{
     egui::{
         plot::{Line, PlotPoints},
         widgets::plot::Plot as EguiPlot,
-        CollapsingHeader, DragValue, Response, TextEdit, TextStyle, Ui, Widget,
-        Button
+        Button, CollapsingHeader, DragValue, Response, RichText, TextEdit, TextStyle, Ui, Widget,
     },
     epaint::Color32,
 };
@@ -14,8 +13,8 @@ use log::{error, info};
 use color_eyre::eyre::{eyre, Result, WrapErr};
 use communication::client::CyclerOutput;
 use mlua::{Function, Lua, LuaSerdeExt};
-use serde_json::{json, to_string_pretty, Value};
 use serde::{Deserialize, Serialize};
+use serde_json::{json, to_string_pretty, Value};
 
 use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 
@@ -38,29 +37,43 @@ struct LineData {
     #[serde(skip)]
     value_buffer: Option<ValueBuffer>,
     color: Color32,
+    #[serde(skip)]
+    #[serde(default = "LineData::create_lua")]
     lua: Lua,
     lua_text: String,
     lua_error: Option<String>,
 }
 
 impl LineData {
-    fn new(color: Color32) -> Self {
-        let lua = Lua::new();
-        let lua_text = "function (value)\n  return value\nend".to_string();
-        lua.globals()
+    fn create_lua() -> Lua {
+        Lua::new()
+    }
+
+    fn set_lua(&mut self) {
+        self.lua
+            .globals()
             .set(
                 "conversion_function",
-                lua.load(&lua_text).eval::<Function>().unwrap(),
+                self.lua.load(&self.lua_text).eval::<Function>().unwrap(),
             )
             .unwrap();
-        Self {
+    }
+
+    fn new(color: Color32) -> Self {
+        let lua = LineData::create_lua();
+        let lua_text = "function (value)\n  return value\nend".to_string();
+
+        let mut line_data = Self {
             output_key: String::new(),
             value_buffer: None,
             color,
             lua,
             lua_text,
             lua_error: None,
-        }
+        };
+
+        line_data.set_lua();
+        line_data
     }
 
     fn plot(&self) -> Line {
@@ -86,20 +99,8 @@ impl LineData {
             .unwrap_or_default();
         Line::new(values).color(self.color)
     }
-}
 
-impl LineData {
-    fn new(output_key: String, nao: &Nao, buffer_size: usize, color: Color32) -> Self {
-        let mut line_data = LineData {
-            output_key,
-            value_buffer: None,
-            color,
-        };
-        line_data.subscribe_key(nao, buffer_size);
-        line_data
-    }
-
-    fn subscribe_key(&mut self, nao: &Nao, buffer_size: usize) {
+    fn subscribe_key(&mut self, nao: Arc<Nao>, buffer_size: usize) {
         self.value_buffer = match CyclerOutput::from_str(&self.output_key) {
             Ok(output) => {
                 let buffer = nao.subscribe_output(output);
@@ -126,25 +127,25 @@ impl Panel for PlotPanel {
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
         const DEFAULT_BUFFER_SIZE: usize = 1_000;
 
-        let line_datas =
-            if let Some(line_datas) = value.and_then(|value| value["subscribe_keys"].as_array()) {
-                line_datas
-                    .iter()
-                    .map(|line_data| {
-                        LineData::new(
-                            line_data["output_key"]
-                                .as_str()
-                                .unwrap_or_default()
-                                .to_owned(),
-                            &nao,
-                            DEFAULT_BUFFER_SIZE,
-                            serde_json::from_value(line_data["color"].clone()).unwrap_or_default(),
-                        )
-                    })
-                    .collect()
-            } else {
-                vec![]
-            };
+        let line_datas = if let Some(line_datas) =
+            value.and_then(|value| value["subscribe_keys"].as_array())
+        {
+            line_datas
+                .iter()
+                .filter_map(|line_data| {
+                    if let Ok(mut line_data) = serde_json::from_value::<LineData>(line_data.clone())
+                    {
+                        line_data.set_lua();
+                        line_data.subscribe_key(nao.clone(), 1000);
+                        Some(line_data)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<LineData>>()
+        } else {
+            vec![]
+        };
 
         PlotPanel {
             line_datas,
@@ -220,17 +221,7 @@ impl Widget for &mut PlotPanel {
                 ));
                 if subscription_field.changed() {
                     info!("Subscribing: {}", line_data.output_key);
-                    line_data.value_buffer = match CyclerOutput::from_str(&line_data.output_key) {
-                        Ok(output) => {
-                            let buffer = self.nao.subscribe_output(output);
-                            buffer.set_buffer_size(self.buffer_size);
-                            Some(buffer)
-                        }
-                        Err(error) => {
-                            error!("Failed to subscribe: {:#}", error);
-                            None
-                        }
-                    };
+                    line_data.subscribe_key(self.nao.clone(), self.buffer_size);
                 }
                 ui.color_edit_button_srgba(&mut line_data.color);
                 let id_source = ui.id().with("conversion_collapse").with(i);
