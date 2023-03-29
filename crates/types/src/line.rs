@@ -117,8 +117,8 @@ where
 {
     type Output = Line<DIMENSION>;
 
-    fn mul(self, rhs: Line<DIMENSION>) -> Self::Output {
-        Line(self * rhs.0, self * rhs.1)
+    fn mul(self, right: Line<DIMENSION>) -> Self::Output {
+        Line(self * right.0, self * right.1)
     }
 }
 
