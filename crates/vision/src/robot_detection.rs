@@ -15,12 +15,13 @@ use crate::CyclerInstance;
 
 const NUMBER_OF_SCALINGS: usize = 4;
 const PARAMETERS_PER_BOX: usize = 6;
-const BOX_SCALINGS: [Vector2<f32>; 4] = [
+const BOX_SCALINGS: [Vector2<f32>; NUMBER_OF_SCALINGS] = [
     Vector2::new(0.5, 1.0),
     Vector2::new(1.0, 2.0),
     Vector2::new(2.0, 4.0),
     Vector2::new(3.0, 6.0),
 ];
+const OUTPUT_SCALING: f32 = 10.0;
 
 pub struct RobotDetection {
     neural_network: CompiledNN,
@@ -226,11 +227,11 @@ fn box_from_network_data(
             .component_div(&grid_size)
             .component_mul(&camera_image_size)
             .into(),
-        size: (size * 10.0)
+        size: (size * OUTPUT_SCALING)
             .component_mul(&scaling)
             .component_mul(&camera_image_size)
             .component_div(&grid_size),
         probability,
-        distance: distance * 10.0,
+        distance: distance * OUTPUT_SCALING,
     }
 }
