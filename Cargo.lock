@@ -4359,6 +4359,7 @@ dependencies = [
  "mlua",
  "nalgebra",
  "projection",
+ "repository",
  "serde",
  "serde-transcode",
  "serde_bytes",

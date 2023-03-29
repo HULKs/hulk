@@ -22,7 +22,7 @@ use post_game::{post_game, Arguments as PostGameArguments};
 use power_off::{power_off, Arguments as PoweroffArguments};
 use pre_game::{pre_game, Arguments as PreGameArguments};
 use reboot::{reboot, Arguments as RebootArguments};
-use repository::Repository;
+use repository::{get_repository_root, Repository};
 use sdk::{sdk, Arguments as SdkArguments};
 use shell::{shell, Arguments as ShellArguments};
 use upload::{upload, Arguments as UploadArguments};
@@ -191,27 +191,4 @@ enum Command {
     /// Control wireless network on the NAO
     #[command(subcommand)]
     Wireless(WirelessArguments),
-}
-
-async fn get_repository_root() -> Result<PathBuf> {
-    let path = current_dir().wrap_err("failed to get current directory")?;
-    let ancestors = path.as_path().ancestors();
-    for ancestor in ancestors {
-        let mut directory = read_dir(ancestor)
-            .await
-            .wrap_err_with(|| format!("failed to read directory {ancestor:?}"))?;
-        while let Some(child) = directory.next_entry().await.wrap_err_with(|| {
-            format!("failed to get next directory entry while iterating {ancestor:?}")
-        })? {
-            if child.file_name() == ".git" {
-                return Ok(child
-                    .path()
-                    .parent()
-                    .ok_or_else(|| eyre!("failed to get parent of {child:?}"))?
-                    .to_path_buf());
-            }
-        }
-    }
-
-    bail!("failed to find .git directory")
 }

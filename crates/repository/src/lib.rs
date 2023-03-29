@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
+    env::current_dir,
     ffi::OsStr,
     fmt::Display,
     fs::Permissions,
@@ -537,6 +538,30 @@ async fn create_symlink(source: &Path, destination: &Path) -> Result<()> {
         .await
         .context("Failed to create symlink")?;
     Ok(())
+}
+
+
+pub async fn get_repository_root() -> Result<PathBuf> {
+    let path = current_dir().wrap_err("failed to get current directory")?;
+    let ancestors = path.as_path().ancestors();
+    for ancestor in ancestors {
+        let mut directory = read_dir(ancestor)
+            .await
+            .wrap_err_with(|| format!("failed to read directory {ancestor:?}"))?;
+        while let Some(child) = directory.next_entry().await.wrap_err_with(|| {
+            format!("failed to get next directory entry while iterating {ancestor:?}")
+        })? {
+            if child.file_name() == ".git" {
+                return Ok(child
+                    .path()
+                    .parent()
+                    .ok_or_else(|| eyre!("failed to get parent of {child:?}"))?
+                    .to_path_buf());
+            }
+        }
+    }
+
+    bail!("failed to find .git directory")
 }
 
 #[derive(Debug, Clone, Copy)]
