@@ -1,4 +1,6 @@
 use std::f32::consts::{FRAC_PI_2, PI};
+use std::time::Duration;
+use std::time::Instant;
 
 use color_eyre::Result;
 use context_attribute::context;
@@ -14,6 +16,8 @@ pub struct FallStateEstimation {
     roll_pitch_filter: LowPassFilter<Vector2<f32>>,
     angular_velocity_filter: LowPassFilter<Vector3<f32>>,
     linear_acceleration_filter: LowPassFilter<Vector3<f32>>,
+    is_falling: bool,
+    guessed_time_to_fall: Duration,
 }
 
 #[context]
@@ -30,6 +34,8 @@ pub struct CycleContext {
         AdditionalOutput<Vector3<f32>, "filtered_linear_acceleration">,
     pub filtered_roll_pitch: AdditionalOutput<Vector2<f32>, "filtered_roll_pitch">,
     pub forward_gravitational_difference: AdditionalOutput<f32, "forward_gravitational_difference">,
+    pub is_falling: AdditionalOutput<bool, "is_falling">,
+    pub guessed_time_to_fall: AdditionalOutput<Duration, "guessed_time_to_fall">,
 
     pub fall_state_estimation: Parameter<FallStateEstimationConfiguration, "fall_state_estimation">,
 
@@ -62,6 +68,8 @@ impl FallStateEstimation {
                     .fall_state_estimation
                     .linear_acceleration_low_pass_factor,
             ),
+            is_falling: false,
+            guessed_time_to_fall: Duration::ZERO
         })
     }
 
@@ -124,6 +132,7 @@ impl FallStateEstimation {
                 .gravitational_acceleration_threshold
         {
             Some(Facing::Up)
+            
         } else {
             None
         };
@@ -145,6 +154,7 @@ impl FallStateEstimation {
             if self.roll_pitch_filter.state().x.abs()
                 > context.fall_state_estimation.falling_angle_threshold.x
             {
+
                 if self.roll_pitch_filter.state().x > 0.0 {
                     Some(FallDirection::Right)
                 } else {
@@ -162,11 +172,36 @@ impl FallStateEstimation {
                 None
             }
         };
+        
         let fall_state = match (fallen_direction, falling_direction) {
             (Some(facing), _) => FallState::Fallen { facing },
             (None, Some(direction)) => FallState::Falling { direction },
             (None, None) => FallState::Upright,
         };
+        
+        match fall_state{
+            FallState::Falling { _ } => {
+                let t0 = Instant::now().elapsed().as_secs_f32();
+                let theta = self.roll_pitch_filter.state().y;
+                let theta_derivative = self.angular_velocity_filter.state().y;
+                if theta_derivative == 0.{
+                    self.guessed_time_to_fall = Duration::MAX;
+                }else{
+                    self.guessed_time_to_fall = Duration::from_secs_f32((-0.95*PI/2. - theta) / theta_derivative + t0);
+                }
+                self.is_falling = true
+            },
+            _ => {
+                self.guessed_time_to_fall = Duration::ZERO;
+                self.is_falling = false;
+            },
+        }
+            
+        context
+            .is_falling
+            .fill_if_subscribed(|| self.is_falling);
+        
+        context.guessed_time_to_fall.fill_if_subscribed(|| self.guessed_time_to_fall);
 
         Ok(MainOutputs {
             fall_state: fall_state.into(),
