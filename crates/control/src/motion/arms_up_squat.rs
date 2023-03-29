@@ -1,4 +1,4 @@
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
@@ -51,7 +51,10 @@ impl ArmsUpSquat {
 
         Ok(MainOutputs {
             arms_up_squat_joints_command: JointsCommand {
-                positions: self.interpolator.value().wrap_err("error computing interpolation in arms_up_squat")?,
+                positions: self
+                    .interpolator
+                    .value()
+                    .wrap_err("error computing interpolation in arms_up_squat")?,
                 stiffnesses: Joints::fill(0.9),
             }
             .into(),

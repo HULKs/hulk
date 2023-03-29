@@ -11,6 +11,21 @@ pub struct SplineInterpolator {
     end_time: Duration,
 }
 
+pub trait MapKeyExt<T, K, V> {
+    fn map_key(self) -> Result<Interpolation<K, V>, InterpolatorError>;
+}
+
+impl<T, K, V> MapKeyExt<T, K, V> for Interpolation<T, V> {
+    fn map_key(self) -> Result<Interpolation<K, V>, InterpolatorError> {
+        match self {
+            Interpolation::Linear => Ok(Interpolation::Linear),
+            Interpolation::Cosine => Ok(Interpolation::Cosine),
+            Interpolation::CatmullRom => Ok(Interpolation::CatmullRom),
+            _ => Err(InterpolatorError::UnsupportedInterpolationScheme {}),
+        }
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum InterpolatorError {
     #[error("cannot perform {interpolation_mode} with {keys_before} keys before and {keys_after} keys after")]
@@ -21,6 +36,8 @@ pub enum InterpolatorError {
     },
     #[error("need at least two keys to create an interpolator")]
     TooFewKeysError,
+    #[error("uses unsupported interpolation scheme")]
+    UnsupportedInterpolationScheme,
 }
 
 impl InterpolatorError {
@@ -82,9 +99,16 @@ impl SplineInterpolator {
         let end_time = keys.last().unwrap().t;
         let last_key_index = keys.len() - 1;
 
-        let mut spline = Spline::from_iter(
+        let mut spline = Spline::from_vec(
             keys.into_iter()
-                .map(|key| Key::new(key.t.as_secs_f32(), key.value, Interpolation::Linear)),
+                .map(|key| {
+                    Ok(Key::new(
+                        key.t.as_secs_f32(),
+                        key.value,
+                        key.interpolation.map_key()?,
+                    ))
+                })
+                .collect::<Result<_, _>>()?,
         );
 
         spline.add(Self::create_zero_gradient(

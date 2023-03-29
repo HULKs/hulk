@@ -1,4 +1,4 @@
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
@@ -51,7 +51,10 @@ impl JumpLeft {
 
         Ok(MainOutputs {
             jump_left_joints_command: JointsCommand {
-                positions: self.interpolator.value().wrap_err("error computing interpolation in jump_left")?,
+                positions: self
+                    .interpolator
+                    .value()
+                    .wrap_err("error computing interpolation in jump_left")?,
                 stiffnesses: Joints::fill(if self.interpolator.is_finished() {
                     0.0
                 } else {
