@@ -82,7 +82,8 @@ pub fn execute(
         kick_variants.push(KickVariant::Turn)
     }
     if parameters.in_walk_kicks.side.enabled
-        && field_dimensions.is_inside_any_goal_box(robot_to_field * relative_ball_position)
+        && (field_dimensions.is_inside_any_goal_box(robot_to_field * relative_ball_position)
+            | parameters.use_side_kick_everywhere)
     {
         kick_variants.push(KickVariant::Side)
     }

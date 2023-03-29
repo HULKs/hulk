@@ -117,6 +117,7 @@ pub struct Dribbling {
     pub distance_to_be_aligned: f32,
     pub angle_to_approach_ball_from_threshold: f32,
     pub in_walk_kicks: InWalkKicks,
+    pub use_side_kick_everywhere: bool,
     pub angle_distance_weight: f32,
     pub max_kick_around_obstacle_angle: f32,
     pub ignore_robot_when_near_ball_radius: f32,
