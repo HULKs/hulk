@@ -34,6 +34,7 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub kick_decisions: AdditionalOutput<Vec<KickDecision>, "kick_decisions">,
+    pub best_kick_decision: AdditionalOutput<Option<KickDecision>, "best_kick_decision">,
     pub kick_targets: AdditionalOutput<Vec<Point2<f32>>, "kick_targets">,
     pub path_obstacles: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
 
@@ -157,6 +158,7 @@ impl Behavior {
                     &mut context.path_obstacles,
                     &mut context.kick_targets,
                     &mut context.kick_decisions,
+                    &mut context.best_kick_decision,
                 ),
                 Action::Jump => jump::execute(world_state),
                 Action::PrepareJump => prepare_jump::execute(world_state),

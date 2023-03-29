@@ -56,6 +56,7 @@ pub fn execute(
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     kick_targets_output: &mut AdditionalOutput<Vec<Point2<f32>>>,
     kick_decisions_output: &mut AdditionalOutput<Vec<KickDecision>>,
+    best_kick_decisions_output: &mut AdditionalOutput<Option<KickDecision>>,
 ) -> Option<MotionCommand> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let relative_ball_position = world_state.ball?.position;
@@ -143,6 +144,7 @@ pub fn execute(
             _ => distance_to_left.total_cmp(&distance_to_right),
         }
     });
+    best_kick_decisions_output.fill_if_subscribed(|| best_kick_decision.copied());
     let best_kick_decision = match best_kick_decision {
         Some(decision) => decision,
         None => return Some(MotionCommand::Stand { head }),

@@ -163,6 +163,10 @@ where
                         true,
                         &mut own_database.additional_outputs.kick_decisions,
                     ),
+                    best_kick_decision: AdditionalOutput::new(
+                        true,
+                        &mut own_database.additional_outputs.best_kick_decision,
+                    ),
                     kick_targets: AdditionalOutput::new(
                         true,
                         &mut own_database.additional_outputs.kick_targets,
