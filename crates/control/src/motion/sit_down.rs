@@ -1,4 +1,4 @@
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
@@ -51,7 +51,10 @@ impl SitDown {
 
         Ok(MainOutputs {
             sit_down_joints_command: JointsCommand {
-                positions: self.interpolator.value().wrap_err("error computing interpolation in sit_down")?,
+                positions: self
+                    .interpolator
+                    .value()
+                    .wrap_err("error computing interpolation in sit_down")?,
                 stiffnesses: Joints::fill(if self.interpolator.is_finished() {
                     0.0
                 } else {
