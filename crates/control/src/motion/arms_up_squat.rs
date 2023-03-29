@@ -1,4 +1,4 @@
-use color_eyre::Result;
+use color_eyre::{Result, eyre::Context};
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
@@ -6,7 +6,7 @@ use types::{
     SensorData,
 };
 
-use crate::spline_motion_interpolator::SplineInterpolator;
+use crate::spline_interpolator::SplineInterpolator;
 
 pub struct ArmsUpSquat {
     interpolator: SplineInterpolator,
@@ -51,7 +51,7 @@ impl ArmsUpSquat {
 
         Ok(MainOutputs {
             arms_up_squat_joints_command: JointsCommand {
-                positions: self.interpolator.value()?,
+                positions: self.interpolator.value().wrap_err("error computing interpolation in arms_up_squat")?,
                 stiffnesses: Joints::fill(0.9),
             }
             .into(),

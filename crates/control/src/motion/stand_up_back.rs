@@ -8,7 +8,7 @@ use types::{
     MotionType, SensorData,
 };
 
-use crate::spline_motion_interpolator::SplineInterpolator;
+use crate::spline_interpolator::SplineInterpolator;
 
 pub struct StandUpBack {
     interpolator: SplineInterpolator,
