@@ -9,7 +9,7 @@ homepage = "https://github.com/hulks/hulk"
 audio = { workspace = true }
 color-eyre = { workspace = true }
 control = { workspace = true }
-communication = { workspace = true }
+communication = { path="../communication", features = ["server"] }
 framework = { workspace = true }
 ittapi = { workspace = true }
 spl_network = { workspace = true }
