@@ -825,8 +825,9 @@
           "enabled": true
         }
       },
-      "angle_distance_weight": 1.0,
-      "max_kick_around_obstacle_angle": 0.78,
+      "use_side_kick_everywhere": true,
+      "angle_distance_weight": 0.01,
+      "max_kick_around_obstacle_angle": 1.0,
       "ignore_robot_when_near_ball_radius": 0.6,
       "kick_pose_obstacle_radius": 0.1,
       "emergency_kick_target_angles": [-0.52, -0.26, 0.0, 0.26, 0.52],
