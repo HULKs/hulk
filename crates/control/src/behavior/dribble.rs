@@ -48,6 +48,7 @@ fn kick_decisions_from_targets(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn execute(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
