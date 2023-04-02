@@ -21,6 +21,7 @@ log = { workspace = true }
 mlua = { workspace = true }
 nalgebra = { workspace = true }
 projection = { workspace = true }
+regex = { workspace = true }
 repository = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }

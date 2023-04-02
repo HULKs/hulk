@@ -6,7 +6,10 @@ use log::{error, info, warn};
 use tokio::{
     net::TcpStream,
     spawn,
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        oneshot,
+    },
     task::JoinHandle,
     time::sleep,
 };
@@ -24,7 +27,12 @@ pub enum Message {
     SetAddress(String),
     ReconnectTimerElapsed,
     Connected(Box<WebSocketStream<MaybeTlsStream<TcpStream>>>),
-    ConnectionFailed { info: String },
+    ConnectionFailed {
+        info: String,
+    },
+    GetAddress {
+        response_sender: oneshot::Sender<Option<String>>,
+    },
 }
 
 #[derive(Debug)]
@@ -96,6 +104,15 @@ pub async fn connector(
                     connect: false,
                     address: Some(new_address),
                 },
+                Message::GetAddress { response_sender } => {
+                    if let Err(error) = response_sender.send(None) {
+                        error!("Message::GetAddress @ ConnectionState::Disconnected{{false, None}} {error:?}");
+                    }
+                    ConnectionState::Disconnected {
+                        connect: false,
+                        address: None,
+                    }
+                }
                 Message::Connected(_) => panic!("This should never happen"),
                 Message::ConnectionFailed { .. } => panic!("This should never happen"),
                 Message::ReconnectTimerElapsed => panic!("This should never happen"),
@@ -138,6 +155,16 @@ pub async fn connector(
                     connect: false,
                     address: Some(address),
                 },
+                Message::GetAddress { response_sender } => {
+                    let response = Some(address);
+                    if let Err(error) = response_sender.send(response.clone()) {
+                        error!("Message::GetAddress @ ConnectionState::Disconnected{{false, Some}} {error:?}");
+                    }
+                    ConnectionState::Disconnected {
+                        connect: false,
+                        address: response,
+                    }
+                }
             },
             ConnectionState::Disconnected {
                 connect: true,
@@ -160,6 +187,15 @@ pub async fn connector(
                     ConnectionState::Connecting {
                         address,
                         ongoing_connection,
+                    }
+                }
+                Message::GetAddress { response_sender } => {
+                    if let Err(error) = response_sender.send(None) {
+                        error!("Message::GetAddress @ ConnectionState::Disconnected{{true None}} {error:?}");
+                    }
+                    ConnectionState::Disconnected {
+                        connect: true,
+                        address: None,
                     }
                 }
                 Message::Connected(_ws_stream) => panic!("This should never happen"),
@@ -194,6 +230,16 @@ pub async fn connector(
                     ConnectionState::Connecting {
                         address,
                         ongoing_connection,
+                    }
+                }
+                Message::GetAddress { response_sender } => {
+                    let response = Some(address);
+                    if let Err(error) = response_sender.send(response.clone()) {
+                        error!("Message::GetAddress @ ConnectionState::Disconnected{{true, Some}} {error:?}");
+                    }
+                    ConnectionState::Disconnected {
+                        connect: true,
+                        address: response,
                     }
                 }
                 Message::Connected(_) => panic!("This should never happen"),
@@ -270,6 +316,15 @@ pub async fn connector(
                     address,
                     ongoing_connection,
                 },
+                Message::GetAddress { response_sender } => {
+                    if let Err(error) = response_sender.send(Some(address.clone())) {
+                        error!("Message::GetAddress @ ConnectionState::Connecting{{}} {error:?}");
+                    }
+                    ConnectionState::Connecting {
+                        address,
+                        ongoing_connection,
+                    }
+                }
             },
             ConnectionState::Connected { address } => match message {
                 Message::SubscribeToUpdates(sender) => {
@@ -328,6 +383,14 @@ pub async fn connector(
                     }
                 }
                 Message::ReconnectTimerElapsed => ConnectionState::Connected { address },
+                Message::GetAddress { response_sender } => {
+                    if let Err(error) = response_sender.send(Some(address.clone())) {
+                        error!(
+                            "Message::GetAddress @ ConnectionState::Connected{{address}} {error:?}"
+                        );
+                    }
+                    ConnectionState::Connected { address }
+                }
             },
         };
         let status = match &status {
