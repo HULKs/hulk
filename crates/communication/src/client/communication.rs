@@ -164,6 +164,15 @@ impl Communication {
         response_receiver.await.unwrap()
     }
 
+    pub async fn get_address(&self) -> Option<String> {
+        let (response_sender, response_receiver) = oneshot::channel();
+        self.connector
+            .send(connector::Message::GetAddress { response_sender })
+            .await
+            .unwrap();
+        response_receiver.await.unwrap()
+    }
+
     pub async fn update_parameter_value(&self, path: &str, value: Value) {
         self.parameter_subscription_manager
             .send(

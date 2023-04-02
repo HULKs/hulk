@@ -540,7 +540,6 @@ async fn create_symlink(source: &Path, destination: &Path) -> Result<()> {
     Ok(())
 }
 
-
 pub async fn get_repository_root() -> Result<PathBuf> {
     let path = current_dir().wrap_err("failed to get current directory")?;
     let ancestors = path.as_path().ancestors();
@@ -587,7 +586,7 @@ impl Display for CargoAction {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct HardwareIds {
     pub body_id: String,
     pub head_id: String,
