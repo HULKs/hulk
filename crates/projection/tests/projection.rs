@@ -27,7 +27,7 @@ fn pixel_to_camera_default_center() {
     );
 
     assert_relative_eq!(
-        camera_matrix.pixel_to_camera(&point![1.0, 1.0]),
+        camera_matrix.pixel_to_camera(point![1.0, 1.0]),
         vector![1.0, 0.0, 0.0]
     );
 }
@@ -41,7 +41,7 @@ fn pixel_to_camera_default_top_left() {
     );
 
     assert_relative_eq!(
-        camera_matrix.pixel_to_camera(&point![0.0, 0.0]),
+        camera_matrix.pixel_to_camera(point![0.0, 0.0]),
         vector![1.0, 0.5, 0.5]
     );
 }
@@ -55,7 +55,7 @@ fn pixel_to_camera_sample_camera_center() {
     );
 
     assert_relative_eq!(
-        camera_matrix.pixel_to_camera(&point![320.0, 240.0]),
+        camera_matrix.pixel_to_camera(point![320.0, 240.0]),
         vector![1.0, 0.0, 0.0]
     );
 }
@@ -69,7 +69,7 @@ fn pixel_to_camera_sample_camera_top_left() {
     );
 
     assert_relative_eq!(
-        camera_matrix.pixel_to_camera(&point![0.0, 0.0]),
+        camera_matrix.pixel_to_camera(point![0.0, 0.0]),
         vector![1.0, 0.5 / 0.95, 0.5 / 1.27]
     );
 }
@@ -84,7 +84,7 @@ fn camera_to_pixel_default_center() {
 
     assert_relative_eq!(
         camera_matrix
-            .camera_to_pixel(&vector![1.0, 0.0, 0.0])
+            .camera_to_pixel(vector![1.0, 0.0, 0.0])
             .unwrap(),
         point![1.0, 1.0]
     );
@@ -100,7 +100,7 @@ fn camera_to_pixel_default_top_left() {
 
     assert_relative_eq!(
         camera_matrix
-            .camera_to_pixel(&vector![1.0, 0.5, 0.5])
+            .camera_to_pixel(vector![1.0, 0.5, 0.5])
             .unwrap(),
         point![0.0, 0.0]
     );
@@ -116,7 +116,7 @@ fn camera_to_pixel_sample_camera_center() {
 
     assert_relative_eq!(
         camera_matrix
-            .camera_to_pixel(&vector![1.0, 0.0, 0.0])
+            .camera_to_pixel(vector![1.0, 0.0, 0.0])
             .unwrap(),
         point![320.0, 240.0]
     );
@@ -132,7 +132,7 @@ fn camera_to_pixel_sample_camera_top_left() {
 
     assert_relative_eq!(
         camera_matrix
-            .camera_to_pixel(&vector![1.0, 0.5 / 0.95, 0.5 / 1.27])
+            .camera_to_pixel(vector![1.0, 0.5 / 0.95, 0.5 / 1.27])
             .unwrap(),
         point![0.0, 0.0],
         epsilon = 0.0001
@@ -149,7 +149,7 @@ fn pixel_to_camera_reversible() {
 
     let input = point![512.0, 257.0];
     let output = camera_matrix
-        .camera_to_pixel(&camera_matrix.pixel_to_camera(&input))
+        .camera_to_pixel(camera_matrix.pixel_to_camera(input))
         .unwrap();
 
     assert_relative_eq!(input, output);
@@ -166,7 +166,7 @@ fn pixel_to_ground_with_z_only_elevation() {
 
     assert_relative_eq!(
         camera_matrix
-            .pixel_to_ground_with_z(&point![1.0, 2.0], 0.25)
+            .pixel_to_ground_with_z(point![1.0, 2.0], 0.25)
             .unwrap(),
         point![0.5, 0.0]
     );
@@ -185,7 +185,7 @@ fn pixel_to_ground_with_z_pitch_45_degree_down() {
 
     assert_relative_eq!(
         camera_matrix
-            .pixel_to_ground_with_z(&point![1.0, 1.0], 0.0)
+            .pixel_to_ground_with_z(point![1.0, 1.0], 0.0)
             .unwrap(),
         point![0.5, 0.0]
     );
@@ -203,7 +203,7 @@ fn ground_to_pixel_only_elevation() {
 
     assert_relative_eq!(
         camera_matrix
-            .ground_with_z_to_pixel(&point![1.0, 0.0], 0.25)
+            .ground_with_z_to_pixel(point![1.0, 0.0], 0.25)
             .unwrap(),
         point![1.0, 2.0]
     );
@@ -223,7 +223,7 @@ fn ground_to_pixel_pitch_45_degree_down() {
 
     assert_relative_eq!(
         camera_matrix
-            .ground_with_z_to_pixel(&point![0.5, 0.0], 0.5)
+            .ground_with_z_to_pixel(point![0.5, 0.0], 0.5)
             .unwrap(),
         point![0.5, 0.5]
     );
@@ -241,7 +241,7 @@ fn robot_to_pixel_only_elevation() {
 
     assert_relative_eq!(
         camera_matrix
-            .robot_to_pixel(&point![1.0, 0.0, 0.25])
+            .robot_to_pixel(point![1.0, 0.0, 0.25])
             .unwrap(),
         point![1.0, 2.0]
     );
@@ -260,9 +260,7 @@ fn robot_to_pixel_pitch_45_degree_down() {
     camera_matrix.robot_to_camera = camera_matrix.camera_to_robot.inverse();
 
     assert_relative_eq!(
-        camera_matrix
-            .robot_to_pixel(&point![0.5, 0.0, 0.5])
-            .unwrap(),
+        camera_matrix.robot_to_pixel(point![0.5, 0.0, 0.5]).unwrap(),
         point![0.5, 0.5]
     );
 }
@@ -279,7 +277,7 @@ fn get_pixel_radius_only_elevation() {
 
     assert_relative_eq!(
         camera_matrix
-            .get_pixel_radius(0.05, &point![320.0, 480.0], &vector![640, 480])
+            .get_pixel_radius(0.05, point![320.0, 480.0], vector![640, 480])
             .unwrap(),
         33.970547
     );
@@ -299,7 +297,7 @@ fn get_pixel_radius_pitch_45_degree_down() {
 
     assert_relative_eq!(
         camera_matrix
-            .get_pixel_radius(0.05, &point![320.0, 480.0], &vector![640, 480])
+            .get_pixel_radius(0.05, point![320.0, 480.0], vector![640, 480])
             .unwrap(),
         207.69307
     );

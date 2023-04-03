@@ -123,28 +123,28 @@ fn project_penalty_area_on_images(
     let penalty_area_width = &field_dimensions.penalty_area_width;
 
     let penalty_top_left = camera_matrix
-        .ground_to_pixel(&point![field_length / 2.0, penalty_area_width / 2.0])
+        .ground_to_pixel(point![field_length / 2.0, penalty_area_width / 2.0])
         .ok()?;
     let penalty_top_right = camera_matrix
-        .ground_to_pixel(&point![field_length / 2.0, -penalty_area_width / 2.0])
+        .ground_to_pixel(point![field_length / 2.0, -penalty_area_width / 2.0])
         .ok()?;
     let penalty_bottom_left = camera_matrix
-        .ground_to_pixel(&point![
+        .ground_to_pixel(point![
             field_length / 2.0 - penalty_area_length,
             penalty_area_width / 2.0
         ])
         .ok()?;
     let penalty_bottom_right = camera_matrix
-        .ground_to_pixel(&point![
+        .ground_to_pixel(point![
             field_length / 2.0 - penalty_area_length,
             -penalty_area_width / 2.0
         ])
         .ok()?;
     let corner_left = camera_matrix
-        .ground_to_pixel(&point![field_length / 2.0, field_width / 2.0])
+        .ground_to_pixel(point![field_length / 2.0, field_width / 2.0])
         .ok()?;
     let corner_right = camera_matrix
-        .ground_to_pixel(&point![field_length / 2.0, -field_width / 2.0])
+        .ground_to_pixel(point![field_length / 2.0, -field_width / 2.0])
         .ok()?;
 
     Some(vec![

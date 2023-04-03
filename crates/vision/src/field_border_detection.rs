@@ -146,12 +146,12 @@ fn is_orthogonal(
 ) -> Result<bool> {
     let projected_lines = [
         Line(
-            camera_matrix.pixel_to_ground(&lines[0].0)?,
-            camera_matrix.pixel_to_ground(&lines[0].1)?,
+            camera_matrix.pixel_to_ground(lines[0].0)?,
+            camera_matrix.pixel_to_ground(lines[0].1)?,
         ),
         Line(
-            camera_matrix.pixel_to_ground(&lines[1].0)?,
-            camera_matrix.pixel_to_ground(&lines[1].1)?,
+            camera_matrix.pixel_to_ground(lines[1].0)?,
+            camera_matrix.pixel_to_ground(lines[1].1)?,
         ),
     ];
     Ok(projected_lines[0].is_orthogonal(&projected_lines[1], angle_threshold))

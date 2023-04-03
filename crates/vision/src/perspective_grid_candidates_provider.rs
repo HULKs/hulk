@@ -92,8 +92,8 @@ fn generate_rows(
         radius = camera_matrix
             .get_pixel_radius(
                 ball_radius,
-                &point![higher_horizon_point.x, row_vertical_center],
-                &image_size,
+                point![higher_horizon_point.x, row_vertical_center],
+                image_size,
             )
             .unwrap_or(radius);
         if radius < minimum_radius {

@@ -96,14 +96,13 @@ fn project_segment_to_field(
     let start = point![x, segment.start as f32];
     let end = point![x, segment.end as f32];
 
-    let start_on_ground = camera_matrix.pixel_to_ground(&start)?;
-    let end_on_ground = camera_matrix.pixel_to_ground(&end)?;
+    let start_on_ground = camera_matrix.pixel_to_ground(start)?;
+    let end_on_ground = camera_matrix.pixel_to_ground(end)?;
     let start_on_field = robot_to_field * start_on_ground;
     let end_on_field = robot_to_field * end_on_ground;
 
     let midpoint = (start + end.coords) / 2.0;
-    let pixel_radius =
-        100.0 * camera_matrix.get_pixel_radius(0.01, &midpoint, &vector![640, 480])?;
+    let pixel_radius = 100.0 * camera_matrix.get_pixel_radius(0.01, midpoint, vector![640, 480])?;
     let line_width = 3.0 / pixel_radius;
 
     Ok((start_on_field, end_on_field, line_width))
