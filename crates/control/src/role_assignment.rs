@@ -4,9 +4,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use nalgebra::{Isometry2, Point2};
-use spl_network_messages::{
-    GameControllerReturnMessage, GamePhase, Penalty, PlayerNumber, SplMessage, Team,
-};
+use spl_network_messages::{GameControllerReturnMessage, GamePhase, Penalty, PlayerNumber, Team};
 use types::{
     configuration::SplNetwork,
     hardware::Interface,
@@ -238,9 +236,8 @@ impl RoleAssignment {
                         .remaining_amount_of_messages_to_stop_sending
                 {
                     if context.ball_position.is_none() && team_ball.is_some() {
-                        context
-                            .hardware
-                            .write_to_network(OutgoingMessage::Spl(SplMessage {
+                        context.hardware.write_to_network(OutgoingMessage::Spl(
+                            GameControllerReturnMessage {
                                 player_number: *context.player_number,
                                 fallen: matches!(context.fall_state, FallState::Fallen { .. }),
                                 robot_to_field,
@@ -249,11 +246,11 @@ impl RoleAssignment {
                                     robot_to_field,
                                     cycle_start_time,
                                 ),
-                            }))?;
+                            },
+                        ))?;
                     } else {
-                        context
-                            .hardware
-                            .write_to_network(OutgoingMessage::Spl(SplMessage {
+                        context.hardware.write_to_network(OutgoingMessage::Spl(
+                            GameControllerReturnMessage {
                                 player_number: *context.player_number,
                                 fallen: matches!(context.fall_state, FallState::Fallen { .. }),
                                 robot_to_field,
@@ -261,7 +258,8 @@ impl RoleAssignment {
                                     context.ball_position,
                                     cycle_start_time,
                                 ),
-                            }))?;
+                            },
+                        ))?;
                     }
                 }
             }
@@ -288,7 +286,7 @@ fn process_role_state_machine(
     current_pose: Isometry2<f32>,
     detected_own_ball: Option<&BallPosition>,
     primary_state: PrimaryState,
-    incoming_message: Option<&SplMessage>,
+    incoming_message: Option<&GameControllerReturnMessage>,
     send_spl_striker_message: bool,
     team_ball: Option<BallPosition>,
     cycle_start_time: SystemTime,
@@ -543,7 +541,7 @@ fn process_role_state_machine(
 
 fn decide_if_claiming_striker_or_other_role(
     current_pose: Isometry2<f32>,
-    spl_message: &SplMessage,
+    spl_message: &GameControllerReturnMessage,
     spl_message_ball_position: &spl_network_messages::BallPosition,
     player_number: PlayerNumber,
     cycle_start_time: SystemTime,
@@ -599,7 +597,7 @@ fn team_ball_to_network_ball_position(
 
 fn team_ball_from_spl_message(
     cycle_start_time: SystemTime,
-    spl_message: &SplMessage,
+    spl_message: &GameControllerReturnMessage,
 ) -> Option<BallPosition> {
     spl_message
         .ball_position

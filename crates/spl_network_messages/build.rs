@@ -5,7 +5,6 @@ use bindgen::{Builder, CargoCallbacks};
 fn main() {
     let bindings = Builder::default()
         .header("headers/RoboCupGameControlData.hpp")
-        .header("headers/SPLStandardMessage.hpp")
         .parse_callbacks(Box::new(CargoCallbacks))
         .layout_tests(false)
         .fit_macro_constants(true)

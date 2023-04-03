@@ -8,7 +8,7 @@ use color_eyre::Result;
 use cyclers::control::Database;
 use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, GameState, PlayerNumber, SplMessage, Team};
+use spl_network_messages::{GameControllerReturnMessage, GamePhase, GameState, PlayerNumber, Team};
 use structs::{control::AdditionalOutputs, Configuration};
 use types::{
     messages::{IncomingMessage, OutgoingMessage},
@@ -34,7 +34,7 @@ pub struct State {
     pub cycle_count: usize,
     pub robots: HashMap<PlayerNumber, Robot>,
     pub ball: Option<Ball>,
-    pub messages: Vec<(PlayerNumber, SplMessage)>,
+    pub messages: Vec<(PlayerNumber, GameControllerReturnMessage)>,
     pub finished: bool,
     pub game_controller_state: GameControllerState,
     pub filtered_game_state: FilteredGameState,
@@ -267,7 +267,7 @@ pub struct LuaState {
     pub cycle_count: usize,
     pub robots: Vec<LuaRobot>,
     pub ball: Option<Ball>,
-    pub messages: Vec<(PlayerNumber, SplMessage)>,
+    pub messages: Vec<(PlayerNumber, GameControllerReturnMessage)>,
     pub finished: bool,
     pub game_controller_state: GameControllerState,
     pub filtered_game_state: FilteredGameState,
