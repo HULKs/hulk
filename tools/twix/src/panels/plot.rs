@@ -41,6 +41,7 @@ struct LineData {
     #[serde(default = "LineData::create_lua")]
     lua: Lua,
     lua_text: String,
+    #[serde(skip)]
     lua_error: Option<String>,
 }
 
@@ -207,14 +208,13 @@ impl Widget for &mut PlotPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         let plot_response = self.plot(ui);
         self.show_menu(ui);
-        let mut line_data_to_remove = Vec::new();
-        for (i, line_data) in self.line_datas.iter_mut().enumerate() {
+
+        let mut id = 0;
+        self.line_datas.retain_mut(|line_data| {
             ui.horizontal_top(|ui| {
                 let button = Button::new(RichText::new("x").color(Color32::WHITE).strong())
                     .fill(Color32::RED);
-                if ui.add(button).clicked() {
-                    line_data_to_remove.push(i);
-                }
+                let delete_button = ui.add(button);
                 let subscription_field = ui.add(CompletionEdit::outputs(
                     &mut line_data.output_key,
                     self.nao.as_ref(),
@@ -224,7 +224,8 @@ impl Widget for &mut PlotPanel {
                     line_data.subscribe_key(self.nao.clone(), self.buffer_size);
                 }
                 ui.color_edit_button_srgba(&mut line_data.color);
-                let id_source = ui.id().with("conversion_collapse").with(i);
+                let id_source = ui.id().with("conversion_collapse").with(id);
+                id += 1;
                 CollapsingHeader::new("Conversion Function")
                     .id_source(id_source)
                     .show(ui, |ui| {
@@ -275,12 +276,10 @@ impl Widget for &mut PlotPanel {
                             }
                         });
                     });
-            });
-        }
-
-        for line_data_idx in line_data_to_remove.into_iter().rev() {
-            self.line_datas.remove(line_data_idx);
-        }
+                !delete_button.clicked()
+            })
+            .inner
+        });
 
         plot_response
     }
