@@ -6,10 +6,11 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::point;
 use types::{
     configuration::{EdgeDetectionSource, MedianMode},
+    horizon::Horizon,
     is_above_limbs,
     ycbcr422_image::YCbCr422Image,
-    CameraMatrix, EdgeType, FieldColor, Horizon, ImageSegments, Intensity, Limb, ProjectedLimbs,
-    Rgb, RgbChannel, ScanGrid, ScanLine, Segment, YCbCr444,
+    CameraMatrix, EdgeType, FieldColor, ImageSegments, Intensity, Limb, ProjectedLimbs, Rgb,
+    RgbChannel, ScanGrid, ScanLine, Segment, YCbCr444,
 };
 
 use crate::CyclerInstance;

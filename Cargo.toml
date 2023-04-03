@@ -15,6 +15,7 @@ members = [
   "crates/kinematics",
   "crates/nao",
   "crates/nao_camera",
+  "crates/projection",
   "crates/repository",
   "crates/serialize_hierarchy",
   "crates/serialize_hierarchy_derive",
@@ -97,6 +98,7 @@ petgraph = "0.6.2"
 png = "0.17.6"
 proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.44", features = ["span-locations"] }
+projection = { path = "crates/projection" }
 quote = "1.0.21"
 rand = "0.8.5"
 rand_distr = "0.4.3"

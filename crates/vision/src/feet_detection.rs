@@ -5,6 +5,7 @@ use context_attribute::context;
 use filtering::statistics::{mean, standard_deviation};
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{distance, point};
+use projection::Projection;
 use types::{
     Ball, CameraMatrix, ClusterCone, DetectedFeet, EdgeType, FieldDimensions, FilteredSegments,
     LineData, ScoredCluster, ScoredClusterPoint,

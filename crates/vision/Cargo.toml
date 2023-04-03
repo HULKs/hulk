@@ -17,5 +17,6 @@ image = { workspace = true }
 itertools = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
+projection = { workspace = true }
 rand = { workspace = true }
 types = { workspace = true }

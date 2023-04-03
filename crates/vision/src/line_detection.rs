@@ -5,6 +5,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{distance, point, vector, Point2, Vector2};
 use ordered_float::NotNan;
+use projection::Projection;
 use types::{
     ycbcr422_image::YCbCr422Image, CameraMatrix, EdgeType, FilteredSegments, ImageLines, Line,
     LineData, Segment,
