@@ -2,6 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, vector, Isometry3, UnitQuaternion, Vector3};
+use projection::Projection;
 use types::{
     configuration::CameraMatrixParameters, CameraMatrices, CameraMatrix, CameraPosition,
     FieldDimensions, Line, Line2, ProjectedFieldLines, RobotDimensions, RobotKinematics,

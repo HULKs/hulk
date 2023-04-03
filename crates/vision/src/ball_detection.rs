@@ -3,6 +3,7 @@ use compiled_nn::CompiledNN;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, vector, Vector2};
+use projection::Projection;
 use types::{
     configuration::BallDetection as BallDetectionConfiguration, ycbcr422_image::YCbCr422Image,
     Ball, CameraMatrix, CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,

@@ -7,6 +7,7 @@ use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use nalgebra::{
     matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2, Vector2, Vector4,
 };
+use projection::Projection;
 use types::{
     ball_filter_hypothesis::BallFilterHypothesisSnapshot, is_above_limbs, Ball, BallPosition,
     CameraMatrices, CameraMatrix, Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs,

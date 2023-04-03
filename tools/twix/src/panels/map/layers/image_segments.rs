@@ -4,6 +4,7 @@ use color_eyre::Result;
 use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{point, vector, Isometry2, Point2};
+use projection::Projection;
 use types::{CameraMatrix, FieldDimensions, Rgb};
 
 use crate::{panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer};

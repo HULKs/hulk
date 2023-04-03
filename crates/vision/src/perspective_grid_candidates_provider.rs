@@ -4,6 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{point, vector, Point2, Vector2};
+use projection::Projection;
 use types::{
     ycbcr422_image::YCbCr422Image, CameraMatrix, Circle, FilteredSegments, LineData,
     PerspectiveGridCandidates, ScanLine, Segment,

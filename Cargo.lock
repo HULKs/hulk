@@ -1093,6 +1093,7 @@ dependencies = [
  "log",
  "nalgebra",
  "ordered-float",
+ "projection",
  "serde",
  "serde_json",
  "serialize_hierarchy",
@@ -3238,6 +3239,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "projection"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "nalgebra",
+ "thiserror",
+ "types",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4266,6 +4277,7 @@ dependencies = [
  "log",
  "mlua",
  "nalgebra",
+ "projection",
  "serde",
  "serde-transcode",
  "serde_bytes",
@@ -4426,6 +4438,7 @@ dependencies = [
  "itertools",
  "nalgebra",
  "ordered-float",
+ "projection",
  "rand",
  "types",
 ]

@@ -2,6 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{Isometry3, Matrix2, Point2, Point3};
+use projection::Projection;
 use types::{CameraMatrices, CameraMatrix, Limb, ProjectedLimbs, RobotKinematics};
 
 pub struct LimbProjector {}

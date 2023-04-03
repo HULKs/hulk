@@ -2,7 +2,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2, Vector2};
-use types::{CameraMatrix, FieldBorder, Horizon, ImageSegments, Intensity, Line, Line2, Segment};
+use projection::Projection;
+use types::{
+    horizon::Horizon, CameraMatrix, FieldBorder, ImageSegments, Intensity, Line, Line2, Segment,
+};
 
 use crate::{ransac::Ransac, CyclerInstance};
 
