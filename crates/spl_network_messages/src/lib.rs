@@ -1,7 +1,6 @@
 mod bindings;
 mod game_controller_return_message;
 mod game_controller_state_message;
-mod spl_message;
 
 use std::{
     fmt::{self, Display, Formatter},
@@ -17,7 +16,6 @@ pub use game_controller_state_message::{
     SubState, Team, TeamColor, TeamState,
 };
 use serialize_hierarchy::SerializeHierarchy;
-pub use spl_message::SplMessage;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct BallPosition {

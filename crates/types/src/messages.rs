@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use spl_network_messages::{GameControllerReturnMessage, GameControllerStateMessage, SplMessage};
+use spl_network_messages::{GameControllerReturnMessage, GameControllerStateMessage};
 
 #[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub enum IncomingMessage {
     GameController(GameControllerStateMessage),
-    Spl(SplMessage),
+    Spl(GameControllerReturnMessage),
 }
 
 impl Default for IncomingMessage {
@@ -17,7 +17,7 @@ impl Default for IncomingMessage {
 #[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub enum OutgoingMessage {
     GameController(GameControllerReturnMessage),
-    Spl(SplMessage),
+    Spl(GameControllerReturnMessage),
 }
 
 impl Default for OutgoingMessage {
