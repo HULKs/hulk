@@ -13,31 +13,31 @@ pub enum Error {
 }
 
 pub trait Projection {
-    fn pixel_to_camera(&self, pixel_coordinates: &Point2<f32>) -> Vector3<f32>;
-    fn camera_to_pixel(&self, camera_ray: &Vector3<f32>) -> Result<Point2<f32>, Error>;
-    fn pixel_to_ground(&self, pixel_coordinates: &Point2<f32>) -> Result<Point2<f32>, Error>;
+    fn pixel_to_camera(&self, pixel_coordinates: Point2<f32>) -> Vector3<f32>;
+    fn camera_to_pixel(&self, camera_ray: Vector3<f32>) -> Result<Point2<f32>, Error>;
+    fn pixel_to_ground(&self, pixel_coordinates: Point2<f32>) -> Result<Point2<f32>, Error>;
     fn pixel_to_ground_with_z(
         &self,
-        pixel_coordinates: &Point2<f32>,
+        pixel_coordinates: Point2<f32>,
         z: f32,
     ) -> Result<Point2<f32>, Error>;
-    fn ground_to_pixel(&self, ground_coordinates: &Point2<f32>) -> Result<Point2<f32>, Error>;
+    fn ground_to_pixel(&self, ground_coordinates: Point2<f32>) -> Result<Point2<f32>, Error>;
     fn ground_with_z_to_pixel(
         &self,
-        ground_coordinates: &Point2<f32>,
+        ground_coordinates: Point2<f32>,
         z: f32,
     ) -> Result<Point2<f32>, Error>;
-    fn robot_to_pixel(&self, robot_coordinates: &Point3<f32>) -> Result<Point2<f32>, Error>;
+    fn robot_to_pixel(&self, robot_coordinates: Point3<f32>) -> Result<Point2<f32>, Error>;
     fn get_pixel_radius(
         &self,
         radius_in_robot_coordinates: f32,
-        pixel_coordinates: &Point2<f32>,
-        resolution: &Vector2<u32>,
+        pixel_coordinates: Point2<f32>,
+        resolution: Vector2<u32>,
     ) -> Result<f32, Error>;
 }
 
 impl Projection for CameraMatrix {
-    fn pixel_to_camera(&self, pixel_coordinates: &Point2<f32>) -> Vector3<f32> {
+    fn pixel_to_camera(&self, pixel_coordinates: Point2<f32>) -> Vector3<f32> {
         vector![
             1.0,
             (self.optical_center.x - pixel_coordinates.x) / self.focal_length.x,
@@ -45,7 +45,7 @@ impl Projection for CameraMatrix {
         ]
     }
 
-    fn camera_to_pixel(&self, camera_ray: &Vector3<f32>) -> Result<Point2<f32>, Error> {
+    fn camera_to_pixel(&self, camera_ray: Vector3<f32>) -> Result<Point2<f32>, Error> {
         if camera_ray.x <= 0.0 {
             return Err(Error::BehindCamera);
         }
@@ -55,13 +55,13 @@ impl Projection for CameraMatrix {
         ])
     }
 
-    fn pixel_to_ground(&self, pixel_coordinates: &Point2<f32>) -> Result<Point2<f32>, Error> {
+    fn pixel_to_ground(&self, pixel_coordinates: Point2<f32>) -> Result<Point2<f32>, Error> {
         self.pixel_to_ground_with_z(pixel_coordinates, 0.0)
     }
 
     fn pixel_to_ground_with_z(
         &self,
-        pixel_coordinates: &Point2<f32>,
+        pixel_coordinates: Point2<f32>,
         z: f32,
     ) -> Result<Point2<f32>, Error> {
         let camera_ray = self.pixel_to_camera(pixel_coordinates);
@@ -87,30 +87,30 @@ impl Projection for CameraMatrix {
         ])
     }
 
-    fn ground_to_pixel(&self, ground_coordinates: &Point2<f32>) -> Result<Point2<f32>, Error> {
+    fn ground_to_pixel(&self, ground_coordinates: Point2<f32>) -> Result<Point2<f32>, Error> {
         self.ground_with_z_to_pixel(ground_coordinates, 0.0)
     }
 
     fn ground_with_z_to_pixel(
         &self,
-        ground_coordinates: &Point2<f32>,
+        ground_coordinates: Point2<f32>,
         z: f32,
     ) -> Result<Point2<f32>, Error> {
         self.camera_to_pixel(
-            &(self.ground_to_camera * point![ground_coordinates.x, ground_coordinates.y, z]).coords,
+            (self.ground_to_camera * point![ground_coordinates.x, ground_coordinates.y, z]).coords,
         )
     }
 
-    fn robot_to_pixel(&self, robot_coordinates: &Point3<f32>) -> Result<Point2<f32>, Error> {
+    fn robot_to_pixel(&self, robot_coordinates: Point3<f32>) -> Result<Point2<f32>, Error> {
         let camera_coordinates = self.robot_to_camera * robot_coordinates;
-        self.camera_to_pixel(&camera_coordinates.coords)
+        self.camera_to_pixel(camera_coordinates.coords)
     }
 
     fn get_pixel_radius(
         &self,
         radius_in_robot_coordinates: f32,
-        pixel_coordinates: &Point2<f32>,
-        resolution: &Vector2<u32>,
+        pixel_coordinates: Point2<f32>,
+        resolution: Vector2<u32>,
     ) -> Result<f32, Error> {
         let robot_coordinates =
             self.pixel_to_ground_with_z(pixel_coordinates, radius_in_robot_coordinates)?;

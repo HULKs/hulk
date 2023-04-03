@@ -113,10 +113,10 @@ impl LineDetection {
                 continue;
             }
             let (start_point_in_image, start_point_in_robot) =
-                match points_with_projection_onto_line.iter().find_map(
+                match points_with_projection_onto_line.iter().copied().find_map(
                     |(point, projected_point)| {
                         Some((
-                            *point,
+                            point,
                             context
                                 .camera_matrix
                                 .pixel_to_ground(projected_point)
@@ -129,10 +129,11 @@ impl LineDetection {
                 };
             let (end_point_in_image, end_point_in_robot) = match points_with_projection_onto_line
                 .iter()
+                .copied()
                 .rev()
                 .find_map(|(point, projected_point)| {
                     Some((
-                        *point,
+                        point,
                         context
                             .camera_matrix
                             .pixel_to_ground(projected_point)
@@ -290,8 +291,8 @@ fn is_segment_shorter_than(
     segment_end: Point2<f32>,
     maximum_projected_segment_length: f32,
 ) -> Option<bool> {
-    let start_robot_coordinates = camera_matrix.pixel_to_ground(&segment_start).ok()?;
-    let end_robot_coordinates = camera_matrix.pixel_to_ground(&segment_end).ok()?;
+    let start_robot_coordinates = camera_matrix.pixel_to_ground(segment_start).ok()?;
+    let end_robot_coordinates = camera_matrix.pixel_to_ground(segment_end).ok()?;
     Some(
         distance(&start_robot_coordinates, &end_robot_coordinates)
             <= maximum_projected_segment_length,

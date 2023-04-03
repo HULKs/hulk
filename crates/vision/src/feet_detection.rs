@@ -218,10 +218,7 @@ fn project_to_ground(
         .into_iter()
         .filter_map(|point_in_pixel| {
             camera_matrix
-                .pixel_to_ground(&point![
-                    point_in_pixel.point.x * 2.0,
-                    point_in_pixel.point.y
-                ])
+                .pixel_to_ground(point![point_in_pixel.point.x * 2.0, point_in_pixel.point.y])
                 .ok()
                 .map(|point_in_ground| ScoredClusterPoint {
                     point: point_in_ground,

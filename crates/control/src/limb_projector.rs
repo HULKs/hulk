@@ -129,7 +129,7 @@ fn project_bounding_polygon(
 ) -> Limb {
     let points: Vec<_> = bounding_polygon
         .iter()
-        .filter_map(|point| camera_matrix.robot_to_pixel(&(limb_to_robot * point)).ok())
+        .filter_map(|point| camera_matrix.robot_to_pixel(limb_to_robot * point).ok())
         .collect();
     Limb {
         pixel_polygon: if use_convex_hull {

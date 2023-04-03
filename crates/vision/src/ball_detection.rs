@@ -312,7 +312,7 @@ fn project_balls_to_ground(
         .iter()
         .filter_map(|cluster| {
             let position_422 = point![cluster.circle.center.x, cluster.circle.center.y];
-            match camera_matrix.pixel_to_ground_with_z(&position_422, ball_radius) {
+            match camera_matrix.pixel_to_ground_with_z(position_422, ball_radius) {
                 Ok(position) => Some(Ball {
                     position,
                     image_location: cluster.circle,

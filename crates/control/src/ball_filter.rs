@@ -350,11 +350,12 @@ fn project_to_image(
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
 ) -> Option<Circle> {
+    let ground_coordinates = Point2::from(hypothesis.filter.state().xy());
     let pixel_position = camera_matrix
-        .ground_with_z_to_pixel(&Point2::from(hypothesis.filter.state().xy()), ball_radius)
+        .ground_with_z_to_pixel(ground_coordinates, ball_radius)
         .ok()?;
     let radius = camera_matrix
-        .get_pixel_radius(ball_radius, &pixel_position, &vector![640, 480])
+        .get_pixel_radius(ball_radius, pixel_position, vector![640, 480])
         .ok()?;
     Some(Circle {
         center: pixel_position,
@@ -368,12 +369,12 @@ fn is_visible_to_camera(
     ball_radius: f32,
     projected_limbs_bottom: &[Limb],
 ) -> bool {
-    let position_in_image = match camera_matrix
-        .ground_with_z_to_pixel(&Point2::from(hypothesis.filter.state().xy()), ball_radius)
-    {
-        Ok(position_in_image) => position_in_image,
-        Err(_) => return false,
-    };
+    let ground_coordinates = Point2::from(hypothesis.filter.state().xy());
+    let position_in_image =
+        match camera_matrix.ground_with_z_to_pixel(ground_coordinates, ball_radius) {
+            Ok(position_in_image) => position_in_image,
+            Err(_) => return false,
+        };
     (0.0..640.0).contains(&position_in_image.x)
         && (0.0..480.0).contains(&position_in_image.y)
         && is_above_limbs(position_in_image, projected_limbs_bottom)
