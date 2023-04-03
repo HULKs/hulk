@@ -69,7 +69,7 @@ impl FallStateEstimation {
                     .linear_acceleration_low_pass_factor,
             ),
             is_falling: false,
-            guessed_time_to_fall: Duration::ZERO
+            guessed_time_to_fall: Duration::ZERO,
         })
     }
 
@@ -132,7 +132,6 @@ impl FallStateEstimation {
                 .gravitational_acceleration_threshold
         {
             Some(Facing::Up)
-            
         } else {
             None
         };
@@ -154,7 +153,6 @@ impl FallStateEstimation {
             if self.roll_pitch_filter.state().x.abs()
                 > context.fall_state_estimation.falling_angle_threshold.x
             {
-
                 if self.roll_pitch_filter.state().x > 0.0 {
                     Some(FallDirection::Right)
                 } else {
@@ -172,36 +170,37 @@ impl FallStateEstimation {
                 None
             }
         };
-        
+
         let fall_state = match (fallen_direction, falling_direction) {
             (Some(facing), _) => FallState::Fallen { facing },
             (None, Some(direction)) => FallState::Falling { direction },
             (None, None) => FallState::Upright,
         };
-        
-        match fall_state{
-            FallState::Falling { _ } => {
+
+        match fall_state {
+            FallState::Falling { direction: _ } => {
                 let t0 = Instant::now().elapsed().as_secs_f32();
                 let theta = self.roll_pitch_filter.state().y;
                 let theta_derivative = self.angular_velocity_filter.state().y;
-                if theta_derivative == 0.{
+                if theta_derivative == 0. {
                     self.guessed_time_to_fall = Duration::MAX;
-                }else{
-                    self.guessed_time_to_fall = Duration::from_secs_f32((-0.95*PI/2. - theta) / theta_derivative + t0);
+                } else {
+                    self.guessed_time_to_fall =
+                        Duration::from_secs_f32(((-0.95 * PI / 2. - theta) / theta_derivative + t0).abs());
                 }
                 self.is_falling = true
-            },
+            }
             _ => {
                 self.guessed_time_to_fall = Duration::ZERO;
                 self.is_falling = false;
-            },
+            }
         }
-            
+
+        context.is_falling.fill_if_subscribed(|| self.is_falling);
+
         context
-            .is_falling
-            .fill_if_subscribed(|| self.is_falling);
-        
-        context.guessed_time_to_fall.fill_if_subscribed(|| self.guessed_time_to_fall);
+            .guessed_time_to_fall
+            .fill_if_subscribed(|| self.guessed_time_to_fall);
 
         Ok(MainOutputs {
             fall_state: fall_state.into(),
