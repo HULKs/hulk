@@ -7,7 +7,6 @@ use std::{fmt::Debug, time::Duration};
 pub struct SplineInterpolator {
     spline: Spline<f32, Joints>,
     current_time: Duration,
-    start_time: Duration,
     end_time: Duration,
 }
 
@@ -94,7 +93,7 @@ impl SplineInterpolator {
 
         keys.sort_unstable_by_key(|key| key.t);
 
-        let start_time = keys[0].t;
+        let start_time = Duration::ZERO;
         let current_time = start_time;
         let end_time = keys.last().unwrap().t;
         let last_key_index = keys.len() - 1;
@@ -123,7 +122,6 @@ impl SplineInterpolator {
         Ok(Self {
             spline,
             current_time,
-            start_time,
             end_time,
         })
     }
@@ -144,9 +142,7 @@ impl SplineInterpolator {
     }
 
     pub fn value(&self) -> Result<Joints, InterpolatorError> {
-        if self.current_time <= self.start_time {
-            self.spline.keys().iter().nth(1).map(|key| key.value)
-        } else if self.current_time >= self.end_time {
+        if self.current_time >= self.end_time {
             self.spline.keys().iter().rev().nth(1).map(|key| key.value)
         } else {
             self.spline.sample(self.current_time.as_secs_f32())
@@ -161,6 +157,6 @@ impl SplineInterpolator {
     }
 
     pub fn reset(&mut self) {
-        self.current_time = self.start_time;
+        self.current_time = Duration::ZERO;
     }
 }
