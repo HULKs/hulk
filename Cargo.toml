@@ -110,6 +110,7 @@ serde_test = "1.0.152"
 serde-transcode = "1.1.1"
 serialize_hierarchy = { path = "crates/serialize_hierarchy" }
 serialize_hierarchy_derive = { path = "crates/serialize_hierarchy_derive" }
+simple-websockets = "0.1.4"
 smallvec = "1.9.0"
 source_analyzer = { path = "crates/source_analyzer" }
 spl_network = { path = "crates/spl_network" }
@@ -128,7 +129,7 @@ types = { path = "crates/types" }
 uuid = { version = "1.1.2", features = ["v4"] }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", branch = "hulksChanges" }
 walkdir = "2.3.2"
-webots = { version = "0.6.0" }
+webots = { version = "0.7.0" }
 vision = { path = "crates/vision" }
 zbus = { version = "3.7.0", features = ["tokio"] }
 
