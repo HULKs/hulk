@@ -121,7 +121,7 @@ impl FallProtector {
 
                 JointsCommand {
                     positions: self.interpolator.value(),
-                    stiffnesses,
+                    stiffnesses: Joints::fill(0.8),
                 }
             }
             _ => {
