@@ -17,7 +17,7 @@ pub struct FallStateEstimation {
     angular_velocity_filter: LowPassFilter<Vector3<f32>>,
     linear_acceleration_filter: LowPassFilter<Vector3<f32>>,
     is_falling: bool,
-    guessed_time_to_fall: Duration,
+    guessed_time_to_fall: f32,
 }
 
 #[context]
@@ -35,7 +35,7 @@ pub struct CycleContext {
     pub filtered_roll_pitch: AdditionalOutput<Vector2<f32>, "filtered_roll_pitch">,
     pub forward_gravitational_difference: AdditionalOutput<f32, "forward_gravitational_difference">,
     pub is_falling: AdditionalOutput<bool, "is_falling">,
-    pub guessed_time_to_fall: AdditionalOutput<Duration, "guessed_time_to_fall">,
+    pub guessed_time_to_fall: AdditionalOutput<f32, "guessed_time_to_fall">,
 
     pub fall_state_estimation: Parameter<FallStateEstimationConfiguration, "fall_state_estimation">,
 
@@ -69,7 +69,7 @@ impl FallStateEstimation {
                     .linear_acceleration_low_pass_factor,
             ),
             is_falling: false,
-            guessed_time_to_fall: Duration::ZERO,
+            guessed_time_to_fall: 0.,
         })
     }
 
@@ -182,16 +182,17 @@ impl FallStateEstimation {
                 let t0 = Instant::now().elapsed().as_secs_f32();
                 let theta = self.roll_pitch_filter.state().y;
                 let theta_derivative = self.angular_velocity_filter.state().y;
+                // let theta_acceleration = self.angular_velocity_filter.state().y.sin() * 9.81 / 0.58;
                 if theta_derivative == 0. {
-                    self.guessed_time_to_fall = Duration::MAX;
+                    self.guessed_time_to_fall = f32::MAX;
                 } else {
                     self.guessed_time_to_fall =
-                        Duration::from_secs_f32(((-0.95 * PI / 2. - theta) / theta_derivative + t0).abs());
+                        ((-0.95 * PI / 2. - theta) / theta_derivative + t0).abs();
                 }
                 self.is_falling = true
             }
             _ => {
-                self.guessed_time_to_fall = Duration::ZERO;
+                self.guessed_time_to_fall = 0.;
                 self.is_falling = false;
             }
         }
