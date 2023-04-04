@@ -93,16 +93,16 @@ impl SplineInterpolator {
 
         keys.sort_unstable_by_key(|key| key.t);
 
-        let start_time = Duration::ZERO;
-        let current_time = start_time;
-        let end_time = keys.last().unwrap().t;
+        let current_time = Duration::ZERO;
+        let start_time = keys.first().unwrap().t;
+        let end_time = keys.last().unwrap().t - start_time;
         let last_key_index = keys.len() - 1;
 
         let mut spline = Spline::from_vec(
             keys.into_iter()
                 .map(|key| {
                     Ok(Key::new(
-                        key.t.as_secs_f32(),
+                        key.t.as_secs_f32() - start_time.as_secs_f32(),
                         key.value,
                         key.interpolation.map_key()?,
                     ))
