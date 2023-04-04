@@ -1,13 +1,12 @@
 use std::time::SystemTime;
 
-use filtering::KalmanFilter;
 use serde::{Deserialize, Serialize};
 
-use crate::ObstacleKind;
+use crate::{multivariate_normal_distribution::MultivariateNormalDistribution, ObstacleKind};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Hypothesis {
-    pub filter: KalmanFilter<2>,
+    pub state: MultivariateNormalDistribution<2>,
     pub measurement_count: usize,
     pub last_update: SystemTime,
     pub obstacle_kind: ObstacleKind,

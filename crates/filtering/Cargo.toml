@@ -6,11 +6,12 @@ license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
-approx = { workspace = true }
-color-eyre = { workspace = true }
 nalgebra = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+types = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
 rand = { workspace = true }
 rand_distr = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-serialize_hierarchy = { workspace = true }

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::epaint::Color32;
-use types::ClusterPoint;
+use types::detected_feet::ClusterPoint;
 
 use crate::{
     nao::Nao, panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,

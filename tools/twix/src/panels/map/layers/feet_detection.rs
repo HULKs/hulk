@@ -5,7 +5,7 @@ use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::epaint::Color32;
 use nalgebra::{Isometry2, Point2};
 
-use types::{ClusterPoint, FieldDimensions};
+use types::{detected_feet::ClusterPoint, FieldDimensions};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,

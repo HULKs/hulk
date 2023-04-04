@@ -4,7 +4,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use nalgebra::{Isometry2, Isometry3, SMatrix, UnitComplex};
+use nalgebra::{Isometry2, Isometry3, SMatrix, UnitComplex, UnitQuaternion};
 use serde::{Deserializer, Serializer};
 
 use crate::{error::Error, SerializeHierarchy};
@@ -105,6 +105,7 @@ implement_as_not_supported!(SMatrix<f32, 3, 3>);
 implement_as_not_supported!(Isometry2<f32>);
 implement_as_not_supported!(Isometry3<f32>);
 implement_as_not_supported!(UnitComplex<f32>);
+implement_as_not_supported!(UnitQuaternion<f32>);
 // stdlib
 implement_as_not_supported!(SystemTime);
 implement_as_not_supported!(Duration);

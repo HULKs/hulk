@@ -1779,13 +1779,12 @@ name = "filtering"
 version = "0.1.0"
 dependencies = [
  "approx",
- "color-eyre",
  "nalgebra",
  "rand",
  "rand_distr",
  "serde",
- "serde_json",
- "serialize_hierarchy",
+ "thiserror",
+ "types",
 ]
 
 [[package]]
@@ -4299,7 +4298,6 @@ dependencies = [
  "approx",
  "bincode",
  "color-eyre",
- "filtering",
  "image",
  "nalgebra",
  "ordered-float",

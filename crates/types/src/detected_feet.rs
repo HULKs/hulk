@@ -12,3 +12,9 @@ pub struct ClusterPoint {
     pub pixel_coordinates: Point2<u16>,
     pub position_in_ground: Point2<f32>,
 }
+
+#[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
+pub struct CountedCluster {
+    pub mean: Point2<f32>,
+    pub samples: usize,
+}

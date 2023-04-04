@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::greater_than_with_hysteresis;
+use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
 use types::{CycleTime, SensorData, SolePressure};
 

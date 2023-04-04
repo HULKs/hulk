@@ -1,16 +1,16 @@
 use color_eyre::Result;
 use context_attribute::context;
 use filtering::{
+    mean_clustering::MeanClustering,
     statistics::{mean, standard_deviation},
-    MeanCluster,
 };
 use framework::{AdditionalOutput, MainOutput};
 use itertools::Itertools;
 use nalgebra::{distance, point, Point2};
 use projection::Projection;
 use types::{
-    Ball, CameraMatrix, ClusterPoint, DetectedFeet, EdgeType, FieldDimensions, FilteredSegments,
-    LineData, ScanLine, Segment,
+    detected_feet::{ClusterPoint, CountedCluster, DetectedFeet},
+    Ball, CameraMatrix, EdgeType, FieldDimensions, FilteredSegments, LineData, ScanLine, Segment,
 };
 
 pub struct FeetDetection {}
@@ -173,8 +173,8 @@ fn find_last_consecutive_cluster(
 fn cluster_scored_cluster_points(
     cluster_points: Vec<ClusterPoint>,
     maximum_cluster_distance: f32,
-) -> Vec<MeanCluster> {
-    let mut clusters: Vec<MeanCluster> = Vec::new();
+) -> Vec<CountedCluster> {
+    let mut clusters: Vec<CountedCluster> = Vec::new();
     for point in cluster_points {
         let nearest_cluster = clusters
             .iter_mut()
@@ -191,7 +191,10 @@ fn cluster_scored_cluster_points(
             });
         match nearest_cluster {
             Some((cluster, _)) => cluster.push(point.position_in_ground),
-            None => clusters.push(MeanCluster::new(point.position_in_ground)),
+            None => clusters.push(CountedCluster {
+                mean: point.position_in_ground,
+                samples: 1,
+            }),
         }
     }
     clusters

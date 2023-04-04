@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::LowPassFilter;
+use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::point;
 use types::{FallState, SensorData, SonarObstacle, SonarValues};

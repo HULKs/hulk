@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::LowPassFilter;
+use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use log::warn;
 use nalgebra::{Isometry3, Point3, Vector3};

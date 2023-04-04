@@ -43,10 +43,10 @@ impl Layer for BallFilter {
 
         for hypothesis in ball_hypotheses.iter() {
             let position =
-                robot_to_field.unwrap_or_default() * Point2::from(hypothesis.filter.state().xy());
+                robot_to_field.unwrap_or_default() * Point2::from(hypothesis.state.mean.xy());
             let covariance = hypothesis
-                .filter
-                .covariance()
+                .state
+                .covariance
                 .fixed_slice::<2, 2>(0, 0)
                 .into_owned();
             let stroke = Stroke::new(0.01, Color32::BLACK);

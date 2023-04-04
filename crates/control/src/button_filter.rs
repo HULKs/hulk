@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::TapDetector;
+use filtering::tap_detector::TapDetector;
 use framework::MainOutput;
 use types::{Buttons, CycleTime, SensorData};
 

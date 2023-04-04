@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::LowPassFilter;
+use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use nalgebra::Vector2;
 use types::{
