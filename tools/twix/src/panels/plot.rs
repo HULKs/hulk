@@ -43,6 +43,10 @@ struct LineData {
     lua_text: String,
     #[serde(skip)]
     lua_error: Option<String>,
+    #[serde(skip)]
+    is_highlighted: bool,
+    #[serde(skip)]
+    hidden: bool,
 }
 
 impl LineData {
@@ -71,13 +75,19 @@ impl LineData {
             lua,
             lua_text,
             lua_error: None,
+            is_highlighted: false,
+            hidden: false,
         };
 
         line_data.set_lua();
         line_data
     }
 
-    fn plot(&self) -> Line {
+    fn set_highlighted(&mut self, is_highlighted: bool) {
+        self.is_highlighted = is_highlighted
+    }
+
+    fn plot(&self, buffer_size: usize) -> Line {
         let lua_function: Function = self.lua.globals().get("conversion_function").unwrap();
         let values = self
             .value_buffer
@@ -91,14 +101,75 @@ impl LineData {
                                 let value = lua_function
                                     .call::<_, f64>(self.lua.to_value(value))
                                     .unwrap_or(f64::NAN);
-                                [i as f64, value]
+                                [(buffer_size + i - buffered_values.len()) as f64, value]
                             },
                         ))
                     })
                     .unwrap_or_default()
             })
             .unwrap_or_default();
-        Line::new(values).color(self.color)
+        Line::new(values)
+            .color(self.color)
+            .highlight(self.is_highlighted)
+    }
+
+    fn draw_row(&mut self, ui: &mut Ui, nao: Arc<Nao>, buffer_size: usize, id: usize) {
+        ui.horizontal_top(|ui| {
+            let subscription_field =
+                ui.add(CompletionEdit::outputs(&mut self.output_key, nao.as_ref()));
+            self.set_highlighted(subscription_field.hovered());
+            if subscription_field.changed() {
+                info!("Subscribing: {}", self.output_key);
+                self.subscribe_key(nao.clone(), buffer_size);
+            }
+            ui.color_edit_button_srgba(&mut self.color);
+            let id_source = ui.id().with("conversion_collapse").with(id);
+            CollapsingHeader::new("Conversion Function")
+                .id_source(id_source)
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        let latest_value = get_latest_value(&self.value_buffer);
+                        let content = latest_value
+                            .and_then(|value| {
+                                to_string_pretty(&value).wrap_err("failed to prettify value")
+                            })
+                            .unwrap_or_else(|error| error.to_string());
+                        ui.label(content);
+                        let code_edit = TextEdit::multiline(&mut self.lua_text)
+                            .font(TextStyle::Monospace)
+                            .code_editor()
+                            .lock_focus(true);
+                        if ui.add(code_edit).changed() {
+                            self.lua_error = match self.lua.load(&self.lua_text).eval::<Function>()
+                            {
+                                Ok(function) => {
+                                    self.lua
+                                        .globals()
+                                        .set("conversion_function", function)
+                                        .unwrap();
+                                    None
+                                }
+                                Err(error) => Some(format!("{error:#}")),
+                            };
+                        }
+                        if let Some(error) = &self.lua_error {
+                            ui.colored_label(Color32::RED, error);
+                        } else if let Ok(value) = get_latest_value(&self.value_buffer) {
+                            let lua_function: Function =
+                                self.lua.globals().get("conversion_function").unwrap();
+                            let value = lua_function.call::<_, f64>(self.lua.to_value(&value));
+                            match value {
+                                Ok(value) => {
+                                    ui.label(value.to_string());
+                                }
+                                Err(error) => {
+                                    ui.colored_label(Color32::RED, error.to_string());
+                                }
+                            }
+                        }
+                    });
+                });
+        });
     }
 
     fn subscribe_key(&mut self, nao: Arc<Nao>, buffer_size: usize) {
@@ -164,10 +235,27 @@ impl Panel for PlotPanel {
 
 impl PlotPanel {
     fn plot(&self, ui: &mut Ui) -> Response {
+        let maximum_buffer_size = self
+            .line_datas
+            .iter()
+            .filter_map(|line_data| {
+                line_data
+                    .value_buffer
+                    .as_ref()
+                    .and_then(|buffer| buffer.get_buffer_size().ok())
+            })
+            .max()
+            .unwrap_or(self.buffer_size);
+
         EguiPlot::new(ui.id().with("value_plot"))
             .view_aspect(2.0)
             .show(ui, |plot_ui| {
-                for line in self.line_datas.iter().map(|entry| entry.plot()) {
+                for line in self
+                    .line_datas
+                    .iter()
+                    .filter(|line_data| !line_data.hidden)
+                    .map(|entry| entry.plot(maximum_buffer_size))
+                {
                     plot_ui.line(line);
                 }
             })
@@ -192,14 +280,6 @@ impl PlotPanel {
                     buffer.set_buffer_size(self.buffer_size);
                 }
             }
-            if ui.button("Add").clicked() {
-                self.line_datas.push(LineData::new(
-                    DEFAULT_LINE_COLORS
-                        .get(self.line_datas.len())
-                        .copied()
-                        .unwrap_or(Color32::TRANSPARENT),
-                ));
-            }
         });
     }
 }
@@ -211,75 +291,36 @@ impl Widget for &mut PlotPanel {
 
         let mut id = 0;
         self.line_datas.retain_mut(|line_data| {
-            ui.horizontal_top(|ui| {
-                let button = Button::new(RichText::new("x").color(Color32::WHITE).strong())
+            ui.horizontal(|ui| {
+                let delete_button = Button::new(RichText::new("❌").color(Color32::WHITE).strong())
                     .fill(Color32::RED);
-                let delete_button = ui.add(button);
-                let subscription_field = ui.add(CompletionEdit::outputs(
-                    &mut line_data.output_key,
-                    self.nao.as_ref(),
-                ));
-                if subscription_field.changed() {
-                    info!("Subscribing: {}", line_data.output_key);
-                    line_data.subscribe_key(self.nao.clone(), self.buffer_size);
+                let delete_button = ui.add(delete_button);
+
+                let hide_button = Button::new(
+                    RichText::new(if line_data.hidden { "V" } else { "H" })
+                        .color(Color32::WHITE)
+                        .strong(),
+                )
+                .fill(Color32::GRAY);
+                if ui.add(hide_button).clicked() {
+                    line_data.hidden = !line_data.hidden;
                 }
-                ui.color_edit_button_srgba(&mut line_data.color);
-                let id_source = ui.id().with("conversion_collapse").with(id);
+
+                line_data.draw_row(ui, self.nao.clone(), self.buffer_size, id);
                 id += 1;
-                CollapsingHeader::new("Conversion Function")
-                    .id_source(id_source)
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            let latest_value = get_latest_value(&line_data.value_buffer);
-                            let content = latest_value
-                                .and_then(|value| {
-                                    to_string_pretty(&value).wrap_err("failed to prettify value")
-                                })
-                                .unwrap_or_else(|error| error.to_string());
-                            ui.label(content);
-                            let code_edit = TextEdit::multiline(&mut line_data.lua_text)
-                                .font(TextStyle::Monospace)
-                                .code_editor()
-                                .lock_focus(true);
-                            if ui.add(code_edit).changed() {
-                                line_data.lua_error = match line_data
-                                    .lua
-                                    .load(&line_data.lua_text)
-                                    .eval::<Function>()
-                                {
-                                    Ok(function) => {
-                                        line_data
-                                            .lua
-                                            .globals()
-                                            .set("conversion_function", function)
-                                            .unwrap();
-                                        None
-                                    }
-                                    Err(error) => Some(format!("{error:#}")),
-                                };
-                            }
-                            if let Some(error) = &line_data.lua_error {
-                                ui.colored_label(Color32::RED, error);
-                            } else if let Ok(value) = get_latest_value(&line_data.value_buffer) {
-                                let lua_function: Function =
-                                    line_data.lua.globals().get("conversion_function").unwrap();
-                                let value =
-                                    lua_function.call::<_, f64>(line_data.lua.to_value(&value));
-                                match value {
-                                    Ok(value) => {
-                                        ui.label(value.to_string());
-                                    }
-                                    Err(error) => {
-                                        ui.colored_label(Color32::RED, error.to_string());
-                                    }
-                                }
-                            }
-                        });
-                    });
                 !delete_button.clicked()
             })
             .inner
         });
+
+        if ui.button("✚").clicked() {
+            self.line_datas.push(LineData::new(
+                DEFAULT_LINE_COLORS
+                    .get(self.line_datas.len())
+                    .copied()
+                    .unwrap_or(Color32::TRANSPARENT),
+            ));
+        }
 
         plot_response
     }
