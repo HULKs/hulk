@@ -1,11 +1,16 @@
 use color_eyre::Result;
 use context_attribute::context;
+use filtering::orientation_filtering::OrientationFiltering;
 use framework::MainOutput;
 use nalgebra::UnitComplex;
-use types::{CycleTime, OrientationFilterParameters, SensorData, SolePressure, SupportFoot};
+use types::{
+    orientation_filter::{Parameters, State},
+    CycleTime, SensorData, SolePressure, SupportFoot,
+};
 
+#[derive(Default)]
 pub struct OrientationFilter {
-    orientation_filter: filtering::orientation_filter::OrientationFilter,
+    state: State,
 }
 
 #[context]
@@ -18,8 +23,7 @@ pub struct CycleContext {
     pub sole_pressure: Input<SolePressure, "sole_pressure">,
     pub support_foot: Input<SupportFoot, "support_foot">,
 
-    pub orientation_filter_configuration:
-        Parameter<OrientationFilterParameters, "orientation_filter">,
+    pub orientation_filter_configuration: Parameter<Parameters, "orientation_filter">,
 }
 
 #[context]
@@ -30,9 +34,7 @@ pub struct MainOutputs {
 
 impl OrientationFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            orientation_filter: Default::default(),
-        })
+        Ok(Default::default())
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
@@ -45,7 +47,7 @@ impl OrientationFilter {
             .inertial_measurement_unit
             .angular_velocity;
         let cycle_duration = context.cycle_time.last_cycle_duration;
-        self.orientation_filter.update(
+        self.state.update(
             measured_acceleration,
             measured_angular_velocity,
             context.sole_pressure.left,
@@ -55,7 +57,7 @@ impl OrientationFilter {
         );
 
         Ok(MainOutputs {
-            robot_orientation: self.orientation_filter.yaw().into(),
+            robot_orientation: self.state.yaw().into(),
         })
     }
 }

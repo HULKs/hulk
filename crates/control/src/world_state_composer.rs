@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::greater_than_with_hysteresis;
+use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
 use nalgebra::{Isometry2, Point2};
 use spl_network_messages::PlayerNumber;

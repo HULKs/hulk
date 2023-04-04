@@ -3,7 +3,7 @@ use std::{f32::consts::FRAC_PI_2, mem::take};
 use approx::assert_relative_eq;
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
-use filtering::{PoseFilter, ScoredPoseFilter};
+use filtering::pose_filter::PoseFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use nalgebra::{
     distance, matrix, point, vector, Isometry2, Matrix, Matrix2, Matrix3, Point2, Rotation2,
@@ -12,16 +12,18 @@ use nalgebra::{
 use ordered_float::NotNan;
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
 use types::{
-    field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldDimensions, FieldMark,
-    GameControllerState, InitialPose, Line, Line2, LineData, LocalizationUpdate, Players,
-    PrimaryState, Side,
+    field_marks_from_field_dimensions,
+    localization::{ScoredPose, Update},
+    multivariate_normal_distribution::MultivariateNormalDistribution,
+    CorrespondencePoints, Direction, FieldDimensions, FieldMark, GameControllerState, InitialPose,
+    Line, Line2, LineData, Players, PrimaryState, Side,
 };
 
 pub struct Localization {
     field_marks: Vec<FieldMark>,
     last_primary_state: PrimaryState,
-    hypotheses: Vec<ScoredPoseFilter>,
-    hypotheses_when_entered_playing: Vec<ScoredPoseFilter>,
+    hypotheses: Vec<ScoredPose>,
+    hypotheses_when_entered_playing: Vec<ScoredPose>,
     is_penalized_with_motion_in_set: bool,
     was_picked_up_while_penalized_with_motion_in_set: bool,
 }
@@ -64,8 +66,8 @@ pub struct CycleContext {
     pub fit_errors: AdditionalOutput<Vec<Vec<Vec<Vec<f32>>>>, "localization.fit_errors">,
     pub measured_lines_in_field:
         AdditionalOutput<Vec<Line2>, "localization.measured_lines_in_field">,
-    pub pose_hypotheses: AdditionalOutput<Vec<ScoredPoseFilter>, "localization.pose_hypotheses">,
-    pub updates: AdditionalOutput<Vec<Vec<LocalizationUpdate>>, "localization.updates">,
+    pub pose_hypotheses: AdditionalOutput<Vec<ScoredPose>, "localization.pose_hypotheses">,
+    pub updates: AdditionalOutput<Vec<Vec<Update>>, "localization.updates">,
 
     pub current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
@@ -143,7 +145,7 @@ impl Localization {
                     &context.initial_poses[*context.player_number],
                     context.field_dimensions,
                 );
-                self.hypotheses = vec![ScoredPoseFilter::from_isometry(
+                self.hypotheses = vec![ScoredPose::from_isometry(
                     initial_pose,
                     *context.initial_hypothesis_covariance,
                     *context.initial_hypothesis_score,
@@ -162,7 +164,7 @@ impl Localization {
                         + (context.field_dimensions.length / 2.0),
                     0.0,
                 );
-                self.hypotheses = vec![ScoredPoseFilter::from_isometry(
+                self.hypotheses = vec![ScoredPose::from_isometry(
                     penalty_shoot_out_striker_pose,
                     *context.initial_hypothesis_covariance,
                     *context.initial_hypothesis_score,
@@ -178,7 +180,7 @@ impl Localization {
             ) => {
                 let penalty_shoot_out_keeper_pose =
                     Isometry2::translation(-context.field_dimensions.length / 2.0, 0.0);
-                self.hypotheses = vec![ScoredPoseFilter::from_isometry(
+                self.hypotheses = vec![ScoredPose::from_isometry(
                     penalty_shoot_out_keeper_pose,
                     *context.initial_hypothesis_covariance,
                     *context.initial_hypothesis_score,
@@ -206,7 +208,7 @@ impl Localization {
                         self.hypotheses_when_entered_playing = penalized_poses
                             .into_iter()
                             .map(|pose| {
-                                ScoredPoseFilter::from_isometry(
+                                ScoredPose::from_isometry(
                                     pose,
                                     *context.initial_hypothesis_covariance,
                                     *context.initial_hypothesis_score,
@@ -221,7 +223,7 @@ impl Localization {
                     self.hypotheses = penalized_poses
                         .into_iter()
                         .map(|pose| {
-                            ScoredPoseFilter::from_isometry(
+                            ScoredPose::from_isometry(
                                 pose,
                                 *context.initial_hypothesis_covariance,
                                 *context.initial_hypothesis_score,
@@ -236,7 +238,7 @@ impl Localization {
                 self.hypotheses = penalized_poses
                     .into_iter()
                     .map(|pose| {
-                        ScoredPoseFilter::from_isometry(
+                        ScoredPose::from_isometry(
                             pose,
                             *context.initial_hypothesis_covariance,
                             *context.initial_hypothesis_score,
@@ -274,18 +276,18 @@ impl Localization {
                 .get(line_data_top_timestamp);
 
             let mut fit_errors_per_hypothesis = vec![];
-            for (hypothesis_index, scored_filter) in self.hypotheses.iter_mut().enumerate() {
+            for (hypothesis_index, scored_state) in self.hypotheses.iter_mut().enumerate() {
                 if let Some(current_odometry_to_last_odometry) = current_odometry_to_last_odometry {
                     predict(
-                        &mut scored_filter.pose_filter,
+                        &mut scored_state.state,
                         current_odometry_to_last_odometry,
                         context.odometry_noise,
                     )
                     .wrap_err("failed to predict pose filter")?;
-                    scored_filter.score *= *context.hypothesis_prediction_score_reduction_factor;
+                    scored_state.score *= *context.hypothesis_prediction_score_reduction_factor;
                 }
                 if *context.use_line_measurements {
-                    let robot_to_field = scored_filter.pose_filter.isometry();
+                    let robot_to_field = scored_state.state.as_isometry();
                     let current_measured_lines_in_field: Vec<_> = line_data_top
                         .iter()
                         .chain(line_data_bottom.iter())
@@ -392,7 +394,7 @@ impl Localization {
                                             Isometry2::new(update, robot_to_field.rotation.angle())
                                         }
                                     };
-                                    LocalizationUpdate {
+                                    Update {
                                         robot_to_field,
                                         line_center_point,
                                         fit_error: clamped_fit_error,
@@ -408,8 +410,8 @@ impl Localization {
                             * line_length_weight
                             * line_distance_to_robot;
                         match field_mark_correspondence.field_mark {
-                            FieldMark::Line { line: _, direction } => scored_filter
-                                .pose_filter
+                            FieldMark::Line { line: _, direction } => scored_state
+                                .state
                                 .update_with_1d_translation_and_rotation(
                                     update,
                                     Matrix::from_diagonal(context.line_measurement_noise)
@@ -424,8 +426,8 @@ impl Localization {
                                     },
                                 )
                                 .context("Failed to update pose filter")?,
-                            FieldMark::Circle { .. } => scored_filter
-                                .pose_filter
+                            FieldMark::Circle { .. } => scored_state
+                                .state
                                 .update_with_2d_translation(
                                     update,
                                     Matrix::from_diagonal(context.circle_measurement_noise)
@@ -437,11 +439,11 @@ impl Localization {
                         if field_mark_correspondence.fit_error_sum()
                             < *context.good_matching_threshold
                         {
-                            scored_filter.score += *context.score_per_good_match;
+                            scored_state.score += *context.score_per_good_match;
                         }
                     }
                 }
-                scored_filter.score += *context.hypothesis_score_base_increase;
+                scored_state.score += *context.hypothesis_score_base_increase;
             }
 
             if context.fit_errors.is_subscribed() {
@@ -453,9 +455,10 @@ impl Localization {
             .get_best_hypothesis()
             .expect("Expected at least one hypothesis");
         let best_score = best_hypothesis.score;
-        let robot_to_field = best_hypothesis.pose_filter.isometry();
-        self.hypotheses
-            .retain(|filter| filter.score >= *context.hypothesis_retain_factor * best_score);
+        let robot_to_field = best_hypothesis.state.as_isometry();
+        self.hypotheses.retain(|scored_state| {
+            scored_state.score >= *context.hypothesis_retain_factor * best_score
+        });
 
         context
             .pose_hypotheses
@@ -499,7 +502,7 @@ impl Localization {
         })
     }
 
-    fn get_best_hypothesis(&self) -> Option<&ScoredPoseFilter> {
+    fn get_best_hypothesis(&self) -> Option<&ScoredPose> {
         self.hypotheses
             .iter()
             .max_by_key(|scored_filter| NotNan::new(scored_filter.score).unwrap())
@@ -591,11 +594,11 @@ impl FieldMarkCorrespondence {
 }
 
 fn predict(
-    filter: &mut PoseFilter,
+    state: &mut MultivariateNormalDistribution<3>,
     current_odometry_to_last_odometry: &Isometry2<f32>,
     odometry_noise: &Vector3<f32>,
 ) -> Result<()> {
-    let current_orientation_angle = filter.mean().z;
+    let current_orientation_angle = state.mean.z;
     // rotate odometry noise from robot frame to field frame
     let rotated_noise = Rotation2::new(current_orientation_angle) * odometry_noise.xy();
     let process_noise = Matrix::from_diagonal(&vector![
@@ -604,7 +607,7 @@ fn predict(
         odometry_noise.z
     ]);
 
-    filter.predict(
+    state.predict(
         |state| {
             // rotate odometry from robot frame to field frame
             let robot_odometry =
@@ -616,7 +619,8 @@ fn predict(
             ]
         },
         process_noise,
-    )
+    )?;
+    Ok(())
 }
 
 fn get_fitted_field_mark_correspondence(

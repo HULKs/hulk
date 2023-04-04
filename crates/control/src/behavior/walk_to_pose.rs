@@ -1,4 +1,4 @@
-use filtering::less_than_with_hysteresis;
+use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex};
 use types::{

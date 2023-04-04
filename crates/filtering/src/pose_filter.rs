@@ -1,52 +1,54 @@
-use color_eyre::{eyre::eyre, Result};
 use nalgebra::{
     vector, Complex, ComplexField, Isometry2, Matrix2, Matrix3, Matrix3x2, UnitComplex, Vector2,
     Vector3,
 };
-use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
+use thiserror::Error;
+use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
-pub struct ScoredPoseFilter {
-    pub pose_filter: PoseFilter,
-    pub score: f32,
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("failed to compute the inverse of the covariance matrix")]
+    Inverse,
+    #[error("failed to compute the cholesky decomposition of the covariance matrix")]
+    Cholesky,
 }
 
-impl ScoredPoseFilter {
-    pub fn from_isometry(pose: Isometry2<f32>, covariance: Matrix3<f32>, score: f32) -> Self {
-        Self {
-            pose_filter: PoseFilter::new(
-                vector![
-                    pose.translation.x,
-                    pose.translation.y,
-                    pose.rotation.angle()
-                ],
-                covariance,
-            ),
-            score,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
-pub struct PoseFilter {
-    mean: Vector3<f32>,
-    covariance: Matrix3<f32>,
-}
-
-impl PoseFilter {
-    pub fn new(initial_state: Vector3<f32>, inital_state_covariance: Matrix3<f32>) -> Self {
-        Self {
-            mean: initial_state,
-            covariance: inital_state_covariance,
-        }
-    }
-
-    pub fn predict<StatePredictionFunction>(
+pub trait PoseFilter {
+    fn predict<StatePredictionFunction>(
         &mut self,
         state_prediction_function: StatePredictionFunction,
         process_noise: Matrix3<f32>,
-    ) -> Result<()>
+    ) -> Result<(), Error>
+    where
+        StatePredictionFunction: Fn(Vector3<f32>) -> Vector3<f32>;
+
+    fn update_with_1d_translation_and_rotation<MeasurementPredictionFunction>(
+        &mut self,
+        measurement: Vector2<f32>,
+        measurement_noise: Matrix2<f32>,
+        measurement_prediction_function: MeasurementPredictionFunction,
+    ) -> Result<(), Error>
+    where
+        MeasurementPredictionFunction: Fn(Vector3<f32>) -> Vector2<f32>;
+
+    fn update_with_2d_translation<MeasurementPredictionFunction>(
+        &mut self,
+        measurement: Vector2<f32>,
+        measurement_noise: Matrix2<f32>,
+        measurement_prediction_function: MeasurementPredictionFunction,
+    ) -> Result<(), Error>
+    where
+        MeasurementPredictionFunction: Fn(Vector3<f32>) -> Vector2<f32>;
+
+    fn as_isometry(&self) -> Isometry2<f32>;
+}
+
+impl PoseFilter for MultivariateNormalDistribution<3> {
+    fn predict<StatePredictionFunction>(
+        &mut self,
+        state_prediction_function: StatePredictionFunction,
+        process_noise: Matrix3<f32>,
+    ) -> Result<(), Error>
     where
         StatePredictionFunction: Fn(Vector3<f32>) -> Vector3<f32>,
     {
@@ -64,12 +66,12 @@ impl PoseFilter {
         Ok(())
     }
 
-    pub fn update_with_1d_translation_and_rotation<MeasurementPredictionFunction>(
+    fn update_with_1d_translation_and_rotation<MeasurementPredictionFunction>(
         &mut self,
         measurement: Vector2<f32>,
         measurement_noise: Matrix2<f32>,
         measurement_prediction_function: MeasurementPredictionFunction,
-    ) -> Result<()>
+    ) -> Result<(), Error>
     where
         MeasurementPredictionFunction: Fn(Vector3<f32>) -> Vector2<f32>,
     {
@@ -97,7 +99,7 @@ impl PoseFilter {
         let kalman_gain = predicted_measurements_cross_covariance
             * (predicted_measurement_covariance + measurement_noise)
                 .try_inverse()
-                .ok_or_else(|| eyre!("failed to invert measurement covariance matrix"))?;
+                .ok_or(Error::Inverse)?;
 
         let residuum = measurement - predicted_measurement_mean;
         self.mean += kalman_gain * residuum;
@@ -109,12 +111,12 @@ impl PoseFilter {
     }
 
     // TODO: reduce code duplication
-    pub fn update_with_2d_translation<MeasurementPredictionFunction>(
+    fn update_with_2d_translation<MeasurementPredictionFunction>(
         &mut self,
         measurement: Vector2<f32>,
         measurement_noise: Matrix2<f32>,
         measurement_prediction_function: MeasurementPredictionFunction,
-    ) -> Result<()>
+    ) -> Result<(), Error>
     where
         MeasurementPredictionFunction: Fn(Vector3<f32>) -> Vector2<f32>,
     {
@@ -141,7 +143,7 @@ impl PoseFilter {
         let kalman_gain = predicted_measurements_cross_covariance
             * (predicted_measurement_covariance + measurement_noise)
                 .try_inverse()
-                .ok_or_else(|| eyre!("failed to invert measurement covariance matrix"))?;
+                .ok_or(Error::Inverse)?;
 
         let residuum = measurement - predicted_measurement_mean;
         self.mean += kalman_gain * residuum;
@@ -152,17 +154,8 @@ impl PoseFilter {
         Ok(())
     }
 
-    pub fn mean(&self) -> Vector3<f32> {
-        self.mean
-    }
-
-    pub fn isometry(&self) -> Isometry2<f32> {
+    fn as_isometry(&self) -> Isometry2<f32> {
         Isometry2::new(vector![self.mean.x, self.mean.y], self.mean.z)
-    }
-
-    #[allow(dead_code)]
-    pub fn covariance(&self) -> Matrix3<f32> {
-        self.covariance
     }
 }
 
@@ -170,13 +163,11 @@ fn into_symmetric(matrix: Matrix3<f32>) -> Matrix3<f32> {
     0.5 * (matrix + matrix.transpose())
 }
 
-fn sample_sigma_points(mean: Vector3<f32>, covariance: Matrix3<f32>) -> Result<[Vector3<f32>; 7]> {
-    let covariance_cholesky = covariance.cholesky().ok_or_else(|| {
-        eyre!(
-            "failed to decompose covariance matrix via Cholesky decomposition, matrix was: {}",
-            covariance
-        )
-    })?;
+fn sample_sigma_points(
+    mean: Vector3<f32>,
+    covariance: Matrix3<f32>,
+) -> Result<[Vector3<f32>; 7], Error> {
+    let covariance_cholesky = covariance.cholesky().ok_or(Error::Cholesky)?;
     let covariance_square_root = covariance_cholesky.l();
 
     let sigma_points = [

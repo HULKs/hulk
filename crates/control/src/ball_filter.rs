@@ -2,15 +2,17 @@ use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::KalmanFilter;
+use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use nalgebra::{
     matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2, Vector2, Vector4,
 };
 use projection::Projection;
 use types::{
-    ball_filter::Hypothesis, is_above_limbs, Ball, BallPosition, CameraMatrices, CameraMatrix,
-    Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs, SensorData,
+    ball_filter::Hypothesis, is_above_limbs,
+    multivariate_normal_distribution::MultivariateNormalDistribution, Ball, BallPosition,
+    CameraMatrices, CameraMatrix, Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs,
+    SensorData,
 };
 
 pub struct BallFilter {
@@ -132,7 +134,7 @@ impl BallFilter {
 
         let best_hypothesis = self.find_best_hypothesis();
         let ball_position = best_hypothesis.map(|hypothesis| BallPosition {
-            position: Point2::from(hypothesis.filter.state().xy()),
+            position: Point2::from(hypothesis.state.mean.xy()),
             last_seen: hypothesis.last_update,
         });
         context
@@ -215,7 +217,7 @@ impl BallFilter {
             let state_prediction = constant_velocity_prediction * state_rotation;
             let control_input_model = Matrix4x2::identity();
             let odometry_translation = last_odometry_to_current_odometry.translation.vector;
-            hypothesis.filter.predict(
+            hypothesis.state.predict(
                 state_prediction,
                 control_input_model,
                 odometry_translation,
@@ -236,8 +238,7 @@ impl BallFilter {
             .hypotheses
             .iter_mut()
             .filter(|hypothesis| {
-                (hypothesis.filter.state().xy() - detected_position.coords).norm()
-                    < matching_distance
+                (hypothesis.state.mean.xy() - detected_position.coords).norm() < matching_distance
             })
             .peekable();
         if matching_hypotheses.peek().is_none() {
@@ -245,7 +246,7 @@ impl BallFilter {
             return;
         }
         matching_hypotheses.for_each(|hypothesis| {
-            hypothesis.filter.update(
+            hypothesis.state.update(
                 Matrix2x4::identity(),
                 detected_position.coords,
                 measurement_noise * detected_position.coords.norm_squared(),
@@ -274,7 +275,10 @@ impl BallFilter {
             0.0
         ];
         let new_hypothesis = Hypothesis {
-            filter: KalmanFilter::new(initial_state, initial_covariance),
+            state: MultivariateNormalDistribution {
+                mean: initial_state,
+                covariance: initial_covariance,
+            },
             validity: 1.0,
             last_update: detection_time,
         };
@@ -290,7 +294,7 @@ impl BallFilter {
         field_dimensions: &FieldDimensions,
     ) {
         self.hypotheses.retain(|hypothesis| {
-            let position = hypothesis.filter.state().xy();
+            let position = hypothesis.state.mean.xy();
             let is_inside_field = position.x.abs()
                 < field_dimensions.length / 2.0 + field_dimensions.border_strip_width
                 && position.y.abs()
@@ -307,16 +311,15 @@ impl BallFilter {
                 deduplicated_hypotheses
                     .iter_mut()
                     .find(|existing_hypothesis| {
-                        (existing_hypothesis.filter.state().xy() - hypothesis.filter.state().xy())
-                            .norm()
+                        (existing_hypothesis.state.mean.xy() - hypothesis.state.mean.xy()).norm()
                             < merge_distance
                     });
             match hypothesis_in_merge_distance {
                 Some(existing_hypothesis) => {
-                    existing_hypothesis.filter.update(
+                    existing_hypothesis.state.update(
                         Matrix4::identity(),
-                        hypothesis.filter.state(),
-                        hypothesis.filter.covariance(),
+                        hypothesis.state.mean,
+                        hypothesis.state.covariance,
                     );
                 }
                 None => deduplicated_hypotheses.push(hypothesis),
@@ -331,7 +334,7 @@ fn project_to_image(
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
 ) -> Option<Circle> {
-    let position_on_ground = Point2::from(hypothesis.filter.state().xy());
+    let position_on_ground = Point2::from(hypothesis.state.mean.xy());
     let position_in_image = camera_matrix
         .ground_with_z_to_pixel(position_on_ground, ball_radius)
         .ok()?;
@@ -350,7 +353,7 @@ fn is_visible_to_camera(
     ball_radius: f32,
     projected_limbs_bottom: &[Limb],
 ) -> bool {
-    let position_on_ground = Point2::from(hypothesis.filter.state().xy());
+    let position_on_ground = Point2::from(hypothesis.state.mean.xy());
     let position_in_image =
         match camera_matrix.ground_with_z_to_pixel(position_on_ground, ball_radius) {
             Ok(position_in_image) => position_in_image,

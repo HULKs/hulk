@@ -2,13 +2,14 @@ use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::KalmanFilter;
+use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use itertools::{chain, iproduct};
 use nalgebra::{distance, point, Isometry2, Matrix2, Point2};
 use types::{
-    configuration::ObstacleFilter as ObstacleFilterConfiguration, obstacle_filter::Hypothesis,
-    CycleTime, DetectedFeet, FieldDimensions, Obstacle, ObstacleKind, SonarObstacle,
+    configuration::ObstacleFilter as ObstacleFilterConfiguration, detected_feet::DetectedFeet,
+    multivariate_normal_distribution::MultivariateNormalDistribution, obstacle_filter::Hypothesis,
+    CycleTime, FieldDimensions, Obstacle, ObstacleKind, SonarObstacle,
 };
 
 pub struct ObstacleFilter {
@@ -187,7 +188,7 @@ impl ObstacleFilter {
                     _ => panic!("Unexpected obstacle radius"),
                 };
                 Obstacle {
-                    position: hypothesis.filter.state().into(),
+                    position: hypothesis.state.mean.into(),
                     kind: hypothesis.obstacle_kind,
                     radius_at_hip_height,
                     radius_at_foot_height,
@@ -220,7 +221,7 @@ impl ObstacleFilter {
                 .to_rotation_matrix();
             let control_input_model = Matrix2::identity();
             let odometry_translation = last_odometry_to_current_odometry.translation.vector;
-            hypothesis.filter.predict(
+            hypothesis.state.predict(
                 *state_prediction.matrix(),
                 control_input_model,
                 odometry_translation,
@@ -241,7 +242,7 @@ impl ObstacleFilter {
             .hypotheses
             .iter_mut()
             .filter(|hypothesis| {
-                (hypothesis.filter.state() - detected_position.coords).norm() < matching_distance
+                (hypothesis.state.mean - detected_position.coords).norm() < matching_distance
             })
             .peekable();
         if matching_hypotheses.peek().is_none() {
@@ -254,7 +255,7 @@ impl ObstacleFilter {
             return;
         }
         matching_hypotheses.for_each(|hypothesis| {
-            hypothesis.filter.update(
+            hypothesis.state.update(
                 Matrix2::identity(),
                 detected_position.coords,
                 measurement_noise * detected_position.coords.norm_squared(),
@@ -278,7 +279,10 @@ impl ObstacleFilter {
     ) {
         let initial_state = detected_position.coords;
         let new_hypothesis = Hypothesis {
-            filter: KalmanFilter::new(initial_state, initial_covariance),
+            state: MultivariateNormalDistribution {
+                mean: initial_state,
+                covariance: initial_covariance,
+            },
             obstacle_kind,
             measurement_count: 1,
             last_update: detection_time,
@@ -303,15 +307,15 @@ impl ObstacleFilter {
                 deduplicated_hypotheses
                     .iter_mut()
                     .find(|existing_hypothesis| {
-                        (existing_hypothesis.filter.state() - hypothesis.filter.state()).norm()
+                        (existing_hypothesis.state.mean - hypothesis.state.mean).norm()
                             < merge_distance
                     });
             match hypothesis_in_merge_distance {
                 Some(existing_hypothesis) => {
-                    existing_hypothesis.filter.update(
+                    existing_hypothesis.state.update(
                         Matrix2::identity(),
-                        hypothesis.filter.state(),
-                        hypothesis.filter.covariance(),
+                        hypothesis.state.mean,
+                        hypothesis.state.covariance,
                     );
                     existing_hypothesis.obstacle_kind = match existing_hypothesis.obstacle_kind {
                         ObstacleKind::Robot => existing_hypothesis.obstacle_kind,
