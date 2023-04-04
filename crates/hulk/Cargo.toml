@@ -31,3 +31,11 @@ tokio-util = { workspace = true }
 types = { workspace = true }
 v4l = { optional = true, workspace = true }
 webots = { optional = true, workspace = true }
+
+[[bin]]
+name = "nao"
+required-features = ["nao"]
+
+[[bin]]
+name = "webots"
+required-features = ["webots"]
