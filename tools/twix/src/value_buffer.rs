@@ -27,6 +27,9 @@ enum Message {
     GetBuffered {
         response_sender: oneshot::Sender<Result<Vec<Value>, String>>,
     },
+    GetBufferSize {
+        response_sender: oneshot::Sender<Result<usize, String>>,
+    },
     SetBufferSize {
         buffer_size: usize,
     },
@@ -97,6 +100,17 @@ impl ValueBuffer {
             .blocking_send(Message::SetBufferSize { buffer_size })
             .unwrap();
     }
+
+    pub fn get_buffer_size(&self) -> Result<usize, String> {
+        let (sender, receiver) = oneshot::channel();
+        self.sender
+            .blocking_send(Message::GetBufferSize {
+                response_sender: sender,
+            })
+            .unwrap();
+        receiver.blocking_recv().unwrap()
+    }
+
     pub fn parse_latest<Output>(&self) -> Result<Output>
     where
         for<'de> Output: Deserialize<'de>,
@@ -184,6 +198,14 @@ async fn value_buffer(
                             };
                             response_sender.send(response).unwrap();
                         },
+                        Message::GetBufferSize{response_sender} => {
+                            let response = match &values {
+                                Some(Ok(values)) => Ok(values.len()),
+                                Some(Err(error)) => Err(error.clone()),
+                                None => Err("No response yet".to_string())
+                            };
+                            response_sender.send(response).unwrap();
+                        }
                         Message::SetBufferSize{buffer_size:new_buffer_size} => {
                             buffer_size = new_buffer_size;
                             if let Some(Ok(values)) = &mut values {
