@@ -79,9 +79,10 @@ impl Layer for FeetDetection {
             .flatten()
             .collect();
         for point in cluster_points {
+            let radius = 0.02;
             painter.circle_filled(
                 robot_to_field * point.position_in_ground,
-                0.02,
+                radius,
                 Color32::RED,
             );
         }
