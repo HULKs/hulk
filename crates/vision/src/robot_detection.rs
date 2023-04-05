@@ -9,7 +9,11 @@ use fast_image_resize::{
 use framework::{AdditionalOutput, MainOutput};
 use itertools::Itertools;
 use nalgebra::Vector2;
-use types::{grayscale_image::GrayscaleImage, ycbcr422_image::YCbCr422Image, Box, DetectedRobots};
+use types::{
+    detected_robots::{BoundingBox, DetectedRobots},
+    grayscale_image::GrayscaleImage,
+    ycbcr422_image::YCbCr422Image,
+};
 
 use crate::CyclerInstance;
 
@@ -133,7 +137,7 @@ fn create_boxes(
     neural_network: &mut CompiledNN,
     camera_image_size: Vector2<f32>,
     object_threshold: f32,
-) -> Vec<Box> {
+) -> Vec<BoundingBox> {
     let output_layer = neural_network.output(0);
 
     let grid_height = output_layer.dimensions[0] as usize;
@@ -171,7 +175,7 @@ fn boxes_from_output(
     grid_size: Vector2<f32>,
     camera_image_size: Vector2<f32>,
     box_scalings: &[Vector2<f32>; 4],
-) -> [Box; NUMBER_OF_SCALINGS] {
+) -> [BoundingBox; NUMBER_OF_SCALINGS] {
     let values = values.map(standard_logistic);
     [
         box_from_network_data(
@@ -227,8 +231,8 @@ fn box_from_network_data(
     grid_size: Vector2<f32>,
     camera_image_size: Vector2<f32>,
     scaling: Vector2<f32>,
-) -> Box {
-    Box {
+) -> BoundingBox {
+    BoundingBox {
         center: (center + grid_position)
             .component_div(&grid_size)
             .component_mul(&camera_image_size)

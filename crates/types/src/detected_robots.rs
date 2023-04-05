@@ -4,11 +4,11 @@ use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct DetectedRobots {
-    pub in_image: Vec<Box>,
+    pub in_image: Vec<BoundingBox>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy)]
-pub struct Box {
+pub struct BoundingBox {
     pub center: Point2<f32>,
     pub size: Vector2<f32>,
     pub probability: f32,

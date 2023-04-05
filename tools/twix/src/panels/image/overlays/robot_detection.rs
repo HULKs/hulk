@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::epaint::{Color32, Stroke};
-use types::Box;
+use types::detected_robots::BoundingBox;
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -26,7 +26,7 @@ impl Overlay for RobotDetection {
     }
 
     fn paint(&self, painter: &TwixPainter) -> Result<()> {
-        let boxes: Vec<Box> = self.boxes.require_latest()?;
+        let boxes: Vec<BoundingBox> = self.boxes.require_latest()?;
         for robot_box in &boxes {
             let color = Color32::RED;
             let line_stroke = Stroke::new(2.0, color);
