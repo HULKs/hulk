@@ -46,7 +46,7 @@ struct LineData {
     #[serde(skip)]
     is_highlighted: bool,
     #[serde(skip)]
-    hidden: bool,
+    is_hidden: bool,
 }
 
 impl LineData {
@@ -76,7 +76,7 @@ impl LineData {
             lua_text,
             lua_error: None,
             is_highlighted: false,
-            hidden: false,
+            is_hidden: false,
         };
 
         line_data.set_lua();
@@ -87,7 +87,7 @@ impl LineData {
         self.is_highlighted = is_highlighted
     }
 
-    fn plot(&self, buffer_size: usize) -> Line {
+    fn plot(&self, maximum_buffer_size: usize) -> Line {
         let lua_function: Function = self.lua.globals().get("conversion_function").unwrap();
         let values = self
             .value_buffer
@@ -96,12 +96,12 @@ impl LineData {
                 buffer
                     .get_buffered()
                     .map(|buffered_values| {
-                        PlotPoints::from_iter(buffered_values.iter().rev().enumerate().map(
+                        PlotPoints::from_iter(buffered_values.iter().enumerate().map(
                             |(i, value)| {
                                 let value = lua_function
                                     .call::<_, f64>(self.lua.to_value(value))
                                     .unwrap_or(f64::NAN);
-                                [(buffer_size + i - buffered_values.len()) as f64, value]
+                                [(maximum_buffer_size - i) as f64, value]
                             },
                         ))
                     })
@@ -113,7 +113,7 @@ impl LineData {
             .highlight(self.is_highlighted)
     }
 
-    fn draw_row(&mut self, ui: &mut Ui, nao: Arc<Nao>, buffer_size: usize, id: usize) {
+    fn show_settings(&mut self, ui: &mut Ui, nao: Arc<Nao>, buffer_size: usize, id: usize) {
         ui.horizontal_top(|ui| {
             let subscription_field =
                 ui.add(CompletionEdit::outputs(&mut self.output_key, nao.as_ref()));
@@ -176,7 +176,7 @@ impl LineData {
         self.value_buffer = match CyclerOutput::from_str(&self.output_key) {
             Ok(output) => {
                 let buffer = nao.subscribe_output(output);
-                buffer.set_buffer_size(buffer_size);
+                buffer.set_buffer_capacity(buffer_size);
                 Some(buffer)
             }
             Err(error) => {
@@ -239,10 +239,8 @@ impl PlotPanel {
             .line_datas
             .iter()
             .filter_map(|line_data| {
-                line_data
-                    .value_buffer
-                    .as_ref()
-                    .and_then(|buffer| buffer.get_buffer_size().ok())
+                let buffer = line_data.value_buffer.as_ref()?;
+                buffer.get_buffer_size().ok()
             })
             .max()
             .unwrap_or(self.buffer_size);
@@ -253,7 +251,7 @@ impl PlotPanel {
                 for line in self
                     .line_datas
                     .iter()
-                    .filter(|line_data| !line_data.hidden)
+                    .filter(|line_data| !line_data.is_hidden)
                     .map(|entry| entry.plot(maximum_buffer_size))
                 {
                     plot_ui.line(line);
@@ -277,7 +275,7 @@ impl PlotPanel {
                     .iter_mut()
                     .filter_map(|data| data.value_buffer.as_ref())
                 {
-                    buffer.set_buffer_size(self.buffer_size);
+                    buffer.set_buffer_capacity(self.buffer_size);
                 }
             }
         });
@@ -297,16 +295,16 @@ impl Widget for &mut PlotPanel {
                 let delete_button = ui.add(delete_button);
 
                 let hide_button = Button::new(
-                    RichText::new(if line_data.hidden { "V" } else { "H" })
+                    RichText::new(if line_data.is_hidden { "H" } else { "V" })
                         .color(Color32::WHITE)
                         .strong(),
                 )
                 .fill(Color32::GRAY);
                 if ui.add(hide_button).clicked() {
-                    line_data.hidden = !line_data.hidden;
+                    line_data.is_hidden = !line_data.is_hidden;
                 }
 
-                line_data.draw_row(ui, self.nao.clone(), self.buffer_size, id);
+                line_data.show_settings(ui, self.nao.clone(), self.buffer_size, id);
                 id += 1;
                 !delete_button.clicked()
             })

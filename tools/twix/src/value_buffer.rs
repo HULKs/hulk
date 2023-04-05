@@ -30,7 +30,7 @@ enum Message {
     GetBufferSize {
         response_sender: oneshot::Sender<Result<usize, String>>,
     },
-    SetBufferSize {
+    SetBufferCapacity {
         buffer_size: usize,
     },
     ListenToUpdates {
@@ -95,9 +95,9 @@ impl ValueBuffer {
         receiver.blocking_recv().unwrap()
     }
 
-    pub fn set_buffer_size(&self, buffer_size: usize) {
+    pub fn set_buffer_capacity(&self, buffer_size: usize) {
         self.sender
-            .blocking_send(Message::SetBufferSize { buffer_size })
+            .blocking_send(Message::SetBufferCapacity { buffer_size })
             .unwrap();
     }
 
@@ -206,7 +206,7 @@ async fn value_buffer(
                             };
                             response_sender.send(response).unwrap();
                         }
-                        Message::SetBufferSize{buffer_size:new_buffer_size} => {
+                        Message::SetBufferCapacity{buffer_size:new_buffer_size} => {
                             buffer_size = new_buffer_size;
                             if let Some(Ok(values)) = &mut values {
                                 values.truncate(buffer_size);
