@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
-use spl_network_messages::GameControllerReturnMessage;
+use spl_network_messages::{GameControllerReturnMessage, HulkMessage};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MessageEvent<'buffer> {
@@ -9,7 +9,7 @@ pub enum MessageEvent<'buffer> {
         message: GameControllerReturnMessage,
     },
     SplMessageToBeSent {
-        message: GameControllerReturnMessage,
+        message: HulkMessage,
     },
     IncomingGameControllerStateMessage {
         message: &'buffer [u8],

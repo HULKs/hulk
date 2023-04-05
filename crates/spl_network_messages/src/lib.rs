@@ -17,6 +17,8 @@ pub use game_controller_state_message::{
 };
 use serialize_hierarchy::SerializeHierarchy;
 
+pub type HulkMessage = GameControllerReturnMessage;
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct BallPosition {
     pub relative_position: Point2<f32>,
