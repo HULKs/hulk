@@ -101,7 +101,7 @@ impl LineData {
                                 let value = lua_function
                                     .call::<_, f64>(self.lua.to_value(value))
                                     .unwrap_or(f64::NAN);
-                                [(maximum_buffer_size - i) as f64, value]
+                                [(maximum_buffer_size - i - 1) as f64, value]
                             },
                         ))
                     })
@@ -294,12 +294,14 @@ impl Widget for &mut PlotPanel {
                     .fill(Color32::RED);
                 let delete_button = ui.add(delete_button);
 
-                let hide_button = Button::new(
-                    RichText::new(if line_data.is_hidden { "H" } else { "V" })
-                        .color(Color32::WHITE)
-                        .strong(),
-                )
-                .fill(Color32::GRAY);
+                let hide_button_face = if line_data.is_hidden {
+                    RichText::new("H")
+                } else {
+                    RichText::new("V")
+                };
+
+                let hide_button = Button::new(hide_button_face.color(Color32::WHITE))
+                    .fill(Color32::GRAY);
                 if ui.add(hide_button).clicked() {
                     line_data.is_hidden = !line_data.is_hidden;
                 }
