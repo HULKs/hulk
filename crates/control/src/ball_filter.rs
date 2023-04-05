@@ -369,9 +369,9 @@ fn is_visible_to_camera(
     ball_radius: f32,
     projected_limbs_bottom: &[Limb],
 ) -> bool {
-    let ground_coordinates = Point2::from(hypothesis.filter.state().xy());
+    let position_on_ground = Point2::from(hypothesis.filter.state().xy());
     let position_in_image =
-        match camera_matrix.ground_with_z_to_pixel(ground_coordinates, ball_radius) {
+        match camera_matrix.ground_with_z_to_pixel(position_on_ground, ball_radius) {
             Ok(position_in_image) => position_in_image,
             Err(_) => return false,
         };
