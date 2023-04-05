@@ -350,15 +350,15 @@ fn project_to_image(
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
 ) -> Option<Circle> {
-    let ground_coordinates = Point2::from(hypothesis.filter.state().xy());
-    let pixel_position = camera_matrix
-        .ground_with_z_to_pixel(ground_coordinates, ball_radius)
+    let position_on_ground = Point2::from(hypothesis.filter.state().xy());
+    let position_in_image = camera_matrix
+        .ground_with_z_to_pixel(position_on_ground, ball_radius)
         .ok()?;
     let radius = camera_matrix
-        .get_pixel_radius(ball_radius, pixel_position, vector![640, 480])
+        .get_pixel_radius(ball_radius, position_in_image, vector![640, 480])
         .ok()?;
     Some(Circle {
-        center: pixel_position,
+        center: position_in_image,
         radius,
     })
 }
