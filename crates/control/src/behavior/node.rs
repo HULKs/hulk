@@ -1,3 +1,5 @@
+use std::time::{SystemTime};
+
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
@@ -5,8 +7,8 @@ use nalgebra::{point, Point2};
 use spl_network_messages::{GamePhase, Team};
 use types::{
     configuration::{Behavior as BehaviorConfiguration, LostBall},
-    FieldDimensions, FilteredGameState, GameControllerState, KickDecision, MotionCommand,
-    PathObstacle, Role, Side, WorldState,
+    CycleTime, FieldDimensions, FilteredGameState, GameControllerState, KickDecision,
+    MotionCommand, PathObstacle, PrimaryState, Role, Side, WorldState,
 };
 
 use super::{
@@ -14,14 +16,15 @@ use super::{
     defend::Defend,
     dribble, fall_safely,
     head::LookAction,
-    jump, lost_ball, penalize, prepare_jump, search, sit_down, stand, stand_up, support, unstiff,
-    walk_to_kick_off,
+    jump, look_around, lost_ball, penalize, prepare_jump, search, sit_down, stand, stand_up,
+    support, unstiff, walk_to_kick_off,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
 
 pub struct Behavior {
     last_motion_command: MotionCommand,
     absolute_last_known_ball_position: Point2<f32>,
+    active_since: Option<SystemTime>,
 }
 
 #[context]
@@ -40,6 +43,7 @@ pub struct CycleContext {
 
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub world_state: Input<WorldState, "world_state">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub configuration: Parameter<BehaviorConfiguration, "behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -57,6 +61,7 @@ impl Behavior {
         Ok(Self {
             last_motion_command: MotionCommand::Unstiff,
             absolute_last_known_ball_position: point![0.0, 0.0],
+            active_since: None,
         })
     }
 
@@ -75,6 +80,20 @@ impl Behavior {
             self.absolute_last_known_ball_position = robot_to_field * ball_state.position;
         }
 
+        let now = context.cycle_time.start_time;
+        match (self.active_since, world_state.robot.primary_state) {
+            (
+                None,
+                PrimaryState::Ready { .. } | PrimaryState::Set | PrimaryState::Playing { .. },
+            ) => self.active_since = Some(now),
+            (None, _) => {}
+            (
+                Some(_),
+                PrimaryState::Ready { .. } | PrimaryState::Set | PrimaryState::Playing { .. },
+            ) => {}
+            (Some(_), _) => self.active_since = None,
+        }
+
         let mut actions = vec![
             Action::Unstiff,
             Action::SitDown,
@@ -83,6 +102,14 @@ impl Behavior {
             Action::StandUp,
             Action::Stand,
         ];
+
+        if let Some(active_since) = self.active_since {
+            if now.duration_since(active_since).unwrap().as_secs_f32()
+                < context.configuration.initial_lookaround_duration
+            {
+                actions.push(Action::LookAround);
+            }
+        }
 
         match world_state.robot.role {
             Role::DefenderLeft => actions.push(Action::DefendLeft),
@@ -148,6 +175,7 @@ impl Behavior {
                     fall_safely::execute(world_state, *context.has_ground_contact)
                 }
                 Action::StandUp => stand_up::execute(world_state),
+                Action::LookAround => look_around::execute(world_state),
                 Action::DefendGoal => defend.goal(&mut context.path_obstacles),
                 Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
                 Action::DefendLeft => defend.left(&mut context.path_obstacles),
