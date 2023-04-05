@@ -11,13 +11,11 @@ use tokio::{
 
 use crate::{
     messages::{ParametersResponse, Response, TextualResponse},
+    parameters_computation::{deserialize, serialize},
     server::client::Client,
 };
 
-use super::{
-    directory::{deserialize, serialize},
-    StorageRequest,
-};
+use super::StorageRequest;
 
 pub fn storage<Parameters>(
     parameters_writer: Writer<Parameters>,

@@ -168,7 +168,7 @@ async fn to_path(file_path: impl AsRef<Path>, value: Value) -> Result<(), Serial
         })
 }
 
-fn merge_json(own: &mut Value, other: &Value) {
+pub fn merge_json(own: &mut Value, other: &Value) {
     match (own, other) {
         (&mut Value::Object(ref mut own), Value::Object(other)) => {
             for (key, value) in other {

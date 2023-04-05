@@ -182,7 +182,7 @@ impl Repository {
             .join(format!("head.{head_id}.json"))
     }
 
-    async fn read_configuration(&self, head_id: &str) -> Result<Value> {
+    pub async fn read_configuration(&self, head_id: &str) -> Result<Value> {
         let configuration_file_path = self.head_configuration(head_id);
         let mut configuration_file = OpenOptions::new()
             .read(true)
@@ -208,7 +208,7 @@ impl Repository {
         })
     }
 
-    async fn write_configuration(&self, head_id: &str, configuration: &Value) -> Result<()> {
+    pub async fn write_configuration(&self, head_id: &str, configuration: &Value) -> Result<()> {
         let configuration_file_path = self.head_configuration(head_id);
         let mut contents = to_vec_pretty(configuration).wrap_err_with(|| {
             format!(
@@ -586,7 +586,7 @@ impl Display for CargoAction {
     }
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct HardwareIds {
     pub body_id: String,
     pub head_id: String,
