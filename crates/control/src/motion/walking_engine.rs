@@ -134,7 +134,15 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
+<<<<<<< HEAD
     pub walk_joints_command: MainOutput<BodyJointsCommand<f32>>,
+||||||| parent of 12158db2 (removed unnecessary stuff)
+    pub step_t: MainOutput<f32>,
+    pub unstable_score: MainOutput<usize>,
+    pub walk_joints_command: MainOutput<BodyJointsCommand>,
+=======
+    pub walk_joints_command: MainOutput<BodyJointsCommand>,
+>>>>>>> 12158db2 (removed unnecessary stuff)
 }
 
 impl WalkingEngine {
@@ -319,8 +327,6 @@ impl WalkingEngine {
         };
 
         Ok(MainOutputs {
-            step_t: (self.t.as_secs_f32()/self.step_duration.as_secs_f32()).into(),
-            unstable_score: (self.number_of_unstable_steps + self.remaining_stabilizing_steps).into(),
             walk_joints_command: BodyJointsCommand {
                 positions: BodyJoints {
                     left_arm,
