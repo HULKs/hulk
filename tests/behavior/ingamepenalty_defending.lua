@@ -82,10 +82,15 @@ function on_cycle()
   if state.cycle_count == 2650 then
     state.game_controller_state.set_play = "PenaltyKick"
     state.game_controller_state.kicking_team = "Opponent"
+    state.game_controller_state.game_state = "Ready"
     state.filtered_game_state = {
       Ready = {
         kicking_team = "Opponent"
       }
+    }
+    state.ball = {
+      position = { -3.2, 0.0 },
+      velocity = { 0.0, 0.0 },
     }
     --Missing behavior starts here
   end
@@ -93,10 +98,6 @@ function on_cycle()
   if state.cycle_count == 3700 then
     state.game_controller_state.game_state= "Set"
     state.filtered_game_state = "Set"
-    state.ball = {
-      position = { -3.2, 0.0 },
-      velocity = { 0.0, 0.0 },
-    }
   end
 
   if state.cycle_count == 4000 then
