@@ -208,8 +208,8 @@ async fn value_buffer(
                             };
                             response_sender.send(response).unwrap();
                         }
-                        Message::SetBufferCapacity{buffer_capacity:new_buffer_size} => {
-                            buffer_capacity = new_buffer_size;
+                        Message::SetBufferCapacity{buffer_capacity:new_buffer_capacity} => {
+                            buffer_capacity = new_buffer_capacity;
                             if let Some(Ok(values)) = &mut values {
                                 values.truncate(buffer_capacity);
                             }
