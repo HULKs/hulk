@@ -27,10 +27,10 @@ enum Message {
     GetBuffered {
         response_sender: oneshot::Sender<Result<Vec<Value>, String>>,
     },
-    GetBufferSize {
+    GetSize {
         response_sender: oneshot::Sender<Result<usize, String>>,
     },
-    SetBufferCapacity {
+    SetCapacity {
         buffer_capacity: usize,
     },
     ListenToUpdates {
@@ -97,7 +97,7 @@ impl ValueBuffer {
 
     pub fn reserve(&self, buffer_size: usize) {
         self.sender
-            .blocking_send(Message::SetBufferCapacity {
+            .blocking_send(Message::SetCapacity {
                 buffer_capacity: buffer_size,
             })
             .unwrap();
@@ -106,7 +106,7 @@ impl ValueBuffer {
     pub fn size(&self) -> Result<usize, String> {
         let (sender, receiver) = oneshot::channel();
         self.sender
-            .blocking_send(Message::GetBufferSize {
+            .blocking_send(Message::GetSize {
                 response_sender: sender,
             })
             .unwrap();
@@ -200,7 +200,7 @@ async fn value_buffer(
                             };
                             response_sender.send(response).unwrap();
                         },
-                        Message::GetBufferSize{response_sender} => {
+                        Message::GetSize{response_sender} => {
                             let response = match &values {
                                 Some(Ok(values)) => Ok(values.len()),
                                 Some(Err(error)) => Err(error.clone()),
@@ -208,7 +208,7 @@ async fn value_buffer(
                             };
                             response_sender.send(response).unwrap();
                         }
-                        Message::SetBufferCapacity{buffer_capacity:new_buffer_capacity} => {
+                        Message::SetCapacity{buffer_capacity:new_buffer_capacity} => {
                             buffer_capacity = new_buffer_capacity;
                             if let Some(Ok(values)) = &mut values {
                                 values.truncate(buffer_capacity);
