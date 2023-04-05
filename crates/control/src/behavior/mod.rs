@@ -4,6 +4,7 @@ mod dribble;
 mod fall_safely;
 mod head;
 mod jump;
+mod look_around;
 mod lost_ball;
 pub mod node;
 mod penalize;
