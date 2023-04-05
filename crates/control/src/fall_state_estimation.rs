@@ -1,5 +1,4 @@
 use std::f32::consts::{FRAC_PI_2, PI};
-use std::time::Duration;
 use std::time::Instant;
 
 use color_eyre::Result;
@@ -201,7 +200,7 @@ impl FallStateEstimation {
 
         context
             .guessed_time_to_fall
-            .fill_if_subscribed(|| self.guessed_time_to_fall);
+            .fill_if_subscribed(|| self.guessed_time_to_fall.clamp(0., 10.));
 
         Ok(MainOutputs {
             fall_state: fall_state.into(),
