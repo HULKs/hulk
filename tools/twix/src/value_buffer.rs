@@ -31,7 +31,7 @@ enum Message {
         response_sender: oneshot::Sender<Result<usize, String>>,
     },
     SetBufferCapacity {
-        buffer_size: usize,
+        buffer_capacity: usize,
     },
     ListenToUpdates {
         response_sender: mpsc::Sender<()>,
@@ -95,13 +95,15 @@ impl ValueBuffer {
         receiver.blocking_recv().unwrap()
     }
 
-    pub fn set_buffer_capacity(&self, buffer_size: usize) {
+    pub fn reserve(&self, buffer_size: usize) {
         self.sender
-            .blocking_send(Message::SetBufferCapacity { buffer_size })
+            .blocking_send(Message::SetBufferCapacity {
+                buffer_capacity: buffer_size,
+            })
             .unwrap();
     }
 
-    pub fn get_buffer_size(&self) -> Result<usize, String> {
+    pub fn size(&self) -> Result<usize, String> {
         let (sender, receiver) = oneshot::channel();
         self.sender
             .blocking_send(Message::GetBufferSize {
@@ -142,7 +144,7 @@ async fn value_buffer(
 ) {
     let mut values: Option<Result<VecDeque<Value>, String>> = None;
     let mut update_listeners: Vec<mpsc::Sender<()>> = Vec::new();
-    let mut buffer_size = 1;
+    let mut buffer_capacity = 1;
     loop {
         select! {
             maybe_message = subscriber_receiver.recv() => {
@@ -153,10 +155,10 @@ async fn value_buffer(
                                 match &mut values {
                                     Some(Ok(values)) => {
                                         values.push_front(new_value);
-                                        values.truncate(buffer_size);
+                                        values.truncate(buffer_capacity);
                                     },
                                     _ => {
-                                        let mut new_buffer = VecDeque::with_capacity(buffer_size);
+                                        let mut new_buffer = VecDeque::with_capacity(buffer_capacity);
                                         new_buffer.push_back(new_value);
                                         values = Some(Ok(new_buffer));
                                     },
@@ -206,10 +208,10 @@ async fn value_buffer(
                             };
                             response_sender.send(response).unwrap();
                         }
-                        Message::SetBufferCapacity{buffer_size:new_buffer_size} => {
-                            buffer_size = new_buffer_size;
+                        Message::SetBufferCapacity{buffer_capacity:new_buffer_size} => {
+                            buffer_capacity = new_buffer_size;
                             if let Some(Ok(values)) = &mut values {
-                                values.truncate(buffer_size);
+                                values.truncate(buffer_capacity);
                             }
                         },
                         Message::ListenToUpdates{response_sender} => {

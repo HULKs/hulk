@@ -176,7 +176,7 @@ impl LineData {
         self.value_buffer = match CyclerOutput::from_str(&self.output_key) {
             Ok(output) => {
                 let buffer = nao.subscribe_output(output);
-                buffer.set_buffer_capacity(buffer_size);
+                buffer.reserve(buffer_size);
                 Some(buffer)
             }
             Err(error) => {
@@ -189,7 +189,7 @@ impl LineData {
 
 pub struct PlotPanel {
     line_datas: Vec<LineData>,
-    buffer_size: usize,
+    buffer_capacity: usize,
     nao: Arc<Nao>,
 }
 
@@ -197,7 +197,7 @@ impl Panel for PlotPanel {
     const NAME: &'static str = "Plot";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        const DEFAULT_BUFFER_SIZE: usize = 1_000;
+        const DEFAULT_BUFFER_CAPACITY: usize = 1_000;
 
         let line_datas = if let Some(line_datas) =
             value.and_then(|value| value["subscribe_keys"].as_array())
@@ -221,7 +221,7 @@ impl Panel for PlotPanel {
 
         PlotPanel {
             line_datas,
-            buffer_size: DEFAULT_BUFFER_SIZE,
+            buffer_capacity: DEFAULT_BUFFER_CAPACITY,
             nao,
         }
     }
@@ -240,10 +240,10 @@ impl PlotPanel {
             .iter()
             .filter_map(|line_data| {
                 let buffer = line_data.value_buffer.as_ref()?;
-                buffer.get_buffer_size().ok()
+                buffer.size().ok()
             })
             .max()
-            .unwrap_or(self.buffer_size);
+            .unwrap_or(self.buffer_capacity);
 
         EguiPlot::new(ui.id().with("value_plot"))
             .view_aspect(2.0)
@@ -264,7 +264,7 @@ impl PlotPanel {
         ui.horizontal(|ui| {
             if ui
                 .add(
-                    DragValue::new(&mut self.buffer_size)
+                    DragValue::new(&mut self.buffer_capacity)
                         .clamp_range(0..=10_000)
                         .prefix("Buffer Size:"),
                 )
@@ -275,7 +275,7 @@ impl PlotPanel {
                     .iter_mut()
                     .filter_map(|data| data.value_buffer.as_ref())
                 {
-                    buffer.set_buffer_capacity(self.buffer_size);
+                    buffer.reserve(self.buffer_capacity);
                 }
             }
         });
@@ -300,13 +300,13 @@ impl Widget for &mut PlotPanel {
                     RichText::new("V")
                 };
 
-                let hide_button = Button::new(hide_button_face.color(Color32::WHITE))
-                    .fill(Color32::GRAY);
+                let hide_button =
+                    Button::new(hide_button_face.color(Color32::WHITE)).fill(Color32::GRAY);
                 if ui.add(hide_button).clicked() {
                     line_data.is_hidden = !line_data.is_hidden;
                 }
 
-                line_data.show_settings(ui, self.nao.clone(), self.buffer_size, id);
+                line_data.show_settings(ui, self.nao.clone(), self.buffer_capacity, id);
                 id += 1;
                 !delete_button.clicked()
             })
