@@ -1,4 +1,4 @@
-use std::{num::NonZeroU32, path::PathBuf};
+use std::{num::NonZeroU32, ops::Range, path::PathBuf};
 
 use color_eyre::Result;
 use compiled_nn::CompiledNN;
@@ -8,11 +8,13 @@ use fast_image_resize::{
 };
 use framework::{AdditionalOutput, MainOutput};
 use itertools::Itertools;
-use nalgebra::Vector2;
+use nalgebra::{vector, Isometry3, Vector2};
+use projection::Projection;
 use types::{
     detected_robots::{BoundingBox, DetectedRobots},
     grayscale_image::GrayscaleImage,
     ycbcr422_image::YCbCr422Image,
+    CameraMatrix,
 };
 
 use crate::CyclerInstance;
@@ -40,9 +42,15 @@ pub struct CreationContext {
 pub struct CycleContext {
     pub instance: CyclerInstance,
     pub image: Input<YCbCr422Image, "image">,
+    pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    pub robot_to_ground: RequiredInput<Option<Isometry3<f32>>, "Control", "robot_to_ground?">,
     pub luminance_image: AdditionalOutput<GrayscaleImage, "robot_detection.luminance_image">,
     pub object_threshold: Parameter<f32, "robot_detection.$cycler_instance.object_threshold">,
     pub enable: Parameter<bool, "robot_detection.$cycler_instance.enable">,
+    pub lowest_bottom_pixel_position:
+        Parameter<f32, "robot_detection.$cycler_instance.lowest_bottom_pixel_position">,
+    pub allowed_projected_robot_height:
+        Parameter<Range<f32>, "robot_detection.$cycler_instance.allowed_projected_robot_height">,
 }
 
 #[context]
@@ -86,13 +94,57 @@ impl RobotDetection {
             *context.object_threshold,
         );
 
+        let filtered_detections =
+            filter_by_pixel_position(grid_boxes, *context.lowest_bottom_pixel_position);
+
+        let filtered_detections = filter_by_size(
+            filtered_detections,
+            context.camera_matrix,
+            context.robot_to_ground,
+            context.allowed_projected_robot_height,
+        );
+
         let detected_robots = DetectedRobots {
-            in_image: grid_boxes,
+            in_image: filtered_detections,
         };
         Ok(MainOutputs {
             detected_robots: detected_robots.into(),
         })
     }
+}
+
+fn filter_by_pixel_position(
+    mut grid_boxes: Vec<BoundingBox>,
+    lowest_bottom_pixel_position: f32,
+) -> Vec<BoundingBox> {
+    grid_boxes.retain(|bounding_box| {
+        let box_bottom = bounding_box.center.y + bounding_box.size.y / 2.0;
+        box_bottom < lowest_bottom_pixel_position
+    });
+    grid_boxes
+}
+
+fn filter_by_size(
+    mut grid_boxes: Vec<BoundingBox>,
+    camera_matrix: &CameraMatrix,
+    robot_to_ground: &Isometry3<f32>,
+    allowed_projected_robot_height: &Range<f32>,
+) -> Vec<BoundingBox> {
+    grid_boxes.retain(|bounding_box| {
+        let box_bottom = bounding_box.center + vector![0.0, bounding_box.size.y / 2.0];
+        let feet_position = match camera_matrix.pixel_to_ground(box_bottom) {
+            Ok(ok) => ok,
+            Err(_) => return false,
+        };
+        let box_top = bounding_box.center - vector![0.0, bounding_box.size.y / 2.0];
+        let head_position = match camera_matrix.pixel_to_robot_with_x(box_top, feet_position.x) {
+            Ok(ok) => ok,
+            Err(_) => return false,
+        };
+        let head_position_over_ground = robot_to_ground * head_position;
+        allowed_projected_robot_height.contains(&head_position_over_ground.z)
+    });
+    grid_boxes
 }
 
 fn generate_luminance_image(image: &YCbCr422Image) -> Result<GrayscaleImage, ImageBufferError> {
