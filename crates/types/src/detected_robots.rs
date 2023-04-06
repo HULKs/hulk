@@ -5,6 +5,7 @@ use serialize_hierarchy::SerializeHierarchy;
 #[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct DetectedRobots {
     pub in_image: Vec<BoundingBox>,
+    pub on_ground: Vec<Point2<f32>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy)]
