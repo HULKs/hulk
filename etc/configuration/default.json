@@ -154,7 +154,7 @@
     "vision_top": {
       "enable": true,
       "neural_network": "etc/neural_networks/robot_detector.hdf5",
-      "object_threshold": 0.5,
+      "object_threshold": 0.9,
       "lowest_bottom_pixel_position": 480,
       "allowed_projected_robot_height": {
         "start": 0.55,
@@ -240,19 +240,22 @@
   "obstacle_filter": {
     "hypothesis_timeout": {
       "nanos": 0,
-      "secs": 5
+      "secs": 2
     },
     "network_robot_measurement_matching_distance": 0.2,
     "sonar_goal_post_matching_distance": 0.2,
-    "robot_detection_measurement_matching_distance": 0.2,
+    "feet_detection_measurement_matching_distance": 0.2,
+    "robot_detection_measurement_matching_distance": 0.4,
     "goal_post_measurement_matching_distance": 0.35,
-    "hypothesis_merge_distance": 0.5,
+    "hypothesis_merge_distance": 0.3,
     "process_noise": [0.005, 0.005],
-    "robot_measurement_noise": [30.0, 30.0],
-    "sonar_measurement_noise": [15.0, 15.0],
+    "feet_measurement_noise": [3.0, 3.0],
+    "robot_measurement_noise": [3.0, 3.0],
+    "sonar_measurement_noise": [1.5, 1.5],
     "network_robot_measurement_noise": [3.0, 5.0],
-    "initial_covariance": [0.5, 0.5],
+    "initial_covariance": [0.25, 0.25],
     "measurement_count_threshold": 10,
+    "use_feet_detection_measurements": true,
     "use_robot_detection_measurements": true,
     "use_sonar_measurements": true,
     "robot_obstacle_radius_at_hip_height": 0.2,

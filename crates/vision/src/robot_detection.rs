@@ -104,8 +104,17 @@ impl RobotDetection {
             context.allowed_projected_robot_height,
         );
 
+        let on_ground = filtered_detections
+            .iter()
+            .filter_map(|bounding_box| {
+                let box_bottom = bounding_box.center + vector![0.0, bounding_box.size.y / 2.0];
+                context.camera_matrix.pixel_to_ground(box_bottom).ok()
+            })
+            .collect();
+
         let detected_robots = DetectedRobots {
             in_image: filtered_detections,
+            on_ground,
         };
         Ok(MainOutputs {
             detected_robots: detected_robots.into(),
