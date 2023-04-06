@@ -8,6 +8,7 @@ use itertools::{chain, iproduct};
 use nalgebra::{distance, point, Isometry2, Matrix2, Point2};
 use types::{
     configuration::ObstacleFilter as ObstacleFilterConfiguration, detected_feet::DetectedFeet,
+    detected_robots::DetectedRobots,
     multivariate_normal_distribution::MultivariateNormalDistribution, obstacle_filter::Hypothesis,
     CycleTime, FieldDimensions, Obstacle, ObstacleKind, SonarObstacle,
 };
@@ -45,6 +46,8 @@ pub struct CycleContext {
 
     pub detected_feet_bottom: PerceptionInput<DetectedFeet, "VisionBottom", "detected_feet">,
     pub detected_feet_top: PerceptionInput<DetectedFeet, "VisionTop", "detected_feet">,
+    pub detected_robots_bottom: PerceptionInput<DetectedRobots, "VisionBottom", "detected_robots">,
+    pub detected_robots_top: PerceptionInput<DetectedRobots, "VisionTop", "detected_robots">,
 }
 
 #[context]
@@ -63,12 +66,15 @@ impl ObstacleFilter {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let field_dimensions = context.field_dimensions;
         let cycle_start_time = context.cycle_time.start_time;
-        let measured_robots = context
+        let measurements = context
             .detected_feet_top
             .persistent
             .iter()
-            .zip(context.detected_feet_bottom.persistent.values());
-        for ((detection_time, robots_top), robots_bottom) in measured_robots {
+            .zip(context.detected_feet_bottom.persistent.values())
+            .zip(context.detected_robots_top.persistent.values())
+            .zip(context.detected_robots_bottom.persistent.values());
+        for ((((detection_time, feet_top), feet_bottom), robots_top), robots_bottom) in measurements
+        {
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
                 .get(detection_time)
@@ -102,27 +108,51 @@ impl ObstacleFilter {
 
             if context
                 .obstacle_filter_configuration
+                .use_feet_detection_measurements
+            {
+                let measured_positions_in_control_cycle = feet_top
+                    .iter()
+                    .chain(feet_bottom.iter())
+                    .flat_map(|obstacles| obstacles.positions.iter());
+
+                for position in measured_positions_in_control_cycle {
+                    self.update_hypotheses_with_measurement(
+                        *position,
+                        ObstacleKind::Robot,
+                        *detection_time,
+                        context
+                            .obstacle_filter_configuration
+                            .feet_detection_measurement_matching_distance,
+                        Matrix2::from_diagonal(
+                            &context.obstacle_filter_configuration.feet_measurement_noise,
+                        ),
+                    );
+                }
+            }
+
+            if context
+                .obstacle_filter_configuration
                 .use_robot_detection_measurements
             {
-                let measured_robots_in_control_cycle =
-                    robots_top.iter().chain(robots_bottom.iter());
+                let measured_positions_in_control_cycle = robots_top
+                    .iter()
+                    .chain(robots_bottom.iter())
+                    .flat_map(|obstacles| obstacles.on_ground.iter());
 
-                for obstacles in measured_robots_in_control_cycle {
-                    for position in obstacles.positions.iter() {
-                        self.update_hypotheses_with_measurement(
-                            *position,
-                            ObstacleKind::Robot,
-                            *detection_time,
-                            context
+                for position in measured_positions_in_control_cycle {
+                    self.update_hypotheses_with_measurement(
+                        *position,
+                        ObstacleKind::Robot,
+                        *detection_time,
+                        context
+                            .obstacle_filter_configuration
+                            .robot_detection_measurement_matching_distance,
+                        Matrix2::from_diagonal(
+                            &context
                                 .obstacle_filter_configuration
-                                .robot_detection_measurement_matching_distance,
-                            Matrix2::from_diagonal(
-                                &context
-                                    .obstacle_filter_configuration
-                                    .robot_measurement_noise,
-                            ),
-                        );
-                    }
+                                .robot_measurement_noise,
+                        ),
+                    );
                 }
             }
 
