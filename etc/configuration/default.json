@@ -152,14 +152,24 @@
   },
   "robot_detection": {
     "vision_top": {
-      "enable": false,
+      "enable": true,
       "neural_network": "etc/neural_networks/robot_detector.hdf5",
-      "object_threshold": 0.9
+      "object_threshold": 0.5,
+      "lowest_bottom_pixel_position": 480,
+      "allowed_projected_robot_height": {
+        "start": 0.55,
+        "end": 0.65
+      }
     },
     "vision_bottom": {
       "enable": false,
       "neural_network": "etc/neural_networks/robot_detector.hdf5",
-      "object_threshold": 0.9
+      "object_threshold": 0.9,
+      "lowest_bottom_pixel_position": 480,
+      "allowed_projected_robot_height": {
+        "start": 0.574,
+        "end": 0.574
+      }
     }
   },
   "feet_detection": {
