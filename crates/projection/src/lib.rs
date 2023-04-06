@@ -27,6 +27,11 @@ pub trait Projection {
         ground_coordinates: Point2<f32>,
         z: f32,
     ) -> Result<Point2<f32>, Error>;
+    fn pixel_to_robot_with_x(
+        &self,
+        pixel_coordinates: Point2<f32>,
+        x: f32,
+    ) -> Result<Point3<f32>, Error>;
     fn robot_to_pixel(&self, robot_coordinates: Point3<f32>) -> Result<Point2<f32>, Error>;
     fn get_pixel_radius(
         &self,
@@ -65,25 +70,21 @@ impl Projection for CameraMatrix {
         z: f32,
     ) -> Result<Point2<f32>, Error> {
         let camera_ray = self.pixel_to_camera(pixel_coordinates);
-        let camera_ray_rotated_to_robot_coordinate_system =
-            self.camera_to_ground.rotation * camera_ray;
-        if camera_ray_rotated_to_robot_coordinate_system.z >= 0.0
-            || camera_ray_rotated_to_robot_coordinate_system.x.is_nan()
-            || camera_ray_rotated_to_robot_coordinate_system.y.is_nan()
-            || camera_ray_rotated_to_robot_coordinate_system.z.is_nan()
+        let camera_ray_over_ground = self.camera_to_ground.rotation * camera_ray;
+        if camera_ray_over_ground.z >= 0.0
+            || camera_ray_over_ground.x.is_nan()
+            || camera_ray_over_ground.y.is_nan()
+            || camera_ray_over_ground.z.is_nan()
         {
             return Err(Error::AboveHorizon);
         }
 
+        let elevation = z - self.camera_to_ground.translation.z;
+        let slope = elevation / camera_ray_over_ground.z;
+
         Ok(point![
-            self.camera_to_ground.translation.x
-                - (self.camera_to_ground.translation.z - z)
-                    * camera_ray_rotated_to_robot_coordinate_system.x
-                    / camera_ray_rotated_to_robot_coordinate_system.z,
-            self.camera_to_ground.translation.y
-                - (self.camera_to_ground.translation.z - z)
-                    * camera_ray_rotated_to_robot_coordinate_system.y
-                    / camera_ray_rotated_to_robot_coordinate_system.z
+            self.camera_to_ground.translation.x + camera_ray_over_ground.x * slope,
+            self.camera_to_ground.translation.y + camera_ray_over_ground.y * slope
         ])
     }
 
@@ -99,6 +100,28 @@ impl Projection for CameraMatrix {
         self.camera_to_pixel(
             (self.ground_to_camera * point![ground_coordinates.x, ground_coordinates.y, z]).coords,
         )
+    }
+
+    fn pixel_to_robot_with_x(
+        &self,
+        pixel_coordinates: Point2<f32>,
+        x: f32,
+    ) -> Result<Point3<f32>, Error> {
+        if x <= 0.0 {
+            return Err(Error::BehindCamera);
+        }
+
+        let camera_ray = self.pixel_to_camera(pixel_coordinates);
+        let camera_ray_over_robot = self.camera_to_robot.rotation * camera_ray;
+
+        let elevation = x - self.camera_to_robot.translation.x;
+        let slope = elevation / camera_ray_over_robot.x;
+
+        Ok(point![
+            x,
+            self.camera_to_robot.translation.y + camera_ray_over_robot.y * slope,
+            self.camera_to_robot.translation.z + camera_ray_over_robot.z * slope
+        ])
     }
 
     fn robot_to_pixel(&self, robot_coordinates: Point3<f32>) -> Result<Point2<f32>, Error> {

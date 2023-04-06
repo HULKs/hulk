@@ -230,6 +230,23 @@ fn ground_to_pixel_pitch_45_degree_down() {
 }
 
 #[test]
+fn pixel_to_robot_with_x() {
+    let mut camera_matrix = from_normalized_focal_and_center_short(
+        vector![2.0, 2.0],
+        point![1.0, 1.0],
+        vector![1.0, 1.0],
+    );
+    camera_matrix.camera_to_robot.translation = Translation::from(point![0.0, 0.0, 0.75]);
+    camera_matrix.robot_to_camera = camera_matrix.camera_to_robot.inverse();
+
+    let pixel_coordinates = point![1.5, 2.0];
+    let robot_coordinates = camera_matrix
+        .pixel_to_robot_with_x(pixel_coordinates, 0.5)
+        .unwrap();
+    assert_relative_eq!(robot_coordinates, point![0.5, -0.125, 0.5]);
+}
+
+#[test]
 fn robot_to_pixel_only_elevation() {
     let mut camera_matrix = from_normalized_focal_and_center_short(
         vector![2.0, 2.0],
@@ -262,6 +279,46 @@ fn robot_to_pixel_pitch_45_degree_down() {
     assert_relative_eq!(
         camera_matrix.robot_to_pixel(point![0.5, 0.0, 0.5]).unwrap(),
         point![0.5, 0.5]
+    );
+}
+
+#[test]
+fn robot_to_pixel_inverse() {
+    let mut camera_matrix = from_normalized_focal_and_center_short(
+        vector![2.0, 2.0],
+        point![1.0, 1.0],
+        vector![1.0, 1.0],
+    );
+    camera_matrix.camera_to_robot.translation = Translation::from(point![0.0, 0.0, 0.75]);
+    camera_matrix.robot_to_camera = camera_matrix.camera_to_robot.inverse();
+
+    let robot_coordinates = point![1.0, 2.0, 1.0];
+    let pixel_coordinates = camera_matrix.robot_to_pixel(robot_coordinates).unwrap();
+    assert_relative_eq!(
+        camera_matrix
+            .pixel_to_robot_with_x(pixel_coordinates, robot_coordinates.x)
+            .unwrap(),
+        robot_coordinates
+    );
+}
+
+#[test]
+fn pixel_to_robot_with_x_inverse() {
+    let mut camera_matrix = from_normalized_focal_and_center_short(
+        vector![2.0, 2.0],
+        point![1.0, 1.0],
+        vector![1.0, 1.0],
+    );
+    camera_matrix.camera_to_robot.translation = Translation::from(point![0.0, 0.0, 0.75]);
+    camera_matrix.robot_to_camera = camera_matrix.camera_to_robot.inverse();
+
+    let pixel_coordinates = point![0.75, 2.0];
+    let robot_coordinates = camera_matrix
+        .pixel_to_robot_with_x(pixel_coordinates, 0.5)
+        .unwrap();
+    assert_relative_eq!(
+        camera_matrix.robot_to_pixel(robot_coordinates).unwrap(),
+        pixel_coordinates
     );
 }
 
