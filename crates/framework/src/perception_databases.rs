@@ -3,18 +3,19 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::Item;
-
-include!(concat!(env!("OUT_DIR"), "/perception_databases_structs.rs"));
+use crate::future_queue::Updates;
 
 #[derive(Default)]
-pub struct PerceptionDatabases {
+pub struct PerceptionDatabases<Databases> {
     databases: BTreeMap<SystemTime, Databases>,
     first_timestamp_of_temporary_databases: Option<SystemTime>,
 }
 
-impl PerceptionDatabases {
-    pub fn update(&mut self, now: SystemTime, updates: Updates) {
+impl<Databases> PerceptionDatabases<Databases>
+where
+    Databases: Default,
+{
+    pub fn update(&mut self, now: SystemTime, updates: impl Updates<Databases>) {
         if let Some(first_timestamp_of_temporary_databases) =
             self.first_timestamp_of_temporary_databases
         {
@@ -62,7 +63,75 @@ impl PerceptionDatabases {
 
 #[cfg(test)]
 mod tests {
+    use crate::{Item, Update};
+
     use super::*;
+
+    #[derive(Default)]
+    struct MainOutputs {}
+
+    struct Updates {
+        audio: Update<MainOutputs>,
+        spl_network: Update<MainOutputs>,
+        vision_top: Update<MainOutputs>,
+        vision_bottom: Update<MainOutputs>,
+    }
+
+    #[derive(Default)]
+    struct Databases {
+        pub vision_top: Vec<MainOutputs>,
+        pub vision_bottom: Vec<MainOutputs>,
+        pub spl_network: Vec<MainOutputs>,
+        pub audio: Vec<MainOutputs>,
+    }
+
+    impl crate::Updates<Databases> for Updates {
+        fn first_timestamp_of_temporary_databases(&self) -> Option<std::time::SystemTime> {
+            [
+                self.vision_top.first_timestamp_of_non_finalized_database,
+                self.vision_bottom.first_timestamp_of_non_finalized_database,
+                self.spl_network.first_timestamp_of_non_finalized_database,
+                self.audio.first_timestamp_of_non_finalized_database,
+            ]
+            .iter()
+            .copied()
+            .flatten()
+            .min()
+        }
+        fn push_to_databases(
+            self,
+            databases: &mut std::collections::BTreeMap<std::time::SystemTime, Databases>,
+        ) {
+            for timestamped_database in self.vision_top.items {
+                databases
+                    .get_mut(&timestamped_database.timestamp)
+                    .unwrap()
+                    .vision_top
+                    .push(timestamped_database.data);
+            }
+            for timestamped_database in self.vision_bottom.items {
+                databases
+                    .get_mut(&timestamped_database.timestamp)
+                    .unwrap()
+                    .vision_bottom
+                    .push(timestamped_database.data);
+            }
+            for timestamped_database in self.spl_network.items {
+                databases
+                    .get_mut(&timestamped_database.timestamp)
+                    .unwrap()
+                    .spl_network
+                    .push(timestamped_database.data);
+            }
+            for timestamped_database in self.audio.items {
+                databases
+                    .get_mut(&timestamped_database.timestamp)
+                    .unwrap()
+                    .audio
+                    .push(timestamped_database.data);
+            }
+        }
+    }
 
     #[test]
     fn empty_updates_creates_single_persistent_item() {
@@ -138,7 +207,7 @@ mod tests {
                     first_timestamp_of_non_finalized_database: None,
                 },
                 vision_top: Update {
-                    items: vec![Item::<structs::vision::MainOutputs> {
+                    items: vec![Item::<MainOutputs> {
                         timestamp: instant,
                         data: Default::default(),
                     }],

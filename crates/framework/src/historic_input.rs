@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, time::SystemTime};
 
+#[derive(Debug)]
 pub struct HistoricInput<DataType> {
     historic: BTreeMap<SystemTime, DataType>,
 }

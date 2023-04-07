@@ -93,7 +93,7 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                             _ => abort!(first_segment, "expected exactly two generic parameters"),
                         }
                     }
-                    "CyclerInstance" | "MainOutput" => {}
+                    "MainOutput" => {}
                     "HardwareInterface" => {
                         requires_lifetime_parameter = true;
                         requires_hardware_interface_parameter = true;

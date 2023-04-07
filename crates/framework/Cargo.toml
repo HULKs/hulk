@@ -7,11 +7,9 @@ homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
 parking_lot = { workspace = true }
-structs = { workspace = true }
 types = { workspace = true }
 
 [build-dependencies]
-build_script_helpers = { workspace = true }
 color-eyre = { workspace = true }
 convert_case = { workspace = true }
 proc-macro2 = { workspace = true }

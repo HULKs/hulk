@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 use std::io::stdout;
 
 use color_eyre::eyre::Result;
@@ -6,6 +7,8 @@ use color_eyre::eyre::Result;
 pub mod nao;
 #[cfg(feature = "webots")]
 pub mod webots;
+
+include!(concat!(env!("OUT_DIR"), "/generated_framework.rs"));
 
 pub fn setup_logger(is_verbose: bool) -> Result<(), fern::InitError> {
     fern::Dispatch::new()
