@@ -45,7 +45,6 @@ pub struct CycleContext {
     pub current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     pub historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
-    pub projected_limbs: HistoricInput<Option<ProjectedLimbs>, "projected_limbs?">,
 
     pub camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
     pub sensor_data: Input<SensorData, "sensor_data">,
@@ -67,6 +66,8 @@ pub struct CycleContext {
 
     pub balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     pub balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
+    pub projected_limbs:
+        PerceptionInput<Option<ProjectedLimbs>, "VisionBottom", "projected_limbs?">,
 }
 
 #[context]
@@ -104,7 +105,12 @@ impl BallFilter {
             );
 
             let camera_matrices = context.historic_camera_matrices.get(detection_time);
-            let projected_limbs_bottom = context.projected_limbs.get(detection_time);
+            let projected_limbs_bottom = context
+                .projected_limbs
+                .persistent
+                .get(detection_time)
+                .and_then(|limbs| limbs.last())
+                .and_then(|limbs| *limbs);
             self.decay_hypotheses(
                 camera_matrices,
                 projected_limbs_bottom,
@@ -181,7 +187,7 @@ impl BallFilter {
                     hypothesis,
                     &camera_matrices.bottom,
                     ball_radius,
-                    &projected_limbs.bottom,
+                    &projected_limbs.limbs,
                 ),
                 _ => false,
             };

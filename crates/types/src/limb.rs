@@ -34,6 +34,5 @@ pub fn is_above_limbs(pixel_position: Point2<f32>, projected_limbs: &[Limb]) -> 
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct ProjectedLimbs {
-    pub top: Vec<Limb>,
-    pub bottom: Vec<Limb>,
+    pub limbs: Vec<Limb>,
 }

@@ -13,8 +13,6 @@ use types::{
     RgbChannel, ScanGrid, ScanLine, Segment, YCbCr444,
 };
 
-use crate::CyclerInstance;
-
 pub struct ImageSegmenter {}
 
 #[context]
@@ -28,8 +26,7 @@ pub struct CycleContext {
 
     pub camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
     pub field_color: Input<FieldColor, "field_color">,
-    pub projected_limbs: Input<Option<ProjectedLimbs>, "Control", "projected_limbs?">,
-    pub instance: CyclerInstance,
+    pub projected_limbs: Input<Option<ProjectedLimbs>, "projected_limbs?">,
 
     pub horizontal_stride: Parameter<usize, "image_segmenter.$cycler_instance.horizontal_stride">,
     pub vertical_stride: Parameter<usize, "image_segmenter.$cycler_instance.vertical_stride">,
@@ -56,15 +53,11 @@ impl ImageSegmenter {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let begin = Instant::now();
-        let projected_limbs =
-            context
-                .projected_limbs
-                .map_or(Default::default(), |projected_limbs| {
-                    match context.instance {
-                        CyclerInstance::VisionTop => projected_limbs.top.as_slice(),
-                        CyclerInstance::VisionBottom => projected_limbs.bottom.as_slice(),
-                    }
-                });
+        let projected_limbs = context
+            .projected_limbs
+            .map_or(Default::default(), |projected_limbs| {
+                projected_limbs.limbs.as_slice()
+            });
 
         let horizon = context
             .camera_matrix

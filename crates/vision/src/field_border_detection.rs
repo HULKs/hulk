@@ -7,7 +7,7 @@ use types::{
     horizon::Horizon, CameraMatrix, FieldBorder, ImageSegments, Intensity, Line, Line2, Segment,
 };
 
-use crate::{ransac::Ransac, CyclerInstance};
+use crate::ransac::Ransac;
 
 pub struct FieldBorderDetection {}
 
@@ -18,6 +18,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     pub field_border_points: AdditionalOutput<Vec<Point2<f32>>, "field_border_points">,
 
+    pub enable: Parameter<bool, "field_border_detection.$cycler_instance.enable">,
     pub angle_threshold: Parameter<f32, "field_border_detection.$cycler_instance.angle_threshold">,
     pub first_line_association_distance:
         Parameter<f32, "field_border_detection.$cycler_instance.first_line_association_distance">,
@@ -29,7 +30,6 @@ pub struct CycleContext {
 
     pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     pub image_segments: Input<ImageSegments, "image_segments">,
-    pub instance: CyclerInstance,
 }
 
 #[context]
@@ -44,7 +44,7 @@ impl FieldBorderDetection {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        if matches!(context.instance, CyclerInstance::VisionBottom) {
+        if !context.enable {
             return Ok(MainOutputs {
                 field_border: Some(FieldBorder {
                     border_lines: vec![],
