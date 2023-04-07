@@ -11,23 +11,23 @@ use tokio::fs::{read_to_string, write};
 #[derive(Debug, thiserror::Error)]
 pub enum DirectoryError {
     #[error("failed to get default parameters")]
-    DefaultParametersNotGet(SerializationError),
+    DefaultParametersNotGet(#[source] SerializationError),
     #[error("failed to get default parameters of location")]
-    DefaultParametersOfLocationNotGet(SerializationError),
+    DefaultParametersOfLocationNotGet(#[source] SerializationError),
     #[error("failed to get body parameters")]
-    BodyParametersNotGet(SerializationError),
+    BodyParametersNotGet(#[source] SerializationError),
     #[error("failed to get head parameters")]
-    HeadParametersNotGet(SerializationError),
+    HeadParametersNotGet(#[source] SerializationError),
     #[error("failed to get body parameters of location")]
-    BodyParametersOfLocationNotGet(SerializationError),
+    BodyParametersOfLocationNotGet(#[source] SerializationError),
     #[error("failed to get head parameters of location")]
-    HeadParametersOfLocationNotGet(SerializationError),
+    HeadParametersOfLocationNotGet(#[source] SerializationError),
     #[error("failed to convert dynamic JSON object into resulting parameters object")]
-    JsonValueNotConvertedToParameters(error::Error),
+    JsonValueNotConvertedToParameters(#[source] error::Error),
     #[error("failed to convert parameters object into dynamic JSON object")]
-    ParametersNotConvertedToJsonValue(error::Error),
+    ParametersNotConvertedToJsonValue(#[source] error::Error),
     #[error("failed to set head parameters of location")]
-    HeadParametersOfLocationNotSet(SerializationError),
+    HeadParametersOfLocationNotSet(#[source] SerializationError),
 }
 
 #[derive(Debug, thiserror::Error)]
