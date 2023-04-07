@@ -30,7 +30,7 @@ pub struct CycleContext {
 
     pub current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
-    pub network_robot_obstacles: HistoricInput<Vec<Point2<f32>>, "network_robot_obstacles?">,
+    pub network_robot_obstacles: HistoricInput<Vec<Point2<f32>>, "network_robot_obstacles">,
     pub robot_to_field: HistoricInput<Option<Isometry2<f32>>, "robot_to_field?">,
     pub sonar_obstacles: HistoricInput<Vec<SonarObstacle>, "sonar_obstacles">,
 

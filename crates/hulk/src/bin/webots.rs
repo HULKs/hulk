@@ -4,8 +4,7 @@ use color_eyre::{
     eyre::{Result, WrapErr},
     install,
 };
-use cyclers::run;
-use hulk::{setup_logger, webots};
+use hulk::{run::run, setup_logger, webots};
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
 use types::hardware::Interface;

@@ -6,7 +6,7 @@ license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
-color-eyre = { workspace = true }
+thiserror = { workspace = true }
 convert_case = { workspace = true }
 itertools = { workspace = true }
 proc-macro2 = { workspace = true }
