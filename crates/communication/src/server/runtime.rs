@@ -36,15 +36,15 @@ use super::{
 #[derive(Debug, thiserror::Error)]
 pub enum StartError {
     #[error("error while accepting connections")]
-    AcceptError(AcceptError),
-    #[error("one or more tasks encountered an error")]
+    AcceptError(#[source] AcceptError),
+    #[error("one or more tasks encountered an error: {0:?}")]
     TasksErrored(Vec<StartError>),
     #[error("thread not started")]
-    ThreadNotStarted(io::Error),
+    ThreadNotStarted(#[source] io::Error),
     #[error("runtime not started")]
-    RuntimeNotStarted(io::Error),
+    RuntimeNotStarted(#[source] io::Error),
     #[error("initial parameters not parsed")]
-    InitialParametersNotParsed(DirectoryError),
+    InitialParametersNotParsed(#[source] DirectoryError),
 }
 
 pub struct Runtime<Parameters> {
