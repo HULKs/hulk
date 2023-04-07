@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{Isometry3, Matrix2, Point2, Point3};
 use projection::Projection;
-use types::{CameraMatrices, CameraMatrix, Limb, ProjectedLimbs, RobotKinematics};
+use types::{CameraMatrix, Limb, ProjectedLimbs, RobotKinematics};
 
 pub struct LimbProjector {}
 
@@ -21,9 +21,10 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    pub camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
-    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+    pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    pub robot_kinematics: Input<RobotKinematics, "Control", "robot_kinematics">,
 
+    pub enable: Parameter<bool, "projected_limbs.$cycler_instance.enable">,
     pub foot_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.foot_bounding_polygon">,
     pub knee_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.knee_bounding_polygon">,
     pub lower_arm_bounding_polygon:
@@ -46,78 +47,79 @@ impl LimbProjector {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let camera_matrix = &context.camera_matrices.bottom;
+        if !context.enable {
+            return Ok(MainOutputs {
+                projected_limbs: Default::default(),
+            });
+        }
         let torso_limb = project_bounding_polygon(
             Isometry3::identity(),
-            camera_matrix,
+            context.camera_matrix,
             context.torso_bounding_polygon,
             false,
         );
         let left_lower_arm_limb = project_bounding_polygon(
             context.robot_kinematics.left_wrist_to_robot,
-            camera_matrix,
+            context.camera_matrix,
             context.lower_arm_bounding_polygon,
             true,
         );
         let right_lower_arm_limb = project_bounding_polygon(
             context.robot_kinematics.right_wrist_to_robot,
-            camera_matrix,
+            context.camera_matrix,
             context.lower_arm_bounding_polygon,
             true,
         );
         let left_upper_arm_limb = project_bounding_polygon(
             context.robot_kinematics.left_elbow_to_robot,
-            camera_matrix,
+            context.camera_matrix,
             context.upper_arm_bounding_polygon,
             true,
         );
         let right_upper_arm_limb = project_bounding_polygon(
             context.robot_kinematics.right_elbow_to_robot,
-            camera_matrix,
+            context.camera_matrix,
             context.upper_arm_bounding_polygon,
             true,
         );
         let left_knee_limb = project_bounding_polygon(
             context.robot_kinematics.left_thigh_to_robot,
-            camera_matrix,
+            context.camera_matrix,
             context.knee_bounding_polygon,
             true,
         );
         let right_knee_limb = project_bounding_polygon(
             context.robot_kinematics.right_thigh_to_robot,
-            camera_matrix,
+            context.camera_matrix,
             context.knee_bounding_polygon,
             true,
         );
         let left_foot_limb = project_bounding_polygon(
             context.robot_kinematics.left_sole_to_robot,
-            camera_matrix,
+            context.camera_matrix,
             context.foot_bounding_polygon,
             true,
         );
         let right_foot_limb = project_bounding_polygon(
             context.robot_kinematics.right_sole_to_robot,
-            camera_matrix,
+            context.camera_matrix,
             context.foot_bounding_polygon,
             true,
         );
 
+        let limbs = vec![
+            torso_limb,
+            left_lower_arm_limb,
+            right_lower_arm_limb,
+            left_upper_arm_limb,
+            right_upper_arm_limb,
+            left_knee_limb,
+            right_knee_limb,
+            left_foot_limb,
+            right_foot_limb,
+        ];
         Ok(MainOutputs {
-            projected_limbs: Some(ProjectedLimbs {
-                top: vec![],
-                bottom: vec![
-                    torso_limb,
-                    left_lower_arm_limb,
-                    right_lower_arm_limb,
-                    left_upper_arm_limb,
-                    right_upper_arm_limb,
-                    left_knee_limb,
-                    right_knee_limb,
-                    left_foot_limb,
-                    right_foot_limb,
-                ],
-            })
-            .into(),
+            projected_limbs: Some(ProjectedLimbs { limbs }).into(),
         })
     }
 }

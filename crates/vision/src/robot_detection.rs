@@ -17,8 +17,6 @@ use types::{
     CameraMatrix,
 };
 
-use crate::CyclerInstance;
-
 const NUMBER_OF_SCALINGS: usize = 4;
 const PARAMETERS_PER_BOX: usize = 6;
 const BOX_SCALINGS: [Vector2<f32>; NUMBER_OF_SCALINGS] = [
@@ -40,7 +38,6 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    pub instance: CyclerInstance,
     pub image: Input<YCbCr422Image, "image">,
     pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     pub robot_to_ground: RequiredInput<Option<Isometry3<f32>>, "Control", "robot_to_ground?">,

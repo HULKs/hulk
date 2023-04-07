@@ -14,7 +14,6 @@ pub mod ground_provider;
 pub mod kick_selector;
 pub mod kinematics_provider;
 pub mod led_status;
-pub mod limb_projector;
 pub mod localization;
 pub mod motion;
 pub mod obstacle_filter;

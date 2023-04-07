@@ -52,10 +52,12 @@
   },
   "image_receiver": {
     "vision_top": {
-      "resolution": 42
+      "resolution": 42,
+      "camera_position": "Top"
     },
     "vision_bottom": {
-      "resolution": 42
+      "resolution": 42,
+      "camera_position": "Bottom"
     }
   },
   "image_segmenter": {
@@ -110,6 +112,7 @@
   },
   "field_border_detection": {
     "vision_top": {
+      "enable": true,
       "min_points_per_line": 10,
       "angle_threshold": 0.35,
       "first_line_association_distance": 2.0,
@@ -117,6 +120,7 @@
       "horizon_margin": 15
     },
     "vision_bottom": {
+      "enable": false,
       "min_points_per_line": 10,
       "angle_threshold": 0.35,
       "first_line_association_distance": 2.0,
@@ -862,6 +866,12 @@
     "hysteresis": 0.2
   },
   "projected_limbs": {
+    "vision_top": {
+      "enable": false
+    },
+    "vision_bottom": {
+      "enable": true
+    },
     "torso_bounding_polygon": [
       [0, -0.09799999743700027, 0.23499999940395355],
       [-0.03500000014901161, -0.09799999743700027, 0.2199999988079071],

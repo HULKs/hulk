@@ -3,8 +3,6 @@ use context_attribute::context;
 use framework::MainOutput;
 use types::{hardware::Interface, ycbcr422_image::YCbCr422Image, CameraPosition};
 
-use crate::CyclerInstance;
-
 pub struct ImageReceiver {}
 
 #[context]
@@ -13,7 +11,8 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub hardware_interface: HardwareInterface,
-    pub instance: CyclerInstance,
+    pub camera_position:
+        Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
 }
 
 #[context]
@@ -29,10 +28,7 @@ impl ImageReceiver {
     pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
         let image = context
             .hardware_interface
-            .read_from_camera(match context.instance {
-                CyclerInstance::VisionTop => CameraPosition::Top,
-                CyclerInstance::VisionBottom => CameraPosition::Bottom,
-            })?;
+            .read_from_camera(*context.camera_position)?;
         Ok(MainOutputs {
             image: image.into(),
         })
