@@ -16,6 +16,20 @@ pub struct ParameterPanel {
     update_notify_receiver: mpsc::Receiver<()>,
 }
 
+fn subscribe(
+    nao: Arc<Nao>,
+    path: &str,
+    update_notify_sender: mpsc::Sender<()>,
+) -> Option<ValueBuffer> {
+    if path.is_empty() {
+        return None;
+    }
+
+    let value_buffer = nao.subscribe_parameter(path);
+    value_buffer.listen_to_updates(update_notify_sender);
+    Some(value_buffer)
+}
+
 impl Panel for ParameterPanel {
     const NAME: &'static str = "Parameter";
 
@@ -26,14 +40,7 @@ impl Panel for ParameterPanel {
         };
 
         let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
-        let value_buffer = match path.is_empty() {
-            true => None,
-            false => {
-                let value_buffer = nao.subscribe_parameter(&path);
-                value_buffer.listen_to_updates(update_notify_sender.clone());
-                Some(value_buffer)
-            }
-        };
+        let value_buffer = subscribe(nao.clone(), &path, update_notify_sender.clone());
 
         Self {
             nao,
@@ -58,9 +65,11 @@ impl Widget for &mut ParameterPanel {
                 let path_edit =
                     CompletionEdit::parameters(&mut self.path, self.nao.as_ref()).ui(ui);
                 if path_edit.changed() {
-                    let buffer = self.nao.subscribe_parameter(&self.path);
-                    buffer.listen_to_updates(self.update_notify_sender.clone());
-                    self.value_buffer = Some(buffer);
+                    self.value_buffer = subscribe(
+                        self.nao.clone(),
+                        &self.path,
+                        self.update_notify_sender.clone(),
+                    )
                 }
                 let settable = self.value_buffer.is_some() && !self.parameter_value.is_empty();
                 ui.add_enabled_ui(settable, |ui| {
