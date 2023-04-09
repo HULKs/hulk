@@ -82,7 +82,7 @@ impl Widget for &mut ParameterPanel {
                         });
                     }
                     Err(error) => {
-                        ui.label(format!("{error:#?}"));
+                        ui.label(error);
                     }
                 }
             }
