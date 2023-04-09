@@ -24,11 +24,14 @@ impl Panel for ParameterPanel {
             Some(Value::String(string)) => string.clone(),
             _ => String::new(),
         };
+        let value_buffer = nao.subscribe_parameter(&path);
         let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
+        value_buffer.listen_to_updates(update_notify_sender.clone());
+
         Self {
             nao,
             path,
-            value_buffer: None,
+            value_buffer: Some(value_buffer),
             parameter_value: String::new(),
             update_notify_sender,
             update_notify_receiver,
