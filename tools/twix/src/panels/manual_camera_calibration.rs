@@ -28,7 +28,7 @@ const CAMERA_KEY_BASE: &str = "camera_matrix_parameters.vision_";
 const ROTATIONS: &str = ".extrinsic_rotations";
 
 impl Panel for ManualCalibrationPanel {
-    const NAME: &'static str = "Parameter";
+    const NAME: &'static str = "Manual Calibration";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
         let extrinsic_rotation_subscriptions = ["top", "bottom"].map(|name| {
@@ -64,6 +64,7 @@ fn add_calibration_ui_components_for_one_camera(
     camera_index: usize,
     panel: &mut ManualCalibrationPanel,
 ) -> InnerResponse<()> {
+    let nao = Arc::clone(&panel.nao);
     let extrinsic_rotation_subscriptions =
         &mut panel.extrinsic_rotation_subscriptions[camera_index];
     let rotations_parameter_buffer = &extrinsic_rotation_subscriptions.value_buffer;
@@ -71,9 +72,6 @@ fn add_calibration_ui_components_for_one_camera(
     let rotations_path = &extrinsic_rotation_subscriptions.path;
     let rotations_update_notify_receiver =
         &mut extrinsic_rotation_subscriptions.update_notify_receiver;
-
-    let nao = panel.nao;
-    let current_url = &panel.current_url;
     let repository_configuration_handler = &panel.repository_configuration_handler;
 
     ui.horizontal(|ui| {
@@ -92,7 +90,6 @@ fn add_calibration_ui_components_for_one_camera(
 
         add_save_button(
             ui,
-            current_url,
             rotations_path,
             rotation_value,
             nao,
