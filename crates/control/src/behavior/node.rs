@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2};
-use spl_network_messages::{GamePhase, Team};
+use spl_network_messages::{GamePhase, Team, SubState};
 use types::{
     configuration::{Behavior as BehaviorConfiguration, LostBall},
     CycleTime, FieldDimensions, FilteredGameState, GameControllerState, KickDecision,
@@ -111,8 +111,22 @@ impl Behavior {
         }
 
         match world_state.robot.role {
-            Role::DefenderLeft => actions.push(Action::DefendLeft),
-            Role::DefenderRight => actions.push(Action::DefendRight),
+            Role::DefenderLeft => match world_state.game_controller_state {
+                Some(GameControllerState {
+                    sub_state: Some(SubState::PenaltyKick),
+                    kicking_team: Team::Opponent,
+                    ..
+                }) => {actions.push(Action::DefendPenaltyLeft)},
+                _ => actions.push(Action::DefendLeft),
+            },
+            Role::DefenderRight => match world_state.game_controller_state {
+                Some(GameControllerState {
+                    sub_state: Some(SubState::PenaltyKick),
+                    kicking_team: Team::Opponent,
+                    ..
+                }) => {actions.push(Action::DefendPenaltyRight)},
+                _ => actions.push(Action::DefendRight),
+            },
             Role::Keeper => match world_state.game_controller_state {
                 Some(GameControllerState {
                     game_phase: GamePhase::PenaltyShootout { .. },
@@ -178,7 +192,9 @@ impl Behavior {
                 Action::DefendGoal => defend.goal(&mut context.path_obstacles),
                 Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
                 Action::DefendLeft => defend.left(&mut context.path_obstacles),
+                Action::DefendPenaltyLeft => defend.penalty_left(&mut context.path_obstacles),
                 Action::DefendRight => defend.right(&mut context.path_obstacles),
+                Action::DefendPenaltyRight => defend.penalty_right(&mut context.path_obstacles),
                 Action::Stand => stand::execute(world_state),
                 Action::Dribble => dribble::execute(
                     world_state,

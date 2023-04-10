@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use framework::AdditionalOutput;
 use nalgebra::{distance, point, Isometry2, Point2};
-use spl_network_messages::{GamePhase, Team};
+use spl_network_messages::{GamePhase, Team, SubState};
 use types::{
     configuration::RolePositions, rotate_towards, BallState, FieldDimensions, GameControllerState,
     Line, MotionCommand, PathObstacle, Side, WorldState,
@@ -52,11 +52,29 @@ impl<'cycle> Defend<'cycle> {
         self.with_pose(pose, path_obstacles_output)
     }
 
+    pub fn penalty_left(
+        &self,
+        path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+    ) -> Option<MotionCommand> {
+        let pose =
+            defend_penalty_left_pose(self.world_state, self.field_dimensions, self.role_positions)?;
+        self.with_pose(pose, path_obstacles_output)
+    }
+
     pub fn right(
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     ) -> Option<MotionCommand> {
         let pose = defend_right_pose(self.world_state, self.field_dimensions, self.role_positions)?;
+        self.with_pose(pose, path_obstacles_output)
+    }
+
+    pub fn penalty_right(
+        &self,
+        path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+    ) -> Option<MotionCommand> {
+        let pose =
+            defend_penalty_right_pose(self.world_state, self.field_dimensions, self.role_positions)?;
         self.with_pose(pose, path_obstacles_output)
     }
 
@@ -107,6 +125,35 @@ fn defend_left_pose(
     Some(robot_to_field.inverse() * defend_pose)
 }
 
+fn defend_penalty_left_pose(
+    world_state: &WorldState,
+    field_dimensions: &FieldDimensions,
+    role_positions: &RolePositions,
+) -> Option<Isometry2<f32>> {
+    let robot_to_field = world_state.robot.robot_to_field?;
+    let ball = world_state
+        .ball
+        .map(|ball| BallState {
+            position: point![-field_dimensions.length/2.0 + field_dimensions.penalty_marker_distance,0.0],
+            field_side: ball.field_side,
+            penalty_shot_direction: Default::default(),
+        })
+        .unwrap_or_default();
+
+    let position_to_defend = point![
+        (-field_dimensions.length + field_dimensions.penalty_area_length) / 2.0,
+        role_positions.defender_y_offset
+    ];
+    let distance_to_target = if ball.field_side == Side::Left {
+        role_positions.defender_aggressive_ring_radius
+    } else {
+        role_positions.defender_passive_ring_radius
+    };
+
+    let defend_pose = block_on_circle(ball.position, position_to_defend, distance_to_target);
+    Some(robot_to_field.inverse() * defend_pose)
+}
+
 fn defend_right_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
@@ -127,6 +174,34 @@ fn defend_right_pose(
         -role_positions.defender_y_offset
     ];
     let distance_to_target = if ball.field_side == Side::Right {
+        role_positions.defender_aggressive_ring_radius
+    } else {
+        role_positions.defender_passive_ring_radius
+    };
+
+    let defend_pose = block_on_circle(ball.position, position_to_defend, distance_to_target);
+    Some(robot_to_field.inverse() * defend_pose)
+}
+fn defend_penalty_right_pose(
+    world_state: &WorldState,
+    field_dimensions: &FieldDimensions,
+    role_positions: &RolePositions,
+) -> Option<Isometry2<f32>> {
+    let robot_to_field = world_state.robot.robot_to_field?;
+    let ball = world_state
+        .ball
+        .map(|ball| BallState {
+            position: point![-field_dimensions.length/2.0 + field_dimensions.penalty_marker_distance,0.0],
+            field_side: ball.field_side,
+            penalty_shot_direction: Default::default(),
+        })
+        .unwrap_or_default();
+
+    let position_to_defend = point![
+        (-field_dimensions.length + field_dimensions.penalty_area_length) / 2.0,
+        -role_positions.defender_y_offset
+    ];
+    let distance_to_target = if ball.field_side == Side::Left {
         role_positions.defender_aggressive_ring_radius
     } else {
         role_positions.defender_passive_ring_radius
@@ -157,6 +232,11 @@ fn defend_goal_pose(
                 GamePhase::PenaltyShootout {
                     kicking_team: Team::Opponent,
                 },
+            ..
+        }) |
+        Some(GameControllerState {
+            sub_state: Some(SubState::PenaltyKick),
+            kicking_team: Team::Opponent,
             ..
         }) => 0.0,
         _ => role_positions.keeper_x_offset,
