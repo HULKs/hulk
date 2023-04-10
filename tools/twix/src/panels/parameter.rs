@@ -90,10 +90,9 @@ impl Widget for &mut ParameterPanel {
 
                 add_save_button(
                     ui,
-                    &self.nao.get_address(),
                     &self.path,
                     &self.parameter_value,
-                    self.nao,
+                    self.nao.clone(),
                     &self.repository_parameters,
                     settable,
                 );
@@ -125,20 +124,28 @@ impl Widget for &mut ParameterPanel {
 
 pub fn add_save_button(
     ui: &mut Ui,
-    current_url: &Option<String>,
     parameter_path: &String,
     parameter_value: &str,
     nao: Arc<Nao>,
-    repository_parameters: &RepositoryParameters,
+    repository_parameters: &Option<RepositoryParameters>,
     settable: bool,
 ) {
     ui.add_enabled_ui(settable, |ui| {
         if ui.button("Save to disk").clicked() {
             if let Some(address) = nao.get_address() {
-                match serde_json::from_str::<Value>(parameter_value) {
-                    Ok(value) => repository_parameters.write(&address, parameter_path, &value),
-                    Err(error) => {
+                match (
+                    serde_json::from_str::<Value>(&parameter_value),
+                    repository_parameters,
+                ) {
+                    (Ok(value), Some(repository_parameters)) => {
+                        repository_parameters.write(&address, parameter_path.clone(), value);
+                    }
+
+                    (Err(error), _) => {
                         error!("Failed to serialize parameter value: {error:#?}")
+                    }
+                    _ => {
+                        error!("Repository is not available, cannot save.")
                     }
                 };
             }

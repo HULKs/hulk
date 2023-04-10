@@ -148,7 +148,7 @@ impl Display for SelectablePanel {
             SelectablePanel::ImageSegments(_) => ImageSegmentsPanel::NAME,
             SelectablePanel::Map(_) => MapPanel::NAME,
             SelectablePanel::Parameter(_) => ParameterPanel::NAME,
-            SelectablePanel::ManualCalibration(_) => ParameterPanel::NAME,
+            SelectablePanel::ManualCalibration(_) => ManualCalibrationPanel::NAME,
         };
         f.write_str(panel_name)
     }
