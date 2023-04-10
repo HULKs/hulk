@@ -23,8 +23,8 @@ use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 use nao::Nao;
 use panel::Panel;
 use panels::{
-    BehaviorSimulatorPanel, ImagePanel, ImageSegmentsPanel, MapPanel, ParameterPanel, PlotPanel,
-    TextPanel,
+    BehaviorSimulatorPanel, ImagePanel, ImageSegmentsPanel, ManualCalibrationPanel, MapPanel,
+    ParameterPanel, PlotPanel, TextPanel,
 };
 use serde_json::{from_str, to_string, Value};
 use tokio::sync::mpsc;
@@ -74,6 +74,7 @@ enum SelectablePanel {
     ImageSegments(ImageSegmentsPanel),
     Map(MapPanel),
     Parameter(ParameterPanel),
+    ManualCalibration(ManualCalibrationPanel),
 }
 
 impl SelectablePanel {
@@ -98,6 +99,9 @@ impl SelectablePanel {
             "image segments" => SelectablePanel::ImageSegments(ImageSegmentsPanel::new(nao, value)),
             "map" => SelectablePanel::Map(MapPanel::new(nao, value)),
             "parameter" => SelectablePanel::Parameter(ParameterPanel::new(nao, value)),
+            "manual calibration" => {
+                SelectablePanel::ManualCalibration(ManualCalibrationPanel::new(nao, value))
+            }
             name => bail!("unexpected panel name: {name}"),
         })
     }
@@ -111,6 +115,7 @@ impl SelectablePanel {
             SelectablePanel::ImageSegments(panel) => panel.save(),
             SelectablePanel::Map(panel) => panel.save(),
             SelectablePanel::Parameter(panel) => panel.save(),
+            SelectablePanel::ManualCalibration(panel) => panel.save(),
         };
         value["_panel_type"] = Value::String(self.to_string());
 
@@ -128,6 +133,7 @@ impl Widget for &mut SelectablePanel {
             SelectablePanel::ImageSegments(panel) => panel.ui(ui),
             SelectablePanel::Map(panel) => panel.ui(ui),
             SelectablePanel::Parameter(panel) => panel.ui(ui),
+            SelectablePanel::ManualCalibration(panel) => panel.ui(ui),
         }
     }
 }
@@ -142,6 +148,7 @@ impl Display for SelectablePanel {
             SelectablePanel::ImageSegments(_) => ImageSegmentsPanel::NAME,
             SelectablePanel::Map(_) => MapPanel::NAME,
             SelectablePanel::Parameter(_) => ParameterPanel::NAME,
+            SelectablePanel::ManualCalibration(_) => ParameterPanel::NAME,
         };
         f.write_str(panel_name)
     }
@@ -267,6 +274,7 @@ impl App for TwixApp {
                         "Image Segments".to_string(),
                         "Map".to_string(),
                         "Parameter".to_string(),
+                        "Manual Calibration".to_string(),
                     ],
                 )
                 .ui(ui);

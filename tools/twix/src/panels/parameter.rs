@@ -65,6 +65,15 @@ impl Panel for ParameterPanel {
 
 impl Widget for &mut ParameterPanel {
     fn ui(self, ui: &mut Ui) -> Response {
+        {
+            let current_address = self.nao.get_address();
+            if self.current_url != current_address {
+                self.current_url = current_address;
+                self.repository_configuration_handler
+                    .print_nao_ids(self.current_url.clone());
+            }
+        }
+
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 let path_edit =
