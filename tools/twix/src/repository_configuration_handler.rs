@@ -9,7 +9,7 @@ use tokio::runtime::Runtime;
 
 pub struct RepositoryConfigurationHandler {
     repository: Repository,
-    file_io_runtime: Runtime, // to call async functions.
+    file_io_runtime: Runtime,
 }
 
 impl RepositoryConfigurationHandler {
@@ -50,7 +50,6 @@ impl RepositoryConfigurationHandler {
     pub fn print_nao_ids(&self, connection_url: Option<String>) {
         if let Some(url) = connection_url {
             let nao_hardware_ids = self.get_hardware_ids_from_url(&url);
-            // println!("couldn't find hw ids {:?}", nao_hardware_ids.clone());
             if let Ok((nao_hardware_ids, nao_id)) = nao_hardware_ids {
                 info!(
                     "Connected to Nao {:?}, head: {:?}, body: {:?}",
