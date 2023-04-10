@@ -20,7 +20,7 @@ pub struct ParameterPanel {
     update_notify_receiver: mpsc::Receiver<()>,
 }
 
-fn subscribe(
+pub fn subscribe(
     nao: Arc<Nao>,
     path: &str,
     update_notify_sender: mpsc::Sender<()>,
@@ -65,15 +65,6 @@ impl Panel for ParameterPanel {
 
 impl Widget for &mut ParameterPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        {
-            let current_address = self.nao.get_address();
-            if self.current_url != current_address {
-                self.current_url = current_address;
-                self.repository_configuration_handler
-                    .print_nao_ids(self.current_url.clone());
-            }
-        }
-
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 let path_edit =
@@ -96,26 +87,16 @@ impl Widget for &mut ParameterPanel {
                         }
                     }
                 });
-                ui.add_enabled_ui(settable && self.repository_parameters.is_some(), |ui| {
-                    if ui.button("Save to disk").clicked() {
-                        if let Some(address) = self.nao.get_address() {
-                            match (
-                                serde_json::from_str::<Value>(&self.parameter_value),
-                                &self.repository_parameters,
-                            ) {
-                                (Ok(value), Some(repository_parameters)) => {
-                                    repository_parameters.write(&address, self.path.clone(), value);
-                                }
-                                (Err(error), _) => {
-                                    error!("Failed to serialize parameter value: {error:#?}")
-                                }
-                                _ => {
-                                    error!("Repository is not available, cannot save.")
-                                }
-                            };
-                        }
-                    }
-                });
+
+                add_save_button(
+                    ui,
+                    &self.nao.get_address(),
+                    &self.path,
+                    &self.parameter_value,
+                    self.nao,
+                    &self.repository_parameters,
+                    settable,
+                );
             });
 
             if let Some(buffer) = &self.value_buffer {
@@ -140,4 +121,27 @@ impl Widget for &mut ParameterPanel {
         })
         .response
     }
+}
+
+pub fn add_save_button(
+    ui: &mut Ui,
+    current_url: &Option<String>,
+    parameter_path: &String,
+    parameter_value: &str,
+    nao: Arc<Nao>,
+    repository_parameters: &RepositoryParameters,
+    settable: bool,
+) {
+    ui.add_enabled_ui(settable, |ui| {
+        if ui.button("Save to disk").clicked() {
+            if let Some(address) = nao.get_address() {
+                match serde_json::from_str::<Value>(parameter_value) {
+                    Ok(value) => repository_parameters.write(&address, parameter_path, &value),
+                    Err(error) => {
+                        error!("Failed to serialize parameter value: {error:#?}")
+                    }
+                };
+            }
+        }
+    });
 }
