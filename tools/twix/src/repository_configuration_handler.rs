@@ -67,7 +67,7 @@ impl RepositoryConfigurationHandler {
     pub fn merge_head_configuration_to_repository(
         &self,
         head_id: &str,
-        parameter_path: &String,
+        parameter_path: &str,
         value: &Value,
     ) -> Result<()> {
         let mut head_configuration_value: Value = self
@@ -75,7 +75,7 @@ impl RepositoryConfigurationHandler {
             .block_on(self.repository.read_configuration(head_id))
             .unwrap_or_default();
 
-        let tree_from_input_value = make_json_tree_from_path_and_value(&parameter_path, &value);
+        let tree_from_input_value = make_json_tree_from_path_and_value(parameter_path, value);
 
         merge_json(&mut head_configuration_value, &tree_from_input_value);
 
@@ -87,8 +87,8 @@ impl RepositoryConfigurationHandler {
 }
 
 // Create tree structure from path and value points to the last key i.e. a.b.c -> { a: { b: { c: value } } }
-fn make_json_tree_from_path_and_value<'a>(path: &'a str, value: &Value) -> Value {
-    path.split(".")
+fn make_json_tree_from_path_and_value(path: &str, value: &Value) -> Value {
+    path.split('.')
         .collect_vec()
         .into_iter()
         .rev()
