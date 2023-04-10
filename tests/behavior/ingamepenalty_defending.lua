@@ -82,7 +82,7 @@ function on_cycle()
   end
 
   if state.cycle_count == 2650 then
-    state.game_controller_state.set_play = "PenaltyKick"
+    state.game_controller_state.sub_state = "PenaltyKick"
     state.game_controller_state.kicking_team = "Opponent"
     state.game_controller_state.game_state = "Ready"
     state.filtered_game_state = {
@@ -112,7 +112,7 @@ function on_cycle()
   end
   
   if state.cycle_count == 4400 then
-    state.game_controller_state.set_play = null
+    state.game_controller_state.sub_state = null
     state.filtered_game_state = {
       Playing = {
         ball_is_free = true
