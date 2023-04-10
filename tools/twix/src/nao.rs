@@ -19,7 +19,7 @@ impl Nao {
     pub fn new(address: Option<String>, connect: bool) -> Self {
         let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
         let _guard = runtime.enter();
-        let communication = Communication::new(address.clone(), connect);
+        let communication = Communication::new(address, connect);
         Self {
             communication,
             runtime,

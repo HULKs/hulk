@@ -1,12 +1,7 @@
-use std::{env::current_dir, path::PathBuf};
+use std::path::PathBuf;
 
 use clap::{CommandFactory, Parser, Subcommand};
-use color_eyre::{
-    config::HookBuilder,
-    eyre::{bail, eyre, WrapErr},
-    Result,
-};
-use tokio::fs::read_dir;
+use color_eyre::{config::HookBuilder, eyre::WrapErr, Result};
 
 use crate::aliveness::{aliveness, Arguments as AlivenessArguments};
 use analyze::{analyze, Arguments as AnalyzeArguments};
