@@ -23,16 +23,13 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     parameters_computation::{deserialize, DirectoryError},
-    server::outputs::router::router
+    server::outputs::router::router,
 };
 
 use super::{
     acceptor::{acceptor, AcceptError},
     outputs::{provider::provider, Request},
-    parameters::{
-        storage::storage,
-        subscriptions::subscriptions,
-    },
+    parameters::{storage::storage, subscriptions::subscriptions},
 };
 
 #[derive(Debug, thiserror::Error)]

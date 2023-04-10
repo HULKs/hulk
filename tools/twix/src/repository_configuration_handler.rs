@@ -190,8 +190,6 @@ mod tests {
 
     #[test]
     fn check_json_structure_from_path_construction() {
-        // make_json_tree_from_path_and_value(path, value)
-
         let dataset = [
             (
                 ("config.a.b.c", json!(["p", "q", "r"])),
@@ -205,16 +203,6 @@ mod tests {
                 ("something.properties", json!({"k":"v"})),
                 json!({"something":{"properties":{"k":"v"}}}),
             ),
-            // // nalgebra vectors (vec3, etc) goes xyz for 0,1,2 indices
-            // (
-            //     ("something.rotations.x", json!(0.45)),
-            //     json!({"something":{"rotations":[0.45]}}),
-            // ),
-            // // nalgebra vectors (vec3, etc) goes xyz for 0,1,2 indices
-            // (
-            //     ("something.rotations.y", json!(0.45)),
-            //     json!({"something":{"rotations":[0, 0.45]}}),
-            // ),
         ];
 
         for ((path, value), expected_output) in dataset {
