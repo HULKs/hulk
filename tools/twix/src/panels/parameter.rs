@@ -13,7 +13,6 @@ use crate::{
 pub struct ParameterPanel {
     nao: Arc<Nao>,
     path: String,
-    current_url: Option<String>,
     repository_configuration_handler: RepositoryConfigurationHandler,
     value_buffer: Option<ValueBuffer>,
     parameter_value: String,
@@ -47,17 +46,14 @@ impl Panel for ParameterPanel {
         let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
         let value_buffer = subscribe(nao.clone(), &path, update_notify_sender.clone());
 
-        let connection_url = nao.get_address();
         let repository_configuration_handler = RepositoryConfigurationHandler::new();
-        repository_configuration_handler.print_nao_ids(connection_url.clone());
+        repository_configuration_handler.print_nao_ids(nao.get_address());
 
         Self {
             nao,
             path,
-            value_buffer,
-            current_url: connection_url,
             repository_configuration_handler,
-            value_buffer: None,
+            value_buffer,
             parameter_value: String::new(),
             update_notify_sender,
             update_notify_receiver,
@@ -72,15 +68,6 @@ impl Panel for ParameterPanel {
 
 impl Widget for &mut ParameterPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        {
-            let current_address = self.nao.get_address();
-            if self.current_url != current_address {
-                self.current_url = current_address;
-                self.repository_configuration_handler
-                    .print_nao_ids(self.current_url.clone());
-            }
-        }
-
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 let path_edit =
@@ -108,7 +95,7 @@ impl Widget for &mut ParameterPanel {
                     if ui.button("Save to disk").clicked() {
                         match (
                             serde_json::from_str::<Value>(&self.parameter_value),
-                            &self.current_url,
+                            self.nao.get_address(),
                             self.nao
                                 .get_parameter_fields()
                                 .map_or(false, |tree| tree.contains(&self.path)),
@@ -126,8 +113,11 @@ impl Widget for &mut ParameterPanel {
                                             &value,
                                         );
                                     let message_part = format!(
-                                        "configuration `{}` for Nao `{}` with head `{}`",
-                                        self.path, nao_id, hardware_ids.head_id
+                                        "configuration `{}` for Nao `{}`, head: {:?}, body: {:?}",
+                                        self.path,
+                                        nao_id,
+                                        hardware_ids.head_id,
+                                        hardware_ids.body_id
                                     );
                                     match status {
                                         Ok(_) => {
