@@ -178,11 +178,12 @@ mod tests {
             let ids_computed_option = get_hardware_ids_if_webots(url);
 
             assert_eq!(ids_computed_option.is_some(), hardware_ids_option.is_some());
-            if ids_computed_option.is_some() {
-                let (ids_computed, ids_expected) =
-                    (ids_computed_option.unwrap(), hardware_ids_option.unwrap());
-                assert_eq!(ids_computed.head_id, ids_expected.head_id);
-                assert_eq!(ids_computed.body_id, ids_expected.body_id);
+            match (ids_computed_option, hardware_ids_option) {
+                (Some(ids_computed), Some(ids_expected)) => {
+                    assert_eq!(ids_computed.head_id, ids_expected.head_id);
+                    assert_eq!(ids_computed.body_id, ids_expected.body_id);
+                }
+                _ => (),
             }
         }
     }
