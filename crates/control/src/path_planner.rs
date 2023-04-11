@@ -159,7 +159,7 @@ impl PathPlanner {
             }),
         );
     }
-    
+
     fn generate_start_destination_tangents(&mut self) {
         let direct_path = LineSegment(self.nodes[0].position, self.nodes[1].position);
         let direct_path_blocked = self
