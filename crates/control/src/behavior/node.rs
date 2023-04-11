@@ -127,11 +127,7 @@ impl Behavior {
             &walk_path_planner,
             &self.last_motion_command,
         );
-        let look_action = LookAction::new(
-            world_state,
-            context.field_dimensions,
-            &context.configuration.look_action,
-        );
+        let look_action = LookAction::new(world_state);
         let defend = Defend::new(
             world_state,
             context.field_dimensions,
