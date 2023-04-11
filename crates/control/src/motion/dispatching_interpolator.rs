@@ -2,14 +2,16 @@ use std::time::Duration;
 
 use color_eyre::Result;
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{MainOutput, AdditionalOutput};
 use types::{
-    BodyJointsCommand, CycleTime, HeadJoints, Joints, JointsCommand, LinearInterpolator,
+    BodyJointsCommand, CycleTime, HeadJoints, Joints, JointsCommand, JointsVelocity,
     MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
+use crate::transition_interpolator::TransitionInterpolator;
+
 pub struct DispatchingInterpolator {
-    interpolator: LinearInterpolator<Joints<f32>>,
+    interpolator: TransitionInterpolator<Joints<f32>>,
     stiffnesses: Joints<f32>,
     last_currently_active: bool,
     last_dispatching_motion: MotionType,
@@ -35,6 +37,9 @@ pub struct CycleContext {
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+
+    pub transition_time: AdditionalOutput<Duration, "transition_time">,
+    pub dispatching_active: AdditionalOutput<bool, "dispatching_active">,
 }
 
 #[context]
@@ -53,11 +58,13 @@ impl DispatchingInterpolator {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         context.motion_safe_exits[MotionType::Dispatching] = false;
 
         let currently_active = context.motion_selection.current_motion == MotionType::Dispatching;
+        context.dispatching_active.fill_if_subscribed(|| currently_active);
         if !currently_active {
+            context.transition_time.fill_if_subscribed(|| Duration::ZERO);
             self.last_currently_active = currently_active;
             return Ok(Default::default());
         }
@@ -71,99 +78,50 @@ impl DispatchingInterpolator {
         self.last_currently_active = currently_active;
 
         if interpolator_reset_required {
-            (self.interpolator, self.stiffnesses) = match dispatching_motion {
-                MotionType::ArmsUpSquat => (
-                    LinearInterpolator::new(
-                        context.sensor_data.positions,
-                        context.arms_up_squat_joints_command.positions,
-                        Duration::from_secs(1),
-                    ),
-                    Joints::fill(0.8),
-                ),
+            let target_position = match dispatching_motion {
+                MotionType::ArmsUpSquat => context.arms_up_squat_joints_command.positions,
                 MotionType::Dispatching => panic!("Dispatching cannot dispatch itself"),
                 MotionType::FallProtection => panic!("Is executed immediately"),
-                MotionType::JumpLeft => (
-                    LinearInterpolator::new(
-                        context.sensor_data.positions,
-                        context.jump_left_joints_command.positions,
-                        Duration::from_secs(1),
-                    ),
-                    Joints::fill(0.8),
+                MotionType::JumpLeft => context.jump_left_joints_command.positions,
+                MotionType::JumpRight => context.jump_right_joints_command.positions, 
+                MotionType::Penalized => *context.penalized_pose,
+                MotionType::SitDown => context.sit_down_joints_command.positions,
+                MotionType::Stand => Joints::from_head_and_body(
+                    HeadJoints::fill(0.0),
+                    context.walk_joints_command.positions,
                 ),
-                MotionType::JumpRight => (
-                    LinearInterpolator::new(
-                        context.sensor_data.positions,
-                        context.jump_right_joints_command.positions,
-                        Duration::from_secs(1),
-                    ),
-                    Joints::fill(0.8),
-                ),
-                MotionType::Penalized => (
-                    LinearInterpolator::new(
-                        context.sensor_data.positions,
-                        *context.penalized_pose,
-                        Duration::from_secs(1),
-                    ),
-                    Joints::fill(0.8),
-                ),
-                MotionType::SitDown => (
-                    LinearInterpolator::new(
-                        context.sensor_data.positions,
-                        context.sit_down_joints_command.positions,
-                        Duration::from_secs(1),
-                    ),
-                    Joints::fill(0.8),
-                ),
-                MotionType::Stand => (
-                    LinearInterpolator::new(
-                        context.sensor_data.positions,
-                        Joints::from_head_and_body(
-                            HeadJoints::fill(0.0),
-                            context.walk_joints_command.positions,
-                        ),
-                        Duration::from_secs(1),
-                    ),
-                    Joints::fill(0.8),
-                ),
-                MotionType::StandUpBack => (
-                    LinearInterpolator::new(
-                        context.sensor_data.positions,
-                        *context.stand_up_back_positions,
-                        Duration::from_secs(1),
-                    ),
-                    Joints::fill(0.8),
-                ),
-                MotionType::StandUpFront => (
-                    LinearInterpolator::new(
-                        context.sensor_data.positions,
-                        *context.stand_up_front_positions,
-                        Duration::from_secs(1),
-                    ),
-                    Joints::fill(0.8),
-                ),
+                MotionType::StandUpBack => *context.stand_up_back_positions,
+                MotionType::StandUpFront => *context.stand_up_front_positions,
                 MotionType::Unstiff => panic!("Dispatching Unstiff doesn't make sense"),
-                MotionType::Walk => (
-                    LinearInterpolator::new(
-                        context.sensor_data.positions,
-                        Joints::from_head_and_body(
-                            HeadJoints::fill(0.0),
-                            context.walk_joints_command.positions,
-                        ),
-                        Duration::from_secs(1),
-                    ),
-                    Joints::fill(0.8),
+                MotionType::Walk => Joints::from_head_and_body(
+                    HeadJoints::fill(0.0),
+                    context.walk_joints_command.positions,
                 ),
             };
+
+            self.interpolator = TransitionInterpolator::try_new(
+                context.sensor_data.positions,
+                target_position,
+                *context.maximum_velocity,
+            )?;
+            self.stiffnesses = Joints::fill(0.8);
         }
 
         self.interpolator
-            .step(context.cycle_time.last_cycle_duration);
+            .advance_by(context.cycle_time.last_cycle_duration);
 
         context.motion_safe_exits[MotionType::Dispatching] = self.interpolator.is_finished();
+        context.transition_time.fill_if_subscribed(|| {
+            if self.interpolator.is_finished() {
+                Duration::ZERO
+            } else {
+                self.interpolator.duration()
+            }
+        });
 
         Ok(MainOutputs {
             dispatching_command: JointsCommand {
-                positions: self.interpolator.value(),
+                positions: self.interpolator.value()?,
                 stiffnesses: self.stiffnesses,
             }
             .into(),
