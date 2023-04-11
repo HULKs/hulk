@@ -60,7 +60,7 @@ pub fn execute(
     let robot_to_field = world_state.robot.robot_to_field?;
     let relative_ball_position = world_state.ball?.position;
     let head = HeadMotion::LookAt {
-        target: relative_ball_position,
+        target: world_state.position_of_interest,
     };
 
     let targets_to_kick_to = find_targets_to_kick_to(
