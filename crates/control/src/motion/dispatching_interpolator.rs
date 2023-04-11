@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use color_eyre::Result;
 use context_attribute::context;
-use framework::{MainOutput, AdditionalOutput};
+use framework::{AdditionalOutput, MainOutput};
 use types::{
     BodyJointsCommand, CycleTime, HeadJoints, Joints, JointsCommand, JointsVelocity,
     MotionSafeExits, MotionSelection, MotionType, SensorData,
@@ -62,7 +62,9 @@ impl DispatchingInterpolator {
 
         let currently_active = context.motion_selection.current_motion == MotionType::Dispatching;
         if !currently_active {
-            context.transition_time.fill_if_subscribed(|| Duration::ZERO);
+            context
+                .transition_time
+                .fill_if_subscribed(|| Duration::ZERO);
             self.last_currently_active = currently_active;
             return Ok(Default::default());
         }
@@ -81,7 +83,7 @@ impl DispatchingInterpolator {
                 MotionType::Dispatching => panic!("Dispatching cannot dispatch itself"),
                 MotionType::FallProtection => panic!("Is executed immediately"),
                 MotionType::JumpLeft => context.jump_left_joints_command.positions,
-                MotionType::JumpRight => context.jump_right_joints_command.positions, 
+                MotionType::JumpRight => context.jump_right_joints_command.positions,
                 MotionType::Penalized => *context.penalized_pose,
                 MotionType::SitDown => context.sit_down_joints_command.positions,
                 MotionType::Stand => Joints::from_head_and_body(

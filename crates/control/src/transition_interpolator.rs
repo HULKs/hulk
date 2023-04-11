@@ -1,8 +1,11 @@
-use std::{ops::{Deref, DerefMut}, time::Duration};
 use std::fmt::Debug;
+use std::{
+    ops::{Deref, DerefMut},
+    time::Duration,
+};
 
 use serde::{Deserialize, Serialize};
-use splines::{Interpolation, Key, Interpolate};
+use splines::{Interpolate, Interpolation, Key};
 use types::{Joints, JointsVelocity};
 
 use crate::spline_interpolator::SplineInterpolator;
@@ -24,19 +27,23 @@ impl TransitionInterpolator<Joints> {
         let time_to_completion = (target_position - current_position) / maximum_velocity;
         let maximum_time_to_completion = time_to_completion.max();
 
-        Self::try_new_timed(current_position, target_position, maximum_time_to_completion)
+        Self::try_new_timed(
+            current_position,
+            target_position,
+            maximum_time_to_completion,
+        )
     }
 }
 
 impl<T: Debug + Interpolate<f32>> TransitionInterpolator<T> {
-    pub fn try_new_timed(current_position: T, target_position: T, duration: Duration) -> Result<TransitionInterpolator<T>> {
+    pub fn try_new_timed(
+        current_position: T,
+        target_position: T,
+        duration: Duration,
+    ) -> Result<TransitionInterpolator<T>> {
         let keys = vec![
             Key::new(Duration::ZERO, current_position, Interpolation::Linear),
-            Key::new(
-                duration,
-                target_position,
-                Interpolation::Linear,
-            ),
+            Key::new(duration, target_position, Interpolation::Linear),
         ];
 
         Ok(Self {

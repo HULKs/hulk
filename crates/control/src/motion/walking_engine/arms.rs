@@ -1,11 +1,9 @@
 use std::{f32::consts::FRAC_PI_2, time::Duration};
 
+use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{
-    configuration::SwingingArms, ArmJoints, ArmMotion, MotionCommand, Side,
-};
-use color_eyre::Result;
+use types::{configuration::SwingingArms, ArmJoints, ArmMotion, MotionCommand, Side};
 
 use crate::transition_interpolator::TransitionInterpolator;
 
@@ -73,7 +71,12 @@ impl SwingingArm {
                     config.pulling_back_duration,
                 )?,
             },
-            (State::PullingBack { ref mut interpolator }, ArmMotion::PullTight) => {
+            (
+                State::PullingBack {
+                    ref mut interpolator,
+                },
+                ArmMotion::PullTight,
+            ) => {
                 interpolator.advance_by(cycle_duration);
                 if interpolator.is_finished() {
                     State::PullingTight {
@@ -84,7 +87,9 @@ impl SwingingArm {
                         )?,
                     }
                 } else {
-                    State::PullingBack { interpolator: interpolator.clone() }
+                    State::PullingBack {
+                        interpolator: interpolator.clone(),
+                    }
                 }
             }
             (State::PullingBack { interpolator }, ArmMotion::Swing) => {
@@ -96,12 +101,19 @@ impl SwingingArm {
                 )?;
                 State::ReleasingBack { interpolator }
             }
-            (State::PullingTight { ref mut interpolator }, ArmMotion::PullTight) => {
+            (
+                State::PullingTight {
+                    ref mut interpolator,
+                },
+                ArmMotion::PullTight,
+            ) => {
                 interpolator.advance_by(cycle_duration);
                 if interpolator.is_finished() {
                     State::Back
                 } else {
-                    State::PullingTight { interpolator: interpolator.clone() }
+                    State::PullingTight {
+                        interpolator: interpolator.clone(),
+                    }
                 }
             }
             (State::PullingTight { interpolator }, ArmMotion::Swing) => {
@@ -121,12 +133,19 @@ impl SwingingArm {
                 )?,
             },
             (State::Back, ArmMotion::PullTight) => State::Back,
-            (State::ReleasingBack { ref mut interpolator }, ArmMotion::Swing) => {
+            (
+                State::ReleasingBack {
+                    ref mut interpolator,
+                },
+                ArmMotion::Swing,
+            ) => {
                 interpolator.advance_by(cycle_duration);
                 if interpolator.is_finished() {
                     State::Swing
                 } else {
-                    State::ReleasingBack { interpolator: interpolator.clone() }
+                    State::ReleasingBack {
+                        interpolator: interpolator.clone(),
+                    }
                 }
             }
             (State::ReleasingBack { interpolator }, ArmMotion::PullTight) => {
@@ -138,7 +157,12 @@ impl SwingingArm {
                 )?;
                 State::PullingBack { interpolator }
             }
-            (State::ReleasingTight { ref mut interpolator }, ArmMotion::Swing) => {
+            (
+                State::ReleasingTight {
+                    ref mut interpolator,
+                },
+                ArmMotion::Swing,
+            ) => {
                 interpolator.advance_by(cycle_duration);
                 if interpolator.is_finished() {
                     State::ReleasingBack {
@@ -149,7 +173,9 @@ impl SwingingArm {
                         )?,
                     }
                 } else {
-                    State::ReleasingTight { interpolator: interpolator.clone() }
+                    State::ReleasingTight {
+                        interpolator: interpolator.clone(),
+                    }
                 }
             }
             (State::ReleasingTight { interpolator }, ArmMotion::PullTight) => {
