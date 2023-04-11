@@ -1,16 +1,17 @@
-use splines::{Interpolation, Key, Spline};
+use splines::{Interpolation, Key, Spline, Interpolate};
 use thiserror::Error;
 use types::{Joints, MotionFile};
 
 use std::{fmt::Debug, time::Duration};
 
-pub struct SplineInterpolator {
-    spline: Spline<f32, Joints<f32>>,
+#[derive(Clone, Debug)]
+pub struct SplineInterpolator<T: Debug + Interpolate<f32>> {
+    spline: Spline<f32, T>,
     current_time: Duration,
     end_time: Duration,
 }
 
-impl Default for SplineInterpolator {
+impl<T: Debug + Interpolate<f32>> Default for SplineInterpolator<T> {
     fn default() -> Self {
         Self { spline: Spline::from_vec(vec![]), current_time: Duration::ZERO, end_time: Duration::ZERO }
     }
@@ -50,8 +51,8 @@ pub enum InterpolatorError {
 }
 
 impl InterpolatorError {
-    fn create_control_key_error(
-        keys: &[Key<f32, Joints<f32>>],
+    fn create_control_key_error<T: Debug>(
+        keys: &[Key<f32, T>],
         current_time: Duration,
     ) -> InterpolatorError {
         let current_control_key = keys
@@ -59,7 +60,6 @@ impl InterpolatorError {
             .filter(|key| key.t < current_time.as_secs_f32())
             .last()
             .unwrap();
-        let current_interpolation_mode = current_control_key.interpolation;
 
         let prior_control_points = keys
             .iter()
@@ -68,14 +68,14 @@ impl InterpolatorError {
         let following_control_points = keys.len() - 1 - prior_control_points;
 
         InterpolatorError::InterpolationControlKeyError {
-            interpolation_mode: format!("{current_interpolation_mode:?}"),
+            interpolation_mode: format!("{:?}", current_control_key.interpolation),
             keys_before: prior_control_points,
             keys_after: following_control_points,
         }
     }
 }
 
-impl TryFrom<MotionFile> for SplineInterpolator {
+impl TryFrom<MotionFile> for SplineInterpolator<Joints> {
     type Error = InterpolatorError;
 
     fn try_from(motion_file: MotionFile) -> Result<Self, InterpolatorError> {
@@ -95,8 +95,8 @@ impl TryFrom<MotionFile> for SplineInterpolator {
     }
 }
 
-impl SplineInterpolator {
-    pub fn try_new(mut keys: Vec<Key<Duration, Joints<f32>>>) -> Result<Self, InterpolatorError> {
+impl<T: Debug + Interpolate<f32>> SplineInterpolator<T> {
+    pub fn try_new(mut keys: Vec<Key<Duration, T>>) -> Result<Self, InterpolatorError> {
         if keys.len() < 2 {
             return Err(InterpolatorError::TooFewKeysError);
         }
@@ -137,9 +137,9 @@ impl SplineInterpolator {
     }
 
     fn create_zero_gradient(
-        key_center: &Key<f32, Joints<f32>>,
-        key_other: &Key<f32, Joints<f32>>,
-    ) -> Key<f32, Joints<f32>> {
+        key_center: &Key<f32, T>,
+        key_other: &Key<f32, T>,
+    ) -> Key<f32, T> {
         Key::new(
             2. * key_center.t - key_other.t,
             key_other.value,
@@ -151,7 +151,7 @@ impl SplineInterpolator {
         self.current_time += time_step;
     }
 
-    pub fn value(&self) -> Result<Joints<f32>, InterpolatorError> {
+    pub fn value(&self) -> Result<T, InterpolatorError> {
         if self.current_time >= self.end_time {
             self.spline.keys().iter().rev().nth(1).map(|key| key.value)
         } else {
@@ -172,5 +172,9 @@ impl SplineInterpolator {
 
     pub fn duration(&self) -> Duration {
         self.end_time
+    }
+
+    pub fn passed_duration(&self) -> Duration {
+        self.current_time
     }
 }
