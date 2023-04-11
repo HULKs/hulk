@@ -9,7 +9,7 @@ use types::{
 use crate::spline_interpolator::SplineInterpolator;
 
 pub struct ArmsUpSquat {
-    interpolator: SplineInterpolator,
+    interpolator: SplineInterpolator<Joints>,
 }
 
 #[context]

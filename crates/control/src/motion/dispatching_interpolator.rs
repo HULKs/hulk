@@ -99,7 +99,7 @@ impl DispatchingInterpolator {
                 ),
             };
 
-            self.interpolator = TransitionInterpolator::try_new(
+            self.interpolator = TransitionInterpolator::try_new_with_maximum_velocity(
                 context.sensor_data.positions,
                 target_position,
                 *context.maximum_velocity,

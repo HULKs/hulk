@@ -11,7 +11,7 @@ use types::{
 use crate::spline_interpolator::SplineInterpolator;
 
 pub struct StandUpFront {
-    interpolator: SplineInterpolator,
+    interpolator: SplineInterpolator<Joints>,
     filtered_gyro: LowPassFilter<Vector2<f32>>,
 }
 
