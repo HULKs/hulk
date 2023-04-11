@@ -1,4 +1,4 @@
-use splines::{Interpolation, Key, Spline, Interpolate};
+use splines::{Interpolate, Interpolation, Key, Spline};
 use thiserror::Error;
 use types::{Joints, MotionFile};
 
@@ -13,7 +13,11 @@ pub struct SplineInterpolator<T: Debug + Interpolate<f32>> {
 
 impl<T: Debug + Interpolate<f32>> Default for SplineInterpolator<T> {
     fn default() -> Self {
-        Self { spline: Spline::from_vec(vec![]), current_time: Duration::ZERO, end_time: Duration::ZERO }
+        Self {
+            spline: Spline::from_vec(vec![]),
+            current_time: Duration::ZERO,
+            end_time: Duration::ZERO,
+        }
     }
 }
 
@@ -136,10 +140,7 @@ impl<T: Debug + Interpolate<f32>> SplineInterpolator<T> {
         })
     }
 
-    fn create_zero_gradient(
-        key_center: &Key<f32, T>,
-        key_other: &Key<f32, T>,
-    ) -> Key<f32, T> {
+    fn create_zero_gradient(key_center: &Key<f32, T>, key_other: &Key<f32, T>) -> Key<f32, T> {
         Key::new(
             2. * key_center.t - key_other.t,
             key_other.value,

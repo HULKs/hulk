@@ -130,7 +130,14 @@ where
     }
 
     pub fn raw(&self) -> Vec<f32> {
-        vec![self.shoulder_pitch, self.shoulder_roll, self.elbow_yaw, self.elbow_roll, self.wrist_yaw, self.hand]
+        vec![
+            self.shoulder_pitch,
+            self.shoulder_roll,
+            self.elbow_yaw,
+            self.elbow_roll,
+            self.wrist_yaw,
+            self.hand,
+        ]
     }
 }
 
@@ -242,7 +249,14 @@ where
     }
 
     pub fn raw(&self) -> Vec<f32> {
-        vec![self.hip_yaw_pitch, self.hip_roll, self.hip_pitch, self.knee_pitch, self.ankle_pitch, self.ankle_roll]
+        vec![
+            self.hip_yaw_pitch,
+            self.hip_roll,
+            self.hip_pitch,
+            self.knee_pitch,
+            self.ankle_pitch,
+            self.ankle_roll,
+        ]
     }
 }
 
