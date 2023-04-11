@@ -181,6 +181,7 @@ pub fn execute(
         ball_obstacle,
         obstacles,
         path_obstacles_output,
+        world_state.game_controller_state,
     );
     Some(walk_path_planner.walk_with_obstacle_avoiding_arms(head, orientation_mode, path))
 }
