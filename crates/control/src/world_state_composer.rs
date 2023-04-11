@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use nalgebra::{point, Isometry2, Point2};
+use nalgebra::{Isometry2, Point2};
 use spl_network_messages::PlayerNumber;
 use types::{
     BallState, FallState, FilteredGameState, GameControllerState, Obstacle, PenaltyShotDirection,
