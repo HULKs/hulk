@@ -125,6 +125,41 @@ impl PathPlanner {
         );
     }
 
+    pub fn with_penalty_box(
+        &mut self,
+        field_to_robot: Isometry2<f32>,
+        field_dimensions: &FieldDimensions,
+        hulks_attacking: bool,
+    ) {
+        let side_factor: f32 = if hulks_attacking { 1.0 } else { -1.0 };
+        let half_penalty = field_dimensions.penalty_area_width / 2.0;
+        let half_field = field_dimensions.length / 2.0;
+        let front_left = field_to_robot
+            * point![
+                side_factor * (half_field - field_dimensions.penalty_area_length),
+                half_penalty
+            ];
+        let front_right = field_to_robot
+            * point![
+                side_factor * (half_field - field_dimensions.penalty_area_length),
+                -half_penalty
+            ];
+        let back_left = field_to_robot * point![side_factor * half_field, half_penalty];
+        let back_right = field_to_robot * point![side_factor * half_field, -half_penalty];
+
+        let line_segments = [
+            LineSegment(front_left, front_right),
+            LineSegment(front_left, back_left),
+            LineSegment(front_right, back_right),
+        ];
+
+        self.obstacles.extend(
+            line_segments.into_iter().map(|line_segment| {
+                PathObstacle::from(PathObstacleShape::LineSegment(line_segment))
+            }),
+        );
+    }
+    
     fn generate_start_destination_tangents(&mut self) {
         let direct_path = LineSegment(self.nodes[0].position, self.nodes[1].position);
         let direct_path_blocked = self
