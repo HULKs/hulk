@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{distance, Isometry2, Point2, Vector2};
-use spl_network_messages::{GamePhase, GameState, PlayerNumber, Team};
+use spl_network_messages::{GamePhase, GameState, PlayerNumber, SubState, Team};
 use types::{
     configuration::GameStateFilter as GameStateFilterConfiguration, BallPosition, Buttons,
     CycleTime, FieldDimensions, FilteredGameState, FilteredWhistle, GameControllerState,
@@ -77,11 +77,27 @@ impl GameStateFilter {
             })
             .unwrap_or(false);
 
+        let ball_detected_far_from_penalty_spot = context
+            .ball_position
+            .map(|ball| {
+                let absolute_ball_position = *context.robot_to_field * ball.position;
+                distance(
+                    &absolute_ball_position,
+                    &Point2::new(
+                        -context.field_dimensions.length / 2.0
+                            + context.field_dimensions.penalty_marker_distance,
+                        0.0,
+                    ),
+                ) > context.config.distance_to_consider_ball_moved_in_kick_off
+            })
+            .unwrap_or(false);
+
         let filtered_game_state = self.state.construct_filtered_game_state(
             context.game_controller_state,
             context.cycle_time.start_time,
             ball_detected_far_from_kick_off_point,
             context.config,
+            ball_detected_far_from_penalty_spot,
         );
 
         Ok(MainOutputs {
@@ -235,6 +251,7 @@ impl State {
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterConfiguration,
+        ball_detected_far_from_penalty_spot: bool,
     ) -> FilteredGameState {
         let is_in_sub_state = matches!(game_controller_state.sub_state, Some(_));
         let opponent_is_kicking_team = matches!(
@@ -264,8 +281,13 @@ impl State {
                     ball_is_free: !opponent_kick_off && !opponent_sub_state,
                 }
             }
-            State::Playing => FilteredGameState::Playing {
-                ball_is_free: !(is_in_sub_state && opponent_is_kicking_team),
+            State::Playing => match game_controller_state.sub_state {
+                Some(SubState::PenaltyKick) => FilteredGameState::Playing {
+                    ball_is_free: !(is_in_sub_state && opponent_is_kicking_team),
+                },
+                _ => FilteredGameState::Playing {
+                    ball_is_free: !(is_in_sub_state && opponent_is_kicking_team && !ball_detected_far_from_penalty_spot),
+                },
             },
             State::WhistleInPlaying { .. } => FilteredGameState::Ready {
                 kicking_team: Team::Uncertain,
