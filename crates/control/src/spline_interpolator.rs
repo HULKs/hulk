@@ -10,6 +10,12 @@ pub struct SplineInterpolator {
     end_time: Duration,
 }
 
+impl Default for SplineInterpolator {
+    fn default() -> Self {
+        Self { spline: Spline::from_vec(vec![]), current_time: Duration::ZERO, end_time: Duration::ZERO }
+    }
+}
+
 pub trait MapArgumentExt<FromArgument, ToArgument, Value> {
     fn map_argument(self) -> Result<Interpolation<ToArgument, Value>, InterpolatorError>;
 }
@@ -162,5 +168,9 @@ impl SplineInterpolator {
 
     pub fn reset(&mut self) {
         self.current_time = Duration::ZERO;
+    }
+
+    pub fn duration(&self) -> Duration {
+        self.end_time
     }
 }
