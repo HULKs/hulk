@@ -81,18 +81,13 @@ function on_cycle()
     state.game_controller_state.game_state = "Playing"
     state.filtered_game_state = {
       Playing = {
-        ball_is_free = false
+        ball_is_free = true
       }
     }
   end
   
   if state.cycle_count == 4400 then
     state.game_controller_state.sub_state = null
-    state.filtered_game_state = {
-      Playing = {
-        ball_is_free = true
-      }
-    }
     --"Missing behavior ends here"
   end
 
