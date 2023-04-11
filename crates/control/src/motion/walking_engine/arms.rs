@@ -3,8 +3,11 @@ use std::{f32::consts::FRAC_PI_2, time::Duration};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
-    configuration::SwingingArms, ArmJoints, ArmMotion, LinearInterpolator, MotionCommand, Side,
+    configuration::SwingingArms, ArmJoints, ArmMotion, MotionCommand, Side,
 };
+use color_eyre::Result;
+
+use crate::transition_interpolator::TransitionInterpolator;
 
 use super::foot_offsets::FootOffsets;
 
@@ -19,17 +22,17 @@ enum State {
     #[default]
     Swing,
     PullingBack {
-        interpolator: LinearInterpolator<ArmJoints<f32>>,
+        interpolator: TransitionInterpolator<ArmJoints<f32>>,
     },
     PullingTight {
-        interpolator: LinearInterpolator<ArmJoints<f32>>,
+        interpolator: TransitionInterpolator<ArmJoints<f32>>,
     },
     Back,
     ReleasingTight {
-        interpolator: LinearInterpolator<ArmJoints<f32>>,
+        interpolator: TransitionInterpolator<ArmJoints<f32>>,
     },
     ReleasingBack {
-        interpolator: LinearInterpolator<ArmJoints<f32>>,
+        interpolator: TransitionInterpolator<ArmJoints<f32>>,
     },
 }
 
@@ -47,7 +50,7 @@ impl SwingingArm {
         motion_command: &MotionCommand,
         cycle_duration: Duration,
         config: &SwingingArms,
-    ) -> ArmJoints<f32> {
+    ) -> Result<ArmJoints<f32>> {
         let requested_arm_motion =
             self.arm_motion_from_motion_command(motion_command, config.debug_pull_back);
         let pull_back_joints = match self.side {
@@ -61,124 +64,124 @@ impl SwingingArm {
         let swinging_arm_joints = self.swinging_arm_joints(foot, config);
         let center_arm_joints = self.swinging_arm_joints(FootOffsets::zero(), config);
 
-        self.state = match (&self.state, requested_arm_motion) {
+        self.state = match (&mut self.state, requested_arm_motion) {
             (State::Swing, ArmMotion::Swing) => State::Swing,
             (State::Swing, ArmMotion::PullTight) => State::PullingBack {
-                interpolator: LinearInterpolator::new(
+                interpolator: TransitionInterpolator::try_new_timed(
                     swinging_arm_joints,
                     pull_back_joints,
                     config.pulling_back_duration,
-                ),
+                )?,
             },
-            (State::PullingBack { mut interpolator }, ArmMotion::PullTight) => {
-                interpolator.step(cycle_duration);
+            (State::PullingBack { ref mut interpolator }, ArmMotion::PullTight) => {
+                interpolator.advance_by(cycle_duration);
                 if interpolator.is_finished() {
                     State::PullingTight {
-                        interpolator: LinearInterpolator::new(
+                        interpolator: TransitionInterpolator::try_new_timed(
                             pull_back_joints,
                             pull_tight_joints,
                             config.pulling_tight_duration,
-                        ),
+                        )?,
                     }
                 } else {
-                    State::PullingBack { interpolator }
+                    State::PullingBack { interpolator: interpolator.clone() }
                 }
             }
             (State::PullingBack { interpolator }, ArmMotion::Swing) => {
-                let current_joints = interpolator.value();
-                let interpolator = LinearInterpolator::new(
+                let current_joints = interpolator.value()?;
+                let interpolator = TransitionInterpolator::try_new_timed(
                     current_joints,
                     center_arm_joints,
                     interpolator.passed_duration(),
-                );
+                )?;
                 State::ReleasingBack { interpolator }
             }
-            (State::PullingTight { mut interpolator }, ArmMotion::PullTight) => {
-                interpolator.step(cycle_duration);
+            (State::PullingTight { ref mut interpolator }, ArmMotion::PullTight) => {
+                interpolator.advance_by(cycle_duration);
                 if interpolator.is_finished() {
                     State::Back
                 } else {
-                    State::PullingTight { interpolator }
+                    State::PullingTight { interpolator: interpolator.clone() }
                 }
             }
             (State::PullingTight { interpolator }, ArmMotion::Swing) => {
-                let current_joints = interpolator.value();
-                let interpolator = LinearInterpolator::new(
+                let current_joints = interpolator.value()?;
+                let interpolator = TransitionInterpolator::try_new_timed(
                     current_joints,
                     pull_back_joints,
                     interpolator.passed_duration(),
-                );
+                )?;
                 State::ReleasingTight { interpolator }
             }
             (State::Back, ArmMotion::Swing) => State::ReleasingTight {
-                interpolator: LinearInterpolator::new(
+                interpolator: TransitionInterpolator::try_new_timed(
                     pull_tight_joints,
                     pull_back_joints,
                     config.pulling_back_duration + config.pulling_tight_duration,
-                ),
+                )?,
             },
             (State::Back, ArmMotion::PullTight) => State::Back,
-            (State::ReleasingBack { mut interpolator }, ArmMotion::Swing) => {
-                interpolator.step(cycle_duration);
+            (State::ReleasingBack { ref mut interpolator }, ArmMotion::Swing) => {
+                interpolator.advance_by(cycle_duration);
                 if interpolator.is_finished() {
                     State::Swing
                 } else {
-                    State::ReleasingBack { interpolator }
+                    State::ReleasingBack { interpolator: interpolator.clone() }
                 }
             }
             (State::ReleasingBack { interpolator }, ArmMotion::PullTight) => {
-                let current_joints = interpolator.value();
-                let interpolator = LinearInterpolator::new(
+                let current_joints = interpolator.value()?;
+                let interpolator = TransitionInterpolator::try_new_timed(
                     current_joints,
                     pull_back_joints,
                     config.pulling_back_duration,
-                );
+                )?;
                 State::PullingBack { interpolator }
             }
-            (State::ReleasingTight { mut interpolator }, ArmMotion::Swing) => {
-                interpolator.step(cycle_duration);
+            (State::ReleasingTight { ref mut interpolator }, ArmMotion::Swing) => {
+                interpolator.advance_by(cycle_duration);
                 if interpolator.is_finished() {
                     State::ReleasingBack {
-                        interpolator: LinearInterpolator::new(
+                        interpolator: TransitionInterpolator::try_new_timed(
                             pull_back_joints,
                             center_arm_joints,
                             config.pulling_back_duration,
-                        ),
+                        )?,
                     }
                 } else {
-                    State::ReleasingTight { interpolator }
+                    State::ReleasingTight { interpolator: interpolator.clone() }
                 }
             }
             (State::ReleasingTight { interpolator }, ArmMotion::PullTight) => {
-                let current_joints = interpolator.value();
-                let interpolator = LinearInterpolator::new(
+                let current_joints = interpolator.value()?;
+                let interpolator = TransitionInterpolator::try_new_timed(
                     current_joints,
                     pull_tight_joints,
                     interpolator.passed_duration(),
-                );
+                )?;
                 State::PullingTight { interpolator }
             }
         };
-        match &self.state {
+        Ok(match &self.state {
             State::Swing => swinging_arm_joints,
             State::PullingBack { interpolator }
             | State::ReleasingBack { interpolator }
             | State::ReleasingTight { interpolator }
-            | State::PullingTight { interpolator } => interpolator.value(),
+            | State::PullingTight { interpolator } => interpolator.value()?,
             State::Back => pull_tight_joints,
-        }
+        })
     }
 
-    pub fn torso_tilt_compensation(&self, config: &SwingingArms) -> f32 {
+    pub fn torso_tilt_compensation(&self, config: &SwingingArms) -> Result<f32> {
         let shoulder_pitch = match &self.state {
             State::Swing => FRAC_PI_2,
             State::PullingBack { interpolator }
             | State::ReleasingBack { interpolator }
             | State::ReleasingTight { interpolator }
-            | State::PullingTight { interpolator } => interpolator.value().shoulder_pitch,
+            | State::PullingTight { interpolator } => interpolator.value()?.shoulder_pitch,
             State::Back => config.pull_tight_joints.shoulder_pitch,
         };
-        (shoulder_pitch - FRAC_PI_2) * config.torso_tilt_compensation_factor
+        Ok((shoulder_pitch - FRAC_PI_2) * config.torso_tilt_compensation_factor)
     }
 
     fn arm_motion_from_motion_command(

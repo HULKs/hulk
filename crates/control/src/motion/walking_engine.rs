@@ -222,20 +222,20 @@ impl WalkingEngine {
             context.motion_command,
             last_cycle_duration,
             &context.config.swinging_arms,
-        );
+        )?;
         let right_arm = self.right_arm.next(
             self.right_foot,
             context.motion_command,
             last_cycle_duration,
             &context.config.swinging_arms,
-        );
+        )?;
 
         let arm_compensation = self
             .left_arm
-            .torso_tilt_compensation(&context.config.swinging_arms)
+            .torso_tilt_compensation(&context.config.swinging_arms)?
             + self
                 .right_arm
-                .torso_tilt_compensation(&context.config.swinging_arms);
+                .torso_tilt_compensation(&context.config.swinging_arms)?;
 
         let (mut left_leg, mut right_leg) = self.calculate_leg_joints(
             context.config.torso_shift_offset,
