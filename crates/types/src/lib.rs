@@ -26,6 +26,7 @@ pub mod horizon;
 mod image_segments;
 mod initial_pose;
 mod joints;
+mod joints_velocity;
 mod kick_decision;
 mod kick_step;
 mod led;
@@ -96,6 +97,7 @@ pub use joints::{
     ArmJoints, BodyJoints, BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand,
     LegJoints,
 };
+pub use joints_velocity::JointsVelocity;
 pub use kick_decision::KickDecision;
 pub use kick_step::{JointOverride, KickStep};
 pub use led::{Ear, Eye, Leds};
