@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use nalgebra::Isometry2;
+use nalgebra::{Isometry2, Point2};
 use spl_network_messages::PlayerNumber;
 use types::{
     BallState, FallState, FilteredGameState, GameControllerState, Obstacle, PenaltyShotDirection,
@@ -30,6 +30,7 @@ pub struct CycleContext {
     pub obstacles: Input<Vec<Obstacle>, "obstacles">,
     pub primary_state: Input<PrimaryState, "primary_state">,
     pub role: Input<Role, "role">,
+    pub position_of_interest: Input<Point2<f32>, "position_of_interest">,
 }
 
 #[context]
@@ -57,6 +58,7 @@ impl WorldStateComposer {
             ball: context.ball.copied(),
             filtered_game_state: context.filtered_game_state.copied(),
             obstacles: context.obstacles.clone(),
+            position_of_interest: *context.position_of_interest,
             robot,
             game_controller_state: context.game_controller_state.copied(),
         };
