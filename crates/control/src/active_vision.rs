@@ -70,6 +70,9 @@ impl ActiveVision {
             self.position_of_interest_index =
                 (self.position_of_interest_index + 1) % positions_of_interest.len();
             self.last_position_of_interest_switch = Some(cycle_start_time);
+        } else {
+            self.position_of_interest_index =
+                self.position_of_interest_index % positions_of_interest.len();
         }
 
         let position_of_interest = positions_of_interest[self.position_of_interest_index];
