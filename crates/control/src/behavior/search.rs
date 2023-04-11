@@ -71,6 +71,7 @@ pub fn execute(
             None,
             &world_state.obstacles,
             path_obstacles_output,
+            world_state.game_controller_state,
         );
         let path_length: f32 = path.iter().map(|segment| segment.length()).sum();
         let is_reached = path_length < parameters.position_reached_distance;
