@@ -67,13 +67,11 @@ impl ActiveVision {
             || cycle_start_time.duration_since(self.last_position_of_interest_switch.unwrap())?
                 > context.parameters.position_of_interest_switch_interval
         {
-            self.position_of_interest_index =
-                (self.position_of_interest_index + 1) % positions_of_interest.len();
+            self.position_of_interest_index += 1;
             self.last_position_of_interest_switch = Some(cycle_start_time);
-        } else {
-            self.position_of_interest_index =
-                self.position_of_interest_index % positions_of_interest.len();
         }
+
+        self.position_of_interest_index %= positions_of_interest.len();
 
         let position_of_interest = positions_of_interest[self.position_of_interest_index];
 
