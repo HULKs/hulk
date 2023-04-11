@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use framework::AdditionalOutput;
 use nalgebra::{distance, point, Isometry2, Point2};
-use spl_network_messages::{GamePhase, Team, SubState};
+use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     configuration::RolePositions, rotate_towards, BallState, FieldDimensions, GameControllerState,
     Line, MotionCommand, PathObstacle, Side, WorldState,
@@ -73,8 +73,11 @@ impl<'cycle> Defend<'cycle> {
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     ) -> Option<MotionCommand> {
-        let pose =
-            defend_penalty_right_pose(self.world_state, self.field_dimensions, self.role_positions)?;
+        let pose = defend_penalty_right_pose(
+            self.world_state,
+            self.field_dimensions,
+            self.role_positions,
+        )?;
         self.with_pose(pose, path_obstacles_output)
     }
 
@@ -134,7 +137,10 @@ fn defend_penalty_left_pose(
     let ball = world_state
         .ball
         .map(|ball| BallState {
-            position: point![-field_dimensions.length/2.0 + field_dimensions.penalty_marker_distance,0.0],
+            position: point![
+                -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
+                0.0
+            ],
             field_side: ball.field_side,
             penalty_shot_direction: Default::default(),
         })
@@ -191,7 +197,10 @@ fn defend_penalty_right_pose(
     let ball = world_state
         .ball
         .map(|ball| BallState {
-            position: point![-field_dimensions.length/2.0 + field_dimensions.penalty_marker_distance,0.0],
+            position: point![
+                -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
+                0.0
+            ],
             field_side: ball.field_side,
             penalty_shot_direction: Default::default(),
         })
@@ -233,8 +242,8 @@ fn defend_goal_pose(
                     kicking_team: Team::Opponent,
                 },
             ..
-        }) |
-        Some(GameControllerState {
+        })
+        | Some(GameControllerState {
             sub_state: Some(SubState::PenaltyKick),
             kicking_team: Team::Opponent,
             ..

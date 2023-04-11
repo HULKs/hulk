@@ -1,7 +1,7 @@
 use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex};
-use spl_network_messages::{SubState, Team, GameState};
+use spl_network_messages::{GameState, SubState, Team};
 use types::{
     configuration::{
         PathPlanning as PathPlanningConfiguration, WalkAndStand as WalkAndStandConfiguration,
@@ -69,7 +69,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
                 kicking_team: Team::Hulks,
                 ..
             }) => planner.with_penalty_box(robot_to_field.inverse(), self.field_dimensions, true),
-            _ => {},
+            _ => {}
         };
 
         let target_in_field = robot_to_field * target_in_robot;
