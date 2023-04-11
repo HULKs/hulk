@@ -15,6 +15,7 @@ pub struct WorldState {
     pub filtered_game_state: Option<FilteredGameState>,
     pub game_controller_state: Option<GameControllerState>,
     pub obstacles: Vec<Obstacle>,
+    pub position_of_interest: Point2<f32>,
     pub robot: RobotState,
 }
 
