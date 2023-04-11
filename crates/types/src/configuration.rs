@@ -89,6 +89,7 @@ pub struct Behavior {
 pub struct LookAction {
     pub angle_threshold: f32,
     pub distance_threshold: f32,
+    pub position_of_interest_switch_interval: Duration,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

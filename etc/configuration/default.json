@@ -852,7 +852,11 @@
     },
     "look_action": {
       "angle_threshold": 0.95,
-      "distance_threshold": 3.0
+      "distance_threshold": 3.0,
+      "position_of_interest_switch_interval": {
+        "nanos": 0,
+        "secs": 1
+      }
     }
   },
   "game_state_filter": {

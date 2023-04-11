@@ -1,12 +1,17 @@
+use std::time::SystemTime;
+
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex, Vector2};
 use ordered_float::NotNan;
-use types::{configuration::LookAction as LookActionConfiguration, BallState, FieldDimensions};
+use types::{
+    configuration::LookAction as LookActionConfiguration, BallState, CycleTime, FieldDimensions,
+};
 
 pub struct ActiveVision {
     field_mark_positions: Vec<Point2<f32>>,
+    last_position_of_interest_switch: Option<SystemTime>,
     position_of_interest_index: usize,
 }
 
@@ -18,6 +23,7 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub ball: Input<Option<BallState>, "ball_state?">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub parameters: Parameter<LookActionConfiguration, "behavior.look_action">,
     pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
 }
@@ -32,11 +38,13 @@ impl ActiveVision {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
             field_mark_positions: generate_field_mark_positions(context.field_dimensions),
+            last_position_of_interest_switch: None,
             position_of_interest_index: 0,
         })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let cycle_start_time = context.cycle_time.start_time;
         let mut positions_of_interest = vec![point![1.0, 0.0]];
 
         if let Some(ball_state) = context.ball {
@@ -53,6 +61,15 @@ impl ActiveVision {
             if let Some(field_mark_position) = field_mark_of_interest {
                 positions_of_interest.push(field_mark_position);
             }
+        }
+
+        if self.last_position_of_interest_switch.is_none()
+            || cycle_start_time.duration_since(self.last_position_of_interest_switch.unwrap())?
+                > context.parameters.position_of_interest_switch_interval
+        {
+            self.position_of_interest_index =
+                (self.position_of_interest_index + 1) % positions_of_interest.len();
+            self.last_position_of_interest_switch = Some(cycle_start_time);
         }
 
         let position_of_interest = positions_of_interest[self.position_of_interest_index];
