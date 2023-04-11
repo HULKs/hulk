@@ -39,8 +39,10 @@ where
             spl_network: &configuration.spl_network,
         })
         .wrap_err("failed to create node `RoleAssignment`")?;
-        let ball_state_composer = BallStateComposer::new(ball_state_composer::CreationContext {})
-            .wrap_err("failed to create node `BallStateComposer`")?;
+        let ball_state_composer = BallStateComposer::new(ball_state_composer::CreationContext {
+            field_dimensions: &configuration.field_dimensions,
+        })
+        .wrap_err("failed to create node `BallStateComposer`")?;
         let active_vision = ActiveVision::new(active_vision::CreationContext {
             field_dimensions: &configuration.field_dimensions,
         })
@@ -114,6 +116,8 @@ where
                     robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
                     team_ball: own_database.main_outputs.team_ball.as_ref(),
                     primary_state: &own_database.main_outputs.primary_state,
+                    field_dimensions: &configuration.field_dimensions,
+                    game_controller_state: own_database.main_outputs.game_controller_state.as_ref(),
                 })
                 .wrap_err("failed to execute cycle of node `BallStateComposer`")?;
             own_database.main_outputs.ball_state = main_outputs.ball_state.value;

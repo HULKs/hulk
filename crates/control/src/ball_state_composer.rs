@@ -2,15 +2,21 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
-use nalgebra::{Isometry2, Point2};
-use types::{BallPosition, BallState, PenaltyShotDirection, PrimaryState, Side};
+use nalgebra::{point, Isometry2, Point2};
+use spl_network_messages::{SubState, Team};
+use types::{
+    BallPosition, BallState, FieldDimensions, GameControllerState, PenaltyShotDirection,
+    PrimaryState, Side,
+};
 
 pub struct BallStateComposer {
     last_ball_field_side: Side,
 }
 
 #[context]
-pub struct CreationContext {}
+pub struct CreationContext {
+    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+}
 
 #[context]
 pub struct CycleContext {
@@ -19,6 +25,8 @@ pub struct CycleContext {
     pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     pub team_ball: Input<Option<BallPosition>, "team_ball?">,
     pub primary_state: Input<PrimaryState, "primary_state">,
+    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
 #[context]
@@ -43,9 +51,33 @@ impl BallStateComposer {
         ) {
             (PrimaryState::Ready, _, _, Some(robot_to_field)) => {
                 if let Some(game_controller_state) = context.game_controller_state {
-                    match game_controller_state.sub_state {
-                        Some(SubState::PenaltyKick) => Some(create_ball_state(
-                            robot_to_field.inverse() * point![-context.field_dimensions.length/2.0 + context.field_dimensions.penalty_marker_distance,0.0],
+                    match game_controller_state {
+                        GameControllerState {
+                            sub_state: Some(SubState::PenaltyKick),
+                            kicking_team: Team::Opponent,
+                            ..
+                        } => Some(create_ball_state(
+                            robot_to_field.inverse()
+                                * point![
+                                    -context.field_dimensions.length / 2.0
+                                        + context.field_dimensions.penalty_marker_distance,
+                                    0.0
+                                ],
+                            context.robot_to_field,
+                            &mut self.last_ball_field_side,
+                            context.penalty_shot_direction.copied(),
+                        )),
+                        GameControllerState {
+                            sub_state: Some(SubState::PenaltyKick),
+                            kicking_team: Team::Hulks,
+                            ..
+                        } => Some(create_ball_state(
+                            robot_to_field.inverse()
+                                * point![
+                                    context.field_dimensions.length / 2.0
+                                        + context.field_dimensions.penalty_marker_distance,
+                                    0.0
+                                ],
                             context.robot_to_field,
                             &mut self.last_ball_field_side,
                             context.penalty_shot_direction.copied(),
