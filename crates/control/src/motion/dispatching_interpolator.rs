@@ -39,7 +39,6 @@ pub struct CycleContext {
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
     pub transition_time: AdditionalOutput<Duration, "transition_time">,
-    pub dispatching_active: AdditionalOutput<bool, "dispatching_active">,
 }
 
 #[context]
@@ -62,7 +61,6 @@ impl DispatchingInterpolator {
         context.motion_safe_exits[MotionType::Dispatching] = false;
 
         let currently_active = context.motion_selection.current_motion == MotionType::Dispatching;
-        context.dispatching_active.fill_if_subscribed(|| currently_active);
         if !currently_active {
             context.transition_time.fill_if_subscribed(|| Duration::ZERO);
             self.last_currently_active = currently_active;
