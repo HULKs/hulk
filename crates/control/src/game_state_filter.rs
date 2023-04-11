@@ -286,7 +286,9 @@ impl State {
                     ball_is_free: !(is_in_sub_state && opponent_is_kicking_team),
                 },
                 _ => FilteredGameState::Playing {
-                    ball_is_free: !(is_in_sub_state && opponent_is_kicking_team && !ball_detected_far_from_penalty_spot),
+                    ball_is_free: !(is_in_sub_state
+                        && opponent_is_kicking_team
+                        && !ball_detected_far_from_penalty_spot),
                 },
             },
             State::WhistleInPlaying { .. } => FilteredGameState::Ready {
