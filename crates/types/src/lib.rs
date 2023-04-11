@@ -33,7 +33,6 @@ mod led;
 mod limb;
 mod line;
 mod line_data;
-mod linear_interpolator;
 pub mod localization;
 mod message_event;
 pub mod messages;
@@ -104,7 +103,6 @@ pub use led::{Ear, Eye, Leds};
 pub use limb::{is_above_limbs, Limb, ProjectedLimbs};
 pub use line::{Line, Line2};
 pub use line_data::{ImageLines, LineData};
-pub use linear_interpolator::LinearInterpolator;
 pub use message_event::MessageEvent;
 pub use motion_command::{
     ArmMotion, Facing, FallDirection, HeadMotion, JumpDirection, KickDirection, KickVariant,
