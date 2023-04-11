@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2};
-use spl_network_messages::{GamePhase, Team, SubState};
+use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     configuration::{Behavior as BehaviorConfiguration, LostBall},
     CycleTime, FieldDimensions, FilteredGameState, GameControllerState, KickDecision,
@@ -17,7 +17,7 @@ use super::{
     dribble, fall_safely,
     head::LookAction,
     jump, look_around, lost_ball, penalize, prepare_jump, search, sit_down, stand, stand_up,
-    support, unstiff, walk_to_kick_off,
+    support, unstiff, walk_to_kick_off, walk_to_penalty_kick,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
 
@@ -116,7 +116,7 @@ impl Behavior {
                     sub_state: Some(SubState::PenaltyKick),
                     kicking_team: Team::Opponent,
                     ..
-                }) => {actions.push(Action::DefendPenaltyLeft)},
+                }) => actions.push(Action::DefendPenaltyLeft),
                 _ => actions.push(Action::DefendLeft),
             },
             Role::DefenderRight => match world_state.game_controller_state {
@@ -124,7 +124,7 @@ impl Behavior {
                     sub_state: Some(SubState::PenaltyKick),
                     kicking_team: Team::Opponent,
                     ..
-                }) => {actions.push(Action::DefendPenaltyRight)},
+                }) => actions.push(Action::DefendPenaltyRight),
                 _ => actions.push(Action::DefendRight),
             },
             Role::Keeper => match world_state.game_controller_state {
@@ -148,9 +148,13 @@ impl Behavior {
                 }
                 Some(FilteredGameState::Ready {
                     kicking_team: Team::Hulks,
-                }) => {
-                    actions.push(Action::WalkToKickOff);
-                }
+                }) => match world_state.game_controller_state {
+                    Some(GameControllerState {
+                        sub_state: Some(SubState::PenaltyKick),
+                        ..
+                    }) => actions.push(Action::WalkToPenaltyKick),
+                    _ => actions.push(Action::WalkToKickOff),
+                },
                 _ => {
                     actions.push(Action::DefendKickOff);
                 }
@@ -288,6 +292,13 @@ impl Behavior {
                     &walk_and_stand,
                     &look_action,
                     &mut context.path_obstacles,
+                ),
+                Action::WalkToPenaltyKick => walk_to_penalty_kick::execute(
+                    world_state,
+                    &walk_and_stand,
+                    &look_action,
+                    &mut context.path_obstacles,
+                    context.field_dimensions,
                 ),
             })
             .unwrap_or_else(|| {
