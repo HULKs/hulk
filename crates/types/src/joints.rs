@@ -27,6 +27,10 @@ where
             pitch: value,
         }
     }
+
+    pub fn raw(&self) -> Vec<f32> {
+        vec![self.yaw, self.pitch]
+    }
 }
 
 impl<T> From<Joints<T>> for HeadJoints<T> {
@@ -123,6 +127,10 @@ where
             wrist_yaw: value.clone(),
             hand: value,
         }
+    }
+
+    pub fn raw(&self) -> Vec<f32> {
+        vec![self.shoulder_pitch, self.shoulder_roll, self.elbow_yaw, self.elbow_roll, self.wrist_yaw, self.hand]
     }
 }
 
@@ -231,6 +239,10 @@ where
             ankle_pitch: value.clone(),
             ankle_roll: value,
         }
+    }
+
+    pub fn raw(&self) -> Vec<f32> {
+        vec![self.hip_yaw_pitch, self.hip_roll, self.hip_pitch, self.knee_pitch, self.ankle_pitch, self.ankle_roll]
     }
 }
 
@@ -500,6 +512,25 @@ where
     }
 }
 
+impl<T, O> Div for Joints<T>
+where
+    HeadJoints<T>: Div<Output = HeadJoints<O>>,
+    ArmJoints<T>: Div<Output = ArmJoints<O>>,
+    LegJoints<T>: Div<Output = LegJoints<O>>,
+{
+    type Output = Joints<O>;
+
+    fn div(self, right: Self) -> Self::Output {
+        Self::Output {
+            head: self.head / right.head,
+            left_arm: self.left_arm / right.left_arm,
+            right_arm: self.right_arm / right.right_arm,
+            left_leg: self.left_leg / right.left_leg,
+            right_leg: self.right_leg / right.right_leg,
+        }
+    }
+}
+
 impl<I, O> Sum<Joints<I>> for Joints<O>
 where
     Joints<O>: Add<Joints<I>, Output = Joints<O>> + Default,
@@ -611,6 +642,8 @@ pub struct HeadJointsCommand<T> {
     pub positions: HeadJoints<T>,
     pub stiffnesses: HeadJoints<T>,
 }
+
+
 
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
