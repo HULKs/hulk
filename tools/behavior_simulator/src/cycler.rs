@@ -2,6 +2,8 @@ use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
 
 use color_eyre::{eyre::WrapErr, Result};
 use control::{
+    active_vision::{self, ActiveVision},
+    ball_state_composer::{self, BallStateComposer},
     behavior::node::{self, Behavior},
     role_assignment::{self, RoleAssignment},
     world_state_composer::{self, WorldStateComposer},
@@ -16,6 +18,8 @@ pub struct BehaviorCycler<Interface> {
     hardware_interface: Arc<Interface>,
     own_changed: Arc<Notify>,
     role_assignment: RoleAssignment,
+    ball_state_composer: BallStateComposer,
+    active_vision: ActiveVision,
     world_state_composer: WorldStateComposer,
     behavior: Behavior,
 }
@@ -35,6 +39,12 @@ where
             spl_network: &configuration.spl_network,
         })
         .wrap_err("failed to create node `RoleAssignment`")?;
+        let ball_state_composer = BallStateComposer::new(ball_state_composer::CreationContext {})
+            .wrap_err("failed to create node `BallStateComposer`")?;
+        let active_vision = ActiveVision::new(active_vision::CreationContext {
+            field_dimensions: &configuration.field_dimensions,
+        })
+        .wrap_err("failed to create node `ActiveVision`")?;
         let world_state_composer = WorldStateComposer::new(world_state_composer::CreationContext {
             player_number: &configuration.player_number,
         })
@@ -51,6 +61,8 @@ where
             own_changed,
 
             role_assignment,
+            ball_state_composer,
+            active_vision,
             world_state_composer,
             behavior,
         })
@@ -92,9 +104,38 @@ where
         }
         {
             let main_outputs = self
+                .ball_state_composer
+                .cycle(ball_state_composer::CycleContext {
+                    ball_position: own_database.main_outputs.ball_position.as_ref(),
+                    penalty_shot_direction: own_database
+                        .main_outputs
+                        .penalty_shot_direction
+                        .as_ref(),
+                    robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
+                    team_ball: own_database.main_outputs.team_ball.as_ref(),
+                    primary_state: &own_database.main_outputs.primary_state,
+                })
+                .wrap_err("failed to execute cycle of node `BallStateComposer`")?;
+            own_database.main_outputs.ball_state = main_outputs.ball_state.value;
+        }
+        {
+            let main_outputs = self
+                .active_vision
+                .cycle(active_vision::CycleContext {
+                    ball: own_database.main_outputs.ball_state.as_ref(),
+                    cycle_time: &own_database.main_outputs.cycle_time,
+                    parameters: &configuration.behavior.look_action,
+                    robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
+                })
+                .wrap_err("failed to execute cycle of node `ActiveVision`")?;
+            own_database.main_outputs.position_of_interest =
+                main_outputs.position_of_interest.value;
+        }
+        {
+            let main_outputs = self
                 .world_state_composer
                 .cycle(world_state_composer::CycleContext {
-                    ball_position: own_database.main_outputs.ball_position.as_ref(),
+                    ball: own_database.main_outputs.ball_state.as_ref(),
                     filtered_game_state: own_database.main_outputs.filtered_game_state.as_ref(),
                     game_controller_state: own_database.main_outputs.game_controller_state.as_ref(),
                     penalty_shot_direction: own_database
@@ -102,13 +143,13 @@ where
                         .penalty_shot_direction
                         .as_ref(),
                     robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
-                    team_ball: own_database.main_outputs.team_ball.as_ref(),
                     player_number: &configuration.player_number,
                     fall_state: &own_database.main_outputs.fall_state,
                     has_ground_contact: &own_database.main_outputs.has_ground_contact,
                     obstacles: &own_database.main_outputs.obstacles,
                     primary_state: &own_database.main_outputs.primary_state,
                     role: &own_database.main_outputs.role,
+                    position_of_interest: &own_database.main_outputs.position_of_interest,
                 })
                 .wrap_err("failed to execute cycle of node `WorldStateComposer`")?;
             own_database.main_outputs.world_state = main_outputs.world_state.value;
