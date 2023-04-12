@@ -21,7 +21,6 @@ projection = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serialize_hierarchy = { workspace = true }
-simple-websockets = { workspace = true }
 smallvec = { workspace = true }
 splines = { workspace = true }
 spl_network_messages = { workspace = true }
