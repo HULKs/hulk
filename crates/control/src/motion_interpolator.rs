@@ -16,6 +16,15 @@ pub enum MotionItem {
     Condition(Box<dyn Condition + Send + Sync + 'static>),
 }
 
+impl MotionItem {
+    pub fn is_finished(&self) -> bool {
+        match self {
+            MotionItem::Spline(spline) => spline.is_finished(),
+            MotionItem::Condition(condition) => condition.is_finished(),
+        }
+    }
+}
+
 pub trait Condition {
     fn is_finished(&self) -> bool;
     fn update(&mut self, sensor_data: &SensorData);
@@ -64,23 +73,24 @@ impl MotionInterpolator {
     }
 
     pub fn advance_by(&mut self, time_step: Duration) {
-        match &mut self.items[self.index] {
+        let item = &mut self.items[self.index];
+
+        match item {
             MotionItem::Spline(interpolator) => {
                 interpolator.advance_by(time_step);
-                if interpolator.is_finished() {
-                    self.index += 1;
-                }
             }
-            MotionItem::Condition(condition) => {
-                if condition.is_finished() {
-                    self.index += 1
-                }
+            _ => {}
+        };
+
+        if item.is_finished() {
+            if self.index < self.items.len() - 1 {
+                self.index += 1
             }
         }
     }
 
     pub fn is_finished(&self) -> bool {
-        self.index >= self.items.len()
+        self.index == self.items.len() - 1 && self.items.last().unwrap().is_finished()
     }
 
     pub fn value(&self) -> Result<Joints> {
