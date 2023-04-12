@@ -6,7 +6,7 @@ use types::{
     SensorData,
 };
 
-use crate::spline_interpolator::SplineInterpolator;
+use crate::motion_interpolator::MotionInterpolator;
 
 pub struct SitDown {
     interpolator: SplineInterpolator<Joints<f32>>,
@@ -41,11 +41,14 @@ impl SitDown {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
+        let sensor_data = context.sensor_data;
+
         if context.motion_selection.current_motion == MotionType::SitDown {
             self.interpolator.advance_by(last_cycle_duration);
         } else {
             self.interpolator.reset();
         }
+        self.interpolator.update(sensor_data);
 
         context.motion_safe_exits[MotionType::SitDown] = self.interpolator.is_finished();
 

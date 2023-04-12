@@ -16,6 +16,7 @@ pub mod led_status;
 pub mod limb_projector;
 pub mod localization;
 pub mod motion;
+pub mod motion_interpolator;
 pub mod obstacle_filter;
 pub mod odometry;
 pub mod orientation_filter;
