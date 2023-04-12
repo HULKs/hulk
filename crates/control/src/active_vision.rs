@@ -7,6 +7,7 @@ use nalgebra::{point, Isometry2, Point2, UnitComplex, Vector2};
 use ordered_float::NotNan;
 use types::{
     configuration::LookAction as LookActionConfiguration, BallState, CycleTime, FieldDimensions,
+    Obstacle, ObstacleKind,
 };
 
 pub struct ActiveVision {
@@ -24,6 +25,7 @@ pub struct CreationContext {
 pub struct CycleContext {
     pub ball: Input<Option<BallState>, "ball_state?">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
+    pub obstacles: Input<Vec<Obstacle>, "obstacles">,
     pub parameters: Parameter<LookActionConfiguration, "behavior.look_action">,
     pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
 }
@@ -49,6 +51,17 @@ impl ActiveVision {
 
         if let Some(ball_state) = context.ball {
             positions_of_interest.push(ball_state.position);
+        }
+
+        let closest_interesting_obstacle_position = context
+            .obstacles
+            .iter()
+            .filter(|obstacle| matches!(obstacle.kind, ObstacleKind::Robot | ObstacleKind::Unknown))
+            .map(|obstacle| obstacle.position)
+            .filter(|obstacle_position| is_position_visible(*obstacle_position, context.parameters))
+            .min_by_key(|position| NotNan::new(position.coords.norm()).unwrap());
+        if let Some(interesting_obstacle_position) = closest_interesting_obstacle_position {
+            positions_of_interest.push(interesting_obstacle_position);
         }
 
         if let Some(robot_to_field) = context.robot_to_field {

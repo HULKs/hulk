@@ -124,6 +124,7 @@ where
                 .cycle(active_vision::CycleContext {
                     ball: own_database.main_outputs.ball_state.as_ref(),
                     cycle_time: &own_database.main_outputs.cycle_time,
+                    obstacles: &own_database.main_outputs.obstacles,
                     parameters: &configuration.behavior.look_action,
                     robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
                 })
