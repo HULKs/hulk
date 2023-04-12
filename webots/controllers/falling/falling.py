@@ -1,30 +1,14 @@
 from controller import Supervisor
-from simple_websocket_server import WebSocketServer, WebSocket
-from threading import Thread
 
 TIME_STEP = 10
 
 supervisor = Supervisor()
 chest_button_channel = supervisor.getDevice('ChestButton Channel')
-scene_control_server = None
-
-class SceneControl(WebSocket):
-    def handle(self):
-        if self.data == "reset":
-            supervisor.worldReload()
-            scene_control_server.close()
-
-def run_scene_control_server():
-    scene_control_server = WebSocketServer("localhost", 9980, SceneControl)
-    scene_control_server.serve_forever()
-
-websocket_thread = Thread(target=run_scene_control_server)
-websocket_thread.start()
 
 count = 0
 pressed = 0
 
-nao_node=supervisor.getFromDef("NAO")
+nao_node = supervisor.getFromDef("NAO")
 while supervisor.step(TIME_STEP) != -1:
     if count == 20:
         pressed += 1
@@ -36,5 +20,5 @@ while supervisor.step(TIME_STEP) != -1:
         pressed += 1
         chest_button_channel.send(b'\x01')
     if count == 330:
-        nao_node.setVelocity([0,-2.5,0])
+        nao_node.setVelocity([0, -2.5, 0])
     count += 1
