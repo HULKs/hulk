@@ -29,14 +29,14 @@ impl KeyboardDevice {
             }
         };
 
-        let control_shift_c_pressed = if let Some(key) = key {
+        let chest_button_pressed = if let Some(key) = key {
             key == Keyboard::CONTROL | Keyboard::SHIFT | 'C' as u32
         } else {
             received_message.is_some()
         };
 
         TouchSensors {
-            chest_button: control_shift_c_pressed,
+            chest_button: chest_button_pressed,
             head_front: false,
             head_middle: false,
             head_rear: false,
