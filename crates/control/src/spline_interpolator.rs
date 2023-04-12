@@ -227,4 +227,12 @@ where
             *initial_key.value = current_position;
         }
     }
+
+    pub fn start_position(&self) -> Joints {
+        self.spline.keys()[1].value
+    }
+
+    pub fn end_position(&self) -> Joints {
+        self.spline.keys()[self.spline.keys().len() - 2].value
+    }
 }
