@@ -96,7 +96,7 @@ fn make_json_tree_from_path_and_value(path: &str, value: &Value) -> Value {
         })
 }
 
-fn get_last_octet_from_connection_url(connection_address: &str) -> Option<u8> {
+fn get_last_octet_from_connection_url(connection_url: &str) -> Option<u8> {
     // Extract the ip address from a url like "ws://{ip_address}:1337"
     // pass: ws://10.12.34.13 OR ws://10.12.34.13:1234
     // fail: 10.12.34.13... ws://localhost OR ws://localhost:1234
@@ -109,14 +109,14 @@ fn get_last_octet_from_connection_url(connection_address: &str) -> Option<u8> {
     )
     .unwrap();
 
-    let captures = re.captures(connection_address);
+    let captures = re.captures(connection_url);
     captures.and_then(|capture| capture.get(1).and_then(|v| v.as_str().parse::<u8>().ok()))
 }
 
-fn get_hardware_ids_if_webots(connection_address: &str) -> Option<HardwareIds> {
+fn get_hardware_ids_if_webots(connection_url: &str) -> Option<HardwareIds> {
     let re = Regex::new(r"(?x)^ws://localhost(?::[\d]*)?$").unwrap();
 
-    if re.is_match(connection_address) {
+    if re.is_match(connection_url) {
         Some(HardwareIds {
             head_id: "webots".to_string(),
             body_id: "webots".to_string(),
