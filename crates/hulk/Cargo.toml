@@ -6,7 +6,7 @@ license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
 [features]
-nao = ["alsa", "nao_camera", "v4l"]
+nao = ["alsa", "libc", "nao_camera", "v4l"]
 
 [dependencies]
 alsa = { optional = true, workspace = true }
@@ -17,6 +17,7 @@ ctrlc = { workspace = true }
 cyclers = { workspace = true }
 fern = { workspace = true }
 i2cdev = { workspace = true }
+libc = { optional = true, workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
 nao_camera = { optional = true, workspace = true }

@@ -1,16 +1,19 @@
 use std::{
-    io::{Read, Write},
-    mem::size_of,
+    io::{self, Write},
+    mem::{size_of, MaybeUninit},
     os::unix::net::UnixStream,
-    ptr::read,
+    ptr::null_mut,
     slice::from_raw_parts,
 };
 
-use color_eyre::Result;
+use color_eyre::{eyre::Context, Result};
+use libc::{fd_set, select, FD_SET, FD_ZERO};
 use nalgebra::{vector, Vector2, Vector3};
 use types::{self, ArmJoints, HeadJoints, Joints, LegJoints};
 
-#[derive(Clone, Copy, Debug, Default)]
+use super::double_buffered_reader::DoubleBufferedReader;
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(C)]
 pub struct RobotConfiguration {
     pub body_id: [u8; 20],
@@ -19,7 +22,7 @@ pub struct RobotConfiguration {
     pub head_version: u8,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(C)]
 pub struct Battery {
     pub charge: f32,
@@ -28,7 +31,7 @@ pub struct Battery {
     pub temperature: f32,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(C)]
 pub struct Vertex2 {
     x: f32,
@@ -41,7 +44,7 @@ impl From<Vertex2> for Vector2<f32> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(C)]
 pub struct Vertex3 {
     x: f32,
@@ -55,7 +58,7 @@ impl From<Vertex3> for Vector3<f32> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(C)]
 pub struct InertialMeasurementUnit {
     pub accelerometer: Vertex3,
@@ -73,7 +76,7 @@ impl From<InertialMeasurementUnit> for types::InertialMeasurementUnitData {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(C)]
 pub struct ForceSensitiveResistors {
     left_foot_front_left: f32,
@@ -105,7 +108,7 @@ impl From<ForceSensitiveResistors> for types::ForceSensitiveResistors {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(C)]
 pub struct TouchSensors {
     chest_button: bool,
@@ -145,7 +148,7 @@ impl From<TouchSensors> for types::TouchSensors {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(C)]
 pub struct SonarSensors {
     pub left: f32,
@@ -161,7 +164,7 @@ impl From<SonarSensors> for types::SonarSensors {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(C)]
 pub struct JointsArray {
     pub head_yaw: f32,
@@ -267,7 +270,7 @@ impl From<JointsArray> for Joints {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(C)]
 pub struct StateStorage {
     /// Seconds since proxy start
@@ -285,7 +288,7 @@ pub struct StateStorage {
     pub status: JointsArray,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(C)]
 pub struct Color {
     pub red: f32,
@@ -303,7 +306,7 @@ impl From<types::Rgb> for Color {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(C)]
 pub struct Eye {
     pub color_at_0: Color,
@@ -331,7 +334,7 @@ impl From<types::Eye> for Eye {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(C)]
 pub struct Ear {
     pub intensity_at_0: f32,
@@ -363,7 +366,7 @@ impl From<types::Ear> for Ear {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(C)]
 pub struct ControlStorage {
     pub left_eye: Eye,
@@ -377,10 +380,30 @@ pub struct ControlStorage {
     pub stiffness: JointsArray,
 }
 
-pub fn read_from_hula(stream: &mut UnixStream) -> Result<StateStorage> {
-    let mut read_buffer = [0; size_of::<StateStorage>()];
-    stream.read_exact(&mut read_buffer)?;
-    Ok(unsafe { read(read_buffer.as_ptr() as *const StateStorage) })
+pub fn read_from_hula(
+    stream: &mut UnixStream,
+    reader: &mut DoubleBufferedReader,
+) -> Result<StateStorage> {
+    reader
+        .read(stream, |file_descriptor| unsafe {
+            let mut set = MaybeUninit::<fd_set>::uninit();
+            FD_ZERO(set.as_mut_ptr());
+            let mut set = set.assume_init();
+            FD_SET(file_descriptor, &mut set);
+            if select(
+                file_descriptor + 1,
+                &mut set,
+                null_mut(),
+                null_mut(),
+                null_mut(),
+            ) < 0
+            {
+                return Err(io::Error::last_os_error());
+            }
+            Ok(())
+        })
+        .wrap_err("failed to read from stream")?;
+    Ok(*reader.get_last())
 }
 
 pub fn write_to_hula(stream: &mut UnixStream, control_storage: ControlStorage) -> Result<()> {
