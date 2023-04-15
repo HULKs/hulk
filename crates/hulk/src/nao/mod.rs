@@ -1,4 +1,5 @@
 mod camera;
+mod double_buffered_reader;
 mod hula;
 mod hula_wrapper;
 mod interface;
