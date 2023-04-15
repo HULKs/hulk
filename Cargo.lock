@@ -2209,6 +2209,7 @@ dependencies = [
  "cyclers",
  "fern",
  "i2cdev",
+ "libc",
  "log",
  "nalgebra",
  "nao_camera",
