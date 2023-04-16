@@ -45,7 +45,7 @@ impl DoubleBufferedReader {
                         buffers_swapped = true;
                     }
                 }
-                Err(ref error) if error.kind() == ErrorKind::Interrupted => {
+                Err(ref error) if error.kind() == ErrorKind::WouldBlock => {
                     if buffers_swapped {
                         return Ok(());
                     }
@@ -106,7 +106,7 @@ mod tests {
         impl Read for Reader {
             fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
                 if self.returned {
-                    return Err(ErrorKind::Interrupted.into());
+                    return Err(ErrorKind::WouldBlock.into());
                 }
                 assert_eq!(buffer.len(), size_of::<StateStorage>());
                 let data_slice = unsafe {
@@ -164,7 +164,7 @@ mod tests {
                         buffer.copy_from_slice(data_slice);
                         Ok(size_of::<StateStorage>())
                     }
-                    None => Err(ErrorKind::Interrupted.into()),
+                    None => Err(ErrorKind::WouldBlock.into()),
                 }
             }
         }
@@ -215,7 +215,7 @@ mod tests {
                         buffer[..item.buffer.len()].copy_from_slice(item.buffer);
                         Ok(item.buffer.len())
                     }
-                    None | Some(None) => Err(ErrorKind::Interrupted.into()),
+                    None | Some(None) => Err(ErrorKind::WouldBlock.into()),
                 }
             }
         }
@@ -276,7 +276,7 @@ mod tests {
                         buffer[..item.buffer.len()].copy_from_slice(item.buffer);
                         Ok(item.buffer.len())
                     }
-                    None | Some(None) => Err(ErrorKind::Interrupted.into()),
+                    None | Some(None) => Err(ErrorKind::WouldBlock.into()),
                 }
             }
         }
@@ -349,7 +349,7 @@ mod tests {
                         buffer[..item.buffer.len()].copy_from_slice(item.buffer);
                         Ok(item.buffer.len())
                     }
-                    None | Some(None) => Err(ErrorKind::Interrupted.into()),
+                    None | Some(None) => Err(ErrorKind::WouldBlock.into()),
                 }
             }
         }
