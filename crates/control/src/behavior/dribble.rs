@@ -101,19 +101,7 @@ pub fn execute(
         .flatten()
         .collect();
 
-    kick_decisions_output.fill_if_subscribed(|| {
-        kick_decisions
-            .iter()
-            .filter(|decision| {
-                is_inside_any_obstacle(
-                    decision.relative_kick_pose,
-                    &world_state.obstacles,
-                    parameters.kick_pose_obstacle_radius,
-                )
-            })
-            .cloned()
-            .collect()
-    });
+    kick_decisions_output.fill_if_subscribed(|| kick_decisions.clone());
 
     let available_kick = kick_decisions.iter().find(|decision| decision.is_reached);
     if let Some(kick) = available_kick {
