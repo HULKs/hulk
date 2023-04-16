@@ -8,7 +8,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use types::{hardware::Ids, Joints, Leds, SensorData};
 
 use super::{
-    double_buffered_reader::DoubleBufferedReader,
+    double_buffered_reader::{DoubleBufferedReader, SelectPoller},
     hula::{read_from_hula, write_to_hula, ControlStorage},
 };
 use constants::HULA_SOCKET_PATH;
@@ -17,19 +17,24 @@ pub struct HulaWrapper {
     now: SystemTime,
     ids: Ids,
     stream: UnixStream,
-    hula_reader: DoubleBufferedReader,
+    hula_reader: DoubleBufferedReader<UnixStream, SelectPoller>,
 }
 
 impl HulaWrapper {
     pub fn new() -> Result<Self> {
-        let mut stream =
+        let stream =
             UnixStream::connect(HULA_SOCKET_PATH).wrap_err("failed to open HULA socket")?;
         stream
             .set_nonblocking(true)
             .wrap_err("failed to set HULA socket to non-blocking mode")?;
-        let mut hula_reader = Default::default();
+        let mut hula_reader = DoubleBufferedReader::from_reader_and_poller(
+            stream
+                .try_clone()
+                .wrap_err("failed to clone HULA socket for reading")?,
+            SelectPoller,
+        );
         let state_storage =
-            read_from_hula(&mut stream, &mut hula_reader).wrap_err("failed to read from HULA")?;
+            read_from_hula(&mut hula_reader).wrap_err("failed to read from HULA")?;
         let ids = Ids {
             body_id: from_utf8(&state_storage.robot_configuration.body_id)
                 .wrap_err("failed to convert body ID into UTF-8")?
@@ -55,8 +60,8 @@ impl HulaWrapper {
     }
 
     pub fn read_from_hula(&mut self) -> Result<SensorData> {
-        let state_storage = read_from_hula(&mut self.stream, &mut self.hula_reader)
-            .wrap_err("failed to read from HULA")?;
+        let state_storage =
+            read_from_hula(&mut self.hula_reader).wrap_err("failed to read from HULA")?;
 
         self.now = UNIX_EPOCH + Duration::from_secs_f32(state_storage.received_at);
 
