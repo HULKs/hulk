@@ -1,17 +1,15 @@
 use std::{
-    io::{self, Write},
-    mem::{size_of, MaybeUninit},
-    os::unix::net::UnixStream,
-    ptr::null_mut,
+    io::{Read, Write},
+    mem::size_of,
+    os::{unix::io::AsRawFd, unix::net::UnixStream},
     slice::from_raw_parts,
 };
 
 use color_eyre::{eyre::Context, Result};
-use libc::{fd_set, select, FD_SET, FD_ZERO};
 use nalgebra::{vector, Vector2, Vector3};
 use types::{self, ArmJoints, HeadJoints, Joints, LegJoints};
 
-use super::double_buffered_reader::DoubleBufferedReader;
+use super::double_buffered_reader::{DoubleBufferedReader, Poll};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(C)]
@@ -380,30 +378,14 @@ pub struct ControlStorage {
     pub stiffness: JointsArray,
 }
 
-pub fn read_from_hula(
-    stream: &mut UnixStream,
-    reader: &mut DoubleBufferedReader,
-) -> Result<StateStorage> {
-    reader
-        .read(stream, |file_descriptor| unsafe {
-            let mut set = MaybeUninit::<fd_set>::uninit();
-            FD_ZERO(set.as_mut_ptr());
-            let mut set = set.assume_init();
-            FD_SET(file_descriptor, &mut set);
-            if select(
-                file_descriptor + 1,
-                &mut set,
-                null_mut(),
-                null_mut(),
-                null_mut(),
-            ) < 0
-            {
-                return Err(io::Error::last_os_error());
-            }
-            Ok(())
-        })
-        .wrap_err("failed to read from stream")?;
-    Ok(*reader.get_last())
+pub fn read_from_hula<Reader, Poller>(
+    reader: &mut DoubleBufferedReader<Reader, Poller>,
+) -> Result<StateStorage>
+where
+    Reader: AsRawFd + Read,
+    Poller: Poll,
+{
+    Ok(*reader.drain().wrap_err("failed to drain from stream")?)
 }
 
 pub fn write_to_hula(stream: &mut UnixStream, control_storage: ControlStorage) -> Result<()> {
