@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{configuration::SwingingArms, ArmJoints, ArmMotion, MotionCommand, Side};
 
-use crate::transition_interpolator::TransitionInterpolator;
+use crate::spline_interpolator::SplineInterpolator;
 
 use super::foot_offsets::FootOffsets;
 
@@ -20,17 +20,17 @@ enum State {
     #[default]
     Swing,
     PullingBack {
-        interpolator: TransitionInterpolator<ArmJoints<f32>>,
+        interpolator: SplineInterpolator<ArmJoints<f32>>,
     },
     PullingTight {
-        interpolator: TransitionInterpolator<ArmJoints<f32>>,
+        interpolator: SplineInterpolator<ArmJoints<f32>>,
     },
     Back,
     ReleasingTight {
-        interpolator: TransitionInterpolator<ArmJoints<f32>>,
+        interpolator: SplineInterpolator<ArmJoints<f32>>,
     },
     ReleasingBack {
-        interpolator: TransitionInterpolator<ArmJoints<f32>>,
+        interpolator: SplineInterpolator<ArmJoints<f32>>,
     },
 }
 
@@ -65,7 +65,7 @@ impl SwingingArm {
         self.state = match (&mut self.state, requested_arm_motion) {
             (State::Swing, ArmMotion::Swing) => State::Swing,
             (State::Swing, ArmMotion::PullTight) => State::PullingBack {
-                interpolator: TransitionInterpolator::try_new_timed(
+                interpolator: SplineInterpolator::try_new_transition_timed(
                     swinging_arm_joints,
                     pull_back_joints,
                     config.pulling_back_duration,
@@ -80,7 +80,7 @@ impl SwingingArm {
                 interpolator.advance_by(cycle_duration);
                 if interpolator.is_finished() {
                     State::PullingTight {
-                        interpolator: TransitionInterpolator::try_new_timed(
+                        interpolator: SplineInterpolator::try_new_transition_timed(
                             pull_back_joints,
                             pull_tight_joints,
                             config.pulling_tight_duration,
@@ -94,7 +94,7 @@ impl SwingingArm {
             }
             (State::PullingBack { interpolator }, ArmMotion::Swing) => {
                 let current_joints = interpolator.value()?;
-                let interpolator = TransitionInterpolator::try_new_timed(
+                let interpolator = SplineInterpolator::try_new_transition_timed(
                     current_joints,
                     center_arm_joints,
                     interpolator.passed_duration(),
@@ -118,7 +118,7 @@ impl SwingingArm {
             }
             (State::PullingTight { interpolator }, ArmMotion::Swing) => {
                 let current_joints = interpolator.value()?;
-                let interpolator = TransitionInterpolator::try_new_timed(
+                let interpolator = SplineInterpolator::try_new_transition_timed(
                     current_joints,
                     pull_back_joints,
                     interpolator.passed_duration(),
@@ -126,7 +126,7 @@ impl SwingingArm {
                 State::ReleasingTight { interpolator }
             }
             (State::Back, ArmMotion::Swing) => State::ReleasingTight {
-                interpolator: TransitionInterpolator::try_new_timed(
+                interpolator: SplineInterpolator::try_new_transition_timed(
                     pull_tight_joints,
                     pull_back_joints,
                     config.pulling_back_duration + config.pulling_tight_duration,
@@ -150,7 +150,7 @@ impl SwingingArm {
             }
             (State::ReleasingBack { interpolator }, ArmMotion::PullTight) => {
                 let current_joints = interpolator.value()?;
-                let interpolator = TransitionInterpolator::try_new_timed(
+                let interpolator = SplineInterpolator::try_new_transition_timed(
                     current_joints,
                     pull_back_joints,
                     config.pulling_back_duration,
@@ -166,7 +166,7 @@ impl SwingingArm {
                 interpolator.advance_by(cycle_duration);
                 if interpolator.is_finished() {
                     State::ReleasingBack {
-                        interpolator: TransitionInterpolator::try_new_timed(
+                        interpolator: SplineInterpolator::try_new_transition_timed(
                             pull_back_joints,
                             center_arm_joints,
                             config.pulling_back_duration,
@@ -180,7 +180,7 @@ impl SwingingArm {
             }
             (State::ReleasingTight { interpolator }, ArmMotion::PullTight) => {
                 let current_joints = interpolator.value()?;
-                let interpolator = TransitionInterpolator::try_new_timed(
+                let interpolator = SplineInterpolator::try_new_transition_timed(
                     current_joints,
                     pull_tight_joints,
                     interpolator.passed_duration(),

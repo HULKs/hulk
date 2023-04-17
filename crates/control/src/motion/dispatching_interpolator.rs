@@ -8,10 +8,11 @@ use types::{
     MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
-use crate::transition_interpolator::TransitionInterpolator;
+use crate::spline_interpolator::SplineInterpolator;
+
 
 pub struct DispatchingInterpolator {
-    interpolator: TransitionInterpolator<Joints<f32>>,
+    interpolator: SplineInterpolator<Joints<f32>>,
     stiffnesses: Joints<f32>,
     last_currently_active: bool,
     last_dispatching_motion: MotionType,
@@ -38,7 +39,7 @@ pub struct CycleContext {
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
-    pub transition_time: AdditionalOutput<Duration, "transition_time">,
+    pub transition_time: AdditionalOutput<Option<Duration>, "transition_time">,
 }
 
 #[context]
@@ -64,7 +65,8 @@ impl DispatchingInterpolator {
         if !currently_active {
             context
                 .transition_time
-                .fill_if_subscribed(|| Duration::ZERO);
+                .fill_if_subscribed(|| None);
+            
             self.last_currently_active = currently_active;
             return Ok(Default::default());
         }
@@ -99,7 +101,7 @@ impl DispatchingInterpolator {
                 ),
             };
 
-            self.interpolator = TransitionInterpolator::try_new_with_maximum_velocity(
+            self.interpolator = SplineInterpolator::try_new_transition_with_velocity(
                 context.sensor_data.positions,
                 target_position,
                 *context.maximum_velocity,
@@ -113,9 +115,9 @@ impl DispatchingInterpolator {
         context.motion_safe_exits[MotionType::Dispatching] = self.interpolator.is_finished();
         context.transition_time.fill_if_subscribed(|| {
             if self.interpolator.is_finished() {
-                Duration::ZERO
+                None
             } else {
-                self.interpolator.duration()
+                Some(self.interpolator.duration())
             }
         });
 

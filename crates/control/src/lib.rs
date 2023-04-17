@@ -28,7 +28,6 @@ pub mod sole_pressure_filter;
 pub mod sonar_filter;
 pub mod spline_interpolator;
 pub mod support_foot_estimation;
-pub mod transition_interpolator;
 pub mod whistle_filter;
 pub mod world_state_composer;
 

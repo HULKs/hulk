@@ -28,7 +28,7 @@ where
         }
     }
 
-    pub fn raw(&self) -> Vec<f32> {
+    pub fn as_vec(&self) -> Vec<f32> {
         vec![self.yaw, self.pitch]
     }
 }
@@ -129,7 +129,7 @@ where
         }
     }
 
-    pub fn raw(&self) -> Vec<f32> {
+    pub fn as_vec(&self) -> Vec<f32> {
         vec![
             self.shoulder_pitch,
             self.shoulder_roll,
@@ -248,7 +248,7 @@ where
         }
     }
 
-    pub fn raw(&self) -> Vec<f32> {
+    pub fn as_vec(&self) -> Vec<f32> {
         vec![
             self.hip_yaw_pitch,
             self.hip_roll,
