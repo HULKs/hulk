@@ -5,8 +5,11 @@ use proc_macro_error::abort;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
 use quote::ToTokens;
-use syn::Type;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Ident, Meta, NestedMeta};
+use syn::{
+    parse_macro_input, punctuated::Punctuated, Data, DataStruct, DeriveInput, Generics, Ident, Lit,
+    Meta, NestedMeta, Token, WherePredicate,
+};
+use syn::{MetaNameValue, Type};
 
 #[proc_macro_derive(SerializeHierarchy, attributes(serialize_hierarchy))]
 #[proc_macro_error]
@@ -15,7 +18,7 @@ pub fn serialize_hierarchy(input: proc_macro::TokenStream) -> proc_macro::TokenS
     process_input(input).into()
 }
 
-fn process_input(input: DeriveInput) -> TokenStream {
+fn process_input(mut input: DeriveInput) -> TokenStream {
     let fields = match &input.data {
         Data::Struct(data) => read_fields(data),
         Data::Enum(..) => Vec::new(),
@@ -28,6 +31,8 @@ fn process_input(input: DeriveInput) -> TokenStream {
     };
     let type_attributes = parse_attributes(&input.attrs);
     let contains_as_jpeg = type_attributes.contains(&TypeAttribute::AsJpeg);
+
+    extend_where_clause_from_attributes(&mut input.generics, type_attributes);
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -145,6 +150,21 @@ fn process_input(input: DeriveInput) -> TokenStream {
     implementation
 }
 
+fn extend_where_clause_from_attributes(
+    generics: &mut Generics,
+    type_attributes: HashSet<TypeAttribute>,
+) {
+    generics.make_where_clause().predicates.extend({
+        type_attributes
+            .iter()
+            .filter_map(|attribute| match attribute {
+                TypeAttribute::Bounds { predicates } => Some(predicates),
+                _ => None,
+            })
+            .flat_map(|predicates| predicates.to_vec())
+    });
+}
+
 fn generate_path_serializations(fields: &[&Field]) -> Vec<TokenStream> {
     fields
         .iter()
@@ -255,9 +275,10 @@ fn generate_path_field_chains(fields: &[&Field]) -> Vec<TokenStream> {
         .collect()
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 enum TypeAttribute {
     AsJpeg,
+    Bounds { predicates: Vec<WherePredicate> },
 }
 
 fn parse_attributes(attrs: &[syn::Attribute]) -> HashSet<TypeAttribute> {
@@ -266,6 +287,26 @@ fn parse_attributes(attrs: &[syn::Attribute]) -> HashSet<TypeAttribute> {
         .flat_map(parse_meta_items)
         .map(|meta| match meta {
             NestedMeta::Meta(Meta::Path(word)) if word.is_ident("as_jpeg") => TypeAttribute::AsJpeg,
+            NestedMeta::Meta(Meta::NameValue(MetaNameValue {
+                path, lit: literal, ..
+            })) if path.is_ident("bound") => {
+                let string = match literal {
+                    Lit::Str(literal) => literal,
+                    _ => abort!(
+                        literal,
+                        "expected bound attribute to be a string: `bound = \"...\"`"
+                    ),
+                };
+                let predicates = match string
+                    .parse_with(Punctuated::<WherePredicate, Token![,]>::parse_terminated)
+                {
+                    Ok(predicates) => Vec::from_iter(predicates),
+                    Err(error) => {
+                        abort!(error.span(), error.to_string())
+                    }
+                };
+                TypeAttribute::Bounds { predicates }
+            }
             NestedMeta::Meta(meta_item) => {
                 let path = meta_item
                     .path()
