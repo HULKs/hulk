@@ -1,4 +1,8 @@
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de::DeserializeOwned, ser::SerializeSeq};
+use serde::{
+    de::{DeserializeOwned, self},
+    ser::{self, SerializeSeq},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 use splines::{Interpolate, Interpolation, Key, Spline};
 use thiserror::Error;
 use types::{Joints, JointsVelocity, MotionFile};
@@ -26,11 +30,22 @@ fn serialize_spline<S: Serializer, T>(
 where
     T: Debug + Interpolate<f32> + Serialize,
 {
+    use ser::Error;
     let keys = spline.keys();
 
     let mut seq = serializer.serialize_seq(Some(keys.len()))?;
     for key in keys.iter() {
-        seq.serialize_element(&(key.t, key.value))?;
+        let scheme = match key.interpolation {
+            Interpolation::Linear => "Linear",
+            Interpolation::Cosine => "Cosine",
+            Interpolation::CatmullRom => "CatmullRom",
+            other => {
+                return Err(Error::custom(format!(
+                    "serialization of {other:?} not supported"
+                )))
+            }
+        };
+        seq.serialize_element(&(key.t, key.value, scheme))?;
     }
     seq.end()
 }
@@ -41,10 +56,26 @@ fn deserialize_spline<'de, D: Deserializer<'de>, T>(
 where
     T: Debug + Interpolate<f32> + DeserializeOwned,
 {
-    let keys = <Vec<(f32, T)>>::deserialize(deserializer)?;
-    let interpolation_scheme = Interpolation::Linear;
+    use de::Error;
 
-    Ok(Spline::from_iter(keys.into_iter().map(|(time, value)| Key::new(time, value, interpolation_scheme))))
+    let keys = <Vec<(f32, T, String)>>::deserialize(deserializer)?;
+    let keys = keys.into_iter().map(
+        |(time, value, scheme)| {
+            let scheme = Ok(match scheme.as_str() {
+                "Linear" => Interpolation::Linear,
+                "Cosine" => Interpolation::Cosine,
+                "CatmullRom" => Interpolation::CatmullRom,
+                other => {
+                    Err(Error::custom(format!(
+                        "found unsupported interpolation scheme {other}"
+                    )))?
+                }
+            })?;
+            Ok(Key::new(time, value, scheme))
+        },
+    ).collect::<Result<_,_>>()?;
+
+    Ok(Spline::from_vec(keys))
 }
 
 impl<T> Default for SplineInterpolator<T>
@@ -118,8 +149,7 @@ impl InterpolatorError {
     }
 }
 
-impl TryFrom<MotionFile> for SplineInterpolator<Joints>
-{
+impl TryFrom<MotionFile> for SplineInterpolator<Joints> {
     type Error = InterpolatorError;
 
     fn try_from(motion_file: MotionFile) -> Result<Self, InterpolatorError> {
