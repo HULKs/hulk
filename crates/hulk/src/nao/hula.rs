@@ -379,7 +379,7 @@ pub struct ControlStorage {
 }
 
 pub fn read_from_hula<Reader, Poller>(
-    reader: &mut DoubleBufferedReader<Reader, Poller>,
+    reader: &mut DoubleBufferedReader<StateStorage, Reader, Poller>,
 ) -> Result<StateStorage>
 where
     Reader: AsRawFd + Read,

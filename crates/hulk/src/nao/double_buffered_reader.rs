@@ -3,24 +3,24 @@ use std::{
     mem::{size_of, MaybeUninit},
     os::unix::{io::AsRawFd, prelude::RawFd},
     ptr::null_mut,
+    slice::from_raw_parts_mut,
 };
 
 use libc::{fd_set, select, FD_SET, FD_ZERO};
 
-use super::hula::StateStorage;
-
 const NUMBER_OF_BUFFERS: usize = 2;
 
-pub struct DoubleBufferedReader<Reader, Poller> {
+pub struct DoubleBufferedReader<Item, Reader, Poller> {
     reader: Reader,
     poller: Poller,
-    buffers: [[u8; size_of::<StateStorage>()]; NUMBER_OF_BUFFERS],
+    buffers: [Item; NUMBER_OF_BUFFERS],
     active_buffer_index: usize,
     number_of_read_bytes_in_active_buffer: usize,
 }
 
-impl<Reader, Poller> DoubleBufferedReader<Reader, Poller>
+impl<Item, Reader, Poller> DoubleBufferedReader<Item, Reader, Poller>
 where
+    Item: Copy + Default,
     Reader: AsRawFd + Read,
     Poller: Poll,
 {
@@ -28,7 +28,7 @@ where
         Self {
             reader,
             poller,
-            buffers: [[0; size_of::<StateStorage>()]; NUMBER_OF_BUFFERS],
+            buffers: [Item::default(); NUMBER_OF_BUFFERS],
             active_buffer_index: Default::default(),
             number_of_read_bytes_in_active_buffer: Default::default(),
         }
@@ -47,21 +47,24 @@ where
         self.number_of_read_bytes_in_active_buffer = 0;
     }
 
-    pub fn drain(&mut self) -> io::Result<&StateStorage> {
+    pub fn drain(&mut self) -> io::Result<&Item> {
         let mut is_at_least_one_buffer_complete = false;
         loop {
-            match self.reader.read(
-                &mut self.buffers[self.active_buffer_index]
-                    [self.number_of_read_bytes_in_active_buffer..],
-            ) {
+            let buffer = unsafe {
+                from_raw_parts_mut(
+                    &mut self.buffers[self.active_buffer_index] as *mut Item as *mut u8,
+                    size_of::<Item>(),
+                )
+            };
+            match self
+                .reader
+                .read(&mut buffer[self.number_of_read_bytes_in_active_buffer..])
+            {
                 Ok(number_of_read_bytes) => {
                     self.number_of_read_bytes_in_active_buffer += number_of_read_bytes;
-                    assert!(
-                        self.number_of_read_bytes_in_active_buffer
-                            <= self.buffers[self.active_buffer_index].len()
-                    );
-                    let is_active_buffer_complete = self.number_of_read_bytes_in_active_buffer
-                        == self.buffers[self.active_buffer_index].len();
+                    assert!(self.number_of_read_bytes_in_active_buffer <= size_of::<Item>());
+                    let is_active_buffer_complete =
+                        self.number_of_read_bytes_in_active_buffer == size_of::<Item>();
                     if is_active_buffer_complete {
                         self.activate_next_buffer();
                         is_at_least_one_buffer_complete = true;
@@ -69,10 +72,7 @@ where
                 }
                 Err(ref error) if error.kind() == ErrorKind::WouldBlock => {
                     if is_at_least_one_buffer_complete {
-                        return Ok(unsafe {
-                            &*(self.buffers[self.previous_active_buffer_index()].as_ptr()
-                                as *const StateStorage)
-                        });
+                        return Ok(&self.buffers[self.previous_active_buffer_index()]);
                     }
                     self.poller.poll(self.reader.as_raw_fd())?;
                 }
@@ -169,7 +169,7 @@ mod tests {
         }
 
         let mut double_buffered_reader =
-            DoubleBufferedReader::from_reader_and_poller(Reader, PanickingPoller);
+            DoubleBufferedReader::<u16, _, _>::from_reader_and_poller(Reader, PanickingPoller);
         let result = double_buffered_reader.drain();
         assert!(result.is_err());
         let error = result.unwrap_err();
@@ -191,7 +191,7 @@ mod tests {
         }
 
         let mut double_buffered_reader =
-            DoubleBufferedReader::from_reader_and_poller(Reader, ErroringPoller);
+            DoubleBufferedReader::<u16, _, _>::from_reader_and_poller(Reader, ErroringPoller);
         let result = double_buffered_reader.drain();
         assert!(result.is_err());
         let error = result.unwrap_err();
@@ -201,7 +201,7 @@ mod tests {
     #[test]
     fn complete_read_terminates() {
         struct Reader {
-            data: StateStorage,
+            data: u16,
             returned: bool,
         }
         impl AsRawFd for Reader {
@@ -214,24 +214,18 @@ mod tests {
                 if self.returned {
                     return Err(ErrorKind::WouldBlock.into());
                 }
-                assert_eq!(buffer.len(), size_of::<StateStorage>());
+                assert_eq!(buffer.len(), size_of::<u16>());
                 let data_slice = unsafe {
-                    from_raw_parts(
-                        &self.data as *const StateStorage as *const u8,
-                        size_of::<StateStorage>(),
-                    )
+                    from_raw_parts(&self.data as *const u16 as *const u8, size_of::<u16>())
                 };
                 buffer.copy_from_slice(data_slice);
                 self.returned = true;
-                Ok(size_of::<StateStorage>())
+                Ok(size_of::<u16>())
             }
         }
 
-        let data = StateStorage {
-            received_at: 42.1337,
-            ..Default::default()
-        };
-        let mut double_buffered_reader = DoubleBufferedReader::from_reader_and_poller(
+        let data = 42;
+        let mut double_buffered_reader = DoubleBufferedReader::<u16, _, _>::from_reader_and_poller(
             Reader {
                 data,
                 returned: false,
@@ -247,7 +241,7 @@ mod tests {
     #[test]
     fn two_complete_reads_terminate_and_return_latest() {
         struct Reader {
-            reversed_items: Vec<StateStorage>,
+            reversed_items: Vec<u16>,
         }
         impl AsRawFd for Reader {
             fn as_raw_fd(&self) -> RawFd {
@@ -258,32 +252,20 @@ mod tests {
             fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
                 match self.reversed_items.pop() {
                     Some(item) => {
-                        assert_eq!(buffer.len(), size_of::<StateStorage>());
+                        assert_eq!(buffer.len(), size_of::<u16>());
                         let data_slice = unsafe {
-                            from_raw_parts(
-                                &item as *const StateStorage as *const u8,
-                                size_of::<StateStorage>(),
-                            )
+                            from_raw_parts(&item as *const u16 as *const u8, size_of::<u16>())
                         };
                         buffer.copy_from_slice(data_slice);
-                        Ok(size_of::<StateStorage>())
+                        Ok(size_of::<u16>())
                     }
                     None => Err(ErrorKind::WouldBlock.into()),
                 }
             }
         }
 
-        let reversed_items = vec![
-            StateStorage {
-                received_at: 42.1337,
-                ..Default::default()
-            },
-            StateStorage {
-                received_at: 1337.42,
-                ..Default::default()
-            },
-        ];
-        let mut double_buffered_reader = DoubleBufferedReader::from_reader_and_poller(
+        let reversed_items = vec![42, 1337];
+        let mut double_buffered_reader = DoubleBufferedReader::<u16, _, _>::from_reader_and_poller(
             Reader {
                 reversed_items: reversed_items.clone(),
             },
@@ -322,28 +304,25 @@ mod tests {
             }
         }
 
-        let data = StateStorage {
-            received_at: 42.1337,
-            ..Default::default()
-        };
+        let data = 42;
         let reversed_items = vec![
             Some(Item {
                 buffer: unsafe {
                     from_raw_parts(
-                        (&data as *const StateStorage as *const u8).add(100),
-                        size_of::<StateStorage>() - 100,
+                        (&data as *const u16 as *const u8).add(1),
+                        size_of::<u16>() - 1,
                     )
                 },
-                expected_buffer_size: size_of::<StateStorage>() - 100,
+                expected_buffer_size: size_of::<u16>() - 1,
             }),
             None,
             Some(Item {
-                buffer: unsafe { from_raw_parts(&data as *const StateStorage as *const u8, 100) },
-                expected_buffer_size: size_of::<StateStorage>(),
+                buffer: unsafe { from_raw_parts(&data as *const u16 as *const u8, 1) },
+                expected_buffer_size: size_of::<u16>(),
             }),
         ];
         let number_of_polls: Arc<AtomicUsize> = Default::default();
-        let mut double_buffered_reader = DoubleBufferedReader::from_reader_and_poller(
+        let mut double_buffered_reader = DoubleBufferedReader::<u16, _, _>::from_reader_and_poller(
             Reader { reversed_items },
             CountingPoller {
                 number_of_polls: number_of_polls.clone(),
@@ -383,40 +362,30 @@ mod tests {
             }
         }
 
-        let returned_data = StateStorage {
-            received_at: 42.1337,
-            ..Default::default()
-        };
-        let incomplete_data = StateStorage {
-            received_at: 1337.42,
-            ..Default::default()
-        };
+        let returned_data = 42;
+        let incomplete_data = 1337_u16;
         let reversed_items = vec![
             Some(Item {
-                buffer: unsafe {
-                    from_raw_parts(&incomplete_data as *const StateStorage as *const u8, 100)
-                },
-                expected_buffer_size: size_of::<StateStorage>(),
+                buffer: unsafe { from_raw_parts(&incomplete_data as *const u16 as *const u8, 1) },
+                expected_buffer_size: size_of::<u16>(),
             }),
             Some(Item {
                 buffer: unsafe {
                     from_raw_parts(
-                        (&returned_data as *const StateStorage as *const u8).add(100),
-                        size_of::<StateStorage>() - 100,
+                        (&returned_data as *const u16 as *const u8).add(1),
+                        size_of::<u16>() - 1,
                     )
                 },
-                expected_buffer_size: size_of::<StateStorage>() - 100,
+                expected_buffer_size: size_of::<u16>() - 1,
             }),
             None,
             Some(Item {
-                buffer: unsafe {
-                    from_raw_parts(&returned_data as *const StateStorage as *const u8, 100)
-                },
-                expected_buffer_size: size_of::<StateStorage>(),
+                buffer: unsafe { from_raw_parts(&returned_data as *const u16 as *const u8, 1) },
+                expected_buffer_size: size_of::<u16>(),
             }),
         ];
         let number_of_polls: Arc<AtomicUsize> = Default::default();
-        let mut double_buffered_reader = DoubleBufferedReader::from_reader_and_poller(
+        let mut double_buffered_reader = DoubleBufferedReader::<u16, _, _>::from_reader_and_poller(
             Reader { reversed_items },
             CountingPoller {
                 number_of_polls: number_of_polls.clone(),
@@ -456,49 +425,39 @@ mod tests {
             }
         }
 
-        let returned_data = StateStorage {
-            received_at: 42.1337,
-            ..Default::default()
-        };
-        let unused_data = StateStorage {
-            received_at: 1337.42,
-            ..Default::default()
-        };
+        let returned_data = 42;
+        let unused_data = 1337_u16;
         let reversed_items = vec![
             Some(Item {
                 buffer: unsafe {
                     from_raw_parts(
-                        (&returned_data as *const StateStorage as *const u8).add(100),
-                        size_of::<StateStorage>() - 100,
+                        (&returned_data as *const u16 as *const u8).add(1),
+                        size_of::<u16>() - 1,
                     )
                 },
-                expected_buffer_size: size_of::<StateStorage>() - 100,
+                expected_buffer_size: size_of::<u16>() - 1,
             }),
             Some(Item {
-                buffer: unsafe {
-                    from_raw_parts(&returned_data as *const StateStorage as *const u8, 100)
-                },
-                expected_buffer_size: size_of::<StateStorage>(),
+                buffer: unsafe { from_raw_parts(&returned_data as *const u16 as *const u8, 1) },
+                expected_buffer_size: size_of::<u16>(),
             }),
             Some(Item {
                 buffer: unsafe {
                     from_raw_parts(
-                        (&unused_data as *const StateStorage as *const u8).add(100),
-                        size_of::<StateStorage>() - 100,
+                        (&unused_data as *const u16 as *const u8).add(1),
+                        size_of::<u16>() - 1,
                     )
                 },
-                expected_buffer_size: size_of::<StateStorage>() - 100,
+                expected_buffer_size: size_of::<u16>() - 1,
             }),
             None,
             Some(Item {
-                buffer: unsafe {
-                    from_raw_parts(&unused_data as *const StateStorage as *const u8, 100)
-                },
-                expected_buffer_size: size_of::<StateStorage>(),
+                buffer: unsafe { from_raw_parts(&unused_data as *const u16 as *const u8, 1) },
+                expected_buffer_size: size_of::<u16>(),
             }),
         ];
         let number_of_polls: Arc<AtomicUsize> = Default::default();
-        let mut double_buffered_reader = DoubleBufferedReader::from_reader_and_poller(
+        let mut double_buffered_reader = DoubleBufferedReader::<u16, _, _>::from_reader_and_poller(
             Reader { reversed_items },
             CountingPoller {
                 number_of_polls: number_of_polls.clone(),

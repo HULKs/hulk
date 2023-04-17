@@ -9,7 +9,7 @@ use types::{hardware::Ids, Joints, Leds, SensorData};
 
 use super::{
     double_buffered_reader::{DoubleBufferedReader, SelectPoller},
-    hula::{read_from_hula, write_to_hula, ControlStorage},
+    hula::{read_from_hula, write_to_hula, ControlStorage, StateStorage},
 };
 use constants::HULA_SOCKET_PATH;
 
@@ -17,7 +17,7 @@ pub struct HulaWrapper {
     now: SystemTime,
     ids: Ids,
     stream: UnixStream,
-    hula_reader: DoubleBufferedReader<UnixStream, SelectPoller>,
+    hula_reader: DoubleBufferedReader<StateStorage, UnixStream, SelectPoller>,
 }
 
 impl HulaWrapper {
