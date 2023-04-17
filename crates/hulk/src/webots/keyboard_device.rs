@@ -29,11 +29,8 @@ impl KeyboardDevice {
             }
         };
 
-        let chest_button_pressed = if let Some(key) = key {
-            key == Keyboard::CONTROL | Keyboard::SHIFT | 'C' as u32
-        } else {
-            received_message.is_some()
-        };
+        let chest_button_pressed =
+            received_message.is_some() |  {key == Some(Keyboard::CONTROL | Keyboard::SHIFT | 'C' as u32)};
 
         TouchSensors {
             chest_button: chest_button_pressed,
