@@ -115,7 +115,7 @@ pub use penalty_shot_direction::PenaltyShotDirection;
 pub use perspective_grid_candidates::PerspectiveGridCandidates;
 pub use planned_path::{direct_path, PathSegment, PlannedPath};
 pub use players::Players;
-pub use primary_state::PrimaryState;
+pub use primary_state::{PrimaryState, PrimaryStateTransition};
 pub use robot_dimensions::RobotDimensions;
 pub use robot_kinematics::RobotKinematics;
 pub use robot_masses::RobotMass;

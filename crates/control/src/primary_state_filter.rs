@@ -2,7 +2,9 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use spl_network_messages::PlayerNumber;
-use types::{Buttons, FilteredGameState, GameControllerState, PrimaryState};
+use types::{
+    Buttons, FilteredGameState, GameControllerState, PrimaryState, PrimaryStateTransition,
+};
 
 pub struct PrimaryStateFilter {
     last_primary_state: PrimaryState,
@@ -26,6 +28,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub primary_state: MainOutput<PrimaryState>,
+    pub primary_state_transition: MainOutput<Option<PrimaryStateTransition>>,
 }
 
 impl PrimaryStateFilter {
@@ -43,7 +46,7 @@ impl PrimaryStateFilter {
             None => false,
         };
 
-        self.last_primary_state = match (
+        let new_primary_state = match (
             self.last_primary_state,
             context.buttons.head_buttons_touched,
             context.buttons.is_chest_button_pressed,
@@ -77,8 +80,20 @@ impl PrimaryStateFilter {
             (_, _, _, _, _) => self.last_primary_state,
         };
 
+        let primary_state_transition = if self.last_primary_state != new_primary_state {
+            Some(PrimaryStateTransition {
+                from: self.last_primary_state,
+                to: new_primary_state,
+            })
+        } else {
+            None
+        };
+
+        self.last_primary_state = new_primary_state;
+
         Ok(MainOutputs {
             primary_state: self.last_primary_state.into(),
+            primary_state_transition: primary_state_transition.into(),
         })
     }
 
