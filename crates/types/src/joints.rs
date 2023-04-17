@@ -4,35 +4,31 @@ use std::{
     ops::{Add, Div, Mul, Sub},
 };
 
-use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct HeadJoints {
-    pub yaw: f32,
-    pub pitch: f32,
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct HeadJoints<T = f32> {
+    pub yaw: T,
+    pub pitch: T,
 }
 
-impl HeadJoints {
-    pub fn mirrored(self) -> Self {
+impl<T> HeadJoints<T>
+where
+    T: Clone,
+{
+    pub fn fill(value: T) -> Self {
         Self {
-            yaw: -self.yaw,
-            pitch: self.pitch,
-        }
-    }
-
-    pub fn fill(value: f32) -> Self {
-        Self {
-            yaw: value,
+            yaw: value.clone(),
             pitch: value,
         }
     }
 }
 
-impl From<Joints> for HeadJoints {
-    fn from(joints: Joints) -> Self {
+impl<T> From<Joints<T>> for HeadJoints<T> {
+    fn from(joints: Joints<T>) -> Self {
         Self {
             yaw: joints.head.yaw,
             pitch: joints.head.pitch,
@@ -40,19 +36,11 @@ impl From<Joints> for HeadJoints {
     }
 }
 
-impl Mul<f32> for HeadJoints {
-    type Output = HeadJoints;
-
-    fn mul(self, scale_factor: f32) -> Self::Output {
-        Self::Output {
-            yaw: self.yaw * scale_factor,
-            pitch: self.pitch * scale_factor,
-        }
-    }
-}
-
-impl Add for HeadJoints {
-    type Output = HeadJoints;
+impl<T> Add for HeadJoints<T>
+where
+    T: Add,
+{
+    type Output = HeadJoints<<T as Add>::Output>;
 
     fn add(self, right: Self) -> Self::Output {
         Self::Output {
@@ -62,8 +50,11 @@ impl Add for HeadJoints {
     }
 }
 
-impl Sub for HeadJoints {
-    type Output = HeadJoints;
+impl<T> Sub for HeadJoints<T>
+where
+    T: Sub,
+{
+    type Output = HeadJoints<<T as Sub>::Output>;
 
     fn sub(self, right: Self) -> Self::Output {
         Self::Output {
@@ -73,57 +64,69 @@ impl Sub for HeadJoints {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct ArmJoints {
-    pub shoulder_pitch: f32,
-    pub shoulder_roll: f32,
-    pub elbow_yaw: f32,
-    pub elbow_roll: f32,
-    pub wrist_yaw: f32,
-    pub hand: f32,
-}
+impl Mul<f32> for HeadJoints<f32> {
+    type Output = HeadJoints<f32>;
 
-impl ArmJoints {
-    pub fn mirrored(self) -> Self {
-        Self {
-            shoulder_pitch: self.shoulder_pitch,
-            shoulder_roll: -self.shoulder_roll,
-            elbow_yaw: -self.elbow_yaw,
-            elbow_roll: -self.elbow_roll,
-            wrist_yaw: -self.wrist_yaw,
-            hand: self.hand,
+    fn mul(self, right: f32) -> Self::Output {
+        Self::Output {
+            yaw: self.yaw * right,
+            pitch: self.pitch * right,
         }
     }
+}
 
-    pub fn fill(value: f32) -> Self {
+impl Div<f32> for HeadJoints<f32> {
+    type Output = HeadJoints<f32>;
+
+    fn div(self, right: f32) -> Self::Output {
+        Self::Output {
+            yaw: self.yaw / right,
+            pitch: self.pitch / right,
+        }
+    }
+}
+
+impl HeadJoints<f32> {
+    pub fn mirrored(self) -> Self {
         Self {
-            shoulder_pitch: value,
-            shoulder_roll: value,
-            elbow_yaw: value,
-            elbow_roll: value,
-            wrist_yaw: value,
+            yaw: -self.yaw,
+            pitch: self.pitch,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct ArmJoints<T = f32> {
+    pub shoulder_pitch: T,
+    pub shoulder_roll: T,
+    pub elbow_yaw: T,
+    pub elbow_roll: T,
+    pub wrist_yaw: T,
+    pub hand: T,
+}
+
+impl<T> ArmJoints<T>
+where
+    T: Clone,
+{
+    pub fn fill(value: T) -> Self {
+        Self {
+            shoulder_pitch: value.clone(),
+            shoulder_roll: value.clone(),
+            elbow_yaw: value.clone(),
+            elbow_roll: value.clone(),
+            wrist_yaw: value.clone(),
             hand: value,
         }
     }
 }
 
-impl Mul<f32> for ArmJoints {
-    type Output = ArmJoints;
-
-    fn mul(self, scale_factor: f32) -> Self::Output {
-        Self::Output {
-            shoulder_pitch: self.shoulder_pitch * scale_factor,
-            shoulder_roll: self.shoulder_roll * scale_factor,
-            elbow_yaw: self.elbow_yaw * scale_factor,
-            elbow_roll: self.elbow_roll * scale_factor,
-            wrist_yaw: self.wrist_yaw * scale_factor,
-            hand: self.hand * scale_factor,
-        }
-    }
-}
-
-impl Add for ArmJoints {
-    type Output = ArmJoints;
+impl<T> Add for ArmJoints<T>
+where
+    T: Add,
+{
+    type Output = ArmJoints<<T as Add>::Output>;
 
     fn add(self, right: Self) -> Self::Output {
         Self::Output {
@@ -137,8 +140,11 @@ impl Add for ArmJoints {
     }
 }
 
-impl Sub for ArmJoints {
-    type Output = ArmJoints;
+impl<T> Sub for ArmJoints<T>
+where
+    T: Sub,
+{
+    type Output = ArmJoints<<T as Sub>::Output>;
 
     fn sub(self, right: Self) -> Self::Output {
         Self::Output {
@@ -152,57 +158,81 @@ impl Sub for ArmJoints {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct LegJoints {
-    pub hip_yaw_pitch: f32,
-    pub hip_roll: f32,
-    pub hip_pitch: f32,
-    pub knee_pitch: f32,
-    pub ankle_pitch: f32,
-    pub ankle_roll: f32,
-}
+impl Mul<f32> for ArmJoints<f32> {
+    type Output = ArmJoints<f32>;
 
-impl LegJoints {
-    pub fn mirrored(self) -> Self {
-        Self {
-            hip_yaw_pitch: self.hip_yaw_pitch,
-            hip_roll: -self.hip_roll,
-            hip_pitch: self.hip_pitch,
-            knee_pitch: self.knee_pitch,
-            ankle_pitch: self.ankle_pitch,
-            ankle_roll: -self.ankle_roll,
+    fn mul(self, right: f32) -> Self::Output {
+        Self::Output {
+            shoulder_pitch: self.shoulder_pitch * right,
+            shoulder_roll: self.shoulder_roll * right,
+            elbow_yaw: self.elbow_yaw * right,
+            elbow_roll: self.elbow_roll * right,
+            wrist_yaw: self.wrist_yaw * right,
+            hand: self.hand * right,
         }
     }
+}
 
-    pub fn fill(value: f32) -> Self {
+impl Div<f32> for ArmJoints<f32> {
+    type Output = ArmJoints<f32>;
+
+    fn div(self, right: f32) -> Self::Output {
+        Self::Output {
+            shoulder_pitch: self.shoulder_pitch / right,
+            shoulder_roll: self.shoulder_roll / right,
+            elbow_yaw: self.elbow_yaw / right,
+            elbow_roll: self.elbow_roll / right,
+            wrist_yaw: self.wrist_yaw / right,
+            hand: self.hand / right,
+        }
+    }
+}
+
+impl ArmJoints<f32> {
+    pub fn mirrored(self) -> Self {
         Self {
-            hip_yaw_pitch: value,
-            hip_roll: value,
-            hip_pitch: value,
-            knee_pitch: value,
-            ankle_pitch: value,
+            shoulder_pitch: self.shoulder_pitch,
+            shoulder_roll: -self.shoulder_roll,
+            elbow_yaw: -self.elbow_yaw,
+            elbow_roll: -self.elbow_roll,
+            wrist_yaw: -self.wrist_yaw,
+            hand: self.hand,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct LegJoints<T = f32> {
+    pub hip_yaw_pitch: T,
+    pub hip_roll: T,
+    pub hip_pitch: T,
+    pub knee_pitch: T,
+    pub ankle_pitch: T,
+    pub ankle_roll: T,
+}
+
+impl<T> LegJoints<T>
+where
+    T: Clone,
+{
+    pub fn fill(value: T) -> Self {
+        Self {
+            hip_yaw_pitch: value.clone(),
+            hip_roll: value.clone(),
+            hip_pitch: value.clone(),
+            knee_pitch: value.clone(),
+            ankle_pitch: value.clone(),
             ankle_roll: value,
         }
     }
 }
 
-impl Mul<f32> for LegJoints {
-    type Output = LegJoints;
-
-    fn mul(self, scale_factor: f32) -> Self::Output {
-        Self::Output {
-            hip_yaw_pitch: self.hip_yaw_pitch * scale_factor,
-            hip_roll: self.hip_roll * scale_factor,
-            hip_pitch: self.hip_pitch * scale_factor,
-            knee_pitch: self.knee_pitch * scale_factor,
-            ankle_pitch: self.ankle_pitch * scale_factor,
-            ankle_roll: self.ankle_roll * scale_factor,
-        }
-    }
-}
-
-impl Add for LegJoints {
-    type Output = LegJoints;
+impl<T> Add for LegJoints<T>
+where
+    T: Add,
+{
+    type Output = LegJoints<<T as Add>::Output>;
 
     fn add(self, right: Self) -> Self::Output {
         Self::Output {
@@ -216,8 +246,11 @@ impl Add for LegJoints {
     }
 }
 
-impl Sub for LegJoints {
-    type Output = LegJoints;
+impl<T> Sub for LegJoints<T>
+where
+    T: Sub,
+{
+    type Output = LegJoints<<T as Sub>::Output>;
 
     fn sub(self, right: Self) -> Self::Output {
         Self::Output {
@@ -231,72 +264,88 @@ impl Sub for LegJoints {
     }
 }
 
-impl AbsDiffEq for LegJoints {
-    type Epsilon = f32;
+impl Mul<f32> for LegJoints<f32> {
+    type Output = LegJoints<f32>;
 
-    fn default_epsilon() -> f32 {
-        f32::default_epsilon()
-    }
-
-    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
-        f32::abs_diff_eq(&self.hip_yaw_pitch, &other.hip_yaw_pitch, epsilon)
-            && f32::abs_diff_eq(&self.hip_roll, &other.hip_roll, epsilon)
-            && f32::abs_diff_eq(&self.hip_pitch, &other.hip_pitch, epsilon)
-            && f32::abs_diff_eq(&self.knee_pitch, &other.knee_pitch, epsilon)
-            && f32::abs_diff_eq(&self.ankle_pitch, &other.ankle_pitch, epsilon)
-            && f32::abs_diff_eq(&self.ankle_roll, &other.ankle_roll, epsilon)
+    fn mul(self, right: f32) -> Self::Output {
+        Self::Output {
+            hip_yaw_pitch: self.hip_yaw_pitch * right,
+            hip_roll: self.hip_roll * right,
+            hip_pitch: self.hip_pitch * right,
+            knee_pitch: self.knee_pitch * right,
+            ankle_pitch: self.ankle_pitch * right,
+            ankle_roll: self.ankle_roll * right,
+        }
     }
 }
 
-impl RelativeEq for LegJoints {
-    fn default_max_relative() -> f32 {
-        f32::default_max_relative()
-    }
+impl Div<f32> for LegJoints<f32> {
+    type Output = LegJoints<f32>;
 
-    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
-        f32::relative_eq(
-            &self.hip_yaw_pitch,
-            &other.hip_yaw_pitch,
-            epsilon,
-            max_relative,
-        ) && f32::relative_eq(&self.hip_roll, &other.hip_roll, epsilon, max_relative)
-            && f32::relative_eq(&self.hip_pitch, &other.hip_pitch, epsilon, max_relative)
-            && f32::relative_eq(&self.knee_pitch, &other.knee_pitch, epsilon, max_relative)
-            && f32::relative_eq(&self.ankle_pitch, &other.ankle_pitch, epsilon, max_relative)
-            && f32::relative_eq(&self.ankle_roll, &other.ankle_roll, epsilon, max_relative)
+    fn div(self, right: f32) -> Self::Output {
+        Self::Output {
+            hip_yaw_pitch: self.hip_yaw_pitch / right,
+            hip_roll: self.hip_roll / right,
+            hip_pitch: self.hip_pitch / right,
+            knee_pitch: self.knee_pitch / right,
+            ankle_pitch: self.ankle_pitch / right,
+            ankle_roll: self.ankle_roll / right,
+        }
+    }
+}
+
+impl LegJoints<f32> {
+    pub fn mirrored(self) -> Self {
+        Self {
+            hip_yaw_pitch: self.hip_yaw_pitch,
+            hip_roll: -self.hip_roll,
+            hip_pitch: self.hip_pitch,
+            knee_pitch: self.knee_pitch,
+            ankle_pitch: self.ankle_pitch,
+            ankle_roll: -self.ankle_roll,
+        }
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct BodyJoints {
-    pub left_arm: ArmJoints,
-    pub right_arm: ArmJoints,
-    pub left_leg: LegJoints,
-    pub right_leg: LegJoints,
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct BodyJoints<T = f32> {
+    pub left_arm: ArmJoints<T>,
+    pub right_arm: ArmJoints<T>,
+    pub left_leg: LegJoints<T>,
+    pub right_leg: LegJoints<T>,
 }
 
-impl BodyJoints {
-    pub fn fill(value: f32) -> Self {
+impl<T> BodyJoints<T>
+where
+    T: Clone,
+{
+    pub fn fill(value: T) -> Self {
         Self {
-            left_arm: ArmJoints::fill(value),
-            right_arm: ArmJoints::fill(value),
-            left_leg: LegJoints::fill(value),
+            left_arm: ArmJoints::fill(value.clone()),
+            right_arm: ArmJoints::fill(value.clone()),
+            left_leg: LegJoints::fill(value.clone()),
             right_leg: LegJoints::fill(value),
         }
     }
+}
 
-    pub fn selective_fill(value_arm: f32, value_leg: f32) -> Self {
+impl<T> BodyJoints<T>
+where
+    T: Clone,
+{
+    pub fn fill_mirrored(arm: T, leg: T) -> Self {
         Self {
-            left_arm: ArmJoints::fill(value_arm),
-            right_arm: ArmJoints::fill(value_arm),
-            left_leg: LegJoints::fill(value_leg),
-            right_leg: LegJoints::fill(value_leg),
+            left_arm: ArmJoints::fill(arm.clone()),
+            right_arm: ArmJoints::fill(arm),
+            left_leg: LegJoints::fill(leg.clone()),
+            right_leg: LegJoints::fill(leg),
         }
     }
 }
 
-impl From<Joints> for BodyJoints {
-    fn from(joints: Joints) -> Self {
+impl<T> From<Joints<T>> for BodyJoints<T> {
+    fn from(joints: Joints<T>) -> Self {
         Self {
             left_arm: joints.left_arm,
             right_arm: joints.right_arm,
@@ -306,21 +355,12 @@ impl From<Joints> for BodyJoints {
     }
 }
 
-impl Mul<f32> for BodyJoints {
-    type Output = BodyJoints;
-
-    fn mul(self, scale_factor: f32) -> Self::Output {
-        Self::Output {
-            left_arm: self.left_arm * scale_factor,
-            right_arm: self.right_arm * scale_factor,
-            left_leg: self.left_leg * scale_factor,
-            right_leg: self.right_leg * scale_factor,
-        }
-    }
-}
-
-impl Add for BodyJoints {
-    type Output = BodyJoints;
+impl<T, O> Add for BodyJoints<T>
+where
+    ArmJoints<T>: Add<Output = ArmJoints<O>>,
+    LegJoints<T>: Add<Output = LegJoints<O>>,
+{
+    type Output = BodyJoints<O>;
 
     fn add(self, right: Self) -> Self::Output {
         Self::Output {
@@ -332,17 +372,167 @@ impl Add for BodyJoints {
     }
 }
 
-impl_Interpolate!(f32, Joints, PI);
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct Joints {
-    pub head: HeadJoints,
-    pub left_arm: ArmJoints,
-    pub right_arm: ArmJoints,
-    pub left_leg: LegJoints,
-    pub right_leg: LegJoints,
+impl<T, O> Sub for BodyJoints<T>
+where
+    ArmJoints<T>: Sub<Output = ArmJoints<O>>,
+    LegJoints<T>: Sub<Output = LegJoints<O>>,
+{
+    type Output = BodyJoints<O>;
+
+    fn sub(self, right: Self) -> Self::Output {
+        Self::Output {
+            left_arm: self.left_arm - right.left_arm,
+            right_arm: self.right_arm - right.right_arm,
+            left_leg: self.left_leg - right.left_leg,
+            right_leg: self.right_leg - right.right_leg,
+        }
+    }
 }
 
-impl Joints {
+impl Mul<f32> for BodyJoints<f32> {
+    type Output = BodyJoints<f32>;
+
+    fn mul(self, right: f32) -> Self::Output {
+        Self::Output {
+            left_arm: self.left_arm * right,
+            right_arm: self.right_arm * right,
+            left_leg: self.left_leg * right,
+            right_leg: self.right_leg * right,
+        }
+    }
+}
+
+impl Div<f32> for BodyJoints<f32> {
+    type Output = BodyJoints<f32>;
+
+    fn div(self, right: f32) -> Self::Output {
+        Self::Output {
+            left_arm: self.left_arm / right,
+            right_arm: self.right_arm / right,
+            left_leg: self.left_leg / right,
+            right_leg: self.right_leg / right,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct Joints<T = f32> {
+    pub head: HeadJoints<T>,
+    pub left_arm: ArmJoints<T>,
+    pub right_arm: ArmJoints<T>,
+    pub left_leg: LegJoints<T>,
+    pub right_leg: LegJoints<T>,
+}
+
+impl<T> Joints<T>
+where
+    T: Clone,
+{
+    pub fn fill(value: T) -> Self {
+        Self {
+            head: HeadJoints::fill(value.clone()),
+            left_arm: ArmJoints::fill(value.clone()),
+            right_arm: ArmJoints::fill(value.clone()),
+            left_leg: LegJoints::fill(value.clone()),
+            right_leg: LegJoints::fill(value),
+        }
+    }
+}
+
+impl<T> Joints<T> {
+    pub fn from_head_and_body(head: HeadJoints<T>, body: BodyJoints<T>) -> Self {
+        Self {
+            head,
+            left_arm: body.left_arm,
+            right_arm: body.right_arm,
+            left_leg: body.left_leg,
+            right_leg: body.right_leg,
+        }
+    }
+}
+
+impl<T, O> Add for Joints<T>
+where
+    HeadJoints<T>: Add<Output = HeadJoints<O>>,
+    ArmJoints<T>: Add<Output = ArmJoints<O>>,
+    LegJoints<T>: Add<Output = LegJoints<O>>,
+{
+    type Output = Joints<O>;
+
+    fn add(self, right: Self) -> Self::Output {
+        Self::Output {
+            head: self.head + right.head,
+            left_arm: self.left_arm + right.left_arm,
+            right_arm: self.right_arm + right.right_arm,
+            left_leg: self.left_leg + right.left_leg,
+            right_leg: self.right_leg + right.right_leg,
+        }
+    }
+}
+
+impl<T, O> Sub for Joints<T>
+where
+    HeadJoints<T>: Sub<Output = HeadJoints<O>>,
+    ArmJoints<T>: Sub<Output = ArmJoints<O>>,
+    LegJoints<T>: Sub<Output = LegJoints<O>>,
+{
+    type Output = Joints<O>;
+
+    fn sub(self, right: Self) -> Self::Output {
+        Self::Output {
+            head: self.head - right.head,
+            left_arm: self.left_arm - right.left_arm,
+            right_arm: self.right_arm - right.right_arm,
+            left_leg: self.left_leg - right.left_leg,
+            right_leg: self.right_leg - right.right_leg,
+        }
+    }
+}
+
+impl<I, O> Sum<Joints<I>> for Joints<O>
+where
+    Joints<O>: Add<Joints<I>, Output = Joints<O>> + Default,
+{
+    fn sum<It>(iter: It) -> Self
+    where
+        It: Iterator<Item = Joints<I>>,
+    {
+        iter.fold(Joints::default(), |acc, x| acc + x)
+    }
+}
+
+impl Mul<f32> for Joints<f32> {
+    type Output = Joints<f32>;
+
+    fn mul(self, right: f32) -> Self::Output {
+        Self::Output {
+            head: self.head * right,
+            left_arm: self.left_arm * right,
+            right_arm: self.right_arm * right,
+            left_leg: self.left_leg * right,
+            right_leg: self.right_leg * right,
+        }
+    }
+}
+
+impl Div<f32> for Joints<f32> {
+    type Output = Joints<f32>;
+
+    fn div(self, right: f32) -> Self::Output {
+        Self::Output {
+            head: self.head / right,
+            left_arm: self.left_arm / right,
+            right_arm: self.right_arm / right,
+            left_leg: self.left_leg / right,
+            right_leg: self.right_leg / right,
+        }
+    }
+}
+
+impl_Interpolate!(f32, Joints<f32>, PI);
+
+impl Joints<f32> {
     pub fn mirrored(self) -> Self {
         Self {
             head: self.head.mirrored(),
@@ -393,99 +583,25 @@ impl Joints {
             },
         }
     }
-
-    pub fn from_head_and_body(head: HeadJoints, body: BodyJoints) -> Self {
-        Self {
-            head,
-            left_arm: body.left_arm,
-            right_arm: body.right_arm,
-            left_leg: body.left_leg,
-            right_leg: body.right_leg,
-        }
-    }
-
-    pub fn fill(value: f32) -> Self {
-        Self::from_head_and_body(HeadJoints::fill(value), BodyJoints::fill(value))
-    }
-
-    pub fn selectively_fill(value: f32, value_arm: f32, value_leg: f32) -> Self {
-        Self::from_head_and_body(
-            HeadJoints::fill(value),
-            BodyJoints::selective_fill(value_arm, value_leg),
-        )
-    }
-}
-
-impl Mul<f32> for Joints {
-    type Output = Joints;
-
-    fn mul(self, scale_factor: f32) -> Self::Output {
-        Self::Output {
-            head: self.head * scale_factor,
-            left_arm: self.left_arm * scale_factor,
-            right_arm: self.right_arm * scale_factor,
-            left_leg: self.left_leg * scale_factor,
-            right_leg: self.right_leg * scale_factor,
-        }
-    }
-}
-
-impl Div<f32> for Joints {
-    type Output = Joints;
-
-    fn div(self, scale_factor: f32) -> Self::Output {
-        self * (1. / scale_factor)
-    }
-}
-
-impl Add for Joints {
-    type Output = Joints;
-
-    fn add(self, right: Self) -> Self::Output {
-        Self::Output {
-            head: self.head + right.head,
-            left_arm: self.left_arm + right.left_arm,
-            right_arm: self.right_arm + right.right_arm,
-            left_leg: self.left_leg + right.left_leg,
-            right_leg: self.right_leg + right.right_leg,
-        }
-    }
-}
-
-impl Sub for Joints {
-    type Output = Joints;
-
-    fn sub(self, right: Self) -> Self::Output {
-        Self::Output {
-            head: self.head - right.head,
-            left_arm: self.left_arm - right.left_arm,
-            right_arm: self.right_arm - right.right_arm,
-            left_leg: self.left_leg - right.left_leg,
-            right_leg: self.right_leg - right.right_leg,
-        }
-    }
-}
-
-impl Sum for Joints {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(Joints::default(), |acc, x| acc + x)
-    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct JointsCommand {
-    pub positions: Joints,
-    pub stiffnesses: Joints,
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct JointsCommand<T = f32> {
+    pub positions: Joints<T>,
+    pub stiffnesses: Joints<T>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct HeadJointsCommand {
-    pub positions: HeadJoints,
-    pub stiffnesses: HeadJoints,
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct HeadJointsCommand<T = f32> {
+    pub positions: HeadJoints<T>,
+    pub stiffnesses: HeadJoints<T>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct BodyJointsCommand {
-    pub positions: BodyJoints,
-    pub stiffnesses: BodyJoints,
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct BodyJointsCommand<T = f32> {
+    pub positions: BodyJoints<T>,
+    pub stiffnesses: BodyJoints<T>,
 }
