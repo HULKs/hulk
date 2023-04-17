@@ -12,7 +12,7 @@ pub struct JointsTime {
 
 impl JointsTime {
     fn abs_time(&self) -> Vec<Vec<f32>> {
-        let joint_times = self.joint_times.raw();
+        let joint_times = self.joint_times.as_vec();
         joint_times
             .into_iter()
             .map(|body_part_times| body_part_times.into_iter().map(f32::abs).collect())
@@ -38,9 +38,9 @@ pub struct JointsVelocity {
 impl Div<JointsVelocity> for Joints {
     type Output = JointsTime;
 
-    fn div(self, rhs: JointsVelocity) -> Self::Output {
+    fn div(self, right: JointsVelocity) -> Self::Output {
         JointsTime {
-            joint_times: self / rhs.joint_velocities,
+            joint_times: self / right.joint_velocities,
         }
     }
 }

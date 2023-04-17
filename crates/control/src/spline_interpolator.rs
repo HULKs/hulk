@@ -1,17 +1,56 @@
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::DeserializeOwned, ser::SerializeSeq};
 use splines::{Interpolate, Interpolation, Key, Spline};
 use thiserror::Error;
-use types::{Joints, MotionFile};
+use types::{Joints, JointsVelocity, MotionFile};
 
 use std::{fmt::Debug, time::Duration};
 
-#[derive(Clone, Debug)]
-pub struct SplineInterpolator<T: Debug + Interpolate<f32>> {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SplineInterpolator<T>
+where
+    T: Debug + Interpolate<f32> + Serialize + DeserializeOwned,
+{
+    #[serde(
+        serialize_with = "serialize_spline",
+        deserialize_with = "deserialize_spline"
+    )]
     spline: Spline<f32, T>,
     current_time: Duration,
     end_time: Duration,
 }
 
-impl<T: Debug + Interpolate<f32>> Default for SplineInterpolator<T> {
+fn serialize_spline<S: Serializer, T>(
+    spline: &Spline<f32, T>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    T: Debug + Interpolate<f32> + Serialize,
+{
+    let keys = spline.keys();
+
+    let mut seq = serializer.serialize_seq(Some(keys.len()))?;
+    for key in keys.iter() {
+        seq.serialize_element(&(key.t, key.value))?;
+    }
+    seq.end()
+}
+
+fn deserialize_spline<'de, D: Deserializer<'de>, T>(
+    deserializer: D,
+) -> Result<Spline<f32, T>, D::Error>
+where
+    T: Debug + Interpolate<f32> + DeserializeOwned,
+{
+    let keys = <Vec<(f32, T)>>::deserialize(deserializer)?;
+    let interpolation_scheme = Interpolation::Linear;
+
+    Ok(Spline::from_iter(keys.into_iter().map(|(time, value)| Key::new(time, value, interpolation_scheme))))
+}
+
+impl<T> Default for SplineInterpolator<T>
+where
+    T: Debug + Interpolate<f32> + Serialize + DeserializeOwned,
+{
     fn default() -> Self {
         Self {
             spline: Spline::from_vec(vec![]),
@@ -79,7 +118,8 @@ impl InterpolatorError {
     }
 }
 
-impl TryFrom<MotionFile> for SplineInterpolator<Joints> {
+impl TryFrom<MotionFile> for SplineInterpolator<Joints>
+{
     type Error = InterpolatorError;
 
     fn try_from(motion_file: MotionFile) -> Result<Self, InterpolatorError> {
@@ -99,7 +139,27 @@ impl TryFrom<MotionFile> for SplineInterpolator<Joints> {
     }
 }
 
-impl<T: Debug + Interpolate<f32>> SplineInterpolator<T> {
+impl SplineInterpolator<Joints> {
+    pub fn try_new_transition_with_velocity(
+        current_position: Joints,
+        target_position: Joints,
+        maximum_velocity: JointsVelocity,
+    ) -> Result<SplineInterpolator<Joints>, InterpolatorError> {
+        let time_to_completion = (target_position - current_position) / maximum_velocity;
+        let maximum_time_to_completion = time_to_completion.max();
+
+        Self::try_new_transition_timed(
+            current_position,
+            target_position,
+            maximum_time_to_completion,
+        )
+    }
+}
+
+impl<T> SplineInterpolator<T>
+where
+    T: Debug + Interpolate<f32> + Serialize + DeserializeOwned,
+{
     pub fn try_new(mut keys: Vec<Key<Duration, T>>) -> Result<Self, InterpolatorError> {
         if keys.len() < 2 {
             return Err(InterpolatorError::TooFewKeysError);
@@ -138,6 +198,19 @@ impl<T: Debug + Interpolate<f32>> SplineInterpolator<T> {
             current_time,
             end_time,
         })
+    }
+
+    pub fn try_new_transition_timed(
+        current_position: T,
+        target_position: T,
+        duration: Duration,
+    ) -> Result<SplineInterpolator<T>, InterpolatorError> {
+        let keys = vec![
+            Key::new(Duration::ZERO, current_position, Interpolation::Linear),
+            Key::new(duration, target_position, Interpolation::Linear),
+        ];
+
+        Self::try_new(keys)
     }
 
     fn create_zero_gradient(key_center: &Key<f32, T>, key_other: &Key<f32, T>) -> Key<f32, T> {
