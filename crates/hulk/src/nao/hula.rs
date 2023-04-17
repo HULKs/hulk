@@ -385,7 +385,9 @@ where
     Reader: AsRawFd + Read,
     Poller: Poll,
 {
-    Ok(*reader.drain().wrap_err("failed to drain from stream")?)
+    Ok(*reader
+        .draining_read()
+        .wrap_err("failed to drain from stream")?)
 }
 
 pub fn write_to_hula(stream: &mut UnixStream, control_storage: ControlStorage) -> Result<()> {

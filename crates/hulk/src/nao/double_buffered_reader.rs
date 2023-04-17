@@ -47,7 +47,7 @@ where
         self.number_of_read_bytes_in_active_buffer = 0;
     }
 
-    pub fn drain(&mut self) -> io::Result<&Item> {
+    pub fn draining_read(&mut self) -> io::Result<&Item> {
         let mut is_at_least_one_buffer_complete = false;
         loop {
             let buffer = unsafe {
@@ -170,7 +170,7 @@ mod tests {
 
         let mut double_buffered_reader =
             DoubleBufferedReader::<u16, _, _>::from_reader_and_poller(Reader, PanickingPoller);
-        let result = double_buffered_reader.drain();
+        let result = double_buffered_reader.draining_read();
         assert!(result.is_err());
         let error = result.unwrap_err();
         assert_eq!(error.kind(), ErrorKind::ConnectionAborted);
@@ -192,7 +192,7 @@ mod tests {
 
         let mut double_buffered_reader =
             DoubleBufferedReader::<u16, _, _>::from_reader_and_poller(Reader, ErroringPoller);
-        let result = double_buffered_reader.drain();
+        let result = double_buffered_reader.draining_read();
         assert!(result.is_err());
         let error = result.unwrap_err();
         assert_eq!(error.kind(), ErrorKind::ConnectionAborted);
@@ -232,7 +232,7 @@ mod tests {
             },
             PanickingPoller,
         );
-        let result = double_buffered_reader.drain();
+        let result = double_buffered_reader.draining_read();
         assert!(result.is_ok());
         let read_data = result.unwrap();
         assert_eq!(read_data, &data);
@@ -271,7 +271,7 @@ mod tests {
             },
             PanickingPoller,
         );
-        let result = double_buffered_reader.drain();
+        let result = double_buffered_reader.draining_read();
         assert!(result.is_ok());
         let read_data = result.unwrap();
         assert_eq!(read_data, reversed_items.first().unwrap());
@@ -328,7 +328,7 @@ mod tests {
                 number_of_polls: number_of_polls.clone(),
             },
         );
-        let result = double_buffered_reader.drain();
+        let result = double_buffered_reader.draining_read();
         assert!(result.is_ok());
         assert_eq!(number_of_polls.load(Ordering::SeqCst), 1);
         let read_data = result.unwrap();
@@ -391,7 +391,7 @@ mod tests {
                 number_of_polls: number_of_polls.clone(),
             },
         );
-        let result = double_buffered_reader.drain();
+        let result = double_buffered_reader.draining_read();
         assert!(result.is_ok());
         assert_eq!(number_of_polls.load(Ordering::SeqCst), 1);
         let read_data = result.unwrap();
@@ -463,7 +463,7 @@ mod tests {
                 number_of_polls: number_of_polls.clone(),
             },
         );
-        let result = double_buffered_reader.drain();
+        let result = double_buffered_reader.draining_read();
         assert!(result.is_ok());
         assert_eq!(number_of_polls.load(Ordering::SeqCst), 1);
         let read_data = result.unwrap();
