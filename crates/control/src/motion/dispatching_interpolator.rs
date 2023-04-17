@@ -10,7 +10,6 @@ use types::{
 
 use crate::spline_interpolator::SplineInterpolator;
 
-
 pub struct DispatchingInterpolator {
     interpolator: SplineInterpolator<Joints<f32>>,
     stiffnesses: Joints<f32>,
@@ -63,10 +62,8 @@ impl DispatchingInterpolator {
 
         let currently_active = context.motion_selection.current_motion == MotionType::Dispatching;
         if !currently_active {
-            context
-                .transition_time
-                .fill_if_subscribed(|| None);
-            
+            context.transition_time.fill_if_subscribed(|| None);
+
             self.last_currently_active = currently_active;
             return Ok(Default::default());
         }

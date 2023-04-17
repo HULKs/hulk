@@ -1,8 +1,4 @@
-use serde::{
-    de::{DeserializeOwned, self},
-    ser::{self, SerializeSeq},
-    Deserialize, Deserializer, Serialize, Serializer,
-};
+use serde::{Deserialize, Serialize};
 use splines::{Interpolate, Interpolation, Key, Spline};
 use thiserror::Error;
 use types::{Joints, JointsVelocity, MotionFile};
@@ -10,77 +6,15 @@ use types::{Joints, JointsVelocity, MotionFile};
 use std::{fmt::Debug, time::Duration};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SplineInterpolator<T>
-where
-    T: Debug + Interpolate<f32> + Serialize + DeserializeOwned,
-{
-    #[serde(
-        serialize_with = "serialize_spline",
-        deserialize_with = "deserialize_spline"
-    )]
+pub struct SplineInterpolator<T> {
     spline: Spline<f32, T>,
     current_time: Duration,
     end_time: Duration,
 }
 
-fn serialize_spline<S: Serializer, T>(
-    spline: &Spline<f32, T>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    T: Debug + Interpolate<f32> + Serialize,
-{
-    use ser::Error;
-    let keys = spline.keys();
-
-    let mut seq = serializer.serialize_seq(Some(keys.len()))?;
-    for key in keys.iter() {
-        let scheme = match key.interpolation {
-            Interpolation::Linear => "Linear",
-            Interpolation::Cosine => "Cosine",
-            Interpolation::CatmullRom => "CatmullRom",
-            other => {
-                return Err(Error::custom(format!(
-                    "serialization of {other:?} not supported"
-                )))
-            }
-        };
-        seq.serialize_element(&(key.t, key.value, scheme))?;
-    }
-    seq.end()
-}
-
-fn deserialize_spline<'de, D: Deserializer<'de>, T>(
-    deserializer: D,
-) -> Result<Spline<f32, T>, D::Error>
-where
-    T: Debug + Interpolate<f32> + DeserializeOwned,
-{
-    use de::Error;
-
-    let keys = <Vec<(f32, T, String)>>::deserialize(deserializer)?;
-    let keys = keys.into_iter().map(
-        |(time, value, scheme)| {
-            let scheme = Ok(match scheme.as_str() {
-                "Linear" => Interpolation::Linear,
-                "Cosine" => Interpolation::Cosine,
-                "CatmullRom" => Interpolation::CatmullRom,
-                other => {
-                    Err(Error::custom(format!(
-                        "found unsupported interpolation scheme {other}"
-                    )))?
-                }
-            })?;
-            Ok(Key::new(time, value, scheme))
-        },
-    ).collect::<Result<_,_>>()?;
-
-    Ok(Spline::from_vec(keys))
-}
-
 impl<T> Default for SplineInterpolator<T>
 where
-    T: Debug + Interpolate<f32> + Serialize + DeserializeOwned,
+    T: Default,
 {
     fn default() -> Self {
         Self {
@@ -113,13 +47,13 @@ impl<FromArgument: Debug, ToArgument, Joints: Debug>
 #[derive(Error, Debug)]
 pub enum InterpolatorError {
     #[error("cannot perform {interpolation_mode} with {keys_before} keys before and {keys_after} keys after")]
-    InterpolationControlKeyError {
+    InterpolationControlKey {
         interpolation_mode: String,
         keys_before: usize,
         keys_after: usize,
     },
     #[error("need at least two keys to create an interpolator")]
-    TooFewKeysError,
+    NotEnoughKeys,
     #[error("uses unsupported interpolation mode {interpolation_mode}")]
     UnsupportedInterpolationMode { interpolation_mode: String },
 }
@@ -141,7 +75,7 @@ impl InterpolatorError {
             .count();
         let following_control_points = keys.len() - 1 - prior_control_points;
 
-        InterpolatorError::InterpolationControlKeyError {
+        InterpolatorError::InterpolationControlKey {
             interpolation_mode: format!("{:?}", current_control_key.interpolation),
             keys_before: prior_control_points,
             keys_after: following_control_points,
@@ -188,11 +122,11 @@ impl SplineInterpolator<Joints> {
 
 impl<T> SplineInterpolator<T>
 where
-    T: Debug + Interpolate<f32> + Serialize + DeserializeOwned,
+    T: Debug + Interpolate<f32>,
 {
     pub fn try_new(mut keys: Vec<Key<Duration, T>>) -> Result<Self, InterpolatorError> {
         if keys.len() < 2 {
-            return Err(InterpolatorError::TooFewKeysError);
+            return Err(InterpolatorError::NotEnoughKeys);
         }
 
         keys.sort_unstable_by_key(|key| key.t);
