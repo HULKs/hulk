@@ -81,7 +81,7 @@ impl FallProtector {
 
         let stiffnesses = Joints::from_head_and_body(
             HeadJoints::fill(head_stiffness),
-            BodyJoints::selective_fill(
+            BodyJoints::fill_mirrored(
                 context.fall_protection.arm_stiffness,
                 context.fall_protection.leg_stiffness,
             ),
