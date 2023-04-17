@@ -75,17 +75,12 @@ impl MotionInterpolator {
     pub fn advance_by(&mut self, time_step: Duration) {
         let item = &mut self.items[self.index];
 
-        match item {
-            MotionItem::Spline(interpolator) => {
-                interpolator.advance_by(time_step);
-            }
-            _ => {}
-        };
+        if let MotionItem::Spline(interpolator) = item {
+            interpolator.advance_by(time_step);
+        }
 
-        if item.is_finished() {
-            if self.index < self.items.len() - 1 {
-                self.index += 1
-            }
+        if item.is_finished() && self.index < self.items.len() - 1 {
+            self.index += 1
         }
     }
 
