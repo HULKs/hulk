@@ -16,6 +16,7 @@ members = [
   "crates/nao",
   "crates/nao_camera",
   "crates/projection",
+  "crates/motionfile",
   "crates/repository",
   "crates/serialize_hierarchy",
   "crates/serialize_hierarchy_derive",
@@ -33,10 +34,7 @@ members = [
   "tools/twix",
 ]
 # HuLA and Aliveness are built independently by yocto
-exclude = [
-  "tools/aliveness",
-  "tools/hula",
-]
+exclude = ["tools/aliveness", "tools/hula"]
 
 [workspace.dependencies]
 alsa = "0.7.0"
@@ -46,7 +44,10 @@ audio = { path = "crates/audio" }
 behavior_simulator = { path = "tools/behavior_simulator" }
 awaitgroup = "0.6.0"
 base64 = "0.13.0"
-bat = { version = "0.21.0", default-features = false, features = ["regex-onig", "paging"] }
+bat = { version = "0.21.0", default-features = false, features = [
+  "regex-onig",
+  "paging",
+] }
 bincode = "1.3.3"
 bindgen = "0.61.0"
 build_script_helpers = { path = "crates/build_script_helpers" }
@@ -66,10 +67,11 @@ convert_case = "0.6.0"
 ctrlc = { version = "3.2.3", features = ["termination"] }
 cyclers = { path = "crates/cyclers" }
 eframe = { version = "0.21.0", features = ["persistence"] }
-egui_dock = { version = "0.4.2", git = "https://github.com/knoellle/egui_dock/", tag= "0.4.2", features = [
+egui_dock = { version = "0.4.2", git = "https://github.com/knoellle/egui_dock/", tag = "0.4.2", features = [
   "serde",
 ] }
 egui_extras = { version = "0.21.0", features = ["image"] }
+enum_dispatch = "0.3.11"
 fast_image_resize = "2.6.0"
 fern = { version = "0.6.1", features = ["colored"] }
 filtering = { path = "crates/filtering" }
@@ -92,6 +94,7 @@ nalgebra = { version = "0.31.1", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }
 nix = "0.25.0"
+motionfile = { path = "crates/motionfile" }
 ordered-float = "3.1.0"
 parking_lot = "0.12.1"
 petgraph = "0.6.2"

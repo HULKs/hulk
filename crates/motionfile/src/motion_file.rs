@@ -4,7 +4,9 @@ use color_eyre::eyre::{Result, WrapErr};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::from_reader;
 
-use crate::Joints;
+use types::Joints;
+
+use crate::{StabilizedCondition, condition::ConditionEnum};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct MotionFile {
@@ -26,14 +28,18 @@ impl MotionFile {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
-pub struct MotionFileFrame {
-    #[serde(
-        serialize_with = "serialize_float_seconds",
-        deserialize_with = "deserialize_float_seconds"
-    )]
-    pub duration: Duration,
-    pub positions: Joints<f32>,
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum MotionFileFrame {
+    Joints {
+        #[serde(
+            serialize_with = "serialize_float_seconds",
+            deserialize_with = "deserialize_float_seconds"
+        )]
+        duration: Duration,
+        positions: Joints,
+    },
+    Condition(ConditionEnum),
 }
 
 fn serialize_float_seconds<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>

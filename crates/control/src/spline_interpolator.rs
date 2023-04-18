@@ -95,8 +95,16 @@ impl TryFrom<MotionFile> for SplineInterpolator<Joints<f32>> {
         )];
 
         keys.extend(motion_file.frames.into_iter().map(|frame| {
-            current_time += frame.duration;
-            Key::new(current_time, frame.positions, Interpolation::Linear)
+            match frame {
+                MotionFileFrame::Joints{ duration, positions } => {
+                    current_time += duration;
+                    Key::new(current_time, positions, Interpolation::Linear)
+                }
+                MotionFileFrame::Condition(_) => {
+                    panic!("Interpolator cannot be built with Conditions")
+                }
+            }
+            
         }));
 
         SplineInterpolator::try_new(keys)

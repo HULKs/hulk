@@ -2,9 +2,10 @@ use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
+use motionfile::MotionFile;
 use nalgebra::Vector2;
 use types::{
-    CycleTime, Facing, Joints, MotionCommand, MotionFile, MotionSafeExits, MotionSelection,
+    CycleTime, Facing, Joints, MotionCommand, MotionSafeExits, MotionSelection,
     MotionType, SensorData,
 };
 

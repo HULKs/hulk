@@ -1,0 +1,15 @@
+[package]
+name = "motionfile"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+homepage = "https://github.com/hulks/hulk"
+
+[dependencies]
+color-eyre = { workspace = true }
+enum_dispatch = { workspace = true }
+types = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+filtering = { workspace = true }
+nalgebra = { workspace = true }
