@@ -75,7 +75,7 @@ impl BallStateComposer {
                             robot_to_field.inverse()
                                 * point![
                                     context.field_dimensions.length / 2.0
-                                        + context.field_dimensions.penalty_marker_distance,
+                                        - context.field_dimensions.penalty_marker_distance,
                                     0.0
                                 ],
                             context.robot_to_field,
