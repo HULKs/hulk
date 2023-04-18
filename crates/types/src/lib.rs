@@ -37,7 +37,6 @@ pub mod localization;
 mod message_event;
 pub mod messages;
 mod motion_command;
-pub mod motion_file;
 mod motion_selection;
 pub mod multivariate_normal_distribution;
 pub mod obstacle_filter;
@@ -108,7 +107,6 @@ pub use motion_command::{
     ArmMotion, Facing, FallDirection, GlanceDirection, HeadMotion, JumpDirection, KickDirection,
     KickVariant, MotionCommand, OrientationMode, SitDirection,
 };
-pub use motion_file::{MotionFile, MotionFileFrame};
 pub use motion_selection::{MotionSafeExits, MotionSelection, MotionType};
 pub use obstacles::{Obstacle, ObstacleKind};
 pub use path_obstacles::{PathObstacle, PathObstacleShape};

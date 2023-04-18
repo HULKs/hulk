@@ -1,8 +1,9 @@
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use framework::MainOutput;
+use motionfile::MotionFile;
 use types::{
-    CycleTime, Joints, JointsCommand, MotionFile, MotionSafeExits, MotionSelection, MotionType,
+    CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
     SensorData,
 };
 

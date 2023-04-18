@@ -2,9 +2,8 @@ use std::time::Duration;
 
 use crate::spline_interpolator::SplineInterpolator;
 use color_eyre::{eyre::Context, Report, Result};
-use filtering::LowPassFilter;
-use nalgebra::Vector3;
-use types::{Joints, MotionFile, SensorData};
+use motionfile::{Condition, MotionFile, condition::ConditionEnum};
+use types::{Joints, SensorData};
 
 pub struct MotionInterpolator {
     items: Vec<MotionItem>,
@@ -13,7 +12,7 @@ pub struct MotionInterpolator {
 
 pub enum MotionItem {
     Spline(SplineInterpolator),
-    Condition(Box<dyn Condition + Send + Sync + 'static>),
+    Condition(ConditionEnum),
 }
 
 impl MotionItem {
@@ -23,35 +22,6 @@ impl MotionItem {
             MotionItem::Condition(condition) => condition.is_finished(),
         }
     }
-}
-
-pub trait Condition {
-    fn is_finished(&self) -> bool;
-    fn update(&mut self, sensor_data: &SensorData);
-    fn value(&self) -> Option<Joints>;
-    fn reset(&mut self);
-}
-
-pub struct StabilizedCondition {
-    tolerance: f32,
-    filtered_velocity: LowPassFilter<Vector3<f32>>,
-}
-
-impl Condition for StabilizedCondition {
-    fn is_finished(&self) -> bool {
-        self.filtered_velocity.state().norm() < self.tolerance
-    }
-
-    fn update(&mut self, sensor_data: &SensorData) {
-        self.filtered_velocity
-            .update(sensor_data.inertial_measurement_unit.angular_velocity);
-    }
-
-    fn value(&self) -> Option<Joints> {
-        None
-    }
-
-    fn reset(&mut self) {}
 }
 
 impl MotionInterpolator {

@@ -1151,6 +1151,7 @@ dependencies = [
  "itertools",
  "kinematics",
  "log",
+ "motionfile",
  "nalgebra",
  "ordered-float",
  "projection",
@@ -1656,6 +1657,18 @@ name = "encoding_index_tests"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a246d82be1c9d791c5dfde9a2bd045fc3cbba3fa2b11ad558f27d01712f00569"
+
+[[package]]
+name = "enum_dispatch"
+version = "0.3.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11f36e95862220b211a6e2aa5eca09b4fa391b13cd52ceb8035a24bf65a79de2"
+dependencies = [
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.107",
+]
 
 [[package]]
 name = "enumflags2"
@@ -2707,6 +2720,19 @@ dependencies = [
  "pkg-config",
  "rustc-hash",
  "serde",
+]
+
+[[package]]
+name = "motionfile"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "enum_dispatch",
+ "filtering",
+ "nalgebra",
+ "serde",
+ "serde_json",
+ "types",
 ]
 
 [[package]]
