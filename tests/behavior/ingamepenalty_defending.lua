@@ -48,10 +48,7 @@ function on_cycle()
   end
 
   if state.cycle_count == 1600 then
-    state.ball = {
-      position = { 0.0, 0.0 },
-      velocity = { -1.0, 3.0 },
-    }
+    state.ball.velocity = { -1.0, 3.0 }
     state.game_controller_state.game_state = "Playing"
     state.filtered_game_state = {
       Playing = {
@@ -61,24 +58,15 @@ function on_cycle()
   end
 
   if state.cycle_count == 1900 then
-    state.ball = {
-      position = state.ball.position,
-      velocity = { -3.0, -0.5 },
-    }
+    state.ball.velocity = { -3.0, -0.5 }
   end
 
   if state.cycle_count == 2000 then
-    state.ball = {
-      position = state.ball.position,
-      velocity = { -1.0, -4.5 },
-    }
+    state.ball.velocity = { -1.0, -4.5 }
   end
 
   if state.cycle_count == 2300 then
-    state.ball = {
-      position = state.ball.position,
-      velocity = { -2.0, -0.5 },
-    }
+    state.ball.velocity = { -2.0, -0.5 }
   end
 
   if state.cycle_count == 2650 then
@@ -97,12 +85,12 @@ function on_cycle()
     --Missing behavior starts here
   end
 
-  if state.cycle_count == 3700 then
-    state.game_controller_state.game_state= "Set"
+  if state.cycle_count == 4000 then
+    state.game_controller_state.game_state = "Set"
     state.filtered_game_state = "Set"
   end
 
-  if state.cycle_count == 4000 then
+  if state.cycle_count == 4300 then
     state.game_controller_state.game_state = "Playing"
     state.filtered_game_state = {
       Playing = {
@@ -110,8 +98,8 @@ function on_cycle()
       }
     }
   end
-  
-  if state.cycle_count == 4400 then
+
+  if state.cycle_count == 5700 then
     state.game_controller_state.sub_state = null
     state.filtered_game_state = {
       Playing = {
