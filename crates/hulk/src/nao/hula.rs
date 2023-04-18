@@ -1,15 +1,10 @@
-use std::{
-    io::{Read, Write},
-    mem::size_of,
-    os::{unix::io::AsRawFd, unix::net::UnixStream},
-    slice::from_raw_parts,
-};
+use std::{io::Write, mem::size_of, os::unix::net::UnixStream, slice::from_raw_parts};
 
 use color_eyre::{eyre::Context, Result};
 use nalgebra::{vector, Vector2, Vector3};
 use types::{self, ArmJoints, HeadJoints, Joints, LegJoints};
 
-use super::double_buffered_reader::{DoubleBufferedReader, Poll};
+use super::double_buffered_reader::{DoubleBufferedReader, SelectPoller};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(C)]
@@ -378,13 +373,9 @@ pub struct ControlStorage {
     pub stiffness: JointsArray,
 }
 
-pub fn read_from_hula<Reader, Poller>(
-    reader: &mut DoubleBufferedReader<StateStorage, Reader, Poller>,
-) -> Result<StateStorage>
-where
-    Reader: AsRawFd + Read,
-    Poller: Poll,
-{
+pub fn read_from_hula(
+    reader: &mut DoubleBufferedReader<StateStorage, UnixStream, SelectPoller>,
+) -> Result<StateStorage> {
     Ok(*reader
         .draining_read()
         .wrap_err("failed to drain from stream")?)
