@@ -115,6 +115,7 @@ impl FallProtector {
             MotionCommand::FallProtection {
                 direction: FallDirection::Backward,
             } => {
+                self.interpolator.set_initial_positions(current_positions);
                 self.interpolator
                     .advance_by(context.cycle_time.last_cycle_duration);
                 JointsCommand {
