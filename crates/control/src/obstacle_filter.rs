@@ -10,7 +10,8 @@ use types::{
     configuration::ObstacleFilter as ObstacleFilterConfiguration, detected_feet::DetectedFeet,
     detected_robots::DetectedRobots,
     multivariate_normal_distribution::MultivariateNormalDistribution, obstacle_filter::Hypothesis,
-    CycleTime, FieldDimensions, Obstacle, ObstacleKind, SonarObstacle,
+    CycleTime, FieldDimensions, Obstacle, ObstacleKind, PrimaryState, PrimaryStateTransition,
+    SonarObstacle,
 };
 
 pub struct ObstacleFilter {
@@ -18,10 +19,7 @@ pub struct ObstacleFilter {
 }
 
 #[context]
-pub struct CreationContext {
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub obstacle_filter_configuration: Parameter<ObstacleFilterConfiguration, "obstacle_filter">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -43,6 +41,8 @@ pub struct CycleContext {
     pub robot_obstacle_radius_at_hip_height:
         Parameter<f32, "obstacle_filter.robot_obstacle_radius_at_hip_height">,
     pub unknown_obstacle_radius: Parameter<f32, "obstacle_filter.unknown_obstacle_radius">,
+    pub primary_state_transition:
+        Input<Option<PrimaryStateTransition>, "primary_state_transition?">,
 
     pub detected_feet_bottom: PerceptionInput<DetectedFeet, "VisionBottom", "detected_feet">,
     pub detected_feet_top: PerceptionInput<DetectedFeet, "VisionTop", "detected_feet">,
@@ -191,6 +191,14 @@ impl ObstacleFilter {
                 .obstacle_filter_configuration
                 .hypothesis_merge_distance,
         );
+
+        if let Some(PrimaryStateTransition {
+            from: PrimaryState::Penalized,
+            to: _,
+        }) = context.primary_state_transition
+        {
+            self.hypotheses = Vec::new();
+        }
 
         let robot_obstacles = self
             .hypotheses
