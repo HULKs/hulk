@@ -35,7 +35,7 @@ pub struct CycleContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
 
-    pub robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
+    pub last_robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
 }
 
 #[context]
@@ -53,7 +53,7 @@ impl GameStateFilter {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
-            *context.robot_to_field,
+            *context.last_robot_to_field,
             context.ball_position,
             context.field_dimensions,
             context.config.whistle_acceptance_goal_distance,
@@ -71,7 +71,7 @@ impl GameStateFilter {
         let ball_detected_far_from_kick_off_point = context
             .ball_position
             .map(|ball| {
-                let absolute_ball_position = *context.robot_to_field * ball.position;
+                let absolute_ball_position = *context.last_robot_to_field * ball.position;
                 distance(&absolute_ball_position, &Point2::origin())
                     > context.config.distance_to_consider_ball_moved_in_kick_off
             })

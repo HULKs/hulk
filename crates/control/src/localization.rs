@@ -1,4 +1,4 @@
-use std::{f32::consts::FRAC_PI_2, mem::take};
+use std::f32::consts::FRAC_PI_2;
 
 use approx::assert_relative_eq;
 use color_eyre::{eyre::WrapErr, Result};
@@ -16,48 +16,18 @@ use types::{
     localization::{ScoredPose, Update},
     multivariate_normal_distribution::MultivariateNormalDistribution,
     CorrespondencePoints, Direction, FieldDimensions, FieldMark, GameControllerState, InitialPose,
-    Line, Line2, LineData, Players, PrimaryState, Side,
+    Line, Line2, LineData, Players, PrimaryState, PrimaryStateTransition, Side,
 };
 
 pub struct Localization {
     field_marks: Vec<FieldMark>,
-    last_primary_state: PrimaryState,
     hypotheses: Vec<ScoredPose>,
-    hypotheses_when_entered_playing: Vec<ScoredPose>,
-    is_penalized_with_motion_in_set: bool,
-    was_picked_up_while_penalized_with_motion_in_set: bool,
+    last_penalty: Option<Penalty>,
 }
 
 #[context]
 pub struct CreationContext {
-    pub circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub good_matching_threshold: Parameter<f32, "localization.good_matching_threshold">,
-    pub gradient_convergence_threshold:
-        Parameter<f32, "localization.gradient_convergence_threshold">,
-    pub gradient_descent_step_size: Parameter<f32, "localization.gradient_descent_step_size">,
-    pub hypothesis_prediction_score_reduction_factor:
-        Parameter<f32, "localization.hypothesis_prediction_score_reduction_factor">,
-    pub hypothesis_retain_factor: Parameter<f32, "localization.hypothesis_retain_factor">,
-    pub hypothesis_score_base_increase:
-        Parameter<f32, "localization.hypothesis_score_base_increase">,
-    pub initial_hypothesis_covariance:
-        Parameter<Matrix3<f32>, "localization.initial_hypothesis_covariance">,
-    pub initial_hypothesis_score: Parameter<f32, "localization.initial_hypothesis_score">,
-    pub initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
-    pub line_length_acceptance_factor: Parameter<f32, "localization.line_length_acceptance_factor">,
-    pub line_measurement_noise: Parameter<Vector2<f32>, "localization.line_measurement_noise">,
-    pub maximum_amount_of_gradient_descent_iterations:
-        Parameter<usize, "localization.maximum_amount_of_gradient_descent_iterations">,
-    pub maximum_amount_of_outer_iterations:
-        Parameter<usize, "localization.maximum_amount_of_outer_iterations">,
-    pub minimum_fit_error: Parameter<f32, "localization.minimum_fit_error">,
-    pub odometry_noise: Parameter<Vector3<f32>, "localization.odometry_noise">,
-    pub player_number: Parameter<PlayerNumber, "player_number">,
-    pub score_per_good_match: Parameter<f32, "localization.score_per_good_match">,
-    pub use_line_measurements: Parameter<bool, "localization.use_line_measurements">,
-
-    pub robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
 }
 
 #[context]
@@ -75,6 +45,8 @@ pub struct CycleContext {
     pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub primary_state: Input<PrimaryState, "primary_state">,
+    pub primary_state_transition:
+        Input<Option<PrimaryStateTransition>, "primary_state_transition?">,
 
     pub circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -106,7 +78,7 @@ pub struct CycleContext {
     pub line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
     pub line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
 
-    pub robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
+    pub last_robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
 }
 
 #[context]
@@ -124,23 +96,22 @@ impl Localization {
                     context.field_dimensions,
                 ))
                 .collect(),
-            last_primary_state: PrimaryState::Unstiff,
-            hypotheses: vec![],
-            hypotheses_when_entered_playing: vec![],
-            is_penalized_with_motion_in_set: false,
-            was_picked_up_while_penalized_with_motion_in_set: false,
+            hypotheses: Vec::new(),
+            last_penalty: None,
         })
     }
 
     fn reset_state(
         &mut self,
-        primary_state: PrimaryState,
-        game_phase: Option<GamePhase>,
+        primary_state_transition: &PrimaryStateTransition,
         context: &CycleContext,
-        penalty: &Option<Penalty>,
+        last_penalty: Option<Penalty>,
     ) {
-        match (self.last_primary_state, primary_state, game_phase) {
-            (PrimaryState::Initial, PrimaryState::Ready, _) => {
+        match primary_state_transition {
+            PrimaryStateTransition {
+                from: PrimaryState::Initial,
+                to: PrimaryState::Ready,
+            } => {
                 let initial_pose = generate_initial_pose(
                     &context.initial_poses[*context.player_number],
                     context.field_dimensions,
@@ -150,14 +121,45 @@ impl Localization {
                     *context.initial_hypothesis_covariance,
                     *context.initial_hypothesis_score,
                 )];
-                self.hypotheses_when_entered_playing = self.hypotheses.clone();
             }
+            PrimaryStateTransition {
+                from: PrimaryState::Penalized,
+                to: _,
+            } => {
+                match last_penalty {
+                    Some(Penalty::IllegalMotionInSet { .. }) => {}
+                    _ => {
+                        let penalized_poses = generate_penalized_poses(context.field_dimensions);
+                        self.hypotheses = penalized_poses
+                            .into_iter()
+                            .map(|pose| {
+                                ScoredPose::from_isometry(
+                                    pose,
+                                    *context.initial_hypothesis_covariance,
+                                    *context.initial_hypothesis_score,
+                                )
+                            })
+                            .collect();
+                    }
+                };
+            }
+            _ => {}
+        }
+    }
+
+    fn reset_state_for_penalty_shootout(
+        &mut self,
+        primary_state_transition: &PrimaryStateTransition,
+        kicking_team: Team,
+        context: &CycleContext,
+    ) {
+        match (primary_state_transition, kicking_team) {
             (
-                PrimaryState::Set,
-                PrimaryState::Playing,
-                Some(GamePhase::PenaltyShootout {
-                    kicking_team: Team::Hulks,
-                }),
+                PrimaryStateTransition {
+                    from: PrimaryState::Set,
+                    to: PrimaryState::Playing,
+                },
+                Team::Hulks,
             ) => {
                 let penalty_shoot_out_striker_pose = Isometry2::translation(
                     -context.field_dimensions.penalty_area_length
@@ -169,14 +171,13 @@ impl Localization {
                     *context.initial_hypothesis_covariance,
                     *context.initial_hypothesis_score,
                 )];
-                self.hypotheses_when_entered_playing = self.hypotheses.clone();
             }
             (
-                PrimaryState::Set,
-                PrimaryState::Playing,
-                Some(GamePhase::PenaltyShootout {
-                    kicking_team: Team::Opponent,
-                }),
+                PrimaryStateTransition {
+                    from: PrimaryState::Set,
+                    to: PrimaryState::Playing,
+                },
+                Team::Opponent,
             ) => {
                 let penalty_shoot_out_keeper_pose =
                     Isometry2::translation(-context.field_dimensions.length / 2.0, 0.0);
@@ -185,67 +186,6 @@ impl Localization {
                     *context.initial_hypothesis_covariance,
                     *context.initial_hypothesis_score,
                 )];
-                self.hypotheses_when_entered_playing = self.hypotheses.clone();
-            }
-            (PrimaryState::Set, PrimaryState::Playing, _) => {
-                self.hypotheses_when_entered_playing = self.hypotheses.clone();
-            }
-            (PrimaryState::Playing, PrimaryState::Penalized, _) => {
-                match penalty {
-                    Some(Penalty::IllegalMotionInSet { remaining: _ }) => {
-                        self.is_penalized_with_motion_in_set = true;
-                    }
-                    Some(_) => {}
-                    None => {}
-                };
-            }
-            (PrimaryState::Penalized, _, _) if primary_state != PrimaryState::Penalized => {
-                if self.is_penalized_with_motion_in_set {
-                    if self.was_picked_up_while_penalized_with_motion_in_set {
-                        self.hypotheses = take(&mut self.hypotheses_when_entered_playing);
-
-                        let penalized_poses = generate_penalized_poses(context.field_dimensions);
-                        self.hypotheses_when_entered_playing = penalized_poses
-                            .into_iter()
-                            .map(|pose| {
-                                ScoredPose::from_isometry(
-                                    pose,
-                                    *context.initial_hypothesis_covariance,
-                                    *context.initial_hypothesis_score,
-                                )
-                            })
-                            .collect();
-                    }
-                    self.is_penalized_with_motion_in_set = false;
-                    self.was_picked_up_while_penalized_with_motion_in_set = false;
-                } else {
-                    let penalized_poses = generate_penalized_poses(context.field_dimensions);
-                    self.hypotheses = penalized_poses
-                        .into_iter()
-                        .map(|pose| {
-                            ScoredPose::from_isometry(
-                                pose,
-                                *context.initial_hypothesis_covariance,
-                                *context.initial_hypothesis_score,
-                            )
-                        })
-                        .collect();
-                    self.hypotheses_when_entered_playing = self.hypotheses.clone();
-                }
-            }
-            (PrimaryState::Unstiff, _, _) => {
-                let penalized_poses = generate_penalized_poses(context.field_dimensions);
-                self.hypotheses = penalized_poses
-                    .into_iter()
-                    .map(|pose| {
-                        ScoredPose::from_isometry(
-                            pose,
-                            *context.initial_hypothesis_covariance,
-                            *context.initial_hypothesis_score,
-                        )
-                    })
-                    .collect();
-                self.hypotheses_when_entered_playing = self.hypotheses.clone();
             }
             _ => {}
         }
@@ -451,49 +391,50 @@ impl Localization {
             }
         }
 
-        let best_hypothesis = self
-            .get_best_hypothesis()
-            .expect("Expected at least one hypothesis");
-        let best_score = best_hypothesis.score;
-        let robot_to_field = best_hypothesis.state.as_isometry();
-        self.hypotheses.retain(|scored_state| {
-            scored_state.score >= *context.hypothesis_retain_factor * best_score
-        });
-
         context
             .pose_hypotheses
             .fill_if_subscribed(|| self.hypotheses.clone());
         context
             .fit_errors
             .fill_if_subscribed(|| fit_errors_per_measurement);
-
-        *context.robot_to_field = robot_to_field;
-
         Ok(())
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let primary_state = *context.primary_state;
+        if let Some(primary_state_transition) = context.primary_state_transition {
+            let game_phase = context
+                .game_controller_state
+                .map(|game_controller_state| game_controller_state.game_phase);
+            match game_phase {
+                Some(GamePhase::PenaltyShootout { kicking_team }) => {
+                    self.reset_state_for_penalty_shootout(
+                        primary_state_transition,
+                        kicking_team,
+                        &context,
+                    );
+                }
+                None | Some(GamePhase::Normal) => {
+                    self.reset_state(primary_state_transition, &context, self.last_penalty);
+                }
+                _ => {}
+            }
+        }
+
         let penalty = context
             .game_controller_state
             .and_then(|game_controller_state| {
                 game_controller_state.penalties[*context.player_number]
             });
-        let game_phase = context
-            .game_controller_state
-            .map(|game_controller_state| game_controller_state.game_phase);
+        self.last_penalty = penalty;
 
-        self.reset_state(primary_state, game_phase, &context, &penalty);
-        self.last_primary_state = primary_state;
-
-        if self.is_penalized_with_motion_in_set && !context.has_ground_contact {
-            self.was_picked_up_while_penalized_with_motion_in_set = true;
-        }
-
-        let robot_to_field = match primary_state {
+        let robot_to_field = match context.primary_state {
             PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing => {
                 self.update_state(&mut context)?;
-                Some(*context.robot_to_field)
+                let best_hypothesis = self.find_best_hypothesis().unwrap();
+                let minimal_score = *context.hypothesis_retain_factor * best_hypothesis.score;
+                self.hypotheses
+                    .retain(|scored_pose| scored_pose.score >= minimal_score);
+                Some(best_hypothesis.state.as_isometry())
             }
             _ => None,
         };
@@ -502,10 +443,11 @@ impl Localization {
         })
     }
 
-    fn get_best_hypothesis(&self) -> Option<&ScoredPose> {
+    fn find_best_hypothesis(&self) -> Option<ScoredPose> {
         self.hypotheses
             .iter()
-            .max_by_key(|scored_filter| NotNan::new(scored_filter.score).unwrap())
+            .max_by_key(|scored_pose| NotNan::new(scored_pose.score).unwrap())
+            .copied()
     }
 }
 
