@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2};
-use spl_network_messages::{GamePhase, SubState, Team};
+use spl_network_messages::{GamePhase, GameState, SubState, Team};
 use types::{
     configuration::{Behavior as BehaviorConfiguration, LostBall},
     CycleTime, FieldDimensions, FilteredGameState, GameControllerState, KickDecision,
@@ -156,9 +156,15 @@ impl Behavior {
                     }) => actions.push(Action::WalkToPenaltyKick),
                     _ => actions.push(Action::WalkToKickOff),
                 },
-                _ => {
-                    actions.push(Action::DefendKickOff);
-                }
+                _ => match world_state.game_controller_state {
+                    Some(GameControllerState {
+                        game_state: GameState::Ready,
+                        sub_state: Some(SubState::PenaltyKick),
+                        kicking_team: Team::Opponent,
+                        ..
+                    }) => actions.push(Action::DefendPenaltyKick),
+                    _ => actions.push(Action::DefendKickOff),
+                },
             },
             Role::StrikerSupporter => actions.push(Action::SupportStriker),
         };
@@ -201,7 +207,10 @@ impl Behavior {
                 Action::DefendPenaltyLeft => defend.penalty_left(&mut context.path_obstacles),
                 Action::DefendRight => defend.right(&mut context.path_obstacles),
                 Action::DefendPenaltyRight => defend.penalty_right(&mut context.path_obstacles),
-                Action::Stand => stand::execute(world_state, self.absolute_last_known_ball_position),
+                Action::DefendPenaltyKick => defend.penalty_kick(&mut context.path_obstacles),
+                Action::Stand => {
+                    stand::execute(world_state, self.absolute_last_known_ball_position)
+                }
                 Action::Dribble => dribble::execute(
                     world_state,
                     context.field_dimensions,
