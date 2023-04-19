@@ -58,7 +58,7 @@ impl LedStatus {
                 true => Rgb::BLUE,
                 false => Rgb::BLACK,
             },
-            PrimaryState::Initial => Rgb::WHITE,
+            PrimaryState::Initial => Rgb::BLACK,
             PrimaryState::Ready => Rgb::BLUE,
             PrimaryState::Set => Rgb::YELLOW,
             PrimaryState::Playing => Rgb::GREEN,
