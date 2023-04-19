@@ -1,5 +1,5 @@
-use nalgebra::Point2;
-use spl_network_messages::GamePhase;
+use nalgebra::{point, Point2};
+use spl_network_messages::{GamePhase, SubState};
 use types::{GameControllerState, HeadMotion, MotionCommand, PrimaryState, Role, WorldState};
 
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
@@ -10,12 +10,23 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
         }),
         PrimaryState::Set => {
             let robot_to_field = world_state.robot.robot_to_field?;
-            Some(MotionCommand::Stand {
-                head: HeadMotion::LookAt {
-                    target: robot_to_field.inverse() * Point2::origin(),
-                },
-                is_energy_saving: true,
-            })
+            match world_state.game_controller_state {
+                Some(GameControllerState {
+                    sub_state: Some(SubState::PenaltyKick),
+                    ..
+                }) => Some(MotionCommand::Stand {
+                    head: HeadMotion::LookAt {
+                        target: robot_to_field.inverse() * absolute_last_known_ball_position,
+                    },
+                    is_energy_saving: true,
+                }),
+                _ => Some(MotionCommand::Stand {
+                    head: HeadMotion::LookAt {
+                        target: robot_to_field.inverse() * Point2::origin(),
+                    },
+                    is_energy_saving: true,
+                }),
+            }
         }
         PrimaryState::Playing => {
             match (
