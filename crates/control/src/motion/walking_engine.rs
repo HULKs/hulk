@@ -301,7 +301,7 @@ impl WalkingEngine {
                 turn: self.turn,
             },
         };
-        
+
         context.motion_safe_exits[MotionType::Walk] =
             matches!(self.walk_state, WalkState::Standing);
         if !context.has_ground_contact {
