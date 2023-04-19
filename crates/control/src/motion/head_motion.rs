@@ -35,6 +35,7 @@ pub struct CycleContext {
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub sensor_data: Input<SensorData, "sensor_data">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
+    pub has_ground_contact: Input<bool, "has_ground_contact">,
 }
 
 #[context]
@@ -50,14 +51,32 @@ impl HeadMotion {
         })
     }
 
+    pub fn if_ground_contact(context: CycleContext, head_joints: HeadJoints) -> HeadJoints {
+        if *context.has_ground_contact {
+            head_joints
+        } else {
+            Default::default()
+        }
+    }
+
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let current_head_angles = context.sensor_data.positions.head;
         let raw_request = match context.motion_command.head_motion() {
             Some(HeadMotionCommand::Center) => *context.center_head_position,
             Some(HeadMotionCommand::LookAround) | Some(HeadMotionCommand::SearchForLostBall) => {
-                *context.look_around
+                if *context.has_ground_contact {
+                    *context.look_around
+                } else {
+                    Default::default()
+                }
             }
-            Some(HeadMotionCommand::LookAt { .. }) => *context.look_at,
+            Some(HeadMotionCommand::LookAt { .. }) => {
+                if *context.has_ground_contact {
+                    *context.look_at
+                } else {
+                    Default::default()
+                }
+            }
             Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => *context.look_at,
             Some(HeadMotionCommand::Unstiff) => current_head_angles,
             Some(HeadMotionCommand::ZeroAngles) => Default::default(),
