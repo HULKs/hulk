@@ -1,8 +1,11 @@
-use nalgebra::{point, Point2};
+use nalgebra::Point2;
 use spl_network_messages::{GamePhase, SubState};
 use types::{GameControllerState, HeadMotion, MotionCommand, PrimaryState, Role, WorldState};
 
-pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
+pub fn execute(
+    world_state: &WorldState,
+    absolute_last_known_ball_position: Point2<f32>,
+) -> Option<MotionCommand> {
     match world_state.robot.primary_state {
         PrimaryState::Initial => Some(MotionCommand::Stand {
             head: HeadMotion::ZeroAngles,
