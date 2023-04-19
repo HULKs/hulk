@@ -63,7 +63,7 @@ impl LedStatus {
             PrimaryState::Set => Rgb::YELLOW,
             PrimaryState::Playing => Rgb::GREEN,
             PrimaryState::Penalized => Rgb::RED,
-            PrimaryState::Finished => Rgb::WHITE,
+            PrimaryState::Finished => Rgb::BLACK,
             PrimaryState::Calibration => Rgb::PURPLE,
         };
 
