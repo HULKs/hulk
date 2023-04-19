@@ -199,7 +199,7 @@ impl Behavior {
                 Action::DefendPenaltyLeft => defend.penalty_left(&mut context.path_obstacles),
                 Action::DefendRight => defend.right(&mut context.path_obstacles),
                 Action::DefendPenaltyRight => defend.penalty_right(&mut context.path_obstacles),
-                Action::Stand => stand::execute(world_state),
+                Action::Stand => stand::execute(world_state, self.absolute_last_known_ball_position),
                 Action::Dribble => dribble::execute(
                     world_state,
                     context.field_dimensions,
