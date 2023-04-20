@@ -67,7 +67,7 @@ impl GroundContactDetector {
         self.last_has_pressure = has_pressure;
 
         Ok(MainOutputs {
-            has_ground_contact: has_pressure.into(),
+            has_ground_contact: self.has_ground_contact.into(),
         })
     }
 }
