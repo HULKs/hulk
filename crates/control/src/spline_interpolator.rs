@@ -5,7 +5,7 @@ use types::{Joints, MotionFile};
 use std::{fmt::Debug, time::Duration};
 
 pub struct SplineInterpolator {
-    spline: Spline<f32, Joints>,
+    spline: Spline<f32, Joints<f32>>,
     current_time: Duration,
     end_time: Duration,
 }
@@ -45,7 +45,7 @@ pub enum InterpolatorError {
 
 impl InterpolatorError {
     fn create_control_key_error(
-        keys: &[Key<f32, Joints>],
+        keys: &[Key<f32, Joints<f32>>],
         current_time: Duration,
     ) -> InterpolatorError {
         let current_control_key = keys
@@ -90,7 +90,7 @@ impl TryFrom<MotionFile> for SplineInterpolator {
 }
 
 impl SplineInterpolator {
-    pub fn try_new(mut keys: Vec<Key<Duration, Joints>>) -> Result<Self, InterpolatorError> {
+    pub fn try_new(mut keys: Vec<Key<Duration, Joints<f32>>>) -> Result<Self, InterpolatorError> {
         if keys.len() < 2 {
             return Err(InterpolatorError::TooFewKeysError);
         }
@@ -131,9 +131,9 @@ impl SplineInterpolator {
     }
 
     fn create_zero_gradient(
-        key_center: &Key<f32, Joints>,
-        key_other: &Key<f32, Joints>,
-    ) -> Key<f32, Joints> {
+        key_center: &Key<f32, Joints<f32>>,
+        key_other: &Key<f32, Joints<f32>>,
+    ) -> Key<f32, Joints<f32>> {
         Key::new(
             2. * key_center.t - key_other.t,
             key_other.value,
@@ -145,7 +145,7 @@ impl SplineInterpolator {
         self.current_time += time_step;
     }
 
-    pub fn value(&self) -> Result<Joints, InterpolatorError> {
+    pub fn value(&self) -> Result<Joints<f32>, InterpolatorError> {
         if self.current_time >= self.end_time {
             self.spline.keys().iter().rev().nth(1).map(|key| key.value)
         } else {

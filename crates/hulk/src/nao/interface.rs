@@ -104,7 +104,12 @@ impl hardware::Interface for Interface {
         self.hula_wrapper.lock().read_from_hula()
     }
 
-    fn write_to_actuators(&self, positions: Joints, stiffnesses: Joints, leds: Leds) -> Result<()> {
+    fn write_to_actuators(
+        &self,
+        positions: Joints<f32>,
+        stiffnesses: Joints<f32>,
+        leds: Leds,
+    ) -> Result<()> {
         self.hula_wrapper
             .lock()
             .write_to_actuators(positions, stiffnesses, leds)

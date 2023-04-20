@@ -32,7 +32,7 @@ pub struct Head {
 }
 
 impl Head {
-    pub fn get_positions(&self) -> HeadJoints {
+    pub fn get_positions(&self) -> HeadJoints<f32> {
         HeadJoints {
             yaw: self.yaw.get_position() as f32,
             pitch: self.pitch.get_position() as f32,
@@ -50,7 +50,7 @@ pub struct Arm {
 }
 
 impl Arm {
-    pub fn get_positions(&self) -> ArmJoints {
+    pub fn get_positions(&self) -> ArmJoints<f32> {
         ArmJoints {
             shoulder_pitch: self.shoulder_pitch.get_position() as f32,
             shoulder_roll: self.shoulder_roll.get_position() as f32,
@@ -72,7 +72,7 @@ pub struct Leg {
 }
 
 impl Leg {
-    pub fn get_positions(&self) -> LegJoints {
+    pub fn get_positions(&self) -> LegJoints<f32> {
         LegJoints {
             hip_yaw_pitch: self.hip_yaw_pitch.get_position() as f32,
             hip_roll: self.hip_roll.get_position() as f32,
@@ -93,7 +93,7 @@ pub struct JointDevices {
 }
 
 impl JointDevices {
-    pub fn get_positions(&self) -> Joints {
+    pub fn get_positions(&self) -> Joints<f32> {
         Joints {
             head: self.head.get_positions(),
             left_arm: self.left_arm.get_positions(),

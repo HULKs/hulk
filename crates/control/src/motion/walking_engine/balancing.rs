@@ -5,17 +5,17 @@ use types::{
 
 use super::foot_offsets::FootOffsets;
 
-pub fn gyro_balancing(support_leg: &mut LegJoints, gyro_y: f32, gyro_balance_factor: f32) {
+pub fn gyro_balancing(support_leg: &mut LegJoints<f32>, gyro_y: f32, gyro_balance_factor: f32) {
     let gyro_adjustment = gyro_balance_factor * gyro_y;
     support_leg.ankle_pitch += gyro_adjustment;
 }
 
 #[allow(clippy::too_many_arguments)]
 pub fn foot_leveling(
-    left_leg: &mut LegJoints,
-    right_leg: &mut LegJoints,
-    measured_left_leg: LegJoints,
-    measured_right_leg: LegJoints,
+    left_leg: &mut LegJoints<f32>,
+    right_leg: &mut LegJoints<f32>,
+    measured_left_leg: LegJoints<f32>,
+    measured_right_leg: LegJoints<f32>,
     torso_imu_pitch: f32,
     swing_side: Side,
     last_left_level_adjustment: &mut f32,

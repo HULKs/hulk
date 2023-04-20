@@ -29,7 +29,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub jump_left_joints_command: MainOutput<JointsCommand>,
+    pub jump_left_joints_command: MainOutput<JointsCommand<f32>>,
 }
 
 impl JumpLeft {

@@ -28,7 +28,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub look_at: MainOutput<HeadJoints>,
+    pub look_at: MainOutput<HeadJoints<f32>>,
 }
 
 impl LookAt {
@@ -84,13 +84,13 @@ impl LookAt {
 }
 
 fn look_at(
-    joint_angles: Joints,
+    joint_angles: Joints<f32>,
     ground_to_zero_head: Isometry3<f32>,
     head_to_top_camera: Isometry3<f32>,
     head_to_bottom_camera: Isometry3<f32>,
     target: Point2<f32>,
     minimum_bottom_focus_pitch: f32,
-) -> HeadJoints {
+) -> HeadJoints<f32> {
     let top_focus_angles = look_at_with_camera(target, head_to_top_camera * ground_to_zero_head);
     let bottom_focus_angles =
         look_at_with_camera(target, head_to_bottom_camera * ground_to_zero_head);
@@ -107,7 +107,7 @@ fn look_at(
     }
 }
 
-fn look_at_with_camera(target: Point2<f32>, ground_to_camera: Isometry3<f32>) -> HeadJoints {
+fn look_at_with_camera(target: Point2<f32>, ground_to_camera: Isometry3<f32>) -> HeadJoints<f32> {
     let target_in_camera = ground_to_camera * point![target.x, target.y, 0.0];
     let yaw = f32::atan2(target_in_camera.y, target_in_camera.x);
     let pitch = -f32::atan2(target_in_camera.z, target_in_camera.x);

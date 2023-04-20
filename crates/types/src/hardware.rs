@@ -16,7 +16,12 @@ pub trait Interface {
     fn get_now(&self) -> SystemTime;
     fn get_ids(&self) -> Ids;
     fn read_from_sensors(&self) -> Result<SensorData>;
-    fn write_to_actuators(&self, positions: Joints, stiffnesses: Joints, leds: Leds) -> Result<()>;
+    fn write_to_actuators(
+        &self,
+        positions: Joints<f32>,
+        stiffnesses: Joints<f32>,
+        leds: Leds,
+    ) -> Result<()>;
 
     fn read_from_network(&self) -> Result<IncomingMessage>;
     fn write_to_network(&self, message: OutgoingMessage) -> Result<()>;

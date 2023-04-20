@@ -82,8 +82,8 @@ impl HulaWrapper {
 
     pub fn write_to_actuators(
         &mut self,
-        positions: Joints,
-        stiffnesses: Joints,
+        positions: Joints<f32>,
+        stiffnesses: Joints<f32>,
         leds: Leds,
     ) -> Result<()> {
         let control_storage = ControlStorage {

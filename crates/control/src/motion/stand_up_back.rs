@@ -41,7 +41,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub stand_up_back_positions: MainOutput<Joints>,
+    pub stand_up_back_positions: MainOutput<Joints<f32>>,
 }
 
 impl StandUpBack {

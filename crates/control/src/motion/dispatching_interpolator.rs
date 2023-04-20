@@ -9,8 +9,8 @@ use types::{
 };
 
 pub struct DispatchingInterpolator {
-    interpolator: LinearInterpolator<Joints>,
-    stiffnesses: Joints,
+    interpolator: LinearInterpolator<Joints<f32>>,
+    stiffnesses: Joints<f32>,
     last_currently_active: bool,
     last_dispatching_motion: MotionType,
 }
@@ -20,19 +20,19 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub arms_up_squat_joints_command: Input<JointsCommand, "arms_up_squat_joints_command">,
-    pub jump_left_joints_command: Input<JointsCommand, "jump_left_joints_command">,
-    pub jump_right_joints_command: Input<JointsCommand, "jump_right_joints_command">,
+    pub arms_up_squat_joints_command: Input<JointsCommand<f32>, "arms_up_squat_joints_command">,
+    pub jump_left_joints_command: Input<JointsCommand<f32>, "jump_left_joints_command">,
+    pub jump_right_joints_command: Input<JointsCommand<f32>, "jump_right_joints_command">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
     pub sensor_data: Input<SensorData, "sensor_data">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub sit_down_joints_command: Input<JointsCommand, "sit_down_joints_command">,
-    pub stand_up_back_positions: Input<Joints, "stand_up_back_positions">,
-    pub stand_up_front_positions: Input<Joints, "stand_up_front_positions">,
-    pub walk_joints_command: Input<BodyJointsCommand, "walk_joints_command">,
+    pub sit_down_joints_command: Input<JointsCommand<f32>, "sit_down_joints_command">,
+    pub stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
+    pub stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
+    pub walk_joints_command: Input<BodyJointsCommand<f32>, "walk_joints_command">,
 
-    pub penalized_pose: Parameter<Joints, "penalized_pose">,
-    pub ready_pose: Parameter<Joints, "ready_pose">,
+    pub penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
+    pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
@@ -40,7 +40,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub dispatching_command: MainOutput<JointsCommand>,
+    pub dispatching_command: MainOutput<JointsCommand<f32>>,
 }
 
 impl DispatchingInterpolator {

@@ -185,8 +185,8 @@ impl hardware::Interface for Interface {
 
     fn write_to_actuators(
         &self,
-        positions: Joints,
-        _stiffnesses: Joints,
+        positions: Joints<f32>,
+        _stiffnesses: Joints<f32>,
         _leds: Leds,
     ) -> Result<()> {
         self.joints

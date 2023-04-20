@@ -58,7 +58,7 @@ pub struct TouchSensors {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct SensorData {
-    pub positions: Joints,
+    pub positions: Joints<f32>,
     pub inertial_measurement_unit: InertialMeasurementUnitData,
     pub sonar_sensors: SonarSensors,
     pub force_sensitive_resistors: ForceSensitiveResistors,

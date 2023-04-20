@@ -188,8 +188,8 @@ pub struct JointsArray {
     pub right_hand: f32,
 }
 
-impl From<Joints> for JointsArray {
-    fn from(joints: Joints) -> Self {
+impl From<Joints<f32>> for JointsArray {
+    fn from(joints: Joints<f32>) -> Self {
         Self {
             head_yaw: joints.head.yaw,
             head_pitch: joints.head.pitch,
@@ -220,7 +220,7 @@ impl From<Joints> for JointsArray {
     }
 }
 
-impl From<JointsArray> for Joints {
+impl From<JointsArray> for Joints<f32> {
     fn from(joints: JointsArray) -> Self {
         Joints {
             head: HeadJoints {
