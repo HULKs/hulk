@@ -158,7 +158,8 @@ fn extend_where_clause_from_attributes(
                 TypeAttribute::Bounds { predicates } => Some(predicates),
                 _ => None,
             })
-            .flat_map(|predicates| predicates.to_vec())
+            .flatten()
+            .cloned()
     });
 }
 
