@@ -55,11 +55,7 @@ impl SitDown {
                     .interpolator
                     .value()
                     .wrap_err("error computing interpolation in sit_down")?,
-                stiffnesses: Joints::fill(if self.interpolator.is_finished() {
-                    0.0
-                } else {
-                    0.8
-                }),
+                stiffnesses: Joints::fill(0.8),
             }
             .into(),
         })
