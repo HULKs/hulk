@@ -1,15 +1,12 @@
 use std::collections::HashSet;
 
 use proc_macro2::TokenStream;
-use proc_macro_error::abort;
-use proc_macro_error::proc_macro_error;
-use quote::quote;
-use quote::ToTokens;
+use proc_macro_error::{abort, proc_macro_error};
+use quote::{quote, ToTokens};
 use syn::{
     parse_macro_input, punctuated::Punctuated, Data, DataStruct, DeriveInput, Generics, Ident, Lit,
-    Meta, NestedMeta, Token, WherePredicate,
+    Meta, MetaNameValue, NestedMeta, Token, Type, WherePredicate,
 };
-use syn::{MetaNameValue, Type};
 
 #[proc_macro_derive(SerializeHierarchy, attributes(serialize_hierarchy))]
 #[proc_macro_error]
