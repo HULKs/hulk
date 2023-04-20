@@ -445,7 +445,9 @@ impl Localization {
                 let minimal_score = *context.hypothesis_retain_factor * best_hypothesis.score;
                 self.hypotheses
                     .retain(|scored_pose| scored_pose.score >= minimal_score);
-                Some(best_hypothesis.state.as_isometry())
+                let robot_to_field = best_hypothesis.state.as_isometry();
+                *context.last_robot_to_field = robot_to_field;
+                Some(robot_to_field)
             }
             _ => None,
         };
