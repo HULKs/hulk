@@ -23,6 +23,7 @@ pub struct Localization {
     field_marks: Vec<FieldMark>,
     hypotheses: Vec<ScoredPose>,
     last_penalty: Option<Penalty>,
+    hypotheses_when_started_playing: Option<Vec<ScoredPose>>,
 }
 
 #[context]
@@ -98,6 +99,7 @@ impl Localization {
                 .collect(),
             hypotheses: Vec::new(),
             last_penalty: None,
+            hypotheses_when_started_playing: None,
         })
     }
 
@@ -427,6 +429,15 @@ impl Localization {
             });
         self.last_penalty = penalty;
 
+        if let (Some(Penalty::IllegalMotionInSet { .. }), Some(hypotheses), true) = (
+            penalty,
+            &self.hypotheses_when_started_playing,
+            *context.has_ground_contact,
+        ) {
+            self.hypotheses = hypotheses.clone();
+            self.hypotheses_when_started_playing = None;
+        }
+
         let robot_to_field = match context.primary_state {
             PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing => {
                 self.update_state(&mut context)?;
@@ -438,6 +449,13 @@ impl Localization {
             }
             _ => None,
         };
+        if let Some(PrimaryStateTransition {
+            from: _,
+            to: PrimaryState::Playing,
+        }) = context.primary_state_transition
+        {
+            self.hypotheses_when_started_playing = Some(self.hypotheses.clone());
+        }
         Ok(MainOutputs {
             robot_to_field: robot_to_field.into(),
         })
