@@ -37,8 +37,8 @@ impl Interface for Interfake {
 
     fn write_to_actuators(
         &self,
-        _positions: Joints,
-        _stiffnesses: Joints,
+        _positions: Joints<f32>,
+        _stiffnesses: Joints<f32>,
         _leds: types::Leds,
     ) -> Result<()> {
         unimplemented!()

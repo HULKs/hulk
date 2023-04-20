@@ -10,28 +10,28 @@ use types::{
 
 #[derive(Default)]
 pub struct HeadMotion {
-    last_request: HeadJoints,
+    last_request: HeadJoints<f32>,
 }
 
 #[context]
 pub struct CreationContext {
-    pub center_head_position: Parameter<HeadJoints, "center_head_position">,
+    pub center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
     pub inner_maximum_pitch: Parameter<f32, "head_motion.inner_maximum_pitch">,
-    pub maximum_velocity: Parameter<HeadJoints, "head_motion.maximum_velocity">,
+    pub maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
     pub outer_maximum_pitch: Parameter<f32, "head_motion.outer_maximum_pitch">,
     pub outer_yaw: Parameter<f32, "head_motion.outer_yaw">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub center_head_position: Parameter<HeadJoints, "center_head_position">,
+    pub center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
     pub inner_maximum_pitch: Parameter<f32, "head_motion.inner_maximum_pitch">,
-    pub maximum_velocity: Parameter<HeadJoints, "head_motion.maximum_velocity">,
+    pub maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
     pub outer_maximum_pitch: Parameter<f32, "head_motion.outer_maximum_pitch">,
     pub outer_yaw: Parameter<f32, "head_motion.outer_yaw">,
 
-    pub look_around: Input<HeadJoints, "look_around">,
-    pub look_at: Input<HeadJoints, "look_at">,
+    pub look_around: Input<HeadJoints<f32>, "look_around">,
+    pub look_at: Input<HeadJoints<f32>, "look_at">,
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub sensor_data: Input<SensorData, "sensor_data">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
@@ -40,7 +40,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub head_joints_command: MainOutput<HeadJointsCommand>,
+    pub head_joints_command: MainOutput<HeadJointsCommand<f32>>,
 }
 
 impl HeadMotion {

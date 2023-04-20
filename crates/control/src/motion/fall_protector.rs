@@ -31,7 +31,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub fall_protection_command: MainOutput<JointsCommand>,
+    pub fall_protection_command: MainOutput<JointsCommand<f32>>,
 }
 
 impl FallProtector {

@@ -19,17 +19,17 @@ enum State {
     #[default]
     Swing,
     PullingBack {
-        interpolator: LinearInterpolator<ArmJoints>,
+        interpolator: LinearInterpolator<ArmJoints<f32>>,
     },
     PullingTight {
-        interpolator: LinearInterpolator<ArmJoints>,
+        interpolator: LinearInterpolator<ArmJoints<f32>>,
     },
     Back,
     ReleasingTight {
-        interpolator: LinearInterpolator<ArmJoints>,
+        interpolator: LinearInterpolator<ArmJoints<f32>>,
     },
     ReleasingBack {
-        interpolator: LinearInterpolator<ArmJoints>,
+        interpolator: LinearInterpolator<ArmJoints<f32>>,
     },
 }
 
@@ -47,7 +47,7 @@ impl SwingingArm {
         motion_command: &MotionCommand,
         cycle_duration: Duration,
         config: &SwingingArms,
-    ) -> ArmJoints {
+    ) -> ArmJoints<f32> {
         let requested_arm_motion =
             self.arm_motion_from_motion_command(motion_command, config.debug_pull_back);
         let pull_back_joints = match self.side {
@@ -202,7 +202,7 @@ impl SwingingArm {
         }
     }
 
-    fn swinging_arm_joints(&self, foot: FootOffsets, config: &SwingingArms) -> ArmJoints {
+    fn swinging_arm_joints(&self, foot: FootOffsets, config: &SwingingArms) -> ArmJoints<f32> {
         let shoulder_roll = config.default_roll + config.roll_factor * foot.left.abs();
         let shoulder_pitch = FRAC_PI_2 + foot.forward * config.pitch_factor;
         let joints = ArmJoints {

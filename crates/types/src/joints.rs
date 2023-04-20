@@ -10,7 +10,7 @@ use splines::impl_Interpolate;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct HeadJoints<T = f32> {
+pub struct HeadJoints<T> {
     pub yaw: T,
     pub pitch: T,
 }
@@ -97,7 +97,7 @@ impl HeadJoints<f32> {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct ArmJoints<T = f32> {
+pub struct ArmJoints<T> {
     pub shoulder_pitch: T,
     pub shoulder_roll: T,
     pub elbow_yaw: T,
@@ -203,7 +203,7 @@ impl ArmJoints<f32> {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct LegJoints<T = f32> {
+pub struct LegJoints<T> {
     pub hip_yaw_pitch: T,
     pub hip_roll: T,
     pub hip_pitch: T,
@@ -309,7 +309,7 @@ impl LegJoints<f32> {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct BodyJoints<T = f32> {
+pub struct BodyJoints<T> {
     pub left_arm: ArmJoints<T>,
     pub right_arm: ArmJoints<T>,
     pub left_leg: LegJoints<T>,
@@ -417,7 +417,7 @@ impl Div<f32> for BodyJoints<f32> {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct Joints<T = f32> {
+pub struct Joints<T> {
     pub head: HeadJoints<T>,
     pub left_arm: ArmJoints<T>,
     pub right_arm: ArmJoints<T>,
@@ -587,21 +587,21 @@ impl Joints<f32> {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct JointsCommand<T = f32> {
+pub struct JointsCommand<T> {
     pub positions: Joints<T>,
     pub stiffnesses: Joints<T>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct HeadJointsCommand<T = f32> {
+pub struct HeadJointsCommand<T> {
     pub positions: HeadJoints<T>,
     pub stiffnesses: HeadJoints<T>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct BodyJointsCommand<T = f32> {
+pub struct BodyJointsCommand<T> {
     pub positions: BodyJoints<T>,
     pub stiffnesses: BodyJoints<T>,
 }

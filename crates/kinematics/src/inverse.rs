@@ -6,7 +6,7 @@ use types::{LegJoints, RobotDimensions};
 pub fn leg_angles(
     left_foot_to_torso: Isometry3<f32>,
     right_foot_to_torso: Isometry3<f32>,
-) -> (bool, LegJoints, LegJoints) {
+) -> (bool, LegJoints<f32>, LegJoints<f32>) {
     let ratio = 0.5;
     let torso_to_left_pelvis = Isometry3::rotation(Vector3::x() * -1.0 * PI / 4.0)
         * Translation3::from(-RobotDimensions::ROBOT_TO_LEFT_PELVIS);

@@ -8,7 +8,7 @@ use crate::Joints;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct MotionFile {
-    pub initial_positions: Joints,
+    pub initial_positions: Joints<f32>,
     pub frames: Vec<MotionFileFrame>,
 }
 
@@ -33,7 +33,7 @@ pub struct MotionFileFrame {
         deserialize_with = "deserialize_float_seconds"
     )]
     pub duration: Duration,
-    pub positions: Joints,
+    pub positions: Joints<f32>,
 }
 
 fn serialize_float_seconds<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>

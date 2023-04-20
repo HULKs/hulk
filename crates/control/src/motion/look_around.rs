@@ -47,7 +47,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub look_around: MainOutput<HeadJoints>,
+    pub look_around: MainOutput<HeadJoints<f32>>,
 }
 
 impl LookAround {

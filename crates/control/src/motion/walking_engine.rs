@@ -104,7 +104,7 @@ pub struct WalkingEngine {
 pub struct CreationContext {
     pub config: Parameter<WalkingEngineConfiguration, "walking_engine">,
     pub kick_steps: Parameter<KickSteps, "kick_steps">,
-    pub ready_pose: Parameter<Joints, "ready_pose">,
+    pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
     pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
@@ -118,7 +118,7 @@ pub struct CycleContext {
     // pub walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
     pub config: Parameter<WalkingEngineConfiguration, "walking_engine">,
     pub kick_steps: Parameter<KickSteps, "kick_steps">,
-    pub ready_pose: Parameter<Joints, "ready_pose">,
+    pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
     pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
@@ -134,7 +134,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub walk_joints_command: MainOutput<BodyJointsCommand>,
+    pub walk_joints_command: MainOutput<BodyJointsCommand<f32>>,
 }
 
 impl WalkingEngine {
@@ -610,7 +610,7 @@ impl WalkingEngine {
         &self,
         torso_shift_offset: f32,
         walk_hip_height: f32,
-    ) -> (LegJoints, LegJoints) {
+    ) -> (LegJoints<f32>, LegJoints<f32>) {
         let left_foot_to_robot = calculate_foot_to_robot(
             Side::Left,
             self.left_foot,

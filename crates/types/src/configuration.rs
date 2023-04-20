@@ -230,8 +230,8 @@ pub struct SwingingArms {
     pub default_roll: f32,
     pub roll_factor: f32,
     pub pitch_factor: f32,
-    pub pull_back_joints: ArmJoints,
-    pub pull_tight_joints: ArmJoints,
+    pub pull_back_joints: ArmJoints<f32>,
+    pub pull_tight_joints: ArmJoints<f32>,
     pub pulling_back_duration: Duration,
     pub pulling_tight_duration: Duration,
     pub torso_tilt_compensation_factor: f32,
@@ -270,18 +270,18 @@ pub struct HeadMotion {
     pub outer_maximum_pitch: f32,
     pub inner_maximum_pitch: f32,
     pub outer_yaw: f32,
-    pub maximum_velocity: HeadJoints,
+    pub maximum_velocity: HeadJoints<f32>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct LookAround {
     pub look_around_timeout: Duration,
     pub quick_search_timeout: Duration,
-    pub middle_positions: HeadJoints,
-    pub left_positions: HeadJoints,
-    pub right_positions: HeadJoints,
-    pub halfway_left_positions: HeadJoints,
-    pub halfway_right_positions: HeadJoints,
+    pub middle_positions: HeadJoints<f32>,
+    pub left_positions: HeadJoints<f32>,
+    pub right_positions: HeadJoints<f32>,
+    pub halfway_left_positions: HeadJoints<f32>,
+    pub halfway_right_positions: HeadJoints<f32>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -465,8 +465,8 @@ pub struct CameraMatrixParameters {
 pub struct FallProtection {
     pub ground_impact_head_stiffness: f32,
     pub arm_stiffness: f32,
-    pub left_arm_positions: ArmJoints,
-    pub right_arm_positions: ArmJoints,
+    pub left_arm_positions: ArmJoints<f32>,
+    pub right_arm_positions: ArmJoints<f32>,
     pub leg_stiffness: f32,
 }
 
