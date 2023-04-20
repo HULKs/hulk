@@ -53,27 +53,21 @@ impl HeadMotion {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let current_head_angles = context.sensor_data.positions.head;
-        let raw_request = match context.motion_command.head_motion() {
-            Some(HeadMotionCommand::Center) => *context.center_head_position,
-            Some(HeadMotionCommand::LookAround) | Some(HeadMotionCommand::SearchForLostBall) => {
-                if *context.has_ground_contact {
-                    *context.look_around
-                } else {
-                    Default::default()
-                }
+        let raw_request = if *context.has_ground_contact {
+            match context.motion_command.head_motion() {
+                Some(HeadMotionCommand::Center) => *context.center_head_position,
+                Some(HeadMotionCommand::LookAround)
+                | Some(HeadMotionCommand::SearchForLostBall) => *context.look_around,
+                Some(HeadMotionCommand::LookAt { .. }) => *context.look_at,
+                Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => *context.look_at,
+                Some(HeadMotionCommand::Unstiff) => current_head_angles,
+                Some(HeadMotionCommand::ZeroAngles) => Default::default(),
+                None => Default::default(),
             }
-            Some(HeadMotionCommand::LookAt { .. }) => {
-                if *context.has_ground_contact {
-                    *context.look_at
-                } else {
-                    Default::default()
-                }
-            }
-            Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => *context.look_at,
-            Some(HeadMotionCommand::Unstiff) => current_head_angles,
-            Some(HeadMotionCommand::ZeroAngles) => Default::default(),
-            None => Default::default(),
+        } else {
+            Default::default()
         };
+
         let maximum_movement =
             *context.maximum_velocity * context.cycle_time.last_cycle_duration.as_secs_f32();
 
