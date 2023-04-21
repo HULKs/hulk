@@ -144,8 +144,10 @@ impl PathPlanner {
                 side_factor * (half_field_length - field_dimensions.penalty_area_length),
                 -half_penalty_area_width
             ];
-        let back_left = field_to_robot * point![side_factor * half_field_length, half_penalty_area_width];
-        let back_right = field_to_robot * point![side_factor * half_field_length, -half_penalty_area_width];
+        let back_left =
+            field_to_robot * point![side_factor * half_field_length, half_penalty_area_width];
+        let back_right =
+            field_to_robot * point![side_factor * half_field_length, -half_penalty_area_width];
 
         let line_segments = [
             LineSegment(front_left, front_right),
