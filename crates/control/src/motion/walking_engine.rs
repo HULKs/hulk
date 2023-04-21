@@ -174,12 +174,9 @@ impl WalkingEngine {
                     context.config,
                     context.kick_steps,
                 );
-            } else {
-                self.current_step = Step::zero();
-                self.step_duration = Duration::ZERO;
-                self.swing_side = Side::Left;
-                self.max_swing_foot_lift = 0.0;
             }
+        } else {
+            self.walk_state = WalkState::Standing;
         }
 
         match &self.walk_state {
@@ -304,9 +301,9 @@ impl WalkingEngine {
 
         context.motion_safe_exits[MotionType::Walk] =
             matches!(self.walk_state, WalkState::Standing);
-        if !context.has_ground_contact {
-            context.motion_safe_exits[MotionType::Walk] = true;
-        }
+        //if !context.has_ground_contact {
+        //context.mkotion_safe_exits[MotionType::Walk] = true;
+        //}
 
         let leg_stiffness = match self.walk_state {
             WalkState::Standing => context.config.leg_stiffness_stand,
