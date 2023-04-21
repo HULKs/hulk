@@ -9,8 +9,6 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
 
-use crate::{joints_velocity::JointsTime, JointsVelocity};
-
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
@@ -228,8 +226,12 @@ impl Div<ArmJoints<f32>> for ArmJoints<f32> {
 
     fn div(self, right: ArmJoints<f32>) -> Self::Output {
         Self::Output {
-            shoulder_pitch: Duration::from_secs_f32((self.shoulder_pitch / right.shoulder_pitch).abs()),
-            shoulder_roll: Duration::from_secs_f32((self.shoulder_roll / right.shoulder_roll).abs()),
+            shoulder_pitch: Duration::from_secs_f32(
+                (self.shoulder_pitch / right.shoulder_pitch).abs(),
+            ),
+            shoulder_roll: Duration::from_secs_f32(
+                (self.shoulder_roll / right.shoulder_roll).abs(),
+            ),
             elbow_yaw: Duration::from_secs_f32((self.elbow_yaw / right.elbow_yaw).abs()),
             elbow_roll: Duration::from_secs_f32((self.elbow_roll / right.elbow_roll).abs()),
             wrist_yaw: Duration::from_secs_f32((self.wrist_yaw / right.wrist_yaw).abs()),
@@ -362,7 +364,9 @@ impl Div<LegJoints<f32>> for LegJoints<f32> {
 
     fn div(self, right: LegJoints<f32>) -> Self::Output {
         Self::Output {
-            hip_yaw_pitch: Duration::from_secs_f32((self.hip_yaw_pitch / right.hip_yaw_pitch).abs()),
+            hip_yaw_pitch: Duration::from_secs_f32(
+                (self.hip_yaw_pitch / right.hip_yaw_pitch).abs(),
+            ),
             hip_roll: Duration::from_secs_f32((self.hip_roll / right.hip_roll).abs()),
             hip_pitch: Duration::from_secs_f32((self.hip_pitch / right.hip_pitch).abs()),
             knee_pitch: Duration::from_secs_f32((self.knee_pitch / right.knee_pitch).abs()),
@@ -601,21 +605,21 @@ where
     }
 }
 
-impl Div<JointsVelocity> for Joints<f32> {
-    type Output = JointsTime;
+// impl Div<JointsVelocity> for Joints<f32> {
+//     type Output = JointsTime;
 
-    fn div(self, right: JointsVelocity) -> Self::Output {
-        Self::Output {
-            inner: Joints {
-                head: self.head / right.head,
-                left_arm: self.left_arm / right.left_arm,
-                right_arm: self.right_arm / right.right_arm,
-                left_leg: self.left_leg / right.left_leg,
-                right_leg: self.right_leg / right.right_leg,
-            },
-        }
-    }
-}
+//     fn div(self, right: JointsVelocity) -> Self::Output {
+//         Self::Output {
+//             inner: Joints {
+//                 head: self.head / right.head,
+//                 left_arm: self.left_arm / right.left_arm,
+//                 right_arm: self.right_arm / right.right_arm,
+//                 left_leg: self.left_leg / right.left_leg,
+//                 right_leg: self.right_leg / right.right_leg,
+//             },
+//         }
+//     }
+// }
 
 impl<I, O> Sum<Joints<I>> for Joints<O>
 where
