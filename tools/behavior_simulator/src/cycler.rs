@@ -39,10 +39,8 @@ where
             spl_network: &configuration.spl_network,
         })
         .wrap_err("failed to create node `RoleAssignment`")?;
-        let ball_state_composer = BallStateComposer::new(ball_state_composer::CreationContext {
-            field_dimensions: &configuration.field_dimensions,
-        })
-        .wrap_err("failed to create node `BallStateComposer`")?;
+        let ball_state_composer = BallStateComposer::new(ball_state_composer::CreationContext {})
+            .wrap_err("failed to create node `BallStateComposer`")?;
         let active_vision = ActiveVision::new(active_vision::CreationContext {
             field_dimensions: &configuration.field_dimensions,
         })
