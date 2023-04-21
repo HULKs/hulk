@@ -166,8 +166,8 @@ impl WalkingEngine {
         );
 
         let is_step_started_this_cycle = self.t.is_zero();
-        if is_step_started_this_cycle {
-            if *context.has_ground_contact {
+        if *context.has_ground_contact {
+            if is_step_started_this_cycle {
                 self.initialize_step_states_from_request(
                     *context.walk_command,
                     self.swing_side,
