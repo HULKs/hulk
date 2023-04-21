@@ -3,6 +3,7 @@ use nalgebra::{distance, point, Isometry2, Point2};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
 
+use spl_network_messages::Team;
 use types::{
     Arc, Circle, FieldDimensions, LineSegment, Obstacle, Orientation, PathObstacle,
     PathObstacleShape, PathSegment,
@@ -129,9 +130,12 @@ impl PathPlanner {
         &mut self,
         field_to_robot: Isometry2<f32>,
         field_dimensions: &FieldDimensions,
-        hulks_attacking: bool,
+        kicking_team: Team,
     ) {
-        let side_factor: f32 = if hulks_attacking { 1.0 } else { -1.0 };
+        let side_factor: f32 = match kicking_team {
+            Team::Hulks => 1.0,
+            _ => -1.0,
+        };
         let half_penalty_area_width = field_dimensions.penalty_area_width / 2.0;
         let half_field_length = field_dimensions.length / 2.0;
         let front_left = field_to_robot
