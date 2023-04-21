@@ -2,11 +2,14 @@ use std::{
     f32::consts::PI,
     iter::Sum,
     ops::{Add, Div, Mul, Sub},
+    time::Duration,
 };
 
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
+
+use crate::{joints_velocity::JointsTime, JointsVelocity};
 
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
@@ -28,8 +31,8 @@ where
         }
     }
 
-    pub fn as_vec(&self) -> Vec<f32> {
-        vec![self.yaw, self.pitch]
+    pub fn as_vec(&self) -> Vec<T> {
+        vec![self.yaw.clone(), self.pitch.clone()]
     }
 }
 
@@ -92,6 +95,17 @@ impl Div<f32> for HeadJoints<f32> {
     }
 }
 
+impl Div<HeadJoints<f32>> for HeadJoints<f32> {
+    type Output = HeadJoints<Duration>;
+
+    fn div(self, right: HeadJoints<f32>) -> Self::Output {
+        Self::Output {
+            yaw: Duration::from_secs_f32((self.yaw / right.yaw).abs()),
+            pitch: Duration::from_secs_f32((self.pitch / right.pitch).abs()),
+        }
+    }
+}
+
 impl HeadJoints<f32> {
     pub fn mirrored(self) -> Self {
         Self {
@@ -114,6 +128,8 @@ pub struct ArmJoints<T> {
     pub hand: T,
 }
 
+impl_Interpolate!(f32, ArmJoints<f32>, PI);
+
 impl<T> ArmJoints<T>
 where
     T: Clone,
@@ -129,14 +145,14 @@ where
         }
     }
 
-    pub fn as_vec(&self) -> Vec<f32> {
+    pub fn as_vec(&self) -> Vec<T> {
         vec![
-            self.shoulder_pitch,
-            self.shoulder_roll,
-            self.elbow_yaw,
-            self.elbow_roll,
-            self.wrist_yaw,
-            self.hand,
+            self.shoulder_pitch.clone(),
+            self.shoulder_roll.clone(),
+            self.elbow_yaw.clone(),
+            self.elbow_roll.clone(),
+            self.wrist_yaw.clone(),
+            self.hand.clone(),
         ]
     }
 }
@@ -207,6 +223,21 @@ impl Div<f32> for ArmJoints<f32> {
     }
 }
 
+impl Div<ArmJoints<f32>> for ArmJoints<f32> {
+    type Output = ArmJoints<Duration>;
+
+    fn div(self, right: ArmJoints<f32>) -> Self::Output {
+        Self::Output {
+            shoulder_pitch: Duration::from_secs_f32((self.shoulder_pitch / right.shoulder_pitch).abs()),
+            shoulder_roll: Duration::from_secs_f32((self.shoulder_roll / right.shoulder_roll).abs()),
+            elbow_yaw: Duration::from_secs_f32((self.elbow_yaw / right.elbow_yaw).abs()),
+            elbow_roll: Duration::from_secs_f32((self.elbow_roll / right.elbow_roll).abs()),
+            wrist_yaw: Duration::from_secs_f32((self.wrist_yaw / right.wrist_yaw).abs()),
+            hand: Duration::from_secs_f32((self.hand / right.hand).abs()),
+        }
+    }
+}
+
 impl ArmJoints<f32> {
     pub fn mirrored(self) -> Self {
         Self {
@@ -248,14 +279,14 @@ where
         }
     }
 
-    pub fn as_vec(&self) -> Vec<f32> {
+    pub fn as_vec(&self) -> Vec<T> {
         vec![
-            self.hip_yaw_pitch,
-            self.hip_roll,
-            self.hip_pitch,
-            self.knee_pitch,
-            self.ankle_pitch,
-            self.ankle_roll,
+            self.hip_yaw_pitch.clone(),
+            self.hip_roll.clone(),
+            self.hip_pitch.clone(),
+            self.knee_pitch.clone(),
+            self.ankle_pitch.clone(),
+            self.ankle_roll.clone(),
         ]
     }
 }
@@ -322,6 +353,21 @@ impl Div<f32> for LegJoints<f32> {
             knee_pitch: self.knee_pitch / right,
             ankle_pitch: self.ankle_pitch / right,
             ankle_roll: self.ankle_roll / right,
+        }
+    }
+}
+
+impl Div<LegJoints<f32>> for LegJoints<f32> {
+    type Output = LegJoints<Duration>;
+
+    fn div(self, right: LegJoints<f32>) -> Self::Output {
+        Self::Output {
+            hip_yaw_pitch: Duration::from_secs_f32((self.hip_yaw_pitch / right.hip_yaw_pitch).abs()),
+            hip_roll: Duration::from_secs_f32((self.hip_roll / right.hip_roll).abs()),
+            hip_pitch: Duration::from_secs_f32((self.hip_pitch / right.hip_pitch).abs()),
+            knee_pitch: Duration::from_secs_f32((self.knee_pitch / right.knee_pitch).abs()),
+            ankle_pitch: Duration::from_secs_f32((self.ankle_pitch / right.ankle_pitch).abs()),
+            ankle_roll: Duration::from_secs_f32((self.ankle_roll / right.ankle_roll).abs()),
         }
     }
 }
@@ -474,6 +520,16 @@ where
             right_leg: LegJoints::fill(value),
         }
     }
+
+    pub fn as_vec(&self) -> Vec<Vec<T>> {
+        vec![
+            self.head.as_vec(),
+            self.left_arm.as_vec(),
+            self.right_arm.as_vec(),
+            self.left_leg.as_vec(),
+            self.right_arm.as_vec(),
+        ]
+    }
 }
 
 impl<T> Joints<T> {
@@ -541,6 +597,22 @@ where
             right_arm: self.right_arm / right.right_arm,
             left_leg: self.left_leg / right.left_leg,
             right_leg: self.right_leg / right.right_leg,
+        }
+    }
+}
+
+impl Div<JointsVelocity> for Joints<f32> {
+    type Output = JointsTime;
+
+    fn div(self, right: JointsVelocity) -> Self::Output {
+        Self::Output {
+            inner: Joints {
+                head: self.head / right.head,
+                left_arm: self.left_arm / right.left_arm,
+                right_arm: self.right_arm / right.right_arm,
+                left_leg: self.left_leg / right.left_leg,
+                right_leg: self.right_leg / right.right_leg,
+            },
         }
     }
 }
@@ -656,8 +728,6 @@ pub struct HeadJointsCommand<T> {
     pub positions: HeadJoints<T>,
     pub stiffnesses: HeadJoints<T>,
 }
-
-
 
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,

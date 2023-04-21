@@ -83,7 +83,7 @@ impl InterpolatorError {
     }
 }
 
-impl TryFrom<MotionFile> for SplineInterpolator<Joints> {
+impl TryFrom<MotionFile> for SplineInterpolator<Joints<f32>> {
     type Error = InterpolatorError;
 
     fn try_from(motion_file: MotionFile) -> Result<Self, InterpolatorError> {
@@ -103,12 +103,12 @@ impl TryFrom<MotionFile> for SplineInterpolator<Joints> {
     }
 }
 
-impl SplineInterpolator<Joints> {
+impl SplineInterpolator<Joints<f32>> {
     pub fn try_new_transition_with_velocity(
-        current_position: Joints,
-        target_position: Joints,
+        current_position: Joints<f32>,
+        target_position: Joints<f32>,
         maximum_velocity: JointsVelocity,
-    ) -> Result<SplineInterpolator<Joints>, InterpolatorError> {
+    ) -> Result<SplineInterpolator<Joints<f32>>, InterpolatorError> {
         let time_to_completion = (target_position - current_position) / maximum_velocity;
         let maximum_time_to_completion = time_to_completion.max();
 

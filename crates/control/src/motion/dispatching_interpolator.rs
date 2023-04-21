@@ -33,6 +33,7 @@ pub struct CycleContext {
     pub stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     pub walk_joints_command: Input<BodyJointsCommand<f32>, "walk_joints_command">,
 
+    pub maximum_velocity: Parameter<JointsVelocity, "maximum_joint_velocities">,
     pub penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 

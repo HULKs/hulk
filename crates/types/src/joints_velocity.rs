@@ -1,46 +1,56 @@
-use std::{ops::Div, time::Duration};
-
-use serde::{Deserialize, Serialize};
+use serde::{Serialize, Deserialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::Joints;
+use std::{
+    ops::{Deref, DerefMut},
+    time::Duration,
+};
+#[derive(SerializeHierarchy, Serialize, Deserialize, Debug, Copy, Clone, Default)]
+pub struct JointsVelocity {
+    #[serde(flatten)]
+    pub inner: Joints<f32>,
+}
+impl Deref for JointsVelocity {
+    type Target = Joints<f32>;
 
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for JointsVelocity {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
+
+#[derive(SerializeHierarchy, Serialize, Deserialize, Debug, Copy, Clone, Default)]
 pub struct JointsTime {
-    joint_times: Joints,
+    pub inner: Joints<Duration>,
+}
+impl Deref for JointsTime {
+    type Target = Joints<Duration>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for JointsTime {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
 }
 
 impl JointsTime {
-    fn abs_time(&self) -> Vec<Vec<f32>> {
-        let joint_times = self.joint_times.as_vec();
-        joint_times
-            .into_iter()
-            .map(|body_part_times| body_part_times.into_iter().map(f32::abs).collect())
-            .collect()
-    }
-
     pub fn max(&self) -> Duration {
-        let maximum_time: f32 = self
-            .abs_time()
+        self.inner
+            .as_vec()
             .into_iter()
             .flatten()
-            .reduce(|acc, e| f32::max(e, acc))
-            .unwrap();
-        Duration::from_secs_f32(maximum_time)
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
-pub struct JointsVelocity {
-    joint_velocities: Joints,
-}
-
-impl Div<JointsVelocity> for Joints {
-    type Output = JointsTime;
-
-    fn div(self, right: JointsVelocity) -> Self::Output {
-        JointsTime {
-            joint_times: self / right.joint_velocities,
-        }
+            .reduce(|acc, e| Duration::max(e, acc))
+            .unwrap()
     }
 }
