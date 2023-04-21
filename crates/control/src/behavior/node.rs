@@ -43,6 +43,8 @@ pub struct CycleContext {
     pub configuration: Parameter<BehaviorConfiguration, "behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
+    
+    pub has_ground_contact: Input<bool, "has_ground_contact">,
 }
 
 #[context]
@@ -143,7 +145,7 @@ impl Behavior {
                 Action::Unstiff => unstiff::execute(world_state),
                 Action::SitDown => sit_down::execute(world_state),
                 Action::Penalize => penalize::execute(world_state),
-                Action::FallSafely => fall_safely::execute(world_state),
+                Action::FallSafely => fall_safely::execute(world_state, context.has_ground_contact),
                 Action::StandUp => stand_up::execute(world_state),
                 Action::DefendGoal => defend.goal(&mut context.path_obstacles),
                 Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
