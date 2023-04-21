@@ -281,15 +281,12 @@ impl State {
                     ball_is_free: !opponent_kick_off && !opponent_sub_state,
                 }
             }
-            State::Playing => match game_controller_state.sub_state {
-                Some(SubState::PenaltyKick) => FilteredGameState::Playing {
-                    ball_is_free: !(is_in_sub_state && opponent_is_kicking_team),
-                },
-                _ => FilteredGameState::Playing {
-                    ball_is_free: !(is_in_sub_state
-                        && opponent_is_kicking_team
-                        && !ball_detected_far_from_penalty_spot),
-                },
+            State::Playing => FilteredGameState::Playing {
+                ball_is_free: !(opponent_is_kicking_team
+                    && match game_controller_state.sub_state {
+                        Some(SubState::PenaltyKick) => !ball_detected_far_from_penalty_spot,
+                        _ => is_in_sub_state,
+                    }),
             },
             State::WhistleInPlaying { .. } => FilteredGameState::Ready {
                 kicking_team: Team::Uncertain,
