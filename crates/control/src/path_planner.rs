@@ -132,20 +132,20 @@ impl PathPlanner {
         hulks_attacking: bool,
     ) {
         let side_factor: f32 = if hulks_attacking { 1.0 } else { -1.0 };
-        let half_penalty = field_dimensions.penalty_area_width / 2.0;
-        let half_field = field_dimensions.length / 2.0;
+        let half_penalty_area_width = field_dimensions.penalty_area_width / 2.0;
+        let half_field_length = field_dimensions.length / 2.0;
         let front_left = field_to_robot
             * point![
-                side_factor * (half_field - field_dimensions.penalty_area_length),
-                half_penalty
+                side_factor * (half_field_length - field_dimensions.penalty_area_length),
+                half_penalty_area_width
             ];
         let front_right = field_to_robot
             * point![
-                side_factor * (half_field - field_dimensions.penalty_area_length),
-                -half_penalty
+                side_factor * (half_field_length - field_dimensions.penalty_area_length),
+                -half_penalty_area_width
             ];
-        let back_left = field_to_robot * point![side_factor * half_field, half_penalty];
-        let back_right = field_to_robot * point![side_factor * half_field, -half_penalty];
+        let back_left = field_to_robot * point![side_factor * half_field_length, half_penalty_area_width];
+        let back_right = field_to_robot * point![side_factor * half_field_length, -half_penalty_area_width];
 
         let line_segments = [
             LineSegment(front_left, front_right),
