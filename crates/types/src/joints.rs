@@ -593,7 +593,6 @@ impl Joints<f32> {
             },
         }
     }
-<<<<<<< HEAD
 }
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
@@ -602,82 +601,6 @@ impl Joints<f32> {
 pub struct JointsCommand<T> {
     pub positions: Joints<T>,
     pub stiffnesses: Joints<T>,
-||||||| parent of 12158db2 (removed unnecessary stuff)
-
-    pub fn to_angles(self) -> [f32; 26] {
-        [
-            self.head.yaw,
-            self.head.pitch,
-            self.left_arm.shoulder_pitch,
-            self.left_arm.shoulder_roll,
-            self.left_arm.elbow_yaw,
-            self.left_arm.elbow_roll,
-            self.left_arm.wrist_yaw,
-            self.left_arm.hand,
-            self.right_arm.shoulder_pitch,
-            self.right_arm.shoulder_roll,
-            self.right_arm.elbow_yaw,
-            self.right_arm.elbow_roll,
-            self.right_arm.wrist_yaw,
-            self.right_arm.hand,
-            self.left_leg.hip_yaw_pitch,
-            self.left_leg.hip_roll,
-            self.left_leg.hip_pitch,
-            self.left_leg.knee_pitch,
-            self.left_leg.ankle_pitch,
-            self.left_leg.ankle_roll,
-            self.right_leg.hip_yaw_pitch,
-            self.right_leg.hip_roll,
-            self.right_leg.hip_pitch,
-            self.right_leg.knee_pitch,
-            self.right_leg.ankle_pitch,
-            self.right_leg.ankle_roll,
-        ]
-    }
-
-    pub fn from_head_and_body(head: HeadJoints, body: BodyJoints) -> Self {
-        Self {
-            head,
-            left_arm: body.left_arm,
-            right_arm: body.right_arm,
-            left_leg: body.left_leg,
-            right_leg: body.right_leg,
-        }
-    }
-
-    pub fn fill(value: f32) -> Self {
-        Self::from_head_and_body(HeadJoints::fill(value), BodyJoints::fill(value))
-    }
-
-    pub fn selectively_fill(value: f32, value_arm: f32, value_leg: f32) -> Self {
-        Self::from_head_and_body(
-            HeadJoints::fill(value),
-            BodyJoints::selective_fill(value_arm, value_leg),
-        )
-    }
-=======
-
-    pub fn from_head_and_body(head: HeadJoints, body: BodyJoints) -> Self {
-        Self {
-            head,
-            left_arm: body.left_arm,
-            right_arm: body.right_arm,
-            left_leg: body.left_leg,
-            right_leg: body.right_leg,
-        }
-    }
-
-    pub fn fill(value: f32) -> Self {
-        Self::from_head_and_body(HeadJoints::fill(value), BodyJoints::fill(value))
-    }
-
-    pub fn selectively_fill(value: f32, value_arm: f32, value_leg: f32) -> Self {
-        Self::from_head_and_body(
-            HeadJoints::fill(value),
-            BodyJoints::selective_fill(value_arm, value_leg),
-        )
-    }
->>>>>>> 12158db2 (removed unnecessary stuff)
 }
 
 #[derive(
