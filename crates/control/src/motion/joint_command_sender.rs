@@ -13,36 +13,13 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-<<<<<<< HEAD
     pub positions: AdditionalOutput<Joints<f32>, "positions">,
     pub positions_difference: AdditionalOutput<Joints<f32>, "positions_difference">,
     pub stiffnesses: AdditionalOutput<Joints<f32>, "stiffnesses">,
-||||||| parent of 12158db2 (removed unnecessary stuff)
-    pub positions: AdditionalOutput<Joints, "positions">,
-    pub positions_difference: AdditionalOutput<Joints, "positions_difference">,
-    pub position_offsets: AdditionalOutput<Joints, "position_offsets">,
-    pub stiffnesses: AdditionalOutput<Joints, "stiffnesses">,
-    pub stiffness_offsets: AdditionalOutput<Joints, "stiffness_offsets">,
-=======
-    pub positions: AdditionalOutput<Joints, "positions">,
-    pub positions_difference: AdditionalOutput<Joints, "positions_difference">,
-    pub stiffnesses: AdditionalOutput<Joints, "stiffnesses">,
->>>>>>> 12158db2 (removed unnecessary stuff)
 
-<<<<<<< HEAD
     pub center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
     pub penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
-||||||| parent of 12158db2 (removed unnecessary stuff)
-    pub center_head_position: Parameter<HeadJoints, "center_head_position">,
-    pub fall_state: Input<FallState, "fall_state">,
-    pub penalized_pose: Parameter<Joints, "penalized_pose">,
-    pub ready_pose: Parameter<Joints, "ready_pose">,
-=======
-    pub center_head_position: Parameter<HeadJoints, "center_head_position">,
-    pub penalized_pose: Parameter<Joints, "penalized_pose">,
-    pub ready_pose: Parameter<Joints, "ready_pose">,
->>>>>>> 12158db2 (removed unnecessary stuff)
 
     pub arms_up_squat_joints_command: Input<JointsCommand<f32>, "arms_up_squat_joints_command">,
     pub dispatching_command: Input<JointsCommand<f32>, "dispatching_command">,
@@ -52,24 +29,10 @@ pub struct CycleContext {
     pub jump_right_joints_command: Input<JointsCommand<f32>, "jump_right_joints_command">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-<<<<<<< HEAD
     pub sit_down_joints_command: Input<JointsCommand<f32>, "sit_down_joints_command">,
     pub stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
     pub stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     pub walk_joints_command: Input<BodyJointsCommand<f32>, "walk_joints_command">,
-||||||| parent of 12158db2 (removed unnecessary stuff)
-    pub sit_down_joints_command: Input<JointsCommand, "sit_down_joints_command">,
-    pub stand_up_back_positions: Input<Joints, "stand_up_back_positions">,
-    pub stand_up_front_positions: Input<Joints, "stand_up_front_positions">,
-    pub step_t: Input<f32, "step_t">,
-    pub unstable_score: Input<usize, "unstable_score">,
-    pub walk_joints_command: Input<BodyJointsCommand, "walk_joints_command">,
-=======
-    pub sit_down_joints_command: Input<JointsCommand, "sit_down_joints_command">,
-    pub stand_up_back_positions: Input<Joints, "stand_up_back_positions">,
-    pub stand_up_front_positions: Input<Joints, "stand_up_front_positions">,
-    pub walk_joints_command: Input<BodyJointsCommand, "walk_joints_command">,
->>>>>>> 12158db2 (removed unnecessary stuff)
     pub hardware_interface: HardwareInterface,
     pub leds: Input<Leds, "leds">,
 }
