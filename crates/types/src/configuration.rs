@@ -89,6 +89,7 @@ pub struct Behavior {
 pub struct LookAction {
     pub angle_threshold: f32,
     pub distance_threshold: f32,
+    pub look_forward_position: Point2<f32>,
     pub position_of_interest_switch_interval: Duration,
 }
 

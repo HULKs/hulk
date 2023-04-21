@@ -7,13 +7,13 @@ use nalgebra::{point, Isometry2, Point2, UnitComplex, Vector2};
 use ordered_float::NotNan;
 use types::{
     configuration::LookAction as LookActionConfiguration, BallState, CycleTime, FieldDimensions,
-    Obstacle, ObstacleKind,
+    Obstacle, ObstacleKind, PointOfInterest,
 };
 
 pub struct ActiveVision {
     field_mark_positions: Vec<Point2<f32>>,
-    last_position_of_interest_switch: Option<SystemTime>,
-    position_of_interest_index: usize,
+    last_point_of_interest_switch: Option<SystemTime>,
+    current_point_of_interest: PointOfInterest,
 }
 
 #[context]
@@ -40,57 +40,119 @@ impl ActiveVision {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
             field_mark_positions: generate_field_mark_positions(context.field_dimensions),
-            last_position_of_interest_switch: None,
-            position_of_interest_index: 0,
+            last_point_of_interest_switch: None,
+            current_point_of_interest: PointOfInterest::default(),
         })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
-        let mut positions_of_interest = vec![point![1.0, 0.0]];
-
-        if let Some(ball_state) = context.ball {
-            positions_of_interest.push(ball_state.position);
-        }
-
-        let closest_interesting_obstacle_position = context
-            .obstacles
-            .iter()
-            .filter(|obstacle| matches!(obstacle.kind, ObstacleKind::Robot | ObstacleKind::Unknown))
-            .map(|obstacle| obstacle.position)
-            .filter(|obstacle_position| is_position_visible(*obstacle_position, context.parameters))
-            .min_by_key(|position| NotNan::new(position.coords.norm()).unwrap());
-        if let Some(interesting_obstacle_position) = closest_interesting_obstacle_position {
-            positions_of_interest.push(interesting_obstacle_position);
-        }
 
         if let Some(robot_to_field) = context.robot_to_field {
-            let field_mark_of_interest = closest_field_mark_visible(
-                &self.field_mark_positions,
-                context.parameters,
-                robot_to_field,
-            );
+            if self.last_point_of_interest_switch.is_none()
+                || cycle_start_time.duration_since(self.last_point_of_interest_switch.unwrap())?
+                    > context.parameters.position_of_interest_switch_interval
+            {
+                self.current_point_of_interest = match self.current_point_of_interest {
+                    PointOfInterest::Forward => {
+                        let field_mark_of_interest = closest_field_mark_visible(
+                            &self.field_mark_positions,
+                            context.parameters,
+                            robot_to_field,
+                        );
 
-            if let Some(field_mark_position) = field_mark_of_interest {
-                positions_of_interest.push(field_mark_position);
+                        if let Some(field_mark_position) = field_mark_of_interest {
+                            PointOfInterest::FieldMark {
+                                absolute_position: robot_to_field * field_mark_position,
+                            }
+                        } else if let Some(..) = context.ball {
+                            PointOfInterest::Ball
+                        } else {
+                            let closest_interesting_obstacle_position =
+                                closest_interesting_obstacle_visible(
+                                    context.obstacles,
+                                    context.parameters,
+                                );
+
+                            if let Some(interesting_obstacle_position) =
+                                closest_interesting_obstacle_position
+                            {
+                                PointOfInterest::Obstacle {
+                                    absolute_position: robot_to_field
+                                        * interesting_obstacle_position,
+                                }
+                            } else {
+                                PointOfInterest::Forward
+                            }
+                        }
+                    }
+                    PointOfInterest::FieldMark { .. } => {
+                        if let Some(..) = context.ball {
+                            PointOfInterest::Ball
+                        } else {
+                            let closest_interesting_obstacle_position =
+                                closest_interesting_obstacle_visible(
+                                    context.obstacles,
+                                    context.parameters,
+                                );
+                            if let Some(interesting_obstacle_position) =
+                                closest_interesting_obstacle_position
+                            {
+                                PointOfInterest::Obstacle {
+                                    absolute_position: robot_to_field
+                                        * interesting_obstacle_position,
+                                }
+                            } else {
+                                PointOfInterest::Forward
+                            }
+                        }
+                    }
+                    PointOfInterest::Ball => {
+                        let closest_interesting_obstacle_position =
+                            closest_interesting_obstacle_visible(
+                                context.obstacles,
+                                context.parameters,
+                            );
+                        if let Some(interesting_obstacle_position) =
+                            closest_interesting_obstacle_position
+                        {
+                            PointOfInterest::Obstacle {
+                                absolute_position: robot_to_field * interesting_obstacle_position,
+                            }
+                        } else {
+                            PointOfInterest::Forward
+                        }
+                    }
+                    PointOfInterest::Obstacle { .. } => PointOfInterest::Forward,
+                };
+                self.last_point_of_interest_switch = Some(cycle_start_time);
             }
+
+            let position_of_interest = match self.current_point_of_interest {
+                PointOfInterest::Forward => context.parameters.look_forward_position,
+                PointOfInterest::FieldMark { absolute_position } => {
+                    robot_to_field.inverse() * absolute_position
+                }
+                PointOfInterest::Ball => {
+                    if let Some(ball_state) = context.ball {
+                        ball_state.position
+                    } else {
+                        context.parameters.look_forward_position
+                    }
+                }
+                PointOfInterest::Obstacle { absolute_position } => {
+                    robot_to_field.inverse() * absolute_position
+                }
+            };
+
+            Ok(MainOutputs {
+                position_of_interest: position_of_interest.into(),
+            })
+        } else {
+            Ok(MainOutputs {
+                position_of_interest: context.parameters.look_forward_position.into(),
+            })
         }
-
-        if self.last_position_of_interest_switch.is_none()
-            || cycle_start_time.duration_since(self.last_position_of_interest_switch.unwrap())?
-                > context.parameters.position_of_interest_switch_interval
-        {
-            self.position_of_interest_index += 1;
-            self.last_position_of_interest_switch = Some(cycle_start_time);
-        }
-
-        self.position_of_interest_index %= positions_of_interest.len();
-
-        let position_of_interest = positions_of_interest[self.position_of_interest_index];
-
-        Ok(MainOutputs {
-            position_of_interest: position_of_interest.into(),
-        })
     }
 }
 
@@ -111,6 +173,18 @@ fn closest_field_mark_visible(
         .iter()
         .map(|position| robot_to_field.inverse() * position)
         .filter(|position| is_position_visible(*position, parameters))
+        .min_by_key(|position| NotNan::new(position.coords.norm()).unwrap())
+}
+
+fn closest_interesting_obstacle_visible(
+    obstacles: &[Obstacle],
+    parameters: &LookActionConfiguration,
+) -> Option<Point2<f32>> {
+    obstacles
+        .iter()
+        .filter(|obstacle| matches!(obstacle.kind, ObstacleKind::Robot | ObstacleKind::Unknown))
+        .map(|obstacle| obstacle.position)
+        .filter(|obstacle_position| is_position_visible(*obstacle_position, parameters))
         .min_by_key(|position| NotNan::new(position.coords.norm()).unwrap())
 }
 
