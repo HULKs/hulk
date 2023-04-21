@@ -170,8 +170,8 @@ where
         duration: Duration,
     ) -> Result<SplineInterpolator<T>, InterpolatorError> {
         let keys = vec![
-            Key::new(Duration::ZERO, current_position, Interpolation::Linear),
-            Key::new(duration, target_position, Interpolation::Linear),
+            Key::new(Duration::ZERO, current_position, Interpolation::CatmullRom),
+            Key::new(duration, target_position, Interpolation::CatmullRom),
         ];
 
         Self::try_new(keys)
