@@ -53,78 +53,15 @@ impl ActiveVision {
                 || cycle_start_time.duration_since(self.last_point_of_interest_switch.unwrap())?
                     > context.parameters.position_of_interest_switch_interval
             {
-                self.current_point_of_interest = match self.current_point_of_interest {
-                    PointOfInterest::Forward => {
-                        let field_mark_of_interest = closest_field_mark_visible(
-                            &self.field_mark_positions,
-                            context.parameters,
-                            robot_to_field,
-                        );
+                self.current_point_of_interest = next_point_of_interest(
+                    self.current_point_of_interest,
+                    &self.field_mark_positions,
+                    context.obstacles,
+                    context.parameters,
+                    robot_to_field,
+                    context.ball,
+                );
 
-                        if let Some(field_mark_position) = field_mark_of_interest {
-                            PointOfInterest::FieldMark {
-                                absolute_position: robot_to_field * field_mark_position,
-                            }
-                        } else if let Some(..) = context.ball {
-                            PointOfInterest::Ball
-                        } else {
-                            let closest_interesting_obstacle_position =
-                                closest_interesting_obstacle_visible(
-                                    context.obstacles,
-                                    context.parameters,
-                                );
-
-                            if let Some(interesting_obstacle_position) =
-                                closest_interesting_obstacle_position
-                            {
-                                PointOfInterest::Obstacle {
-                                    absolute_position: robot_to_field
-                                        * interesting_obstacle_position,
-                                }
-                            } else {
-                                PointOfInterest::Forward
-                            }
-                        }
-                    }
-                    PointOfInterest::FieldMark { .. } => {
-                        if let Some(..) = context.ball {
-                            PointOfInterest::Ball
-                        } else {
-                            let closest_interesting_obstacle_position =
-                                closest_interesting_obstacle_visible(
-                                    context.obstacles,
-                                    context.parameters,
-                                );
-                            if let Some(interesting_obstacle_position) =
-                                closest_interesting_obstacle_position
-                            {
-                                PointOfInterest::Obstacle {
-                                    absolute_position: robot_to_field
-                                        * interesting_obstacle_position,
-                                }
-                            } else {
-                                PointOfInterest::Forward
-                            }
-                        }
-                    }
-                    PointOfInterest::Ball => {
-                        let closest_interesting_obstacle_position =
-                            closest_interesting_obstacle_visible(
-                                context.obstacles,
-                                context.parameters,
-                            );
-                        if let Some(interesting_obstacle_position) =
-                            closest_interesting_obstacle_position
-                        {
-                            PointOfInterest::Obstacle {
-                                absolute_position: robot_to_field * interesting_obstacle_position,
-                            }
-                        } else {
-                            PointOfInterest::Forward
-                        }
-                    }
-                    PointOfInterest::Obstacle { .. } => PointOfInterest::Forward,
-                };
                 self.last_point_of_interest_switch = Some(cycle_start_time);
             }
 
@@ -219,4 +156,66 @@ fn generate_field_mark_positions(field_dimensions: &FieldDimensions) -> Vec<Poin
         left_own_penalty_box_corner,
         right_own_penalty_box_corner,
     ]
+}
+
+fn next_point_of_interest(
+    current_point_of_interest: PointOfInterest,
+    field_mark_positions: &[Point2<f32>],
+    obstacles: &[Obstacle],
+    parameters: &LookActionConfiguration,
+    robot_to_field: &Isometry2<f32>,
+    ball: Option<&BallState>,
+) -> PointOfInterest {
+    match current_point_of_interest {
+        PointOfInterest::Forward => {
+            let field_mark_of_interest =
+                closest_field_mark_visible(field_mark_positions, parameters, robot_to_field);
+
+            if let Some(field_mark_position) = field_mark_of_interest {
+                PointOfInterest::FieldMark {
+                    absolute_position: robot_to_field * field_mark_position,
+                }
+            } else if let Some(..) = ball {
+                PointOfInterest::Ball
+            } else {
+                let closest_interesting_obstacle_position =
+                    closest_interesting_obstacle_visible(obstacles, parameters);
+
+                if let Some(interesting_obstacle_position) = closest_interesting_obstacle_position {
+                    PointOfInterest::Obstacle {
+                        absolute_position: robot_to_field * interesting_obstacle_position,
+                    }
+                } else {
+                    PointOfInterest::Forward
+                }
+            }
+        }
+        PointOfInterest::FieldMark { .. } => {
+            if let Some(..) = ball {
+                PointOfInterest::Ball
+            } else {
+                let closest_interesting_obstacle_position =
+                    closest_interesting_obstacle_visible(obstacles, parameters);
+                if let Some(interesting_obstacle_position) = closest_interesting_obstacle_position {
+                    PointOfInterest::Obstacle {
+                        absolute_position: robot_to_field * interesting_obstacle_position,
+                    }
+                } else {
+                    PointOfInterest::Forward
+                }
+            }
+        }
+        PointOfInterest::Ball => {
+            let closest_interesting_obstacle_position =
+                closest_interesting_obstacle_visible(obstacles, parameters);
+            if let Some(interesting_obstacle_position) = closest_interesting_obstacle_position {
+                PointOfInterest::Obstacle {
+                    absolute_position: robot_to_field * interesting_obstacle_position,
+                }
+            } else {
+                PointOfInterest::Forward
+            }
+        }
+        PointOfInterest::Obstacle { .. } => PointOfInterest::Forward,
+    }
 }
