@@ -43,7 +43,7 @@ pub struct CycleContext {
     pub configuration: Parameter<BehaviorConfiguration, "behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
-    
+
     pub has_ground_contact: Input<bool, "has_ground_contact">,
 }
 
