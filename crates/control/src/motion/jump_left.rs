@@ -9,7 +9,7 @@ use types::{
 use crate::spline_interpolator::SplineInterpolator;
 
 pub struct JumpLeft {
-    interpolator: SplineInterpolator<Joints>,
+    interpolator: SplineInterpolator<Joints<f32>>,
 }
 
 #[context]
