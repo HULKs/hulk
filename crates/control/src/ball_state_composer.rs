@@ -14,9 +14,7 @@ pub struct BallStateComposer {
 }
 
 #[context]
-pub struct CreationContext {
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
