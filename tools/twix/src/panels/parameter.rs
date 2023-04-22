@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
-use eframe::egui::{Response, ScrollArea, TextEdit, Ui, Widget};
-use log::error;
-use serde_json::{json, Value};
-use tokio::sync::mpsc;
-
 use crate::{
     completion_edit::CompletionEdit, nao::Nao, panel::Panel,
     repository_parameters::RepositoryParameters, value_buffer::ValueBuffer,
 };
+use color_eyre::{eyre::Context, Result};
+use eframe::egui::{Response, ScrollArea, TextEdit, Ui, Widget};
+use log::error;
+use serde_json::{json, Value};
+use tokio::sync::mpsc;
 
 pub struct ParameterPanel {
     nao: Arc<Nao>,
@@ -91,7 +91,11 @@ impl Widget for &mut ParameterPanel {
                 add_save_button(
                     ui,
                     &self.path,
-                    &self.parameter_value,
+                    || -> Result<Value> {
+                        serde_json::from_str::<Value>(self.parameter_value.as_str()).wrap_err(
+                            "Serialising the parameter string to serde_json::Value failed",
+                        )
+                    },
                     self.nao.clone(),
                     &self.repository_parameters,
                     settable,
@@ -122,25 +126,23 @@ impl Widget for &mut ParameterPanel {
     }
 }
 
-pub fn add_save_button(
+pub fn add_save_button<SerdesJsonValueProvider>(
     ui: &mut Ui,
     parameter_path: &String,
-    parameter_value: &str,
+    parameter_value_provider_fn: SerdesJsonValueProvider,
     nao: Arc<Nao>,
     repository_parameters: &Option<RepositoryParameters>,
     settable: bool,
-) {
+) where
+    SerdesJsonValueProvider: Fn() -> Result<serde_json::Value>,
+{
     ui.add_enabled_ui(settable, |ui| {
         if ui.button("Save to disk").clicked() {
             if let Some(address) = nao.get_address() {
-                match (
-                    serde_json::from_str::<Value>(&parameter_value),
-                    repository_parameters,
-                ) {
+                match (parameter_value_provider_fn(), repository_parameters) {
                     (Ok(value), Some(repository_parameters)) => {
                         repository_parameters.write(&address, parameter_path.clone(), value);
                     }
-
                     (Err(error), _) => {
                         error!("Failed to serialize parameter value: {error:#?}")
                     }
