@@ -1,13 +1,12 @@
 use eframe::egui::{Response, Slider, Ui, Widget};
 use log::{error, info};
-use nalgebra::Vector3;
 use serde_json::Value;
 use std::{ops::RangeInclusive, sync::Arc};
 use tokio::sync::mpsc;
+use types::configuration::CameraMatrixParameters;
 
 use crate::{
-    nao::Nao, panel::Panel, repository_configuration_handler::RepositoryConfigurationHandler,
-    value_buffer::ValueBuffer,
+    nao::Nao, panel::Panel, repository_parameters::RepositoryParameters, value_buffer::ValueBuffer,
 };
 
 use super::parameter::{add_save_button, subscribe};
@@ -15,26 +14,26 @@ use super::parameter::{add_save_button, subscribe};
 struct CameraParameterSubscriptions<DeserializedValueType> {
     human_friendly_label: String,
     path: String,
-    value_buffer: ValueBuffer,
+    value_buffer: Option<ValueBuffer>,
     value: DeserializedValueType,
     update_notify_receiver: mpsc::Receiver<()>,
 }
 
 pub struct ManualCalibrationPanel {
     nao: Arc<Nao>,
-    repository_configuration_handler: RepositoryConfigurationHandler,
-    extrinsic_rotation_subscriptions: [CameraParameterSubscriptions<Vector3<f32>>; 2],
+    repository_parameters: RepositoryParameters,
+    extrinsic_rotation_subscriptions:
+        [CameraParameterSubscriptions<Option<CameraMatrixParameters>>; 2],
 }
 
 const CAMERA_KEY_BASE: &str = "camera_matrix_parameters.vision_";
-const ROTATIONS: &str = ".extrinsic_rotations";
 
 impl Panel for ManualCalibrationPanel {
     const NAME: &'static str = "Manual Calibration";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
         let extrinsic_rotation_subscriptions = ["Top", "Bottom"].map(|name| {
-            let path = CAMERA_KEY_BASE.to_owned() + name.to_lowercase().as_str() + ROTATIONS;
+            let path = CAMERA_KEY_BASE.to_owned() + name.to_lowercase().as_str();
 
             let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
             let value_buffer = subscribe(nao.clone(), &path, update_notify_sender);
@@ -42,21 +41,19 @@ impl Panel for ManualCalibrationPanel {
             info!("Subscribing to path {}", path);
 
             CameraParameterSubscriptions {
-                human_friendly_label: name.to_string() + " Extrinsic Rotations",
+                human_friendly_label: name.to_string(),
                 path,
-                value_buffer: value_buffer.unwrap(),
-                value: Vector3::zeros(),
+                value_buffer,
+                value: None,
                 update_notify_receiver,
             }
         });
 
-        let connection_url = nao.get_address();
-        let repository_configuration_handler = RepositoryConfigurationHandler::new();
-        repository_configuration_handler.print_nao_ids(connection_url);
+        let repository_parameters = RepositoryParameters::default();
 
         Self {
             nao,
-            repository_configuration_handler,
+            repository_parameters,
             extrinsic_rotation_subscriptions,
         }
     }
@@ -65,66 +62,129 @@ impl Panel for ManualCalibrationPanel {
 fn add_extrinsic_calibration_ui_components(
     ui: &mut Ui,
     nao: Arc<Nao>,
-    repository_configuration_handler: &RepositoryConfigurationHandler,
-    extrinsic_rotation_subscriptions: &mut CameraParameterSubscriptions<Vector3<f32>>,
+    repository_parameters: &RepositoryParameters,
+    camera_matrix_parameters_subscription: &mut CameraParameterSubscriptions<
+        Option<CameraMatrixParameters>,
+    >,
 ) {
-    let rotations_parameter_buffer = &extrinsic_rotation_subscriptions.value_buffer;
-    let rotation_value = &mut extrinsic_rotation_subscriptions.value;
-    let label = &extrinsic_rotation_subscriptions.human_friendly_label;
-    let rotations_path = &extrinsic_rotation_subscriptions.path;
+    let camera_parameter_buffer_option = &camera_matrix_parameters_subscription.value_buffer;
+    let mut camera_parameter_option = &mut camera_matrix_parameters_subscription.value;
+    let label = &camera_matrix_parameters_subscription.human_friendly_label;
+    let camera_matrix_subscription_path = &camera_matrix_parameters_subscription.path;
     let rotations_update_notify_receiver =
-        &mut extrinsic_rotation_subscriptions.update_notify_receiver;
+        &mut camera_matrix_parameters_subscription.update_notify_receiver;
+
+    let slider_minimum_decimals = 2;
+    let slider_maximum_decimals = 6;
+    let extrinsic_maximum_degrees = 15.0;
 
     ui.horizontal(|ui| {
-        ui.label(label);
-        let settable = !rotation_value.is_empty();
+        if let Some(buffer) = &camera_parameter_buffer_option {
+            match buffer.get_latest() {
+                Ok(value) => {
+                    if rotations_update_notify_receiver.try_recv().is_ok() {
+                        *camera_parameter_option =
+                            serde_json::from_value::<CameraMatrixParameters>(value).ok();
+                    }
+                }
+                Err(error) => {
+                    ui.label(format!("{error:#?}"));
+                }
+            }
+        }
+
+        ui.label(format!("{label:#} Camera"));
+
+        let settable = camera_parameter_option.is_some();
         ui.add_enabled_ui(settable, |ui| {
             if ui.button("Set").clicked() {
-                match serde_json::value::to_value(&rotation_value) {
-                    Ok(value) => {
-                        nao.update_parameter_value(rotations_path, value);
+                if let Some(camera_parameter_value) = camera_parameter_option {
+                    match serde_json::value::to_value(camera_parameter_value) {
+                        Ok(value) => {
+                            nao.update_parameter_value(camera_matrix_subscription_path, value);
+                        }
+                        Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
                     }
-                    Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
                 }
             }
         });
-
-        // TODO Fix this as it looks utterly ridiculous.
-        match serde_json::value::to_value(&rotation_value) {
-            Ok(value) => {
-                add_save_button(
-                    ui,
-                    rotations_path,
-                    serde_json::to_string::<Value>(&value).unwrap().as_str(),
-                    nao,
-                    repository_configuration_handler,
-                    settable,
-                );
-            }
-            Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
-        }
+        add_save_button(
+            ui,
+            camera_matrix_subscription_path,
+            &camera_parameter_option,
+            serde_json::to_value,
+            nao,
+            repository_parameters,
+            settable,
+        );
     });
-    match rotations_parameter_buffer.get_latest() {
-        Ok(value) => {
-            if rotations_update_notify_receiver.try_recv().is_ok() {
-                *rotation_value = serde_json::from_value::<Vector3<f32>>(value).unwrap();
-            }
-            ui.vertical(|ui| {
-                for (axis_value, axis_name) in
-                    rotation_value.iter_mut().zip(["Roll", "Pitch", "Yaw"])
+
+    ui.label(""); // TODO Identify a better way to do vertical spaces.
+    ui.collapsing(
+        format!("Intrinsic Parameters {label:#}"),
+        |ui| match &mut camera_parameter_option {
+            Some(camera_parameter_value) => {
+                ui.label("Focal Lengths (Normalized)");
+                for (axis_value, axis_name) in camera_parameter_value
+                    .focal_lengths
+                    .iter_mut()
+                    .zip(["X", "Y"])
                 {
                     ui.add(
-                        Slider::new(axis_value, RangeInclusive::new(-40.0, 40.0))
+                        Slider::new(axis_value, RangeInclusive::new(0.0, 2.0))
                             .text(axis_name)
-                            .step_by(0.1),
+                            .smart_aim(false)
+                            .min_decimals(slider_minimum_decimals)
+                            .max_decimals(slider_maximum_decimals),
                     );
                 }
-            });
+                ui.label("Optical Centre (Normalized)");
+                for (axis_value, axis_name) in camera_parameter_value
+                    .cc_optical_center
+                    .iter_mut()
+                    .zip(["X", "Y"])
+                {
+                    ui.add(
+                        Slider::new(axis_value, RangeInclusive::new(0.0, 1.0))
+                            .text(axis_name)
+                            .smart_aim(false)
+                            .min_decimals(slider_minimum_decimals)
+                            .max_decimals(slider_maximum_decimals),
+                    );
+                }
+                ui.label(""); // TODO Identify a better way to do vertical spaces.
+            }
+            _ => {
+                ui.label("Intrinsic parameters not recieved.");
+            }
+        },
+    );
+
+    ui.label(format!(
+        "Extrinsic Rotations [{}°, {}°]",
+        -extrinsic_maximum_degrees, extrinsic_maximum_degrees
+    ));
+    match &mut camera_parameter_option {
+        Some(camera_parameter_value) => {
+            for (axis_value, axis_name) in camera_parameter_value
+                .extrinsic_rotations
+                .iter_mut()
+                .zip(["Roll", "Pitch", "Yaw"])
+            {
+                ui.add(
+                    Slider::new(
+                        axis_value,
+                        RangeInclusive::new(-extrinsic_maximum_degrees, extrinsic_maximum_degrees),
+                    )
+                    .text(axis_name)
+                    .smart_aim(false),
+                );
+            }
         }
-        Err(error) => {
-            ui.label(format!("{error:#?}"));
+        _ => {
+            ui.label("Extrinsic parameters not recieved.");
         }
-    }
+    };
 }
 
 impl Widget for &mut ManualCalibrationPanel {
@@ -134,9 +194,12 @@ impl Widget for &mut ManualCalibrationPanel {
                 add_extrinsic_calibration_ui_components(
                     ui,
                     self.nao.clone(),
-                    &self.repository_configuration_handler,
+                    &self.repository_parameters,
                     extrinsic_rotation_subscription,
                 );
+
+                ui.label("");
+                ui.separator();
             }
         })
         .response
