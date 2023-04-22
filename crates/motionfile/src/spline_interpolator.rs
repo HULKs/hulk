@@ -1,7 +1,8 @@
+use crate::{MotionFile, MotionFileFrame};
 use serde::{Deserialize, Serialize};
 use splines::{Interpolate, Interpolation, Key, Spline};
 use thiserror::Error;
-use types::{Joints, JointsVelocity, MotionFile};
+use types::{Joints, JointsVelocity};
 
 use std::{fmt::Debug, time::Duration};
 

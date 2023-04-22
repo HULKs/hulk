@@ -7,7 +7,7 @@ use types::{
     SensorData,
 };
 
-use crate::spline_interpolator::SplineInterpolator;
+use motionfile::SplineInterpolator;
 
 pub struct JumpRight {
     interpolator: SplineInterpolator<Joints<f32>>,
