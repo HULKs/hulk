@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use eframe::egui::{Response, ScrollArea, TextEdit, Ui, Widget};
-use log::{error, info};
+use log::error;
 use serde_json::{json, Value};
 use tokio::sync::mpsc;
 
@@ -46,13 +46,10 @@ impl Panel for ParameterPanel {
         let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
         let value_buffer = subscribe(nao.clone(), &path, update_notify_sender.clone());
 
-        let repository_parameters = RepositoryParameters::new();
-        repository_parameters.print_nao_ids(nao.get_address());
-
         Self {
             nao,
             path,
-            repository_parameters,
+            repository_parameters: Default::default(),
             value_buffer,
             parameter_value: String::new(),
             update_notify_sender,
@@ -93,53 +90,17 @@ impl Widget for &mut ParameterPanel {
                 if let Some(address) = self.nao.get_address() {
                     ui.add_enabled_ui(settable, |ui| {
                         if ui.button("Save to disk").clicked() {
-                            match (
-                                serde_json::from_str::<Value>(&self.parameter_value),
-                                self.nao
-                                    .get_parameter_fields()
-                                    .map_or(false, |tree| tree.contains(&self.path)),
-                            ) {
-                                (Ok(value), true) => {
-                                    if let Ok((hardware_ids, nao_id)) = self
+                            match serde_json::from_str::<Value>(&self.parameter_value) {
+                                Ok(value) => {
+                                    if let Err(error) = self
                                         .repository_parameters
-                                        .get_hardware_ids_from_url(address.as_str())
+                                        .write(&address, &self.path, &value)
                                     {
-                                        let status = self
-                                            .repository_parameters
-                                            .merge_head_configuration_to_repository(
-                                                hardware_ids.head_id.as_str(),
-                                                &self.path,
-                                                &value,
-                                            );
-                                        let message_part = format!(
-                                        "configuration `{}` for Nao `{}`, head: {:?}, body: {:?}",
-                                        self.path,
-                                        nao_id,
-                                        hardware_ids.head_id,
-                                        hardware_ids.body_id
-                                    );
-                                        match status {
-                                            Ok(_) => {
-                                                info!("Successfully wrote {}", message_part);
-                                            }
-                                            Err(error) => {
-                                                error!(
-                                                    "Failed to write {message_part} : {error:#?}"
-                                                )
-                                            }
-                                        }
-                                    } else {
-                                        error!("Failed to locate Nao HW IDs. Cannot save to disk.")
+                                        error!("Failed to write value to repository: {error:#?}");
                                     }
                                 }
-                                (Err(error), _) => {
+                                Err(error) => {
                                     error!("Failed to serialize parameter value: {error:#?}")
-                                }
-                                (_, false) => {
-                                    error!(
-                                        "Failed to save value to disk: path \"{}\" does not exist",
-                                        self.path
-                                    )
                                 }
                             };
                         }
