@@ -90,62 +90,61 @@ impl Widget for &mut ParameterPanel {
                         }
                     }
                 });
-
-                ui.add_enabled_ui(settable, |ui| {
-                    if ui.button("Save to disk").clicked() {
-                        match (
-                            serde_json::from_str::<Value>(&self.parameter_value),
-                            self.nao.get_address(),
-                            self.nao
-                                .get_parameter_fields()
-                                .map_or(false, |tree| tree.contains(&self.path)),
-                        ) {
-                            (Ok(value), Some(url), true) => {
-                                if let Ok((hardware_ids, nao_id)) = self
-                                    .repository_configuration_handler
-                                    .get_hardware_ids_from_url(url.as_str())
-                                {
-                                    let status = self
+                if let Some(address) = self.nao.get_address() {
+                    ui.add_enabled_ui(settable, |ui| {
+                        if ui.button("Save to disk").clicked() {
+                            match (
+                                serde_json::from_str::<Value>(&self.parameter_value),
+                                self.nao
+                                    .get_parameter_fields()
+                                    .map_or(false, |tree| tree.contains(&self.path)),
+                            ) {
+                                (Ok(value), true) => {
+                                    if let Ok((hardware_ids, nao_id)) = self
                                         .repository_configuration_handler
-                                        .merge_head_configuration_to_repository(
-                                            hardware_ids.head_id.as_str(),
-                                            &self.path,
-                                            &value,
-                                        );
-                                    let message_part = format!(
+                                        .get_hardware_ids_from_url(address.as_str())
+                                    {
+                                        let status = self
+                                            .repository_configuration_handler
+                                            .merge_head_configuration_to_repository(
+                                                hardware_ids.head_id.as_str(),
+                                                &self.path,
+                                                &value,
+                                            );
+                                        let message_part = format!(
                                         "configuration `{}` for Nao `{}`, head: {:?}, body: {:?}",
                                         self.path,
                                         nao_id,
                                         hardware_ids.head_id,
                                         hardware_ids.body_id
                                     );
-                                    match status {
-                                        Ok(_) => {
-                                            info!("Successfully wrote {}", message_part);
+                                        match status {
+                                            Ok(_) => {
+                                                info!("Successfully wrote {}", message_part);
+                                            }
+                                            Err(error) => {
+                                                error!(
+                                                    "Failed to write {message_part} : {error:#?}"
+                                                )
+                                            }
                                         }
-                                        Err(error) => {
-                                            error!("Failed to write {message_part} : {error:#?}")
-                                        }
+                                    } else {
+                                        error!("Failed to locate Nao HW IDs. Cannot save to disk.")
                                     }
-                                } else {
-                                    error!("Failed to locate Nao HW IDs. Cannot save to disk.")
                                 }
-                            }
-                            (Err(error), _, _) => {
-                                error!("Failed to serialize parameter value: {error:#?}")
-                            }
-                            (_, _, false) => {
-                                error!(
-                                    "Failed to save value to disk: path \"{}\" does not exist",
-                                    self.path
-                                )
-                            }
-                            (_, None, _) => {
-                                error!("Invalid URL")
-                            }
-                        };
-                    }
-                });
+                                (Err(error), _) => {
+                                    error!("Failed to serialize parameter value: {error:#?}")
+                                }
+                                (_, false) => {
+                                    error!(
+                                        "Failed to save value to disk: path \"{}\" does not exist",
+                                        self.path
+                                    )
+                                }
+                            };
+                        }
+                    });
+                }
             });
 
             if let Some(buffer) = &self.value_buffer {
