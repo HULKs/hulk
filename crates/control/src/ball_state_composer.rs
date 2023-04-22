@@ -72,7 +72,7 @@ impl BallStateComposer {
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
-            (PrimaryState::Ready, _, _, _, _) => None,
+            (PrimaryState::Ready, ..) => None,
             (_, Some(ball_position), _, robot_to_field, _) => Some(create_ball_state(
                 ball_position.position,
                 robot_to_field,
