@@ -69,6 +69,7 @@ pub enum HeadMotion {
     LookAround,
     SearchForLostBall,
     LookAt { target: Point2<f32> },
+    LookLeftAndRightOf { target: Point2<f32> },
     Unstiff,
 }
 
@@ -117,4 +118,13 @@ pub enum FallDirection {
 pub enum JumpDirection {
     Left,
     Right,
+}
+
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy,
+)]
+pub enum GlanceDirection {
+    #[default]
+    LeftOfTarget,
+    RightOfTarget,
 }

@@ -742,6 +742,11 @@
     "outer_yaw": 1.5
   },
   "look_at": {
+    "glance_angle": 0.25,
+    "glance_direction_toggle_interval": {
+      "nanos": 0,
+      "secs": 1
+    },
     "minimum_bottom_focus_pitch": 0.2
   },
   "look_around": {
