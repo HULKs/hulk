@@ -105,9 +105,9 @@ pub async fn connector(
                     address: Some(new_address),
                 },
                 Message::GetAddress { response_sender } => {
-                    if let Err(error) = response_sender.send(None) {
-                        error!("Message::GetAddress @ ConnectionState::Disconnected{{false, None}} {error:?}");
-                    }
+                    response_sender
+                        .send(None)
+                        .expect("receiver should always wait for all senders");
                     ConnectionState::Disconnected {
                         connect: false,
                         address: None,
@@ -156,13 +156,12 @@ pub async fn connector(
                     address: Some(address),
                 },
                 Message::GetAddress { response_sender } => {
-                    let response = Some(address);
-                    if let Err(error) = response_sender.send(response.clone()) {
-                        error!("Message::GetAddress @ ConnectionState::Disconnected{{false, Some}} {error:?}");
-                    }
+                    response_sender
+                        .send(Some(address.clone()))
+                        .expect("receiver should always wait for all senders");
                     ConnectionState::Disconnected {
                         connect: false,
-                        address: response,
+                        address: Some(address),
                     }
                 }
             },
@@ -190,9 +189,9 @@ pub async fn connector(
                     }
                 }
                 Message::GetAddress { response_sender } => {
-                    if let Err(error) = response_sender.send(None) {
-                        error!("Message::GetAddress @ ConnectionState::Disconnected{{true None}} {error:?}");
-                    }
+                    response_sender
+                        .send(None)
+                        .expect("receiver should always wait for all senders");
                     ConnectionState::Disconnected {
                         connect: true,
                         address: None,
@@ -233,13 +232,12 @@ pub async fn connector(
                     }
                 }
                 Message::GetAddress { response_sender } => {
-                    let response = Some(address);
-                    if let Err(error) = response_sender.send(response.clone()) {
-                        error!("Message::GetAddress @ ConnectionState::Disconnected{{true, Some}} {error:?}");
-                    }
+                    response_sender
+                        .send(Some(address.clone()))
+                        .expect("receiver should always wait for all senders");
                     ConnectionState::Disconnected {
                         connect: true,
-                        address: response,
+                        address: Some(address),
                     }
                 }
                 Message::Connected(_) => panic!("This should never happen"),
@@ -317,9 +315,9 @@ pub async fn connector(
                     ongoing_connection,
                 },
                 Message::GetAddress { response_sender } => {
-                    if let Err(error) = response_sender.send(Some(address.clone())) {
-                        error!("Message::GetAddress @ ConnectionState::Connecting{{}} {error:?}");
-                    }
+                    response_sender
+                        .send(Some(address.clone()))
+                        .expect("receiver should always wait for all senders");
                     ConnectionState::Connecting {
                         address,
                         ongoing_connection,
@@ -384,11 +382,9 @@ pub async fn connector(
                 }
                 Message::ReconnectTimerElapsed => ConnectionState::Connected { address },
                 Message::GetAddress { response_sender } => {
-                    if let Err(error) = response_sender.send(Some(address.clone())) {
-                        error!(
-                            "Message::GetAddress @ ConnectionState::Connected{{address}} {error:?}"
-                        );
-                    }
+                    response_sender
+                        .send(Some(address.clone()))
+                        .expect("receiver should always wait for all senders");
                     ConnectionState::Connected { address }
                 }
             },
