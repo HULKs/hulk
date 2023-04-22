@@ -9,7 +9,7 @@ impl JointsTime {
         self.as_vec()
             .into_iter()
             .flatten()
-            .reduce(|acc, e| Duration::max(e, acc))
+            .reduce(|highest_time, current_time| Duration::max(current_time, highest_time))
             .unwrap()
     }
 }
