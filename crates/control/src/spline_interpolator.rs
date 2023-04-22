@@ -65,7 +65,7 @@ impl InterpolatorError {
     ) -> InterpolatorError {
         let current_control_key = keys
             .iter()
-            .filter(|key| key.t < current_time.as_secs_f32())
+            .filter(|key| key.t <= current_time.as_secs_f32())
             .last()
             .unwrap();
 
@@ -193,7 +193,13 @@ where
         if self.current_duration >= self.total_duration {
             self.spline.keys().iter().rev().nth(1).map(|key| key.value)
         } else {
-            self.spline.sample(self.current_duration.as_secs_f32())
+            // Duration and f32 have different precisions, we have to ensure that if self.current_duration < self.total_duration, that
+            // self.current_duration.as_secs_f32() != self.total_duration.as_secs_f32(), since otherwise we are unable to sample the spline.
+            let clamped_duration = self
+                .current_duration
+                .as_secs_f32()
+                .clamp(0., self.total_duration.as_secs_f32() - f32::EPSILON);
+            self.spline.sample(clamped_duration)
         }
         .ok_or_else(|| {
             InterpolatorError::create_control_key_error(self.spline.keys(), self.current_duration)
