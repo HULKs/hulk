@@ -8,8 +8,8 @@ use std::{fmt::Debug, time::Duration};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SplineInterpolator<T> {
     spline: Spline<f32, T>,
-    current_time: Duration,
-    end_time: Duration,
+    current_duration: Duration,
+    total_duration: Duration,
 }
 
 impl<T> Default for SplineInterpolator<T>
@@ -19,8 +19,8 @@ where
     fn default() -> Self {
         Self {
             spline: Spline::from_vec(vec![]),
-            current_time: Duration::ZERO,
-            end_time: Duration::ZERO,
+            current_duration: Duration::ZERO,
+            total_duration: Duration::ZERO,
         }
     }
 }
@@ -159,8 +159,8 @@ where
 
         Ok(Self {
             spline,
-            current_time,
-            end_time,
+            current_duration: current_time,
+            total_duration: end_time,
         })
     }
 
@@ -186,33 +186,33 @@ where
     }
 
     pub fn advance_by(&mut self, time_step: Duration) {
-        self.current_time += time_step;
+        self.current_duration += time_step;
     }
 
     pub fn value(&self) -> Result<T, InterpolatorError> {
-        if self.current_time >= self.end_time {
+        if self.current_duration >= self.total_duration {
             self.spline.keys().iter().rev().nth(1).map(|key| key.value)
         } else {
-            self.spline.sample(self.current_time.as_secs_f32())
+            self.spline.sample(self.current_duration.as_secs_f32())
         }
         .ok_or_else(|| {
-            InterpolatorError::create_control_key_error(self.spline.keys(), self.current_time)
+            InterpolatorError::create_control_key_error(self.spline.keys(), self.current_duration)
         })
     }
 
     pub fn is_finished(&self) -> bool {
-        self.current_time >= self.end_time
+        self.current_duration >= self.total_duration
     }
 
     pub fn reset(&mut self) {
-        self.current_time = Duration::ZERO;
+        self.current_duration = Duration::ZERO;
     }
 
-    pub fn end_time(&self) -> Duration {
-        self.end_time
+    pub fn total_duration(&self) -> Duration {
+        self.total_duration
     }
 
-    pub fn current_time(&self) -> Duration {
-        self.current_time
+    pub fn current_duration(&self) -> Duration {
+        self.current_duration
     }
 }

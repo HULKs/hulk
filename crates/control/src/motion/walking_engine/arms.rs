@@ -97,7 +97,7 @@ impl SwingingArm {
                 let interpolator = SplineInterpolator::try_new_transition_timed(
                     current_joints,
                     center_arm_joints,
-                    interpolator.current_time(),
+                    interpolator.current_duration(),
                 )?;
                 State::ReleasingBack { interpolator }
             }
@@ -121,7 +121,7 @@ impl SwingingArm {
                 let interpolator = SplineInterpolator::try_new_transition_timed(
                     current_joints,
                     pull_back_joints,
-                    interpolator.current_time(),
+                    interpolator.current_duration(),
                 )?;
                 State::ReleasingTight { interpolator }
             }
@@ -183,7 +183,7 @@ impl SwingingArm {
                 let interpolator = SplineInterpolator::try_new_transition_timed(
                     current_joints,
                     pull_tight_joints,
-                    interpolator.current_time(),
+                    interpolator.current_duration(),
                 )?;
                 State::PullingTight { interpolator }
             }
