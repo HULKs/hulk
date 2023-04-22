@@ -208,11 +208,11 @@ where
         self.current_time = Duration::ZERO;
     }
 
-    pub fn duration(&self) -> Duration {
+    pub fn end_time(&self) -> Duration {
         self.end_time
     }
 
-    pub fn passed_duration(&self) -> Duration {
+    pub fn current_time(&self) -> Duration {
         self.current_time
     }
 }

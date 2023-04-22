@@ -605,22 +605,6 @@ where
     }
 }
 
-// impl Div<JointsVelocity> for Joints<f32> {
-//     type Output = JointsTime;
-
-//     fn div(self, right: JointsVelocity) -> Self::Output {
-//         Self::Output {
-//             inner: Joints {
-//                 head: self.head / right.head,
-//                 left_arm: self.left_arm / right.left_arm,
-//                 right_arm: self.right_arm / right.right_arm,
-//                 left_leg: self.left_leg / right.left_leg,
-//                 right_leg: self.right_leg / right.right_leg,
-//             },
-//         }
-//     }
-// }
-
 impl<I, O> Sum<Joints<I>> for Joints<O>
 where
     Joints<O>: Add<Joints<I>, Output = Joints<O>> + Default,
