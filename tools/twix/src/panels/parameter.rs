@@ -87,9 +87,9 @@ impl Widget for &mut ParameterPanel {
                         }
                     }
                 });
-                if let Some(address) = self.nao.get_address() {
-                    ui.add_enabled_ui(settable, |ui| {
-                        if ui.button("Save to disk").clicked() {
+                ui.add_enabled_ui(settable, |ui| {
+                    if ui.button("Save to disk").clicked() {
+                        if let Some(address) = self.nao.get_address() {
                             match serde_json::from_str::<Value>(&self.parameter_value) {
                                 Ok(value) => {
                                     if let Err(error) = self
@@ -104,8 +104,8 @@ impl Widget for &mut ParameterPanel {
                                 }
                             };
                         }
-                    });
-                }
+                    }
+                });
             });
 
             if let Some(buffer) = &self.value_buffer {
