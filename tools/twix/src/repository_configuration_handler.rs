@@ -1,5 +1,5 @@
 use color_eyre::{eyre::eyre, Result};
-use communication::parameters_computation::merge_json;
+use communication::merge_json;
 use itertools::Itertools;
 use log::info;
 use regex::Regex;

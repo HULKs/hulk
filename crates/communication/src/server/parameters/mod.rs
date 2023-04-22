@@ -4,6 +4,7 @@ use crate::messages::Path;
 
 use super::client::Client;
 
+pub mod directory;
 pub mod storage;
 pub mod subscriptions;
 

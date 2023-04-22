@@ -8,6 +8,8 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{error, from_str, from_value, to_value, Value};
 use tokio::fs::{read_to_string, write};
 
+use crate::merge_json;
+
 #[derive(Debug, thiserror::Error)]
 pub enum DirectoryError {
     #[error("failed to get default parameters")]
@@ -166,19 +168,6 @@ async fn to_path(file_path: impl AsRef<Path>, value: Value) -> Result<(), Serial
             source,
             path: file_path.as_ref().to_path_buf(),
         })
-}
-
-pub fn merge_json(own: &mut Value, other: &Value) {
-    match (own, other) {
-        (&mut Value::Object(ref mut own), Value::Object(other)) => {
-            for (key, value) in other {
-                merge_json(own.entry(key.clone()).or_insert(Value::Null), value);
-            }
-        }
-        (own, other) => {
-            *own = other.clone();
-        }
-    }
 }
 
 fn prune_equal_branches(own: &mut Value, other: &Value) {
