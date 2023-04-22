@@ -60,22 +60,12 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             Some(GameControllerState {
                 game_state: GameState::Playing,
                 sub_state: Some(SubState::PenaltyKick),
-                kicking_team: Team::Opponent,
+                kicking_team,
                 ..
             }) => planner.with_penalty_box(
                 robot_to_field.inverse(),
                 self.field_dimensions,
-                Team::Opponent,
-            ),
-            Some(GameControllerState {
-                game_state: GameState::Playing,
-                sub_state: Some(SubState::PenaltyKick),
-                kicking_team: Team::Hulks,
-                ..
-            }) => planner.with_penalty_box(
-                robot_to_field.inverse(),
-                self.field_dimensions,
-                Team::Hulks,
+                kicking_team,
             ),
             _ => {}
         };
