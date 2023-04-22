@@ -222,7 +222,7 @@ where
         self.current_duration
     }
 
-    pub fn set_initial_positions(&mut self, current_position: Joints) {
+    pub fn set_initial_positions(&mut self, current_position: Joints<f32>) {
         if let Some(initial_key) = self.spline.get_mut(1) {
             *initial_key.value = current_position;
         }
