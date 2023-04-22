@@ -55,16 +55,14 @@ impl BallStateComposer {
                 Some(robot_to_field),
                 Some(GameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
+                    kicking_team,
                     ..
                 }),
             ) => Some(create_ball_state(
                 robot_to_field.inverse()
                     * point![
-                        match context.game_controller_state {
-                            Some(GameControllerState {
-                                kicking_team: Team::Opponent,
-                                ..
-                            }) => -1.0,
+                        match kicking_team {
+                            Team::Opponent => -1.0,
                             _ => 1.0,
                         } * (context.field_dimensions.length / 2.0
                             - context.field_dimensions.penalty_marker_distance),
