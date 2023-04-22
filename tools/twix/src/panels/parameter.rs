@@ -7,13 +7,13 @@ use tokio::sync::mpsc;
 
 use crate::{
     completion_edit::CompletionEdit, nao::Nao, panel::Panel,
-    repository_configuration_handler::RepositoryConfigurationHandler, value_buffer::ValueBuffer,
+    repository_parameters::RepositoryParameters, value_buffer::ValueBuffer,
 };
 
 pub struct ParameterPanel {
     nao: Arc<Nao>,
     path: String,
-    repository_configuration_handler: RepositoryConfigurationHandler,
+    repository_parameters: RepositoryParameters,
     value_buffer: Option<ValueBuffer>,
     parameter_value: String,
     update_notify_sender: mpsc::Sender<()>,
@@ -46,13 +46,13 @@ impl Panel for ParameterPanel {
         let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
         let value_buffer = subscribe(nao.clone(), &path, update_notify_sender.clone());
 
-        let repository_configuration_handler = RepositoryConfigurationHandler::new();
-        repository_configuration_handler.print_nao_ids(nao.get_address());
+        let repository_parameters = RepositoryParameters::new();
+        repository_parameters.print_nao_ids(nao.get_address());
 
         Self {
             nao,
             path,
-            repository_configuration_handler,
+            repository_parameters,
             value_buffer,
             parameter_value: String::new(),
             update_notify_sender,
@@ -101,11 +101,11 @@ impl Widget for &mut ParameterPanel {
                             ) {
                                 (Ok(value), true) => {
                                     if let Ok((hardware_ids, nao_id)) = self
-                                        .repository_configuration_handler
+                                        .repository_parameters
                                         .get_hardware_ids_from_url(address.as_str())
                                     {
                                         let status = self
-                                            .repository_configuration_handler
+                                            .repository_parameters
                                             .merge_head_configuration_to_repository(
                                                 hardware_ids.head_id.as_str(),
                                                 &self.path,

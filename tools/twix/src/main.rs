@@ -35,7 +35,7 @@ mod nao;
 mod panel;
 mod panels;
 mod players_value_buffer;
-mod repository_configuration_handler;
+mod repository_parameters;
 mod twix_painter;
 mod value_buffer;
 

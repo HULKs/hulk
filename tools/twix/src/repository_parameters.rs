@@ -7,12 +7,12 @@ use repository::{get_repository_root, HardwareIds, Repository};
 use serde_json::{json, Value};
 use tokio::runtime::Runtime;
 
-pub struct RepositoryConfigurationHandler {
+pub struct RepositoryParameters {
     repository: Repository,
     file_io_runtime: Runtime,
 }
 
-impl RepositoryConfigurationHandler {
+impl RepositoryParameters {
     pub fn new() -> Self {
         let runtime = Runtime::new().unwrap();
         let repo_root = runtime.block_on(get_repository_root()).unwrap();
