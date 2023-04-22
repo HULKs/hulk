@@ -56,18 +56,18 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             );
         }
 
-        match game_controller_state {
-            Some(GameControllerState {
-                game_state: GameState::Playing,
-                sub_state: Some(SubState::PenaltyKick),
-                kicking_team,
-                ..
-            }) => planner.with_penalty_box(
+        if let Some(GameControllerState {
+            game_state: GameState::Playing,
+            sub_state: Some(SubState::PenaltyKick),
+            kicking_team,
+            ..
+        }) = game_controller_state
+        {
+            planner.with_penalty_box(
                 robot_to_field.inverse(),
                 self.field_dimensions,
                 kicking_team,
-            ),
-            _ => {}
+            )
         };
 
         let target_in_field = robot_to_field * target_in_robot;
