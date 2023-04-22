@@ -9,7 +9,7 @@ use types::{
     MotionType, SensorData,
 };
 
-use crate::{motion_interpolator::MotionInterpolator};
+use motionfile::MotionInterpolator;
 
 pub struct StandUpFront {
     interpolator: MotionInterpolator,

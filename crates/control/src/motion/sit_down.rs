@@ -6,7 +6,7 @@ use types::{
     CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
 };
 
-use crate::{spline_interpolator::SplineInterpolator};
+use motionfile::SplineInterpolator;
 
 pub struct SitDown {
     interpolator: SplineInterpolator<Joints<f32>>,

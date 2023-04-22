@@ -1160,7 +1160,6 @@ dependencies = [
  "serialize_hierarchy",
  "smallvec",
  "spl_network_messages",
- "splines",
  "thiserror",
  "types",
 ]
@@ -2732,6 +2731,8 @@ dependencies = [
  "nalgebra",
  "serde",
  "serde_json",
+ "splines",
+ "thiserror",
  "types",
 ]
 

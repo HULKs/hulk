@@ -9,7 +9,7 @@ use types::{
     MotionType, SensorData,
 };
 
-use crate::spline_interpolator::SplineInterpolator;
+use motionfile::SplineInterpolator;
 
 pub struct StandUpBack {
     interpolator: SplineInterpolator<Joints<f32>>,

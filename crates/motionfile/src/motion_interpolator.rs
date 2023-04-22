@@ -1,8 +1,10 @@
 use std::time::Duration;
 
+use crate::MotionFileFrame;
 use crate::{spline_interpolator::SplineInterpolator};
-use color_eyre::{eyre::Context, Report, Result};
-use motionfile::{Condition, MotionFile, condition::ConditionEnum};
+use crate::{Condition, MotionFile, condition::ConditionEnum};
+use color_eyre::eyre::Context;
+use color_eyre::{Report, Result};
 use splines::{Key, Interpolation};
 use types::{Joints, SensorData};
 
@@ -108,11 +110,11 @@ impl TryFrom<MotionFile> for MotionInterpolator {
 
         for frame in motion_file.frames {
             match frame {
-                motionfile::MotionFileFrame::Joints { duration, positions } => {
+                MotionFileFrame::Joints { duration, positions } => {
                     current_time += duration;
                     current_spline_frames.push(Key::new(current_time, positions, Interpolation::Linear));
                 },
-                motionfile::MotionFileFrame::Condition(condition) => {
+                MotionFileFrame::Condition(condition) => {
                     motion_items.push(MotionItem::Spline(SplineInterpolator::try_new(current_spline_frames.clone())?));
                     let last = current_spline_frames.pop().unwrap();
                     current_spline_frames.clear();
