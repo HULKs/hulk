@@ -46,53 +46,42 @@ impl BallStateComposer {
             context.ball_position,
             context.team_ball,
             context.robot_to_field,
+            context.game_controller_state,
         ) {
-            (PrimaryState::Ready, _, _, Some(robot_to_field)) => {
-                if let Some(game_controller_state) = context.game_controller_state {
-                    match game_controller_state {
-                        GameControllerState {
-                            sub_state: Some(SubState::PenaltyKick),
-                            kicking_team: Team::Opponent,
-                            ..
-                        } => Some(create_ball_state(
-                            robot_to_field.inverse()
-                                * point![
-                                    -context.field_dimensions.length / 2.0
-                                        + context.field_dimensions.penalty_marker_distance,
-                                    0.0
-                                ],
-                            context.robot_to_field,
-                            &mut self.last_ball_field_side,
-                            context.penalty_shot_direction.copied(),
-                        )),
-                        GameControllerState {
-                            sub_state: Some(SubState::PenaltyKick),
-                            kicking_team: Team::Hulks,
-                            ..
-                        } => Some(create_ball_state(
-                            robot_to_field.inverse()
-                                * point![
-                                    context.field_dimensions.length / 2.0
-                                        - context.field_dimensions.penalty_marker_distance,
-                                    0.0
-                                ],
-                            context.robot_to_field,
-                            &mut self.last_ball_field_side,
-                            context.penalty_shot_direction.copied(),
-                        )),
-                        _ => None,
-                    }
-                } else {
-                    None
-                }
-            }
-            (_, Some(ball_position), _, robot_to_field) => Some(create_ball_state(
+            (
+                PrimaryState::Ready,
+                _,
+                _,
+                Some(robot_to_field),
+                Some(GameControllerState {
+                    sub_state: Some(SubState::PenaltyKick),
+                    ..
+                }),
+            ) => Some(create_ball_state(
+                robot_to_field.inverse()
+                    * point![
+                        match context.game_controller_state {
+                            Some(GameControllerState {
+                                kicking_team: Team::Opponent,
+                                ..
+                            }) => -1.0,
+                            _ => 1.0,
+                        } * (context.field_dimensions.length / 2.0
+                            - context.field_dimensions.penalty_marker_distance),
+                        0.0
+                    ],
+                context.robot_to_field,
+                &mut self.last_ball_field_side,
+                context.penalty_shot_direction.copied(),
+            )),
+            (PrimaryState::Ready, _, _, _, _) => None,
+            (_, Some(ball_position), _, robot_to_field, _) => Some(create_ball_state(
                 ball_position.position,
                 robot_to_field,
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
-            (_, None, Some(ball_position), Some(robot_to_field)) => Some(create_ball_state(
+            (_, None, Some(ball_position), Some(robot_to_field), _) => Some(create_ball_state(
                 robot_to_field.inverse() * ball_position.position,
                 Some(robot_to_field),
                 &mut self.last_ball_field_side,
