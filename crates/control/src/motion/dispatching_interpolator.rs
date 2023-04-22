@@ -115,7 +115,7 @@ impl DispatchingInterpolator {
             if self.interpolator.is_finished() {
                 None
             } else {
-                Some(self.interpolator.duration())
+                Some(self.interpolator.end_time())
             }
         });
 
