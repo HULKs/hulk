@@ -909,7 +909,10 @@
           "secs": 1
       }
     },
-    "initial_lookaround_duration": 5.0
+      "initial_lookaround_duration": {
+	  "nanos": 0,
+	  "secs": 5
+      }
   },
   "game_state_filter": {
     "game_controller_controller_delay": {
