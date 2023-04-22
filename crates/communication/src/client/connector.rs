@@ -6,10 +6,7 @@ use log::{error, info, warn};
 use tokio::{
     net::TcpStream,
     spawn,
-    sync::{
-        mpsc::{channel, Receiver, Sender},
-        oneshot,
-    },
+    sync::mpsc::{channel, Receiver, Sender},
     task::JoinHandle,
     time::sleep,
 };
@@ -27,12 +24,7 @@ pub enum Message {
     SetAddress(String),
     ReconnectTimerElapsed,
     Connected(Box<WebSocketStream<MaybeTlsStream<TcpStream>>>),
-    ConnectionFailed {
-        info: String,
-    },
-    GetAddress {
-        response_sender: oneshot::Sender<Option<String>>,
-    },
+    ConnectionFailed { info: String },
 }
 
 #[derive(Debug)]
@@ -104,15 +96,6 @@ pub async fn connector(
                     connect: false,
                     address: Some(new_address),
                 },
-                Message::GetAddress { response_sender } => {
-                    response_sender
-                        .send(None)
-                        .expect("receiver should always wait for all senders");
-                    ConnectionState::Disconnected {
-                        connect: false,
-                        address: None,
-                    }
-                }
                 Message::Connected(_) => panic!("This should never happen"),
                 Message::ConnectionFailed { .. } => panic!("This should never happen"),
                 Message::ReconnectTimerElapsed => panic!("This should never happen"),
@@ -155,15 +138,6 @@ pub async fn connector(
                     connect: false,
                     address: Some(address),
                 },
-                Message::GetAddress { response_sender } => {
-                    response_sender
-                        .send(Some(address.clone()))
-                        .expect("receiver should always wait for all senders");
-                    ConnectionState::Disconnected {
-                        connect: false,
-                        address: Some(address),
-                    }
-                }
             },
             ConnectionState::Disconnected {
                 connect: true,
@@ -186,15 +160,6 @@ pub async fn connector(
                     ConnectionState::Connecting {
                         address,
                         ongoing_connection,
-                    }
-                }
-                Message::GetAddress { response_sender } => {
-                    response_sender
-                        .send(None)
-                        .expect("receiver should always wait for all senders");
-                    ConnectionState::Disconnected {
-                        connect: true,
-                        address: None,
                     }
                 }
                 Message::Connected(_ws_stream) => panic!("This should never happen"),
@@ -229,15 +194,6 @@ pub async fn connector(
                     ConnectionState::Connecting {
                         address,
                         ongoing_connection,
-                    }
-                }
-                Message::GetAddress { response_sender } => {
-                    response_sender
-                        .send(Some(address.clone()))
-                        .expect("receiver should always wait for all senders");
-                    ConnectionState::Disconnected {
-                        connect: true,
-                        address: Some(address),
                     }
                 }
                 Message::Connected(_) => panic!("This should never happen"),
@@ -314,15 +270,6 @@ pub async fn connector(
                     address,
                     ongoing_connection,
                 },
-                Message::GetAddress { response_sender } => {
-                    response_sender
-                        .send(Some(address.clone()))
-                        .expect("receiver should always wait for all senders");
-                    ConnectionState::Connecting {
-                        address,
-                        ongoing_connection,
-                    }
-                }
             },
             ConnectionState::Connected { address } => match message {
                 Message::SubscribeToUpdates(sender) => {
@@ -381,12 +328,6 @@ pub async fn connector(
                     }
                 }
                 Message::ReconnectTimerElapsed => ConnectionState::Connected { address },
-                Message::GetAddress { response_sender } => {
-                    response_sender
-                        .send(Some(address.clone()))
-                        .expect("receiver should always wait for all senders");
-                    ConnectionState::Connected { address }
-                }
             },
         };
         let status = match &status {
