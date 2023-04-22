@@ -83,7 +83,7 @@ pub struct Behavior {
     pub walk_and_stand: WalkAndStand,
     pub search: Search,
     pub look_action: LookAction,
-    pub initial_lookaround_duration: f32,
+    pub initial_lookaround_duration: Duration,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

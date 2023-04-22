@@ -104,7 +104,7 @@ impl Behavior {
         ];
 
         if let Some(active_since) = self.active_since {
-            if now.duration_since(active_since).unwrap().as_secs_f32()
+            if now.duration_since(active_since)?
                 < context.configuration.initial_lookaround_duration
             {
                 actions.push(Action::LookAround);
