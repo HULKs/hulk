@@ -1,7 +1,7 @@
 use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex};
-use spl_network_messages::{GameState, SubState, Team};
+use spl_network_messages::{GameState, SubState};
 use types::{
     configuration::{
         PathPlanning as PathPlanningConfiguration, WalkAndStand as WalkAndStandConfiguration,
