@@ -105,8 +105,8 @@ pub use line::{Line, Line2};
 pub use line_data::{ImageLines, LineData};
 pub use message_event::MessageEvent;
 pub use motion_command::{
-    ArmMotion, Facing, FallDirection, HeadMotion, JumpDirection, KickDirection, KickVariant,
-    MotionCommand, OrientationMode, SitDirection,
+    ArmMotion, Facing, FallDirection, GlanceDirection, HeadMotion, JumpDirection, KickDirection,
+    KickVariant, MotionCommand, OrientationMode, SitDirection,
 };
 pub use motion_file::{MotionFile, MotionFileFrame};
 pub use motion_selection::{MotionSafeExits, MotionSelection, MotionType};

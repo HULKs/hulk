@@ -58,6 +58,7 @@ impl HeadMotion {
                 *context.look_around
             }
             Some(HeadMotionCommand::LookAt { .. }) => *context.look_at,
+            Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => *context.look_at,
             Some(HeadMotionCommand::Unstiff) => current_head_angles,
             Some(HeadMotionCommand::ZeroAngles) => Default::default(),
             None => Default::default(),

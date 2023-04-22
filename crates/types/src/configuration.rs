@@ -262,6 +262,8 @@ pub struct DispatchingHeadInterpolator {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct LookAt {
+    pub glance_angle: f32,
+    pub glance_direction_toggle_interval: Duration,
     pub minimum_bottom_focus_pitch: f32,
 }
 

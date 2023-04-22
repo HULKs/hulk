@@ -1,13 +1,19 @@
+use std::{time::Duration, time::SystemTime};
+
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use kinematics::{head_to_neck, neck_to_robot};
-use nalgebra::{point, Isometry3, Point2};
+use nalgebra::{distance, point, vector, Isometry3, Point2};
 use types::{
-    CameraMatrices, HeadJoints, HeadMotion, Joints, MotionCommand, RobotKinematics, SensorData,
+    CameraMatrices, CycleTime, GlanceDirection, HeadJoints, HeadMotion, Joints, MotionCommand,
+    RobotKinematics, SensorData,
 };
 
-pub struct LookAt {}
+pub struct LookAt {
+    current_glance_direction: GlanceDirection,
+    last_glance_direction_toggle: Option<SystemTime>,
+}
 
 #[context]
 pub struct CreationContext {
@@ -17,11 +23,15 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub ground_to_robot: Input<Option<Isometry3<f32>>, "ground_to_robot?">,
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     pub sensor_data: Input<SensorData, "sensor_data">,
 
+    pub glance_angle: Parameter<f32, "look_at.glance_angle">,
+    pub glance_direction_toggle_interval:
+        Parameter<Duration, "look_at.glance_direction_toggle_interval">,
     pub minimum_bottom_focus_pitch: Parameter<f32, "look_at.minimum_bottom_focus_pitch">,
 }
 
@@ -33,10 +43,14 @@ pub struct MainOutputs {
 
 impl LookAt {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            current_glance_direction: Default::default(),
+            last_glance_direction_toggle: None,
+        })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let cycle_start_time = context.cycle_time.start_time;
         let current_head_angles = context.sensor_data.positions.head;
         let default_output = Ok(MainOutputs {
             look_at: current_head_angles.into(),
@@ -59,8 +73,29 @@ impl LookAt {
             _ => return default_output,
         };
 
+        if self.last_glance_direction_toggle.is_none()
+            || cycle_start_time.duration_since(self.last_glance_direction_toggle.unwrap())?
+                > *context.glance_direction_toggle_interval
+        {
+            self.current_glance_direction = match self.current_glance_direction {
+                GlanceDirection::LeftOfTarget => GlanceDirection::RightOfTarget,
+                GlanceDirection::RightOfTarget => GlanceDirection::LeftOfTarget,
+            };
+            self.last_glance_direction_toggle = Some(cycle_start_time);
+        }
+
         let target = match head_motion {
-            HeadMotion::LookAt { target } => target,
+            HeadMotion::LookAt { target } => *target,
+            HeadMotion::LookLeftAndRightOf { target } => {
+                let left_right_shift = vector![
+                    0.0,
+                    f32::tan(*context.glance_angle) * distance(target, &Point2::origin())
+                ];
+                match self.current_glance_direction {
+                    GlanceDirection::LeftOfTarget => target + left_right_shift,
+                    GlanceDirection::RightOfTarget => target - left_right_shift,
+                }
+            }
             _ => return default_output,
         };
 
@@ -73,7 +108,7 @@ impl LookAt {
             ground_to_zero_head,
             camera_matrices.top.camera_to_head.inverse(),
             camera_matrices.bottom.camera_to_head.inverse(),
-            *target,
+            target,
             *context.minimum_bottom_focus_pitch,
         );
 
