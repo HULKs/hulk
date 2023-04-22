@@ -21,13 +21,15 @@ impl Nao {
         let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
         let _guard = runtime.enter();
         let communication = Communication::new(
-            address.map(|ip_address| ip_address_to_communication_url(&ip_address)),
+            address
+                .clone()
+                .map(|ip_address| ip_address_to_communication_url(&ip_address)),
             connect,
         );
         Self {
             communication,
             runtime,
-            last_set_address: Mutex::new(None),
+            last_set_address: Mutex::new(address),
         }
     }
 
