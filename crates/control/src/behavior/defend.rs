@@ -146,10 +146,7 @@ fn defend_penalty_left_pose(
     let ball = world_state
         .ball
         .map(|ball| BallState {
-            position: point![
-                -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
-                0.0
-            ],
+            position: robot_to_field * ball.position,
             field_side: ball.field_side,
             penalty_shot_direction: Default::default(),
         })
@@ -206,10 +203,7 @@ fn defend_penalty_right_pose(
     let ball = world_state
         .ball
         .map(|ball| BallState {
-            position: point![
-                -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
-                0.0
-            ],
+            position: robot_to_field * ball.position,
             field_side: ball.field_side,
             penalty_shot_direction: Default::default(),
         })
