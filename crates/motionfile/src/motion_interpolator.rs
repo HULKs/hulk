@@ -123,7 +123,6 @@ impl TryFrom<MotionFile> for MotionInterpolator {
                 },
             }
         }
-        assert!(current_spline_frames.len() != 1, "Cannot have only one frame");
         if current_spline_frames.len() > 1 {
             motion_items.push(MotionItem::Spline(SplineInterpolator::try_new(current_spline_frames)?));
         }
