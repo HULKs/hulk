@@ -111,22 +111,8 @@ impl Behavior {
         }
 
         match world_state.robot.role {
-            Role::DefenderLeft => match world_state.game_controller_state {
-                Some(GameControllerState {
-                    sub_state: Some(SubState::PenaltyKick),
-                    kicking_team: Team::Opponent,
-                    ..
-                }) => actions.push(Action::DefendPenaltyLeft),
-                _ => actions.push(Action::DefendLeft),
-            },
-            Role::DefenderRight => match world_state.game_controller_state {
-                Some(GameControllerState {
-                    sub_state: Some(SubState::PenaltyKick),
-                    kicking_team: Team::Opponent,
-                    ..
-                }) => actions.push(Action::DefendPenaltyRight),
-                _ => actions.push(Action::DefendRight),
-            },
+            Role::DefenderLeft => actions.push(Action::DefendLeft),
+            Role::DefenderRight => actions.push(Action::DefendRight),
             Role::Keeper => match world_state.game_controller_state {
                 Some(GameControllerState {
                     game_phase: GamePhase::PenaltyShootout { .. },
@@ -202,9 +188,7 @@ impl Behavior {
                 Action::DefendGoal => defend.goal(&mut context.path_obstacles),
                 Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
                 Action::DefendLeft => defend.left(&mut context.path_obstacles),
-                Action::DefendPenaltyLeft => defend.penalty_left(&mut context.path_obstacles),
                 Action::DefendRight => defend.right(&mut context.path_obstacles),
-                Action::DefendPenaltyRight => defend.penalty_right(&mut context.path_obstacles),
                 Action::DefendPenaltyKick => defend.penalty_kick(&mut context.path_obstacles),
                 Action::Stand => {
                     stand::execute(world_state, self.absolute_last_known_ball_position)
