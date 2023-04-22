@@ -207,18 +207,20 @@ fn defend_goal_pose(
         .unwrap_or_default();
 
     let keeper_x_offset = match world_state.game_controller_state {
-        Some(GameControllerState {
-            game_phase:
-                GamePhase::PenaltyShootout {
-                    kicking_team: Team::Opponent,
-                },
-            ..
-        })
-        | Some(GameControllerState {
-            sub_state: Some(SubState::PenaltyKick),
-            kicking_team: Team::Opponent,
-            ..
-        }) => 0.0,
+        Some(
+            GameControllerState {
+                game_phase:
+                    GamePhase::PenaltyShootout {
+                        kicking_team: Team::Opponent,
+                    },
+                ..
+            }
+            | GameControllerState {
+                sub_state: Some(SubState::PenaltyKick),
+                kicking_team: Team::Opponent,
+                ..
+            },
+        ) => 0.0,
         _ => role_positions.keeper_x_offset,
     };
 
