@@ -174,10 +174,7 @@ impl TwixApp {
             })
             .unwrap_or(false);
 
-        let nao = Arc::new(Nao::new(
-            ip_address.as_ref().map(|ip| ip_to_socket_address(ip)),
-            connection_intent,
-        ));
+        let nao = Arc::new(Nao::new(ip_address.clone(), connection_intent));
 
         let tree: Option<Tree<Value>> = creation_context
             .storage
@@ -217,10 +214,6 @@ impl TwixApp {
     }
 }
 
-fn ip_to_socket_address(ip_address: &str) -> String {
-    format!("ws://{ip_address}:1337")
-}
-
 impl App for TwixApp {
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
         while let Ok(status) = self.connection_receiver.try_recv() {
@@ -236,7 +229,7 @@ impl App for TwixApp {
                     CompletionEdit::select_all(&self.ip_address, ui, address_input.id);
                 }
                 if address_input.changed() || address_input.lost_focus() {
-                    self.nao.set_address(ip_to_socket_address(&self.ip_address));
+                    self.nao.set_address(&self.ip_address);
                 }
                 let (connect_text, color) = match &self.connection_status {
                     ConnectionStatus::Disconnected { connect, .. } => (

@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, sync::Mutex};
 
 use communication::{
     client::{Communication, ConnectionStatus, CyclerOutput},
@@ -13,16 +13,21 @@ use crate::{image_buffer::ImageBuffer, value_buffer::ValueBuffer};
 pub struct Nao {
     communication: Communication,
     runtime: Runtime,
+    last_set_address: Mutex<Option<String>>,
 }
 
 impl Nao {
     pub fn new(address: Option<String>, connect: bool) -> Self {
         let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
         let _guard = runtime.enter();
-        let communication = Communication::new(address, connect);
+        let communication = Communication::new(
+            address.map(|ip_address| ip_address_to_communication_url(&ip_address)),
+            connect,
+        );
         Self {
             communication,
             runtime,
+            last_set_address: Mutex::new(None),
         }
     }
 
@@ -31,9 +36,15 @@ impl Nao {
             .block_on(self.communication.set_connect(connect))
     }
 
-    pub fn set_address(&self, address: String) {
-        self.runtime
-            .block_on(self.communication.set_address(address));
+    pub fn set_address(&self, address: &str) {
+        {
+            let mut last_set_address = self.last_set_address.lock().unwrap();
+            *last_set_address = Some(address.to_string());
+        }
+        self.runtime.block_on(
+            self.communication
+                .set_address(ip_address_to_communication_url(address)),
+        );
     }
 
     pub fn subscribe_output(&self, output: CyclerOutput) -> ValueBuffer {
@@ -58,7 +69,7 @@ impl Nao {
     }
 
     pub fn get_address(&self) -> Option<String> {
-        self.runtime.block_on(self.communication.get_address())
+        self.last_set_address.lock().unwrap().clone()
     }
 
     pub fn get_output_fields(&self) -> Option<Fields> {
@@ -75,4 +86,8 @@ impl Nao {
         self.runtime
             .block_on(self.communication.update_parameter_value(path, value));
     }
+}
+
+fn ip_address_to_communication_url(ip_address: &str) -> String {
+    format!("ws://{ip_address}:1337")
 }
