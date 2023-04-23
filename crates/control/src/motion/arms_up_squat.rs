@@ -3,8 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use motionfile::MotionFile;
 use types::{
-    CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
-    SensorData,
+    CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
 use motionfile::SplineInterpolator;
