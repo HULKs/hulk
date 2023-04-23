@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{configuration::SwingingArms, ArmJoints, ArmMotion, MotionCommand, Side};
 
-use crate::spline_interpolator::SplineInterpolator;
+use motionfile::SplineInterpolator;
 
 use super::foot_offsets::FootOffsets;
 

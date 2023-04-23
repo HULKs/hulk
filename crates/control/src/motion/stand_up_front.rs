@@ -12,7 +12,7 @@ use types::{
 use motionfile::MotionInterpolator;
 
 pub struct StandUpFront {
-    interpolator: MotionInterpolator,
+    interpolator: MotionInterpolator<Joints<f32>>,
     filtered_gyro: LowPassFilter<Vector2<f32>>,
 }
 
