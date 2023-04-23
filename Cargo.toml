@@ -52,8 +52,8 @@ bindgen = "0.61.0"
 build_script_helpers = { path = "crates/build_script_helpers" }
 byteorder = "1.4.3"
 chrono = "0.4.23"
-clap = { version = "4.0.22", features = ["derive"] }
-clap_complete = "4.0.5"
+clap = { version = "4.2.4", features = ["derive"] }
+clap_complete = "4.2.1"
 code_generation = { path = "crates/code_generation" }
 color-eyre = "0.6.2"
 colored = "2.0.0"
