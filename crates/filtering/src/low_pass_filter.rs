@@ -44,4 +44,8 @@ where
     pub fn reset(&mut self, state: State) {
         self.state = state;
     }
+
+    pub fn alpha(&self) -> f32 {
+        self.alpha
+    }
 }

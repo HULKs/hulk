@@ -6,7 +6,7 @@ use serde_json::from_reader;
 
 use types::Joints;
 
-use crate::{StabilizedCondition, condition::ConditionEnum};
+use crate::{condition::ConditionEnum};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct MotionFile {

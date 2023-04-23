@@ -7,7 +7,24 @@ use crate::Condition;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StabilizedCondition {
     tolerance: f32,
+    #[serde(with = "serialize")]
+    #[serde(rename = "alpha")]
     filtered_velocity: LowPassFilter<Vector3<f32>>,
+}
+
+mod serialize {
+    use filtering::LowPassFilter;
+    use nalgebra::Vector3;
+    use serde::{Deserializer, Serializer, Deserialize};
+
+    pub fn serialize<S: Serializer>(filter: &LowPassFilter<Vector3<f32>>, serializer: S) -> Result<S::Ok, S::Error>{
+        serializer.serialize_f32(filter.alpha())
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<LowPassFilter<Vector3<f32>>, D::Error> {
+        let alpha = f32::deserialize(deserializer)?;
+        Ok(LowPassFilter::with_alpha(Vector3::zeros(), alpha))
+    }
 }
 
 impl Condition for StabilizedCondition {
