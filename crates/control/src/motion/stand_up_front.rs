@@ -1,12 +1,12 @@
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
-use framework::{MainOutput, AdditionalOutput};
+use framework::{AdditionalOutput, MainOutput};
 use motionfile::MotionFile;
 use nalgebra::Vector2;
 use types::{
-    CycleTime, Facing, Joints, MotionCommand, MotionSafeExits, MotionSelection,
-    MotionType, SensorData,
+    CycleTime, Facing, Joints, MotionCommand, MotionSafeExits, MotionSelection, MotionType,
+    SensorData,
 };
 
 use motionfile::MotionInterpolator;
@@ -68,10 +68,13 @@ impl StandUpFront {
         self.filtered_gyro
             .update(Vector2::new(angular_velocity.x, angular_velocity.y));
 
-        self.interpolator.advance_by(last_cycle_duration, context.sensor_data);
-        
+        self.interpolator
+            .advance_by(last_cycle_duration, context.sensor_data);
+
         if context.motion_selection.current_motion == MotionType::StandUpFront {
-            context.waits_for_condition.fill_if_subscribed(|| self.interpolator.is_waiting_for_condition());
+            context
+                .waits_for_condition
+                .fill_if_subscribed(|| self.interpolator.is_waiting_for_condition());
         } else {
             self.interpolator.reset();
             context.waits_for_condition.fill_if_subscribed(|| false);

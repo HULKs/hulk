@@ -15,7 +15,10 @@ pub struct MotionFile<T: Debug + Interpolate<f32>> {
     pub frames: Vec<MotionFileFrame<T>>,
 }
 
-impl<T> MotionFile<T> where for<'de> T: Debug + Interpolate<f32> + Deserialize<'de> {
+impl<T> MotionFile<T>
+where
+    for<'de> T: Debug + Interpolate<f32> + Deserialize<'de>,
+{
     pub fn from_path(motion_file_path: impl AsRef<Path>) -> Result<Self> {
         let file = File::open(&motion_file_path).wrap_err_with(|| {
             format!("failed to open motion file {:?}", motion_file_path.as_ref())

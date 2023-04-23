@@ -5,8 +5,8 @@ use framework::MainOutput;
 use motionfile::MotionFile;
 use nalgebra::Vector2;
 use types::{
-    CycleTime, Facing, Joints, MotionCommand, MotionSafeExits, MotionSelection,
-    MotionType, SensorData,
+    CycleTime, Facing, Joints, MotionCommand, MotionSafeExits, MotionSelection, MotionType,
+    SensorData,
 };
 
 use motionfile::SplineInterpolator;
