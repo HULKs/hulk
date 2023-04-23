@@ -445,8 +445,6 @@ pub struct FallStateEstimation {
     pub roll_pitch_low_pass_factor: f32,
     pub gravitational_acceleration_threshold: f32,
     pub falling_angle_threshold: Vector2<f32>,
-    pub minimum_angular_velocity: Vector2<f32>,
-    pub maximum_angular_velocity: Vector2<f32>,
     pub fallen_timeout: Duration,
 }
 
