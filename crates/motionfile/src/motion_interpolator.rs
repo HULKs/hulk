@@ -1,25 +1,32 @@
+use std::fmt::Debug;
 use std::time::Duration;
 
+use crate::spline_interpolator::SplineInterpolator;
 use crate::MotionFileFrame;
-use crate::{spline_interpolator::SplineInterpolator};
-use crate::{Condition, MotionFile, condition::ConditionEnum};
+use crate::{condition::ConditionEnum, Condition, MotionFile};
 use color_eyre::eyre::Context;
 use color_eyre::{Report, Result};
-use splines::{Key, Interpolation};
-use types::{Joints, SensorData};
+use splines::{Interpolate, Interpolation, Key};
+use types::SensorData;
 
-pub struct MotionInterpolator {
-    items: Vec<MotionItem>,
+pub struct MotionInterpolator<T>
+where
+    T: Debug + Interpolate<f32>,
+{
+    items: Vec<MotionItem<T>>,
     index: usize,
 }
 
 #[derive(Debug)]
-pub enum MotionItem {
-    Spline(SplineInterpolator),
+pub enum MotionItem<T>
+where
+    T: Debug + Interpolate<f32>,
+{
+    Spline(SplineInterpolator<T>),
     Condition(ConditionEnum),
 }
 
-impl MotionItem {
+impl<T: Debug + Interpolate<f32>> MotionItem<T> {
     pub fn is_finished(&self) -> bool {
         match self {
             MotionItem::Spline(spline) => spline.is_finished(),
@@ -28,12 +35,12 @@ impl MotionItem {
     }
 }
 
-impl MotionInterpolator {
+impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
     pub fn is_waiting_for_condition(&self) -> bool {
         !self.is_finished() && matches!(self.items[self.index], MotionItem::Condition(_))
     }
 
-    fn get_prior_spline(&self) -> Option<&SplineInterpolator> {
+    fn get_prior_spline(&self) -> Option<&SplineInterpolator<T>> {
         self.items[(0..self.index)]
             .iter()
             .rev()
@@ -43,7 +50,7 @@ impl MotionInterpolator {
             })
     }
 
-    fn get_next_spline(&self) -> Option<&SplineInterpolator> {
+    fn get_next_spline(&self) -> Option<&SplineInterpolator<T>> {
         self.items[self.index..].iter().find_map(|item| match item {
             MotionItem::Spline(spline) => Some(spline),
             _ => None,
@@ -67,14 +74,14 @@ impl MotionInterpolator {
         self.index == self.items.len() - 1 && self.items.last().unwrap().is_finished()
     }
 
-    pub fn value(&self) -> Result<Joints<f32>> {
+    pub fn value(&self) -> Result<T> {
         match &self.items[self.index] {
             MotionItem::Spline(spline) => spline
                 .value()
                 .wrap_err("failed to compute spline in MotionFileInterpolator"),
-            MotionItem::Condition(condition) => condition
-                .value()
-                .or_else(|| self.get_prior_spline().map(|spline| spline.end_position()))
+            MotionItem::Condition(_) => self
+                .get_prior_spline()
+                .map(|spline| spline.end_position())
                 .or_else(|| self.get_next_spline().map(|spline| spline.start_position()))
                 .ok_or_else(|| Report::msg("no splines in motion file")),
         }
@@ -99,32 +106,47 @@ impl MotionInterpolator {
     }
 }
 
-impl TryFrom<MotionFile> for MotionInterpolator {
+impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<T> {
     type Error = Report;
 
-    fn try_from(motion_file: MotionFile) -> Result<Self> {
+    fn try_from(motion_file: MotionFile<T>) -> Result<Self> {
         let mut current_time = Duration::ZERO;
-        let mut current_spline_frames = vec![Key::new(current_time, motion_file.initial_positions, Interpolation::Linear) ];
+        let mut current_spline_frames = vec![Key::new(
+            current_time,
+            motion_file.initial_positions,
+            Interpolation::Linear,
+        )];
 
         let mut motion_items = Vec::new();
 
         for frame in motion_file.frames {
             match frame {
-                MotionFileFrame::Joints { duration, positions } => {
+                MotionFileFrame::Joints {
+                    duration,
+                    positions,
+                } => {
                     current_time += duration;
-                    current_spline_frames.push(Key::new(current_time, positions, Interpolation::Linear));
-                },
+                    current_spline_frames.push(Key::new(
+                        current_time,
+                        positions,
+                        Interpolation::Linear,
+                    ));
+                }
                 MotionFileFrame::Condition(condition) => {
-                    motion_items.push(MotionItem::Spline(SplineInterpolator::try_new(current_spline_frames.clone())?));
+                    motion_items.push(MotionItem::Spline(SplineInterpolator::try_new(
+                        current_spline_frames.clone(),
+                    )?));
                     let last = current_spline_frames.pop().unwrap();
                     current_spline_frames.clear();
                     current_spline_frames.push(last);
                     motion_items.push(MotionItem::Condition(condition));
-                },
+                }
             }
         }
         if current_spline_frames.len() > 1 {
-            motion_items.push(MotionItem::Spline(SplineInterpolator::try_new(current_spline_frames)?));
+            motion_items.push(MotionItem::Spline(SplineInterpolator::try_new(
+                current_spline_frames,
+            )?));
         }
 
         Ok(Self {

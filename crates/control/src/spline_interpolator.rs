@@ -1,8 +1,7 @@
-use crate::{MotionFile, MotionFileFrame};
 use serde::{Deserialize, Serialize};
 use splines::{Interpolate, Interpolation, Key, Spline};
 use thiserror::Error;
-use types::{Joints, JointsVelocity};
+use types::{Joints, JointsVelocity, MotionFile};
 
 use std::{fmt::Debug, time::Duration};
 
@@ -84,10 +83,10 @@ impl InterpolatorError {
     }
 }
 
-impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for SplineInterpolator<T> {
+impl TryFrom<MotionFile> for SplineInterpolator<Joints<f32>> {
     type Error = InterpolatorError;
 
-    fn try_from(motion_file: MotionFile<T>) -> Result<Self, InterpolatorError> {
+    fn try_from(motion_file: MotionFile) -> Result<Self, InterpolatorError> {
         let mut current_time = Duration::ZERO;
         let mut keys = vec![Key::new(
             current_time,
@@ -237,11 +236,11 @@ where
         }
     }
 
-    pub fn start_position(&self) -> T {
+    pub fn start_position(&self) -> Joints<f32> {
         self.spline.keys()[1].value
     }
 
-    pub fn end_position(&self) -> T {
+    pub fn end_position(&self) -> Joints<f32> {
         self.spline.keys()[self.spline.keys().len() - 2].value
     }
 }

@@ -3,12 +3,11 @@ use std::time::Duration;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
+use motionfile::SplineInterpolator;
 use types::{
     BodyJointsCommand, CycleTime, HeadJoints, Joints, JointsCommand, JointsVelocity,
     MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
-
-use crate::spline_interpolator::SplineInterpolator;
 
 pub struct DispatchingInterpolator {
     interpolator: SplineInterpolator<Joints<f32>>,
