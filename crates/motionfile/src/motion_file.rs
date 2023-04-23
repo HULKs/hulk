@@ -8,6 +8,7 @@ use splines::{Interpolate, Interpolation};
 
 use crate::condition::ConditionType;
 
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct MotionFile<T> {
     #[serde(default)]
