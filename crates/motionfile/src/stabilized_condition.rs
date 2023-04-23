@@ -1,4 +1,4 @@
-use filtering::LowPassFilter;
+use filtering::low_pass_filter::LowPassFilter;
 use nalgebra::Vector3;
 use serde::{Serialize, Deserialize};
 use types::{Joints, SensorData};
@@ -13,7 +13,7 @@ pub struct StabilizedCondition {
 }
 
 mod serialize {
-    use filtering::LowPassFilter;
+    use filtering::low_pass_filter::LowPassFilter;
     use nalgebra::Vector3;
     use serde::{Deserializer, Serializer, Deserialize};
 
@@ -37,7 +37,7 @@ impl Condition for StabilizedCondition {
             .update(sensor_data.inertial_measurement_unit.angular_velocity);
     }
 
-    fn value(&self) -> Option<Joints> {
+    fn value(&self) -> Option<Joints<f32>> {
         None
     }
 

@@ -4,10 +4,9 @@ use framework::MainOutput;
 use motionfile::MotionFile;
 use types::{
     CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
-    SensorData,
 };
 
-use crate::motion_interpolator::MotionInterpolator;
+use crate::{spline_interpolator::SplineInterpolator};
 
 pub struct SitDown {
     interpolator: SplineInterpolator<Joints<f32>>,
@@ -21,7 +20,6 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub motion_selection: Input<MotionSelection, "motion_selection">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
@@ -42,14 +40,12 @@ impl SitDown {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
-        let sensor_data = context.sensor_data;
 
         if context.motion_selection.current_motion == MotionType::SitDown {
             self.interpolator.advance_by(last_cycle_duration);
         } else {
             self.interpolator.reset();
         }
-        self.interpolator.update(sensor_data);
 
         context.motion_safe_exits[MotionType::SitDown] = self.interpolator.is_finished();
 

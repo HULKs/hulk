@@ -1,7 +1,7 @@
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
-use framework::MainOutput;
+use framework::{MainOutput, AdditionalOutput};
 use motionfile::MotionFile;
 use nalgebra::Vector2;
 use types::{
@@ -9,7 +9,7 @@ use types::{
     MotionType, SensorData,
 };
 
-use crate::{spline_interpolator::SplineInterpolator, motion_interpolator::MotionInterpolator};
+use crate::{motion_interpolator::MotionInterpolator};
 
 pub struct StandUpFront {
     interpolator: MotionInterpolator,
@@ -37,6 +37,8 @@ pub struct CycleContext {
     pub gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+
+    pub waits_for_condition: AdditionalOutput<bool, "waits_for_condition">,
 }
 
 #[context]
@@ -56,7 +58,7 @@ impl StandUpFront {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let angular_velocity = context
             .sensor_data
@@ -66,12 +68,14 @@ impl StandUpFront {
         self.filtered_gyro
             .update(Vector2::new(angular_velocity.x, angular_velocity.y));
 
+        self.interpolator.advance_by(last_cycle_duration, context.sensor_data);
+        
         if context.motion_selection.current_motion == MotionType::StandUpFront {
-            self.interpolator.advance_by(last_cycle_duration);
+            context.waits_for_condition.fill_if_subscribed(|| self.interpolator.is_waiting_for_condition());
         } else {
             self.interpolator.reset();
+            context.waits_for_condition.fill_if_subscribed(|| false);
         }
-        self.interpolator.update(context.sensor_data);
 
         context.motion_safe_exits[MotionType::StandUpFront] = false;
         if self.interpolator.is_finished() {
