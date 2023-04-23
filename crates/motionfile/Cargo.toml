@@ -8,8 +8,8 @@ homepage = "https://github.com/hulks/hulk"
 [dependencies]
 color-eyre = { workspace = true }
 enum_dispatch = { workspace = true }
-types = { workspace = true }
-serde_json = { workspace = true }
-serde = { workspace = true }
 filtering = { workspace = true }
 nalgebra = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+types = { workspace = true }

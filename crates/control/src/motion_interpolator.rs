@@ -11,6 +11,7 @@ pub struct MotionInterpolator {
     index: usize,
 }
 
+#[derive(Debug)]
 pub enum MotionItem {
     Spline(SplineInterpolator),
     Condition(ConditionEnum),
@@ -26,6 +27,10 @@ impl MotionItem {
 }
 
 impl MotionInterpolator {
+    pub fn is_waiting_for_condition(&self) -> bool {
+        !self.is_finished() && matches!(self.items[self.index], MotionItem::Condition(_))
+    }
+
     fn get_prior_spline(&self) -> Option<&SplineInterpolator> {
         self.items[(0..self.index)]
             .iter()
@@ -43,7 +48,8 @@ impl MotionInterpolator {
         })
     }
 
-    pub fn advance_by(&mut self, time_step: Duration) {
+    pub fn advance_by(&mut self, time_step: Duration, sensor_data: &SensorData) {
+        self.update(sensor_data);
         let item = &mut self.items[self.index];
 
         if let MotionItem::Spline(interpolator) = item {
@@ -51,7 +57,7 @@ impl MotionInterpolator {
         }
 
         if item.is_finished() && self.index < self.items.len() - 1 {
-            self.index += 1
+            self.index += 1;
         }
     }
 
@@ -59,7 +65,7 @@ impl MotionInterpolator {
         self.index == self.items.len() - 1 && self.items.last().unwrap().is_finished()
     }
 
-    pub fn value(&self) -> Result<Joints> {
+    pub fn value(&self) -> Result<Joints<f32>> {
         match &self.items[self.index] {
             MotionItem::Spline(spline) => spline
                 .value()
@@ -73,15 +79,16 @@ impl MotionInterpolator {
     }
 
     pub fn reset(&mut self) {
-        for item in self.items.iter_mut() {
+        for item in self.items[0..=self.index].iter_mut() {
             match item {
                 MotionItem::Spline(spline) => spline.reset(),
                 MotionItem::Condition(condition) => condition.reset(),
             }
         }
+        self.index = 0;
     }
 
-    pub fn update(&mut self, sensor_data: &SensorData) {
+    fn update(&mut self, sensor_data: &SensorData) {
         self.items.iter_mut().for_each(|item| {
             if let MotionItem::Condition(condition) = item {
                 condition.update(sensor_data)
@@ -113,6 +120,10 @@ impl TryFrom<MotionFile> for MotionInterpolator {
                     motion_items.push(MotionItem::Condition(condition));
                 },
             }
+        }
+        assert!(current_spline_frames.len() != 1, "Cannot have only one frame");
+        if current_spline_frames.len() > 1 {
+            motion_items.push(MotionItem::Spline(SplineInterpolator::try_new(current_spline_frames)?));
         }
 
         Ok(Self {

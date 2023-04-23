@@ -94,17 +94,17 @@ impl TryFrom<MotionFile> for SplineInterpolator<Joints<f32>> {
             Interpolation::Linear,
         )];
 
-        keys.extend(motion_file.frames.into_iter().map(|frame| {
-            match frame {
-                MotionFileFrame::Joints{ duration, positions } => {
-                    current_time += duration;
-                    Key::new(current_time, positions, Interpolation::Linear)
-                }
-                MotionFileFrame::Condition(_) => {
-                    panic!("Interpolator cannot be built with Conditions")
-                }
+        keys.extend(motion_file.frames.into_iter().map(|frame| match frame {
+            MotionFileFrame::Joints {
+                duration,
+                positions,
+            } => {
+                current_time += duration;
+                Key::new(current_time, positions, Interpolation::Linear)
             }
-            
+            MotionFileFrame::Condition(_) => {
+                panic!("Interpolator cannot be built with Conditions")
+            }
         }));
 
         SplineInterpolator::try_new(keys)
@@ -236,11 +236,11 @@ where
         }
     }
 
-    pub fn start_position(&self) -> Joints {
+    pub fn start_position(&self) -> Joints<f32> {
         self.spline.keys()[1].value
     }
 
-    pub fn end_position(&self) -> Joints {
+    pub fn end_position(&self) -> Joints<f32> {
         self.spline.keys()[self.spline.keys().len() - 2].value
     }
 }

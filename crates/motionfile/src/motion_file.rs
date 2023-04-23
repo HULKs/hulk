@@ -37,7 +37,7 @@ pub enum MotionFileFrame {
             deserialize_with = "deserialize_float_seconds"
         )]
         duration: Duration,
-        positions: Joints,
+        positions: Joints<f32>,
     },
     Condition(ConditionEnum),
 }
