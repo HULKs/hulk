@@ -1,8 +1,9 @@
 use std::time::Duration;
 
-use crate::spline_interpolator::SplineInterpolator;
+use crate::{spline_interpolator::SplineInterpolator};
 use color_eyre::{eyre::Context, Report, Result};
 use motionfile::{Condition, MotionFile, condition::ConditionEnum};
+use splines::{Key, Interpolation};
 use types::{Joints, SensorData};
 
 pub struct MotionInterpolator {
@@ -93,11 +94,29 @@ impl TryFrom<MotionFile> for MotionInterpolator {
     type Error = Report;
 
     fn try_from(motion_file: MotionFile) -> Result<Self> {
+        let mut current_time = Duration::ZERO;
+        let mut current_spline_frames = vec![Key::new(current_time, motion_file.initial_positions, Interpolation::Linear) ];
+
+        let mut motion_items = Vec::new();
+
+        for frame in motion_file.frames {
+            match frame {
+                motionfile::MotionFileFrame::Joints { duration, positions } => {
+                    current_time += duration;
+                    current_spline_frames.push(Key::new(current_time, positions, Interpolation::Linear));
+                },
+                motionfile::MotionFileFrame::Condition(condition) => {
+                    motion_items.push(MotionItem::Spline(SplineInterpolator::try_new(current_spline_frames.clone())?));
+                    let last = current_spline_frames.pop().unwrap();
+                    current_spline_frames.clear();
+                    current_spline_frames.push(last);
+                    motion_items.push(MotionItem::Condition(condition));
+                },
+            }
+        }
+
         Ok(Self {
-            items: vec![MotionItem::Spline(
-                SplineInterpolator::try_from(motion_file)
-                    .wrap_err("failed to create spline interpolator from motion file")?,
-            )],
+            items: motion_items,
             index: 0,
         })
     }

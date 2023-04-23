@@ -9,10 +9,10 @@ use types::{
     MotionType, SensorData,
 };
 
-use crate::spline_interpolator::SplineInterpolator;
+use crate::{spline_interpolator::SplineInterpolator, motion_interpolator::MotionInterpolator};
 
 pub struct StandUpFront {
-    interpolator: SplineInterpolator<Joints<f32>>,
+    interpolator: MotionInterpolator,
     filtered_gyro: LowPassFilter<Vector2<f32>>,
 }
 
@@ -71,6 +71,7 @@ impl StandUpFront {
         } else {
             self.interpolator.reset();
         }
+        self.interpolator.update(context.sensor_data);
 
         context.motion_safe_exits[MotionType::StandUpFront] = false;
         if self.interpolator.is_finished() {
