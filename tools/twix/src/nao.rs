@@ -22,7 +22,7 @@ impl Nao {
         let _guard = runtime.enter();
         let communication = Communication::new(
             address
-                .clone()
+                .as_ref()
                 .map(|ip_address| ip_address_to_communication_url(&ip_address)),
             connect,
         );
