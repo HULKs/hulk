@@ -52,21 +52,12 @@ impl HeadMotion {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let current_head_angles = context.sensor_data.positions.head;
         let raw_request = if *context.has_ground_contact {
-            match context.motion_command.head_motion() {
-                Some(HeadMotionCommand::Center) => *context.center_head_position,
-                Some(HeadMotionCommand::LookAround)
-                | Some(HeadMotionCommand::SearchForLostBall) => *context.look_around,
-                Some(HeadMotionCommand::LookAt { .. }) => *context.look_at,
-                Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => *context.look_at,
-                Some(HeadMotionCommand::Unstiff) => current_head_angles,
-                Some(HeadMotionCommand::ZeroAngles) => Default::default(),
-                None => Default::default(),
-            }
+            Self::joints_from_motion(&context)
         } else {
             Default::default()
         };
+
 
         let maximum_movement =
             *context.maximum_velocity * context.cycle_time.last_cycle_duration.as_secs_f32();
@@ -104,5 +95,18 @@ impl HeadMotion {
             }
             .into(),
         })
+    }
+
+    pub fn joints_from_motion(context: &CycleContext) -> HeadJoints<f32>{
+        match context.motion_command.head_motion() {
+            Some(HeadMotionCommand::Center) => *context.center_head_position,
+            Some(HeadMotionCommand::LookAround)
+            | Some(HeadMotionCommand::SearchForLostBall) => *context.look_around,
+            Some(HeadMotionCommand::LookAt { .. }) => *context.look_at,
+            Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => *context.look_at,
+            Some(HeadMotionCommand::Unstiff) =>  context.sensor_data.positions.head,
+            Some(HeadMotionCommand::ZeroAngles) => Default::default(),
+            None => Default::default(),
+        }
     }
 }
