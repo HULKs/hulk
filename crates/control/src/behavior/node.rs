@@ -38,13 +38,13 @@ pub struct CycleContext {
     pub kick_targets: AdditionalOutput<Vec<Point2<f32>>, "kick_targets">,
     pub path_obstacles: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
 
+    pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub world_state: Input<WorldState, "world_state">,
 
     pub configuration: Parameter<BehaviorConfiguration, "behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
 
-    pub has_ground_contact: Input<bool, "has_ground_contact">,
 }
 
 #[context]
