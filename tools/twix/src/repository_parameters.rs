@@ -16,22 +16,20 @@ pub struct RepositoryParameters {
     ids: HashMap<u8, HardwareIds>,
 }
 
-impl Default for RepositoryParameters {
-    fn default() -> Self {
+impl RepositoryParameters {
+    pub fn try_default() -> Result<Self> {
         let runtime = Runtime::new().unwrap();
-        let repository_root = runtime.block_on(get_repository_root()).unwrap();
+        let repository_root = runtime.block_on(get_repository_root())?;
         let repository = Repository::new(repository_root);
-        let ids = runtime.block_on(repository.get_hardware_ids()).unwrap();
+        let ids = runtime.block_on(repository.get_hardware_ids())?;
 
-        Self {
+        Ok(Self {
             repository,
             runtime,
             ids,
-        }
+        })
     }
-}
 
-impl RepositoryParameters {
     pub fn write(&self, address: &str, path: &str, value: &Value) -> Result<()> {
         let head_id = self
             .head_id_from_address(address)
