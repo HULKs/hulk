@@ -58,7 +58,6 @@ impl HeadMotion {
             Default::default()
         };
 
-
         let maximum_movement =
             *context.maximum_velocity * context.cycle_time.last_cycle_duration.as_secs_f32();
 
@@ -97,14 +96,15 @@ impl HeadMotion {
         })
     }
 
-    pub fn joints_from_motion(context: &CycleContext) -> HeadJoints<f32>{
+    pub fn joints_from_motion(context: &CycleContext) -> HeadJoints<f32> {
         match context.motion_command.head_motion() {
             Some(HeadMotionCommand::Center) => *context.center_head_position,
-            Some(HeadMotionCommand::LookAround)
-            | Some(HeadMotionCommand::SearchForLostBall) => *context.look_around,
+            Some(HeadMotionCommand::LookAround) | Some(HeadMotionCommand::SearchForLostBall) => {
+                *context.look_around
+            }
             Some(HeadMotionCommand::LookAt { .. }) => *context.look_at,
             Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => *context.look_at,
-            Some(HeadMotionCommand::Unstiff) =>  context.sensor_data.positions.head,
+            Some(HeadMotionCommand::Unstiff) => context.sensor_data.positions.head,
             Some(HeadMotionCommand::ZeroAngles) => Default::default(),
             None => Default::default(),
         }
