@@ -73,7 +73,7 @@ pub struct WalkingEngine {
     /// The relative time when the last phase ended
     t_on_last_phase_end: Duration,
     /// The duration the currently executed step is planned to take
-    step_duration: Duration,
+    planned_step_duration: Duration,
     /// Fix the side of the swing foot for an entire walk phase
     swing_side: Side,
     /// Low pass filter the gyro for balance adjustment
@@ -115,7 +115,7 @@ pub struct CreationContext {
 pub struct CycleContext {
     pub step_adjustment: AdditionalOutput<StepAdjustment, "step_adjustment">,
     pub planned_step_duration: AdditionalOutput<f32, "planned_step_duration">,
-    pub actual_step_duration: AdditionalOutput<f32, "actual_step_duration">,
+    pub t: AdditionalOutput<f32, "t">,
     // TODO: ask hendrik how to do that
     // pub walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
     pub config: Parameter<WalkingEngineConfiguration, "walking_engine">,
@@ -202,8 +202,8 @@ impl WalkingEngine {
         if has_support_changed && self.t > context.config.minimal_step_duration {
             let deviation_from_plan = self
                 .t
-                .checked_sub(self.step_duration)
-                .unwrap_or_else(|| self.step_duration.checked_sub(self.t).unwrap());
+                .checked_sub(self.planned_step_duration)
+                .unwrap_or_else(|| self.planned_step_duration.checked_sub(self.t).unwrap());
             if deviation_from_plan > context.config.stable_step_deviation {
                 self.number_of_unstable_steps += 1;
             } else {
@@ -287,10 +287,8 @@ impl WalkingEngine {
 
         context
             .planned_step_duration
-            .fill_if_subscribed(|| self.step_duration.as_secs_f32());
-        context
-            .actual_step_duration
-            .fill_if_subscribed(|| self.t_on_last_phase_end.as_secs_f32());
+            .fill_if_subscribed(|| self.planned_step_duration.as_secs_f32());
+        context.t.fill_if_subscribed(|| self.t.as_secs_f32());
         // TODO: refill
         // context.walking_engine.fill_on_subscription(|| self.clone());
 
@@ -372,7 +370,7 @@ impl WalkingEngine {
 
         if self.number_of_timeouted_steps >= config.max_number_of_timeouted_steps {
             self.current_step = config.emergency_step;
-            self.step_duration = config.emergency_step_duration;
+            self.planned_step_duration = config.emergency_step_duration;
             self.swing_side = support_side;
             self.max_swing_foot_lift = config.emergency_foot_lift;
             self.number_of_timeouted_steps = 0;
@@ -386,7 +384,7 @@ impl WalkingEngine {
         if self.remaining_stabilizing_steps > 0 {
             self.remaining_stabilizing_steps -= 1;
             self.current_step = Step::zero();
-            self.step_duration = config.base_step_duration;
+            self.planned_step_duration = config.base_step_duration;
             self.swing_side = support_side.opposite();
             self.max_swing_foot_lift = config.base_foot_lift;
             return;
@@ -396,13 +394,13 @@ impl WalkingEngine {
         match self.walk_state {
             WalkState::Standing => {
                 self.current_step = Step::zero();
-                self.step_duration = Duration::ZERO;
+                self.planned_step_duration = Duration::ZERO;
                 self.swing_side = Side::Left;
                 self.max_swing_foot_lift = 0.0;
             }
             WalkState::Starting(_) => {
                 self.current_step = Step::zero();
-                self.step_duration = config.starting_step_duration;
+                self.planned_step_duration = config.starting_step_duration;
                 self.swing_side = support_side.opposite();
                 self.max_swing_foot_lift = config.starting_step_foot_lift;
             }
@@ -419,13 +417,13 @@ impl WalkingEngine {
                             - requested_step.left.abs())
                         .abs(),
                 );
-                self.step_duration = config.base_step_duration + duration_increase;
+                self.planned_step_duration = config.base_step_duration + duration_increase;
                 self.swing_side = support_side.opposite();
                 self.max_swing_foot_lift = config.base_foot_lift;
             }
             WalkState::Stopping => {
                 self.current_step = Step::zero();
-                self.step_duration = config.base_step_duration;
+                self.planned_step_duration = config.base_step_duration;
                 self.swing_side = support_side.opposite();
                 self.max_swing_foot_lift = config.base_foot_lift;
             }
@@ -440,7 +438,7 @@ impl WalkingEngine {
                     Side::Left => base_step,
                     Side::Right => base_step.mirrored(),
                 };
-                self.step_duration = config.base_step_duration;
+                self.planned_step_duration = config.base_step_duration;
                 self.swing_side = support_side.opposite();
                 self.max_swing_foot_lift = config.base_foot_lift;
             }
@@ -461,7 +459,7 @@ impl WalkingEngine {
         self.max_foot_lift_last_step = 0.0;
         self.t = Duration::ZERO;
         self.t_on_last_phase_end = Duration::ZERO;
-        self.step_duration = Duration::ZERO;
+        self.planned_step_duration = Duration::ZERO;
         self.swing_side = Side::Left;
         self.filtered_gyro_y.reset(0.0);
         self.filtered_robot_tilt_shift.reset(0.0);
@@ -510,7 +508,8 @@ impl WalkingEngine {
         support_foot_t0: FootOffsets,
         swing_foot_t0: FootOffsets,
     ) -> (FootOffsets, FootOffsets, f32, f32, f32) {
-        let linear_time = (self.t.as_secs_f32() / self.step_duration.as_secs_f32()).clamp(0.0, 1.0);
+        let linear_time =
+            (self.t.as_secs_f32() / self.planned_step_duration.as_secs_f32()).clamp(0.0, 1.0);
         let parabolic_time = parabolic_step(linear_time);
 
         let support_foot = FootOffsets {
@@ -536,7 +535,7 @@ impl WalkingEngine {
 
         let support_foot_lift = self.max_foot_lift_last_step
             * parabolic_return(
-                (self.t_on_last_phase_end.as_secs_f32() / self.step_duration.as_secs_f32()
+                (self.t_on_last_phase_end.as_secs_f32() / self.planned_step_duration.as_secs_f32()
                     + linear_time)
                     .clamp(0.0, 1.0),
             );
