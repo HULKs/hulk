@@ -144,7 +144,9 @@ impl Behavior {
                 Action::Unstiff => unstiff::execute(world_state),
                 Action::SitDown => sit_down::execute(world_state),
                 Action::Penalize => penalize::execute(world_state),
-                Action::FallSafely => fall_safely::execute(world_state, *context.has_ground_contact),
+                Action::FallSafely => {
+                    fall_safely::execute(world_state, *context.has_ground_contact)
+                }
                 Action::StandUp => stand_up::execute(world_state),
                 Action::DefendGoal => defend.goal(&mut context.path_obstacles),
                 Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
