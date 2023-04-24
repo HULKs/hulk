@@ -13,7 +13,7 @@ use crate::{
 pub struct ParameterPanel {
     nao: Arc<Nao>,
     path: String,
-    repository_parameters: RepositoryParameters,
+    repository_parameters: Option<RepositoryParameters>,
     value_buffer: Option<ValueBuffer>,
     parameter_value: String,
     update_notify_sender: mpsc::Sender<()>,
@@ -49,7 +49,7 @@ impl Panel for ParameterPanel {
         Self {
             nao,
             path,
-            repository_parameters: Default::default(),
+            repository_parameters: RepositoryParameters::try_default().ok(),
             value_buffer,
             parameter_value: String::new(),
             update_notify_sender,
@@ -87,20 +87,25 @@ impl Widget for &mut ParameterPanel {
                         }
                     }
                 });
-                ui.add_enabled_ui(settable, |ui| {
+                ui.add_enabled_ui(settable && self.repository_parameters.is_some(), |ui| {
                     if ui.button("Save to disk").clicked() {
                         if let Some(address) = self.nao.get_address() {
-                            match serde_json::from_str::<Value>(&self.parameter_value) {
-                                Ok(value) => {
-                                    if let Err(error) = self
-                                        .repository_parameters
-                                        .write(&address, &self.path, &value)
+                            match (
+                                serde_json::from_str::<Value>(&self.parameter_value),
+                                &self.repository_parameters,
+                            ) {
+                                (Ok(value), Some(repository_parameters)) => {
+                                    if let Err(error) =
+                                        repository_parameters.write(&address, &self.path, &value)
                                     {
                                         error!("Failed to write value to repository: {error:#?}");
                                     }
                                 }
-                                Err(error) => {
+                                (Err(error), _) => {
                                     error!("Failed to serialize parameter value: {error:#?}")
+                                }
+                                _ => {
+                                    error!("Repository is not available, cannot save.")
                                 }
                             };
                         }
