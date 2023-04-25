@@ -31,6 +31,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub ball_state: MainOutput<Option<BallState>>,
+    pub rule_ball_state: MainOutput<Option<BallState>>,
 }
 
 impl BallStateComposer {
@@ -41,7 +42,7 @@ impl BallStateComposer {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let ball = match (
+        let rule_ball: Option<BallState> = match (
             context.primary_state,
             context.ball_position,
             context.team_ball,
@@ -68,20 +69,32 @@ impl BallStateComposer {
                 let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0];
                 Some(create_ball_state(
                     robot_to_field.inverse() * penalty_spot_location,
+                    penalty_spot_location,
                     context.robot_to_field,
                     &mut self.last_ball_field_side,
                     context.penalty_shot_direction.copied(),
                 ))
             }
+            _ => None,
+        };
+        let ball = match (
+            context.primary_state,
+            context.ball_position,
+            context.team_ball,
+            context.robot_to_field,
+            context.game_controller_state,
+        ) {
             (PrimaryState::Ready, ..) => None,
-            (_, Some(ball_position), _, robot_to_field, _) => Some(create_ball_state(
+            (_, Some(ball_position), _, Some(robot_to_field), _) => Some(create_ball_state(
                 ball_position.position,
-                robot_to_field,
+                robot_to_field * ball_position.position,
+                Some(robot_to_field),
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
             (_, None, Some(ball_position), Some(robot_to_field), _) => Some(create_ball_state(
                 robot_to_field.inverse() * ball_position.position,
+                ball_position.position,
                 Some(robot_to_field),
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
@@ -91,6 +104,7 @@ impl BallStateComposer {
 
         Ok(MainOutputs {
             ball_state: ball.into(),
+            rule_ball_state: rule_ball.into(),
         })
     }
 }
@@ -103,7 +117,6 @@ fn create_ball_state(
     penalty_shot_direction: Option<PenaltyShotDirection>,
 ) -> BallState {
     let was_in_left_half = *last_ball_field_side == Side::Left;
-    let ball_in_field = robot_to_field * ball_in_ground;
     let field_side = match robot_to_field {
         Some(robot_to_field) => {
             let is_in_left_half =

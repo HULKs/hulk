@@ -4,8 +4,8 @@ use framework::MainOutput;
 use nalgebra::{Isometry2, Point2};
 use spl_network_messages::PlayerNumber;
 use types::{
-    BallState, FallState, FilteredGameState, GameControllerState, Obstacle, PenaltyShotDirection,
-    PrimaryState, RobotState, Role, WorldState,
+    BallState, FallState, FilteredGameState, GameControllerState, Obstacle, PathObstacle,
+    PenaltyShotDirection, PrimaryState, RobotState, Role, WorldState,
 };
 
 pub struct WorldStateComposer {}
@@ -18,6 +18,7 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub ball: Input<Option<BallState>, "ball_state?">,
+    pub rule_ball: Input<Option<BallState>, "rule_ball_state?">,
     pub filtered_game_state: Input<Option<FilteredGameState>, "filtered_game_state?">,
     pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
     pub penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
@@ -28,6 +29,7 @@ pub struct CycleContext {
     pub fall_state: Input<FallState, "fall_state">,
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub obstacles: Input<Vec<Obstacle>, "obstacles">,
+    pub rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
     pub primary_state: Input<PrimaryState, "primary_state">,
     pub role: Input<Role, "role">,
     pub position_of_interest: Input<Point2<f32>, "position_of_interest">,
@@ -56,8 +58,10 @@ impl WorldStateComposer {
 
         let world_state = WorldState {
             ball: context.ball.copied(),
+            rule_ball: context.rule_ball.copied(),
             filtered_game_state: context.filtered_game_state.copied(),
             obstacles: context.obstacles.clone(),
+            rule_obstacles: context.rule_obstacles.clone(),
             position_of_interest: *context.position_of_interest,
             robot,
             game_controller_state: context.game_controller_state.copied(),
