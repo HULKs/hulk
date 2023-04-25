@@ -13,7 +13,7 @@ pub fn execute(
 ) -> Option<MotionCommand> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let kick_off_pose = Isometry2::translation(
-        field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
+        field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance - 0.1,
         0.0,
     );
     walk_and_stand.execute(
