@@ -118,9 +118,14 @@ impl FallProtector {
                 self.interpolator.set_initial_positions(current_positions);
                 self.interpolator
                     .advance_by(context.cycle_time.last_cycle_duration);
+
+                let fall_back_stiffnesses = Joints::from_head_and_body(
+                    HeadJoints::fill(head_stiffness),
+                    BodyJoints::fill(0.8),
+                );
                 JointsCommand {
                     positions: self.interpolator.value()?,
-                    stiffnesses: Joints::fill(0.8),
+                    stiffnesses: fall_back_stiffnesses,
                 }
             }
             _ => {

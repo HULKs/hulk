@@ -47,19 +47,19 @@
         },
         "left_arm": {
           "elbow_roll": -0.015298128128051758,
-          "elbow_yaw": -1.5723919868469238,
+          "elbow_yaw": 0.5,
           "hand": 0.011600017547607422,
           "shoulder_pitch": 1.533958077430725,
           "shoulder_roll": 0.02603602409362793,
-          "wrist_yaw": -0.027653932571411133
+          "wrist_yaw": 0.02
         },
         "left_leg": {
           "ankle_pitch": 0.004559993743896484,
           "ankle_roll": -0.001492023468017578,
           "hip_pitch": -1.5,
           "hip_roll": 0.000041961669921875,
-          "hip_yaw_pitch": 0.000041961669921875,
-          "knee_pitch": 2
+          "hip_yaw_pitch": -0.3,
+          "knee_pitch": 2.0
         },
         "right_arm": {
           "elbow_roll": 0.029187917709350582,
@@ -74,8 +74,8 @@
           "ankle_roll": -0.001492023468017578,
           "hip_pitch": -1.5,
           "hip_roll": 0.001575946807861328,
-          "hip_yaw_pitch": 0.000041961669921875,
-          "knee_pitch": 2
+          "hip_yaw_pitch": -0.3,
+          "knee_pitch": 2.0
         }
       }
     },
@@ -87,20 +87,20 @@
           "pitch": 0.5149
         },
         "left_arm": {
-          "elbow_roll": 0.5415439605712891,
-          "elbow_yaw": 0.11500811576843262,
-          "hand": 0.0764000415802002,
-          "shoulder_pitch": 2.1016221046447754,
-          "shoulder_roll": 0.1058039665222168,
-          "wrist_yaw": 0.480100154876709
+          "elbow_roll": -0.3405900001525879,
+          "elbow_yaw": 0.5384759902954102,
+          "hand": 0.08000004291534424,
+          "shoulder_pitch": 1.4343318939208984,
+          "shoulder_roll": 0.3497939109802246,
+          "wrist_yaw": -1.3208160400390625
         },
         "right_arm": {
-          "elbow_roll": 0.5415439605712891,
-          "elbow_yaw": 0.11500811576843262,
-          "hand": 0.0764000415802002,
-          "shoulder_pitch": 2.1016221046447754,
-          "shoulder_roll": 0.1058039665222168,
-          "wrist_yaw": 0.480100154876709
+          "elbow_roll": 0.3405900001525879,
+          "elbow_yaw": -0.5384759902954102,
+          "hand": 0.08000004291534424,
+          "shoulder_pitch": 1.4343318939208984,
+          "shoulder_roll": -0.3497939109802246,
+          "wrist_yaw": -1.3208160400390625
         },
         "left_leg": {
           "ankle_pitch": -0.5,
