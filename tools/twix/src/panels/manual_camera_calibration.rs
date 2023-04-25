@@ -105,7 +105,6 @@ fn add_extrinsic_calibration_ui_components(
             },
             nao.clone(),
             repository_parameters,
-            settable,
         );
     });
 
