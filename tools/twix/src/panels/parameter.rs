@@ -98,7 +98,6 @@ impl Widget for &mut ParameterPanel {
                     },
                     self.nao.clone(),
                     &self.repository_parameters,
-                    settable,
                 );
             });
 
@@ -132,11 +131,10 @@ pub fn add_save_button<SerdesJsonValueProvider>(
     parameter_value_provider_fn: SerdesJsonValueProvider,
     nao: Arc<Nao>,
     repository_parameters: &Option<RepositoryParameters>,
-    settable: bool,
 ) where
     SerdesJsonValueProvider: FnOnce() -> Result<serde_json::Value>,
 {
-    ui.add_enabled_ui(settable, |ui| {
+    ui.add_enabled_ui(repository_parameters.is_some(), |ui| {
         if ui.button("Save to disk").clicked() {
             if let Some(address) = nao.get_address() {
                 match (parameter_value_provider_fn(), repository_parameters) {
