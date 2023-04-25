@@ -79,8 +79,8 @@ impl Projection for CameraMatrix {
             return Err(Error::AboveHorizon);
         }
 
-        let elevation = z - self.camera_to_ground.translation.z;
-        let slope = elevation / camera_ray_over_ground.z;
+        let distance_to_plane = z - self.camera_to_ground.translation.z;
+        let slope = distance_to_plane / camera_ray_over_ground.z;
         let intersection_point =
             self.camera_to_ground.translation.vector + camera_ray_over_ground * slope;
         Ok(point![intersection_point.x, intersection_point.y])
@@ -112,8 +112,8 @@ impl Projection for CameraMatrix {
         let camera_ray = self.pixel_to_camera(pixel_coordinates);
         let camera_ray_over_robot = self.camera_to_robot.rotation * camera_ray;
 
-        let elevation = x - self.camera_to_robot.translation.x;
-        let slope = elevation / camera_ray_over_robot.x;
+        let distance_to_plane = x - self.camera_to_robot.translation.x;
+        let slope = distance_to_plane / camera_ray_over_robot.x;
 
         let intersection_point =
             self.camera_to_robot.translation.vector + camera_ray_over_robot * slope;
