@@ -77,18 +77,14 @@ impl GameStateFilter {
             })
             .unwrap_or(false);
 
+        let penalty_spot_x = -context.field_dimensions.length / 2.0
+            + context.field_dimensions.penalty_marker_distance;
         let ball_detected_far_from_penalty_spot = context
             .ball_position
             .map(|ball| {
                 let absolute_ball_position = *context.robot_to_field * ball.position;
-                distance(
-                    &absolute_ball_position,
-                    &Point2::new(
-                        -context.field_dimensions.length / 2.0
-                            + context.field_dimensions.penalty_marker_distance,
-                        0.0,
-                    ),
-                ) > context.config.distance_to_consider_ball_moved_in_kick_off
+                distance(&absolute_ball_position, &Point2::new(penalty_spot_x, 0.0))
+                    > context.config.distance_to_consider_ball_moved_in_kick_off
             })
             .unwrap_or(false);
 
