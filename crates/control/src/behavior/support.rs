@@ -44,7 +44,8 @@ fn support_pose(
     let ball = world_state
         .ball
         .map(|ball| BallState {
-            position: robot_to_field * ball.position,
+            ball_in_ground: ball.ball_in_ground,
+            ball_in_field: robot_to_field * ball.ball_in_ground,
             field_side: ball.field_side,
             penalty_shot_direction: Default::default(),
         })
@@ -54,7 +55,7 @@ fn support_pose(
         Side::Left => -FRAC_PI_4,
         Side::Right => FRAC_PI_4,
     }) * -(Vector2::x() * distance_to_ball);
-    let supporting_position = ball.position + offset_vector;
+    let supporting_position = ball.ball_in_ground + offset_vector;
     let clamped_x = match world_state.filtered_game_state {
         Some(FilteredGameState::Ready { .. })
         | Some(FilteredGameState::Playing {
@@ -70,7 +71,7 @@ fn support_pose(
     let clamped_position = point![clamped_x, supporting_position.y];
     let support_pose = Isometry2::new(
         clamped_position.coords,
-        rotate_towards(clamped_position, ball.position).angle(),
+        rotate_towards(clamped_position, ball.ball_in_ground).angle(),
     );
     Some(robot_to_field.inverse() * support_pose)
 }

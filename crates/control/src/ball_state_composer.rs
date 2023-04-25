@@ -96,15 +96,16 @@ impl BallStateComposer {
 }
 
 fn create_ball_state(
-    position: Point2<f32>,
+    ball_in_ground: Point2<f32>,
+    ball_in_field: Point2<f32>,
     robot_to_field: Option<&Isometry2<f32>>,
     last_ball_field_side: &mut Side,
     penalty_shot_direction: Option<PenaltyShotDirection>,
 ) -> BallState {
     let was_in_left_half = *last_ball_field_side == Side::Left;
+    let ball_in_field = robot_to_field * ball_in_ground;
     let field_side = match robot_to_field {
         Some(robot_to_field) => {
-            let ball_in_field = robot_to_field * position;
             let is_in_left_half =
                 greater_than_with_hysteresis(was_in_left_half, ball_in_field.y, 0.0, 0.1);
             let field_side = if is_in_left_half {
@@ -118,7 +119,8 @@ fn create_ball_state(
         None => Side::Left,
     };
     BallState {
-        position,
+        ball_in_ground,
+        ball_in_field,
         field_side,
         penalty_shot_direction,
     }

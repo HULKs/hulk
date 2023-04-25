@@ -249,7 +249,7 @@ impl State {
         ball_detected_far_from_penalty_spot: bool,
         config: &GameStateFilterConfiguration,
     ) -> FilteredGameState {
-        let is_in_sub_state = matches!(game_controller_state.sub_state, Some(_));
+        let is_in_sub_state = game_controller_state.sub_state.is_some();
         let opponent_is_kicking_team = matches!(
             game_controller_state.kicking_team,
             Team::Opponent | Team::Uncertain
@@ -277,15 +277,9 @@ impl State {
                     ball_is_free: !opponent_kick_off && !opponent_sub_state,
                 }
             }
-            State::Playing => {
-                let deciding_factor_ball_is_free = match game_controller_state.sub_state {
-                    Some(SubState::PenaltyKick) => !ball_detected_far_from_penalty_spot,
-                    _ => is_in_sub_state,
-                };
-                FilteredGameState::Playing {
-                    ball_is_free: !(opponent_is_kicking_team && deciding_factor_ball_is_free),
-                }
-            }
+            State::Playing => FilteredGameState::Playing {
+                ball_is_free: !(opponent_is_kicking_team && opponent_is_kicking_team),
+            },
             State::WhistleInPlaying { .. } => FilteredGameState::Ready {
                 kicking_team: Team::Uncertain,
             },

@@ -21,19 +21,10 @@ pub struct WorldState {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct BallState {
-    pub position: Point2<f32>,
+    pub ball_in_ground: Point2<f32>,
+    pub ball_in_field: Point2<f32>,
     pub penalty_shot_direction: Option<PenaltyShotDirection>,
     pub field_side: Side,
-}
-
-impl Default for BallState {
-    fn default() -> Self {
-        Self {
-            position: Point2::origin(),
-            penalty_shot_direction: Default::default(),
-            field_side: Side::Left,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
