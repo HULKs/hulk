@@ -134,7 +134,7 @@ pub fn add_save_button<SerdesJsonValueProvider>(
     repository_parameters: &Option<RepositoryParameters>,
     settable: bool,
 ) where
-    SerdesJsonValueProvider: Fn() -> Result<serde_json::Value>,
+    SerdesJsonValueProvider: FnOnce() -> Result<serde_json::Value>,
 {
     ui.add_enabled_ui(settable, |ui| {
         if ui.button("Save to disk").clicked() {
