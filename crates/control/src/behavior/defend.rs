@@ -94,23 +94,12 @@ fn defend_left_pose(
 ) -> Option<Isometry2<f32>> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let ball = world_state
-        .ball
-        .map(|ball| BallState {
-            position: robot_to_field * ball.position,
-            field_side: ball.field_side,
-            penalty_shot_direction: Default::default(),
-        })
-        .unwrap_or_default();
+        .rule_ball
+        .or(world_state.ball)
+        .unwrap_or_else(|| BallState::new_at_center(robot_to_field));
 
     let position_to_defend = point![
-        match world_state.game_controller_state {
-            Some(GameControllerState {
-                sub_state: Some(SubState::PenaltyKick),
-                kicking_team: Team::Opponent,
-                ..
-            }) => (-field_dimensions.length + field_dimensions.penalty_area_length) / 2.0,
-            _ => -field_dimensions.length / 2.0,
-        },
+        -field_dimensions.length / 2.0,
         role_positions.defender_y_offset
     ];
     let distance_to_target = if ball.field_side == Side::Left {
@@ -119,7 +108,7 @@ fn defend_left_pose(
         role_positions.defender_passive_ring_radius
     };
 
-    let defend_pose = block_on_circle(ball.position, position_to_defend, distance_to_target);
+    let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
     Some(robot_to_field.inverse() * defend_pose)
 }
 
@@ -130,13 +119,9 @@ fn defend_right_pose(
 ) -> Option<Isometry2<f32>> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let ball = world_state
-        .ball
-        .map(|ball| BallState {
-            position: robot_to_field * ball.position,
-            field_side: ball.field_side,
-            penalty_shot_direction: Default::default(),
-        })
-        .unwrap_or_default();
+        .rule_ball
+        .or(world_state.ball)
+        .unwrap_or_else(|| BallState::new_at_center(robot_to_field));
 
     let position_to_defend = point![
         match world_state.game_controller_state {
@@ -155,7 +140,7 @@ fn defend_right_pose(
         role_positions.defender_passive_ring_radius
     };
 
-    let defend_pose = block_on_circle(ball.position, position_to_defend, distance_to_target);
+    let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
     Some(robot_to_field.inverse() * defend_pose)
 }
 
@@ -166,16 +151,9 @@ fn defend_penalty_kick(
 ) -> Option<Isometry2<f32>> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let ball = world_state
-        .ball
-        .map(|ball| BallState {
-            position: point![
-                -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
-                0.0
-            ],
-            field_side: ball.field_side,
-            penalty_shot_direction: Default::default(),
-        })
-        .unwrap_or_default();
+        .rule_ball
+        .or(world_state.ball)
+        .unwrap_or_else(|| BallState::new_at_center(robot_to_field));
 
     let position_to_defend = point![
         (-field_dimensions.length + field_dimensions.penalty_area_length) / 2.0,
@@ -187,7 +165,7 @@ fn defend_penalty_kick(
         role_positions.defender_passive_ring_radius
     };
 
-    let defend_pose = block_on_circle(ball.position, position_to_defend, distance_to_target);
+    let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
     Some(robot_to_field.inverse() * defend_pose)
 }
 
@@ -198,13 +176,9 @@ fn defend_goal_pose(
 ) -> Option<Isometry2<f32>> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let ball = world_state
-        .ball
-        .map(|ball| BallState {
-            position: robot_to_field * ball.position,
-            field_side: ball.field_side,
-            penalty_shot_direction: Default::default(),
-        })
-        .unwrap_or_default();
+        .rule_ball
+        .or(world_state.ball)
+        .unwrap_or_else(|| BallState::new_at_center(robot_to_field));
 
     let keeper_x_offset = match world_state.game_controller_state {
         Some(
@@ -226,7 +200,7 @@ fn defend_goal_pose(
 
     let position_to_defend = point![-field_dimensions.length / 2.0 - 1.0, 0.0];
     let defend_pose = block_on_line(
-        ball.position,
+        ball.ball_in_field,
         position_to_defend,
         -field_dimensions.length / 2.0 + keeper_x_offset,
         -0.7..0.7,
@@ -241,7 +215,7 @@ fn defend_kick_off_pose(
 ) -> Option<Isometry2<f32>> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let absolute_ball_position = match world_state.ball {
-        Some(ball) => robot_to_field * ball.position,
+        Some(ball) => ball.ball_in_field,
         None => Point2::origin(),
     };
     let position_to_defend = point![-field_dimensions.length / 2.0, 0.0];

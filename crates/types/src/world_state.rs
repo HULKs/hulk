@@ -5,6 +5,7 @@ use spl_network_messages::PlayerNumber;
 
 use crate::GameControllerState;
 
+use crate::RuleObstacle;
 use crate::PenaltyShotDirection;
 
 use super::{FallState, FilteredGameState, Obstacle, PrimaryState, Role, Side};
@@ -12,24 +13,28 @@ use super::{FallState, FilteredGameState, Obstacle, PrimaryState, Role, Side};
 #[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct WorldState {
     pub ball: Option<BallState>,
+    pub rule_ball: Option<BallState>,
     pub filtered_game_state: Option<FilteredGameState>,
     pub game_controller_state: Option<GameControllerState>,
     pub obstacles: Vec<Obstacle>,
+    pub rule_obstacles: Vec<RuleObstacle>,
     pub position_of_interest: Point2<f32>,
     pub robot: RobotState,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct BallState {
-    pub position: Point2<f32>,
+    pub ball_in_ground: Point2<f32>,
+    pub ball_in_field: Point2<f32>,
     pub penalty_shot_direction: Option<PenaltyShotDirection>,
     pub field_side: Side,
 }
 
-impl Default for BallState {
-    fn default() -> Self {
+impl BallState {
+    pub fn new_at_center(robot_to_field: Isometry2<f32>) -> Self {
         Self {
-            position: Point2::origin(),
+            ball_in_field: Point2::origin(),
+            ball_in_ground: robot_to_field.inverse() * Point2::origin(),
             penalty_shot_direction: Default::default(),
             field_side: Side::Left,
         }

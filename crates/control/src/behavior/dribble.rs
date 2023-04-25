@@ -22,7 +22,7 @@ fn kick_decisions_from_targets(
     world_state: &WorldState,
 ) -> Option<Vec<KickDecision>> {
     let robot_to_field = world_state.robot.robot_to_field?;
-    let relative_ball_position = world_state.ball?.position;
+    let relative_ball_position = world_state.ball?.ball_in_ground;
     let absolute_ball_position = robot_to_field * relative_ball_position;
     Some(
         targets_to_kick_to
@@ -60,7 +60,7 @@ pub fn execute(
     best_kick_decisions_output: &mut AdditionalOutput<Option<KickDecision>>,
 ) -> Option<MotionCommand> {
     let robot_to_field = world_state.robot.robot_to_field?;
-    let relative_ball_position = world_state.ball?.position;
+    let relative_ball_position = world_state.ball?.ball_in_ground;
     let head = HeadMotion::LookLeftAndRightOf {
         target: relative_ball_position,
     };
@@ -168,7 +168,7 @@ pub fn execute(
 
     let is_near_ball = matches!(
         world_state.ball,
-        Some(ball) if ball.position.coords.norm() < parameters.ignore_robot_when_near_ball_radius,
+        Some(ball) if ball.ball_in_ground.coords.norm() < parameters.ignore_robot_when_near_ball_radius,
     );
     let obstacles = if is_near_ball {
         &[]

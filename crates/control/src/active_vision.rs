@@ -72,7 +72,7 @@ impl ActiveVision {
                 }
                 PointOfInterest::Ball => {
                     if let Some(ball_state) = context.ball {
-                        ball_state.position
+                        ball_state.ball_in_ground
                     } else {
                         context.parameters.look_forward_position
                     }
