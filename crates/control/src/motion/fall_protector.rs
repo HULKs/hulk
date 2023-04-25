@@ -1,7 +1,7 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use approx::relative_eq;
-use color_eyre::Result;
+use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
@@ -124,7 +124,10 @@ impl FallProtector {
                     BodyJoints::fill(0.8),
                 );
                 JointsCommand {
-                    positions: self.interpolator.value()?,
+                    positions: self
+                        .interpolator
+                        .value()
+                        .wrap_err("failed to get interpolator value")?,
                     stiffnesses: fall_back_stiffnesses,
                 }
             }
