@@ -113,13 +113,14 @@ fn add_extrinsic_calibration_ui_components(
             camera_matrix_subscription_path,
             &camera_parameter_option,
             serde_json::to_value,
-            nao,
+            nao.clone(),
             repository_parameters,
             settable,
         );
     });
 
     ui.label(""); // TODO Identify a better way to do vertical spaces.
+    let mut changed = false;
     ui.collapsing(
         format!("Intrinsic Parameters {label:#}"),
         |ui| match &mut camera_parameter_option {
@@ -130,13 +131,14 @@ fn add_extrinsic_calibration_ui_components(
                     .iter_mut()
                     .zip(["X", "Y"])
                 {
-                    ui.add(
-                        Slider::new(axis_value, RangeInclusive::new(0.0, 2.0))
-                            .text(axis_name)
-                            .smart_aim(false)
-                            .min_decimals(slider_minimum_decimals)
-                            .max_decimals(slider_maximum_decimals),
-                    );
+                    let slider = Slider::new(axis_value, RangeInclusive::new(0.0, 2.0))
+                        .text(axis_name)
+                        .smart_aim(false)
+                        .min_decimals(slider_minimum_decimals)
+                        .max_decimals(slider_maximum_decimals);
+                    if ui.add(slider).changed() {
+                        changed = true
+                    };
                 }
                 ui.label("Optical Centre (Normalized)");
                 for (axis_value, axis_name) in camera_parameter_value
@@ -144,13 +146,14 @@ fn add_extrinsic_calibration_ui_components(
                     .iter_mut()
                     .zip(["X", "Y"])
                 {
-                    ui.add(
-                        Slider::new(axis_value, RangeInclusive::new(0.0, 1.0))
-                            .text(axis_name)
-                            .smart_aim(false)
-                            .min_decimals(slider_minimum_decimals)
-                            .max_decimals(slider_maximum_decimals),
-                    );
+                    let slider = Slider::new(axis_value, RangeInclusive::new(0.0, 1.0))
+                        .text(axis_name)
+                        .smart_aim(false)
+                        .min_decimals(slider_minimum_decimals)
+                        .max_decimals(slider_maximum_decimals);
+                    if ui.add(slider).changed() {
+                        changed = true
+                    };
                 }
                 ui.label(""); // TODO Identify a better way to do vertical spaces.
             }
@@ -171,20 +174,31 @@ fn add_extrinsic_calibration_ui_components(
                 .iter_mut()
                 .zip(["Roll", "Pitch", "Yaw"])
             {
-                ui.add(
-                    Slider::new(
-                        axis_value,
-                        RangeInclusive::new(-extrinsic_maximum_degrees, extrinsic_maximum_degrees),
-                    )
-                    .text(axis_name)
-                    .smart_aim(false),
-                );
+                let slider = Slider::new(
+                    axis_value,
+                    RangeInclusive::new(-extrinsic_maximum_degrees, extrinsic_maximum_degrees),
+                )
+                .text(axis_name)
+                .smart_aim(false);
+                if ui.add(slider).changed() {
+                    changed = true
+                };
             }
         }
         _ => {
             ui.label("Extrinsic parameters not recieved.");
         }
     };
+    if changed {
+        if let Some(camera_parameter_value) = camera_parameter_option {
+            match serde_json::value::to_value(camera_parameter_value) {
+                Ok(value) => {
+                    nao.update_parameter_value(camera_matrix_subscription_path, value);
+                }
+                Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
+            }
+        }
+    }
 }
 
 impl Widget for &mut ManualCalibrationPanel {
