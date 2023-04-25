@@ -128,7 +128,7 @@ impl Widget for &mut ParameterPanel {
 
 pub fn add_save_button<SerdesJsonValueProvider>(
     ui: &mut Ui,
-    parameter_path: &String,
+    parameter_path: &str,
     parameter_value_provider_fn: SerdesJsonValueProvider,
     nao: Arc<Nao>,
     repository_parameters: &Option<RepositoryParameters>,
@@ -141,7 +141,7 @@ pub fn add_save_button<SerdesJsonValueProvider>(
             if let Some(address) = nao.get_address() {
                 match (parameter_value_provider_fn(), repository_parameters) {
                     (Ok(value), Some(repository_parameters)) => {
-                        repository_parameters.write(&address, parameter_path.clone(), value);
+                        repository_parameters.write(&address, parameter_path.to_owned(), value);
                     }
                     (Err(error), _) => {
                         error!("Failed to serialize parameter value: {error:#?}")

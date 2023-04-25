@@ -1,3 +1,4 @@
+use color_eyre::eyre::Context;
 use eframe::egui::{Response, Slider, Ui, Widget};
 use log::{error, info};
 use serde_json::Value;
@@ -21,7 +22,7 @@ struct CameraParameterSubscriptions<DeserializedValueType> {
 
 pub struct ManualCalibrationPanel {
     nao: Arc<Nao>,
-    repository_parameters: RepositoryParameters,
+    repository_parameters: Option<RepositoryParameters>,
     extrinsic_rotation_subscriptions:
         [CameraParameterSubscriptions<Option<CameraMatrixParameters>>; 2],
 }
@@ -49,11 +50,9 @@ impl Panel for ManualCalibrationPanel {
             }
         });
 
-        let repository_parameters = RepositoryParameters::default();
-
         Self {
             nao,
-            repository_parameters,
+            repository_parameters: RepositoryParameters::try_default().ok(),
             extrinsic_rotation_subscriptions,
         }
     }
@@ -62,7 +61,7 @@ impl Panel for ManualCalibrationPanel {
 fn add_extrinsic_calibration_ui_components(
     ui: &mut Ui,
     nao: Arc<Nao>,
-    repository_parameters: &RepositoryParameters,
+    repository_parameters: &Option<RepositoryParameters>,
     camera_matrix_parameters_subscription: &mut CameraParameterSubscriptions<
         Option<CameraMatrixParameters>,
     >,
@@ -111,8 +110,10 @@ fn add_extrinsic_calibration_ui_components(
         add_save_button(
             ui,
             camera_matrix_subscription_path,
-            &camera_parameter_option,
-            serde_json::to_value,
+            || {
+                serde_json::to_value(&camera_parameter_option)
+                    .wrap_err("Conveting CameraMatrixParameters to serde_json::Value failed.")
+            },
             nao.clone(),
             repository_parameters,
             settable,
