@@ -13,7 +13,7 @@ use crate::spline_interpolator::SplineInterpolator;
 
 pub struct FallProtector {
     start_time: SystemTime,
-    interpolator: SplineInterpolator,
+    interpolator: SplineInterpolator<Joints<f32>>,
 }
 
 #[context]
