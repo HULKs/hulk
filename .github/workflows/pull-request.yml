@@ -56,14 +56,14 @@ jobs:
           lfs: true
       - name: Test
         run: |
-          cargo test --profile incremental --all-features --workspace
+          cargo test --all-features --workspace
   build:
     name: Build
     strategy:
       fail-fast: true
       matrix:
         target: [nao, webots]
-        profile: [release, incremental, dev]
+        profile: [release, dev]
     runs-on:
       - self-hosted
       - v2
@@ -97,7 +97,7 @@ jobs:
       - name: Build
         run: |
           cd ${{ matrix.path }}
-          cargo build --profile incremental --all-features
+          cargo build --all-features
   build_aliveness:
     name: Build Aliveness
     runs-on:
