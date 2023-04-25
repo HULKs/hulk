@@ -57,6 +57,8 @@ pub enum InterpolatorError {
     NotEnoughKeys,
     #[error("uses unsupported interpolation mode {interpolation_mode}")]
     UnsupportedInterpolationMode { interpolation_mode: String },
+    #[error("motionfile contains conditions, spline can only be built with conditions")]
+    MotionFileContainsConditions,
 }
 
 impl InterpolatorError {
@@ -95,18 +97,24 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for SplineInterpolator<
             Interpolation::Linear,
         )];
 
-        keys.extend(motion_file.frames.into_iter().map(|frame| match frame {
-            MotionFileFrame::Joints {
-                duration,
-                positions,
-            } => {
-                current_time += duration;
-                Key::new(current_time, positions, Interpolation::Linear)
-            }
-            MotionFileFrame::Condition(_) => {
-                panic!("Interpolator cannot be built with Conditions")
-            }
-        }));
+        keys.extend(
+            motion_file
+                .frames
+                .into_iter()
+                .map(|frame| match frame {
+                    MotionFileFrame::Joints {
+                        duration,
+                        positions,
+                    } => {
+                        current_time += duration;
+                        Ok(Key::new(current_time, positions, Interpolation::Linear))
+                    }
+                    MotionFileFrame::Condition(_) => {
+                        Err(InterpolatorError::MotionFileContainsConditions)
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        );
 
         SplineInterpolator::try_new(keys)
     }
@@ -200,7 +208,7 @@ where
 
     pub fn value(&self) -> Result<T, InterpolatorError> {
         if self.current_duration >= self.total_duration {
-            self.spline.keys().iter().rev().nth(1).map(|key| key.value)
+            Ok(self.end_position())
         } else {
             // Duration and f32 have different precisions, we have to ensure that if self.current_duration < self.total_duration, that
             // self.current_duration.as_secs_f32() != self.total_duration.as_secs_f32(), since otherwise we are unable to sample the spline.
@@ -208,11 +216,13 @@ where
                 .current_duration
                 .as_secs_f32()
                 .clamp(0., self.total_duration.as_secs_f32() - f32::EPSILON);
-            self.spline.sample(clamped_duration)
+            self.spline.sample(clamped_duration).ok_or_else(|| {
+                InterpolatorError::create_control_key_error(
+                    self.spline.keys(),
+                    self.current_duration,
+                )
+            })
         }
-        .ok_or_else(|| {
-            InterpolatorError::create_control_key_error(self.spline.keys(), self.current_duration)
-        })
     }
 
     pub fn is_finished(&self) -> bool {
