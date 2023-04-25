@@ -171,49 +171,46 @@ fn next_point_of_interest(
             let field_mark_of_interest =
                 closest_field_mark_visible(field_mark_positions, parameters, robot_to_field);
 
-            if let Some(field_mark_position) = field_mark_of_interest {
-                PointOfInterest::FieldMark {
+            match (field_mark_of_interest, ball) {
+                (Some(field_mark_position), _) => PointOfInterest::FieldMark {
                     absolute_position: robot_to_field * field_mark_position,
+                },
+                (_, Some(_)) => PointOfInterest::Ball,
+                (None, None) => {
+                    let closest_interesting_obstacle_position =
+                        closest_interesting_obstacle_visible(obstacles, parameters);
+                    match closest_interesting_obstacle_position {
+                        Some(interesting_obstacle_position) => PointOfInterest::Obstacle {
+                            absolute_position: robot_to_field * interesting_obstacle_position,
+                        },
+                        None => PointOfInterest::Forward,
+                    }
                 }
-            } else if let Some(..) = ball {
-                PointOfInterest::Ball
-            } else {
+            }
+        }
+        PointOfInterest::FieldMark { .. } => match ball {
+            Some(_) => PointOfInterest::Ball,
+            None => {
                 let closest_interesting_obstacle_position =
                     closest_interesting_obstacle_visible(obstacles, parameters);
 
-                if let Some(interesting_obstacle_position) = closest_interesting_obstacle_position {
-                    PointOfInterest::Obstacle {
+                match closest_interesting_obstacle_position {
+                    Some(interesting_obstacle_position) => PointOfInterest::Obstacle {
                         absolute_position: robot_to_field * interesting_obstacle_position,
-                    }
-                } else {
-                    PointOfInterest::Forward
+                    },
+                    None => PointOfInterest::Forward,
                 }
             }
-        }
-        PointOfInterest::FieldMark { .. } => {
-            if let Some(..) = ball {
-                PointOfInterest::Ball
-            } else {
-                let closest_interesting_obstacle_position =
-                    closest_interesting_obstacle_visible(obstacles, parameters);
-                if let Some(interesting_obstacle_position) = closest_interesting_obstacle_position {
-                    PointOfInterest::Obstacle {
-                        absolute_position: robot_to_field * interesting_obstacle_position,
-                    }
-                } else {
-                    PointOfInterest::Forward
-                }
-            }
-        }
+        },
         PointOfInterest::Ball => {
             let closest_interesting_obstacle_position =
                 closest_interesting_obstacle_visible(obstacles, parameters);
-            if let Some(interesting_obstacle_position) = closest_interesting_obstacle_position {
-                PointOfInterest::Obstacle {
+
+            match closest_interesting_obstacle_position {
+                Some(interesting_obstacle_position) => PointOfInterest::Obstacle {
                     absolute_position: robot_to_field * interesting_obstacle_position,
-                }
-            } else {
-                PointOfInterest::Forward
+                },
+                None => PointOfInterest::Forward,
             }
         }
         PointOfInterest::Obstacle { .. } => PointOfInterest::Forward,
