@@ -177,7 +177,7 @@ impl<'cycle> WalkAndStand<'cycle> {
             let path = self.walk_path_planner.plan(
                 target_pose * Point2::origin(),
                 robot_to_field,
-                self.world_state.ball.map(|ball| ball.position),
+                self.world_state.ball.map(|ball| ball.ball_in_ground),
                 &self.world_state.obstacles,
                 path_obstacles_output,
                 self.world_state.game_controller_state,

@@ -77,7 +77,7 @@ impl Behavior {
         if let (Some(ball_state), Some(robot_to_field)) =
             (&world_state.ball, world_state.robot.robot_to_field)
         {
-            self.absolute_last_known_ball_position = robot_to_field * ball_state.position;
+            self.absolute_last_known_ball_position = robot_to_field * ball_state.ball_in_ground;
         }
 
         let now = context.cycle_time.start_time;
