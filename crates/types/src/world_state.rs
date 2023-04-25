@@ -27,6 +27,16 @@ pub struct BallState {
     pub field_side: Side,
 }
 
+impl Default for BallState {
+    fn default() -> Self {
+        Self {
+            position: Point2::origin(),
+            penalty_shot_direction: Default::default(),
+            field_side: Side::Left,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct RobotState {
     pub robot_to_field: Option<Isometry2<f32>>,

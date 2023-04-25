@@ -93,15 +93,7 @@ fn defend_left_pose(
     role_positions: &RolePositions,
 ) -> Option<Isometry2<f32>> {
     let robot_to_field = world_state.robot.robot_to_field?;
-    let ball = world_state
-        .ball
-        .map(|ball| BallState {
-            ball_in_ground: ball.ball_in_ground,
-            ball_in_field: ball.ball_in_field,
-            field_side: ball.field_side,
-            penalty_shot_direction: Default::default(),
-        })
-        .unwrap_or_default();
+    let ball = world_state.ball.unwrap_or_penalty();
 
     let position_to_defend = point![
         -field_dimensions.length / 2.0,
