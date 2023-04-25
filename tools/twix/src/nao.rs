@@ -23,7 +23,7 @@ impl Nao {
         let communication = Communication::new(
             address
                 .as_ref()
-                .map(|ip_address| ip_address_to_communication_url(&ip_address)),
+                .map(|ip_address| ip_address_to_communication_url(ip_address)),
             connect,
         );
         Self {
