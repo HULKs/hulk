@@ -81,11 +81,9 @@ impl Projection for CameraMatrix {
 
         let elevation = z - self.camera_to_ground.translation.z;
         let slope = elevation / camera_ray_over_ground.z;
-
-        Ok(point![
-            self.camera_to_ground.translation.x + camera_ray_over_ground.x * slope,
-            self.camera_to_ground.translation.y + camera_ray_over_ground.y * slope
-        ])
+        let intersection_point =
+            self.camera_to_ground.translation.vector + camera_ray_over_ground * slope;
+        Ok(point![intersection_point.x, intersection_point.y])
     }
 
     fn ground_to_pixel(&self, ground_coordinates: Point2<f32>) -> Result<Point2<f32>, Error> {
@@ -117,11 +115,9 @@ impl Projection for CameraMatrix {
         let elevation = x - self.camera_to_robot.translation.x;
         let slope = elevation / camera_ray_over_robot.x;
 
-        Ok(point![
-            x,
-            self.camera_to_robot.translation.y + camera_ray_over_robot.y * slope,
-            self.camera_to_robot.translation.z + camera_ray_over_robot.z * slope
-        ])
+        let intersection_point =
+            self.camera_to_robot.translation.vector + camera_ray_over_robot * slope;
+        Ok(point![x, intersection_point.y, intersection_point.z])
     }
 
     fn robot_to_pixel(&self, robot_coordinates: Point3<f32>) -> Result<Point2<f32>, Error> {
