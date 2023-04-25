@@ -58,20 +58,21 @@ impl BallStateComposer {
                     kicking_team,
                     ..
                 }),
-            ) => Some(create_ball_state(
-                robot_to_field.inverse()
-                    * point![
-                        match kicking_team {
-                            Team::Opponent => -1.0,
-                            _ => 1.0,
-                        } * (context.field_dimensions.length / 2.0
-                            - context.field_dimensions.penalty_marker_distance),
-                        0.0
-                    ],
-                context.robot_to_field,
-                &mut self.last_ball_field_side,
-                context.penalty_shot_direction.copied(),
-            )),
+            ) => {
+                let side_factor = match kicking_team {
+                    Team::Opponent => -1.0,
+                    _ => 1.0,
+                };
+                let penalty_spot_x = context.field_dimensions.length / 2.0
+                    - context.field_dimensions.penalty_marker_distance;
+                let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0];
+                Some(create_ball_state(
+                    robot_to_field.inverse() * penalty_spot_location,
+                    context.robot_to_field,
+                    &mut self.last_ball_field_side,
+                    context.penalty_shot_direction.copied(),
+                ))
+            }
             (PrimaryState::Ready, ..) => None,
             (_, Some(ball_position), _, robot_to_field, _) => Some(create_ball_state(
                 ball_position.position,
