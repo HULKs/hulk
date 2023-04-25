@@ -13,7 +13,7 @@ use crate::{image_buffer::ImageBuffer, value_buffer::ValueBuffer};
 pub struct Nao {
     communication: Communication,
     runtime: Runtime,
-    last_set_address: Mutex<Option<String>>,
+    address: Mutex<Option<String>>,
 }
 
 impl Nao {
@@ -29,7 +29,7 @@ impl Nao {
         Self {
             communication,
             runtime,
-            last_set_address: Mutex::new(address),
+            address: Mutex::new(address),
         }
     }
 
@@ -40,8 +40,8 @@ impl Nao {
 
     pub fn set_address(&self, address: &str) {
         {
-            let mut last_set_address = self.last_set_address.lock().unwrap();
-            *last_set_address = Some(address.to_string());
+            let mut current_address = self.address.lock().unwrap();
+            *current_address = Some(address.to_string());
         }
         self.runtime.block_on(
             self.communication
@@ -71,7 +71,7 @@ impl Nao {
     }
 
     pub fn get_address(&self) -> Option<String> {
-        self.last_set_address.lock().unwrap().clone()
+        self.address.lock().unwrap().clone()
     }
 
     pub fn get_output_fields(&self) -> Option<Fields> {
