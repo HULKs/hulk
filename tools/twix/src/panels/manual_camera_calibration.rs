@@ -95,18 +95,7 @@ fn add_extrinsic_calibration_ui_components(
         ui.label(format!("{label:#} Camera"));
 
         let settable = camera_parameter_option.is_some();
-        ui.add_enabled_ui(settable, |ui| {
-            if ui.button("Set").clicked() {
-                if let Some(camera_parameter_value) = camera_parameter_option {
-                    match serde_json::value::to_value(camera_parameter_value) {
-                        Ok(value) => {
-                            nao.update_parameter_value(camera_matrix_subscription_path, value);
-                        }
-                        Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
-                    }
-                }
-            }
-        });
+
         add_save_button(
             ui,
             camera_matrix_subscription_path,
@@ -120,7 +109,6 @@ fn add_extrinsic_calibration_ui_components(
         );
     });
 
-    ui.label(""); // TODO Identify a better way to do vertical spaces.
     let mut changed = false;
     ui.collapsing(
         format!("Intrinsic Parameters {label:#}"),
@@ -156,7 +144,6 @@ fn add_extrinsic_calibration_ui_components(
                         changed = true
                     };
                 }
-                ui.label(""); // TODO Identify a better way to do vertical spaces.
             }
             _ => {
                 ui.label("Intrinsic parameters not recieved.");
@@ -213,7 +200,6 @@ impl Widget for &mut ManualCalibrationPanel {
                     extrinsic_rotation_subscription,
                 );
 
-                ui.label("");
                 ui.separator();
             }
         })
