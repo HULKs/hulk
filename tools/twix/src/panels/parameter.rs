@@ -95,11 +95,7 @@ impl Widget for &mut ParameterPanel {
                                 &self.repository_parameters,
                             ) {
                                 (Ok(value), Some(repository_parameters)) => {
-                                    if let Err(error) =
-                                        repository_parameters.write(&address, &self.path, &value)
-                                    {
-                                        error!("Failed to write value to repository: {error:#?}");
-                                    }
+                                    repository_parameters.write(&address, self.path.clone(), value);
                                 }
                                 (Err(error), _) => {
                                     error!("Failed to serialize parameter value: {error:#?}")

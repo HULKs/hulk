@@ -1,13 +1,13 @@
-use std::{collections::HashMap, net::Ipv4Addr};
-
 use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
 };
 use communication::merge_json;
 use itertools::Itertools;
+use log::error;
 use repository::{get_repository_root, HardwareIds, Repository};
 use serde_json::{json, Value};
+use std::{collections::HashMap, net::Ipv4Addr};
 use tokio::runtime::Runtime;
 
 pub struct RepositoryParameters {
@@ -30,21 +30,31 @@ impl RepositoryParameters {
         })
     }
 
-    pub fn write(&self, address: &str, path: &str, value: &Value) -> Result<()> {
-        let head_id = self
+    pub fn write(&self, address: &str, path: String, value: Value) {
+        let repository = self.repository.clone();
+        let Ok(head_id) = self
             .head_id_from_address(address)
-            .wrap_err_with(|| format!("failed to get head ID from address {address}"))?;
-        let mut stored_value = self
-            .runtime
-            .block_on(self.repository.read_configuration(&head_id))
-            .unwrap_or_default();
+        else {
+            error!("failed to get head ID from address {address}");
+            return
+        };
+        self.runtime.spawn(async move {
+            let mut stored_value = repository
+                .read_configuration(&head_id)
+                .await
+                .unwrap_or_default();
 
-        let nested_value_to_be_added = nest_value_at_path(path, value);
+            let nested_value_to_be_added = nest_value_at_path(path.as_str(), &value);
 
-        merge_json(&mut stored_value, &nested_value_to_be_added);
+            merge_json(&mut stored_value, &nested_value_to_be_added);
 
-        self.runtime
-            .block_on(self.repository.write_configuration(&head_id, &stored_value))
+            if let Err(error) = repository
+                .write_configuration(&head_id, &stored_value)
+                .await
+            {
+                error!("Failed to write value to repository: {error:#?}");
+            }
+        });
     }
 
     fn head_id_from_address(&self, address: &str) -> Result<String> {

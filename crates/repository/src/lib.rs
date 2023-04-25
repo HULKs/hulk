@@ -34,6 +34,7 @@ use spl_network_messages::PlayerNumber;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
+#[derive(Clone)]
 pub struct Repository {
     root: PathBuf,
 }
