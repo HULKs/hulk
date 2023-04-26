@@ -7,9 +7,8 @@ use nalgebra::{point, Point2};
 use spl_network_messages::{GamePhase, GameState, SubState, Team};
 use types::{
     configuration::{Behavior as BehaviorConfiguration, LostBall},
-    CycleTime, PrimaryState,
-    Action, FieldDimensions, FilteredGameState, GameControllerState, KickDecision, MotionCommand,
-    PathObstacle, Role, Side, WorldState,
+    Action, CycleTime, FieldDimensions, FilteredGameState, GameControllerState, KickDecision,
+    MotionCommand, PathObstacle, PrimaryState, Role, Side, WorldState,
 };
 
 use super::{
@@ -176,239 +175,6 @@ impl Behavior {
 
         let (action, motion_command) = actions
             .iter()
-<<<<<<< HEAD
-            .find_map(|action| match action {
-                Action::Unstiff => unstiff::execute(world_state),
-                Action::SitDown => sit_down::execute(world_state),
-                Action::Penalize => penalize::execute(world_state),
-                Action::Initial => inital::execute(world_state),
-                Action::FallSafely => {
-                    fall_safely::execute(world_state, *context.has_ground_contact)
-                }
-                Action::StandUp => stand_up::execute(world_state),
-                Action::LookAround => look_around::execute(world_state),
-                Action::DefendGoal => defend.goal(&mut context.path_obstacles),
-                Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
-                Action::DefendLeft => defend.left(&mut context.path_obstacles),
-                Action::DefendRight => defend.right(&mut context.path_obstacles),
-                Action::DefendPenaltyKick => defend.penalty_kick(&mut context.path_obstacles),
-                Action::Stand => stand::execute(world_state, context.field_dimensions),
-                Action::Dribble => dribble::execute(
-                    world_state,
-                    context.field_dimensions,
-                    &context.configuration.dribbling,
-                    &walk_path_planner,
-                    &mut context.path_obstacles,
-                    &mut context.kick_targets,
-                    &mut context.kick_decisions,
-                    &mut context.best_kick_decision,
-                ),
-                Action::Jump => jump::execute(world_state),
-                Action::PrepareJump => prepare_jump::execute(world_state),
-                Action::Search => search::execute(
-                    world_state,
-                    &walk_path_planner,
-                    &walk_and_stand,
-                    context.field_dimensions,
-                    &context.configuration.search,
-                    &mut context.path_obstacles,
-                ),
-                Action::SearchForLostBall => lost_ball::execute(
-                    world_state,
-                    self.absolute_last_known_ball_position,
-                    &walk_path_planner,
-                    context.lost_ball_parameters,
-                    &mut context.path_obstacles,
-                ),
-                Action::SupportLeft => support::execute(
-                    world_state,
-                    context.field_dimensions,
-                    Some(Side::Left),
-                    context
-                        .configuration
-                        .role_positions
-                        .left_midfielder_distance_to_ball,
-                    context
-                        .configuration
-                        .role_positions
-                        .left_midfielder_maximum_x_in_ready_and_when_ball_is_not_free,
-                    context
-                        .configuration
-                        .role_positions
-                        .left_midfielder_minimum_x,
-                    &walk_and_stand,
-                    &look_action,
-                    &mut context.path_obstacles,
-                ),
-                Action::SupportRight => support::execute(
-                    world_state,
-                    context.field_dimensions,
-                    Some(Side::Right),
-                    context
-                        .configuration
-                        .role_positions
-                        .right_midfielder_distance_to_ball,
-                    context
-                        .configuration
-                        .role_positions
-                        .right_midfielder_maximum_x_in_ready_and_when_ball_is_not_free,
-                    context
-                        .configuration
-                        .role_positions
-                        .right_midfielder_minimum_x,
-                    &walk_and_stand,
-                    &look_action,
-                    &mut context.path_obstacles,
-                ),
-                Action::SupportStriker => support::execute(
-                    world_state,
-                    context.field_dimensions,
-                    None,
-                    context
-                        .configuration
-                        .role_positions
-                        .striker_supporter_distance_to_ball,
-                    context
-                        .configuration
-                        .role_positions
-                        .striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free,
-                    context
-                        .configuration
-                        .role_positions
-                        .striker_supporter_minimum_x,
-                    &walk_and_stand,
-                    &look_action,
-                    &mut context.path_obstacles,
-                ),
-                Action::WalkToKickOff => walk_to_kick_off::execute(
-                    world_state,
-                    &walk_and_stand,
-                    &look_action,
-                    &mut context.path_obstacles,
-                ),
-                Action::WalkToPenaltyKick => walk_to_penalty_kick::execute(
-                    world_state,
-                    &walk_and_stand,
-                    &look_action,
-                    &mut context.path_obstacles,
-                    context.field_dimensions,
-                ),
-||||||| parent of b7063695 (Expose used action as additional output)
-            .find_map(|action| match action {
-                Action::Unstiff => unstiff::execute(world_state),
-                Action::SitDown => sit_down::execute(world_state),
-                Action::Penalize => penalize::execute(world_state),
-                Action::FallSafely => {
-                    fall_safely::execute(world_state, *context.has_ground_contact)
-                }
-                Action::StandUp => stand_up::execute(world_state),
-                Action::DefendGoal => defend.goal(&mut context.path_obstacles),
-                Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
-                Action::DefendLeft => defend.left(&mut context.path_obstacles),
-                Action::DefendRight => defend.right(&mut context.path_obstacles),
-                Action::DefendPenaltyKick => defend.penalty_kick(&mut context.path_obstacles),
-                Action::Stand => stand::execute(world_state, context.field_dimensions),
-                Action::Dribble => dribble::execute(
-                    world_state,
-                    context.field_dimensions,
-                    &context.configuration.dribbling,
-                    &walk_path_planner,
-                    &mut context.path_obstacles,
-                    &mut context.kick_targets,
-                    &mut context.kick_decisions,
-                    &mut context.best_kick_decision,
-                ),
-                Action::Jump => jump::execute(world_state),
-                Action::PrepareJump => prepare_jump::execute(world_state),
-                Action::Search => search::execute(
-                    world_state,
-                    &walk_path_planner,
-                    &walk_and_stand,
-                    context.field_dimensions,
-                    &context.configuration.search,
-                    &mut context.path_obstacles,
-                ),
-                Action::SearchForLostBall => lost_ball::execute(
-                    world_state,
-                    self.absolute_last_known_ball_position,
-                    &walk_path_planner,
-                    context.lost_ball_parameters,
-                    &mut context.path_obstacles,
-                ),
-                Action::SupportLeft => support::execute(
-                    world_state,
-                    context.field_dimensions,
-                    Some(Side::Left),
-                    context
-                        .configuration
-                        .role_positions
-                        .left_midfielder_distance_to_ball,
-                    context
-                        .configuration
-                        .role_positions
-                        .left_midfielder_maximum_x_in_ready_and_when_ball_is_not_free,
-                    context
-                        .configuration
-                        .role_positions
-                        .left_midfielder_minimum_x,
-                    &walk_and_stand,
-                    &look_action,
-                    &mut context.path_obstacles,
-                ),
-                Action::SupportRight => support::execute(
-                    world_state,
-                    context.field_dimensions,
-                    Some(Side::Right),
-                    context
-                        .configuration
-                        .role_positions
-                        .right_midfielder_distance_to_ball,
-                    context
-                        .configuration
-                        .role_positions
-                        .right_midfielder_maximum_x_in_ready_and_when_ball_is_not_free,
-                    context
-                        .configuration
-                        .role_positions
-                        .right_midfielder_minimum_x,
-                    &walk_and_stand,
-                    &look_action,
-                    &mut context.path_obstacles,
-                ),
-                Action::SupportStriker => support::execute(
-                    world_state,
-                    context.field_dimensions,
-                    None,
-                    context
-                        .configuration
-                        .role_positions
-                        .striker_supporter_distance_to_ball,
-                    context
-                        .configuration
-                        .role_positions
-                        .striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free,
-                    context
-                        .configuration
-                        .role_positions
-                        .striker_supporter_minimum_x,
-                    &walk_and_stand,
-                    &look_action,
-                    &mut context.path_obstacles,
-                ),
-                Action::WalkToKickOff => walk_to_kick_off::execute(
-                    world_state,
-                    &walk_and_stand,
-                    &look_action,
-                    &mut context.path_obstacles,
-                ),
-                Action::WalkToPenaltyKick => walk_to_penalty_kick::execute(
-                    world_state,
-                    &walk_and_stand,
-                    &look_action,
-                    &mut context.path_obstacles,
-                    context.field_dimensions,
-                ),
-=======
             .find_map(|action| {
                 Some((
                     action,
@@ -416,10 +182,12 @@ impl Behavior {
                         Action::Unstiff => unstiff::execute(world_state),
                         Action::SitDown => sit_down::execute(world_state),
                         Action::Penalize => penalize::execute(world_state),
+                        Action::Initial => inital::execute(world_state),
                         Action::FallSafely => {
                             fall_safely::execute(world_state, *context.has_ground_contact)
                         }
                         Action::StandUp => stand_up::execute(world_state),
+                        Action::LookAround => look_around::execute(world_state),
                         Action::DefendGoal => defend.goal(&mut context.path_obstacles),
                         Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
                         Action::DefendLeft => defend.left(&mut context.path_obstacles),
@@ -530,7 +298,6 @@ impl Behavior {
                         ),
                     }?,
                 ))
->>>>>>> b7063695 (Expose used action as additional output)
             })
             .unwrap_or_else(|| {
                 panic!(
