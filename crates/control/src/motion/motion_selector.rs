@@ -18,6 +18,7 @@ pub struct CycleContext {
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    pub enable_energy_saving_stand: Parameter<bool, "energy_saving_stand.enabled">,
 }
 
 #[context]
@@ -36,7 +37,8 @@ impl MotionSelector {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let is_active_motion_safe_to_exit = context.motion_safe_exits[self.current_motion];
-        let requested_motion = motion_type_from_command(context.motion_command);
+        let requested_motion =
+            motion_type_from_command(context.motion_command, *context.enable_energy_saving_stand);
         if self.current_motion != requested_motion {
             self.current_motion = transition_motion(
                 self.current_motion,
@@ -66,7 +68,10 @@ impl MotionSelector {
     }
 }
 
-fn motion_type_from_command(command: &MotionCommand) -> MotionType {
+fn motion_type_from_command(
+    command: &MotionCommand,
+    enable_energy_saving_stand: bool,
+) -> MotionType {
     match command {
         MotionCommand::ArmsUpSquat => MotionType::ArmsUpSquat,
         MotionCommand::FallProtection { .. } => MotionType::FallProtection,
@@ -79,7 +84,7 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         MotionCommand::Stand {
             is_energy_saving, ..
         } => {
-            if *is_energy_saving {
+            if enable_energy_saving_stand && *is_energy_saving {
                 MotionType::EnergySavingStand
             } else {
                 MotionType::Stand

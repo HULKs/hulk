@@ -193,6 +193,7 @@
     }
   },
   "energy_saving_stand": {
+    "enabled": false,
     "arm_stiffness": 0.1,
     "leg_stiffness": 0.5,
     "pose": {
