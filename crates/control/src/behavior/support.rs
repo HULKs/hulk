@@ -50,7 +50,7 @@ fn support_pose(
         Side::Left => -FRAC_PI_4,
         Side::Right => FRAC_PI_4,
     }) * -(Vector2::x() * distance_to_ball);
-    let supporting_position = ball.ball_in_ground + offset_vector;
+    let supporting_position = ball.ball_in_field + offset_vector;
     let clamped_x = match world_state.filtered_game_state {
         Some(FilteredGameState::Ready { .. })
         | Some(FilteredGameState::Playing {
