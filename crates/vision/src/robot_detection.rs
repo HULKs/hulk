@@ -47,6 +47,10 @@ pub struct CycleContext {
     pub luminance_image: AdditionalOutput<GrayscaleImage, "robot_detection.luminance_image">,
     pub object_threshold: Parameter<f32, "robot_detection.$cycler_instance.object_threshold">,
     pub enable: Parameter<bool, "robot_detection.$cycler_instance.enable">,
+    pub enable_filtered_detections:
+        Parameter<bool, "robot_detection.$cycler_instance.enable_filtered_detections">,
+    pub enable_filter_by_pixel_position:
+        Parameter<bool, "robot_detection.$cycler_instance.enable_filter_by_pixel_position">,
     pub lowest_bottom_pixel_position:
         Parameter<f32, "robot_detection.$cycler_instance.lowest_bottom_pixel_position">,
     pub allowed_projected_robot_height:
@@ -94,15 +98,23 @@ impl RobotDetection {
             *context.object_threshold,
         );
 
-        let filtered_detections =
-            filter_by_pixel_position(grid_boxes, *context.lowest_bottom_pixel_position);
+        let mut filtered_detections = grid_boxes;
 
-        let filtered_detections = filter_by_size(
-            filtered_detections,
-            context.camera_matrix,
-            context.robot_to_ground,
-            context.allowed_projected_robot_height,
-        );
+        if *context.enable_filter_by_pixel_position {
+            filtered_detections = filter_by_pixel_position(
+                filtered_detections,
+                *context.lowest_bottom_pixel_position,
+            );
+        }
+
+        if *context.enable_filtered_detections {
+            filtered_detections = filter_by_size(
+                filtered_detections,
+                context.camera_matrix,
+                context.robot_to_ground,
+                context.allowed_projected_robot_height,
+            );
+        }
 
         let on_ground = filtered_detections
             .iter()

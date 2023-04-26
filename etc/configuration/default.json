@@ -298,7 +298,7 @@
     "initial_covariance": [0.25, 0.25],
     "measurement_count_threshold": 10,
     "use_feet_detection_measurements": true,
-    "use_robot_detection_measurements": true,
+    "use_robot_detection_measurements": false,
     "use_sonar_measurements": true,
     "robot_obstacle_radius_at_hip_height": 0.2,
     "robot_obstacle_radius_at_foot_height": 0.2,
