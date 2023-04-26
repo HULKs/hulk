@@ -74,10 +74,8 @@ impl Behavior {
             });
         }
 
-        if let (Some(ball_state), Some(robot_to_field)) =
-            (&world_state.ball, world_state.robot.robot_to_field)
-        {
-            self.absolute_last_known_ball_position = robot_to_field * ball_state.ball_in_ground;
+        if let Some(ball_state) = &world_state.ball {
+            self.absolute_last_known_ball_position = ball_state.ball_in_field;
         }
 
         let now = context.cycle_time.start_time;
@@ -190,9 +188,7 @@ impl Behavior {
                 Action::DefendLeft => defend.left(&mut context.path_obstacles),
                 Action::DefendRight => defend.right(&mut context.path_obstacles),
                 Action::DefendPenaltyKick => defend.penalty_kick(&mut context.path_obstacles),
-                Action::Stand => {
-                    stand::execute(world_state, self.absolute_last_known_ball_position)
-                }
+                Action::Stand => stand::execute(world_state, context.field_dimensions),
                 Action::Dribble => dribble::execute(
                     world_state,
                     context.field_dimensions,

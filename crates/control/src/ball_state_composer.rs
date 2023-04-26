@@ -50,7 +50,7 @@ impl BallStateComposer {
             context.game_controller_state,
         ) {
             (
-                PrimaryState::Ready,
+                PrimaryState::Ready | PrimaryState::Set,
                 _,
                 _,
                 Some(robot_to_field),
