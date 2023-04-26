@@ -113,6 +113,7 @@ pub use motion_file::{MotionFile, MotionFileFrame};
 pub use motion_selection::{MotionSafeExits, MotionSelection, MotionType};
 pub use obstacles::{Obstacle, ObstacleKind};
 pub use path_obstacles::{PathObstacle, PathObstacleShape};
+pub use rule_obstacles::RuleObstacle;
 pub use penalty_shot_direction::PenaltyShotDirection;
 pub use perspective_grid_candidates::PerspectiveGridCandidates;
 pub use planned_path::{direct_path, PathSegment, PlannedPath};

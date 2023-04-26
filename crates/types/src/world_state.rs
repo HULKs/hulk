@@ -5,7 +5,7 @@ use spl_network_messages::PlayerNumber;
 
 use crate::GameControllerState;
 
-use crate::PathObstacle;
+use crate::RuleObstacle;
 use crate::PenaltyShotDirection;
 
 use super::{FallState, FilteredGameState, Obstacle, PrimaryState, Role, Side};
@@ -17,7 +17,7 @@ pub struct WorldState {
     pub filtered_game_state: Option<FilteredGameState>,
     pub game_controller_state: Option<GameControllerState>,
     pub obstacles: Vec<Obstacle>,
-    pub rule_obstacles: Vec<PathObstacle>,
+    pub rule_obstacles: Vec<RuleObstacle>,
     pub position_of_interest: Point2<f32>,
     pub robot: RobotState,
 }

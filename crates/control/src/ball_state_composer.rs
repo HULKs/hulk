@@ -82,17 +82,16 @@ impl BallStateComposer {
             context.ball_position,
             context.team_ball,
             context.robot_to_field,
-            context.game_controller_state,
         ) {
             (PrimaryState::Ready, ..) => None,
-            (_, Some(ball_position), _, Some(robot_to_field), _) => Some(create_ball_state(
+            (_, Some(ball_position), _, Some(robot_to_field)) => Some(create_ball_state(
                 ball_position.position,
                 robot_to_field * ball_position.position,
                 Some(robot_to_field),
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
-            (_, None, Some(ball_position), Some(robot_to_field), _) => Some(create_ball_state(
+            (_, None, Some(ball_position), Some(robot_to_field)) => Some(create_ball_state(
                 robot_to_field.inverse() * ball_position.position,
                 ball_position.position,
                 Some(robot_to_field),

@@ -42,14 +42,9 @@ fn support_pose(
 ) -> Option<Isometry2<f32>> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let ball = world_state
-        .ball
-        .map(|ball| BallState {
-            ball_in_ground: ball.ball_in_ground,
-            ball_in_field: robot_to_field * ball.ball_in_ground,
-            field_side: ball.field_side,
-            penalty_shot_direction: Default::default(),
-        })
-        .unwrap_or_default();
+        .rule_ball
+        .or(world_state.ball)
+        .unwrap_or_else(|| BallState::new_at_center(robot_to_field));
     let side = field_side.unwrap_or_else(|| ball.field_side.opposite());
     let offset_vector = UnitComplex::new(match side {
         Side::Left => -FRAC_PI_4,

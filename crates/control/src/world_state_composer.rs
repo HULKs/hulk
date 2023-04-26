@@ -4,8 +4,8 @@ use framework::MainOutput;
 use nalgebra::{Isometry2, Point2};
 use spl_network_messages::PlayerNumber;
 use types::{
-    BallState, FallState, FilteredGameState, GameControllerState, Obstacle, PathObstacle,
-    PenaltyShotDirection, PrimaryState, RobotState, Role, WorldState,
+    BallState, FallState, FilteredGameState, GameControllerState, Obstacle, PenaltyShotDirection,
+    PrimaryState, RobotState, Role, RuleObstacle, WorldState,
 };
 
 pub struct WorldStateComposer {}
