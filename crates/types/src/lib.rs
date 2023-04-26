@@ -113,7 +113,6 @@ pub use motion_file::{MotionFile, MotionFileFrame};
 pub use motion_selection::{MotionSafeExits, MotionSelection, MotionType};
 pub use obstacles::{Obstacle, ObstacleKind};
 pub use path_obstacles::{PathObstacle, PathObstacleShape};
-pub use rule_obstacles::RuleObstacle;
 pub use penalty_shot_direction::PenaltyShotDirection;
 pub use perspective_grid_candidates::PerspectiveGridCandidates;
 pub use planned_path::{direct_path, PathSegment, PlannedPath};
@@ -124,6 +123,7 @@ pub use robot_dimensions::RobotDimensions;
 pub use robot_kinematics::RobotKinematics;
 pub use robot_masses::RobotMass;
 pub use roles::Role;
+pub use rule_obstacles::RuleObstacle;
 pub use sensor_data::{
     Foot, ForceSensitiveResistors, InertialMeasurementUnitData, SensorData, SonarSensors,
     TouchSensors,
