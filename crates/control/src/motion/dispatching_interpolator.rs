@@ -107,7 +107,7 @@ impl DispatchingInterpolator {
             self.interpolator = SplineInterpolator::try_new_transition_timed(
                 context.sensor_data.positions,
                 target_position,
-                Duration::from_secs_f32(1.0)
+                Duration::from_secs_f32(1.0),
             )?;
             self.stiffnesses = Joints::fill(0.8);
         }
