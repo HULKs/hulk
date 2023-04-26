@@ -114,8 +114,9 @@ pub struct CreationContext {
 #[derive(Debug)]
 pub struct CycleContext {
     pub step_adjustment: AdditionalOutput<StepAdjustment, "step_adjustment">,
-    pub planned_step_duration: AdditionalOutput<f32, "walking_engine.planned_step_duration">,
-    pub t: AdditionalOutput<f32, "walking_engine.t">,
+    pub planned_step_duration: AdditionalOutput<Duration, "walking_engine.planned_step_duration">,
+    pub t: AdditionalOutput<Duration, "walking_engine.t">,
+    pub t_on_last_phase_end: AdditionalOutput<Duration, "walking_engine.t_on_last_phase_end">,
     // TODO: ask hendrik how to do that
     // pub walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
     pub config: Parameter<WalkingEngineConfiguration, "walking_engine">,
@@ -287,8 +288,11 @@ impl WalkingEngine {
 
         context
             .planned_step_duration
-            .fill_if_subscribed(|| self.planned_step_duration.as_secs_f32());
-        context.t.fill_if_subscribed(|| self.t.as_secs_f32());
+            .fill_if_subscribed(|| self.planned_step_duration);
+        context.t.fill_if_subscribed(|| self.t);
+        context
+            .t_on_last_phase_end
+            .fill_if_subscribed(|| self.t_on_last_phase_end);
         // TODO: refill
         // context.walking_engine.fill_on_subscription(|| self.clone());
 
