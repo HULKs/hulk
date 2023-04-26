@@ -70,7 +70,6 @@ impl BallStateComposer {
                 Some(create_ball_state(
                     robot_to_field.inverse() * penalty_spot_location,
                     penalty_spot_location,
-                    context.robot_to_field,
                     &mut self.last_ball_field_side,
                     context.penalty_shot_direction.copied(),
                 ))
@@ -87,14 +86,12 @@ impl BallStateComposer {
             (_, Some(ball_position), _, Some(robot_to_field)) => Some(create_ball_state(
                 ball_position.position,
                 robot_to_field * ball_position.position,
-                Some(robot_to_field),
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
             (_, None, Some(ball_position), Some(robot_to_field)) => Some(create_ball_state(
                 robot_to_field.inverse() * ball_position.position,
                 ball_position.position,
-                Some(robot_to_field),
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
@@ -111,25 +108,18 @@ impl BallStateComposer {
 fn create_ball_state(
     ball_in_ground: Point2<f32>,
     ball_in_field: Point2<f32>,
-    robot_to_field: Option<&Isometry2<f32>>,
     last_ball_field_side: &mut Side,
     penalty_shot_direction: Option<PenaltyShotDirection>,
 ) -> BallState {
     let was_in_left_half = *last_ball_field_side == Side::Left;
-    let field_side = match robot_to_field {
-        Some(robot_to_field) => {
-            let is_in_left_half =
-                greater_than_with_hysteresis(was_in_left_half, ball_in_field.y, 0.0, 0.1);
-            let field_side = if is_in_left_half {
-                Side::Left
-            } else {
-                Side::Right
-            };
-            *last_ball_field_side = field_side;
-            field_side
-        }
-        None => Side::Left,
+    let is_in_left_half = greater_than_with_hysteresis(was_in_left_half, ball_in_field.y, 0.0, 0.1);
+    let side = if is_in_left_half {
+        Side::Left
+    } else {
+        Side::Right
     };
+    *last_ball_field_side = side;
+    let field_side = side;
     BallState {
         ball_in_ground,
         ball_in_field,
