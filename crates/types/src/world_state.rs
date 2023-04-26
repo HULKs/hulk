@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::PlayerNumber;
 
-use crate::GameControllerState;
+use crate::{GameControllerState, KickDecision};
 
 use crate::PenaltyShotDirection;
 use crate::RuleObstacle;
@@ -19,6 +19,7 @@ pub struct WorldState {
     pub obstacles: Vec<Obstacle>,
     pub rule_obstacles: Vec<RuleObstacle>,
     pub position_of_interest: Point2<f32>,
+    pub kick_decisions: Option<Vec<KickDecision>>,
     pub robot: RobotState,
 }
 

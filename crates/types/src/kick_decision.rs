@@ -8,6 +8,5 @@ use crate::{KickVariant, Side};
 pub struct KickDecision {
     pub variant: KickVariant,
     pub kicking_side: Side,
-    pub relative_kick_pose: Isometry2<f32>,
-    pub is_reached: bool,
+    pub kick_pose: Isometry2<f32>,
 }

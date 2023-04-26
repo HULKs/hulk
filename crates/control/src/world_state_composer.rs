@@ -4,8 +4,8 @@ use framework::MainOutput;
 use nalgebra::{Isometry2, Point2};
 use spl_network_messages::PlayerNumber;
 use types::{
-    BallState, FallState, FilteredGameState, GameControllerState, Obstacle, PenaltyShotDirection,
-    PrimaryState, RobotState, Role, RuleObstacle, WorldState,
+    BallState, FallState, FilteredGameState, GameControllerState, KickDecision, Obstacle,
+    PenaltyShotDirection, PrimaryState, RobotState, Role, RuleObstacle, WorldState,
 };
 
 pub struct WorldStateComposer {}
@@ -23,6 +23,7 @@ pub struct CycleContext {
     pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
     pub penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
     pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
+    pub kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
 
     pub player_number: Parameter<PlayerNumber, "player_number">,
 
@@ -64,6 +65,7 @@ impl WorldStateComposer {
             rule_obstacles: context.rule_obstacles.clone(),
             position_of_interest: *context.position_of_interest,
             robot,
+            kick_decisions: context.kick_decisions.cloned(),
             game_controller_state: context.game_controller_state.copied(),
         };
 
