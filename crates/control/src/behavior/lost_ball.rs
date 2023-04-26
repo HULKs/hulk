@@ -26,7 +26,6 @@ pub fn execute(
         None,
         &world_state.obstacles,
         path_obstacles_output,
-        world_state.game_controller_state,
     );
     Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
         HeadMotion::SearchForLostBall,
