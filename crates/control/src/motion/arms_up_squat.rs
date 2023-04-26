@@ -1,8 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use motionfile::MotionFile;
-use motionfile::MotionInterpolator;
+use motionfile::{MotionFile, MotionInterpolator};
 use types::{
     ConditionInput, CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
     SensorData,

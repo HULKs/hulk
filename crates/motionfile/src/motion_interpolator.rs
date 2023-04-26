@@ -134,16 +134,20 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
 
     pub fn value(&self) -> T {
         match self.current_state {
-            State::CheckEntry { current_frame_index, .. } => {
-                self.frames[current_frame_index].spline.start_position()
-            }
+            State::CheckEntry {
+                current_frame_index,
+                ..
+            } => self.frames[current_frame_index].spline.start_position(),
             State::InterpolateSpline {
                 current_frame_index,
                 time_since_start,
-            } => self.frames[current_frame_index].spline.value_at(time_since_start),
-            State::CheckExit { current_frame_index, .. } => {
-                self.frames[current_frame_index].spline.end_position()
-            }
+            } => self.frames[current_frame_index]
+                .spline
+                .value_at(time_since_start),
+            State::CheckExit {
+                current_frame_index,
+                ..
+            } => self.frames[current_frame_index].spline.end_position(),
             State::Finished => self.frames.last().unwrap().spline.end_position(),
         }
     }
@@ -163,9 +167,15 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
 
     pub fn current_time(&self) -> Duration {
         match self.current_state {
-            State::CheckEntry { time_since_start, .. } => time_since_start,
-            State::InterpolateSpline { time_since_start, .. } => time_since_start,
-            State::CheckExit { time_since_start, .. } => time_since_start,
+            State::CheckEntry {
+                time_since_start, ..
+            } => time_since_start,
+            State::InterpolateSpline {
+                time_since_start, ..
+            } => time_since_start,
+            State::CheckExit {
+                time_since_start, ..
+            } => time_since_start,
             State::Finished => Duration::ZERO,
         }
     }

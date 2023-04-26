@@ -1,15 +1,14 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use approx::relative_eq;
-use color_eyre::{Result};
+use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use motionfile::{MotionFile, MotionInterpolator};
 use types::{
-    configuration::FallProtection, BodyJoints, CycleTime, FallDirection, HeadJoints, Joints,
-    JointsCommand, MotionCommand, MotionSelection, MotionType, SensorData, ConditionInput,
+    configuration::FallProtection, BodyJoints, ConditionInput, CycleTime, FallDirection,
+    HeadJoints, Joints, JointsCommand, MotionCommand, MotionSelection, MotionType, SensorData,
 };
-
 
 pub struct FallProtector {
     start_time: SystemTime,
@@ -117,17 +116,17 @@ impl FallProtector {
                 direction: FallDirection::Backward,
             } => {
                 self.interpolator.set_initial_positions(current_positions);
-                self.interpolator
-                    .advance_by(context.cycle_time.last_cycle_duration, context.condition_input);
+                self.interpolator.advance_by(
+                    context.cycle_time.last_cycle_duration,
+                    context.condition_input,
+                );
 
                 let fall_back_stiffnesses = Joints::from_head_and_body(
                     HeadJoints::fill(head_stiffness),
                     BodyJoints::fill(0.8),
                 );
                 JointsCommand {
-                    positions: self
-                        .interpolator
-                        .value(),
+                    positions: self.interpolator.value(),
                     stiffnesses: fall_back_stiffnesses,
                 }
             }

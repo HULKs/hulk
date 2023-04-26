@@ -108,7 +108,8 @@ impl DispatchingInterpolator {
                 context.sensor_data.positions,
                 target_position,
                 Duration::from_secs_f32(1.0),
-            )?.into();
+            )?
+            .into();
             self.stiffnesses = Joints::fill(0.8);
         }
 

@@ -229,6 +229,8 @@ where
         self.total_duration
     }
 
+    // TODO: uses weird indexing due to the artificial keys added in the try_new function
+    // if possible in the future, use spline boundary conditions instead.
     pub fn start_position(&self) -> T {
         self.spline.keys()[1].value
     }
