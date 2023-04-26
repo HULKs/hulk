@@ -126,46 +126,6 @@ impl PathPlanner {
         );
     }
 
-    pub fn with_penalty_box(
-        &mut self,
-        field_to_robot: Isometry2<f32>,
-        field_dimensions: &FieldDimensions,
-        kicking_team: Team,
-    ) {
-        let side_factor: f32 = match kicking_team {
-            Team::Hulks => 1.0,
-            _ => -1.0,
-        };
-        let half_penalty_area_width = field_dimensions.penalty_area_width / 2.0;
-        let half_field_length = field_dimensions.length / 2.0;
-        let front_left = field_to_robot
-            * point![
-                side_factor * (half_field_length - field_dimensions.penalty_area_length),
-                half_penalty_area_width
-            ];
-        let front_right = field_to_robot
-            * point![
-                side_factor * (half_field_length - field_dimensions.penalty_area_length),
-                -half_penalty_area_width
-            ];
-        let back_left =
-            field_to_robot * point![side_factor * half_field_length, half_penalty_area_width];
-        let back_right =
-            field_to_robot * point![side_factor * half_field_length, -half_penalty_area_width];
-
-        let line_segments = [
-            LineSegment(front_left, front_right),
-            LineSegment(front_left, back_left),
-            LineSegment(front_right, back_right),
-        ];
-
-        self.obstacles.extend(
-            line_segments.into_iter().map(|line_segment| {
-                PathObstacle::from(PathObstacleShape::LineSegment(line_segment))
-            }),
-        );
-    }
-
     fn generate_start_destination_tangents(&mut self) {
         let direct_path = LineSegment(self.nodes[0].position, self.nodes[1].position);
         let direct_path_blocked = self
