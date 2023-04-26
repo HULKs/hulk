@@ -70,6 +70,7 @@ pub fn execute(
             robot_to_field,
             None,
             &world_state.obstacles,
+            &world_state.rule_obstacles,
             path_obstacles_output,
         );
         let path_length: f32 = path.iter().map(|segment| segment.length()).sum();

@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -52,6 +53,14 @@ pub struct PathObstacle {
     pub populated_connections: HashSet<usize>,
 }
 
+impl PathObstacle {
+    pub fn new_line(start: Point2<f32>, end: Point2<f32>) -> Self {
+        PathObstacleShape::LineSegment(LineSegment(start, end)).into()
+    }
+    pub fn new_circle(center: Point2<f32>, radius: f32) -> Self {
+        PathObstacleShape::Circle(Circle { center, radius }).into()
+    }
+}
 impl From<PathObstacleShape> for PathObstacle {
     fn from(shape: PathObstacleShape) -> Self {
         Self {

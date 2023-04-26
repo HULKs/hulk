@@ -6,7 +6,7 @@ use types::{
         PathPlanning as PathPlanningConfiguration, WalkAndStand as WalkAndStandConfiguration,
     },
     direct_path, ArmMotion, FieldDimensions, HeadMotion, MotionCommand, Obstacle, OrientationMode,
-    PathObstacle, PathSegment, Side, WorldState,
+    PathObstacle, PathSegment, RuleObstacle, Side, WorldState,
 };
 
 use crate::path_planner::PathPlanner;
@@ -35,10 +35,16 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         robot_to_field: Isometry2<f32>,
         ball_obstacle: Option<Point2<f32>>,
         obstacles: &[Obstacle],
+        rule_obstacles: &[RuleObstacle],
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     ) -> Vec<PathSegment> {
         let mut planner = PathPlanner::default();
         planner.with_obstacles(obstacles, self.configuration.robot_radius_at_hip_height);
+        planner.with_rule_obstacles(
+            robot_to_field.inverse(),
+            rule_obstacles,
+            self.configuration.robot_radius_at_hip_height,
+        );
         planner.with_field_borders(
             robot_to_field.inverse(),
             self.field_dimensions.length,
@@ -163,6 +169,7 @@ impl<'cycle> WalkAndStand<'cycle> {
                 robot_to_field,
                 self.world_state.ball.map(|ball| ball.ball_in_ground),
                 &self.world_state.obstacles,
+                &self.world_state.rule_obstacles,
                 path_obstacles_output,
             );
             Some(self.walk_path_planner.walk_with_obstacle_avoiding_arms(

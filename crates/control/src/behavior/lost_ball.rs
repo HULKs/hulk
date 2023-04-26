@@ -25,6 +25,7 @@ pub fn execute(
         robot_to_field,
         None,
         &world_state.obstacles,
+        &world_state.rule_obstacles,
         path_obstacles_output,
     );
     Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
