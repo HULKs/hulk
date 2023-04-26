@@ -1,15 +1,15 @@
-use color_eyre::{eyre::Context, Result};
+use color_eyre::Result;
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use motionfile::MotionFile;
+use motionfile::MotionInterpolator;
 use nalgebra::Vector2;
+use types::ConditionInput;
 use types::{
     CycleTime, Facing, Joints, MotionCommand, MotionSafeExits, MotionSelection, MotionType,
     SensorData,
 };
-
-use motionfile::MotionInterpolator;
 
 pub struct StandUpFront {
     interpolator: MotionInterpolator<Joints<f32>>,
@@ -27,10 +27,11 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
+    pub condition_input: Input<ConditionInput, "condition_input">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub gyro_low_pass_filter_coefficient:
         Parameter<f32, "stand_up.gyro_low_pass_filter_coefficient">,
@@ -51,7 +52,7 @@ impl StandUpFront {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
             interpolator: MotionFile::from_path("etc/motions/stand_up_front.json")?.try_into()?,
-            filtered_gyro: LowPassFilter::with_alpha(
+            filtered_gyro: LowPassFilter::with_smoothing_factor(
                 Vector2::zeros(),
                 *context.gyro_low_pass_filter_coefficient,
             ),
@@ -69,7 +70,7 @@ impl StandUpFront {
             .update(Vector2::new(angular_velocity.x, angular_velocity.y));
 
         self.interpolator
-            .advance_by(last_cycle_duration, context.sensor_data);
+            .advance_by(last_cycle_duration, context.condition_input);
 
         if context.motion_selection.current_motion == MotionType::StandUpFront {
             context
@@ -100,11 +101,7 @@ impl StandUpFront {
         }
 
         Ok(MainOutputs {
-            stand_up_front_positions: self
-                .interpolator
-                .value()
-                .wrap_err("error computing interpolation in stand up front")?
-                .into(),
+            stand_up_front_positions: self.interpolator.value().into(),
         })
     }
 }

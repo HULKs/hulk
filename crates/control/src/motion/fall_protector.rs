@@ -1,19 +1,19 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use approx::relative_eq;
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result};
 use context_attribute::context;
 use framework::MainOutput;
+use motionfile::{MotionFile, MotionInterpolator};
 use types::{
     configuration::FallProtection, BodyJoints, CycleTime, FallDirection, HeadJoints, Joints,
-    JointsCommand, MotionCommand, MotionFile, MotionSelection, MotionType, SensorData,
+    JointsCommand, MotionCommand, MotionSelection, MotionType, SensorData, ConditionInput,
 };
 
-use crate::spline_interpolator::SplineInterpolator;
 
 pub struct FallProtector {
     start_time: SystemTime,
-    interpolator: SplineInterpolator<Joints<f32>>,
+    interpolator: MotionInterpolator<Joints<f32>>,
 }
 
 #[context]
@@ -23,10 +23,11 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
+    pub condition_input: Input<ConditionInput, "condition_input">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub fall_protection: Parameter<FallProtection, "fall_protection">,
 }
@@ -117,7 +118,7 @@ impl FallProtector {
             } => {
                 self.interpolator.set_initial_positions(current_positions);
                 self.interpolator
-                    .advance_by(context.cycle_time.last_cycle_duration);
+                    .advance_by(context.cycle_time.last_cycle_duration, context.condition_input);
 
                 let fall_back_stiffnesses = Joints::from_head_and_body(
                     HeadJoints::fill(head_stiffness),
@@ -126,8 +127,7 @@ impl FallProtector {
                 JointsCommand {
                     positions: self
                         .interpolator
-                        .value()
-                        .wrap_err("failed to get interpolator value")?,
+                        .value(),
                     stiffnesses: fall_back_stiffnesses,
                 }
             }

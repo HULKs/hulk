@@ -4,15 +4,13 @@ use std::{fs::File, path::Path, time::Duration};
 use color_eyre::eyre::{Result, WrapErr};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::from_reader;
-
 use splines::Interpolate;
 
-use crate::condition::ConditionEnum;
+use crate::condition::ConditionType;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct MotionFile<T: Debug + Interpolate<f32>> {
-    pub initial_positions: T,
-    pub frames: Vec<MotionFileFrame<T>>,
+pub struct MotionFile<T> {
+    pub motion: Vec<MotionFileFrame<T>>,
 }
 
 impl<T> MotionFile<T>
@@ -33,17 +31,20 @@ where
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(untagged)]
-pub enum MotionFileFrame<T: Debug + Interpolate<f32>> {
-    Joints {
-        #[serde(
-            serialize_with = "serialize_float_seconds",
-            deserialize_with = "deserialize_float_seconds"
-        )]
-        duration: Duration,
-        positions: T,
-    },
-    Condition(ConditionEnum),
+pub struct MotionFileFrame<T> {
+    pub entry_condition: Option<ConditionType>,
+    pub keyframes: Vec<KeyFrame<T>>,
+    pub exit_condition: Option<ConditionType>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct KeyFrame<T> {
+    #[serde(
+        serialize_with = "serialize_float_seconds",
+        deserialize_with = "deserialize_float_seconds"
+    )]
+    pub duration: Duration,
+    pub positions: T,
 }
 
 fn serialize_float_seconds<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>

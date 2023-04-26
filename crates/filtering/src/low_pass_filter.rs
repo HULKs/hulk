@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub struct LowPassFilter<State> {
-    alpha: f32,
+    smoothing_factor: f32,
     state: State,
 }
 
@@ -15,9 +15,9 @@ impl<State> LowPassFilter<State>
 where
     State: Copy + Add<Output = State> + Sub<Output = State> + Mul<f32, Output = State>,
 {
-    pub fn with_alpha(initial_state: State, alpha: f32) -> Self {
+    pub fn with_smoothing_factor(initial_state: State, smoothing_factor: f32) -> Self {
         Self {
-            alpha,
+            smoothing_factor,
             state: initial_state,
         }
     }
@@ -26,15 +26,15 @@ where
     pub fn with_cutoff(initial_state: State, cutoff_frequency: f32, sampling_rate: f32) -> Self {
         let rc = 1.0 / (cutoff_frequency * 2.0 * PI);
         let dt = 1.0 / sampling_rate;
-        let alpha = dt / (rc + dt);
+        let smoothing_factor = dt / (rc + dt);
         Self {
-            alpha,
+            smoothing_factor,
             state: initial_state,
         }
     }
 
     pub fn update(&mut self, value: State) {
-        self.state = self.state + (value - self.state) * self.alpha;
+        self.state = self.state + (value - self.state) * self.smoothing_factor;
     }
 
     pub fn state(&self) -> State {
@@ -43,9 +43,5 @@ where
 
     pub fn reset(&mut self, state: State) {
         self.state = state;
-    }
-
-    pub fn alpha(&self) -> f32 {
-        self.alpha
     }
 }

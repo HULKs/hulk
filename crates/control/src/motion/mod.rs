@@ -1,4 +1,5 @@
 pub mod arms_up_squat;
+pub mod condition_input_provider;
 pub mod dispatching_interpolator;
 pub mod energy_saving_stand;
 pub mod fall_protector;

@@ -143,8 +143,11 @@ pub struct MainOutputs {
 impl WalkingEngine {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
-            filtered_gyro_y: LowPassFilter::with_alpha(0.0, context.config.gyro_low_pass_factor),
-            filtered_robot_tilt_shift: LowPassFilter::with_alpha(
+            filtered_gyro_y: LowPassFilter::with_smoothing_factor(
+                0.0,
+                context.config.gyro_low_pass_factor,
+            ),
+            filtered_robot_tilt_shift: LowPassFilter::with_smoothing_factor(
                 0.0,
                 context.config.tilt_shift_low_pass_factor,
             ),

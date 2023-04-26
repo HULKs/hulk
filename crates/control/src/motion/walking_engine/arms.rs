@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{configuration::SwingingArms, ArmJoints, ArmMotion, MotionCommand, Side};
 
-use motionfile::SplineInterpolator;
+use motionfile::{SplineInterpolator, TimedSpline};
 
 use super::foot_offsets::FootOffsets;
 
@@ -65,11 +65,12 @@ impl SwingingArm {
         self.state = match (&mut self.state, requested_arm_motion) {
             (State::Swing, ArmMotion::Swing) => State::Swing,
             (State::Swing, ArmMotion::PullTight) => State::PullingBack {
-                interpolator: SplineInterpolator::try_new_transition_timed(
+                interpolator: TimedSpline::try_new_transition_timed(
                     swinging_arm_joints,
                     pull_back_joints,
                     config.pulling_back_duration,
-                )?,
+                )?
+                .into(),
             },
             (
                 State::PullingBack {
@@ -80,11 +81,12 @@ impl SwingingArm {
                 interpolator.advance_by(cycle_duration);
                 if interpolator.is_finished() {
                     State::PullingTight {
-                        interpolator: SplineInterpolator::try_new_transition_timed(
+                        interpolator: TimedSpline::try_new_transition_timed(
                             pull_back_joints,
                             pull_tight_joints,
                             config.pulling_tight_duration,
-                        )?,
+                        )?
+                        .into(),
                     }
                 } else {
                     State::PullingBack {
@@ -93,13 +95,15 @@ impl SwingingArm {
                 }
             }
             (State::PullingBack { interpolator }, ArmMotion::Swing) => {
-                let current_joints = interpolator.value()?;
-                let interpolator = SplineInterpolator::try_new_transition_timed(
+                let current_joints = interpolator.value();
+                let interpolator = TimedSpline::try_new_transition_timed(
                     current_joints,
                     center_arm_joints,
                     interpolator.current_duration(),
                 )?;
-                State::ReleasingBack { interpolator }
+                State::ReleasingBack {
+                    interpolator: interpolator.into(),
+                }
             }
             (
                 State::PullingTight {
@@ -117,20 +121,22 @@ impl SwingingArm {
                 }
             }
             (State::PullingTight { interpolator }, ArmMotion::Swing) => {
-                let current_joints = interpolator.value()?;
-                let interpolator = SplineInterpolator::try_new_transition_timed(
+                let current_joints = interpolator.value();
+                let interpolator = TimedSpline::try_new_transition_timed(
                     current_joints,
                     pull_back_joints,
                     interpolator.current_duration(),
-                )?;
+                )?
+                .into();
                 State::ReleasingTight { interpolator }
             }
             (State::Back, ArmMotion::Swing) => State::ReleasingTight {
-                interpolator: SplineInterpolator::try_new_transition_timed(
+                interpolator: TimedSpline::try_new_transition_timed(
                     pull_tight_joints,
                     pull_back_joints,
                     config.pulling_back_duration + config.pulling_tight_duration,
-                )?,
+                )?
+                .into(),
             },
             (State::Back, ArmMotion::PullTight) => State::Back,
             (
@@ -149,13 +155,15 @@ impl SwingingArm {
                 }
             }
             (State::ReleasingBack { interpolator }, ArmMotion::PullTight) => {
-                let current_joints = interpolator.value()?;
-                let interpolator = SplineInterpolator::try_new_transition_timed(
+                let current_joints = interpolator.value();
+                let interpolator = TimedSpline::try_new_transition_timed(
                     current_joints,
                     pull_back_joints,
                     config.pulling_back_duration,
                 )?;
-                State::PullingBack { interpolator }
+                State::PullingBack {
+                    interpolator: interpolator.into(),
+                }
             }
             (
                 State::ReleasingTight {
@@ -166,11 +174,12 @@ impl SwingingArm {
                 interpolator.advance_by(cycle_duration);
                 if interpolator.is_finished() {
                     State::ReleasingBack {
-                        interpolator: SplineInterpolator::try_new_transition_timed(
+                        interpolator: TimedSpline::try_new_transition_timed(
                             pull_back_joints,
                             center_arm_joints,
                             config.pulling_back_duration,
-                        )?,
+                        )?
+                        .into(),
                     }
                 } else {
                     State::ReleasingTight {
@@ -179,13 +188,15 @@ impl SwingingArm {
                 }
             }
             (State::ReleasingTight { interpolator }, ArmMotion::PullTight) => {
-                let current_joints = interpolator.value()?;
-                let interpolator = SplineInterpolator::try_new_transition_timed(
+                let current_joints = interpolator.value();
+                let interpolator = TimedSpline::try_new_transition_timed(
                     current_joints,
                     pull_tight_joints,
                     interpolator.current_duration(),
                 )?;
-                State::PullingTight { interpolator }
+                State::PullingTight {
+                    interpolator: interpolator.into(),
+                }
             }
         };
         Ok(match &self.state {
@@ -193,7 +204,7 @@ impl SwingingArm {
             State::PullingBack { interpolator }
             | State::ReleasingBack { interpolator }
             | State::ReleasingTight { interpolator }
-            | State::PullingTight { interpolator } => interpolator.value()?,
+            | State::PullingTight { interpolator } => interpolator.value(),
             State::Back => pull_tight_joints,
         })
     }
@@ -204,7 +215,7 @@ impl SwingingArm {
             State::PullingBack { interpolator }
             | State::ReleasingBack { interpolator }
             | State::ReleasingTight { interpolator }
-            | State::PullingTight { interpolator } => interpolator.value()?.shoulder_pitch,
+            | State::PullingTight { interpolator } => interpolator.value().shoulder_pitch,
             State::Back => config.pull_tight_joints.shoulder_pitch,
         };
         Ok((shoulder_pitch - FRAC_PI_2) * config.torso_tilt_compensation_factor)
