@@ -2,12 +2,11 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use motionfile::MotionFile;
+use motionfile::MotionInterpolator;
 use types::{
     ConditionInput, CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
     SensorData,
 };
-
-use motionfile::MotionInterpolator;
 
 pub struct ArmsUpSquat {
     interpolator: MotionInterpolator<Joints<f32>>,

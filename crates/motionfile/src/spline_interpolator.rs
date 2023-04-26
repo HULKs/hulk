@@ -18,7 +18,7 @@ impl<T: Debug + Interpolate<f32>> SplineInterpolator<T> {
     }
 
     pub fn value(&self) -> T {
-        self.spline.value(self.current_duration)
+        self.spline.value_at(self.current_duration)
     }
 
     pub fn current_duration(&self) -> Duration {
