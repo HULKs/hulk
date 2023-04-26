@@ -176,7 +176,7 @@ where
                         &mut own_database.additional_outputs.path_obstacles,
                     ),
                     world_state: &own_database.main_outputs.world_state,
-		    cycle_time: &own_database.main_outputs.cycle_time,
+                    cycle_time: &own_database.main_outputs.cycle_time,
                     configuration: &configuration.behavior,
                     field_dimensions: &configuration.field_dimensions,
                     lost_ball_parameters: &configuration.behavior.lost_ball,
