@@ -153,8 +153,8 @@
   "robot_detection": {
     "vision_top": {
       "enable": true,
-      "enable_filtered_detections": true,
-      "enable_filter_by_pixel_position": true,
+      "enable_filter_by_size": false,
+      "enable_filter_by_pixel_position": false,
       "neural_network": "etc/neural_networks/robot_detector.hdf5",
       "object_threshold": 0.9,
       "lowest_bottom_pixel_position": 480,
@@ -165,6 +165,8 @@
     },
     "vision_bottom": {
       "enable": false,
+      "enable_filter_by_size": false,
+      "enable_filter_by_pixel_position": false,
       "neural_network": "etc/neural_networks/robot_detector.hdf5",
       "object_threshold": 0.9,
       "lowest_bottom_pixel_position": 480,

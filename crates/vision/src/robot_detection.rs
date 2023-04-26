@@ -47,8 +47,8 @@ pub struct CycleContext {
     pub luminance_image: AdditionalOutput<GrayscaleImage, "robot_detection.luminance_image">,
     pub object_threshold: Parameter<f32, "robot_detection.$cycler_instance.object_threshold">,
     pub enable: Parameter<bool, "robot_detection.$cycler_instance.enable">,
-    pub enable_filtered_detections:
-        Parameter<bool, "robot_detection.$cycler_instance.enable_filtered_detections">,
+    pub enable_filter_by_size:
+        Parameter<bool, "robot_detection.$cycler_instance.enable_filter_by_size">,
     pub enable_filter_by_pixel_position:
         Parameter<bool, "robot_detection.$cycler_instance.enable_filter_by_pixel_position">,
     pub lowest_bottom_pixel_position:
@@ -107,7 +107,7 @@ impl RobotDetection {
             );
         }
 
-        if *context.enable_filtered_detections {
+        if *context.enable_filter_by_size {
             filtered_detections = filter_by_size(
                 filtered_detections,
                 context.camera_matrix,
