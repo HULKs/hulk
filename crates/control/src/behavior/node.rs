@@ -4,9 +4,9 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2};
 use spl_network_messages::{GamePhase, Team};
 use types::{
-    configuration::{Behavior as BehaviorConfiguration, LostBall},
-    FieldDimensions, FilteredGameState, GameControllerState, KickDecision, MotionCommand,
-    PathObstacle, Role, Side, WorldState,
+    configuration::{Behavior as BehaviorConfiguration, InWalkKicks, LostBall},
+    FieldDimensions, FilteredGameState, GameControllerState, MotionCommand, PathObstacle, Role,
+    Side, WorldState,
 };
 
 use super::{
@@ -33,15 +33,13 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    pub kick_decisions: AdditionalOutput<Vec<KickDecision>, "kick_decisions">,
-    pub best_kick_decision: AdditionalOutput<Option<KickDecision>, "best_kick_decision">,
-    pub kick_targets: AdditionalOutput<Vec<Point2<f32>>, "kick_targets">,
     pub path_obstacles: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
 
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub world_state: Input<WorldState, "world_state">,
 
     pub configuration: Parameter<BehaviorConfiguration, "behavior">,
+    pub in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
 }
@@ -155,13 +153,10 @@ impl Behavior {
                 Action::Stand => stand::execute(world_state),
                 Action::Dribble => dribble::execute(
                     world_state,
-                    context.field_dimensions,
-                    &context.configuration.dribbling,
                     &walk_path_planner,
+                    context.in_walk_kicks,
+                    &context.configuration.dribbling,
                     &mut context.path_obstacles,
-                    &mut context.kick_targets,
-                    &mut context.kick_decisions,
-                    &mut context.best_kick_decision,
                 ),
                 Action::Jump => jump::execute(world_state),
                 Action::PrepareJump => prepare_jump::execute(world_state),
