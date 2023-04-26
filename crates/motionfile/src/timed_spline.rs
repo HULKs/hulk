@@ -105,16 +105,15 @@ where
 {
     pub fn try_new_with_start(
         initial_position: T,
-        mut keys: Vec<KeyFrame<T>>,
+        keys: Vec<KeyFrame<T>>,
     ) -> Result<Self, InterpolatorError> {
         if keys.is_empty() {
             return Err(InterpolatorError::NotEnoughKeys);
         }
 
-        keys.sort_unstable_by_key(|key| key.duration);
-
+        let last_key_index = keys.len();
         let start_time = Duration::ZERO;
-        let end_time = keys.last().unwrap().duration;
+        let mut current_time = start_time;
 
         let mut spline_keys = vec![Key::new(
             start_time.as_secs_f32(),
@@ -123,21 +122,31 @@ where
         )];
         spline_keys.extend(
             keys.into_iter()
-                .map(|key| {
+                .map(|frame| {
+                    current_time += frame.duration;
                     Ok(Key::new(
-                        key.duration.as_secs_f32() - start_time.as_secs_f32(),
-                        key.positions,
+                        current_time.as_secs_f32(),
+                        frame.positions,
                         Interpolation::Linear,
                     ))
                 })
                 .collect::<Result<Vec<_>, _>>()?,
         );
 
-        let spline = Spline::from_vec(spline_keys);
+        let mut spline = Spline::from_vec(spline_keys);
+
+        spline.add(Self::create_zero_gradient(
+            &spline.keys()[last_key_index],
+            &spline.keys()[last_key_index - 1],
+        ));
+        spline.add(Self::create_zero_gradient(
+            &spline.keys()[0],
+            &spline.keys()[1],
+        ));
 
         Ok(Self {
             spline,
-            total_duration: end_time,
+            total_duration: current_time,
         })
     }
 
