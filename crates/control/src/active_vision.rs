@@ -24,6 +24,7 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub ball: Input<Option<BallState>, "ball_state?">,
+    pub rule_ball: Input<Option<BallState>, "rule_ball_state?">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
     pub obstacles: Input<Vec<Obstacle>, "obstacles">,
     pub parameters: Parameter<LookActionConfiguration, "behavior.look_action">,
@@ -59,7 +60,7 @@ impl ActiveVision {
                     context.obstacles,
                     context.parameters,
                     robot_to_field,
-                    context.ball,
+                    context.rule_ball.or(context.ball),
                 );
 
                 self.last_point_of_interest_switch = Some(cycle_start_time);

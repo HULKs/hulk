@@ -1,10 +1,12 @@
-use nalgebra::Point2;
-use spl_network_messages::{GamePhase, SubState};
-use types::{GameControllerState, HeadMotion, MotionCommand, PrimaryState, Role, WorldState};
+use nalgebra::{point, Point2};
+use spl_network_messages::{GamePhase, SubState, Team};
+use types::{
+    FieldDimensions, GameControllerState, HeadMotion, MotionCommand, PrimaryState, Role, WorldState,
+};
 
 pub fn execute(
     world_state: &WorldState,
-    absolute_last_known_ball_position: Point2<f32>,
+    field_dimensions: &FieldDimensions,
 ) -> Option<MotionCommand> {
     match world_state.robot.primary_state {
         PrimaryState::Initial => Some(MotionCommand::Stand {
@@ -16,8 +18,18 @@ pub fn execute(
             let target = match world_state.game_controller_state {
                 Some(GameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
+                    kicking_team,
                     ..
-                }) => robot_to_field.inverse() * absolute_last_known_ball_position,
+                }) => {
+                    let side_factor = match kicking_team {
+                        Team::Opponent => -1.0,
+                        _ => 1.0,
+                    };
+                    let penalty_spot_x =
+                        field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance;
+                    let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0];
+                    robot_to_field.inverse() * penalty_spot_location
+                }
                 _ => robot_to_field.inverse() * Point2::origin(),
             };
             Some(MotionCommand::Stand {
