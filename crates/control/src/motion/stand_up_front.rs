@@ -2,8 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
-use motionfile::MotionFile;
-use motionfile::MotionInterpolator;
+use motionfile::{MotionFile, MotionInterpolator};
 use nalgebra::Vector2;
 use types::ConditionInput;
 use types::{

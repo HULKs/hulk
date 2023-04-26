@@ -112,20 +112,19 @@ where
         }
 
         let last_key_index = keys.len();
-        let start_time = Duration::ZERO;
-        let mut current_time = start_time;
+        let mut time_since_start = Duration::ZERO;
 
         let mut spline_keys = vec![Key::new(
-            start_time.as_secs_f32(),
+            time_since_start.as_secs_f32(),
             initial_position,
             Interpolation::Linear,
         )];
         spline_keys.extend(
             keys.into_iter()
                 .map(|frame| {
-                    current_time += frame.duration;
+                    time_since_start += frame.duration;
                     Ok(Key::new(
-                        current_time.as_secs_f32(),
+                        time_since_start.as_secs_f32(),
                         frame.positions,
                         Interpolation::Linear,
                     ))
@@ -146,7 +145,7 @@ where
 
         Ok(Self {
             spline,
-            total_duration: current_time,
+            total_duration: time_since_start,
         })
     }
 
@@ -209,7 +208,7 @@ where
         )
     }
 
-    pub fn value(&self, current_duration: Duration) -> T {
+    pub fn value_at(&self, current_duration: Duration) -> T {
         if current_duration >= self.total_duration {
             return self.end_position();
         }

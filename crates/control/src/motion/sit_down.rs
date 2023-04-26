@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use framework::{MainOutput, AdditionalOutput};
+use framework::MainOutput;
 use motionfile::{MotionFile, MotionInterpolator};
 use types::{
     ConditionInput, CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
@@ -22,8 +22,6 @@ pub struct CycleContext {
     pub motion_selection: Input<MotionSelection, "motion_selection">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-
-    pub time_since_start: AdditionalOutput<f32, "time_since_start">,
 }
 
 #[context]
@@ -34,15 +32,12 @@ pub struct MainOutputs {
 
 impl SitDown {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        let motionfile = MotionFile::from_path("etc/motions/sit_down.json")?;
-        let interpolator = motionfile.try_into()?;
-        
         Ok(Self {
-            interpolator
+            interpolator: MotionFile::from_path("etc/motions/sit_down.json")?.try_into()?,
         })
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
 
         if context.motion_selection.current_motion == MotionType::SitDown {
@@ -53,7 +48,6 @@ impl SitDown {
         }
 
         context.motion_safe_exits[MotionType::SitDown] = self.interpolator.is_finished();
-        context.time_since_start.fill_if_subscribed(|| self.interpolator.current_time().as_secs_f32());
 
         Ok(MainOutputs {
             sit_down_joints_command: JointsCommand {

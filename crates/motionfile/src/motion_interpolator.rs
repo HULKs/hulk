@@ -140,7 +140,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
             State::InterpolateSpline {
                 current_frame_index,
                 time_since_start,
-            } => self.frames[current_frame_index].spline.value(time_since_start),
+            } => self.frames[current_frame_index].spline.value_at(time_since_start),
             State::CheckExit { current_frame_index, .. } => {
                 self.frames[current_frame_index].spline.end_position()
             }
