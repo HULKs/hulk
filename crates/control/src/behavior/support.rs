@@ -66,7 +66,7 @@ fn support_pose(
     let clamped_position = point![clamped_x, supporting_position.y];
     let support_pose = Isometry2::new(
         clamped_position.coords,
-        rotate_towards(clamped_position, ball.ball_in_ground).angle(),
+        rotate_towards(clamped_position, ball.ball_in_field).angle(),
     );
     Some(robot_to_field.inverse() * support_pose)
 }
