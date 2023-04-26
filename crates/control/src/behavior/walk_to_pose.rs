@@ -1,13 +1,12 @@
 use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex};
-use spl_network_messages::{GameState, SubState};
 use types::{
     configuration::{
         PathPlanning as PathPlanningConfiguration, WalkAndStand as WalkAndStandConfiguration,
     },
-    direct_path, ArmMotion, FieldDimensions, GameControllerState, HeadMotion, MotionCommand,
-    Obstacle, OrientationMode, PathObstacle, PathSegment, Side, WorldState,
+    direct_path, ArmMotion, FieldDimensions, HeadMotion, MotionCommand, Obstacle, OrientationMode,
+    PathObstacle, PathSegment, Side, WorldState,
 };
 
 use crate::path_planner::PathPlanner;
@@ -37,7 +36,6 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         ball_obstacle: Option<Point2<f32>>,
         obstacles: &[Obstacle],
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-        game_controller_state: Option<GameControllerState>,
     ) -> Vec<PathSegment> {
         let mut planner = PathPlanner::default();
         planner.with_obstacles(obstacles, self.configuration.robot_radius_at_hip_height);
@@ -55,20 +53,6 @@ impl<'cycle> WalkPathPlanner<'cycle> {
                 self.configuration.robot_radius_at_foot_height,
             );
         }
-
-        if let Some(GameControllerState {
-            game_state: GameState::Playing,
-            sub_state: Some(SubState::PenaltyKick),
-            kicking_team,
-            ..
-        }) = game_controller_state
-        {
-            planner.with_penalty_box(
-                robot_to_field.inverse(),
-                self.field_dimensions,
-                kicking_team,
-            )
-        };
 
         let target_in_field = robot_to_field * target_in_robot;
         let x_max = self.field_dimensions.length / 2.0 + self.field_dimensions.border_strip_width;
@@ -180,7 +164,6 @@ impl<'cycle> WalkAndStand<'cycle> {
                 self.world_state.ball.map(|ball| ball.ball_in_ground),
                 &self.world_state.obstacles,
                 path_obstacles_output,
-                self.world_state.game_controller_state,
             );
             Some(self.walk_path_planner.walk_with_obstacle_avoiding_arms(
                 head,
