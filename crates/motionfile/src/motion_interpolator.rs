@@ -177,18 +177,15 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
 
     fn try_from(motion_file: MotionFile<T>) -> Result<Self> {
         let first_frame = motion_file.motion.first().unwrap();
-        let mut first_frame_keyframes: VecDeque<_> = first_frame.keyframes.clone().into();
-        let initial_positions = first_frame_keyframes.pop_front().unwrap().positions;
 
         let mut motion_frames = vec![ConditionedSpline {
             entry_condition: first_frame.entry_condition.clone(),
             spline: TimedSpline::try_new_with_start(
-                initial_positions,
-                first_frame_keyframes.into(),
+                motion_file.initial_positions,
+                first_frame.keyframes.clone(),
             )?,
             exit_condition: first_frame.exit_condition.clone(),
         }];
-
 
         motion_frames.extend(
             motion_file

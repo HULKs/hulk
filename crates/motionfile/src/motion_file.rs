@@ -10,6 +10,7 @@ use crate::condition::ConditionType;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct MotionFile<T> {
+    pub initial_positions: T,
     pub motion: Vec<MotionFileFrame<T>>,
 }
 
