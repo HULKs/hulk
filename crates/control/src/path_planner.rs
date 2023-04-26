@@ -3,7 +3,6 @@ use nalgebra::{distance, point, Isometry2, Point2};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
 
-use spl_network_messages::Team;
 use types::{
     Arc, Circle, FieldDimensions, LineSegment, Obstacle, Orientation, PathObstacle,
     PathObstacleShape, PathSegment,

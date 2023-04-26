@@ -153,6 +153,8 @@ where
                     primary_state: &own_database.main_outputs.primary_state,
                     role: &own_database.main_outputs.role,
                     position_of_interest: &own_database.main_outputs.position_of_interest,
+                    rule_ball: own_database.main_outputs.world_state.rule_ball.as_ref(),
+                    rule_obstacles: &own_database.main_outputs.rule_obstacles,
                 })
                 .wrap_err("failed to execute cycle of node `WorldStateComposer`")?;
             own_database.main_outputs.world_state = main_outputs.world_state.value;
