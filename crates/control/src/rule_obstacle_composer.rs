@@ -1,13 +1,11 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use nalgebra::point;
+use nalgebra::{point, vector};
 use spl_network_messages::{SubState, Team};
 use types::{FieldDimensions, GameControllerState, Rectangle, RuleObstacle};
 
-pub struct RuleObstacleComposer {
-    obstacle_list: Vec<RuleObstacle>,
-}
+pub struct RuleObstacleComposer {}
 
 #[context]
 pub struct CreationContext {}
@@ -26,21 +24,20 @@ pub struct MainOutputs {
 
 impl RuleObstacleComposer {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            obstacle_list: Vec::new(),
-        })
+        Ok(Self {})
     }
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let mut rule_obstacles = Vec::new();
         if let Some(SubState::PenaltyKick) = context.game_controller_state.sub_state {
             let penalty_box_obstacle = create_penalty_box(
                 context.field_dimensions,
                 context.game_controller_state.kicking_team,
             );
-            self.obstacle_list.push(penalty_box_obstacle);
+            rule_obstacles.push(penalty_box_obstacle);
         };
 
         Ok(MainOutputs {
-            rule_obstacles: self.obstacle_list.clone().into(),
+            rule_obstacles: rule_obstacles.into(),
         })
     }
 }
@@ -52,13 +49,10 @@ pub fn create_penalty_box(field_dimensions: &FieldDimensions, kicking_team: Team
     };
     let half_penalty_area_width = field_dimensions.penalty_area_width / 2.0;
     let half_field_length = field_dimensions.length / 2.0;
-    let top_left = point![
-        side_factor * (half_field_length - field_dimensions.penalty_area_length),
-        half_penalty_area_width
-    ];
-    let bottom_right = point![side_factor * half_field_length, -half_penalty_area_width];
-    RuleObstacle::Rectangle(Rectangle {
-        top_left,
-        bottom_right,
-    })
+    let half_penalty_area_length = field_dimensions.penalty_area_length / 2.0;
+    let center_x = side_factor * (half_field_length - half_penalty_area_length);
+    RuleObstacle::Rectangle(Rectangle::new_with_center(
+        point![center_x, 0.0],
+        vector![half_penalty_area_length, half_penalty_area_width],
+    ))
 }

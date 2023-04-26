@@ -237,8 +237,8 @@ fn bounding_box_patch_intersection(circle: Circle, patch_candidate_circle: Circl
 
 fn image_containment(circle: Circle, image_size: Vector2<u32>) -> f32 {
     let image_rectangle = Rectangle {
-        top_left: point![0.0, 0.0],
-        bottom_right: point![image_size.x as f32, image_size.y as f32],
+        min: point![0.0, 0.0],
+        max: point![image_size.x as f32, image_size.y as f32],
     };
     let circle_box = circle.bounding_box();
 
