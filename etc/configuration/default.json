@@ -746,7 +746,7 @@
     "left_leg": {
       "hip_yaw_pitch": 0.0,
       "hip_roll": 0.0,
-      "hip_pitch": 0.0,
+      "hip_pitch": -0.0872,
       "knee_pitch": 0.0,
       "ankle_pitch": 0.0,
       "ankle_roll": 0.0
@@ -754,7 +754,7 @@
     "right_leg": {
       "hip_yaw_pitch": 0.0,
       "hip_roll": 0.0,
-      "hip_pitch": 0.0,
+      "hip_pitch": -0.0872,
       "knee_pitch": 0.0,
       "ankle_pitch": 0.0,
       "ankle_roll": 0.0
