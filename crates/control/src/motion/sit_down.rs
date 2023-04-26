@@ -1,13 +1,13 @@
-use color_eyre::{eyre::Context, Result};
+use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use motionfile::MotionFile;
-use types::{CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType};
-
-use motionfile::SplineInterpolator;
+use motionfile::{MotionFile, MotionInterpolator};
+use types::{
+    ConditionInput, CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
+};
 
 pub struct SitDown {
-    interpolator: SplineInterpolator<Joints<f32>>,
+    interpolator: MotionInterpolator<Joints<f32>>,
 }
 
 #[context]
@@ -17,8 +17,9 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    pub motion_selection: Input<MotionSelection, "motion_selection">,
+    pub condition_input: Input<ConditionInput, "condition_input">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
+    pub motion_selection: Input<MotionSelection, "motion_selection">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
@@ -40,7 +41,8 @@ impl SitDown {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
 
         if context.motion_selection.current_motion == MotionType::SitDown {
-            self.interpolator.advance_by(last_cycle_duration);
+            self.interpolator
+                .advance_by(last_cycle_duration, context.condition_input);
         } else {
             self.interpolator.reset();
         }
@@ -49,10 +51,7 @@ impl SitDown {
 
         Ok(MainOutputs {
             sit_down_joints_command: JointsCommand {
-                positions: self
-                    .interpolator
-                    .value()
-                    .wrap_err("error computing interpolation in sit_down")?,
+                positions: self.interpolator.value(),
                 stiffnesses: Joints::fill(0.8),
             }
             .into(),

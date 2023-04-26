@@ -9,6 +9,7 @@ homepage = "https://github.com/hulks/hulk"
 color-eyre = { workspace = true }
 enum_dispatch = { workspace = true }
 filtering = { workspace = true }
+itertools = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

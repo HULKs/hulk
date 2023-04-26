@@ -1,15 +1,14 @@
-use color_eyre::{eyre::Context, Result};
+use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use motionfile::MotionFile;
+use motionfile::{MotionFile, MotionInterpolator};
 use types::{
-    CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
+    ConditionInput, CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
+    SensorData,
 };
 
-use motionfile::SplineInterpolator;
-
 pub struct JumpLeft {
-    interpolator: SplineInterpolator<Joints<f32>>,
+    interpolator: MotionInterpolator<Joints<f32>>,
 }
 
 #[context]
@@ -21,9 +20,10 @@ pub struct CreationContext {
 pub struct CycleContext {
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
+    pub condition_input: Input<ConditionInput, "condition_input">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
 }
 
 #[context]
@@ -42,7 +42,8 @@ impl JumpLeft {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         if context.motion_selection.current_motion == MotionType::JumpLeft {
-            self.interpolator.advance_by(last_cycle_duration);
+            self.interpolator
+                .advance_by(last_cycle_duration, context.condition_input);
         } else {
             self.interpolator.reset();
         }
@@ -51,10 +52,7 @@ impl JumpLeft {
 
         Ok(MainOutputs {
             jump_left_joints_command: JointsCommand {
-                positions: self
-                    .interpolator
-                    .value()
-                    .wrap_err("error computing interpolation in jump_left")?,
+                positions: self.interpolator.value(),
                 stiffnesses: Joints::fill(if self.interpolator.is_finished() {
                     0.0
                 } else {

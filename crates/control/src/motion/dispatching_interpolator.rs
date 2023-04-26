@@ -3,10 +3,10 @@ use std::time::Duration;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
-use motionfile::SplineInterpolator;
+use motionfile::{SplineInterpolator, TimedSpline};
 use types::{
-    BodyJointsCommand, CycleTime, HeadJoints, Joints, JointsCommand, JointsVelocity,
-    MotionSafeExits, MotionSelection, MotionType, SensorData,
+    BodyJointsCommand, ConditionInput, CycleTime, HeadJoints, Joints, JointsCommand,
+    JointsVelocity, MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
 pub struct DispatchingInterpolator {
@@ -22,6 +22,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub arms_up_squat_joints_command: Input<JointsCommand<f32>, "arms_up_squat_joints_command">,
+    pub condition_input: Input<ConditionInput, "condition_input">,
     pub energy_saving_stand: Input<BodyJointsCommand<f32>, "energy_saving_stand_command">,
     pub jump_left_joints_command: Input<JointsCommand<f32>, "jump_left_joints_command">,
     pub jump_right_joints_command: Input<JointsCommand<f32>, "jump_right_joints_command">,
@@ -103,11 +104,11 @@ impl DispatchingInterpolator {
                 ),
             };
 
-            self.interpolator = SplineInterpolator::try_new_transition_timed(
+            self.interpolator = TimedSpline::try_new_transition_timed(
                 context.sensor_data.positions,
                 target_position,
                 Duration::from_secs_f32(1.0),
-            )?;
+            )?.into();
             self.stiffnesses = Joints::fill(0.8);
         }
 
@@ -125,7 +126,7 @@ impl DispatchingInterpolator {
 
         Ok(MainOutputs {
             dispatching_command: JointsCommand {
-                positions: self.interpolator.value()?,
+                positions: self.interpolator.value(),
                 stiffnesses: self.stiffnesses,
             }
             .into(),

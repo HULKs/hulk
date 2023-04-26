@@ -1,20 +1,18 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, time::Duration};
 
 use crate::StabilizedCondition;
 
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
-use types::SensorData;
+use types::ConditionInput;
 
-#[enum_dispatch(ConditionEnum)]
+#[enum_dispatch(ConditionType)]
 pub trait Condition: Clone {
-    fn is_finished(&self) -> bool;
-    fn update(&mut self, sensor_data: &SensorData);
-    fn reset(&mut self);
+    fn is_fulfilled(&self, condition_input: &ConditionInput, time_since_start: Duration) -> bool;
 }
 
 #[enum_dispatch]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ConditionEnum {
+pub enum ConditionType {
     StabilizedCondition,
 }

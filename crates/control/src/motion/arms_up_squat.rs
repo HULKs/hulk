@@ -1,15 +1,16 @@
-use color_eyre::{eyre::Context, Result};
+use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use motionfile::MotionFile;
 use types::{
-    CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
+    ConditionInput, CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
+    SensorData,
 };
 
-use motionfile::SplineInterpolator;
+use motionfile::MotionInterpolator;
 
 pub struct ArmsUpSquat {
-    interpolator: SplineInterpolator<Joints<f32>>,
+    interpolator: MotionInterpolator<Joints<f32>>,
 }
 
 #[context]
@@ -21,6 +22,7 @@ pub struct CreationContext {
 pub struct CycleContext {
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
+    pub condition_input: Input<ConditionInput, "condition_input">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
     pub sensor_data: Input<SensorData, "sensor_data">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
@@ -44,17 +46,15 @@ impl ArmsUpSquat {
         let motion_selection = context.motion_selection;
 
         if motion_selection.current_motion == MotionType::ArmsUpSquat {
-            self.interpolator.advance_by(last_cycle_duration);
+            self.interpolator
+                .advance_by(last_cycle_duration, context.condition_input);
         } else {
             self.interpolator.reset();
         }
 
         Ok(MainOutputs {
             arms_up_squat_joints_command: JointsCommand {
-                positions: self
-                    .interpolator
-                    .value()
-                    .wrap_err("error computing interpolation in arms_up_squat")?,
+                positions: self.interpolator.value(),
                 stiffnesses: Joints::fill(0.9),
             }
             .into(),

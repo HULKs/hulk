@@ -1152,5 +1152,6 @@
       "hip_yaw_pitch": 2.5,
       "knee_pitch": 2.5
     }
-  }
+  },
+  "angular_velocity_smoothing_factor": 0.1
 }

@@ -2728,6 +2728,7 @@ dependencies = [
  "color-eyre",
  "enum_dispatch",
  "filtering",
+ "itertools",
  "nalgebra",
  "serde",
  "serde_json",

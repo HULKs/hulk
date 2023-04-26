@@ -1,18 +1,16 @@
-use color_eyre::{eyre::Context, Result};
+use color_eyre::Result;
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
-use motionfile::MotionFile;
+use motionfile::{MotionFile, MotionInterpolator};
 use nalgebra::Vector2;
 use types::{
-    CycleTime, Facing, Joints, MotionCommand, MotionSafeExits, MotionSelection, MotionType,
-    SensorData,
+    ConditionInput, CycleTime, Facing, Joints, MotionCommand, MotionSafeExits, MotionSelection,
+    MotionType, SensorData,
 };
 
-use motionfile::SplineInterpolator;
-
 pub struct StandUpBack {
-    interpolator: SplineInterpolator<Joints<f32>>,
+    interpolator: MotionInterpolator<Joints<f32>>,
     filtered_gyro: LowPassFilter<Vector2<f32>>,
 }
 
@@ -27,10 +25,11 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
+    pub condition_input: Input<ConditionInput, "condition_input">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
     pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub gyro_low_pass_filter_coefficient:
         Parameter<f32, "stand_up.gyro_low_pass_filter_coefficient">,
@@ -50,7 +49,7 @@ impl StandUpBack {
         Ok(Self {
             interpolator: MotionFile::from_path("etc/motions/stand_up_back_dortmund_2022.json")?
                 .try_into()?,
-            filtered_gyro: LowPassFilter::with_alpha(
+            filtered_gyro: LowPassFilter::with_smoothing_factor(
                 Vector2::zeros(),
                 *context.gyro_low_pass_filter_coefficient,
             ),
@@ -68,7 +67,8 @@ impl StandUpBack {
             .update(Vector2::new(angular_velocity.x, angular_velocity.y));
 
         if context.motion_selection.current_motion == MotionType::StandUpBack {
-            self.interpolator.advance_by(last_cycle_duration);
+            self.interpolator
+                .advance_by(last_cycle_duration, context.condition_input);
         } else {
             self.interpolator.reset();
         }
@@ -91,11 +91,7 @@ impl StandUpBack {
         }
 
         Ok(MainOutputs {
-            stand_up_back_positions: self
-                .interpolator
-                .value()
-                .wrap_err("error computing interpolation in stand up back")?
-                .into(),
+            stand_up_back_positions: self.interpolator.value().into(),
         })
     }
 }
