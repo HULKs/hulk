@@ -1,4 +1,5 @@
 use crate::KeyFrame;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use splines::{Interpolate, Interpolation, Key, Spline};
 use thiserror::Error;
@@ -55,6 +56,8 @@ pub enum InterpolatorError {
     NotEnoughKeys,
     #[error("uses unsupported interpolation mode {interpolation_mode}")]
     UnsupportedInterpolationMode { interpolation_mode: String },
+    #[error("the time value is not monotonically increasing")]
+    KeysTimeIncorrect,
 }
 
 impl InterpolatorError {
@@ -107,15 +110,10 @@ where
         initial_position: T,
         keys: Vec<KeyFrame<T>>,
     ) -> Result<Self, InterpolatorError> {
-        if keys.is_empty() {
-            return Err(InterpolatorError::NotEnoughKeys);
-        }
-
-        let last_key_index = keys.len();
         let mut time_since_start = Duration::ZERO;
 
         let mut spline_keys = vec![Key::new(
-            time_since_start.as_secs_f32(),
+            time_since_start,
             initial_position,
             Interpolation::Linear,
         )];
@@ -124,7 +122,7 @@ where
                 .map(|frame| {
                     time_since_start += frame.duration;
                     Ok(Key::new(
-                        time_since_start.as_secs_f32(),
+                        time_since_start,
                         frame.positions,
                         Interpolation::Linear,
                     ))
@@ -132,29 +130,17 @@ where
                 .collect::<Result<Vec<_>, _>>()?,
         );
 
-        let mut spline = Spline::from_vec(spline_keys);
-
-        spline.add(Self::create_zero_gradient(
-            &spline.keys()[last_key_index],
-            &spline.keys()[last_key_index - 1],
-        ));
-        spline.add(Self::create_zero_gradient(
-            &spline.keys()[0],
-            &spline.keys()[1],
-        ));
-
-        Ok(Self {
-            spline,
-            total_duration: time_since_start,
-        })
+        Self::try_new(spline_keys)
     }
 
-    pub fn try_new(mut keys: Vec<Key<Duration, T>>) -> Result<Self, InterpolatorError> {
+    pub fn try_new(keys: Vec<Key<Duration, T>>) -> Result<Self, InterpolatorError> {
         if keys.len() < 2 {
             return Err(InterpolatorError::NotEnoughKeys);
         }
 
-        keys.sort_unstable_by_key(|key| key.t);
+        if keys.iter().tuple_windows().any(|(first_frame, second_frame)| first_frame.t >= second_frame.t) {
+            return Err(InterpolatorError::KeysTimeIncorrect);
+        }
 
         let start_time = keys.first().unwrap().t;
         let end_time = keys.last().unwrap().t - start_time;
