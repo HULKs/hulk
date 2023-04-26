@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 
 use types::{
     Arc, Circle, FieldDimensions, LineSegment, Obstacle, Orientation, PathObstacle,
-    PathObstacleShape, PathSegment,
+    PathObstacleShape, PathSegment, Rectangle, RuleObstacle,
 };
 
 use crate::a_star::{a_star_search, DynamicMap};
@@ -123,6 +123,28 @@ impl PathPlanner {
                 PathObstacle::from(PathObstacleShape::LineSegment(line_segment))
             }),
         );
+    }
+
+    pub fn with_rule_obstacles(
+        &mut self,
+        field_to_robot: Isometry2<f32>,
+        rule_obstacles: &[RuleObstacle],
+        own_robot_radius: f32,
+    ) {
+        let new_obstacles = rule_obstacles
+            .iter()
+            .flat_map(|rule_obstacle| match rule_obstacle {
+                RuleObstacle::Rectangle(rectangle) => {}
+                RuleObstacle::Circle(circle) => {
+                    let position = circle.center;
+                    let radius = circle.radius + own_robot_radius;
+                    vec![PathObstacle::from(PathObstacleShape::Circle(Circle {
+                        center: position,
+                        radius,
+                    }))]
+                }
+            });
+        self.obstacles.extend(new_obstacles);
     }
 
     fn generate_start_destination_tangents(&mut self) {
