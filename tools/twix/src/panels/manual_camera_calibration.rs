@@ -94,8 +94,6 @@ fn add_extrinsic_calibration_ui_components(
 
         ui.label(format!("{label:#} Camera"));
 
-        let settable = camera_parameter_option.is_some();
-
         add_save_button(
             ui,
             camera_matrix_subscription_path,
@@ -108,6 +106,7 @@ fn add_extrinsic_calibration_ui_components(
         );
     });
 
+    ui.style_mut().spacing.slider_width = ui.available_size().x - 100.0;
     let mut changed = false;
     ui.collapsing(
         format!("Intrinsic Parameters {label:#}"),
