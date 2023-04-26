@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::time::Duration;
 
@@ -27,15 +26,15 @@ pub struct MotionInterpolator<T> {
 #[derive(Debug)]
 enum State {
     CheckEntry {
-        current_index: usize,
+        current_frame_index: usize,
         time_since_start: Duration,
     },
     InterpolateSpline {
-        current_index: usize,
+        current_frame_index: usize,
         time_since_start: Duration,
     },
     CheckExit {
-        current_index: usize,
+        current_frame_index: usize,
         time_since_start: Duration,
     },
     Finished,
@@ -44,7 +43,7 @@ enum State {
 impl Default for State {
     fn default() -> Self {
         State::CheckEntry {
-            current_index: 0,
+            current_frame_index: 0,
             time_since_start: Duration::ZERO,
         }
     }
@@ -61,10 +60,10 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
     pub fn advance_by(&mut self, time_step: Duration, condition_input: &ConditionInput) {
         self.current_state = match self.current_state {
             State::CheckEntry {
-                current_index,
+                current_frame_index,
                 time_since_start,
             } => {
-                let current_frame = &self.frames[current_index];
+                let current_frame = &self.frames[current_frame_index];
                 if current_frame
                     .entry_condition
                     .as_ref()
@@ -72,47 +71,47 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     .unwrap_or(true)
                 {
                     State::InterpolateSpline {
-                        current_index,
+                        current_frame_index,
                         time_since_start: Duration::ZERO,
                     }
                 } else {
                     State::CheckEntry {
-                        current_index,
+                        current_frame_index,
                         time_since_start: time_since_start + time_step,
                     }
                 }
             }
             State::InterpolateSpline {
-                current_index,
+                current_frame_index,
                 time_since_start,
             } => {
-                let current_frame = &self.frames[current_index];
-                if time_since_start + time_step >= current_frame.spline.total_duration() {
+                let current_frame = &self.frames[current_frame_index];
+                if time_since_start >= current_frame.spline.total_duration() {
                     State::CheckExit {
-                        current_index,
+                        current_frame_index,
                         time_since_start: Duration::ZERO,
                     }
                 } else {
                     State::InterpolateSpline {
-                        current_index,
+                        current_frame_index,
                         time_since_start: time_since_start + time_step,
                     }
                 }
             }
             State::CheckExit {
-                current_index,
+                current_frame_index,
                 time_since_start,
             } => {
-                let current_frame = &self.frames[current_index];
+                let current_frame = &self.frames[current_frame_index];
                 if current_frame
                     .exit_condition
                     .as_ref()
                     .map(|condition| condition.is_fulfilled(condition_input, time_since_start))
                     .unwrap_or(true)
                 {
-                    if current_index + 1 < self.frames.len() - 1 {
+                    if current_frame_index < self.frames.len() - 1 {
                         State::CheckEntry {
-                            current_index: current_index + 1,
+                            current_frame_index: current_frame_index + 1,
                             time_since_start: Duration::ZERO,
                         }
                     } else {
@@ -120,7 +119,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     }
                 } else {
                     State::CheckExit {
-                        current_index,
+                        current_frame_index,
                         time_since_start: time_since_start + time_step,
                     }
                 }
@@ -135,15 +134,15 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
 
     pub fn value(&self) -> T {
         match self.current_state {
-            State::CheckEntry { current_index, .. } => {
-                self.frames[current_index].spline.start_position()
+            State::CheckEntry { current_frame_index, .. } => {
+                self.frames[current_frame_index].spline.start_position()
             }
             State::InterpolateSpline {
-                current_index,
+                current_frame_index,
                 time_since_start,
-            } => self.frames[current_index].spline.value(time_since_start),
-            State::CheckExit { current_index, .. } => {
-                self.frames[current_index].spline.end_position()
+            } => self.frames[current_frame_index].spline.value(time_since_start),
+            State::CheckExit { current_frame_index, .. } => {
+                self.frames[current_frame_index].spline.end_position()
             }
             State::Finished => self.frames.last().unwrap().spline.end_position(),
         }
@@ -151,7 +150,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
 
     pub fn reset(&mut self) {
         self.current_state = State::CheckEntry {
-            current_index: 0,
+            current_frame_index: 0,
             time_since_start: Duration::ZERO,
         }
     }
@@ -207,7 +206,7 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
 
         Ok(Self {
             current_state: State::CheckEntry {
-                current_index: 0,
+                current_frame_index: 0,
                 time_since_start: Duration::ZERO,
             },
             frames: motion_frames,
