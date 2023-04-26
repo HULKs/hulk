@@ -4,7 +4,7 @@ use color_eyre::eyre::{Result, WrapErr};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::from_reader;
 
-use crate::Joints;
+use crate::{joints::PartialJoints, Joints};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct MotionFile {
@@ -33,7 +33,7 @@ pub struct MotionFileFrame {
         deserialize_with = "deserialize_float_seconds"
     )]
     pub duration: Duration,
-    pub positions: Joints<f32>,
+    pub positions: PartialJoints<f32>,
 }
 
 fn serialize_float_seconds<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>

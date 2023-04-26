@@ -88,6 +88,7 @@ impl TryFrom<MotionFile> for SplineInterpolator<Joints<f32>> {
 
     fn try_from(motion_file: MotionFile) -> Result<Self, InterpolatorError> {
         let mut current_time = Duration::ZERO;
+        let mut current_joints = motion_file.initial_positions;
         let mut keys = vec![Key::new(
             current_time,
             motion_file.initial_positions,
@@ -96,7 +97,8 @@ impl TryFrom<MotionFile> for SplineInterpolator<Joints<f32>> {
 
         keys.extend(motion_file.frames.into_iter().map(|frame| {
             current_time += frame.duration;
-            Key::new(current_time, frame.positions, Interpolation::Linear)
+            current_joints = current_joints.update(frame.positions);
+            Key::new(current_time, current_joints, Interpolation::Linear)
         }));
 
         SplineInterpolator::try_new(keys)
