@@ -287,14 +287,14 @@
   "step_planner": {
     "injected_step": null,
     "max_step_size": {
-      "forward": 0.045,
+      "forward": 0.05,
       "left": 0.12,
       "turn": 0.9
     },
     "max_step_size_backwards": 0.02,
     "translation_exponent": 1.5,
     "rotation_exponent": 2.0,
-    "inside_turn_ratio": 0.15
+    "inside_turn_ratio": 0.1
   },
   "whistle_filter": {
     "buffer_length": 20,
@@ -320,7 +320,7 @@
     },
     "forward_foot_support_offset": 0.1,
     "gyro_balance_factor": 0.05,
-    "gyro_low_pass_factor": 0.6,
+    "gyro_low_pass_factor": 0.5,
     "leg_stiffness_stand": 0.6,
     "leg_stiffness_walk": 1.0,
     "max_forward_acceleration": 0.01,
@@ -381,9 +381,9 @@
       "torso_tilt_compensation_factor": -0.05
     },
     "tilt_shift_low_pass_factor": 0.7,
-    "torso_shift_offset": 0.02,
+    "torso_shift_offset": 0.023,
     "torso_tilt_offset": 0.0,
-    "walk_hip_height": 0.185
+    "walk_hip_height": 0.19
   },
   "kick_steps": {
     "forward": [
