@@ -64,8 +64,8 @@ impl GameStateFilter {
             context.game_controller_state,
             context.filtered_whistle.is_detected,
             context.cycle_time.start_time,
-            ball_detected_far_from_any_goal,
             context.config,
+            ball_detected_far_from_any_goal,
         );
 
         let ball_detected_far_from_kick_off_point = context
@@ -96,8 +96,8 @@ fn next_filtered_state(
     game_controller_state: &GameControllerState,
     is_whistle_detected: bool,
     cycle_start_time: SystemTime,
-    ball_detected_far_from_any_goal: bool,
     config: &GameStateFilterConfiguration,
+    ball_detected_far_from_any_goal: bool,
 ) -> State {
     match (current_state, game_controller_state.game_state) {
         (State::Initial | State::Ready | State::Finished, _)
