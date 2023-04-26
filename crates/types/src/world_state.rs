@@ -5,8 +5,8 @@ use spl_network_messages::PlayerNumber;
 
 use crate::GameControllerState;
 
-use crate::RuleObstacle;
 use crate::PenaltyShotDirection;
+use crate::RuleObstacle;
 
 use super::{FallState, FilteredGameState, Obstacle, PrimaryState, Role, Side};
 
