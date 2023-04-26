@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 
 use types::{
     Arc, Circle, FieldDimensions, LineSegment, Obstacle, Orientation, PathObstacle,
-    PathObstacleShape, PathSegment, Rectangle, RuleObstacle,
+    PathObstacleShape, PathSegment,
 };
 
 use crate::a_star::{a_star_search, DynamicMap};
@@ -125,7 +125,7 @@ impl PathPlanner {
         );
     }
 
-/* 
+    /*
     pub fn with_rule_obstacles(
         &mut self,
         field_to_robot: Isometry2<f32>,
@@ -148,7 +148,6 @@ impl PathPlanner {
         self.obstacles.extend(new_obstacles);
     }
     */
-
 
     fn generate_start_destination_tangents(&mut self) {
         let direct_path = LineSegment(self.nodes[0].position, self.nodes[1].position);
