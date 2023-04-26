@@ -1,4 +1,5 @@
 #![recursion_limit = "256"]
+mod action;
 mod ball;
 pub mod ball_filter;
 mod ball_position;
@@ -70,6 +71,7 @@ pub mod ycbcr422_image;
 
 // TODO: convert all "mod" to "pub mod"
 
+pub use action::Action;
 pub use ball::{Ball, CandidateEvaluation};
 pub use ball_position::BallPosition;
 pub use buttons::Buttons;

@@ -181,6 +181,10 @@ where
                         true,
                         &mut own_database.additional_outputs.path_obstacles,
                     ),
+                    active_action: AdditionalOutput::new(
+                        true,
+                        &mut own_database.additional_outputs.active_action,
+                    ),
                     world_state: &own_database.main_outputs.world_state,
                     cycle_time: &own_database.main_outputs.cycle_time,
                     configuration: &configuration.behavior,
