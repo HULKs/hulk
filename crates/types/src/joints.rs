@@ -387,6 +387,19 @@ impl LegJoints<f32> {
             ankle_roll: -self.ankle_roll,
         }
     }
+
+    pub fn clamp(self, min: Self, max: Self) -> Self {
+        Self {
+            hip_yaw_pitch: self
+                .hip_yaw_pitch
+                .clamp(min.hip_yaw_pitch, max.hip_yaw_pitch),
+            hip_roll: self.hip_roll.clamp(min.hip_roll, max.hip_roll),
+            hip_pitch: self.hip_pitch.clamp(min.hip_pitch, max.hip_pitch),
+            knee_pitch: self.knee_pitch.clamp(min.knee_pitch, max.knee_pitch),
+            ankle_pitch: self.ankle_pitch.clamp(min.ankle_pitch, max.ankle_pitch),
+            ankle_roll: self.ankle_roll.clamp(min.ankle_roll, max.ankle_roll),
+        }
+    }
 }
 
 #[derive(

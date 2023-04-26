@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use framework::AdditionalOutput;
 use types::{
     configuration::WalkingEngine as WalkingEngineConfiguration, LegJoints, Side, StepAdjustment,
@@ -5,23 +7,26 @@ use types::{
 
 use super::foot_offsets::FootOffsets;
 
-pub fn gyro_balancing(support_leg: &mut LegJoints<f32>, gyro_y: f32, gyro_balance_factor: f32) {
+pub fn support_leg_gyro_balancing(gyro_y: f32, gyro_balance_factor: f32) -> LegJoints<f32> {
     let gyro_adjustment = gyro_balance_factor * gyro_y;
-    support_leg.ankle_pitch += gyro_adjustment;
+    LegJoints {
+        ankle_pitch: gyro_adjustment,
+        ..Default::default()
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn foot_leveling(
-    left_leg: &mut LegJoints<f32>,
-    right_leg: &mut LegJoints<f32>,
+pub fn swing_leg_foot_leveling(
+    left_leg: &LegJoints<f32>,
+    right_leg: &LegJoints<f32>,
     measured_left_leg: LegJoints<f32>,
     measured_right_leg: LegJoints<f32>,
     torso_imu_pitch: f32,
     swing_side: Side,
-    last_left_level_adjustment: &mut f32,
-    last_right_level_adjustment: &mut f32,
     config: &WalkingEngineConfiguration,
-) {
+    t: Duration,
+    planned_step_duration: Duration,
+) -> LegJoints<f32> {
     let support_leg = match swing_side {
         Side::Left => &right_leg,
         Side::Right => &left_leg,
@@ -32,32 +37,16 @@ pub fn foot_leveling(
     };
 
     let support_foot_pitch_error = measured_support_leg.ankle_pitch - support_leg.ankle_pitch;
-    let mut swing_level_adjustment =
+    let pitch_error_adjustment =
         config.swing_foot_pitch_error_leveling_factor * support_foot_pitch_error;
 
-    // modify swing foot when tilted backwards
-    if torso_imu_pitch.is_sign_negative() {
-        swing_level_adjustment -= config.swing_foot_backwards_imu_leveling_factor * torso_imu_pitch;
-    }
+    let imu_adjustment = config.swing_foot_backwards_imu_leveling_factor * torso_imu_pitch;
+    let linear_time = (t.as_secs_f32() / planned_step_duration.as_secs_f32()).clamp(0.0, 1.0);
 
-    let (left_level_adjustment, right_level_adjustment) = match swing_side {
-        Side::Left => (swing_level_adjustment, 0.0),
-        Side::Right => (0.0, swing_level_adjustment),
-    };
-    let limited_left_level_adjustment = *last_left_level_adjustment
-        + (left_level_adjustment - *last_left_level_adjustment).clamp(
-            -config.max_level_adjustment_velocity,
-            config.max_level_adjustment_velocity,
-        );
-    *last_left_level_adjustment = limited_left_level_adjustment;
-    let limited_right_level_adjustment = *last_right_level_adjustment
-        + (right_level_adjustment - *last_right_level_adjustment).clamp(
-            -config.max_level_adjustment_velocity,
-            config.max_level_adjustment_velocity,
-        );
-    *last_right_level_adjustment = limited_right_level_adjustment;
-    left_leg.ankle_pitch += limited_left_level_adjustment;
-    right_leg.ankle_pitch += limited_right_level_adjustment;
+    LegJoints {
+        ankle_pitch: (1.0 - linear_time) * (pitch_error_adjustment - imu_adjustment),
+        ..Default::default()
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

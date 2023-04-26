@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
-    ArmJoints, HeadJoints, InitialPose, KickStep, KickVariant, MotionCommand, Players, Role, Step,
+    ArmJoints, HeadJoints, InitialPose, KickStep, KickVariant, LegJoints, MotionCommand, Players,
+    Role, Step,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -206,14 +207,14 @@ pub struct WalkingEngine {
     pub leg_stiffness_stand: f32,
     pub leg_stiffness_walk: f32,
     pub max_forward_acceleration: f32,
-    pub max_level_adjustment_velocity: f32,
+    pub max_leg_adjustment_velocity: LegJoints<f32>,
     pub max_number_of_timeouted_steps: usize,
     pub max_number_of_unstable_steps: usize,
     pub max_step_adjustment: f32,
     pub maximal_step_duration: Duration,
     pub minimal_step_duration: Duration,
     pub number_of_stabilizing_steps: usize,
-    pub sideways_step_duration_increase: f32,
+    pub step_duration_increase: Step,
     pub stable_step_deviation: Duration,
     pub starting_step_duration: Duration,
     pub starting_step_foot_lift: f32,
