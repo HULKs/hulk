@@ -114,8 +114,8 @@ pub struct CreationContext {
 #[derive(Debug)]
 pub struct CycleContext {
     pub step_adjustment: AdditionalOutput<StepAdjustment, "step_adjustment">,
-    pub planned_step_duration: AdditionalOutput<f32, "planned_step_duration">,
-    pub t: AdditionalOutput<f32, "t">,
+    pub planned_step_duration: AdditionalOutput<f32, "walking_engine.planned_step_duration">,
+    pub t: AdditionalOutput<f32, "walking_engine.t">,
     // TODO: ask hendrik how to do that
     // pub walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
     pub config: Parameter<WalkingEngineConfiguration, "walking_engine">,
