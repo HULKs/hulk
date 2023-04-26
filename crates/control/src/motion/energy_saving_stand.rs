@@ -19,7 +19,7 @@ pub struct CycleContext {
 
     pub arm_stiffness: Parameter<f32, "energy_saving_stand.arm_stiffness">,
     pub leg_stiffness: Parameter<f32, "energy_saving_stand.leg_stiffness">,
-    pub penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
+    pub energy_saving_stand_pose: Parameter<Joints<f32>, "energy_saving_stand.pose">,
 }
 
 #[context]
@@ -36,7 +36,7 @@ impl EnergySavingStand {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         Ok(MainOutputs {
             energy_saving_stand_command: BodyJointsCommand {
-                positions: BodyJoints::from(*context.penalized_pose),
+                positions: BodyJoints::from(*context.energy_saving_stand_pose),
                 stiffnesses: BodyJoints {
                     left_arm: ArmJoints::fill(*context.arm_stiffness),
                     right_arm: ArmJoints::fill(*context.arm_stiffness),
