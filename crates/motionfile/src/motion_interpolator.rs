@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::time::Duration;
 
@@ -86,7 +87,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                 time_since_start,
             } => {
                 let current_frame = &self.frames[current_index];
-                if time_since_start >= current_frame.spline.total_duration() {
+                if time_since_start + time_step >= current_frame.spline.total_duration() {
                     State::CheckExit {
                         current_index,
                         time_since_start: Duration::ZERO,
@@ -160,23 +161,34 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
             keyframe.spline.set_initial_positions(current_positions);
         }
     }
+
+    pub fn current_time(&self) -> Duration {
+        match self.current_state {
+            State::CheckEntry { time_since_start, .. } => time_since_start,
+            State::InterpolateSpline { time_since_start, .. } => time_since_start,
+            State::CheckExit { time_since_start, .. } => time_since_start,
+            State::Finished => Duration::ZERO,
+        }
+    }
 }
 
 impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<T> {
     type Error = Report;
 
-    fn try_from(mut motion_file: MotionFile<T>) -> Result<Self> {
-        let first_frame = motion_file.motion.first_mut().unwrap();
-        let initial_positions = first_frame.keyframes.pop().unwrap().positions;
+    fn try_from(motion_file: MotionFile<T>) -> Result<Self> {
+        let first_frame = motion_file.motion.first().unwrap();
+        let mut first_frame_keyframes: VecDeque<_> = first_frame.keyframes.clone().into();
+        let initial_positions = first_frame_keyframes.pop_front().unwrap().positions;
 
         let mut motion_frames = vec![ConditionedSpline {
             entry_condition: first_frame.entry_condition.clone(),
             spline: TimedSpline::try_new_with_start(
                 initial_positions,
-                first_frame.keyframes.clone(),
+                first_frame_keyframes.into(),
             )?,
             exit_condition: first_frame.exit_condition.clone(),
         }];
+
 
         motion_frames.extend(
             motion_file
