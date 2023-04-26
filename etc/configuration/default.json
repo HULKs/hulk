@@ -871,6 +871,33 @@
       "pitch": 0.0
     }
   },
+  "in_walk_kicks": {
+    "forward": {
+      "offset": [-0.23, 0.05, 0.0],
+      "shot_angle": 0.0,
+      "reached_thresholds": [0.07, 0.02, 0.1],
+      "enabled": true
+    },
+    "turn": {
+      "offset": [-0.17, -0.1, 0.0],
+      "shot_angle": -1.0,
+      "reached_thresholds": [0.04, 0.03, 0.1],
+      "enabled": true
+    },
+    "side": {
+      "offset": [-0.2, -0.02, 1.57],
+      "shot_angle": 0.0,
+      "reached_thresholds": [0.05, 0.05, 0.1],
+      "enabled": true
+    }
+  },
+  "kick_selector": {
+    "angle_distance_weight": 0.01,
+    "max_kick_around_obstacle_angle": 1.0,
+    "kick_pose_obstacle_radius": 0.1,
+    "emergency_kick_target_angles": [-0.52, -0.26, 0.0, 0.26, 0.52],
+    "ball_radius_for_kick_target_selection": 0.15
+  },
   "behavior": {
     "optional_roles": [
       "DefenderLeft",
@@ -900,35 +927,8 @@
     "dribbling": {
       "hybrid_align_distance": 1.0,
       "distance_to_be_aligned": 0.1,
-      "target_reached_thresholds": [0.04, 0.1, 0.1],
       "angle_to_approach_ball_from_threshold": 0.78,
-      "in_walk_kicks": {
-        "forward": {
-          "offset": [-0.23, 0.05, 0.0],
-          "shot_angle": 0.0,
-          "reached_thresholds": [0.07, 0.02, 0.1],
-          "enabled": true
-        },
-        "turn": {
-          "offset": [-0.17, -0.1, 0.0],
-          "shot_angle": -1.0,
-          "reached_thresholds": [0.04, 0.03, 0.1],
-          "enabled": true
-        },
-        "side": {
-          "offset": [-0.2, -0.02, 1.57],
-          "shot_angle": 0.0,
-          "reached_thresholds": [0.05, 0.05, 0.1],
-          "enabled": true
-        }
-      },
-      "use_side_kick_everywhere": true,
-      "angle_distance_weight": 0.01,
-      "max_kick_around_obstacle_angle": 1.0,
-      "ignore_robot_when_near_ball_radius": 0.6,
-      "kick_pose_obstacle_radius": 0.1,
-      "emergency_kick_target_angles": [-0.52, -0.26, 0.0, 0.26, 0.52],
-      "ball_radius_for_kick_target_selection": 0.15
+      "ignore_robot_when_near_ball_radius": 0.6
     },
     "walk_and_stand": {
       "hysteresis": [0.05, 0.05],

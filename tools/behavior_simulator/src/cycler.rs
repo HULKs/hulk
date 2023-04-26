@@ -5,6 +5,7 @@ use control::{
     active_vision::{self, ActiveVision},
     ball_state_composer::{self, BallStateComposer},
     behavior::node::{self, Behavior},
+    kick_selector::{self, KickSelector},
     role_assignment::{self, RoleAssignment},
     rule_obstacle_composer::RuleObstacleComposer,
     world_state_composer::{self, WorldStateComposer},
@@ -21,6 +22,7 @@ pub struct BehaviorCycler<Interface> {
     role_assignment: RoleAssignment,
     ball_state_composer: BallStateComposer,
     active_vision: ActiveVision,
+    kick_selector: KickSelector,
     world_state_composer: WorldStateComposer,
     behavior: Behavior,
     rule_obstacle_composer: RuleObstacleComposer,
@@ -51,6 +53,8 @@ where
             field_dimensions: &configuration.field_dimensions,
         })
         .wrap_err("failed to create node `ActiveVision`")?;
+        let kick_selector = KickSelector::new(kick_selector::CreationContext {})
+            .wrap_err("failed to create node `KickSelector`")?;
         let world_state_composer = WorldStateComposer::new(world_state_composer::CreationContext {
             player_number: &configuration.player_number,
         })
@@ -70,6 +74,7 @@ where
             ball_state_composer,
             rule_obstacle_composer,
             active_vision,
+            kick_selector,
             world_state_composer,
             behavior,
         })
@@ -167,6 +172,57 @@ where
                 main_outputs.position_of_interest.value;
         }
         {
+            if own_database.main_outputs.robot_to_field.as_ref().is_some()
+                && own_database.main_outputs.ball_position.as_ref().is_some()
+            {
+                let main_outputs = {
+                    self.kick_selector
+                        .cycle(control::kick_selector::CycleContext {
+                            robot_to_field: own_database
+                                .main_outputs
+                                .robot_to_field
+                                .as_ref()
+                                .unwrap(),
+                            ball_position: own_database
+                                .main_outputs
+                                .ball_position
+                                .as_ref()
+                                .unwrap(),
+                            obstacles: &own_database.main_outputs.obstacles,
+                            field_dimensions: &configuration.field_dimensions,
+                            in_walk_kicks: &configuration.in_walk_kicks,
+                            angle_distance_weight: &configuration
+                                .kick_selector
+                                .angle_distance_weight,
+                            max_kick_around_obstacle_angle: &configuration
+                                .kick_selector
+                                .max_kick_around_obstacle_angle,
+                            kick_pose_obstacle_radius: &configuration
+                                .kick_selector
+                                .kick_pose_obstacle_radius,
+                            emergency_kick_target_angles: &configuration
+                                .kick_selector
+                                .emergency_kick_target_angles,
+                            ball_radius_for_kick_target_selection: &configuration
+                                .kick_selector
+                                .ball_radius_for_kick_target_selection,
+                            kick_decisions: framework::AdditionalOutput::new(
+                                true,
+                                &mut own_database.additional_outputs.kick_decisions,
+                            ),
+                            kick_targets: framework::AdditionalOutput::new(
+                                true,
+                                &mut own_database.additional_outputs.kick_targets,
+                            ),
+                        })
+                        .wrap_err("failed to execute cycle of node `KickSelector`")?
+                };
+                own_database.main_outputs.kick_decisions = main_outputs.kick_decisions.value;
+            } else {
+                own_database.main_outputs.kick_decisions = Default::default();
+            }
+        }
+        {
             let main_outputs = self
                 .world_state_composer
                 .cycle(world_state_composer::CycleContext {
@@ -178,6 +234,7 @@ where
                         .penalty_shot_direction
                         .as_ref(),
                     robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
+                    kick_decisions: own_database.main_outputs.kick_decisions.as_ref(),
                     player_number: &configuration.player_number,
                     fall_state: &own_database.main_outputs.fall_state,
                     has_ground_contact: &own_database.main_outputs.has_ground_contact,
@@ -195,18 +252,6 @@ where
             let main_outputs = self
                 .behavior
                 .cycle(node::CycleContext {
-                    kick_decisions: AdditionalOutput::new(
-                        true,
-                        &mut own_database.additional_outputs.kick_decisions,
-                    ),
-                    best_kick_decision: AdditionalOutput::new(
-                        true,
-                        &mut own_database.additional_outputs.best_kick_decision,
-                    ),
-                    kick_targets: AdditionalOutput::new(
-                        true,
-                        &mut own_database.additional_outputs.kick_targets,
-                    ),
                     path_obstacles: AdditionalOutput::new(
                         true,
                         &mut own_database.additional_outputs.path_obstacles,
@@ -218,6 +263,7 @@ where
                     world_state: &own_database.main_outputs.world_state,
                     cycle_time: &own_database.main_outputs.cycle_time,
                     configuration: &configuration.behavior,
+                    in_walk_kicks: &configuration.in_walk_kicks,
                     field_dimensions: &configuration.field_dimensions,
                     lost_ball_parameters: &configuration.behavior.lost_ball,
                     has_ground_contact: &true,

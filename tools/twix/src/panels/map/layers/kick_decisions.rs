@@ -13,7 +13,6 @@ use crate::{
 pub struct KickDecisions {
     robot_to_field: ValueBuffer,
     kick_decisions: ValueBuffer,
-    best_kick_decision: ValueBuffer,
     kick_targets: ValueBuffer,
 }
 
@@ -25,15 +24,11 @@ impl Layer for KickDecisions {
             nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
         let kick_decisions = nao
             .subscribe_output(CyclerOutput::from_str("Control.additional.kick_decisions").unwrap());
-        let best_kick_decision = nao.subscribe_output(
-            CyclerOutput::from_str("Control.additional.best_kick_decision").unwrap(),
-        );
         let kick_targets = nao
             .subscribe_output(CyclerOutput::from_str("Control.additional.kick_targets").unwrap());
         Self {
             robot_to_field,
             kick_decisions,
-            best_kick_decision,
             kick_targets,
         }
     }
@@ -41,12 +36,12 @@ impl Layer for KickDecisions {
     fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
         let robot_to_field: Isometry2<f32> = self.robot_to_field.require_latest()?;
         let kick_decisions: Vec<KickDecision> = self.kick_decisions.require_latest()?;
-        let best_kick_decision: Option<KickDecision> = self.best_kick_decision.require_latest()?;
+        let best_kick_decision = kick_decisions.first();
         let kick_targets: Vec<Point2<f32>> = self.kick_targets.require_latest()?;
 
-        for kick_decision in kick_decisions {
+        for kick_decision in &kick_decisions {
             painter.pose(
-                robot_to_field * kick_decision.relative_kick_pose,
+                robot_to_field * kick_decision.kick_pose,
                 0.05,
                 0.1,
                 Color32::from_white_alpha(10),
@@ -70,7 +65,7 @@ impl Layer for KickDecisions {
         }
         if let Some(kick_decision) = best_kick_decision {
             painter.pose(
-                robot_to_field * kick_decision.relative_kick_pose,
+                robot_to_field * kick_decision.kick_pose,
                 0.05,
                 0.1,
                 Color32::from_white_alpha(10),

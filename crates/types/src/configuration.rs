@@ -75,13 +75,13 @@ pub struct RoleAssignment {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 
 pub struct Behavior {
-    pub dribbling: Dribbling,
     pub injected_motion_command: Option<MotionCommand>,
     pub lost_ball: LostBall,
     pub optional_roles: Vec<Role>,
     pub path_planning: PathPlanning,
     pub role_positions: RolePositions,
     pub walk_and_stand: WalkAndStand,
+    pub dribbling: Dribbling,
     pub search: Search,
     pub look_action: LookAction,
     pub initial_lookaround_duration: Duration,
@@ -115,21 +115,6 @@ pub struct RolePositions {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct Dribbling {
-    pub hybrid_align_distance: f32,
-    pub distance_to_be_aligned: f32,
-    pub angle_to_approach_ball_from_threshold: f32,
-    pub in_walk_kicks: InWalkKicks,
-    pub use_side_kick_everywhere: bool,
-    pub angle_distance_weight: f32,
-    pub max_kick_around_obstacle_angle: f32,
-    pub ignore_robot_when_near_ball_radius: f32,
-    pub kick_pose_obstacle_radius: f32,
-    pub emergency_kick_target_angles: Vec<f32>,
-    pub ball_radius_for_kick_target_selection: f32,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Search {
     pub position_reached_distance: f32,
     pub rotation_per_step: f32,
@@ -160,6 +145,14 @@ pub struct InWalkKickInfo {
     pub shot_angle: f32,
     pub reached_thresholds: Vector3<f32>,
     pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct Dribbling {
+    pub hybrid_align_distance: f32,
+    pub distance_to_be_aligned: f32,
+    pub angle_to_approach_ball_from_threshold: f32,
+    pub ignore_robot_when_near_ball_radius: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
