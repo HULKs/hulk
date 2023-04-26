@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 
 use types::{
     Arc, Circle, FieldDimensions, LineSegment, Obstacle, Orientation, PathObstacle,
-    PathObstacleShape, PathSegment,
+    PathObstacleShape, PathSegment, RuleObstacle,
 };
 
 use crate::a_star::{a_star_search, DynamicMap};
@@ -47,6 +47,41 @@ impl PathPlanner {
             }))
         });
 
+        self.obstacles.extend(new_obstacles);
+    }
+    
+    pub fn with_rule_obstacles(
+        &mut self,
+        field_to_robot: Isometry2<f32>,
+        rule_obstacles: &[RuleObstacle],
+        own_robot_radius: f32,
+    ) {
+        let new_obstacles = rule_obstacles
+            .iter()
+            .flat_map(|rule_obstacle| match rule_obstacle {
+                RuleObstacle::Rectangle(rectangle) => {
+                    let bottom_left = field_to_robot * rectangle.min;
+                    let top_right = field_to_robot * rectangle.max;
+                    let top_left = field_to_robot * point![bottom_left.x, top_right.y];
+                    let bottom_right = field_to_robot * point![top_right.x, bottom_left.y];
+                    vec![
+                        PathObstacle::new_circle(bottom_left, own_robot_radius),
+                        PathObstacle::new_circle(bottom_right, own_robot_radius),
+                        PathObstacle::new_circle(top_left, own_robot_radius),
+                        PathObstacle::new_circle(top_right, own_robot_radius),
+                        PathObstacle::new_line(bottom_left, bottom_right),
+                        PathObstacle::new_line(bottom_right, top_right),
+                        PathObstacle::new_line(top_right, top_left),
+                        PathObstacle::new_line(top_left, bottom_left),
+                    ]
+                }
+                RuleObstacle::Circle(circle) => {
+                    vec![PathObstacle::new_circle(
+                        field_to_robot * circle.center,
+                        circle.radius + own_robot_radius,
+                    )]
+                }
+            });
         self.obstacles.extend(new_obstacles);
     }
 
@@ -124,30 +159,6 @@ impl PathPlanner {
             }),
         );
     }
-
-    /*
-    pub fn with_rule_obstacles(
-        &mut self,
-        field_to_robot: Isometry2<f32>,
-        rule_obstacles: &[RuleObstacle],
-        own_robot_radius: f32,
-    ) {
-        let new_obstacles = rule_obstacles
-            .iter()
-            .flat_map(|rule_obstacle| match rule_obstacle {
-                RuleObstacle::Rectangle(rectangle) => {}
-                RuleObstacle::Circle(circle) => {
-                    let position = circle.center;
-                    let radius = circle.radius + own_robot_radius;
-                    vec![PathObstacle::from(PathObstacleShape::Circle(Circle {
-                        center: position,
-                        radius,
-                    }))]
-                }
-            });
-        self.obstacles.extend(new_obstacles);
-    }
-    */
 
     fn generate_start_destination_tangents(&mut self) {
         let direct_path = LineSegment(self.nodes[0].position, self.nodes[1].position);

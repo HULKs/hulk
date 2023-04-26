@@ -4,10 +4,11 @@ use framework::AdditionalOutput;
 use itertools::iproduct;
 use nalgebra::{point, vector, Isometry2, Point2, Rotation2, UnitComplex};
 use ordered_float::NotNan;
+use spl_network_messages::Team;
 use types::{
     configuration::{Dribbling as DribblingConfiguration, InWalkKickInfo, InWalkKicks},
-    rotate_towards, Circle, FieldDimensions, HeadMotion, KickDecision, KickVariant, LineSegment,
-    MotionCommand, Obstacle,
+    rotate_towards, Circle, FieldDimensions, GameControllerState, HeadMotion, KickDecision,
+    KickVariant, LineSegment, MotionCommand, Obstacle,
     OrientationMode::{self, AlignWithPath},
     PathObstacle, Side, TwoLineSegments, WorldState,
 };
@@ -175,11 +176,24 @@ pub fn execute(
     } else {
         world_state.obstacles.as_slice()
     };
+
+    let rule_obstacles = if matches!(
+        world_state.game_controller_state,
+        Some(GameControllerState {
+            kicking_team: Team::Hulks,
+            ..
+        })
+    ) {
+        &[]
+    } else {
+        world_state.rule_obstacles.as_slice()
+    };
     let path = walk_path_planner.plan(
         relative_best_pose * Point2::origin(),
         robot_to_field,
         ball_obstacle,
         obstacles,
+        rule_obstacles,
         path_obstacles_output,
     );
     Some(walk_path_planner.walk_with_obstacle_avoiding_arms(head, orientation_mode, path))
