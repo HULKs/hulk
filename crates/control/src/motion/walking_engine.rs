@@ -16,7 +16,7 @@ use types::{
 
 use self::{
     arms::SwingingArm,
-    balancing::{foot_leveling, gyro_balancing, step_adjustment},
+    balancing::{step_adjustment, support_leg_gyro_balancing, swing_leg_foot_leveling},
     engine::{calculate_foot_to_robot, parabolic_return, parabolic_step},
     foot_offsets::FootOffsets,
     kicking::apply_joint_overrides,
@@ -84,10 +84,10 @@ pub struct WalkingEngine {
     last_left_walk_request: FootOffsets,
     /// Foot offsets for the right foot the walking engine interpolation generated for the last cycle
     last_right_walk_request: FootOffsets,
-    /// step adjustment for the left foot of the last cycle
-    last_left_level_adjustment: f32,
-    /// step adjustment for the right foot of the last cycle
-    last_right_level_adjustment: f32,
+    /// leg balancing adjustment for the left leg of the last cycle
+    last_left_leg_adjustment: LegJoints<f32>,
+    /// leg balancing adjustment for the right leg of the last cycle
+    last_right_leg_adjustment: LegJoints<f32>,
     /// motion of the left arm currently executed
     left_arm: SwingingArm,
     /// motion of the right arm currently executed
@@ -244,47 +244,55 @@ impl WalkingEngine {
         left_leg.hip_pitch += arm_compensation - context.config.torso_tilt_offset;
         right_leg.hip_pitch += arm_compensation - context.config.torso_tilt_offset;
 
-        match self.walk_state {
-            WalkState::Walking(_) => {
-                foot_leveling(
-                    &mut left_leg,
-                    &mut right_leg,
-                    context.sensor_data.positions.left_leg,
-                    context.sensor_data.positions.right_leg,
-                    context.sensor_data.inertial_measurement_unit.roll_pitch.y,
-                    self.swing_side,
-                    &mut self.last_left_level_adjustment,
-                    &mut self.last_right_level_adjustment,
-                    context.config,
-                );
-            }
-            WalkState::Kicking(kick_variant, _, kick_step_i) => {
-                let swing_leg = match self.swing_side {
-                    Side::Left => &mut left_leg,
-                    Side::Right => &mut right_leg,
-                };
-                let kick_steps = match kick_variant {
-                    KickVariant::Forward => &context.kick_steps.forward,
-                    KickVariant::Turn => &context.kick_steps.turn,
-                    KickVariant::Side => &context.kick_steps.side,
-                };
-                let kick_step = &kick_steps[kick_step_i];
-                apply_joint_overrides(kick_step, swing_leg, self.t);
-            }
-            _ => (),
+        if let WalkState::Kicking(kick_variant, _, kick_step_i) = self.walk_state {
+            let swing_leg = match self.swing_side {
+                Side::Left => &mut left_leg,
+                Side::Right => &mut right_leg,
+            };
+            let kick_steps = match kick_variant {
+                KickVariant::Forward => &context.kick_steps.forward,
+                KickVariant::Turn => &context.kick_steps.turn,
+                KickVariant::Side => &context.kick_steps.side,
+            };
+            let kick_step = &kick_steps[kick_step_i];
+            apply_joint_overrides(kick_step, swing_leg, self.t);
         }
 
+        let mut support_leg_adjustment = LegJoints::default();
+        let mut swing_leg_adjustment = LegJoints::default();
+
+        if let WalkState::Walking(_) = self.walk_state {
+            let swing_leg_foot_leveling = swing_leg_foot_leveling(
+                &left_leg,
+                &right_leg,
+                context.sensor_data.positions.left_leg,
+                context.sensor_data.positions.right_leg,
+                context.sensor_data.inertial_measurement_unit.roll_pitch.y,
+                self.swing_side,
+                context.config,
+                self.t,
+                self.planned_step_duration,
+            );
+            swing_leg_adjustment = swing_leg_adjustment + swing_leg_foot_leveling;
+        }
         if let WalkState::Walking(_) | WalkState::Kicking(..) = self.walk_state {
-            let support_leg = match self.swing_side {
-                Side::Left => &mut right_leg,
-                Side::Right => &mut left_leg,
-            };
-            gyro_balancing(
-                support_leg,
+            let support_leg_gyro_balancing = support_leg_gyro_balancing(
                 self.filtered_gyro_y.state(),
                 context.config.gyro_balance_factor,
             );
+            support_leg_adjustment = support_leg_adjustment + support_leg_gyro_balancing;
         }
+
+        adjust_legs(
+            &mut left_leg,
+            &mut right_leg,
+            support_leg_adjustment,
+            swing_leg_adjustment,
+            self.swing_side,
+            &mut self.last_left_leg_adjustment,
+            &mut self.last_right_leg_adjustment,
+            context.config.max_leg_adjustment_velocity,
+        );
 
         context
             .planned_step_duration
@@ -415,12 +423,18 @@ impl WalkingEngine {
                         + forward_acceleration.min(config.max_forward_acceleration),
                     ..requested_step
                 };
-                let duration_increase = Duration::from_secs_f32(
-                    config.sideways_step_duration_increase
-                        * (self.left_foot.left.abs() + self.right_foot.left.abs()
-                            - requested_step.left.abs())
-                        .abs(),
-                );
+                let forward_increase = config.step_duration_increase.forward
+                    * (self.left_foot.forward.abs() + self.right_foot.forward.abs()
+                        - requested_step.forward.abs())
+                    .abs();
+                let left_increase = config.step_duration_increase.left
+                    * (self.left_foot.left.abs() + self.right_foot.left.abs()
+                        - requested_step.left.abs())
+                    .abs();
+                let turn_increase = config.step_duration_increase.turn
+                    * (self.turn.abs() - requested_step.turn.abs()).abs();
+                let duration_increase =
+                    Duration::from_secs_f32(forward_increase + left_increase + turn_increase);
                 self.planned_step_duration = config.base_step_duration + duration_increase;
                 self.swing_side = support_side.opposite();
                 self.max_swing_foot_lift = config.base_foot_lift;
@@ -469,8 +483,8 @@ impl WalkingEngine {
         self.filtered_robot_tilt_shift.reset(0.0);
         self.last_left_walk_request = FootOffsets::zero();
         self.last_right_walk_request = FootOffsets::zero();
-        self.last_left_level_adjustment = 0.0;
-        self.last_right_level_adjustment = 0.0;
+        self.last_left_leg_adjustment = LegJoints::default();
+        self.last_right_leg_adjustment = LegJoints::default();
         self.number_of_timeouted_steps = 0;
         self.number_of_unstable_steps = 0;
         self.remaining_stabilizing_steps = 0;
@@ -643,4 +657,37 @@ impl WalkingEngine {
         }
         (left_leg, right_leg)
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn adjust_legs(
+    left_leg: &mut LegJoints<f32>,
+    right_leg: &mut LegJoints<f32>,
+    support_leg_adjustment: LegJoints<f32>,
+    swing_leg_adjustment: LegJoints<f32>,
+    swing_side: Side,
+    last_left_leg_adjustment: &mut LegJoints<f32>,
+    last_right_leg_adjustment: &mut LegJoints<f32>,
+    max_leg_adjustment_velocity: LegJoints<f32>,
+) {
+    let (left_leg_adjustment, right_leg_adjustment) = match swing_side {
+        Side::Left => (swing_leg_adjustment, support_leg_adjustment),
+        Side::Right => (support_leg_adjustment, swing_leg_adjustment),
+    };
+    let limited_left_leg_adjustment = *last_left_leg_adjustment
+        + (left_leg_adjustment - *last_left_leg_adjustment).clamp(
+            max_leg_adjustment_velocity * -1.0,
+            max_leg_adjustment_velocity,
+        );
+    let limited_right_leg_adjustment = *last_right_leg_adjustment
+        + (right_leg_adjustment - *last_right_leg_adjustment).clamp(
+            max_leg_adjustment_velocity * -1.0,
+            max_leg_adjustment_velocity,
+        );
+
+    *left_leg = *left_leg + limited_left_leg_adjustment;
+    *right_leg = *right_leg + limited_right_leg_adjustment;
+
+    *last_left_leg_adjustment = limited_left_leg_adjustment;
+    *last_right_leg_adjustment = limited_right_leg_adjustment;
 }

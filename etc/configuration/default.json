@@ -287,7 +287,7 @@
   "step_planner": {
     "injected_step": null,
     "max_step_size": {
-      "forward": 0.05,
+      "forward": 0.04,
       "left": 0.12,
       "turn": 0.9
     },
@@ -302,10 +302,10 @@
   },
   "walking_engine": {
     "arm_stiffness": 0.8,
-    "backward_foot_support_offset": -0.025,
+    "backward_foot_support_offset": -0.03,
     "base_foot_lift": 0.015,
     "base_step_duration": {
-      "nanos": 280000000,
+      "nanos": 250000000,
       "secs": 0
     },
     "emergency_foot_lift": 0.03,
@@ -320,11 +320,18 @@
     },
     "forward_foot_support_offset": 0.1,
     "gyro_balance_factor": 0.05,
-    "gyro_low_pass_factor": 0.5,
+    "gyro_low_pass_factor": 0.8,
     "leg_stiffness_stand": 0.6,
     "leg_stiffness_walk": 1.0,
-    "max_forward_acceleration": 0.01,
-    "max_level_adjustment_velocity": 0.02,
+    "max_forward_acceleration": 0.005,
+    "max_leg_adjustment_velocity": {
+      "hip_yaw_pitch": 0.0,
+      "hip_roll": 0.0,
+      "hip_pitch": 0.0,
+      "knee_pitch": 0.0,
+      "ankle_pitch": 10.0,
+      "ankle_roll": 0.0
+    },
     "max_number_of_timeouted_steps": 3,
     "max_number_of_unstable_steps": 3,
     "max_step_adjustment": 0.004,
@@ -337,7 +344,7 @@
       "secs": 0
     },
     "number_of_stabilizing_steps": 3,
-    "sideways_step_duration_increase": 0.7,
+    "step_duration_increase": { "forward": 1.0, "left": 0.7, "turn": 0.0 },
     "stable_step_deviation": {
       "nanos": 60000000,
       "secs": 0
@@ -380,8 +387,8 @@
       "roll_factor": 4,
       "torso_tilt_compensation_factor": -0.05
     },
-    "tilt_shift_low_pass_factor": 0.7,
-    "torso_shift_offset": 0.023,
+    "tilt_shift_low_pass_factor": 0.4,
+    "torso_shift_offset": 0.012,
     "torso_tilt_offset": 0.0,
     "walk_hip_height": 0.19
   },
