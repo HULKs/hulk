@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{point, vector};
-use spl_network_messages::{SubState, Team};
+use spl_network_messages::{GameState, SubState, Team};
 use types::{FieldDimensions, GameControllerState, Rectangle, RuleObstacle};
 
 pub struct RuleObstacleComposer {}
@@ -28,7 +28,12 @@ impl RuleObstacleComposer {
     }
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let mut rule_obstacles = Vec::new();
-        if let Some(SubState::PenaltyKick) = context.game_controller_state.sub_state {
+        if let GameControllerState {
+            sub_state: Some(SubState::PenaltyKick),
+            game_state: GameState::Playing,
+            ..
+        } = context.game_controller_state
+        {
             let penalty_box_obstacle = create_penalty_box(
                 context.field_dimensions,
                 context.game_controller_state.kicking_team,
@@ -47,12 +52,14 @@ pub fn create_penalty_box(field_dimensions: &FieldDimensions, kicking_team: Team
         Team::Hulks => 1.0,
         _ => -1.0,
     };
-    let half_penalty_area_width = field_dimensions.penalty_area_width / 2.0;
     let half_field_length = field_dimensions.length / 2.0;
     let half_penalty_area_length = field_dimensions.penalty_area_length / 2.0;
     let center_x = side_factor * (half_field_length - half_penalty_area_length);
     RuleObstacle::Rectangle(Rectangle::new_with_center(
         point![center_x, 0.0],
-        vector![half_penalty_area_length, half_penalty_area_width],
+        vector![
+            field_dimensions.penalty_area_length,
+            field_dimensions.penalty_area_width
+        ],
     ))
 }

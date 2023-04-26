@@ -6,6 +6,7 @@ use control::{
     ball_state_composer::{self, BallStateComposer},
     behavior::node::{self, Behavior},
     role_assignment::{self, RoleAssignment},
+    rule_obstacle_composer::RuleObstacleComposer,
     world_state_composer::{self, WorldStateComposer},
 };
 use cyclers::control::Database;
@@ -22,6 +23,7 @@ pub struct BehaviorCycler<Interface> {
     active_vision: ActiveVision,
     world_state_composer: WorldStateComposer,
     behavior: Behavior,
+    rule_obstacle_composer: RuleObstacleComposer,
 }
 
 impl<Interface> BehaviorCycler<Interface>
@@ -33,6 +35,10 @@ where
         own_changed: Arc<Notify>,
         configuration: &Configuration,
     ) -> Result<Self> {
+        let rule_obstacle_composer = control::rule_obstacle_composer::RuleObstacleComposer::new(
+            control::rule_obstacle_composer::CreationContext {},
+        )
+        .wrap_err("failed to create node `RuleObstacleComposer`")?;
         let role_assignment = RoleAssignment::new(role_assignment::CreationContext {
             forced_role: configuration.role_assignment.forced_role.as_ref(),
             player_number: &configuration.player_number,
@@ -62,6 +68,7 @@ where
 
             role_assignment,
             ball_state_composer,
+            rule_obstacle_composer,
             active_vision,
             world_state_composer,
             behavior,
@@ -74,6 +81,28 @@ where
         configuration: &Configuration,
         incoming_messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>,
     ) -> Result<()> {
+        if own_database
+            .main_outputs
+            .game_controller_state
+            .as_ref()
+            .is_some()
+        {
+            let main_outputs = {
+                self.rule_obstacle_composer
+                    .cycle(control::rule_obstacle_composer::CycleContext {
+                        game_controller_state: own_database
+                            .main_outputs
+                            .game_controller_state
+                            .as_ref()
+                            .unwrap(),
+                        field_dimensions: &configuration.field_dimensions,
+                    })
+                    .wrap_err("failed to execute cycle of node `RuleObstacleComposer`")?
+            };
+            own_database.main_outputs.rule_obstacles = main_outputs.rule_obstacles.value;
+        } else {
+            own_database.main_outputs.rule_obstacles = Default::default();
+        }
         {
             let main_outputs = self
                 .role_assignment
@@ -121,6 +150,7 @@ where
             own_database.main_outputs.ball_state = main_outputs.ball_state.value;
             own_database.main_outputs.rule_ball_state = main_outputs.rule_ball_state.value;
         }
+
         {
             let main_outputs = self
                 .active_vision

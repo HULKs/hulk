@@ -49,7 +49,7 @@ impl PathPlanner {
 
         self.obstacles.extend(new_obstacles);
     }
-    
+
     pub fn with_rule_obstacles(
         &mut self,
         field_to_robot: Isometry2<f32>,
@@ -62,8 +62,8 @@ impl PathPlanner {
                 RuleObstacle::Rectangle(rectangle) => {
                     let bottom_left = field_to_robot * rectangle.min;
                     let top_right = field_to_robot * rectangle.max;
-                    let top_left = field_to_robot * point![bottom_left.x, top_right.y];
-                    let bottom_right = field_to_robot * point![top_right.x, bottom_left.y];
+                    let top_left = field_to_robot * point![rectangle.min.x, rectangle.max.y];
+                    let bottom_right = field_to_robot * point![rectangle.max.x, rectangle.min.y];
                     vec![
                         PathObstacle::new_circle(bottom_left, own_robot_radius),
                         PathObstacle::new_circle(bottom_right, own_robot_radius),
