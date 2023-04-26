@@ -18,6 +18,15 @@ pub struct HeadJoints<T> {
     pub pitch: T,
 }
 
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+)]
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct PartialHeadJoints<T> {
+    pub yaw: Option<T>,
+    pub pitch: Option<T>,
+}
+
 impl<T> HeadJoints<T>
 where
     T: Clone,
@@ -31,6 +40,13 @@ where
 
     pub fn as_vec(&self) -> Vec<T> {
         vec![self.yaw.clone(), self.pitch.clone()]
+    }
+
+    pub fn update(&self, partial: PartialHeadJoints<T>) -> Self {
+        Self {
+            yaw: partial.yaw.unwrap_or(self.yaw.clone()),
+            pitch: partial.pitch.unwrap_or(self.pitch.clone()),
+        }
     }
 }
 
@@ -126,6 +142,19 @@ pub struct ArmJoints<T> {
     pub hand: T,
 }
 
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+)]
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct PartialArmJoints<T> {
+    pub shoulder_pitch: Option<T>,
+    pub shoulder_roll: Option<T>,
+    pub elbow_yaw: Option<T>,
+    pub elbow_roll: Option<T>,
+    pub wrist_yaw: Option<T>,
+    pub hand: Option<T>,
+}
+
 impl_Interpolate!(f32, ArmJoints<f32>, PI);
 
 impl<T> ArmJoints<T>
@@ -152,6 +181,19 @@ where
             self.wrist_yaw.clone(),
             self.hand.clone(),
         ]
+    }
+
+    pub fn update(&self, partial: PartialArmJoints<T>) -> Self {
+        Self {
+            shoulder_pitch: partial
+                .shoulder_pitch
+                .unwrap_or(self.shoulder_pitch.clone()),
+            shoulder_roll: partial.shoulder_roll.unwrap_or(self.shoulder_roll.clone()),
+            elbow_yaw: partial.elbow_yaw.unwrap_or(self.elbow_yaw.clone()),
+            elbow_roll: partial.elbow_roll.unwrap_or(self.elbow_roll.clone()),
+            wrist_yaw: partial.wrist_yaw.unwrap_or(self.wrist_yaw.clone()),
+            hand: partial.hand.unwrap_or(self.hand.clone()),
+        }
     }
 }
 
@@ -266,6 +308,19 @@ pub struct LegJoints<T> {
     pub ankle_roll: T,
 }
 
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+)]
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct PartialLegJoints<T> {
+    pub hip_yaw_pitch: Option<T>,
+    pub hip_roll: Option<T>,
+    pub hip_pitch: Option<T>,
+    pub knee_pitch: Option<T>,
+    pub ankle_pitch: Option<T>,
+    pub ankle_roll: Option<T>,
+}
+
 impl<T> LegJoints<T>
 where
     T: Clone,
@@ -290,6 +345,17 @@ where
             self.ankle_pitch.clone(),
             self.ankle_roll.clone(),
         ]
+    }
+
+    pub fn update(&self, partial: PartialLegJoints<T>) -> Self {
+        Self {
+            hip_yaw_pitch: partial.hip_yaw_pitch.unwrap_or(self.hip_yaw_pitch.clone()),
+            hip_roll: partial.hip_roll.unwrap_or(self.hip_roll.clone()),
+            hip_pitch: partial.hip_pitch.unwrap_or(self.hip_pitch.clone()),
+            knee_pitch: partial.knee_pitch.unwrap_or(self.knee_pitch.clone()),
+            ankle_pitch: partial.ankle_pitch.unwrap_or(self.ankle_pitch.clone()),
+            ankle_roll: partial.ankle_roll.unwrap_or(self.ankle_roll.clone()),
+        }
     }
 }
 
@@ -511,6 +577,18 @@ pub struct Joints<T> {
     pub right_leg: LegJoints<T>,
 }
 
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+)]
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct PartialJoints<T> {
+    pub head: Option<PartialHeadJoints<T>>,
+    pub left_arm: Option<PartialArmJoints<T>>,
+    pub right_arm: Option<PartialArmJoints<T>>,
+    pub left_leg: Option<PartialLegJoints<T>>,
+    pub right_leg: Option<PartialLegJoints<T>>,
+}
+
 impl<T> Joints<T>
 where
     T: Clone,
@@ -533,6 +611,31 @@ where
             self.left_leg.as_vec(),
             self.right_arm.as_vec(),
         ]
+    }
+
+    pub fn update(&self, partial: PartialJoints<T>) -> Self {
+        Self {
+            head: partial
+                .head
+                .map(|partial_head| self.head.update(partial_head))
+                .unwrap_or(self.head.clone()),
+            left_arm: partial
+                .left_arm
+                .map(|partial_left_arm| self.left_arm.update(partial_left_arm))
+                .unwrap_or(self.left_arm.clone()),
+            right_arm: partial
+                .right_arm
+                .map(|partial_right_arm| self.right_arm.update(partial_right_arm))
+                .unwrap_or(self.right_arm.clone()),
+            left_leg: partial
+                .left_leg
+                .map(|partial_left_leg| self.left_leg.update(partial_left_leg))
+                .unwrap_or(self.left_leg.clone()),
+            right_leg: partial
+                .right_leg
+                .map(|partial_right_leg| self.right_leg.update(partial_right_leg))
+                .unwrap_or(self.right_leg.clone()),
+        }
     }
 }
 
