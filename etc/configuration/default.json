@@ -906,13 +906,13 @@
       "look_forward_position": [1.0, 0.0],
       "position_of_interest_switch_interval": {
         "nanos": 0,
-          "secs": 1
+        "secs": 1
       }
     },
-      "initial_lookaround_duration": {
-	  "nanos": 0,
-	  "secs": 5
-      }
+    "initial_lookaround_duration": {
+      "nanos": 0,
+      "secs": 5
+    }
   },
   "game_state_filter": {
     "game_controller_controller_delay": {

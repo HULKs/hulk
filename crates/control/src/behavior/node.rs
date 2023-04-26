@@ -1,4 +1,4 @@
-use std::time::{SystemTime};
+use std::time::SystemTime;
 
 use color_eyre::Result;
 use context_attribute::context;
@@ -104,8 +104,7 @@ impl Behavior {
         ];
 
         if let Some(active_since) = self.active_since {
-            if now.duration_since(active_since)?
-                < context.configuration.initial_lookaround_duration
+            if now.duration_since(active_since)? < context.configuration.initial_lookaround_duration
             {
                 actions.push(Action::LookAround);
             }
