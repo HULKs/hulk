@@ -119,12 +119,14 @@ where
                 })
                 .wrap_err("failed to execute cycle of node `BallStateComposer`")?;
             own_database.main_outputs.ball_state = main_outputs.ball_state.value;
+            own_database.main_outputs.rule_ball_state = main_outputs.rule_ball_state.value;
         }
         {
             let main_outputs = self
                 .active_vision
                 .cycle(active_vision::CycleContext {
                     ball: own_database.main_outputs.ball_state.as_ref(),
+                    rule_ball: own_database.main_outputs.ball_state.as_ref(),
                     cycle_time: &own_database.main_outputs.cycle_time,
                     obstacles: &own_database.main_outputs.obstacles,
                     parameters: &configuration.behavior.look_action,
@@ -153,7 +155,7 @@ where
                     primary_state: &own_database.main_outputs.primary_state,
                     role: &own_database.main_outputs.role,
                     position_of_interest: &own_database.main_outputs.position_of_interest,
-                    rule_ball: own_database.main_outputs.world_state.rule_ball.as_ref(),
+                    rule_ball: own_database.main_outputs.rule_ball_state.as_ref(),
                     rule_obstacles: &own_database.main_outputs.rule_obstacles,
                 })
                 .wrap_err("failed to execute cycle of node `WorldStateComposer`")?;
