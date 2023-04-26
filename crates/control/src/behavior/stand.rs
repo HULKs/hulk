@@ -13,23 +13,17 @@ pub fn execute(
         }),
         PrimaryState::Set => {
             let robot_to_field = world_state.robot.robot_to_field?;
-            match world_state.game_controller_state {
+            let target = match world_state.game_controller_state {
                 Some(GameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
                     ..
-                }) => Some(MotionCommand::Stand {
-                    head: HeadMotion::LookAt {
-                        target: robot_to_field.inverse() * absolute_last_known_ball_position,
-                    },
-                    is_energy_saving: true,
-                }),
-                _ => Some(MotionCommand::Stand {
-                    head: HeadMotion::LookAt {
-                        target: robot_to_field.inverse() * Point2::origin(),
-                    },
-                    is_energy_saving: true,
-                }),
-            }
+                }) => robot_to_field.inverse() * absolute_last_known_ball_position,
+                _ => robot_to_field.inverse() * Point2::origin(),
+            };
+            Some(MotionCommand::Stand {
+                head: HeadMotion::LookAt { target },
+                is_energy_saving: true,
+            })
         }
         PrimaryState::Playing => {
             match (
