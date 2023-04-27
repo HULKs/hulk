@@ -225,8 +225,10 @@ fn defend_kick_off_pose(
         None => Point2::origin(),
     };
     let position_to_defend = point![-field_dimensions.length / 2.0, 0.0];
+    let center_circle_radius = field_dimensions.center_circle_diameter / 2.0;
     let distance_to_target = distance(&position_to_defend, &absolute_ball_position)
-        - role_positions.striker_distance_to_non_free_ball;
+        - center_circle_radius
+        - role_positions.striker_distance_to_non_free_center_circle;
     let defend_pose = block_on_circle(
         absolute_ball_position,
         position_to_defend,
