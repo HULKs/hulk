@@ -43,18 +43,17 @@ impl BallStateComposer {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let ball = match (
-            context.primary_state,
             context.ball_position,
             context.team_ball,
             context.robot_to_field,
         ) {
-            (_, Some(ball_position), _, Some(robot_to_field)) => Some(create_ball_state(
+            (Some(ball_position), _, Some(robot_to_field)) => Some(create_ball_state(
                 ball_position.position,
                 robot_to_field * ball_position.position,
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
-            (_, None, Some(ball_position), Some(robot_to_field)) => Some(create_ball_state(
+            (None, Some(ball_position), Some(robot_to_field)) => Some(create_ball_state(
                 robot_to_field.inverse() * ball_position.position,
                 ball_position.position,
                 &mut self.last_ball_field_side,
