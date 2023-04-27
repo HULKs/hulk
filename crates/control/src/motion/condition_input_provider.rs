@@ -3,7 +3,7 @@ use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use nalgebra::Vector3;
-use types::{ConditionInput, SensorData};
+use types::{ConditionInput, SensorData, FallState};
 
 #[derive(Default)]
 pub struct ConditionInputProvider {
@@ -18,6 +18,7 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub sensor_data: Input<SensorData, "sensor_data">,
+    pub fall_state: Input<FallState, "fall_state">,
 }
 
 #[context]
@@ -46,6 +47,7 @@ impl ConditionInputProvider {
         Ok(MainOutputs {
             condition_input: ConditionInput {
                 filtered_angular_velocity: self.angular_velocity_filter.state(),
+                fall_state: *context.fall_state,
             }
             .into(),
         })

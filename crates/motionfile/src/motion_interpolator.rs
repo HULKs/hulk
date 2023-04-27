@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::time::Duration;
 
+use crate::condition::Response;
 use crate::timed_spline::{InterpolatorError, TimedSpline};
 use crate::Condition;
 use crate::{condition::ConditionType, MotionFile};
@@ -57,20 +58,15 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                 time_since_start,
             } => {
                 let current_frame = &self.frames[current_frame_index];
-                if current_frame
-                    .entry_condition
-                    .as_ref()
-                    .map(|condition| condition.is_fulfilled(condition_input, time_since_start))
-                    .unwrap_or(true)
-                {
-                    State::InterpolateSpline {
-                        current_frame_index,
-                        time_since_start: Duration::ZERO,
-                    }
-                } else {
-                    State::CheckEntry {
+                match current_frame.entry_condition.as_ref().map(|condition| condition.evaluate(condition_input, time_since_start)) {
+                    Some(Response::Abort) => State::Finished,
+                    Some(Response::Wait) => State::CheckEntry {
                         current_frame_index,
                         time_since_start: time_since_start + time_step,
+                    },
+                    _ => State::InterpolateSpline {
+                        current_frame_index,
+                        time_since_start: Duration::ZERO,
                     }
                 }
             }
@@ -96,25 +92,22 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                 time_since_start,
             } => {
                 let current_frame = &self.frames[current_frame_index];
-                if current_frame
+                match current_frame
                     .exit_condition
                     .as_ref()
-                    .map(|condition| condition.is_fulfilled(condition_input, time_since_start))
-                    .unwrap_or(true)
+                    .map(|condition| condition.evaluate(condition_input, time_since_start))
+                    
                 {
-                    if current_frame_index < self.frames.len() - 1 {
-                        State::CheckEntry {
-                            current_frame_index: current_frame_index + 1,
-                            time_since_start: Duration::ZERO,
-                        }
-                    } else {
-                        State::Finished
-                    }
-                } else {
-                    State::CheckExit {
+                    Some(Response::Abort) => State::Finished,
+                    Some(Response::Wait) => State::CheckExit {
                         current_frame_index,
                         time_since_start: time_since_start + time_step,
-                    }
+                    },
+                    _ if current_frame_index < self.frames.len() - 1 => State::CheckEntry {
+                        current_frame_index: current_frame_index + 1,
+                        time_since_start: Duration::ZERO,
+                    },
+                    _ => State::Finished
                 }
             }
             State::Finished => State::Finished,
