@@ -257,7 +257,7 @@
     {
       "keyframes": [
         {
-          "duration": 0.4,
+          "duration": 0.1,
           "positions": {
             "head": {
               "yaw": 0.0,
