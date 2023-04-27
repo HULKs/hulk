@@ -50,7 +50,9 @@ impl RuleObstacleComposer {
 pub fn create_penalty_box(field_dimensions: &FieldDimensions, kicking_team: Team) -> RuleObstacle {
     let side_factor: f32 = match kicking_team {
         Team::Hulks => 1.0,
-        _ => -1.0,
+        Team::Opponent => -1.0,
+        //Striker may still enter opponent penalty box so this doesn't stop us from defending our own goal
+        Team::Uncertain => 1.0,
     };
     let half_field_length = field_dimensions.length / 2.0;
     let half_penalty_area_length = field_dimensions.penalty_area_length / 2.0;
