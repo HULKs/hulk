@@ -26,6 +26,7 @@ See [Nao Image and SDK](./nao_image_and_sdk.md) to learn how to acquire or build
     - `tools/pepsi` contains a bunch of `24`s, however most of them are in comments or CLI command help text.
         - `tools/pepsi/src/parsers.rs` has a default and a check value that use 24 literals.
     - `tools/twix/src/completion_edit.rs` generates IP address suggestions with a hardcoded team number.
+    - `etc/configuration/hardware.json` has an attribute called spl for team communication hardcoded to 10024 (10000 + team number).
 
     ### Set up Hardware IDs
 
