@@ -65,21 +65,21 @@ impl PathPlanner {
                     let top_left = field_to_robot * point![rectangle.min.x, rectangle.max.y];
                     let bottom_right = field_to_robot * point![rectangle.max.x, rectangle.min.y];
                     vec![
-                        PathObstacle::new_circle(bottom_left, own_robot_radius),
-                        PathObstacle::new_circle(bottom_right, own_robot_radius),
-                        PathObstacle::new_circle(top_left, own_robot_radius),
-                        PathObstacle::new_circle(top_right, own_robot_radius),
-                        PathObstacle::new_line(bottom_left, bottom_right),
-                        PathObstacle::new_line(bottom_right, top_right),
-                        PathObstacle::new_line(top_right, top_left),
-                        PathObstacle::new_line(top_left, bottom_left),
+                        PathObstacle::from(Circle::new(bottom_left, own_robot_radius)),
+                        PathObstacle::from(Circle::new(bottom_right, own_robot_radius)),
+                        PathObstacle::from(Circle::new(top_left, own_robot_radius)),
+                        PathObstacle::from(Circle::new(top_right, own_robot_radius)),
+                        PathObstacle::from(LineSegment::new(bottom_left, bottom_right)),
+                        PathObstacle::from(LineSegment::new(bottom_right, top_right)),
+                        PathObstacle::from(LineSegment::new(top_right, top_left)),
+                        PathObstacle::from(LineSegment::new(top_left, bottom_left)),
                     ]
                 }
                 RuleObstacle::Circle(circle) => {
-                    vec![PathObstacle::new_circle(
+                    vec![PathObstacle::from(Circle::new(
                         field_to_robot * circle.center,
                         circle.radius + own_robot_radius,
-                    )]
+                    ))]
                 }
             });
         self.obstacles.extend(new_obstacles);
