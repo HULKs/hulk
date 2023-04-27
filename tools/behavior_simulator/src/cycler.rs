@@ -183,11 +183,7 @@ where
                                 .robot_to_field
                                 .as_ref()
                                 .unwrap(),
-                            ball_position: own_database
-                                .main_outputs
-                                .ball_position
-                                .as_ref()
-                                .unwrap(),
+                            ball_state: own_database.main_outputs.ball_state.as_ref().unwrap(),
                             obstacles: &own_database.main_outputs.obstacles,
                             field_dimensions: &configuration.field_dimensions,
                             in_walk_kicks: &configuration.in_walk_kicks,
