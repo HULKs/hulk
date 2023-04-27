@@ -107,17 +107,11 @@ fn defend_left_pose(
     } else {
         role_positions.defender_passive_ring_radius
     };
-    if let Some(GameControllerState {
-        kicking_team: Team::Opponent,
-        sub_state: Some(SubState::PenaltyKick),
-        ..
-    }) = world_state.game_controller_state
-    {
-        let half_penalty_width = field_dimensions.penalty_area_width / 2.0;
-        let minimum_penalty_defender_radius =
-            (half_penalty_width.powf(2.0) + field_dimensions.penalty_area_length.powf(2.0)).sqrt();
-        distance_to_target = distance_to_target.max(minimum_penalty_defender_radius);
-    }
+    distance_to_target = penalty_kick_defender_radius(
+        distance_to_target,
+        world_state.game_controller_state,
+        field_dimensions,
+    );
     let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
     Some(robot_to_field.inverse() * defend_pose)
 }
@@ -142,18 +136,11 @@ fn defend_right_pose(
     } else {
         role_positions.defender_passive_ring_radius
     };
-
-    if let Some(GameControllerState {
-        kicking_team: Team::Opponent,
-        sub_state: Some(SubState::PenaltyKick),
-        ..
-    }) = world_state.game_controller_state
-    {
-        let half_penalty_width = field_dimensions.penalty_area_width / 2.0;
-        let minimum_penalty_defender_radius =
-            (half_penalty_width.powf(2.0) + field_dimensions.penalty_area_length.powf(2.0)).sqrt();
-        distance_to_target = distance_to_target.max(minimum_penalty_defender_radius);
-    }
+    distance_to_target = penalty_kick_defender_radius(
+        distance_to_target,
+        world_state.game_controller_state,
+        field_dimensions,
+    );
     let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
     Some(robot_to_field.inverse() * defend_pose)
 }
@@ -178,18 +165,11 @@ fn defend_penalty_kick(
     } else {
         role_positions.defender_passive_ring_radius
     };
-
-    if let Some(GameControllerState {
-        kicking_team: Team::Opponent,
-        sub_state: Some(SubState::PenaltyKick),
-        ..
-    }) = world_state.game_controller_state
-    {
-        let half_penalty_width = field_dimensions.penalty_area_width / 2.0;
-        let minimum_penalty_defender_radius =
-            (half_penalty_width.powf(2.0) + field_dimensions.penalty_area_length.powf(2.0)).sqrt();
-        distance_to_target = distance_to_target.max(minimum_penalty_defender_radius);
-    }
+    distance_to_target = penalty_kick_defender_radius(
+        distance_to_target,
+        world_state.game_controller_state,
+        field_dimensions,
+    );
 
     let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
     Some(robot_to_field.inverse() * defend_pose)
@@ -301,5 +281,25 @@ fn block_on_line(
             defense_position.coords,
             rotate_towards(defense_position, ball_position).angle(),
         )
+    }
+}
+
+fn penalty_kick_defender_radius(
+    distance_to_target: f32,
+    game_controller_state: Option<GameControllerState>,
+    field_dimensions: &FieldDimensions,
+) -> f32 {
+    if let Some(GameControllerState {
+        kicking_team: Team::Opponent,
+        sub_state: Some(SubState::PenaltyKick),
+        ..
+    }) = game_controller_state
+    {
+        let half_penalty_width = field_dimensions.penalty_area_width / 2.0;
+        let minimum_penalty_defender_radius =
+            (half_penalty_width.powf(2.0) + field_dimensions.penalty_area_length.powf(2.0)).sqrt();
+        distance_to_target.max(minimum_penalty_defender_radius)
+    } else {
+        distance_to_target
     }
 }
