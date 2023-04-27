@@ -65,23 +65,33 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
             && message.header[2] != GAMECONTROLLER_STRUCT_HEADER[2] as c_char
             && message.header[3] != GAMECONTROLLER_STRUCT_HEADER[3] as c_char
         {
-            bail!("unexpected header");
+            bail!("unexpected header: {:?}", message.header);
         }
         if message.version != GAMECONTROLLER_STRUCT_VERSION {
-            bail!("unexpected version");
+            bail!("unexpected version: {}", message.version);
         }
         let (hulks_team_index, opponent_team_index) =
             match (message.teams[0].teamNumber, message.teams[1].teamNumber) {
                 (HULKS_TEAM_NUMBER, _) => (0, 1),
                 (_, HULKS_TEAM_NUMBER) => (1, 0),
-                _ => bail!("failed to find HULKs team"),
+                _ => bail!(
+                    "failed to find HULKs team, teams were {:?} and {:?}",
+                    message.teams[0],
+                    message.teams[1]
+                ),
             };
         const MAXIMUM_NUMBER_OF_PENALTY_SHOOTS: u8 = 16;
         if message.teams[hulks_team_index].penaltyShot >= MAXIMUM_NUMBER_OF_PENALTY_SHOOTS {
-            bail!("unexpected penalty shoot index for team HULKs");
+            bail!(
+                "unexpected penalty shoot index for team HULKs: {:?}",
+                message.teams[hulks_team_index].penaltyShot
+            );
         }
         if message.teams[opponent_team_index].penaltyShot >= MAXIMUM_NUMBER_OF_PENALTY_SHOOTS {
-            bail!("unexpected penalty shoot index for opponent team");
+            bail!(
+                "unexpected penalty shoot index for opponent team: {:?}",
+                message.teams[opponent_team_index].penaltyShot
+            );
         }
         let hulks_penalty_shoots = (0..message.teams[hulks_team_index].penaltyShot)
             .map(|shoot_index| {
