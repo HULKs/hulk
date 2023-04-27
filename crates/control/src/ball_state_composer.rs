@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
-use nalgebra::{convert_ref, point, Isometry2, Point2};
+use nalgebra::{point, Isometry2, Point2};
 use spl_network_messages::{SubState, Team};
 use types::{
     BallPosition, BallState, FieldDimensions, GameControllerState, PenaltyShotDirection,
