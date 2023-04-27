@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
-use nalgebra::{point, Isometry2, Point2};
+use nalgebra::{convert_ref, point, Isometry2, Point2};
 use spl_network_messages::{SubState, Team};
 use types::{
     BallPosition, BallState, FieldDimensions, GameControllerState, PenaltyShotDirection,
@@ -42,13 +42,34 @@ impl BallStateComposer {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let ball = match (
+            context.primary_state,
+            context.ball_position,
+            context.team_ball,
+            context.robot_to_field,
+        ) {
+            (_, Some(ball_position), _, Some(robot_to_field)) => Some(create_ball_state(
+                ball_position.position,
+                robot_to_field * ball_position.position,
+                &mut self.last_ball_field_side,
+                context.penalty_shot_direction.copied(),
+            )),
+            (_, None, Some(ball_position), Some(robot_to_field)) => Some(create_ball_state(
+                robot_to_field.inverse() * ball_position.position,
+                ball_position.position,
+                &mut self.last_ball_field_side,
+                context.penalty_shot_direction.copied(),
+            )),
+            _ => None,
+        };
+
         let rule_ball = match (
             context.primary_state,
             context.robot_to_field,
             context.game_controller_state,
         ) {
             (
-                PrimaryState::Ready | PrimaryState::Set,
+                PrimaryState::Ready,
                 Some(robot_to_field),
                 Some(GameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
@@ -70,24 +91,9 @@ impl BallStateComposer {
                     context.penalty_shot_direction.copied(),
                 ))
             }
-            _ => None,
-        };
-        let ball = match (
-            context.primary_state,
-            context.ball_position,
-            context.team_ball,
-            context.robot_to_field,
-        ) {
-            (PrimaryState::Ready, ..) => None,
-            (_, Some(ball_position), _, Some(robot_to_field)) => Some(create_ball_state(
-                ball_position.position,
-                robot_to_field * ball_position.position,
-                &mut self.last_ball_field_side,
-                context.penalty_shot_direction.copied(),
-            )),
-            (_, None, Some(ball_position), Some(robot_to_field)) => Some(create_ball_state(
-                robot_to_field.inverse() * ball_position.position,
-                ball_position.position,
+            (PrimaryState::Ready, Some(robot_to_field), ..) => Some(create_ball_state(
+                robot_to_field.inverse() * Point2::origin(),
+                Point2::origin(),
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),

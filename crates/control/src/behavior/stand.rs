@@ -15,7 +15,7 @@ pub fn execute(
         }),
         PrimaryState::Set => {
             let robot_to_field = world_state.robot.robot_to_field?;
-            let target = match world_state.game_controller_state {
+            let fallback_target = match world_state.game_controller_state {
                 Some(GameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
                     kicking_team,
@@ -32,6 +32,10 @@ pub fn execute(
                 }
                 _ => robot_to_field.inverse() * Point2::origin(),
             };
+            let target = world_state
+                .ball
+                .map(|state| state.ball_in_ground)
+                .unwrap_or(fallback_target);
             Some(MotionCommand::Stand {
                 head: HeadMotion::LookAt { target },
                 is_energy_saving: true,
