@@ -42,7 +42,7 @@ impl BallStateComposer {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let rule_ball: Option<BallState> = match (
+        let rule_ball = match (
             context.primary_state,
             context.robot_to_field,
             context.game_controller_state,
