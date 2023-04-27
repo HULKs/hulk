@@ -51,7 +51,7 @@ pub fn create_penalty_box(field_dimensions: &FieldDimensions, kicking_team: Team
     let side_factor: f32 = match kicking_team {
         Team::Hulks => 1.0,
         Team::Opponent => -1.0,
-        //Striker may still enter opponent penalty box so this doesn't stop us from defending our own goal
+        // Striker may still enter opponent penalty box so this doesn't stop us from defending our own goal
         Team::Uncertain => 1.0,
     };
     let half_field_length = field_dimensions.length / 2.0;
