@@ -2,6 +2,7 @@ pub enum Action {
     Unstiff,
     SitDown,
     Penalize,
+    Initial,
     FallSafely,
     StandUp,
     Stand,
