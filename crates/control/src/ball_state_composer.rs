@@ -44,15 +44,11 @@ impl BallStateComposer {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let rule_ball: Option<BallState> = match (
             context.primary_state,
-            context.ball_position,
-            context.team_ball,
             context.robot_to_field,
             context.game_controller_state,
         ) {
             (
                 PrimaryState::Ready | PrimaryState::Set,
-                _,
-                _,
                 Some(robot_to_field),
                 Some(GameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
