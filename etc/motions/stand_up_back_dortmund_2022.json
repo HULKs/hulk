@@ -347,6 +347,11 @@
       }
     },
     {
+      "entry_condition": {
+        "FallenAbort": {
+          "timeout": 5
+        }
+      },
       "keyframes": [
         {
           "duration": 0.4,
@@ -398,6 +403,11 @@
       }
     },
     {
+      "entry_condition": {
+        "FallenAbort": {
+          "timeout": 5
+        }
+      },
       "keyframes": [
         {
           "duration": 0.35,
@@ -484,6 +494,11 @@
       }
     },
     {
+      "entry_condition": {
+        "FallenAbort": {
+          "timeout": 5
+        }
+      },
       "keyframes": [
         {
           "duration": 0.2,
