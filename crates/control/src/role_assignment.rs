@@ -159,8 +159,12 @@ impl RoleAssignment {
 
         if spl_striker_message_timeout {
             match role {
-                Role::Keeper => {}
-                Role::ReplacementKeeper => {}
+                Role::Keeper => {
+                    team_ball = None;
+                }
+                Role::ReplacementKeeper => {
+                    team_ball = None;
+                }
                 Role::Striker => {
                     send_spl_striker_message = true;
                     team_ball = None;
