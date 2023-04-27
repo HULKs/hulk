@@ -50,13 +50,6 @@ impl Default for State {
 }
 
 impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
-    pub fn is_waiting_for_condition(&self) -> bool {
-        matches!(
-            self.current_state,
-            State::CheckEntry { .. } | State::CheckExit { .. }
-        )
-    }
-
     pub fn advance_by(&mut self, time_step: Duration, condition_input: &ConditionInput) {
         self.current_state = match self.current_state {
             State::CheckEntry {
@@ -159,24 +152,9 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         }
     }
 
-    pub fn set_initial_positions(&mut self, current_positions: T) {
+    pub fn set_initial_positions(&mut self, position: T) {
         if let Some(keyframe) = self.frames.first_mut() {
-            keyframe.spline.set_initial_positions(current_positions);
-        }
-    }
-
-    pub fn current_time(&self) -> Duration {
-        match self.current_state {
-            State::CheckEntry {
-                time_since_start, ..
-            } => time_since_start,
-            State::InterpolateSpline {
-                time_since_start, ..
-            } => time_since_start,
-            State::CheckExit {
-                time_since_start, ..
-            } => time_since_start,
-            State::Finished => Duration::ZERO,
+            keyframe.spline.set_initial_positions(position);
         }
     }
 }

@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
-use framework::{AdditionalOutput, MainOutput};
+use framework::MainOutput;
 use motionfile::{MotionFile, MotionInterpolator};
 use nalgebra::Vector2;
 use types::ConditionInput;
@@ -37,8 +37,6 @@ pub struct CycleContext {
     pub gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-
-    pub waits_for_condition: AdditionalOutput<bool, "waits_for_condition">,
 }
 
 #[context]
@@ -58,7 +56,7 @@ impl StandUpFront {
         })
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let angular_velocity = context
             .sensor_data
@@ -71,13 +69,8 @@ impl StandUpFront {
         self.interpolator
             .advance_by(last_cycle_duration, context.condition_input);
 
-        if context.motion_selection.current_motion == MotionType::StandUpFront {
-            context
-                .waits_for_condition
-                .fill_if_subscribed(|| self.interpolator.is_waiting_for_condition());
-        } else {
+        if context.motion_selection.current_motion != MotionType::StandUpFront {
             self.interpolator.reset();
-            context.waits_for_condition.fill_if_subscribed(|| false);
         }
 
         context.motion_safe_exits[MotionType::StandUpFront] = false;
