@@ -1,6 +1,7 @@
 use std::{path::Path, sync::Arc};
 
 use framework::Writer;
+use parameters::directory::{deserialize, serialize};
 use serde::{de::DeserializeOwned, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::{
@@ -14,10 +15,7 @@ use crate::{
     server::client::Client,
 };
 
-use super::{
-    directory::{deserialize, serialize},
-    StorageRequest,
-};
+use super::StorageRequest;
 
 pub fn storage<Parameters>(
     parameters_writer: Writer<Parameters>,

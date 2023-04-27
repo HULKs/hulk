@@ -20,6 +20,7 @@ itertools = { workspace = true }
 log = { workspace = true }
 mlua = { workspace = true }
 nalgebra = { workspace = true }
+parameters = { workspace = true }
 projection = { workspace = true }
 repository = { workspace = true }
 serde = { workspace = true }

@@ -2,9 +2,9 @@ use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
 };
-use communication::merge_json;
 use itertools::Itertools;
 use log::error;
+use parameters::json_operations::merge_json;
 use repository::{get_repository_root, HardwareIds, Repository};
 use serde_json::{json, Value};
 use std::{collections::HashMap, net::Ipv4Addr};
