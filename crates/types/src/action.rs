@@ -10,7 +10,6 @@ pub enum Action {
     FallSafely,
     StandUp,
     Stand,
-
     LookAround,
     Dribble,
     DefendGoal,
