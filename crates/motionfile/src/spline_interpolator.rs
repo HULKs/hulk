@@ -25,8 +25,8 @@ impl<T: Debug + Interpolate<f32>> SplineInterpolator<T> {
         self.current_duration
     }
 
-    pub fn set_initial_positions(&mut self, current_position: T) {
-        self.spline.set_initial_positions(current_position);
+    pub fn set_initial_positions(&mut self, position: T) {
+        self.spline.set_initial_positions(position);
     }
 
     pub fn is_finished(&self) -> bool {
