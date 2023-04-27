@@ -547,6 +547,7 @@ dependencies = [
  "log",
  "mlua",
  "nalgebra",
+ "parameters",
  "parking_lot",
  "quote",
  "serde",
@@ -1051,6 +1052,7 @@ dependencies = [
  "framework",
  "futures-util",
  "log",
+ "parameters",
  "serde",
  "serde_json",
  "serialize_hierarchy",
@@ -3109,6 +3111,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
+name = "parameters"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+ "serialize_hierarchy",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "parking"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4374,6 +4388,7 @@ dependencies = [
  "log",
  "mlua",
  "nalgebra",
+ "parameters",
  "projection",
  "repository",
  "serde",

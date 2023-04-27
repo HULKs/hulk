@@ -23,6 +23,7 @@ framework = { workspace = true }
 log = { workspace = true }
 mlua = { workspace = true }
 nalgebra = { workspace = true }
+parameters = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

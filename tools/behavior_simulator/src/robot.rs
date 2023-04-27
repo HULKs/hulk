@@ -1,9 +1,9 @@
 use std::{collections::BTreeMap, convert::Into, sync::Arc, time::SystemTime};
 
 use color_eyre::{eyre::WrapErr, Result};
-use communication::server::parameters::directory::deserialize;
 use control::localization::generate_initial_pose;
 use cyclers::control::Database;
+use parameters::directory::deserialize;
 use spl_network_messages::PlayerNumber;
 use structs::Configuration;
 use types::messages::IncomingMessage;
