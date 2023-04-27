@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Debug, Clone, SerializeHierarchy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, SerializeHierarchy, Serialize, Deserialize)]
 pub enum Action {
     Unstiff,
     SitDown,
