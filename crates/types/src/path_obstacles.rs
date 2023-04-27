@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
