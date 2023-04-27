@@ -296,8 +296,10 @@ fn penalty_kick_defender_radius(
     }) = game_controller_state
     {
         let half_penalty_width = field_dimensions.penalty_area_width / 2.0;
-        let minimum_penalty_defender_radius =
-            (half_penalty_width.powf(2.0) + field_dimensions.penalty_area_length.powf(2.0)).sqrt();
+        let minimum_penalty_defender_radius = distance(
+            &point![0.0, half_penalty_width],
+            &point![field_dimensions.penalty_area_length, 0.0],
+        );
         distance_to_target.max(minimum_penalty_defender_radius)
     } else {
         distance_to_target
