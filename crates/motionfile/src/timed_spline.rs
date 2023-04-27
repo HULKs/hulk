@@ -229,9 +229,9 @@ where
         self.spline.keys()[self.spline.keys().len() - 2].value
     }
 
-    pub fn set_initial_positions(&mut self, current_position: T) {
+    pub fn set_initial_positions(&mut self, position: T) {
         if let Some(key) = self.spline.get_mut(1) {
-            *key.value = current_position;
+            *key.value = position;
         }
     }
 }
