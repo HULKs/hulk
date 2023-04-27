@@ -8,7 +8,7 @@ use nalgebra::{point, vector, Isometry2, Point2, Rotation2, UnitComplex};
 use ordered_float::NotNan;
 use types::{
     configuration::{InWalkKickInfo, InWalkKicks},
-    rotate_towards, BallPosition, Circle, FieldDimensions, KickDecision, KickVariant, LineSegment,
+    rotate_towards, BallState, Circle, FieldDimensions, KickDecision, KickVariant, LineSegment,
     Obstacle, Side, TwoLineSegments,
 };
 
@@ -20,7 +20,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub robot_to_field: RequiredInput<Option<Isometry2<f32>>, "robot_to_field?">,
-    pub ball_position: RequiredInput<Option<BallPosition>, "ball_position?">,
+    pub ball_state: RequiredInput<Option<BallState>, "ball_state?">,
     pub obstacles: Input<Vec<Obstacle>, "obstacles">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -51,7 +51,7 @@ impl KickSelector {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let ball_position = context.ball_position.position;
+        let ball_position = context.ball_state.position;
         let targets_to_kick_to = find_targets_to_kick_to(
             ball_position,
             *context.robot_to_field,
