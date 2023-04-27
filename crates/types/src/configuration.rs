@@ -110,7 +110,7 @@ pub struct RolePositions {
     pub striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free: f32,
     pub striker_supporter_minimum_x: f32,
     pub keeper_x_offset: f32,
-    pub striker_distance_to_non_free_ball: f32,
+    pub striker_distance_to_non_free_center_circle: f32,
     pub striker_set_position: Vector2<f32>,
 }
 
