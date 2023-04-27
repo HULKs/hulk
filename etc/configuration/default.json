@@ -831,7 +831,7 @@
     },
     "outer_maximum_pitch": 0.0,
     "inner_maximum_pitch": 0.61,
-    "outer_yaw": 1.5
+    "outer_yaw": 1.3
   },
   "look_at": {
     "glance_angle": 0.25,
