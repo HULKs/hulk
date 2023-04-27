@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use framework::AdditionalOutput;
-use nalgebra::{distance, point, Isometry2, Point2};
+use nalgebra::{distance, point, vector, Isometry2, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     configuration::RolePositions, rotate_towards, BallState, FieldDimensions, GameControllerState,
@@ -296,10 +296,8 @@ fn penalty_kick_defender_radius(
     }) = game_controller_state
     {
         let half_penalty_width = field_dimensions.penalty_area_width / 2.0;
-        let minimum_penalty_defender_radius = distance(
-            &point![0.0, half_penalty_width],
-            &point![field_dimensions.penalty_area_length, 0.0],
-        );
+        let minimum_penalty_defender_radius =
+            vector![field_dimensions.penalty_area_length, half_penalty_width].norm();
         distance_to_target.max(minimum_penalty_defender_radius)
     } else {
         distance_to_target
