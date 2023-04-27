@@ -198,19 +198,19 @@ where
         )
     }
 
-    pub fn value_at(&self, current_duration: Duration) -> T {
-        if current_duration >= self.total_duration {
+    pub fn value_at(&self, time_point: Duration) -> T {
+        if time_point >= self.total_duration {
             return self.end_position();
         }
         // Duration and f32 have different precisions, we have to ensure that if self.current_duration < self.total_duration, that
         // self.current_duration.as_secs_f32() != self.total_duration.as_secs_f32(), since otherwise we are unable to sample the spline.
-        let clamped_duration = current_duration
+        let clamped_time_point = time_point
             .as_secs_f32()
             .clamp(0., self.total_duration.as_secs_f32() - f32::EPSILON);
         self.spline
-            .sample(clamped_duration)
+            .sample(clamped_time_point)
             .ok_or_else(|| {
-                InterpolatorError::create_control_key_error(self.spline.keys(), current_duration)
+                InterpolatorError::create_control_key_error(self.spline.keys(), time_point)
             })
             .expect("could not sample spline")
     }
