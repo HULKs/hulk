@@ -60,6 +60,9 @@ impl RelativeEq for LineSegment {
 }
 
 impl LineSegment {
+    pub fn new(start: Point2<f32>, end: Point2<f32>) -> Self {
+        Self(start, end)
+    }
     pub fn flip(self) -> Self {
         Self(self.1, self.0)
     }
