@@ -138,7 +138,11 @@ where
             return Err(InterpolatorError::NotEnoughKeys);
         }
 
-        if keys.iter().tuple_windows().any(|(first_frame, second_frame)| first_frame.t >= second_frame.t) {
+        if keys
+            .iter()
+            .tuple_windows()
+            .any(|(first_frame, second_frame)| first_frame.t >= second_frame.t)
+        {
             return Err(InterpolatorError::KeysTimeIncorrect);
         }
 
