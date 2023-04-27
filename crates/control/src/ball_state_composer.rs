@@ -79,7 +79,7 @@ impl BallStateComposer {
                 let side_factor = match kicking_team {
                     Team::Opponent => -1.0,
                     Team::Hulks => 1.0,
-                    //If uncertain get ready to defend own goal"
+                    // If uncertain get ready to defend own goal
                     Team::Uncertain => -1.0,
                 };
                 let penalty_spot_x = context.field_dimensions.length / 2.0
