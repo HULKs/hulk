@@ -68,10 +68,11 @@ impl PathPlanner {
         field_to_robot: Isometry2<f32>,
         field_length: f32,
         field_width: f32,
-        margin: f32,
+        field_margin: f32,
+        extra_walk_margin: f32 
     ) -> &mut Self {
-        let x = field_length / 2.0 + margin;
-        let y = field_width / 2.0 + margin;
+        let x = field_length / 2.0 + field_margin + extra_walk_margin;
+        let y = field_width / 2.0 + field_margin + extra_walk_margin;
         let bottom_right = field_to_robot * point![x, -y];
         let top_right = field_to_robot * point![x, y];
         let bottom_left = field_to_robot * point![-x, -y];
