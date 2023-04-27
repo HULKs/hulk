@@ -57,7 +57,7 @@ pub fn create_penalty_box(field_dimensions: &FieldDimensions, kicking_team: Team
     let half_field_length = field_dimensions.length / 2.0;
     let half_penalty_area_length = field_dimensions.penalty_area_length / 2.0;
     let center_x = side_factor * (half_field_length - half_penalty_area_length);
-    RuleObstacle::Rectangle(Rectangle::new_with_center(
+    RuleObstacle::Rectangle(Rectangle::new_with_center_and_size(
         point![center_x, 0.0],
         vector![
             field_dimensions.penalty_area_length,

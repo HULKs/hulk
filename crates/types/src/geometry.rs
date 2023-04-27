@@ -557,7 +557,7 @@ pub struct Rectangle {
 }
 
 impl Rectangle {
-    pub fn new_with_center(center: Point2<f32>, size: Vector2<f32>) -> Self {
+    pub fn new_with_center_and_size(center: Point2<f32>, size: Vector2<f32>) -> Self {
         Self {
             min: center - size / 2.0,
             max: center + size / 2.0,
