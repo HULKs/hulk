@@ -69,7 +69,7 @@ impl PathPlanner {
         field_length: f32,
         field_width: f32,
         field_margin: f32,
-        extra_walk_margin: f32 
+        extra_walk_margin: f32,
     ) -> &mut Self {
         let x = field_length / 2.0 + field_margin + extra_walk_margin;
         let y = field_width / 2.0 + field_margin + extra_walk_margin;
