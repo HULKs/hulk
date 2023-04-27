@@ -67,7 +67,10 @@ fn support_pose(
             .x
             .clamp(minimum_x, field_dimensions.length / 2.0),
     };
-    let clamped_position = point![clamped_x, supporting_position.y];
+    let clamped_y = supporting_position
+        .y
+        .clamp(-field_dimensions.width / 2.0, field_dimensions.width / 2.0);
+    let clamped_position = point![clamped_x, clamped_y];
     let support_pose = Isometry2::new(
         clamped_position.coords,
         rotate_towards(clamped_position, ball.position).angle(),
