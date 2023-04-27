@@ -7,7 +7,6 @@ use types::ConditionInput;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FallenAbort {
-    #[serde(rename = "timeout")]
     #[serde(
         serialize_with = "serialize_float_seconds",
         deserialize_with = "deserialize_float_seconds"

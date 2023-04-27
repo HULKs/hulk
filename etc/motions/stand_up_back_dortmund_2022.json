@@ -349,7 +349,7 @@
     {
       "entry_condition": {
         "FallenAbort": {
-          "timeout": 5
+          "timeout_duration": 5
         }
       },
       "keyframes": [
@@ -405,7 +405,7 @@
     {
       "entry_condition": {
         "FallenAbort": {
-          "timeout": 5
+          "timeout_duration": 5.0
         }
       },
       "keyframes": [
@@ -420,7 +420,13 @@
               "elbow_roll": -0.27147603034973145,
               "elbow_yaw": -1.4849538803100586,
               "hand": 0.010400056838989258,
+              "shoulder_pitch": 1.9404680728912351,
               "shoulder_roll": 0.30368995666503906,
+              "wrist_yaw": -1.5570521354675293
+            },
+            "left_leg": {
+              "ankle_pitch": -0.6964778900146484,
+              "ankle_roll": -0.32363200187683105,
               "hip_pitch": -0.5966839790344238,
               "hip_roll": 0.09208202362060548,
               "hip_yaw_pitch": -0.9587080478668212,
@@ -496,7 +502,7 @@
     {
       "entry_condition": {
         "FallenAbort": {
-          "timeout": 5
+          "timeout_duration": 5
         }
       },
       "keyframes": [
