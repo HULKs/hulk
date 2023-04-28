@@ -76,6 +76,7 @@ impl KickSelector {
             ball_position,
             &obstacle_circles,
             context.field_dimensions,
+            *context.robot_to_field,
         );
 
         let kick_targets = collect_kick_targets(
@@ -159,6 +160,7 @@ fn generate_decisions_for_instant_kicks(
     ball_position: Point2<f32>,
     obstacle_circles: &[Circle],
     field_dimensions: &FieldDimensions,
+    robot_to_field: Isometry2<f32>,
 ) -> Vec<KickDecision> {
     iproduct!(sides, kick_variants)
         .filter_map(|(&kicking_side, &variant)| {
@@ -170,7 +172,7 @@ fn generate_decisions_for_instant_kicks(
             let shot_distance = vector![2.0, 0.0];
             let target = ball_position + shot_angle * shot_distance;
 
-            let is_inside_field = field_dimensions.is_inside_field(target);
+            let is_inside_field = field_dimensions.is_inside_field(robot_to_field * target);
             let ball_to_target = LineSegment(ball_position, target);
             let is_intersecting_with_an_obstacle = obstacle_circles
                 .iter()
