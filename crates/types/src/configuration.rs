@@ -127,6 +127,15 @@ pub struct InWalkKicks {
     pub side: InWalkKickInfo,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct FindKickTargets {
+    pub distance_from_corner: f32,
+    pub corner_kick_target_distance_to_goal: f32,
+    pub emergency_kick_target_angles: Vec<f32>,
+    pub max_kick_around_obstacle_angle: f32,
+    pub ball_radius_for_kick_target_selection: f32,
+}
+
 impl Index<KickVariant> for InWalkKicks {
     type Output = InWalkKickInfo;
 
