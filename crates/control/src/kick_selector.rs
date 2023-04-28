@@ -177,8 +177,9 @@ fn generate_decisions_for_instant_kicks(
                 .any(|circle| circle.intersects_line_segment(&ball_to_target));
             let opponent_goal_center = point![field_dimensions.length / 2.0, 0.0];
             let own_goal_center = point![-field_dimensions.length / 2.0, 0.0];
-            let is_target_closer_to_opponent_goal = distance(&ball_position, &opponent_goal_center)
-                > distance(&target, &opponent_goal_center);
+            let is_target_closer_to_opponent_goal = (distance(&target, &opponent_goal_center)
+                + 1.0)
+                < distance(&ball_position, &opponent_goal_center);
             let goal_box_radius = vector![
                 field_dimensions.goal_box_area_length,
                 field_dimensions.goal_box_area_width / 2.0
@@ -186,8 +187,8 @@ fn generate_decisions_for_instant_kicks(
             .norm();
             let is_ball_close_to_own_goal =
                 distance(&ball_position, &own_goal_center) < goal_box_radius;
-            let is_target_farer_away_from_our_goal =
-                distance(&ball_position, &own_goal_center) > distance(&target, &own_goal_center);
+            let is_target_farer_away_from_our_goal = distance(&target, &own_goal_center)
+                > (distance(&ball_position, &own_goal_center) + 1.0);
             if is_inside_field
                 && !is_intersecting_with_an_obstacle
                 && (is_target_closer_to_opponent_goal
