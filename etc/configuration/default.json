@@ -874,20 +874,20 @@
   },
   "in_walk_kicks": {
     "forward": {
-      "offset": [-0.23, 0.05, 0.0],
+      "offset": [-0.23, 0.05],
       "shot_angle": 0.0,
       "reached_thresholds": [0.07, 0.02, 0.1],
       "enabled": true
     },
     "turn": {
-      "offset": [-0.17, -0.1, 0.0],
+      "offset": [-0.17, -0.1],
       "shot_angle": -1.0,
       "reached_thresholds": [0.04, 0.03, 0.1],
       "enabled": true
     },
     "side": {
-      "offset": [-0.2, -0.02, 1.57],
-      "shot_angle": 0.0,
+      "offset": [-0.02, 0.2],
+      "shot_angle": 1.57,
       "reached_thresholds": [0.05, 0.05, 0.1],
       "enabled": true
     }
@@ -896,7 +896,6 @@
     "angle_distance_weight": 0.01,
     "max_kick_around_obstacle_angle": 1.0,
     "kick_pose_obstacle_radius": 0.1,
-    "emergency_kick_target_angles": [-0.52, -0.26, 0.0, 0.26, 0.52],
     "ball_radius_for_kick_target_selection": 0.15
   },
   "behavior": {

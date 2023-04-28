@@ -20,6 +20,7 @@ pub struct WorldState {
     pub rule_obstacles: Vec<RuleObstacle>,
     pub position_of_interest: Point2<f32>,
     pub kick_decisions: Option<Vec<KickDecision>>,
+    pub instant_kick_decisions: Option<Vec<KickDecision>>,
     pub robot: RobotState,
 }
 
