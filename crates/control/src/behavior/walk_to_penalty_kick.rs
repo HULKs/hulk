@@ -15,7 +15,7 @@ pub fn execute(
     let kick_off_pose = Isometry2::translation(
         field_dimensions.length / 2.0
             - field_dimensions.penalty_marker_distance
-            - field_dimensions.penalty_marker_size,
+            - field_dimensions.penalty_marker_size * 2.0,
         0.0,
     );
     walk_and_stand.execute(
