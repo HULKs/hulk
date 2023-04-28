@@ -900,7 +900,14 @@
     "max_kick_around_obstacle_angle": 1.0,
     "kick_pose_obstacle_radius": 0.1,
     "ball_radius_for_kick_target_selection": 0.15,
-    "closer_threshold": 1.0
+    "closer_threshold": 1.0,
+    "find_kick_targets": {
+      "distance_from_corner": 1.5,
+      "corner_kick_target_distance_to_goal": 1.3,
+      "emergency_kick_target_angles": [-0.52, -0.26, 0.0, 0.26, 0.52],
+      "max_kick_around_obstacle_angle": 1.0,
+      "ball_radius_for_kick_target_selection": 0.15
+    }
   },
   "behavior": {
     "optional_roles": [

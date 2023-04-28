@@ -200,6 +200,7 @@ where
                                 .kick_selector
                                 .ball_radius_for_kick_target_selection,
                             closer_threshold: &configuration.kick_selector.closer_threshold,
+                            find_kick_targets: &configuration.kick_selector.find_kick_targets,
                             kick_targets: framework::AdditionalOutput::new(
                                 true,
                                 &mut own_database.additional_outputs.kick_targets,
