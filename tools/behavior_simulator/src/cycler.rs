@@ -196,19 +196,17 @@ where
                             kick_pose_obstacle_radius: &configuration
                                 .kick_selector
                                 .kick_pose_obstacle_radius,
-                            emergency_kick_target_angles: &configuration
-                                .kick_selector
-                                .emergency_kick_target_angles,
                             ball_radius_for_kick_target_selection: &configuration
                                 .kick_selector
                                 .ball_radius_for_kick_target_selection,
-                            kick_decisions: framework::AdditionalOutput::new(
-                                true,
-                                &mut own_database.additional_outputs.kick_decisions,
-                            ),
+                            closer_threshold: &configuration.kick_selector.closer_threshold,
                             kick_targets: framework::AdditionalOutput::new(
                                 true,
                                 &mut own_database.additional_outputs.kick_targets,
+                            ),
+                            instant_kick_targets: framework::AdditionalOutput::new(
+                                true,
+                                &mut own_database.additional_outputs.instant_kick_targets,
                             ),
                         })
                         .wrap_err("failed to execute cycle of node `KickSelector`")?
@@ -231,6 +229,10 @@ where
                         .as_ref(),
                     robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
                     kick_decisions: own_database.main_outputs.kick_decisions.as_ref(),
+                    instant_kick_decisions: own_database
+                        .main_outputs
+                        .instant_kick_decisions
+                        .as_ref(),
                     player_number: &configuration.player_number,
                     fall_state: &own_database.main_outputs.fall_state,
                     has_ground_contact: &own_database.main_outputs.has_ground_contact,
