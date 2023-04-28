@@ -199,10 +199,12 @@ fn generate_decisions_for_instant_kicks(
                 > (distance(&ball_position, &own_goal_center) + closer_threshold);
             let scores_goal =
                 is_scoring_goal(target, ball_position, field_dimensions, robot_to_field);
+            let is_good_emergency_target =
+                is_ball_close_to_own_goal && is_target_farer_away_from_our_goal;
+            let is_strategic_target = is_target_closer_to_opponent_goal || is_good_emergency_target;
             if (is_inside_field || scores_goal)
                 && !is_intersecting_with_an_obstacle
-                && (is_target_closer_to_opponent_goal
-                    || (is_ball_close_to_own_goal && is_target_farer_away_from_our_goal))
+                && is_strategic_target
             {
                 instant_kick_targets
                     .mutate_if_subscribed(|targets| targets.as_mut().unwrap().push(target));
