@@ -204,9 +204,8 @@ fn generate_decisions_for_instant_kicks(
                 && (is_target_closer_to_opponent_goal
                     || (is_ball_close_to_own_goal && is_target_farer_away_from_our_goal))
             {
-                instant_kick_targets.mutate_if_subscribed(|targets| {
-                    targets.get_or_insert(Default::default()).push(target)
-                });
+                instant_kick_targets
+                    .mutate_if_subscribed(|targets| targets.as_mut().unwrap().push(target));
                 let kick_pose = compute_kick_pose(ball_position, target, kick_info, kicking_side);
                 Some(KickDecision {
                     variant,
