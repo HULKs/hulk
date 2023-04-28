@@ -46,6 +46,10 @@ impl Repository {
         }
     }
 
+    pub fn root_directory(&self) -> PathBuf {
+        self.root.clone()
+    }
+
     pub fn crates_directory(&self) -> PathBuf {
         self.root.join("crates")
     }

@@ -32,24 +32,27 @@ impl RepositoryParameters {
 
     pub fn write(&self, address: &str, path: String, value: Value) {
         let repository = self.repository.clone();
-        let Ok(head_id) = self
-            .head_id_from_address(address)
+        let Ok(hardware_ids) = self
+            .hardware_ids_from_address(address)
         else {
             error!("failed to get head ID from address {address}");
             return
         };
         self.runtime.spawn(async move {
-            let mut stored_value = repository
-                .read_configuration(&head_id)
-                .await
-                .unwrap_or_default();
-
             let nested_value_to_be_added = nest_value_at_path(path.as_str(), &value);
 
-            merge_json(&mut stored_value, &nested_value_to_be_added);
+            let stored_value: Value = parameters::directory::deserialize(
+                repository.root_directory(),
+                &hardware_ids.body_id,
+                &hardware_ids.head_id,
+            )
+            .await
+            .unwrap_or_default();
+
+            let diff = get_diff_against_stored_value(&stored_value, &nested_value_to_be_added);
 
             if let Err(error) = repository
-                .write_configuration(&head_id, &stored_value)
+                .write_configuration(&hardware_ids.head_id, &diff)
                 .await
             {
                 error!("Failed to write value to repository: {error:#?}");
@@ -57,21 +60,24 @@ impl RepositoryParameters {
         });
     }
 
-    fn head_id_from_address(&self, address: &str) -> Result<String> {
+    fn hardware_ids_from_address(&self, address: &str) -> Result<HardwareIds> {
         if address == "localhost" {
-            return Ok("webots".to_string());
+            return Ok(HardwareIds {
+                body_id: "webots".to_string(),
+                head_id: "webots".to_string(),
+            });
         }
         let nao_number =
             last_octet_from_ip_address(address.parse().wrap_err("failed to parse IP address")?);
-        self.head_id_from_nao_number(nao_number)
+        self.hardware_ids_from_nao_number(nao_number)
             .wrap_err_with(|| format!("failed to get head ID from NAO number {nao_number}"))
     }
 
-    fn head_id_from_nao_number(&self, nao_number: u8) -> Result<String> {
+    fn hardware_ids_from_nao_number(&self, nao_number: u8) -> Result<HardwareIds> {
         self.ids
             .get(&nao_number)
             .ok_or_else(|| eyre!("no IDs known for NAO number {nao_number}"))
-            .map(|id| id.head_id.clone())
+            .cloned()
     }
 }
 
@@ -90,9 +96,18 @@ fn nest_value_at_path(path: &str, value: &Value) -> Value {
         })
 }
 
+fn get_diff_against_stored_value(stored_value: &Value, incoming_sparse_value: &Value) -> Value {
+    let mut diff = stored_value.clone();
+    merge_json(&mut diff, incoming_sparse_value);
+    prune_equal_branches(&mut diff, stored_value);
+    diff
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+
+    use crate::repository_parameters::get_diff_against_stored_value;
 
     use super::nest_value_at_path;
 
@@ -116,5 +131,19 @@ mod tests {
         for ((path, value), expected_output) in dataset {
             assert_eq!(nest_value_at_path(path, &value), expected_output);
         }
+    }
+
+    #[test]
+    fn sparse_value_diff() {
+        let stored_value = json!({"a":{"b":[1,2,3], "c":10}, "x":1000});
+        let incoming_sparse_value = json!({"a":{"b":[1,4,3], "c":10}});
+
+        // Only "b" has changes.
+        let expected_diff = json!({"a":{"b":[1,4,3]}});
+
+        assert_eq!(
+            get_diff_against_stored_value(&stored_value, &incoming_sparse_value),
+            expected_diff
+        );
     }
 }
