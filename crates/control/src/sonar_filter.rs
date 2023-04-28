@@ -43,11 +43,11 @@ pub struct MainOutputs {
 impl SonarFilter {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
-            filtered_sonar_left: LowPassFilter::with_smoothing_factor(
+            filtered_sonar_left: LowPassFilter::with_roughness_factor(
                 *context.maximal_detectable_distance,
                 *context.low_pass_filter_coefficient,
             ),
-            filtered_sonar_right: LowPassFilter::with_smoothing_factor(
+            filtered_sonar_right: LowPassFilter::with_roughness_factor(
                 *context.maximal_detectable_distance,
                 *context.low_pass_filter_coefficient,
             ),

@@ -46,17 +46,17 @@ pub struct MainOutputs {
 impl FallStateEstimation {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
-            roll_pitch_filter: LowPassFilter::with_smoothing_factor(
+            roll_pitch_filter: LowPassFilter::with_roughness_factor(
                 Vector2::zeros(),
                 context.fall_state_estimation.roll_pitch_low_pass_factor,
             ),
-            angular_velocity_filter: LowPassFilter::with_smoothing_factor(
+            angular_velocity_filter: LowPassFilter::with_roughness_factor(
                 Vector3::zeros(),
                 context
                     .fall_state_estimation
                     .angular_velocity_low_pass_factor,
             ),
-            linear_acceleration_filter: LowPassFilter::with_smoothing_factor(
+            linear_acceleration_filter: LowPassFilter::with_roughness_factor(
                 Vector3::zeros(),
                 context
                     .fall_state_estimation

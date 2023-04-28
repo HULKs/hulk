@@ -26,8 +26,8 @@ pub struct MainOutputs {
 impl SolePressureFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            left_sole_pressure: LowPassFilter::with_smoothing_factor(0.0, 0.5),
-            right_sole_pressure: LowPassFilter::with_smoothing_factor(0.0, 0.5),
+            left_sole_pressure: LowPassFilter::with_roughness_factor(0.0, 0.5),
+            right_sole_pressure: LowPassFilter::with_roughness_factor(0.0, 0.5),
         })
     }
 

@@ -29,7 +29,7 @@ pub struct MainOutputs {
 impl ConditionInputProvider {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
-            angular_velocity_filter: LowPassFilter::with_smoothing_factor(
+            angular_velocity_filter: LowPassFilter::with_roughness_factor(
                 Default::default(),
                 *context.angular_velocity_smoothing_factor,
             ),
