@@ -2,6 +2,8 @@ use nalgebra::{Point2, UnitComplex};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
+use crate::CameraPosition;
+
 use super::{PathSegment, Side};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -70,8 +72,13 @@ pub enum HeadMotion {
     Center,
     LookAround,
     SearchForLostBall,
-    LookAt { target: Point2<f32> },
-    LookLeftAndRightOf { target: Point2<f32> },
+    LookAt {
+        target: Point2<f32>,
+        camera: Option<CameraPosition>,
+    },
+    LookLeftAndRightOf {
+        target: Point2<f32>,
+    },
     Unstiff,
 }
 
