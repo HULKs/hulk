@@ -61,6 +61,7 @@ pub struct CycleContext {
     pub measurement_noise: Parameter<Vector2<f32>, "ball_filter.measurement_noise">,
     pub process_noise: Parameter<Vector4<f32>, "ball_filter.process_noise">,
     pub validity_discard_threshold: Parameter<f32, "ball_filter.validity_discard_threshold">,
+    pub velocity_decay_factor: Parameter<f32, "ball_filter.velocity_decay_factor">,
     pub visible_validity_exponential_decay_factor:
         Parameter<f32, "ball_filter.visible_validity_exponential_decay_factor">,
 
@@ -97,6 +98,7 @@ impl BallFilter {
                 .chain(balls_bottom.iter())
                 .filter_map(|data| data.as_ref());
             self.predict_hypotheses_with_odometry(
+                *context.velocity_decay_factor,
                 current_odometry_to_last_odometry.inverse(),
                 Matrix4::from_diagonal(context.process_noise),
             );
@@ -194,6 +196,7 @@ impl BallFilter {
 
     fn predict_hypotheses_with_odometry(
         &mut self,
+        velocity_decay_factor: f32,
         last_odometry_to_current_odometry: Isometry2<f32>,
         process_noise: Matrix4<f32>,
     ) {
@@ -202,8 +205,8 @@ impl BallFilter {
             let constant_velocity_prediction = matrix![
                 1.0, 0.0, cycle_time, 0.0;
                 0.0, 1.0, 0.0, cycle_time;
-                0.0, 0.0, 1.0, 0.0;
-                0.0, 0.0, 0.0, 1.0;
+                0.0, 0.0, velocity_decay_factor, 0.0;
+                0.0, 0.0, 0.0, velocity_decay_factor;
             ];
             let rotation = last_odometry_to_current_odometry
                 .rotation

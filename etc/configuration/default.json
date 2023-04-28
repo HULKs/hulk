@@ -268,7 +268,8 @@
     "initial_covariance": [0.5, 0.5, 0.5, 0.5],
     "visible_validity_exponential_decay_factor": 0.96,
     "hidden_validity_exponential_decay_factor": 0.999,
-    "validity_discard_threshold": 0.5
+    "validity_discard_threshold": 0.5,
+    "velocity_decay_factor": 0.99
   },
   "button_filter": {
     "head_buttons_timeout": {
