@@ -32,9 +32,10 @@ pub struct CycleContext {
     pub kick_pose_obstacle_radius: Parameter<f32, "kick_selector.kick_pose_obstacle_radius">,
     pub ball_radius_for_kick_target_selection:
         Parameter<f32, "kick_selector.ball_radius_for_kick_target_selection">,
+    pub closer_threshold: Parameter<f32, "kick_selector.closer_threshold">,
 
-    pub kick_decisions: AdditionalOutput<Vec<KickDecision>, "kick_decisions">,
     pub kick_targets: AdditionalOutput<Vec<Point2<f32>>, "kick_targets">,
+    pub instant_kick_targets: AdditionalOutput<Vec<Point2<f32>>, "instant_kick_targets">,
 }
 
 #[context]
@@ -77,6 +78,8 @@ impl KickSelector {
             &obstacle_circles,
             context.field_dimensions,
             *context.robot_to_field,
+            *context.closer_threshold,
+            &mut context.instant_kick_targets,
         );
 
         let kick_targets = collect_kick_targets(
@@ -125,9 +128,6 @@ impl KickSelector {
                 _ => distance_to_left.total_cmp(&distance_to_right),
             }
         });
-        context
-            .kick_decisions
-            .fill_if_subscribed(|| kick_decisions.clone());
 
         Ok(MainOutputs {
             kick_decisions: Some(kick_decisions).into(),
@@ -153,6 +153,7 @@ fn generate_obstacle_circles(
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn generate_decisions_for_instant_kicks(
     sides: &[Side; 2],
     kick_variants: &[KickVariant],
@@ -161,7 +162,10 @@ fn generate_decisions_for_instant_kicks(
     obstacle_circles: &[Circle],
     field_dimensions: &FieldDimensions,
     robot_to_field: Isometry2<f32>,
+    closer_threshold: f32,
+    instant_kick_targets: &mut AdditionalOutput<Vec<Point2<f32>>>,
 ) -> Vec<KickDecision> {
+    instant_kick_targets.fill_if_subscribed(Default::default);
     iproduct!(sides, kick_variants)
         .filter_map(|(&kicking_side, &variant)| {
             let kick_info = &in_walk_kicks[variant];
@@ -169,7 +173,7 @@ fn generate_decisions_for_instant_kicks(
                 Side::Left => UnitComplex::new(kick_info.shot_angle),
                 Side::Right => UnitComplex::new(kick_info.shot_angle).inverse(),
             };
-            let shot_distance = vector![2.0, 0.0];
+            let shot_distance = vector![kick_info.shot_distance, 0.0];
             let target = ball_position + shot_angle * shot_distance;
 
             let is_inside_field = field_dimensions.is_inside_field(robot_to_field * target);
@@ -177,10 +181,12 @@ fn generate_decisions_for_instant_kicks(
             let is_intersecting_with_an_obstacle = obstacle_circles
                 .iter()
                 .any(|circle| circle.intersects_line_segment(&ball_to_target));
-            let opponent_goal_center = point![field_dimensions.length / 2.0, 0.0];
-            let own_goal_center = point![-field_dimensions.length / 2.0, 0.0];
+            let opponent_goal_center =
+                robot_to_field.inverse() * point![field_dimensions.length / 2.0, 0.0];
+            let own_goal_center =
+                robot_to_field.inverse() * point![-field_dimensions.length / 2.0, 0.0];
             let is_target_closer_to_opponent_goal = (distance(&target, &opponent_goal_center)
-                + 1.0)
+                + closer_threshold)
                 < distance(&ball_position, &opponent_goal_center);
             let goal_box_radius = vector![
                 field_dimensions.goal_box_area_length,
@@ -190,12 +196,17 @@ fn generate_decisions_for_instant_kicks(
             let is_ball_close_to_own_goal =
                 distance(&ball_position, &own_goal_center) < goal_box_radius;
             let is_target_farer_away_from_our_goal = distance(&target, &own_goal_center)
-                > (distance(&ball_position, &own_goal_center) + 1.0);
-            if is_inside_field
+                > (distance(&ball_position, &own_goal_center) + closer_threshold);
+            let scores_goal =
+                is_scoring_goal(target, ball_position, field_dimensions, robot_to_field);
+            if (is_inside_field || scores_goal)
                 && !is_intersecting_with_an_obstacle
                 && (is_target_closer_to_opponent_goal
                     || (is_ball_close_to_own_goal && is_target_farer_away_from_our_goal))
             {
+                instant_kick_targets.mutate_if_subscribed(|targets| {
+                    targets.get_or_insert(Default::default()).push(target)
+                });
                 let kick_pose = compute_kick_pose(ball_position, target, kick_info, kicking_side);
                 Some(KickDecision {
                     variant,
@@ -207,6 +218,26 @@ fn generate_decisions_for_instant_kicks(
             }
         })
         .collect()
+}
+
+fn is_scoring_goal(
+    target: Point2<f32>,
+    ball_position: Point2<f32>,
+    field_dimensions: &FieldDimensions,
+    robot_to_field: Isometry2<f32>,
+) -> bool {
+    let ball_to_target = LineSegment::new(robot_to_field * ball_position, robot_to_field * target);
+    let opponent_goal_line = LineSegment::new(
+        point![
+            field_dimensions.length / 2.0,
+            field_dimensions.goal_inner_width / 2.0
+        ],
+        point![
+            field_dimensions.length / 2.0,
+            -field_dimensions.goal_inner_width / 2.0
+        ],
+    );
+    ball_to_target.intersects_line_segment(opponent_goal_line)
 }
 
 fn collect_kick_targets(
@@ -264,6 +295,7 @@ fn collect_kick_targets(
                         .into_iter()
                         .map(|tangent| {
                             let kick_direction = (tangent.0 - ball_position).normalize();
+                            // TODO: drop this constant?
                             ball_position + kick_direction * 2.0
                         })
                         .filter(|&target| field_dimensions.is_inside_field(target))

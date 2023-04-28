@@ -296,9 +296,9 @@
     "goal_post_measurement_matching_distance": 0.35,
     "hypothesis_merge_distance": 0.3,
     "process_noise": [0.005, 0.005],
-    "feet_measurement_noise": [50.0, 50.0],
+    "feet_measurement_noise": [200.0, 200.0],
     "robot_measurement_noise": [100.0, 100.0],
-    "sonar_measurement_noise": [80.0, 80.0],
+    "sonar_measurement_noise": [500.0, 500.0],
     "network_robot_measurement_noise": [3.0, 5.0],
     "initial_covariance": [0.25, 0.25],
     "measurement_count_threshold": 10,
@@ -876,19 +876,22 @@
     "forward": {
       "offset": [-0.23, 0.05],
       "shot_angle": 0.0,
-      "reached_thresholds": [0.07, 0.02, 0.1],
+      "reached_thresholds": [0.07, 0.03, 0.2],
+      "shot_distance": 3.0,
       "enabled": true
     },
     "turn": {
       "offset": [-0.17, -0.1],
       "shot_angle": -1.0,
-      "reached_thresholds": [0.04, 0.03, 0.1],
+      "reached_thresholds": [0.04, 0.04, 0.2],
+      "shot_distance": 2.5,
       "enabled": true
     },
     "side": {
       "offset": [-0.02, 0.2],
       "shot_angle": 1.57,
-      "reached_thresholds": [0.05, 0.05, 0.1],
+      "reached_thresholds": [0.05, 0.06, 0.2],
+      "shot_distance": 0.5,
       "enabled": true
     }
   },
@@ -896,7 +899,8 @@
     "angle_distance_weight": 0.01,
     "max_kick_around_obstacle_angle": 1.0,
     "kick_pose_obstacle_radius": 0.1,
-    "ball_radius_for_kick_target_selection": 0.15
+    "ball_radius_for_kick_target_selection": 0.15,
+    "closer_threshold": 1.0
   },
   "behavior": {
     "optional_roles": [
@@ -921,7 +925,7 @@
       "striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free": -1.0,
       "striker_supporter_minimum_x": 2.0,
       "keeper_x_offset": 0.1,
-      "striker_distance_to_non_free_center_circle": 0.40,
+      "striker_distance_to_non_free_center_circle": 0.4,
       "striker_set_position": [-1.0, 0.0]
     },
     "dribbling": {

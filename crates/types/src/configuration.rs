@@ -144,6 +144,7 @@ pub struct InWalkKickInfo {
     pub offset: Vector2<f32>,
     pub shot_angle: f32,
     pub reached_thresholds: Vector3<f32>,
+    pub shot_distance: f32,
     pub enabled: bool,
 }
 
