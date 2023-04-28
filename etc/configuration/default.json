@@ -341,8 +341,8 @@
     "inside_turn_ratio": 0.1
   },
   "whistle_filter": {
-    "buffer_length": 20,
-    "minimum_detections": 4
+    "buffer_length": 40,
+    "minimum_detections": 8
   },
   "walking_engine": {
     "arm_stiffness": 0.8,
