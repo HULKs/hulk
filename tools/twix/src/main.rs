@@ -23,8 +23,8 @@ use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 use nao::Nao;
 use panel::Panel;
 use panels::{
-    BehaviorSimulatorPanel, ImagePanel, ImageSegmentsPanel, ManualCalibrationPanel, MapPanel,
-    ParameterPanel, PlotPanel, TextPanel,
+    BehaviorSimulatorPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel,
+    MapPanel, ParameterPanel, PlotPanel, TextPanel,
 };
 use serde_json::{from_str, to_string, Value};
 use tokio::sync::mpsc;
@@ -75,6 +75,7 @@ enum SelectablePanel {
     Map(MapPanel),
     Parameter(ParameterPanel),
     ManualCalibration(ManualCalibrationPanel),
+    LookAt(LookAtPanel),
 }
 
 impl SelectablePanel {
@@ -102,6 +103,7 @@ impl SelectablePanel {
             "manual calibration" => {
                 SelectablePanel::ManualCalibration(ManualCalibrationPanel::new(nao, value))
             }
+            "look at" => SelectablePanel::LookAt(LookAtPanel::new(nao, value)),
             name => bail!("unexpected panel name: {name}"),
         })
     }
@@ -116,6 +118,7 @@ impl SelectablePanel {
             SelectablePanel::Map(panel) => panel.save(),
             SelectablePanel::Parameter(panel) => panel.save(),
             SelectablePanel::ManualCalibration(panel) => panel.save(),
+            SelectablePanel::LookAt(panel) => panel.save(),
         };
         value["_panel_type"] = Value::String(self.to_string());
 
@@ -134,6 +137,7 @@ impl Widget for &mut SelectablePanel {
             SelectablePanel::Map(panel) => panel.ui(ui),
             SelectablePanel::Parameter(panel) => panel.ui(ui),
             SelectablePanel::ManualCalibration(panel) => panel.ui(ui),
+            SelectablePanel::LookAt(panel) => panel.ui(ui),
         }
     }
 }
@@ -149,6 +153,7 @@ impl Display for SelectablePanel {
             SelectablePanel::Map(_) => MapPanel::NAME,
             SelectablePanel::Parameter(_) => ParameterPanel::NAME,
             SelectablePanel::ManualCalibration(_) => ManualCalibrationPanel::NAME,
+            SelectablePanel::LookAt(_) => LookAtPanel::NAME,
         };
         f.write_str(panel_name)
     }
@@ -275,6 +280,7 @@ impl App for TwixApp {
                         "Map".to_string(),
                         "Parameter".to_string(),
                         "Manual Calibration".to_string(),
+                        "Look At".to_string(),
                     ],
                     "Panel",
                 )
