@@ -1,17 +1,19 @@
 use std::{f32::consts::FRAC_PI_2, str::FromStr, sync::Arc};
 
-use communication::CyclerOutput;
 use eframe::{
     egui::{ComboBox, Response, Ui, Widget},
-    epaint::{Color32, Stroke},
+    epaint::{Color32, Pos2, Stroke},
     Storage,
 };
 use log::info;
-use nalgebra::{point, vector, Point2, Similarity2};
+use nalgebra::{point, vector, Point2, Similarity2, Vector2};
 use serde_json::Value;
+use tokio::sync::mpsc;
 use types::{CameraPosition, HeadMotion, MotionCommand};
 
-use crate::{nao::Nao, panel::Panel, twix_paint::TwixPainter, value_buffer::ValueBuffer};
+use crate::{nao::Nao, panel::Panel, twix_painter::TwixPainter, value_buffer::ValueBuffer};
+
+use super::parameter::subscribe;
 
 pub struct LookAtPanel {
     nao: Arc<Nao>,
@@ -21,11 +23,17 @@ pub struct LookAtPanel {
 }
 
 impl Panel for LookAtPanel {
-    const NAME: &'static str = "LookAt";
+    const NAME: &'static str = "Look At";
 
-    fn new(nao: Arc<Nao>, _storage: Option<&dyn Storage>) -> Self {
-        let motion_command =
-            nao.subscribe_output(CyclerOutput::from_str("control.main.motion_command").unwrap());
+    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
+        let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
+        let motion_command = subscribe(
+            nao.clone(),
+            "control.main.motion_command",
+            update_notify_sender,
+        )
+        .unwrap();
+
         Self {
             nao,
             camera_position: CameraPosition::Top,
@@ -56,13 +64,13 @@ impl Widget for &mut LookAtPanel {
                 );
             }
         }
-        let painter = TwixPainter::new(
-            ui,
-            vector![3.0, 3.0],
-            Similarity2::identity(),
-            Similarity2::new(vector![1.5, 1.5], -FRAC_PI_2, 1.0),
-            1.0,
-        );
+        let (painter_response, painter) = TwixPainter::allocate_new(ui);
+        //     ui,
+        //     vector![3.0, 3.0],
+        //     Similarity2::identity(),
+        //     Similarity2::new(vector![1.5, 1.5], -FRAC_PI_2, 1.0),
+        //     1.0,
+        // );
         painter.rect_filled(point![1.5, -1.5], point![-1.5, 1.5], Color32::DARK_GREEN);
         painter.line_segment(
             point![1.5, 0.0],
@@ -74,23 +82,20 @@ impl Widget for &mut LookAtPanel {
             point![0.0, -1.5],
             Stroke::new(0.1, Color32::BLACK),
         );
-        if let Some(position) = painter.response.interact_pointer_pos() {
+        if let Some(position) = painter_response.interact_pointer_pos() {
             if self.is_enabled {
-                let look_at_target = painter.transform().inverse() * point![position.x, position.y];
+                let look_at_target = painter.transform_pixel_to_world(position);
                 send_standing_look_at(self.nao.as_ref(), look_at_target, self.camera_position);
             }
         }
         if let Ok(value) = self.motion_command.get_latest() {
             let motion_command: MotionCommand = serde_json::from_value(value).unwrap();
-            if let MotionCommand::Kick {
-                head: HeadMotion::LookAt { target, .. },
-                ..
-            }
-            | MotionCommand::SitDown {
+            if let MotionCommand::SitDown {
                 head: HeadMotion::LookAt { target, .. },
             }
             | MotionCommand::Stand {
                 head: HeadMotion::LookAt { target, .. },
+                ..
             }
             | MotionCommand::Walk {
                 head: HeadMotion::LookAt { target, .. },
@@ -105,7 +110,7 @@ impl Widget for &mut LookAtPanel {
             }
         }
 
-        painter.response
+        painter_response
     }
 }
 
@@ -115,6 +120,7 @@ fn send_standing_look_at(nao: &Nao, look_at_target: Point2<f32>, with_camera: Ca
             target: look_at_target,
             camera: Some(with_camera),
         },
+        is_energy_saving: false,
     });
     info!("Setting motion command: {motion_command:#?}");
     nao.update_parameter_value(
