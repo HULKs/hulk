@@ -141,7 +141,7 @@ impl Index<KickVariant> for InWalkKicks {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct InWalkKickInfo {
-    pub offset: Vector3<f32>,
+    pub offset: Vector2<f32>,
     pub shot_angle: f32,
     pub reached_thresholds: Vector3<f32>,
     pub enabled: bool,

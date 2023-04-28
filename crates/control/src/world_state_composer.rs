@@ -24,6 +24,7 @@ pub struct CycleContext {
     pub penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
     pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     pub kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
+    pub instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
 
     pub player_number: Parameter<PlayerNumber, "player_number">,
 
@@ -66,6 +67,7 @@ impl WorldStateComposer {
             position_of_interest: *context.position_of_interest,
             robot,
             kick_decisions: context.kick_decisions.cloned(),
+            instant_kick_decisions: context.instant_kick_decisions.cloned(),
             game_controller_state: context.game_controller_state.copied(),
         };
 
