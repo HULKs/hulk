@@ -9,7 +9,6 @@ use repository::{get_repository_root, HardwareIds, Repository};
 use serde_json::{json, Value};
 use std::{collections::HashMap, net::Ipv4Addr};
 use tokio::runtime::Runtime;
-use types::hardware;
 
 pub struct RepositoryParameters {
     repository: Repository,
