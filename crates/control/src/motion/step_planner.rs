@@ -7,16 +7,7 @@ use types::{MotionCommand, OrientationMode, PathSegment, SensorData, Side, Step,
 pub struct StepPlanner {}
 
 #[context]
-pub struct CreationContext {
-    pub injected_step: Parameter<Option<Step>, "step_planner.injected_step?">,
-    pub inside_turn_ratio: Parameter<f32, "step_planner.inside_turn_ratio">,
-    pub max_step_size: Parameter<Step, "step_planner.max_step_size">,
-    pub max_step_size_backwards: Parameter<f32, "step_planner.max_step_size_backwards">,
-    pub rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
-    pub translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
-
-    pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
