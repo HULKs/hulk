@@ -1,5 +1,5 @@
 use color_eyre::{eyre::eyre, Result};
-use nalgebra::{distance, point, Isometry2, Point2, Vector2};
+use nalgebra::{distance, point, vector, Isometry2, Point2};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
 
@@ -122,33 +122,33 @@ impl PathPlanner {
         let top_left = field_to_robot * point![-x, y];
 
         let line_segments = [
-            LineSegment(bottom_left, top_left).translate_by(
+            LineSegment(bottom_left, top_left).translate(
                 &(field_to_robot
-                    * Vector2::new(
+                    * vector![
                         -distance_to_left_field_border.powf(2.0) * distance_weight,
-                        0.0,
-                    )),
+                        0.0
+                    ]),
             ),
-            LineSegment(top_left, top_right).translate_by(
+            LineSegment(top_left, top_right).translate(
                 &(field_to_robot
-                    * Vector2::new(
+                    * vector![
                         0.0,
-                        distance_to_upper_field_border.powf(2.0) * distance_weight,
-                    )),
+                        distance_to_upper_field_border.powf(2.0) * distance_weight
+                    ]),
             ),
-            LineSegment(top_right, bottom_right).translate_by(
+            LineSegment(top_right, bottom_right).translate(
                 &(field_to_robot
-                    * Vector2::new(
+                    * vector![
                         distance_to_right_field_border.powf(2.0) * distance_weight,
-                        0.0,
-                    )),
+                        0.0
+                    ]),
             ),
-            LineSegment(bottom_right, bottom_left).translate_by(
+            LineSegment(bottom_right, bottom_left).translate(
                 &(field_to_robot
-                    * Vector2::new(
+                    * vector![
                         0.0,
-                        -distance_to_lower_field_border.powf(2.0) * distance_weight,
-                    )),
+                        -distance_to_lower_field_border.powf(2.0) * distance_weight
+                    ]),
             ),
         ];
 
