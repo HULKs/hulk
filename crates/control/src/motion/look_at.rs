@@ -84,17 +84,20 @@ impl LookAt {
             self.last_glance_direction_toggle = Some(cycle_start_time);
         }
 
-        let target = match head_motion {
-            HeadMotion::LookAt { target } => *target,
+        let (target, camera) = match head_motion {
+            HeadMotion::LookAt { target, camera } => *target,
             HeadMotion::LookLeftAndRightOf { target } => {
                 let left_right_shift = vector![
                     0.0,
                     f32::tan(*context.glance_angle) * distance(target, &Point2::origin())
                 ];
-                match self.current_glance_direction {
-                    GlanceDirection::LeftOfTarget => target + left_right_shift,
-                    GlanceDirection::RightOfTarget => target - left_right_shift,
-                }
+                (
+                    match self.current_glance_direction {
+                        GlanceDirection::LeftOfTarget => target + left_right_shift,
+                        GlanceDirection::RightOfTarget => target - left_right_shift,
+                    },
+                    None,
+                )
             }
             _ => return default_output,
         };
@@ -112,6 +115,24 @@ impl LookAt {
             *context.minimum_bottom_focus_pitch,
         );
 
+        let request = match camera {
+            Some(camera) => {
+                let head_to_camera = match camera {
+                    CameraPosition::Top => camera_matrices.top.camera_to_head.inverse(),
+                    CameraPosition::Bottom => camera_matrices.bottom.camera_to_head.inverse(),
+                };
+                look_at_with_camera(*target, head_to_camera * ground_to_zero_head)
+            }
+            None => look_at(
+                *target,
+                sensor_data.positions,
+                ground_to_zero_head,
+                camera_matrices.top.camera_to_head.inverse(),
+                camera_matrices.bottom.camera_to_head.inverse(),
+                *context.minimum_bottom_focus_pitch,
+            ),
+        };
+        
         Ok(MainOutputs {
             look_at: request.into(),
         })
