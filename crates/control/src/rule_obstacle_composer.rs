@@ -1,9 +1,12 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use nalgebra::{point, vector};
+use nalgebra::{point, vector, Point2};
 use spl_network_messages::{GameState, SubState, Team};
-use types::{BallState, Circle, FieldDimensions, GameControllerState, Rectangle, RuleObstacle};
+use types::{
+    BallState, Circle, FieldDimensions, FilteredGameState, GameControllerState, Rectangle,
+    RuleObstacle,
+};
 
 pub struct RuleObstacleComposer {}
 
@@ -13,6 +16,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
+    pub filtered_game_state: RequiredInput<Option<FilteredGameState>, "filtered_game_state?">,
     pub ball_state: Input<Option<BallState>, "ball_state?">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
@@ -32,7 +36,11 @@ impl RuleObstacleComposer {
         let free_kick_obstacle_radius = 0.75;
 
         let mut rule_obstacles = Vec::new();
-        match (context.game_controller_state, context.ball_state) {
+        match (
+            context.game_controller_state,
+            context.filtered_game_state,
+            context.ball_state,
+        ) {
             (
                 GameControllerState {
                     sub_state:
@@ -46,6 +54,7 @@ impl RuleObstacleComposer {
                     game_state: GameState::Playing,
                     ..
                 },
+                _,
                 Some(ball),
             ) => {
                 let obstacle = RuleObstacle::Circle(Circle::new(
@@ -56,10 +65,28 @@ impl RuleObstacleComposer {
             }
             (
                 GameControllerState {
+                    game_state: GameState::Playing,
+                    kicking_team: Team::Opponent | Team::Uncertain,
+                    ..
+                },
+                FilteredGameState::Playing {
+                    ball_is_free: false,
+                },
+                _,
+            ) => {
+                let obstacle = RuleObstacle::Circle(Circle::new(
+                    Point2::origin(),
+                    context.field_dimensions.center_circle_diameter / 2.0,
+                ));
+                rule_obstacles.push(obstacle);
+            }
+            (
+                GameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
                     game_state: GameState::Playing,
                     ..
                 },
+                _,
                 _,
             ) => {
                 let penalty_box_obstacle = create_penalty_box(
