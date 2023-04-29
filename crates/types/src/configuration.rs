@@ -183,6 +183,7 @@ pub struct PathPlanning {
     pub robot_radius_at_foot_height: f32,
     pub robot_radius_at_hip_height: f32,
     pub ball_obstacle_radius: f32,
+    pub field_border_weight: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
