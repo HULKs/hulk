@@ -41,12 +41,12 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count == 1100 then
+    if state.cycle_count == 1600 then
         state.filtered_game_state.game_state = "Set"
         state.filtered_game_state = "Set"
     end
 
-    if state.cycle_count == 1200 then
+    if state.cycle_count == 1700 then
         state.filtered_game_state = {
             Playing = {
                 ball_is_free = true
@@ -54,7 +54,7 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count == 1250 then
+    if state.cycle_count == 1750 then
         penalize(1);
         state.game_controller_state.penalties.one = {
             Manual = {
@@ -67,11 +67,7 @@ function on_cycle()
         set_robot_pose(1, { -3.2, 3 }, -1.5707963267948966);
     end
 
-    if state.cycle_count == 4000 then
+    if state.cycle_count == game_end_time then
         state.finished = true
     end
-
-    -- if state.cycle_count == game_end_time then
-    --     state.finished = true
-    -- end
 end

@@ -32,7 +32,7 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count == 1000 then
+    if state.cycle_count == 100 then
         state.game_controller_state.game_state = "Ready"
         state.filtered_game_state = {
             Ready = {
@@ -41,12 +41,12 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count == 2000 then
+    if state.cycle_count == 1600 then
         state.filtered_game_state.game_state = "Set"
         state.filtered_game_state = "Set"
     end
 
-    if state.cycle_count == 2500 then
+    if state.cycle_count == 1700 then
         state.filtered_game_state = {
             Playing = {
                 ball_is_free = true
@@ -54,7 +54,7 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count == 2700 then
+    if state.cycle_count == 1800 then
         state.ball = {
             position = { 0.6, 0.5 },
             velocity = { 0.0, 0.0 },
@@ -63,49 +63,49 @@ function on_cycle()
 
 
 
-    if state.cycle_count == 2900 then
+    if state.cycle_count == 1900 then
         state.ball = {
             position = { -1.77, -2.0},
             velocity = { 0.0, 0.0 },
         }
     end
 
-    if state.cycle_count == 3100 then
+    if state.cycle_count == 2100 then
         state.ball = {
             position = { -1.8, 3.0 },
             velocity = { 0.0, 0.0 },
         }
     end
 
-    if state.cycle_count == 3300 then
+    if state.cycle_count == 2300 then
         state.ball = {
             position = { 103.31, 0.0 },
             velocity = { 0.0, 0.0 },
         }
     end
 
-    if state.cycle_count == 3600 then
+    if state.cycle_count == 2600 then
         state.ball = {
             position = { 1.31, -1.0 },
             velocity = { 0.0, 0.0 },
         }
     end
 
-    if state.cycle_count == 3900 then
+    if state.cycle_count == 2900 then
         state.ball = {
             position = { -2.01, 2.0 },
             velocity = { 0.0, 0.0 },
         }
     end
 
-    if state.cycle_count == 4300 then
+    if state.cycle_count == 3300 then
         state.ball = {
             position = { 1.38, 3.0 },
             velocity = { 0.0, 0.0 },
         }
     end
 
-    if state.cycle_count == 4800 then
+    if state.cycle_count == 3800 then
         state.ball = {
             position = { -1.51, -2.0 },
             velocity = { 0.0, 0.0 },

@@ -32,7 +32,7 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count == 500 then
+    if state.cycle_count == 200 then
         state.game_controller_state.game_state = "Ready"
         state.filtered_game_state = {
             Ready = {
@@ -41,7 +41,7 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count == 1500 then
+    if state.cycle_count == 1600 then
         state.filtered_game_state.game_state = "Set"
         state.filtered_game_state = "Set"
     end

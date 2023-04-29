@@ -42,12 +42,12 @@ function on_cycle()
     }
   end
 
-  if state.cycle_count == 1200 then
+  if state.cycle_count == 1600 then
     state.game_controller_state.game_state = "Set"
     state.filtered_game_state = "Set"
   end
 
-  if state.cycle_count == 1600 then
+  if state.cycle_count == 1700 then
     state.game_controller_state.game_state = "Playing"
     state.filtered_game_state = {
       Playing = {
