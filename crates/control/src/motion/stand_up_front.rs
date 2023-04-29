@@ -100,10 +100,6 @@ impl StandUpFront {
                     )?
                     .into(),
                 );
-                dbg!(self
-                    .dispatch_to_initial
-                    .as_ref()
-                    .map(|interpolator| interpolator.total_duration()));
             }
             (_, _) => {
                 self.dispatch_to_initial = None;

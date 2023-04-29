@@ -99,7 +99,6 @@ impl StandUpBack {
 
         context.motion_safe_exits[MotionType::StandUpBack] = false;
         if self.interpolator.is_finished() {
-            dbg!(&context.motion_command);
             match context.motion_command {
                 MotionCommand::StandUp { facing: Facing::Up } => {
                     self.dispatch_to_initial = Some(
