@@ -20,6 +20,8 @@ pub struct CycleContext {
     pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     pub robot_orientation: Input<UnitComplex<f32>, "robot_orientation">,
     pub support_foot: Input<SupportFoot, "support_foot">,
+
+    pub odometry_scale_factor: Parameter<Vector2<f32>, "odometry.odometry_scale_factor">,
 }
 
 #[context]
@@ -55,12 +57,14 @@ impl Odometry {
             &self.last_left_sole_to_right_sole,
         );
         self.last_left_sole_to_right_sole = left_sole_to_right_sole;
+        let corrected_offset_to_last_position =
+            offset_to_last_position.component_mul(context.odometry_scale_factor);
 
         let orientation_offset = self.last_orientation.rotation_to(context.robot_orientation);
         self.last_orientation = *context.robot_orientation;
 
         let current_odometry_to_last_odometry = Isometry2::from_parts(
-            Translation2::from(offset_to_last_position),
+            Translation2::from(corrected_offset_to_last_position),
             orientation_offset,
         );
         let accumulated_odometry =
