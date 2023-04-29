@@ -105,7 +105,7 @@ impl PathPlanner {
         field_width: f32,
         margin: f32,
     ) -> &mut Self {
-        let distance_weight = 0.5;
+        let distance_weight = 0.15;
 
         let own_position = robot_to_field * Point2::origin();
 
@@ -129,22 +129,34 @@ impl PathPlanner {
         let top_left = field_to_robot * point![-x, y];
 
         let line_segments = [
-            LineSegment(bottom_left, top_left).translate_by(&Vector2::new(
-                -distance_to_left_field_border.powf(2.0) * distance_weight,
-                0.0,
-            )),
-            LineSegment(top_left, top_right).translate_by(&Vector2::new(
-                0.0,
-                distance_to_upper_field_border.powf(2.0) * distance_weight,
-            )),
-            LineSegment(top_right, bottom_right).translate_by(&Vector2::new(
-                distance_to_right_field_border.powf(2.0) * distance_weight,
-                0.0,
-            )),
-            LineSegment(bottom_right, bottom_left).translate_by(&Vector2::new(
-                0.0,
-                -distance_to_lower_field_border.powf(2.0) * distance_weight,
-            )),
+            LineSegment(bottom_left, top_left).translate_by(
+                &(field_to_robot
+                    * Vector2::new(
+                        -distance_to_left_field_border.powf(2.0) * distance_weight,
+                        0.0,
+                    )),
+            ),
+            LineSegment(top_left, top_right).translate_by(
+                &(field_to_robot
+                    * Vector2::new(
+                        0.0,
+                        distance_to_upper_field_border.powf(2.0) * distance_weight,
+                    )),
+            ),
+            LineSegment(top_right, bottom_right).translate_by(
+                &(field_to_robot
+                    * Vector2::new(
+                        distance_to_right_field_border.powf(2.0) * distance_weight,
+                        0.0,
+                    )),
+            ),
+            LineSegment(bottom_right, bottom_left).translate_by(
+                &(field_to_robot
+                    * Vector2::new(
+                        0.0,
+                        -distance_to_lower_field_border.powf(2.0) * distance_weight,
+                    )),
+            ),
         ];
 
         self.obstacles.extend(
