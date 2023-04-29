@@ -46,7 +46,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             self.configuration.robot_radius_at_hip_height,
         );
         planner.with_field_borders(
-            robot_to_field.inverse(),
+            robot_to_field,
             self.field_dimensions.length,
             self.field_dimensions.width,
             self.field_dimensions.border_strip_width,

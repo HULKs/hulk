@@ -100,13 +100,18 @@ impl PathPlanner {
 
     pub fn with_field_borders(
         &mut self,
-        field_to_robot: Isometry2<f32>,
+        robot_to_field: Isometry2<f32>,
         field_length: f32,
         field_width: f32,
         margin: f32,
     ) -> &mut Self {
-        let x = field_length / 2.0 + margin;
-        let y = field_width / 2.0 + margin;
+        let own_position = robot_to_field * Point2::origin();
+        let min_distance_to_field_border = (field_length / 2.0 - own_position.x.abs())
+            .clamp(0.0, field_width / 2.0 - own_position.y.abs());
+
+        let field_to_robot = robot_to_field.inverse();
+        let x = field_length / 2.0 + margin + min_distance_to_field_border.powf(2.0) * 0.5;
+        let y = field_width / 2.0 + margin + min_distance_to_field_border.powf(2.0) * 0.5;
         let bottom_right = field_to_robot * point![x, -y];
         let top_right = field_to_robot * point![x, y];
         let bottom_left = field_to_robot * point![-x, -y];
