@@ -3,21 +3,27 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use approx::relative_eq;
 use color_eyre::Result;
 use context_attribute::context;
+use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use motionfile::{MotionFile, MotionInterpolator};
+use nalgebra::Vector2;
 use types::{
-    configuration::FallProtection, BodyJoints, ConditionInput, CycleTime, FallDirection,
-    HeadJoints, Joints, JointsCommand, MotionCommand, MotionSelection, MotionType, SensorData,
+    configuration::FallProtection,
+    configuration::FallStateEstimation as FallStateEstimationConfiguration, BodyJoints,
+    ConditionInput, CycleTime, FallDirection, HeadJoints, Joints, JointsCommand, MotionCommand,
+    MotionSelection, MotionType, SensorData,
 };
 
 pub struct FallProtector {
     start_time: SystemTime,
     interpolator: MotionInterpolator<Joints<f32>>,
+    roll_pitch_filter: LowPassFilter<Vector2<f32>>,
 }
 
 #[context]
 pub struct CreationContext {
     pub fall_protection: Parameter<FallProtection, "fall_protection">,
+    pub fall_state_estimation: Parameter<FallStateEstimationConfiguration, "fall_state_estimation">,
 }
 
 #[context]
@@ -38,16 +44,24 @@ pub struct MainOutputs {
 }
 
 impl FallProtector {
-    pub fn new(_context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
             start_time: UNIX_EPOCH,
             interpolator: MotionFile::from_path("etc/motions/fall_back.json")?.try_into()?,
+            roll_pitch_filter: LowPassFilter::with_smoothing_factor(
+                Vector2::zeros(),
+                context.fall_state_estimation.roll_pitch_low_pass_factor,
+            ),
         })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let current_positions = context.sensor_data.positions;
         let mut head_stiffness = 1.0;
+        let mut body_stiffness = 0.8;
+
+        self.roll_pitch_filter
+            .update(context.sensor_data.inertial_measurement_unit.roll_pitch);
 
         if context.motion_selection.current_motion != MotionType::FallProtection {
             self.start_time = context.cycle_time.start_time;
@@ -63,6 +77,7 @@ impl FallProtector {
         if self.start_time.elapsed().unwrap() >= Duration::from_millis(500) {
             head_stiffness = 0.5;
         }
+
         match context.motion_command {
             MotionCommand::FallProtection {
                 direction: FallDirection::Forward,
@@ -121,9 +136,15 @@ impl FallProtector {
                     context.condition_input,
                 );
 
+                dbg!(self.roll_pitch_filter.state().y.abs());
+                if self.roll_pitch_filter.state().y.abs()
+                    > context.fall_protection.ground_impact_angular_threshold
+                {
+                    body_stiffness = context.fall_protection.ground_impact_body_stiffness;
+                }
                 let fall_back_stiffnesses = Joints::from_head_and_body(
                     HeadJoints::fill(head_stiffness),
-                    BodyJoints::fill(0.8),
+                    BodyJoints::fill(body_stiffness),
                 );
                 JointsCommand {
                     positions: self.interpolator.value(),
