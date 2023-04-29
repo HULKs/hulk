@@ -196,8 +196,8 @@ impl LineSegment {
         false
     }
 
-    pub fn translate_by(&self, direction: &Vector2<f32>) -> Self {
-        Self::new(self.0 + direction, self.1 + direction)
+    pub fn translate(&self, translation: &Vector2<f32>) -> Self {
+        Self::new(self.0 + translation, self.1 + translation)
     }
 }
 
