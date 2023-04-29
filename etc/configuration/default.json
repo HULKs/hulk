@@ -369,7 +369,7 @@
     "leg_stiffness_stand": 0.6,
     "leg_stiffness_walk": 1.0,
     "inside_turn_ratio": 0.1,
-    "max_forward_acceleration": 0.01,
+    "max_forward_acceleration": 0.005,
     "max_leg_adjustment_velocity": {
       "hip_yaw_pitch": 0.0,
       "hip_roll": 0.0,
@@ -391,7 +391,7 @@
     },
     "number_of_stabilizing_steps": 3,
     "step_duration_increase": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
-    "step_foot_lift_increase": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
+    "step_foot_lift_increase": { "forward": 0.1, "left": 0.1, "turn": 0.0 },
     "stable_step_deviation": {
       "nanos": 60000000,
       "secs": 0
@@ -436,7 +436,7 @@
       "torso_tilt_compensation_factor": -0.05
     },
     "tilt_shift_low_pass_factor": 0.4,
-    "torso_shift_offset": 0.012,
+    "torso_shift_offset": 0.0,
     "torso_tilt_offset": 0.0,
     "walk_hip_height": 0.19
   },
