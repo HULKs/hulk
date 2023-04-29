@@ -353,8 +353,19 @@
     "emergency_step": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
     "emergency_step_duration": { "nanos": 280000000, "secs": 0 },
     "foot_pressure_threshold": 0.2,
+<<<<<<< HEAD
     "forward_foot_support_offset": 0.2,
     "gyro_balance_factors": {
+=======
+    "forward_foot_support_offset": 0.1,
+    "gyro_balance_factor": 0.05,
+    "gyro_low_pass_factor": 0.4,
+    "leg_stiffness_stand": 0.6,
+    "leg_stiffness_walk": 1.0,
+    "inside_turn_ratio": 0.1,
+    "max_forward_acceleration": 0.005,
+    "max_leg_adjustment_velocity": {
+>>>>>>> aeed60ec (revert params)
       "hip_yaw_pitch": 0.0,
       "hip_roll": 0.0,
       "hip_pitch": 0.01,
