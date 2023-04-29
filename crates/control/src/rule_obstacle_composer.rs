@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{point, vector};
 use spl_network_messages::{GameState, SubState, Team};
-use types::{FieldDimensions, GameControllerState, Rectangle, RuleObstacle};
+use types::{BallState, Circle, FieldDimensions, GameControllerState, Rectangle, RuleObstacle};
 
 pub struct RuleObstacleComposer {}
 
@@ -13,6 +13,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
+    pub ball_state: Input<Option<BallState>, "ball_state?">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
@@ -26,19 +27,47 @@ impl RuleObstacleComposer {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
+
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let free_kick_obstacle_radius = 0.75;
+
         let mut rule_obstacles = Vec::new();
-        if let GameControllerState {
-            sub_state: Some(SubState::PenaltyKick),
-            game_state: GameState::Playing,
-            ..
-        } = context.game_controller_state
-        {
-            let penalty_box_obstacle = create_penalty_box(
-                context.field_dimensions,
-                context.game_controller_state.kicking_team,
-            );
-            rule_obstacles.push(penalty_box_obstacle);
+        match (context.game_controller_state, context.ball_state) {
+            (
+                GameControllerState {
+                    sub_state:
+                        Some(
+                            SubState::KickIn
+                            | SubState::CornerKick
+                            | SubState::GoalKick
+                            | SubState::PushingFreeKick,
+                        ),
+                    game_state: GameState::Playing,
+                    ..
+                },
+                Some(ball),
+            ) => {
+                let obstacle = RuleObstacle::Circle(Circle::new(
+                    ball.ball_in_field,
+                    free_kick_obstacle_radius,
+                ));
+                rule_obstacles.push(obstacle);
+            }
+            (
+                GameControllerState {
+                    sub_state: Some(SubState::PenaltyKick),
+                    game_state: GameState::Playing,
+                    ..
+                },
+                _,
+            ) => {
+                let penalty_box_obstacle = create_penalty_box(
+                    context.field_dimensions,
+                    context.game_controller_state.kicking_team,
+                );
+                rule_obstacles.push(penalty_box_obstacle);
+            }
+            _ => (),
         };
 
         Ok(MainOutputs {
