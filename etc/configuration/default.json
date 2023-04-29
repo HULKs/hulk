@@ -390,7 +390,7 @@
       "secs": 0
     },
     "number_of_stabilizing_steps": 3,
-    "step_duration_increase": { "forward": 1.0, "left": 0.7, "turn": 0.0 },
+    "step_duration_increase": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
     "stable_step_deviation": {
       "nanos": 60000000,
       "secs": 0
@@ -435,7 +435,7 @@
       "torso_tilt_compensation_factor": -0.05
     },
     "tilt_shift_low_pass_factor": 0.4,
-    "torso_shift_offset": 0.018,
+    "torso_shift_offset": 0.012,
     "torso_tilt_offset": 0.0,
     "walk_hip_height": 0.19
   },
