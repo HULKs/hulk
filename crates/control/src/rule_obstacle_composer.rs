@@ -65,7 +65,7 @@ impl RuleObstacleComposer {
             }
             (
                 GameControllerState {
-                    game_state: GameState::Playing,
+                    game_state: GameState::Set,
                     kicking_team: Team::Opponent | Team::Uncertain,
                     ..
                 },
