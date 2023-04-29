@@ -213,6 +213,8 @@ where
                         .wrap_err("failed to execute cycle of node `KickSelector`")?
                 };
                 own_database.main_outputs.kick_decisions = main_outputs.kick_decisions.value;
+                own_database.main_outputs.instant_kick_decisions =
+                    main_outputs.instant_kick_decisions.value;
             } else {
                 own_database.main_outputs.kick_decisions = Default::default();
             }
