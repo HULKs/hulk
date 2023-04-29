@@ -20,12 +20,12 @@ function on_goal()
     print("Ball: " .. inspect(state.ball))
     print("Ball was at x: " .. state.ball.position[1] .. " y: " .. state.ball.position[2])
     state.ball = nil
-    game_end_time = 8000
+    game_end_time = state.cycle_count + 200
 end
 
 state.ball = {
-  position = { 0.0, 0.0 },
-  velocity = { 0.0, 0.0 },
+    position = { 0.0, 0.0 },
+    velocity = { 0.0, 0.0 },
 }
 
 function on_cycle()
@@ -55,14 +55,14 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count==1900 then
-      state.ball = {
-        position = { 100.0, 0.0 },
-        velocity = { 0.0, 0.0 },
-      }
+    if state.cycle_count == 1900 then
+        state.ball = None
     end
 
+    if state.cycle_count == 6000 then
+        state.finished = true
+    end
     if state.cycle_count == game_end_time then
-       state.finished = true
+        state.finished = true
     end
 end
