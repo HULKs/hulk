@@ -331,9 +331,9 @@
   "step_planner": {
     "injected_step": null,
     "max_step_size": {
-      "forward": 0.04,
+      "forward": 0.045,
       "left": 0.12,
-      "turn": 0.9
+      "turn": 1.2
     },
     "max_step_size_backwards": 0.02,
     "translation_exponent": 1.5,
@@ -344,31 +344,22 @@
     "minimum_detections": 2
   },
   "walking_engine": {
-    "additional_kick_foot_lift": 0.005,
+    "additional_kick_foot_lift": 0.01,
     "arm_stiffness": 0.8,
     "backward_foot_support_offset": -0.03,
-    "base_foot_lift": 0.012,
-    "base_step_duration": {
-      "nanos": 260000000,
-      "secs": 0
-    },
+    "base_foot_lift": 0.01,
+    "base_step_duration": { "nanos": 240000000, "secs": 0 },
     "emergency_foot_lift": 0.03,
-    "emergency_step": {
-      "forward": 0.0,
-      "left": 0.1,
-      "turn": 0.0
-    },
-    "emergency_step_duration": {
-      "nanos": 280000000,
-      "secs": 0
-    },
+    "emergency_step": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
+    "emergency_step_duration": { "nanos": 280000000, "secs": 0 },
     "foot_pressure_threshold": 0.2,
     "forward_foot_support_offset": 0.1,
     "gyro_balance_factor": 0.05,
     "gyro_low_pass_factor": 0.4,
+    "imu_pitch_low_pass_factor": 0.4,
+    "inside_turn_ratio": 0.05,
     "leg_stiffness_stand": 0.6,
     "leg_stiffness_walk": 1.0,
-    "inside_turn_ratio": 0.1,
     "max_forward_acceleration": 0.005,
     "max_leg_adjustment_velocity": {
       "hip_yaw_pitch": 0.0,
@@ -381,28 +372,15 @@
     "max_number_of_timeouted_steps": 3,
     "max_number_of_unstable_steps": 3,
     "max_step_adjustment": 0.004,
-    "maximal_step_duration": {
-      "nanos": 0,
-      "secs": 1
-    },
-    "minimal_step_duration": {
-      "nanos": 150000000,
-      "secs": 0
-    },
+    "maximal_step_duration": { "nanos": 0, "secs": 1 },
+    "minimal_step_duration": { "nanos": 150000000, "secs": 0 },
     "number_of_stabilizing_steps": 3,
-    "step_duration_increase": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
-    "step_foot_lift_increase": { "forward": 0.1, "left": 0.1, "turn": 0.0 },
-    "stable_step_deviation": {
-      "nanos": 60000000,
-      "secs": 0
-    },
-    "starting_step_duration": {
-      "nanos": 200000000,
-      "secs": 0
-    },
+    "stable_step_deviation": { "nanos": 60000000, "secs": 0 },
+    "starting_step_duration": { "nanos": 200000000, "secs": 0 },
     "starting_step_foot_lift": 0.009,
+    "step_duration_increase": { "forward": 0.1, "left": 0.1, "turn": 0.1 },
+    "step_foot_lift_increase": { "forward": 0.3, "left": 0.1, "turn": 0.0 },
     "swing_foot_imu_leveling_factor": 1.0,
-    "imu_pitch_low_pass_factor": 0.4,
     "swing_foot_pitch_error_leveling_factor": 0.9,
     "swinging_arms": {
       "debug_pull_back": false,
@@ -424,240 +402,94 @@
         "shoulder_roll": -0.3,
         "wrist_yaw": 0.0
       },
-      "pulling_back_duration": {
-        "nanos": 0,
-        "secs": 1
-      },
-      "pulling_tight_duration": {
-        "nanos": 0,
-        "secs": 1
-      },
+      "pulling_back_duration": { "nanos": 0, "secs": 1 },
+      "pulling_tight_duration": { "nanos": 0, "secs": 1 },
       "roll_factor": 4,
       "torso_tilt_compensation_factor": -0.05
     },
     "tilt_shift_low_pass_factor": 0.4,
     "torso_shift_offset": 0.0,
-    "torso_tilt_offset": 0.0,
-    "walk_hip_height": 0.19
+    "torso_tilt_offset": 0.08,
+    "walk_hip_height": 0.185
   },
   "kick_steps": {
     "forward": [
       {
-        "base_step": {
-          "forward": 0.04,
-          "left": 0.0,
-          "turn": 0.0
-        },
+        "base_step": { "forward": 0.04, "left": 0.0, "turn": 0.0 },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": {
-          "forward": 0.08,
-          "left": 0.0,
-          "turn": 0.0
-        },
+        "base_step": { "forward": 0.08, "left": 0.0, "turn": 0.0 },
         "hip_pitch_overrides": [
-          {
-            "value": 0.0,
-            "timepoint": {
-              "nanos": 0,
-              "secs": 0
-            }
-          },
-          {
-            "value": 0.0,
-            "timepoint": {
-              "nanos": 100000000,
-              "secs": 0
-            }
-          },
-          {
-            "value": -0.4,
-            "timepoint": {
-              "nanos": 150000000,
-              "secs": 0
-            }
-          },
-          {
-            "value": 0.0,
-            "timepoint": {
-              "nanos": 240000000,
-              "secs": 0
-            }
-          }
+          { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
+          { "value": 0.0, "timepoint": { "nanos": 100000000, "secs": 0 } },
+          { "value": -0.4, "timepoint": { "nanos": 150000000, "secs": 0 } },
+          { "value": 0.0, "timepoint": { "nanos": 240000000, "secs": 0 } }
         ],
         "ankle_pitch_overrides": [
-          {
-            "value": 0.0,
-            "timepoint": {
-              "nanos": 0,
-              "secs": 0
-            }
-          },
-          {
-            "value": 0.0,
-            "timepoint": {
-              "nanos": 50000000,
-              "secs": 0
-            }
-          },
-          {
-            "value": 0.2,
-            "timepoint": {
-              "nanos": 150000000,
-              "secs": 0
-            }
-          },
-          {
-            "value": 0.0,
-            "timepoint": {
-              "nanos": 200000000,
-              "secs": 0
-            }
-          }
+          { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
+          { "value": 0.0, "timepoint": { "nanos": 50000000, "secs": 0 } },
+          { "value": 0.2, "timepoint": { "nanos": 150000000, "secs": 0 } },
+          { "value": 0.0, "timepoint": { "nanos": 200000000, "secs": 0 } }
         ]
       },
       {
-        "base_step": {
-          "forward": 0.0,
-          "left": 0.0,
-          "turn": 0.0
-        },
+        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": {
-          "forward": 0.0,
-          "left": 0.0,
-          "turn": 0.0
-        },
+        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       }
     ],
     "turn": [
       {
-        "base_step": {
-          "forward": 0.0,
-          "left": 0.0,
-          "turn": 0.8
-        },
+        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.8 },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": {
-          "forward": 0.06,
-          "left": 0.0,
-          "turn": 0.2
-        },
+        "base_step": { "forward": 0.06, "left": 0.0, "turn": 0.2 },
         "hip_pitch_overrides": [
-          {
-            "value": 0.0,
-            "timepoint": {
-              "nanos": 0,
-              "secs": 0
-            }
-          },
-          {
-            "value": 0.0,
-            "timepoint": {
-              "nanos": 100000000,
-              "secs": 0
-            }
-          },
-          {
-            "value": -0.4,
-            "timepoint": {
-              "nanos": 150000000,
-              "secs": 0
-            }
-          },
-          {
-            "value": 0.0,
-            "timepoint": {
-              "nanos": 240000000,
-              "secs": 0
-            }
-          }
+          { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
+          { "value": 0.0, "timepoint": { "nanos": 100000000, "secs": 0 } },
+          { "value": -0.4, "timepoint": { "nanos": 150000000, "secs": 0 } },
+          { "value": 0.0, "timepoint": { "nanos": 240000000, "secs": 0 } }
         ],
         "ankle_pitch_overrides": [
-          {
-            "value": 0.0,
-            "timepoint": {
-              "nanos": 0,
-              "secs": 0
-            }
-          },
-          {
-            "value": 0.0,
-            "timepoint": {
-              "nanos": 50000000,
-              "secs": 0
-            }
-          },
-          {
-            "value": 0.2,
-            "timepoint": {
-              "nanos": 150000000,
-              "secs": 0
-            }
-          },
-          {
-            "value": 0.0,
-            "timepoint": {
-              "nanos": 200000000,
-              "secs": 0
-            }
-          }
+          { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
+          { "value": 0.0, "timepoint": { "nanos": 50000000, "secs": 0 } },
+          { "value": 0.2, "timepoint": { "nanos": 150000000, "secs": 0 } },
+          { "value": 0.0, "timepoint": { "nanos": 200000000, "secs": 0 } }
         ]
       },
       {
-        "base_step": {
-          "forward": 0.0,
-          "left": 0.0,
-          "turn": 0.0
-        },
+        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       }
     ],
     "side": [
       {
-        "base_step": {
-          "forward": 0.0,
-          "left": 0.0,
-          "turn": 0.0
-        },
+        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": {
-          "forward": 0.0,
-          "left": -0.12,
-          "turn": 0.0
-        },
+        "base_step": { "forward": 0.0, "left": -0.12, "turn": 0.0 },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": {
-          "forward": 0.0,
-          "left": 0.0,
-          "turn": 0.0
-        },
+        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": {
-          "forward": 0.0,
-          "left": 0.0,
-          "turn": 0.0
-        },
+        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       }
@@ -962,7 +794,7 @@
     },
     "search": {
       "position_reached_distance": 0.4,
-      "rotation_per_step": 0.35
+      "rotation_per_step": 1.0
     },
     "look_action": {
       "angle_threshold": 0.95,
