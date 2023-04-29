@@ -1,5 +1,5 @@
 use color_eyre::{eyre::eyre, Result};
-use nalgebra::{distance, point, Isometry2, Point2};
+use nalgebra::{distance, point, Isometry2, Point2, Vector2};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
 
@@ -105,23 +105,46 @@ impl PathPlanner {
         field_width: f32,
         margin: f32,
     ) -> &mut Self {
+        let distance_weight = 0.5;
+
         let own_position = robot_to_field * Point2::origin();
-        let min_distance_to_field_border = (field_length / 2.0 - own_position.x.abs())
-            .clamp(0.0, field_width / 2.0 - own_position.y.abs());
+
+        // see map overlay as reference
+        let distance_to_left_field_border = field_length / 2.0 + own_position.x;
+        let distance_to_right_field_border = field_length / 2.0 - own_position.x;
+        let distance_to_lower_field_border = field_width / 2.0 + own_position.y;
+        let distance_to_upper_field_border = field_width / 2.0 - own_position.y;
+
+        dbg!(&distance_to_left_field_border);
+        dbg!(&distance_to_right_field_border);
+        dbg!(&distance_to_lower_field_border);
+        dbg!(&distance_to_upper_field_border);
 
         let field_to_robot = robot_to_field.inverse();
-        let x = field_length / 2.0 + margin + min_distance_to_field_border.powf(2.0) * 0.5;
-        let y = field_width / 2.0 + margin + min_distance_to_field_border.powf(2.0) * 0.5;
+        let x = field_length / 2.0 + margin;
+        let y = field_width / 2.0 + margin;
         let bottom_right = field_to_robot * point![x, -y];
         let top_right = field_to_robot * point![x, y];
         let bottom_left = field_to_robot * point![-x, -y];
         let top_left = field_to_robot * point![-x, y];
 
         let line_segments = [
-            LineSegment(bottom_left, top_left),
-            LineSegment(top_left, top_right),
-            LineSegment(top_right, bottom_right),
-            LineSegment(bottom_right, bottom_left),
+            LineSegment(bottom_left, top_left).translate_by(&Vector2::new(
+                -distance_to_left_field_border.powf(2.0) * distance_weight,
+                0.0,
+            )),
+            LineSegment(top_left, top_right).translate_by(&Vector2::new(
+                0.0,
+                distance_to_upper_field_border.powf(2.0) * distance_weight,
+            )),
+            LineSegment(top_right, bottom_right).translate_by(&Vector2::new(
+                distance_to_right_field_border.powf(2.0) * distance_weight,
+                0.0,
+            )),
+            LineSegment(bottom_right, bottom_left).translate_by(&Vector2::new(
+                0.0,
+                -distance_to_lower_field_border.powf(2.0) * distance_weight,
+            )),
         ];
 
         self.obstacles.extend(

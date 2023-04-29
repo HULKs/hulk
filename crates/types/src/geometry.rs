@@ -195,6 +195,10 @@ impl LineSegment {
         }
         false
     }
+
+    pub fn translate_by(&self, direction: &Vector2<f32>) -> Self {
+        Self::new(self.0 + direction, self.1 + direction)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
