@@ -329,7 +329,20 @@
               "ankle_roll": 0.0
             }
           }
-        },
+        }
+      ],
+      "exit_condition": {
+        "StabilizedCondition": {
+          "tolerance": 0.15,
+          "timeout_duration": 5.0
+        }
+      }
+    },
+    {
+      "entry_condition": {
+        "FallenAbort": {}
+      },
+      "keyframes": [
         {
           "duration": 0.2,
           "positions": {
@@ -850,9 +863,6 @@
             }
           }
         }
-<<<<<<< HEAD
-      ]
-=======
       ],
       "exit_condition": {
         "StabilizedCondition": {
@@ -860,8 +870,6 @@
           "timeout": 5
         }
       }
-<<<<<<< HEAD
-=======
     },
     {
       "duration": 0.4,
@@ -1137,8 +1145,6 @@
         "tolerance": 0.1,
         "alpha": 0.1
       }
->>>>>>> 97f2ce80 (wip)
->>>>>>> 08bbb6af (wip)
     }
   ]
 }

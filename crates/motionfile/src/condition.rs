@@ -1,6 +1,6 @@
 use std::{fmt::Debug, time::Duration};
 
-use crate::{StabilizedCondition, FallenAbort};
+use crate::{FallenAbort, StabilizedCondition};
 
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
