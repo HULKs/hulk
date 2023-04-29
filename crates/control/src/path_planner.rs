@@ -104,9 +104,8 @@ impl PathPlanner {
         field_length: f32,
         field_width: f32,
         margin: f32,
+        distance_weight: f32,
     ) -> &mut Self {
-        let distance_weight = 0.15;
-
         let own_position = robot_to_field * Point2::origin();
 
         let distance_to_left_field_border = field_length / 2.0 + own_position.x;
