@@ -58,7 +58,11 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                 time_since_start,
             } => {
                 let current_frame = &self.frames[current_frame_index];
-                match current_frame.entry_condition.as_ref().map(|condition| condition.evaluate(condition_input, time_since_start)) {
+                match current_frame
+                    .entry_condition
+                    .as_ref()
+                    .map(|condition| condition.evaluate(condition_input, time_since_start))
+                {
                     Some(Response::Abort) => State::Finished,
                     Some(Response::Wait) => State::CheckEntry {
                         current_frame_index,
@@ -67,7 +71,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     _ => State::InterpolateSpline {
                         current_frame_index,
                         time_since_start: Duration::ZERO,
-                    }
+                    },
                 }
             }
             State::InterpolateSpline {
@@ -96,7 +100,6 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     .exit_condition
                     .as_ref()
                     .map(|condition| condition.evaluate(condition_input, time_since_start))
-                    
                 {
                     Some(Response::Abort) => State::Finished,
                     Some(Response::Wait) => State::CheckExit {
@@ -107,7 +110,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                         current_frame_index: current_frame_index + 1,
                         time_since_start: Duration::ZERO,
                     },
-                    _ => State::Finished
+                    _ => State::Finished,
                 }
             }
             State::Finished => State::Finished,
