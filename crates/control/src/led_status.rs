@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::{Ball, CycleTime, Eye, FilteredWhistle, Leds, PrimaryState, Rgb};
+use types::{Ball, CycleTime, Eye, FilteredWhistle, Leds, MotionCommand, PrimaryState, Rgb, Ear};
 
 pub struct LedStatus {
     blink_state: bool,
@@ -20,6 +20,7 @@ pub struct CycleContext {
     pub primary_state: Input<PrimaryState, "primary_state">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
     pub filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
+    pub motion_command: Input<MotionCommand, "motion_command">,
 
     pub balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     pub balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
@@ -149,12 +150,16 @@ impl LedStatus {
             last_ball_data_bottom_too_old,
         );
 
-        let ears = if context.filtered_whistle.is_detected {
+        let mut ears = if context.filtered_whistle.is_detected {
             1.0
         } else {
             0.0
         }
         .into();
+
+        if let MotionCommand::FallProtection { .. } = context.motion_command {
+            ears = Ear::every_second(1.0);
+        }
 
         let leds = Leds {
             left_ear: ears,
