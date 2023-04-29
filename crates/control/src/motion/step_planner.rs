@@ -2,7 +2,7 @@ use color_eyre::{eyre::eyre, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{Isometry2, UnitComplex};
-use types::{MotionCommand, OrientationMode, PathSegment, SensorData, Side, Step, SupportFoot};
+use types::{MotionCommand, OrientationMode, PathSegment, SensorData, Step, SupportFoot};
 
 pub struct StepPlanner {}
 
@@ -16,7 +16,6 @@ pub struct CycleContext {
     pub support_foot: Input<SupportFoot, "support_foot">,
 
     pub injected_step: Parameter<Option<Step>, "step_planner.injected_step?">,
-    pub inside_turn_ratio: Parameter<f32, "step_planner.inside_turn_ratio">,
     pub max_step_size: Parameter<Step, "step_planner.max_step_size">,
     pub max_step_size_backwards: Parameter<f32, "step_planner.max_step_size_backwards">,
     pub rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
@@ -37,20 +36,6 @@ impl StepPlanner {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let support_side = match context.support_foot.support_side {
-            Some(side) => side,
-            None => {
-                return Ok(MainOutputs {
-                    step_plan: Step {
-                        forward: 0.0,
-                        left: 0.0,
-                        turn: 0.0,
-                    }
-                    .into(),
-                })
-            }
-        };
-
         let (path, orientation_mode) = match context.motion_command {
             MotionCommand::Walk {
                 path,
@@ -98,7 +83,7 @@ impl StepPlanner {
                     .rotate_vector_90_degrees(arc.start - arc.circle.center)
                     .normalize();
                 Isometry2::from_parts(
-                    (arc.start + direction * context.max_step_size.forward).into(),
+                    (arc.start + direction * 1.0).into(),
                     UnitComplex::from_cos_sin_unchecked(direction.x, direction.y),
                 )
             }
@@ -126,7 +111,6 @@ impl StepPlanner {
             *context.translation_exponent,
             *context.rotation_exponent,
         );
-        let step = clamp_to_anatomic_constraints(step, support_side, *context.inside_turn_ratio);
 
         Ok(MainOutputs {
             step_plan: step.into(),
@@ -221,37 +205,4 @@ fn calculate_max_step_size_in_walk_volume(
         / (x.abs().powf(translation_exponent) + y.abs().powf(translation_exponent)))
     .powf(1.0 / translation_exponent);
     (request.forward * scale, request.left * scale)
-}
-
-fn clamp_to_anatomic_constraints(
-    request: Step,
-    support_side: Side,
-    inside_turn_ratio: f32,
-) -> Step {
-    let sideways_direction = if request.left.is_sign_positive() {
-        Side::Left
-    } else {
-        Side::Right
-    };
-    let clamped_left = if sideways_direction == support_side {
-        0.0
-    } else {
-        request.left
-    };
-    let turn_direction = if request.turn.is_sign_positive() {
-        Side::Left
-    } else {
-        Side::Right
-    };
-    let turn_ratio = if turn_direction == support_side {
-        inside_turn_ratio
-    } else {
-        1.0 - inside_turn_ratio
-    };
-    let clamped_turn = turn_ratio * request.turn;
-    Step {
-        forward: request.forward,
-        left: clamped_left,
-        turn: clamped_turn,
-    }
 }

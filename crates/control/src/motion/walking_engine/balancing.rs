@@ -40,7 +40,7 @@ pub fn swing_leg_foot_leveling(
     let pitch_error_adjustment =
         config.swing_foot_pitch_error_leveling_factor * support_foot_pitch_error;
 
-    let imu_adjustment = config.swing_foot_backwards_imu_leveling_factor * torso_imu_pitch;
+    let imu_adjustment = config.swing_foot_imu_leveling_factor * torso_imu_pitch;
     let linear_time = (t.as_secs_f32() / planned_step_duration.as_secs_f32()).clamp(0.0, 1.0);
 
     LegJoints {

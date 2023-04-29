@@ -76,7 +76,7 @@ impl WalkState {
             }
             (
                 WalkState::Kicking(current_kick_variant, current_kick_side, step_i),
-                WalkCommand::Kick(next_kick_variant, next_kick_side),
+                WalkCommand::Kick(..),
             ) => {
                 let num_steps = match current_kick_variant {
                     KickVariant::Forward => &kick_steps.forward,
@@ -86,8 +86,6 @@ impl WalkState {
                 .len();
                 if step_i + 1 < num_steps {
                     WalkState::Kicking(current_kick_variant, current_kick_side, step_i + 1)
-                } else if next_kick_side == swing_side.opposite() {
-                    WalkState::Kicking(next_kick_variant, next_kick_side, 0)
                 } else {
                     WalkState::Walking(Step::zero())
                 }

@@ -78,6 +78,8 @@ pub struct WalkingEngine {
     swing_side: Side,
     /// Low pass filter the gyro for balance adjustment
     filtered_gyro_y: LowPassFilter<f32>,
+    /// Low pass filter the imu pitch for balance adjustment
+    filtered_imu_pitch: LowPassFilter<f32>,
     /// Low pass filter the robot tilt for step adjustments
     filtered_robot_tilt_shift: LowPassFilter<f32>,
     /// Foot offsets for the left foot the walking engine interpolation generated for the last cycle
@@ -147,6 +149,10 @@ impl WalkingEngine {
                 0.0,
                 context.config.gyro_low_pass_factor,
             ),
+            filtered_imu_pitch: LowPassFilter::with_smoothing_factor(
+                0.0,
+                context.config.imu_pitch_low_pass_factor,
+            ),
             filtered_robot_tilt_shift: LowPassFilter::with_smoothing_factor(
                 0.0,
                 context.config.tilt_shift_low_pass_factor,
@@ -166,6 +172,8 @@ impl WalkingEngine {
                 .angular_velocity
                 .y,
         );
+        self.filtered_imu_pitch
+            .update(context.sensor_data.inertial_measurement_unit.roll_pitch.y);
         self.filter_robot_tilt_shift(
             context.robot_kinematics,
             &context.sensor_data.inertial_measurement_unit,
@@ -200,8 +208,8 @@ impl WalkingEngine {
         let left_foot_pressure = context.sensor_data.force_sensitive_resistors.left.sum();
         let right_foot_pressure = context.sensor_data.force_sensitive_resistors.right.sum();
         let has_support_changed = match self.swing_side {
-            Side::Left => left_foot_pressure > right_foot_pressure,
-            Side::Right => right_foot_pressure > left_foot_pressure,
+            Side::Left => left_foot_pressure > context.config.foot_pressure_threshold,
+            Side::Right => right_foot_pressure > context.config.foot_pressure_threshold,
         };
         if has_support_changed && self.t > context.config.minimal_step_duration {
             let deviation_from_plan = self
@@ -270,7 +278,7 @@ impl WalkingEngine {
                 &right_leg,
                 context.sensor_data.positions.left_leg,
                 context.sensor_data.positions.right_leg,
-                context.sensor_data.inertial_measurement_unit.roll_pitch.y,
+                self.filtered_imu_pitch.state(),
                 self.swing_side,
                 context.config,
                 self.t,
@@ -372,7 +380,7 @@ impl WalkingEngine {
     fn initialize_step_states_from_request(
         &mut self,
         walk_command: WalkCommand,
-        support_side: Side,
+        swing_side: Side,
         config: &WalkingEngineConfiguration,
         kick_steps: &KickSteps,
     ) {
@@ -386,7 +394,7 @@ impl WalkingEngine {
         if self.number_of_timeouted_steps >= config.max_number_of_timeouted_steps {
             self.current_step = config.emergency_step;
             self.planned_step_duration = config.emergency_step_duration;
-            self.swing_side = support_side;
+            self.swing_side = swing_side;
             self.max_swing_foot_lift = config.emergency_foot_lift;
             self.number_of_timeouted_steps = 0;
             return;
@@ -400,7 +408,7 @@ impl WalkingEngine {
             self.remaining_stabilizing_steps -= 1;
             self.current_step = Step::zero();
             self.planned_step_duration = config.base_step_duration;
-            self.swing_side = support_side.opposite();
+            self.swing_side = swing_side.opposite();
             self.max_swing_foot_lift = config.base_foot_lift;
             return;
         }
@@ -416,10 +424,17 @@ impl WalkingEngine {
             WalkState::Starting(_) => {
                 self.current_step = Step::zero();
                 self.planned_step_duration = config.starting_step_duration;
-                self.swing_side = support_side.opposite();
+                self.swing_side = swing_side.opposite();
                 self.max_swing_foot_lift = config.starting_step_foot_lift;
             }
             WalkState::Walking(requested_step) => {
+                let next_support_side = swing_side;
+                let next_swing_side = swing_side.opposite();
+                let requested_step = clamp_to_anatomic_constraints(
+                    requested_step,
+                    next_support_side,
+                    config.inside_turn_ratio,
+                );
                 let forward_acceleration = requested_step.forward - last_step.forward;
                 self.current_step = Step {
                     forward: last_step.forward
@@ -439,13 +454,13 @@ impl WalkingEngine {
                 let duration_increase =
                     Duration::from_secs_f32(forward_increase + left_increase + turn_increase);
                 self.planned_step_duration = config.base_step_duration + duration_increase;
-                self.swing_side = support_side.opposite();
+                self.swing_side = next_swing_side;
                 self.max_swing_foot_lift = config.base_foot_lift;
             }
             WalkState::Stopping => {
                 self.current_step = Step::zero();
                 self.planned_step_duration = config.base_step_duration;
-                self.swing_side = support_side.opposite();
+                self.swing_side = swing_side.opposite();
                 self.max_swing_foot_lift = config.base_foot_lift;
             }
             WalkState::Kicking(kick_variant, kick_side, kick_step_i) => {
@@ -460,8 +475,8 @@ impl WalkingEngine {
                     Side::Right => base_step.mirrored(),
                 };
                 self.planned_step_duration = config.base_step_duration;
-                self.swing_side = support_side.opposite();
-                self.max_swing_foot_lift = config.base_foot_lift;
+                self.swing_side = swing_side.opposite();
+                self.max_swing_foot_lift = config.base_foot_lift + config.additional_kick_foot_lift;
             }
         }
     }
@@ -483,6 +498,7 @@ impl WalkingEngine {
         self.planned_step_duration = Duration::ZERO;
         self.swing_side = Side::Left;
         self.filtered_gyro_y.reset(0.0);
+        self.filtered_imu_pitch.reset(0.0);
         self.filtered_robot_tilt_shift.reset(0.0);
         self.last_left_walk_request = FootOffsets::zero();
         self.last_right_walk_request = FootOffsets::zero();
@@ -693,4 +709,37 @@ fn adjust_legs(
 
     *last_left_leg_adjustment = limited_left_leg_adjustment;
     *last_right_leg_adjustment = limited_right_leg_adjustment;
+}
+
+fn clamp_to_anatomic_constraints(
+    request: Step,
+    support_side: Side,
+    inside_turn_ratio: f32,
+) -> Step {
+    let sideways_direction = if request.left.is_sign_positive() {
+        Side::Left
+    } else {
+        Side::Right
+    };
+    let clamped_left = if sideways_direction == support_side {
+        0.0
+    } else {
+        request.left
+    };
+    let turn_direction = if request.turn.is_sign_positive() {
+        Side::Left
+    } else {
+        Side::Right
+    };
+    let turn_ratio = if turn_direction == support_side {
+        inside_turn_ratio
+    } else {
+        1.0 - inside_turn_ratio
+    };
+    let clamped_turn = turn_ratio * request.turn;
+    Step {
+        forward: request.forward,
+        left: clamped_left,
+        turn: clamped_turn,
+    }
 }

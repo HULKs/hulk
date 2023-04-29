@@ -337,19 +337,19 @@
     },
     "max_step_size_backwards": 0.02,
     "translation_exponent": 1.5,
-    "rotation_exponent": 2.0,
-    "inside_turn_ratio": 0.1
+    "rotation_exponent": 2.0
   },
   "whistle_filter": {
     "buffer_length": 40,
     "minimum_detections": 8
   },
   "walking_engine": {
+    "additional_kick_foot_lift": 0.005,
     "arm_stiffness": 0.8,
     "backward_foot_support_offset": -0.03,
-    "base_foot_lift": 0.015,
+    "base_foot_lift": 0.012,
     "base_step_duration": {
-      "nanos": 250000000,
+      "nanos": 260000000,
       "secs": 0
     },
     "emergency_foot_lift": 0.03,
@@ -362,12 +362,14 @@
       "nanos": 280000000,
       "secs": 0
     },
+    "foot_pressure_threshold": 0.2,
     "forward_foot_support_offset": 0.1,
     "gyro_balance_factor": 0.05,
-    "gyro_low_pass_factor": 0.8,
+    "gyro_low_pass_factor": 0.4,
     "leg_stiffness_stand": 0.6,
     "leg_stiffness_walk": 1.0,
-    "max_forward_acceleration": 0.005,
+    "inside_turn_ratio": 0.1,
+    "max_forward_acceleration": 0.01,
     "max_leg_adjustment_velocity": {
       "hip_yaw_pitch": 0.0,
       "hip_roll": 0.0,
@@ -398,7 +400,8 @@
       "secs": 0
     },
     "starting_step_foot_lift": 0.009,
-    "swing_foot_backwards_imu_leveling_factor": 1.0,
+    "swing_foot_imu_leveling_factor": 1.0,
+    "imu_pitch_low_pass_factor": 0.4,
     "swing_foot_pitch_error_leveling_factor": 0.9,
     "swinging_arms": {
       "debug_pull_back": false,
@@ -432,7 +435,7 @@
       "torso_tilt_compensation_factor": -0.05
     },
     "tilt_shift_low_pass_factor": 0.4,
-    "torso_shift_offset": 0.012,
+    "torso_shift_offset": 0.018,
     "torso_tilt_offset": 0.0,
     "walk_hip_height": 0.19
   },
@@ -877,15 +880,15 @@
     "forward": {
       "offset": [-0.23, 0.05],
       "shot_angle": 0.0,
-      "reached_thresholds": [0.07, 0.03, 0.1],
-      "shot_distance": 3.0,
+      "reached_thresholds": [0.06, 0.03, 0.1],
+      "shot_distance": 4.0,
       "enabled": true
     },
     "turn": {
       "offset": [-0.17, -0.1],
       "shot_angle": -1.0,
       "reached_thresholds": [0.04, 0.04, 0.1],
-      "shot_distance": 2.5,
+      "shot_distance": 3.5,
       "enabled": true
     },
     "side": {
