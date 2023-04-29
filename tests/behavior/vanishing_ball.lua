@@ -33,7 +33,7 @@ function on_cycle()
         print(inspect(state))
     end
 
-    if state.cycle_count == 1000 then
+    if state.cycle_count == 100 then
         state.game_controller_state.game_state = "Ready"
         state.filtered_game_state = {
             Ready = {
@@ -42,12 +42,12 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count == 2000 then
+    if state.cycle_count == 1600 then
         state.filtered_game_state.game_state = "Set"
         state.filtered_game_state = "Set"
     end
 
-    if state.cycle_count == 2500 then
+    if state.cycle_count == 1700 then
         state.filtered_game_state = {
             Playing = {
                 ball_is_free = true
@@ -55,7 +55,7 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count==3000 then
+    if state.cycle_count==1900 then
       state.ball = {
         position = { 100.0, 0.0 },
         velocity = { 0.0, 0.0 },

@@ -41,12 +41,12 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count == 1100 then
+    if state.cycle_count == 1600 then
         state.filtered_game_state.game_state = "Set"
         state.filtered_game_state = "Set"
     end
 
-    if state.cycle_count == 1600 then
+    if state.cycle_count == 1700 then
         state.filtered_game_state = {
             Playing = {
                 ball_is_free = true
