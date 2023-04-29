@@ -65,7 +65,7 @@ function on_cycle()
 
     if state.cycle_count == 1900 then
         state.ball = {
-            position = { -1.77, -2.0},
+            position = { -1.77, -2.0 },
             velocity = { 0.0, 0.0 },
         }
     end
@@ -79,7 +79,7 @@ function on_cycle()
 
     if state.cycle_count == 2300 then
         state.ball = {
-            position = { 103.31, 0.0 },
+            position = { 3.31, 0.0 },
             velocity = { 0.0, 0.0 },
         }
     end
