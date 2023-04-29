@@ -109,16 +109,10 @@ impl PathPlanner {
 
         let own_position = robot_to_field * Point2::origin();
 
-        // see map overlay as reference
         let distance_to_left_field_border = field_length / 2.0 + own_position.x;
         let distance_to_right_field_border = field_length / 2.0 - own_position.x;
         let distance_to_lower_field_border = field_width / 2.0 + own_position.y;
         let distance_to_upper_field_border = field_width / 2.0 - own_position.y;
-
-        dbg!(&distance_to_left_field_border);
-        dbg!(&distance_to_right_field_border);
-        dbg!(&distance_to_lower_field_border);
-        dbg!(&distance_to_upper_field_border);
 
         let field_to_robot = robot_to_field.inverse();
         let x = field_length / 2.0 + margin;
