@@ -9,6 +9,7 @@ use repository::{get_repository_root, HardwareIds, Repository};
 use serde_json::{json, Value};
 use std::{collections::HashMap, net::Ipv4Addr};
 use tokio::runtime::Runtime;
+use types::hardware;
 
 pub struct RepositoryParameters {
     repository: Repository,
@@ -39,9 +40,7 @@ impl RepositoryParameters {
             return
         };
         self.runtime.spawn(async move {
-            let nested_value_to_be_added = nest_value_at_path(path.as_str(), &value);
-
-            let stored_value: Value = parameters::directory::deserialize(
+            let stored_complete_parameter_tree: Value = parameters::directory::deserialize(
                 repository.root_directory(),
                 &hardware_ids.body_id,
                 &hardware_ids.head_id,
@@ -49,10 +48,21 @@ impl RepositoryParameters {
             .await
             .unwrap_or_default();
 
-            let diff = get_diff_against_stored_value(&stored_value, &nested_value_to_be_added);
+            // value is just the "leaf" of the "path", make the tree structure to diff/ merge against complete parameter tree.
+            let supplied_value_as_sparse_tree =
+                make_sparse_value_tree_from_path(path.as_str(), &value);
+            let diff = get_diff_against_stored_value(
+                &stored_complete_parameter_tree,
+                &supplied_value_as_sparse_tree,
+            );
+            let mut head_parameters = repository
+                .read_configuration(&hardware_ids.head_id)
+                .await
+                .unwrap_or_default();
+            merge_json(&mut head_parameters, &diff);
 
             if let Err(error) = repository
-                .write_configuration(&hardware_ids.head_id, &diff)
+                .write_configuration(&hardware_ids.head_id, &head_parameters)
                 .await
             {
                 error!("Failed to write value to repository: {error:#?}");
@@ -86,7 +96,7 @@ fn last_octet_from_ip_address(ip_address: Ipv4Addr) -> u8 {
 }
 
 // Create tree structure from path and value points to the last key i.e. a.b.c -> { a: { b: { c: value } } }
-fn nest_value_at_path(path: &str, value: &Value) -> Value {
+fn make_sparse_value_tree_from_path(path: &str, value: &Value) -> Value {
     path.split('.')
         .collect_vec()
         .into_iter()
@@ -109,7 +119,7 @@ mod tests {
 
     use crate::repository_parameters::get_diff_against_stored_value;
 
-    use super::nest_value_at_path;
+    use super::make_sparse_value_tree_from_path;
 
     #[test]
     fn values_are_nested_at_paths() {
@@ -129,7 +139,10 @@ mod tests {
         ];
 
         for ((path, value), expected_output) in dataset {
-            assert_eq!(nest_value_at_path(path, &value), expected_output);
+            assert_eq!(
+                make_sparse_value_tree_from_path(path, &value),
+                expected_output
+            );
         }
     }
 
