@@ -42,6 +42,7 @@ impl RuleObstacleComposer {
                             | SubState::GoalKick
                             | SubState::PushingFreeKick,
                         ),
+                    kicking_team: Team::Opponent | Team::Uncertain,
                     game_state: GameState::Playing,
                     ..
                 },
