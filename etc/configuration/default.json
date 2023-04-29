@@ -63,14 +63,14 @@
       "horizontal_stride": 4,
       "vertical_stride": 2,
       "vertical_edge_detection_source": "Luminance",
-      "vertical_edge_threshold": 16,
+      "vertical_edge_threshold": 40,
       "vertical_median_mode": "ThreePixels"
     },
     "vision_bottom": {
       "horizontal_stride": 4,
       "vertical_stride": 8,
       "vertical_edge_detection_source": "Luminance",
-      "vertical_edge_threshold": 20,
+      "vertical_edge_threshold": 32,
       "vertical_median_mode": "ThreePixels"
     }
   },
@@ -84,7 +84,7 @@
       "check_line_length": true,
       "check_line_segments_projection": true,
       "gradient_alignment": -0.95,
-      "maximum_distance_to_robot": 3.0,
+      "maximum_distance_to_robot": 4.0,
       "maximum_fit_distance_in_pixels": 3.0,
       "maximum_gap_on_line": 30.0,
       "maximum_number_of_lines": 10,
@@ -105,7 +105,7 @@
       "maximum_gap_on_line": 30.0,
       "maximum_number_of_lines": 10,
       "maximum_projected_segment_length": 0.3,
-      "minimum_number_of_points_on_line": 5
+      "minimum_number_of_points_on_line": 4
     }
   },
   "field_border_detection": {
