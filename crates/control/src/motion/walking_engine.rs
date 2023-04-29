@@ -441,21 +441,24 @@ impl WalkingEngine {
                         + forward_acceleration.min(config.max_forward_acceleration),
                     ..requested_step
                 };
-                let forward_increase = config.step_duration_increase.forward
-                    * (self.left_foot.forward.abs() + self.right_foot.forward.abs()
+                let absolute_next_step = Step {
+                    forward: (self.left_foot.forward.abs() + self.right_foot.forward.abs()
                         - requested_step.forward.abs())
-                    .abs();
-                let left_increase = config.step_duration_increase.left
-                    * (self.left_foot.left.abs() + self.right_foot.left.abs()
+                    .abs(),
+                    left: (self.left_foot.left.abs() + self.right_foot.left.abs()
                         - requested_step.left.abs())
-                    .abs();
-                let turn_increase = config.step_duration_increase.turn
-                    * (self.turn.abs() - requested_step.turn.abs()).abs();
-                let duration_increase =
-                    Duration::from_secs_f32(forward_increase + left_increase + turn_increase);
+                    .abs(),
+                    turn: (self.turn.abs() - requested_step.turn.abs()).abs(),
+                };
+
+                let step_duration_increase = absolute_next_step * config.step_duration_increase;
+                let duration_increase = Duration::from_secs_f32(step_duration_increase.sum());
                 self.planned_step_duration = config.base_step_duration + duration_increase;
+
                 self.swing_side = next_swing_side;
-                self.max_swing_foot_lift = config.base_foot_lift;
+
+                let step_foot_lift_increase = absolute_next_step * config.step_foot_lift_increase;
+                self.max_swing_foot_lift = config.base_foot_lift + step_foot_lift_increase.sum();
             }
             WalkState::Stopping => {
                 self.current_step = Step::zero();

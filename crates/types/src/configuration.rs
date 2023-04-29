@@ -232,6 +232,7 @@ pub struct WalkingEngine {
     pub torso_shift_offset: f32,
     pub torso_tilt_offset: f32,
     pub walk_hip_height: f32,
+    pub step_foot_lift_increase: Step,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
