@@ -76,11 +76,10 @@ impl StandUpBack {
             context.motion_selection.current_motion,
         ) {
             (MotionType::StandUpBack, MotionType::StandUpBack) => {
-                if self
+                if let Some(true) = self
                     .dispatch_to_initial
                     .as_ref()
                     .map(|interpolator| interpolator.is_finished())
-                    .unwrap_or(false)
                 {
                     self.dispatch_to_initial = None;
                 }
@@ -91,16 +90,6 @@ impl StandUpBack {
                         .advance_by(last_cycle_duration, context.condition_input);
                 }
             }
-            (_, MotionType::StandUpBack) => {
-                self.dispatch_to_initial = Some(
-                    TimedSpline::try_new_transition_with_velocity(
-                        context.sensor_data.positions,
-                        self.interpolator.initial_positions(),
-                        *context.maximum_velocity,
-                    )?
-                    .into(),
-                )
-            }
             (_, _) => {
                 self.dispatch_to_initial = None;
                 self.interpolator.reset();
@@ -110,6 +99,7 @@ impl StandUpBack {
 
         context.motion_safe_exits[MotionType::StandUpBack] = false;
         if self.interpolator.is_finished() {
+            dbg!(&context.motion_command);
             match context.motion_command {
                 MotionCommand::StandUp { facing: Facing::Up } => {
                     self.dispatch_to_initial = Some(
@@ -123,15 +113,8 @@ impl StandUpBack {
                     self.interpolator.reset()
                 }
                 _ => {
-                    if self.filtered_gyro.state().abs()
-                        < Vector2::new(
-                            *context.gyro_low_pass_filter_tolerance,
-                            *context.gyro_low_pass_filter_tolerance,
-                        )
-                    {
-                        self.dispatch_to_initial = None;
-                        context.motion_safe_exits[MotionType::StandUpBack] = true;
-                    }
+                    self.dispatch_to_initial = None;
+                    context.motion_safe_exits[MotionType::StandUpBack] = true;
                 }
             };
         }
