@@ -101,7 +101,11 @@ where
                             .as_ref()
                             .unwrap(),
                         ball_state: own_database.main_outputs.ball_state.as_ref(),
-                        filtered_game_state: own_database.main_outputs.filtered_game_state.as_ref().unwrap(),
+                        filtered_game_state: own_database
+                            .main_outputs
+                            .filtered_game_state
+                            .as_ref()
+                            .unwrap(),
                         field_dimensions: &configuration.field_dimensions,
                     })
                     .wrap_err("failed to execute cycle of node `RuleObstacleComposer`")?
