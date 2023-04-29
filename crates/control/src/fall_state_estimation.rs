@@ -6,8 +6,8 @@ use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{vector, Isometry3, Translation3, UnitQuaternion, Vector2, Vector3};
 use types::{
-    configuration::FallStateEstimation as FallStateEstimationConfiguration, Facing, FallDirection,
-    FallState, InertialMeasurementUnitData, SensorData,
+    configuration::FallStateEstimation as FallStateEstimationConfiguration, CycleTime, Facing,
+    FallDirection, FallState, InertialMeasurementUnitData, SensorData,
 };
 
 pub struct FallStateEstimation {
@@ -33,6 +33,7 @@ pub struct CycleContext {
 
     pub fall_state_estimation: Parameter<FallStateEstimationConfiguration, "fall_state_estimation">,
 
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub sensor_data: Input<SensorData, "sensor_data">,
 }
@@ -141,19 +142,24 @@ impl FallStateEstimation {
                     .norm()
             });
 
+        let estimated_roll = self.roll_pitch_filter.state().x
+            + self.angular_velocity_filter.state().x
+                * context.cycle_time.last_cycle_duration.as_secs_f32();
+        let estimated_pitch = self.roll_pitch_filter.state().y
+            + self.angular_velocity_filter.state().y
+                * context.cycle_time.last_cycle_duration.as_secs_f32();
+
         let falling_direction = {
-            if self.roll_pitch_filter.state().x.abs()
-                > context.fall_state_estimation.falling_angle_threshold.x
-            {
-                if self.roll_pitch_filter.state().x > 0.0 {
+            if estimated_roll.abs() > context.fall_state_estimation.falling_angle_threshold.x {
+                if estimated_roll > 0.0 {
                     Some(FallDirection::Right)
                 } else {
                     Some(FallDirection::Left)
                 }
-            } else if self.roll_pitch_filter.state().y.abs()
+            } else if estimated_pitch.abs()
                 > context.fall_state_estimation.falling_angle_threshold.y
             {
-                if self.roll_pitch_filter.state().y > 0.0 {
+                if estimated_pitch > 0.0 {
                     Some(FallDirection::Forward)
                 } else {
                     Some(FallDirection::Backward)
