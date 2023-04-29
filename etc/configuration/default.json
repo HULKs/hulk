@@ -63,7 +63,7 @@
       "horizontal_stride": 4,
       "vertical_stride": 2,
       "vertical_edge_detection_source": "Luminance",
-      "vertical_edge_threshold": 40,
+      "vertical_edge_threshold": 20,
       "vertical_median_mode": "ThreePixels"
     },
     "vision_bottom": {
@@ -78,13 +78,13 @@
     "vision_top": {
       "allowed_line_length_in_field": {
         "start": 0.15,
-        "end": 3.0
+        "end": 4.0
       },
       "check_line_distance": true,
       "check_line_length": true,
       "check_line_segments_projection": true,
       "gradient_alignment": -0.95,
-      "maximum_distance_to_robot": 4.0,
+      "maximum_distance_to_robot": 6.0,
       "maximum_fit_distance_in_pixels": 3.0,
       "maximum_gap_on_line": 30.0,
       "maximum_number_of_lines": 10,
@@ -94,13 +94,13 @@
     "vision_bottom": {
       "allowed_line_length_in_field": {
         "start": 0.15,
-        "end": 3.0
+        "end": 4.0
       },
       "check_line_distance": true,
       "check_line_length": true,
       "check_line_segments_projection": true,
       "gradient_alignment": -0.95,
-      "maximum_distance_to_robot": 3.0,
+      "maximum_distance_to_robot": 6.0,
       "maximum_fit_distance_in_pixels": 3.0,
       "maximum_gap_on_line": 30.0,
       "maximum_number_of_lines": 10,
@@ -129,14 +129,14 @@
       "red_chromaticity_threshold": 0.37,
       "blue_chromaticity_threshold": 0.38,
       "lower_green_chromaticity_threshold": 0.4,
-      "upper_green_chromaticity_threshold": 0.43,
+      "upper_green_chromaticity_threshold": 0.415,
       "green_luminance_threshold": 25
     },
     "vision_bottom": {
       "red_chromaticity_threshold": 0.37,
       "blue_chromaticity_threshold": 0.38,
       "lower_green_chromaticity_threshold": 0.4,
-      "upper_green_chromaticity_threshold": 0.43,
+      "upper_green_chromaticity_threshold": 0.415,
       "green_luminance_threshold": 25
     }
   },
@@ -558,6 +558,9 @@
     "good_matching_threshold": 0.5,
     "score_per_good_match": 1.0,
     "hypothesis_score_base_increase": 0.1
+  },
+  "odometry": {
+    "odometry_scale_factor": [1.1, 1.0]
   },
   "orientation_filter": {
     "acceleration_threshold": 0.2,
