@@ -99,7 +99,11 @@ impl StandUpFront {
                         *context.maximum_velocity,
                     )?
                     .into(),
-                )
+                );
+                dbg!(self
+                    .dispatch_to_initial
+                    .as_ref()
+                    .map(|interpolator| interpolator.total_duration()));
             }
             (_, _) => {
                 self.dispatch_to_initial = None;
@@ -125,15 +129,8 @@ impl StandUpFront {
                     self.interpolator.reset()
                 }
                 _ => {
-                    if self.filtered_gyro.state().abs()
-                        < Vector2::new(
-                            *context.gyro_low_pass_filter_tolerance,
-                            *context.gyro_low_pass_filter_tolerance,
-                        )
-                    {
-                        self.dispatch_to_initial = None;
-                        context.motion_safe_exits[MotionType::StandUpFront] = true;
-                    }
+                    self.dispatch_to_initial = None;
+                    context.motion_safe_exits[MotionType::StandUpFront] = true;
                 }
             };
         }

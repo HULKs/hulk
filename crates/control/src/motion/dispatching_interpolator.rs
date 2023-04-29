@@ -79,6 +79,7 @@ impl DispatchingInterpolator {
         self.last_currently_active = currently_active;
 
         if interpolator_reset_required {
+            dbg!(dispatching_motion);
             let target_position = match dispatching_motion {
                 MotionType::ArmsUpSquat => context.arms_up_squat_joints_command.positions,
                 MotionType::Dispatching => panic!("Dispatching cannot dispatch itself"),
