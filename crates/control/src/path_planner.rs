@@ -108,10 +108,10 @@ impl PathPlanner {
     ) -> &mut Self {
         let own_position = robot_to_field * Point2::origin();
 
-        let distance_to_left_field_border = (field_length / 2.0 - -own_position.x).min(0.0);
-        let distance_to_right_field_border = (field_length / 2.0 - own_position.x).min(0.0);
-        let distance_to_lower_field_border = (field_width / 2.0 - -own_position.y).min(0.0);
-        let distance_to_upper_field_border = (field_width / 2.0 - own_position.y).min(0.0);
+        let distance_to_left_field_border = (field_length / 2.0 - -own_position.x).max(0.0);
+        let distance_to_right_field_border = (field_length / 2.0 - own_position.x).max(0.0);
+        let distance_to_lower_field_border = (field_width / 2.0 - -own_position.y).max(0.0);
+        let distance_to_upper_field_border = (field_width / 2.0 - own_position.y).max(0.0);
 
         let field_to_robot = robot_to_field.inverse();
         let x = field_length / 2.0 + margin;
