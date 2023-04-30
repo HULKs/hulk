@@ -207,7 +207,7 @@ pub struct WalkingEngine {
     pub emergency_step_duration: Duration,
     pub foot_pressure_threshold: f32,
     pub forward_foot_support_offset: f32,
-    pub gyro_balance_factor: f32,
+    pub gyro_balance_factors: LegJoints<f32>,
     pub gyro_low_pass_factor: f32,
     pub imu_pitch_low_pass_factor: f32,
     pub inside_turn_ratio: f32,
