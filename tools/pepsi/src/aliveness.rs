@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, net::IpAddr, num::ParseIntError, time::Duration};
 
 use clap::{arg, Args};
-use colored::Colorize;
+use color_eyre::owo_colors::OwoColorize;
 
 use crate::parsers::NaoAddress;
 use aliveness::{
