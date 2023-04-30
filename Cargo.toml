@@ -63,6 +63,7 @@ constants = { path = "crates/constants" }
 context_attribute = { path = "crates/context_attribute" }
 control = { path = "crates/control" }
 convert_case = "0.6.0"
+crossterm = { git = "https://github.com/crossterm-rs/crossterm.git", rev = "03c25178af94ae986677dfc178f94c931b96de66", default-features = false }
 ctrlc = { version = "3.2.3", features = ["termination"] }
 cyclers = { path = "crates/cyclers" }
 eframe = { version = "0.21.0", features = ["persistence"] }

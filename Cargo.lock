@@ -1265,6 +1265,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossterm"
+version = "0.26.1"
+source = "git+https://github.com/crossterm-rs/crossterm.git?rev=03c25178af94ae986677dfc178f94c931b96de66#03c25178af94ae986677dfc178f94c931b96de66"
+dependencies = [
+ "bitflags",
+ "libc",
+ "parking_lot",
+]
+
+[[package]]
 name = "crunchy"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3168,6 +3178,7 @@ dependencies = [
  "clap_complete",
  "color-eyre",
  "constants",
+ "crossterm",
  "futures-util",
  "indicatif",
  "nao",

@@ -1,7 +1,13 @@
-use std::{collections::BTreeMap, net::IpAddr, num::ParseIntError, time::Duration};
+use std::{collections::BTreeMap, io::stdout, net::IpAddr, num::ParseFloatError, time::Duration};
 
 use clap::{arg, Args};
-use color_eyre::owo_colors::OwoColorize;
+use color_eyre::Result;
+use crossterm::{
+    cursor,
+    style::{PrintStyledContent, Stylize},
+    terminal::{Clear, ClearType},
+    QueueableCommand,
+};
 
 use crate::parsers::NaoAddress;
 use aliveness::{
@@ -19,16 +25,22 @@ pub struct Arguments {
     /// Output aliveness information as json
     #[arg(long, short = 'j')]
     json: bool,
-    /// Timeout in ms for waiting for responses
-    #[arg(long, short = 't', value_parser = parse_duration, default_value = "200")]
+    /// Timeout in seconds for waiting for responses
+    #[arg(long, short = 't', value_parser = parse_duration, default_value = "0.2")]
     timeout: Duration,
+    /// Refresh output every 2 seconds
+    #[arg(long, short = 'w')]
+    watch: bool,
+    /// Refresh interval for --watch, in seconds
+    #[arg(long, short = 'i', value_parser = parse_duration, default_value = "1.0")]
+    interval: Duration,
     /// The NAOs to show the aliveness information from, e.g. 20w or 10.1.24.22
     naos: Option<Vec<NaoAddress>>,
 }
 
-fn parse_duration(arg: &str) -> Result<Duration, ParseIntError> {
-    let milliseconds = arg.parse()?;
-    Ok(Duration::from_millis(milliseconds))
+fn parse_duration(arg: &str) -> Result<Duration, ParseFloatError> {
+    let seconds = arg.parse()?;
+    Ok(Duration::from_secs_f32(seconds))
 }
 
 type AlivenessList = BTreeMap<IpAddr, AlivenessState>;
@@ -41,8 +53,32 @@ pub enum Error {
     SerializeFailed(serde_json::Error),
 }
 
-pub async fn aliveness(arguments: Arguments) -> Result<(), Error> {
-    let states = query_aliveness_list(&arguments)
+pub async fn aliveness(arguments: Arguments) -> Result<()> {
+    if arguments.watch {
+        let mut stdout = stdout();
+        stdout
+            .queue(Clear(ClearType::All))?
+            .queue(cursor::MoveTo(0, 0))?;
+        loop {
+            stdout
+                .queue(Clear(ClearType::All))?
+                .queue(cursor::MoveTo(0, 0))?
+                .queue(PrintStyledContent(
+                    format!("Aliveness (every {:?})", arguments.interval).dark_grey(),
+                ))?
+                .queue(cursor::MoveTo(0, 1))?;
+            query_and_print_aliveness(&arguments).await?;
+            tokio::time::sleep(arguments.interval).await;
+        }
+    } else {
+        query_and_print_aliveness(&arguments)
+            .await
+            .map_err(Into::into)
+    }
+}
+
+pub async fn query_and_print_aliveness(arguments: &Arguments) -> Result<(), Error> {
+    let states = query_aliveness_list(arguments)
         .await
         .map_err(Error::QueryFailed)?;
     if arguments.json {
