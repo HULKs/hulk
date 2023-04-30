@@ -1,17 +1,24 @@
 use std::time::Duration;
 
 use framework::AdditionalOutput;
+use nalgebra::Vector2;
 use types::{
     configuration::WalkingEngine as WalkingEngineConfiguration, LegJoints, Side, StepAdjustment,
 };
 
 use super::foot_offsets::FootOffsets;
 
-pub fn support_leg_gyro_balancing(gyro_y: f32, gyro_balance_factor: f32) -> LegJoints<f32> {
-    let gyro_adjustment = gyro_balance_factor * gyro_y;
+pub fn support_leg_gyro_balancing(
+    gyro: Vector2<f32>,
+    gyro_balance_factors: LegJoints<f32>,
+) -> LegJoints<f32> {
     LegJoints {
-        ankle_pitch: gyro_adjustment,
-        ..Default::default()
+        ankle_pitch: gyro.y * gyro_balance_factors.ankle_pitch,
+        ankle_roll: gyro.x * gyro_balance_factors.ankle_roll,
+        hip_pitch: gyro.y * gyro_balance_factors.hip_pitch,
+        hip_roll: gyro.x * gyro_balance_factors.hip_roll,
+        hip_yaw_pitch: 0.0,
+        knee_pitch: gyro.y * gyro_balance_factors.knee_pitch,
     }
 }
 

@@ -258,12 +258,12 @@ impl ArmJoints<f32> {
 )]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
 pub struct LegJoints<T> {
-    pub hip_yaw_pitch: T,
-    pub hip_roll: T,
-    pub hip_pitch: T,
-    pub knee_pitch: T,
     pub ankle_pitch: T,
     pub ankle_roll: T,
+    pub hip_pitch: T,
+    pub hip_roll: T,
+    pub hip_yaw_pitch: T,
+    pub knee_pitch: T,
 }
 
 impl<T> LegJoints<T>

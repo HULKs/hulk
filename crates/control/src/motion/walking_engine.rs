@@ -5,7 +5,7 @@ use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use log::warn;
-use nalgebra::{Isometry3, Point3, Vector3};
+use nalgebra::{Isometry3, Point3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
     configuration::{KickSteps, WalkingEngine as WalkingEngineConfiguration},
@@ -77,7 +77,7 @@ pub struct WalkingEngine {
     /// Fix the side of the swing foot for an entire walk phase
     swing_side: Side,
     /// Low pass filter the gyro for balance adjustment
-    filtered_gyro_y: LowPassFilter<f32>,
+    filtered_gyro: LowPassFilter<Vector2<f32>>,
     /// Low pass filter the imu pitch for balance adjustment
     filtered_imu_pitch: LowPassFilter<f32>,
     /// Low pass filter the robot tilt for step adjustments
@@ -145,8 +145,8 @@ pub struct MainOutputs {
 impl WalkingEngine {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
-            filtered_gyro_y: LowPassFilter::with_smoothing_factor(
-                0.0,
+            filtered_gyro: LowPassFilter::with_smoothing_factor(
+                Vector2::default(),
                 context.config.gyro_low_pass_factor,
             ),
             filtered_imu_pitch: LowPassFilter::with_smoothing_factor(
@@ -165,12 +165,12 @@ impl WalkingEngine {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
-        self.filtered_gyro_y.update(
+        self.filtered_gyro.update(
             context
                 .sensor_data
                 .inertial_measurement_unit
                 .angular_velocity
-                .y,
+                .xy(),
         );
         self.filtered_imu_pitch
             .update(context.sensor_data.inertial_measurement_unit.roll_pitch.y);
@@ -288,8 +288,8 @@ impl WalkingEngine {
         }
         if let WalkState::Walking(_) | WalkState::Kicking(..) = self.walk_state {
             let support_leg_gyro_balancing = support_leg_gyro_balancing(
-                self.filtered_gyro_y.state(),
-                context.config.gyro_balance_factor,
+                self.filtered_gyro.state(),
+                context.config.gyro_balance_factors,
             );
             support_leg_adjustment = support_leg_adjustment + support_leg_gyro_balancing;
         }
@@ -442,13 +442,9 @@ impl WalkingEngine {
                     ..requested_step
                 };
                 let absolute_next_step = Step {
-                    forward: (self.left_foot.forward.abs() + self.right_foot.forward.abs()
-                        - requested_step.forward.abs())
-                    .abs(),
-                    left: (self.left_foot.left.abs() + self.right_foot.left.abs()
-                        - requested_step.left.abs())
-                    .abs(),
-                    turn: (self.turn.abs() - requested_step.turn.abs()).abs(),
+                    forward: requested_step.forward.abs(),
+                    left: requested_step.left.abs(),
+                    turn: requested_step.turn.abs(),
                 };
 
                 let step_duration_increase = absolute_next_step * config.step_duration_increase;
@@ -500,7 +496,7 @@ impl WalkingEngine {
         self.t_on_last_phase_end = Duration::ZERO;
         self.planned_step_duration = Duration::ZERO;
         self.swing_side = Side::Left;
-        self.filtered_gyro_y.reset(0.0);
+        self.filtered_gyro.reset(Vector2::default());
         self.filtered_imu_pitch.reset(0.0);
         self.filtered_robot_tilt_shift.reset(0.0);
         self.last_left_walk_request = FootOffsets::zero();
