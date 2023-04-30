@@ -85,7 +85,7 @@ impl FallProtector {
                 if relative_eq!(current_positions.head.pitch, -0.672, epsilon = 0.05)
                     && relative_eq!(current_positions.head.yaw.abs(), 0.0, epsilon = 0.05)
                 {
-                    head_stiffness = context.fall_protection.ground_impact_head_stiffness;
+                    head_stiffness = 0.5;
                 }
             }
             MotionCommand::FallProtection { .. } => {
