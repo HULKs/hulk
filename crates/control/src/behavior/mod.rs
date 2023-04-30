@@ -18,3 +18,4 @@ mod unstiff;
 mod walk_to_kick_off;
 mod walk_to_penalty_kick;
 mod walk_to_pose;
+mod intercept_ball;

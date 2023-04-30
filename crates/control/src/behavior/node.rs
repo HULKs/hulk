@@ -15,8 +15,8 @@ use super::{
     defend::Defend,
     dribble, fall_safely,
     head::LookAction,
-    initial, jump, look_around, lost_ball, penalize, prepare_jump, search, sit_down, stand,
-    stand_up, support, unstiff, walk_to_kick_off, walk_to_penalty_kick,
+    initial, intercept_ball, jump, look_around, lost_ball, penalize, prepare_jump, search,
+    sit_down, stand, stand_up, support, unstiff, walk_to_kick_off, walk_to_penalty_kick,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
 
@@ -98,6 +98,7 @@ impl Behavior {
             Action::FallSafely,
             Action::StandUp,
             Action::Stand,
+            Action::InterceptBall,
         ];
 
         if let Some(active_since) = self.active_since {
@@ -184,6 +185,7 @@ impl Behavior {
                     }
                     Action::StandUp => stand_up::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
+                    Action::InterceptBall => intercept_ball::execute(world_state),
                     Action::DefendGoal => defend.goal(&mut context.path_obstacles),
                     Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
                     Action::DefendLeft => defend.left(&mut context.path_obstacles),
