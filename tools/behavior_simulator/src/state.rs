@@ -183,6 +183,7 @@ impl State {
             robot.database.main_outputs.ball_position =
                 self.ball.as_ref().map(|ball| BallPosition {
                     position: robot_to_field.inverse() * ball.position,
+                    velocity: robot_to_field.inverse() * ball.velocity,
                     last_seen: now,
                 });
 

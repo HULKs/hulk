@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
-use nalgebra::{point, Isometry2, Point2};
+use nalgebra::{point, Isometry2, Point2, Vector2};
 use spl_network_messages::{SubState, Team};
 use types::{
     BallPosition, BallState, FieldDimensions, GameControllerState, PenaltyShotDirection,
@@ -50,12 +50,14 @@ impl BallStateComposer {
             (Some(ball_position), _, Some(robot_to_field)) => Some(create_ball_state(
                 ball_position.position,
                 robot_to_field * ball_position.position,
+                ball_position.velocity,
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
             (None, Some(ball_position), Some(robot_to_field)) => Some(create_ball_state(
                 robot_to_field.inverse() * ball_position.position,
                 ball_position.position,
+                ball_position.velocity,
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
@@ -88,6 +90,7 @@ impl BallStateComposer {
                 Some(create_ball_state(
                     robot_to_field.inverse() * penalty_spot_location,
                     penalty_spot_location,
+                    Vector2::zeros(),
                     &mut self.last_ball_field_side,
                     context.penalty_shot_direction.copied(),
                 ))
@@ -95,6 +98,7 @@ impl BallStateComposer {
             (PrimaryState::Ready, Some(robot_to_field), ..) => Some(create_ball_state(
                 robot_to_field.inverse() * Point2::origin(),
                 Point2::origin(),
+                Vector2::zeros(),
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
@@ -111,6 +115,7 @@ impl BallStateComposer {
 fn create_ball_state(
     ball_in_ground: Point2<f32>,
     ball_in_field: Point2<f32>,
+    ball_in_ground_velocity: Vector2<f32>,
     last_ball_field_side: &mut Side,
     penalty_shot_direction: Option<PenaltyShotDirection>,
 ) -> BallState {
@@ -126,6 +131,7 @@ fn create_ball_state(
     BallState {
         ball_in_ground,
         ball_in_field,
+        ball_in_ground_velocity,
         field_side,
         penalty_shot_direction,
     }
