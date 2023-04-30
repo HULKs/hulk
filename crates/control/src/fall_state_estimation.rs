@@ -142,12 +142,10 @@ impl FallStateEstimation {
                     .norm()
             });
 
-        let estimated_roll = self.roll_pitch_filter.state().x
-            + self.angular_velocity_filter.state().x
-                * context.cycle_time.last_cycle_duration.as_secs_f32();
-        let estimated_pitch = self.roll_pitch_filter.state().y
-            + self.angular_velocity_filter.state().y
-                * context.cycle_time.last_cycle_duration.as_secs_f32();
+        let estimated_roll = self.roll_pitch_filter.state().x;
+
+        let estimated_pitch = self.roll_pitch_filter.state().y;
+
 
         let falling_direction = {
             if estimated_roll.abs() > context.fall_state_estimation.falling_angle_threshold.x {
