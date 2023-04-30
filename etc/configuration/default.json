@@ -412,7 +412,7 @@
       "pulling_back_duration": { "nanos": 0, "secs": 1 },
       "pulling_tight_duration": { "nanos": 0, "secs": 1 },
       "roll_factor": 4,
-      "torso_tilt_compensation_factor": -0.05
+      "torso_tilt_compensation_factor": -0.03
     },
     "tilt_shift_low_pass_factor": 0.4,
     "torso_shift_offset": 0.0,
