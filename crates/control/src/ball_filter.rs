@@ -137,6 +137,7 @@ impl BallFilter {
         let best_hypothesis = self.find_best_hypothesis();
         let ball_position = best_hypothesis.map(|hypothesis| BallPosition {
             position: Point2::from(hypothesis.state.mean.xy()),
+            velocity: vector![hypothesis.state.mean.z, hypothesis.state.mean.w],
             last_seen: hypothesis.last_update,
         });
         context

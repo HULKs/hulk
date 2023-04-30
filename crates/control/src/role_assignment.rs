@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use nalgebra::{Isometry2, Point2};
+use nalgebra::{Isometry2, Point2, Vector2};
 use spl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, Team,
 };
@@ -610,6 +610,7 @@ fn team_ball_from_spl_message(
         .as_ref()
         .map(|ball_position| BallPosition {
             position: spl_message.robot_to_field * ball_position.relative_position,
+            velocity: Vector2::zeros(),
             last_seen: cycle_start_time - ball_position.age,
         })
 }
@@ -621,6 +622,7 @@ fn team_ball_from_seen_ball(
 ) -> Option<BallPosition> {
     ball.as_ref().map(|ball| BallPosition {
         position: (current_pose * ball.position),
+        velocity: Vector2::zeros(),
         last_seen: cycle_start_time,
     })
 }
