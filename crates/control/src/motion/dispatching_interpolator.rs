@@ -92,7 +92,7 @@ impl DispatchingInterpolator {
                     context.walk_joints_command.positions,
                 ),
                 MotionType::StandUpBack => *context.stand_up_back_positions,
-                MotionType::StandUpFront => *context.stand_up_front_positions,
+                MotionType::StandUpFront => {*context.stand_up_front_positions},
                 MotionType::Unstiff => panic!("Dispatching Unstiff doesn't make sense"),
                 MotionType::Walk => Joints::from_head_and_body(
                     HeadJoints::fill(0.0),

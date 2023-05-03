@@ -17,7 +17,11 @@ pub struct CreationContext {
 pub struct CycleContext {
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub has_ground_contact: Input<bool, "has_ground_contact">,
+
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    pub should_exit_stand_up_back: PersistentState<bool, "should_exit_stand_up_back">,
+    pub should_exit_stand_up_front: PersistentState<bool, "should_exit_stand_up_front">,
+
     pub enable_energy_saving_stand: Parameter<bool, "energy_saving_stand.enabled">,
 }
 
@@ -36,16 +40,22 @@ impl MotionSelector {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let is_active_motion_safe_to_exit = context.motion_safe_exits[self.current_motion];
+        let motion_safe_to_exit = context.motion_safe_exits[self.current_motion];
         let requested_motion =
             motion_type_from_command(context.motion_command, *context.enable_energy_saving_stand);
         if self.current_motion != requested_motion {
             self.current_motion = transition_motion(
                 self.current_motion,
                 requested_motion,
-                is_active_motion_safe_to_exit,
+                motion_safe_to_exit,
                 *context.has_ground_contact,
             );
+        }
+        if matches!(self.current_motion, MotionType::StandUpBack) && *context.should_exit_stand_up_back {
+            self.current_motion = MotionType::Dispatching;
+        }
+        if matches!(self.current_motion, MotionType::StandUpFront) && *context.should_exit_stand_up_front {
+            self.current_motion = MotionType::Dispatching;
         }
 
         self.dispatching_motion = if self.current_motion == MotionType::Dispatching {
@@ -103,10 +113,10 @@ fn motion_type_from_command(
 fn transition_motion(
     from: MotionType,
     to: MotionType,
-    is_safe_to_exit: bool,
+    should_exit: bool,
     has_ground_contact: bool,
 ) -> MotionType {
-    match (from, is_safe_to_exit, to, has_ground_contact) {
+    match (from, should_exit, to, has_ground_contact) {
         (MotionType::SitDown, true, MotionType::Unstiff, _) => MotionType::Unstiff,
         (_, _, MotionType::Unstiff, false) => MotionType::Unstiff,
         (MotionType::Dispatching, true, MotionType::Unstiff, true) => MotionType::SitDown,
@@ -116,7 +126,7 @@ fn transition_motion(
         (MotionType::Dispatching, true, _, _) => to,
         (MotionType::Stand, _, MotionType::Walk, _) => MotionType::Walk,
         (MotionType::Walk, _, MotionType::Stand, _) => MotionType::Stand,
-        (from, true, to, _) if from != to => MotionType::Dispatching,
+        (_, true, _, _) => MotionType::Dispatching,
         _ => from,
     }
 }
