@@ -39,6 +39,16 @@ enum State {
         time_since_start: Duration,
     },
     Finished,
+    Aborted {
+        frame_side: Side,
+        from_frame_index: usize,
+    },
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Side {
+    Entry,
+    Exit,
 }
 
 impl Default for State {
@@ -63,7 +73,10 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     .as_ref()
                     .map(|condition| condition.evaluate(condition_input, time_since_start))
                 {
-                    Some(Response::Abort) => State::Finished,
+                    Some(Response::Abort) => State::Aborted {
+                        frame_side: Side::Entry,
+                        from_frame_index: current_frame_index,
+                    },
                     Some(Response::Wait) => State::CheckEntry {
                         current_frame_index,
                         time_since_start: time_since_start + time_step,
@@ -101,7 +114,10 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     .as_ref()
                     .map(|condition| condition.evaluate(condition_input, time_since_start))
                 {
-                    Some(Response::Abort) => State::Finished,
+                    Some(Response::Abort) => State::Aborted {
+                        frame_side: Side::Exit,
+                        from_frame_index: current_frame_index,
+                    },
                     Some(Response::Wait) => State::CheckExit {
                         current_frame_index,
                         time_since_start: time_since_start + time_step,
@@ -114,11 +130,18 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                 }
             }
             State::Finished => State::Finished,
+            State::Aborted {
+                frame_side,
+                from_frame_index,
+            } => State::Aborted {
+                frame_side,
+                from_frame_index,
+            },
         };
     }
 
     pub fn is_finished(&self) -> bool {
-        matches!(self.current_state, State::Finished)
+        matches!(self.current_state, State::Finished | State::Aborted { .. })
     }
 
     pub fn value(&self) -> T {
@@ -138,6 +161,14 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                 ..
             } => self.frames[current_frame_index].spline.end_position(),
             State::Finished => self.frames.last().unwrap().spline.end_position(),
+            State::Aborted {
+                frame_side: Side::Entry,
+                from_frame_index,
+            } => self.frames[from_frame_index].spline.start_position(),
+            State::Aborted {
+                frame_side: Side::Exit,
+                from_frame_index,
+            } => self.frames[from_frame_index].spline.end_position(),
         }
     }
 

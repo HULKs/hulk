@@ -33,7 +33,7 @@ impl Default for MotionType {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
-pub struct MotionSafeExits {
+pub struct MotionFinished {
     arms_up_squat: bool,
     dispatching: bool,
     energy_saving_stand: bool,
@@ -49,7 +49,7 @@ pub struct MotionSafeExits {
     walk: bool,
 }
 
-impl Default for MotionSafeExits {
+impl Default for MotionFinished {
     fn default() -> Self {
         Self {
             arms_up_squat: true,
@@ -69,7 +69,7 @@ impl Default for MotionSafeExits {
     }
 }
 
-impl Index<MotionType> for MotionSafeExits {
+impl Index<MotionType> for MotionFinished {
     type Output = bool;
 
     fn index(&self, motion_type: MotionType) -> &Self::Output {
@@ -91,7 +91,7 @@ impl Index<MotionType> for MotionSafeExits {
     }
 }
 
-impl IndexMut<MotionType> for MotionSafeExits {
+impl IndexMut<MotionType> for MotionFinished {
     fn index_mut(&mut self, motion_type: MotionType) -> &mut Self::Output {
         match motion_type {
             MotionType::ArmsUpSquat => &mut self.arms_up_squat,

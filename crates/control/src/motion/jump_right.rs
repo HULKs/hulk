@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use motionfile::{MotionFile, MotionInterpolator};
 use types::{
-    ConditionInput, CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
+    ConditionInput, CycleTime, Joints, JointsCommand, MotionFinished, MotionSelection, MotionType,
     SensorData,
 };
 
@@ -13,12 +13,12 @@ pub struct JumpRight {
 
 #[context]
 pub struct CreationContext {
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
 
     pub condition_input: Input<ConditionInput, "condition_input">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
@@ -48,7 +48,7 @@ impl JumpRight {
             self.interpolator.reset();
         }
 
-        context.motion_safe_exits[MotionType::JumpRight] = self.interpolator.is_finished();
+        context.motion_finished[MotionType::JumpRight] = self.interpolator.is_finished();
 
         Ok(MainOutputs {
             jump_right_joints_command: JointsCommand {

@@ -6,7 +6,7 @@ use framework::{AdditionalOutput, MainOutput};
 use motionfile::{SplineInterpolator, TimedSpline};
 use types::{
     BodyJointsCommand, ConditionInput, CycleTime, HeadJoints, Joints, JointsCommand,
-    JointsVelocity, MotionSafeExits, MotionSelection, MotionType, SensorData,
+    JointsVelocity, MotionFinished, MotionSelection, MotionType, SensorData,
 };
 
 pub struct DispatchingInterpolator {
@@ -38,7 +38,7 @@ pub struct CycleContext {
     pub penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
 
     pub transition_time: AdditionalOutput<Option<Duration>, "transition_time">,
 }
@@ -60,7 +60,7 @@ impl DispatchingInterpolator {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        context.motion_safe_exits[MotionType::Dispatching] = false;
+        context.motion_finished[MotionType::Dispatching] = false;
 
         let currently_active = context.motion_selection.current_motion == MotionType::Dispatching;
         if !currently_active {
@@ -92,7 +92,7 @@ impl DispatchingInterpolator {
                     context.walk_joints_command.positions,
                 ),
                 MotionType::StandUpBack => *context.stand_up_back_positions,
-                MotionType::StandUpFront => {*context.stand_up_front_positions},
+                MotionType::StandUpFront => *context.stand_up_front_positions,
                 MotionType::Unstiff => panic!("Dispatching Unstiff doesn't make sense"),
                 MotionType::Walk => Joints::from_head_and_body(
                     HeadJoints::fill(0.0),
@@ -110,13 +110,14 @@ impl DispatchingInterpolator {
                 Duration::from_secs_f32(1.0),
             )?
             .into();
+            dbg!("Now dispatch to", dispatching_motion);
             self.stiffnesses = Joints::fill(0.8);
         }
 
         self.interpolator
             .advance_by(context.cycle_time.last_cycle_duration);
 
-        context.motion_safe_exits[MotionType::Dispatching] = self.interpolator.is_finished();
+        context.motion_finished[MotionType::Dispatching] = self.interpolator.is_finished();
         context.transition_time.fill_if_subscribed(|| {
             if self.interpolator.is_finished() {
                 None
