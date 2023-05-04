@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{Facing, JumpDirection, MotionCommand, MotionSafeExits, MotionSelection, MotionType};
+use types::{Facing, JumpDirection, MotionCommand, MotionFinished, MotionSelection, MotionType};
 
 pub struct MotionSelector {
     current_motion: MotionType,
@@ -10,7 +10,7 @@ pub struct MotionSelector {
 
 #[context]
 pub struct CreationContext {
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
 }
 
 #[context]
@@ -18,9 +18,7 @@ pub struct CycleContext {
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub has_ground_contact: Input<bool, "has_ground_contact">,
 
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-    pub should_exit_stand_up_back: PersistentState<bool, "should_exit_stand_up_back">,
-    pub should_exit_stand_up_front: PersistentState<bool, "should_exit_stand_up_front">,
+    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
 
     pub enable_energy_saving_stand: Parameter<bool, "energy_saving_stand.enabled">,
 }
@@ -40,23 +38,16 @@ impl MotionSelector {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let motion_safe_to_exit = context.motion_safe_exits[self.current_motion];
+        let motion_finished = context.motion_finished[self.current_motion];
         let requested_motion =
             motion_type_from_command(context.motion_command, *context.enable_energy_saving_stand);
-        if self.current_motion != requested_motion {
-            self.current_motion = transition_motion(
-                self.current_motion,
-                requested_motion,
-                motion_safe_to_exit,
-                *context.has_ground_contact,
-            );
-        }
-        if matches!(self.current_motion, MotionType::StandUpBack) && *context.should_exit_stand_up_back {
-            self.current_motion = MotionType::Dispatching;
-        }
-        if matches!(self.current_motion, MotionType::StandUpFront) && *context.should_exit_stand_up_front {
-            self.current_motion = MotionType::Dispatching;
-        }
+
+        self.current_motion = transition_motion(
+            self.current_motion,
+            requested_motion,
+            motion_finished,
+            *context.has_ground_contact,
+        );
 
         self.dispatching_motion = if self.current_motion == MotionType::Dispatching {
             if requested_motion == MotionType::Unstiff {
@@ -113,20 +104,22 @@ fn motion_type_from_command(
 fn transition_motion(
     from: MotionType,
     to: MotionType,
-    should_exit: bool,
+    motion_finished: bool,
     has_ground_contact: bool,
 ) -> MotionType {
-    match (from, should_exit, to, has_ground_contact) {
+    match (from, motion_finished, to, has_ground_contact) {
         (MotionType::SitDown, true, MotionType::Unstiff, _) => MotionType::Unstiff,
         (_, _, MotionType::Unstiff, false) => MotionType::Unstiff,
         (MotionType::Dispatching, true, MotionType::Unstiff, true) => MotionType::SitDown,
         (MotionType::StandUpFront, _, MotionType::FallProtection, _) => MotionType::StandUpFront,
         (MotionType::StandUpBack, _, MotionType::FallProtection, _) => MotionType::StandUpBack,
+        (MotionType::StandUpFront, true, MotionType::StandUpFront, _) => MotionType::Dispatching,
+        (MotionType::StandUpBack, true, MotionType::StandUpBack, _) => MotionType::Dispatching,
         (_, _, MotionType::FallProtection, _) => MotionType::FallProtection,
         (MotionType::Dispatching, true, _, _) => to,
         (MotionType::Stand, _, MotionType::Walk, _) => MotionType::Walk,
         (MotionType::Walk, _, MotionType::Stand, _) => MotionType::Stand,
-        (_, true, _, _) => MotionType::Dispatching,
+        (from, true, to, _) if from != to => MotionType::Dispatching,
         _ => from,
     }
 }

@@ -4,8 +4,7 @@ use framework::MainOutput;
 use motionfile::{MotionFile, MotionInterpolator};
 use types::{ConditionInput, JointsVelocity};
 use types::{
-    CycleTime, Joints, MotionCommand, MotionSafeExits, MotionSelection, MotionType,
-    SensorData,
+    CycleTime, Joints, MotionCommand, MotionFinished, MotionSelection, MotionType, SensorData,
 };
 
 pub struct StandUpFront {
@@ -13,13 +12,7 @@ pub struct StandUpFront {
 }
 
 #[context]
-pub struct CreationContext {
-    pub gyro_low_pass_filter_coefficient:
-        Parameter<f32, "stand_up.gyro_low_pass_filter_coefficient">,
-    pub gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
-
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -34,7 +27,7 @@ pub struct CycleContext {
     pub gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
     pub maximum_velocity: Parameter<JointsVelocity, "maximum_joint_velocities">,
 
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
     pub should_exit_stand_up_front: PersistentState<bool, "should_exit_stand_up_front">,
 }
 
@@ -55,27 +48,26 @@ impl StandUpFront {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let condition_input = context.condition_input;
 
-        context.motion_safe_exits[MotionType::StandUpFront] = false;
-        *context.should_exit_stand_up_front = false;
+        context.motion_finished[MotionType::StandUpFront] = false;
 
-        self.interpolator.advance_by(last_cycle_duration, condition_input);
+        self.interpolator
+            .advance_by(last_cycle_duration, condition_input);
 
         if self.interpolator.is_finished() {
-            context.motion_safe_exits[MotionType::StandUpFront] = true;
-            *context.should_exit_stand_up_front = true;
+            context.motion_finished[MotionType::StandUpFront] = true;
         }
 
         Ok(self.interpolator.value())
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let current_position = if let MotionType::StandUpFront = context.motion_selection.current_motion {
-            self.compute_stand_up_front(context)?
-        } else {
-            self.interpolator.reset();
-            self.interpolator.set_initial_positions(context.sensor_data.positions);
-            self.interpolator.initial_positions()
-        };
+        let current_position =
+            if let MotionType::StandUpFront = context.motion_selection.current_motion {
+                self.compute_stand_up_front(context)?
+            } else {
+                self.interpolator.reset();
+                self.interpolator.initial_positions()
+            };
         Ok(MainOutputs {
             stand_up_front_positions: current_position.into(),
         })

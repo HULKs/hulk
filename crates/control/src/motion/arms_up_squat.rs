@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use motionfile::{MotionFile, MotionInterpolator};
 use types::{
-    ConditionInput, CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
+    ConditionInput, CycleTime, Joints, JointsCommand, MotionFinished, MotionSelection, MotionType,
     SensorData,
 };
 
@@ -13,12 +13,12 @@ pub struct ArmsUpSquat {
 
 #[context]
 pub struct CreationContext {
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
 
     pub condition_input: Input<ConditionInput, "condition_input">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
