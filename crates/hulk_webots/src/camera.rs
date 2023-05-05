@@ -13,7 +13,7 @@ use parking_lot::{Condvar, Mutex};
 use types::{ycbcr422_image::YCbCr422Image, CameraPosition, YCbCr422};
 use webots::Robot;
 
-use super::interface::SIMULATION_TIME_STEP;
+use super::hardware_interface::SIMULATION_TIME_STEP;
 
 pub struct Camera {
     camera: webots::Camera,

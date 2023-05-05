@@ -2289,7 +2289,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "hulk"
+name = "hulk_nao"
 version = "0.1.0"
 dependencies = [
  "alsa",
@@ -2313,7 +2313,6 @@ dependencies = [
  "parking_lot",
  "proc-macro2",
  "quote",
- "rand",
  "serde",
  "serde_json",
  "serialize_hierarchy",
@@ -2325,6 +2324,41 @@ dependencies = [
  "toml",
  "types",
  "v4l",
+ "vision",
+]
+
+[[package]]
+name = "hulk_webots"
+version = "0.1.0"
+dependencies = [
+ "audio",
+ "chrono",
+ "code_generation",
+ "color-eyre",
+ "communication",
+ "control",
+ "convert_case",
+ "ctrlc",
+ "fern",
+ "framework",
+ "i2cdev",
+ "ittapi",
+ "log",
+ "nalgebra",
+ "parking_lot",
+ "proc-macro2",
+ "quote",
+ "rand",
+ "serde",
+ "serde_json",
+ "serialize_hierarchy",
+ "source_analyzer",
+ "spl_network",
+ "spl_network_messages",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "types",
  "vision",
  "webots",
 ]
