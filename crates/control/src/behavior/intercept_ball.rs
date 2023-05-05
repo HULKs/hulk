@@ -1,7 +1,6 @@
 use nalgebra::{point, Point2, UnitComplex};
 use types::{
-    HeadMotion, LineSegment, MotionCommand, OrientationMode, PathSegment, PrimaryState, Role,
-    WorldState,
+    HeadMotion, LineSegment, MotionCommand, OrientationMode, PathSegment, PrimaryState, WorldState,
 };
 
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
