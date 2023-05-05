@@ -11,27 +11,17 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
         world_state.robot.robot_to_field,
     ) {
         (PrimaryState::Playing, Some(ball), Some(robot_to_field)) => {
-            // Ball has to be in front of robot
-            if ball.ball_in_ground.coords.norm() > 2.0
-                || ball.ball_in_ground.x < 0.0
-                || ball.ball_in_ground.y.abs() > 0.5
-            {
-                return None;
-            }
-            // Ball has to be moving towards robot
-            if ball.ball_in_ground_velocity.x > -0.15 {
-                return None;
-            }
-            // Ball has to be moving towards own goal
-            if (robot_to_field * ball.ball_in_ground_velocity).x > -0.05 {
-                return None;
-            }
+            let ball_in_front_of_robot = ball.ball_in_ground.coords.norm() < 2.0
+                && ball.ball_in_ground.x > 0.0
+                && ball.ball_in_ground.y.abs() < 0.5;
+            let ball_moving_towards_robot = ball.ball_in_ground_velocity.x < -0.15;
+            let ball_moving_towards_own_half =
+                (robot_to_field * ball.ball_in_ground_velocity).x < -0.05;
 
-            // Only keeper
-            if !matches!(
-                world_state.robot.role,
-                Role::Keeper | Role::ReplacementKeeper | Role::DefenderLeft | Role::DefenderRight
-            ) {
+            if !(ball_in_front_of_robot
+                && ball_moving_towards_robot
+                && ball_moving_towards_own_half)
+            {
                 return None;
             }
 
