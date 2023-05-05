@@ -42,7 +42,7 @@ pub struct Parameters {
     pub spl_network_ports: Ports,
 }
 
-pub struct Interface {
+pub struct HardwareInterface {
     _robot: Robot,
 
     inertial_measurement_unit: InertialMeasurementUnitDevices,
@@ -60,7 +60,7 @@ pub struct Interface {
     simulator_audio_synchronization: Barrier,
 }
 
-impl Interface {
+impl HardwareInterface {
     pub fn new(keep_running: CancellationToken, parameters: Parameters) -> Result<Self> {
         let robot = Default::default();
         let runtime = Builder::new_current_thread()
@@ -122,7 +122,7 @@ impl Interface {
     }
 }
 
-impl hardware::Interface for Interface {
+impl hardware::Interface for HardwareInterface {
     fn read_from_microphones(&self) -> Result<Samples> {
         self.simulator_audio_synchronization.wait();
         if self.keep_running.is_cancelled() {

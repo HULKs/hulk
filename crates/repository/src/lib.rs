@@ -107,10 +107,8 @@ impl Repository {
             + if workspace {
                 "--workspace --all-features --all-targets ".to_string()
             } else {
-                format!(
-                    "--features {target} --bin {target} --manifest-path={} ",
-                    self.root.join("crates/hulk/Cargo.toml").display()
-                )
+                let manifest = format!("crates/hulk_{target}/Cargo.toml");
+                format!("--manifest-path={} ", self.root.join(manifest).display())
             }
             .as_str()
             + "-- "

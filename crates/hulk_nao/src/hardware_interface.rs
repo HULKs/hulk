@@ -35,7 +35,7 @@ pub struct Parameters {
     pub camera_bottom: nao_camera::Parameters,
 }
 
-pub struct Interface {
+pub struct HardwareInterface {
     hula_wrapper: Mutex<HulaWrapper>,
     microphones: Mutex<Microphones>,
     spl_network_endpoint: Endpoint,
@@ -45,7 +45,7 @@ pub struct Interface {
     keep_running: CancellationToken,
 }
 
-impl Interface {
+impl HardwareInterface {
     pub fn new(keep_running: CancellationToken, parameters: Parameters) -> Result<Self> {
         let i2c_head_mutex = Arc::new(Mutex::new(()));
         let runtime = Builder::new_current_thread()
@@ -88,7 +88,7 @@ impl Interface {
     }
 }
 
-impl hardware::Interface for Interface {
+impl hardware::Interface for HardwareInterface {
     fn read_from_microphones(&self) -> Result<Samples> {
         self.microphones.lock().read_from_microphones()
     }

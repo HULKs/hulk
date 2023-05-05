@@ -3,7 +3,7 @@ use nalgebra::vector;
 use types::InertialMeasurementUnitData;
 use webots::{Accelerometer, Gyro, InertialUnit, Robot};
 
-use super::interface::SIMULATION_TIME_STEP;
+use super::hardware_interface::SIMULATION_TIME_STEP;
 
 pub struct InertialMeasurementUnitDevices {
     accelerometer: Accelerometer,

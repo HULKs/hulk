@@ -1,33 +1,28 @@
 [package]
-name = "hulk"
+name = "hulk_nao"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
-[features]
-nao = ["alsa", "constants", "libc", "nao_camera", "v4l"]
-webots = ["dep:webots", "rand"]
-
 [dependencies]
-alsa = { optional = true, workspace = true }
+alsa = { workspace = true }
 audio = { workspace = true }
 chrono = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true, features = ["server"] }
-constants = { optional = true, workspace = true }
+constants = { workspace = true }
 control = { workspace = true }
 ctrlc = { workspace = true }
 fern = { workspace = true }
 framework = { workspace = true }
 i2cdev = { workspace = true }
 ittapi = {  workspace = true }
-libc = { optional = true, workspace = true }
+libc = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
-nao_camera = { optional = true, workspace = true }
+nao_camera = { workspace = true }
 parking_lot = { workspace = true }
-rand = { optional = true, workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serialize_hierarchy = { workspace = true }
@@ -36,9 +31,8 @@ spl_network_messages = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
-v4l = { optional = true, workspace = true }
+v4l = { workspace = true }
 vision = { workspace = true }
-webots = { optional = true, workspace = true }
 
 [build-dependencies]
 code_generation = { workspace = true }

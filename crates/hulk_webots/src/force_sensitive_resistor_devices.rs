@@ -2,7 +2,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use types::{Foot, ForceSensitiveResistors};
 use webots::{Robot, TouchSensor};
 
-use super::interface::SIMULATION_TIME_STEP;
+use super::hardware_interface::SIMULATION_TIME_STEP;
 
 pub struct ForceSensitiveResistorDevices {
     left_foot_front_left: TouchSensor,

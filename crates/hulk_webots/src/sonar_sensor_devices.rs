@@ -1,7 +1,7 @@
 use types::SonarSensors;
 use webots::{DistanceSensor, Robot};
 
-use super::interface::SIMULATION_TIME_STEP;
+use super::hardware_interface::SIMULATION_TIME_STEP;
 
 pub struct SonarSensorDevices {
     left: DistanceSensor,
