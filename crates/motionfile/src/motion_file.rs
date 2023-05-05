@@ -4,19 +4,21 @@ use std::{fs::File, path::Path, time::Duration};
 use color_eyre::eyre::{Result, WrapErr};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::from_reader;
-use splines::Interpolate;
+use splines::{Interpolate, Interpolation};
 
 use crate::condition::ConditionType;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct MotionFile<T> {
+    #[serde(default)]
+    pub interpolation_mode: Interpolation<Duration, T>,
     pub initial_positions: T,
     pub motion: Vec<MotionFileFrame<T>>,
 }
 
 impl<T> MotionFile<T>
 where
-    for<'de> T: Debug + Interpolate<f32> + Deserialize<'de>,
+    for<'de> T: Debug + Interpolate<f32> + Deserialize<'de> + Default,
 {
     pub fn from_path(motion_file_path: impl AsRef<Path>) -> Result<Self> {
         let file = File::open(&motion_file_path).wrap_err_with(|| {
@@ -33,6 +35,7 @@ where
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct MotionFileFrame<T> {
+    pub name: Option<String>,
     pub entry_condition: Option<ConditionType>,
     pub keyframes: Vec<KeyFrame<T>>,
     pub exit_condition: Option<ConditionType>,
