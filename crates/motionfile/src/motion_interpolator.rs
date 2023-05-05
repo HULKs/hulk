@@ -163,6 +163,8 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
     type Error = Report;
 
     fn try_from(motion_file: MotionFile<T>) -> Result<Self> {
+        let interpolation_mode = motion_file.interpolation_mode;
+
         let first_frame = motion_file.motion.first().unwrap();
 
         let mut motion_frames = vec![ConditionedSpline {
@@ -170,6 +172,7 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
             spline: TimedSpline::try_new_with_start(
                 motion_file.initial_positions,
                 first_frame.keyframes.clone(),
+                interpolation_mode,
             )?,
             exit_condition: first_frame.exit_condition.clone(),
         }];
@@ -185,6 +188,7 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
                         spline: TimedSpline::try_new_with_start(
                             first_frame.keyframes.last().unwrap().positions,
                             second_frame.keyframes,
+                            interpolation_mode,
                         )?,
                         exit_condition: second_frame.exit_condition,
                     })

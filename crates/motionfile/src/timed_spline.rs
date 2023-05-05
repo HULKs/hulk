@@ -109,13 +109,14 @@ where
     pub fn try_new_with_start(
         initial_position: T,
         keys: Vec<KeyFrame<T>>,
+        interpolation_mode: Interpolation<Duration, T>,
     ) -> Result<Self, InterpolatorError> {
         let mut time_since_start = Duration::ZERO;
 
         let mut spline_keys = vec![Key::new(
             time_since_start,
             initial_position,
-            Interpolation::Linear,
+            interpolation_mode,
         )];
         spline_keys.extend(
             keys.into_iter()
@@ -124,7 +125,7 @@ where
                     Ok(Key::new(
                         time_since_start,
                         frame.positions,
-                        Interpolation::Linear,
+                        interpolation_mode,
                     ))
                 })
                 .collect::<Result<Vec<_>, _>>()?,

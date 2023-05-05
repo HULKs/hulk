@@ -1,4 +1,5 @@
 {
+  "interpolation_mode": "linear",
   "initial_positions": {
     "head": {
       "yaw": 0.0,
