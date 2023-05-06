@@ -16,6 +16,7 @@ control = { workspace = true }
 ctrlc = { workspace = true }
 fern = { workspace = true }
 framework = { workspace = true }
+hardware = { workspace = true }
 i2cdev = { workspace = true }
 ittapi = {  workspace = true }
 libc = { workspace = true }

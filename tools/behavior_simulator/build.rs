@@ -1,6 +1,5 @@
 use code_generation::{
-    framework::{collect_watch_paths, generate_framework},
-    write_to_file::WriteToFile,
+    framework::collect_watch_paths, structs::generate_structs, write_to_file::WriteToFile,
 };
 use color_eyre::eyre::{Result, WrapErr};
 use source_analyzer::{cycler::Cyclers, manifest::FrameworkManifest, structs::Structs};
@@ -8,16 +7,15 @@ use source_analyzer::{cycler::Cyclers, manifest::FrameworkManifest, structs::Str
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=framework.toml");
     let manifest = FrameworkManifest::try_from_toml("framework.toml")?;
-    let root = "..";
+    let root = "../../crates/";
 
     for path in collect_watch_paths(&manifest) {
         println!("cargo:rerun-if-changed={root}/{}", path.display());
     }
 
-    let mut cyclers = Cyclers::try_from_manifest(manifest, root)?;
-    cyclers.sort_nodes()?;
+    let cyclers = Cyclers::try_from_manifest(manifest, root)?;
     let structs = Structs::try_from_cyclers(&cyclers)?;
-    generate_framework(&cyclers, &structs)
-        .write_to_file("generated_framework.rs")
+    generate_structs(&structs)
+        .write_to_file("generated_structs.rs")
         .wrap_err("failed to write generated framework to file")
 }

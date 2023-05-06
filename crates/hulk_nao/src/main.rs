@@ -5,10 +5,10 @@ use color_eyre::{
     eyre::{Result, WrapErr},
     install,
 };
+use hardware::IdInterface;
 use hardware_interface::HardwareInterface;
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
-use types::hardware::Interface;
 
 use crate::run::run;
 

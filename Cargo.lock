@@ -479,6 +479,7 @@ dependencies = [
  "context_attribute",
  "filtering",
  "framework",
+ "hardware",
  "rustfft",
  "types",
 ]
@@ -550,6 +551,39 @@ dependencies = [
  "syntect",
  "thiserror",
  "unicode-width",
+]
+
+[[package]]
+name = "behavior_simulator"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap 4.2.7",
+ "code_generation",
+ "color-eyre",
+ "communication",
+ "control",
+ "convert_case",
+ "ctrlc",
+ "fern",
+ "framework",
+ "hardware",
+ "log",
+ "mlua",
+ "nalgebra",
+ "parameters",
+ "parking_lot",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "serialize_hierarchy",
+ "source_analyzer",
+ "spl_network_messages",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "types",
 ]
 
 [[package]]
@@ -1136,6 +1170,7 @@ dependencies = [
  "context_attribute",
  "filtering",
  "framework",
+ "hardware",
  "itertools",
  "kinematics",
  "log",
@@ -2204,6 +2239,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "hardware"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "types",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2304,6 +2347,7 @@ dependencies = [
  "ctrlc",
  "fern",
  "framework",
+ "hardware",
  "i2cdev",
  "ittapi",
  "libc",
@@ -2341,6 +2385,7 @@ dependencies = [
  "ctrlc",
  "fern",
  "framework",
+ "hardware",
  "i2cdev",
  "ittapi",
  "log",
@@ -2732,6 +2777,15 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d61c719bcfbcf5d62b3a09efa6088de8c54bc0bfcd3ea7ae39fcc186108b8de1"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
+name = "memoffset"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a634b1c61a95585bd15607c6ab0c4e5b226e695ff2800ba0cdccddf208c406c"
@@ -2959,6 +3013,7 @@ dependencies = [
  "bitflags",
  "cfg-if",
  "libc",
+ "memoffset 0.7.1",
  "static_assertions",
 ]
 
@@ -3011,7 +3066,7 @@ checksum = "876a53fff98e03a936a674b29568b0e605f06b29372c2489ff4de23f1949743d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.107",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -3895,15 +3950,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_spanned"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93107647184f6027e3b7dcb2e11034cf95ffa1e3a682c67951963ac69c1c007d"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "serde_test"
 version = "1.0.160"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4113,6 +4159,7 @@ dependencies = [
  "color-eyre",
  "context_attribute",
  "framework",
+ "hardware",
  "log",
  "serde",
  "thiserror",
@@ -4484,14 +4531,11 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.7.4"
+version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6135d499e69981f9ff0ef2167955a5333c35e36f6937d382974566b3d5b94ec"
+checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
 dependencies = [
  "serde",
- "serde_spanned",
- "toml_datetime",
- "toml_edit",
 ]
 
 [[package]]
@@ -4499,9 +4543,6 @@ name = "toml_datetime"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a76a9312f5ba4c2dec6b9161fdf25d87ad8a09256ccea5a556fef03c706a10f"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "toml_edit"
@@ -4510,8 +4551,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2380d56e8670370eee6566b0bfd4265f65b3f432e8c6d85623f728d4fa31f739"
 dependencies = [
  "indexmap",
- "serde",
- "serde_spanned",
  "toml_datetime",
  "winnow",
 ]
@@ -4796,6 +4835,7 @@ dependencies = [
  "fast_image_resize",
  "filtering",
  "framework",
+ "hardware",
  "image",
  "itertools",
  "nalgebra",

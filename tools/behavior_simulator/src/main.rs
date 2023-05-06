@@ -14,6 +14,10 @@ mod server;
 mod simulator;
 mod state;
 
+mod structs {
+    include!(concat!(env!("OUT_DIR"), "/generated_structs.rs"));
+}
+
 #[derive(Parser)]
 struct Arguments {
     #[arg(short, long, default_value = "[::]:1337")]

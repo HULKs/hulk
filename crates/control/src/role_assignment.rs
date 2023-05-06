@@ -2,17 +2,15 @@ use std::time::{Duration, SystemTime};
 
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
-use framework::{MainOutput, PerceptionInput};
+use framework::MainOutput;
+use hardware::NetworkInterface;
 use nalgebra::{Isometry2, Point2, Vector2};
 use spl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, Team,
 };
 use types::{
-    configuration::SplNetwork,
-    hardware::Interface,
-    messages::{IncomingMessage, OutgoingMessage},
-    BallPosition, CycleTime, FallState, FieldDimensions, GameControllerState, InitialPose, Players,
-    PrimaryState, Role,
+    configuration::SplNetwork, messages::OutgoingMessage, BallPosition, CycleTime, FallState,
+    FieldDimensions, GameControllerState, InitialPose, Players, PrimaryState, Role,
 };
 
 use crate::localization::generate_initial_pose;
@@ -41,6 +39,7 @@ pub struct CycleContext {
     pub primary_state: Input<PrimaryState, "primary_state">,
     pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
+    pub hulk_messages: Input<Vec<HulkMessage>, "hulk_messages">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
@@ -48,7 +47,6 @@ pub struct CycleContext {
     pub optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
     pub spl_network: Parameter<SplNetwork, "spl_network">,
-    pub network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
 
     pub hardware: HardwareInterface,
 }
@@ -73,7 +71,7 @@ impl RoleAssignment {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
         let primary_state = *context.primary_state;
         let mut role = self.role;
@@ -180,17 +178,7 @@ impl RoleAssignment {
         }
 
         let mut network_robot_obstacles = vec![];
-        let mut spl_messages = context
-            .network_message
-            .persistent
-            .values()
-            .flatten()
-            .filter_map(|message| match message {
-                IncomingMessage::GameController(_) => None,
-                IncomingMessage::Spl(message) => Some(message),
-            })
-            .peekable();
-        if spl_messages.peek().is_none() {
+        if context.hulk_messages.is_empty() {
             (role, send_spl_striker_message, team_ball) = process_role_state_machine(
                 role,
                 robot_to_field,
@@ -206,11 +194,11 @@ impl RoleAssignment {
                 context.optional_roles,
             );
         } else {
-            for spl_message in spl_messages {
+            for hulk_message in context.hulk_messages {
                 self.last_received_spl_striker_message = Some(cycle_start_time);
                 let sender_position =
-                    (robot_to_field.inverse() * spl_message.robot_to_field) * Point2::origin();
-                if spl_message.player_number != *context.player_number {
+                    (robot_to_field.inverse() * hulk_message.robot_to_field) * Point2::origin();
+                if hulk_message.player_number != *context.player_number {
                     network_robot_obstacles.push(sender_position);
                 }
                 (role, send_spl_striker_message, team_ball) = process_role_state_machine(
@@ -218,7 +206,7 @@ impl RoleAssignment {
                     robot_to_field,
                     context.ball_position,
                     primary_state,
-                    Some(spl_message),
+                    Some(hulk_message),
                     send_spl_striker_message,
                     team_ball,
                     cycle_start_time,

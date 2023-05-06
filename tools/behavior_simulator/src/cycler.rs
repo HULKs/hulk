@@ -1,5 +1,12 @@
-use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
+use std::sync::Arc;
 
+use crate::{
+    interfake::Interfake,
+    structs::{
+        control::{AdditionalOutputs, MainOutputs},
+        Configuration,
+    },
+};
 use color_eyre::{eyre::WrapErr, Result};
 use control::{
     active_vision::{self, ActiveVision},
@@ -11,81 +18,83 @@ use control::{
     rule_obstacle_composer::RuleObstacleComposer,
     world_state_composer::{self, WorldStateComposer},
 };
-use cyclers::control::Database;
-use framework::{AdditionalOutput, PerceptionInput};
-use structs::Configuration;
+use framework::AdditionalOutput;
+use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 use tokio::sync::Notify;
-use types::{hardware, messages::IncomingMessage};
+
+#[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
+pub struct Database {
+    pub main_outputs: MainOutputs,
+    pub additional_outputs: AdditionalOutputs,
+}
 
 pub struct BehaviorCycler<Interface> {
     hardware_interface: Arc<Interface>,
     own_changed: Arc<Notify>,
-    role_assignment: RoleAssignment,
-    ball_state_composer: BallStateComposer,
     active_vision: ActiveVision,
-    kick_selector: KickSelector,
-    world_state_composer: WorldStateComposer,
+    ball_state_composer: BallStateComposer,
     behavior: Behavior,
-    rule_obstacle_composer: RuleObstacleComposer,
+    kick_selector: KickSelector,
     look_around: LookAround,
+    role_assignment: RoleAssignment,
+    rule_obstacle_composer: RuleObstacleComposer,
+    world_state_composer: WorldStateComposer,
 }
 
-impl<Interface> BehaviorCycler<Interface>
-where
-    Interface: hardware::Interface,
-{
+impl BehaviorCycler<Interfake> {
     pub fn new(
-        hardware_interface: Arc<Interface>,
+        hardware_interface: Arc<Interfake>,
         own_changed: Arc<Notify>,
         configuration: &Configuration,
     ) -> Result<Self> {
-        let rule_obstacle_composer = control::rule_obstacle_composer::RuleObstacleComposer::new(
-            control::rule_obstacle_composer::CreationContext {},
-        )
-        .wrap_err("failed to create node `RuleObstacleComposer`")?;
-        let role_assignment = RoleAssignment::new(role_assignment::CreationContext {
-            forced_role: configuration.role_assignment.forced_role.as_ref(),
-            player_number: &configuration.player_number,
-            spl_network: &configuration.spl_network,
-        })
-        .wrap_err("failed to create node `RoleAssignment`")?;
-        let ball_state_composer = BallStateComposer::new(ball_state_composer::CreationContext {})
-            .wrap_err("failed to create node `BallStateComposer`")?;
         let active_vision = ActiveVision::new(active_vision::CreationContext {
             field_dimensions: &configuration.field_dimensions,
         })
         .wrap_err("failed to create node `ActiveVision`")?;
-        let kick_selector = KickSelector::new(kick_selector::CreationContext {})
-            .wrap_err("failed to create node `KickSelector`")?;
-        let world_state_composer = WorldStateComposer::new(world_state_composer::CreationContext {
-            player_number: &configuration.player_number,
-        })
-        .wrap_err("failed to create node `WorldStateComposer`")?;
+        let ball_state_composer = BallStateComposer::new(ball_state_composer::CreationContext {})
+            .wrap_err("failed to create node `BallStateComposer`")?;
         let behavior = Behavior::new(node::CreationContext {
             behavior: &configuration.behavior,
             field_dimensions: &configuration.field_dimensions,
             lost_ball_parameters: &configuration.behavior.lost_ball,
         })
         .wrap_err("failed to create node `Behavior`")?;
+        let kick_selector = KickSelector::new(kick_selector::CreationContext {})
+            .wrap_err("failed to create node `KickSelector`")?;
         let look_around = control::motion::look_around::LookAround::new(
             control::motion::look_around::CreationContext {
                 config: &configuration.look_around,
             },
         )
         .wrap_err("failed to create node `LookAround`")?;
+        let role_assignment = RoleAssignment::new(role_assignment::CreationContext {
+            forced_role: configuration.role_assignment.forced_role.as_ref(),
+            player_number: &configuration.player_number,
+            spl_network: &configuration.spl_network,
+        })
+        .wrap_err("failed to create node `RoleAssignment`")?;
+        let rule_obstacle_composer = control::rule_obstacle_composer::RuleObstacleComposer::new(
+            control::rule_obstacle_composer::CreationContext {},
+        )
+        .wrap_err("failed to create node `RuleObstacleComposer`")?;
+        let world_state_composer = WorldStateComposer::new(world_state_composer::CreationContext {
+            player_number: &configuration.player_number,
+        })
+        .wrap_err("failed to create node `WorldStateComposer`")?;
 
         Ok(Self {
             hardware_interface,
             own_changed,
 
-            role_assignment,
-            ball_state_composer,
-            rule_obstacle_composer,
             active_vision,
-            kick_selector,
-            world_state_composer,
+            ball_state_composer,
             behavior,
+            kick_selector,
             look_around,
+            role_assignment,
+            rule_obstacle_composer,
+            world_state_composer,
         })
     }
 
@@ -93,7 +102,6 @@ where
         &mut self,
         own_database: &mut Database,
         configuration: &Configuration,
-        incoming_messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>,
     ) -> Result<()> {
         if own_database
             .main_outputs
@@ -139,10 +147,7 @@ where
                     optional_roles: &configuration.behavior.optional_roles,
                     player_number: &configuration.player_number,
                     spl_network: &configuration.spl_network,
-                    network_message: PerceptionInput {
-                        persistent: incoming_messages,
-                        temporary: Default::default(),
-                    },
+                    hulk_messages: &own_database.main_outputs.hulk_messages,
                     hardware: &self.hardware_interface,
                 })
                 .wrap_err("failed to execute cycle of node `RoleAssignment`")?;

@@ -9,6 +9,7 @@ homepage = "https://github.com/hulks/hulk"
 color-eyre = { workspace = true }
 context_attribute = { workspace = true }
 framework = { workspace = true }
+hardware = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

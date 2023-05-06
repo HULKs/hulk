@@ -14,6 +14,14 @@ use crate::{
     struct_hierarchy::{HierarchyError, InsertionRule, StructHierarchy},
 };
 
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("cannot resolve struct hierarchy")]
+    Hierarchy(#[from] HierarchyError),
+    #[error("unexpected field {0} in `CreationContext` or `CycleContext`")]
+    UnexpectedField(String),
+}
+
 #[derive(Debug)]
 pub struct Structs {
     pub configuration: StructHierarchy,
@@ -29,22 +37,14 @@ impl Default for Structs {
     }
 }
 
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot resolve struct hierarchy")]
-    Hierarchy(#[from] HierarchyError),
-    #[error("unexpected field {0} in `CreationContext` or `CycleContext`")]
-    UnexpectedField(String),
-}
-
 impl Structs {
     pub fn try_from_cyclers(cyclers: &Cyclers) -> Result<Self, Error> {
         let mut structs = Self::default();
 
         for cycler in cyclers.cyclers.iter() {
-            let cycler_structs = structs.cyclers.entry(cycler.module.clone()).or_default();
+            let cycler_structs = structs.cyclers.entry(cycler.name.clone()).or_default();
 
-            for node in cycler.nodes.iter() {
+            for node in cycler.iter_nodes() {
                 for field in node.contexts.main_outputs.iter() {
                     add_main_outputs(field, cycler_structs);
                 }

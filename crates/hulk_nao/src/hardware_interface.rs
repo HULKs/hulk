@@ -1,5 +1,9 @@
 use std::{sync::Arc, time::SystemTime};
 
+use ::hardware::{
+    ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
+    SensorInterface, TimeInterface,
+};
 use color_eyre::{
     eyre::{eyre, Error, WrapErr},
     Result,
@@ -12,7 +16,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 use types::{
-    hardware::{self, Ids},
+    hardware::Ids,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
     ycbcr422_image::YCbCr422Image,
@@ -88,23 +92,31 @@ impl HardwareInterface {
     }
 }
 
-impl hardware::Interface for HardwareInterface {
+impl MicrophoneInterface for HardwareInterface {
     fn read_from_microphones(&self) -> Result<Samples> {
         self.microphones.lock().read_from_microphones()
     }
+}
 
+impl TimeInterface for HardwareInterface {
     fn get_now(&self) -> SystemTime {
         self.hula_wrapper.lock().get_now()
     }
+}
 
+impl IdInterface for HardwareInterface {
     fn get_ids(&self) -> Ids {
         self.hula_wrapper.lock().get_ids()
     }
+}
 
+impl SensorInterface for HardwareInterface {
     fn read_from_sensors(&self) -> Result<SensorData> {
         self.hula_wrapper.lock().read_from_hula()
     }
+}
 
+impl ActuatorInterface for HardwareInterface {
     fn write_to_actuators(
         &self,
         positions: Joints<f32>,
@@ -115,7 +127,9 @@ impl hardware::Interface for HardwareInterface {
             .lock()
             .write_to_actuators(positions, stiffnesses, leds)
     }
+}
 
+impl NetworkInterface for HardwareInterface {
     fn read_from_network(&self) -> Result<IncomingMessage> {
         self.async_runtime.block_on(async {
             select! {
@@ -134,7 +148,9 @@ impl hardware::Interface for HardwareInterface {
             .block_on(self.spl_network_endpoint.write(message));
         Ok(())
     }
+}
 
+impl CameraInterface for HardwareInterface {
     fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image> {
         match camera_position {
             CameraPosition::Top => self.camera_top.lock().read(),

@@ -5,14 +5,13 @@ use std::{
     path::Path,
 };
 
-use itertools::Itertools;
 use quote::ToTokens;
 use syn::{parse_file, ImplItem, Item, ItemImpl, Type};
 
 use crate::{
-    configuration::NodeConfiguration,
     contexts::Contexts,
     error::{Error, ParseError},
+    manifest::NodeSpecification,
 };
 
 pub type NodeName = String;
@@ -21,7 +20,6 @@ pub type NodeName = String;
 pub struct Node {
     pub name: NodeName,
     pub module: syn::Path,
-    pub is_setup: bool,
     pub contexts: Contexts,
 }
 
@@ -44,24 +42,17 @@ pub fn parse_rust_file(file_path: impl AsRef<Path>) -> Result<syn::File, Error> 
 }
 
 impl Node {
-    pub fn try_from_configuration(
-        cycler_module: &str,
-        node_config: &NodeConfiguration,
+    pub fn try_from_specification(
+        node_specification: &NodeSpecification,
         root: &Path,
     ) -> Result<Self, Error> {
-        let path_to_module = node_config
-            .module
-            .segments
-            .iter()
-            .map(|segment| segment.ident.to_string())
-            .join("/");
-        let file_path = root.join(format!("../{cycler_module}/src/{path_to_module}.rs"));
+        let path = root.join(&node_specification.path);
         let wrap_error = |error| Error::Node {
             caused_by: error,
-            node: node_config.module.to_token_stream().to_string(),
-            path: file_path.clone(),
+            node: node_specification.module.to_token_stream().to_string(),
+            path: path.clone(),
         };
-        let rust_file = parse_rust_file(&file_path)?;
+        let rust_file = parse_rust_file(&path)?;
         let name = rust_file
             .items
             .iter()
@@ -79,8 +70,7 @@ impl Node {
         let contexts = Contexts::try_from_file(&rust_file).map_err(wrap_error)?;
         Ok(Self {
             name,
-            module: node_config.module.clone(),
-            is_setup: node_config.is_setup,
+            module: node_specification.module.clone(),
             contexts,
         })
     }

@@ -295,8 +295,8 @@ mod tests {
                     name: "InstanceB".to_string(),
                 },
             ],
-            module: "test_cycler".to_string(),
-            nodes: vec![],
+            setup_nodes: vec![],
+            cycle_nodes: vec![],
         };
 
         for (path, reference_type, expected_token_stream) in cases {

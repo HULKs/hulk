@@ -16,16 +16,14 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
 
     quote! {
         #[allow(unused_imports, unused_variables)]
-        pub fn run<Interface>(
-            hardware_interface: std::sync::Arc<Interface>,
+        pub(crate) fn run(
+            hardware_interface: std::sync::Arc<crate::HardwareInterface>,
             addresses: Option<impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static>,
             parameters_directory: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
             body_id: String,
             head_id: String,
             keep_running: tokio_util::sync::CancellationToken,
         ) -> color_eyre::Result<()>
-        where
-            Interface: types::hardware::Interface + std::marker::Send + std::marker::Sync + 'static,
         {
             use color_eyre::eyre::WrapErr;
 
@@ -106,7 +104,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers) -> TokenStream {
         let instance_name_snake_case = instance.name.to_case(Case::Snake);
         let cycler_database_changed_identifier = format_ident!("{instance_name_snake_case}_changed");
         let cycler_variable_identifier = format_ident!("{instance_name_snake_case}_cycler");
-        let cycler_module_name_identifier = format_ident!("{}", cycler.module);
+        let cycler_module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
         let cycler_instance_name = &instance.name;
         let cycler_instance_name_identifier = format_ident!("{cycler_instance_name}");
         let own_writer_identifier = format_ident!("{instance_name_snake_case}_writer");
@@ -142,8 +140,8 @@ fn generate_cycler_constructors(cyclers: &Cyclers) -> TokenStream {
                 Default::default(),
                 Default::default(),
             ]);
-            let #cycler_variable_identifier = crate::cyclers::#cycler_module_name_identifier::Cycler::new(
-                crate::cyclers::#cycler_module_name_identifier::CyclerInstance::#cycler_instance_name_identifier,
+            let #cycler_variable_identifier = crate::cyclers::#cycler_module_name::Cycler::new(
+                crate::cyclers::#cycler_module_name::CyclerInstance::#cycler_instance_name_identifier,
                 hardware_interface.clone(),
                 #own_writer_identifier,
                 #cycler_database_changed_identifier.clone(),

@@ -8,9 +8,8 @@ use syn::{
     spanned::Spanned,
     token::Mut,
     AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, GenericParam, ItemStruct,
-    Lifetime, LifetimeDef, Lit, Path, PathArguments, PathSegment, PredicateType, TraitBound,
-    TraitBoundModifier, Type, TypeParam, TypeParamBound, TypePath, TypeReference, WhereClause,
-    WherePredicate,
+    Lifetime, LifetimeDef, Lit, Path, PathArguments, PathSegment, Type, TypeParam, TypePath,
+    TypeReference,
 };
 
 #[proc_macro_attribute]
@@ -178,45 +177,6 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                 eq_token: None,
                 default: None,
             }));
-        struct_item.generics.where_clause = Some(WhereClause {
-            where_token: Default::default(),
-            predicates: Punctuated::from_iter([WherePredicate::Type(PredicateType {
-                lifetimes: None,
-                bounded_ty: Type::Path(TypePath {
-                    qself: None,
-                    path: Path {
-                        leading_colon: None,
-                        segments: Punctuated::from_iter([PathSegment {
-                            ident: format_ident!("Interface"),
-                            arguments: PathArguments::None,
-                        }]),
-                    },
-                }),
-                colon_token: Default::default(),
-                bounds: Punctuated::from_iter([TypeParamBound::Trait(TraitBound {
-                    paren_token: None,
-                    modifier: TraitBoundModifier::None,
-                    lifetimes: None,
-                    path: Path {
-                        leading_colon: None,
-                        segments: Punctuated::from_iter([
-                            PathSegment {
-                                ident: format_ident!("types"),
-                                arguments: PathArguments::None,
-                            },
-                            PathSegment {
-                                ident: format_ident!("hardware"),
-                                arguments: PathArguments::None,
-                            },
-                            PathSegment {
-                                ident: format_ident!("Interface"),
-                                arguments: PathArguments::None,
-                            },
-                        ]),
-                    },
-                })]),
-            })]),
-        })
     }
 
     struct_item.into_token_stream().into()
