@@ -20,3 +20,10 @@ This page serves a guide on how to setup and enable GitHub notifications from yo
     - Pushes
 7. Activate it and add it
 8. Profit
+
+## Adminstration of the Bot
+
+The bot is running on the HULKs Nextcloud VM (RZ) machine.
+The address can be found the IP Address Range wiki page of the HULKsnition repository.
+A VPN connection is required to connect via SSH.
+The Docker Compose directory is located at `/mnt/ext/docker-config/web/` and the service is named `github-notifications`.
