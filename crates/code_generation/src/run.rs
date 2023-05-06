@@ -15,7 +15,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
     let join_cyclers = generate_cycler_joins(cyclers);
 
     quote! {
-        #[allow(unused_imports, unused_variables)]
+        #[allow(dead_code, unused_mut, unused_imports, unused_variables, clippy::too_many_arguments, clippy::redundant_clone, clippy::needless_question_mark)]
         pub(crate) fn run(
             hardware_interface: std::sync::Arc<crate::HardwareInterface>,
             addresses: Option<impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static>,
