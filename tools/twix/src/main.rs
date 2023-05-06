@@ -276,6 +276,7 @@ impl App for TwixApp {
                         "Parameter".to_string(),
                         "Manual Calibration".to_string(),
                     ],
+                    "Panel"
                 )
                 .ui(ui);
                 if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::P)) {
