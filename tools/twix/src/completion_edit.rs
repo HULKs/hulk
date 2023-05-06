@@ -26,13 +26,15 @@ impl CompletionState {
 }
 
 pub struct CompletionEdit<'key> {
+    hint_text: &'static str,
     key: &'key mut String,
     completion_items: Vec<String>,
 }
 
 impl<'key> CompletionEdit<'key> {
-    pub fn new(key: &'key mut String, completion_items: Vec<String>) -> Self {
+    pub fn new(key: &'key mut String, completion_items: Vec<String>, hint_text: &'static str) -> Self {
         Self {
+            hint_text,
             key,
             completion_items,
         }
@@ -47,6 +49,7 @@ impl<'key> CompletionEdit<'key> {
         .collect();
 
         Self {
+            hint_text: "Address",
             key,
             completion_items,
         }
@@ -59,6 +62,7 @@ impl<'key> CompletionEdit<'key> {
             .unwrap_or_default();
 
         Self {
+            hint_text: "Subscription Key",
             key,
             completion_items,
         }
@@ -71,6 +75,7 @@ impl<'key> CompletionEdit<'key> {
             .unwrap_or_default();
 
         Self {
+            hint_text: "Parameter",
             key,
             completion_items,
         }
@@ -90,7 +95,7 @@ impl<'key> CompletionEdit<'key> {
 impl Widget for CompletionEdit<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut response = TextEdit::singleline(self.key)
-            .hint_text("Subscription Key")
+            .hint_text(self.hint_text)
             .lock_focus(true)
             .ui(ui);
 
