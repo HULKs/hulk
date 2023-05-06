@@ -1,9 +1,10 @@
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::AdditionalOutput;
+use hardware::ActuatorInterface;
 use types::{
-    hardware::Interface, BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand,
-    Leds, MotionSafeExits, MotionSelection, MotionType, SensorData,
+    BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand, Leds, MotionSafeExits,
+    MotionSelection, MotionType, SensorData,
 };
 
 pub struct JointCommandSender {}
@@ -52,7 +53,10 @@ impl JointCommandSender {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext<impl Interface>) -> Result<MainOutputs> {
+    pub fn cycle(
+        &mut self,
+        mut context: CycleContext<impl ActuatorInterface>,
+    ) -> Result<MainOutputs> {
         let current_positions = context.sensor_data.positions;
         let dispatching_command = context.dispatching_command;
         let fall_protection_positions = context.fall_protection_command.positions;

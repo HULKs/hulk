@@ -25,15 +25,11 @@ pub enum Error {
         node: String,
         path: PathBuf,
     },
+    #[error("invalid module path")]
+    InvalidModulePath,
     #[error("`{node}` requires output `{output}`, but it is never produced")]
     MissingOutput { node: String, output: String },
-    #[error("`{depending_node}` depends on output `{output}` from `{producing_node}`, but setup nodes cannot depend on non-setup nodes")]
-    SetupNodeDependency {
-        depending_node: String,
-        output: String,
-        producing_node: String,
-    },
-    #[error("circular dependency")]
+    #[error("failed to sort nodes, circular dependency detected")]
     CircularDependency,
 }
 

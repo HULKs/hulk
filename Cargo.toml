@@ -9,14 +9,15 @@ members = [
   "crates/control",
   "crates/filtering",
   "crates/framework",
+  "crates/hardware",
   "crates/hulk_nao",
   "crates/hulk_webots",
   "crates/kinematics",
+  "crates/motionfile",
   "crates/nao",
   "crates/nao_camera",
   "crates/parameters",
   "crates/projection",
-  "crates/motionfile",
   "crates/repository",
   "crates/serialize_hierarchy",
   "crates/serialize_hierarchy_derive",
@@ -25,7 +26,7 @@ members = [
   "crates/spl_network_messages",
   "crates/types",
   "crates/vision",
-  # "tools/behavior_simulator",
+  "tools/behavior_simulator",
   "tools/camera_matrix_extractor",
   "tools/depp",
   "tools/fanta",
@@ -36,11 +37,10 @@ members = [
 exclude = ["tools/aliveness", "tools/hula"]
 
 [workspace.dependencies]
-alsa = "0.7.0"
 aliveness = { path = "crates/aliveness" }
+alsa = "0.7.0"
 approx = "0.5.1"
 audio = { path = "crates/audio" }
-# behavior_simulator = { path = "tools/behavior_simulator" }
 awaitgroup = "0.6.0"
 base64 = "0.21.0"
 bat = { version = "0.23.0", default-features = false, features = [
@@ -96,12 +96,12 @@ nix = { git = "https://github.com/nix-rust/nix.git", version = "0.26.1", rev = "
 num-derive = "0.3"
 num-traits = "0.2"
 ordered-float = "3.1.0"
+parameters = { path = "crates/parameters" }
 parking_lot = "0.12.1"
 petgraph = "0.6.2"
 png = "0.17.6"
 proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.44", features = ["span-locations"] }
-parameters = { path = "crates/parameters" }
 projection = { path = "crates/projection" }
 quote = "1.0.21"
 rand = "0.8.5"
@@ -110,34 +110,34 @@ regex = "1.6.0"
 repository = { path = "crates/repository" }
 rustfft = "6.0.1"
 serde = { version = "1.0.145", features = ["derive", "rc"] }
+serde-transcode = "1.1.1"
 serde_bytes = "0.11.8"
 serde_json = "1.0.91"
 serde_test = "1.0.152"
-serde-transcode = "1.1.1"
 serialize_hierarchy = { path = "crates/serialize_hierarchy" }
 serialize_hierarchy_derive = { path = "crates/serialize_hierarchy_derive" }
 smallvec = "1.9.0"
 source_analyzer = { path = "crates/source_analyzer" }
-splines = { version = "4.2.0", features = ["serde"] }
 spl_network = { path = "crates/spl_network" }
 spl_network_messages = { path = "crates/spl_network_messages" }
+splines = { version = "4.2.0", features = ["serde"] }
 structopt = "0.3.26"
+surge-ping = "0.8.0"
 syn = { version = "1.0.101", features = ["full", "extra-traits"] }
 tempfile = "3.3.0"
 thiserror = "1.0.37"
 threadbound = "0.1.6"
 tokio = { version = "1.21.2", features = ["full"] }
-surge-ping = "0.8.0"
 tokio-tungstenite = "0.19.0"
 tokio-util = "0.7.4"
-toml = "0.7.4"
+toml = "0.5.8"
 topological-sort = "0.2.2"
 types = { path = "crates/types" }
 uuid = { version = "1.1.2", features = ["v4"] }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", rev = "be65819073514b193d082dd37dbcc2cfac3f6183" }
+vision = { path = "crates/vision" }
 walkdir = "2.3.2"
 webots = { version = "0.7.0" }
-vision = { path = "crates/vision" }
 zbus = { version = "3.7.0", features = ["tokio"] }
 
 [profile.incremental]

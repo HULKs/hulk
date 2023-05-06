@@ -1,7 +1,8 @@
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
-use types::{hardware::Interface, samples::Samples};
+use hardware::MicrophoneInterface;
+use types::samples::Samples;
 
 pub struct MicrophoneRecorder {}
 
@@ -24,7 +25,10 @@ impl MicrophoneRecorder {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
+    pub fn cycle(
+        &mut self,
+        context: CycleContext<impl MicrophoneInterface>,
+    ) -> Result<MainOutputs> {
         let samples = context
             .hardware_interface
             .read_from_microphones()

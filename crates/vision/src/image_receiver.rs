@@ -1,7 +1,8 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{hardware::Interface, ycbcr422_image::YCbCr422Image, CameraPosition};
+use hardware::CameraInterface;
+use types::{ycbcr422_image::YCbCr422Image, CameraPosition};
 
 pub struct ImageReceiver {}
 
@@ -25,7 +26,7 @@ impl ImageReceiver {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext<impl CameraInterface>) -> Result<MainOutputs> {
         let image = context
             .hardware_interface
             .read_from_camera(*context.camera_position)?;

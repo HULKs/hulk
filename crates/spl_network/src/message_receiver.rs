@@ -1,7 +1,8 @@
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
-use types::{hardware::Interface, messages::IncomingMessage};
+use hardware::NetworkInterface;
+use types::messages::IncomingMessage;
 
 pub struct MessageReceiver {}
 
@@ -23,7 +24,7 @@ impl MessageReceiver {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
         let message = context
             .hardware_interface
             .read_from_network()

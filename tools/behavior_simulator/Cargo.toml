@@ -4,9 +4,6 @@ license = "GPL-3.0-only"
 name = "behavior_simulator"
 version = "0.1.0"
 
-[lib]
-name = "behavior_simulator"
-
 [[bin]]
 name = "behavior_simulator"
 
@@ -14,12 +11,12 @@ name = "behavior_simulator"
 chrono = { workspace = true }
 clap = { workspace = true }
 color-eyre = { workspace = true }
-communication = { workspace = true }
+communication = { workspace = true, features = ["server"] }
 control = { workspace = true }
 ctrlc = { workspace = true }
-cyclers = { workspace = true }
 fern = { workspace = true }
 framework = { workspace = true }
+hardware = { workspace = true }
 log = { workspace = true }
 mlua = { workspace = true }
 nalgebra = { workspace = true }
@@ -29,14 +26,16 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serialize_hierarchy = { workspace = true }
 spl_network_messages = { workspace = true }
-structs = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
 
 [build-dependencies]
-build_script_helpers = { workspace = true }
 code_generation = { workspace = true }
 color-eyre = { workspace = true }
+convert_case = { workspace = true }
+proc-macro2 = { workspace = true }
 quote = { workspace = true }
+serde = { workspace = true }
 source_analyzer = { workspace = true }
+toml = { workspace = true }

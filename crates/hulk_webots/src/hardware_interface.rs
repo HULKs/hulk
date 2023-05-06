@@ -7,6 +7,10 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use ::hardware::{
+    ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
+    SensorInterface, TimeInterface,
+};
 use color_eyre::{
     eyre::{bail, eyre, Error, WrapErr},
     Result,
@@ -18,7 +22,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 use types::{
-    hardware::{self, Ids},
+    hardware::Ids,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
     ycbcr422_image::YCbCr422Image,
@@ -122,7 +126,7 @@ impl HardwareInterface {
     }
 }
 
-impl hardware::Interface for HardwareInterface {
+impl MicrophoneInterface for HardwareInterface {
     fn read_from_microphones(&self) -> Result<Samples> {
         self.simulator_audio_synchronization.wait();
         if self.keep_running.is_cancelled() {
@@ -133,11 +137,15 @@ impl hardware::Interface for HardwareInterface {
             channels_of_samples: Arc::new(vec![]),
         })
     }
+}
 
+impl TimeInterface for HardwareInterface {
     fn get_now(&self) -> SystemTime {
         UNIX_EPOCH + Duration::from_secs_f64(Robot::get_time())
     }
+}
 
+impl IdInterface for HardwareInterface {
     fn get_ids(&self) -> Ids {
         let name = from_utf8(Robot::get_name()).expect("robot name must be valid UTF-8");
         Ids {
@@ -145,7 +153,9 @@ impl hardware::Interface for HardwareInterface {
             head_id: name.to_string(),
         }
     }
+}
 
+impl SensorInterface for HardwareInterface {
     fn read_from_sensors(&self) -> Result<SensorData> {
         match self.step_simulation().wrap_err("failed to step simulation") {
             Ok(_) => {
@@ -183,7 +193,9 @@ impl hardware::Interface for HardwareInterface {
             touch_sensors,
         })
     }
+}
 
+impl ActuatorInterface for HardwareInterface {
     fn write_to_actuators(
         &self,
         positions: Joints<f32>,
@@ -324,7 +336,9 @@ impl hardware::Interface for HardwareInterface {
         // Webots robot model does not have LEDs
         Ok(())
     }
+}
 
+impl NetworkInterface for HardwareInterface {
     fn read_from_network(&self) -> Result<IncomingMessage> {
         self.async_runtime.block_on(async {
             select! {
@@ -343,7 +357,9 @@ impl hardware::Interface for HardwareInterface {
             .block_on(self.spl_network_endpoint.write(message));
         Ok(())
     }
+}
 
+impl CameraInterface for HardwareInterface {
     fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image> {
         let result = match camera_position {
             CameraPosition::Top => {

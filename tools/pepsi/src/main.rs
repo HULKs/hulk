@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
     let repository = repository_root.map(Repository::new);
 
     match arguments.command {
-        Command::Analyze(arguments) => analyze(arguments, &repository?)
+        Command::Analyze(arguments) => analyze(arguments)
             .await
             .wrap_err("failed to execute analyze command")?,
         Command::Aliveness(arguments) => aliveness(arguments)

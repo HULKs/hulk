@@ -23,7 +23,7 @@ pub fn generate_structs(structs: &Structs) -> TokenStream {
         .cyclers
         .iter()
         .map(|(cycler_module, cycler_structs)| {
-            let cycler_module_identifier = format_ident!("{}", cycler_module);
+            let cycler_module_identifier = format_ident!("{}", cycler_module.to_case(Case::Snake));
             let main_outputs = hierarchy_to_token_stream(
                 &cycler_structs.main_outputs,
                 format_ident!("MainOutputs"),

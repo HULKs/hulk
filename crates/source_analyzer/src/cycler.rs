@@ -1,7 +1,6 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::{Display, Formatter},
-    fs::read_to_string,
     path::Path,
 };
 
@@ -10,9 +9,9 @@ use serde::Deserialize;
 use topological_sort::TopologicalSort;
 
 use crate::{
-    configuration::{CyclerConfiguration, FrameworkConfiguration},
     contexts::Field,
     error::Error,
+    manifest::{CyclerManifest, FrameworkManifest},
     node::Node,
 };
 
@@ -42,15 +41,95 @@ pub struct Cycler {
     pub name: CyclerName,
     pub kind: CyclerKind,
     pub instances: Vec<Instance>,
-    pub module: ModulePath,
-    pub nodes: Vec<Node>,
+    pub setup_nodes: Vec<Node>,
+    pub cycle_nodes: Vec<Node>,
+}
+
+impl Cycler {
+    fn try_from_manifest(cycler_manifest: &CyclerManifest, root: &Path) -> Result<Cycler, Error> {
+        let instance_names = cycler_manifest
+            .instances
+            .clone()
+            .unwrap_or_else(|| vec![String::new()]);
+        let instances = instance_names
+            .iter()
+            .map(|instance_name| Instance {
+                name: format!("{}{}", cycler_manifest.name, instance_name),
+            })
+            .collect();
+        let setup_nodes = cycler_manifest
+            .setup_nodes
+            .iter()
+            .map(|specification| Node::try_from_specification(specification, root))
+            .collect::<Result<Vec<_>, _>>()?;
+        let cycle_nodes = cycler_manifest
+            .nodes
+            .iter()
+            .map(|specification| Node::try_from_specification(specification, root))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Cycler {
+            name: cycler_manifest.name.clone(),
+            kind: cycler_manifest.kind,
+            instances,
+            setup_nodes,
+            cycle_nodes,
+        })
+    }
+
+    pub fn sort_nodes(&mut self) -> Result<(), Error> {
+        let output_to_setup_node: HashMap<_, _> = self
+            .setup_nodes
+            .iter()
+            .flat_map(|node| {
+                node.contexts
+                    .main_outputs
+                    .iter()
+                    .filter_map(move |field| match field {
+                        Field::MainOutput { name, .. } => Some((name.to_string(), node)),
+                        _ => None,
+                    })
+            })
+            .collect();
+        let sorted_setup_nodes =
+            sort_nodes(&self.setup_nodes, &output_to_setup_node, &HashSet::new())?;
+
+        let setup_outputs = output_to_setup_node.keys().cloned().collect();
+        let output_to_node: HashMap<_, _> = self
+            .cycle_nodes
+            .iter()
+            .flat_map(|node| {
+                node.contexts
+                    .main_outputs
+                    .iter()
+                    .filter_map(move |field| match field {
+                        Field::MainOutput { name, .. } => Some((name.to_string(), node)),
+                        _ => None,
+                    })
+            })
+            .collect();
+        let sorted_cycle_nodes = sort_nodes(&self.cycle_nodes, &output_to_node, &setup_outputs)?;
+
+        self.setup_nodes = sorted_setup_nodes;
+        self.cycle_nodes = sorted_cycle_nodes;
+        Ok(())
+    }
+
+    pub fn iter_nodes(&self) -> impl Iterator<Item = &Node> {
+        self.setup_nodes.iter().chain(self.cycle_nodes.iter())
+    }
 }
 
 impl Display for Cycler {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let instances = self.instances.iter().map(ToString::to_string).join(", ");
-        writeln!(f, "{} ({:?}) [{instances}]", self.name, self.kind)?;
-        for node in &self.nodes {
+        let name = &self.name;
+        let kind = &self.kind;
+        writeln!(f, "{name} ({kind:?}) [{instances}]")?;
+        for setup_node in &self.setup_nodes {
+            writeln!(f, "  {setup_node} (setup)")?;
+        }
+        for node in &self.cycle_nodes {
             writeln!(f, "  {node}")?;
         }
         Ok(())
@@ -72,126 +151,23 @@ impl Display for Cyclers {
 }
 
 impl Cyclers {
-    pub fn try_from_toml(path: impl AsRef<Path>) -> Result<Self, Error> {
-        let path = path.as_ref();
-        let configuration: FrameworkConfiguration =
-            toml::from_str(&read_to_string(path).map_err(|error| Error::Io {
-                source: error,
-                path: path.to_path_buf(),
-            })?)
-            .map_err(|error| Error::ConfigurationParsing {
-                source: error,
-                path: path.to_path_buf(),
-            })?;
-        let root = path.parent().unwrap();
-        Cyclers::try_from_configurations(&configuration.cyclers, root)
-    }
-
-    pub fn try_from_configurations<'config>(
-        values: impl IntoIterator<Item = &'config CyclerConfiguration>,
-        root: &Path,
-    ) -> Result<Self, Error> {
+    pub fn try_from_manifest(
+        manifest: FrameworkManifest,
+        root: impl AsRef<Path>,
+    ) -> Result<Cyclers, Error> {
+        let values = &manifest.cyclers;
         let cyclers = values
-            .into_iter()
-            .map(|configuration| Self::try_from_configuration(configuration, root))
+            .iter()
+            .map(|manifest| Cycler::try_from_manifest(manifest, root.as_ref()))
             .collect::<Result<_, _>>()?;
         Ok(Self { cyclers })
     }
 
-    fn try_from_configuration(
-        cycler_config: &CyclerConfiguration,
-        root: &Path,
-    ) -> Result<Cycler, Error> {
-        let instance_names = cycler_config
-            .instances
-            .clone()
-            .unwrap_or_else(|| vec![String::new()]);
-        let instances = instance_names
-            .iter()
-            .map(|instance_name| Instance {
-                name: format!("{}{}", cycler_config.name, instance_name),
-            })
-            .collect();
-        let nodes = cycler_config
-            .nodes
-            .iter()
-            .map(|node_config| {
-                Node::try_from_configuration(&cycler_config.module, node_config, root)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let output_to_node: HashMap<_, _> = nodes
-            .iter()
-            .flat_map(|node| {
-                node.contexts
-                    .main_outputs
-                    .iter()
-                    .filter_map(move |field| match field {
-                        Field::MainOutput { name, .. } => Some((name.to_string(), node)),
-                        _ => None,
-                    })
-            })
-            .collect();
-        let mut topological_sort = TopologicalSort::<&Node>::new();
-        for node in nodes.iter() {
-            topological_sort.insert(node);
-            for dependency in node
-                .contexts
-                .cycle_context
-                .iter()
-                .filter_map(|field| match field {
-                    Field::HistoricInput { path, .. }
-                    | Field::Input {
-                        path,
-                        cycler_instance: None,
-                        ..
-                    }
-                    | Field::RequiredInput {
-                        path,
-                        cycler_instance: None,
-                        ..
-                    } => {
-                        let first_segment = path.segments.first()?;
-                        Some(first_segment.name.as_str())
-                    }
-                    _ => None,
-                })
-            {
-                let producing_node = match output_to_node.get(dependency) {
-                    Some(node) => node,
-                    None => {
-                        return Err(Error::MissingOutput {
-                            node: node.name.clone(),
-                            output: dependency.to_string(),
-                        })
-                    }
-                };
-                if node.is_setup && !producing_node.is_setup {
-                    return Err(Error::SetupNodeDependency {
-                        depending_node: node.name.clone(),
-                        output: dependency.to_string(),
-                        producing_node: producing_node.name.clone(),
-                    });
-                }
-                topological_sort.add_dependency(*producing_node, node);
-            }
+    pub fn sort_nodes(&mut self) -> Result<(), Error> {
+        for cycler in &mut self.cyclers {
+            cycler.sort_nodes()?;
         }
-
-        let mut sorted_nodes = Vec::new();
-        while let Some(node) = topological_sort.pop() {
-            sorted_nodes.push(node.clone());
-        }
-        if !topological_sort.is_empty() {
-            return Err(Error::CircularDependency);
-        }
-
-        let cycler = Cycler {
-            name: cycler_config.name.clone(),
-            kind: cycler_config.kind,
-            instances,
-            module: cycler_config.module.clone(),
-            nodes: sorted_nodes,
-        };
-        Ok(cycler)
+        Ok(())
     }
 
     pub fn number_of_instances(&self) -> usize {
@@ -221,4 +197,59 @@ impl Cyclers {
                     .map(move |instance| (cycler, instance))
             })
     }
+}
+
+fn sort_nodes(
+    nodes: &[Node],
+    output_to_node: &HashMap<String, &Node>,
+    existing_outputs: &HashSet<String>,
+) -> Result<Vec<Node>, Error> {
+    let mut topological_sort = TopologicalSort::<&Node>::new();
+    for node in nodes {
+        topological_sort.insert(node);
+        for dependency in node
+            .contexts
+            .cycle_context
+            .iter()
+            .filter_map(|field| match field {
+                Field::HistoricInput { path, .. }
+                | Field::Input {
+                    path,
+                    cycler_instance: None,
+                    ..
+                }
+                | Field::RequiredInput {
+                    path,
+                    cycler_instance: None,
+                    ..
+                } => {
+                    let first_segment = path.segments.first()?;
+                    Some(first_segment.name.as_str())
+                }
+                _ => None,
+            })
+        {
+            let producing_node = match output_to_node.get(dependency) {
+                Some(node) => node,
+                None if existing_outputs.contains(dependency) => continue,
+                None => {
+                    return Err(Error::MissingOutput {
+                        node: node.name.clone(),
+                        output: dependency.to_string(),
+                    })
+                }
+            };
+            topological_sort.add_dependency(*producing_node, node);
+        }
+    }
+
+    let mut sorted_nodes = Vec::new();
+    while let Some(node) = topological_sort.pop() {
+        sorted_nodes.push(node.clone());
+    }
+    if !topological_sort.is_empty() {
+        return Err(Error::CircularDependency);
+    }
+
+    Ok(sorted_nodes)
 }

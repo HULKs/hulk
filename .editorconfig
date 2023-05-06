@@ -8,7 +8,7 @@ insert_final_newline = true
 
 # Matches multiple files with brace expansion notation
 # Set default charset
-[*.{cpp,hpp,h,cmake}]
+[*.lua]
 end_of_line = lf
 charset = utf-8
 indent_style = space

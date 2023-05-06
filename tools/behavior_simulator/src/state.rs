@@ -1,23 +1,25 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     mem::take,
     time::{Duration, UNIX_EPOCH},
 };
 
 use color_eyre::Result;
-use cyclers::control::Database;
 use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
-use structs::{control::AdditionalOutputs, Configuration};
 use types::{
-    messages::{IncomingMessage, OutgoingMessage},
-    BallPosition, FilteredGameState, GameControllerState, HeadMotion, KickVariant, LineSegment,
-    MotionCommand, OrientationMode, PathSegment, Players, PrimaryState, Side,
+    messages::OutgoingMessage, BallPosition, FilteredGameState, GameControllerState, HeadMotion,
+    KickVariant, LineSegment, MotionCommand, OrientationMode, PathSegment, Players, PrimaryState,
+    Side,
 };
 
-use crate::robot::Robot;
+use crate::{
+    cycler::Database,
+    robot::Robot,
+    structs::{control::AdditionalOutputs, Configuration},
+};
 
 pub enum Event {
     Cycle,
@@ -204,13 +206,10 @@ impl State {
                 .as_mut()
                 .expect("simulated robots should always have a known pose");
 
-            let incoming_messages: Vec<_> = incoming_messages
+            let incoming_messages = incoming_messages
                 .iter()
-                .filter_map(|(sender, message)| {
-                    (sender != player_number).then_some(IncomingMessage::Spl(*message))
-                })
+                .filter_map(|(sender, message)| (sender != player_number).then_some(*message))
                 .collect();
-            let messages = BTreeMap::from_iter([(now, incoming_messages.iter().collect())]);
 
             robot.database.main_outputs.cycle_time.start_time = now;
 
@@ -244,8 +243,9 @@ impl State {
                 };
             robot.database.main_outputs.filtered_game_state = Some(self.filtered_game_state);
             robot.database.main_outputs.game_controller_state = Some(self.game_controller_state);
+            robot.database.main_outputs.hulk_messages = incoming_messages;
 
-            robot.cycle(messages)?;
+            robot.cycle()?;
 
             for message in robot.interface.take_outgoing_messages() {
                 if let OutgoingMessage::Spl(message) = message {

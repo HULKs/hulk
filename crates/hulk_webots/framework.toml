@@ -2,89 +2,85 @@
 name = "Vision"
 kind = "Perception"
 instances = ["Top", "Bottom"]
-module = "vision"
+setup_nodes = ["vision::image_receiver"]
 nodes = [
-  { module = "image_receiver", is_setup = true },
-  "ball_detection",
-  "camera_matrix_extractor",
-  "feet_detection",
-  "field_border_detection",
-  "field_color_detection",
-  "image_segmenter",
-  "limb_projector",
-  "line_detection",
-  "perspective_grid_candidates_provider",
-  "robot_detection",
-  "segment_filter",
+  "vision::ball_detection",
+  "vision::camera_matrix_extractor",
+  "vision::feet_detection",
+  "vision::field_border_detection",
+  "vision::field_color_detection",
+  "vision::image_segmenter",
+  "vision::limb_projector",
+  "vision::line_detection",
+  "vision::perspective_grid_candidates_provider",
+  "vision::robot_detection",
+  "vision::segment_filter",
 ]
 
 [[cyclers]]
 name = "Control"
 kind = "RealTime"
-module = "control"
+setup_nodes = ["control::sensor_data_receiver"]
 nodes = [
-  { module = "sensor_data_receiver", is_setup = true },
-  "active_vision",
-  "ball_filter",
-  "ball_state_composer",
-  "behavior::node",
-  "button_filter",
-  "camera_matrix_calculator",
-  "center_of_mass_provider",
-  "fall_state_estimation",
-  "game_controller_filter",
-  "game_state_filter",
-  "ground_contact_detector",
-  "ground_provider",
-  "kick_selector",
-  "kinematics_provider",
-  "led_status",
-  "localization",
-  "motion::arms_up_squat",
-  "motion::condition_input_provider",
-  "motion::dispatching_interpolator",
-  "motion::energy_saving_stand",
-  "motion::fall_protector",
-  "motion::head_motion",
-  "motion::joint_command_sender",
-  "motion::jump_left",
-  "motion::jump_right",
-  "motion::look_around",
-  "motion::look_at",
-  "motion::motion_selector",
-  "motion::sit_down",
-  "motion::stand_up_back",
-  "motion::stand_up_front",
-  "motion::step_planner",
-  "motion::walk_manager",
-  "motion::walking_engine",
-  "obstacle_filter",
-  "odometry",
-  "orientation_filter",
-  "penalty_shot_direction_estimation",
-  "primary_state_filter",
-  "role_assignment",
-  "rule_obstacle_composer",
-  "sole_pressure_filter",
-  "sonar_filter",
-  "support_foot_estimation",
-  "whistle_filter",
-  "world_state_composer",
+  "control::active_vision",
+  "control::ball_filter",
+  "control::ball_state_composer",
+  "control::behavior::node",
+  "control::button_filter",
+  "control::camera_matrix_calculator",
+  "control::center_of_mass_provider",
+  "control::fall_state_estimation",
+  "control::game_controller_filter",
+  "control::game_state_filter",
+  "control::ground_contact_detector",
+  "control::ground_provider",
+  "control::hulk_message_filter",
+  "control::kick_selector",
+  "control::kinematics_provider",
+  "control::led_status",
+  "control::localization",
+  "control::motion::arms_up_squat",
+  "control::motion::condition_input_provider",
+  "control::motion::dispatching_interpolator",
+  "control::motion::energy_saving_stand",
+  "control::motion::fall_protector",
+  "control::motion::head_motion",
+  "control::motion::joint_command_sender",
+  "control::motion::jump_left",
+  "control::motion::jump_right",
+  "control::motion::look_around",
+  "control::motion::look_at",
+  "control::motion::motion_selector",
+  "control::motion::sit_down",
+  "control::motion::stand_up_back",
+  "control::motion::stand_up_front",
+  "control::motion::step_planner",
+  "control::motion::walk_manager",
+  "control::motion::walking_engine",
+  "control::obstacle_filter",
+  "control::odometry",
+  "control::orientation_filter",
+  "control::penalty_shot_direction_estimation",
+  "control::primary_state_filter",
+  "control::role_assignment",
+  "control::rule_obstacle_composer",
+  "control::sole_pressure_filter",
+  "control::sonar_filter",
+  "control::support_foot_estimation",
+  "control::whistle_filter",
+  "control::world_state_composer",
 ]
 
 [[cyclers]]
 name = "SplNetwork"
 kind = "Perception"
-module = "spl_network"
-nodes = [
-  { module = "message_receiver", is_setup = true },
-]
+setup_nodes = ["spl_network::message_receiver"]
+nodes = []
 
 [[cyclers]]
 name = "Audio"
 kind = "Perception"
-module = "audio"
+setup_nodes = ["audio::microphone_recorder"]
 nodes = [
-  { module = "microphone_recorder", is_setup = true },
-  "whistle_detection",
+  "audio::whistle_detection",
 ]
