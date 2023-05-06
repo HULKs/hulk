@@ -248,7 +248,7 @@ impl Repository {
         let hulk_directory = upload_directory.path().join("hulk");
 
         // the target directory is "debug" with --profile dev...
-        let target_name = match profile {
+        let profile_directory = match profile {
             "dev" => "debug",
             other => other,
         };
@@ -263,7 +263,7 @@ impl Repository {
 
         symlink(
             self.root.join(format!(
-                "target/x86_64-aldebaran-linux-gnu/{target_name}/nao"
+                "target/x86_64-aldebaran-linux-gnu/{profile_directory}/hulk_nao"
             )),
             hulk_directory.join("bin/hulk"),
         )
