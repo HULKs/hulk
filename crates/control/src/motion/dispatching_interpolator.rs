@@ -110,7 +110,6 @@ impl DispatchingInterpolator {
                 Duration::from_secs_f32(1.0),
             )?
             .into();
-            dbg!("Now dispatch to", dispatching_motion);
             self.stiffnesses = Joints::fill(0.8);
         }
 
