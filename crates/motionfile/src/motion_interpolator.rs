@@ -184,10 +184,6 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
             keyframe.spline.set_initial_positions(position);
         }
     }
-
-    pub fn initial_positions(&self) -> T {
-        self.frames[0].spline.start_position()
-    }
 }
 
 impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<T> {

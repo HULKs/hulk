@@ -66,7 +66,7 @@ impl StandUpFront {
                 self.compute_stand_up_front(context)?
             } else {
                 self.interpolator.reset();
-                self.interpolator.initial_positions()
+                self.interpolator.value()
             };
         Ok(MainOutputs {
             stand_up_front_positions: current_position.into(),
