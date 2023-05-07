@@ -66,7 +66,7 @@ impl StandUpBack {
                 self.compute_stand_up_back(context)
             } else {
                 self.interpolator.reset();
-                self.interpolator.initial_positions()
+                self.interpolator.value()
             };
         Ok(MainOutputs {
             stand_up_back_positions: current_position.into(),
