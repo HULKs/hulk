@@ -8,7 +8,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{error, from_str, from_value, to_value, Value};
 use tokio::fs::{read_to_string, write};
 
-use super::json_operations::{merge_json, prune_equal_branches};
+use super::json::{merge_json, prune_equal_branches};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DirectoryError {

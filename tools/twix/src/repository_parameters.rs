@@ -4,7 +4,7 @@ use color_eyre::{
 };
 use itertools::Itertools;
 use log::error;
-use parameters::json_operations::merge_json;
+use parameters::json::merge_json;
 use repository::{get_repository_root, HardwareIds, Repository};
 use serde_json::{json, Value};
 use std::{collections::HashMap, net::Ipv4Addr};
