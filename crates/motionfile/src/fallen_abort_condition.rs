@@ -1,4 +1,4 @@
-use std::{fmt::Debug, time::Duration};
+use std::fmt::Debug;
 
 use crate::{condition::Response, Condition};
 
@@ -9,7 +9,7 @@ use types::ConditionInput;
 pub struct FallenAbort {}
 
 impl Condition for FallenAbort {
-    fn evaluate(&self, condition_input: &ConditionInput, _: Duration) -> Response {
+    fn evaluate(&self, condition_input: &ConditionInput) -> Response {
         match condition_input.fall_state {
             types::FallState::Fallen { .. } => Response::Abort,
             _ => Response::Continue,

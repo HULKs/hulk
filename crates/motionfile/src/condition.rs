@@ -12,14 +12,34 @@ pub enum Response {
     Wait,
 }
 
-#[enum_dispatch(ConditionType)]
-pub trait Condition {
-    fn evaluate(&self, condition_input: &ConditionInput, time_since_start: Duration) -> Response;
+impl Response {
+    pub fn with_timeout(self, timeout: bool) -> Response {
+        if timeout {
+            Response::Abort
+        } else {
+            self
+        }
+    }
 }
 
 #[enum_dispatch]
+pub trait Condition {
+    fn evaluate(&self, condition_input: &ConditionInput) -> Response;
+}
+
+#[enum_dispatch]
+pub trait TimeOut {
+    fn timeout(&self, time_since_start: Duration) -> bool;
+}
+
+#[enum_dispatch(Condition, TimeOut)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ConditionType {
+pub enum DiscreteConditionType {
     StabilizedCondition,
+}
+
+#[enum_dispatch(Condition)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ContinuousConditionType {
     FallenAbort,
 }
