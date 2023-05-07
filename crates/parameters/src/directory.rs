@@ -44,19 +44,19 @@ pub enum SerializationError {
 }
 
 pub async fn deserialize<Parameters>(
-    root_path: impl AsRef<Path>,
+    parameters_root_path: impl AsRef<Path>,
     body_id: &str,
     head_id: &str,
 ) -> Result<Parameters, DirectoryError>
 where
     Parameters: DeserializeOwned,
 {
-    let default_file_path = root_path.as_ref().join("default.json");
+    let default_file_path = parameters_root_path.as_ref().join("default.json");
     let mut parameters = from_path(default_file_path)
         .await
         .map_err(DirectoryError::DefaultParametersNotGet)?;
 
-    let location_directory = root_path.as_ref().join(get_location_directory(head_id));
+    let location_directory = parameters_root_path.as_ref().join(get_location_directory(head_id));
 
     let location_default_file_path = location_directory.join("default.json");
     if location_default_file_path.exists() {
@@ -66,7 +66,7 @@ where
         merge_json(&mut parameters, &location_default_parameters);
     }
 
-    let body_file_path = root_path.as_ref().join(format!("body.{}.json", body_id));
+    let body_file_path = parameters_root_path.as_ref().join(format!("body.{}.json", body_id));
     if body_file_path.exists() {
         let body_parameters = from_path(body_file_path)
             .await
@@ -74,7 +74,7 @@ where
         merge_json(&mut parameters, &body_parameters);
     }
 
-    let head_file_path = root_path.as_ref().join(format!("head.{}.json", head_id));
+    let head_file_path = parameters_root_path.as_ref().join(format!("head.{}.json", head_id));
     if head_file_path.exists() {
         let head_parameters = from_path(head_file_path)
             .await
@@ -103,7 +103,7 @@ where
 
 pub async fn serialize<Parameters>(
     parameters: &Parameters,
-    root_path: impl AsRef<Path>,
+    parameters_root_path: impl AsRef<Path>,
     body_id: &str,
     head_id: &str,
 ) -> Result<(), DirectoryError>
@@ -112,12 +112,12 @@ where
 {
     let mut parameters =
         to_value(parameters).map_err(DirectoryError::ParametersNotConvertedToJsonValue)?;
-    let stored_parameters = to_value(deserialize(&root_path, body_id, head_id).await?)
+    let stored_parameters = to_value(deserialize(&parameters_root_path, body_id, head_id).await?)
         .map_err(DirectoryError::ParametersNotConvertedToJsonValue)?;
 
     prune_equal_branches(&mut parameters, &stored_parameters);
 
-    let location_head_file_path = root_path
+    let location_head_file_path = parameters_root_path
         .as_ref()
         .join(get_location_directory(head_id))
         .join(format!("head.{}.json", head_id));
