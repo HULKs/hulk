@@ -32,7 +32,11 @@ pub struct CompletionEdit<'key> {
 }
 
 impl<'key> CompletionEdit<'key> {
-    pub fn new(key: &'key mut String, completion_items: Vec<String>, hint_text: &'static str) -> Self {
+    pub fn new(
+        key: &'key mut String,
+        completion_items: Vec<String>,
+        hint_text: &'static str,
+    ) -> Self {
         Self {
             hint_text,
             key,
@@ -141,12 +145,13 @@ impl Widget for CompletionEdit<'_> {
                         );
                     } else if input.consume_key(Modifiers::NONE, Key::ArrowUp)
                         || input.consume_key(eframe::egui::Modifiers::SHIFT, Key::Tab)
-                    {   
+                    {
                         state.selected_item = Some(
                             (state
                                 .selected_item
                                 .unwrap_or(completion_text_items.len() as i64)
-                                - 1).rem_euclid(completion_text_items.len() as i64),
+                                - 1)
+                            .rem_euclid(completion_text_items.len() as i64),
                         );
                     }
                 });
