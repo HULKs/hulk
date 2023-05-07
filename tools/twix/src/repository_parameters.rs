@@ -4,7 +4,7 @@ use color_eyre::{
 };
 use itertools::Itertools;
 use log::error;
-use parameters::json::merge_json;
+use parameters::json::{merge_json, prune_equal_branches};
 use repository::{get_repository_root, HardwareIds, Repository};
 use serde_json::{json, Value};
 use std::{collections::HashMap, net::Ipv4Addr};
@@ -40,14 +40,13 @@ impl RepositoryParameters {
         };
         self.runtime.spawn(async move {
             let stored_complete_parameter_tree: Value = parameters::directory::deserialize(
-                repository.root_directory(),
+                repository.configuration_root(),
                 &hardware_ids.body_id,
                 &hardware_ids.head_id,
             )
             .await
             .unwrap_or_default();
 
-            // value is just the "leaf" of the "path", make the tree structure to diff/ merge against complete parameter tree.
             let supplied_value_as_sparse_tree =
                 make_sparse_value_tree_from_path(path.as_str(), &value);
             let diff = get_diff_against_stored_value(
@@ -80,13 +79,13 @@ impl RepositoryParameters {
             last_octet_from_ip_address(address.parse().wrap_err("failed to parse IP address")?);
         self.hardware_ids_from_nao_number(nao_number)
             .wrap_err_with(|| format!("failed to get head ID from NAO number {nao_number}"))
+            .cloned()
     }
 
-    fn hardware_ids_from_nao_number(&self, nao_number: u8) -> Result<HardwareIds> {
+    fn hardware_ids_from_nao_number(&self, nao_number: u8) -> Result<&HardwareIds> {
         self.ids
             .get(&nao_number)
             .ok_or_else(|| eyre!("no IDs known for NAO number {nao_number}"))
-            .cloned()
     }
 }
 
