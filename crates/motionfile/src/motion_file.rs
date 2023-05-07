@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::from_reader;
 use splines::{Interpolate, Interpolation};
 
-use crate::condition::ConditionType;
+use crate::condition::{ContinuousConditionType, DiscreteConditionType};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct MotionFile<T> {
@@ -36,9 +36,10 @@ where
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct MotionFileFrame<T> {
     pub name: Option<String>,
-    pub entry_condition: Option<ConditionType>,
+    pub entry_condition: Option<DiscreteConditionType>,
+    pub enable: Option<Vec<ContinuousConditionType>>,
     pub keyframes: Vec<KeyFrame<T>>,
-    pub exit_condition: Option<ConditionType>,
+    pub exit_condition: Option<DiscreteConditionType>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

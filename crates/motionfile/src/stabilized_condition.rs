@@ -1,6 +1,6 @@
 use std::{fmt::Debug, time::Duration};
 
-use crate::{condition::Response, Condition};
+use crate::condition::{Condition, Response, TimeOut};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use types::ConditionInput;
@@ -30,12 +30,16 @@ where
 }
 
 impl Condition for StabilizedCondition {
-    fn evaluate(&self, condition_input: &ConditionInput, time_since_start: Duration) -> Response {
-        if condition_input.filtered_angular_velocity.norm() < self.tolerance
-            || time_since_start > self.timeout_duration
-        {
+    fn evaluate(&self, condition_input: &ConditionInput) -> Response {
+        if condition_input.filtered_angular_velocity.norm() < self.tolerance {
             return Response::Continue;
         }
         Response::Wait
+    }
+}
+
+impl TimeOut for StabilizedCondition {
+    fn timeout(&self, time_since_start: Duration) -> bool {
+        time_since_start > self.timeout_duration
     }
 }

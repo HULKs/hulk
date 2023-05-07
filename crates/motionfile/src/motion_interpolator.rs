@@ -1,10 +1,10 @@
 use std::fmt::Debug;
 use std::time::Duration;
 
-use crate::condition::Response;
+use crate::condition::{ContinuousConditionType, DiscreteConditionType, Response, TimeOut};
 use crate::timed_spline::{InterpolatorError, TimedSpline};
 use crate::Condition;
-use crate::{condition::ConditionType, MotionFile};
+use crate::MotionFile;
 use color_eyre::{Report, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -13,19 +13,21 @@ use types::ConditionInput;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ConditionedSpline<T> {
-    pub entry_condition: Option<ConditionType>,
+    pub entry_condition: Option<DiscreteConditionType>,
+    pub enable: Option<Vec<ContinuousConditionType>>,
     pub spline: TimedSpline<T>,
-    pub exit_condition: Option<ConditionType>,
+    pub exit_condition: Option<DiscreteConditionType>,
 }
 
 #[derive(Default, Debug)]
 pub struct MotionInterpolator<T> {
     frames: Vec<ConditionedSpline<T>>,
-    current_state: State,
+    active_continuous_conditions: Vec<ContinuousConditionType>,
+    current_state: State<T>,
 }
 
-#[derive(Debug)]
-enum State {
+#[derive(Debug, Clone, Copy)]
+enum State<T> {
     CheckEntry {
         current_frame_index: usize,
         time_since_start: Duration,
@@ -40,18 +42,11 @@ enum State {
     },
     Finished,
     Aborted {
-        frame_side: Side,
-        from_frame_index: usize,
+        at_position: T,
     },
 }
 
-#[derive(Debug, Clone, Copy)]
-enum Side {
-    Entry,
-    Exit,
-}
-
-impl Default for State {
+impl<T> Default for State<T> {
     fn default() -> Self {
         State::CheckEntry {
             current_frame_index: 0,
@@ -62,20 +57,28 @@ impl Default for State {
 
 impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
     pub fn advance_by(&mut self, time_step: Duration, condition_input: &ConditionInput) {
-        self.current_state = match self.current_state {
+        if self
+            .active_continuous_conditions
+            .iter()
+            .any(|condition| matches!(condition.evaluate(condition_input), Response::Abort))
+        {
+            self.abort_motion();
+            return;
+        }
+
+        let candidate_state = match self.current_state {
             State::CheckEntry {
                 current_frame_index,
                 time_since_start,
             } => {
                 let current_frame = &self.frames[current_frame_index];
-                match current_frame
-                    .entry_condition
-                    .as_ref()
-                    .map(|condition| condition.evaluate(condition_input, time_since_start))
-                {
+                match current_frame.entry_condition.as_ref().map(|condition| {
+                    condition
+                        .evaluate(condition_input)
+                        .with_timeout(condition.timeout(time_since_start))
+                }) {
                     Some(Response::Abort) => State::Aborted {
-                        frame_side: Side::Entry,
-                        from_frame_index: current_frame_index,
+                        at_position: self.value(),
                     },
                     Some(Response::Wait) => State::CheckEntry {
                         current_frame_index,
@@ -109,14 +112,13 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                 time_since_start,
             } => {
                 let current_frame = &self.frames[current_frame_index];
-                match current_frame
-                    .exit_condition
-                    .as_ref()
-                    .map(|condition| condition.evaluate(condition_input, time_since_start))
-                {
+                match current_frame.exit_condition.as_ref().map(|condition| {
+                    condition
+                        .evaluate(condition_input)
+                        .with_timeout(condition.timeout(time_since_start))
+                }) {
                     Some(Response::Abort) => State::Aborted {
-                        frame_side: Side::Exit,
-                        from_frame_index: current_frame_index,
+                        at_position: self.value(),
                     },
                     Some(Response::Wait) => State::CheckExit {
                         current_frame_index,
@@ -129,15 +131,40 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     _ => State::Finished,
                 }
             }
-            State::Finished => State::Finished,
-            State::Aborted {
-                frame_side,
-                from_frame_index,
-            } => State::Aborted {
-                frame_side,
-                from_frame_index,
-            },
+            other_state => other_state,
         };
+
+        self.apply_state(candidate_state);
+    }
+
+    fn apply_state(&mut self, candidate_state: State<T>) {
+        self.current_state = match candidate_state {
+            entry @ State::CheckEntry {
+                current_frame_index,
+                ..
+            } if current_frame_index < self.frames.len() => {
+                let current_frame = &self.frames[current_frame_index];
+                if let Some(conditions) = current_frame.enable.as_ref() {
+                    self.active_continuous_conditions.extend(conditions.clone());
+                }
+                entry
+            }
+            spline @ State::InterpolateSpline {
+                current_frame_index,
+                ..
+            } if current_frame_index < self.frames.len() => spline,
+            exit @ State::CheckExit {
+                current_frame_index,
+                ..
+            } if current_frame_index < self.frames.len() => exit,
+            aborted @ State::Aborted { .. } => aborted,
+            _ => State::Finished,
+        }
+    }
+
+    fn abort_motion(&mut self) {
+        let at_position = self.value();
+        self.current_state = State::Aborted { at_position };
     }
 
     pub fn is_finished(&self) -> bool {
@@ -161,14 +188,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                 ..
             } => self.frames[current_frame_index].spline.end_position(),
             State::Finished => self.frames.last().unwrap().spline.end_position(),
-            State::Aborted {
-                frame_side: Side::Entry,
-                from_frame_index,
-            } => self.frames[from_frame_index].spline.start_position(),
-            State::Aborted {
-                frame_side: Side::Exit,
-                from_frame_index,
-            } => self.frames[from_frame_index].spline.end_position(),
+            State::Aborted { at_position } => at_position,
         }
     }
 
@@ -176,6 +196,11 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         self.current_state = State::CheckEntry {
             current_frame_index: 0,
             time_since_start: Duration::ZERO,
+        };
+        self.active_continuous_conditions.clear();
+
+        if let Some(conditions) = self.frames[0].enable.as_ref() {
+            self.active_continuous_conditions.extend(conditions.clone())
         }
     }
 
@@ -196,6 +221,7 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
 
         let mut motion_frames = vec![ConditionedSpline {
             entry_condition: first_frame.entry_condition.clone(),
+            enable: first_frame.enable.clone(),
             spline: TimedSpline::try_new_with_start(
                 motion_file.initial_positions,
                 first_frame.keyframes.clone(),
@@ -212,6 +238,7 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
                 .map(|(first_frame, second_frame)| {
                     Ok(ConditionedSpline {
                         entry_condition: second_frame.entry_condition,
+                        enable: second_frame.enable,
                         spline: TimedSpline::try_new_with_start(
                             first_frame.keyframes.last().unwrap().positions,
                             second_frame.keyframes,
@@ -223,11 +250,19 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
                 .collect::<Result<Vec<_>, InterpolatorError>>()?,
         );
 
+        let initial_enabled_conditions = if let Some(conditions) = motion_frames[0].enable.as_mut()
+        {
+            Vec::from_iter(conditions.drain(..))
+        } else {
+            vec![]
+        };
+
         Ok(Self {
             current_state: State::CheckEntry {
                 current_frame_index: 0,
                 time_since_start: Duration::ZERO,
             },
+            active_continuous_conditions: initial_enabled_conditions,
             frames: motion_frames,
         })
     }
