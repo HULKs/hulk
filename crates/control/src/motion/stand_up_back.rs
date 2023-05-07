@@ -54,7 +54,6 @@ impl StandUpBack {
             .advance_by(last_cycle_duration, condition_input);
 
         if self.interpolator.is_finished() {
-            dbg!("interpolator finished");
             context.motion_finished[MotionType::StandUpBack] = true;
         }
 
@@ -67,7 +66,6 @@ impl StandUpBack {
                 self.compute_stand_up_back(context)
             } else {
                 self.interpolator.reset();
-                dbg!("initial positions");
                 self.interpolator.initial_positions()
             };
         Ok(MainOutputs {

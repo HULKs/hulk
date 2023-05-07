@@ -13,7 +13,7 @@ pub enum Response {
 }
 
 #[enum_dispatch(ConditionType)]
-pub trait Condition: Clone {
+pub trait Condition {
     fn evaluate(&self, condition_input: &ConditionInput, time_since_start: Duration) -> Response;
 }
 
