@@ -46,12 +46,12 @@ impl Repository {
         }
     }
 
-    pub fn root_directory(&self) -> PathBuf {
-        self.root.clone()
-    }
-
     pub fn crates_directory(&self) -> PathBuf {
         self.root.join("crates")
+    }
+
+    pub fn configuration_root(&self) -> PathBuf {
+        self.root.join("etc/configuration")
     }
 
     pub fn find_latest_file(&self, pattern: &str) -> Result<PathBuf> {
@@ -176,10 +176,6 @@ impl Repository {
             passthrough_arguments,
         )
         .await
-    }
-
-    fn configuration_root(&self) -> PathBuf {
-        self.root.join("etc/configuration")
     }
 
     fn head_configuration(&self, head_id: &str) -> PathBuf {
