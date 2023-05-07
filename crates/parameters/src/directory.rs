@@ -130,7 +130,7 @@ where
 
     let mut location_head_parameters = from_path(&location_head_file_path)
         .await
-        .map_err(DirectoryError::BodyParametersOfLocationNotGet)?;
+        .map_err(DirectoryError::HeadParametersOfLocationNotGet)?;
     merge_json(&mut location_head_parameters, &parameters);
 
     to_path(location_head_file_path, location_head_parameters)
