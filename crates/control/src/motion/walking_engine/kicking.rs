@@ -1,12 +1,17 @@
 use std::time::Duration;
 use types::{JointOverride, KickStep, LegJoints};
 
-pub fn apply_joint_overrides(kick_step: &KickStep, swing_leg: &mut LegJoints<f32>, t: Duration) {
+pub fn apply_joint_overrides(
+    kick_step: &KickStep,
+    swing_leg: &mut LegJoints<f32>,
+    t: Duration,
+    scaling: f32,
+) {
     if let Some(overrides) = &kick_step.hip_pitch_overrides {
-        swing_leg.hip_pitch += compute_override(overrides, t);
+        swing_leg.hip_pitch += scaling * compute_override(overrides, t);
     }
     if let Some(overrides) = &kick_step.ankle_pitch_overrides {
-        swing_leg.ankle_pitch += compute_override(overrides, t);
+        swing_leg.ankle_pitch += scaling * compute_override(overrides, t);
     }
 }
 

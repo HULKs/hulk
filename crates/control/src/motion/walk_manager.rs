@@ -34,10 +34,13 @@ impl WalkManager {
             (MotionCommand::Walk { .. }, MotionType::Walk) => WalkCommand::Walk(*context.step_plan),
             (
                 MotionCommand::InWalkKick {
-                    kick, kicking_side, ..
+                    kick,
+                    kicking_side,
+                    strength,
+                    ..
                 },
                 MotionType::Walk,
-            ) => WalkCommand::Kick(*kick, *kicking_side),
+            ) => WalkCommand::Kick(*kick, *kicking_side, *strength),
             _ => WalkCommand::Stand,
         };
 
