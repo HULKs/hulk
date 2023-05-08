@@ -141,7 +141,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         self.current_state = match candidate_state {
             entry @ State::CheckEntry {
                 current_frame_index,
-                ..
+                time_since_start: Duration::ZERO,
             } if current_frame_index < self.frames.len() => {
                 let current_frame = &self.frames[current_frame_index];
                 if let Some(conditions) = current_frame.enable.as_ref() {
@@ -149,14 +149,19 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                 }
                 entry
             }
-            spline @ State::InterpolateSpline {
+            legal_state @ (State::InterpolateSpline {
                 current_frame_index,
                 ..
-            } if current_frame_index < self.frames.len() => spline,
-            exit @ State::CheckExit {
+            }
+            | State::CheckEntry {
                 current_frame_index,
                 ..
-            } if current_frame_index < self.frames.len() => exit,
+            }
+            | State::CheckExit {
+                current_frame_index,
+                ..
+            }) if current_frame_index < self.frames.len() => legal_state,
+
             aborted @ State::Aborted { .. } => aborted,
             _ => State::Finished,
         }
@@ -193,15 +198,12 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
     }
 
     pub fn reset(&mut self) {
-        self.current_state = State::CheckEntry {
+        self.active_continuous_conditions.clear();
+        let state = State::CheckEntry {
             current_frame_index: 0,
             time_since_start: Duration::ZERO,
         };
-        self.active_continuous_conditions.clear();
-
-        if let Some(conditions) = self.frames[0].enable.as_ref() {
-            self.active_continuous_conditions.extend(conditions.clone())
-        }
+        self.apply_state(state);
     }
 
     pub fn set_initial_positions(&mut self, position: T) {
