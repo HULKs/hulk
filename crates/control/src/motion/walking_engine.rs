@@ -255,7 +255,7 @@ impl WalkingEngine {
         left_leg.hip_pitch += arm_compensation - context.config.torso_tilt_offset;
         right_leg.hip_pitch += arm_compensation - context.config.torso_tilt_offset;
 
-        if let WalkState::Kicking(kick_variant, _, kick_step_i) = self.walk_state {
+        if let WalkState::Kicking(kick_variant, _, kick_step_i, strength) = self.walk_state {
             let swing_leg = match self.swing_side {
                 Side::Left => &mut left_leg,
                 Side::Right => &mut right_leg,
@@ -266,7 +266,7 @@ impl WalkingEngine {
                 KickVariant::Side => &context.kick_steps.side,
             };
             let kick_step = &kick_steps[kick_step_i];
-            apply_joint_overrides(kick_step, swing_leg, self.t);
+            apply_joint_overrides(kick_step, swing_leg, self.t, strength);
         }
 
         let mut support_leg_adjustment = LegJoints::default();
@@ -462,7 +462,7 @@ impl WalkingEngine {
                 self.swing_side = swing_side.opposite();
                 self.max_swing_foot_lift = config.base_foot_lift;
             }
-            WalkState::Kicking(kick_variant, kick_side, kick_step_i) => {
+            WalkState::Kicking(kick_variant, kick_side, kick_step_i, _) => {
                 let kick_steps = match kick_variant {
                     KickVariant::Forward => &kick_steps.forward,
                     KickVariant::Turn => &kick_steps.turn,

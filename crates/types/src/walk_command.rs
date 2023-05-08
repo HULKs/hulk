@@ -8,5 +8,5 @@ pub enum WalkCommand {
     #[default]
     Stand,
     Walk(Step),
-    Kick(KickVariant, Side),
+    Kick(KickVariant, Side, f32),
 }

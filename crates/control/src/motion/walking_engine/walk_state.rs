@@ -7,7 +7,7 @@ pub enum WalkState {
     Standing,
     Starting(Step),
     Walking(Step),
-    Kicking(KickVariant, Side, usize),
+    Kicking(KickVariant, Side, usize, f32),
     Stopping,
 }
 
@@ -34,21 +34,21 @@ impl WalkState {
             (WalkState::Stopping, WalkCommand::Stand) => WalkState::Standing,
             (WalkState::Stopping, WalkCommand::Walk(step)) => WalkState::Walking(step),
             (WalkState::Standing, WalkCommand::Kick(..)) => WalkState::Starting(Step::zero()),
-            (WalkState::Starting(_), WalkCommand::Kick(kick_variant, kick_side)) => {
+            (WalkState::Starting(_), WalkCommand::Kick(kick_variant, kick_side, strength)) => {
                 if kick_side == swing_side.opposite() {
-                    WalkState::Kicking(kick_variant, kick_side, 0)
+                    WalkState::Kicking(kick_variant, kick_side, 0, strength)
                 } else {
                     WalkState::Walking(Step::zero())
                 }
             }
-            (WalkState::Walking(_), WalkCommand::Kick(kick_variant, kick_side)) => {
+            (WalkState::Walking(_), WalkCommand::Kick(kick_variant, kick_side, strength)) => {
                 if kick_side == swing_side.opposite() {
-                    WalkState::Kicking(kick_variant, kick_side, 0)
+                    WalkState::Kicking(kick_variant, kick_side, 0, strength)
                 } else {
                     WalkState::Walking(Step::zero())
                 }
             }
-            (WalkState::Kicking(kick_variant, kick_side, step_i), WalkCommand::Stand) => {
+            (WalkState::Kicking(kick_variant, kick_side, step_i, strength), WalkCommand::Stand) => {
                 let num_steps = match kick_variant {
                     KickVariant::Forward => &kick_steps.forward,
                     KickVariant::Turn => &kick_steps.turn,
@@ -56,12 +56,15 @@ impl WalkState {
                 }
                 .len();
                 if step_i + 1 < num_steps {
-                    WalkState::Kicking(kick_variant, kick_side, step_i + 1)
+                    WalkState::Kicking(kick_variant, kick_side, step_i + 1, strength)
                 } else {
                     WalkState::Stopping
                 }
             }
-            (WalkState::Kicking(kick_variant, kick_side, step_i), WalkCommand::Walk(step)) => {
+            (
+                WalkState::Kicking(kick_variant, kick_side, step_i, strength),
+                WalkCommand::Walk(step),
+            ) => {
                 let num_steps = match kick_variant {
                     KickVariant::Forward => &kick_steps.forward,
                     KickVariant::Turn => &kick_steps.turn,
@@ -69,13 +72,13 @@ impl WalkState {
                 }
                 .len();
                 if step_i + 1 < num_steps {
-                    WalkState::Kicking(kick_variant, kick_side, step_i + 1)
+                    WalkState::Kicking(kick_variant, kick_side, step_i + 1, strength)
                 } else {
                     WalkState::Walking(step)
                 }
             }
             (
-                WalkState::Kicking(current_kick_variant, current_kick_side, step_i),
+                WalkState::Kicking(current_kick_variant, current_kick_side, step_i, strength),
                 WalkCommand::Kick(..),
             ) => {
                 let num_steps = match current_kick_variant {
@@ -85,14 +88,19 @@ impl WalkState {
                 }
                 .len();
                 if step_i + 1 < num_steps {
-                    WalkState::Kicking(current_kick_variant, current_kick_side, step_i + 1)
+                    WalkState::Kicking(
+                        current_kick_variant,
+                        current_kick_side,
+                        step_i + 1,
+                        strength,
+                    )
                 } else {
                     WalkState::Walking(Step::zero())
                 }
             }
-            (WalkState::Stopping, WalkCommand::Kick(kick_variant, kick_side)) => {
+            (WalkState::Stopping, WalkCommand::Kick(kick_variant, kick_side, strength)) => {
                 if kick_side == swing_side.opposite() {
-                    WalkState::Kicking(kick_variant, kick_side, 0)
+                    WalkState::Kicking(kick_variant, kick_side, 0, strength)
                 } else {
                     WalkState::Walking(Step::zero())
                 }

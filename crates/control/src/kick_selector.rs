@@ -215,6 +215,7 @@ fn generate_decisions_for_instant_kicks(
                     variant,
                     kicking_side,
                     kick_pose,
+                    strength: 1.0,
                 })
             } else {
                 None
@@ -358,6 +359,7 @@ fn kick_decisions_from_targets(
                     variant,
                     kicking_side,
                     kick_pose,
+                    strength: 1.0,
                 }
             })
             .collect(),

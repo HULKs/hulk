@@ -39,6 +39,7 @@ pub fn execute(
             head,
             kick: kick.variant,
             kicking_side: kick.kicking_side,
+            strength: kick.strength,
         };
         return Some(command);
     }

@@ -43,6 +43,7 @@ pub enum MotionCommand {
         head: HeadMotion,
         kick: KickVariant,
         kicking_side: Side,
+        strength: f32,
     },
 }
 
