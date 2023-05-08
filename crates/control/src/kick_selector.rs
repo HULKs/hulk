@@ -34,6 +34,7 @@ pub struct CycleContext {
         Parameter<f32, "kick_selector.ball_radius_for_kick_target_selection">,
     pub closer_threshold: Parameter<f32, "kick_selector.closer_threshold">,
     pub find_kick_targets: Parameter<FindKickTargets, "kick_selector.find_kick_targets">,
+    pub kick_strength: Parameter<f32, "kick_selector.kick_strength">,
 
     pub kick_targets: AdditionalOutput<Vec<Point2<f32>>, "kick_targets">,
     pub instant_kick_targets: AdditionalOutput<Vec<Point2<f32>>, "instant_kick_targets">,
@@ -104,6 +105,7 @@ impl KickSelector {
                     kick_variant,
                     side,
                     ball_position,
+                    *context.kick_strength,
                 )
             })
             .flatten()
@@ -348,6 +350,7 @@ fn kick_decisions_from_targets(
     variant: KickVariant,
     kicking_side: Side,
     ball_position: Point2<f32>,
+    strength: f32,
 ) -> Option<Vec<KickDecision>> {
     Some(
         targets_to_kick_to
@@ -359,7 +362,7 @@ fn kick_decisions_from_targets(
                     variant,
                     kicking_side,
                     kick_pose,
-                    strength: 1.0,
+                    strength,
                 }
             })
             .collect(),
