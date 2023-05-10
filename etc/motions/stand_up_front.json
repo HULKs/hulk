@@ -596,6 +596,7 @@
       }
     },
     {
+      "enable": [{"FallenAbort": {}}],
       "keyframes": [
         {
           "duration": 1,

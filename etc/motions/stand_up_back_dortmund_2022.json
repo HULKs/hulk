@@ -543,6 +543,7 @@
       ]
     },
     {
+      "enable": [{"FallenAbort": {}}],
       "keyframes": [
         {
           "duration": 0.3,
@@ -670,6 +671,7 @@
       ]
     },
     {
+      "enable": [{"FallenAbort": {}}],
       "keyframes": [
         {
           "duration": 1.0,
@@ -756,6 +758,7 @@
       ]
     },
     {
+      "enable": [{"FallenAbort": {}}],
       "keyframes": [
         {
           "duration": 0.5,
