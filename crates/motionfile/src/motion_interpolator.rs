@@ -22,7 +22,6 @@ pub struct ConditionedSpline<T> {
 #[derive(Default, Debug)]
 pub struct MotionInterpolator<T> {
     frames: Vec<ConditionedSpline<T>>,
-    active_continuous_conditions: Vec<ContinuousConditionType>,
     current_state: State<T>,
 }
 
@@ -57,16 +56,33 @@ impl<T> Default for State<T> {
 
 impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
     pub fn advance_by(&mut self, time_step: Duration, condition_input: &ConditionInput) {
-        if self
-            .active_continuous_conditions
-            .iter()
-            .any(|condition| matches!(condition.evaluate(condition_input), Response::Abort))
-        {
-            self.abort_motion();
-            return;
+        match self.current_state {
+            State::CheckEntry {
+                current_frame_index,
+                ..
+            }
+            | State::InterpolateSpline {
+                current_frame_index,
+                ..
+            }
+            | State::CheckExit {
+                current_frame_index,
+                ..
+            } => {
+                let current_frame = &self.frames[current_frame_index];
+                if let Some(continuous_conditions) = current_frame.enable.as_ref() {
+                    if continuous_conditions.iter().any(|condition| {
+                        matches!(condition.evaluate(condition_input), Response::Abort)
+                    }) {
+                        self.abort_motion();
+                        return;
+                    }
+                }
+            }
+            _ => (),
         }
 
-        let candidate_state = match self.current_state {
+        self.current_state = match self.current_state {
             State::CheckEntry {
                 current_frame_index,
                 time_since_start,
@@ -133,38 +149,6 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
             }
             other_state => other_state,
         };
-
-        self.apply_state(candidate_state);
-    }
-
-    fn apply_state(&mut self, candidate_state: State<T>) {
-        self.current_state = match candidate_state {
-            entry @ State::CheckEntry {
-                current_frame_index,
-                time_since_start: Duration::ZERO,
-            } if current_frame_index < self.frames.len() => {
-                let current_frame = &self.frames[current_frame_index];
-                if let Some(conditions) = current_frame.enable.as_ref() {
-                    self.active_continuous_conditions.extend(conditions.clone());
-                }
-                entry
-            }
-            legal_state @ (State::InterpolateSpline {
-                current_frame_index,
-                ..
-            }
-            | State::CheckEntry {
-                current_frame_index,
-                ..
-            }
-            | State::CheckExit {
-                current_frame_index,
-                ..
-            }) if current_frame_index < self.frames.len() => legal_state,
-
-            aborted @ State::Aborted { .. } => aborted,
-            _ => State::Finished,
-        }
     }
 
     fn abort_motion(&mut self) {
@@ -198,12 +182,10 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
     }
 
     pub fn reset(&mut self) {
-        self.active_continuous_conditions.clear();
-        let state = State::CheckEntry {
+        self.current_state = State::CheckEntry {
             current_frame_index: 0,
             time_since_start: Duration::ZERO,
         };
-        self.apply_state(state);
     }
 
     pub fn set_initial_positions(&mut self, position: T) {
@@ -252,19 +234,11 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
                 .collect::<Result<Vec<_>, InterpolatorError>>()?,
         );
 
-        let initial_enabled_conditions = if let Some(conditions) = motion_frames[0].enable.as_mut()
-        {
-            Vec::from_iter(conditions.drain(..))
-        } else {
-            vec![]
-        };
-
         Ok(Self {
             current_state: State::CheckEntry {
                 current_frame_index: 0,
                 time_since_start: Duration::ZERO,
             },
-            active_continuous_conditions: initial_enabled_conditions,
             frames: motion_frames,
         })
     }
