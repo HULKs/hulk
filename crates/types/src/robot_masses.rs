@@ -59,7 +59,7 @@ impl RobotMass {
         center: point![0.2556, -0.0281, 0.0076],
     };
     pub const RIGHT_WRIST: RobotMass = RobotMass {
-        mass: 0.018533,
+        mass: 0.18533,
         center: point![0.3434, 0.0088, 0.0308],
     };
     // left leg
