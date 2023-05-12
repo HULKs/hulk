@@ -1,10 +1,8 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt::{Display, Formatter},
     path::Path,
 };
 
-use itertools::Itertools;
 use serde::Deserialize;
 use topological_sort::TopologicalSort;
 
@@ -22,12 +20,6 @@ pub type ModulePath = String;
 #[derive(Debug)]
 pub struct Instance {
     pub name: InstanceName,
-}
-
-impl Display for Instance {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
-    }
 }
 
 #[derive(Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
@@ -120,34 +112,9 @@ impl Cycler {
     }
 }
 
-impl Display for Cycler {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let instances = self.instances.iter().map(ToString::to_string).join(", ");
-        let name = &self.name;
-        let kind = &self.kind;
-        writeln!(f, "{name} ({kind:?}) [{instances}]")?;
-        for setup_node in &self.setup_nodes {
-            writeln!(f, "  {setup_node} (setup)")?;
-        }
-        for node in &self.cycle_nodes {
-            writeln!(f, "  {node}")?;
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug)]
 pub struct Cyclers {
     pub cyclers: Vec<Cycler>,
-}
-
-impl Display for Cyclers {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for cycler in &self.cyclers {
-            writeln!(f, "{cycler}")?;
-        }
-        Ok(())
-    }
 }
 
 impl Cyclers {
