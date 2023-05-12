@@ -8,6 +8,8 @@ use log::LevelFilter;
 use tokio_util::sync::CancellationToken;
 
 mod cycler;
+#[allow(dead_code)]
+mod fake_data;
 mod interfake;
 mod robot;
 mod server;

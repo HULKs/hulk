@@ -3,7 +3,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use source_analyzer::cycler::{CyclerKind, Cyclers};
 
-pub fn generate_perception_updates(cyclers: &Cyclers) -> TokenStream {
+fn generate_perception_updates(cyclers: &Cyclers) -> TokenStream {
     let updates_fields = cyclers.instances_with(CyclerKind::Perception).map(
         |(cycler, instance)| {
             let field_name_identifier = format_ident!("{}", instance.name.to_case(Case::Snake));
@@ -70,6 +70,7 @@ pub fn generate_perception_updates(cyclers: &Cyclers) -> TokenStream {
 }
 
 pub fn generate_perception_databases(cyclers: &Cyclers) -> TokenStream {
+    let perception_updates = generate_perception_updates(cyclers);
     let databases_fields = cyclers.instances_with(CyclerKind::Perception).map(
         |(cycler, instance)| {
             let field_name_identifier = format_ident!("{}", instance.name.to_case(Case::Snake));
@@ -81,6 +82,8 @@ pub fn generate_perception_databases(cyclers: &Cyclers) -> TokenStream {
     );
 
     quote! {
+        #perception_updates
+
         #[derive(Default)]
         pub struct Databases {
             #(#databases_fields,)*

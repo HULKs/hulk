@@ -1,35 +1,27 @@
 [package]
+name = "hulk"
+version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
-name = "behavior_simulator"
-version = "0.1.0"
-
-[[bin]]
-name = "behavior_simulator"
+homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
-chrono = { workspace = true }
-clap = { workspace = true }
+audio = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true, features = ["server"] }
 control = { workspace = true }
-ctrlc = { workspace = true }
-fern = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }
-log = { workspace = true }
-mlua = { workspace = true }
+ittapi = {  workspace = true }
 nalgebra = { workspace = true }
-parameters = { workspace = true }
-parking_lot = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 serialize_hierarchy = { workspace = true }
+spl_network = { workspace = true }
 spl_network_messages = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
-context_attribute = { workspace = true }
+vision = { workspace = true }
 
 [build-dependencies]
 code_generation = { workspace = true }

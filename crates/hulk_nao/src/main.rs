@@ -7,10 +7,9 @@ use color_eyre::{
 };
 use hardware::IdInterface;
 use hardware_interface::HardwareInterface;
+use hulk::run::run;
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
-
-use crate::run::run;
 
 mod camera;
 mod double_buffered_reader;
@@ -18,8 +17,6 @@ mod hardware_interface;
 mod hula;
 mod hula_wrapper;
 mod microphones;
-
-include!(concat!(env!("OUT_DIR"), "/generated_framework.rs"));
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()

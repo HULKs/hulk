@@ -1,6 +1,4 @@
-use code_generation::{
-    framework::collect_watch_paths, structs::generate_structs, write_to_file::WriteToFile,
-};
+use code_generation::{collect_watch_paths, structs::generate_structs, write_to_file::WriteToFile};
 use color_eyre::eyre::{Result, WrapErr};
 use source_analyzer::{cycler::Cyclers, manifest::FrameworkManifest, structs::Structs};
 
