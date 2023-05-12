@@ -70,7 +70,7 @@ impl Cycler {
     }
 
     pub fn sort_nodes(&mut self) -> Result<(), Error> {
-        let output_to_setup_node: HashMap<_, _> = self
+        let output_name_to_setup_node: HashMap<_, _> = self
             .setup_nodes
             .iter()
             .flat_map(|node| {
@@ -83,10 +83,13 @@ impl Cycler {
                     })
             })
             .collect();
-        let sorted_setup_nodes =
-            sort_nodes(&self.setup_nodes, &output_to_setup_node, &HashSet::new())?;
+        let sorted_setup_nodes = sort_nodes(
+            &self.setup_nodes,
+            &output_name_to_setup_node,
+            &HashSet::new(),
+        )?;
 
-        let setup_outputs = output_to_setup_node.keys().cloned().collect();
+        let setup_outputs = output_name_to_setup_node.keys().cloned().collect();
         let output_to_node: HashMap<_, _> = self
             .cycle_nodes
             .iter()
