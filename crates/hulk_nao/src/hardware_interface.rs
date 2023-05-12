@@ -158,3 +158,5 @@ impl CameraInterface for HardwareInterface {
         }
     }
 }
+
+impl hulk::HardwareInterface for HardwareInterface {}

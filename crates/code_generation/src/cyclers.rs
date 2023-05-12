@@ -83,9 +83,9 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
     let node_fields = generate_node_fields(cycler);
 
     quote! {
-        pub(crate) struct Cycler {
+        pub(crate) struct Cycler<HardwareInterface>  {
             instance: CyclerInstance,
-            hardware_interface: std::sync::Arc<crate::HardwareInterface>,
+            hardware_interface: std::sync::Arc<HardwareInterface>,
             own_writer: framework::Writer<Database>,
             own_changed: std::sync::Arc<tokio::sync::Notify>,
             own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
@@ -167,7 +167,10 @@ fn generate_implementation(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
     let cycle_method = generate_cycle_method(cycler, cyclers);
 
     quote! {
-        impl Cycler {
+        impl<HardwareInterface> Cycler<HardwareInterface>
+        where
+            HardwareInterface: crate::HardwareInterface + Send + Sync + 'static
+        {
             #new_method
             #start_method
             #cycle_method
@@ -187,7 +190,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
     quote! {
         pub(crate) fn new(
             instance: CyclerInstance,
-            hardware_interface: std::sync::Arc<crate::HardwareInterface>,
+            hardware_interface: std::sync::Arc<HardwareInterface>,
             own_writer: framework::Writer<Database>,
             own_changed: std::sync::Arc<tokio::sync::Notify>,
             own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
@@ -364,7 +367,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             let perception_cycler_updates = generate_perception_cycler_updates(cyclers);
 
             quote! {
-                let now = <crate::HardwareInterface as hardware::TimeInterface>::get_now(&*self.hardware_interface);
+                let now = <HardwareInterface as hardware::TimeInterface>::get_now(&*self.hardware_interface);
                 self.perception_databases.update(now, crate::perception_databases::Updates {
                     #perception_cycler_updates
                 });

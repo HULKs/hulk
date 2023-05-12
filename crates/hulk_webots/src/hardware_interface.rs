@@ -7,13 +7,13 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use ::hardware::{
-    ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    SensorInterface, TimeInterface,
-};
 use color_eyre::{
     eyre::{bail, eyre, Error, WrapErr},
     Result,
+};
+use hardware::{
+    ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
+    SensorInterface, TimeInterface,
 };
 use serde::Deserialize;
 use tokio::{
@@ -381,3 +381,5 @@ impl CameraInterface for HardwareInterface {
         result
     }
 }
+
+impl hulk::HardwareInterface for HardwareInterface {}

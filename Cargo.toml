@@ -10,6 +10,7 @@ members = [
   "crates/filtering",
   "crates/framework",
   "crates/hardware",
+  "crates/hulk",
   "crates/hulk_nao",
   "crates/hulk_webots",
   "crates/kinematics",
@@ -78,6 +79,7 @@ fuzzy-matcher = "0.3.7"
 glob = "0.3.0"
 hardware = { path = "crates/hardware" }
 home = "0.5.4"
+hulk = { path = "crates/hulk" }
 i2cdev = "0.5.1"
 image = "0.24.4"
 indicatif = "0.17.2"

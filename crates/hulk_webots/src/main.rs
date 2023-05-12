@@ -7,10 +7,9 @@ use color_eyre::{
 };
 use hardware::IdInterface;
 use hardware_interface::HardwareInterface;
+use hulk::run::run;
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
-
-use crate::run::run;
 
 mod camera;
 mod force_sensitive_resistor_devices;
@@ -19,8 +18,6 @@ mod intertial_measurement_unit_devices;
 mod joint_devices;
 mod keyboard_device;
 mod sonar_sensor_devices;
-
-include!(concat!(env!("OUT_DIR"), "/generated_framework.rs"));
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
