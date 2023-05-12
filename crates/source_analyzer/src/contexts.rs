@@ -1,5 +1,3 @@
-use std::fmt::{Display, Formatter};
-
 use syn::{Expr, ExprLit, File, GenericArgument, Ident, Item, Lit, PathArguments, Type};
 
 use crate::{
@@ -14,24 +12,6 @@ pub struct Contexts {
     pub creation_context: Vec<Field>,
     pub cycle_context: Vec<Field>,
     pub main_outputs: Vec<Field>,
-}
-
-impl Display for Contexts {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "CreationContext")?;
-        for field in &self.creation_context {
-            writeln!(f, "  {field}")?;
-        }
-        writeln!(f, "CycleContext")?;
-        for field in &self.cycle_context {
-            writeln!(f, "  {field}")?;
-        }
-        writeln!(f, "MainOutputs")?;
-        for field in &self.main_outputs {
-            writeln!(f, "  {field}")?;
-        }
-        Ok(())
-    }
 }
 
 impl Contexts {
@@ -128,22 +108,6 @@ pub enum Field {
         name: Ident,
         path: Path,
     },
-}
-
-impl Display for Field {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Field::AdditionalOutput { name, .. } => write!(f, "{name}: AdditionalOutput"),
-            Field::HardwareInterface { name, .. } => write!(f, "{name}: HardwareInterface"),
-            Field::HistoricInput { name, .. } => write!(f, "{name}: HistoricInput"),
-            Field::Input { name, .. } => write!(f, "{name}: Input"),
-            Field::MainOutput { name, .. } => write!(f, "{name}: MainOutput"),
-            Field::Parameter { name, .. } => write!(f, "{name}: Parameter"),
-            Field::PerceptionInput { name, .. } => write!(f, "{name}: PerceptionInput"),
-            Field::PersistentState { name, .. } => write!(f, "{name}: PersistentState"),
-            Field::RequiredInput { name, .. } => write!(f, "{name}: RequiredInput"),
-        }
-    }
 }
 
 impl Field {

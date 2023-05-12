@@ -1,9 +1,4 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    fs::read_to_string,
-    hash::Hash,
-    path::Path,
-};
+use std::{fs::read_to_string, hash::Hash, path::Path};
 
 use quote::ToTokens;
 use syn::{parse_file, ImplItem, Item, ItemImpl, Type};
@@ -21,13 +16,6 @@ pub struct Node {
     pub name: NodeName,
     pub module: syn::Path,
     pub contexts: Contexts,
-}
-
-impl Display for Node {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        let name = &self.name;
-        write!(formatter, "{name}")
-    }
 }
 
 pub fn parse_rust_file(file_path: impl AsRef<Path>) -> Result<syn::File, Error> {

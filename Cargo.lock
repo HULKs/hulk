@@ -3353,6 +3353,7 @@ dependencies = [
  "constants",
  "futures-util",
  "indicatif",
+ "itertools",
  "nao",
  "regex",
  "repository",
