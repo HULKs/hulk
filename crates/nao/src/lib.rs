@@ -14,7 +14,7 @@ use communication::{
     messages::Format,
 };
 use serde_json::Value;
-use tokio::process::Command;
+use tokio::{process::Command, select, time::Duration};
 
 pub struct Nao {
     host: Ipv4Addr,
@@ -161,7 +161,7 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn unstiff(&self) -> Result<()> {
+    pub async fn unstiff(&self, timeout: Duration) -> Result<()> {
         let communication = Communication::new(Some(format!("ws://{}:1337", self.host)), true);
         let path = "Control.main_outputs.motion_selection.current_motion";
         let output_to_subscribe = CyclerOutput::from_str(path)?;
@@ -169,28 +169,38 @@ impl Nao {
         let (_uuid, mut receiver) = communication
             .subscribe_output(output_to_subscribe, Format::Textual)
             .await;
-        while let Some(message) = receiver.recv().await {
-            match message {
-                SubscriberMessage::Update { value } => {
-                    if value.as_str() == Some("Unstiff") {
-                        communication
-                            .update_parameter_value(
-                                "injected_head_buttons_touched",
-                                Value::Bool(false),
-                            )
-                            .await;
-                        break;
+
+        loop {
+            let timeout = tokio::time::sleep(timeout);
+            select! {
+                _ = timeout => break,
+                maybe_message = receiver.recv() => {
+                    let Some(message) = maybe_message else {
+                        bail!("unexpected communication channel close");
+                    };
+                    match message {
+                        SubscriberMessage::Update { value } => {
+                            if value.as_str() == Some("Unstiff") {
+                                communication
+                                    .update_parameter_value(
+                                        "injected_head_buttons_touched",
+                                        Value::Bool(false),
+                                    )
+                                    .await;
+                                break;
+                            }
+                        }
+                        SubscriberMessage::SubscriptionSuccess => {
+                            communication
+                                .update_parameter_value("injected_head_buttons_touched", Value::Bool(true))
+                                .await;
+                        }
+                        SubscriberMessage::SubscriptionFailure { info } => {
+                            bail!(info);
+                        }
+                        SubscriberMessage::UpdateBinary { .. } => bail!("Unexpected binary data"),
                     }
                 }
-                SubscriberMessage::SubscriptionSuccess => {
-                    communication
-                        .update_parameter_value("injected_head_buttons_touched", Value::Bool(true))
-                        .await;
-                }
-                SubscriberMessage::SubscriptionFailure { info } => {
-                    bail!(info);
-                }
-                SubscriberMessage::UpdateBinary { .. } => bail!("Unexpected binary data"),
             }
         }
 

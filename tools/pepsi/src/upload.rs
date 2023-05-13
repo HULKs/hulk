@@ -9,6 +9,7 @@ use constants::OS_VERSION;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::{Nao, SystemctlAction};
 use repository::{HardwareIds, Repository};
+use tokio::time::Duration;
 
 use crate::{
     cargo::{cargo, Arguments as CargoArguments, Command},
@@ -86,7 +87,7 @@ async fn upload_with_progress(
         .wrap_err_with(|| format!("failed to set communication enablement for {head_id}"))?;
 
     progress.set_message("Unstiffing...");
-    nao.unstiff().await?;
+    nao.unstiff(Duration::from_secs(1)).await?;
 
     progress.set_message("Stopping HULK...");
     nao.execute_systemctl(SystemctlAction::Stop, "hulk")
