@@ -77,10 +77,11 @@ nav:
           - Motion Files: robotics/motion/motion_files.md
   - Workflow:
       - Overview: workflow/overview.md
-      - Leadership: workflow/leadership.md
-      - Development: workflow/development.md
       - Competition: workflow/competition.md
+      - Development: workflow/development.md
+      - Engineering: workflow/engineering.md
       - GitHub Webhooks: workflow/github_webhooks.md
+      - Leadership: workflow/leadership.md
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
