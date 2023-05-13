@@ -85,6 +85,9 @@ async fn upload_with_progress(
         .await
         .wrap_err_with(|| format!("failed to set communication enablement for {head_id}"))?;
 
+    progress.set_message("Unstiffing...");
+    nao.unstiff().await?;
+
     progress.set_message("Stopping HULK...");
     nao.execute_systemctl(SystemctlAction::Stop, "hulk")
         .await
