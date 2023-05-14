@@ -1,20 +1,8 @@
-# Aliveness scripts
-pyyaml >=5.1.1,<=5.2
-netifaces ==0.10.6
-twisted >=16.6.0,<=18.4.0
-gitpython
-
 # hardware status
 tabulate >=0.8.1
 
-# TextToSpeachScript (tools/TextToSpeach
+# tools/TextToSpeech
 google-api-python-client
-
-# nao_ssh based scripts
-parallel-ssh ==2.5.2
-
-# checkCodingStyle script
-click==8.0.1
 
 # docs
 mkdocs
