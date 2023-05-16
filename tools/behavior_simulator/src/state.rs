@@ -171,8 +171,9 @@ impl State {
             let desired_head_yaw = match head_motion {
                 HeadMotion::ZeroAngles => 0.0,
                 HeadMotion::Center => 0.0,
-                HeadMotion::LookAround => f * 2.0,
-                HeadMotion::SearchForLostBall => f * 2.0,
+                HeadMotion::LookAround | HeadMotion::SearchForLostBall => {
+                    robot.database.main_outputs.look_around.yaw
+                }
                 HeadMotion::LookAt { target } => target.coords.angle(&Vector2::x_axis()),
                 HeadMotion::LookLeftAndRightOf { target } => {
                     target.coords.angle(&Vector2::x_axis()) + f

@@ -6,6 +6,7 @@ use control::{
     ball_state_composer::{self, BallStateComposer},
     behavior::node::{self, Behavior},
     kick_selector::{self, KickSelector},
+    motion::look_around::LookAround,
     role_assignment::{self, RoleAssignment},
     rule_obstacle_composer::RuleObstacleComposer,
     world_state_composer::{self, WorldStateComposer},
@@ -26,6 +27,7 @@ pub struct BehaviorCycler<Interface> {
     world_state_composer: WorldStateComposer,
     behavior: Behavior,
     rule_obstacle_composer: RuleObstacleComposer,
+    look_around: LookAround,
 }
 
 impl<Interface> BehaviorCycler<Interface>
@@ -65,6 +67,12 @@ where
             lost_ball_parameters: &configuration.behavior.lost_ball,
         })
         .wrap_err("failed to create node `Behavior`")?;
+        let look_around = control::motion::look_around::LookAround::new(
+            control::motion::look_around::CreationContext {
+                config: &configuration.look_around,
+            },
+        )
+        .wrap_err("failed to create node `LookAround`")?;
 
         Ok(Self {
             hardware_interface,
@@ -77,6 +85,7 @@ where
             kick_selector,
             world_state_composer,
             behavior,
+            look_around,
         })
     }
 
@@ -281,6 +290,19 @@ where
                 })
                 .wrap_err("failed to execute cycle of node `Behavior`")?;
             own_database.main_outputs.motion_command = main_outputs.motion_command.value;
+        }
+        {
+            let main_outputs = {
+                self.look_around
+                    .cycle(control::motion::look_around::CycleContext {
+                        config: &configuration.look_around,
+                        motion_command: &own_database.main_outputs.motion_command,
+                        sensor_data: &own_database.main_outputs.sensor_data,
+                        cycle_time: &own_database.main_outputs.cycle_time,
+                    })
+                    .wrap_err("failed to execute cycle of node `LookAround`")?
+            };
+            own_database.main_outputs.look_around = main_outputs.look_around.value;
         }
         self.own_changed.notify_one();
         Ok(())
