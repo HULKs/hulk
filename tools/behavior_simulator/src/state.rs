@@ -181,7 +181,8 @@ impl State {
                 HeadMotion::Unstiff => 0.0,
             };
 
-            let max_head_rotation_per_cycle = PI * time_step.as_secs_f32();
+            let max_head_rotation_per_cycle =
+                robot.configuration.head_motion.maximum_velocity.yaw * time_step.as_secs_f32();
             let diff =
                 desired_head_yaw - robot.database.main_outputs.sensor_data.positions.head.yaw;
             let movement = diff.clamp(-max_head_rotation_per_cycle, max_head_rotation_per_cycle);
