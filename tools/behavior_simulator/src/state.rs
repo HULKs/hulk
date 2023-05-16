@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
-    f32::consts::PI,
+    f32::consts::{FRAC_PI_8, PI},
     mem::take,
     time::{Duration, UNIX_EPOCH},
 };
@@ -212,11 +212,17 @@ impl State {
 
             robot.database.main_outputs.cycle_time.start_time = now;
 
-            robot.database.main_outputs.ball_position =
-                self.ball.as_ref().map(|ball| BallPosition {
+            robot.database.main_outputs.ball_position = self
+                .ball
+                .as_ref()
+                .map(|ball| BallPosition {
                     position: robot_to_field.inverse() * ball.position,
                     velocity: robot_to_field.inverse() * ball.velocity,
                     last_seen: now,
+                })
+                .filter(|ball| {
+                    ball.position.coords.angle(&Vector2::x_axis()).abs() < FRAC_PI_8
+                        && ball.position.coords.norm() < 3.0
                 });
 
             robot.database.main_outputs.primary_state =
