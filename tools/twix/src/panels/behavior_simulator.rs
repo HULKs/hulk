@@ -14,6 +14,7 @@ pub struct BehaviorSimulatorPanel {
     selected_frame: usize,
     selected_robot: usize,
     playing: bool,
+    playing_start: f64,
 
     value_buffer: ValueBuffer,
     frame_count: ValueBuffer,
@@ -37,6 +38,7 @@ impl Panel for BehaviorSimulatorPanel {
             selected_frame: 0,
             selected_robot: 0,
             playing: false,
+            playing_start: 0.0,
 
             value_buffer,
             frame_count,
@@ -92,14 +94,20 @@ impl Widget for &mut BehaviorSimulatorPanel {
                             .update_parameter_value("selected_robot", self.selected_robot.into());
                     };
                 });
-                ui.checkbox(&mut self.playing, "Play");
+                if ui.checkbox(&mut self.playing, "Play").changed() || new_frame.is_some() {
+                    self.playing_start =
+                        ui.input(|input| input.time) - new_frame.unwrap_or(self.selected_frame) as f64 / 83.0;
+                };
             })
             .response;
 
-        if self.playing || ui.button(">>").clicked() {
+        if self.playing {
+            let now = ui.input(|input| input.time);
+            let time_elapsed = now - self.playing_start;
+            new_frame = Some((time_elapsed * 83.0) as usize);
+        }
+        if ui.button(">>").clicked() {
             new_frame = Some(new_frame.unwrap_or(self.selected_frame) + 10);
-            self.nao
-                .update_parameter_value("selected_frame", self.selected_frame.into());
         }
         if let Some(new_frame) = new_frame {
             self.selected_frame = new_frame % self.frame_count.require_latest().unwrap_or(1);
