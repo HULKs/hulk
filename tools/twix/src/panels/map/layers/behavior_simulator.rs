@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
-use nalgebra::Isometry2;
+use nalgebra::{point, Isometry2, UnitComplex};
 use types::{FieldDimensions, MotionCommand};
 
 use crate::{
@@ -16,6 +16,7 @@ const TRANSPARENT_LIGHT_BLUE: Color32 = Color32::from_rgba_premultiplied(136, 17
 pub struct BehaviorSimulator {
     robot_to_field: PlayersValueBuffer,
     motion_command: PlayersValueBuffer,
+    head_yaw: PlayersValueBuffer,
 }
 
 impl Layer for BehaviorSimulator {
@@ -29,14 +30,21 @@ impl Layer for BehaviorSimulator {
         )
         .unwrap();
         let motion_command = PlayersValueBuffer::try_new(
-            nao,
+            nao.clone(),
             "BehaviorSimulator.main.databases",
             "main_outputs.motion_command",
+        )
+        .unwrap();
+        let sensor_data = PlayersValueBuffer::try_new(
+            nao,
+            "BehaviorSimulator.main.databases",
+            "main_outputs.sensor_data.positions.head.yaw",
         )
         .unwrap();
         Self {
             robot_to_field,
             motion_command,
+            head_yaw: sensor_data,
         }
     }
 
@@ -61,6 +69,28 @@ impl Layer for BehaviorSimulator {
                     TRANSPARENT_BLUE,
                     TRANSPARENT_LIGHT_BLUE,
                     0.025,
+                );
+            }
+
+            if let Ok(head_yaw) = self.head_yaw.0[player_number].parse_latest::<f32>() {
+                let fov_stroke = Stroke {
+                    width: 0.002,
+                    color: Color32::YELLOW,
+                };
+                let fov_angle = 45.0_f32.to_radians();
+                let fov_rotation = UnitComplex::from_angle(fov_angle / 2.0);
+                let fov_range = 3.0;
+                let fov_corner = point![fov_range, 0.0];
+                let head_rotation = UnitComplex::from_angle(head_yaw);
+                painter.line_segment(
+                    robot_to_field.translation.vector.into(),
+                    robot_to_field * head_rotation * fov_rotation * fov_corner,
+                    fov_stroke,
+                );
+                painter.line_segment(
+                    robot_to_field.translation.vector.into(),
+                    robot_to_field * head_rotation * fov_rotation.inverse() * fov_corner,
+                    fov_stroke,
                 );
             }
 
