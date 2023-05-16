@@ -1,4 +1,9 @@
-use std::{collections::BTreeMap, convert::Into, sync::Arc, time::SystemTime};
+use std::{
+    collections::BTreeMap,
+    convert::Into,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use color_eyre::{eyre::WrapErr, Result};
 use control::localization::generate_initial_pose;
@@ -16,6 +21,7 @@ pub struct Robot {
     pub database: Database,
     pub configuration: Configuration,
     pub is_penalized: bool,
+    pub last_kick_time: Duration,
 }
 
 impl Robot {
@@ -52,6 +58,7 @@ impl Robot {
             database,
             configuration,
             is_penalized: false,
+            last_kick_time: Duration::default(),
         })
     }
 

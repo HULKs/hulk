@@ -301,6 +301,10 @@ where
                         motion_command: &own_database.main_outputs.motion_command,
                         sensor_data: &own_database.main_outputs.sensor_data,
                         cycle_time: &own_database.main_outputs.cycle_time,
+                        current_mode: AdditionalOutput::new(
+                            true,
+                            &mut own_database.additional_outputs.look_around_mode,
+                        ),
                     })
                     .wrap_err("failed to execute cycle of node `LookAround`")?
             };

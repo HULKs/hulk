@@ -150,13 +150,15 @@ impl State {
 
                         // TODO: Check if ball is even in range
                         // let kick_location = robot_to_field * ();
-
-                        let direction = match kick {
-                            KickVariant::Forward => vector![1.0, 0.0],
-                            KickVariant::Turn => vector![0.707, 0.707 * side],
-                            KickVariant::Side => vector![0.0, 1.0 * -side],
+                        if (self.time_elapsed - robot.last_kick_time).as_secs_f32() > 1.0 {
+                            let direction = match kick {
+                                KickVariant::Forward => vector![1.0, 0.0],
+                                KickVariant::Turn => vector![0.707, 0.707 * side],
+                                KickVariant::Side => vector![0.0, 1.0 * -side],
+                            };
+                            ball.velocity += *robot_to_field * direction * *strength;
+                            robot.last_kick_time = self.time_elapsed;
                         };
-                        ball.velocity += *robot_to_field * direction * *strength;
                     }
                     head
                 }
