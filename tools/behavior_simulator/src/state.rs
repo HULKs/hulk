@@ -12,8 +12,8 @@ use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team
 use structs::{control::AdditionalOutputs, Configuration};
 use types::{
     messages::{IncomingMessage, OutgoingMessage},
-    BallPosition, FilteredGameState, GameControllerState, KickVariant, LineSegment, MotionCommand,
-    OrientationMode, PathSegment, Players, PrimaryState, Side,
+    BallPosition, FilteredGameState, GameControllerState, HeadMotion, KickVariant, LineSegment,
+    MotionCommand, OrientationMode, PathSegment, Players, PrimaryState, Side,
 };
 
 use crate::robot::Robot;
@@ -99,8 +99,9 @@ impl State {
                 .expect("simulated robots should always have a known pose");
 
             robot.database.additional_outputs = AdditionalOutputs::default();
-            match &robot.database.main_outputs.motion_command {
+            let head_motion = match &robot.database.main_outputs.motion_command {
                 MotionCommand::Walk {
+                    head,
                     path,
                     orientation_mode,
                     ..
@@ -129,10 +130,12 @@ impl State {
                                 -std::f32::consts::FRAC_PI_4 * time_step.as_secs_f32(),
                                 std::f32::consts::FRAC_PI_4 * time_step.as_secs_f32(),
                             ),
-                    )
+                    );
+
+                    head
                 }
                 MotionCommand::InWalkKick {
-                    head: _,
+                    head,
                     kick,
                     kicking_side,
                     strength,
@@ -153,9 +156,30 @@ impl State {
                         };
                         ball.velocity += *robot_to_field * direction * *strength;
                     }
+                    head
                 }
-                _ => {}
-            }
+                MotionCommand::SitDown { head } => head,
+                MotionCommand::Stand {
+                    head,
+                    is_energy_saving: _,
+                } => head,
+                _ => &HeadMotion::Center,
+            };
+
+            let f = self.time_elapsed.as_secs_f32().sin();
+            let desired_head_yaw = match head_motion {
+                HeadMotion::ZeroAngles => 0.0,
+                HeadMotion::Center => 0.0,
+                HeadMotion::LookAround => f * 2.0,
+                HeadMotion::SearchForLostBall => f * 2.0,
+                HeadMotion::LookAt { target } => target.coords.angle(&Vector2::x_axis()),
+                HeadMotion::LookLeftAndRightOf { target } => {
+                    target.coords.angle(&Vector2::x_axis()) + f
+                }
+                HeadMotion::Unstiff => 0.0,
+            };
+
+            robot.database.main_outputs.sensor_data.positions.head.yaw = desired_head_yaw;
         }
     }
 
