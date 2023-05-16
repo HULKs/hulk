@@ -1,6 +1,6 @@
 use std::{fs::read_to_string, path::Path, sync::Arc, time::Duration};
 
-use crate::robot::to_player_number;
+use crate::{robot::to_player_number, state::Ball};
 use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
@@ -19,6 +19,7 @@ use crate::{
 const SERIALIZE_OPTIONS: SerializeOptions = SerializeOptions::new().serialize_none_to_null(false);
 
 pub struct Frame {
+    pub ball: Option<Ball>,
     pub robots: Players<Option<Database>>,
 }
 
@@ -75,7 +76,10 @@ impl Simulator {
             for (player_number, robot) in &state.robots {
                 robots[*player_number] = Some(robot.database.clone())
             }
-            frames.push(Frame { robots });
+            frames.push(Frame {
+                robots,
+                ball: state.ball.clone(),
+            });
 
             if state.finished {
                 break;
