@@ -223,8 +223,12 @@ impl State {
                     last_seen: now,
                 })
                 .filter(|ball| {
-                    ball.position.coords.angle(&Vector2::x_axis()).abs() < FRAC_PI_8
-                        && ball.position.coords.norm() < 3.0
+                    let head_rotation = UnitComplex::from_angle(
+                        robot.database.main_outputs.sensor_data.positions.head.yaw,
+                    );
+                    let ball_in_head = head_rotation.inverse() * ball.position.coords;
+                    ball_in_head.angle(&Vector2::x_axis()).abs() < FRAC_PI_8
+                        && ball_in_head.norm() < 3.0
                 });
 
             robot.database.main_outputs.primary_state =
