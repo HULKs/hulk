@@ -188,7 +188,7 @@ where
         }
         {
             if own_database.main_outputs.robot_to_field.as_ref().is_some()
-                && own_database.main_outputs.ball_position.as_ref().is_some()
+                && own_database.main_outputs.ball_state.as_ref().is_some()
             {
                 let main_outputs = {
                     self.kick_selector
@@ -236,6 +236,7 @@ where
                     main_outputs.instant_kick_decisions.value;
             } else {
                 own_database.main_outputs.kick_decisions = Default::default();
+                own_database.main_outputs.instant_kick_decisions = Default::default();
             }
         }
         {
