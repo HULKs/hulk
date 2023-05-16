@@ -3,7 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use color_eyre::Result;
 use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
-use nalgebra::{point, Isometry2, UnitComplex, Point2};
+use nalgebra::{point, Isometry2, Point2, UnitComplex};
 use types::{FieldDimensions, MotionCommand};
 
 use crate::{

@@ -95,8 +95,8 @@ impl Widget for &mut BehaviorSimulatorPanel {
                     };
                 });
                 if ui.checkbox(&mut self.playing, "Play").changed() || new_frame.is_some() {
-                    self.playing_start =
-                        ui.input(|input| input.time) - new_frame.unwrap_or(self.selected_frame) as f64 / 83.0;
+                    self.playing_start = ui.input(|input| input.time)
+                        - new_frame.unwrap_or(self.selected_frame) as f64 / 83.0;
                 };
             })
             .response;

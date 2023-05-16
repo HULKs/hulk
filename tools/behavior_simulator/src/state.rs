@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
-    f32::consts::{FRAC_PI_8, PI},
+    f32::consts::FRAC_PI_8,
     mem::take,
     time::{Duration, UNIX_EPOCH},
 };
