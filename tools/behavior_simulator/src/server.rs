@@ -7,6 +7,7 @@ use std::{
 use crate::{
     robot::to_player_number,
     simulator::{Frame, Simulator},
+    state::Ball,
 };
 use color_eyre::{
     eyre::{bail, WrapErr},
@@ -14,6 +15,7 @@ use color_eyre::{
 };
 use cyclers::control::Database;
 use framework::{multiple_buffer_with_slots, Reader, Writer};
+use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::{net::ToSocketAddrs, select, sync::Notify, time::interval};
@@ -30,6 +32,7 @@ struct Configuration {
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 struct MainOutputs {
     frame_count: usize,
+    ball: Option<Ball>,
     databases: Players<Option<Database>>,
 }
 
@@ -68,7 +71,9 @@ async fn timeline_server(
         {
             let mut outputs = outputs_writer.next();
             outputs.main_outputs.frame_count = frames.len();
-            outputs.main_outputs.databases = frames[parameters.selected_frame].robots.clone();
+            let frame = &frames[parameters.selected_frame];
+            outputs.main_outputs.ball = frame.ball.clone();
+            outputs.main_outputs.databases = frame.robots.clone();
         }
         outputs_changed.notify_waiters();
 

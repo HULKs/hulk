@@ -9,6 +9,7 @@ use color_eyre::Result;
 use cyclers::control::Database;
 use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
 use structs::{control::AdditionalOutputs, Configuration};
 use types::{
@@ -24,7 +25,7 @@ pub enum Event {
     Goal,
 }
 
-#[derive(Default, Clone, Deserialize, Serialize)]
+#[derive(Default, Clone, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Ball {
     pub position: Point2<f32>,
     pub velocity: Vector2<f32>,

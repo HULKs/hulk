@@ -1,13 +1,14 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
+use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
-use nalgebra::{point, Isometry2, UnitComplex};
+use nalgebra::{point, Isometry2, UnitComplex, Point2};
 use types::{FieldDimensions, MotionCommand};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, players_value_buffer::PlayersValueBuffer,
-    twix_painter::TwixPainter,
+    twix_painter::TwixPainter, value_buffer::ValueBuffer,
 };
 
 const TRANSPARENT_BLUE: Color32 = Color32::from_rgba_premultiplied(0, 0, 202, 150);
@@ -17,6 +18,7 @@ pub struct BehaviorSimulator {
     robot_to_field: PlayersValueBuffer,
     motion_command: PlayersValueBuffer,
     head_yaw: PlayersValueBuffer,
+    ball: ValueBuffer,
 }
 
 impl Layer for BehaviorSimulator {
@@ -36,15 +38,19 @@ impl Layer for BehaviorSimulator {
         )
         .unwrap();
         let sensor_data = PlayersValueBuffer::try_new(
-            nao,
+            nao.clone(),
             "BehaviorSimulator.main.databases",
             "main_outputs.sensor_data.positions.head.yaw",
         )
         .unwrap();
+        let ball = nao.subscribe_output(
+            CyclerOutput::from_str("BehaviorSimulator.main_outputs.ball.position").unwrap(),
+        );
         Self {
             robot_to_field,
             motion_command,
             head_yaw: sensor_data,
+            ball,
         }
     }
 
@@ -95,6 +101,10 @@ impl Layer for BehaviorSimulator {
             }
 
             painter.pose(robot_to_field, 0.15, 0.25, pose_color, pose_stroke);
+        }
+
+        if let Ok(ball_position) = self.ball.parse_latest::<Point2<f32>>() {
+            painter.ball(ball_position, 0.05);
         }
 
         Ok(())
