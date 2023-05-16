@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    f32::consts::PI,
     mem::take,
     time::{Duration, UNIX_EPOCH},
 };
@@ -179,7 +180,12 @@ impl State {
                 HeadMotion::Unstiff => 0.0,
             };
 
-            robot.database.main_outputs.sensor_data.positions.head.yaw = desired_head_yaw;
+            let max_head_rotation_per_cycle = PI * time_step.as_secs_f32();
+            let diff =
+                desired_head_yaw - robot.database.main_outputs.sensor_data.positions.head.yaw;
+            let movement = diff.clamp(-max_head_rotation_per_cycle, max_head_rotation_per_cycle);
+
+            robot.database.main_outputs.sensor_data.positions.head.yaw += movement;
         }
     }
 
