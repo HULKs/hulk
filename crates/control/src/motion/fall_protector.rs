@@ -58,7 +58,6 @@ impl FallProtector {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let current_positions = context.sensor_data.positions;
         let mut head_stiffness = 1.0;
-        let mut body_stiffness = 0.8;
 
         self.roll_pitch_filter
             .update(context.sensor_data.inertial_measurement_unit.roll_pitch);
@@ -98,13 +97,19 @@ impl FallProtector {
             _ => head_stiffness = context.fall_protection.ground_impact_head_stiffness,
         }
 
-        let stiffnesses = Joints::from_head_and_body(
-            HeadJoints::fill(head_stiffness),
+        let body_stiffnesses = if self.roll_pitch_filter.state().y.abs()
+            > context.fall_protection.ground_impact_angular_threshold
+        {
+            BodyJoints::fill(context.fall_protection.ground_impact_body_stiffness)
+        } else {
             BodyJoints::fill_mirrored(
                 context.fall_protection.arm_stiffness,
                 context.fall_protection.leg_stiffness,
-            ),
-        );
+            )
+        };
+
+        let stiffnesses =
+            Joints::from_head_and_body(HeadJoints::fill(head_stiffness), body_stiffnesses);
 
         let fall_protection_command = match context.motion_command {
             MotionCommand::FallProtection {
@@ -136,19 +141,9 @@ impl FallProtector {
                     context.condition_input,
                 );
 
-                dbg!(self.roll_pitch_filter.state().y.abs());
-                if self.roll_pitch_filter.state().y.abs()
-                    > context.fall_protection.ground_impact_angular_threshold
-                {
-                    body_stiffness = context.fall_protection.ground_impact_body_stiffness;
-                }
-                let fall_back_stiffnesses = Joints::from_head_and_body(
-                    HeadJoints::fill(head_stiffness),
-                    BodyJoints::fill(body_stiffness),
-                );
                 JointsCommand {
                     positions: self.interpolator.value(),
-                    stiffnesses: fall_back_stiffnesses,
+                    stiffnesses,
                 }
             }
             _ => {

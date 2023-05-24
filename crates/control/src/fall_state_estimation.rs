@@ -146,7 +146,6 @@ impl FallStateEstimation {
 
         let estimated_pitch = self.roll_pitch_filter.state().y;
 
-
         let falling_direction = {
             if estimated_roll.abs() > context.fall_state_estimation.falling_angle_threshold.x {
                 if estimated_roll > 0.0 {
