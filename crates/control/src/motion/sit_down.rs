@@ -12,7 +12,7 @@ pub struct SitDown {
 
 #[context]
 pub struct CreationContext {
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
 }
 
 #[context]
@@ -21,7 +21,7 @@ pub struct CycleContext {
     pub cycle_time: Input<CycleTime, "cycle_time">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
 
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
 }
 
 #[context]
@@ -47,7 +47,7 @@ impl SitDown {
             self.interpolator.reset();
         }
 
-        context.motion_finished[MotionType::SitDown] = self.interpolator.is_finished();
+        context.motion_safe_exits[MotionType::SitDown] = self.interpolator.is_finished();
 
         Ok(MainOutputs {
             sit_down_joints_command: JointsCommand {

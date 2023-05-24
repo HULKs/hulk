@@ -108,7 +108,7 @@ pub struct CreationContext {
     pub kick_steps: Parameter<KickSteps, "kick_steps">,
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
     pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
 }
 
@@ -125,7 +125,7 @@ pub struct CycleContext {
     pub kick_steps: Parameter<KickSteps, "kick_steps">,
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
     pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
 
     pub motion_command: Input<MotionCommand, "motion_command">,
@@ -328,7 +328,7 @@ impl WalkingEngine {
             },
         };
 
-        context.motion_finished[MotionType::Walk] = matches!(self.walk_state, WalkState::Standing);
+        context.motion_safe_exits[MotionType::Walk] = matches!(self.walk_state, WalkState::Standing);
 
         let leg_stiffness = match self.walk_state {
             WalkState::Standing => context.config.leg_stiffness_stand,

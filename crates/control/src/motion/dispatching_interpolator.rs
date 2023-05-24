@@ -38,7 +38,7 @@ pub struct CycleContext {
     pub penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
 
     pub transition_time: AdditionalOutput<Option<Duration>, "transition_time">,
 }
@@ -60,7 +60,7 @@ impl DispatchingInterpolator {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        context.motion_finished[MotionType::Dispatching] = false;
+        context.motion_safe_exits[MotionType::Dispatching] = false;
 
         let currently_active = context.motion_selection.current_motion == MotionType::Dispatching;
         if !currently_active {
@@ -116,7 +116,7 @@ impl DispatchingInterpolator {
         self.interpolator
             .advance_by(context.cycle_time.last_cycle_duration);
 
-        context.motion_finished[MotionType::Dispatching] = self.interpolator.is_finished();
+        context.motion_safe_exits[MotionType::Dispatching] = self.interpolator.is_finished();
         context.transition_time.fill_if_subscribed(|| {
             if self.interpolator.is_finished() {
                 None

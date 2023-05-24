@@ -10,7 +10,7 @@ pub struct MotionSelector {
 
 #[context]
 pub struct CreationContext {
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
 }
 
 #[context]
@@ -18,7 +18,7 @@ pub struct CycleContext {
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub has_ground_contact: Input<bool, "has_ground_contact">,
 
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
 
     pub enable_energy_saving_stand: Parameter<bool, "energy_saving_stand.enabled">,
 }
@@ -38,14 +38,14 @@ impl MotionSelector {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let motion_finished = context.motion_finished[self.current_motion];
+        let motion_safe_to_exit = context.motion_safe_exits[self.current_motion];
         let requested_motion =
             motion_type_from_command(context.motion_command, *context.enable_energy_saving_stand);
 
         self.current_motion = transition_motion(
             self.current_motion,
             requested_motion,
-            motion_finished,
+            motion_safe_to_exit,
             *context.has_ground_contact,
         );
 
@@ -104,10 +104,10 @@ fn motion_type_from_command(
 fn transition_motion(
     from: MotionType,
     to: MotionType,
-    motion_finished: bool,
+    motion_safe_to_exit: bool,
     has_ground_contact: bool,
 ) -> MotionType {
-    match (from, motion_finished, to, has_ground_contact) {
+    match (from, motion_safe_to_exit, to, has_ground_contact) {
         (MotionType::SitDown, true, MotionType::Unstiff, _) => MotionType::Unstiff,
         (_, _, MotionType::Unstiff, false) => MotionType::Unstiff,
         (MotionType::Dispatching, true, MotionType::Unstiff, true) => MotionType::SitDown,

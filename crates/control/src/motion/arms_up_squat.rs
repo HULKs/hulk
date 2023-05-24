@@ -13,12 +13,12 @@ pub struct ArmsUpSquat {
 
 #[context]
 pub struct CreationContext {
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
 
     pub condition_input: Input<ConditionInput, "condition_input">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
