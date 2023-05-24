@@ -45,18 +45,9 @@ enum State<T> {
     },
 }
 
-impl<T> Default for State<T> {
-    fn default() -> Self {
-        State::CheckEntry {
-            current_frame_index: 0,
-            time_since_start: Duration::ZERO,
-        }
-    }
-}
-
-impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
-    pub fn advance_by(&mut self, time_step: Duration, condition_input: &ConditionInput) {
-        match self.current_state {
+impl<T> State<T> {
+    pub fn current_frame_index(&self) -> Option<usize> {
+        match self {
             State::CheckEntry {
                 current_frame_index,
                 ..
@@ -68,20 +59,56 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
             | State::CheckExit {
                 current_frame_index,
                 ..
-            } => {
-                let current_frame = &self.frames[current_frame_index];
-                if let Some(continuous_conditions) = current_frame.enable.as_ref() {
-                    if continuous_conditions.iter().any(|condition| {
-                        matches!(condition.evaluate(condition_input), Response::Abort)
-                    }) {
-                        self.abort_motion();
-                        return;
-                    }
+            } => Some(*current_frame_index),
+            _ => None,
+        }
+    }
+}
+
+enum ReturnState {
+    Return,
+    Continue,
+}
+
+impl<T> Default for State<T> {
+    fn default() -> Self {
+        State::CheckEntry {
+            current_frame_index: 0,
+            time_since_start: Duration::ZERO,
+        }
+    }
+}
+
+impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
+    fn check_continuous_conditions(&mut self, condition_input: &ConditionInput) -> ReturnState {
+        if let Some(continuous_conditions) = self
+            .current_state
+            .current_frame_index()
+            .map(|frame_index| self.frames[frame_index].enable.as_ref()).flatten()
+        {
+            return match continuous_conditions
+                .iter()
+                .map(|condition| condition.evaluate(condition_input))
+                .reduce(|accumulated, current| match (&accumulated, &current) {
+                    (Response::Abort, _) => Response::Abort,
+                    (_, Response::Abort) => Response::Abort,
+                    (Response::Wait, _) => Response::Wait,
+                    (_, Response::Wait) => Response::Wait,
+                    _ => accumulated,
+                }) {
+                Some(Response::Abort) => {
+                    self.abort_motion();
+                    ReturnState::Return
                 }
-            }
-            _ => (),
+                Some(Response::Wait) => ReturnState::Return,
+                _ => ReturnState::Continue,
+            };
         }
 
+        ReturnState::Continue
+    }
+
+    fn advance_state(&mut self, time_step: Duration, condition_input: &ConditionInput) {
         self.current_state = match self.current_state {
             State::CheckEntry {
                 current_frame_index,
@@ -149,6 +176,14 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
             }
             other_state => other_state,
         };
+    }
+
+    pub fn advance_by(&mut self, time_step: Duration, condition_input: &ConditionInput) {
+        if let ReturnState::Return = self.check_continuous_conditions(condition_input) {
+            return;
+        }
+
+        self.advance_state(time_step, condition_input);
     }
 
     fn abort_motion(&mut self) {
