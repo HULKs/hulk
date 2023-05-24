@@ -32,6 +32,7 @@ mod joints;
 mod joints_velocity;
 mod kick_decision;
 mod kick_step;
+mod kick_target;
 mod led;
 mod limb;
 mod line;
@@ -104,6 +105,7 @@ pub use joints::{
 pub use joints_velocity::JointsVelocity;
 pub use kick_decision::KickDecision;
 pub use kick_step::{JointOverride, KickStep};
+pub use kick_target::KickTarget;
 pub use led::{Ear, Eye, Leds};
 pub use limb::{is_above_limbs, Limb, ProjectedLimbs};
 pub use line::{Line, Line2};

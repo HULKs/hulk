@@ -8,8 +8,8 @@ use nalgebra::{distance, point, vector, Isometry2, Point2, UnitComplex, Vector2}
 use ordered_float::NotNan;
 use types::{
     configuration::{FindKickTargets, InWalkKickInfo, InWalkKicks},
-    rotate_towards, BallState, Circle, FieldDimensions, KickDecision, KickVariant, LineSegment,
-    Obstacle, Side, TwoLineSegments,
+    rotate_towards, BallState, Circle, FieldDimensions, KickDecision, KickTarget, KickVariant,
+    LineSegment, Obstacle, Side, TwoLineSegments,
 };
 
 pub struct KickSelector {}
@@ -34,9 +34,11 @@ pub struct CycleContext {
         Parameter<f32, "kick_selector.ball_radius_for_kick_target_selection">,
     pub closer_threshold: Parameter<f32, "kick_selector.closer_threshold">,
     pub find_kick_targets: Parameter<FindKickTargets, "kick_selector.find_kick_targets">,
-    pub kick_strength: Parameter<f32, "kick_selector.kick_strength">,
 
-    pub kick_targets: AdditionalOutput<Vec<Point2<f32>>, "kick_targets">,
+    pub default_kick_strength: Parameter<f32, "kick_selector.kick_strength">,
+    pub corner_kick_strength: Parameter<f32, "kick_selector.corner_kick_strength">,
+
+    pub kick_targets: AdditionalOutput<Vec<KickTarget>, "kick_targets">,
     pub instant_kick_targets: AdditionalOutput<Vec<Point2<f32>>, "instant_kick_targets">,
 }
 
@@ -82,6 +84,7 @@ impl KickSelector {
             *context.robot_to_field,
             *context.closer_threshold,
             &mut context.instant_kick_targets,
+            *context.default_kick_strength,
         );
 
         let kick_targets = collect_kick_targets(
@@ -91,6 +94,7 @@ impl KickSelector {
             ball_position,
             *context.max_kick_around_obstacle_angle,
             context.find_kick_targets,
+            *context.corner_kick_strength,
         );
 
         context
@@ -105,7 +109,7 @@ impl KickSelector {
                     kick_variant,
                     side,
                     ball_position,
-                    *context.kick_strength,
+                    *context.default_kick_strength,
                 )
             })
             .flatten()
@@ -168,6 +172,7 @@ fn generate_decisions_for_instant_kicks(
     robot_to_field: Isometry2<f32>,
     closer_threshold: f32,
     instant_kick_targets: &mut AdditionalOutput<Vec<Point2<f32>>>,
+    default_kick_strength: f32,
 ) -> Vec<KickDecision> {
     instant_kick_targets.fill_if_subscribed(Default::default);
     iproduct!(sides, kick_variants)
@@ -217,7 +222,7 @@ fn generate_decisions_for_instant_kicks(
                     variant,
                     kicking_side,
                     kick_pose,
-                    strength: 1.0,
+                    strength: default_kick_strength,
                 })
             } else {
                 None
@@ -253,7 +258,8 @@ fn collect_kick_targets(
     ball_position: Point2<f32>,
     max_kick_around_obstacle_angle: f32,
     parameters: &FindKickTargets,
-) -> Vec<Point2<f32>> {
+    corner_kick_strength: f32,
+) -> Vec<KickTarget> {
     let field_to_robot = robot_to_field.inverse();
     let mut kick_targets = Vec::new();
 
@@ -262,6 +268,7 @@ fn collect_kick_targets(
             parameters,
             field_dimensions,
             field_to_robot,
+            corner_kick_strength,
         ));
     } else {
         kick_targets.extend(generate_goal_line_kick_targets(
@@ -292,7 +299,7 @@ fn collect_kick_targets(
     kick_targets
         .iter()
         .flat_map(|&target| {
-            let ball_to_target = LineSegment(ball_position, target);
+            let ball_to_target = LineSegment(ball_position, target.position);
             let closest_intersecting_obstacle = obstacle_circles
                 .iter()
                 .filter(|circle| circle.intersects_line_segment(&ball_to_target))
@@ -308,7 +315,8 @@ fn collect_kick_targets(
                             // TODO: drop this constant?
                             ball_position + kick_direction * 2.0
                         })
-                        .filter(|&target| field_dimensions.is_inside_field(target))
+                        .filter(|&position| field_dimensions.is_inside_field(position))
+                        .map(KickTarget::new)
                         .collect()
                 }
                 None => vec![target],
@@ -321,16 +329,21 @@ fn generate_corner_kick_targets(
     parameters: &FindKickTargets,
     field_dimensions: &FieldDimensions,
     field_to_robot: Isometry2<f32>,
-) -> Vec<Point2<f32>> {
+    corner_kick_strength: f32,
+) -> Vec<KickTarget> {
     let from_corner_kick_target_x =
         field_dimensions.length / 2.0 - parameters.corner_kick_target_distance_to_goal;
-    vec![field_to_robot * point![from_corner_kick_target_x, 0.0]]
+    let position = field_to_robot * point![from_corner_kick_target_x, 0.0];
+    vec![KickTarget {
+        position,
+        strength: Some(corner_kick_strength),
+    }]
 }
 
 fn generate_goal_line_kick_targets(
     field_dimensions: &FieldDimensions,
     field_to_robot: Isometry2<f32>,
-) -> Vec<Point2<f32>> {
+) -> Vec<KickTarget> {
     let left_goal_half = field_to_robot
         * point![
             field_dimensions.length / 2.0,
@@ -341,28 +354,31 @@ fn generate_goal_line_kick_targets(
             field_dimensions.length / 2.0,
             -field_dimensions.goal_inner_width / 4.0
         ];
-    vec![left_goal_half, right_goal_half]
+    vec![
+        KickTarget::new(left_goal_half),
+        KickTarget::new(right_goal_half),
+    ]
 }
 
 fn kick_decisions_from_targets(
-    targets_to_kick_to: &[Point2<f32>],
+    targets_to_kick_to: &[KickTarget],
     in_walk_kicks: &InWalkKicks,
     variant: KickVariant,
     kicking_side: Side,
     ball_position: Point2<f32>,
-    strength: f32,
+    default_strength: f32,
 ) -> Option<Vec<KickDecision>> {
     Some(
         targets_to_kick_to
             .iter()
-            .map(|&target| {
+            .map(|&KickTarget { position, strength }| {
                 let kick_info = &in_walk_kicks[variant];
-                let kick_pose = compute_kick_pose(ball_position, target, kick_info, kicking_side);
+                let kick_pose = compute_kick_pose(ball_position, position, kick_info, kicking_side);
                 KickDecision {
                     variant,
                     kicking_side,
                     kick_pose,
-                    strength,
+                    strength: strength.unwrap_or(default_strength),
                 }
             })
             .collect(),

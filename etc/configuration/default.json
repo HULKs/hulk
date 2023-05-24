@@ -755,7 +755,8 @@
       "max_kick_around_obstacle_angle": 1.0,
       "ball_radius_for_kick_target_selection": 0.15
     },
-    "kick_strength": 1.0
+    "default_kick_strength": 1.0,
+    "corner_kick_strength": 0.5
   },
   "behavior": {
     "optional_roles": [
