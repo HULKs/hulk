@@ -56,17 +56,17 @@ pub struct Ear {
 }
 
 impl Ear {
-    pub fn every_second(intensity: f32) -> Self {
+    pub fn half(intensity: f32) -> Self {
         Self {
             intensity_at_0: intensity,
-            intensity_at_36: 0.0,
+            intensity_at_36: intensity,
             intensity_at_72: intensity,
-            intensity_at_108: 0.0,
+            intensity_at_108: intensity,
             intensity_at_144: intensity,
             intensity_at_180: 0.0,
-            intensity_at_216: intensity,
+            intensity_at_216: 0.0,
             intensity_at_252: 0.0,
-            intensity_at_288: intensity,
+            intensity_at_288: 0.0,
             intensity_at_324: 0.0,
         }
     }
