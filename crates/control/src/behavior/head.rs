@@ -13,6 +13,7 @@ impl<'cycle> LookAction<'cycle> {
     pub fn execute(&self) -> HeadMotion {
         HeadMotion::LookAt {
             target: self.world_state.position_of_interest,
+            camera: None,
         }
     }
 }
