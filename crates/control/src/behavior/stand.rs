@@ -37,7 +37,10 @@ pub fn execute(
                 .map(|state| state.ball_in_ground)
                 .unwrap_or(fallback_target);
             Some(MotionCommand::Stand {
-                head: HeadMotion::LookAt { target },
+                head: HeadMotion::LookAt {
+                    target,
+                    camera: None,
+                },
                 is_energy_saving: true,
             })
         }

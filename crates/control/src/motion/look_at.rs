@@ -6,8 +6,8 @@ use framework::MainOutput;
 use kinematics::{head_to_neck, neck_to_robot};
 use nalgebra::{distance, point, vector, Isometry3, Point2};
 use types::{
-    CameraMatrices, CycleTime, GlanceDirection, HeadJoints, HeadMotion, Joints, MotionCommand,
-    RobotKinematics, SensorData,
+    CameraMatrices, CameraPosition, CycleTime, GlanceDirection, HeadJoints, HeadMotion, Joints,
+    MotionCommand, RobotKinematics, SensorData,
 };
 
 pub struct LookAt {
@@ -85,7 +85,7 @@ impl LookAt {
         }
 
         let (target, camera) = match head_motion {
-            HeadMotion::LookAt { target, camera } => *target,
+            HeadMotion::LookAt { target, camera } => (*target, *camera),
             HeadMotion::LookLeftAndRightOf { target } => {
                 let left_right_shift = vector![
                     0.0,
@@ -106,33 +106,24 @@ impl LookAt {
             neck_to_robot(&HeadJoints::default()) * head_to_neck(&HeadJoints::default());
         let ground_to_zero_head = zero_head_to_robot.inverse() * ground_to_robot;
 
-        let request = look_at(
-            context.sensor_data.positions,
-            ground_to_zero_head,
-            camera_matrices.top.camera_to_head.inverse(),
-            camera_matrices.bottom.camera_to_head.inverse(),
-            target,
-            *context.minimum_bottom_focus_pitch,
-        );
-
         let request = match camera {
             Some(camera) => {
                 let head_to_camera = match camera {
                     CameraPosition::Top => camera_matrices.top.camera_to_head.inverse(),
                     CameraPosition::Bottom => camera_matrices.bottom.camera_to_head.inverse(),
                 };
-                look_at_with_camera(*target, head_to_camera * ground_to_zero_head)
+                look_at_with_camera(target, head_to_camera * ground_to_zero_head)
             }
             None => look_at(
-                *target,
-                sensor_data.positions,
+                context.sensor_data.positions,
                 ground_to_zero_head,
                 camera_matrices.top.camera_to_head.inverse(),
                 camera_matrices.bottom.camera_to_head.inverse(),
+                target,
                 *context.minimum_bottom_focus_pitch,
             ),
         };
-        
+
         Ok(MainOutputs {
             look_at: request.into(),
         })
