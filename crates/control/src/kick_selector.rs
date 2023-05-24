@@ -35,7 +35,7 @@ pub struct CycleContext {
     pub closer_threshold: Parameter<f32, "kick_selector.closer_threshold">,
     pub find_kick_targets: Parameter<FindKickTargets, "kick_selector.find_kick_targets">,
 
-    pub default_kick_strength: Parameter<f32, "kick_selector.kick_strength">,
+    pub default_kick_strength: Parameter<f32, "kick_selector.default_kick_strength">,
     pub corner_kick_strength: Parameter<f32, "kick_selector.corner_kick_strength">,
 
     pub kick_targets: AdditionalOutput<Vec<KickTarget>, "kick_targets">,
