@@ -27,7 +27,7 @@ pub struct CycleContext {
     pub gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
     pub maximum_velocity: Parameter<JointsVelocity, "maximum_joint_velocities">,
 
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
     pub should_exit_stand_up_front: PersistentState<bool, "should_exit_stand_up_front">,
 }
 
@@ -44,32 +44,28 @@ impl StandUpFront {
         })
     }
 
-    pub fn compute_stand_up_front(&mut self, context: CycleContext) -> Result<Joints<f32>> {
+    pub fn advance_interpolator(&mut self, context: CycleContext) {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let condition_input = context.condition_input;
 
-        context.motion_finished[MotionType::StandUpFront] = false;
+        context.motion_safe_exits[MotionType::StandUpFront] = false;
 
         self.interpolator
             .advance_by(last_cycle_duration, condition_input);
 
         if self.interpolator.is_finished() {
-            context.motion_finished[MotionType::StandUpFront] = true;
+            context.motion_safe_exits[MotionType::StandUpFront] = true;
         }
-
-        Ok(self.interpolator.value())
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let current_position =
-            if let MotionType::StandUpFront = context.motion_selection.current_motion {
-                self.compute_stand_up_front(context)?
-            } else {
-                self.interpolator.reset();
-                self.interpolator.value()
-            };
+        if let MotionType::StandUpFront = context.motion_selection.current_motion {
+            self.advance_interpolator(context);
+        } else {
+            self.interpolator.reset();
+        }
         Ok(MainOutputs {
-            stand_up_front_positions: current_position.into(),
+            stand_up_front_positions: self.interpolator.value().into(),
         })
     }
 }

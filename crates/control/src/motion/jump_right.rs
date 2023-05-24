@@ -13,12 +13,12 @@ pub struct JumpRight {
 
 #[context]
 pub struct CreationContext {
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
 
     pub condition_input: Input<ConditionInput, "condition_input">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
@@ -48,7 +48,7 @@ impl JumpRight {
             self.interpolator.reset();
         }
 
-        context.motion_finished[MotionType::JumpRight] = self.interpolator.is_finished();
+        context.motion_safe_exits[MotionType::JumpRight] = self.interpolator.is_finished();
 
         Ok(MainOutputs {
             jump_right_joints_command: JointsCommand {

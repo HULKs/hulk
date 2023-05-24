@@ -27,7 +27,7 @@ pub struct CycleContext {
     pub gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
     pub maximum_velocity: Parameter<JointsVelocity, "maximum_joint_velocities">,
 
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
 }
 
 #[context]
@@ -44,32 +44,28 @@ impl StandUpBack {
         })
     }
 
-    pub fn compute_stand_up_back(&mut self, context: CycleContext) -> Joints<f32> {
+    pub fn advance_interpolator(&mut self, context: CycleContext) {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let condition_input = context.condition_input;
 
-        context.motion_finished[MotionType::StandUpBack] = false;
+        context.motion_safe_exits[MotionType::StandUpBack] = false;
 
         self.interpolator
             .advance_by(last_cycle_duration, condition_input);
 
         if self.interpolator.is_finished() {
-            context.motion_finished[MotionType::StandUpBack] = true;
+            context.motion_safe_exits[MotionType::StandUpBack] = true;
         }
-
-        self.interpolator.value()
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let current_position =
-            if let MotionType::StandUpBack = context.motion_selection.current_motion {
-                self.compute_stand_up_back(context)
-            } else {
-                self.interpolator.reset();
-                self.interpolator.value()
-            };
+        if let MotionType::StandUpBack = context.motion_selection.current_motion {
+            self.advance_interpolator(context);
+        } else {
+            self.interpolator.reset();
+        };
         Ok(MainOutputs {
-            stand_up_back_positions: current_position.into(),
+            stand_up_back_positions: self.interpolator.value().into(),
         })
     }
 }

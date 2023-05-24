@@ -16,9 +16,9 @@ pub struct CycleContext {
     pub positions: AdditionalOutput<Joints<f32>, "positions">,
     pub positions_difference: AdditionalOutput<Joints<f32>, "positions_difference">,
     pub stiffnesses: AdditionalOutput<Joints<f32>, "stiffnesses">,
-    pub motion_finished_output: AdditionalOutput<MotionFinished, "motion_finished_output">,
+    pub motion_safe_exits_output: AdditionalOutput<MotionFinished, "motion_safe_exits_output">,
 
-    pub motion_finished: PersistentState<MotionFinished, "motion_finished">,
+    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
 
     pub center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
     pub penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
@@ -109,8 +109,8 @@ impl JointCommandSender {
             .fill_if_subscribed(|| positions - current_positions);
         context.stiffnesses.fill_if_subscribed(|| stiffnesses);
         context
-            .motion_finished_output
-            .fill_if_subscribed(|| context.motion_finished.clone());
+            .motion_safe_exits_output
+            .fill_if_subscribed(|| context.motion_safe_exits.clone());
 
         Ok(MainOutputs {})
     }
