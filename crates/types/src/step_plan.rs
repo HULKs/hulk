@@ -55,3 +55,15 @@ impl Mul<Step> for Step {
         }
     }
 }
+
+impl Mul<f32> for Step {
+    type Output = Step;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Step {
+            forward: self.forward * rhs,
+            left: self.left * rhs,
+            turn: self.turn * rhs,
+        }
+    }
+}

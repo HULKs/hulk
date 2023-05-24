@@ -462,17 +462,22 @@ impl WalkingEngine {
                 self.swing_side = swing_side.opposite();
                 self.max_swing_foot_lift = config.base_foot_lift;
             }
-            WalkState::Kicking(kick_variant, kick_side, kick_step_i, _) => {
+            WalkState::Kicking(kick_variant, kick_side, kick_step_i, strength) => {
                 let kick_steps = match kick_variant {
                     KickVariant::Forward => &kick_steps.forward,
                     KickVariant::Turn => &kick_steps.turn,
                     KickVariant::Side => &kick_steps.side,
                 };
-                let base_step = kick_steps[kick_step_i].base_step;
-                self.current_step = match kick_side {
+                let kick_step = &kick_steps[kick_step_i];
+                let base_step = kick_step.base_step;
+                let mut step = match kick_side {
                     Side::Left => base_step,
                     Side::Right => base_step.mirrored(),
                 };
+                if kick_step.is_strength_scaling() {
+                    step = step * strength;
+                }
+                self.current_step = step;
                 self.planned_step_duration = config.base_step_duration;
                 self.swing_side = swing_side.opposite();
                 self.max_swing_foot_lift = config.base_foot_lift + config.additional_kick_foot_lift;
