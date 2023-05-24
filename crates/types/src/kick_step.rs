@@ -16,3 +16,9 @@ pub struct KickStep {
     pub hip_pitch_overrides: Option<Vec<JointOverride>>,
     pub ankle_pitch_overrides: Option<Vec<JointOverride>>,
 }
+
+impl KickStep {
+    pub fn is_strength_scaling(&self) -> bool {
+        self.hip_pitch_overrides.is_some() || self.ankle_pitch_overrides.is_some()
+    }
+}
