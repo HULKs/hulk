@@ -19,6 +19,8 @@ pub struct CycleContext {
     pub filtered_game_state: Input<Option<FilteredGameState>, "filtered_game_state?">,
     pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
 
+    pub injected_head_buttons_touched: Parameter<Option<bool>, "injected_head_buttons_touched?">,
+
     pub player_number: Parameter<PlayerNumber, "player_number">,
 }
 
@@ -45,7 +47,8 @@ impl PrimaryStateFilter {
 
         self.last_primary_state = match (
             self.last_primary_state,
-            context.buttons.head_buttons_touched,
+            context.buttons.head_buttons_touched
+                || context.injected_head_buttons_touched == Some(&true),
             context.buttons.is_chest_button_pressed,
             context.buttons.calibration_buttons_touched,
             context.filtered_game_state,
