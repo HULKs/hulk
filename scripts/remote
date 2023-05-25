@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# Get base directory for better referencing
+BASEDIR=`cd $(dirname $0); pwd -P`
+BASEDIR=${BASEDIR%/*}
+
+# print help
+case $1 in
+    -[h?] | --help)
+        cat <<-__helpText__
+Usage: $0 [--help] [remote] [command]
+
+Pushes local changes a remote repository and executes a command there.
+Afterwards, build artifacts are rsync'ed back.
+
+remote:  The git remote to use
+command: Command to execute on the remote machine
+         Example: \`$0 ./pepsi build\`
+
+This script assumes at least one git remote to exist with an url similar to this:
+
+    \`ssh://user@domain/path/to/nao/repo.git\`
+__helpText__
+        exit
+esac
+
+# if the first parameter is the name of a valid remote, use it as the compiler
+remote=compiler
+if git remote get-url $1 &> /dev/null;
+then
+    remote=$1
+    shift
+fi
+echo Using remote $(tput setaf 6)$remote$(tput sgr 0)
+
+# extract login information and remote path from git remote
+# assumes remote url of this format: `ssh://user@domain/path/to/nao/repo.git`
+remoteURL=$(git remote get-url $remote)
+address=$(echo $remoteURL | cut -d'/' -f 3)
+remotePath=/$(echo $remoteURL | cut -d'/' -f 4- | sed 's/\.git/\//')
+
+# save current state in commits, aka. "gwip"
+git add -A
+git rm $(git ls-files --deleted) 2> /dev/null
+git commit --no-verify --no-gpg-sign --allow-empty -m "--wip--RemoteCompile [skip ci]"
+
+# push everything to compiler slave
+git push $remote HEAD:main --force
+
+# restore previous state, aka. "gunwip"
+git log -n 1 | grep -q -c "\-\-wip\-\-RemoteCompile" && git reset HEAD~1
+
+# invoke compile script remotely
+ssh $address "source ~/.profile && cd $remotePath && $@"
+
+# fetch compilation results
+rsync -a --info=progress $address:$remotePath'target' . --include="*/" --include="nao" --include="webots" --exclude="*"
+

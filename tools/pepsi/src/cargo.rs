@@ -1,5 +1,6 @@
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
+use tokio::process::Command as TokioCommand;
 
 use repository::Repository;
 
@@ -17,8 +18,11 @@ pub struct Arguments {
     /// Pass through arguments to cargo ... -- PASSTHROUGH_ARGUMENTS
     #[arg(last = true, value_parser)]
     pub passthrough_arguments: Vec<String>,
+    #[arg(long)]
+    pub remote: bool,
 }
 
+#[derive(Debug)]
 pub enum Command {
     Build,
     Check,
@@ -27,6 +31,37 @@ pub enum Command {
 }
 
 pub async fn cargo(arguments: Arguments, repository: &Repository, command: Command) -> Result<()> {
+    if arguments.remote {
+        match command {
+            Command::Build => {
+                let mut command = TokioCommand::new("./scripts/remote");
+                command
+                    .arg("pepsi")
+                    .arg("build")
+                    .arg("--profile")
+                    .arg(arguments.profile)
+                    .arg("--target")
+                    .arg(arguments.target);
+
+                if arguments.workspace {
+                    command.arg("--workspace");
+                }
+                if arguments.no_sdk_installation {
+                    command.arg("--no-sdk-installation");
+                }
+                command.arg("--");
+                command.args(arguments.passthrough_arguments);
+
+                command.status().await.wrap_err("failed to execute remote script")?;
+
+                return Ok(());
+            }
+            Command::Check | Command::Clippy | Command::Run => {
+                unimplemented!("remote option is not compatible with cargo command: {command:?}")
+            }
+        }
+    }
+
     if !arguments.no_sdk_installation && arguments.target == "nao" {
         repository
             .install_sdk(None, None)
