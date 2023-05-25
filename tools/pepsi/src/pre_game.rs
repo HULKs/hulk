@@ -47,6 +47,8 @@ pub struct Arguments {
     /// The NAOs to upload to with player number assignments e.g. 20w:2 or 10.1.24.22:5 (player numbers start from 1)
     #[arg(required = true)]
     pub assignments: Vec<NaoAddressPlayerAssignment>,
+    #[arg(long)]
+    pub remote: bool,
 }
 
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -86,6 +88,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
             no_communication: !arguments.with_communication,
             skip_os_check: arguments.skip_os_check,
             naos: naos.clone(),
+            remote: arguments.remote,
         },
         repository,
     )

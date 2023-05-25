@@ -41,6 +41,8 @@ pub struct Arguments {
     /// The NAOs to upload to e.g. 20w or 10.1.24.22
     #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
+    #[arg(long)]
+    pub remote: bool,
 }
 
 fn get_head_id<'a>(
@@ -114,6 +116,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
                 target: "nao".to_string(),
                 no_sdk_installation: arguments.no_sdk_installation,
                 passthrough_arguments: Vec::new(),
+                remote: arguments.remote,
             },
             repository,
             Command::Build,
