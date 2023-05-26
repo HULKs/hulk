@@ -68,6 +68,7 @@ mod walk_command;
 mod whistle;
 mod world_state;
 pub mod ycbcr422_image;
+pub mod initial_look_around;
 
 // TODO: convert all "mod" to "pub mod"
 
