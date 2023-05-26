@@ -2,28 +2,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use color_eyre::Result;
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use types::{
     configuration::LookAround as LookAroundConfiguration, CycleTime, HeadJoints, HeadMotion,
-    MotionCommand, SensorData, Side,
+    MotionCommand, SensorData, Side, initial_look_around::Mode,
 };
-
-#[derive(Debug, Clone, Copy)]
-enum Mode {
-    Center { moving_towards: Side },
-    Left,
-    Right,
-    HalfwayLeft { moving_towards: Side },
-    HalfwayRight { moving_towards: Side },
-}
-
-impl Default for Mode {
-    fn default() -> Self {
-        Self::Center {
-            moving_towards: Side::Left,
-        }
-    }
-}
 
 pub struct LookAround {
     current_mode: Mode,
@@ -42,6 +25,7 @@ pub struct CycleContext {
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub sensor_data: Input<SensorData, "sensor_data">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
+    pub current_mode: AdditionalOutput<Mode, "look_around_mode">,
 }
 
 #[context]
@@ -58,7 +42,7 @@ impl LookAround {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         match context.motion_command.head_motion() {
             Some(HeadMotion::LookAround) => {
                 self.look_around(
@@ -74,11 +58,18 @@ impl LookAround {
                 self.current_mode = Mode::Center {
                     moving_towards: Side::Left,
                 };
+                context
+                    .current_mode
+                    .fill_if_subscribed(|| self.current_mode);
                 return Ok(MainOutputs {
                     look_around: context.config.middle_positions.into(),
                 });
             }
         }
+
+        context
+            .current_mode
+            .fill_if_subscribed(|| self.current_mode);
 
         let request = match self.current_mode {
             Mode::Center { .. } => context.config.middle_positions,
