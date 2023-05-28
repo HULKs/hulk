@@ -1,43 +1,57 @@
-use std::{f32::consts::FRAC_PI_2, str::FromStr, sync::Arc};
-
-use eframe::{
-    egui::{ComboBox, Response, Ui, Widget},
-    epaint::{Color32, Pos2, Stroke},
-    Storage,
-};
-use log::info;
-use nalgebra::{point, vector, Point2, Similarity2, Vector2};
+use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
+use communication::client::CyclerOutput;
+use eframe::egui::{Response, Slider, Ui, Widget};
+use log::{error};
+use nalgebra::{point, Point2};
 use serde_json::Value;
+use std::{ops::RangeInclusive, str::FromStr, sync::Arc};
 use tokio::sync::mpsc;
-use types::{CameraPosition, HeadMotion, MotionCommand};
-
-use crate::{nao::Nao, panel::Panel, twix_painter::TwixPainter, value_buffer::ValueBuffer};
+use types::{CameraPosition, FieldDimensions, HeadMotion, MotionCommand};
 
 use super::parameter::subscribe;
 
+#[derive(PartialEq)]
+enum LookAtType {
+    PenaltyBoxFromCenter,
+    Manual,
+}
+
 pub struct LookAtPanel {
     nao: Arc<Nao>,
-    camera_position: CameraPosition,
-    motion_command: ValueBuffer,
+    camera_position: Option<CameraPosition>,
+    look_at_target: Point2<f32>,
+    look_at_mode: LookAtType,
     is_enabled: bool,
+    field_dimensions: Option<ValueBuffer>,
+    field_dimensions_update_notify_receiver: mpsc::Receiver<()>,
+    motion_command: Option<ValueBuffer>,
 }
+
+const INJECTED_MOTION_COMMAND: &'static str = "behavior.injected_motion_command";
+const DEFAULT_TARGET: Point2<f32> = point![1.0, 0.0];
 
 impl Panel for LookAtPanel {
     const NAME: &'static str = "Look At";
 
-    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
-        let motion_command = subscribe(
-            nao.clone(),
-            "control.main.motion_command",
-            update_notify_sender,
-        )
-        .unwrap();
+    fn new(nao: Arc<Nao>, _: Option<&Value>) -> Self {
+        let (update_notify_sender, field_dimensions_update_notify_receiver) = mpsc::channel(1);
+        let field_dimensions = subscribe(nao.clone(), "field_dimensions", update_notify_sender);
+        let motion_command = match CyclerOutput::from_str("Control.main_outputs.motion_command") {
+            Ok(output) => Some(nao.subscribe_output(output)),
+            Err(error) => {
+                error!("Failed to subscribe: {error:#?}");
+                None
+            }
+        };
 
         Self {
             nao,
-            camera_position: CameraPosition::Top,
+            camera_position: Some(CameraPosition::Top),
+            look_at_target: DEFAULT_TARGET,
+            look_at_mode: LookAtType::PenaltyBoxFromCenter,
             is_enabled: false,
+            field_dimensions,
+            field_dimensions_update_notify_receiver,
             motion_command,
         }
     }
@@ -45,86 +59,162 @@ impl Panel for LookAtPanel {
 
 impl Widget for &mut LookAtPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        ComboBox::from_label("Camera")
-            .selected_text(format!("{:?}", self.camera_position))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut self.camera_position, CameraPosition::Top, "Top");
-                ui.selectable_value(&mut self.camera_position, CameraPosition::Bottom, "Bottom");
-            });
-        if ui
-            .checkbox(&mut self.is_enabled, "Enable Motion Override")
-            .changed()
-        {
-            if self.is_enabled {
-                send_standing_look_at(self.nao.as_ref(), point![1.0, 0.0], self.camera_position);
-            } else {
-                self.nao.update_parameter_value(
-                    "control.behavior.injected_motion_command",
-                    Value::Null,
-                );
-            }
-        }
-        let (painter_response, painter) = TwixPainter::allocate_new(ui);
-        //     ui,
-        //     vector![3.0, 3.0],
-        //     Similarity2::identity(),
-        //     Similarity2::new(vector![1.5, 1.5], -FRAC_PI_2, 1.0),
-        //     1.0,
-        // );
-        painter.rect_filled(point![1.5, -1.5], point![-1.5, 1.5], Color32::DARK_GREEN);
-        painter.line_segment(
-            point![1.5, 0.0],
-            point![-1.5, 0.0],
-            Stroke::new(0.1, Color32::BLACK),
-        );
-        painter.line_segment(
-            point![0.0, 1.5],
-            point![0.0, -1.5],
-            Stroke::new(0.1, Color32::BLACK),
-        );
-        if let Some(position) = painter_response.interact_pointer_pos() {
-            if self.is_enabled {
-                let look_at_target = painter.transform_pixel_to_world(position);
-                send_standing_look_at(self.nao.as_ref(), look_at_target, self.camera_position);
-            }
-        }
-        if let Ok(value) = self.motion_command.get_latest() {
-            let motion_command: MotionCommand = serde_json::from_value(value).unwrap();
-            if let MotionCommand::SitDown {
-                head: HeadMotion::LookAt { target, .. },
-            }
-            | MotionCommand::Stand {
-                head: HeadMotion::LookAt { target, .. },
-                ..
-            }
-            | MotionCommand::Walk {
-                head: HeadMotion::LookAt { target, .. },
-                ..
-            }
-            | MotionCommand::InWalkKick {
-                head: HeadMotion::LookAt { target, .. },
-                ..
-            } = motion_command
+        ui.vertical(|ui| {
+            if ui
+                .checkbox(&mut self.is_enabled, "Enable Motion Override")
+                .changed()
             {
-                painter.circle(target, 0.1, Color32::BLUE, Stroke::default())
+                if self.is_enabled {
+                    send_standing_look_at(
+                        self.nao.as_ref(),
+                        self.look_at_target,
+                        self.camera_position,
+                    );
+                } else {
+                    self.nao
+                        .update_parameter_value(INJECTED_MOTION_COMMAND, Value::Null);
+                }
             }
-        }
 
-        painter_response
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.label("Select look-at mode");
+                    ui.radio_value(
+                        &mut self.look_at_mode,
+                        LookAtType::PenaltyBoxFromCenter,
+                        "Look at penalty box from center circle",
+                    );
+                    ui.radio_value(
+                        &mut self.look_at_mode,
+                        LookAtType::Manual,
+                        "Manual target (Robot Coordinates)",
+                    );
+                });
+                ui.vertical(|ui| {
+                    ui.label("Camera to look at with:");
+                    ui.radio_value(
+                        &mut self.camera_position,
+                        Some(CameraPosition::Top),
+                        "Top Camera",
+                    );
+                    ui.radio_value(
+                        &mut self.camera_position,
+                        Some(CameraPosition::Bottom),
+                        "Bottom Camera",
+                    );
+                    ui.radio_value(&mut self.camera_position, None, "Automatic");
+                });
+            });
+
+            let current_field_dimensions = self.field_dimensions.as_ref().and_then(|buffer| {
+                buffer.get_latest().ok().and_then(|latest| {
+                    if self
+                        .field_dimensions_update_notify_receiver
+                        .try_recv()
+                        .is_ok()
+                    {
+                        serde_json::from_value::<FieldDimensions>(latest).ok()
+                    } else {
+                        None
+                    }
+                })
+            });
+
+            self.look_at_target = match self.look_at_mode {
+                LookAtType::PenaltyBoxFromCenter => {
+                    if let Some(dimensions) = current_field_dimensions {
+                        let half_field_length = dimensions.length / 2.0;
+                        point![half_field_length, 0.0]
+                    } else {
+                        DEFAULT_TARGET
+                    }
+                }
+                LookAtType::Manual => {
+                    let max_dimension = current_field_dimensions
+                        .map_or(10.0, |dimensions: FieldDimensions| dimensions.length);
+
+                    ui.add(
+                        Slider::new(
+                            &mut self.look_at_target.x,
+                            RangeInclusive::new(-max_dimension, max_dimension),
+                        )
+                        .text("x")
+                        .smart_aim(false),
+                    );
+                    ui.add(
+                        Slider::new(
+                            &mut self.look_at_target.y,
+                            RangeInclusive::new(-max_dimension, max_dimension),
+                        )
+                        .text("y")
+                        .smart_aim(false),
+                    );
+
+                    self.look_at_target
+                }
+            };
+
+            ui.add_enabled_ui(self.is_enabled, |ui| {
+                if ui.button("Send Command").clicked() {
+                    send_standing_look_at(
+                        self.nao.as_ref(),
+                        self.look_at_target,
+                        self.camera_position,
+                    );
+                }
+            });
+
+            self.motion_command
+                .as_ref()
+                .map(|buffer| match buffer.get_latest() {
+                    Ok(value) => {
+                        let motion_command: MotionCommand = serde_json::from_value(value).unwrap();
+                        let contents = if let MotionCommand::SitDown {
+                            head: HeadMotion::LookAt { target, camera },
+                        }
+                        | MotionCommand::Stand {
+                            head: HeadMotion::LookAt { target, camera },
+                            ..
+                        }
+                        | MotionCommand::Walk {
+                            head: HeadMotion::LookAt { target, camera },
+                            ..
+                        }
+                        | MotionCommand::InWalkKick {
+                            head: HeadMotion::LookAt { target, camera },
+                            ..
+                        } = motion_command
+                        {
+                            format!(
+                                "Look at active: {{ target: {:?}, camera: {:?} }}",
+                                target, camera
+                            )
+                        } else {
+                            "Look at inactive".to_string()
+                        };
+                        ui.label(contents)
+                    }
+                    Err(error) => ui.label(error),
+                });
+        })
+        .response
     }
 }
 
-fn send_standing_look_at(nao: &Nao, look_at_target: Point2<f32>, with_camera: CameraPosition) {
+fn send_standing_look_at(
+    nao: &Nao,
+    look_at_target: Point2<f32>,
+    camera_option: Option<CameraPosition>,
+) {
     let motion_command = Some(MotionCommand::Stand {
         head: HeadMotion::LookAt {
             target: look_at_target,
-            camera: Some(with_camera),
+            camera: camera_option,
         },
         is_energy_saving: false,
     });
-    info!("Setting motion command: {motion_command:#?}");
     nao.update_parameter_value(
-        "control.behavior.injected_motion_command",
+        INJECTED_MOTION_COMMAND,
         serde_json::to_value(motion_command).unwrap(),
     );
 }

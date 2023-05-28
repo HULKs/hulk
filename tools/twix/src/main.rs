@@ -23,8 +23,8 @@ use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 use nao::Nao;
 use panel::Panel;
 use panels::{
-    BehaviorSimulatorPanel, ImagePanel, ImageSegmentsPanel, LookAtLitePanel, LookAtPanel,
-    ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel, TextPanel,
+    BehaviorSimulatorPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel,
+    MapPanel, ParameterPanel, PlotPanel, TextPanel,
 };
 use serde_json::{from_str, to_string, Value};
 use tokio::sync::mpsc;
@@ -76,7 +76,6 @@ enum SelectablePanel {
     Parameter(ParameterPanel),
     ManualCalibration(ManualCalibrationPanel),
     LookAt(LookAtPanel),
-    LookAtLite(LookAtLitePanel),
 }
 
 impl SelectablePanel {
@@ -105,7 +104,7 @@ impl SelectablePanel {
                 SelectablePanel::ManualCalibration(ManualCalibrationPanel::new(nao, value))
             }
             "look at" => SelectablePanel::LookAt(LookAtPanel::new(nao, value)),
-            "look-at lite" => SelectablePanel::LookAtLite(LookAtLitePanel::new(nao, value)),
+
             name => bail!("unexpected panel name: {name}"),
         })
     }
@@ -121,7 +120,6 @@ impl SelectablePanel {
             SelectablePanel::Parameter(panel) => panel.save(),
             SelectablePanel::ManualCalibration(panel) => panel.save(),
             SelectablePanel::LookAt(panel) => panel.save(),
-            SelectablePanel::LookAtLite(panel) => panel.save(),
         };
         value["_panel_type"] = Value::String(self.to_string());
 
@@ -141,7 +139,6 @@ impl Widget for &mut SelectablePanel {
             SelectablePanel::Parameter(panel) => panel.ui(ui),
             SelectablePanel::ManualCalibration(panel) => panel.ui(ui),
             SelectablePanel::LookAt(panel) => panel.ui(ui),
-            SelectablePanel::LookAtLite(panel) => panel.ui(ui),
         }
     }
 }
@@ -158,7 +155,6 @@ impl Display for SelectablePanel {
             SelectablePanel::Parameter(_) => ParameterPanel::NAME,
             SelectablePanel::ManualCalibration(_) => ManualCalibrationPanel::NAME,
             SelectablePanel::LookAt(_) => LookAtPanel::NAME,
-            SelectablePanel::LookAtLite(_) => LookAtLitePanel::NAME,
         };
         f.write_str(panel_name)
     }
@@ -286,7 +282,6 @@ impl App for TwixApp {
                         "Parameter".to_string(),
                         "Manual Calibration".to_string(),
                         "Look At".to_string(),
-                        "Look-At Lite".to_string(),
                     ],
                     "Panel",
                 )
