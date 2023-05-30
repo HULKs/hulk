@@ -37,7 +37,7 @@ where
 pub struct MotionFileFrame<T> {
     pub name: Option<String>,
     pub entry_condition: Option<DiscreteConditionType>,
-    pub enable: Option<Vec<ContinuousConditionType>>,
+    pub motion_interrupts: Option<Vec<ContinuousConditionType>>,
     pub keyframes: Vec<KeyFrame<T>>,
     pub exit_condition: Option<DiscreteConditionType>,
 }
