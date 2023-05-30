@@ -49,6 +49,19 @@ pub struct NaoAddress {
     pub ip: Ipv4Addr,
 }
 
+impl NaoAddress {
+    pub fn short(&self) -> String {
+        let number_prefix = self.ip.octets()[3];
+
+        let connection_suffix = match self.ip.octets()[1] {
+            0 => "w",
+            _ => "",
+        };
+
+        format!("{number_prefix}{connection_suffix}")
+    }
+}
+
 impl FromStr for NaoAddress {
     type Err = Report;
 

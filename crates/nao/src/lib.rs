@@ -1,14 +1,18 @@
 use std::{
     fmt::{self, Display, Formatter},
-    net::Ipv4Addr,
+    net::{IpAddr, Ipv4Addr},
     path::Path,
+    time::Duration,
 };
 
 use color_eyre::{
     eyre::{bail, eyre, WrapErr},
-    Result,
+    Result, Report,
 };
-use tokio::process::Command;
+use tokio::{process::Command, time};
+
+pub const PING_TIMEOUT: Duration = Duration::from_secs(2);
+pub const PING_RETRIES: usize = 2;
 
 pub struct Nao {
     host: Ipv4Addr,
@@ -17,6 +21,30 @@ pub struct Nao {
 impl Nao {
     pub fn new(host: Ipv4Addr) -> Self {
         Self { host }
+    }
+
+    pub async fn new_with_ping(host: Ipv4Addr) -> Result<Self> {
+        let nao = Self::new(host);
+
+        if !nao.is_reachable(PING_RETRIES, PING_TIMEOUT).await {
+            return Err(Report::msg(format!("{host} not reachable")))
+        }
+
+        Ok(nao)
+    }
+
+    pub async fn is_reachable(&self, retries: usize, timeout: Duration) -> bool {
+        let pinger = async {
+            for _ in 0..retries {
+                match surge_ping::ping(IpAddr::V4(self.host), &[]).await {
+                    Ok(_) => return true,
+                    _ => continue,
+                };
+            }
+            false
+        };
+
+        time::timeout(timeout, pinger).await.unwrap_or(false)
     }
 
     pub async fn get_os_version(&self) -> Result<String> {
