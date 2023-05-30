@@ -328,7 +328,8 @@ impl WalkingEngine {
             },
         };
 
-        context.motion_safe_exits[MotionType::Walk] = matches!(self.walk_state, WalkState::Standing);
+        context.motion_safe_exits[MotionType::Walk] =
+            matches!(self.walk_state, WalkState::Standing);
 
         let leg_stiffness = match self.walk_state {
             WalkState::Standing => context.config.leg_stiffness_stand,
