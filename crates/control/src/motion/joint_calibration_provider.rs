@@ -26,7 +26,7 @@ impl JointCalibrationProvider {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let joint_calibration_offsets =
-            *context.joint_calibration_offsets_deg * std::f32::consts::PI / 180.0;
+            *context.joint_calibration_offsets_deg * (std::f32::consts::PI / 180.0);
 
         Ok(MainOutputs {
             joint_calibration_offsets: joint_calibration_offsets.into(),
