@@ -27,7 +27,7 @@ pub struct LookAtPanel {
     motion_command: Option<ValueBuffer>,
 }
 
-const INJECTED_MOTION_COMMAND: &'static str = "behavior.injected_motion_command";
+const INJECTED_MOTION_COMMAND: &str = "behavior.injected_motion_command";
 const DEFAULT_TARGET: Point2<f32> = point![1.0, 0.0];
 
 impl Panel for LookAtPanel {
