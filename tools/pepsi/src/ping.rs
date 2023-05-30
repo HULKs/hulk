@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use clap::Args;
-use color_eyre::{Report, owo_colors::OwoColorize};
+use color_eyre::{owo_colors::OwoColorize, Report};
 use futures_util::stream::FuturesUnordered;
 use futures_util::StreamExt;
 use nao::Nao;
@@ -39,9 +39,8 @@ pub async fn ping(arguments: Arguments) {
                 .await
             {
                 true => progress.finish_with_success(format!("{} reachable", nao_address.short())),
-                false => {
-                    progress.finish_with_error(Report::msg(format!("{} unreachable", nao_address.short())))
-                }
+                false => progress
+                    .finish_with_error(Report::msg(format!("{} unreachable", nao_address.short()))),
             }
         })
         .collect::<FuturesUnordered<_>>()

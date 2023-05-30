@@ -1,6 +1,6 @@
 use std::{borrow::Cow, time::Duration};
 
-use color_eyre::{owo_colors::OwoColorize, Result, Report};
+use color_eyre::{owo_colors::OwoColorize, Report, Result};
 use futures_util::{stream::FuturesUnordered, Future, StreamExt};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 

@@ -7,7 +7,7 @@ use std::{
 
 use color_eyre::{
     eyre::{bail, eyre, WrapErr},
-    Result, Report,
+    Result,
 };
 use tokio::{process::Command, time};
 
@@ -27,7 +27,7 @@ impl Nao {
         let nao = Self::new(host);
 
         if !nao.is_reachable(PING_RETRIES, PING_TIMEOUT).await {
-            return Err(Report::msg(format!("{host} not reachable")))
+            bail!(format!("{host} not reachable"));
         }
 
         Ok(nao)
