@@ -544,7 +544,7 @@ where
             self.left_arm.as_vec(),
             self.right_arm.as_vec(),
             self.left_leg.as_vec(),
-            self.right_arm.as_vec(),
+            self.right_leg.as_vec(),
         ]
     }
 }
