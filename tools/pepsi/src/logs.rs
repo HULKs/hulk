@@ -29,7 +29,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
     match arguments {
         Arguments::Delete { naos } => {
             ProgressIndicator::map_tasks(naos, "Deleting logs...", |nao_address| async move {
-                let nao = Nao::new(nao_address.ip);
+                let nao = Nao::new_with_ping(nao_address.ip).await?;
                 nao.delete_logs()
                     .await
                     .wrap_err_with(|| format!("failed to delete logs on {nao_address}"))
@@ -43,7 +43,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
             ProgressIndicator::map_tasks(naos, "Downloading logs...", |nao_address| {
                 let log_directory = log_directory.join(nao_address.to_string());
                 async move {
-                    let nao = Nao::new(nao_address.ip);
+                    let nao = Nao::new_with_ping(nao_address.ip).await?;
                     nao.download_logs(log_directory)
                         .await
                         .wrap_err_with(|| format!("failed to download logs from {nao_address}"))

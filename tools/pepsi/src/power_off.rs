@@ -17,7 +17,7 @@ pub async fn power_off(arguments: Arguments) -> Result<()> {
         arguments.naos,
         "Powering off...",
         |nao_address| async move {
-            let nao = Nao::new(nao_address.ip);
+            let nao = Nao::new_with_ping(nao_address.ip).await?;
             nao.power_off()
                 .await
                 .wrap_err_with(|| format!("failed to power {nao_address} off"))

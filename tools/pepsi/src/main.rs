@@ -12,6 +12,7 @@ use gammaray::{gammaray, Arguments as GammarayArguments};
 use hulk::{hulk, Arguments as HulkArguments};
 use location::{location, Arguments as LocationArguments};
 use logs::{logs, Arguments as LogsArguments};
+use ping::{ping, Arguments as PingArguments};
 use player_number::{player_number, Arguments as PlayerNumberArguments};
 use post_game::{post_game, Arguments as PostGameArguments};
 use power_off::{power_off, Arguments as PoweroffArguments};
@@ -33,6 +34,7 @@ mod hulk;
 mod location;
 mod logs;
 mod parsers;
+mod ping;
 mod player_number;
 mod post_game;
 mod power_off;
@@ -91,6 +93,7 @@ async fn main() -> Result<()> {
         Command::Logs(arguments) => logs(arguments)
             .await
             .wrap_err("failed to execute logs command")?,
+        Command::Ping(arguments) => ping(arguments).await,
         Command::Playernumber(arguments) => player_number(arguments, &repository?)
             .await
             .wrap_err("failed to execute player_number command")?,
@@ -166,6 +169,8 @@ enum Command {
     Logs(LogsArguments),
     /// Change player numbers of the NAOs in local configuration
     Playernumber(PlayerNumberArguments),
+    /// Tries to ping the NAO
+    Ping(PingArguments),
     /// Disable NAOs after a game (downloads logs, unsets wireless network, etc.)
     Postgame(PostGameArguments),
     /// Power NAOs off
