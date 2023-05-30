@@ -1,7 +1,7 @@
 use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 use communication::client::CyclerOutput;
 use eframe::egui::{Response, Slider, Ui, Widget};
-use log::{error};
+use log::error;
 use nalgebra::{point, Point2};
 use serde_json::Value;
 use std::{ops::RangeInclusive, str::FromStr, sync::Arc};
