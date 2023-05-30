@@ -37,7 +37,7 @@ impl SensorDataReceiver {
             .read_from_sensors()
             .wrap_err("failed to read from sensors")?;
 
-        sensor_data.positions = sensor_data.positions + (*context.joint_calibration_offsets);
+        sensor_data.positions = sensor_data.positions - (*context.joint_calibration_offsets);
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {

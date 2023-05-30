@@ -29,6 +29,7 @@ pub struct CycleContext {
     pub energy_saving_stand_command: Input<BodyJointsCommand<f32>, "energy_saving_stand_command">,
     pub fall_protection_command: Input<JointsCommand<f32>, "fall_protection_command">,
     pub head_joints_command: Input<HeadJointsCommand<f32>, "head_joints_command">,
+    pub joint_calibration_offsets: Input<Joints<f32>, "joint_calibration_offsets">,
     pub jump_left_joints_command: Input<JointsCommand<f32>, "jump_left_joints_command">,
     pub jump_right_joints_command: Input<JointsCommand<f32>, "jump_right_joints_command">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
@@ -98,12 +99,20 @@ impl JointCommandSender {
                 ),
             ),
         };
+
+        // The actuators uses the raw sensor data (not corrected like current_positions) in their feedback loops,
+        // thus the compensation is required to make them reach the actual desired position.
+        let compensated_positions = positions + *context.joint_calibration_offsets;
+
         context
             .hardware_interface
-            .write_to_actuators(positions, stiffnesses, *context.leds)
+            .write_to_actuators(compensated_positions, stiffnesses, *context.leds)
             .wrap_err("failed to write to actuators")?;
 
-        context.positions.fill_if_subscribed(|| positions);
+        context
+            .positions
+            .fill_if_subscribed(|| compensated_positions);
+
         context
             .positions_difference
             .fill_if_subscribed(|| positions - current_positions);
