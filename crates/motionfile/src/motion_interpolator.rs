@@ -84,7 +84,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         if let Some(continuous_conditions) = self
             .current_state
             .current_frame_index()
-            .map(|frame_index| self.frames[frame_index].enable.as_ref()).flatten()
+            .and_then(|frame_index| self.frames[frame_index].enable.as_ref())
         {
             return match continuous_conditions
                 .iter()
