@@ -240,7 +240,7 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
 
         let mut motion_frames = vec![ConditionedSpline {
             entry_condition: first_frame.entry_condition.clone(),
-            enable: first_frame.enable.clone(),
+            enable: first_frame.motion_interrupts.clone(),
             spline: TimedSpline::try_new_with_start(
                 motion_file.initial_positions,
                 first_frame.keyframes.clone(),
@@ -257,7 +257,7 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
                 .map(|(first_frame, second_frame)| {
                     Ok(ConditionedSpline {
                         entry_condition: second_frame.entry_condition,
-                        enable: second_frame.enable,
+                        enable: second_frame.motion_interrupts,
                         spline: TimedSpline::try_new_with_start(
                             first_frame.keyframes.last().unwrap().positions,
                             second_frame.keyframes,
