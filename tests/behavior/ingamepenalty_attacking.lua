@@ -21,6 +21,13 @@ function on_goal()
   print("Ball was at x: " .. state.ball.position[1] .. " y: " .. state.ball.position[2])
   state.ball = nil
   game_end_time = state.cycle_count + 200
+  state.game_controller_state.game_state = "Ready"
+    state.game_controller_state.kicking_team = "Opponent"
+    state.filtered_game_state = {
+      Ready = {
+        kicking_team = "Opponent"
+      }
+    }
 end
 
 function on_cycle()
