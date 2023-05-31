@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use framework::AdditionalOutput;
 use nalgebra::{Isometry2, Point2};
 use spl_network_messages::Team;
@@ -70,6 +72,8 @@ pub fn execute(
     let angle = robot_to_ball.angle(&dribble_pose_to_ball);
     let should_avoid_ball = angle > parameters.angle_to_approach_ball_from_threshold;
     let ball_obstacle = should_avoid_ball.then_some(ball_position);
+    let ball_obstacle_radius_factor = (angle - parameters.angle_to_approach_ball_from_threshold)
+        / (PI - parameters.angle_to_approach_ball_from_threshold)*0.75 + 0.25;
 
     let is_near_ball = matches!(
         world_state.ball,
@@ -96,6 +100,7 @@ pub fn execute(
         best_pose * Point2::origin(),
         robot_to_field,
         ball_obstacle,
+        ball_obstacle_radius_factor,
         obstacles,
         rule_obstacles,
         path_obstacles_output,

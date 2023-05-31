@@ -29,11 +29,13 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             configuration,
         }
     }
+    #[allow(clippy::too_many_arguments)]
     pub fn plan(
         &self,
         target_in_robot: Point2<f32>,
         robot_to_field: Isometry2<f32>,
         ball_obstacle: Option<Point2<f32>>,
+        ball_obstacle_radius_factor: f32,
         obstacles: &[Obstacle],
         rule_obstacles: &[RuleObstacle],
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
@@ -54,10 +56,11 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         );
         planner.with_goal_support_structures(robot_to_field.inverse(), self.field_dimensions);
         if let Some(ball_position) = ball_obstacle {
+
             planner.with_ball(
                 ball_position,
                 self.configuration.ball_obstacle_radius,
-                self.configuration.robot_radius_at_foot_height,
+                self.configuration.robot_radius_at_foot_height * ball_obstacle_radius_factor,
             );
         }
 
@@ -169,6 +172,7 @@ impl<'cycle> WalkAndStand<'cycle> {
                 target_pose * Point2::origin(),
                 robot_to_field,
                 self.world_state.ball.map(|ball| ball.ball_in_ground),
+                1.0,
                 &self.world_state.obstacles,
                 &self.world_state.rule_obstacles,
                 path_obstacles_output,
