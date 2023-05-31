@@ -4,8 +4,8 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    configuration::LookAround as LookAroundConfiguration, CycleTime, HeadJoints, HeadMotion,
-    MotionCommand, SensorData, Side, initial_look_around::Mode,
+    configuration::LookAround as LookAroundConfiguration, initial_look_around::Mode, CycleTime,
+    HeadJoints, HeadMotion, MotionCommand, SensorData, Side,
 };
 
 pub struct LookAround {

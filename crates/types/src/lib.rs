@@ -26,6 +26,7 @@ pub mod grayscale_image;
 pub mod hardware;
 pub mod horizon;
 mod image_segments;
+pub mod initial_look_around;
 mod initial_pose;
 mod joints;
 mod joints_velocity;
@@ -68,7 +69,6 @@ mod walk_command;
 mod whistle;
 mod world_state;
 pub mod ycbcr422_image;
-pub mod initial_look_around;
 
 // TODO: convert all "mod" to "pub mod"
 
