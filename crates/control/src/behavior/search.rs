@@ -69,6 +69,7 @@ pub fn execute(
             search_position,
             robot_to_field,
             None,
+            1.0,
             &world_state.obstacles,
             &world_state.rule_obstacles,
             path_obstacles_output,
