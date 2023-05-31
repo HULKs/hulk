@@ -21,6 +21,7 @@ pub struct CycleContext {
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
     pub center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
+    pub joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
     pub penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
@@ -29,7 +30,6 @@ pub struct CycleContext {
     pub energy_saving_stand_command: Input<BodyJointsCommand<f32>, "energy_saving_stand_command">,
     pub fall_protection_command: Input<JointsCommand<f32>, "fall_protection_command">,
     pub head_joints_command: Input<HeadJointsCommand<f32>, "head_joints_command">,
-    pub joint_calibration_offsets: Input<Joints<f32>, "joint_calibration_offsets">,
     pub jump_left_joints_command: Input<JointsCommand<f32>, "jump_left_joints_command">,
     pub jump_right_joints_command: Input<JointsCommand<f32>, "jump_right_joints_command">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,

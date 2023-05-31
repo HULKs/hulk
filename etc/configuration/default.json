@@ -1021,7 +1021,7 @@
       "knee_pitch": 2.5
     }
   },
-  "joint_calibration_offsets_deg": {
+  "joint_calibration_offsets": {
     "head": {
       "pitch": 0.0,
       "yaw": 0.0

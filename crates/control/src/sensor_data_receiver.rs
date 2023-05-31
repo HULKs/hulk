@@ -15,7 +15,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub hardware_interface: HardwareInterface,
-    pub joint_calibration_offsets: Input<Joints<f32>, "joint_calibration_offsets">,
+    pub joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
 }
 
 #[context]
