@@ -13,7 +13,7 @@ pub struct Arguments {
 }
 
 pub async fn shell(arguments: Arguments) -> Result<()> {
-    let nao = Nao::new_with_ping(arguments.nao.ip).await?;
+    let nao = Nao::try_new_with_ping(arguments.nao.ip).await?;
 
     nao.execute_shell()
         .await

@@ -66,8 +66,8 @@ async fn upload_with_progress(
     arguments: &Arguments,
     progress: &Task,
 ) -> Result<()> {
-    progress.set_message("Pinging Nao");
-    let nao = Nao::new_with_ping(nao_address.ip).await?;
+    progress.set_message("Pinging NAO...");
+    let nao = Nao::try_new_with_ping(nao_address.ip).await?;
 
     if !arguments.skip_os_check {
         progress.set_message("Checking OS version...");

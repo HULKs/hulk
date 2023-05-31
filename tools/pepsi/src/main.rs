@@ -169,7 +169,7 @@ enum Command {
     Logs(LogsArguments),
     /// Change player numbers of the NAOs in local configuration
     Playernumber(PlayerNumberArguments),
-    /// Tries to ping the NAO
+    /// Ping NAOs
     Ping(PingArguments),
     /// Disable NAOs after a game (downloads logs, unsets wireless network, etc.)
     Postgame(PostGameArguments),
