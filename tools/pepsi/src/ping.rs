@@ -5,7 +5,10 @@ use futures_util::stream::FuturesUnordered;
 use futures_util::StreamExt;
 use nao::Nao;
 
-use crate::{parsers::NaoAddress, progress_indicator::{ProgressIndicator, TaskMessage}};
+use crate::{
+    parsers::NaoAddress,
+    progress_indicator::{ProgressIndicator, TaskMessage},
+};
 
 #[derive(Args)]
 pub struct Arguments {
@@ -30,12 +33,13 @@ pub async fn ping(arguments: Arguments) {
         .map(|(nao_address, progress)| async move {
             progress.set_message("Pinging NAO...");
 
-            let ping_state =  Nao::try_new_with_ping_and_arguments(
+            let ping_state = Nao::try_new_with_ping_and_arguments(
                 nao_address.ip,
                 arguments.retries,
                 Duration::from_secs_f32(arguments.timeout),
             )
-            .await.map(|_| TaskMessage::EmptyMessage);
+            .await
+            .map(|_| TaskMessage::EmptyMessage);
             progress.finish_with(ping_state);
         })
         .collect::<FuturesUnordered<_>>()
