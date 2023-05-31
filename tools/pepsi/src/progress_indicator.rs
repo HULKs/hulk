@@ -87,6 +87,16 @@ impl From<String> for TaskMessage {
     }
 }
 
+impl From<&str> for TaskMessage {
+    fn from(value: &str) -> Self {
+        if value.is_empty() {
+            Self::EmptyMessage
+        } else {
+            Self::Message(String::from(value))
+        }
+    }
+}
+
 impl Task {
     pub fn enable_steady_tick(&self) {
         self.progress.enable_steady_tick(Duration::from_millis(100));

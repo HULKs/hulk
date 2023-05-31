@@ -23,28 +23,25 @@ impl Nao {
         Self { host }
     }
 
-    pub async fn new_with_ping(host: Ipv4Addr) -> Result<Self> {
-        let nao = Self::new(host);
-
-        if !nao.is_reachable(PING_RETRIES, PING_TIMEOUT).await {
-            bail!(format!("{host} not reachable"));
-        }
-
-        Ok(nao)
+    pub async fn try_new_with_ping(host: Ipv4Addr) -> Result<Self> {
+        Self::try_new_with_ping_and_arguments(host, PING_RETRIES, PING_TIMEOUT).await
     }
 
-    pub async fn is_reachable(&self, retries: usize, timeout: Duration) -> bool {
+    pub async fn try_new_with_ping_and_arguments(
+        host: Ipv4Addr,
+        retries: usize,
+        timeout: Duration,
+    ) -> Result<Self> {
         let pinger = async {
             for _ in 0..retries {
-                match surge_ping::ping(IpAddr::V4(self.host), &[]).await {
-                    Ok(_) => return true,
-                    _ => continue,
+                if surge_ping::ping(IpAddr::V4(host), &[]).await.is_ok() {
+                    return Ok(Nao::new(host));
                 };
             }
-            false
+            bail!("No route to {}", host);
         };
 
-        time::timeout(timeout, pinger).await.unwrap_or(false)
+        time::timeout(timeout, pinger).await?
     }
 
     pub async fn get_os_version(&self) -> Result<String> {

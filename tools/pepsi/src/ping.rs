@@ -1,12 +1,11 @@
 use std::time::Duration;
 
 use clap::Args;
-use color_eyre::{owo_colors::OwoColorize, Report};
 use futures_util::stream::FuturesUnordered;
 use futures_util::StreamExt;
 use nao::Nao;
 
-use crate::{parsers::NaoAddress, progress_indicator::ProgressIndicator};
+use crate::{parsers::NaoAddress, progress_indicator::{ProgressIndicator, TaskMessage}};
 
 #[derive(Args)]
 pub struct Arguments {
@@ -16,7 +15,7 @@ pub struct Arguments {
     /// Time after which ping is aborted
     #[arg(long, default_value = "2.0")]
     pub timeout: f32,
-    /// The NAOs to upload to e.g. 20w or 10.1.24.22
+    /// The NAOs to ping to e.g. 20w or 10.1.24.22
     #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
 }
@@ -29,19 +28,15 @@ pub async fn ping(arguments: Arguments) {
         .iter()
         .map(|nao_address| (nao_address, multi_progress.task(nao_address.to_string())))
         .map(|(nao_address, progress)| async move {
-            let nao = Nao::new(nao_address.ip);
-            progress.set_message(format!("Pinging {}", nao_address.short().bold()));
-            match nao
-                .is_reachable(
-                    arguments.retries,
-                    Duration::from_secs_f32(arguments.timeout),
-                )
-                .await
-            {
-                true => progress.finish_with_success(format!("{} reachable", nao_address.short())),
-                false => progress
-                    .finish_with_error(Report::msg(format!("{} unreachable", nao_address.short()))),
-            }
+            progress.set_message("Pinging NAO...");
+
+            let ping_state =  Nao::try_new_with_ping_and_arguments(
+                nao_address.ip,
+                arguments.retries,
+                Duration::from_secs_f32(arguments.timeout),
+            )
+            .await.map(|_| TaskMessage::EmptyMessage);
+            progress.finish_with(ping_state);
         })
         .collect::<FuturesUnordered<_>>()
         .collect::<Vec<_>>()

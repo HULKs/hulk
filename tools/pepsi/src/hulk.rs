@@ -29,7 +29,7 @@ pub async fn hulk(arguments: Arguments) -> Result<()> {
         arguments.naos,
         "Executing systemctl hulk...",
         |nao_address| async move {
-            let nao = Nao::new_with_ping(nao_address.ip).await?;
+            let nao = Nao::try_new_with_ping(nao_address.ip).await?;
             nao.execute_systemctl(arguments.action, "hulk")
                 .await
                 .wrap_err_with(|| format!("failed to execute systemctl hulk on {nao_address}"))
