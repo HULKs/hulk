@@ -56,11 +56,14 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         );
         planner.with_goal_support_structures(robot_to_field.inverse(), self.field_dimensions);
         if let Some(ball_position) = ball_obstacle {
-
+            let foot_proportion = self.configuration.minimum_robot_radius_at_foot_height
+                / self.configuration.robot_radius_at_foot_height;
+            let foot_length = self.configuration.robot_radius_at_foot_height
+                * ((ball_obstacle_radius_factor * (1.0 - foot_proportion)) + foot_proportion);
             planner.with_ball(
                 ball_position,
                 self.configuration.ball_obstacle_radius,
-                self.configuration.robot_radius_at_foot_height * ball_obstacle_radius_factor,
+                foot_length,
             );
         }
 

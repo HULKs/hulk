@@ -73,7 +73,7 @@ pub fn execute(
     let should_avoid_ball = angle > parameters.angle_to_approach_ball_from_threshold;
     let ball_obstacle = should_avoid_ball.then_some(ball_position);
     let ball_obstacle_radius_factor = (angle - parameters.angle_to_approach_ball_from_threshold)
-        / (PI - parameters.angle_to_approach_ball_from_threshold)*0.75 + 0.25;
+        / (PI - parameters.angle_to_approach_ball_from_threshold);
 
     let is_near_ball = matches!(
         world_state.ball,
