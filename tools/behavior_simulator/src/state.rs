@@ -135,6 +135,7 @@ impl State {
                     head: _,
                     kick,
                     kicking_side,
+                    strength,
                 } => {
                     if let Some(ball) = self.ball.as_mut() {
                         let side = match kicking_side {
@@ -145,13 +146,12 @@ impl State {
                         // TODO: Check if ball is even in range
                         // let kick_location = robot_to_field * ();
 
-                        let strength = 1.0;
                         let direction = match kick {
                             KickVariant::Forward => vector![1.0, 0.0],
                             KickVariant::Turn => vector![0.707, 0.707 * side],
                             KickVariant::Side => vector![0.0, 1.0 * -side],
                         };
-                        ball.velocity += *robot_to_field * direction * strength;
+                        ball.velocity += *robot_to_field * direction * *strength;
                     }
                 }
                 _ => {}
