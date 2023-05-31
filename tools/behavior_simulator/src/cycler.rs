@@ -215,6 +215,10 @@ where
                                 true,
                                 &mut own_database.additional_outputs.instant_kick_targets,
                             ),
+                            default_kick_strength: &configuration
+                                .kick_selector
+                                .default_kick_strength,
+                            corner_kick_strength: &configuration.kick_selector.corner_kick_strength,
                         })
                         .wrap_err("failed to execute cycle of node `KickSelector`")?
                 };
