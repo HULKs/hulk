@@ -47,7 +47,7 @@ impl Layer for BallFilter {
             let covariance = hypothesis
                 .state
                 .covariance
-                .fixed_slice::<2, 2>(0, 0)
+                .fixed_view::<2, 2>(0, 0)
                 .into_owned();
             let stroke = Stroke::new(0.01, Color32::BLACK);
             let fill_color = Color32::from_rgba_unmultiplied(255, 255, 0, 100);
