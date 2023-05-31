@@ -277,6 +277,7 @@ where
                     in_walk_kicks: &configuration.in_walk_kicks,
                     field_dimensions: &configuration.field_dimensions,
                     lost_ball_parameters: &configuration.behavior.lost_ball,
+                    intercept_ball_parameters: &configuration.behavior.intercept_ball,
                     has_ground_contact: &true,
                 })
                 .wrap_err("failed to execute cycle of node `Behavior`")?;

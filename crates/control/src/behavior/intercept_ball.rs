@@ -1,21 +1,24 @@
 use nalgebra::{point, Point2, UnitComplex};
 use types::{
-    HeadMotion, LineSegment, MotionCommand, OrientationMode, PathSegment, PrimaryState, WorldState,
+    configuration::InterceptBall, HeadMotion, LineSegment, MotionCommand, OrientationMode,
+    PathSegment, PrimaryState, WorldState,
 };
 
-pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
+pub fn execute(world_state: &WorldState, parameters: InterceptBall) -> Option<MotionCommand> {
     match (
         world_state.robot.primary_state,
         world_state.ball,
         world_state.robot.robot_to_field,
     ) {
         (PrimaryState::Playing, Some(ball), Some(robot_to_field)) => {
-            let ball_in_front_of_robot = ball.ball_in_ground.coords.norm() < 2.0
+            let ball_in_front_of_robot = ball.ball_in_ground.coords.norm()
+                < parameters.maximum_distance_to_ball
                 && ball.ball_in_ground.x > 0.0
                 && ball.ball_in_ground.y.abs() < 0.5;
-            let ball_moving_towards_robot = ball.ball_in_ground_velocity.x < -0.15;
-            let ball_moving_towards_own_half =
-                (robot_to_field * ball.ball_in_ground_velocity).x < -0.05;
+            let ball_moving_towards_robot =
+                ball.ball_in_ground_velocity.x < -parameters.minimum_ball_towards_robot_velocity;
+            let ball_moving_towards_own_half = (robot_to_field * ball.ball_in_ground_velocity).x
+                < -parameters.minimum_ball_towards_own_half_velocity;
 
             if !(ball_in_front_of_robot
                 && ball_moving_towards_robot
@@ -24,9 +27,10 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
                 return None;
             }
 
-            let intercept_position = ball.ball_in_ground.y
-                - ball.ball_in_ground.x * ball.ball_in_ground_velocity.y
-                    / ball.ball_in_ground_velocity.x;
+            let time_to_intercept_point = ball.ball_in_ground.x / ball.ball_in_ground_velocity.x;
+            let intercept_position =
+                ball.ball_in_ground.y - ball.ball_in_ground_velocity.y * time_to_intercept_point;
+
             Some(MotionCommand::Walk {
                 head: HeadMotion::LookAt {
                     target: ball.ball_in_ground,
