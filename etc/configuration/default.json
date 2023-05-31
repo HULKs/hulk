@@ -816,6 +816,11 @@
         "secs": 1
       }
     },
+    "intercept_ball": {
+      "maximum_distance_to_ball": 2.0,
+      "minimum_ball_towards_robot_velocity": 0.15,
+      "minimum_ball_towards_own_half_velocity": 0.05
+    },
     "initial_lookaround_duration": {
       "nanos": 0,
       "secs": 5

@@ -73,7 +73,6 @@ pub struct RoleAssignment {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-
 pub struct Behavior {
     pub injected_motion_command: Option<MotionCommand>,
     pub lost_ball: LostBall,
@@ -84,6 +83,7 @@ pub struct Behavior {
     pub dribbling: Dribbling,
     pub search: Search,
     pub look_action: LookAction,
+    pub intercept_ball: InterceptBall,
     pub initial_lookaround_duration: Duration,
 }
 
@@ -176,6 +176,13 @@ pub struct WalkAndStand {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct LostBall {
     pub offset_to_last_ball_location: Vector2<f32>,
+}
+
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct InterceptBall {
+    pub maximum_distance_to_ball: f32,
+    pub minimum_ball_towards_robot_velocity: f32,
+    pub minimum_ball_towards_own_half_velocity: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

@@ -6,7 +6,7 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2};
 use spl_network_messages::{GamePhase, GameState, SubState, Team};
 use types::{
-    configuration::{Behavior as BehaviorConfiguration, InWalkKicks, LostBall},
+    configuration::{Behavior as BehaviorConfiguration, InWalkKicks, InterceptBall, LostBall},
     Action, CycleTime, FieldDimensions, FilteredGameState, GameControllerState, MotionCommand,
     PathObstacle, PrimaryState, Role, Side, WorldState,
 };
@@ -46,6 +46,7 @@ pub struct CycleContext {
     pub in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
+    pub intercept_ball_parameters: Parameter<InterceptBall, "behavior.intercept_ball">,
 }
 
 #[context]
@@ -185,7 +186,9 @@ impl Behavior {
                     }
                     Action::StandUp => stand_up::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
-                    Action::InterceptBall => intercept_ball::execute(world_state),
+                    Action::InterceptBall => {
+                        intercept_ball::execute(world_state, *context.intercept_ball_parameters)
+                    }
                     Action::DefendGoal => defend.goal(&mut context.path_obstacles),
                     Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
                     Action::DefendLeft => defend.left(&mut context.path_obstacles),
