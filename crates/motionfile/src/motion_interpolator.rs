@@ -14,7 +14,7 @@ use types::ConditionInput;
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ConditionedSpline<T> {
     pub entry_condition: Option<DiscreteConditionType>,
-    pub enable: Option<Vec<ContinuousConditionType>>,
+    pub motion_interrupts: Option<Vec<ContinuousConditionType>>,
     pub spline: TimedSpline<T>,
     pub exit_condition: Option<DiscreteConditionType>,
 }
@@ -84,7 +84,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         if let Some(continuous_conditions) = self
             .current_state
             .current_frame_index()
-            .and_then(|frame_index| self.frames[frame_index].enable.as_ref())
+            .and_then(|frame_index| self.frames[frame_index].motion_interrupts.as_ref())
         {
             return match continuous_conditions
                 .iter()
@@ -237,7 +237,7 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
 
         let mut motion_frames = vec![ConditionedSpline {
             entry_condition: first_frame.entry_condition.clone(),
-            enable: first_frame.motion_interrupts.clone(),
+            motion_interrupts: first_frame.motion_interrupts.clone(),
             spline: TimedSpline::try_new_with_start(
                 motion_file.initial_positions,
                 first_frame.keyframes.clone(),
@@ -254,7 +254,7 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
                 .map(|(first_frame, second_frame)| {
                     Ok(ConditionedSpline {
                         entry_condition: second_frame.entry_condition,
-                        enable: second_frame.motion_interrupts,
+                        motion_interrupts: second_frame.motion_interrupts,
                         spline: TimedSpline::try_new_with_start(
                             first_frame.keyframes.last().unwrap().positions,
                             second_frame.keyframes,
