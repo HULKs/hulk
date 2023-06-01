@@ -6,7 +6,7 @@ use framework::{AdditionalOutput, MainOutput};
 use motionfile::{SplineInterpolator, TimedSpline};
 use types::{
     BodyJointsCommand, ConditionInput, CycleTime, HeadJoints, Joints, JointsCommand,
-    JointsVelocity, MotionFinished, MotionSelection, MotionType, SensorData,
+    JointsVelocity, MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
 pub struct DispatchingInterpolator {
@@ -38,7 +38,7 @@ pub struct CycleContext {
     pub penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
-    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
+    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
     pub transition_time: AdditionalOutput<Option<Duration>, "transition_time">,
 }

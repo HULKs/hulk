@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use motionfile::{MotionFile, MotionInterpolator};
 use types::{
-    ConditionInput, CycleTime, Joints, JointsCommand, MotionFinished, MotionSelection, MotionType,
+    ConditionInput, CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
 };
 
 pub struct SitDown {
@@ -12,7 +12,7 @@ pub struct SitDown {
 
 #[context]
 pub struct CreationContext {
-    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
+    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]
@@ -21,7 +21,7 @@ pub struct CycleContext {
     pub cycle_time: Input<CycleTime, "cycle_time">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
 
-    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
+    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]
