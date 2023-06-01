@@ -123,7 +123,7 @@ spl_network = { path = "crates/spl_network" }
 spl_network_messages = { path = "crates/spl_network_messages" }
 structopt = "0.3.26"
 structs = { path = "crates/structs" }
-syn = { version = "1.0.101", features = ["full", "extra-traits"] }
+syn = { version = "2.0.18", features = ["full", "extra-traits"] }
 tempfile = "3.3.0"
 thiserror = "1.0.37"
 tokio = { version = "1.21.2", features = ["full"] }
