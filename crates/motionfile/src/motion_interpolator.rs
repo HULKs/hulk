@@ -7,11 +7,10 @@ use crate::Condition;
 use crate::MotionFile;
 use color_eyre::{Report, Result};
 use itertools::Itertools;
-use serde::{Deserialize, Serialize};
 use splines::Interpolate;
 use types::ConditionInput;
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
 pub struct ConditionedSpline<T> {
     pub entry_condition: Option<DiscreteConditionType>,
     pub interrupt_conditions: Vec<ContinuousConditionType>,
