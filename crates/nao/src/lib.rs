@@ -7,7 +7,7 @@ use std::{
 
 use color_eyre::{
     eyre::{bail, eyre, WrapErr},
-    Result,
+    Report, Result,
 };
 use tokio::{process::Command, time};
 
@@ -38,10 +38,12 @@ impl Nao {
                     return Ok(Nao::new(host));
                 };
             }
-            bail!("No route to {}", host);
+            bail!("No route to {host}")
         };
 
-        time::timeout(timeout, pinger).await?
+        time::timeout(timeout, pinger)
+            .await
+            .map_err(|_| Report::msg(format!("No route to {host}")))?
     }
 
     pub async fn get_os_version(&self) -> Result<String> {
