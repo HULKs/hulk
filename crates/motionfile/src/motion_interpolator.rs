@@ -97,7 +97,9 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     _ => accumulated,
                 }) {
                 Some(Response::Abort) => {
-                    self.abort_motion();
+                    self.current_state = State::Aborted {
+                        at_position: self.value(),
+                    };
                     ReturnState::Return
                 }
                 Some(Response::Wait) => ReturnState::Return,
@@ -184,11 +186,6 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         }
 
         self.advance_state(time_step, condition_input);
-    }
-
-    fn abort_motion(&mut self) {
-        let at_position = self.value();
-        self.current_state = State::Aborted { at_position };
     }
 
     pub fn is_finished(&self) -> bool {

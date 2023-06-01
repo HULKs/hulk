@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use types::{
     configuration::{KickSteps, WalkingEngine as WalkingEngineConfiguration},
     ArmJoints, BodyJoints, BodyJointsCommand, CycleTime, InertialMeasurementUnitData, Joints,
-    KickVariant, LegJoints, MotionCommand, MotionSafeExits, MotionType, RobotKinematics, SensorData,
-    Side, Step, StepAdjustment, WalkCommand,
+    KickVariant, LegJoints, MotionCommand, MotionSafeExits, MotionType, RobotKinematics,
+    SensorData, Side, Step, StepAdjustment, WalkCommand,
 };
 
 use self::{
