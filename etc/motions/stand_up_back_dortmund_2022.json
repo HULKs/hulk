@@ -415,7 +415,7 @@
       ]
     },
     {
-      "motion_interrupts": [{ "FallenAbort": {} }],
+      "interrupt_conditions": [{ "FallenAbort": {} }],
       "keyframes": [
         {
           "duration": 0.5,
@@ -543,7 +543,7 @@
       ]
     },
     {
-      "motion_interrupts": [{ "FallenAbort": {} }],
+      "interrupt_conditions": [{ "FallenAbort": {} }],
       "keyframes": [
         {
           "duration": 0.3,
@@ -671,7 +671,7 @@
       ]
     },
     {
-      "motion_interrupts": [{ "FallenAbort": {} }],
+      "interrupt_conditions": [{ "FallenAbort": {} }],
       "keyframes": [
         {
           "duration": 1.0,
@@ -758,7 +758,7 @@
       ]
     },
     {
-      "motion_interrupts": [{ "FallenAbort": {} }],
+      "interrupt_conditions": [{ "FallenAbort": {} }],
       "keyframes": [
         {
           "duration": 0.5,

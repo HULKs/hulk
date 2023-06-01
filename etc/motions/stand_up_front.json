@@ -460,7 +460,7 @@
       }
     },
     {
-      "motion_interrupts": [{ "FallenAbort": {} }],
+      "interrupt_conditions": [{ "FallenAbort": {} }],
       "keyframes": [
         {
           "duration": 0.6,
@@ -596,7 +596,7 @@
       }
     },
     {
-      "motion_interrupts": [{ "FallenAbort": {} }],
+      "interrupt_conditions": [{ "FallenAbort": {} }],
       "keyframes": [
         {
           "duration": 1,
