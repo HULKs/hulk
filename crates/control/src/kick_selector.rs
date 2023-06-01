@@ -122,7 +122,7 @@ impl KickSelector {
                 *context.kick_pose_obstacle_radius,
             );
             let right_in_obstacle = is_inside_any_obstacle(
-                left.kick_pose,
+                right.kick_pose,
                 context.obstacles,
                 *context.kick_pose_obstacle_radius,
             );
