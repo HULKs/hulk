@@ -4,7 +4,7 @@ use framework::MainOutput;
 use motionfile::{MotionFile, MotionInterpolator};
 use types::{ConditionInput, JointsVelocity};
 use types::{
-    CycleTime, Joints, MotionCommand, MotionFinished, MotionSelection, MotionType, SensorData,
+    CycleTime, Joints, MotionCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
 pub struct StandUpBack {
@@ -27,7 +27,7 @@ pub struct CycleContext {
     pub gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
     pub maximum_velocity: Parameter<JointsVelocity, "maximum_joint_velocities">,
 
-    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
+    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]

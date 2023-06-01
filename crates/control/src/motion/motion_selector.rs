@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{Facing, JumpDirection, MotionCommand, MotionFinished, MotionSelection, MotionType};
+use types::{Facing, JumpDirection, MotionCommand, MotionSafeExits, MotionSelection, MotionType};
 
 pub struct MotionSelector {
     current_motion: MotionType,
@@ -10,7 +10,7 @@ pub struct MotionSelector {
 
 #[context]
 pub struct CreationContext {
-    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
+    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]
@@ -18,7 +18,7 @@ pub struct CycleContext {
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub has_ground_contact: Input<bool, "has_ground_contact">,
 
-    pub motion_safe_exits: PersistentState<MotionFinished, "motion_safe_exits">,
+    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
     pub enable_energy_saving_stand: Parameter<bool, "energy_saving_stand.enabled">,
 }

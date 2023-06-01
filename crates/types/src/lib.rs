@@ -115,7 +115,7 @@ pub use motion_command::{
     ArmMotion, Facing, FallDirection, GlanceDirection, HeadMotion, JumpDirection, KickDirection,
     KickVariant, MotionCommand, OrientationMode, SitDirection,
 };
-pub use motion_selection::{MotionFinished, MotionSelection, MotionType};
+pub use motion_selection::{MotionSafeExits, MotionSelection, MotionType};
 pub use obstacles::{Obstacle, ObstacleKind};
 pub use path_obstacles::{PathObstacle, PathObstacleShape};
 pub use penalty_shot_direction::PenaltyShotDirection;
