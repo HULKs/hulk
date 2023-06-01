@@ -14,7 +14,7 @@ use types::ConditionInput;
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ConditionedSpline<T> {
     pub entry_condition: Option<DiscreteConditionType>,
-    pub interrupt_conditions: Option<Vec<ContinuousConditionType>>,
+    pub interrupt_conditions: Vec<ContinuousConditionType>,
     pub spline: TimedSpline<T>,
     pub exit_condition: Option<DiscreteConditionType>,
 }
@@ -84,7 +84,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         if let Some(continuous_conditions) = self
             .current_state
             .current_frame_index()
-            .and_then(|frame_index| self.frames[frame_index].interrupt_conditions.as_ref())
+            .map(|frame_index| &self.frames[frame_index].interrupt_conditions)
         {
             return match continuous_conditions
                 .iter()
