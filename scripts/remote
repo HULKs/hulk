@@ -48,7 +48,7 @@ git commit --no-verify --no-gpg-sign --allow-empty -m "--wip--RemoteCompile [ski
 git push $remote HEAD:main --force --no-verify
 
 # restore previous state, aka. "gunwip"
-git log -n 1 | grep -q -c "\-\-wip\-\-RemoteCompile" && git reset HEAD~1
+git log -n 1 | grep -q -c "\--wip--RemoteCompile" && git reset HEAD~1
 
 # invoke compile script remotely
 ssh $address "source ~/.profile && cd $remotePath && $@"
