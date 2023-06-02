@@ -45,7 +45,7 @@ git rm $(git ls-files --deleted) 2> /dev/null
 git commit --no-verify --no-gpg-sign --allow-empty -m "--wip--RemoteCompile [skip ci]"
 
 # push everything to compiler slave
-git push $remote HEAD:main --force
+git push $remote HEAD:main --force --no-verify
 
 # restore previous state, aka. "gunwip"
 git log -n 1 | grep -q -c "\-\-wip\-\-RemoteCompile" && git reset HEAD~1
