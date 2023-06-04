@@ -1,3 +1,4 @@
+use parameters::directory::Scope;
 use serde_json::Value;
 
 use crate::messages::Path;
@@ -22,5 +23,7 @@ pub enum StorageRequest {
     StoreToDisk {
         client: Client,
         id: usize,
+        scope: Scope,
+        path: Path,
     },
 }

@@ -209,11 +209,13 @@ async fn handle_request<Parameters>(
                 .await
                 .expect("receiver should always wait for all senders");
         }
-        ParametersRequest::StoreToDisk { id } => {
+        ParametersRequest::StoreToDisk { id, scope, path } => {
             storage_request_sender
                 .send(StorageRequest::StoreToDisk {
                     client: request.client,
                     id,
+                    scope,
+                    path,
                 })
                 .await
                 .expect("receiver should always wait for all senders");
@@ -280,6 +282,7 @@ async fn handle_changed_parameters<Parameters>(
 #[cfg(test)]
 mod tests {
     use framework::multiple_buffer_with_slots;
+    use parameters::directory::{Id, Location, Scope};
     use serde::{de::DeserializeOwned, Deserializer, Serialize, Serializer};
     use serde_json::Value;
     use serialize_hierarchy::Error;
@@ -1146,11 +1149,20 @@ mod tests {
         );
 
         let client_id = 1337;
+        let scope = Scope {
+            location: Location::All,
+            id: Id::All,
+        };
+        let path = "foo.bar".to_string();
 
         let (response_sender, mut response_receiver) = channel(1);
         request_sender
             .send(ClientRequest {
-                request: ParametersRequest::StoreToDisk { id: 42 },
+                request: ParametersRequest::StoreToDisk {
+                    id: 42,
+                    scope,
+                    path: path.clone(),
+                },
                 client: Client {
                     id: client_id,
                     response_sender: response_sender.clone(),
@@ -1176,6 +1188,8 @@ mod tests {
                     response_sender,
                 },
                 id: 42,
+                scope,
+                path
             }
         );
 

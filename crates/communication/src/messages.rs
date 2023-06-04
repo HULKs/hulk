@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+use parameters::directory::Scope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
@@ -137,7 +138,7 @@ pub enum ParametersRequest {
     UnsubscribeEverything,
     Update { id: usize, path: Path, data: Value },
     LoadFromDisk { id: usize },
-    StoreToDisk { id: usize },
+    StoreToDisk { id: usize, scope: Scope, path: Path },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

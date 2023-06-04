@@ -1,2 +1,2 @@
 pub mod directory;
-pub mod json;
+pub mod json; // TODO: remove pub?
