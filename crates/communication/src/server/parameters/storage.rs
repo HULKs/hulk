@@ -123,8 +123,21 @@ async fn handle_request<Parameters>(
             )
             .await;
         }
-        StorageRequest::StoreToDisk { client, id } => {
-            if let Err(error) = serialize(parameters, parameters_directory, body_id, head_id).await
+        StorageRequest::StoreToDisk {
+            client,
+            id,
+            scope,
+            path,
+        } => {
+            if let Err(error) = serialize(
+                parameters,
+                scope,
+                &path,
+                parameters_directory,
+                body_id,
+                head_id,
+            )
+            .await
             {
                 respond(
                     client,
