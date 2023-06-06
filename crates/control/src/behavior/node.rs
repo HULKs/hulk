@@ -103,7 +103,13 @@ impl Behavior {
         if let Some(active_since) = self.active_since {
             if now.duration_since(active_since)? < context.configuration.initial_lookaround_duration
             {
-                actions.push(Action::LookAround);
+                match world_state.game_controller_state {
+                    Some(GameControllerState {
+                        game_phase: GamePhase::PenaltyShootout { .. },
+                        ..
+                    }) => (),
+                    _ => actions.push(Action::LookAround),
+                }
             }
         }
 
