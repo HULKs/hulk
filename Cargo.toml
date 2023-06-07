@@ -66,11 +66,11 @@ control = { path = "crates/control" }
 convert_case = "0.6.0"
 ctrlc = { version = "3.2.3", features = ["termination"] }
 cyclers = { path = "crates/cyclers" }
-eframe = { version = "0.21.0", features = ["persistence"] }
-egui_dock = { version = "0.4.2", git = "https://github.com/knoellle/egui_dock/", tag = "0.4.2", features = [
+eframe = { version = "0.22.0", features = ["persistence"] }
+egui_dock = { version = "0.6.1", git = "https://github.com/knoellle/egui_dock/", tag = "0.6.1", features = [
   "serde",
 ] }
-egui_extras = { version = "0.21.0", features = ["image"] }
+egui_extras = { version = "0.22.0", features = ["image"] }
 enum_dispatch = "0.3.11"
 fast_image_resize = "2.6.0"
 fern = { version = "0.6.1", features = ["colored"] }

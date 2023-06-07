@@ -303,11 +303,11 @@ impl App for TwixApp {
             }
 
             let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
-            style.show_add_buttons = true;
-            style.add_tab_align = TabAddAlign::Left;
+            style.buttons.add_tab_align = TabAddAlign::Left;
             let mut tab_viewer = TabViewer::default();
             DockArea::new(&mut self.tree)
                 .style(style)
+                .show_add_buttons(true)
                 .show_inside(ui, &mut tab_viewer);
             for node_id in tab_viewer.nodes_to_add_tabs_to {
                 let tab = SelectablePanel::Text(TextPanel::new(self.nao.clone(), None));
