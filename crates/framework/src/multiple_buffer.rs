@@ -209,6 +209,7 @@ mod tests {
             assert_eq!(*slot, 42);
         }
         {
+            #[allow(clippy::redundant_clone)]
             let reader2 = reader.clone();
             let slot = reader2.next();
             assert_eq!(*slot, 42);
@@ -218,6 +219,7 @@ mod tests {
             *slot = 1337;
         }
         {
+            #[allow(clippy::redundant_clone)]
             let reader3 = reader.clone();
             let slot = reader3.next();
             assert_eq!(*slot, 1337);
@@ -253,6 +255,7 @@ mod tests {
     #[test]
     fn readers_share_same_slot() {
         let (_writer, reader) = multiple_buffer_with_slots([0, 1, 2]);
+        #[allow(clippy::redundant_clone)]
         let reader2 = reader.clone();
         let reader_slot = reader.next();
         let reader2_slot = reader2.next();
