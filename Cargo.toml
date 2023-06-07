@@ -93,7 +93,7 @@ mlua = { version = "0.8.7", features = ["luajit", "serialize", "parking_lot"] }
 nalgebra = { version = "0.32.2", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }
-nix = "0.26.2"
+nix = { git = "https://github.com/nix-rust/nix.git", version = "0.26.1", rev = "89b4976" }
 motionfile = { path = "crates/motionfile" }
 ordered-float = "3.1.0"
 parking_lot = "0.12.1"
