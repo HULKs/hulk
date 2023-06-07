@@ -2701,6 +2701,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "memoffset"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a634b1c61a95585bd15607c6ab0c4e5b226e695ff2800ba0cdccddf208c406c"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2814,7 +2823,7 @@ dependencies = [
  "bindgen 0.65.1",
  "i2cdev",
  "libc",
- "nix 0.26.2",
+ "nix 0.26.1",
  "serde",
  "serde_json",
  "thiserror",
@@ -2887,6 +2896,19 @@ dependencies = [
  "libc",
  "memoffset 0.6.5",
  "pin-utils",
+]
+
+[[package]]
+name = "nix"
+version = "0.26.1"
+source = "git+https://github.com/nix-rust/nix.git?rev=89b4976#89b4976fddf713ca54834612e351ae35d86c430a"
+dependencies = [
+ "bitflags",
+ "cfg-if",
+ "libc",
+ "memoffset 0.9.0",
+ "pin-utils",
+ "static_assertions",
 ]
 
 [[package]]
