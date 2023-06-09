@@ -324,6 +324,7 @@ impl Nao {
     pub async fn flash_image(&self, image_path: impl AsRef<Path>) -> Result<()> {
         let status = self
             .rsync_with_nao(false)
+            .arg("--copy-links")
             .arg(image_path.as_ref().to_str().unwrap())
             .arg(format!("{}:/data/.image/", self.host))
             .status()
