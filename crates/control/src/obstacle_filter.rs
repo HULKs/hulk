@@ -10,11 +10,12 @@ use types::{
     configuration::ObstacleFilter as ObstacleFilterConfiguration, detected_feet::DetectedFeet,
     detected_robots::DetectedRobots,
     multivariate_normal_distribution::MultivariateNormalDistribution, obstacle_filter::Hypothesis,
-    CycleTime, FieldDimensions, Obstacle, ObstacleKind, SonarObstacle,
+    CycleTime, FieldDimensions, Obstacle, ObstacleKind, PrimaryState, SonarObstacle,
 };
 
 pub struct ObstacleFilter {
     hypotheses: Vec<Hypothesis>,
+    last_primary_state: PrimaryState,
 }
 
 #[context]
@@ -34,6 +35,7 @@ pub struct CycleContext {
     pub sonar_obstacles: HistoricInput<Vec<SonarObstacle>, "sonar_obstacles">,
 
     pub cycle_time: Input<CycleTime, "cycle_time">,
+    pub primary_state: Input<PrimaryState, "primary_state">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub goal_post_obstacle_radius: Parameter<f32, "obstacle_filter.goal_post_obstacle_radius">,
@@ -60,6 +62,7 @@ impl ObstacleFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             hypotheses: Vec::new(),
+            last_primary_state: PrimaryState::Unstiff,
         })
     }
 
@@ -191,6 +194,13 @@ impl ObstacleFilter {
                 .obstacle_filter_configuration
                 .hypothesis_merge_distance,
         );
+
+        if self.last_primary_state == PrimaryState::Penalized
+            && *context.primary_state != PrimaryState::Penalized
+        {
+            self.hypotheses = Vec::new();
+        }
+        self.last_primary_state = *context.primary_state;
 
         let robot_obstacles = self
             .hypotheses
