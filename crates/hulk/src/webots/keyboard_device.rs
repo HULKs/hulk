@@ -20,7 +20,6 @@ impl Default for KeyboardDevice {
 
 impl KeyboardDevice {
     pub fn get_touch_sensors(&self) -> TouchSensors {
-        let key = self.keyboard.get_key();
         let received_message = match self.receiver.get_next_packet() {
             Ok(message) => message,
             Err(error) => {
@@ -29,14 +28,25 @@ impl KeyboardDevice {
             }
         };
 
-        let chest_button_pressed = received_message.is_some()
-            || key == Some(Keyboard::CONTROL | Keyboard::SHIFT | 'C' as u32);
+        let (control_shift_c_pressed, control_shift_x_pressed, control_shift_u_pressed) =
+            if let Some(key) = self.keyboard.get_key() {
+                const CONTROL_SHIFT_MASK: u32 = Keyboard::CONTROL | Keyboard::SHIFT;
+                (
+                    key == CONTROL_SHIFT_MASK | 'C' as u32,
+                    key == CONTROL_SHIFT_MASK | 'X' as u32,
+                    key == CONTROL_SHIFT_MASK | 'U' as u32,
+                )
+            } else {
+                (false, false, false)
+            };
 
         TouchSensors {
-            chest_button: chest_button_pressed,
-            head_front: false,
-            head_middle: false,
-            head_rear: false,
+            chest_button: received_message.is_some()
+                || control_shift_c_pressed
+                || control_shift_x_pressed,
+            head_front: control_shift_u_pressed || control_shift_x_pressed,
+            head_middle: control_shift_u_pressed,
+            head_rear: control_shift_u_pressed,
             left_foot_left: false,
             left_foot_right: false,
             left_hand_back: false,
