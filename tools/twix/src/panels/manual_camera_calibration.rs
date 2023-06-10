@@ -24,7 +24,7 @@ struct CameraParameterSubscriptions<DeserializedValueType> {
 
 pub struct ManualCalibrationPanel {
     nao: Arc<Nao>,
-    repository_parameters: Option<RepositoryParameters>,
+    repository_parameters: RepositoryParameters,
     extrinsic_rotation_subscriptions: [CameraParameterSubscriptions<Option<SubscribedType>>; 2],
 }
 
@@ -54,7 +54,7 @@ impl Panel for ManualCalibrationPanel {
 
         Self {
             nao,
-            repository_parameters: RepositoryParameters::try_default().ok(),
+            repository_parameters: RepositoryParameters::new(),
             extrinsic_rotation_subscriptions,
         }
     }
@@ -63,7 +63,7 @@ impl Panel for ManualCalibrationPanel {
 fn add_extrinsic_calibration_ui_components(
     ui: &mut Ui,
     nao: Arc<Nao>,
-    repository_parameters: &Option<RepositoryParameters>,
+    repository_parameters: &RepositoryParameters,
     extrinsic_rotations_subscription: &mut CameraParameterSubscriptions<Option<SubscribedType>>,
 ) {
     let extrinsic_rotations_buffer_option = &extrinsic_rotations_subscription.value_buffer;

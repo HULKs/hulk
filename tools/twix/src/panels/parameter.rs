@@ -13,7 +13,7 @@ use tokio::sync::mpsc;
 pub struct ParameterPanel {
     nao: Arc<Nao>,
     path: String,
-    repository_parameters: Option<RepositoryParameters>,
+    repository_parameters: RepositoryParameters,
     value_buffer: Option<ValueBuffer>,
     parameter_value: String,
     update_notify_sender: mpsc::Sender<()>,
@@ -49,7 +49,7 @@ impl Panel for ParameterPanel {
         Self {
             nao,
             path,
-            repository_parameters: RepositoryParameters::try_default().ok(),
+            repository_parameters: RepositoryParameters::new(),
             value_buffer,
             parameter_value: String::new(),
             update_notify_sender,
@@ -130,25 +130,20 @@ pub fn add_save_button<SerdesJsonValueProvider>(
     parameter_path: &str,
     parameter_value_provider_fn: SerdesJsonValueProvider,
     nao: Arc<Nao>,
-    repository_parameters: &Option<RepositoryParameters>,
+    repository_parameters: &RepositoryParameters,
 ) where
     SerdesJsonValueProvider: FnOnce() -> Result<serde_json::Value>,
 {
-    ui.add_enabled_ui(repository_parameters.is_some(), |ui| {
-        if ui.button("Save to disk").clicked() {
-            if let Some(address) = nao.get_address() {
-                match (parameter_value_provider_fn(), repository_parameters) {
-                    (Ok(value), Some(repository_parameters)) => {
-                        repository_parameters.write(&address, parameter_path.to_owned(), value);
-                    }
-                    (Err(error), _) => {
-                        error!("Failed to serialize parameter value: {error:#?}")
-                    }
-                    _ => {
-                        error!("Repository is not available, cannot save.")
-                    }
-                };
-            }
+    if ui.button("Save to disk").clicked() {
+        if let Some(address) = nao.get_address() {
+            match parameter_value_provider_fn() {
+                Ok(value) => {
+                    repository_parameters.write(&address, parameter_path.to_owned(), value);
+                }
+                Err(error) => {
+                    error!("Failed to serialize parameter value: {error:#?}")
+                }
+            };
         }
-    });
+    }
 }
