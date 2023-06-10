@@ -3,9 +3,12 @@ use color_eyre::{
     Result,
 };
 use log::error;
-use parameters::directory::{serialize, Id, Location, Scope};
+use parameters::{
+    directory::{serialize, Id, Location, Scope},
+    json::nest_value_at_path,
+};
 use repository::{get_repository_root, HardwareIds, Repository};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::{collections::HashMap, net::Ipv4Addr};
 use tokio::runtime::Runtime;
 
@@ -78,42 +81,4 @@ impl RepositoryParameters {
 
 fn last_octet_from_ip_address(ip_address: Ipv4Addr) -> u8 {
     ip_address.octets()[3]
-}
-
-fn nest_value_at_path(path: &str, value: Value) -> Value {
-    // ("a.b.c", value) -> { a: { b: { c: value } } }
-    path.split('.')
-        .rev()
-        .fold(value, |child_value, key| -> Value {
-            json!({ key: child_value })
-        })
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::nest_value_at_path;
-
-    #[test]
-    fn values_are_nested_at_paths() {
-        let dataset = [
-            (
-                ("config.a.b.c", json!(["p", "q", "r"])),
-                json!({"config":{"a":{"b":{"c":["p", "q", "r"]}}}}),
-            ),
-            (
-                ("top.rotations", json!([1, 2, 3])),
-                json!({"top":{"rotations":[1,2,3]}}),
-            ),
-            (
-                ("something.properties", json!({"k":"v"})),
-                json!({"something":{"properties":{"k":"v"}}}),
-            ),
-        ];
-
-        for ((path, value), expected_output) in dataset {
-            assert_eq!(nest_value_at_path(path, value), expected_output);
-        }
-    }
 }

@@ -1,4 +1,4 @@
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 
 pub fn merge_json(own: &mut Value, other: &Value) {
     match (own, other) {
@@ -58,10 +58,17 @@ pub fn copy_nested_value(value: &Value, path: &str) -> Option<Value> {
     }
 }
 
+pub fn nest_value_at_path(path: &str, value: Value) -> Value {
+    // ("a.b.c", value) -> { a: { b: { c: value } } }
+    path.split('.')
+        .rev()
+        .fold(value, |child_value, key| -> Value {
+            json!({ key: child_value })
+        })
+}
+
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
-
     use super::*;
 
     #[test]
@@ -138,5 +145,27 @@ mod tests {
         let copied = copy_nested_value(&value, "");
 
         assert_eq!(copied, Some(value));
+    }
+
+    #[test]
+    fn values_are_nested_at_paths() {
+        let dataset = [
+            (
+                ("config.a.b.c", json!(["p", "q", "r"])),
+                json!({"config":{"a":{"b":{"c":["p", "q", "r"]}}}}),
+            ),
+            (
+                ("top.rotations", json!([1, 2, 3])),
+                json!({"top":{"rotations":[1,2,3]}}),
+            ),
+            (
+                ("something.properties", json!({"k":"v"})),
+                json!({"something":{"properties":{"k":"v"}}}),
+            ),
+        ];
+
+        for ((path, value), expected_output) in dataset {
+            assert_eq!(nest_value_at_path(path, value), expected_output);
+        }
     }
 }

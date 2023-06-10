@@ -3617,6 +3617,7 @@ dependencies = [
  "futures-util",
  "glob",
  "home",
+ "parameters",
  "serde",
  "serde_json",
  "spl_network_messages",
