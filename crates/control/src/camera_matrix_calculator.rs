@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{point, vector, Isometry3, UnitQuaternion, Vector3};
+use nalgebra::{point, vector, Isometry3, Rotation3, UnitQuaternion, Vector3};
 use projection::Projection;
 use types::{
     configuration::CameraMatrixParameters, CameraMatrices, CameraMatrix, CameraPosition,
@@ -31,6 +31,10 @@ pub struct CycleContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
+
+    pub correction_in_camera_top: PersistentState<Rotation3<f32>, "correction_in_camera_top">,
+    pub correction_in_camera_bottom: PersistentState<Rotation3<f32>, "correction_in_camera_bottom">,
+    pub correction_in_robot: PersistentState<Rotation3<f32>, "correction_in_robot">,
 }
 
 #[context]
@@ -83,13 +87,20 @@ impl CameraMatrixCalculator {
             });
         Ok(MainOutputs {
             camera_matrices: Some(CameraMatrices {
-                top: top_camera_matrix,
-                bottom: bottom_camera_matrix,
+                top: top_camera_matrix.into_corrected(
+                    *context.correction_in_robot,
+                    *context.correction_in_camera_top,
+                ),
+                bottom: bottom_camera_matrix.into_corrected(
+                    *context.correction_in_robot,
+                    *context.correction_in_camera_bottom,
+                ),
             })
             .into(),
         })
     }
 }
+
 pub fn camera_to_head(
     camera_position: CameraPosition,
     extrinsic_rotation: Vector3<f32>,
