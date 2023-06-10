@@ -18,15 +18,16 @@ use constants::SDK_VERSION;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use glob::glob;
 use home::home_dir;
+use parameters::{
+    directory::{serialize, Id, Location, Scope},
+    json::nest_value_at_path,
+};
 use serde::Deserialize;
-use serde_json::{from_slice, to_value, to_vec_pretty, Value};
+use serde_json::{from_slice, to_value};
 use tempfile::{tempdir, TempDir};
 use tokio::{
-    fs::{
-        create_dir_all, read_dir, read_link, remove_file, set_permissions, symlink, File,
-        OpenOptions,
-    },
-    io::{AsyncReadExt, AsyncWriteExt},
+    fs::{create_dir_all, read_dir, read_link, remove_file, set_permissions, symlink, File},
+    io::AsyncReadExt,
     process::Command,
 };
 
@@ -178,91 +179,34 @@ impl Repository {
         .await
     }
 
-    fn head_configuration(&self, head_id: &str) -> PathBuf {
-        self.configuration_root()
-            .join(format!("head.{head_id}.json"))
-    }
-
-    pub async fn read_configuration(&self, head_id: &str) -> Result<Value> {
-        let configuration_file_path = self.head_configuration(head_id);
-        let mut configuration_file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(&configuration_file_path)
-            .await
-            .wrap_err_with(|| format!("Failed to open {}", configuration_file_path.display()))?;
-
-        let mut contents = vec![];
-        configuration_file
-            .read_to_end(&mut contents)
-            .await
-            .wrap_err_with(|| {
-                format!("Failed to read from {}", configuration_file_path.display())
-            })?;
-        Ok(if contents.is_empty() {
-            Value::Object(Default::default())
-        } else {
-            from_slice(&contents).wrap_err_with(|| {
-                format!("Failed to parse {}", configuration_file_path.display())
-            })?
-        })
-    }
-
-    pub async fn write_configuration(&self, head_id: &str, configuration: &Value) -> Result<()> {
-        let configuration_file_path = self.head_configuration(head_id);
-        let mut contents = to_vec_pretty(configuration).wrap_err_with(|| {
-            format!(
-                "Failed to dump configuration for {}",
-                configuration_file_path.display()
-            )
-        })?;
-        contents.push(b'\n');
-        let mut configuration_file = File::create(&configuration_file_path)
-            .await
-            .wrap_err_with(|| format!("Failed to create {}", configuration_file_path.display()))?;
-        configuration_file
-            .write_all(&contents)
-            .await
-            .wrap_err_with(|| format!("Failed to parse {}", configuration_file_path.display()))?;
-        Ok(())
-    }
-
     pub async fn set_player_number(
         &self,
         head_id: &str,
         player_number: PlayerNumber,
     ) -> Result<()> {
-        let mut configuration = self
-            .read_configuration(head_id)
-            .await
-            .wrap_err("failed to read configuration")?;
-
-        configuration["player_number"] =
-            to_value(player_number).wrap_err("failed to serialize player number")?;
-
-        self.write_configuration(head_id, &configuration)
-            .await
-            .wrap_err("failed to write configuration")
+        let path = "player_number";
+        let parameters = nest_value_at_path(
+            path,
+            to_value(player_number).wrap_err("failed to serialize player number")?,
+        );
+        serialize(
+            &parameters,
+            Scope {
+                location: Location::All,
+                id: Id::All,
+            },
+            path,
+            self.configuration_root(),
+            "unknown_body_id",
+            head_id,
+        )
+        .await
+        .wrap_err("failed to serialize parameters directory")
     }
 
-    pub async fn set_communication(&self, head_id: &str, enable: bool) -> Result<()> {
-        let mut configuration = self
-            .read_configuration(head_id)
-            .await
-            .wrap_err("failed to read configuration")?;
-
-        if enable {
-            if let Value::Object(ref mut object) = configuration {
-                object.remove("disable_communication_acceptor");
-            }
-        } else {
-            configuration["disable_communication_acceptor"] = Value::Bool(true);
-        }
-
-        self.write_configuration(head_id, &configuration)
-            .await
-            .wrap_err("failed to write configuration")
+    pub async fn set_communication(&self, _head_id: &str, _enable: bool) -> Result<()> {
+        // TODO, tracked by https://github.com/HULKs/hulk/issues/343
+        Ok(())
     }
 
     pub async fn install_sdk(

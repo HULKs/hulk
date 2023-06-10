@@ -1,2 +1,2 @@
 pub mod directory;
-mod json;
+pub mod json;
