@@ -7,7 +7,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{error, from_str, from_value, to_string_pretty, to_value, Value};
 use tokio::fs::{read_to_string, write};
 
-use super::json::{copy_nested_value, merge_json, prune_equal_branches};
+use super::json::{clone_nested_value, merge_json, prune_equal_branches};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DirectoryError {
@@ -53,7 +53,7 @@ where
     Parameters: DeserializeOwned,
 {
     let default_file_path = parameters_root_path.as_ref().join("default.json");
-    let mut parameters = from_path(default_file_path)
+    let mut parameters = read_from_file(default_file_path)
         .await
         .map_err(DirectoryError::DefaultParametersNotGet)?;
 
@@ -63,7 +63,7 @@ where
 
     let location_default_file_path = location_directory.join("default.json");
     if location_default_file_path.exists() {
-        let location_default_parameters = from_path(location_default_file_path)
+        let location_default_parameters = read_from_file(location_default_file_path)
             .await
             .map_err(DirectoryError::DefaultParametersOfLocationNotGet)?;
         merge_json(&mut parameters, &location_default_parameters);
@@ -73,7 +73,7 @@ where
         .as_ref()
         .join(format!("body.{}.json", body_id));
     if body_file_path.exists() {
-        let body_parameters = from_path(body_file_path)
+        let body_parameters = read_from_file(body_file_path)
             .await
             .map_err(DirectoryError::BodyParametersNotGet)?;
         merge_json(&mut parameters, &body_parameters);
@@ -83,7 +83,7 @@ where
         .as_ref()
         .join(format!("head.{}.json", head_id));
     if head_file_path.exists() {
-        let head_parameters = from_path(head_file_path)
+        let head_parameters = read_from_file(head_file_path)
             .await
             .map_err(DirectoryError::HeadParametersNotGet)?;
         merge_json(&mut parameters, &head_parameters);
@@ -91,7 +91,7 @@ where
 
     let location_body_file_path = location_directory.join(format!("body.{}.json", body_id));
     if location_body_file_path.exists() {
-        let location_body_parameters = from_path(location_body_file_path)
+        let location_body_parameters = read_from_file(location_body_file_path)
             .await
             .map_err(DirectoryError::BodyParametersOfLocationNotGet)?;
         merge_json(&mut parameters, &location_body_parameters);
@@ -99,7 +99,7 @@ where
 
     let location_head_file_path = location_directory.join(format!("head.{}.json", head_id));
     if location_head_file_path.exists() {
-        let location_head_parameters = from_path(location_head_file_path)
+        let location_head_parameters = read_from_file(location_head_file_path)
             .await
             .map_err(DirectoryError::HeadParametersOfLocationNotGet)?;
         merge_json(&mut parameters, &location_head_parameters);
@@ -133,13 +133,13 @@ where
 
     prune_equal_branches(&mut parameters, &stored_parameters);
 
-    let Some(sparse_parameters_from_scope_path) = copy_nested_value(&parameters, path) else {
+    let Some(sparse_parameters_from_scope_path) = clone_nested_value(&parameters, path) else {
         return Ok(());
     };
     let serialization_file_path =
         file_path_from_scope(scope, parameters_root_path, body_id, head_id);
     let mut parameters = if serialization_file_path.exists() {
-        from_path(&serialization_file_path)
+        read_from_file(&serialization_file_path)
             .await
             .map_err(DirectoryError::HeadParametersOfLocationNotGet)?
     } else {
@@ -147,7 +147,7 @@ where
     };
     merge_json(&mut parameters, &sparse_parameters_from_scope_path);
 
-    to_path(serialization_file_path, parameters)
+    write_to_file(serialization_file_path, parameters)
         .await
         .map_err(DirectoryError::HeadParametersOfLocationNotSet)
 }
@@ -177,20 +177,16 @@ fn file_path_from_scope(
     body_id: &str,
     head_id: &str,
 ) -> PathBuf {
-    let location_directory = parameters_root_path
-        .as_ref()
-        .join(location_directory_from_head_id(head_id));
-    match (scope.location, scope.id) {
-        (Location::All, Id::All) => parameters_root_path.as_ref().join("default.json"),
-        (Location::All, Id::Body) => parameters_root_path
+    let directory = match scope.location {
+        Location::All => parameters_root_path.as_ref().to_path_buf(),
+        Location::Current => parameters_root_path
             .as_ref()
-            .join(format!("body.{}.json", body_id)),
-        (Location::All, Id::Head) => parameters_root_path
-            .as_ref()
-            .join(format!("head.{}.json", head_id)),
-        (Location::Current, Id::All) => location_directory.join("default.json"),
-        (Location::Current, Id::Body) => location_directory.join(format!("body.{}.json", body_id)),
-        (Location::Current, Id::Head) => location_directory.join(format!("head.{}.json", head_id)),
+            .join(location_directory_from_head_id(head_id)),
+    };
+    match scope.id {
+        Id::All => directory.join("default.json"),
+        Id::Body => directory.join(format!("body.{}.json", body_id)),
+        Id::Head => directory.join(format!("head.{}.json", head_id)),
     }
 }
 
@@ -206,7 +202,7 @@ fn location_directory_from_head_id(head_id: &str) -> &'static str {
     }
 }
 
-async fn from_path(file_path: impl AsRef<Path>) -> Result<Value, SerializationError> {
+async fn read_from_file(file_path: impl AsRef<Path>) -> Result<Value, SerializationError> {
     let file_contents =
         read_to_string(&file_path)
             .await
@@ -220,7 +216,10 @@ async fn from_path(file_path: impl AsRef<Path>) -> Result<Value, SerializationEr
     })
 }
 
-async fn to_path(file_path: impl AsRef<Path>, value: Value) -> Result<(), SerializationError> {
+async fn write_to_file(
+    file_path: impl AsRef<Path>,
+    value: Value,
+) -> Result<(), SerializationError> {
     let file_contents =
         to_string_pretty(&value).map_err(|source| SerializationError::FileNotSerialized {
             source,

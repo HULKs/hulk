@@ -35,7 +35,7 @@ pub fn prune_equal_branches(own: &mut Value, other: &Value) {
     }
 }
 
-pub fn copy_nested_value(value: &Value, path: &str) -> Option<Value> {
+pub fn clone_nested_value(value: &Value, path: &str) -> Option<Value> {
     if path.is_empty() {
         return Some(value.clone());
     }
@@ -46,10 +46,10 @@ pub fn copy_nested_value(value: &Value, path: &str) -> Option<Value> {
     match value {
         Value::Object(object) => {
             let nested_value = object.get(prefix)?;
-            let nested_copied_value = copy_nested_value(nested_value, suffix)?;
+            let nested_cloned_value = clone_nested_value(nested_value, suffix)?;
             Some(Value::Object(Map::from_iter([(
                 prefix.to_string(),
-                nested_copied_value,
+                nested_cloned_value,
             )])))
         }
         Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) | Value::Array(_) => {
@@ -106,7 +106,7 @@ mod tests {
     fn branches_matching_the_path_are_retained_others_are_removed() {
         let value = json!({"a":{"b":{"c":42},"d":{"e":1337}}});
 
-        let copied = copy_nested_value(&value, "a.b.c");
+        let copied = clone_nested_value(&value, "a.b.c");
 
         assert_eq!(copied, Some(json!({"a":{"b":{"c":42}}})));
     }
@@ -115,7 +115,7 @@ mod tests {
     fn branches_matching_parts_of_the_path_are_retained_others_are_removed() {
         let value = json!({"a":{"b":{"c":42},"d":{"e":1337}}});
 
-        let copied = copy_nested_value(&value, "a.b");
+        let copied = clone_nested_value(&value, "a.b");
 
         assert_eq!(copied, Some(json!({"a":{"b":{"c":42}}})));
     }
@@ -124,7 +124,7 @@ mod tests {
     fn all_branches_are_removed_for_non_existant_path() {
         let value = json!({"a":{"b":{"c":42},"d":{"e":1337}}});
 
-        let copied = copy_nested_value(&value, "not.matching");
+        let copied = clone_nested_value(&value, "not.matching");
 
         assert_eq!(copied, None);
     }
@@ -133,7 +133,7 @@ mod tests {
     fn all_branches_are_removed_for_too_long_path() {
         let value = json!({"a":{"b":{"c":42},"d":{"e":1337}}});
 
-        let copied = copy_nested_value(&value, "a.b.c.too.long");
+        let copied = clone_nested_value(&value, "a.b.c.too.long");
 
         assert_eq!(copied, None);
     }
@@ -142,7 +142,7 @@ mod tests {
     fn all_branches_are_retained_for_non_empty_path() {
         let value = json!({"a":{"b":{"c":42},"d":{"e":1337}}});
 
-        let copied = copy_nested_value(&value, "");
+        let copied = clone_nested_value(&value, "");
 
         assert_eq!(copied, Some(value));
     }
