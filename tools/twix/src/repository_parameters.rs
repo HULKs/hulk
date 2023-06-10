@@ -2,9 +2,8 @@ use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
 };
-use itertools::Itertools;
 use log::error;
-use parameters::json::{merge_json, prune_equal_branches};
+use parameters::directory::{serialize, Id, Location, Scope};
 use repository::{get_repository_root, HardwareIds, Repository};
 use serde_json::{json, Value};
 use std::{collections::HashMap, net::Ipv4Addr};
@@ -17,17 +16,17 @@ pub struct RepositoryParameters {
 }
 
 impl RepositoryParameters {
-    pub fn try_default() -> Result<Self> {
+    pub fn new() -> Self {
         let runtime = Runtime::new().unwrap();
-        let repository_root = runtime.block_on(get_repository_root())?;
+        let repository_root = runtime.block_on(get_repository_root()).unwrap();
         let repository = Repository::new(repository_root);
-        let ids = runtime.block_on(repository.get_hardware_ids())?;
+        let ids = runtime.block_on(repository.get_hardware_ids()).unwrap();
 
-        Ok(Self {
+        Self {
             repository,
             runtime,
             ids,
-        })
+        }
     }
 
     pub fn write(&self, address: &str, path: String, value: Value) {
@@ -38,33 +37,21 @@ impl RepositoryParameters {
             error!("failed to get head ID from address {address}");
             return
         };
+        let parameters = nest_value_at_path(&path, value);
         self.runtime.spawn(async move {
-            let stored_complete_parameter_tree: Value = parameters::directory::deserialize(
+            serialize(
+                &parameters,
+                Scope {
+                    location: Location::All,
+                    id: Id::Head,
+                },
+                &path,
                 repository.configuration_root(),
                 &hardware_ids.body_id,
                 &hardware_ids.head_id,
             )
             .await
-            .unwrap_or_default();
-
-            let supplied_value_as_sparse_tree =
-                make_sparse_value_tree_from_path(path.as_str(), &value);
-            let diff = get_diff_against_stored_value(
-                &stored_complete_parameter_tree,
-                &supplied_value_as_sparse_tree,
-            );
-            let mut head_parameters = repository
-                .read_configuration(&hardware_ids.head_id)
-                .await
-                .unwrap_or_default();
-            merge_json(&mut head_parameters, &diff);
-
-            if let Err(error) = repository
-                .write_configuration(&hardware_ids.head_id, &head_parameters)
-                .await
-            {
-                error!("Failed to write value to repository: {error:#?}");
-            }
+            .unwrap();
         });
     }
 
@@ -93,31 +80,20 @@ fn last_octet_from_ip_address(ip_address: Ipv4Addr) -> u8 {
     ip_address.octets()[3]
 }
 
-// Create tree structure from path and value points to the last key i.e. a.b.c -> { a: { b: { c: value } } }
-fn make_sparse_value_tree_from_path(path: &str, value: &Value) -> Value {
+fn nest_value_at_path(path: &str, value: Value) -> Value {
+    // ("a.b.c", value) -> { a: { b: { c: value } } }
     path.split('.')
-        .collect_vec()
-        .into_iter()
         .rev()
-        .fold(value.clone(), |child_value: Value, key: &str| -> Value {
+        .fold(value, |child_value, key| -> Value {
             json!({ key: child_value })
         })
-}
-
-fn get_diff_against_stored_value(stored_value: &Value, incoming_sparse_value: &Value) -> Value {
-    let mut diff = stored_value.clone();
-    merge_json(&mut diff, incoming_sparse_value);
-    prune_equal_branches(&mut diff, stored_value);
-    diff
 }
 
 #[cfg(test)]
 mod tests {
     use serde_json::json;
 
-    use crate::repository_parameters::get_diff_against_stored_value;
-
-    use super::make_sparse_value_tree_from_path;
+    use super::nest_value_at_path;
 
     #[test]
     fn values_are_nested_at_paths() {
@@ -137,24 +113,7 @@ mod tests {
         ];
 
         for ((path, value), expected_output) in dataset {
-            assert_eq!(
-                make_sparse_value_tree_from_path(path, &value),
-                expected_output
-            );
+            assert_eq!(nest_value_at_path(path, value), expected_output);
         }
-    }
-
-    #[test]
-    fn sparse_value_diff() {
-        let stored_value = json!({"a":{"b":[1,2,3], "c":10}, "x":1000});
-        let incoming_sparse_value = json!({"a":{"b":[1,4,3], "c":10}});
-
-        // Only "b" has changes.
-        let expected_diff = json!({"a":{"b":[1,4,3]}});
-
-        assert_eq!(
-            get_diff_against_stored_value(&stored_value, &incoming_sparse_value),
-            expected_diff
-        );
     }
 }
