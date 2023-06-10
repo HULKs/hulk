@@ -1,8 +1,9 @@
+use approx::{AbsDiffEq, RelativeEq};
 use nalgebra::{Isometry3, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct Horizon {
     pub left_horizon_y: f32,
     pub right_horizon_y: f32,
@@ -53,5 +54,40 @@ impl Horizon {
                 right_horizon_y,
             }
         }
+    }
+}
+
+impl AbsDiffEq for Horizon {
+    type Epsilon = f32;
+
+    fn default_epsilon() -> Self::Epsilon {
+        Self::Epsilon::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+        self.left_horizon_y
+            .abs_diff_eq(&other.left_horizon_y, epsilon)
+            && self
+                .right_horizon_y
+                .abs_diff_eq(&other.right_horizon_y, epsilon)
+    }
+}
+
+impl RelativeEq for Horizon {
+    fn default_max_relative() -> Self::Epsilon {
+        Self::Epsilon::default_max_relative()
+    }
+
+    fn relative_eq(
+        &self,
+        other: &Self,
+        epsilon: Self::Epsilon,
+        max_relative: Self::Epsilon,
+    ) -> bool {
+        self.left_horizon_y
+            .relative_eq(&other.left_horizon_y, epsilon, max_relative)
+            && self
+                .right_horizon_y
+                .relative_eq(&other.right_horizon_y, epsilon, max_relative)
     }
 }
