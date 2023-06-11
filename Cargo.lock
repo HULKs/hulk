@@ -1125,7 +1125,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn 1.0.107",
 ]
 
 [[package]]
@@ -3869,7 +3869,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn 1.0.107",
 ]
 
 [[package]]
@@ -4008,7 +4008,7 @@ dependencies = [
  "glob",
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn 1.0.107",
  "topological-sort",
 ]
 
