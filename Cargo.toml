@@ -134,7 +134,7 @@ toml = "0.7.4"
 topological-sort = "0.2.2"
 types = { path = "crates/types" }
 uuid = { version = "1.1.2", features = ["v4"] }
-v4l = { version = "0.12.1", git = "https://github.com/tuxbotix/libv4l-rs", tag = "0.12.1+pending.hulks-2" }
+v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", tag = "0.12.1+hulks-2" }
 walkdir = "2.3.2"
 webots = { version = "0.7.0" }
 vision = { path = "crates/vision" }
