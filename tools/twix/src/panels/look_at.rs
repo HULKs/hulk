@@ -24,9 +24,7 @@ pub struct LookAtPanel {
     look_at_target: Point2<f32>,
     look_at_mode: LookAtType,
     is_enabled: bool,
-    // field_dimensions: Option<FieldDimensions>,
     field_dimensions_buffer: ValueBuffer,
-    // field_dimensions_update_notify_receiver: mpsc::Receiver<()>,
     motion_command: ValueBuffer,
 }
 
@@ -57,9 +55,7 @@ impl Panel for LookAtPanel {
             look_at_target: DEFAULT_TARGET,
             look_at_mode: LookAtType::PenaltyBoxFromCenter,
             is_enabled: false,
-            // field_dimensions: None,
             field_dimensions_buffer,
-            // field_dimensions_update_notify_receiver,
             motion_command,
         }
     }
