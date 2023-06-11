@@ -1,7 +1,9 @@
 use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 use communication::client::CyclerOutput;
-use eframe::egui::{Response, Slider, Ui, Widget};
-use log::error;
+use eframe::{
+    egui::{Response, Slider, Ui, Widget},
+    epaint::Color32,
+};
 use nalgebra::{point, Point2};
 use serde_json::Value;
 use std::{ops::RangeInclusive, str::FromStr, sync::Arc};
@@ -75,14 +77,37 @@ impl Widget for &mut LookAtPanel {
                 }
             }
 
+            let current_field_dimensions =
+                self.field_dimensions.get_latest().ok().and_then(|latest| {
+                    if self
+                        .field_dimensions_update_notify_receiver
+                        .try_recv()
+                        .is_ok()
+                    {
+                        serde_json::from_value::<FieldDimensions>(latest).ok()
+                    } else {
+                        None
+                    }
+                });
+
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
-                    ui.label("Select look-at mode");
-                    ui.radio_value(
-                        &mut self.look_at_mode,
-                        LookAtType::PenaltyBoxFromCenter,
-                        "Look at penalty box from center circle",
-                    );
+                    ui.label("Select look-at mode.");
+                    let field_dimensions_are_available = current_field_dimensions.is_some();
+                    if !field_dimensions_are_available {
+                        ui.colored_label(
+                            Color32::RED,
+                            "Some options are disabled due to missing field dimensions data.",
+                        );
+                    }
+                    ui.add_enabled_ui(field_dimensions_are_available, |ui| {
+                        ui.radio_value(
+                            &mut self.look_at_mode,
+                            LookAtType::PenaltyBoxFromCenter,
+                            "Look at penalty box from center circle",
+                        )
+                    });
+
                     ui.radio_value(
                         &mut self.look_at_mode,
                         LookAtType::Manual,
@@ -104,19 +129,6 @@ impl Widget for &mut LookAtPanel {
                     ui.radio_value(&mut self.camera_position, None, "Automatic");
                 });
             });
-
-            let current_field_dimensions =
-                self.field_dimensions.get_latest().ok().and_then(|latest| {
-                    if self
-                        .field_dimensions_update_notify_receiver
-                        .try_recv()
-                        .is_ok()
-                    {
-                        serde_json::from_value::<FieldDimensions>(latest).ok()
-                    } else {
-                        None
-                    }
-                });
 
             self.look_at_target = match self.look_at_mode {
                 LookAtType::PenaltyBoxFromCenter => {

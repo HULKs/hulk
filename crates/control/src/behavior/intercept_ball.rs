@@ -37,6 +37,7 @@ pub fn execute(world_state: &WorldState, parameters: InterceptBall) -> Option<Mo
             Some(MotionCommand::Walk {
                 head: HeadMotion::LookAt {
                     target: ball.ball_in_ground,
+                    camera: None,
                 },
                 path: vec![PathSegment::LineSegment(LineSegment(
                     Point2::origin(),
