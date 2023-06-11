@@ -14,6 +14,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub positions: AdditionalOutput<Joints<f32>, "positions">,
+    pub compensated_positions: AdditionalOutput<Joints<f32>, "compensated_positions">,
     pub positions_difference: AdditionalOutput<Joints<f32>, "positions_difference">,
     pub stiffnesses: AdditionalOutput<Joints<f32>, "stiffnesses">,
     pub motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
@@ -109,8 +110,10 @@ impl JointCommandSender {
             .write_to_actuators(compensated_positions, stiffnesses, *context.leds)
             .wrap_err("failed to write to actuators")?;
 
+        context.positions.fill_if_subscribed(|| positions);
+
         context
-            .positions
+            .compensated_positions
             .fill_if_subscribed(|| compensated_positions);
 
         context
