@@ -173,12 +173,12 @@ impl Widget for &mut LookAtPanel {
 
             self.look_at_target = match self.look_at_mode {
                 LookAtType::PenaltyBoxFromCenter => {
-                    if let Some(dimensions) = &self.field_dimensions {
-                        let half_field_length = dimensions.length / 2.0;
-                        point![half_field_length, 0.0]
-                    } else {
-                        DEFAULT_TARGET
-                    }
+                    self.field_dimensions
+                        .as_ref()
+                        .map_or(DEFAULT_TARGET, |dimensions| {
+                            let half_field_length = dimensions.length / 2.0;
+                            point![half_field_length, 0.0]
+                        })
                 }
                 LookAtType::Manual => {
                     let max_dimension = self
