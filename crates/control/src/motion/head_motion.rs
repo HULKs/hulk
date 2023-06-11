@@ -9,9 +9,7 @@ use types::{
 };
 
 #[derive(Default)]
-pub struct HeadMotion {
-    last_request: HeadJoints<f32>,
-}
+pub struct HeadMotion {}
 
 #[context]
 pub struct CreationContext {
@@ -46,67 +44,83 @@ pub struct MainOutputs {
 
 impl HeadMotion {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            last_request: Default::default(),
-        })
+        Ok(Self {})
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let raw_request = if *context.has_ground_contact {
-            Self::joints_from_motion(&context)
-        } else {
-            Default::default()
-        };
+        let HeadJointsCommand {
+            positions: raw_positions,
+            stiffnesses,
+        } = context
+            .has_ground_contact
+            .then(|| Self::joints_from_motion(&context))
+            .unwrap_or_else(|| HeadJointsCommand {
+                positions: Default::default(),
+                stiffnesses: HeadJoints::fill(0.8),
+            });
 
         let maximum_movement =
             *context.maximum_velocity * context.cycle_time.last_cycle_duration.as_secs_f32();
 
-        let controlled_request = HeadJoints {
-            yaw: self.last_request.yaw
-                + (raw_request.yaw - self.last_request.yaw)
+        let controlled_positions = HeadJoints {
+            yaw: context.sensor_data.positions.head.yaw
+                + (raw_positions.yaw - context.sensor_data.positions.head.yaw)
                     .clamp(-maximum_movement.yaw, maximum_movement.yaw),
-            pitch: self.last_request.pitch
-                + (raw_request.pitch - self.last_request.pitch)
+            pitch: context.sensor_data.positions.head.pitch
+                + (raw_positions.pitch - context.sensor_data.positions.head.pitch)
                     .clamp(-maximum_movement.pitch, maximum_movement.pitch),
         };
 
-        let pitch_max = if controlled_request.yaw.abs() >= *context.outer_yaw {
+        let maximum_pitch = if controlled_positions.yaw.abs() >= *context.outer_yaw {
             *context.outer_maximum_pitch
         } else {
             let interpolation_factor =
-                0.5 * (1.0 + (PI / *context.outer_yaw * controlled_request.yaw).cos());
+                0.5 * (1.0 + (PI / *context.outer_yaw * controlled_positions.yaw).cos());
             *context.outer_maximum_pitch
                 + interpolation_factor
                     * (*context.inner_maximum_pitch - *context.outer_maximum_pitch)
         };
-        let clamped_pitch = controlled_request.pitch.clamp(0.0, pitch_max);
 
-        let clamped_request = HeadJoints {
+        let clamped_pitch = controlled_positions.pitch.clamp(0.0, maximum_pitch);
+        let clamped_positions = HeadJoints {
             pitch: clamped_pitch,
-            yaw: controlled_request.yaw,
+            yaw: controlled_positions.yaw,
         };
 
-        self.last_request = controlled_request;
         Ok(MainOutputs {
             head_joints_command: HeadJointsCommand {
-                positions: clamped_request,
-                stiffnesses: HeadJoints::fill(0.8),
+                positions: clamped_positions,
+                stiffnesses,
             }
             .into(),
         })
     }
 
-    pub fn joints_from_motion(context: &CycleContext) -> HeadJoints<f32> {
+    pub fn joints_from_motion(context: &CycleContext) -> HeadJointsCommand<f32> {
         match context.motion_command.head_motion() {
-            Some(HeadMotionCommand::Center) => *context.center_head_position,
-            Some(HeadMotionCommand::LookAround) | Some(HeadMotionCommand::SearchForLostBall) => {
-                *context.look_around
+            Some(HeadMotionCommand::Center) => HeadJointsCommand {
+                positions: *context.center_head_position,
+                stiffnesses: HeadJoints::fill(0.8),
+            },
+            Some(HeadMotionCommand::LookAround | HeadMotionCommand::SearchForLostBall) => {
+                HeadJointsCommand {
+                    positions: *context.look_around,
+                    stiffnesses: HeadJoints::fill(0.8),
+                }
             }
-            Some(HeadMotionCommand::LookAt { .. }) => *context.look_at,
-            Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => *context.look_at,
-            Some(HeadMotionCommand::Unstiff) => context.sensor_data.positions.head,
-            Some(HeadMotionCommand::ZeroAngles) => Default::default(),
-            None => Default::default(),
+            Some(HeadMotionCommand::LookAt { .. })
+            | Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => HeadJointsCommand {
+                positions: *context.look_at,
+                stiffnesses: HeadJoints::fill(0.8),
+            },
+            Some(HeadMotionCommand::Unstiff) => HeadJointsCommand {
+                positions: context.sensor_data.positions.head,
+                stiffnesses: HeadJoints::fill(0.0),
+            },
+            Some(HeadMotionCommand::ZeroAngles) | None => HeadJointsCommand {
+                positions: Default::default(),
+                stiffnesses: HeadJoints::fill(0.8),
+            },
         }
     }
 }
