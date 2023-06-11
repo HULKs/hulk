@@ -71,27 +71,26 @@ impl Widget for &mut LookAtPanel {
             let mut status_text_job = LayoutJob::default();
             let leading_space = 10.0f32;
 
-            let current_motion_command: Option<MotionCommand> = match self
-                .motion_command
-                .get_latest()
-                .and_then(|latest| serde_json::from_value(latest).map_err(|err| err.to_string()))
-            {
-                Ok(value) => {
-                    status_text_job.append(
-                        format!("Current Motion: {:?}.", value).as_str(),
-                        0.0,
-                        TextFormat {
-                            font_id: FontId::monospace(14.0),
-                            ..Default::default()
-                        },
-                    );
-                    Some(value)
-                }
-                Err(error) => {
-                    status_text_job.append(error.to_string().as_str(), 0.0, error_format.clone());
-                    None
-                }
-            };
+            let current_motion_command: Option<MotionCommand> =
+                match self.motion_command.get_latest().and_then(|latest| {
+                    serde_json::from_value(latest).map_err(|err| err.to_string())
+                }) {
+                    Ok(value) => {
+                        status_text_job.append(
+                            format!("Current Motion: {:?}.", value).as_str(),
+                            0.0,
+                            TextFormat {
+                                font_id: FontId::monospace(14.0),
+                                ..Default::default()
+                            },
+                        );
+                        Some(value)
+                    }
+                    Err(error) => {
+                        status_text_job.append(error.as_str(), 0.0, error_format.clone());
+                        None
+                    }
+                };
             let is_safe_to_override_current_motion_command =
                 current_motion_command.as_ref().map_or(false, |command| {
                     matches!(
@@ -137,7 +136,7 @@ impl Widget for &mut LookAtPanel {
                         status_text_job.append(
                             format!("Field dimensions are not available: {}", error).as_str(),
                             leading_space,
-                            error_format.clone(),
+                            error_format,
                         );
                         None
                     }
