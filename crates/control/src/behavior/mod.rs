@@ -1,3 +1,4 @@
+mod calibrate;
 mod defend;
 mod dribble;
 mod fall_safely;

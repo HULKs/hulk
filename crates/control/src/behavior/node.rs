@@ -12,6 +12,7 @@ use types::{
 };
 
 use super::{
+    calibrate,
     defend::Defend,
     dribble, fall_safely,
     head::LookAction,
@@ -100,6 +101,7 @@ impl Behavior {
             Action::StandUp,
             Action::Stand,
             Action::InterceptBall,
+            Action::Calibrate,
         ];
 
         if let Some(active_since) = self.active_since {
@@ -189,6 +191,7 @@ impl Behavior {
                     Action::InterceptBall => {
                         intercept_ball::execute(world_state, *context.intercept_ball_parameters)
                     }
+                    Action::Calibrate => calibrate::execute(world_state),
                     Action::DefendGoal => defend.goal(&mut context.path_obstacles),
                     Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
                     Action::DefendLeft => defend.left(&mut context.path_obstacles),
