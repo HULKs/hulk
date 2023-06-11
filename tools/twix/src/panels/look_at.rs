@@ -2,7 +2,7 @@ use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 use communication::client::CyclerOutput;
 use eframe::{
     egui::{Response, Slider, TextFormat, Ui, Widget},
-    epaint::{text::LayoutJob, Color32},
+    epaint::{text::LayoutJob, Color32, FontId},
 };
 use nalgebra::{point, Point2};
 use serde_json::Value;
@@ -24,9 +24,9 @@ pub struct LookAtPanel {
     look_at_target: Point2<f32>,
     look_at_mode: LookAtType,
     is_enabled: bool,
-    field_dimensions: Option<FieldDimensions>,
+    // field_dimensions: Option<FieldDimensions>,
     field_dimensions_buffer: ValueBuffer,
-    field_dimensions_update_notify_receiver: mpsc::Receiver<()>,
+    // field_dimensions_update_notify_receiver: mpsc::Receiver<()>,
     motion_command: ValueBuffer,
 }
 
@@ -38,14 +38,14 @@ impl Panel for LookAtPanel {
     const NAME: &'static str = "Look At";
 
     fn new(nao: Arc<Nao>, _: Option<&Value>) -> Self {
-        let (field_dimensions_update_notify_sender, field_dimensions_update_notify_receiver) =
-            mpsc::channel(1);
+        let (field_dimensions_update_notify_sender, _) = mpsc::channel(1);
         let field_dimensions_buffer = subscribe(
             nao.clone(),
             "field_dimensions",
             field_dimensions_update_notify_sender,
         )
         .expect("Failed to subscribe to field_dimensions");
+
         let motion_command = nao.subscribe_output(
             CyclerOutput::from_str("Control.main_outputs.motion_command")
                 .expect("Failed to subscribe to main_outputs.motion_command"),
@@ -57,9 +57,9 @@ impl Panel for LookAtPanel {
             look_at_target: DEFAULT_TARGET,
             look_at_mode: LookAtType::PenaltyBoxFromCenter,
             is_enabled: false,
-            field_dimensions: None,
+            // field_dimensions: None,
             field_dimensions_buffer,
-            field_dimensions_update_notify_receiver,
+            // field_dimensions_update_notify_receiver,
             motion_command,
         }
     }
@@ -73,15 +73,29 @@ impl Widget for &mut LookAtPanel {
                 ..Default::default()
             };
             let mut status_text_job = LayoutJob::default();
+            let leading_space = 10.0f32;
 
-            let current_motion_command = match self.motion_command.get_latest() {
-                Ok(value) => serde_json::from_value(value).ok(),
+            let current_motion_command: Option<MotionCommand> = match self
+                .motion_command
+                .get_latest()
+                .and_then(|latest| serde_json::from_value(latest).map_err(|err| err.to_string()))
+            {
+                Ok(value) => {
+                    status_text_job.append(
+                        format!("Current Motion: {:?}.", value).as_str(),
+                        0.0,
+                        TextFormat {
+                            font_id: FontId::monospace(14.0),
+                            ..Default::default()
+                        },
+                    );
+                    Some(value)
+                }
                 Err(error) => {
-                    status_text_job.append(&error, 0.0, error_format.clone());
+                    status_text_job.append(error.to_string().as_str(), 0.0, error_format.clone());
                     None
                 }
             };
-
             let is_safe_to_override_current_motion_command =
                 current_motion_command.as_ref().map_or(false, |command| {
                     matches!(
@@ -95,7 +109,7 @@ impl Widget for &mut LookAtPanel {
             if !is_safe_to_override_current_motion_command {
                 status_text_job.append(
                     "Cannot safely override motion, please put the NAO into a standing position!",
-                    1.0,
+                    leading_space,
                     error_format.clone(),
                 );
             }
@@ -120,28 +134,24 @@ impl Widget for &mut LookAtPanel {
                 }
             });
 
-            if let Ok(latest) = self.field_dimensions_buffer.get_latest() {
-                if self
-                    .field_dimensions_update_notify_receiver
-                    .try_recv()
-                    .is_ok()
-                {
-                    self.field_dimensions = serde_json::from_value::<FieldDimensions>(latest).ok();
-                }
-            }
-            if self.field_dimensions.is_none() {
-                status_text_job.append(
-                    " Missing field dimensions data, some modes are disabled.",
-                    1.0,
-                    error_format,
-                );
-            }
+            let current_field_dimensions: Option<FieldDimensions> =
+                match self.field_dimensions_buffer.parse_latest() {
+                    Ok(value) => Some(value),
+                    Err(error) => {
+                        status_text_job.append(
+                            format!("Field dimensions are not available: {}", error).as_str(),
+                            leading_space,
+                            error_format.clone(),
+                        );
+                        None
+                    }
+                };
 
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
                     ui.label("Select look-at mode.");
 
-                    ui.add_enabled_ui(self.field_dimensions.is_some(), |ui| {
+                    ui.add_enabled_ui(current_field_dimensions.is_some(), |ui| {
                         ui.radio_value(
                             &mut self.look_at_mode,
                             LookAtType::PenaltyBoxFromCenter,
@@ -173,7 +183,7 @@ impl Widget for &mut LookAtPanel {
 
             self.look_at_target = match self.look_at_mode {
                 LookAtType::PenaltyBoxFromCenter => {
-                    self.field_dimensions
+                    current_field_dimensions
                         .as_ref()
                         .map_or(DEFAULT_TARGET, |dimensions| {
                             let half_field_length = dimensions.length / 2.0;
@@ -181,8 +191,7 @@ impl Widget for &mut LookAtPanel {
                         })
                 }
                 LookAtType::Manual => {
-                    let max_dimension = self
-                        .field_dimensions
+                    let max_dimension = current_field_dimensions
                         .as_ref()
                         .map_or(FALLBACK_MAX_FIELD_DIMENSION, |dimensions| dimensions.length);
 
