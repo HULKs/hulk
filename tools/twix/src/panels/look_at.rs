@@ -22,27 +22,26 @@ pub struct LookAtPanel {
     look_at_target: Point2<f32>,
     look_at_mode: LookAtType,
     is_enabled: bool,
-    field_dimensions: Option<ValueBuffer>,
+    field_dimensions: ValueBuffer,
     field_dimensions_update_notify_receiver: mpsc::Receiver<()>,
-    motion_command: Option<ValueBuffer>,
+    motion_command: ValueBuffer,
 }
 
 const INJECTED_MOTION_COMMAND: &str = "behavior.injected_motion_command";
 const DEFAULT_TARGET: Point2<f32> = point![1.0, 0.0];
+const FALLBACK_MAX_FIELD_DIMENSION: f32 = 10.0;
 
 impl Panel for LookAtPanel {
     const NAME: &'static str = "Look At";
 
     fn new(nao: Arc<Nao>, _: Option<&Value>) -> Self {
         let (update_notify_sender, field_dimensions_update_notify_receiver) = mpsc::channel(1);
-        let field_dimensions = subscribe(nao.clone(), "field_dimensions", update_notify_sender);
-        let motion_command = match CyclerOutput::from_str("Control.main_outputs.motion_command") {
-            Ok(output) => Some(nao.subscribe_output(output)),
-            Err(error) => {
-                error!("Failed to subscribe: {error:#?}");
-                None
-            }
-        };
+        let field_dimensions = subscribe(nao.clone(), "field_dimensions", update_notify_sender)
+            .expect("Failed to subscribe to field_dimensions");
+        let motion_command = nao.subscribe_output(
+            CyclerOutput::from_str("Control.main_outputs.motion_command")
+                .expect("Failed to subscribe to main_outputs.motion_command"),
+        );
 
         Self {
             nao,
@@ -106,8 +105,8 @@ impl Widget for &mut LookAtPanel {
                 });
             });
 
-            let current_field_dimensions = self.field_dimensions.as_ref().and_then(|buffer| {
-                buffer.get_latest().ok().and_then(|latest| {
+            let current_field_dimensions =
+                self.field_dimensions.get_latest().ok().and_then(|latest| {
                     if self
                         .field_dimensions_update_notify_receiver
                         .try_recv()
@@ -117,8 +116,7 @@ impl Widget for &mut LookAtPanel {
                     } else {
                         None
                     }
-                })
-            });
+                });
 
             self.look_at_target = match self.look_at_mode {
                 LookAtType::PenaltyBoxFromCenter => {
@@ -130,8 +128,10 @@ impl Widget for &mut LookAtPanel {
                     }
                 }
                 LookAtType::Manual => {
-                    let max_dimension = current_field_dimensions
-                        .map_or(10.0, |dimensions: FieldDimensions| dimensions.length);
+                    let max_dimension = current_field_dimensions.map_or(
+                        FALLBACK_MAX_FIELD_DIMENSION,
+                        |dimensions: FieldDimensions| dimensions.length,
+                    );
 
                     ui.add(
                         Slider::new(
@@ -164,38 +164,36 @@ impl Widget for &mut LookAtPanel {
                 }
             });
 
-            self.motion_command
-                .as_ref()
-                .map(|buffer| match buffer.get_latest() {
-                    Ok(value) => {
-                        let motion_command: MotionCommand = serde_json::from_value(value).unwrap();
-                        let contents = if let MotionCommand::SitDown {
-                            head: HeadMotion::LookAt { target, camera },
-                        }
-                        | MotionCommand::Stand {
-                            head: HeadMotion::LookAt { target, camera },
-                            ..
-                        }
-                        | MotionCommand::Walk {
-                            head: HeadMotion::LookAt { target, camera },
-                            ..
-                        }
-                        | MotionCommand::InWalkKick {
-                            head: HeadMotion::LookAt { target, camera },
-                            ..
-                        } = motion_command
-                        {
-                            format!(
-                                "Look at active: {{ target: {:?}, camera: {:?} }}",
-                                target, camera
-                            )
-                        } else {
-                            "Look at inactive".to_string()
-                        };
-                        ui.label(contents)
+            match self.motion_command.get_latest() {
+                Ok(value) => {
+                    let motion_command: MotionCommand = serde_json::from_value(value).unwrap();
+                    let status_text = if let MotionCommand::SitDown {
+                        head: HeadMotion::LookAt { target, camera },
                     }
-                    Err(error) => ui.label(error),
-                });
+                    | MotionCommand::Stand {
+                        head: HeadMotion::LookAt { target, camera },
+                        ..
+                    }
+                    | MotionCommand::Walk {
+                        head: HeadMotion::LookAt { target, camera },
+                        ..
+                    }
+                    | MotionCommand::InWalkKick {
+                        head: HeadMotion::LookAt { target, camera },
+                        ..
+                    } = motion_command
+                    {
+                        format!(
+                            "Look at active: {{ target: {:?}, camera: {:?} }}",
+                            target, camera
+                        )
+                    } else {
+                        "Look at inactive".to_string()
+                    };
+                    ui.label(status_text)
+                }
+                Err(error) => ui.label(error),
+            };
         })
         .response
     }
