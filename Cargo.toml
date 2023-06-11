@@ -3,6 +3,7 @@ members = [
   "crates/aliveness",
   "crates/audio",
   "crates/build_script_helpers",
+  "crates/calibration",
   "crates/code_generation",
   "crates/communication",
   "crates/constants",
@@ -54,6 +55,7 @@ bindgen = "0.65.1"
 build_script_helpers = { path = "crates/build_script_helpers" }
 byteorder = "1.4.3"
 chrono = "0.4.23"
+calibration = { path = "crates/calibration" }
 clap = { version = "4.2.4", features = ["derive"] }
 clap_complete = "4.2.1"
 code_generation = { path = "crates/code_generation" }
@@ -87,6 +89,7 @@ indicatif = "0.17.2"
 itertools = "0.10.5"
 ittapi = "0.3.3"
 kinematics = { path = "crates/kinematics" }
+levenberg-marquardt = "0.13.0"
 libc = "0.2.137"
 log = "0.4.17"
 mlua = { version = "0.8.7", features = ["luajit", "serialize", "parking_lot"] }
