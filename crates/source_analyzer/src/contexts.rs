@@ -17,6 +17,11 @@ pub struct Contexts {
 impl Contexts {
     pub fn try_from_file(file: &File) -> Result<Self, ParseError> {
         let uses = uses_from_file(file);
+        if !exactly_one_context_struct_with_name_exists(file, "CreationContext") ||
+            !exactly_one_context_struct_with_name_exists(file, "CycleContext") ||
+            !exactly_one_context_struct_with_name_exists(file, "MainOutputs") {
+            return Err(ParseError::new_spanned(file, "expected exactly one `CreationContext`, `CycleContext`, and `MainOutputs`"));
+        }
         let mut creation_context = vec![];
         let mut cycle_context = vec![];
         let mut main_outputs = vec![];
@@ -48,7 +53,7 @@ impl Contexts {
                     main_outputs.append(&mut fields);
                 }
                 _ => {
-                    return Err(ParseError:: new_spanned(&item.ident, format!("expected `CreationContext`, `CycleContext`, or `MainOutputs`, found `{}`", item.ident)));
+                    return Err(ParseError::new_spanned(&item.ident, format!("expected `CreationContext`, `CycleContext`, or `MainOutputs`, found `{}`", item.ident)));
                 }
             }
         }
@@ -59,6 +64,25 @@ impl Contexts {
             main_outputs,
         })
     }
+}
+
+fn exactly_one_context_struct_with_name_exists(file: &File, name: &str) -> bool {
+    file
+        .items
+        .iter()
+        .filter(|item| matches!(
+            item,
+            Item::Struct(item) if item
+                .attrs
+                .iter()
+                .filter_map(|attribute| attribute.path.get_ident())
+                .any(|identifier| identifier == "context")
+        ))
+        .filter(|item| matches!(
+            item,
+            Item::Struct(item) if item.ident == name
+        ))
+        .count() == 1
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

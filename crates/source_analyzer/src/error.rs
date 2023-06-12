@@ -49,7 +49,7 @@ impl ParseError {
             .into_token_stream()
             .into_iter()
             .next()
-            .map_or_else(Span::call_site, |t| t.span());
+            .map_or_else(Span::call_site, |token| token.span());
         Self {
             span: ThreadBound::new(span),
             message: message.to_string(),
