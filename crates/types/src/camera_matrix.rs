@@ -80,7 +80,7 @@ impl CameraMatrix {
         }
     }
 
-    fn calculate_field_of_view(
+    pub fn calculate_field_of_view(
         focal_lengths: Vector2<f32>,
         image_size: Vector2<f32>,
     ) -> Vector2<f32> {

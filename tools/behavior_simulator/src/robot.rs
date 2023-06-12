@@ -8,10 +8,11 @@ use std::{
 use color_eyre::{eyre::WrapErr, Result};
 use control::localization::generate_initial_pose;
 use cyclers::control::Database;
+use nalgebra::vector;
 use parameters::directory::deserialize;
 use spl_network_messages::PlayerNumber;
 use structs::Configuration;
-use types::messages::IncomingMessage;
+use types::{messages::IncomingMessage, CameraMatrix};
 
 use crate::{cycler::BehaviorCycler, interfake::Interfake};
 
@@ -65,6 +66,19 @@ impl Robot {
     pub fn cycle(&mut self, messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>) -> Result<()> {
         self.cycler
             .cycle(&mut self.database, &self.configuration, messages)
+    }
+
+    pub fn field_of_view(&self) -> f32 {
+        let image_size = vector![640.0, 480.0];
+        let focal_lengths = self
+            .configuration
+            .camera_matrix_parameters
+            .vision_top
+            .focal_lengths;
+        let focal_lengths_scaled = image_size.component_mul(&focal_lengths);
+        let field_of_view = CameraMatrix::calculate_field_of_view(focal_lengths_scaled, image_size);
+
+        field_of_view.x
     }
 }
 
