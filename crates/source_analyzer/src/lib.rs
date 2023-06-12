@@ -1,5 +1,5 @@
 pub mod contexts;
-pub mod cycler;
+pub mod cyclers;
 pub mod error;
 pub mod manifest;
 pub mod node;

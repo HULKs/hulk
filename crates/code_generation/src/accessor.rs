@@ -2,7 +2,7 @@ use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use source_analyzer::{
-    cycler::{Cycler, InstanceName},
+    cyclers::{Cycler, InstanceName},
     path::Path,
 };
 
@@ -88,7 +88,7 @@ mod tests {
     use super::*;
 
     use quote::quote;
-    use source_analyzer::cycler::{CyclerKind, Instance};
+    use source_analyzer::cyclers::{CyclerKind, Instance};
 
     #[test]
     fn paths_with_optionals_result_in_correct_accessor_token_streams() {

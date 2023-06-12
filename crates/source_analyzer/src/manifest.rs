@@ -9,7 +9,7 @@ use serde::{
     Deserialize, Deserializer,
 };
 
-use crate::{cycler::CyclerKind, error::Error};
+use crate::{cyclers::CyclerKind, error::Error};
 
 #[derive(Deserialize, Debug)]
 pub struct FrameworkManifest {

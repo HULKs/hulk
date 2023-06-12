@@ -5,7 +5,7 @@ use perception_databases::generate_perception_databases;
 use proc_macro2::TokenStream;
 use quote::quote;
 use run::generate_run_function;
-use source_analyzer::{cycler::Cyclers, manifest::FrameworkManifest, structs::Structs};
+use source_analyzer::{cyclers::Cyclers, manifest::FrameworkManifest, structs::Structs};
 use structs::generate_structs;
 
 mod accessor;

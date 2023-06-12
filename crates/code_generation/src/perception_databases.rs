@@ -1,7 +1,7 @@
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use source_analyzer::cycler::{CyclerKind, Cyclers};
+use source_analyzer::cyclers::{CyclerKind, Cyclers};
 
 fn generate_perception_updates(cyclers: &Cyclers) -> TokenStream {
     let updates_fields = cyclers.instances_with(CyclerKind::Perception).map(

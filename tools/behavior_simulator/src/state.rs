@@ -18,7 +18,7 @@ use types::{
 use crate::{
     cycler::Database,
     robot::Robot,
-    structs::{control::AdditionalOutputs, Configuration},
+    structs::{controls::AdditionalOutputs, Configuration},
 };
 
 pub enum Event {

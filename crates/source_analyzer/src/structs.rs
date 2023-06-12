@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::{
     contexts::Field,
-    cycler::{CyclerName, Cyclers},
+    cyclers::{CyclerName, Cyclers},
     path::Path,
     struct_hierarchy::{HierarchyError, InsertionRule, StructHierarchy},
 };
