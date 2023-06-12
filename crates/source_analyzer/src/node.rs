@@ -11,7 +11,7 @@ use crate::{
 
 pub type NodeName = String;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Node {
     pub name: NodeName,
     pub module: syn::Path,
