@@ -15,7 +15,7 @@ use crate::{
 
 pub type CyclerName = String;
 pub type InstanceName = String;
-pub type ModulePath = String;
+pub type OutputName = String;
 
 #[derive(Debug)]
 pub struct Instance {
@@ -89,7 +89,7 @@ impl Cycler {
             &HashSet::new(),
         )?;
 
-        let setup_outputs = output_name_to_setup_node.keys().cloned().collect();
+        let setup_output_names = output_name_to_setup_node.keys().cloned().collect();
         let output_to_node: HashMap<_, _> = self
             .cycle_nodes
             .iter()
@@ -103,7 +103,7 @@ impl Cycler {
                     })
             })
             .collect();
-        let sorted_cycle_nodes = sort_nodes(&self.cycle_nodes, &output_to_node, &setup_outputs)?;
+        let sorted_cycle_nodes = sort_nodes(&self.cycle_nodes, &output_to_node, &setup_output_names)?;
 
         self.setup_nodes = sorted_setup_nodes;
         self.cycle_nodes = sorted_cycle_nodes;
@@ -172,7 +172,7 @@ impl Cyclers {
 fn sort_nodes(
     nodes: &[Node],
     output_to_node: &HashMap<String, &Node>,
-    existing_outputs: &HashSet<String>,
+    existing_output_names: &HashSet<OutputName>,
 ) -> Result<Vec<Node>, Error> {
     let mut topological_sort = TopologicalSort::<&Node>::new();
     for node in nodes {
@@ -201,7 +201,7 @@ fn sort_nodes(
         {
             let producing_node = match output_to_node.get(dependency) {
                 Some(node) => node,
-                None if existing_outputs.contains(dependency) => continue,
+                None if existing_output_names.contains(dependency) => continue,
                 None => {
                     return Err(Error::MissingOutput {
                         node: node.name.clone(),
