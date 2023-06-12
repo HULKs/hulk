@@ -7,7 +7,7 @@ use crate::{
     uses::{uses_from_file, Uses},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Contexts {
     pub creation_context: Vec<Field>,
     pub cycle_context: Vec<Field>,
@@ -85,7 +85,7 @@ fn exactly_one_context_struct_with_name_exists(file: &File, name: &str) -> bool 
         .count() == 1
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Field {
     AdditionalOutput {
         data_type: Type,
