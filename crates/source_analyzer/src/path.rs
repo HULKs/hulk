@@ -1,6 +1,6 @@
 use convert_case::{Case, Casing};
 
-use crate::cycler::Cycler;
+use crate::cyclers::Cycler;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Path {

@@ -22,6 +22,60 @@ pub struct Instance {
     pub name: InstanceName,
 }
 
+#[derive(Debug)]
+pub struct Cyclers {
+    pub cyclers: Vec<Cycler>,
+}
+
+impl Cyclers {
+    pub fn try_from_manifest(
+        manifest: FrameworkManifest,
+        root: impl AsRef<Path>,
+    ) -> Result<Cyclers, Error> {
+        let values = &manifest.cyclers;
+        let cyclers = values
+            .iter()
+            .map(|manifest| Cycler::try_from_manifest(manifest, root.as_ref()))
+            .collect::<Result<_, _>>()?;
+        Ok(Self { cyclers })
+    }
+
+    pub fn sort_nodes(&mut self) -> Result<(), Error> {
+        for cycler in &mut self.cyclers {
+            cycler.sort_nodes()?;
+        }
+        Ok(())
+    }
+
+    pub fn number_of_instances(&self) -> usize {
+        self.cyclers
+            .iter()
+            .map(|cycler| cycler.instances.len())
+            .sum()
+    }
+
+    pub fn instances(&self) -> impl Iterator<Item = (&Cycler, &Instance)> {
+        self.cyclers.iter().flat_map(move |cycler| {
+            cycler
+                .instances
+                .iter()
+                .map(move |instance| (cycler, instance))
+        })
+    }
+
+    pub fn instances_with(&self, kind: CyclerKind) -> impl Iterator<Item = (&Cycler, &Instance)> {
+        self.cyclers
+            .iter()
+            .filter(move |cycler| cycler.kind == kind)
+            .flat_map(move |cycler| {
+                cycler
+                    .instances
+                    .iter()
+                    .map(move |instance| (cycler, instance))
+            })
+    }
+}
+
 #[derive(Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CyclerKind {
     Perception,
@@ -112,60 +166,6 @@ impl Cycler {
 
     pub fn iter_nodes(&self) -> impl Iterator<Item = &Node> {
         self.setup_nodes.iter().chain(self.cycle_nodes.iter())
-    }
-}
-
-#[derive(Debug)]
-pub struct Cyclers {
-    pub cyclers: Vec<Cycler>,
-}
-
-impl Cyclers {
-    pub fn try_from_manifest(
-        manifest: FrameworkManifest,
-        root: impl AsRef<Path>,
-    ) -> Result<Cyclers, Error> {
-        let values = &manifest.cyclers;
-        let cyclers = values
-            .iter()
-            .map(|manifest| Cycler::try_from_manifest(manifest, root.as_ref()))
-            .collect::<Result<_, _>>()?;
-        Ok(Self { cyclers })
-    }
-
-    pub fn sort_nodes(&mut self) -> Result<(), Error> {
-        for cycler in &mut self.cyclers {
-            cycler.sort_nodes()?;
-        }
-        Ok(())
-    }
-
-    pub fn number_of_instances(&self) -> usize {
-        self.cyclers
-            .iter()
-            .map(|cycler| cycler.instances.len())
-            .sum()
-    }
-
-    pub fn instances(&self) -> impl Iterator<Item = (&Cycler, &Instance)> {
-        self.cyclers.iter().flat_map(move |cycler| {
-            cycler
-                .instances
-                .iter()
-                .map(move |instance| (cycler, instance))
-        })
-    }
-
-    pub fn instances_with(&self, kind: CyclerKind) -> impl Iterator<Item = (&Cycler, &Instance)> {
-        self.cyclers
-            .iter()
-            .filter(move |cycler| cycler.kind == kind)
-            .flat_map(move |cycler| {
-                cycler
-                    .instances
-                    .iter()
-                    .map(move |instance| (cycler, instance))
-            })
     }
 }
 

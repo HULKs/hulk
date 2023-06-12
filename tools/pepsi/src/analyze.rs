@@ -8,7 +8,7 @@ use color_eyre::{eyre::WrapErr, Result};
 
 use source_analyzer::{
     contexts::{Contexts, Field},
-    cycler::{Cycler, Cyclers, Instance},
+    cyclers::{Cycler, Cyclers, Instance},
     manifest::FrameworkManifest,
     node::{parse_rust_file, Node},
     structs::Structs,

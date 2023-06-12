@@ -6,7 +6,7 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use source_analyzer::{
     contexts::Field,
-    cycler::{Cycler, CyclerKind, Cyclers},
+    cyclers::{Cycler, CyclerKind, Cyclers},
     node::Node,
 };
 

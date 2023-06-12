@@ -3,7 +3,7 @@ use std::iter::repeat;
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use source_analyzer::cycler::{CyclerKind, Cyclers};
+use source_analyzer::cyclers::{CyclerKind, Cyclers};
 
 pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
     let construct_multiple_buffers = generate_multiple_buffers(cyclers);
