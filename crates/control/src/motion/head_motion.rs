@@ -97,21 +97,22 @@ impl HeadMotion {
     }
 
     pub fn joints_from_motion(context: &CycleContext) -> HeadJointsCommand<f32> {
+        let stiffnesses = HeadJoints::fill(0.8);
         match context.motion_command.head_motion() {
             Some(HeadMotionCommand::Center) => HeadJointsCommand {
                 positions: *context.center_head_position,
-                stiffnesses: HeadJoints::fill(0.8),
+                stiffnesses,
             },
             Some(HeadMotionCommand::LookAround | HeadMotionCommand::SearchForLostBall) => {
                 HeadJointsCommand {
                     positions: *context.look_around,
-                    stiffnesses: HeadJoints::fill(0.8),
+                    stiffnesses,
                 }
             }
             Some(HeadMotionCommand::LookAt { .. })
             | Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => HeadJointsCommand {
                 positions: *context.look_at,
-                stiffnesses: HeadJoints::fill(0.8),
+                stiffnesses,
             },
             Some(HeadMotionCommand::Unstiff) => HeadJointsCommand {
                 positions: context.sensor_data.positions.head,
@@ -119,7 +120,7 @@ impl HeadMotion {
             },
             Some(HeadMotionCommand::ZeroAngles) | None => HeadJointsCommand {
                 positions: Default::default(),
-                stiffnesses: HeadJoints::fill(0.8),
+                stiffnesses,
             },
         }
     }
