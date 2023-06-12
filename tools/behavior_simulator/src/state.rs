@@ -1,6 +1,5 @@
 use std::{
     collections::{BTreeMap, HashMap},
-    f32::consts::FRAC_PI_8,
     mem::take,
     time::{Duration, UNIX_EPOCH},
 };
@@ -228,8 +227,10 @@ impl State {
                         robot.database.main_outputs.sensor_data.positions.head.yaw,
                     );
                     let ball_in_head = head_rotation.inverse() * ball.position.coords;
-                    ball_in_head.angle(&Vector2::x_axis()).abs() < FRAC_PI_8
-                        && ball_in_head.norm() < 3.0
+                    let field_of_view = robot.field_of_view();
+                    let angle_to_ball = ball_in_head.angle(&Vector2::x_axis());
+
+                    angle_to_ball.abs() < field_of_view / 2.0 && ball_in_head.norm() < 3.0
                 });
 
             robot.database.main_outputs.primary_state =
