@@ -63,3 +63,11 @@ This will first build the pepsi binary and then start the build process.
 ## Running Webots
 
 Once the compilation step is complete, open webots and load the scene at `webots/worlds/penalized.wbt` from the repository.
+
+## Running Webots in external Mode
+
+To not be fordeced to reload the scene in Webots in case of an updated hulk controller, you can run in webots `webots/worlds/penalized_extern.wbt` and starting the controller with:
+
+```sh
+./pepsi run
+```
