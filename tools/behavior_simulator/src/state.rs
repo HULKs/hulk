@@ -155,7 +155,7 @@ impl State {
                                 KickVariant::Turn => vector![0.707, 0.707 * side],
                                 KickVariant::Side => vector![0.0, 1.0 * -side],
                             };
-                            ball.velocity += *robot_to_field * direction * *strength;
+                            ball.velocity += *robot_to_field * direction * *strength * 2.5;
                             robot.last_kick_time = self.time_elapsed;
                         };
                     }
