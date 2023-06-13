@@ -93,10 +93,8 @@ pub struct Cycler {
 
 impl Cycler {
     fn try_from_manifest(cycler_manifest: CyclerManifest, root: &Path) -> Result<Cycler, Error> {
-        let instance_names = cycler_manifest
+        let instances = cycler_manifest
             .instances
-            .unwrap_or_else(|| vec![String::new()]);
-        let instances = instance_names
             .iter()
             .map(|instance_name| Instance {
                 name: format!("{}{}", cycler_manifest.name, instance_name),

@@ -21,6 +21,7 @@ nodes = [
 name = "Control"
 kind = "RealTime"
 setup_nodes = ["control::sensor_data_receiver"]
+instances = [""]
 nodes = [
   "control::active_vision",
   "control::ball_filter",
@@ -74,12 +75,14 @@ nodes = [
 [[cyclers]]
 name = "SplNetwork"
 kind = "Perception"
+instances = [""]
 setup_nodes = ["spl_network::message_receiver"]
 nodes = []
 
 [[cyclers]]
 name = "Audio"
 kind = "Perception"
+instances = [""]
 setup_nodes = ["audio::microphone_recorder"]
 nodes = [
   "audio::whistle_detection",
