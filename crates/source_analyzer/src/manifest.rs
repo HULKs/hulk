@@ -11,7 +11,7 @@ use serde::{
 
 use crate::{cyclers::CyclerKind, error::Error};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default)]
 pub struct FrameworkManifest {
     pub cyclers: Vec<CyclerManifest>,
 }
@@ -28,15 +28,54 @@ impl FrameworkManifest {
             path: path.to_path_buf(),
         })
     }
+
+    pub fn cycler(mut self, cycler: CyclerManifest) -> Self {
+        self.cyclers.push(cycler);
+
+        self
+    }
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CyclerManifest {
     pub name: String,
     pub kind: CyclerKind,
-    pub instances: Option<Vec<String>>,
+    pub instances: Vec<String>,
     pub setup_nodes: Vec<NodeSpecification>,
     pub nodes: Vec<NodeSpecification>,
+}
+
+impl CyclerManifest {
+    pub fn new(name: &str, kind: CyclerKind) -> Self {
+        Self {
+            name: name.to_string(),
+            kind,
+            instances: Vec::new(),
+            setup_nodes: Vec::new(),
+            nodes: Vec::new(),
+        }
+    }
+
+    pub fn instance(mut self, name: String) -> Self {
+        self.instances.push(name);
+        self
+    }
+
+    pub fn setup_node(
+        mut self,
+        module: impl TryInto<NodeSpecification, Error = Error>,
+    ) -> Result<Self, Error> {
+        self.setup_nodes.push(module.try_into()?);
+        Ok(self)
+    }
+
+    pub fn node(
+        mut self,
+        module: impl TryInto<NodeSpecification, Error = Error>,
+    ) -> Result<Self, Error> {
+        self.nodes.push(module.try_into()?);
+        Ok(self)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -44,6 +83,28 @@ pub struct CyclerManifest {
 pub struct NodeSpecification {
     pub module: syn::Path,
     pub path: PathBuf,
+}
+
+impl TryFrom<&str> for NodeSpecification {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let module: syn::Path = syn::parse_str(value).map_err(|_| Error::InvalidModulePath)?;
+        let path_segments: Vec<_> = module
+            .segments
+            .iter()
+            .map(|segment| segment.ident.to_string())
+            .collect();
+        let (crate_name, path_segments) = path_segments
+            .split_first()
+            .ok_or(Error::InvalidModulePath)?;
+        let path_to_module = path_segments.join("/");
+        let path = format!("{crate_name}/src/{path_to_module}.rs");
+        Ok(Self {
+            module,
+            path: path.into(),
+        })
+    }
 }
 
 impl TryFrom<TomlNodeSpecification> for NodeSpecification {
