@@ -44,21 +44,11 @@ Use your distribution's package manager to install the following dependencies:
 
 ## Acquiring the code
 
-=== "HULKs Members"
+Clone our [HULKs/hulk](https://github.com/HULKs/hulk) repository from GitHub:
 
-    If you are a HULKs member, you should have access to our [HULKs/hulk](https://github.com/HULKs/hulk) repository on GitHub:
-
-    ```sh
-    git clone git@github.com:HULKs/hulk
-    ```
-
-=== "Non HULKs Members"
-
-    If you are not a member of the HULKs club, use our code release at [HULKs/CodeRelease](https://github.com/HULKs/HULKsCodeRelease).
-
-    ```sh
-    git clone git@github.com:HULKs/HULKsCodeRelease
-    ```
+```sh
+git clone git@github.com:HULKs/hulk
+```
 
 ## Compiling for Webots
 
