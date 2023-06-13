@@ -32,9 +32,9 @@ impl Cyclers {
         manifest: FrameworkManifest,
         root: impl AsRef<Path>,
     ) -> Result<Cyclers, Error> {
-        let values = &manifest.cyclers;
-        let cyclers = values
-            .iter()
+        let cyclers = manifest
+            .cyclers
+            .into_iter()
             .map(|manifest| Cycler::try_from_manifest(manifest, root.as_ref()))
             .collect::<Result<_, _>>()?;
         Ok(Self { cyclers })
@@ -92,10 +92,9 @@ pub struct Cycler {
 }
 
 impl Cycler {
-    fn try_from_manifest(cycler_manifest: &CyclerManifest, root: &Path) -> Result<Cycler, Error> {
+    fn try_from_manifest(cycler_manifest: CyclerManifest, root: &Path) -> Result<Cycler, Error> {
         let instance_names = cycler_manifest
             .instances
-            .clone()
             .unwrap_or_else(|| vec![String::new()]);
         let instances = instance_names
             .iter()
@@ -115,7 +114,7 @@ impl Cycler {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Cycler {
-            name: cycler_manifest.name.clone(),
+            name: cycler_manifest.name,
             kind: cycler_manifest.kind,
             instances,
             setup_nodes,
