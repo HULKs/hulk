@@ -28,7 +28,7 @@ impl Visuals {
 impl ToString for Visuals {
     fn to_string(&self) -> String {
         match self {
-            Visuals::Dark => "☾ Dark",
+            Visuals::Dark => "🌑 Dark",
             Visuals::Light => "☀ Light",
         }
         .to_owned()
@@ -40,7 +40,7 @@ impl FromStr for Visuals {
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         match string {
-            "☾ Dark" => Ok(Visuals::Dark),
+            "🌑 Dark" => Ok(Visuals::Dark),
             "☀ Light" => Ok(Visuals::Light),
             theme @ _ => Err(format!("{theme} is unknown")),
         }
