@@ -66,7 +66,7 @@ Once the compilation step is complete, open webots and load the scene at `webots
 
 ## Running Webots in external Mode
 
-To not be fordeced to reload the scene in Webots in case of an updated hulk controller, you can run in webots `webots/worlds/penalized_extern.wbt` and starting the controller with:
+To not be forced to reload the scene in Webots when rebuilding the controller, you can run in webots `webots/worlds/penalized_extern.wbt` and starting the controller with:
 
 ```sh
 ./pepsi run
