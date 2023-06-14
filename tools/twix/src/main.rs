@@ -319,7 +319,7 @@ impl App for TwixApp {
                                 for visual in Visuals::iter() {
                                     if ui.button(visual.to_string()).clicked() {
                                         self.visual = visual;
-                                        self.visual.set_visual(&context);
+                                        self.visual.set_visual(context);
                                     }
                                 }
                             })
