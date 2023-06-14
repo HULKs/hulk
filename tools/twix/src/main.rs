@@ -1,5 +1,6 @@
 use std::{
     fmt::{self, Display, Formatter},
+    str::FromStr,
     sync::Arc,
 };
 
@@ -11,9 +12,8 @@ use color_eyre::{
 use communication::client::ConnectionStatus;
 use completion_edit::CompletionEdit;
 use eframe::{
-    egui::{
-        CentralPanel, Context, Key, Modifiers, TopBottomPanel, Ui, Visuals, Widget, WidgetText,
-    },
+    egui::{CentralPanel, Context, Key, Layout, Modifiers, TopBottomPanel, Ui, Widget, WidgetText},
+    emath::Align,
     epaint::Color32,
     run_native, App, CreationContext, Frame, NativeOptions, Storage,
 };
@@ -28,6 +28,7 @@ use panels::{
 };
 use serde_json::{from_str, to_string, Value};
 use tokio::sync::mpsc;
+use visuals::Visuals;
 
 mod completion_edit;
 mod image_buffer;
@@ -38,6 +39,7 @@ mod players_value_buffer;
 mod repository_parameters;
 mod twix_painter;
 mod value_buffer;
+pub mod visuals;
 
 fn setup_logger() -> Result<(), InitError> {
     Dispatch::new()
@@ -169,6 +171,7 @@ struct TwixApp {
     tree: Tree<SelectablePanel>,
     connection_status: ConnectionStatus,
     connection_receiver: mpsc::Receiver<ConnectionStatus>,
+    visual: Visuals,
 }
 
 impl TwixApp {
@@ -210,9 +213,13 @@ impl TwixApp {
         };
         let connection_receiver = nao.subscribe_status_updates();
 
-        let mut style = (*creation_context.egui_ctx.style()).clone();
-        style.visuals = Visuals::dark();
-        creation_context.egui_ctx.set_style(style);
+        let visual = creation_context
+            .storage
+            .and_then(|storage| storage.get_string("style"))
+            .and_then(|theme| Visuals::from_str(&theme).ok())
+            .unwrap_or(Visuals::Dark);
+        visual.set_visual(&creation_context.egui_ctx);
+
         let panel_selection = "".to_string();
         Self {
             nao,
@@ -223,6 +230,7 @@ impl TwixApp {
             last_focused_tab: (0.into(), 0.into()),
             connection_status,
             connection_receiver,
+            visual,
         }
     }
 }
@@ -236,71 +244,88 @@ impl App for TwixApp {
         context.request_repaint();
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
-                let address_input = CompletionEdit::addresses(&mut self.ip_address, 21..33).ui(ui);
-                if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::O)) {
-                    address_input.request_focus();
-                    CompletionEdit::select_all(&self.ip_address, ui, address_input.id);
-                }
-                if address_input.changed() || address_input.lost_focus() {
-                    self.nao.set_address(&self.ip_address);
-                }
-                let (connect_text, color) = match &self.connection_status {
-                    ConnectionStatus::Disconnected { connect, .. } => (
-                        "Connect",
-                        if *connect {
-                            Color32::RED
-                        } else {
-                            Color32::WHITE
-                        },
-                    ),
-                    ConnectionStatus::Connecting { .. } => ("Connecting", Color32::YELLOW),
-                    ConnectionStatus::Connected { .. } => ("Connected", Color32::GREEN),
-                };
-                let connect_text = WidgetText::from(connect_text).color(color);
-                if ui
-                    .checkbox(&mut self.connection_intent, connect_text)
-                    .changed()
-                {
-                    self.nao.set_connect(self.connection_intent);
-                }
-
-                if self.active_tab_index() != Some(self.last_focused_tab) {
-                    self.last_focused_tab = self.active_tab_index().unwrap_or((0.into(), 0.into()));
-                    if let Some(name) = self.active_panel().map(|panel| format!("{panel}")) {
-                        self.panel_selection = name
+                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                    let address_input =
+                        CompletionEdit::addresses(&mut self.ip_address, 21..33).ui(ui);
+                    if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::O)) {
+                        address_input.request_focus();
+                        CompletionEdit::select_all(&self.ip_address, ui, address_input.id);
                     }
-                }
-                let panel_input = CompletionEdit::new(
-                    &mut self.panel_selection,
-                    vec![
-                        "Behavior Simulator".to_string(),
-                        "Text".to_string(),
-                        "Plot".to_string(),
-                        "Image".to_string(),
-                        "Image Segments".to_string(),
-                        "Map".to_string(),
-                        "Parameter".to_string(),
-                        "Manual Calibration".to_string(),
-                        "Look At".to_string(),
-                    ],
-                    "Panel",
-                )
-                .ui(ui);
-                if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::P)) {
-                    panel_input.request_focus();
-                    CompletionEdit::select_all(&self.panel_selection, ui, panel_input.id);
-                }
-                if panel_input.changed() || panel_input.lost_focus() {
-                    if let Ok(panel) = SelectablePanel::try_from_name(
-                        &self.panel_selection,
-                        self.nao.clone(),
-                        None,
-                    ) {
-                        if let Some(active_panel) = self.active_panel() {
-                            *active_panel = panel;
+                    if address_input.changed() || address_input.lost_focus() {
+                        self.nao.set_address(&self.ip_address);
+                    }
+                    let (connect_text, color) = match &self.connection_status {
+                        ConnectionStatus::Disconnected { connect, .. } => (
+                            "Connect",
+                            if *connect {
+                                Color32::RED
+                            } else {
+                                Color32::WHITE
+                            },
+                        ),
+                        ConnectionStatus::Connecting { .. } => ("Connecting", Color32::YELLOW),
+                        ConnectionStatus::Connected { .. } => ("Connected", Color32::GREEN),
+                    };
+                    let connect_text = WidgetText::from(connect_text).color(color);
+                    if ui
+                        .checkbox(&mut self.connection_intent, connect_text)
+                        .changed()
+                    {
+                        self.nao.set_connect(self.connection_intent);
+                    }
+
+                    if self.active_tab_index() != Some(self.last_focused_tab) {
+                        self.last_focused_tab =
+                            self.active_tab_index().unwrap_or((0.into(), 0.into()));
+                        if let Some(name) = self.active_panel().map(|panel| format!("{panel}")) {
+                            self.panel_selection = name
                         }
                     }
-                }
+                    let panel_input = CompletionEdit::new(
+                        &mut self.panel_selection,
+                        vec![
+                            "Behavior Simulator".to_string(),
+                            "Text".to_string(),
+                            "Plot".to_string(),
+                            "Image".to_string(),
+                            "Image Segments".to_string(),
+                            "Map".to_string(),
+                            "Parameter".to_string(),
+                            "Manual Calibration".to_string(),
+                        ],
+                        "Panel",
+                    )
+                    .ui(ui);
+                    if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::P)) {
+                        panel_input.request_focus();
+                        CompletionEdit::select_all(&self.panel_selection, ui, panel_input.id);
+                    }
+                    if panel_input.changed() || panel_input.lost_focus() {
+                        if let Ok(panel) = SelectablePanel::try_from_name(
+                            &self.panel_selection,
+                            self.nao.clone(),
+                            None,
+                        ) {
+                            if let Some(active_panel) = self.active_panel() {
+                                *active_panel = panel;
+                            }
+                        }
+                    }
+                });
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.menu_button("⚙", |ui| {
+                        ui.menu_button("Theme", |ui| {
+                            ui.vertical(|ui| {
+                                for visual in Visuals::iter() {
+                                    if ui.button(visual.to_string()).clicked() {
+                                        self.visual = visual;
+                                        self.visual.set_visual(&context);
+                                    }
+                                }
+                            })
+                        });
+                    })
+                });
             })
         });
         CentralPanel::default().show(context, |ui| {
@@ -338,6 +363,7 @@ impl App for TwixApp {
             }
             .to_string(),
         );
+        storage.set_string("style", self.visual.to_string());
     }
 }
 
