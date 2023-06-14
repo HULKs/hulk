@@ -42,7 +42,7 @@ impl FromStr for Visuals {
         match string {
             "🌑 Dark" => Ok(Visuals::Dark),
             "☀ Light" => Ok(Visuals::Light),
-            theme @ _ => Err(format!("{theme} is unknown")),
+            theme => Err(format!("{theme} is unknown")),
         }
     }
 }
