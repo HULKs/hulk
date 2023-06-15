@@ -7,10 +7,7 @@ use eframe::{
 use nalgebra::{point, Point2};
 use serde_json::Value;
 use std::{ops::RangeInclusive, str::FromStr, sync::Arc};
-use tokio::sync::mpsc;
 use types::{CameraPosition, FieldDimensions, HeadMotion, MotionCommand};
-
-use super::parameter::subscribe;
 
 #[derive(PartialEq)]
 enum LookAtType {
