@@ -9,7 +9,9 @@ use types::{
 };
 
 #[derive(Default)]
-pub struct HeadMotion {}
+pub struct HeadMotion {
+    last_positions: HeadJoints<f32>,
+}
 
 #[context]
 pub struct CreationContext {
@@ -44,7 +46,9 @@ pub struct MainOutputs {
 
 impl HeadMotion {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_positions: Default::default(),
+        })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
@@ -63,11 +67,11 @@ impl HeadMotion {
             *context.maximum_velocity * context.cycle_time.last_cycle_duration.as_secs_f32();
 
         let controlled_positions = HeadJoints {
-            yaw: context.sensor_data.positions.head.yaw
-                + (raw_positions.yaw - context.sensor_data.positions.head.yaw)
+            yaw: self.last_positions.head.yaw
+                + (raw_positions.yaw - self.last_positions.head.yaw)
                     .clamp(-maximum_movement.yaw, maximum_movement.yaw),
-            pitch: context.sensor_data.positions.head.pitch
-                + (raw_positions.pitch - context.sensor_data.positions.head.pitch)
+            pitch: self.last_positions.head.pitch
+                + (raw_positions.pitch - self.last_positions.head.pitch)
                     .clamp(-maximum_movement.pitch, maximum_movement.pitch),
         };
 
@@ -87,6 +91,7 @@ impl HeadMotion {
             yaw: controlled_positions.yaw,
         };
 
+        self.last_positions = clamped_positions;
         Ok(MainOutputs {
             head_joints_command: HeadJointsCommand {
                 positions: clamped_positions,
