@@ -25,7 +25,7 @@ pub struct LookAtPanel {
     look_at_mode: LookAtType,
     is_enabled: bool,
     field_dimensions_buffer: ValueBuffer,
-    motion_command: ValueBuffer,
+    motion_command_buffer: ValueBuffer,
 }
 
 const INJECTED_MOTION_COMMAND: &str = "behavior.injected_motion_command";
@@ -36,15 +36,8 @@ impl Panel for LookAtPanel {
     const NAME: &'static str = "Look At";
 
     fn new(nao: Arc<Nao>, _: Option<&Value>) -> Self {
-        let (field_dimensions_update_notify_sender, _) = mpsc::channel(1);
-        let field_dimensions_buffer = subscribe(
-            nao.clone(),
-            "field_dimensions",
-            field_dimensions_update_notify_sender,
-        )
-        .expect("Failed to subscribe to field_dimensions");
-
-        let motion_command = nao.subscribe_output(
+        let field_dimensions_buffer = nao.subscribe_parameter("field_dimensions");
+        let motion_command_buffer = nao.subscribe_output(
             CyclerOutput::from_str("Control.main_outputs.motion_command")
                 .expect("Failed to subscribe to main_outputs.motion_command"),
         );
@@ -56,7 +49,7 @@ impl Panel for LookAtPanel {
             look_at_mode: LookAtType::PenaltyBoxFromCenter,
             is_enabled: false,
             field_dimensions_buffer,
-            motion_command,
+            motion_command_buffer,
         }
     }
 }
@@ -72,7 +65,7 @@ impl Widget for &mut LookAtPanel {
             let leading_space = 10.0f32;
 
             let current_motion_command: Option<MotionCommand> = match self
-                .motion_command
+                .motion_command_buffer
                 .parse_latest()
             {
                 Ok(value) => {
