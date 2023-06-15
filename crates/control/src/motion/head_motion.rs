@@ -67,11 +67,11 @@ impl HeadMotion {
             *context.maximum_velocity * context.cycle_time.last_cycle_duration.as_secs_f32();
 
         let controlled_positions = HeadJoints {
-            yaw: self.last_positions.head.yaw
-                + (raw_positions.yaw - self.last_positions.head.yaw)
+            yaw: self.last_positions.yaw
+                + (raw_positions.yaw - self.last_positions.yaw)
                     .clamp(-maximum_movement.yaw, maximum_movement.yaw),
-            pitch: self.last_positions.head.pitch
-                + (raw_positions.pitch - self.last_positions.head.pitch)
+            pitch: self.last_positions.pitch
+                + (raw_positions.pitch - self.last_positions.pitch)
                     .clamp(-maximum_movement.pitch, maximum_movement.pitch),
         };
 
