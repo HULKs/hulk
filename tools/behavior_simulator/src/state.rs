@@ -176,7 +176,7 @@ impl State {
                 HeadMotion::LookAround | HeadMotion::SearchForLostBall => {
                     robot.database.main_outputs.look_around.yaw
                 }
-                HeadMotion::LookAt { target } => target.coords.angle(&Vector2::x_axis()),
+                HeadMotion::LookAt { target, .. } => target.coords.angle(&Vector2::x_axis()),
                 HeadMotion::LookLeftAndRightOf { target } => {
                     target.coords.angle(&Vector2::x_axis()) + f
                 }
