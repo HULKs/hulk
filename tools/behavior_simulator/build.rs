@@ -24,6 +24,7 @@ fn main() -> Result<()> {
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
                     "control::world_state_composer",
+                    "control::time_to_reach_kick_position",
                 ],
             },
             CyclerManifest {

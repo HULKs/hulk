@@ -41,6 +41,7 @@ pub struct CycleContext {
     pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
     pub network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
+    pub time_to_reach_kick_position: PersistentState<Duration, "time_to_reach_kick_position">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
@@ -216,6 +217,7 @@ impl RoleAssignment {
                 context.ball_position,
                 primary_state,
                 None,
+                Some(*context.time_to_reach_kick_position),
                 send_spl_striker_message,
                 team_ball,
                 cycle_start_time,
@@ -238,6 +240,7 @@ impl RoleAssignment {
                     context.ball_position,
                     primary_state,
                     Some(spl_message),
+                    Some(*context.time_to_reach_kick_position),
                     send_spl_striker_message,
                     team_ball,
                     cycle_start_time,
@@ -273,6 +276,9 @@ impl RoleAssignment {
                                     robot_to_field,
                                     cycle_start_time,
                                 ),
+                                time_to_reach_kick_position: Some(
+                                    *context.time_to_reach_kick_position,
+                                ),
                             }))?;
                     } else {
                         context
@@ -284,6 +290,9 @@ impl RoleAssignment {
                                 ball_position: seen_ball_to_network_ball_position(
                                     context.ball_position,
                                     cycle_start_time,
+                                ),
+                                time_to_reach_kick_position: Some(
+                                    *context.time_to_reach_kick_position,
                                 ),
                             }))?;
                     }
@@ -313,6 +322,7 @@ fn process_role_state_machine(
     detected_own_ball: Option<&BallPosition>,
     primary_state: PrimaryState,
     incoming_message: Option<&HulkMessage>,
+    time_to_reach_kick_position: Option<Duration>,
     send_spl_striker_message: bool,
     team_ball: Option<BallPosition>,
     cycle_start_time: SystemTime,
@@ -388,10 +398,9 @@ fn process_role_state_machine(
                     }
                 }
             }
-            Some(spl_message_ball_position) => decide_if_claiming_striker_or_other_role(
-                current_pose,
+            _ => decide_if_claiming_striker_or_other_role(
                 spl_message,
-                spl_message_ball_position,
+                time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
                 game_controller_state,
@@ -412,10 +421,9 @@ fn process_role_state_machine(
                     team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
                 )
             }
-            Some(spl_message_ball_position) => decide_if_claiming_striker_or_other_role(
-                current_pose,
+            _ => decide_if_claiming_striker_or_other_role(
                 spl_message,
-                spl_message_ball_position,
+                time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
                 game_controller_state,
@@ -428,10 +436,9 @@ fn process_role_state_machine(
 
         (Role::Loser, None, Some(spl_message)) => match &spl_message.ball_position {
             None => (Role::Loser, false, None), //edge-case, a striker (which should not exist) lost the ball
-            Some(spl_message_ball_position) => decide_if_claiming_striker_or_other_role(
-                current_pose,
+            _ => decide_if_claiming_striker_or_other_role(
                 spl_message,
-                spl_message_ball_position,
+                time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
                 game_controller_state,
@@ -456,10 +463,9 @@ fn process_role_state_machine(
                     team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
                 )
             }
-            Some(spl_message_ball_position) => decide_if_claiming_striker_or_other_role(
-                current_pose,
+            _ => decide_if_claiming_striker_or_other_role(
                 spl_message,
-                spl_message_ball_position,
+                time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
                 game_controller_state,
@@ -472,10 +478,9 @@ fn process_role_state_machine(
 
         (Role::Searcher, None, Some(spl_message)) => match &spl_message.ball_position {
             None => (Role::Searcher, false, team_ball), //edge-case, a striker (which should not exist) lost the ball
-            Some(spl_message_ball_position) => decide_if_claiming_striker_or_other_role(
-                current_pose,
+            _ => decide_if_claiming_striker_or_other_role(
                 spl_message,
-                spl_message_ball_position,
+                time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
                 game_controller_state,
@@ -497,10 +502,9 @@ fn process_role_state_machine(
                 true,
                 team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
             ),
-            Some(spl_message_ball_position) => decide_if_claiming_striker_or_other_role(
-                current_pose,
+            _ => decide_if_claiming_striker_or_other_role(
                 spl_message,
-                spl_message_ball_position,
+                time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
                 game_controller_state,
@@ -520,10 +524,9 @@ fn process_role_state_machine(
                     (other_role, false, None)
                 }
             }
-            Some(spl_message_ball_position) => decide_if_claiming_striker_or_other_role(
-                current_pose,
+            _ => decide_if_claiming_striker_or_other_role(
                 spl_message,
-                spl_message_ball_position,
+                time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
                 game_controller_state,
@@ -552,10 +555,9 @@ fn process_role_state_machine(
                 true,
                 team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
             ),
-            Some(spl_message_ball_position) => decide_if_claiming_striker_or_other_role(
-                current_pose,
+            _ => decide_if_claiming_striker_or_other_role(
                 spl_message,
-                spl_message_ball_position,
+                time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
                 game_controller_state,
@@ -566,19 +568,14 @@ fn process_role_state_machine(
 }
 
 fn decide_if_claiming_striker_or_other_role(
-    current_pose: Isometry2<f32>,
     spl_message: &HulkMessage,
-    spl_message_ball_position: &spl_network_messages::BallPosition,
+    time_to_reach_kick_position: Option<Duration>,
     player_number: PlayerNumber,
     cycle_start_time: SystemTime,
     game_controller_state: Option<&GameControllerState>,
     optional_roles: &[Role],
 ) -> (Role, bool, Option<BallPosition>) {
-    if am_better_striker(
-        current_pose,
-        spl_message.robot_to_field,
-        spl_message_ball_position,
-    ) {
+    if time_to_reach_kick_position < spl_message.time_to_reach_kick_position {
         (
             Role::Striker,
             true,
@@ -645,17 +642,6 @@ fn team_ball_from_seen_ball(
         velocity: Vector2::zeros(),
         last_seen: cycle_start_time,
     })
-}
-
-fn am_better_striker(
-    current_pose: Isometry2<f32>,
-    origin_pose: Isometry2<f32>,
-    spl_message_ball_position: &spl_network_messages::BallPosition,
-) -> bool {
-    (current_pose.inverse() * origin_pose * spl_message_ball_position.relative_position)
-        .coords
-        .norm()
-        < spl_message_ball_position.relative_position.coords.norm()
 }
 
 fn generate_role(
