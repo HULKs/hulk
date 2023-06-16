@@ -61,11 +61,11 @@ Assign yourself if you want to review this pull request.
 
 ## Meetings
 
-TODO
+We have a recurring Dev-Meeting every Wednesday, where we discuss all matters related to our development progress.
 
 ### Test Games
 
-TODO
+We regulary test our codebase in test games, usually after our Dev-Meeting
 
 ## Test-driven development
 
