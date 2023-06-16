@@ -169,6 +169,7 @@ impl Nao {
 
         let status = self
             .rsync_with_nao(true)
+            .arg("-q")
             .arg(format!("{}:hulk/logs/", self.host))
             .arg(local_directory.as_ref().to_str().unwrap())
             .status()
