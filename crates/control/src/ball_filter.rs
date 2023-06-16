@@ -30,6 +30,7 @@ pub struct CycleContext {
     pub filtered_balls_in_image_bottom:
         AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_bottom">,
     pub filtered_balls_in_image_top: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_top">,
+    pub chooses_resting_model: AdditionalOutput<bool, "chooses_resting_model">,
 
     pub current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
