@@ -1,8 +1,12 @@
 use code_generation::{generate, write_to_file::WriteToFile};
 use color_eyre::eyre::{Result, WrapErr};
 use source_analyzer::{
-    cyclers::{CyclerKind, Cyclers},
+    cyclers::{
+        CyclerKind::{Perception, RealTime},
+        Cyclers,
+    },
     manifest::{CyclerManifest, FrameworkManifest},
+    pretty::to_string_pretty,
     structs::Structs,
 };
 
@@ -12,7 +16,7 @@ fn main() -> Result<()> {
         cyclers: vec![
             CyclerManifest {
                 name: "Vision",
-                kind: CyclerKind::Perception,
+                kind: Perception,
                 instances: vec!["Top", "Bottom"],
                 setup_nodes: vec!["vision::image_receiver"],
                 nodes: vec![
@@ -31,7 +35,7 @@ fn main() -> Result<()> {
             },
             CyclerManifest {
                 name: "Control",
-                kind: CyclerKind::RealTime,
+                kind: RealTime,
                 instances: vec![""],
                 setup_nodes: vec!["control::sensor_data_receiver"],
                 nodes: vec![
@@ -86,14 +90,14 @@ fn main() -> Result<()> {
             },
             CyclerManifest {
                 name: "SplNetwork",
-                kind: CyclerKind::Perception,
+                kind: Perception,
                 instances: vec![""],
                 setup_nodes: vec!["spl_network::message_receiver"],
                 nodes: vec![],
             },
             CyclerManifest {
                 name: "Audio",
-                kind: CyclerKind::Perception,
+                kind: Perception,
                 instances: vec![""],
                 setup_nodes: vec!["audio::microphone_recorder"],
                 nodes: vec!["audio::whistle_detection"],
@@ -107,6 +111,10 @@ fn main() -> Result<()> {
         println!("cargo:rerun-if-changed={}", path.display());
     }
     cyclers.sort_nodes()?;
+
+    println!();
+    println!("{}", to_string_pretty(&cyclers)?);
+
     let structs = Structs::try_from_cyclers(&cyclers)?;
     generate(&cyclers, &structs)
         .write_to_file("generated_code.rs")

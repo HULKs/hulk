@@ -6,5 +6,6 @@ pub mod node;
 pub mod path;
 pub mod struct_hierarchy;
 pub mod structs;
+pub mod pretty;
 mod to_absolute;
 mod uses;
