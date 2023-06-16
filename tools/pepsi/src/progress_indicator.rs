@@ -43,7 +43,7 @@ impl ProgressIndicator {
     ) where
         T: ToString,
         F: Future<Output = Result<M>>,
-        M: Into<TaskMessage>,
+        M: Into<TaskOutput>,
     {
         let multi_progress = Self::new();
         items
@@ -66,31 +66,31 @@ pub struct Task {
     error_style: ProgressStyle,
 }
 
-pub enum TaskMessage {
-    EmptyMessage,
+pub enum TaskOutput {
+    EmptyOutput,
     Message(String),
 }
 
-impl From<()> for TaskMessage {
+impl From<()> for TaskOutput {
     fn from(_: ()) -> Self {
-        Self::EmptyMessage
+        Self::EmptyOutput
     }
 }
 
-impl From<String> for TaskMessage {
+impl From<String> for TaskOutput {
     fn from(value: String) -> Self {
         if value.is_empty() {
-            Self::EmptyMessage
+            Self::EmptyOutput
         } else {
             Self::Message(value)
         }
     }
 }
 
-impl From<&str> for TaskMessage {
+impl From<&str> for TaskOutput {
     fn from(value: &str) -> Self {
         if value.is_empty() {
-            Self::EmptyMessage
+            Self::EmptyOutput
         } else {
             Self::Message(String::from(value))
         }
@@ -106,25 +106,25 @@ impl Task {
         self.progress.set_message(message)
     }
 
-    pub fn finish_with_success(&self, message: impl Into<TaskMessage>) {
-        self.progress.set_style(self.success_style.clone());
+    pub fn finish_with_success(&self) {
         let icon = "✔".green();
-        let message = match message.into() {
-            TaskMessage::EmptyMessage => icon.to_string(),
-            TaskMessage::Message(message) => format!("{icon}\n{message}"),
-        };
-        self.progress.finish_with_message(message);
+        self.progress.set_style(self.success_style.clone());
+        self.progress.finish_with_message(icon.to_string());
     }
 
-    pub fn finish_with_error(&self, report: Report) {
+    pub fn finish_with_error<'a>(&self, report: Report) -> TaskOutput {
         self.progress.set_style(self.error_style.clone());
         self.progress
             .finish_with_message(format!("{}{report:?}", "✗".red()));
+        TaskOutput::EmptyOutput
     }
 
-    pub fn finish_with(&self, result: Result<impl Into<TaskMessage>>) {
+    pub fn finish_with<'a>(&self, result: Result<impl Into<TaskOutput>>) -> TaskOutput {
         match result {
-            Ok(message) => self.finish_with_success(message),
+            Ok(message) => {
+                self.finish_with_success();
+                message.into()
+            }
             Err(report) => self.finish_with_error(report),
         }
     }
