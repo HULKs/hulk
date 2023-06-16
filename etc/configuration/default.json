@@ -270,7 +270,7 @@
     "arm_stiffness": 0.8,
     "leg_stiffness": 0.2
   },
-  "ball_filter": {
+  "ball_filter_configuration": {
     "hypothesis_timeout": {
       "nanos": 0,
       "secs": 5
