@@ -68,7 +68,7 @@ impl Endpoint {
                 },
                 result = self.spl_socket.recv_from(&mut spl_buffer) => {
                     let (received_bytes, _address) = result.map_err(Error::ReadError)?;
-                    match spl_buffer[0..received_bytes].try_into() {
+                    match bincode::deserialize(&spl_buffer[0..received_bytes]) {
                         Ok(parsed_message) => {
                             break Ok(IncomingMessage::Spl(parsed_message));
                         }
@@ -90,7 +90,7 @@ impl Endpoint {
                     .await;
             }
             OutgoingMessage::Spl(message) => {
-                let message: Vec<u8> = message.into();
+                let message: Vec<u8> = bincode::serialize(&message).unwrap();
                 if let Err(error) = self
                     .spl_socket
                     .send_to(

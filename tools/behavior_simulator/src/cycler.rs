@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
 use crate::{
     interfake::Interfake,
     structs::{
-        control::{AdditionalOutputs, MainOutputs},
+        control::{AdditionalOutputs, MainOutputs, PersistentState},
         Configuration,
     },
 };
@@ -16,6 +16,7 @@ use control::{
     motion::look_around::LookAround,
     role_assignment::{self, RoleAssignment},
     rule_obstacle_composer::RuleObstacleComposer,
+    time_to_reach_kick_position::{self, TimeToReachKickPosition},
     world_state_composer::{self, WorldStateComposer},
 };
 use framework::{AdditionalOutput, PerceptionInput};
@@ -38,9 +39,11 @@ pub struct BehaviorCycler {
     behavior: Behavior,
     kick_selector: KickSelector,
     look_around: LookAround,
+    persistent_state: PersistentState,
     role_assignment: RoleAssignment,
     rule_obstacle_composer: RuleObstacleComposer,
     world_state_composer: WorldStateComposer,
+    time_to_reach_kick_position: TimeToReachKickPosition,
 }
 
 impl BehaviorCycler {
@@ -49,6 +52,10 @@ impl BehaviorCycler {
         own_changed: Arc<Notify>,
         configuration: &Configuration,
     ) -> Result<Self> {
+        let persistent_state = PersistentState::default();
+        let time_to_reach_kick_position =
+            TimeToReachKickPosition::new(time_to_reach_kick_position::CreationContext {})
+                .wrap_err("failed to create node `TimeToReachKickPosition`")?;
         let active_vision = ActiveVision::new(active_vision::CreationContext {
             field_dimensions: &configuration.field_dimensions,
         })
@@ -89,6 +96,8 @@ impl BehaviorCycler {
             own_changed,
 
             active_vision,
+            persistent_state,
+            time_to_reach_kick_position,
             ball_state_composer,
             behavior,
             kick_selector,
@@ -143,6 +152,9 @@ impl BehaviorCycler {
                     primary_state: &own_database.main_outputs.primary_state,
                     robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
                     cycle_time: &own_database.main_outputs.cycle_time,
+                    time_to_reach_kick_position: &mut self
+                        .persistent_state
+                        .time_to_reach_kick_position,
                     field_dimensions: &configuration.field_dimensions,
                     forced_role: configuration.role_assignment.forced_role.as_ref(),
                     initial_poses: &configuration.localization.initial_poses,
@@ -319,6 +331,26 @@ impl BehaviorCycler {
                     .wrap_err("failed to execute cycle of node `LookAround`")?
             };
             own_database.main_outputs.look_around = main_outputs.look_around.value;
+        }
+        {
+            let main_outputs = self
+                .time_to_reach_kick_position
+                .cycle(time_to_reach_kick_position::CycleContext {
+                    world_state: &own_database.main_outputs.world_state,
+                    field_dimensions: &configuration.field_dimensions,
+                    configuration: &configuration.behavior,
+                    parameters: &configuration.behavior,
+                    path_obstacles: AdditionalOutput::new(
+                        true,
+                        &mut own_database.additional_outputs.path_obstacles,
+                    ),
+                    time_to_reach_kick_position: &mut self
+                        .persistent_state
+                        .time_to_reach_kick_position,
+                })
+                .wrap_err("failed to execute cycle of node `TimeToReachKickPosition`")?;
+            own_database.main_outputs.time_to_reach_kick_position =
+                main_outputs.time_to_reach_kick_position.value;
         }
         self.own_changed.notify_one();
         Ok(())
