@@ -32,29 +32,7 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count == 200 then
-        state.game_controller_state.game_state = "Ready"
-        state.filtered_game_state = {
-            Ready = {
-                kicking_team = "Hulks"
-            }
-        }
-    end
-
-    if state.cycle_count == 1600 then
-        state.filtered_game_state.game_state = "Set"
-        state.filtered_game_state = "Set"
-    end
-
-    if state.cycle_count == 2000 then
-        state.filtered_game_state = {
-            Playing = {
-                ball_is_free = true
-            }
-        }
-    end
-
-    if state.cycle_count == 2200 then
+    if state.cycle_count == 100 then
         penalize(7);
         state.game_controller_state.penalties.seven = {
             Manual = {
@@ -65,6 +43,27 @@ function on_cycle()
             }
         };
         set_robot_pose(7, { -3.2, 3 }, -1.5707963267948966);
+
+	
+        state.game_controller_state.game_state = "Ready"
+        state.filtered_game_state = {
+            Ready = {
+                kicking_team = "Hulks"
+            }
+        }
+    end
+   
+    if state.cycle_count == 1600 then
+        state.filtered_game_state.game_state = "Set"
+        state.filtered_game_state = "Set"
+    end
+
+    if state.cycle_count == 1700 then
+        state.filtered_game_state = {
+            Playing = {
+                ball_is_free = true
+            }
+        }
     end
 
     if state.cycle_count == game_end_time then
