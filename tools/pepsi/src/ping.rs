@@ -1,14 +1,9 @@
 use std::time::Duration;
 
 use clap::Args;
-use futures_util::stream::FuturesUnordered;
-use futures_util::StreamExt;
 use nao::Nao;
 
-use crate::{
-    parsers::NaoAddress,
-    progress_indicator::{ProgressIndicator, TaskMessage},
-};
+use crate::{parsers::NaoAddress, progress_indicator::ProgressIndicator};
 
 #[derive(Args)]
 pub struct Arguments {
@@ -24,25 +19,14 @@ pub struct Arguments {
 }
 
 pub async fn ping(arguments: Arguments) {
-    let multi_progress = ProgressIndicator::new();
-
-    arguments
-        .naos
-        .iter()
-        .map(|nao_address| (nao_address, multi_progress.task(nao_address.to_string())))
-        .map(|(nao_address, progress)| async move {
-            progress.set_message("Pinging NAO...");
-
-            let ping_state = Nao::try_new_with_ping_and_arguments(
-                nao_address.ip,
-                arguments.retries,
-                Duration::from_secs_f32(arguments.timeout),
-            )
-            .await
-            .map(|_| TaskMessage::EmptyMessage);
-            progress.finish_with(ping_state);
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect::<Vec<_>>()
-        .await;
+    ProgressIndicator::map_tasks(arguments.naos, "Pinging NAO...", |nao_address| async move {
+        Nao::try_new_with_ping_and_arguments(
+            nao_address.ip,
+            arguments.retries,
+            Duration::from_secs_f32(arguments.timeout),
+        )
+        .await
+        .map(|_| ())
+    })
+    .await;
 }
