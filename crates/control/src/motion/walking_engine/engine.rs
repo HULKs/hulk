@@ -47,3 +47,7 @@ pub fn parabolic_step(x: f32) -> f32 {
         4.0 * x - 2.0 * x * x - 1.0
     }
 }
+
+pub fn exponential_return(x: f32) -> f32 {
+    - (x * x) + 1.0
+}

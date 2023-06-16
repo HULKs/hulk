@@ -365,7 +365,7 @@
     "base_step_duration": { "nanos": 250000000, "secs": 0 },
     "emergency_foot_lift": 0.03,
     "emergency_step": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
-    "emergency_step_duration": { "nanos": 280000000, "secs": 0 },
+    "emergency_step_duration": { "nanos": 250000000, "secs": 0 },
     "foot_pressure_threshold": 0.2,
     "forward_foot_support_offset": 0.2,
     "gyro_balance_factors": {
@@ -392,7 +392,7 @@
     },
     "max_number_of_timeouted_steps": 3,
     "max_number_of_unstable_steps": 3,
-    "max_step_adjustment": 0.0018,
+    "max_step_adjustment": 0.0016,
     "maximal_step_duration": { "nanos": 0, "secs": 1 },
     "minimal_step_duration": { "nanos": 150000000, "secs": 0 },
     "number_of_stabilizing_steps": 3,

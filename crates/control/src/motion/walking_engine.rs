@@ -608,7 +608,14 @@ impl WalkingEngine {
             next_left_foot_lift,
             next_right_foot_lift,
         ) = self.next_foot_offsets(self.current_step);
-        let (adjusted_left_foot, adjusted_right_foot) = step_adjustment(
+        let (
+            adjusted_left_foot,
+            adjusted_right_foot,
+            adjusted_next_left_foot_lift,
+            adjusted_next_right_foot_lift,
+        ) = step_adjustment(
+            self.t,
+            self.planned_step_duration,
             self.swing_side,
             self.filtered_robot_tilt_shift.state(),
             self.left_foot,
@@ -621,14 +628,16 @@ impl WalkingEngine {
             config.backward_foot_support_offset,
             config.max_step_adjustment,
             step_adjustment_output,
+            next_left_foot_lift,
+            next_right_foot_lift,
         );
         self.last_left_walk_request = next_left_walk_request;
         self.last_right_walk_request = next_right_walk_request;
         self.left_foot = adjusted_left_foot;
         self.right_foot = adjusted_right_foot;
         self.turn = next_turn;
-        self.left_foot_lift = next_left_foot_lift;
-        self.right_foot_lift = next_right_foot_lift;
+        self.left_foot_lift = adjusted_next_left_foot_lift;
+        self.right_foot_lift = adjusted_next_right_foot_lift;
     }
 
     fn kick_cycle(&mut self, cycle_duration: Duration) {
