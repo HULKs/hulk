@@ -42,10 +42,10 @@ impl Layer for BallFilter {
         let ball_hypotheses: Vec<Hypothesis> = self.ball_hypotheses.parse_latest()?;
 
         for hypothesis in ball_hypotheses.iter() {
-            let position =
-                robot_to_field.unwrap_or_default() * Point2::from(hypothesis.state.mean.xy());
+            let position = robot_to_field.unwrap_or_default()
+                * Point2::from(hypothesis.moving_state.mean.xy());
             let covariance = hypothesis
-                .state
+                .moving_state
                 .covariance
                 .fixed_view::<2, 2>(0, 0)
                 .into_owned();
