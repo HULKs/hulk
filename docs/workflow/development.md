@@ -49,11 +49,11 @@ The *In Progress* section contains:
 
 #### Request for Review
 
-The *Request for Review* section only contains **pull requests** that are finished™.
+The *Request for Review* section contains **pull requests** that are ready to be reviewed. They don't need to be finished™ for that, they can still be a *draft pull request*.
 
 **Note:** This section is a prioritized FIFO queue. Add new cards at the bottom. The head of development might decide to move it further up if the pull request is rather important.
 
-**Note:** Enable *auto-merge*
+**Note:** Enable *auto-merge* if your pull request is not a *draft pull request*
 
 Assign yourself if you want to review this pull request.
 
