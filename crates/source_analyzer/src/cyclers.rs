@@ -74,6 +74,16 @@ impl Cyclers {
                     .map(move |instance| (cycler, instance))
             })
     }
+
+    pub fn watch_paths(&self) -> impl Iterator<Item = &Path> {
+        self.cyclers.iter().flat_map(|cycler| {
+            cycler
+                .setup_nodes
+                .iter()
+                .chain(cycler.cycle_nodes.iter())
+                .map(|node| node.file_path.as_path())
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
@@ -103,16 +113,16 @@ impl Cycler {
         let setup_nodes = cycler_manifest
             .setup_nodes
             .iter()
-            .map(|specification| Node::try_from_specification(specification, root))
+            .map(|specification| Node::try_from_node_name(specification, root))
             .collect::<Result<Vec<_>, _>>()?;
         let cycle_nodes = cycler_manifest
             .nodes
             .iter()
-            .map(|specification| Node::try_from_specification(specification, root))
+            .map(|specification| Node::try_from_node_name(specification, root))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Cycler {
-            name: cycler_manifest.name,
+            name: cycler_manifest.name.to_string(),
             kind: cycler_manifest.kind,
             instances,
             setup_nodes,
@@ -154,7 +164,8 @@ impl Cycler {
                     })
             })
             .collect();
-        let sorted_cycle_nodes = sort_nodes(&self.cycle_nodes, &output_to_node, &setup_output_names)?;
+        let sorted_cycle_nodes =
+            sort_nodes(&self.cycle_nodes, &output_to_node, &setup_output_names)?;
 
         self.setup_nodes = sorted_setup_nodes;
         self.cycle_nodes = sorted_cycle_nodes;

@@ -41,19 +41,19 @@ pub async fn analyze(arguments: Arguments) -> Result<()> {
             print!("{string}");
         }
         Arguments::DumpCyclers { manifest_path } => {
-            let manifest = FrameworkManifest::try_from_toml(&manifest_path)?;
-            let mut cyclers =
-                Cyclers::try_from_manifest(manifest, manifest_path.parent().unwrap().join(".."))?;
-            cyclers.sort_nodes()?;
-            let string = to_string_pretty(&cyclers)?;
-            print!("{string}");
+            // let manifest = FrameworkManifest::try_from_toml(&manifest_path)?;
+            // let mut cyclers =
+            //     Cyclers::try_from_manifest(manifest, manifest_path.parent().unwrap().join(".."))?;
+            // cyclers.sort_nodes()?;
+            // let string = to_string_pretty(&cyclers)?;
+            // print!("{string}");
         }
         Arguments::DumpStructs { manifest_path } => {
-            let manifest = FrameworkManifest::try_from_toml(&manifest_path)?;
-            let cyclers =
-                Cyclers::try_from_manifest(manifest, manifest_path.parent().unwrap().join(".."))?;
-            let structs = Structs::try_from_cyclers(&cyclers)?;
-            println!("{structs:#?}");
+            // let manifest = FrameworkManifest::try_from_toml(&manifest_path)?;
+            // let cyclers =
+            //     Cyclers::try_from_manifest(manifest, manifest_path.parent().unwrap().join(".."))?;
+            // let structs = Structs::try_from_cyclers(&cyclers)?;
+            // println!("{structs:#?}");
         }
     }
 
