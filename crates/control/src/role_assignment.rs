@@ -94,15 +94,36 @@ impl RoleAssignment {
             || primary_state == PrimaryState::Ready
             || primary_state == PrimaryState::Set
         {
+            let role_player_one = Role::Keeper;
+            let role_player_two = context.optional_roles.get(0).copied().unwrap_or_default();
+            let role_player_three = context.optional_roles.get(1).copied().unwrap_or_default();
+            let mut role_player_four = context.optional_roles.get(2).copied().unwrap_or_default();
+            let mut role_player_five = context.optional_roles.get(3).copied().unwrap_or_default();
+            let mut role_player_six = context.optional_roles.get(4).copied().unwrap_or_default();
+            let role_player_seven = Role::Striker;
+
+            if let Some(game_controller_state) = context.game_controller_state {
+                if let Some(_penalty) = game_controller_state.penalties.seven {
+                    role_player_six = Role::Striker;
+                    if let Some(_penalty) = game_controller_state.penalties.six {
+                        role_player_five = Role::Striker;
+                        if let Some(_penalty) = game_controller_state.penalties.five {
+                            role_player_four = Role::Striker;
+                        };
+                    };
+                }
+            }
+
             role = match context.player_number {
-                PlayerNumber::One => Role::Keeper,
-                PlayerNumber::Two => context.optional_roles.get(0).copied().unwrap_or_default(),
-                PlayerNumber::Three => context.optional_roles.get(1).copied().unwrap_or_default(),
-                PlayerNumber::Four => context.optional_roles.get(2).copied().unwrap_or_default(),
-                PlayerNumber::Five => context.optional_roles.get(3).copied().unwrap_or_default(),
-                PlayerNumber::Six => context.optional_roles.get(4).copied().unwrap_or_default(),
-                PlayerNumber::Seven => Role::Striker,
+                PlayerNumber::One => role_player_one,
+                PlayerNumber::Two => role_player_two,
+                PlayerNumber::Three => role_player_three,
+                PlayerNumber::Four => role_player_four,
+                PlayerNumber::Five => role_player_five,
+                PlayerNumber::Six => role_player_six,
+                PlayerNumber::Seven => role_player_seven,
             };
+
             self.role_initialized = true;
             self.last_received_spl_striker_message = Some(cycle_start_time);
             self.team_ball = None;
