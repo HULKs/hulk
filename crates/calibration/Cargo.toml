@@ -8,4 +8,6 @@ homepage = "https://github.com/hulks/hulk"
 [dependencies]
 levenberg-marquardt = { workspace = true }
 nalgebra = { workspace = true }
+projection = { workspace = true }
+thiserror = { workspace = true }
 types = { workspace = true }

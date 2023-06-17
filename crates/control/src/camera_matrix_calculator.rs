@@ -87,11 +87,11 @@ impl CameraMatrixCalculator {
             });
         Ok(MainOutputs {
             camera_matrices: Some(CameraMatrices {
-                top: top_camera_matrix.into_corrected(
+                top: top_camera_matrix.to_corrected(
                     *context.correction_in_robot,
                     *context.correction_in_camera_top,
                 ),
-                bottom: bottom_camera_matrix.into_corrected(
+                bottom: bottom_camera_matrix.to_corrected(
                     *context.correction_in_robot,
                     *context.correction_in_camera_bottom,
                 ),
