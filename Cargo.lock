@@ -4692,7 +4692,7 @@ dependencies = [
 [[package]]
 name = "v4l"
 version = "0.12.1"
-source = "git+https://github.com/HULKs/libv4l-rs?tag=0.12.1+hulks-2#be65819073514b193d082dd37dbcc2cfac3f6183"
+source = "git+https://github.com/HULKs/libv4l-rs?rev=be65819073514b193d082dd37dbcc2cfac3f6183#be65819073514b193d082dd37dbcc2cfac3f6183"
 dependencies = [
  "bitflags",
  "errno 0.2.8",
@@ -4704,7 +4704,7 @@ dependencies = [
 [[package]]
 name = "v4l2-sys-mit"
 version = "0.2.0"
-source = "git+https://github.com/HULKs/libv4l-rs?tag=0.12.1+hulks-2#be65819073514b193d082dd37dbcc2cfac3f6183"
+source = "git+https://github.com/HULKs/libv4l-rs?rev=be65819073514b193d082dd37dbcc2cfac3f6183#be65819073514b193d082dd37dbcc2cfac3f6183"
 dependencies = [
  "bindgen 0.65.1",
 ]
