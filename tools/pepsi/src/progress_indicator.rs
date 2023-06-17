@@ -1,6 +1,5 @@
 use std::{borrow::Cow, time::Duration};
 
-use bat::{Input, PagingMode, PrettyPrinter};
 use color_eyre::{owo_colors::OwoColorize, Report, Result};
 use futures_util::{stream::FuturesUnordered, Future, StreamExt};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -47,39 +46,17 @@ impl ProgressIndicator {
         M: Into<TaskOutput>,
     {
         let multi_progress = Self::new();
-        let outputs = items
+        items
             .into_iter()
             .map(|item| (multi_progress.task(item.to_string()), item))
             .map(|(progress, item)| {
                 progress.enable_steady_tick();
                 progress.set_message(message);
-                async move { (item.to_string(), progress.finish_with(task(item).await)) }
+                async move { progress.finish_with(task(item).await) }
             })
             .collect::<FuturesUnordered<_>>()
             .collect::<Vec<_>>()
             .await;
-
-        let inputs: Vec<_> = outputs
-            .iter()
-            .filter_map(|(title, output)| match output {
-                TaskOutput::EmptyOutput => None,
-                TaskOutput::Message(value) => {
-                    Some(Input::from_bytes(value.as_bytes()).title(title))
-                }
-            })
-            .collect();
-
-        if !inputs.is_empty() {
-            PrettyPrinter::new()
-                .inputs(inputs)
-                .grid(true)
-                .header(true)
-                .line_numbers(true)
-                .paging_mode(PagingMode::Always)
-                .rule(true)
-                .print()
-                .expect("failed to print log");
-        }
     }
 }
 
