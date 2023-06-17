@@ -91,14 +91,14 @@ impl FallProtector {
             >= Duration::from_millis(500)
         {
             head_stiffness = 0.5;
-        } 
-        
+        }
+
         if context
             .cycle_time
             .start_time
             .duration_since(self.start_time)
             .unwrap()
-            >= Duration::from_millis(1000)
+            >= Duration::from_secs_f32(context.fall_protection.time_free_motion_exit)
         {
             context.motion_safe_exits[MotionType::FallProtection] = true;
         }
@@ -210,7 +210,9 @@ impl FallProtector {
                     .start_time
                     .duration_since(fallen_start)
                     .unwrap()
-                    >= Duration::from_millis(200) =>
+                    >= Duration::from_secs_f32(
+                        context.fall_protection.time_prolong_ground_impact,
+                    ) =>
             {
                 context.motion_safe_exits[MotionType::FallProtection] = true;
                 self.fallen_time = None;

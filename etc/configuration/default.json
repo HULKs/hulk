@@ -243,6 +243,8 @@
     "ground_impact_angular_threshold": 0.9,
     "ground_impact_body_stiffness": 0.2,
     "ground_impact_head_stiffness": 0.2,
+    "time_free_motion_exit": 1.0,
+    "time_prolong_ground_impact": 0.2,
     "left_arm_positions": {
       "shoulder_pitch": 1.57,
       "shoulder_roll": 0.3,
