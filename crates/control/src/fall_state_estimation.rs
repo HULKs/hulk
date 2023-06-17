@@ -6,8 +6,8 @@ use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{vector, Isometry3, Translation3, UnitQuaternion, Vector2, Vector3};
 use types::{
-    configuration::FallStateEstimation as FallStateEstimationConfiguration, CycleTime, Facing,
-    FallDirection, FallState, InertialMeasurementUnitData, SensorData,
+    configuration::FallStateEstimation as FallStateEstimationConfiguration, Facing, FallDirection,
+    FallState, InertialMeasurementUnitData, SensorData,
 };
 
 pub struct FallStateEstimation {
@@ -33,7 +33,6 @@ pub struct CycleContext {
 
     pub fall_state_estimation: Parameter<FallStateEstimationConfiguration, "fall_state_estimation">,
 
-    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub sensor_data: Input<SensorData, "sensor_data">,
 }

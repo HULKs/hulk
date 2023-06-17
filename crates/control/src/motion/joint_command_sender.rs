@@ -124,13 +124,11 @@ impl JointCommandSender {
             .positions_difference
             .fill_if_subscribed(|| positions - current_positions);
         context.stiffnesses.fill_if_subscribed(|| stiffnesses);
-        context
-            .motion_safe_exits_output
-            .fill_if_subscribed(|| context.motion_safe_exits.clone());
 
         context
             .motion_safe_exits_output
             .fill_if_subscribed(|| context.motion_safe_exits.clone());
+
         Ok(MainOutputs {})
     }
 }
