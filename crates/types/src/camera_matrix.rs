@@ -13,6 +13,24 @@ pub struct CameraMatrices {
     pub bottom: CameraMatrix,
 }
 
+impl CameraMatrices {
+    pub fn to_corrected(
+        &self,
+        correction_in_robot: Rotation3<f32>,
+        correction_in_camera_top: Rotation3<f32>,
+        correction_in_camera_bottom: Rotation3<f32>,
+    ) -> Self {
+        Self {
+            top: self
+                .top
+                .to_corrected(correction_in_robot, correction_in_camera_top),
+            bottom: self
+                .bottom
+                .to_corrected(correction_in_robot, correction_in_camera_bottom),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct CameraMatrix {
     pub camera_to_head: Isometry3<f32>,
@@ -91,8 +109,8 @@ impl CameraMatrix {
         })
     }
 
-    pub fn into_corrected(
-        self,
+    pub fn to_corrected(
+        &self,
         correction_in_robot: Rotation3<f32>,
         correction_in_camera: Rotation3<f32>,
     ) -> Self {
@@ -251,9 +269,7 @@ mod tests {
             ),
         );
 
-        let corrected = original
-            .clone()
-            .into_corrected(Rotation3::default(), Rotation3::default());
+        let corrected = original.to_corrected(Rotation3::default(), Rotation3::default());
 
         assert_relative_eq!(original, corrected, epsilon = 0.001);
     }

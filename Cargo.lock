@@ -771,6 +771,8 @@ version = "0.1.0"
 dependencies = [
  "levenberg-marquardt",
  "nalgebra",
+ "projection",
+ "thiserror",
  "types",
 ]
 

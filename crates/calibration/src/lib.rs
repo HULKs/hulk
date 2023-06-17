@@ -1,14 +1,30 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+use corrections::Corrections;
+use levenberg_marquardt::LevenbergMarquardt;
+use lines::Lines;
+use problem::CalibrationProblem;
+use types::{CameraMatrices, FieldDimensions};
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod corrections;
+pub mod jacobian;
+pub mod lines;
+pub mod problem;
+pub mod residuals;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+pub fn solve(
+    initial_corrections: Corrections,
+    original: CameraMatrices,
+    measurements: &[Lines],
+    field_dimensions: FieldDimensions,
+) -> Corrections {
+    let problem = CalibrationProblem::new(
+        initial_corrections,
+        original,
+        measurements,
+        field_dimensions,
+    );
+    let (result, report) = LevenbergMarquardt::new().minimize(problem);
+    println!("Report: {report:?}");
+    let corrections = result.get_corrections();
+    println!("Corrections: {corrections:?}");
+    corrections
 }
