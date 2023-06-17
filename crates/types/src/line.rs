@@ -12,6 +12,17 @@ pub struct Line<const DIMENSION: usize>(pub Point<f32, DIMENSION>, pub Point<f32
 pub type Line2 = Line<2>;
 
 impl Line2 {
+    pub fn signed_angle(&self, other: Self) -> f32 {
+        (self.1 - self.0)
+            .normalize()
+            .dot(&(other.1 - other.0).normalize())
+            .acos()
+    }
+
+    pub fn angle(&self, other: Self) -> f32 {
+        (self.1 - self.0).angle(&(other.1 - other.0))
+    }
+
     pub fn slope(&self) -> f32 {
         let difference = self.0 - self.1;
         difference.y / difference.x
@@ -28,8 +39,8 @@ impl Line2 {
 
     pub fn signed_distance_to_point(&self, point: Point2<f32>) -> f32 {
         let line_vector = self.1 - self.0;
-        let normal_versor = vector![-line_vector.y, line_vector.x].normalize();
-        normal_versor.dot(&point.coords) - normal_versor.dot(&self.0.coords)
+        let normal_vector = vector![-line_vector.y, line_vector.x].normalize();
+        normal_vector.dot(&point.coords) - normal_vector.dot(&self.0.coords)
     }
 
     pub fn project_onto_segment(&self, point: Point2<f32>) -> Point2<f32> {
@@ -95,10 +106,14 @@ impl<const DIMENSION: usize> Line<DIMENSION> {
         self.squared_distance_to_point(point).sqrt()
     }
 
-    pub fn is_orthogonal(&self, other: &Line<DIMENSION>, epsilon: f32) -> bool {
+    pub fn angle_diff_to_orthogonal(&self, other: &Line<DIMENSION>) -> f32 {
         let self_direction = (self.1 - self.0).normalize();
         let other_direction = (other.1 - other.0).normalize();
-        (self_direction.dot(&other_direction).acos().abs() - PI / 2.0).abs() < epsilon
+        (self_direction.dot(&other_direction).acos().abs() - PI / 2.0).abs()
+    }
+
+    pub fn is_orthogonal(&self, other: &Line<DIMENSION>, epsilon: f32) -> bool {
+        self.angle_diff_to_orthogonal(other) < epsilon
     }
 
     pub fn length(&self) -> f32 {

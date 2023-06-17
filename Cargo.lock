@@ -544,7 +544,7 @@ dependencies = [
  "framework",
  "log",
  "mlua",
- "nalgebra 0.31.4",
+ "nalgebra",
  "parameters",
  "parking_lot",
  "quote",
@@ -738,7 +738,9 @@ name = "calibration"
 version = "0.1.0"
 dependencies = [
  "levenberg-marquardt",
- "nalgebra 0.31.4",
+ "nalgebra",
+ "projection",
+ "thiserror",
  "types",
 ]
 
@@ -760,7 +762,7 @@ name = "camera_matrix_extractor"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "nalgebra 0.31.4",
+ "nalgebra",
  "serde",
  "serde_json",
  "structopt",
@@ -1150,7 +1152,7 @@ dependencies = [
  "kinematics",
  "log",
  "motionfile",
- "nalgebra 0.31.4",
+ "nalgebra",
  "ordered-float",
  "projection",
  "serde",
@@ -1893,7 +1895,7 @@ name = "filtering"
 version = "0.1.0"
 dependencies = [
  "approx",
- "nalgebra 0.31.4",
+ "nalgebra",
  "rand",
  "rand_distr",
  "serde",
@@ -2329,7 +2331,7 @@ dependencies = [
  "i2cdev",
  "libc",
  "log",
- "nalgebra 0.31.4",
+ "nalgebra",
  "nao_camera",
  "parking_lot",
  "rand",
@@ -2565,7 +2567,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 name = "kinematics"
 version = "0.1.0"
 dependencies = [
- "nalgebra 0.31.4",
+ "nalgebra",
  "types",
 ]
 
@@ -2594,7 +2596,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "222bafa3a95dd15aafd2a2fa2d02a03ce54a7bb1dae56464d479f339e9811b47"
 dependencies = [
  "cfg-if",
- "nalgebra 0.32.2",
+ "nalgebra",
  "num-traits",
  "rustc_version",
 ]
@@ -2773,7 +2775,7 @@ dependencies = [
  "enum_dispatch",
  "filtering",
  "itertools",
- "nalgebra 0.31.4",
+ "nalgebra",
  "serde",
  "serde_json",
  "splines",
@@ -2794,21 +2796,7 @@ dependencies = [
  "num-rational",
  "num-traits",
  "serde",
- "simba 0.7.3",
- "typenum",
-]
-
-[[package]]
-name = "nalgebra"
-version = "0.32.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d68d47bba83f9e2006d117a9a33af1524e655516b8919caac694427a6fb1e511"
-dependencies = [
- "approx",
- "num-complex",
- "num-rational",
- "num-traits",
- "simba 0.8.1",
+ "simba",
  "typenum",
 ]
 
@@ -3491,7 +3479,7 @@ name = "projection"
 version = "0.1.0"
 dependencies = [
  "approx",
- "nalgebra 0.31.4",
+ "nalgebra",
  "thiserror",
  "types",
 ]
@@ -3899,7 +3887,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "image",
- "nalgebra 0.31.4",
+ "nalgebra",
  "serde",
  "serde_json",
  "serialize_hierarchy_derive",
@@ -3968,18 +3956,6 @@ dependencies = [
  "num-traits",
  "paste",
  "wide",
-]
-
-[[package]]
-name = "simba"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "061507c94fc6ab4ba1c9a0305018408e312e17c041eb63bef8aa726fa33aceae"
-dependencies = [
- "approx",
- "num-complex",
- "num-traits",
- "paste",
 ]
 
 [[package]]
@@ -4099,7 +4075,7 @@ dependencies = [
  "bindgen 0.65.1",
  "byteorder",
  "color-eyre",
- "nalgebra 0.31.4",
+ "nalgebra",
  "serde",
  "serialize_hierarchy",
 ]
@@ -4187,7 +4163,7 @@ dependencies = [
  "color-eyre",
  "convert_case",
  "filtering",
- "nalgebra 0.31.4",
+ "nalgebra",
  "proc-macro2",
  "quote",
  "serde",
@@ -4626,7 +4602,7 @@ dependencies = [
  "itertools",
  "log",
  "mlua",
- "nalgebra 0.31.4",
+ "nalgebra",
  "parameters",
  "projection",
  "repository",
@@ -4653,7 +4629,7 @@ dependencies = [
  "bincode",
  "color-eyre",
  "image",
- "nalgebra 0.31.4",
+ "nalgebra",
  "ordered-float",
  "parking_lot",
  "petgraph",
@@ -4796,7 +4772,7 @@ dependencies = [
  "framework",
  "image",
  "itertools",
- "nalgebra 0.31.4",
+ "nalgebra",
  "ordered-float",
  "projection",
  "rand",
