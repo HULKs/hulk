@@ -4590,6 +4590,7 @@ name = "twix"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "calibration",
  "color-eyre",
  "communication",
  "convert_case",
@@ -4598,6 +4599,7 @@ dependencies = [
  "egui_extras",
  "fern",
  "fuzzy-matcher",
+ "glob",
  "image",
  "itertools",
  "log",
