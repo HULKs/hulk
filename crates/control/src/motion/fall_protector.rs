@@ -98,7 +98,7 @@ impl FallProtector {
             .start_time
             .duration_since(self.start_time)
             .unwrap()
-            >= Duration::from_millis(3000)
+            >= Duration::from_millis(1000)
         {
             context.motion_safe_exits[MotionType::FallProtection] = true;
         }
