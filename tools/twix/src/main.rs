@@ -2,6 +2,7 @@ use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
     sync::Arc,
+    time::SystemTime,
 };
 
 use color_eyre::{
@@ -12,7 +13,9 @@ use color_eyre::{
 use communication::client::ConnectionStatus;
 use completion_edit::CompletionEdit;
 use eframe::{
-    egui::{CentralPanel, Context, Key, Layout, Modifiers, TopBottomPanel, Ui, Widget, WidgetText},
+    egui::{
+        CentralPanel, Context, Id, Key, Layout, Modifiers, TopBottomPanel, Ui, Widget, WidgetText,
+    },
     emath::Align,
     epaint::Color32,
     run_native, App, CreationContext, Frame, NativeOptions, Storage,
@@ -168,7 +171,7 @@ struct TwixApp {
     ip_address: String,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
-    tree: Tree<SelectablePanel>,
+    tree: Tree<Tab>,
     connection_status: ConnectionStatus,
     connection_receiver: mpsc::Receiver<ConnectionStatus>,
     visual: Visuals,
@@ -198,13 +201,16 @@ impl TwixApp {
             .and_then(|string| from_str(&string).ok());
 
         let tree = match tree {
-            Some(tree) => {
-                tree.map_tabs(|value| SelectablePanel::new(nao.clone(), Some(value)).unwrap())
-            }
+            Some(tree) => tree.map_tabs(|value| {
+                SelectablePanel::new(nao.clone(), Some(value))
+                    .unwrap()
+                    .into()
+            }),
             None => Tree::new(vec![SelectablePanel::Text(TextPanel::new(
                 nao.clone(),
                 None,
-            ))]),
+            ))
+            .into()]),
         };
 
         let connection_status = ConnectionStatus::Disconnected {
@@ -331,7 +337,7 @@ impl App for TwixApp {
         CentralPanel::default().show(context, |ui| {
             if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::T)) {
                 let tab = SelectablePanel::Text(TextPanel::new(self.nao.clone(), None));
-                self.tree.push_to_focused_leaf(tab);
+                self.tree.push_to_focused_leaf(tab.into());
             }
 
             let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
@@ -344,13 +350,13 @@ impl App for TwixApp {
             for node_id in tab_viewer.nodes_to_add_tabs_to {
                 let tab = SelectablePanel::Text(TextPanel::new(self.nao.clone(), None));
                 let index = self.tree[node_id].tabs_count();
-                self.tree[node_id].insert_tab(index.into(), tab);
+                self.tree[node_id].insert_tab(index.into(), tab.into());
             }
         });
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {
-        let tree = self.tree.map_tabs(|panel| panel.save());
+        let tree = self.tree.map_tabs(|tab| tab.panel.save());
 
         storage.set_string("tree", to_string(&tree).unwrap());
         storage.set_string("ip_address", self.ip_address.clone());
@@ -370,7 +376,7 @@ impl App for TwixApp {
 impl TwixApp {
     fn active_panel(&mut self) -> Option<&mut SelectablePanel> {
         let (_viewport, tab) = self.tree.find_active_focused()?;
-        Some(tab)
+        Some(&mut tab.panel)
     }
 
     fn active_tab_index(&self) -> Option<(NodeIndex, TabIndex)> {
@@ -383,20 +389,38 @@ impl TwixApp {
     }
 }
 
+struct Tab {
+    id: Id,
+    panel: SelectablePanel,
+}
+
+impl From<SelectablePanel> for Tab {
+    fn from(panel: SelectablePanel) -> Self {
+        Self {
+            id: Id::new(SystemTime::now()),
+            panel,
+        }
+    }
+}
+
 #[derive(Default)]
 struct TabViewer {
     nodes_to_add_tabs_to: Vec<NodeIndex>,
 }
 
 impl egui_dock::TabViewer for TabViewer {
-    type Tab = SelectablePanel;
+    type Tab = Tab;
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
-        tab.ui(ui);
+        tab.panel.ui(ui);
     }
 
     fn title(&mut self, tab: &mut Self::Tab) -> eframe::egui::WidgetText {
-        format!("{tab}").into()
+        format!("{}", tab.panel).into()
+    }
+
+    fn id(&mut self, tab: &mut Self::Tab) -> Id {
+        tab.id
     }
 
     fn on_add(&mut self, node: NodeIndex) {
