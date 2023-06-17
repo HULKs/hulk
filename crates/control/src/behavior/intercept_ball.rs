@@ -38,10 +38,14 @@ pub fn execute(
                 && ball.ball_in_ground.x > 0.0;
             let ball_moving_towards_robot =
                 ball.ball_in_ground_velocity.x < -parameters.minimum_ball_velocity_towards_robot;
-            let ball_moving_towards_own_half = (robot_to_field * ball.ball_in_ground_velocity).x
-                < -parameters.minimum_ball_velocity_towards_own_half;
+
+            let ball_in_field_velocity = robot_to_field * ball.ball_in_ground_velocity;
+            let ball_moving = ball_in_field_velocity.norm() > parameters.minimum_ball_velocity;
+            let ball_moving_towards_own_half =
+                ball_in_field_velocity.x < -parameters.minimum_ball_velocity_towards_own_half;
 
             if !(ball_in_front_of_robot
+                && ball_moving
                 && ball_moving_towards_robot
                 && ball_moving_towards_own_half)
             {
