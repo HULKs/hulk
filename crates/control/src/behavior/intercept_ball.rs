@@ -1,11 +1,15 @@
-use nalgebra::{point, Point2, UnitComplex};
+use nalgebra::{Point2, UnitComplex};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
     parameters::InterceptBall, FilteredGameState, GameControllerState, HeadMotion, LineSegment,
-    MotionCommand, OrientationMode, PathSegment, WorldState,
+    MotionCommand, OrientationMode, PathSegment, Step, WorldState,
 };
 
-pub fn execute(world_state: &WorldState, parameters: InterceptBall) -> Option<MotionCommand> {
+pub fn execute(
+    world_state: &WorldState,
+    parameters: InterceptBall,
+    maximum_step_size: Step,
+) -> Option<MotionCommand> {
     if let Some(
         GameControllerState {
             game_phase: GamePhase::PenaltyShootout { .. },
@@ -44,13 +48,21 @@ pub fn execute(world_state: &WorldState, parameters: InterceptBall) -> Option<Mo
                 return None;
             }
 
-            let time_to_intercept_point = ball.ball_in_ground.x / ball.ball_in_ground_velocity.x;
-            let intercept_y_position =
-                ball.ball_in_ground.y - ball.ball_in_ground_velocity.y * time_to_intercept_point;
+            let Step {
+                forward,
+                left,
+                turn: _,
+            } = maximum_step_size;
 
-            if intercept_y_position.abs() > parameters.maximum_intercept_distance {
+            if forward == 0.0 || left == 0.0 {
                 return None;
             }
+
+            let normalized_velocity = ball.ball_in_ground_velocity.normalize();
+
+            // Find the point with the least distance from the line traversed by the ball
+            let interception_point = ball.ball_in_ground
+                - ball.ball_in_ground.coords.dot(&normalized_velocity) * normalized_velocity;
 
             Some(MotionCommand::Walk {
                 head: HeadMotion::LookAt {
@@ -59,7 +71,7 @@ pub fn execute(world_state: &WorldState, parameters: InterceptBall) -> Option<Mo
                 },
                 path: vec![PathSegment::LineSegment(LineSegment(
                     Point2::origin(),
-                    point![0.0, intercept_y_position],
+                    interception_point,
                 ))],
                 left_arm: types::ArmMotion::Swing,
                 right_arm: types::ArmMotion::Swing,
