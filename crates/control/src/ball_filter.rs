@@ -120,7 +120,12 @@ impl BallFilter {
             self.hypotheses
                 .iter()
                 .filter_map(|hypothesis| {
-                    project_to_image(hypothesis, &context.camera_matrices.top, ball_radius)
+                    project_to_image(
+                        hypothesis,
+                        &context.camera_matrices.top,
+                        ball_radius,
+                        context.ball_filter_configuration,
+                    )
                 })
                 .collect()
         });
@@ -130,39 +135,21 @@ impl BallFilter {
                 self.hypotheses
                     .iter()
                     .filter_map(|hypothesis| {
-                        project_to_image(hypothesis, &context.camera_matrices.bottom, ball_radius)
+                        project_to_image(
+                            hypothesis,
+                            &context.camera_matrices.bottom,
+                            ball_radius,
+                            context.ball_filter_configuration,
+                        )
                     })
                     .collect()
             });
 
         let ball_position = self.find_best_hypothesis().map(|hypothesis| {
-            let chooses_resting_model = hypothesis.moving_state.mean.rows(2, 2).norm()
-                < context
-                    .ball_filter_configuration
-                    .resting_ball_velocity_threshold;
             context
                 .chooses_resting_model
-                .fill_if_subscribed(|| chooses_resting_model);
-
-            if chooses_resting_model {
-                BallPosition {
-                    position: Point2::from(hypothesis.resting_state.mean.xy()),
-                    velocity: vector![
-                        hypothesis.moving_state.mean.z,
-                        hypothesis.moving_state.mean.w
-                    ],
-                    last_seen: hypothesis.last_update,
-                }
-            } else {
-                BallPosition {
-                    position: Point2::from(hypothesis.moving_state.mean.xy()),
-                    velocity: vector![
-                        hypothesis.moving_state.mean.z,
-                        hypothesis.moving_state.mean.w
-                    ],
-                    last_seen: hypothesis.last_update,
-                }
-            }
+                .fill_if_subscribed(|| hypothesis.is_resting(context.ball_filter_configuration));
+            hypothesis.selected_ball_position(context.ball_filter_configuration)
         });
 
         Ok(MainOutputs {
@@ -362,6 +349,11 @@ impl BallFilter {
                         hypothesis.moving_state.mean,
                         hypothesis.moving_state.covariance,
                     );
+                    existing_hypothesis.resting_state.update(
+                        Matrix4::identity(),
+                        hypothesis.resting_state.mean,
+                        hypothesis.resting_state.covariance,
+                    );
                 }
                 None => deduplicated_hypotheses.push(hypothesis),
             }
@@ -374,8 +366,9 @@ fn project_to_image(
     hypothesis: &Hypothesis,
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
+    configuration: &BallFilterConfiguration,
 ) -> Option<Circle> {
-    let position_on_ground = Point2::from(hypothesis.moving_state.mean.xy());
+    let position_on_ground = hypothesis.selected_ball_position(configuration).position;
     let position_in_image = camera_matrix
         .ground_with_z_to_pixel(position_on_ground, ball_radius)
         .ok()?;
