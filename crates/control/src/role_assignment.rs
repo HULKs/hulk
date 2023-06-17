@@ -19,7 +19,7 @@ use crate::localization::generate_initial_pose;
 
 pub struct RoleAssignment {
     last_received_spl_striker_message: Option<SystemTime>,
-    last_transmitted_game_controller_return_message: Option<SystemTime>,
+    last_system_time_transmitted_game_controller_return_message: Option<SystemTime>,
     last_transmitted_spl_striker_message: Option<SystemTime>,
     role: Role,
     role_initialized: bool,
@@ -65,7 +65,7 @@ impl RoleAssignment {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_received_spl_striker_message: None,
-            last_transmitted_game_controller_return_message: None,
+            last_system_time_transmitted_game_controller_return_message: None,
             last_transmitted_spl_striker_message: None,
             role: Role::Striker,
             role_initialized: false,
@@ -109,10 +109,10 @@ impl RoleAssignment {
         }
 
         let send_game_controller_return_message = self
-            .last_transmitted_game_controller_return_message
+            .last_system_time_transmitted_game_controller_return_message
             .is_none()
             || cycle_start_time.duration_since(
-                self.last_transmitted_game_controller_return_message
+                self.last_system_time_transmitted_game_controller_return_message
                     .unwrap(),
             )? > context.spl_network.game_controller_return_message_interval;
 
@@ -138,7 +138,7 @@ impl RoleAssignment {
         };
 
         if send_game_controller_return_message {
-            self.last_transmitted_game_controller_return_message = Some(cycle_start_time);
+            self.last_system_time_transmitted_game_controller_return_message = Some(cycle_start_time);
             context
                 .hardware
                 .write_to_network(OutgoingMessage::GameController(
