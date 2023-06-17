@@ -73,7 +73,13 @@ impl FallProtector {
             });
         }
 
-        if self.start_time.elapsed().unwrap() >= Duration::from_millis(500) {
+        if context
+            .cycle_time
+            .start_time
+            .duration_since(self.start_time)
+            .unwrap()
+            >= Duration::from_millis(500)
+        {
             head_stiffness = 0.5;
         }
 
