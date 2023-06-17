@@ -91,7 +91,9 @@ impl FallProtector {
             >= Duration::from_millis(500)
         {
             head_stiffness = 0.5;
-        } else if context
+        } 
+        
+        if context
             .cycle_time
             .start_time
             .duration_since(self.start_time)
