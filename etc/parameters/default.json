@@ -842,6 +842,7 @@
     },
     "intercept_ball": {
       "maximum_ball_distance": 2.0,
+      "minimum_ball_velocity": 0.15,
       "minimum_ball_velocity_towards_robot": 0.15,
       "minimum_ball_velocity_towards_own_half": 0.05,
       "maximum_intercept_distance": 0.5

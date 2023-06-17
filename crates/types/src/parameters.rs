@@ -181,6 +181,7 @@ pub struct LostBall {
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct InterceptBall {
     pub maximum_ball_distance: f32,
+    pub minimum_ball_velocity: f32,
     pub minimum_ball_velocity_towards_robot: f32,
     pub minimum_ball_velocity_towards_own_half: f32,
     pub maximum_intercept_distance: f32,
