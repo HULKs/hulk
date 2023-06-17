@@ -183,6 +183,35 @@ impl Nao {
         Ok(())
     }
 
+    pub async fn retrieve_file(&self, file: &str) -> Result<String> {
+        let output = self
+            .ssh_to_nao()
+            .arg("cat")
+            .arg(file)
+            .output()
+            .await
+            .wrap_err("failed to execute cat command")?;
+
+        if !output.status.success() {
+            bail!("cat ssh command exited with {}", output.status);
+        }
+
+        String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")
+    }
+
+    pub async fn retrieve_logs(&self) -> Result<String> {
+        let mut hulk_out = self
+            .retrieve_file("hulk/logs/hulk.out")
+            .await
+            .wrap_err("failed to retrieve hulk.out")?;
+        let hulk_err = self
+            .retrieve_file("hulk/logs/hulk.err")
+            .await
+            .wrap_err("failed to retrieve hulk.err")?;
+        hulk_out.push_str(&hulk_err);
+        Ok(hulk_out)
+    }
+
     pub async fn power_off(&self) -> Result<()> {
         let status = self
             .ssh_to_nao()
