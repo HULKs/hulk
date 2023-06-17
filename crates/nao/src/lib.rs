@@ -169,7 +169,7 @@ impl Nao {
 
         let status = self
             .rsync_with_nao(true)
-            .arg("-q")
+            .arg("--quiet")
             .arg(format!("{}:hulk/logs/", self.host))
             .arg(local_directory.as_ref().to_str().unwrap())
             .status()
@@ -186,7 +186,8 @@ impl Nao {
     pub async fn retrieve_logs(&self) -> Result<String> {
         let output = self
             .ssh_to_nao()
-            .arg("cat")
+            .arg("tail")
+            .arg("-n+1")
             .arg("hulk/logs/hulk.{out,err}")
             .output()
             .await
