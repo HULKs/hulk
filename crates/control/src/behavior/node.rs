@@ -8,7 +8,7 @@ use spl_network_messages::{GamePhase, GameState, SubState, Team};
 use types::{
     parameters::{Behavior as BehaviorParameters, InWalkKicks, InterceptBall, LostBall},
     Action, CycleTime, FieldDimensions, FilteredGameState, GameControllerState, MotionCommand,
-    PathObstacle, PathSegment, PrimaryState, Role, Side, WorldState,
+    PathObstacle, PathSegment, PrimaryState, Role, Side, Step, WorldState,
 };
 
 use super::{
@@ -49,6 +49,7 @@ pub struct CycleContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
     pub intercept_ball_parameters: Parameter<InterceptBall, "behavior.intercept_ball">,
+    pub maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
 }
 
 #[context]
@@ -187,9 +188,11 @@ impl Behavior {
                     }
                     Action::StandUp => stand_up::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
-                    Action::InterceptBall => {
-                        intercept_ball::execute(world_state, *context.intercept_ball_parameters)
-                    }
+                    Action::InterceptBall => intercept_ball::execute(
+                        world_state,
+                        *context.intercept_ball_parameters,
+                        *context.maximum_step_size,
+                    ),
                     Action::Calibrate => calibrate::execute(world_state),
                     Action::DefendGoal => defend.goal(&mut context.path_obstacles),
                     Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
