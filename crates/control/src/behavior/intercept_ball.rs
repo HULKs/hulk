@@ -64,6 +64,10 @@ pub fn execute(
             let interception_point = ball.ball_in_ground
                 - ball.ball_in_ground.coords.dot(&normalized_velocity) * normalized_velocity;
 
+            if interception_point.coords.norm() > parameters.maximum_intercept_distance {
+                return None;
+            }
+
             Some(MotionCommand::Walk {
                 head: HeadMotion::LookAt {
                     target: ball.ball_in_ground,
