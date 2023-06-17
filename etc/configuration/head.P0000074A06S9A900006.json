@@ -14,5 +14,13 @@
         1.244167685508728
       ]
     }
+  },
+  "joint_calibration_offsets": {
+    "left_leg": {
+      "hip_yaw_pitch": -0.2
+    },
+    "right_leg": {
+      "hip_yaw_pitch": -0.2
+    }
   }
 }
