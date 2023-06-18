@@ -1,5 +1,6 @@
 use std::{ffi::c_char, time::Duration, slice::from_raw_parts, mem::size_of};
 
+use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -28,6 +29,7 @@ use crate::{
     Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy,
 )]
 #[repr(u8)]
+#[derive(FromPrimitive)]
 pub enum VisualRefereeDecision {
     #[default]
     KickInBlueTeam = GAMECONTROLLER_RETURN_STRUCT_VRC_GESTURE_KICK_IN_BLUE_TEAM,

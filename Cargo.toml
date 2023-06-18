@@ -90,12 +90,15 @@ kinematics = { path = "crates/kinematics" }
 libc = "0.2.137"
 log = "0.4.17"
 mlua = { version = "0.8.7", features = ["luajit", "serialize", "parking_lot"] }
+motionfile = { path = "crates/motionfile" }
 nalgebra = { version = "0.32.2", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }
 # Pinned git version since the latest release does not contained https://github.com/nix-rust/nix/pull/2022 yet
 nix = { git = "https://github.com/nix-rust/nix.git", version = "0.26.1", rev = "89b4976" }
 motionfile = { path = "crates/motionfile" }
+num-derive = "0.3"
+num-traits = "0.2"
 ordered-float = "3.1.0"
 parking_lot = "0.12.1"
 petgraph = "0.6.2"

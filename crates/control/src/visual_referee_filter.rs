@@ -1,3 +1,5 @@
+use num_traits::cast::FromPrimitive;
+use rand::prelude::*;
 use std::time::Duration;
 
 use color_eyre::{eyre::Context, Result};
@@ -53,7 +55,8 @@ impl VisualRefereeFilter {
         self.last_primary_state = *context.primary_state;
 
         // A random visual referee decision
-        let gesture = VisualRefereeDecision::KickInBlueTeam;
+        let mut rng = thread_rng();
+        let gesture = VisualRefereeDecision::from_u32(rng.gen_range(0..13)).unwrap();
 
         if send_game_controller_vr_return_message {
             let duration_since_last_whistle = context
