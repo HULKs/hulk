@@ -1,8 +1,8 @@
-use nalgebra::{Point2, UnitComplex};
+use nalgebra::{Isometry2, Point2, UnitComplex};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
-    parameters::InterceptBall, FilteredGameState, GameControllerState, HeadMotion, LineSegment,
-    MotionCommand, OrientationMode, PathSegment, Step, WorldState,
+    parameters::InterceptBall, BallState, FilteredGameState, GameControllerState, HeadMotion,
+    LineSegment, MotionCommand, OrientationMode, PathSegment, Step, WorldState,
 };
 
 pub fn execute(
@@ -33,22 +33,7 @@ pub fn execute(
             Some(ball),
             Some(robot_to_field),
         ) => {
-            let ball_in_front_of_robot = ball.ball_in_ground.coords.norm()
-                < parameters.maximum_ball_distance
-                && ball.ball_in_ground.x > 0.0;
-            let ball_moving_towards_robot =
-                ball.ball_in_ground_velocity.x < -parameters.minimum_ball_velocity_towards_robot;
-
-            let ball_in_field_velocity = robot_to_field * ball.ball_in_ground_velocity;
-            let ball_moving = ball_in_field_velocity.norm() > parameters.minimum_ball_velocity;
-            let ball_moving_towards_own_half =
-                ball_in_field_velocity.x < -parameters.minimum_ball_velocity_towards_own_half;
-
-            if !(ball_in_front_of_robot
-                && ball_moving
-                && ball_moving_towards_robot
-                && ball_moving_towards_own_half)
-            {
+            if !ball_is_interception_candidate(ball, robot_to_field, parameters) {
                 return None;
             }
 
@@ -88,4 +73,26 @@ pub fn execute(
         }
         _ => None,
     }
+}
+
+fn ball_is_interception_candidate(
+    ball: BallState,
+    robot_to_field: Isometry2<f32>,
+    parameters: InterceptBall,
+) -> bool {
+    let ball_in_front_of_robot = ball.ball_in_ground.coords.norm()
+        < parameters.maximum_ball_distance
+        && ball.ball_in_ground.x > 0.0;
+    let ball_moving_towards_robot =
+        ball.ball_in_ground_velocity.x < -parameters.minimum_ball_velocity_towards_robot;
+
+    let ball_in_field_velocity = robot_to_field * ball.ball_in_ground_velocity;
+    let ball_moving = ball_in_field_velocity.norm() > parameters.minimum_ball_velocity;
+    let ball_moving_towards_own_half =
+        ball_in_field_velocity.x < -parameters.minimum_ball_velocity_towards_own_half;
+
+    ball_in_front_of_robot
+        && ball_moving
+        && ball_moving_towards_robot
+        && ball_moving_towards_own_half
 }
