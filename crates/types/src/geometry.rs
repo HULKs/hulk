@@ -20,6 +20,26 @@ impl Orientation {
             Orientation::Colinear => subject,
         }
     }
+
+    pub fn triangle_orientation(
+        point1: Point2<f32>,
+        point2: Point2<f32>,
+        point3: Point2<f32>,
+    ) -> Self {
+        let (x1, y1) = (point1.x, point1.y);
+        let (x2, y2) = (point2.x, point2.y);
+        let (x3, y3) = (point3.x, point3.y);
+
+        let orientation = x1 * y2 + x2 * y3 + x3 * y1 - x1 * y3 - x2 * y1 - x3 * y2;
+
+        if orientation == 0.0 {
+            Self::Colinear
+        } else if orientation.is_sign_negative() {
+            Self::Clockwise
+        } else {
+            Self::Counterclockwise
+        }
+    }
 }
 
 pub fn rotate_towards(origin: Point2<f32>, target: Point2<f32>) -> UnitComplex<f32> {
