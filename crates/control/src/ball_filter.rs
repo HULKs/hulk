@@ -15,6 +15,7 @@ use types::{
 
 pub struct BallFilter {
     hypotheses: Vec<Hypothesis>,
+    persistent_hypotheses: Vec<Hypothesis>,
 }
 
 #[context]
@@ -59,6 +60,7 @@ impl BallFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             hypotheses: Vec::new(),
+            persistent_hypotheses: Vec::new(),
         })
     }
 
