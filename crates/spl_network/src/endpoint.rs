@@ -116,6 +116,25 @@ impl Endpoint {
                     warn!("Failed to send UDP datagram via SPL socket: {error:?}")
                 }
             }
+            OutgoingMessage::VisualReferee(message) => {
+                let last_game_controller_address = *self.last_game_controller_address.lock().await;
+                if let Some(last_game_controller_address) = last_game_controller_address {
+                    let message: Vec<u8> = message.into();
+                    if let Err(error) = self
+                        .game_controller_state_socket
+                        .send_to(
+                            message.as_slice(),
+                            SocketAddr::new(
+                                last_game_controller_address.ip(),
+                                self.ports.game_controller_return,
+                            ),
+                        )
+                        .await
+                    {
+                        warn!("Failed to send UDP datagram to GameController: {error:?}")
+                    }
+                }
+            }
         };
     }
 }
