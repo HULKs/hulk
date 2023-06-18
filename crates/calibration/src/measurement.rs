@@ -1,9 +1,10 @@
-use types::CameraMatrices;
+use types::{CameraMatrix, CameraPosition};
 
 use crate::lines::Lines;
 
 #[derive(Clone)]
 pub struct Measurement {
-    pub matrices: CameraMatrices,
+    pub position: CameraPosition,
+    pub matrix: CameraMatrix,
     pub lines: Lines,
 }
