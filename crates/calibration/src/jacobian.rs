@@ -1,9 +1,9 @@
 use nalgebra::{Const, Dyn, Matrix, Owned, SVector};
-use types::{CameraMatrices, FieldDimensions};
+use types::FieldDimensions;
 
 use crate::{
     corrections::{Corrections, AMOUNT_OF_PARAMETERS},
-    lines::Lines,
+    measurement::Measurement,
     residuals::calculate_residuals_from_parameters,
 };
 
@@ -14,8 +14,7 @@ const EPSILON: f32 = 0.000001;
 
 pub fn calculate_jacobian_from_parameters(
     parameters: &Corrections,
-    matrices: &CameraMatrices,
-    measurements: &[Lines],
+    measurements: &[Measurement],
     field_dimensions: &FieldDimensions,
 ) -> Option<Jacobian> {
     let columns = (0..AMOUNT_OF_PARAMETERS)
@@ -27,12 +26,10 @@ pub fn calculate_jacobian_from_parameters(
             Some(
                 (calculate_residuals_from_parameters(
                     &upper_support_parameters,
-                    matrices,
                     measurements,
                     field_dimensions,
                 )? - calculate_residuals_from_parameters(
                     &lower_support_parameters,
-                    matrices,
                     measurements,
                     field_dimensions,
                 )?) / (2.0 * EPSILON),
