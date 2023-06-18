@@ -17,6 +17,7 @@ use types::{
 
 pub struct BallFilter {
     hypotheses: Vec<Hypothesis>,
+    persistent_hypotheses: Vec<Hypothesis>,
 }
 
 #[context]
@@ -58,10 +59,21 @@ impl BallFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             hypotheses: Vec::new(),
+            persistent_hypotheses: Vec::new(),
         })
     }
 
-    fn persistent_balls_in_control_cycle<'a>(context: &'a CycleContext) -> Vec<(&'a SystemTime, Vec<&'a Ball>)> {
+    fn roll_back(&mut self) {
+        self.hypotheses = self.persistent_hypotheses.drain(..).collect();
+    }
+
+    fn save_state(&mut self) {
+        self.persistent_hypotheses = self.hypotheses.clone();
+    }
+
+    fn persistent_balls_in_control_cycle<'a>(
+        context: &'a CycleContext,
+    ) -> Vec<(&'a SystemTime, Vec<&'a Ball>)> {
         context
             .balls_top
             .persistent
@@ -79,9 +91,32 @@ impl BallFilter {
             .collect()
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        for (detection_time, balls) in Self::persistent_balls_in_control_cycle(&context)
-        {
+    fn temporary_balls_in_control_cycle<'a>(
+        context: &'a CycleContext,
+    ) -> Vec<(&'a SystemTime, Vec<&'a Ball>)> {
+        context
+            .balls_top
+            .temporary
+            .iter()
+            .zip(context.balls_bottom.temporary.values())
+            .map(|((detection_time, balls_top), balls_bottom)| {
+                let balls = balls_top
+                    .iter()
+                    .chain(balls_bottom.iter())
+                    .filter_map(|data| data.as_ref())
+                    .flat_map(|data| data.iter())
+                    .collect();
+                (detection_time, balls)
+            })
+            .collect()
+    }
+
+    fn update_all_hypotheses(
+        &mut self,
+        updates: Vec<(&SystemTime, Vec<&Ball>)>,
+        context: &CycleContext,
+    ) {
+        for (detection_time, balls) in updates {
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
                 .get(detection_time)
@@ -120,6 +155,16 @@ impl BallFilter {
             context.ball_filter_configuration,
             context.field_dimensions,
         );
+    }
+
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        self.roll_back();
+        let persistent_updates = Self::persistent_balls_in_control_cycle(&context);
+        self.update_all_hypotheses(persistent_updates, &context);
+
+        self.save_state();
+        let temporary_updates = Self::temporary_balls_in_control_cycle(&context);
+        self.update_all_hypotheses(temporary_updates, &context);
 
         context
             .ball_filter_hypotheses
@@ -184,6 +229,7 @@ impl BallFilter {
                     &camera_matrices.bottom,
                     ball_radius,
                     &projected_limbs.limbs,
+                    configuration
                 ),
                 _ => false,
             };
@@ -399,8 +445,9 @@ fn is_visible_to_camera(
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
     projected_limbs_bottom: &[Limb],
+    configuration: &BallFilterConfiguration,
 ) -> bool {
-    let position_on_ground = Point2::from(hypothesis.moving_state.mean.xy());
+    let position_on_ground = hypothesis.selected_ball_position(configuration).position;
     let position_in_image =
         match camera_matrix.ground_with_z_to_pixel(position_on_ground, ball_radius) {
             Ok(position_in_image) => position_in_image,
