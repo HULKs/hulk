@@ -138,7 +138,8 @@ impl RoleAssignment {
         };
 
         if send_game_controller_return_message {
-            self.last_system_time_transmitted_game_controller_return_message = Some(cycle_start_time);
+            self.last_system_time_transmitted_game_controller_return_message =
+                Some(cycle_start_time);
             context
                 .hardware
                 .write_to_network(OutgoingMessage::GameController(
