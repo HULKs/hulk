@@ -60,21 +60,31 @@ impl BallFilter {
         })
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let measured_balls = context
+    fn persistent_balls_in_control_cycle<'a>(context: &'a CycleContext) -> Vec<(&'a SystemTime, Vec<&'a Ball>)> {
+        context
             .balls_top
             .persistent
             .iter()
-            .zip(context.balls_bottom.persistent.values());
-        for ((detection_time, balls_top), balls_bottom) in measured_balls {
+            .zip(context.balls_bottom.persistent.values())
+            .map(|((detection_time, balls_top), balls_bottom)| {
+                let balls = balls_top
+                    .iter()
+                    .chain(balls_bottom.iter())
+                    .filter_map(|data| data.as_ref())
+                    .flat_map(|data| data.iter())
+                    .collect();
+                (detection_time, balls)
+            })
+            .collect()
+    }
+
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        for (detection_time, balls) in Self::persistent_balls_in_control_cycle(&context)
+        {
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
                 .get(detection_time)
                 .expect("current_odometry_to_last_odometry should not be None");
-            let measured_balls_in_control_cycle = balls_top
-                .iter()
-                .chain(balls_bottom.iter())
-                .filter_map(|data| data.as_ref());
             self.predict_hypotheses_with_odometry(
                 context.ball_filter_configuration.velocity_decay_factor,
                 current_odometry_to_last_odometry.inverse(),
@@ -95,14 +105,12 @@ impl BallFilter {
                 context.ball_filter_configuration,
             );
 
-            for balls in measured_balls_in_control_cycle {
-                for ball in *balls {
-                    self.update_hypotheses_with_measurement(
-                        ball.position,
-                        *detection_time,
-                        context.ball_filter_configuration,
-                    );
-                }
+            for ball in balls {
+                self.update_hypotheses_with_measurement(
+                    ball.position,
+                    *detection_time,
+                    context.ball_filter_configuration,
+                );
             }
         }
 
