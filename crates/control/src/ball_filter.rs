@@ -25,10 +25,11 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     pub ball_filter_hypotheses: AdditionalOutput<Vec<Hypothesis>, "ball_filter_hypotheses">,
+    pub best_ball_hypothesis: AdditionalOutput<Option<Hypothesis>, "best_ball_hypothesis">,
+    pub chooses_resting_model: AdditionalOutput<bool, "chooses_resting_model">,
     pub filtered_balls_in_image_bottom:
         AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_bottom">,
     pub filtered_balls_in_image_top: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_top">,
-    pub chooses_resting_model: AdditionalOutput<bool, "chooses_resting_model">,
 
     pub current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
@@ -152,6 +153,10 @@ impl BallFilter {
                     })
                     .collect()
             });
+
+        context
+            .best_ball_hypothesis
+            .fill_if_subscribed(|| self.find_best_hypothesis().cloned());
 
         let ball_position = self.find_best_hypothesis().map(|hypothesis| {
             context

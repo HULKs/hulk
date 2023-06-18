@@ -2,13 +2,14 @@ use std::time::SystemTime;
 
 use nalgebra::{vector, Point2};
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
     configuration::BallFilterConfiguration,
     multivariate_normal_distribution::MultivariateNormalDistribution, BallPosition,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Hypothesis {
     pub moving_state: MultivariateNormalDistribution<4>,
     pub resting_state: MultivariateNormalDistribution<4>,
