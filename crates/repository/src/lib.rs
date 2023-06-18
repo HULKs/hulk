@@ -249,6 +249,12 @@ impl Repository {
         let upload_directory = tempdir().wrap_err("failed to create temporary directory")?;
         let hulk_directory = upload_directory.path().join("hulk");
 
+        // the target directory is "debug" with --profile dev...
+        let target_name = match profile {
+            "dev" => "debug",
+            other => other,
+        };
+
         create_dir_all(hulk_directory.join("bin"))
             .await
             .wrap_err("failed to create directory")?;
@@ -258,8 +264,9 @@ impl Repository {
             .wrap_err("failed to link etc directory")?;
 
         symlink(
-            self.root
-                .join(format!("target/x86_64-aldebaran-linux-gnu/{profile}/nao")),
+            self.root.join(format!(
+                "target/x86_64-aldebaran-linux-gnu/{target_name}/nao"
+            )),
             hulk_directory.join("bin/hulk"),
         )
         .await
