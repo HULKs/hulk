@@ -1,6 +1,7 @@
 mod bindings;
 mod game_controller_return_message;
 mod game_controller_state_message;
+mod visual_referee_message;
 
 use std::{
     fmt::{self, Display, Formatter},
@@ -16,6 +17,7 @@ pub use game_controller_state_message::{
     SubState, Team, TeamColor, TeamState,
 };
 use serialize_hierarchy::SerializeHierarchy;
+pub use visual_referee_message::{VisualRefereeDecision, VisualRefereeMessage};
 
 pub type HulkMessage = GameControllerReturnMessage;
 
