@@ -1,31 +1,28 @@
 use levenberg_marquardt::LeastSquaresProblem;
 use nalgebra::{Const, Dyn, Owned, SVector};
-use types::{CameraMatrices, FieldDimensions};
+use types::FieldDimensions;
 
 use crate::{
     corrections::{Corrections, AMOUNT_OF_PARAMETERS},
     jacobian::{calculate_jacobian_from_parameters, Jacobian, JacobianStorage},
-    lines::Lines,
+    measurement::Measurement,
     residuals::{calculate_residuals_from_parameters, Residual, ResidualStorage},
 };
 
 pub struct CalibrationProblem {
     parameters: Corrections,
-    original: CameraMatrices,
-    measurements: Vec<Lines>,
+    measurements: Vec<Measurement>,
     field_dimensions: FieldDimensions,
 }
 
 impl CalibrationProblem {
     pub fn new(
         initial_corrections: Corrections,
-        original: CameraMatrices,
-        measurements: &[Lines],
+        measurements: &[Measurement],
         field_dimensions: FieldDimensions,
     ) -> Self {
         Self {
             parameters: initial_corrections,
-            original,
             measurements: measurements.to_vec(),
             field_dimensions,
         }
@@ -55,7 +52,6 @@ impl LeastSquaresProblem<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>> for CalibrationP
         println!("residuals()");
         calculate_residuals_from_parameters(
             &self.parameters,
-            &self.original,
             &self.measurements,
             &self.field_dimensions,
         )
@@ -65,7 +61,6 @@ impl LeastSquaresProblem<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>> for CalibrationP
         println!("jacobian()");
         calculate_jacobian_from_parameters(
             &self.parameters,
-            &self.original,
             &self.measurements,
             &self.field_dimensions,
         )

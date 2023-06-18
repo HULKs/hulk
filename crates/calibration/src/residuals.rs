@@ -1,11 +1,12 @@
 use std::f32::consts::FRAC_PI_2;
 
 use nalgebra::{DVector, Dyn, Owned, Vector};
-use types::{CameraMatrices, FieldDimensions};
+use types::FieldDimensions;
 
 use crate::{
     corrections::Corrections,
-    lines::{Lines, LinesError, LinesPerCamera},
+    lines::{LinesError, LinesPerCamera},
+    measurement::Measurement,
 };
 
 pub type Residual = Vector<f32, Dyn, ResidualStorage>;
@@ -13,18 +14,17 @@ pub type ResidualStorage = Owned<f32, Dyn>;
 
 pub fn calculate_residuals_from_parameters(
     parameters: &Corrections,
-    matrices: &CameraMatrices,
-    measurements: &[Lines],
+    measurements: &[Measurement],
     field_dimensions: &FieldDimensions,
 ) -> Option<Residual> {
     measurements
         .iter()
         .fold(
             Some(Vec::new()),
-            |residuals: Option<Vec<f32>>, lines| match residuals {
+            |residuals: Option<Vec<f32>>, measurements| match residuals {
                 Some(mut residuals) => {
                     residuals.extend::<Vec<f32>>(
-                        Residuals::calculate_from(parameters, matrices, lines, field_dimensions)
+                        Residuals::calculate_from(parameters, measurements, field_dimensions)
                             .ok()?
                             .into(),
                     );
@@ -44,17 +44,17 @@ pub struct Residuals {
 impl Residuals {
     pub fn calculate_from(
         parameters: &Corrections,
-        original: &CameraMatrices,
-        lines: &Lines,
+        measurement: &Measurement,
         field_dimensions: &FieldDimensions,
     ) -> Result<Self, ResidualsError> {
-        let corrected = original.to_corrected(
+        let corrected = measurement.matrices.to_corrected(
             parameters.correction_in_robot,
             parameters.correction_in_camera_top,
             parameters.correction_in_camera_bottom,
         );
 
-        let projected_lines = lines
+        let projected_lines = measurement
+            .lines
             .to_projected(&corrected)
             .map_err(ResidualsError::NotProjected)?;
 
