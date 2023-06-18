@@ -1,4 +1,4 @@
-use std::{ffi::c_char, time::Duration, slice::from_raw_parts, mem::size_of};
+use std::{ffi::c_char, mem::size_of, slice::from_raw_parts, time::Duration};
 
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};

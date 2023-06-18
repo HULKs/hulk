@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use spl_network_messages::{GameControllerReturnMessage, GameControllerStateMessage, HulkMessage, VisualRefereeMessage};
+use spl_network_messages::{
+    GameControllerReturnMessage, GameControllerStateMessage, HulkMessage, VisualRefereeMessage,
+};
 
 #[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub enum IncomingMessage {
