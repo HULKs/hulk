@@ -60,31 +60,7 @@ pub fn execute(
             }
 
             let walking_direction = Vector2::new(current_step.forward, current_step.left);
-            let path = if walking_direction.norm() < 0.1 {
-                vec![PathSegment::LineSegment(LineSegment(
-                    Point2::origin(),
-                    optimal_interception_point,
-                ))]
-            } else {
-                // If we are moving, we can not change the direction instantaneously without
-                // slowing down. Instead, traverse an Arc with radius dependent on the current
-                // speed until the direction is changed.
-                let arc_radius = walking_direction.norm();
-                let arc = calculate_arc_tangent_to(
-                    walking_direction,
-                    optimal_interception_point.coords,
-                    arc_radius,
-                );
-                let arc_orientation =
-                    Orientation::triangle_orientation(arc.circle.center, arc.start, arc.end);
-
-                let interception_point = optimal_interception_point + (arc.end - arc.circle.center);
-
-                vec![
-                    PathSegment::Arc(arc, arc_orientation),
-                    PathSegment::LineSegment(LineSegment(arc.end, interception_point)),
-                ]
-            };
+            let path = get_interception_path(optimal_interception_point, walking_direction);
 
             Some(MotionCommand::Walk {
                 head: HeadMotion::LookAt {
@@ -121,6 +97,37 @@ fn ball_is_interception_candidate(
         && ball_moving
         && ball_moving_towards_robot
         && ball_moving_towards_own_half
+}
+
+fn get_interception_path(
+    optimal_interception_point: Point2<f32>,
+    walking_direction: Vector2<f32>,
+) -> Vec<PathSegment> {
+    if walking_direction.norm() < 0.1 {
+        vec![PathSegment::LineSegment(LineSegment(
+            Point2::origin(),
+            optimal_interception_point,
+        ))]
+    } else {
+        // If we are moving, we can not change the direction instantaneously without
+        // slowing down. Instead, traverse an Arc with radius dependent on the current
+        // speed until the direction is changed.
+        let arc_radius = walking_direction.norm();
+        let arc = calculate_arc_tangent_to(
+            walking_direction,
+            optimal_interception_point.coords,
+            arc_radius,
+        );
+        let arc_orientation =
+            Orientation::triangle_orientation(arc.circle.center, arc.start, arc.end);
+
+        let interception_point = optimal_interception_point + (arc.end - arc.circle.center);
+
+        vec![
+            PathSegment::Arc(arc, arc_orientation),
+            PathSegment::LineSegment(LineSegment(arc.end, interception_point)),
+        ]
+    }
 }
 
 fn calculate_arc_tangent_to(vector1: Vector2<f32>, vector2: Vector2<f32>, radius: f32) -> Arc {
