@@ -1,18 +1,24 @@
 use nalgebra::Point2;
 use projection::Projection;
-use types::{CameraMatrices, CameraMatrix, Line, Line2};
+use types::{CameraMatrix, Line, Line2};
 
 #[derive(Clone)]
 pub struct Lines {
-    pub top: LinesPerCamera,
-    pub bottom: LinesPerCamera,
+    pub border_line: Line2,
+    pub goal_box_line: Line2,
+    pub connecting_line: Line2,
 }
 
 impl Lines {
-    pub fn to_projected(&self, matrices: &CameraMatrices) -> Result<Self, LinesError> {
-        Ok(Self {
-            top: project_lines_and_map_error(&matrices.top, &self.top, "top")?,
-            bottom: project_lines_and_map_error(&matrices.bottom, &self.bottom, "bottom")?,
+    pub fn to_projected(&self, matrix: &CameraMatrix) -> Result<Self, LinesError> {
+        Ok(Lines {
+            border_line: project_line_and_map_error(matrix, self.border_line, "border line")?,
+            goal_box_line: project_line_and_map_error(matrix, self.goal_box_line, "goal box line")?,
+            connecting_line: project_line_and_map_error(
+                matrix,
+                self.connecting_line,
+                "connecting line",
+            )?,
         })
     }
 }
@@ -24,30 +30,6 @@ pub enum LinesError {
         source: projection::Error,
         which: String,
     },
-}
-
-fn project_lines_and_map_error(
-    matrix: &CameraMatrix,
-    lines: &LinesPerCamera,
-    which: &str,
-) -> Result<LinesPerCamera, LinesError> {
-    Ok(LinesPerCamera {
-        border_line: project_line_and_map_error(
-            matrix,
-            lines.border_line,
-            &format!("{which} border line"),
-        )?,
-        goal_box_line: project_line_and_map_error(
-            matrix,
-            lines.goal_box_line,
-            &format!("{which} goal box line"),
-        )?,
-        connecting_line: project_line_and_map_error(
-            matrix,
-            lines.connecting_line,
-            &format!("{which} connecting line"),
-        )?,
-    })
 }
 
 fn project_line_and_map_error(
@@ -72,11 +54,4 @@ fn project_point_and_map_error(
             source,
             which: which.to_string(),
         })
-}
-
-#[derive(Clone)]
-pub struct LinesPerCamera {
-    pub border_line: Line2,
-    pub goal_box_line: Line2,
-    pub connecting_line: Line2,
 }
