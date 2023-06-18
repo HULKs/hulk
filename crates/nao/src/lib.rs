@@ -1,15 +1,18 @@
 use std::{
     fmt::{self, Display, Formatter},
-    net::{IpAddr, Ipv4Addr},
+    net::Ipv4Addr,
     path::Path,
     time::Duration,
 };
 
 use color_eyre::{
     eyre::{bail, eyre, WrapErr},
-    Report, Result,
+    Result,
 };
-use tokio::{process::Command, time};
+use tokio::{
+    process::Command,
+    time::{self},
+};
 
 pub const PING_TIMEOUT: Duration = Duration::from_secs(2);
 pub const PING_RETRIES: usize = 2;
@@ -32,18 +35,18 @@ impl Nao {
         retries: usize,
         timeout: Duration,
     ) -> Result<Self> {
-        let pinger = async {
-            for _ in 0..retries {
-                if surge_ping::ping(IpAddr::V4(host), &[]).await.is_ok() {
-                    return Ok(Nao::new(host));
-                };
-            }
-            bail!("No route to {host}")
-        };
-
-        time::timeout(timeout, pinger)
-            .await
-            .map_err(|_| Report::msg(format!("No route to {host}")))?
+        match time::timeout(
+            timeout,
+            Command::new("ping")
+                .arg(format!("-c {retries}"))
+                .arg(host.to_string())
+                .output(),
+        )
+        .await
+        {
+            Ok(Ok(output)) if output.status.success() => Ok(Self::new(host)),
+            _ => bail!("No route to {host}"),
+        }
     }
 
     pub async fn get_os_version(&self) -> Result<String> {
