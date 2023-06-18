@@ -56,7 +56,7 @@ impl VisualRefereeFilter {
 
         // A random visual referee decision
         let mut rng = thread_rng();
-        let gesture = VisualRefereeDecision::from_u32(rng.gen_range(0..13)).unwrap();
+        let gesture = VisualRefereeDecision::from_u32(rng.gen_range(1..=13)).unwrap();
 
         if send_game_controller_vr_return_message {
             let duration_since_last_whistle = context
