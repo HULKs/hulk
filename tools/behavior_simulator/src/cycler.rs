@@ -24,7 +24,7 @@ use framework::{AdditionalOutput, PerceptionInput};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::sync::Notify;
-use types::messages::IncomingMessage;
+use types::{messages::IncomingMessage, Step};
 
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Database {
@@ -334,6 +334,12 @@ impl BehaviorCycler {
                     lost_ball_parameters: &parameters.behavior.lost_ball,
                     intercept_ball_parameters: &parameters.behavior.intercept_ball,
                     has_ground_contact: &true,
+                    current_step: &mut Step {
+                        forward: 0.0,
+                        left: 0.0,
+                        turn: 0.0,
+                    },
+                    maximum_step_size: &configuration.step_planner.max_step_size,
                 })
                 .wrap_err("failed to execute cycle of node `Behavior`")?;
             own_database.main_outputs.motion_command = main_outputs.motion_command.value;
