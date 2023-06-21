@@ -16,9 +16,7 @@ pub struct VisualRefereeFilter {
 }
 
 #[context]
-pub struct CreationContext {
-    pub player_number: Parameter<PlayerNumber, "player_number">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
