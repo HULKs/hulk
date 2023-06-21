@@ -57,7 +57,7 @@ impl VisualRefereeFilter {
         let gesture = VisualRefereeDecision::from_u32(rng.gen_range(1..=13)).unwrap();
 
         if send_game_controller_visual_referee_return_message {
-            let duration_since_last_whistle = context
+            let mut duration_since_last_whistle = context
                 .filtered_whistle
                 .last_detection
                 .map(|last_detection| {
@@ -68,6 +68,9 @@ impl VisualRefereeFilter {
                         .unwrap()
                 })
                 .unwrap_or(Duration::from_secs(15));
+            if duration_since_last_whistle.as_secs_f32() < 1.0 {
+                duration_since_last_whistle = Duration::from_secs(5)
+            }
             let message = OutgoingMessage::VisualReferee(VisualRefereeMessage {
                 player_number: *context.player_number,
                 gesture,
