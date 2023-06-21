@@ -52,7 +52,10 @@ pub async fn cargo(arguments: Arguments, repository: &Repository, command: Comma
                 command.arg("--");
                 command.args(arguments.passthrough_arguments);
 
-                command.status().await.wrap_err("failed to execute remote script")?;
+                command
+                    .status()
+                    .await
+                    .wrap_err("failed to execute remote script")?;
 
                 return Ok(());
             }
