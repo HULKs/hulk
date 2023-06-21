@@ -85,23 +85,9 @@ impl Endpoint {
     pub async fn write(&self, message: OutgoingMessage) {
         match message {
             OutgoingMessage::GameController(message) => {
-                let last_game_controller_address = *self.last_game_controller_address.lock().await;
-                if let Some(last_game_controller_address) = last_game_controller_address {
-                    let message: Vec<u8> = message.into();
-                    if let Err(error) = self
-                        .game_controller_state_socket
-                        .send_to(
-                            message.as_slice(),
-                            SocketAddr::new(
-                                last_game_controller_address.ip(),
-                                self.ports.game_controller_return,
-                            ),
-                        )
-                        .await
-                    {
-                        warn!("Failed to send UDP datagram to GameController: {error:?}")
-                    }
-                }
+                let message: Vec<u8> = message.into();
+                self.send_game_controller_visual_referee_message(message)
+                    .await;
             }
             OutgoingMessage::Spl(message) => {
                 let message: Vec<u8> = message.into();
@@ -117,25 +103,29 @@ impl Endpoint {
                 }
             }
             OutgoingMessage::VisualReferee(message) => {
-                let last_game_controller_address = *self.last_game_controller_address.lock().await;
-                if let Some(last_game_controller_address) = last_game_controller_address {
-                    let message: Vec<u8> = message.into();
-                    if let Err(error) = self
-                        .game_controller_state_socket
-                        .send_to(
-                            message.as_slice(),
-                            SocketAddr::new(
-                                last_game_controller_address.ip(),
-                                self.ports.game_controller_return,
-                            ),
-                        )
-                        .await
-                    {
-                        warn!("Failed to send UDP datagram to GameController: {error:?}")
-                    }
-                }
+                let message: Vec<u8> = message.into();
+                self.send_game_controller_visual_referee_message(message)
+                    .await;
             }
         };
+    }
+    async fn send_game_controller_visual_referee_message(&self, message: Vec<u8>) {
+        let last_game_controller_address = *self.last_game_controller_address.lock().await;
+        if let Some(last_game_controller_address) = last_game_controller_address {
+            if let Err(error) = self
+                .game_controller_state_socket
+                .send_to(
+                    message.as_slice(),
+                    SocketAddr::new(
+                        last_game_controller_address.ip(),
+                        self.ports.game_controller_return,
+                    ),
+                )
+                .await
+            {
+                warn!("Failed to send UDP datagram to GameController: {error:?}")
+            }
+        }
     }
 }
 
