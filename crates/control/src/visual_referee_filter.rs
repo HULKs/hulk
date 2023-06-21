@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
-use framework::MainOutput;
 use spl_network_messages::VisualRefereeDecision;
 use spl_network_messages::{PlayerNumber, VisualRefereeMessage};
 use types::{
@@ -28,12 +27,6 @@ pub struct CycleContext {
     pub hardware: HardwareInterface,
 }
 
-#[context]
-#[derive(Default)]
-pub struct MainOutputs {
-    pub last_primary_state: MainOutput<Option<PrimaryState>>,
-}
-
 impl VisualRefereeFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
@@ -52,7 +45,7 @@ impl VisualRefereeFilter {
         );
         self.last_primary_state = *context.primary_state;
 
-        // A random visual referee decision
+        // Initially a random visual referee decision
         let mut rng = thread_rng();
         let gesture = VisualRefereeDecision::from_u32(rng.gen_range(1..=13)).unwrap();
 
@@ -76,11 +69,10 @@ impl VisualRefereeFilter {
                 gesture,
                 whistle_age: duration_since_last_whistle,
             });
-            context
+            let _ = context
                 .hardware
                 .write_to_network(message)
-                .wrap_err("failed to write VisualRefereeMessage to hardware")?;
+                .wrap_err("failed to write VisualRefereeMessage to hardware");
         }
-        Ok(MainOutputs::default())
     }
 }
