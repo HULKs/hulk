@@ -209,6 +209,8 @@ mod tests {
             assert_eq!(*slot, 42);
         }
         {
+            // clippy bug, remove once fix is released
+            // https://github.com/rust-lang/rust-clippy/issues/10893
             #[allow(clippy::redundant_clone)]
             let reader2 = reader.clone();
             let slot = reader2.next();
@@ -219,6 +221,8 @@ mod tests {
             *slot = 1337;
         }
         {
+            // clippy bug, remove once fix is released
+            // https://github.com/rust-lang/rust-clippy/issues/10893
             #[allow(clippy::redundant_clone)]
             let reader3 = reader.clone();
             let slot = reader3.next();
