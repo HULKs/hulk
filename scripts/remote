@@ -37,18 +37,13 @@ echo Using remote $(tput setaf 6)$remote$(tput sgr 0)
 # assumes remote url of this format: `ssh://user@domain/path/to/hulks/repo.git`
 remoteURL=$(git remote get-url $remote)
 address=$(echo $remoteURL | cut -d'/' -f 3)
-remotePath=/$(echo $remoteURL | cut -d'/' -f 4- | sed 's/\.git/\//')
+remoteGitPath=/$(echo $remoteURL | cut -d'/' -f 4-)
+remotePath=$(echo $remoteGitPath | sed 's/\.git/\//')
 
-# save current state in commits, aka. "gwip"
-git add -A
-git rm $(git ls-files --deleted) 2> /dev/null
-git commit --no-verify --no-gpg-sign --allow-empty -m "--wip--RemoteCompile [skip ci]"
-
-# push everything to compiler slave
+# push HEAD to compiler remote
 git push $remote HEAD:main --force --no-verify
-
-# restore previous state, aka. "gunwip"
-git log -n 1 | grep -q -c "\--wip--RemoteCompile" && git reset HEAD~1
+# send all changes that aren't uncommitted yet
+git status -s | cut -c 4- | rsync -a --delete-missing-args --files-from=- "$BASEDIR" $address:$remotePath
 
 # invoke compile script remotely
 ssh $address "source ~/.profile; cd $remotePath && $@"
