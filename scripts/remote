@@ -1,36 +1,56 @@
 #!/bin/bash
 
-# Get base directory for better referencing
+# cd to repository base directory for better referencing
 BASEDIR=`cd $(dirname $0); pwd -P`
 BASEDIR=${BASEDIR%/*}
+cd "$BASEDIR"
 
 # print help
-case $1 in
-    -[h?] | --help)
-        cat <<-__helpText__
-Usage: $0 [--help] [remote] [command]
+print_help() {
+    cat <<-__helpText__
+Usage: $0 [OPTIONS] <Command>
 
-Pushes local changes a remote repository and executes a command there.
-Afterwards, build artifacts are rsync'ed back.
+Send local changes to a remote repository and execute a command there.
+Optionally, files can be rsync'ed back after.
 
-remote:  The git remote to use
 command: Command to execute on the remote machine
          Example: \`$0 ./pepsi build\`
+
+Options:
+
+  --remote <remote>     The git remote to use
+  --return-file <file>  Path of file to be returned.
+                        The file path must be relative to the repository.
 
 This script assumes at least one git remote to exist with an url similar to this:
 
     \`ssh://user@domain/path/to/hulks/repo.git\`
 __helpText__
-        exit
-esac
+}
 
-# if the first parameter is the name of a valid remote, use it as the compiler
 remote=compiler
-if git remote get-url $1 &> /dev/null;
-then
-    remote=$1
+files=()
+while true; do
+    case "$1" in
+        -[h?] | --help)
+            print_help
+            exit
+            ;;
+        --remote)
+            shift
+            remote=$1
+            ;;
+        --return-file)
+            shift
+            files+=($1)
+            ;;
+
+        *)
+            break
+            ;;
+    esac
     shift
-fi
+done
 echo Using remote $(tput setaf 6)$remote$(tput sgr 0)
 
 # extract login information and remote path from git remote
@@ -45,11 +65,13 @@ git push $remote HEAD:main --force --no-verify
 # check out pushed branch on the remote
 ssh $address "git --work-tree=$remotePath --git-dir=$remoteGitPath checkout -f main"
 # send all changes that aren't uncommitted yet
-git status -s | cut -c 4- | rsync -a --delete-missing-args --files-from=- "$BASEDIR" $address:$remotePath
+git status -s | cut -c 4- | rsync -a --info=progress --delete-missing-args --files-from=- . $address:$remotePath
 
 # invoke compile script remotely
 ssh $address "source ~/.profile; cd $remotePath && $@"
 
-# fetch compilation results
-rsync -a --info=progress $address:$remotePath'target' . --include="*/" --include="nao" --include="webots" --exclude="*"
+# fetch results
+echo Returning files
+printf '  %s\n' "${files[@]}"
+printf '%s\n' "${files[@]}" | rsync -a --info=progress --files-from=- $address:$remotePath .
 
