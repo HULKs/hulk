@@ -35,6 +35,20 @@ pub async fn cargo(arguments: Arguments, repository: &Repository, command: Comma
         match command {
             Command::Build => {
                 let mut command = TokioCommand::new("./scripts/remote");
+
+                let profile_name = match arguments.profile.as_str() {
+                    "dev" => "debug",
+                    other => other,
+                };
+                let toolchain_name = match arguments.target.as_str() {
+                    "nao" => "x86_64-aldebaran-linux-gnu/",
+                    _ => "",
+                };
+                command.args([
+                    "--return-file",
+                    &format!("target/{toolchain_name}{profile_name}/{}", arguments.target),
+                ]);
+
                 command
                     .arg("pepsi")
                     .arg("build")
