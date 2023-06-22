@@ -19,7 +19,7 @@ command: Command to execute on the remote machine
 
 This script assumes at least one git remote to exist with an url similar to this:
 
-    \`ssh://user@domain/path/to/nao/repo.git\`
+    \`ssh://user@domain/path/to/hulks/repo.git\`
 __helpText__
         exit
 esac
@@ -34,7 +34,7 @@ fi
 echo Using remote $(tput setaf 6)$remote$(tput sgr 0)
 
 # extract login information and remote path from git remote
-# assumes remote url of this format: `ssh://user@domain/path/to/nao/repo.git`
+# assumes remote url of this format: `ssh://user@domain/path/to/hulks/repo.git`
 remoteURL=$(git remote get-url $remote)
 address=$(echo $remoteURL | cut -d'/' -f 3)
 remotePath=/$(echo $remoteURL | cut -d'/' -f 4- | sed 's/\.git/\//')
@@ -51,7 +51,7 @@ git push $remote HEAD:main --force --no-verify
 git log -n 1 | grep -q -c "\--wip--RemoteCompile" && git reset HEAD~1
 
 # invoke compile script remotely
-ssh $address "source ~/.profile && cd $remotePath && $@"
+ssh $address "source ~/.profile; cd $remotePath && $@"
 
 # fetch compilation results
 rsync -a --info=progress $address:$remotePath'target' . --include="*/" --include="nao" --include="webots" --exclude="*"
