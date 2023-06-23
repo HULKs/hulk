@@ -1,4 +1,4 @@
-use std::{iter::once, ops::Range};
+use std::{iter::once, ops::RangeInclusive};
 
 use communication::messages::Fields;
 use eframe::egui::{
@@ -44,7 +44,7 @@ impl<'key> CompletionEdit<'key> {
         }
     }
 
-    pub fn addresses(key: &'key mut String, numbers: Range<u8>) -> Self {
+    pub fn addresses(key: &'key mut String, numbers: RangeInclusive<u8>) -> Self {
         let completion_items = chain!(
             once("localhost".to_string()),
             numbers.clone().map(|number| format!("10.1.24.{number}")),
