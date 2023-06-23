@@ -9,11 +9,6 @@ use threadbound::ThreadBound;
 pub enum Error {
     #[error("failed to perform io on `{path}`")]
     Io { source: io::Error, path: PathBuf },
-    #[error("cannot parse configuration file at `{path}`")]
-    ConfigurationParsing {
-        source: toml::de::Error,
-        path: PathBuf,
-    },
     #[error("failed to parse rust at {path}:{caused_by}")]
     RustParse {
         caused_by: ParseError,
