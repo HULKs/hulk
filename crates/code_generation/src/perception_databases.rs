@@ -22,7 +22,7 @@ fn generate_perception_updates(cyclers: &Cyclers) -> TokenStream {
             }
         })
         .peekable();
-    let find_min_timestamp = if timestamp_array_items.peek().is_some() {
+    let find_earliest_timestamp = if timestamp_array_items.peek().is_some() {
         quote! {
                 [
                     #(#timestamp_array_items,)*
@@ -59,7 +59,7 @@ fn generate_perception_updates(cyclers: &Cyclers) -> TokenStream {
 
         impl framework::Updates<Databases> for Updates {
             fn first_timestamp_of_temporary_databases(&self) -> Option<std::time::SystemTime> {
-                #find_min_timestamp
+                #find_earliest_timestamp
             }
 
             fn push_to_databases(self, databases: &mut std::collections::BTreeMap<std::time::SystemTime, Databases>) {
