@@ -18,11 +18,6 @@ pub type InstanceName = String;
 pub type OutputName = String;
 
 #[derive(Debug)]
-pub struct Instance {
-    pub name: InstanceName,
-}
-
-#[derive(Debug)]
 pub struct Cyclers {
     pub cyclers: Vec<Cycler>,
 }
@@ -54,7 +49,7 @@ impl Cyclers {
             .sum()
     }
 
-    pub fn instances(&self) -> impl Iterator<Item = (&Cycler, &Instance)> {
+    pub fn instances(&self) -> impl Iterator<Item = (&Cycler, &InstanceName)> {
         self.cyclers.iter().flat_map(move |cycler| {
             cycler
                 .instances
@@ -63,7 +58,10 @@ impl Cyclers {
         })
     }
 
-    pub fn instances_with(&self, kind: CyclerKind) -> impl Iterator<Item = (&Cycler, &Instance)> {
+    pub fn instances_with(
+        &self,
+        kind: CyclerKind,
+    ) -> impl Iterator<Item = (&Cycler, &InstanceName)> {
         self.cyclers
             .iter()
             .filter(move |cycler| cycler.kind == kind)
@@ -96,7 +94,7 @@ pub enum CyclerKind {
 pub struct Cycler {
     pub name: CyclerName,
     pub kind: CyclerKind,
-    pub instances: Vec<Instance>,
+    pub instances: Vec<InstanceName>,
     pub setup_nodes: Vec<Node>,
     pub cycle_nodes: Vec<Node>,
 }
@@ -106,9 +104,7 @@ impl Cycler {
         let instances = cycler_manifest
             .instances
             .iter()
-            .map(|instance_name| Instance {
-                name: format!("{}{}", cycler_manifest.name, instance_name),
-            })
+            .map(|instance_name| format!("{}{}", cycler_manifest.name, instance_name))
             .collect();
         let setup_nodes = cycler_manifest
             .setup_nodes

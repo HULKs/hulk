@@ -28,12 +28,12 @@ pub fn path_to_accessor_token_stream(
     }
     if path.contains_variable() {
         let variants = cycler.instances.iter().map(|instance| {
-            let instance_name = format_ident!("{}", instance.name);
+            let instance_name = format_ident!("{}", instance);
             let accessor_path = path_to_accessor_token_stream_with_cycler_instance(
                 prefix.clone(),
                 path,
                 reference_type,
-                Some(&instance.name),
+                Some(instance),
             );
             quote! {
                 CyclerInstance::#instance_name => #accessor_path,
@@ -88,7 +88,7 @@ mod tests {
     use super::*;
 
     use quote::quote;
-    use source_analyzer::cyclers::{CyclerKind, Instance};
+    use source_analyzer::cyclers::CyclerKind;
 
     #[test]
     fn paths_with_optionals_result_in_correct_accessor_token_streams() {
@@ -287,14 +287,7 @@ mod tests {
         let cycler = Cycler {
             name: "TestCycler".to_string(),
             kind: CyclerKind::RealTime,
-            instances: vec![
-                Instance {
-                    name: "InstanceA".to_string(),
-                },
-                Instance {
-                    name: "InstanceB".to_string(),
-                },
-            ],
+            instances: vec!["InstanceA".to_string(), "InstanceB".to_string()],
             setup_nodes: vec![],
             cycle_nodes: vec![],
         };

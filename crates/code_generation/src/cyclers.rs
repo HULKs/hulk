@@ -49,7 +49,7 @@ fn generate_cycler_instance(cycler: &Cycler) -> TokenStream {
     let instances = cycler
         .instances
         .iter()
-        .map(|instance| format_ident!("{}", instance.name));
+        .map(|instance| format_ident!("{}", instance));
     quote! {
         #[derive(Clone, Copy, Debug)]
         pub(crate) enum CyclerInstance {
@@ -120,7 +120,7 @@ fn generate_reader_fields(cyclers: &Cyclers) -> TokenStream {
     cyclers
         .instances_with(CyclerKind::RealTime)
         .map(|(cycler, instance)| {
-            let field_name = format_ident!("{}_reader", instance.name.to_case(Case::Snake));
+            let field_name = format_ident!("{}_reader", instance.to_case(Case::Snake));
             let cycler_module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
 
             quote! {
@@ -134,7 +134,7 @@ fn generate_consumer_fields(cyclers: &Cyclers) -> TokenStream {
     cyclers
         .instances_with(CyclerKind::Perception)
         .map(|(cycler, instance)| {
-            let field_name = format_ident!("{}_consumer", instance.name.to_case(Case::Snake));
+            let field_name = format_ident!("{}_consumer", instance.to_case(Case::Snake));
             let cycler_module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
 
             quote! {
@@ -311,14 +311,14 @@ fn generate_input_output_identifiers(cycler: &Cycler, cyclers: &Cyclers) -> Toke
 fn generate_reader_identifiers(cyclers: &Cyclers) -> Vec<Ident> {
     cyclers
         .instances_with(CyclerKind::RealTime)
-        .map(|(_cycler, instance)| format_ident!("{}_reader", instance.name.to_case(Case::Snake)))
+        .map(|(_cycler, instance)| format_ident!("{}_reader", instance.to_case(Case::Snake)))
         .collect()
 }
 
 fn generate_consumer_identifiers(cyclers: &Cyclers) -> Vec<Ident> {
     cyclers
         .instances_with(CyclerKind::Perception)
-        .map(|(_cycler, instance)| format_ident!("{}_consumer", instance.name.to_case(Case::Snake)))
+        .map(|(_cycler, instance)| format_ident!("{}_consumer", instance.to_case(Case::Snake)))
         .collect()
 }
 
@@ -378,8 +378,8 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
         CyclerKind::Perception => cyclers
             .instances_with(CyclerKind::RealTime)
             .map(|(_cycler, instance)| {
-                let reader = format_ident!("{}_reader", instance.name.to_case(Case::Snake));
-                let database = format_ident!("{}_database", instance.name.to_case(Case::Snake));
+                let reader = format_ident!("{}_reader", instance.to_case(Case::Snake));
+                let database = format_ident!("{}_database", instance.to_case(Case::Snake));
                 quote! {
                     let #database = self.#reader.next();
                 }
@@ -442,7 +442,7 @@ fn generate_perception_cycler_updates(cyclers: &Cyclers) -> TokenStream {
     cyclers
         .instances_with(CyclerKind::Perception)
         .map(|(_cycler, instance)| {
-            let identifier = format_ident!("{}", instance.name.to_case(Case::Snake));
+            let identifier = format_ident!("{}", instance.to_case(Case::Snake));
             let consumer = format_ident!("{}_consumer", identifier);
             quote! {
                 #identifier: self.#consumer.consume(now),
