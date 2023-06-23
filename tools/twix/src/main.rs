@@ -252,7 +252,7 @@ impl App for TwixApp {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                     let address_input =
-                        CompletionEdit::addresses(&mut self.ip_address, 21..34).ui(ui);
+                        CompletionEdit::addresses(&mut self.ip_address, 21..=33).ui(ui);
                     if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::O)) {
                         address_input.request_focus();
                         CompletionEdit::select_all(&self.ip_address, ui, address_input.id);
