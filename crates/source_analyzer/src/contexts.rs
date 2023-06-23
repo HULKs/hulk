@@ -17,10 +17,14 @@ pub struct Contexts {
 impl Contexts {
     pub fn try_from_file(file: &File) -> Result<Self, ParseError> {
         let uses = uses_from_file(file);
-        if !exactly_one_context_struct_with_name_exists(file, "CreationContext") ||
-            !exactly_one_context_struct_with_name_exists(file, "CycleContext") ||
-            !exactly_one_context_struct_with_name_exists(file, "MainOutputs") {
-            return Err(ParseError::new_spanned(file, "expected exactly one `CreationContext`, `CycleContext`, and `MainOutputs`"));
+        if !exactly_one_context_struct_with_name_exists(file, "CreationContext")
+            || !exactly_one_context_struct_with_name_exists(file, "CycleContext")
+            || !exactly_one_context_struct_with_name_exists(file, "MainOutputs")
+        {
+            return Err(ParseError::new_spanned(
+                file,
+                "expected exactly one `CreationContext`, `CycleContext`, and `MainOutputs`",
+            ));
         }
         let mut creation_context = vec![];
         let mut cycle_context = vec![];
@@ -67,22 +71,26 @@ impl Contexts {
 }
 
 fn exactly_one_context_struct_with_name_exists(file: &File, name: &str) -> bool {
-    file
-        .items
+    file.items
         .iter()
-        .filter(|item| matches!(
-            item,
-            Item::Struct(item) if item
-                .attrs
-                .iter()
-                .filter_map(|attribute| attribute.path.get_ident())
-                .any(|identifier| identifier == "context")
-        ))
-        .filter(|item| matches!(
-            item,
-            Item::Struct(item) if item.ident == name
-        ))
-        .count() == 1
+        .filter(|item| {
+            matches!(
+                item,
+                Item::Struct(item) if item
+                    .attrs
+                    .iter()
+                    .filter_map(|attribute| attribute.path.get_ident())
+                    .any(|identifier| identifier == "context")
+            )
+        })
+        .filter(|item| {
+            matches!(
+                item,
+                Item::Struct(item) if item.ident == name
+            )
+        })
+        .count()
+        == 1
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
