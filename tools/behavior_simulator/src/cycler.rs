@@ -29,8 +29,8 @@ pub struct Database {
     pub additional_outputs: AdditionalOutputs,
 }
 
-pub struct BehaviorCycler<Interface> {
-    hardware_interface: Arc<Interface>,
+pub struct BehaviorCycler {
+    hardware_interface: Arc<Interfake>,
     own_changed: Arc<Notify>,
     active_vision: ActiveVision,
     ball_state_composer: BallStateComposer,
@@ -42,7 +42,7 @@ pub struct BehaviorCycler<Interface> {
     world_state_composer: WorldStateComposer,
 }
 
-impl BehaviorCycler<Interfake> {
+impl BehaviorCycler {
     pub fn new(
         hardware_interface: Arc<Interfake>,
         own_changed: Arc<Notify>,

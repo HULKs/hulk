@@ -568,6 +568,7 @@ dependencies = [
  "fern",
  "framework",
  "hardware",
+ "ittapi",
  "log",
  "mlua",
  "nalgebra",

@@ -1,19 +1,45 @@
-use code_generation::{collect_watch_paths, structs::generate_structs, write_to_file::WriteToFile};
+use code_generation::{generate, write_to_file::WriteToFile};
 use color_eyre::eyre::{Result, WrapErr};
-use source_analyzer::{cyclers::Cyclers, manifest::FrameworkManifest, structs::Structs};
+use source_analyzer::{
+    cyclers::{CyclerKind, Cyclers},
+    manifest::{CyclerManifest, FrameworkManifest},
+    pretty::to_string_pretty,
+    structs::Structs,
+};
 
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=framework.toml");
-    let manifest = FrameworkManifest::try_from_toml("framework.toml")?;
+    let manifest = FrameworkManifest {
+        cyclers: vec![CyclerManifest {
+            name: "Control",
+            kind: CyclerKind::RealTime,
+            instances: vec![""],
+            setup_nodes: vec!["control::fake_data"],
+            nodes: vec![
+                "control::active_vision",
+                "control::ball_state_composer",
+                "control::behavior::node",
+                "control::kick_selector",
+                "control::motion::look_around",
+                "control::role_assignment",
+                "control::rule_obstacle_composer",
+                "control::world_state_composer",
+            ],
+        }],
+    };
     let root = "../../crates/";
 
-    for path in collect_watch_paths(&manifest) {
-        println!("cargo:rerun-if-changed={root}/{}", path.display());
+    let mut cyclers = Cyclers::try_from_manifest(manifest, root)?;
+    for path in cyclers.watch_paths() {
+        println!("cargo:rerun-if-changed={}", path.display());
     }
+    cyclers.sort_nodes()?;
 
-    let cyclers = Cyclers::try_from_manifest(manifest, root)?;
+    println!();
+    println!("{}", to_string_pretty(&cyclers)?);
+
     let structs = Structs::try_from_cyclers(&cyclers)?;
-    generate_structs(&structs)
-        .write_to_file("generated_structs.rs")
-        .wrap_err("failed to write generated framework to file")
+    generate(&cyclers, &structs)
+        .write_to_file("generated_code.rs")
+        .wrap_err("failed to write generated code to file")
 }

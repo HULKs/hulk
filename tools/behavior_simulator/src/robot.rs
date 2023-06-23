@@ -15,7 +15,7 @@ use crate::{
 
 pub struct Robot {
     pub interface: Arc<Interfake>,
-    pub cycler: BehaviorCycler<Interfake>,
+    pub cycler: BehaviorCycler,
     pub database: Database,
     pub configuration: Configuration,
     pub is_penalized: bool,
