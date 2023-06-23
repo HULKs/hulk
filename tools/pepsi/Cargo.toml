@@ -14,7 +14,6 @@ color-eyre = { workspace = true }
 constants = { workspace = true }
 futures-util = { workspace = true }
 indicatif = { workspace = true }
-itertools = { workspace = true }
 nao = { workspace = true }
 regex = { workspace = true }
 repository = { workspace = true }
