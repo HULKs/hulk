@@ -217,10 +217,7 @@ fn sort_nodes(
         }
     }
 
-    let mut sorted_nodes = Vec::new();
-    while let Some(node) = topological_sort.pop() {
-        sorted_nodes.push(node.clone());
-    }
+    let sorted_nodes = topological_sort.by_ref().cloned().collect();
     if !topological_sort.is_empty() {
         return Err(Error::CircularDependency);
     }
