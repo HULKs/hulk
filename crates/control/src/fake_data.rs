@@ -4,14 +4,18 @@ use framework::MainOutput;
 use nalgebra::Isometry2;
 use spl_network_messages::HulkMessage;
 use types::{
-    BallPosition, CycleTime, FallState, FilteredGameState, GameControllerState, Obstacle,
-    PenaltyShotDirection, PrimaryState,
+    configuration::CameraMatrixParameters, BallPosition, CycleTime, FallState, FilteredGameState,
+    GameControllerState, HeadJoints, Obstacle, PenaltyShotDirection, PrimaryState, SensorData,
 };
 
 pub struct FakeData {}
 
 #[context]
-pub struct CreationContext {}
+pub struct CreationContext {
+    pub maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
+    pub top_camera_matrix_parameters:
+        Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
+}
 
 #[context]
 pub struct CycleContext {}
@@ -30,6 +34,7 @@ pub struct MainOutputs {
     pub penalty_shot_direction: MainOutput<Option<PenaltyShotDirection>>,
     pub primary_state: MainOutput<PrimaryState>,
     pub robot_to_field: MainOutput<Option<Isometry2<f32>>>,
+    pub sensor_data: MainOutput<SensorData>,
 }
 
 impl FakeData {

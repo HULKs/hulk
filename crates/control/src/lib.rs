@@ -7,6 +7,7 @@ pub mod behavior_simulator_setup;
 pub mod button_filter;
 pub mod camera_matrix_calculator;
 pub mod center_of_mass_provider;
+pub mod fake_data;
 pub mod fall_state_estimation;
 pub mod game_controller_filter;
 pub mod game_state_filter;

@@ -8,17 +8,29 @@ use log::LevelFilter;
 use tokio_util::sync::CancellationToken;
 
 mod cycler;
-#[allow(dead_code)]
-mod fake_data;
 mod interfake;
 mod robot;
 mod server;
 mod simulator;
 mod state;
 
-mod structs {
-    include!(concat!(env!("OUT_DIR"), "/generated_structs.rs"));
+use hardware::{
+    ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
+    SensorInterface, TimeInterface,
+};
+
+pub trait HardwareInterface:
+    TimeInterface
+    + SensorInterface
+    + MicrophoneInterface
+    + IdInterface
+    + ActuatorInterface
+    + NetworkInterface
+    + CameraInterface
+{
 }
+
+include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
 
 #[derive(Parser)]
 struct Arguments {

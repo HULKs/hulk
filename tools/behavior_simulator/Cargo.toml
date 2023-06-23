@@ -17,6 +17,7 @@ ctrlc = { workspace = true }
 fern = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }
+ittapi = { workspace = true }
 log = { workspace = true }
 mlua = { workspace = true }
 nalgebra = { workspace = true }
