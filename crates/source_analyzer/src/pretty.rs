@@ -2,7 +2,7 @@ use std::fmt::{self, Write};
 
 use crate::{
     contexts::{Contexts, Field},
-    cyclers::{Cycler, Cyclers, Instance},
+    cyclers::{Cycler, Cyclers},
     node::Node,
 };
 
@@ -16,9 +16,9 @@ pub trait ToWriterPretty {
     fn to_writer_pretty(&self, f: &mut impl Write) -> fmt::Result;
 }
 
-impl ToWriterPretty for Instance {
+impl ToWriterPretty for String {
     fn to_writer_pretty(&self, f: &mut impl Write) -> fmt::Result {
-        write!(f, "{}", self.name)
+        write!(f, "{}", self)
     }
 }
 

@@ -37,7 +37,7 @@ impl Path {
                     .map(|segment| {
                         if segment.is_variable {
                             PathSegment {
-                                name: instance.name.to_case(Case::Snake),
+                                name: instance.to_case(Case::Snake),
                                 is_optional: segment.is_optional,
                                 is_variable: false,
                             }
