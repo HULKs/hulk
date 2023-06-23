@@ -7,9 +7,9 @@ use threadbound::ThreadBound;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("failed to perform io on `{path}`")]
+    #[error("failed to perform IO on `{path}`")]
     Io { source: io::Error, path: PathBuf },
-    #[error("failed to parse rust at {path}:{caused_by}")]
+    #[error("failed to parse Rust at {path}:{caused_by}")]
     RustParse {
         caused_by: ParseError,
         path: PathBuf,
