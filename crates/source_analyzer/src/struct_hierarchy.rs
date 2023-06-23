@@ -16,8 +16,8 @@ pub enum StructHierarchy {
     },
 }
 
-impl StructHierarchy {
-    pub fn new_struct() -> Self {
+impl Default for StructHierarchy {
+    fn default() -> Self {
         Self::Struct {
             fields: Default::default(),
         }
@@ -60,16 +60,14 @@ impl StructHierarchy {
         match self {
             StructHierarchy::Struct { fields } => match rule {
                 InsertionRule::InsertField { name } => {
-                    let field = fields
-                        .entry(name)
-                        .or_insert_with(StructHierarchy::new_struct);
+                    let field = fields.entry(name).or_default();
                     field.insert(insertion_rules)?;
                 }
                 InsertionRule::BeginOptional => {
                     if !fields.is_empty() {
                         return Err(HierarchyError::OptionalForStruct);
                     }
-                    let mut child = StructHierarchy::new_struct();
+                    let mut child = StructHierarchy::default();
                     child.insert(insertion_rules)?;
                     *self = StructHierarchy::Optional {
                         child: Box::new(child),

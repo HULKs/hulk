@@ -22,19 +22,10 @@ pub enum Error {
     UnexpectedField(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Structs {
     pub configuration: StructHierarchy,
     pub cyclers: BTreeMap<CyclerName, CyclerStructs>,
-}
-
-impl Default for Structs {
-    fn default() -> Self {
-        Self {
-            configuration: StructHierarchy::new_struct(),
-            cyclers: Default::default(),
-        }
-    }
 }
 
 impl Structs {
@@ -134,21 +125,11 @@ fn add_main_outputs(field: &Field, cycler_structs: &mut CyclerStructs) {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CyclerStructs {
     pub main_outputs: StructHierarchy,
     pub additional_outputs: StructHierarchy,
     pub persistent_state: StructHierarchy,
-}
-
-impl Default for CyclerStructs {
-    fn default() -> Self {
-        Self {
-            main_outputs: StructHierarchy::new_struct(),
-            additional_outputs: StructHierarchy::new_struct(),
-            persistent_state: StructHierarchy::new_struct(),
-        }
-    }
 }
 
 fn path_to_insertion_rules<'a>(
@@ -385,7 +366,7 @@ mod tests {
                 data_type: data_type.clone(),
             },
         ];
-        let mut hierarchy = StructHierarchy::new_struct();
+        let mut hierarchy = StructHierarchy::default();
         hierarchy.insert(insertion_rules).unwrap();
 
         let StructHierarchy::Struct { fields } = &hierarchy else {
@@ -437,7 +418,7 @@ mod tests {
                 data_type: data_type.clone(),
             },
         ];
-        let mut hierarchy = StructHierarchy::new_struct();
+        let mut hierarchy = StructHierarchy::default();
         hierarchy.insert(insertion_rules).unwrap();
 
         let StructHierarchy::Struct { fields } = &hierarchy else {
@@ -493,7 +474,7 @@ mod tests {
                 data_type: data_type.clone(),
             },
         ];
-        let mut hierarchy = StructHierarchy::new_struct();
+        let mut hierarchy = StructHierarchy::default();
         hierarchy.insert(insertion_rules).unwrap();
 
         let StructHierarchy::Struct { fields } = &hierarchy else {
@@ -553,7 +534,7 @@ mod tests {
                 data_type: data_type.clone(),
             },
         ];
-        let mut hierarchy = StructHierarchy::new_struct();
+        let mut hierarchy = StructHierarchy::default();
         hierarchy.insert(insertion_rules).unwrap();
 
         let StructHierarchy::Struct { fields } = &hierarchy else {
@@ -615,7 +596,7 @@ mod tests {
             },
             InsertionRule::AppendDataType { data_type },
         ];
-        let mut hierarchy_less_specific_first = StructHierarchy::new_struct();
+        let mut hierarchy_less_specific_first = StructHierarchy::default();
         hierarchy_less_specific_first
             .insert(less_specific_insertion_rules.clone())
             .unwrap();
@@ -623,7 +604,7 @@ mod tests {
             .insert(more_specific_insertion_rules.clone())
             .unwrap();
 
-        let mut hierarchy_more_specific_first = StructHierarchy::new_struct();
+        let mut hierarchy_more_specific_first = StructHierarchy::default();
         dbg!(&hierarchy_more_specific_first);
         hierarchy_more_specific_first
             .insert(more_specific_insertion_rules)
