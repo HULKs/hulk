@@ -10,6 +10,7 @@ use color_eyre::{
 };
 use parking_lot::Mutex;
 use serde::Deserialize;
+use spl_network::endpoint::{Endpoint, Ports};
 use tokio::{
     runtime::{Builder, Runtime},
     select,
@@ -22,8 +23,6 @@ use types::{
     ycbcr422_image::YCbCr422Image,
     CameraPosition, Joints, Leds, SensorData,
 };
-
-use spl_network::endpoint::{Endpoint, Ports};
 
 use super::{
     camera::Camera,
