@@ -14,21 +14,9 @@ mod server;
 mod simulator;
 mod state;
 
-use hardware::{
-    ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    SensorInterface, TimeInterface,
-};
+use hardware::{NetworkInterface, TimeInterface};
 
-pub trait HardwareInterface:
-    TimeInterface
-    + SensorInterface
-    + MicrophoneInterface
-    + IdInterface
-    + ActuatorInterface
-    + NetworkInterface
-    + CameraInterface
-{
-}
+pub trait HardwareInterface: TimeInterface + NetworkInterface {}
 
 include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
 
