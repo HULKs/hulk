@@ -38,20 +38,17 @@ fn project_line_and_map_error(
     which: &str,
 ) -> Result<Line2, LinesError> {
     Ok(Line(
-        project_point_and_map_error(matrix, line.0, &format!("{which} point 0"))?,
-        project_point_and_map_error(matrix, line.1, &format!("{which} point 1"))?,
+        project_point_and_map_error(matrix, line.0, format!("{which} point 0"))?,
+        project_point_and_map_error(matrix, line.1, format!("{which} point 1"))?,
     ))
 }
 
 fn project_point_and_map_error(
     matrix: &CameraMatrix,
     point: Point2<f32>,
-    which: &str,
+    which: String,
 ) -> Result<Point2<f32>, LinesError> {
     matrix
         .pixel_to_ground(point)
-        .map_err(|source| LinesError::NotProjected {
-            source,
-            which: which.to_string(),
-        })
+        .map_err(|source| LinesError::NotProjected { source, which })
 }
