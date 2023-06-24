@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, ops::Mul};
+use std::{f32::consts::FRAC_PI_2, ops::Mul};
 
 use approx::{AbsDiffEq, RelativeEq};
 use nalgebra::{
@@ -109,7 +109,7 @@ impl<const DIMENSION: usize> Line<DIMENSION> {
     pub fn angle_diff_to_orthogonal(&self, other: &Line<DIMENSION>) -> f32 {
         let self_direction = (self.1 - self.0).normalize();
         let other_direction = (other.1 - other.0).normalize();
-        (self_direction.dot(&other_direction).acos().abs() - PI / 2.0).abs()
+        (self_direction.dot(&other_direction).acos().abs() - FRAC_PI_2).abs()
     }
 
     pub fn is_orthogonal(&self, other: &Line<DIMENSION>, epsilon: f32) -> bool {
