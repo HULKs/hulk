@@ -68,7 +68,7 @@ impl Structs {
                                     }]),
                                 },
                             });
-                            for path in path.expand_variables(cycler) {
+                            for path in path.expand_variables(&cycler.instances) {
                                 let insertion_rules =
                                     path_to_insertion_rules(&path, &data_type_wrapped_in_option);
                                 cycler_structs.additional_outputs.insert(insertion_rules)?;
@@ -77,7 +77,7 @@ impl Structs {
                         Field::Parameter {
                             data_type, path, ..
                         } => {
-                            let expanded_paths = path.expand_variables(cycler);
+                            let expanded_paths = path.expand_variables(&cycler.instances);
 
                             for path in expanded_paths {
                                 let data_type = match path.contains_optional() {

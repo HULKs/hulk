@@ -1,6 +1,6 @@
 use convert_case::{Case, Casing};
 
-use crate::cyclers::Cycler;
+use crate::cyclers::InstanceName;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Path {
@@ -23,12 +23,12 @@ impl Path {
         self.segments.iter().any(|segment| segment.is_optional)
     }
 
-    pub fn expand_variables(&self, cycler: &Cycler) -> Vec<Path> {
+    pub fn expand_variables(&self, instances: &[InstanceName]) -> Vec<Path> {
         if !self.contains_variable() {
             return vec![self.clone()];
         }
-        cycler
-            .instances
+
+        instances
             .iter()
             .map(|instance| {
                 let segments = self
