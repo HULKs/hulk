@@ -12,13 +12,6 @@ pub struct Line<const DIMENSION: usize>(pub Point<f32, DIMENSION>, pub Point<f32
 pub type Line2 = Line<2>;
 
 impl Line2 {
-    pub fn signed_angle(&self, other: Self) -> f32 {
-        (self.1 - self.0)
-            .normalize()
-            .dot(&(other.1 - other.0).normalize())
-            .acos()
-    }
-
     pub fn angle(&self, other: Self) -> f32 {
         (self.1 - self.0).angle(&(other.1 - other.0))
     }
