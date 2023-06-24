@@ -106,7 +106,9 @@ impl<const DIMENSION: usize> Line<DIMENSION> {
     }
 
     pub fn is_orthogonal(&self, other: &Line<DIMENSION>, epsilon: f32) -> bool {
-        self.angle_diff_to_orthogonal(other) < epsilon
+        let self_direction = (self.1 - self.0).normalize();
+        let other_direction = (other.1 - other.0).normalize();
+        self_direction.dot(&other_direction) < epsilon
     }
 
     pub fn length(&self) -> f32 {
