@@ -18,12 +18,12 @@ pub struct CalibrationProblem {
 impl CalibrationProblem {
     pub fn new(
         initial_corrections: Corrections,
-        measurements: &[Measurement],
+        measurements: Vec<Measurement>,
         field_dimensions: FieldDimensions,
     ) -> Self {
         Self {
             parameters: initial_corrections,
-            measurements: measurements.to_vec(),
+            measurements,
             field_dimensions,
         }
     }
