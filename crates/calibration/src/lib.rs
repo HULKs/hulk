@@ -13,7 +13,7 @@ pub mod residuals;
 
 pub fn solve(
     initial_corrections: Corrections,
-    measurements: &[Measurement],
+    measurements: Vec<Measurement>,
     field_dimensions: FieldDimensions,
 ) -> Corrections {
     let problem = CalibrationProblem::new(initial_corrections, measurements, field_dimensions);
