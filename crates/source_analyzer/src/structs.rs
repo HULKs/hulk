@@ -132,10 +132,10 @@ pub struct CyclerStructs {
     pub persistent_state: StructHierarchy,
 }
 
-fn path_to_insertion_rules<'a>(
-    path: &'a Path,
+fn path_to_insertion_rules<'path>(
+    path: &'path Path,
     data_type: &Type,
-) -> impl 'a + Iterator<Item = InsertionRule> {
+) -> impl 'path + Iterator<Item = InsertionRule> {
     path.segments
         .iter()
         .flat_map(|segment| {
