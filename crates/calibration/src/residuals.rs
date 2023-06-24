@@ -13,23 +13,16 @@ pub fn calculate_residuals_from_parameters(
     measurements: &[Measurement],
     field_dimensions: &FieldDimensions,
 ) -> Option<Residual> {
-    measurements
-        .iter()
-        .fold(
-            Some(Vec::new()),
-            |residuals: Option<Vec<f32>>, measurements| match residuals {
-                Some(mut residuals) => {
-                    residuals.extend::<Vec<f32>>(
-                        Residuals::calculate_from(parameters, measurements, field_dimensions)
-                            .ok()?
-                            .into(),
-                    );
-                    Some(residuals)
-                }
-                None => None,
-            },
-        )
-        .map(DVector::from_vec)
+    let mut residuals = Vec::new();
+    for measurement in measurements {
+        let residuals_part: Vec<f32> =
+            Residuals::calculate_from(parameters, measurement, field_dimensions)
+                .ok()?
+                .into();
+        residuals.extend(residuals_part);
+    }
+
+    Some(DVector::from_vec(residuals))
 }
 
 pub struct Residuals {
