@@ -99,14 +99,14 @@ impl<const DIMENSION: usize> Line<DIMENSION> {
         self.squared_distance_to_point(point).sqrt()
     }
 
-    pub fn angle_diff_to_orthogonal(&self, other: &Line<DIMENSION>) -> f32 {
+    pub fn absolute_angle_difference_to_orthogonal(&self, other: &Line<DIMENSION>) -> f32 {
         let self_direction = (self.1 - self.0).normalize();
         let other_direction = (other.1 - other.0).normalize();
         (self_direction.dot(&other_direction).acos().abs() - FRAC_PI_2).abs()
     }
 
     pub fn is_orthogonal(&self, other: &Line<DIMENSION>, epsilon: f32) -> bool {
-        self.angle_diff_to_orthogonal(other) < epsilon
+        self.absolute_angle_difference_to_orthogonal(other) < epsilon
     }
 
     pub fn length(&self) -> f32 {
