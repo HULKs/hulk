@@ -1976,12 +1976,7 @@ dependencies = [
 name = "framework"
 version = "0.1.0"
 dependencies = [
- "color-eyre",
- "convert_case",
  "parking_lot",
- "proc-macro2",
- "quote",
- "source_analyzer",
  "types",
 ]
 
