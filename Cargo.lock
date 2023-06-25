@@ -4142,7 +4142,6 @@ dependencies = [
  "syn 1.0.109",
  "thiserror",
  "threadbound",
- "toml",
  "topological-sort",
 ]
 
