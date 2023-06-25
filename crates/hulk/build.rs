@@ -1,10 +1,7 @@
 use code_generation::{generate, write_to_file::WriteToFile};
 use color_eyre::eyre::{Result, WrapErr};
 use source_analyzer::{
-    cyclers::{
-        CyclerKind::{Perception, RealTime},
-        Cyclers,
-    },
+    cyclers::{CyclerKind, Cyclers},
     manifest::{CyclerManifest, FrameworkManifest},
     pretty::to_string_pretty,
     structs::Structs,
@@ -16,7 +13,7 @@ fn main() -> Result<()> {
         cyclers: vec![
             CyclerManifest {
                 name: "Vision",
-                kind: Perception,
+                kind: CyclerKind::Perception,
                 instances: vec!["Top", "Bottom"],
                 setup_nodes: vec!["vision::image_receiver"],
                 nodes: vec![
@@ -35,7 +32,7 @@ fn main() -> Result<()> {
             },
             CyclerManifest {
                 name: "Control",
-                kind: RealTime,
+                kind: CyclerKind::RealTime,
                 instances: vec![""],
                 setup_nodes: vec!["control::sensor_data_receiver"],
                 nodes: vec![
@@ -90,14 +87,14 @@ fn main() -> Result<()> {
             },
             CyclerManifest {
                 name: "SplNetwork",
-                kind: Perception,
+                kind: CyclerKind::Perception,
                 instances: vec![""],
                 setup_nodes: vec!["spl_network::message_receiver"],
                 nodes: vec![],
             },
             CyclerManifest {
                 name: "Audio",
-                kind: Perception,
+                kind: CyclerKind::Perception,
                 instances: vec![""],
                 setup_nodes: vec!["audio::microphone_recorder"],
                 nodes: vec!["audio::whistle_detection"],
