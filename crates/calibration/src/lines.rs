@@ -2,7 +2,7 @@ use nalgebra::Point2;
 use projection::Projection;
 use types::{CameraMatrix, Line, Line2};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Lines {
     pub border_line: Line2,
     pub goal_box_line: Line2,

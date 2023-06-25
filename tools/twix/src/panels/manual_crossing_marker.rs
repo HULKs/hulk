@@ -1,23 +1,30 @@
 use std::{
     collections::BTreeMap,
+    f32::consts::FRAC_PI_4,
     fs::{read, write, File},
+    io::Write,
+    path::Path,
     sync::Arc,
     time::SystemTime,
 };
 
-use calibration::{lines::Lines, measurement, solve};
+use calibration::{corrections::Corrections, lines::Lines, measurement, problem::Metric, solve};
 use color_eyre::eyre::eyre;
 use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::{
-    egui::{Key, Label, Modifiers, Response, ScrollArea, Sense, TextureOptions, Ui, Widget},
+    egui::{
+        DragValue, Key, Label, Modifiers, Response, ScrollArea, Sense, TextureOptions, Ui, Widget,
+    },
     epaint::{Color32, Rect, Stroke},
 };
 use egui_extras::RetainedImage;
 use glob::glob;
-use nalgebra::{point, vector, Point2, Similarity2};
+use nalgebra::{point, vector, Point2, Rotation3, Similarity2, Vector2};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_reader, to_writer_pretty};
-use types::{CameraMatrix, CameraPosition, Line};
+use types::{
+    field_marks_from_field_dimensions, CameraMatrix, CameraPosition, FieldDimensions, Line, Line2,
+};
 
 use crate::{
     image_buffer::ImageBuffer,
@@ -52,12 +59,20 @@ struct Crossings {
 
 pub struct ManualCrossingMarker {
     _nao: Arc<Nao>,
-    field_dimensions_buffer: ValueBuffer,
     image_buffer: ImageBuffer,
     camera_matrix_buffer: ValueBuffer,
     crossings: Crossings,
     measurements: BTreeMap<String, ImageWithMeasurement>,
     current_id: Option<String>,
+    correction_in_robot_roll: f32,
+    correction_in_robot_pitch: f32,
+    correction_in_robot_yaw: f32,
+    correction_in_camera_top_roll: f32,
+    correction_in_camera_top_pitch: f32,
+    correction_in_camera_top_yaw: f32,
+    correction_in_camera_bottom_roll: f32,
+    correction_in_camera_bottom_pitch: f32,
+    correction_in_camera_bottom_yaw: f32,
 }
 
 const CAPTURE_POSITION: CameraPosition = CameraPosition::Bottom;
@@ -66,7 +81,6 @@ impl Panel for ManualCrossingMarker {
     const NAME: &'static str = "Manual Crossing Marker";
 
     fn new(nao: Arc<Nao>, _value: Option<&serde_json::Value>) -> Self {
-        let field_dimensions_buffer = nao.subscribe_parameter("field_dimensions");
         let image_buffer = nao.subscribe_image(CyclerOutput {
             cycler: match CAPTURE_POSITION {
                 CameraPosition::Top => Cycler::VisionTop,
@@ -90,12 +104,20 @@ impl Panel for ManualCrossingMarker {
         });
         Self {
             _nao: nao,
-            field_dimensions_buffer,
             image_buffer,
             camera_matrix_buffer,
             crossings: Default::default(),
             measurements: BTreeMap::new(),
             current_id: None,
+            correction_in_robot_roll: Default::default(),
+            correction_in_robot_pitch: Default::default(),
+            correction_in_robot_yaw: Default::default(),
+            correction_in_camera_top_roll: Default::default(),
+            correction_in_camera_top_pitch: Default::default(),
+            correction_in_camera_top_yaw: Default::default(),
+            correction_in_camera_bottom_roll: Default::default(),
+            correction_in_camera_bottom_pitch: Default::default(),
+            correction_in_camera_bottom_yaw: Default::default(),
         }
     }
 }
@@ -165,24 +187,88 @@ impl Widget for &mut ManualCrossingMarker {
                                     matrix: measurement.measurement.camera_matrix.clone(),
                                     lines: Lines {
                                         border_line: Line(
-                                            self.crossings.border_line_0?,
-                                            self.crossings.border_line_1?,
+                                            measurement.measurement.crossings.border_line_0?,
+                                            measurement.measurement.crossings.border_line_1?,
                                         ),
                                         goal_box_line: Line(
-                                            self.crossings.goal_box_line_0?,
-                                            self.crossings.goal_box_line_1?,
+                                            measurement.measurement.crossings.goal_box_line_0?,
+                                            measurement.measurement.crossings.goal_box_line_1?,
                                         ),
                                         connecting_line: Line(
-                                            self.crossings.connecting_line_0?,
-                                            self.crossings.connecting_line_1?,
+                                            measurement.measurement.crossings.connecting_line_0?,
+                                            measurement.measurement.crossings.connecting_line_1?,
                                         ),
                                     },
                                 })
                             })
                             .collect::<Vec<_>>();
-                        let field_dimensions = self.field_dimensions_buffer.parse_latest().unwrap();
-                        solve(Default::default(), &measurements, field_dimensions);
+                        let field_dimensions = FieldDimensions {
+                            ball_radius: 0.05,
+                            length: 9.0,
+                            width: 6.0,
+                            line_width: 0.05,
+                            penalty_marker_size: 0.1,
+                            goal_box_area_length: 0.6,
+                            goal_box_area_width: 2.2,
+                            penalty_area_length: 1.65,
+                            penalty_area_width: 4.0,
+                            penalty_marker_distance: 1.3,
+                            center_circle_diameter: 1.5,
+                            border_strip_width: 0.7,
+                            goal_inner_width: 1.5,
+                            goal_post_diameter: 0.1,
+                            goal_depth: 0.5,
+                        };
+                        let (corrections, metrics) = solve(
+                            Corrections {
+                                correction_in_robot: Rotation3::from_euler_angles(
+                                    self.correction_in_robot_roll,
+                                    self.correction_in_robot_pitch,
+                                    self.correction_in_robot_yaw,
+                                ),
+                                correction_in_camera_top: Rotation3::from_euler_angles(
+                                    self.correction_in_camera_top_roll,
+                                    self.correction_in_camera_top_pitch,
+                                    self.correction_in_camera_top_yaw,
+                                ),
+                                correction_in_camera_bottom: Rotation3::from_euler_angles(
+                                    self.correction_in_camera_bottom_roll,
+                                    self.correction_in_camera_bottom_pitch,
+                                    self.correction_in_camera_bottom_yaw,
+                                ),
+                            },
+                            measurements.clone(),
+                            field_dimensions,
+                        );
+                        println!("corrections: {corrections:?}");
+                        // println!("metrics: {metrics:?}");
+                        render_lines_in_field(
+                            "solved.html",
+                            &measurements,
+                            &corrections,
+                            &metrics,
+                        );
                     }
+                    if ui.button("Reset Rotations").clicked() {
+                        self.correction_in_robot_roll = 0.0;
+                        self.correction_in_robot_pitch = 0.0;
+                        self.correction_in_robot_yaw = 0.0;
+                        self.correction_in_camera_top_roll = 0.0;
+                        self.correction_in_camera_top_pitch = 0.0;
+                        self.correction_in_camera_top_yaw = 0.0;
+                        self.correction_in_camera_bottom_roll = 0.0;
+                        self.correction_in_camera_bottom_pitch = 0.0;
+                        self.correction_in_camera_bottom_yaw = 0.0;
+                    }
+                    ui.add(DragValue::new(&mut self.correction_in_robot_roll).speed(0.1));
+                    ui.add(DragValue::new(&mut self.correction_in_robot_pitch).speed(0.1));
+                    ui.add(DragValue::new(&mut self.correction_in_robot_yaw).speed(0.1));
+                    ui.add(DragValue::new(&mut self.correction_in_camera_top_roll).speed(0.1));
+                    ui.add(DragValue::new(&mut self.correction_in_camera_top_pitch).speed(0.1));
+                    ui.add(DragValue::new(&mut self.correction_in_camera_top_yaw).speed(0.1));
+                    ui.add(DragValue::new(&mut self.correction_in_camera_bottom_roll).speed(0.1));
+                    ui.add(DragValue::new(&mut self.correction_in_camera_bottom_pitch).speed(0.1));
+                    ui.add(DragValue::new(&mut self.correction_in_camera_bottom_yaw).speed(0.1));
                 });
                 self.show_list(ui);
             });
@@ -405,4 +491,226 @@ impl ManualCrossingMarker {
             Stroke::new(0.5, color),
         );
     }
+}
+
+fn render_lines_in_field(
+    file_name: impl AsRef<Path>,
+    measurements: &[measurement::Measurement],
+    corrections: &Corrections,
+    metrics: &[Metric],
+) {
+    let mut file = File::create(&file_name).unwrap();
+    writeln!(
+        file,
+        "<!DOCTYPE html><html><head><title>{:?}</title></head><body>",
+        file_name.as_ref(),
+    )
+    .unwrap();
+    for measurement in measurements {
+        draw_projected_lines(&mut file, measurement, corrections);
+    }
+    writeln!(file, "</body></html>").unwrap();
+    // write!(
+    //     file,
+    //     "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"{} {} {} {}\" style=\"background-color: green;\">",
+    //     -(field_dimensions.length) / 2.0 - field_dimensions.border_strip_width,
+    //     -(field_dimensions.width) / 2.0 - field_dimensions.border_strip_width,
+    //     field_dimensions.length + 2.0 * field_dimensions.border_strip_width,
+    //     field_dimensions.width + 2.0 * field_dimensions.border_strip_width,
+    // )?;
+    // write!(file, "<g transform=\"scale(1, -1)\">")?;
+    // for field_mark in field_marks.iter() {
+    //     match field_mark {
+    //         FieldMark::Line { line, direction: _ } => {
+    //             draw_line(&mut file, *line, "white", field_dimensions.line_width)?;
+    //         }
+    //         FieldMark::Circle { center, radius } => {
+    //             draw_circle(
+    //                 &mut file,
+    //                 *center,
+    //                 *radius,
+    //                 "white",
+    //                 field_dimensions.line_width,
+    //                 "none",
+    //             )?;
+    //         }
+    //     };
+    // }
+    // for (index, line) in lines.iter().enumerate() {
+    //     draw_line(&mut file, *line, "red", field_dimensions.line_width / 2.0)?;
+    //     draw_text(
+    //         &mut file,
+    //         line.center(),
+    //         format!("{index}"),
+    //         "black",
+    //         0.2,
+    //         0.0,
+    //     )?;
+    // }
+    // write!(file, "</g>")?;
+    // write!(file, "</svg>")?;
+}
+
+fn draw_projected_lines(
+    file: &mut impl Write,
+    measurement: &measurement::Measurement,
+    corrections: &Corrections,
+) {
+    let projected_lines = measurement.lines.to_projected(&measurement.matrix).unwrap();
+    let corrected_projected_lines = {
+        let corrected = measurement.matrix.to_corrected(
+            corrections.correction_in_robot,
+            match measurement.position {
+                CameraPosition::Top => corrections.correction_in_camera_top,
+                CameraPosition::Bottom => corrections.correction_in_camera_bottom,
+            },
+        );
+
+        let projected_lines = measurement.lines.to_projected(&corrected).unwrap();
+
+        projected_lines
+    };
+    let minimum_x = projected_lines
+        .border_line
+        .0
+        .x
+        .min(projected_lines.border_line.1.x)
+        .min(projected_lines.goal_box_line.0.x)
+        .min(projected_lines.goal_box_line.1.x)
+        .min(projected_lines.connecting_line.0.x)
+        .min(projected_lines.connecting_line.1.x)
+        .min(corrected_projected_lines.border_line.0.x)
+        .min(corrected_projected_lines.border_line.1.x)
+        .min(corrected_projected_lines.goal_box_line.0.x)
+        .min(corrected_projected_lines.goal_box_line.1.x)
+        .min(corrected_projected_lines.connecting_line.0.x)
+        .min(corrected_projected_lines.connecting_line.1.x);
+    let maximum_x = projected_lines
+        .border_line
+        .0
+        .x
+        .max(projected_lines.border_line.1.x)
+        .max(projected_lines.goal_box_line.0.x)
+        .max(projected_lines.goal_box_line.1.x)
+        .max(projected_lines.connecting_line.0.x)
+        .max(projected_lines.connecting_line.1.x)
+        .max(corrected_projected_lines.border_line.0.x)
+        .max(corrected_projected_lines.border_line.1.x)
+        .max(corrected_projected_lines.goal_box_line.0.x)
+        .max(corrected_projected_lines.goal_box_line.1.x)
+        .max(corrected_projected_lines.connecting_line.0.x)
+        .max(corrected_projected_lines.connecting_line.1.x);
+    let minimum_y = projected_lines
+        .border_line
+        .0
+        .y
+        .min(projected_lines.border_line.1.y)
+        .min(projected_lines.goal_box_line.0.y)
+        .min(projected_lines.goal_box_line.1.y)
+        .min(projected_lines.connecting_line.0.y)
+        .min(projected_lines.connecting_line.1.y)
+        .min(corrected_projected_lines.border_line.0.y)
+        .min(corrected_projected_lines.border_line.1.y)
+        .min(corrected_projected_lines.goal_box_line.0.y)
+        .min(corrected_projected_lines.goal_box_line.1.y)
+        .min(corrected_projected_lines.connecting_line.0.y)
+        .min(corrected_projected_lines.connecting_line.1.y);
+    let maximum_y = projected_lines
+        .border_line
+        .0
+        .y
+        .max(projected_lines.border_line.1.y)
+        .max(projected_lines.goal_box_line.0.y)
+        .max(projected_lines.goal_box_line.1.y)
+        .max(projected_lines.connecting_line.0.y)
+        .max(projected_lines.connecting_line.1.y)
+        .max(corrected_projected_lines.border_line.0.y)
+        .max(corrected_projected_lines.border_line.1.y)
+        .max(corrected_projected_lines.goal_box_line.0.y)
+        .max(corrected_projected_lines.goal_box_line.1.y)
+        .max(corrected_projected_lines.connecting_line.0.y)
+        .max(corrected_projected_lines.connecting_line.1.y);
+    write!(
+        file,
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"{} {} {} {}\" style=\"border: 1px solid #888888; width: 200px;\">",
+        minimum_x - (maximum_x - minimum_x) * 0.05,
+        minimum_y - (maximum_y - minimum_y) * 0.05,
+        maximum_x - minimum_x + (maximum_x - minimum_x) * 0.1,
+        maximum_y - minimum_y + (maximum_y - minimum_y) * 0.1,
+    ).unwrap();
+    draw_line(file, projected_lines.border_line, "red", 0.05);
+    draw_line(file, projected_lines.goal_box_line, "red", 0.05);
+    draw_line(file, projected_lines.connecting_line, "red", 0.05);
+    draw_line(file, corrected_projected_lines.border_line, "green", 0.05);
+    draw_line(file, corrected_projected_lines.goal_box_line, "green", 0.05);
+    draw_line(
+        file,
+        corrected_projected_lines.connecting_line,
+        "green",
+        0.05,
+    );
+    write!(file, "</svg>").unwrap();
+}
+
+fn draw_rect(
+    file: &mut impl Write,
+    point_upper_left: Point2<f32>,
+    size: Vector2<f32>,
+    stroke_color: &str,
+    stroke_width: f32,
+) {
+    write!(
+        file,
+        "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" stroke=\"{}\" stroke-width=\"{}\" fill=\"none\" />",
+        point_upper_left.x,
+        point_upper_left.y,
+        size.x,
+        size.y,
+        stroke_color,
+        stroke_width,
+    ).unwrap();
+}
+
+fn draw_line(file: &mut impl Write, line: Line2, stroke_color: &str, stroke_width: f32) {
+    write!(
+        file,
+        "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{}\" stroke-width=\"{}\" fill=\"none\" />",
+        line.0.x,
+        line.0.y,
+        line.1.x,
+        line.1.y,
+        stroke_color,
+        stroke_width,
+    ).unwrap();
+}
+
+fn draw_circle(
+    file: &mut impl Write,
+    center: Point2<f32>,
+    radius: f32,
+    stroke_color: &str,
+    stroke_width: f32,
+    fill_color: &str,
+) {
+    write!(
+        file,
+        "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" stroke=\"{}\" stroke-width=\"{}\" fill=\"{}\" />",
+        center.x, center.y, radius, stroke_color, stroke_width, fill_color,
+    )
+    .unwrap();
+}
+
+fn draw_text(
+    file: &mut impl Write,
+    center: Point2<f32>,
+    text: String,
+    fill_color: &str,
+    font_size: f32,
+    rotation_angle: f32,
+) {
+    write!(
+        file,
+        "<text x=\"{}\" y=\"{}\" fill=\"{}\" font-size=\"{}\" transform=\"rotate({}, {}, {})\" text-anchor=\"middle\">{}</text>",
+        center.x, center.y, fill_color, font_size, rotation_angle.to_degrees(), center.x, center.y, text,
+    ).unwrap();
 }

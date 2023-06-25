@@ -1,7 +1,7 @@
 use corrections::Corrections;
 use levenberg_marquardt::LevenbergMarquardt;
 use measurement::Measurement;
-use problem::CalibrationProblem;
+use problem::{CalibrationProblem, Metric};
 use types::FieldDimensions;
 
 pub mod corrections;
@@ -15,11 +15,12 @@ pub fn solve(
     initial_corrections: Corrections,
     measurements: Vec<Measurement>,
     field_dimensions: FieldDimensions,
-) -> Corrections {
+) -> (Corrections, Vec<Metric>) {
     let problem = CalibrationProblem::new(initial_corrections, measurements, field_dimensions);
     let (result, report) = LevenbergMarquardt::new().minimize(problem);
     println!("Report: {report:?}");
+    assert!(report.termination.was_successful());
     let corrections = result.get_corrections();
     println!("Corrections: {corrections:?}");
-    corrections
+    (corrections, result.get_metrics())
 }
