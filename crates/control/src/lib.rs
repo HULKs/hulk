@@ -13,7 +13,6 @@ pub mod game_controller_filter;
 pub mod game_state_filter;
 pub mod ground_contact_detector;
 pub mod ground_provider;
-pub mod hulk_message_filter;
 pub mod kick_selector;
 pub mod kinematics_provider;
 pub mod led_status;
