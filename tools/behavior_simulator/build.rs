@@ -10,22 +10,31 @@ use source_analyzer::{
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=framework.toml");
     let manifest = FrameworkManifest {
-        cyclers: vec![CyclerManifest {
-            name: "Control",
-            kind: CyclerKind::RealTime,
-            instances: vec![""],
-            setup_nodes: vec!["control::fake_data"],
-            nodes: vec![
-                "control::active_vision",
-                "control::ball_state_composer",
-                "control::behavior::node",
-                "control::kick_selector",
-                "control::motion::look_around",
-                "control::role_assignment",
-                "control::rule_obstacle_composer",
-                "control::world_state_composer",
-            ],
-        }],
+        cyclers: vec![
+            CyclerManifest {
+                name: "Control",
+                kind: CyclerKind::RealTime,
+                instances: vec![""],
+                setup_nodes: vec!["control::fake_data"],
+                nodes: vec![
+                    "control::active_vision",
+                    "control::ball_state_composer",
+                    "control::behavior::node",
+                    "control::kick_selector",
+                    "control::motion::look_around",
+                    "control::role_assignment",
+                    "control::rule_obstacle_composer",
+                    "control::world_state_composer",
+                ],
+            },
+            CyclerManifest {
+                name: "SplNetwork",
+                kind: CyclerKind::Perception,
+                instances: vec![""],
+                setup_nodes: vec!["spl_network::message_receiver"],
+                nodes: vec![],
+            },
+        ],
     };
     let root = "../../crates/";
 
