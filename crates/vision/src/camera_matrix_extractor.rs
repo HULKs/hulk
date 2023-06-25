@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{ycbcr422_image::YCbCr422Image, CameraMatrices, CameraMatrix, CameraPosition};
+use types::{CameraMatrices, CameraMatrix, CameraPosition};
 
 pub struct CameraMatrixExtractor {}
 
@@ -13,7 +13,6 @@ pub struct CycleContext {
     pub camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
     pub camera_position:
         Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
-    pub image: Input<YCbCr422Image, "image">, // required for correct node order
 }
 
 #[context]
