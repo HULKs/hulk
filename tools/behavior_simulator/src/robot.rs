@@ -1,11 +1,16 @@
-use std::{convert::Into, sync::Arc, time::Duration};
+use std::{
+    collections::BTreeMap,
+    convert::Into,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use color_eyre::{eyre::WrapErr, Result};
 use control::localization::generate_initial_pose;
 use nalgebra::vector;
 use parameters::directory::deserialize;
 use spl_network_messages::PlayerNumber;
-use types::CameraMatrix;
+use types::{messages::IncomingMessage, CameraMatrix};
 
 use crate::{
     cycler::{BehaviorCycler, Database},
@@ -60,8 +65,9 @@ impl Robot {
         })
     }
 
-    pub fn cycle(&mut self) -> Result<()> {
-        self.cycler.cycle(&mut self.database, &self.configuration)
+    pub fn cycle(&mut self, messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>) -> Result<()> {
+        self.cycler
+            .cycle(&mut self.database, &self.configuration, messages)
     }
 
     pub fn field_of_view(&self) -> f32 {

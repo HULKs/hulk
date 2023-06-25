@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
 
 use crate::{
     interfake::Interfake,
@@ -18,10 +18,11 @@ use control::{
     rule_obstacle_composer::RuleObstacleComposer,
     world_state_composer::{self, WorldStateComposer},
 };
-use framework::AdditionalOutput;
+use framework::{AdditionalOutput, PerceptionInput};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::sync::Notify;
+use types::messages::IncomingMessage;
 
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Database {
@@ -102,6 +103,7 @@ impl BehaviorCycler {
         &mut self,
         own_database: &mut Database,
         configuration: &Configuration,
+        incoming_messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>,
     ) -> Result<()> {
         if own_database
             .main_outputs
@@ -147,7 +149,10 @@ impl BehaviorCycler {
                     optional_roles: &configuration.behavior.optional_roles,
                     player_number: &configuration.player_number,
                     spl_network: &configuration.spl_network,
-                    hulk_messages: &own_database.main_outputs.hulk_messages,
+                    network_message: PerceptionInput {
+                        persistent: incoming_messages,
+                        temporary: Default::default(),
+                    },
                     hardware: &self.hardware_interface,
                 })
                 .wrap_err("failed to execute cycle of node `RoleAssignment`")?;
