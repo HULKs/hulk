@@ -48,7 +48,6 @@ fn main() -> Result<()> {
                     "control::game_state_filter",
                     "control::ground_contact_detector",
                     "control::ground_provider",
-                    "control::hulk_message_filter",
                     "control::kick_selector",
                     "control::kinematics_provider",
                     "control::led_status",
