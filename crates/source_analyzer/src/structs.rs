@@ -181,7 +181,7 @@ fn unwrap_option_type(data_type: Type) -> Type {
                 _ => panic!("expected exactly one generic type argument in data type"),
             }
         }
-        _ => panic!("execpted Option<T> as data type"),
+        _ => panic!("expected Option<T> as data type"),
     }
 }
 
