@@ -4,7 +4,7 @@ use crate::{
     error::ParseError,
     path::Path,
     to_absolute::ToAbsolute,
-    uses::{uses_from_file, Uses},
+    uses::{uses_from_items, Uses},
 };
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -16,7 +16,7 @@ pub struct Contexts {
 
 impl Contexts {
     pub fn try_from_file(file: &File) -> Result<Self, ParseError> {
-        let uses = uses_from_file(file);
+        let uses = uses_from_items(&file.items);
         if !exactly_one_context_struct_with_name_exists(file, "CreationContext")
             || !exactly_one_context_struct_with_name_exists(file, "CycleContext")
             || !exactly_one_context_struct_with_name_exists(file, "MainOutputs")
