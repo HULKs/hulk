@@ -23,12 +23,12 @@ pub struct Node {
 }
 
 pub fn parse_rust_file(file_path: impl AsRef<Path>) -> Result<syn::File, Error> {
-    let buffer = read_to_string(&file_path).map_err(|error| Error::Io {
-        source: error,
+    let buffer = read_to_string(&file_path).map_err(|source| Error::Io {
+        source,
         path: file_path.as_ref().to_path_buf(),
     })?;
     parse_file(&buffer).map_err(|error| Error::RustParse {
-        caused_by: error.into(),
+        source: error.into(),
         path: file_path.as_ref().to_path_buf(),
     })
 }
@@ -37,8 +37,8 @@ impl Node {
     pub fn try_from_node_name(node_name: &str, root: &Path) -> Result<Self, Error> {
         let module: syn::Path = syn::parse_str(node_name).map_err(|_| Error::InvalidModulePath)?;
         let file_path = file_path_from_module_path(root, module.clone())?;
-        let wrap_error = |error| Error::Node {
-            caused_by: error,
+        let wrap_error = |source| Error::Node {
+            source,
             node: module.to_token_stream().to_string(),
             path: file_path.clone(),
         };

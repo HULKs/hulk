@@ -9,14 +9,11 @@ use threadbound::ThreadBound;
 pub enum Error {
     #[error("failed to perform IO on `{path}`")]
     Io { source: io::Error, path: PathBuf },
-    #[error("failed to parse Rust at {path}:{caused_by}")]
-    RustParse {
-        caused_by: ParseError,
-        path: PathBuf,
-    },
-    #[error("failed to read node `{node}` at {path}:{caused_by}")]
+    #[error("failed to parse Rust at {path}:{source}")]
+    RustParse { source: ParseError, path: PathBuf },
+    #[error("failed to read node `{node}` at {path}:{source}")]
     Node {
-        caused_by: ParseError,
+        source: ParseError,
         node: String,
         path: PathBuf,
     },
