@@ -360,6 +360,13 @@ impl BehaviorCycler {
                         .persistent_state
                         .time_to_reach_kick_position,
                     dribble_path: own_database.main_outputs.dribble_path.as_ref(),
+                    stand_up_back_remaining_duration: &own_database
+                        .main_outputs
+                        .stand_up_back_remaining_duration,
+                    stand_up_front_remaining_duration: &own_database
+                        .main_outputs
+                        .stand_up_front_remaining_duration,
+                    configuration: &configuration.behavior,
                 })
                 .wrap_err("failed to execute cycle of `TimeToReachKickPosition`");
         }

@@ -62,6 +62,20 @@ impl<T> State<T> {
             _ => None,
         }
     }
+    pub fn current_frame_time_since_start(&self) -> Option<Duration> {
+        match self {
+            State::CheckEntry {
+                time_since_start, ..
+            }
+            | State::InterpolateSpline {
+                time_since_start, ..
+            }
+            | State::CheckExit {
+                time_since_start, ..
+            } => Some(*time_since_start),
+            _ => None,
+        }
+    }
 }
 
 enum ReturnState {
@@ -142,7 +156,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                 if time_since_start >= current_frame.spline.total_duration() {
                     State::CheckExit {
                         current_frame_index,
-                        time_since_start: Duration::ZERO,
+                        time_since_start: current_frame.spline.total_duration(),
                     }
                 } else {
                     State::InterpolateSpline {
@@ -222,6 +236,22 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
     pub fn set_initial_positions(&mut self, position: T) {
         if let Some(keyframe) = self.frames.first_mut() {
             keyframe.spline.set_initial_positions(position);
+        }
+    }
+
+    pub fn remaining_estimated_duration(&self) -> Duration {
+        match (
+            self.current_state.current_frame_index(),
+            self.current_state.current_frame_time_since_start(),
+        ) {
+            (Some(index), Some(time)) => Duration::saturating_sub(
+                self.frames[index..]
+                    .iter()
+                    .map(|frame| frame.spline.total_duration())
+                    .sum::<Duration>(),
+                time,
+            ),
+            _ => Duration::ZERO,
         }
     }
 }
