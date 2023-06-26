@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
@@ -38,6 +40,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub stand_up_front_positions: MainOutput<Joints<f32>>,
+    pub stand_up_front_remaining_duration: MainOutput<Duration>,
 }
 
 impl StandUpFront {
@@ -64,13 +67,16 @@ impl StandUpFront {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let mut stand_up_front_remaining_duration = Duration::ZERO;
         if let MotionType::StandUpFront = context.motion_selection.current_motion {
             self.advance_interpolator(context);
+            stand_up_front_remaining_duration = self.interpolator.remaining_estimated_duration();
         } else {
             self.interpolator.reset();
         }
         Ok(MainOutputs {
             stand_up_front_positions: self.interpolator.value().into(),
+            stand_up_front_remaining_duration: stand_up_front_remaining_duration.into(),
         })
     }
 }
