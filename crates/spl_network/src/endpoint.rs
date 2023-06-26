@@ -109,6 +109,7 @@ impl Endpoint {
             }
         };
     }
+    
     async fn send_game_controller_visual_referee_message(&self, message: Vec<u8>) {
         let last_game_controller_address = *self.last_game_controller_address.lock().await;
         if let Some(last_game_controller_address) = last_game_controller_address {
