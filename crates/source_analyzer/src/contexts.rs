@@ -44,8 +44,9 @@ impl Contexts {
             let mut fields = item
                 .fields
                 .iter()
-                .map(|field| Field::try_from_field(field, &uses))
+                .map(|field| Field::try_from_field(field, &uses, item.ident.to_string().as_str()))
                 .collect::<Result<_, _>>()?;
+
             match item.ident.to_string().as_str() {
                 "CreationContext" => {
                     creation_context.append(&mut fields);
@@ -143,7 +144,11 @@ pub enum Field {
 }
 
 impl Field {
-    pub fn try_from_field(field: &syn::Field, uses: &Uses) -> Result<Self, ParseError> {
+    pub fn try_from_field(
+        field: &syn::Field,
+        uses: &Uses,
+        context_name: &str,
+    ) -> Result<Self, ParseError> {
         let field_name = field
             .ident
             .as_ref()
@@ -159,7 +164,14 @@ impl Field {
             ));
         }
         let first_segment = &type_path.path.segments[0];
-        match first_segment.ident.to_string().as_str() {
+        let field_type = first_segment.ident.to_string();
+        if !member_type_allowed(context_name, field_type.as_str()) {
+            return Err(ParseError::new_spanned(
+                &field.ty,
+                format!("{context_name} may not contain members of type {field_type}"),
+            ));
+        }
+        match field_type.as_str() {
             "AdditionalOutput" => {
                 let (data_type, path) = extract_two_arguments(&first_segment.arguments)?;
                 if path.contains_optional() {
@@ -367,6 +379,27 @@ fn extract_three_arguments(arguments: &PathArguments) -> Result<(Type, String, P
     }
 }
 
+fn member_type_allowed(context_name: &str, field_type: &str) -> bool {
+    let allowed_member_types = match context_name {
+        "CreationContext" => ["Parameter", "PersistentState"].as_slice(),
+        "CycleContext" => [
+            "AdditionalOutput",
+            "HardwareInterface",
+            "HistoricInput",
+            "Input",
+            "Parameter",
+            "PerceptionInput",
+            "PersistentState",
+            "RequiredInput",
+        ]
+        .as_slice(),
+        "MainOutputs" => ["MainOutput"].as_slice(),
+        _ => panic!("unexpected context name"),
+    };
+
+    allowed_member_types.contains(&field_type)
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -384,8 +417,12 @@ mod tests {
         let field = "AdditionalOutput<usize, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext",
+        )
+        .unwrap();
         match parsed_field {
             Field::AdditionalOutput {
                 data_type,
@@ -410,14 +447,23 @@ mod tests {
         let field = "AdditionalOutput<usize, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        assert!(Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).is_err());
+        assert!(Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext"
+        )
+        .is_err());
 
         // without optionals
         let field = "HistoricInput<Option<usize>, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext",
+        )
+        .unwrap();
         match parsed_field {
             Field::HistoricInput {
                 data_type,
@@ -442,8 +488,12 @@ mod tests {
         let field = "HistoricInput<Option<usize>, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext",
+        )
+        .unwrap();
         match parsed_field {
             Field::HistoricInput {
                 data_type,
@@ -468,8 +518,12 @@ mod tests {
         let field = "MainOutput<Option<usize>>";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "MainOutputs",
+        )
+        .unwrap();
         match parsed_field {
             Field::MainOutput { data_type, name }
                 if data_type == type_option_usize && name == "name" => {}
@@ -480,8 +534,12 @@ mod tests {
         let field = "MainOutput<usize>";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "MainOutputs",
+        )
+        .unwrap();
         match parsed_field {
             Field::MainOutput { data_type, name } if data_type == type_usize && name == "name" => {}
             _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
@@ -491,8 +549,12 @@ mod tests {
         let field = "Input<Option<usize>, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext",
+        )
+        .unwrap();
         match parsed_field {
             Field::Input {
                 cycler_instance: None,
@@ -518,8 +580,12 @@ mod tests {
         let field = "Input<Option<usize>, \"Control\", \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext",
+        )
+        .unwrap();
         match parsed_field {
             Field::Input {
                 cycler_instance: Some(cycler_instance),
@@ -546,14 +612,23 @@ mod tests {
         let field = "Input<Option<usize>, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        assert!(Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).is_ok());
+        assert!(Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext"
+        )
+        .is_ok());
 
         // without optionals
         let field = "Parameter<usize, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext",
+        )
+        .unwrap();
         match parsed_field {
             Field::Parameter {
                 data_type,
@@ -578,8 +653,12 @@ mod tests {
         let field = "Parameter<Option<usize>, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext",
+        )
+        .unwrap();
         match parsed_field {
             Field::Parameter {
                 data_type,
@@ -604,8 +683,12 @@ mod tests {
         let field = "PerceptionInput<usize, \"Control\", \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext",
+        )
+        .unwrap();
         match parsed_field {
             Field::PerceptionInput {
                 cycler_instance,
@@ -632,8 +715,12 @@ mod tests {
         let field = "PerceptionInput<Option<usize>, \"Control\", \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext",
+        )
+        .unwrap();
         match parsed_field {
             Field::PerceptionInput {
                 cycler_instance,
@@ -660,8 +747,12 @@ mod tests {
         let field = "PersistentState<usize, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext",
+        )
+        .unwrap();
         match parsed_field {
             Field::PersistentState {
                 data_type,
@@ -686,20 +777,34 @@ mod tests {
         let field = "PersistentState<usize, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        assert!(Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).is_ok());
+        assert!(Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext"
+        )
+        .is_ok());
 
         // from own cycler, without optionals
         let field = "RequiredInput<usize, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        assert!(Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses,).is_err());
+        assert!(Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext"
+        )
+        .is_err());
 
         // from own cycler, with optionals but without Option<T> data type
         let field = "RequiredInput<usize, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext",
+        )
+        .unwrap();
         match parsed_field {
             Field::RequiredInput {
                 cycler_instance: None,
@@ -725,14 +830,23 @@ mod tests {
         let field = "RequiredInput<usize, \"Control\", \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        assert!(Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses,).is_err());
+        assert!(Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext"
+        )
+        .is_err());
 
         // from foreign cycler, with optionals but without Option<T> data type
         let field = "RequiredInput<usize, \"Control\", \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        let parsed_field =
-            Field::try_from_field(named_fields.named.first().unwrap(), &empty_uses).unwrap();
+        let parsed_field = Field::try_from_field(
+            named_fields.named.first().unwrap(),
+            &empty_uses,
+            "CycleContext",
+        )
+        .unwrap();
         match parsed_field {
             Field::RequiredInput {
                 cycler_instance: Some(cycler_instance),

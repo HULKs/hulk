@@ -94,8 +94,11 @@ impl Structs {
                             let insertion_rules = path_to_insertion_rules(path, data_type);
                             cycler_structs.persistent_state.insert(insertion_rules)?;
                         }
-                        Field::MainOutput { .. } => {
-                            return Err(Error::UnexpectedField(format!("{field:?}")));
+                        Field::MainOutput { name, .. } => {
+                            return Err(Error::UnexpectedField(format!(
+                                "MainOutput {:?}",
+                                name.to_string()
+                            )));
                         }
                         _ => (),
                     }
