@@ -27,7 +27,6 @@ pub struct CycleContext {
     pub hardware: HardwareInterface,
 }
 
-
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {}
