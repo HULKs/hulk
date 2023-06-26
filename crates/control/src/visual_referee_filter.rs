@@ -40,7 +40,7 @@ impl VisualRefereeFilter {
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
-        let send_game_controller_visual_referee_return_message = matches!(
+        let send_visual_referee_message = matches!(
             (self.last_primary_state, *context.primary_state),
             (PrimaryState::Set, PrimaryState::Playing)
                 | (
@@ -54,7 +54,7 @@ impl VisualRefereeFilter {
         let mut rng = thread_rng();
         let gesture = VisualRefereeDecision::from_u32(rng.gen_range(1..=13)).unwrap();
 
-        if send_game_controller_visual_referee_return_message {
+        if send_visual_referee_message {
             let mut duration_since_last_whistle = context
                 .filtered_whistle
                 .last_detection
