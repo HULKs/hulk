@@ -17,6 +17,27 @@ use syn::{
 pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
     let mut struct_item = parse_macro_input!(input as ItemStruct);
 
+    let struct_name = struct_item.ident.to_string();
+    let allowed_member_types = match struct_name.as_str() {
+        "CreationContext" => ["Parameter", "PersistentState"].as_slice(),
+        "CycleContext" => [
+            "AdditionalOutput",
+            "HardwareInterface",
+            "HistoricInput",
+            "Input",
+            "Parameter",
+            "PerceptionInput",
+            "PersistentState",
+            "RequiredInput",
+        ]
+        .as_slice(),
+        "MainOutputs" => ["MainOutput"].as_slice(),
+        _ => abort!(
+            struct_item.ident,
+            "unexpected context name, try one of `CreationContext`, `CycleContext`, `MainOutputs`"
+        ),
+    };
+
     let mut requires_lifetime_parameter = false;
     let mut requires_hardware_interface_parameter = false;
 
@@ -27,7 +48,15 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                     Some(segment) => segment,
                     None => abort!(path, "expected type path with at least one segment"),
                 };
-                match first_segment.ident.to_string().as_str() {
+                let field_type = first_segment.ident.to_string();
+                if !allowed_member_types.contains(&field_type.as_str()) {
+                    abort!(
+                        field,
+                        format!("{struct_name} may not contain members of type {field_type}")
+                    );
+                };
+
+                match field_type.as_str() {
                     "PerceptionInput" => match &mut first_segment.arguments {
                         PathArguments::AngleBracketed(arguments) if arguments.args.len() == 3 => {
                             pop_string_argument(arguments);
