@@ -96,7 +96,6 @@ nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }
 # Pinned git version since the latest release does not contained https://github.com/nix-rust/nix/pull/2022 yet
 nix = { git = "https://github.com/nix-rust/nix.git", version = "0.26.1", rev = "89b4976" }
-motionfile = { path = "crates/motionfile" }
 num-derive = "0.3"
 num-traits = "0.2"
 ordered-float = "3.1.0"
