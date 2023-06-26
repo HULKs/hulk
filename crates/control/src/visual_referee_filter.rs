@@ -27,6 +27,11 @@ pub struct CycleContext {
     pub hardware: HardwareInterface,
 }
 
+
+#[context]
+#[derive(Default)]
+pub struct MainOutputs {}
+
 impl VisualRefereeFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
@@ -34,7 +39,7 @@ impl VisualRefereeFilter {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl Interface>) {
+    pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
         let send_game_controller_visual_referee_return_message = matches!(
             (self.last_primary_state, *context.primary_state),
             (PrimaryState::Set, PrimaryState::Playing)
@@ -69,10 +74,11 @@ impl VisualRefereeFilter {
                 gesture,
                 whistle_age: duration_since_last_whistle,
             });
-            let _ = context
+            context
                 .hardware
                 .write_to_network(message)
-                .wrap_err("failed to write VisualRefereeMessage to hardware");
+                .wrap_err("failed to write VisualRefereeMessage to hardware")?;
         }
+        Ok(MainOutputs::default())
     }
 }
