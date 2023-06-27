@@ -328,7 +328,7 @@ mod tests {
         ];
 
         for case in cases {
-            let path = Path::from(case.0);
+            let path = Path::try_new(case.0, true).unwrap();
             let insertion_rules = path_to_insertion_rules(&path, &data_type).collect::<Vec<_>>();
             let expected_insertion_rules = case.1;
 
