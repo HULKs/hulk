@@ -8,10 +8,10 @@ pub struct Path {
 }
 
 impl Path {
-    pub fn try_new(path: &str, allow_optionals: bool) -> Result<Self, &'static str> {
+    pub fn try_new(path: &str, allow_optionals: bool) -> Result<Self, String> {
         let segments: Vec<_> = path.split('.').map(PathSegment::from).collect();
         if !allow_optionals && segments.iter().any(|segment| segment.is_optional) {
-            return Err("no optional values allowed here");
+            return Err("no optional values allowed in this field type".to_string());
         }
         if segments
             .iter()
@@ -19,7 +19,16 @@ impl Path {
             .count()
             > 1
         {
-            return Err("only one variable segment allowed per path");
+            return Err("only one variable segment allowed per path".to_string());
+        }
+        if let Some(segment) = segments
+            .iter()
+            .find(|segment| segment.is_variable && segment.name != "cycler_instance")
+        {
+            return Err(format!(
+                "invalid variable name `${}`, did you mean `$cycler_instance`?",
+                segment.name
+            ));
         }
         Ok(Self { segments })
     }
