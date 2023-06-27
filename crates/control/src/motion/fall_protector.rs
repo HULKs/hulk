@@ -8,10 +8,9 @@ use framework::MainOutput;
 use motionfile::{MotionFile, MotionInterpolator};
 use nalgebra::Vector2;
 use types::{
-    configuration::FallProtection,
-    configuration::FallStateEstimation as FallStateEstimationConfiguration, BodyJoints,
-    ConditionInput, CycleTime, FallDirection, FallState, HeadJoints, Joints, JointsCommand,
-    MotionCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
+    configuration::FallProtection, configuration::FallStateEstimation, BodyJoints, ConditionInput,
+    CycleTime, FallDirection, FallState, HeadJoints, Joints, JointsCommand, MotionCommand,
+    MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
 pub struct FallProtector {
@@ -25,7 +24,7 @@ pub struct FallProtector {
 #[context]
 pub struct CreationContext {
     pub fall_protection: Parameter<FallProtection, "fall_protection">,
-    pub fall_state_estimation: Parameter<FallStateEstimationConfiguration, "fall_state_estimation">,
+    pub fall_state_estimation: Parameter<FallStateEstimation, "fall_state_estimation">,
 }
 
 #[context]
@@ -98,7 +97,7 @@ impl FallProtector {
             .start_time
             .duration_since(self.start_time)
             .unwrap()
-            >= Duration::from_secs_f32(context.fall_protection.time_free_motion_exit)
+            >= context.fall_protection.time_free_motion_exit
         {
             context.motion_safe_exits[MotionType::FallProtection] = true;
         }
@@ -209,7 +208,7 @@ impl FallProtector {
                     .cycle_time
                     .start_time
                     .duration_since(fallen_start)
-                    .unwrap()
+                    .expect("time ran backwards")
                     >= Duration::from_secs_f32(
                         context.fall_protection.time_prolong_ground_impact,
                     ) =>

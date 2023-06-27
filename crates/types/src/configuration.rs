@@ -490,7 +490,7 @@ pub struct FallProtection {
     pub ground_impact_angular_threshold: f32,
     pub ground_impact_head_stiffness: f32,
     pub ground_impact_body_stiffness: f32,
-    pub time_free_motion_exit: f32,
+    pub time_free_motion_exit: Duration,
     pub time_prolong_ground_impact: f32,
     pub left_arm_positions: ArmJoints<f32>,
     pub right_arm_positions: ArmJoints<f32>,
