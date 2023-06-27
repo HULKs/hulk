@@ -7,10 +7,21 @@ pub struct Path {
     pub segments: Vec<PathSegment>,
 }
 
-impl From<&str> for Path {
-    fn from(path: &str) -> Self {
-        let segments = path.split('.').map(PathSegment::from).collect();
-        Self { segments }
+impl Path {
+    pub fn try_new(path: &str, allow_optionals: bool) -> Result<Self, &'static str> {
+        let segments: Vec<_> = path.split('.').map(PathSegment::from).collect();
+        if !allow_optionals && segments.iter().any(|segment| segment.is_optional) {
+            return Err("no optional values allowed here");
+        }
+        if segments
+            .iter()
+            .filter(|segment| segment.is_variable)
+            .count()
+            > 1
+        {
+            return Err("only one variable segment allowed per path");
+        }
+        Ok(Self { segments })
     }
 }
 

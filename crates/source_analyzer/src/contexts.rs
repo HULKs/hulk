@@ -173,7 +173,7 @@ impl Field {
         }
         match field_type.as_str() {
             "AdditionalOutput" => {
-                let (data_type, path) = extract_two_arguments(&first_segment.arguments)?;
+                let (data_type, path) = extract_two_arguments(&first_segment.arguments, false)?;
                 if path.contains_optional() {
                     return Err(ParseError::new_spanned(
                         &first_segment.arguments,
@@ -191,7 +191,7 @@ impl Field {
                 name: field_name.clone(),
             }),
             "HistoricInput" => {
-                let (data_type, path) = extract_two_arguments(&first_segment.arguments)?;
+                let (data_type, path) = extract_two_arguments(&first_segment.arguments, true)?;
                 Ok(Field::HistoricInput {
                     data_type: data_type.to_absolute(uses),
                     name: field_name.clone(),
@@ -201,12 +201,13 @@ impl Field {
             "Input" => {
                 let (data_type, cycler_instance, path) = match &first_segment.arguments {
                     PathArguments::AngleBracketed(arguments) if arguments.args.len() == 2 => {
-                        let (data_type, path) = extract_two_arguments(&first_segment.arguments)?;
+                        let (data_type, path) =
+                            extract_two_arguments(&first_segment.arguments, true)?;
                         (data_type, None, path)
                     }
                     PathArguments::AngleBracketed(arguments) if arguments.args.len() == 3 => {
                         let (data_type, cycler_instance, path) =
-                            extract_three_arguments(&first_segment.arguments)?;
+                            extract_three_arguments(&first_segment.arguments, true)?;
                         (data_type, Some(cycler_instance), path)
                     }
                     _ => {
@@ -231,7 +232,7 @@ impl Field {
                 })
             }
             "Parameter" => {
-                let (data_type, path) = extract_two_arguments(&first_segment.arguments)?;
+                let (data_type, path) = extract_two_arguments(&first_segment.arguments, true)?;
                 Ok(Field::Parameter {
                     data_type: data_type.to_absolute(uses),
                     name: field_name.clone(),
@@ -240,7 +241,7 @@ impl Field {
             }
             "PerceptionInput" => {
                 let (data_type, cycler_instance, path) =
-                    extract_three_arguments(&first_segment.arguments)?;
+                    extract_three_arguments(&first_segment.arguments, true)?;
                 Ok(Field::PerceptionInput {
                     cycler_instance,
                     data_type: data_type.to_absolute(uses),
@@ -249,7 +250,7 @@ impl Field {
                 })
             }
             "PersistentState" => {
-                let (data_type, path) = extract_two_arguments(&first_segment.arguments)?;
+                let (data_type, path) = extract_two_arguments(&first_segment.arguments, false)?;
                 Ok(Field::PersistentState {
                     data_type: data_type.to_absolute(uses),
                     name: field_name.clone(),
@@ -259,12 +260,13 @@ impl Field {
             "RequiredInput" => {
                 let (data_type, cycler_instance, path) = match &first_segment.arguments {
                     PathArguments::AngleBracketed(arguments) if arguments.args.len() == 2 => {
-                        let (data_type, path) = extract_two_arguments(&first_segment.arguments)?;
+                        let (data_type, path) =
+                            extract_two_arguments(&first_segment.arguments, true)?;
                         (data_type, None, path)
                     }
                     PathArguments::AngleBracketed(arguments) if arguments.args.len() == 3 => {
                         let (data_type, cycler_instance, path) =
-                            extract_three_arguments(&first_segment.arguments)?;
+                            extract_three_arguments(&first_segment.arguments, true)?;
                         (data_type, Some(cycler_instance), path)
                     }
                     _ => {
@@ -316,7 +318,10 @@ fn extract_one_argument(arguments: &PathArguments) -> Result<Type, ParseError> {
     }
 }
 
-fn extract_two_arguments(arguments: &PathArguments) -> Result<(Type, Path), ParseError> {
+fn extract_two_arguments(
+    arguments: &PathArguments,
+    allow_optionals: bool,
+) -> Result<(Type, Path), ParseError> {
     match arguments {
         PathArguments::AngleBracketed(arguments) => {
             if arguments.args.len() != 2 {
@@ -332,7 +337,7 @@ fn extract_two_arguments(arguments: &PathArguments) -> Result<(Type, Path), Pars
                     },
                 ))) => Ok((
                     type_argument.clone(),
-                    Path::from(literal_argument.token().to_string().trim_matches('"')),
+                    Path::try_new(literal_argument.token().to_string().trim_matches('"'), allow_optionals).map_err(|message| ParseError::new_spanned(arguments, message))?,
                 )),
                 _ => Err(ParseError::new_spanned(&arguments.args,"expected type in first generic parameter and string literal in second generic parameter")),
             }
@@ -344,7 +349,10 @@ fn extract_two_arguments(arguments: &PathArguments) -> Result<(Type, Path), Pars
     }
 }
 
-fn extract_three_arguments(arguments: &PathArguments) -> Result<(Type, String, Path), ParseError> {
+fn extract_three_arguments(
+    arguments: &PathArguments,
+    allow_optionals: bool,
+) -> Result<(Type, String, Path), ParseError> {
     match arguments {
         PathArguments::AngleBracketed(arguments) => {
             if arguments.args.len() != 3 {
@@ -365,7 +373,7 @@ fn extract_three_arguments(arguments: &PathArguments) -> Result<(Type, String, P
                 ))) => Ok((
                     type_argument.clone(),
                     first_literal_argument.token().to_string().trim_matches('"').to_string(),
-                    Path::from(second_literal_argument.token().to_string().trim_matches('"')),
+                    Path::try_new(second_literal_argument.token().to_string().trim_matches('"'), allow_optionals).map_err(|message| ParseError::new_spanned(arguments, message))?,
                 )),
                 _ => Err(
                     ParseError::new_spanned(&arguments.args,"expected type in first generic parameter and string literals in second and third generic parameters")
@@ -773,16 +781,16 @@ mod tests {
             _ => panic!("Unexpected parsed field from {field:?}: {parsed_field:?}"),
         }
 
-        // optionals are supported
-        let field = "PersistentState<usize, \"a.b?.c\">";
-        let fields = format!("{{ name: {field} }}");
-        let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        assert!(Field::try_from_field(
-            named_fields.named.first().unwrap(),
-            &empty_uses,
-            "CycleContext"
-        )
-        .is_ok());
+        // // optionals are supported
+        // let field = "PersistentState<usize, \"a.b?.c\">";
+        // let fields = format!("{{ name: {field} }}");
+        // let named_fields: FieldsNamed = parse_str(&fields).unwrap();
+        // assert!(Field::try_from_field(
+        //     named_fields.named.first().unwrap(),
+        //     &empty_uses,
+        //     "CycleContext"
+        // )
+        // .is_ok());
 
         // from own cycler, without optionals
         let field = "RequiredInput<usize, \"a.b.c\">";

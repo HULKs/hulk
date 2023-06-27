@@ -293,7 +293,7 @@ mod tests {
         };
 
         for (path, reference_type, expected_token_stream) in cases {
-            let path = Path::from(path);
+            let path = Path::try_new(path, true).unwrap();
 
             let token_stream =
                 path_to_accessor_token_stream(quote! { prefix }, &path, reference_type, &cycler);
