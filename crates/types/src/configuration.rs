@@ -415,7 +415,7 @@ pub struct LineDetection {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct BallFilterConfiguration {
+pub struct BallFilter {
     pub hypothesis_timeout: Duration,
     pub measurement_matching_distance: f32,
     pub hypothesis_merge_distance: f32,

@@ -9,7 +9,7 @@ use nalgebra::{
 };
 use projection::Projection;
 use types::{
-    ball_filter::Hypothesis, configuration::BallFilterConfiguration, is_above_limbs,
+    ball_filter::Hypothesis, configuration::BallFilter as BallFilterConfiguration, is_above_limbs,
     multivariate_normal_distribution::MultivariateNormalDistribution, Ball, BallPosition,
     CameraMatrices, CameraMatrix, Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs,
     SensorData,
@@ -40,7 +40,7 @@ pub struct CycleContext {
     pub cycle_time: Input<CycleTime, "cycle_time">,
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub ball_filter_configuration: Parameter<BallFilterConfiguration, "ball_filter_configuration">,
+    pub ball_filter_configuration: Parameter<BallFilterConfiguration, "ball_filter">,
 
     pub balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     pub balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
