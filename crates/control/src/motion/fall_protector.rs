@@ -86,7 +86,7 @@ impl FallProtector {
             .cycle_time
             .start_time
             .duration_since(self.start_time)
-            .unwrap()
+            .expect("time ran backwards")
             >= Duration::from_millis(500)
         {
             head_stiffness = 0.5;
@@ -96,7 +96,7 @@ impl FallProtector {
             .cycle_time
             .start_time
             .duration_since(self.start_time)
-            .unwrap()
+            .expect("time ran backwards")
             >= context.fall_protection.time_free_motion_exit
         {
             context.motion_safe_exits[MotionType::FallProtection] = true;
