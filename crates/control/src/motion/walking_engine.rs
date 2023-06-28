@@ -630,6 +630,8 @@ impl WalkingEngine {
             step_adjustment_output,
             next_left_foot_lift,
             next_right_foot_lift,
+            config.stabilization_foot_lift_multiplier,
+            config.stabilization_foot_lift_offset,
         );
         self.last_left_walk_request = next_left_walk_request;
         self.last_right_walk_request = next_right_walk_request;

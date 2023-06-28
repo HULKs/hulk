@@ -231,6 +231,8 @@ pub struct WalkingEngine {
     pub maximal_step_duration: Duration,
     pub minimal_step_duration: Duration,
     pub number_of_stabilizing_steps: usize,
+    pub stabilization_foot_lift_multiplier: f32,
+    pub stabilization_foot_lift_offset: f32,
     pub stable_step_deviation: Duration,
     pub starting_step_duration: Duration,
     pub starting_step_foot_lift: f32,
