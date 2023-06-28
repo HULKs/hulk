@@ -23,19 +23,24 @@ impl Hypothesis {
         self.moving_state.mean.rows(2, 2).norm() < configuration.resting_ball_velocity_threshold
     }
 
-    pub fn selected_ball_position(&self, configuration: &BallFilterConfiguration) -> BallPosition {
+    pub fn selected_state(
+        &self,
+        configuration: &BallFilterConfiguration,
+    ) -> MultivariateNormalDistribution<4> {
         if self.is_resting(configuration) {
-            BallPosition {
-                position: Point2::from(self.moving_state.mean.xy()),
-                velocity: vector![self.resting_state.mean.z, self.resting_state.mean.w],
-                last_seen: self.last_update,
-            }
+            self.resting_state
         } else {
-            BallPosition {
-                position: Point2::from(self.moving_state.mean.xy()),
-                velocity: vector![self.moving_state.mean.z, self.moving_state.mean.w],
-                last_seen: self.last_update,
-            }
+            self.moving_state
+        }
+    }
+
+    pub fn selected_ball_position(&self, configuration: &BallFilterConfiguration) -> BallPosition {
+        let selected_state = self.selected_state(configuration);
+
+        BallPosition {
+            position: Point2::from(selected_state.mean.xy()),
+            velocity: vector![selected_state.mean.z, selected_state.mean.w],
+            last_seen: self.last_update,
         }
     }
 }

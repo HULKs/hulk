@@ -136,24 +136,19 @@ impl BallFilter {
             .fill_if_subscribed(|| self.hypotheses.clone());
         let ball_radius = context.field_dimensions.ball_radius;
 
+        let ball_positions = self
+            .hypotheses
+            .iter()
+            .map(|hypothesis| hypothesis.selected_ball_position(context.ball_filter_configuration))
+            .collect();
         context.filtered_balls_in_image_top.fill_if_subscribed(|| {
-            let ball_positions = self.hypotheses.iter().map(|hypothesis| {
-                hypothesis.selected_ball_position(context.ball_filter_configuration)
-            }).collect();
-            project_to_image(
-                ball_positions,
-                &context.camera_matrices.top,
-                ball_radius,
-            )
+            project_to_image(&ball_positions, &context.camera_matrices.top, ball_radius)
         });
         context
             .filtered_balls_in_image_bottom
             .fill_if_subscribed(|| {
-                let ball_positions = self.hypotheses.iter().map(|hypothesis| {
-                    hypothesis.selected_ball_position(context.ball_filter_configuration)
-                }).collect();
                 project_to_image(
-                    ball_positions,
+                    &ball_positions,
                     &context.camera_matrices.bottom,
                     ball_radius,
                 )
@@ -337,8 +332,9 @@ impl BallFilter {
         field_dimensions: &FieldDimensions,
     ) {
         self.hypotheses.retain(|hypothesis| {
-            let is_inside_field = |position: Vector2<f32>| {
-                position.x.abs()
+            let selected_position = hypothesis.selected_ball_position(configuration).position;
+            let is_inside_field = {
+                selected_position.coords.x.abs()
                     < field_dimensions.length / 2.0 + field_dimensions.border_strip_width
                     && position.y.abs()
                         < field_dimensions.width / 2.0 + field_dimensions.border_strip_width
@@ -347,12 +343,7 @@ impl BallFilter {
                 .expect("Time has run backwards")
                 < configuration.hypothesis_timeout
                 && hypothesis.validity > configuration.validity_discard_threshold
-                && is_inside_field(
-                    hypothesis
-                        .selected_ball_position(configuration)
-                        .position
-                        .coords,
-                )
+                && is_inside_field
         });
         let mut deduplicated_hypotheses = Vec::<Hypothesis>::new();
         for hypothesis in self.hypotheses.drain(..) {
@@ -373,15 +364,16 @@ impl BallFilter {
                     });
             match hypothesis_in_merge_distance {
                 Some(existing_hypothesis) => {
+                    let update_state = hypothesis.selected_state(configuration);
                     existing_hypothesis.moving_state.update(
                         Matrix4::identity(),
-                        hypothesis.moving_state.mean,
-                        hypothesis.moving_state.covariance,
+                        update_state.mean,
+                        update_state.covariance,
                     );
                     existing_hypothesis.resting_state.update(
                         Matrix4::identity(),
-                        hypothesis.resting_state.mean,
-                        hypothesis.resting_state.covariance,
+                        update_state.mean,
+                        update_state.covariance,
                     );
                 }
                 None => deduplicated_hypotheses.push(hypothesis),
@@ -392,12 +384,12 @@ impl BallFilter {
 }
 
 fn project_to_image(
-    ball_position: Vec<BallPosition>,
+    ball_position: &Vec<BallPosition>,
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
 ) -> Vec<Circle> {
     ball_position
-        .into_iter()
+        .iter()
         .filter_map(|ball_position| {
             let position_in_image = camera_matrix
                 .ground_with_z_to_pixel(ball_position.position, ball_radius)
