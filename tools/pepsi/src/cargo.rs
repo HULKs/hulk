@@ -33,51 +33,7 @@ pub enum Command {
 
 pub async fn cargo(arguments: Arguments, repository: &Repository, command: Command) -> Result<()> {
     if arguments.remote {
-        match command {
-            Command::Build => {
-                let mut command = TokioCommand::new("./scripts/remote");
-
-                let profile_name = match arguments.profile.as_str() {
-                    "dev" => "debug",
-                    other => other,
-                };
-                let toolchain_name = match arguments.target.as_str() {
-                    "nao" => "x86_64-aldebaran-linux-gnu/",
-                    _ => "",
-                };
-                command.args([
-                    "--return-file",
-                    &format!("target/{toolchain_name}{profile_name}/{}", arguments.target),
-                ]);
-
-                command
-                    .arg("pepsi")
-                    .arg("build")
-                    .arg("--profile")
-                    .arg(arguments.profile)
-                    .arg("--target")
-                    .arg(arguments.target);
-
-                if arguments.workspace {
-                    command.arg("--workspace");
-                }
-                if arguments.no_sdk_installation {
-                    command.arg("--no-sdk-installation");
-                }
-                command.arg("--");
-                command.args(arguments.passthrough_arguments);
-
-                command
-                    .status()
-                    .await
-                    .wrap_err("failed to execute remote script")?;
-
-                return Ok(());
-            }
-            Command::Check | Command::Clippy | Command::Run => {
-                unimplemented!("remote option is not compatible with cargo command: {command:?}")
-            }
-        }
+        return remote(arguments, command).await;
     }
 
     if !arguments.no_sdk_installation && arguments.target == "nao" {
@@ -121,4 +77,52 @@ pub async fn cargo(arguments: Arguments, repository: &Repository, command: Comma
     }
 
     Ok(())
+}
+
+pub async fn remote(arguments: Arguments, command: Command) -> Result<()> {
+    match command {
+        Command::Build => {
+            let mut command = TokioCommand::new("./scripts/remote");
+
+            let profile_name = match arguments.profile.as_str() {
+                "dev" => "debug",
+                other => other,
+            };
+            let toolchain_name = match arguments.target.as_str() {
+                "nao" => "x86_64-aldebaran-linux-gnu/",
+                _ => "",
+            };
+            command.args([
+                "--return-file",
+                &format!("target/{toolchain_name}{profile_name}/{}", arguments.target),
+            ]);
+
+            command
+                .arg("pepsi")
+                .arg("build")
+                .arg("--profile")
+                .arg(arguments.profile)
+                .arg("--target")
+                .arg(arguments.target);
+
+            if arguments.workspace {
+                command.arg("--workspace");
+            }
+            if arguments.no_sdk_installation {
+                command.arg("--no-sdk-installation");
+            }
+            command.arg("--");
+            command.args(arguments.passthrough_arguments);
+
+            command
+                .status()
+                .await
+                .wrap_err("failed to execute remote script")?;
+
+            return Ok(());
+        }
+        Command::Check | Command::Clippy | Command::Run => {
+            unimplemented!("remote option is not compatible with cargo command: {command:?}")
+        }
+    }
 }
