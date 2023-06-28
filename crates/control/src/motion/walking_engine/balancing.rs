@@ -74,6 +74,8 @@ pub fn step_adjustment(
     step_adjustment_output: &mut AdditionalOutput<StepAdjustment>,
     mut left_foot_lift: f32,
     mut right_foot_lift: f32,
+    stabilization_foot_lift_multiplier: f32,
+    stabilization_foot_lift_offset: f32,
 ) -> (FootOffsets, FootOffsets, f32, f32) {
     let linear_time = (t.as_secs_f32() / planned_step_duration.as_secs_f32()).clamp(0.0, 1.0);
 
@@ -106,10 +108,12 @@ pub fn step_adjustment(
     if adjustment != 0.0 {
         match swing_side {
             Side::Left => {
-                left_foot_lift = left_foot_lift * 3.0 + 0.02 * exponential_return(linear_time)
+                left_foot_lift = left_foot_lift * stabilization_foot_lift_multiplier
+                    + stabilization_foot_lift_offset * exponential_return(linear_time)
             }
             Side::Right => {
-                right_foot_lift = right_foot_lift * 3.0 + 0.02 * exponential_return(linear_time)
+                right_foot_lift = right_foot_lift * stabilization_foot_lift_multiplier
+                    + stabilization_foot_lift_offset * exponential_return(linear_time)
             }
         };
     }
@@ -118,7 +122,6 @@ pub fn step_adjustment(
         Side::Left => (adjusted_swing_foot, adjusted_support_foot),
         Side::Right => (adjusted_support_foot, adjusted_swing_foot),
     };
-
 
     step_adjustment_output.fill_if_subscribed(|| StepAdjustment {
         adjustment,

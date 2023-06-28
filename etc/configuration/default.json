@@ -396,6 +396,8 @@
     "maximal_step_duration": { "nanos": 0, "secs": 1 },
     "minimal_step_duration": { "nanos": 150000000, "secs": 0 },
     "number_of_stabilizing_steps": 3,
+    "stabilization_foot_lift_multiplier": 3.0,
+    "stabilization_foot_lift_offset": 0.02,
     "stable_step_deviation": { "nanos": 60000000, "secs": 0 },
     "starting_step_duration": { "nanos": 200000000, "secs": 0 },
     "starting_step_foot_lift": 0.009,
