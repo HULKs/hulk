@@ -32,7 +32,7 @@ fn generate_module(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
     let cycler_implementation = generate_implementation(cycler, cyclers);
 
     quote! {
-        #[allow(dead_code, unused_mut, unused_variables, clippy::too_many_arguments, clippy::redundant_clone, clippy::needless_question_mark)]
+        #[allow(dead_code, unused_mut, unused_variables, clippy::too_many_arguments, clippy::needless_question_mark)]
         pub(crate) mod #module_name {
             use color_eyre::eyre::WrapErr;
             use crate::structs::#module_name::{MainOutputs, AdditionalOutputs};

@@ -348,7 +348,6 @@ mod tests {
         }
     }
 
-    #[allow(clippy::collapsible_match, clippy::match_like_matches_macro)]
     #[test]
     fn insertion_rules_without_optionals_result_in_correct_struct_hierarchy() {
         let data_type = Type::Verbatim(Default::default());
@@ -399,7 +398,6 @@ mod tests {
         assert_eq!(matched_data_type, &data_type);
     }
 
-    #[allow(clippy::collapsible_match, clippy::match_like_matches_macro)]
     #[test]
     fn insertion_rules_with_one_optional_result_in_correct_struct_hierarchy() {
         let data_type = Type::Verbatim(Default::default());
@@ -454,7 +452,6 @@ mod tests {
         assert_eq!(matched_data_type, &data_type);
     }
 
-    #[allow(clippy::collapsible_match, clippy::match_like_matches_macro)]
     #[test]
     fn insertion_rules_with_two_optionals_result_in_correct_struct_hierarchy() {
         let data_type = Type::Verbatim(Default::default());
@@ -513,7 +510,6 @@ mod tests {
         assert_eq!(matched_data_type, &data_type);
     }
 
-    #[allow(clippy::collapsible_match, clippy::match_like_matches_macro)]
     #[test]
     fn insertion_rules_with_three_optionals_result_in_correct_struct_hierarchy() {
         let data_type = Type::Verbatim(Default::default());
