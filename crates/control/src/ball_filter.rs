@@ -5,7 +5,7 @@ use context_attribute::context;
 use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use nalgebra::{
-    matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2, Vector2,
+    matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2,
 };
 use projection::Projection;
 use types::{
@@ -26,6 +26,8 @@ pub struct CreationContext {}
 pub struct CycleContext {
     pub ball_filter_hypotheses: AdditionalOutput<Vec<Hypothesis>, "ball_filter_hypotheses">,
     pub best_ball_hypothesis: AdditionalOutput<Option<Hypothesis>, "best_ball_hypothesis">,
+    pub best_ball_state:
+        AdditionalOutput<Option<MultivariateNormalDistribution<4>>, "best_ball_state">,
     pub chooses_resting_model: AdditionalOutput<bool, "chooses_resting_model">,
     pub filtered_balls_in_image_bottom:
         AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_bottom">,
@@ -157,6 +159,11 @@ impl BallFilter {
         context
             .best_ball_hypothesis
             .fill_if_subscribed(|| self.find_best_hypothesis().cloned());
+
+        context.best_ball_state.fill_if_subscribed(|| {
+            self.find_best_hypothesis()
+                .map(|hypothesis| hypothesis.selected_state(&context.ball_filter_configuration))
+        });
 
         let ball_position = self.find_best_hypothesis().map(|hypothesis| {
             context
@@ -336,7 +343,7 @@ impl BallFilter {
             let is_inside_field = {
                 selected_position.coords.x.abs()
                     < field_dimensions.length / 2.0 + field_dimensions.border_strip_width
-                    && position.y.abs()
+                    && selected_position.y.abs()
                         < field_dimensions.width / 2.0 + field_dimensions.border_strip_width
             };
             now.duration_since(hypothesis.last_update)
