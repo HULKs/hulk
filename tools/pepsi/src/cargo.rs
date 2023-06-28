@@ -119,7 +119,7 @@ pub async fn remote(arguments: Arguments, command: Command) -> Result<()> {
                 .await
                 .wrap_err("failed to execute remote script")?;
 
-            return Ok(());
+            Ok(())
         }
         Command::Check | Command::Clippy | Command::Run => {
             unimplemented!("remote option is not compatible with cargo command: {command:?}")
