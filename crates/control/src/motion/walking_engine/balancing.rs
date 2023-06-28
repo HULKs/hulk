@@ -101,12 +101,7 @@ pub fn step_adjustment(
     let limited_adjustment = adjustment.clamp(-max_adjustment, max_adjustment);
 
     let adjusted_swing_foot = next_swing_foot + limited_adjustment;
-    let adjusted_support_foot = next_support_foot; // - 0.5 * limited_adjustment;
-
-    let (adjusted_left_forward, adjusted_right_forward) = match swing_side {
-        Side::Left => (adjusted_swing_foot, adjusted_support_foot),
-        Side::Right => (adjusted_support_foot, adjusted_swing_foot),
-    };
+    let adjusted_support_foot = next_support_foot;
 
     if adjustment != 0.0 {
         match swing_side {
@@ -118,6 +113,12 @@ pub fn step_adjustment(
             }
         };
     }
+
+    let (adjusted_left_forward, adjusted_right_forward) = match swing_side {
+        Side::Left => (adjusted_swing_foot, adjusted_support_foot),
+        Side::Right => (adjusted_support_foot, adjusted_swing_foot),
+    };
+
 
     step_adjustment_output.fill_if_subscribed(|| StepAdjustment {
         adjustment,
