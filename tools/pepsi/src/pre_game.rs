@@ -47,6 +47,7 @@ pub struct Arguments {
     /// The NAOs to upload to with player number assignments e.g. 20w:2 or 10.1.24.22:5 (player numbers start from 1)
     #[arg(required = true)]
     pub assignments: Vec<NaoAddressPlayerAssignment>,
+    /// Use a remote machine for compilation, see ./scripts/remote for details
     #[arg(long)]
     pub remote: bool,
 }

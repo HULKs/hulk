@@ -41,6 +41,7 @@ pub struct Arguments {
     /// The NAOs to upload to e.g. 20w or 10.1.24.22
     #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
+    /// Use a remote machine for compilation, see ./scripts/remote for details
     #[arg(long)]
     pub remote: bool,
 }
