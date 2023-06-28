@@ -4,9 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
-use nalgebra::{
-    matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2,
-};
+use nalgebra::{matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2};
 use projection::Projection;
 use types::{
     ball_filter::Hypothesis, configuration::BallFilter as BallFilterConfiguration, is_above_limbs,
@@ -142,7 +140,7 @@ impl BallFilter {
             .hypotheses
             .iter()
             .map(|hypothesis| hypothesis.selected_ball_position(context.ball_filter_configuration))
-            .collect();
+            .collect::<Vec<_>>();
         context.filtered_balls_in_image_top.fill_if_subscribed(|| {
             project_to_image(&ball_positions, &context.camera_matrices.top, ball_radius)
         });
@@ -162,7 +160,7 @@ impl BallFilter {
 
         context.best_ball_state.fill_if_subscribed(|| {
             self.find_best_hypothesis()
-                .map(|hypothesis| hypothesis.selected_state(&context.ball_filter_configuration))
+                .map(|hypothesis| hypothesis.selected_state(context.ball_filter_configuration))
         });
 
         let ball_position = self.find_best_hypothesis().map(|hypothesis| {
@@ -395,7 +393,7 @@ impl BallFilter {
 }
 
 fn project_to_image(
-    ball_position: &Vec<BallPosition>,
+    ball_position: &[BallPosition],
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
 ) -> Vec<Circle> {
