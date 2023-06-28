@@ -1,19 +1,19 @@
 use nalgebra::{point, Point2, UnitComplex};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
-    configuration::InterceptBall, GameControllerState, HeadMotion, LineSegment, MotionCommand,
-    OrientationMode, PathSegment, PrimaryState, WorldState,
+    configuration::InterceptBall, FilteredGameState, GameControllerState, HeadMotion, LineSegment,
+    MotionCommand, OrientationMode, PathSegment, WorldState,
 };
 
 pub fn execute(world_state: &WorldState, parameters: InterceptBall) -> Option<MotionCommand> {
     match (
-        world_state.robot.primary_state,
+        world_state.filtered_game_state,
         world_state.ball,
         world_state.robot.robot_to_field,
         world_state.game_controller_state,
     ) {
         (
-            PrimaryState::Playing,
+            Some(FilteredGameState::Playing { .. }),
             _,
             _,
             Some(
@@ -27,7 +27,13 @@ pub fn execute(world_state: &WorldState, parameters: InterceptBall) -> Option<Mo
                 },
             ),
         ) => None,
-        (PrimaryState::Playing, Some(ball), Some(robot_to_field), _) => {
+        (
+            Some(FilteredGameState::Playing {
+                ball_is_free: false,
+            }),
+            ..,
+        ) => None,
+        (Some(FilteredGameState::Playing { .. }), Some(ball), Some(robot_to_field), _) => {
             let ball_in_front_of_robot = ball.ball_in_ground.coords.norm()
                 < parameters.maximum_ball_distance
                 && ball.ball_in_ground.x > 0.0;
