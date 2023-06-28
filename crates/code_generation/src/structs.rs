@@ -99,7 +99,7 @@ fn hierarchy_to_token_stream(
             }
             StructHierarchy::Optional { child } => match &**child {
                 StructHierarchy::Struct { .. } => {
-                    hierarchy_to_token_stream(struct_hierarchy, struct_name, derives)
+                    hierarchy_to_token_stream(child, struct_name, derives)
                 }
                 StructHierarchy::Optional { .. } => {
                     panic!("unexpected optional in an optional struct")
