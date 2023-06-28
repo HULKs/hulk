@@ -575,7 +575,7 @@
     "angular_velocity_low_pass_factor": 0.2,
     "roll_pitch_low_pass_factor": 0.2,
     "gravitational_acceleration_threshold": 4.0,
-    "falling_angle_threshold": [0.52, 0.6],
+    "falling_angle_threshold": [0.52, 0.3],
     "fallen_timeout": {
       "nanos": 0,
       "secs": 1
