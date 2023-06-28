@@ -62,7 +62,6 @@ fn generate_perception_updates(cyclers: &Cyclers) -> TokenStream {
                 #find_earliest_timestamp
             }
 
-            #[allow(unused_variables)]
             fn push_to_databases(self, databases: &mut std::collections::BTreeMap<std::time::SystemTime, Databases>) {
                 #(#push_loops)*
             }
