@@ -120,10 +120,10 @@ fn add_main_outputs(field: &Field, cycler_structs: &mut CyclerStructs) {
                     },
                 );
             }
-            _ => panic!("unexpected non-struct hierarchy in main outputs"),
+            _ => panic!("unexpected non-struct hierarchy in main outputs: {cycler_structs:?}"),
         },
         _ => {
-            panic!("unexpected field {field:?} in MainOutputs");
+            panic!("unexpected field in MainOutputs: {field:?}");
         }
     }
 }

@@ -250,7 +250,7 @@ impl Field {
                 })
             }
             "PersistentState" => {
-                let (data_type, path) = extract_two_arguments(&first_segment.arguments, false)?;
+                let (data_type, path) = extract_two_arguments(&first_segment.arguments, true)?;
                 Ok(Field::PersistentState {
                     data_type: data_type.to_absolute(uses),
                     name: field_name.clone(),
