@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
-    configuration::BallFilterConfiguration,
+    configuration::BallFilter as BallFilterConfiguration,
     multivariate_normal_distribution::MultivariateNormalDistribution, BallPosition,
 };
 
