@@ -22,7 +22,6 @@ where
         }
     }
 
-    #[allow(dead_code)]
     pub fn with_cutoff(initial_state: State, cutoff_frequency: f32, sampling_rate: f32) -> Self {
         let rc = 1.0 / (cutoff_frequency * 2.0 * PI);
         let dt = 1.0 / sampling_rate;
