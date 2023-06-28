@@ -6,7 +6,7 @@ use types::{
     configuration::WalkingEngine as WalkingEngineConfiguration, LegJoints, Side, StepAdjustment,
 };
 
-use super::{foot_offsets::FootOffsets, engine::exponential_return};
+use super::{engine::exponential_return, foot_offsets::FootOffsets};
 
 pub fn support_leg_gyro_balancing(
     gyro: Vector2<f32>,
@@ -59,7 +59,7 @@ pub fn swing_leg_foot_leveling(
 #[allow(clippy::too_many_arguments)]
 pub fn step_adjustment(
     t: Duration,
-    planned_step_duration: Duration, 
+    planned_step_duration: Duration,
     swing_side: Side,
     torso_tilt_shift: f32,
     current_left_foot: FootOffsets,
@@ -75,8 +75,7 @@ pub fn step_adjustment(
     mut left_foot_lift: f32,
     mut right_foot_lift: f32,
 ) -> (FootOffsets, FootOffsets, f32, f32) {
-    let linear_time =
-        (t.as_secs_f32() / planned_step_duration.as_secs_f32()).clamp(0.0, 1.0);
+    let linear_time = (t.as_secs_f32() / planned_step_duration.as_secs_f32()).clamp(0.0, 1.0);
 
     let next_left_forward =
         current_left_foot.forward + next_left_walk_request.forward - last_left_walk_request.forward;
@@ -91,8 +90,8 @@ pub fn step_adjustment(
         Side::Left => (next_left_forward, next_right_forward),
         Side::Right => (next_right_forward, next_left_forward),
     };
-    let adjustment = if torso_tilt_shift < backward_balance_limit  {
-        -next_swing_foot - torso_tilt_shift.abs() - backward_foot_support.abs() - 0.02
+    let adjustment = if torso_tilt_shift < backward_balance_limit {
+        -next_swing_foot - torso_tilt_shift.abs() - backward_foot_support.abs()
     } else if torso_tilt_shift > forward_balance_limit {
         -next_swing_foot + torso_tilt_shift.abs() + forward_foot_support.abs()
     } else {
@@ -111,8 +110,12 @@ pub fn step_adjustment(
 
     if adjustment != 0.0 {
         match swing_side {
-            Side::Left => left_foot_lift = left_foot_lift * 3.0 + 0.02 * exponential_return(linear_time),
-            Side::Right => right_foot_lift = right_foot_lift * 3.0 + 0.02 * exponential_return(linear_time),
+            Side::Left => {
+                left_foot_lift = left_foot_lift * 3.0 + 0.02 * exponential_return(linear_time)
+            }
+            Side::Right => {
+                right_foot_lift = right_foot_lift * 3.0 + 0.02 * exponential_return(linear_time)
+            }
         };
     }
 
