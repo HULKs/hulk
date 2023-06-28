@@ -4,11 +4,10 @@ use std::time::Duration;
 
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
+use hardware::NetworkInterface;
 use spl_network_messages::VisualRefereeDecision;
 use spl_network_messages::{PlayerNumber, VisualRefereeMessage};
-use types::{
-    hardware::Interface, messages::OutgoingMessage, CycleTime, FilteredWhistle, PrimaryState,
-};
+use types::{messages::OutgoingMessage, CycleTime, FilteredWhistle, PrimaryState};
 
 pub struct VisualRefereeFilter {
     last_primary_state: PrimaryState,
@@ -38,7 +37,7 @@ impl VisualRefereeFilter {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl Interface>) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
         let send_visual_referee_message = matches!(
             (self.last_primary_state, *context.primary_state),
             (PrimaryState::Set, PrimaryState::Playing)
