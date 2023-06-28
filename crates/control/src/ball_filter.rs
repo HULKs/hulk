@@ -81,12 +81,12 @@ impl BallFilter {
             .collect()
     }
 
-    fn update_all_hypotheses(
+    fn advance_all_hypotheses(
         &mut self,
-        updates: Vec<(&SystemTime, Vec<&Ball>)>,
+        measurements: Vec<(&SystemTime, Vec<&Ball>)>,
         context: &CycleContext,
     ) {
-        for (detection_time, balls) in updates {
+        for (detection_time, balls) in measurements {
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
                 .get(detection_time)
@@ -129,39 +129,34 @@ impl BallFilter {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let persistent_updates = Self::persistent_balls_in_control_cycle(&context);
-        self.update_all_hypotheses(persistent_updates, &context);
+        self.advance_all_hypotheses(persistent_updates, &context);
 
         context
             .ball_filter_hypotheses
             .fill_if_subscribed(|| self.hypotheses.clone());
         let ball_radius = context.field_dimensions.ball_radius;
+
         context.filtered_balls_in_image_top.fill_if_subscribed(|| {
-            self.hypotheses
-                .iter()
-                .filter_map(|hypothesis| {
-                    project_to_image(
-                        hypothesis,
-                        &context.camera_matrices.top,
-                        ball_radius,
-                        context.ball_filter_configuration,
-                    )
-                })
-                .collect()
+            let ball_positions = self.hypotheses.iter().map(|hypothesis| {
+                hypothesis.selected_ball_position(context.ball_filter_configuration)
+            }).collect();
+            project_to_image(
+                ball_positions,
+                &context.camera_matrices.top,
+                ball_radius,
+            )
         });
         context
             .filtered_balls_in_image_bottom
             .fill_if_subscribed(|| {
-                self.hypotheses
-                    .iter()
-                    .filter_map(|hypothesis| {
-                        project_to_image(
-                            hypothesis,
-                            &context.camera_matrices.bottom,
-                            ball_radius,
-                            context.ball_filter_configuration,
-                        )
-                    })
-                    .collect()
+                let ball_positions = self.hypotheses.iter().map(|hypothesis| {
+                    hypothesis.selected_ball_position(context.ball_filter_configuration)
+                }).collect();
+                project_to_image(
+                    ball_positions,
+                    &context.camera_matrices.bottom,
+                    ball_radius,
+                )
             });
 
         context
@@ -397,22 +392,25 @@ impl BallFilter {
 }
 
 fn project_to_image(
-    hypothesis: &Hypothesis,
+    ball_position: Vec<BallPosition>,
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
-    configuration: &BallFilterConfiguration,
-) -> Option<Circle> {
-    let position_on_ground = hypothesis.selected_ball_position(configuration).position;
-    let position_in_image = camera_matrix
-        .ground_with_z_to_pixel(position_on_ground, ball_radius)
-        .ok()?;
-    let radius = camera_matrix
-        .get_pixel_radius(ball_radius, position_in_image, vector![640, 480])
-        .ok()?;
-    Some(Circle {
-        center: position_in_image,
-        radius,
-    })
+) -> Vec<Circle> {
+    ball_position
+        .into_iter()
+        .filter_map(|ball_position| {
+            let position_in_image = camera_matrix
+                .ground_with_z_to_pixel(ball_position.position, ball_radius)
+                .ok()?;
+            let radius = camera_matrix
+                .get_pixel_radius(ball_radius, position_in_image, vector![640, 480])
+                .ok()?;
+            Some(Circle {
+                center: position_in_image,
+                radius,
+            })
+        })
+        .collect()
 }
 
 fn is_visible_to_camera(
