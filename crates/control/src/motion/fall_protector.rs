@@ -209,9 +209,7 @@ impl FallProtector {
                     .start_time
                     .duration_since(fallen_start)
                     .expect("time ran backwards")
-                    >= Duration::from_secs_f32(
-                        context.fall_protection.time_prolong_ground_impact,
-                    ) =>
+                    >= context.fall_protection.time_prolong_ground_impact =>
             {
                 context.motion_safe_exits[MotionType::FallProtection] = true;
                 self.fallen_time = None;
