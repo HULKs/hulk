@@ -18,6 +18,7 @@ pub struct Arguments {
     /// Pass through arguments to cargo ... -- PASSTHROUGH_ARGUMENTS
     #[arg(last = true, value_parser)]
     pub passthrough_arguments: Vec<String>,
+    /// Use a remote machine for compilation, see ./scripts/remote for details
     #[arg(long)]
     pub remote: bool,
 }
