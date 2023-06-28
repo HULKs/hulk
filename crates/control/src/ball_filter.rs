@@ -264,6 +264,10 @@ impl BallFilter {
             Matrix2::from_diagonal(&configuration.measurement_noise_resting)
                 * detected_position.coords.norm_squared(),
         );
+
+        if !hypothesis.is_resting(configuration) {
+            hypothesis.resting_state.mean = hypothesis.moving_state.mean;
+        }
         hypothesis.last_update = detection_time;
         hypothesis.validity += 1.0;
     }
