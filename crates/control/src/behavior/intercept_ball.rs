@@ -1,7 +1,8 @@
 use nalgebra::{point, Point2, UnitComplex};
+use spl_network_messages::{GamePhase, SubState};
 use types::{
-    configuration::InterceptBall, HeadMotion, LineSegment, MotionCommand, OrientationMode,
-    PathSegment, PrimaryState, WorldState,
+    configuration::InterceptBall, GameControllerState, HeadMotion, LineSegment, MotionCommand,
+    OrientationMode, PathSegment, PrimaryState, WorldState,
 };
 
 pub fn execute(world_state: &WorldState, parameters: InterceptBall) -> Option<MotionCommand> {
@@ -9,8 +10,24 @@ pub fn execute(world_state: &WorldState, parameters: InterceptBall) -> Option<Mo
         world_state.robot.primary_state,
         world_state.ball,
         world_state.robot.robot_to_field,
+        world_state.game_controller_state,
     ) {
-        (PrimaryState::Playing, Some(ball), Some(robot_to_field)) => {
+        (
+            PrimaryState::Playing,
+            _,
+            _,
+            Some(
+                GameControllerState {
+                    game_phase: GamePhase::PenaltyShootout { .. },
+                    ..
+                }
+                | GameControllerState {
+                    sub_state: Some(SubState::PenaltyKick),
+                    ..
+                },
+            ),
+        ) => None,
+        (PrimaryState::Playing, Some(ball), Some(robot_to_field), _) => {
             let ball_in_front_of_robot = ball.ball_in_ground.coords.norm()
                 < parameters.maximum_ball_distance
                 && ball.ball_in_ground.x > 0.0;
