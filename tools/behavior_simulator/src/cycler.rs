@@ -1,12 +1,5 @@
 use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
 
-use crate::{
-    interfake::Interfake,
-    structs::{
-        control::{AdditionalOutputs, MainOutputs, PersistentState},
-        Parameters,
-    },
-};
 use color_eyre::{eyre::WrapErr, Result};
 use control::{
     active_vision::{self, ActiveVision},
@@ -20,11 +13,20 @@ use control::{
     time_to_reach_kick_position::{self, TimeToReachKickPosition},
     world_state_composer::{self, WorldStateComposer},
 };
+
 use framework::{AdditionalOutput, PerceptionInput};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::sync::Notify;
-use types::{messages::IncomingMessage, Step};
+use types::messages::IncomingMessage;
+
+use crate::{
+    interfake::Interfake,
+    structs::{
+        control::{AdditionalOutputs, MainOutputs, PersistentState},
+        Parameters,
+    },
+};
 
 #[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Database {
@@ -41,7 +43,6 @@ pub struct BehaviorCycler {
     dribble_path: DribblePath,
     kick_selector: KickSelector,
     look_around: LookAround,
-    persistent_state: PersistentState,
     role_assignment: RoleAssignment,
     rule_obstacle_composer: RuleObstacleComposer,
     world_state_composer: WorldStateComposer,
@@ -54,7 +55,6 @@ impl BehaviorCycler {
         own_changed: Arc<Notify>,
         parameters: &Parameters,
     ) -> Result<Self> {
-        let persistent_state = PersistentState::default();
         let time_to_reach_kick_position =
             TimeToReachKickPosition::new(time_to_reach_kick_position::CreationContext {})
                 .wrap_err("failed to create node `TimeToReachKickPosition`")?;
@@ -102,7 +102,6 @@ impl BehaviorCycler {
             own_changed,
 
             active_vision,
-            persistent_state,
             time_to_reach_kick_position,
             ball_state_composer,
             behavior,
@@ -118,6 +117,7 @@ impl BehaviorCycler {
     pub fn cycle(
         &mut self,
         own_database: &mut Database,
+        persistent_state: &mut PersistentState,
         parameters: &Parameters,
         incoming_messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>,
     ) -> Result<()> {
@@ -159,9 +159,7 @@ impl BehaviorCycler {
                     primary_state: &own_database.main_outputs.primary_state,
                     robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
                     cycle_time: &own_database.main_outputs.cycle_time,
-                    time_to_reach_kick_position: &mut self
-                        .persistent_state
-                        .time_to_reach_kick_position,
+                    time_to_reach_kick_position: &mut persistent_state.time_to_reach_kick_position,
                     field_dimensions: &parameters.field_dimensions,
                     forced_role: parameters.role_assignment.forced_role.as_ref(),
                     keeper_replacementkeeper_switch_time: &parameters
@@ -334,12 +332,8 @@ impl BehaviorCycler {
                     lost_ball_parameters: &parameters.behavior.lost_ball,
                     intercept_ball_parameters: &parameters.behavior.intercept_ball,
                     has_ground_contact: &true,
-                    current_step: &mut Step {
-                        forward: 0.0,
-                        left: 0.0,
-                        turn: 0.0,
-                    },
-                    maximum_step_size: &configuration.step_planner.max_step_size,
+                    current_step: &mut persistent_state.current_step,
+                    maximum_step_size: &parameters.step_planner.max_step_size,
                 })
                 .wrap_err("failed to execute cycle of node `Behavior`")?;
             own_database.main_outputs.motion_command = main_outputs.motion_command.value;
@@ -365,9 +359,7 @@ impl BehaviorCycler {
             let _main_outputs = self
                 .time_to_reach_kick_position
                 .cycle(control::time_to_reach_kick_position::CycleContext {
-                    time_to_reach_kick_position: &mut self
-                        .persistent_state
-                        .time_to_reach_kick_position,
+                    time_to_reach_kick_position: &mut persistent_state.time_to_reach_kick_position,
                     dribble_path: own_database.main_outputs.dribble_path.as_ref(),
                     stand_up_back_estimated_remaining_duration: own_database
                         .main_outputs

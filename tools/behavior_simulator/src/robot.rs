@@ -15,13 +15,14 @@ use types::{messages::IncomingMessage, CameraMatrix};
 use crate::{
     cycler::{BehaviorCycler, Database},
     interfake::Interfake,
-    structs::Parameters,
+    structs::{control::PersistentState, Parameters},
 };
 
 pub struct Robot {
     pub interface: Arc<Interfake>,
     pub cycler: BehaviorCycler,
     pub database: Database,
+    pub persistent_state: PersistentState,
     pub parameters: Parameters,
     pub is_penalized: bool,
     pub last_kick_time: Duration,
@@ -55,10 +56,13 @@ impl Robot {
             &parameter.field_dimensions,
         ));
 
+        let persistent_state = Default::default();
+
         Ok(Self {
             interface,
             cycler,
             database,
+            persistent_state,
             parameters: parameter,
             is_penalized: false,
             last_kick_time: Duration::default(),
@@ -66,8 +70,12 @@ impl Robot {
     }
 
     pub fn cycle(&mut self, messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>) -> Result<()> {
-        self.cycler
-            .cycle(&mut self.database, &self.parameters, messages)
+        self.cycler.cycle(
+            &mut self.database,
+            &mut self.persistent_state,
+            &self.parameters,
+            messages,
+        )
     }
 
     pub fn field_of_view(&self) -> f32 {
