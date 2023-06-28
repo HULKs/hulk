@@ -8,7 +8,6 @@ use source_analyzer::{
 };
 
 fn main() -> Result<()> {
-    println!("cargo:rerun-if-changed=framework.toml");
     let manifest = FrameworkManifest {
         cyclers: vec![
             CyclerManifest {
