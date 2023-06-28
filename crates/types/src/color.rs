@@ -13,7 +13,6 @@ pub struct YCbCr422 {
 }
 
 impl YCbCr422 {
-    #[allow(dead_code)]
     pub fn new(y1: u8, cb: u8, y2: u8, cr: u8) -> Self {
         Self { y1, cb, y2, cr }
     }
@@ -45,7 +44,6 @@ pub struct YCbCr444 {
 }
 
 impl YCbCr444 {
-    #[allow(dead_code)]
     pub fn new(y: u8, cb: u8, cr: u8) -> Self {
         Self { y, cb, cr }
     }
@@ -104,7 +102,6 @@ pub enum RgbChannel {
     Blue,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Intensity {
     Low,

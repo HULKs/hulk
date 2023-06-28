@@ -50,7 +50,6 @@ pub struct NavigationPath {
     pub steps: Vec<usize>,
 }
 
-#[allow(dead_code)]
 #[derive(Copy, Clone, Debug)]
 /// Node is an internal step inside the A-Star path (not exposed/public). Idx is the current cell,
 /// f is the total cost, g the neighbor cost, and h the heuristic cost.

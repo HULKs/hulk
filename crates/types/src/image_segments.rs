@@ -23,16 +23,13 @@ pub struct ScanLine {
 pub struct Segment {
     pub start: u16,
     pub end: u16,
-    #[allow(dead_code)]
     pub start_edge_type: EdgeType,
-    #[allow(dead_code)]
     pub end_edge_type: EdgeType,
     pub color: YCbCr444,
     pub field_color: Intensity,
 }
 
 impl Segment {
-    #[allow(dead_code)]
     pub fn center(&self) -> u16 {
         (self.length() >> 1) + self.start
     }
@@ -43,7 +40,6 @@ impl Segment {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[allow(dead_code)]
 pub enum EdgeType {
     Rising,
     Falling,
