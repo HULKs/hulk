@@ -17,7 +17,6 @@ use types::{
 
 pub struct BallFilter {
     hypotheses: Vec<Hypothesis>,
-    persistent_hypotheses: Vec<Hypothesis>,
 }
 
 #[context]
@@ -59,16 +58,7 @@ impl BallFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             hypotheses: Vec::new(),
-            persistent_hypotheses: Vec::new(),
         })
-    }
-
-    fn roll_back(&mut self) {
-        self.hypotheses = self.persistent_hypotheses.drain(..).collect();
-    }
-
-    fn save_state(&mut self) {
-        self.persistent_hypotheses = self.hypotheses.clone();
     }
 
     fn persistent_balls_in_control_cycle<'a>(
@@ -79,26 +69,6 @@ impl BallFilter {
             .persistent
             .iter()
             .zip(context.balls_bottom.persistent.values())
-            .map(|((detection_time, balls_top), balls_bottom)| {
-                let balls = balls_top
-                    .iter()
-                    .chain(balls_bottom.iter())
-                    .filter_map(|data| data.as_ref())
-                    .flat_map(|data| data.iter())
-                    .collect();
-                (detection_time, balls)
-            })
-            .collect()
-    }
-
-    fn temporary_balls_in_control_cycle<'a>(
-        context: &'a CycleContext,
-    ) -> Vec<(&'a SystemTime, Vec<&'a Ball>)> {
-        context
-            .balls_top
-            .temporary
-            .iter()
-            .zip(context.balls_bottom.temporary.values())
             .map(|((detection_time, balls_top), balls_bottom)| {
                 let balls = balls_top
                     .iter()
@@ -158,13 +128,8 @@ impl BallFilter {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        self.roll_back();
         let persistent_updates = Self::persistent_balls_in_control_cycle(&context);
         self.update_all_hypotheses(persistent_updates, &context);
-
-        self.save_state();
-        let temporary_updates = Self::temporary_balls_in_control_cycle(&context);
-        self.update_all_hypotheses(temporary_updates, &context);
 
         context
             .ball_filter_hypotheses
@@ -387,8 +352,12 @@ impl BallFilter {
                 .expect("Time has run backwards")
                 < configuration.hypothesis_timeout
                 && hypothesis.validity > configuration.validity_discard_threshold
-                && (is_inside_field(hypothesis.moving_state.mean.xy())
-                    || is_inside_field(hypothesis.resting_state.mean.xy()))
+                && is_inside_field(
+                    hypothesis
+                        .selected_ball_position(configuration)
+                        .position
+                        .coords,
+                )
         });
         let mut deduplicated_hypotheses = Vec::<Hypothesis>::new();
         for hypothesis in self.hypotheses.drain(..) {
@@ -396,9 +365,15 @@ impl BallFilter {
                 deduplicated_hypotheses
                     .iter_mut()
                     .find(|existing_hypothesis| {
-                        (existing_hypothesis.moving_state.mean.xy()
-                            - hypothesis.moving_state.mean.xy())
-                        .norm()
+                        (existing_hypothesis
+                            .selected_ball_position(configuration)
+                            .position
+                            .coords
+                            - hypothesis
+                                .selected_ball_position(configuration)
+                                .position
+                                .coords)
+                            .norm()
                             < configuration.hypothesis_merge_distance
                     });
             match hypothesis_in_merge_distance {
