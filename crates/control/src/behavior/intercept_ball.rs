@@ -6,34 +6,29 @@ use types::{
 };
 
 pub fn execute(world_state: &WorldState, parameters: InterceptBall) -> Option<MotionCommand> {
+    if let Some(
+        GameControllerState {
+            game_phase: GamePhase::PenaltyShootout { .. },
+            ..
+        }
+        | GameControllerState {
+            sub_state: Some(SubState::PenaltyKick),
+            ..
+        },
+    ) = world_state.game_controller_state
+    {
+        return None;
+    }
     match (
         world_state.filtered_game_state,
         world_state.ball,
         world_state.robot.robot_to_field,
-        world_state.game_controller_state,
     ) {
         (
-            Some(FilteredGameState::Playing { .. }),
-            _,
-            _,
-            Some(
-                GameControllerState {
-                    game_phase: GamePhase::PenaltyShootout { .. },
-                    ..
-                }
-                | GameControllerState {
-                    sub_state: Some(SubState::PenaltyKick),
-                    ..
-                },
-            ),
-        ) => None,
-        (
-            Some(FilteredGameState::Playing {
-                ball_is_free: false,
-            }),
-            ..,
-        ) => None,
-        (Some(FilteredGameState::Playing { .. }), Some(ball), Some(robot_to_field), _) => {
+            Some(FilteredGameState::Playing { ball_is_free: true }),
+            Some(ball),
+            Some(robot_to_field),
+        ) => {
             let ball_in_front_of_robot = ball.ball_in_ground.coords.norm()
                 < parameters.maximum_ball_distance
                 && ball.ball_in_ground.x > 0.0;
