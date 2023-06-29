@@ -67,7 +67,7 @@ remotePath=$(echo $remoteGitPath | sed 's/\.git/\//')
 branch=remoteCompile
 git push $remote HEAD:$branch --force --no-verify
 # check out pushed branch on the remote
-ssh $address "sh -c \"set -x && \
+ssh $address "sh -c \"\
     cd "$remotePath" \
     && git checkout --force \\\$(git rev-parse $branch) \
     && git clean -d --force \
