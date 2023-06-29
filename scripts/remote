@@ -36,7 +36,7 @@ regard for possible unsaved changes on the remote.
 __helpText__
 }
 
-remote=compiler
+remote="${COMPILER_REMOTE:-compiler}"
 files=()
 while true; do
     case "$1" in
