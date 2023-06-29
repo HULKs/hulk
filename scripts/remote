@@ -58,10 +58,10 @@ echo Using remote $(tput setaf 6)$remote$(tput sgr 0)
 
 # extract login information and remote path from git remote
 # assumes remote url of this format: `user@domain:path/to/hulks/repo.git`
-remoteURL=$(git remote get-url $remote)
-address=$(echo $remoteURL | cut -d':' -f 1)
-remoteGitPath=$(echo $remoteURL | cut -d':' -f 2-)
-remotePath=$(echo $remoteGitPath | sed 's/\.git/\//')
+remoteURL="$(git remote get-url $remote)"
+address="$(echo $remoteURL | cut -d':' -f 1)"
+remoteGitPath="$(echo $remoteURL | cut -d':' -f 2-)"
+remotePath="$(echo $remoteGitPath | sed 's/\.git/\//')"
 
 # push HEAD to compiler remote
 branch=remoteCompile
