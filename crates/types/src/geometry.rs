@@ -615,6 +615,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn triangle_orientation() {
+        let point1 = point![1.0, 0.0];
+        let point2 = point![3.5, -0.5];
+        let point3 = point![-2.3, -4.2];
+
+        assert_eq!(
+            Orientation::triangle_orientation(point1, point2, point3),
+            Orientation::Clockwise
+        );
+        assert_eq!(
+            Orientation::triangle_orientation(point1, point3, point2),
+            Orientation::Counterclockwise
+        );
+        assert_eq!(
+            Orientation::triangle_orientation(point1, point2, point2),
+            Orientation::Colinear
+        );
+    }
+
+    #[test]
     fn arc_cost_90_degrees() {
         let arc = Arc {
             circle: Circle {
