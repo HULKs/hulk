@@ -94,7 +94,10 @@ pub async fn remote(arguments: Arguments, command: Command) -> Result<()> {
             };
             command.args([
                 "--return-file",
-                &format!("target/{toolchain_name}{profile_name}/hulk_{}", arguments.target),
+                &format!(
+                    "target/{toolchain_name}{profile_name}/hulk_{}",
+                    arguments.target
+                ),
             ]);
 
             command
