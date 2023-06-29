@@ -98,7 +98,7 @@ pub async fn remote(arguments: Arguments, command: Command) -> Result<()> {
             ]);
 
             command
-                .arg("pepsi")
+                .arg("./pepsi")
                 .arg("build")
                 .arg("--profile")
                 .arg(arguments.profile)
