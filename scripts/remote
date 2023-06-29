@@ -57,10 +57,10 @@ done
 echo Using remote $(tput setaf 6)$remote$(tput sgr 0)
 
 # extract login information and remote path from git remote
-# assumes remote url of this format: `ssh://user@domain/path/to/hulks/repo.git`
+# assumes remote url of this format: `user@domain:path/to/hulks/repo.git`
 remoteURL=$(git remote get-url $remote)
-address=$(echo $remoteURL | cut -d'/' -f 3)
-remoteGitPath=/$(echo $remoteURL | cut -d'/' -f 4-)
+address=$(echo $remoteURL | cut -d':' -f 1)
+remoteGitPath=$(echo $remoteURL | cut -d':' -f 2-)
 remotePath=$(echo $remoteGitPath | sed 's/\.git/\//')
 
 # push HEAD to compiler remote
@@ -68,7 +68,7 @@ git push $remote HEAD:main --force --no-verify
 # check out pushed branch on the remote
 ssh $address "git --work-tree=$remotePath --git-dir=$remoteGitPath checkout -f main"
 # send all changes that aren't uncommitted yet
-git status -s | cut -c 4- | rsync -a --info=progress --delete-missing-args --files-from=- . $address:$remotePath
+git status -s | cut -c 4- | rsync -a --info=progress --delete-missing-args --files-from=- . $remoteURL
 
 # invoke compile script remotely
 ssh $address "sh -c \". '$HOME/.profile' && cd $remotePath && $@"\"
@@ -76,5 +76,5 @@ ssh $address "sh -c \". '$HOME/.profile' && cd $remotePath && $@"\"
 # fetch results
 echo Returning files
 printf '  %s\n' "${files[@]}"
-printf '%s\n' "${files[@]}" | rsync -a --info=progress --files-from=- $address:$remotePath .
+printf '%s\n' "${files[@]}" | rsync -a --info=progress --files-from=- $remoteURL .
 
