@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
@@ -35,6 +37,8 @@ pub struct MainOutputs {
     pub primary_state: MainOutput<PrimaryState>,
     pub robot_to_field: MainOutput<Option<Isometry2<f32>>>,
     pub sensor_data: MainOutput<SensorData>,
+    pub stand_up_front_remaining_duration: MainOutput<Duration>,
+    pub stand_up_back_remaining_duration: MainOutput<Duration>,
 }
 
 impl FakeData {
