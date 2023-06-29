@@ -21,13 +21,18 @@ command: Command to execute on the remote machine
 
 Options:
 
-  --remote <remote>     The git remote to use
+  --remote <remote>     The git remote to use. Defaults to \`compiler\`
   --return-file <file>  Path of file to be returned.
                         The file path must be relative to the repository.
+                        Can be repeated to return multiple files.
 
-This script assumes at least one git remote to exist with an url similar to this:
+This script expects a git remote with an url similar to this:
 
-    \`ssh://user@domain/path/to/hulks/repo.git\`
+    \`user@host:path/to/hulks/repo\`
+
+It is recommended to use a dedicated remote worktree for this since
+it will be cleaned and synchronized with the local changes without
+regard for possible unsaved changes on the remote.
 __helpText__
 }
 
@@ -57,7 +62,7 @@ done
 echo Using remote $(tput setaf 6)$remote$(tput sgr 0)
 
 # extract login information and remote path from git remote
-# assumes remote url of this format: `user@domain:path/to/hulks/repo.git`
+# assumes remote url of this format: `user@domain:path/to/hulk/repo`
 remoteURL="$(git remote get-url $remote)"
 address="$(echo $remoteURL | cut -d':' -f 1)"
 remotePath="$(echo $remoteURL | cut -d':' -f 2-)"
