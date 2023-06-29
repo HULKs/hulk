@@ -54,7 +54,8 @@ impl TimeToReachKickPosition {
             .map(Duration::from_secs_f32);
 
         *context.time_to_reach_kick_position =
-            time_to_reach_kick_position.unwrap_or(Duration::from_secs(1900));
+            time_to_reach_kick_position.unwrap_or(Duration::from_secs(1800));
+            //1800 seconds is 30 minutes, which is essentially max as it pertains to game time and prevents Duration::MAX from breaking the behavior sim 
         Ok(MainOutputs {
             time_to_reach_kick_position: time_to_reach_kick_position.into(),
         })
