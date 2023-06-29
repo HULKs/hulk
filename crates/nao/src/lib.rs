@@ -2,20 +2,15 @@ use std::{
     fmt::{self, Display, Formatter},
     net::Ipv4Addr,
     path::Path,
-    time::Duration,
 };
 
 use color_eyre::{
     eyre::{bail, eyre, WrapErr},
     Result,
 };
-use tokio::{
-    process::Command,
-    time::{self},
-};
+use tokio::process::Command;
 
-pub const PING_TIMEOUT: Duration = Duration::from_secs(2);
-pub const PING_RETRIES: usize = 2;
+pub const PING_TIMEOUT_SECONDS: u32 = 2;
 
 pub struct Nao {
     host: Ipv4Addr,
@@ -27,24 +22,23 @@ impl Nao {
     }
 
     pub async fn try_new_with_ping(host: Ipv4Addr) -> Result<Self> {
-        Self::try_new_with_ping_and_arguments(host, PING_RETRIES, PING_TIMEOUT).await
+        Self::try_new_with_ping_and_arguments(host, PING_TIMEOUT_SECONDS).await
     }
 
     pub async fn try_new_with_ping_and_arguments(
         host: Ipv4Addr,
-        retries: usize,
-        timeout: Duration,
+        timeout_seconds: u32,
     ) -> Result<Self> {
-        match time::timeout(
-            timeout,
-            Command::new("ping")
-                .arg(format!("-c {retries}"))
-                .arg(host.to_string())
-                .output(),
-        )
-        .await
+        match Command::new("ping")
+            .arg("-c")
+            .arg("1")
+            .arg("-w")
+            .arg(timeout_seconds.to_string())
+            .arg(host.to_string())
+            .output()
+            .await
         {
-            Ok(Ok(output)) if output.status.success() => Ok(Self::new(host)),
+            Ok(output) if output.status.success() => Ok(Self::new(host)),
             _ => bail!("No route to {host}"),
         }
     }
