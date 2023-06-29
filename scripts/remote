@@ -67,23 +67,23 @@ remotePath="$(echo $remoteGitPath | sed 's/\.git/\//')"
 branch=remoteCompile
 git push $remote HEAD:$branch --force --no-verify
 # check out pushed branch on the remote
-ssh $address "sh -c \"\
+ssh $address "sh -c \" \
     cd "$remotePath" \
     && git checkout --force \\\$(git rev-parse $branch) \
     && git clean -d --force \
 \""
 # send all changes that aren't uncommitted yet
-git status -s | cut -c 4- | rsync -a --info=progress --delete-missing-args --files-from=- . $remoteURL
+git status -s | cut -c 4- | rsync -a --info=progress --delete-missing-args --files-from=- . "$remoteURL"
 
 # invoke compile script remotely
 ssh $address "sh -c \" \
     . '$HOME/.profile' \
-    && cd "$remotePath" \
-    && $@\" \
-"
+    && cd \"$remotePath\" \
+    && $@
+\""
 
 # fetch results
 echo Returning files
 printf '  %s\n' "${files[@]}"
-printf '%s\n' "${files[@]}" | rsync -a --info=progress --files-from=- $remoteURL .
+printf '%s\n' "${files[@]}" | rsync -a --info=progress --files-from=- "$remoteURL" .
 
