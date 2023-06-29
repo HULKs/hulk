@@ -35,7 +35,7 @@ pub fn execute(
             Some(ball),
             Some(robot_to_field),
         ) => {
-            if !ball_is_interception_candidate(ball, robot_to_field, parameters) {
+            if !ball_is_interception_candidate(ball, robot_to_field, &parameters) {
                 return None;
             }
 
@@ -60,7 +60,8 @@ pub fn execute(
             }
 
             let walking_direction = Vector2::new(current_step.forward, current_step.left);
-            let path = get_interception_path(optimal_interception_point, walking_direction);
+            let path =
+                get_interception_path(optimal_interception_point, walking_direction, &parameters);
 
             Some(MotionCommand::Walk {
                 head: HeadMotion::LookAt {
@@ -80,7 +81,7 @@ pub fn execute(
 fn ball_is_interception_candidate(
     ball: BallState,
     robot_to_field: Isometry2<f32>,
-    parameters: InterceptBall,
+    parameters: &InterceptBall,
 ) -> bool {
     let ball_in_front_of_robot = ball.ball_in_ground.coords.norm()
         < parameters.maximum_ball_distance
@@ -102,8 +103,9 @@ fn ball_is_interception_candidate(
 fn get_interception_path(
     optimal_interception_point: Point2<f32>,
     walking_direction: Vector2<f32>,
+    parameters: &InterceptBall,
 ) -> Vec<PathSegment> {
-    if walking_direction.norm() < 0.1 {
+    if walking_direction.norm() < parameters.minimum_arc_radius {
         vec![PathSegment::LineSegment(LineSegment(
             Point2::origin(),
             optimal_interception_point,
