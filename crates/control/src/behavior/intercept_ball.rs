@@ -115,13 +115,11 @@ fn get_interception_path(
         // slowing down. Instead, traverse an Arc with radius dependent on the current
         // speed until the direction is changed.
         let arc_radius = walking_direction.norm();
-        let arc = calculate_arc_tangent_to(
+        let (arc, arc_orientation) = calculate_arc_tangent_to(
             walking_direction,
             optimal_interception_point.coords,
             arc_radius,
         );
-        let arc_orientation =
-            Orientation::triangle_orientation(arc.circle.center, arc.start, arc.end);
 
         let interception_point = optimal_interception_point + (arc.end - arc.circle.center);
 
@@ -132,15 +130,30 @@ fn get_interception_path(
     }
 }
 
-fn calculate_arc_tangent_to(vector1: Vector2<f32>, vector2: Vector2<f32>, radius: f32) -> Arc {
-    let normalized_vector1 = vector1.normalize();
-    let normalized_vector2 = vector2.normalize();
-    let sin1 = Vector2::new(1.0, 0.0).dot(&normalized_vector1);
-    let sin2 = Vector2::new(1.0, 0.0).dot(&normalized_vector2);
-    let cos1 = Vector2::new(0.0, 1.0).dot(&normalized_vector1);
-    let cos2 = Vector2::new(0.0, 1.0).dot(&normalized_vector2);
+fn calculate_arc_tangent_to(
+    vector1: Vector2<f32>,
+    vector2: Vector2<f32>,
+    radius: f32,
+) -> (Arc, Orientation) {
+    let normal_vector1 = Vector2::new(vector1.y, -vector1.x).normalize();
+    let normal_vector2 = Vector2::new(vector2.y, -vector2.x).normalize();
 
-    let arc_center = Point2::new(radius * -sin1, radius * cos1);
-    let end_point = Point2::new(radius * sin2, radius * (1.0 - cos2));
-    Arc::new(Circle::new(arc_center, radius), Point2::origin(), end_point)
+    let start = Point2::origin();
+
+    let arc_orientation =
+        Orientation::triangle_orientation(start, start + vector1, start + vector1 + vector2);
+
+    let sign = match arc_orientation {
+        Orientation::Clockwise => -1.0,
+        Orientation::Counterclockwise => 1.0,
+        Orientation::Colinear => 1.0,
+    };
+
+    let arc_center = start - sign * radius * normal_vector1;
+    let end_point = arc_center + sign * radius * normal_vector2;
+
+    (
+        Arc::new(Circle::new(arc_center, radius), Point2::origin(), end_point),
+        arc_orientation,
+    )
 }
