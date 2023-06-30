@@ -12,6 +12,7 @@ use control::{
     active_vision::{self, ActiveVision},
     ball_state_composer::{self, BallStateComposer},
     behavior::node::{self, Behavior},
+    dribble_path_plan::DribblePath,
     kick_selector::{self, KickSelector},
     motion::look_around::LookAround,
     role_assignment::{self, RoleAssignment},
@@ -37,6 +38,7 @@ pub struct BehaviorCycler {
     active_vision: ActiveVision,
     ball_state_composer: BallStateComposer,
     behavior: Behavior,
+    dribble_path: DribblePath,
     kick_selector: KickSelector,
     look_around: LookAround,
     persistent_state: PersistentState,
@@ -62,6 +64,10 @@ impl BehaviorCycler {
         .wrap_err("failed to create node `ActiveVision`")?;
         let ball_state_composer = BallStateComposer::new(ball_state_composer::CreationContext {})
             .wrap_err("failed to create node `BallStateComposer`")?;
+        let dribble_path = control::dribble_path_plan::DribblePath::new(
+            control::dribble_path_plan::CreationContext {},
+        )
+        .wrap_err("failed to create node `DribblePath`")?;
         let behavior = Behavior::new(node::CreationContext {
             behavior: &configuration.behavior,
             field_dimensions: &configuration.field_dimensions,
@@ -100,6 +106,7 @@ impl BehaviorCycler {
             time_to_reach_kick_position,
             ball_state_composer,
             behavior,
+            dribble_path,
             kick_selector,
             look_around,
             role_assignment,
@@ -292,6 +299,22 @@ impl BehaviorCycler {
             own_database.main_outputs.world_state = main_outputs.world_state.value;
         }
         {
+            let main_outputs = {
+                self.dribble_path
+                    .cycle(control::dribble_path_plan::CycleContext {
+                        world_state: &own_database.main_outputs.world_state,
+                        field_dimensions: &configuration.field_dimensions,
+                        configuration: &configuration.behavior,
+                        path_obstacles: framework::AdditionalOutput::new(
+                            true,
+                            &mut own_database.additional_outputs.time_to_reach_obstacles,
+                        ),
+                    })
+                    .wrap_err("failed to execute cycle of `DribblePath`")?
+            };
+            own_database.main_outputs.dribble_path = main_outputs.dribble_path.value;
+        }
+        {
             let main_outputs = self
                 .behavior
                 .cycle(node::CycleContext {
@@ -305,6 +328,7 @@ impl BehaviorCycler {
                     ),
                     world_state: &own_database.main_outputs.world_state,
                     cycle_time: &own_database.main_outputs.cycle_time,
+                    dribble_path: own_database.main_outputs.dribble_path,
                     configuration: &configuration.behavior,
                     in_walk_kicks: &configuration.in_walk_kicks,
                     field_dimensions: &configuration.field_dimensions,
@@ -335,22 +359,13 @@ impl BehaviorCycler {
         {
             let main_outputs = self
                 .time_to_reach_kick_position
-                .cycle(time_to_reach_kick_position::CycleContext {
-                    world_state: &own_database.main_outputs.world_state,
-                    field_dimensions: &configuration.field_dimensions,
-                    configuration: &configuration.behavior,
-                    parameters: &configuration.behavior,
-                    path_obstacles: AdditionalOutput::new(
-                        true,
-                        &mut own_database.additional_outputs.path_obstacles,
-                    ),
+                .cycle(control::time_to_reach_kick_position::CycleContext {
                     time_to_reach_kick_position: &mut self
                         .persistent_state
                         .time_to_reach_kick_position,
+                    dribble_path: own_database.main_outputs.dribble_path,
                 })
-                .wrap_err("failed to execute cycle of node `TimeToReachKickPosition`")?;
-            own_database.main_outputs.time_to_reach_kick_position =
-                main_outputs.time_to_reach_kick_position.value;
+                .wrap_err("failed to execute cycle of `TimeToReachKickPosition`");
         }
         self.own_changed.notify_one();
         Ok(())

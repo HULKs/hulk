@@ -8,7 +8,7 @@ use spl_network_messages::{GamePhase, GameState, SubState, Team};
 use types::{
     configuration::{Behavior as BehaviorConfiguration, InWalkKicks, InterceptBall, LostBall},
     Action, CycleTime, FieldDimensions, FilteredGameState, GameControllerState, MotionCommand,
-    PathObstacle, PrimaryState, Role, Side, WorldState,
+    PathObstacle, PathSegment, PrimaryState, Role, Side, WorldState,
 };
 
 use super::{
@@ -42,6 +42,7 @@ pub struct CycleContext {
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub world_state: Input<WorldState, "world_state">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
+    pub dribble_path: Input<Option<Vec<PathSegment>>, "dribble_path?">,
 
     pub configuration: Parameter<BehaviorConfiguration, "behavior">,
     pub in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
@@ -67,7 +68,6 @@ impl Behavior {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let world_state = context.world_state;
-
         if let Some(command) = &context.configuration.injected_motion_command {
             return Ok(MainOutputs {
                 motion_command: command.clone().into(),
@@ -203,7 +203,7 @@ impl Behavior {
                         &walk_path_planner,
                         context.in_walk_kicks,
                         &context.configuration.dribbling,
-                        &mut context.path_obstacles,
+                        context.dribble_path.cloned(),
                     ),
                     Action::Jump => jump::execute(world_state),
                     Action::PrepareJump => prepare_jump::execute(world_state),

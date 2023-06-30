@@ -43,10 +43,7 @@ impl DribblePath {
         let path_obstacles_output = &mut context.path_obstacles;
         let walk_path_planner =
             WalkPathPlanner::new(field_dimensions, &world_state.obstacles, configuration);
-        let kick_decisions = match world_state.kick_decisions.as_ref() {
-            Some(it) => it,
-            None => return Ok(MainOutputs::default()),
-        };
+        let Some(kick_decisions) = world_state.kick_decisions.as_ref() else { return Ok(MainOutputs::default()) };
         let Some(best_kick_decision) = kick_decisions.first() else { return Ok(MainOutputs::default()) };
         let ball_position = match world_state.ball {
             Some(ball_position) => ball_position,
@@ -85,7 +82,7 @@ impl DribblePath {
         } else {
             world_state.rule_obstacles.as_slice()
         };
-        let path = walk_path_planner.plan(
+        let path = Some(walk_path_planner.plan(
             best_pose * Point2::origin(),
             robot_to_field,
             ball_obstacle,
@@ -93,9 +90,9 @@ impl DribblePath {
             obstacles,
             rule_obstacles,
             path_obstacles_output,
-        );
+        ));
         Ok(MainOutputs {
-            dribble_path: Some(path).into(),
+            dribble_path: path.into(),
         })
     }
 }
