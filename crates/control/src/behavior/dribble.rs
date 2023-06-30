@@ -1,13 +1,10 @@
-use std::f32::consts::PI;
-
-use framework::AdditionalOutput;
 use nalgebra::{Isometry2, Point2};
-use spl_network_messages::Team;
+
 use types::{
     configuration::{Dribbling, InWalkKickInfo, InWalkKicks},
-    rotate_towards, GameControllerState, HeadMotion, MotionCommand,
+    rotate_towards, HeadMotion, MotionCommand,
     OrientationMode::{self, AlignWithPath},
-    PathObstacle, WorldState,
+    PathSegment, WorldState,
 };
 
 use super::walk_to_pose::{hybrid_alignment, WalkPathPlanner};
@@ -18,10 +15,9 @@ pub fn execute(
     walk_path_planner: &WalkPathPlanner,
     in_walk_kicks: &InWalkKicks,
     parameters: &Dribbling,
-    path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+    dribble_path: Option<Vec<PathSegment>>,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
-    let robot_to_field = world_state.robot.robot_to_field?;
     let head = HeadMotion::LookLeftAndRightOf {
         target: ball_position,
     };
@@ -67,46 +63,15 @@ pub fn execute(
         }
         orientation_mode => orientation_mode,
     };
-
-    let robot_to_ball = ball_position.coords;
-    let dribble_pose_to_ball = ball_position.coords - best_pose.translation.vector;
-    let angle = robot_to_ball.angle(&dribble_pose_to_ball);
-    let should_avoid_ball = angle > parameters.angle_to_approach_ball_from_threshold;
-    let ball_obstacle = should_avoid_ball.then_some(ball_position);
-    let ball_obstacle_radius_factor = (angle - parameters.angle_to_approach_ball_from_threshold)
-        / (PI - parameters.angle_to_approach_ball_from_threshold);
-
-    let is_near_ball = matches!(
-        world_state.ball,
-        Some(ball) if ball.ball_in_ground.coords.norm() < parameters.ignore_robot_when_near_ball_radius,
-    );
-    let obstacles = if is_near_ball {
-        &[]
-    } else {
-        world_state.obstacles.as_slice()
-    };
-
-    let rule_obstacles = if matches!(
-        world_state.game_controller_state,
-        Some(GameControllerState {
-            kicking_team: Team::Hulks,
-            ..
-        })
-    ) {
-        &[]
-    } else {
-        world_state.rule_obstacles.as_slice()
-    };
-    let path = walk_path_planner.plan(
-        best_pose * Point2::origin(),
-        robot_to_field,
-        ball_obstacle,
-        ball_obstacle_radius_factor,
-        obstacles,
-        rule_obstacles,
-        path_obstacles_output,
-    );
-    Some(walk_path_planner.walk_with_obstacle_avoiding_arms(head, orientation_mode, path))
+    match dribble_path {
+        Some(path) => {
+            Some(walk_path_planner.walk_with_obstacle_avoiding_arms(head, orientation_mode, path))
+        }
+        None => Some(MotionCommand::Stand {
+            head,
+            is_energy_saving: false,
+        }),
+    }
 }
 
 fn is_kick_pose_reached(kick_pose_to_robot: Isometry2<f32>, kick_info: &InWalkKickInfo) -> bool {
