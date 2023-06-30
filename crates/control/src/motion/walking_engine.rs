@@ -613,6 +613,7 @@ impl WalkingEngine {
             adjusted_right_foot,
             adjusted_next_left_foot_lift,
             adjusted_next_right_foot_lift,
+            updated_remaining_steps,
         ) = step_adjustment(
             self.t,
             self.planned_step_duration,
@@ -632,6 +633,7 @@ impl WalkingEngine {
             next_right_foot_lift,
             config.stabilization_foot_lift_multiplier,
             config.stabilization_foot_lift_offset,
+            self.remaining_stabilizing_steps
         );
         self.last_left_walk_request = next_left_walk_request;
         self.last_right_walk_request = next_right_walk_request;
@@ -640,6 +642,7 @@ impl WalkingEngine {
         self.turn = next_turn;
         self.left_foot_lift = adjusted_next_left_foot_lift;
         self.right_foot_lift = adjusted_next_right_foot_lift;
+        self.remaining_stabilizing_steps = updated_remaining_steps
     }
 
     fn kick_cycle(&mut self, cycle_duration: Duration) {
