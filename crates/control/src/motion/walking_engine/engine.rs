@@ -48,6 +48,6 @@ pub fn parabolic_step(x: f32) -> f32 {
     }
 }
 
-pub fn exponential_return(x: f32) -> f32 {
+pub fn faked_exponential_return(x: f32) -> f32 {
     -(x * x) + 1.0
 }
