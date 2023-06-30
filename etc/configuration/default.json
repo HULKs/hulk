@@ -345,7 +345,7 @@
   "step_planner": {
     "injected_step": null,
     "max_step_size": {
-      "forward": 0.055,
+      "forward": 0.06,
       "left": 0.14,
       "turn": 1.3
     },
@@ -361,7 +361,7 @@
     "additional_kick_foot_lift": 0.01,
     "arm_stiffness": 0.8,
     "backward_foot_support_offset": -0.012,
-    "base_foot_lift": 0.01,
+    "base_foot_lift": 0.011,
     "base_step_duration": { "nanos": 250000000, "secs": 0 },
     "emergency_foot_lift": 0.03,
     "emergency_step": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
@@ -381,7 +381,7 @@
     "inside_turn_ratio": 0.05,
     "leg_stiffness_stand": 0.6,
     "leg_stiffness_walk": 1.0,
-    "max_forward_acceleration": 0.005,
+    "max_forward_acceleration": 0.015,
     "max_leg_adjustment_velocity": {
       "hip_yaw_pitch": 0.0,
       "hip_roll": 0.1,
@@ -400,7 +400,7 @@
     "starting_step_duration": { "nanos": 200000000, "secs": 0 },
     "starting_step_foot_lift": 0.009,
     "step_duration_increase": { "forward": 0.2, "left": 0.7, "turn": 0.1 },
-    "step_foot_lift_increase": { "forward": 0.02, "left": 0.2, "turn": 0.0 },
+    "step_foot_lift_increase": { "forward": 0.02, "left": 0.12, "turn": 0.0 },
     "swing_foot_imu_leveling_factor": 1.0,
     "swing_foot_pitch_error_leveling_factor": 0.9,
     "swinging_arms": {
