@@ -27,7 +27,7 @@ use nao::Nao;
 use panel::Panel;
 use panels::{
     BehaviorSimulatorPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel,
-    MapPanel, ParameterPanel, PlotPanel, SegmenterCalibrationPanel, RemotePanel, TextPanel,
+    MapPanel, ParameterPanel, PlotPanel, RemotePanel, SegmenterCalibrationPanel, TextPanel,
 };
 use serde_json::{from_str, to_string, Value};
 use tokio::sync::mpsc;
