@@ -1,4 +1,3 @@
-use std::time::{Duration, SystemTime};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
@@ -7,6 +6,7 @@ use nalgebra::{Isometry2, Point2, Vector2};
 use spl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, Team,
 };
+use std::time::{Duration, SystemTime};
 use types::{
     configuration::SplNetwork,
     messages::{IncomingMessage, OutgoingMessage},
