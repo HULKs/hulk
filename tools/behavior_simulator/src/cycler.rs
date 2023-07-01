@@ -328,7 +328,7 @@ impl BehaviorCycler {
                     ),
                     world_state: &own_database.main_outputs.world_state,
                     cycle_time: &own_database.main_outputs.cycle_time,
-                    dribble_path: own_database.main_outputs.dribble_path,
+                    dribble_path: own_database.main_outputs.dribble_path.as_ref(),
                     configuration: &configuration.behavior,
                     in_walk_kicks: &configuration.in_walk_kicks,
                     field_dimensions: &configuration.field_dimensions,
@@ -357,13 +357,13 @@ impl BehaviorCycler {
             own_database.main_outputs.look_around = main_outputs.look_around.value;
         }
         {
-            let main_outputs = self
+            let _main_outputs = self
                 .time_to_reach_kick_position
                 .cycle(control::time_to_reach_kick_position::CycleContext {
                     time_to_reach_kick_position: &mut self
                         .persistent_state
                         .time_to_reach_kick_position,
-                    dribble_path: own_database.main_outputs.dribble_path,
+                    dribble_path: own_database.main_outputs.dribble_path.as_ref(),
                 })
                 .wrap_err("failed to execute cycle of `TimeToReachKickPosition`");
         }
