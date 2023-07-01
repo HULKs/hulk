@@ -12,7 +12,7 @@ use control::{
     active_vision::{self, ActiveVision},
     ball_state_composer::{self, BallStateComposer},
     behavior::node::{self, Behavior},
-    dribble_path_plan::DribblePath,
+    dribble_path_planner::DribblePath,
     kick_selector::{self, KickSelector},
     motion::look_around::LookAround,
     role_assignment::{self, RoleAssignment},
@@ -64,8 +64,8 @@ impl BehaviorCycler {
         .wrap_err("failed to create node `ActiveVision`")?;
         let ball_state_composer = BallStateComposer::new(ball_state_composer::CreationContext {})
             .wrap_err("failed to create node `BallStateComposer`")?;
-        let dribble_path = control::dribble_path_plan::DribblePath::new(
-            control::dribble_path_plan::CreationContext {},
+        let dribble_path = control::dribble_path_planner::DribblePath::new(
+            control::dribble_path_planner::CreationContext {},
         )
         .wrap_err("failed to create node `DribblePath`")?;
         let behavior = Behavior::new(node::CreationContext {
@@ -301,7 +301,7 @@ impl BehaviorCycler {
         {
             let main_outputs = {
                 self.dribble_path
-                    .cycle(control::dribble_path_plan::CycleContext {
+                    .cycle(control::dribble_path_planner::CycleContext {
                         world_state: &own_database.main_outputs.world_state,
                         field_dimensions: &configuration.field_dimensions,
                         configuration: &configuration.behavior,
