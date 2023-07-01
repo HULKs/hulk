@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 
 use color_eyre::{eyre::WrapErr, Result};
@@ -94,34 +95,43 @@ impl RoleAssignment {
             || primary_state == PrimaryState::Ready
             || primary_state == PrimaryState::Set
         {
-            let role_player_one = Role::Keeper;
-            let role_player_two = context.optional_roles.get(0).copied().unwrap_or_default();
-            let role_player_three = context.optional_roles.get(1).copied().unwrap_or_default();
-            let mut role_player_four = context.optional_roles.get(2).copied().unwrap_or_default();
-            let mut role_player_five = context.optional_roles.get(3).copied().unwrap_or_default();
-            let mut role_player_six = context.optional_roles.get(4).copied().unwrap_or_default();
-            let role_player_seven = Role::Striker;
+            let mut player_roles = [
+                Role::Keeper,
+                context.optional_roles.get(0).copied().unwrap_or_default(),
+                context.optional_roles.get(0).copied().unwrap_or_default(),
+                context.optional_roles.get(1).copied().unwrap_or_default(),
+                context.optional_roles.get(2).copied().unwrap_or_default(),
+                context.optional_roles.get(3).copied().unwrap_or_default(),
+                Role::Striker,
+            ];
 
             if let Some(game_controller_state) = context.game_controller_state {
-                if let Some(_penalty) = game_controller_state.penalties.seven {
-                    role_player_six = Role::Striker;
-                    if let Some(_penalty) = game_controller_state.penalties.six {
-                        role_player_five = Role::Striker;
-                        if let Some(_penalty) = game_controller_state.penalties.five {
-                            role_player_four = Role::Striker;
-                        };
-                    };
+                let is_penalized_list = [
+                    game_controller_state.penalties.one.is_some(),
+                    game_controller_state.penalties.two.is_some(),
+                    game_controller_state.penalties.three.is_some(),
+                    game_controller_state.penalties.four.is_some(),
+                    game_controller_state.penalties.five.is_some(),
+                    game_controller_state.penalties.six.is_some(),
+                    game_controller_state.penalties.seven.is_some(),
+                ];
+
+                for index in (3..=6).rev() {
+                    if !is_penalized_list[index] {
+                        player_roles[index] = Role::Striker;
+                        break;
+                    }
                 }
             }
 
             role = match context.player_number {
-                PlayerNumber::One => role_player_one,
-                PlayerNumber::Two => role_player_two,
-                PlayerNumber::Three => role_player_three,
-                PlayerNumber::Four => role_player_four,
-                PlayerNumber::Five => role_player_five,
-                PlayerNumber::Six => role_player_six,
-                PlayerNumber::Seven => role_player_seven,
+                PlayerNumber::One => player_roles[0],
+                PlayerNumber::Two => player_roles[1],
+                PlayerNumber::Three => player_roles[2],
+                PlayerNumber::Four => player_roles[3],
+                PlayerNumber::Five => player_roles[4],
+                PlayerNumber::Six => player_roles[5],
+                PlayerNumber::Seven => player_roles[6],
             };
 
             self.role_initialized = true;
