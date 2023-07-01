@@ -264,38 +264,24 @@ impl RoleAssignment {
                         .spl_network
                         .remaining_amount_of_messages_to_stop_sending
                 {
-                    if context.ball_position.is_none() && team_ball.is_some() {
-                        context
-                            .hardware
-                            .write_to_network(OutgoingMessage::Spl(HulkMessage {
-                                player_number: *context.player_number,
-                                fallen: matches!(context.fall_state, FallState::Fallen { .. }),
-                                robot_to_field,
-                                ball_position: team_ball_to_network_ball_position(
-                                    team_ball,
-                                    robot_to_field,
-                                    cycle_start_time,
-                                ),
-                                time_to_reach_kick_position: Some(
-                                    *context.time_to_reach_kick_position,
-                                ),
-                            }))?;
+                    let ball_position = if context.ball_position.is_none() && team_ball.is_some() {
+                        team_ball_to_network_ball_position(
+                            team_ball,
+                            robot_to_field,
+                            cycle_start_time,
+                        )
                     } else {
-                        context
-                            .hardware
-                            .write_to_network(OutgoingMessage::Spl(HulkMessage {
-                                player_number: *context.player_number,
-                                fallen: matches!(context.fall_state, FallState::Fallen { .. }),
-                                robot_to_field,
-                                ball_position: seen_ball_to_network_ball_position(
-                                    context.ball_position,
-                                    cycle_start_time,
-                                ),
-                                time_to_reach_kick_position: Some(
-                                    *context.time_to_reach_kick_position,
-                                ),
-                            }))?;
-                    }
+                        seen_ball_to_network_ball_position(context.ball_position, cycle_start_time)
+                    };
+                    context
+                        .hardware
+                        .write_to_network(OutgoingMessage::Spl(HulkMessage {
+                            player_number: *context.player_number,
+                            fallen: matches!(context.fall_state, FallState::Fallen { .. }),
+                            robot_to_field,
+                            ball_position,
+                            time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
+                        }))?;
                 }
             }
         }
