@@ -18,7 +18,7 @@ impl Panel for RemotePanel {
     const NAME: &'static str = "Remote";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let gilrs = Gilrs::new().unwrap();
+        let gilrs = Gilrs::new().expect("could not initialize gamepad library");
         let active_gamepad = None;
         let enabled = false;
 
