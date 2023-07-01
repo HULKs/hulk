@@ -42,7 +42,7 @@ fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
 impl RemotePanel {
     fn update_step(&self, step: Value) {
         self.nao
-            .update_parameter_value("control.step_planner.injected_step", step);
+            .update_parameter_value("step_planner.injected_step", step);
     }
 }
 
