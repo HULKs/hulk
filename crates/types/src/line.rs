@@ -1,8 +1,12 @@
-use std::{f32::consts::FRAC_PI_2, ops::Mul};
+use std::{
+    f32::consts::{FRAC_PI_2, PI},
+    ops::Mul,
+};
 
 use approx::{AbsDiffEq, RelativeEq};
 use nalgebra::{
     center, distance, distance_squared, point, vector, Isometry, Point, Point2, UnitComplex,
+    Vector2,
 };
 use serde::{Deserialize, Serialize};
 
@@ -12,8 +16,25 @@ pub struct Line<const DIMENSION: usize>(pub Point<f32, DIMENSION>, pub Point<f32
 pub type Line2 = Line<2>;
 
 impl Line2 {
+    pub fn signed_acute_angle(&self, other: Self) -> f32 {
+        let self_direction = self.1 - self.0;
+        let other_direction = other.1 - other.0;
+        signed_acute_angle(&self_direction, &other_direction)
+    }
+
     pub fn angle(&self, other: Self) -> f32 {
         (self.1 - self.0).angle(&(other.1 - other.0))
+    }
+
+    pub fn signed_acute_angle_to_orthogonal(&self, other: Self) -> f32 {
+        let self_direction = self.1 - self.0;
+        let other_direction = other.1 - other.0;
+        let orthogonal_other_direction = vector![other_direction.y, -other_direction.x];
+        signed_acute_angle(&self_direction, &orthogonal_other_direction)
+    }
+
+    pub fn is_orthogonal(&self, other: Self, epsilon: f32) -> bool {
+        self.signed_acute_angle_to_orthogonal(other) < epsilon
     }
 
     pub fn slope(&self) -> f32 {
@@ -68,6 +89,17 @@ impl Line2 {
     }
 }
 
+fn signed_acute_angle(first: &Vector2<f32>, second: &Vector2<f32>) -> f32 {
+    let difference = UnitComplex::rotation_between(first, second).angle();
+    if difference > FRAC_PI_2 {
+        difference - PI
+    } else if difference < -FRAC_PI_2 {
+        difference + PI
+    } else {
+        difference
+    }
+}
+
 impl<const DIMENSION: usize> Line<DIMENSION> {
     pub fn project_point(&self, point: Point<f32, DIMENSION>) -> Point<f32, DIMENSION> {
         let difference_on_line = self.1 - self.0;
@@ -97,16 +129,6 @@ impl<const DIMENSION: usize> Line<DIMENSION> {
 
     pub fn distance_to_point(&self, point: Point<f32, DIMENSION>) -> f32 {
         self.squared_distance_to_point(point).sqrt()
-    }
-
-    pub fn absolute_angle_difference_to_orthogonal(&self, other: &Line<DIMENSION>) -> f32 {
-        let self_direction = (self.1 - self.0).normalize();
-        let other_direction = (other.1 - other.0).normalize();
-        (self_direction.dot(&other_direction).acos().abs() - FRAC_PI_2).abs()
-    }
-
-    pub fn is_orthogonal(&self, other: &Line<DIMENSION>, epsilon: f32) -> bool {
-        self.absolute_angle_difference_to_orthogonal(other) < epsilon
     }
 
     pub fn length(&self) -> f32 {
@@ -161,5 +183,132 @@ impl<const DIMENSION: usize> RelativeEq for Line<DIMENSION> {
     ) -> bool {
         self.0.relative_eq(&other.0, epsilon, max_relative)
             && self.1.relative_eq(&other.1, epsilon, max_relative)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::f32::consts::FRAC_PI_4;
+
+    use approx::assert_relative_eq;
+
+    use super::*;
+
+    #[test]
+    fn correct_acute_signed_angle() {
+        #[derive(Debug)]
+        struct Case {
+            self_line: Line2,
+            other_line: Line2,
+            expected_angle: f32,
+        }
+
+        let thirty_degree = 30.0_f32.to_radians();
+        let sixty_degree = 60.0_f32.to_radians();
+        let cases = [
+            Case {
+                self_line: Line(point![0.0, 0.0], point![42.0, 0.0]),
+                other_line: Line(point![0.0, 0.0], point![42.0, 0.0]),
+                expected_angle: 0.0,
+            },
+            Case {
+                self_line: Line(point![0.0, 0.0], point![42.0, 0.0]),
+                other_line: Line(point![0.0, 0.0], point![42.0, 42.0]),
+                expected_angle: FRAC_PI_4,
+            },
+            Case {
+                self_line: Line(point![0.0, 0.0], point![42.0, 42.0]),
+                other_line: Line(point![0.0, 0.0], point![42.0, 0.0]),
+                expected_angle: -FRAC_PI_4,
+            },
+            Case {
+                self_line: Line(point![0.0, 0.0], point![42.0, 0.0]),
+                other_line: Line(point![0.0, 0.0], point![42.0, -42.0]),
+                expected_angle: -FRAC_PI_4,
+            },
+            Case {
+                self_line: Line(point![0.0, 0.0], point![42.0, -42.0]),
+                other_line: Line(point![0.0, 0.0], point![42.0, 0.0]),
+                expected_angle: FRAC_PI_4,
+            },
+            Case {
+                self_line: Line(
+                    point![0.0, 0.0],
+                    point![(-thirty_degree).cos(), (-thirty_degree).sin()],
+                ),
+                other_line: Line(
+                    point![0.0, 0.0],
+                    point![thirty_degree.cos(), thirty_degree.sin()],
+                ),
+                expected_angle: sixty_degree,
+            },
+            Case {
+                self_line: Line(
+                    point![0.0, 0.0],
+                    point![thirty_degree.cos(), thirty_degree.sin()],
+                ),
+                other_line: Line(
+                    point![0.0, 0.0],
+                    point![(-thirty_degree).cos(), (-thirty_degree).sin()],
+                ),
+                expected_angle: -sixty_degree,
+            },
+            Case {
+                self_line: Line(
+                    point![0.0, 0.0],
+                    point![(-sixty_degree).cos(), (-sixty_degree).sin()],
+                ),
+                other_line: Line(
+                    point![0.0, 0.0],
+                    point![sixty_degree.cos(), sixty_degree.sin()],
+                ),
+                expected_angle: -sixty_degree,
+            },
+            Case {
+                self_line: Line(
+                    point![0.0, 0.0],
+                    point![sixty_degree.cos(), sixty_degree.sin()],
+                ),
+                other_line: Line(
+                    point![0.0, 0.0],
+                    point![(-sixty_degree).cos(), (-sixty_degree).sin()],
+                ),
+                expected_angle: sixty_degree,
+            },
+        ]
+        .into_iter()
+        .flat_map(|case| {
+            [
+                Case {
+                    self_line: case.self_line,
+                    other_line: case.other_line,
+                    expected_angle: case.expected_angle,
+                },
+                Case {
+                    self_line: Line(case.self_line.1, case.self_line.0),
+                    other_line: case.other_line,
+                    expected_angle: case.expected_angle,
+                },
+                Case {
+                    self_line: case.self_line,
+                    other_line: Line(case.other_line.1, case.other_line.0),
+                    expected_angle: case.expected_angle,
+                },
+                Case {
+                    self_line: Line(case.self_line.1, case.self_line.0),
+                    other_line: Line(case.other_line.1, case.other_line.0),
+                    expected_angle: case.expected_angle,
+                },
+            ]
+        });
+
+        for case in cases {
+            dbg!(&case);
+            assert_relative_eq!(
+                case.self_line.signed_acute_angle(case.other_line),
+                case.expected_angle,
+                epsilon = 0.000001,
+            );
+        }
     }
 }

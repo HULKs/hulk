@@ -154,7 +154,7 @@ fn is_orthogonal(
             camera_matrix.pixel_to_ground(lines[1].1)?,
         ),
     ];
-    Ok(projected_lines[0].is_orthogonal(&projected_lines[1], angle_threshold))
+    Ok(projected_lines[0].is_orthogonal(projected_lines[1], angle_threshold))
 }
 
 #[cfg(test)]
