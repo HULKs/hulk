@@ -1,5 +1,3 @@
-use std::f32::consts::FRAC_PI_2;
-
 use nalgebra::{DVector, Dyn, Owned, Vector};
 use types::{CameraPosition, FieldDimensions};
 
@@ -54,10 +52,10 @@ impl Residuals {
 
         let border_to_connecting_angle = projected_lines
             .border_line
-            .angle(projected_lines.connecting_line);
+            .signed_acute_angle_to_orthogonal(projected_lines.connecting_line);
         let connecting_to_goal_box_angle = projected_lines
             .border_line
-            .angle(projected_lines.connecting_line);
+            .signed_acute_angle_to_orthogonal(projected_lines.connecting_line);
         let distance_between_parallel_line_start_points = projected_lines
             .border_line
             .distance_to_point(projected_lines.goal_box_line.0);
@@ -69,8 +67,8 @@ impl Residuals {
             .distance_to_point(projected_lines.goal_box_line.1);
 
         Ok(Residuals {
-            border_to_connecting_angle: border_to_connecting_angle - FRAC_PI_2,
-            connecting_to_goal_box_angle: connecting_to_goal_box_angle - FRAC_PI_2,
+            border_to_connecting_angle,
+            connecting_to_goal_box_angle,
             distance_between_parallel_line_start_points: distance_between_parallel_line_start_points
                 - field_dimensions.goal_box_area_length,
             distance_between_parallel_line_center_points:
