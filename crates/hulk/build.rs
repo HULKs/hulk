@@ -42,7 +42,7 @@ fn main() -> Result<()> {
                     "control::button_filter",
                     "control::camera_matrix_calculator",
                     "control::center_of_mass_provider",
-                    "control::dribble_path_plan",
+                    "control::dribble_path_planner",
                     "control::fall_state_estimation",
                     "control::game_controller_filter",
                     "control::game_state_filter",

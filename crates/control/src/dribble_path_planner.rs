@@ -12,15 +12,14 @@ use types::{
 use crate::behavior::walk_to_pose::WalkPathPlanner;
 
 #[context]
-
 pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub world_state: Input<WorldState, "world_state">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub configuration: Parameter<Behavior, "behavior">,
+    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub path_obstacles: AdditionalOutput<Vec<PathObstacle>, "time_to_reach_obstacles">,
+    pub world_state: Input<WorldState, "world_state">,
 }
 
 #[context]
@@ -36,13 +35,16 @@ impl DribblePath {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let world_state = context.world_state;
-        let field_dimensions = context.field_dimensions;
         let configuration = &context.configuration.path_planning;
+        let field_dimensions = context.field_dimensions;
         let parameters = &context.configuration.dribbling;
+        let world_state = context.world_state;
+
         let path_obstacles_output = &mut context.path_obstacles;
+
         let walk_path_planner =
             WalkPathPlanner::new(field_dimensions, &world_state.obstacles, configuration);
+
         let Some(kick_decisions) = world_state.kick_decisions.as_ref() else { return Ok(MainOutputs::default()) };
         let Some(best_kick_decision) = kick_decisions.first() else { return Ok(MainOutputs::default()) };
         let ball_position = match world_state.ball {
@@ -54,6 +56,7 @@ impl DribblePath {
         let Some(robot_to_field) = world_state.robot.robot_to_field else { return Ok(MainOutputs::default()) };
         let robot_to_ball = ball_position.coords;
         let dribble_pose_to_ball = ball_position.coords - best_pose.translation.vector;
+
         let angle = robot_to_ball.angle(&dribble_pose_to_ball);
         let should_avoid_ball = angle > parameters.angle_to_approach_ball_from_threshold;
         let ball_obstacle = should_avoid_ball.then_some(ball_position);
@@ -82,6 +85,7 @@ impl DribblePath {
         } else {
             world_state.rule_obstacles.as_slice()
         };
+
         let path = Some(walk_path_planner.plan(
             best_pose * Point2::origin(),
             robot_to_field,
