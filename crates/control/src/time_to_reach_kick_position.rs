@@ -24,8 +24,8 @@ impl TimeToReachKickPosition {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        /*
-        let time_to_reach_kick_position = path
+        let time_to_reach_kick_position = context
+            .dribble_path
             .as_ref()
             .map(|path| {
                 path.iter()
@@ -33,9 +33,6 @@ impl TimeToReachKickPosition {
                     .sum()
             })
             .map(Duration::from_secs_f32);
-        */
-        let time_to_reach_kick_position = None;
-
         *context.time_to_reach_kick_position =
             time_to_reach_kick_position.unwrap_or(Duration::from_secs(1800));
         /*1800 seconds is 30 minutes, which is essentially max as it pertains to game time and prevents Duration::MAX from breaking the behavior sim
