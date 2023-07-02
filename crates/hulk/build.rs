@@ -79,6 +79,7 @@ fn main() -> Result<()> {
                     "control::sole_pressure_filter",
                     "control::sonar_filter",
                     "control::support_foot_estimation",
+                    "control::visual_referee_filter",
                     "control::whistle_filter",
                     "control::world_state_composer",
                 ],
