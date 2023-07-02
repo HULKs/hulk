@@ -1,4 +1,4 @@
-use nalgebra::{Isometry2, Point2, UnitComplex, Vector2};
+use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
     parameters::InterceptBall, Arc, BallState, Circle, FilteredGameState, GameControllerState,
@@ -59,7 +59,7 @@ pub fn execute(
                 return None;
             }
 
-            let walking_direction = Vector2::new(current_step.forward, current_step.left);
+            let walking_direction = vector![current_step.forward, current_step.left];
             let path =
                 get_interception_path(optimal_interception_point, walking_direction, &parameters);
 
@@ -135,26 +135,20 @@ fn calculate_arc_tangent_to(
     vector2: Vector2<f32>,
     radius: f32,
 ) -> (Arc, Orientation) {
-    let normal_vector1 = Vector2::new(vector1.y, -vector1.x).normalize();
-    let normal_vector2 = Vector2::new(vector2.y, -vector2.x).normalize();
-
     let start = Point2::origin();
 
-    let arc_orientation =
+    let orientation =
         Orientation::triangle_orientation(start, start + vector1, start + vector1 + vector2);
 
-    let sign = match arc_orientation {
-        Orientation::Clockwise => -1.0,
-        Orientation::Counterclockwise => 1.0,
-        Orientation::Colinear => 1.0,
-    };
+    let normal_vector1 = orientation.rotate_vector_90_degrees(vector1).normalize();
+    let normal_vector2 = orientation.rotate_vector_90_degrees(vector2).normalize();
 
-    let arc_center = start - sign * radius * normal_vector1;
-    let end_point = arc_center + sign * radius * normal_vector2;
+    let arc_center = start + radius * normal_vector1;
+    let end_point = arc_center - radius * normal_vector2;
 
     (
-        Arc::new(Circle::new(arc_center, radius), Point2::origin(), end_point),
-        arc_orientation,
+        Arc::new(Circle::new(arc_center, radius), start, end_point),
+        orientation,
     )
 }
 
