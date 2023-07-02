@@ -29,7 +29,7 @@ Use your distribution's package manager to install the following dependencies:
     1. Install dependencies
 
         ```sh
-        sudo apt install git git-lfs build-essential libssl-dev pkg-config libclang-dev rsync cmake libhdf5-dev python3
+        sudo apt install git git-lfs build-essential libssl-dev pkg-config libclang-dev rsync cmake libhdf5-dev python3 libasound2-dev
         ```
 
     1. Install Webots
