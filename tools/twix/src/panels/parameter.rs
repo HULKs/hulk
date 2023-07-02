@@ -13,7 +13,7 @@ use tokio::sync::mpsc;
 pub struct ParameterPanel {
     nao: Arc<Nao>,
     path: String,
-    repository_parameters: RepositoryParameters,
+    repository_parameters: Result<RepositoryParameters>,
     value_buffer: Option<ValueBuffer>,
     parameter_value: String,
     update_notify_sender: mpsc::Sender<()>,
@@ -49,7 +49,7 @@ impl Panel for ParameterPanel {
         Self {
             nao,
             path,
-            repository_parameters: RepositoryParameters::new(),
+            repository_parameters: RepositoryParameters::try_new(),
             value_buffer,
             parameter_value: String::new(),
             update_notify_sender,
@@ -88,17 +88,25 @@ impl Widget for &mut ParameterPanel {
                     }
                 });
 
-                add_save_button(
-                    ui,
-                    &self.path,
-                    || -> Result<Value> {
-                        serde_json::from_str::<Value>(self.parameter_value.as_str()).wrap_err(
-                            "Serialising the parameter string to serde_json::Value failed",
-                        )
-                    },
-                    self.nao.clone(),
-                    &self.repository_parameters,
-                );
+                match &self.repository_parameters {
+                    Ok(repository_parameters) => {
+                        add_save_button(
+                            ui,
+                            &self.path,
+                            || -> Result<Value> {
+                                serde_json::from_str::<Value>(self.parameter_value.as_str())
+                                    .wrap_err(
+                                    "Serialising the parameter string to serde_json::Value failed",
+                                )
+                            },
+                            self.nao.clone(),
+                            repository_parameters,
+                        );
+                    }
+                    Err(error) => {
+                        ui.label(format!("{error:?}"));
+                    }
+                }
             });
 
             if let Some(buffer) = &self.value_buffer {

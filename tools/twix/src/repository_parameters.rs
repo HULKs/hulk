@@ -19,17 +19,17 @@ pub struct RepositoryParameters {
 }
 
 impl RepositoryParameters {
-    pub fn new() -> Self {
-        let runtime = Runtime::new().unwrap();
-        let repository_root = runtime.block_on(get_repository_root()).unwrap();
+    pub fn try_new() -> Result<Self> {
+        let runtime = Runtime::new()?;
+        let repository_root = runtime.block_on(get_repository_root())?;
         let repository = Repository::new(repository_root);
-        let ids = runtime.block_on(repository.get_hardware_ids()).unwrap();
+        let ids = runtime.block_on(repository.get_hardware_ids())?;
 
-        Self {
+        Ok(Self {
             repository,
             runtime,
             ids,
-        }
+        })
     }
 
     pub fn write(&self, address: &str, path: String, value: Value) {
