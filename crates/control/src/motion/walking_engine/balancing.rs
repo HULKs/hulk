@@ -1,12 +1,12 @@
 use std::time::Duration;
 
 use framework::AdditionalOutput;
-use nalgebra::{clamp, Vector2};
+use nalgebra::Vector2;
 use types::{
     configuration::WalkingEngine as WalkingEngineConfiguration, LegJoints, Side, StepAdjustment,
 };
 
-use super::{engine::faked_exponential_return, foot_offsets::FootOffsets};
+use super::foot_offsets::FootOffsets;
 
 pub fn support_leg_gyro_balancing(
     gyro: Vector2<f32>,
@@ -72,8 +72,8 @@ pub fn step_adjustment(
     backward_foot_support: f32,
     max_adjustment: f32,
     step_adjustment_output: &mut AdditionalOutput<StepAdjustment>,
-    mut left_foot_lift: f32,
-    mut right_foot_lift: f32,
+    left_foot_lift: f32,
+    right_foot_lift: f32,
     stabilization_foot_lift_multiplier: f32,
     stabilization_foot_lift_offset: f32,
     mut remaining_stabilizing_steps: usize,
@@ -94,9 +94,9 @@ pub fn step_adjustment(
         Side::Left => (next_left_forward, next_right_forward),
         Side::Right => (next_right_forward, next_left_forward),
     };
-    let (current_swing_foot, current_support_foot) = match swing_side {
-        Side::Left => (current_left_foot.forward, current_right_foot.forward),
-        Side::Right => (current_right_foot.forward, current_left_foot.forward),
+    let current_swing_foot = match swing_side {
+        Side::Left => current_left_foot.forward,
+        Side::Right => current_right_foot.forward,
     };
 
     let adjusted_swing_foot = if torso_tilt_shift < backward_balance_limit {
@@ -115,26 +115,34 @@ pub fn step_adjustment(
         next_swing_foot
     };
 
-    let adjusted_support_foot = next_support_foot;
-
-
-    if adjusted_swing_foot - next_swing_foot != 0.0 {
-        remaining_stabilizing_steps = 3;
+    let (adjusted_left_foot_lift, adjusted_right_foot_lift) = if adjusted_swing_foot
+        - next_swing_foot
+        != 0.0
+    {
+        remaining_stabilizing_steps = remaining_stabilizing_steps.max(1);
         match swing_side {
             Side::Left => {
-                left_foot_lift = left_foot_lift * stabilization_foot_lift_multiplier
-                    + stabilization_foot_lift_offset /* faked_exponential_return(linear_time)*/
+                (
+                    left_foot_lift * stabilization_foot_lift_multiplier
+                        + stabilization_foot_lift_offset, /* faked_exponential_return(linear_time)*/
+                    right_foot_lift,
+                )
             }
             Side::Right => {
-                right_foot_lift = right_foot_lift * stabilization_foot_lift_multiplier
-                    + stabilization_foot_lift_offset /* faked_exponential_return(linear_time)*/
+                (
+                    left_foot_lift,
+                    right_foot_lift * stabilization_foot_lift_multiplier
+                        + stabilization_foot_lift_offset, /* faked_exponential_return(linear_time)*/
+                )
             }
-        };
-    }
+        }
+    } else {
+        (left_foot_lift, right_foot_lift)
+    };
 
     let (adjusted_left_forward, adjusted_right_forward) = match swing_side {
-        Side::Left => (adjusted_swing_foot, adjusted_support_foot),
-        Side::Right => (adjusted_support_foot, adjusted_swing_foot),
+        Side::Left => (adjusted_swing_foot, next_support_foot),
+        Side::Right => (next_support_foot, adjusted_swing_foot),
     };
 
     step_adjustment_output.fill_if_subscribed(|| StepAdjustment {
@@ -154,8 +162,8 @@ pub fn step_adjustment(
             forward: adjusted_right_forward,
             ..next_right_walk_request
         },
-        left_foot_lift,
-        right_foot_lift,
+        adjusted_left_foot_lift,
+        adjusted_right_foot_lift,
         remaining_stabilizing_steps,
     )
 }
