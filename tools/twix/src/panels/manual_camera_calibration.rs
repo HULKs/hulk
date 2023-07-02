@@ -1,4 +1,4 @@
-use color_eyre::eyre::Context;
+use color_eyre::eyre::{Context, Result};
 use eframe::egui::{Response, Slider, Ui, Widget};
 use log::{error, info};
 use nalgebra::Vector3;
@@ -24,7 +24,7 @@ struct CameraParameterSubscriptions<DeserializedValueType> {
 
 pub struct ManualCalibrationPanel {
     nao: Arc<Nao>,
-    repository_parameters: RepositoryParameters,
+    repository_parameters: Result<RepositoryParameters>,
     extrinsic_rotation_subscriptions: [CameraParameterSubscriptions<Option<SubscribedType>>; 2],
 }
 
@@ -54,7 +54,7 @@ impl Panel for ManualCalibrationPanel {
 
         Self {
             nao,
-            repository_parameters: RepositoryParameters::new(),
+            repository_parameters: RepositoryParameters::try_new(),
             extrinsic_rotation_subscriptions,
         }
     }
@@ -148,12 +148,16 @@ fn add_extrinsic_calibration_ui_components(
 
 impl Widget for &mut ManualCalibrationPanel {
     fn ui(self, ui: &mut Ui) -> Response {
+        let repository_parameters = match &self.repository_parameters {
+            Ok(repository_parameters) => repository_parameters,
+            Err(error) => return ui.label(format!("{error:#?}")),
+        };
         ui.vertical(|ui| {
             for extrinsic_rotation_subscription in &mut self.extrinsic_rotation_subscriptions {
                 add_extrinsic_calibration_ui_components(
                     ui,
                     self.nao.clone(),
-                    &self.repository_parameters,
+                    repository_parameters,
                     extrinsic_rotation_subscription,
                 );
 
