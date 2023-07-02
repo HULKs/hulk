@@ -191,7 +191,7 @@ impl Repository {
             &parameters,
             Scope {
                 location: Location::All,
-                id: Id::All,
+                id: Id::Head,
             },
             path,
             self.configuration_root(),
