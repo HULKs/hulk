@@ -58,8 +58,6 @@ pub fn swing_leg_foot_leveling(
 
 #[allow(clippy::too_many_arguments)]
 pub fn step_adjustment(
-    t: Duration,
-    planned_step_duration: Duration,
     swing_side: Side,
     torso_tilt_shift: f32,
     current_left_foot: FootOffsets,
@@ -78,8 +76,6 @@ pub fn step_adjustment(
     stabilization_foot_lift_offset: f32,
     remaining_stabilizing_steps: usize,
 ) -> (FootOffsets, FootOffsets, f32, f32, usize) {
-    let linear_time = (t.as_secs_f32() / planned_step_duration.as_secs_f32()).clamp(0.0, 1.0);
-
     let left_delta = next_left_walk_request.forward - last_left_walk_request.forward;
     let right_delta = next_right_walk_request.forward - last_right_walk_request.forward;
 
@@ -119,20 +115,16 @@ pub fn step_adjustment(
         if adjusted_swing_foot - next_swing_foot != 0.0 {
             (
                 match swing_side {
-                    Side::Left => {
-                        (
-                            left_foot_lift * stabilization_foot_lift_multiplier
-                                + stabilization_foot_lift_offset, /* non_continuous_quadratic_return(linear_time)*/
-                            right_foot_lift,
-                        )
-                    }
-                    Side::Right => {
-                        (
-                            left_foot_lift,
-                            right_foot_lift * stabilization_foot_lift_multiplier
-                                + stabilization_foot_lift_offset, /* non_continuous_quadratic_return(linear_time)*/
-                        )
-                    }
+                    Side::Left => (
+                        left_foot_lift * stabilization_foot_lift_multiplier
+                            + stabilization_foot_lift_offset,
+                        right_foot_lift,
+                    ),
+                    Side::Right => (
+                        left_foot_lift,
+                        right_foot_lift * stabilization_foot_lift_multiplier
+                            + stabilization_foot_lift_offset,
+                    ),
                 },
                 remaining_stabilizing_steps.max(1),
             )

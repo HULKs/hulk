@@ -615,8 +615,6 @@ impl WalkingEngine {
             adjusted_right_foot_lift,
             adjusted_remaining_steps,
         ) = step_adjustment(
-            self.t,
-            self.planned_step_duration,
             self.swing_side,
             self.filtered_robot_tilt_shift.state(),
             self.left_foot,
