@@ -76,7 +76,7 @@ pub fn step_adjustment(
     right_foot_lift: f32,
     stabilization_foot_lift_multiplier: f32,
     stabilization_foot_lift_offset: f32,
-    mut remaining_stabilizing_steps: usize,
+    remaining_stabilizing_steps: usize,
 ) -> (FootOffsets, FootOffsets, f32, f32, usize) {
     let linear_time = (t.as_secs_f32() / planned_step_duration.as_secs_f32()).clamp(0.0, 1.0);
 
@@ -115,30 +115,33 @@ pub fn step_adjustment(
         next_swing_foot
     };
 
-    let (adjusted_left_foot_lift, adjusted_right_foot_lift) = if adjusted_swing_foot
-        - next_swing_foot
-        != 0.0
-    {
-        remaining_stabilizing_steps = remaining_stabilizing_steps.max(1);
-        match swing_side {
-            Side::Left => {
-                (
-                    left_foot_lift * stabilization_foot_lift_multiplier
-                        + stabilization_foot_lift_offset, /* faked_exponential_return(linear_time)*/
-                    right_foot_lift,
-                )
-            }
-            Side::Right => {
-                (
-                    left_foot_lift,
-                    right_foot_lift * stabilization_foot_lift_multiplier
-                        + stabilization_foot_lift_offset, /* faked_exponential_return(linear_time)*/
-                )
-            }
-        }
-    } else {
-        (left_foot_lift, right_foot_lift)
-    };
+    let ((adjusted_left_foot_lift, adjusted_right_foot_lift), adjusted_remaining_stabilizing_steps) =
+        if adjusted_swing_foot - next_swing_foot != 0.0 {
+            (
+                match swing_side {
+                    Side::Left => {
+                        (
+                            left_foot_lift * stabilization_foot_lift_multiplier
+                                + stabilization_foot_lift_offset, /* non_continuous_quadratic_return(linear_time)*/
+                            right_foot_lift,
+                        )
+                    }
+                    Side::Right => {
+                        (
+                            left_foot_lift,
+                            right_foot_lift * stabilization_foot_lift_multiplier
+                                + stabilization_foot_lift_offset, /* non_continuous_quadratic_return(linear_time)*/
+                        )
+                    }
+                },
+                remaining_stabilizing_steps.max(1),
+            )
+        } else {
+            (
+                (left_foot_lift, right_foot_lift),
+                remaining_stabilizing_steps,
+            )
+        };
 
     let (adjusted_left_forward, adjusted_right_forward) = match swing_side {
         Side::Left => (adjusted_swing_foot, next_support_foot),
@@ -164,6 +167,6 @@ pub fn step_adjustment(
         },
         adjusted_left_foot_lift,
         adjusted_right_foot_lift,
-        remaining_stabilizing_steps,
+        adjusted_remaining_stabilizing_steps,
     )
 }
