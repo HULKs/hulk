@@ -23,6 +23,7 @@ pub struct RoleAssignment {
     role: Role,
     role_initialized: bool,
     team_ball: Option<BallPosition>,
+    last_time_keeper_penalized: Option<SystemTime>,
 }
 
 #[context]
@@ -70,6 +71,7 @@ impl RoleAssignment {
             role: Role::Striker,
             role_initialized: false,
             team_ball: None,
+            last_time_keeper_penalized: None,
         })
     }
 
@@ -214,6 +216,7 @@ impl RoleAssignment {
                 IncomingMessage::Spl(message) => Some(message),
             })
             .peekable();
+
         if spl_messages.peek().is_none() {
             (role, send_spl_striker_message, team_ball) = process_role_state_machine(
                 role,
@@ -253,6 +256,19 @@ impl RoleAssignment {
                     context.spl_network.striker_trusts_team_ball,
                     context.optional_roles,
                 );
+            }
+        }
+
+        if let Some(last_time_keeper_penalized) = self.last_time_keeper_penalized {
+            let deny_replacement_keeper_switch = cycle_start_time
+                .duration_since(last_time_keeper_penalized)
+                .expect("Keeper was penalized in the Future")
+                > Duration::new(5, 0);
+            if role == Role::ReplacementKeeper
+                && send_spl_striker_message == false
+                && deny_replacement_keeper_switch
+            {
+                self.role = Role::ReplacementKeeper;
             }
         }
 
@@ -296,6 +312,12 @@ impl RoleAssignment {
             self.role = role;
         }
         self.team_ball = team_ball;
+
+        if let Some(game_controller_state) = context.game_controller_state {
+            if game_controller_state.penalties.one.is_some() {
+                self.last_time_keeper_penalized = Some(cycle_start_time);
+            }
+        }
 
         Ok(MainOutputs {
             role: self.role.into(),
