@@ -157,3 +157,47 @@ fn calculate_arc_tangent_to(
         arc_orientation,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use approx::assert_relative_eq;
+    use nalgebra::vector;
+    use types::{Arc, Orientation};
+
+    use super::calculate_arc_tangent_to;
+
+    #[test]
+    fn arc_is_tangent() {
+        let vector1 = vector![-1.4, 3.1];
+        let vector2 = vector![0.9, -2.1];
+
+        let (arc, _) = calculate_arc_tangent_to(vector1, vector2, 3.0);
+        let Arc { start, circle, end } = arc;
+        let center = circle.center;
+
+        assert_relative_eq!((start - center).dot(&vector1), 0.0, epsilon = 0.00001);
+        assert_relative_eq!((end - center).dot(&vector2), 0.0, epsilon = 0.00001);
+    }
+
+    #[test]
+    fn colinear_arc_has_same_start_end() {
+        let vector1 = vector![-3.1, 1.9];
+        let vector2 = vector![-6.2, 3.8];
+
+        let (arc, _) = calculate_arc_tangent_to(vector1, vector2, 3.0);
+
+        assert_relative_eq!(arc.start, arc.end);
+    }
+
+    #[test]
+    fn arc_orientation() {
+        let vector1 = vector![1.3, 4.8];
+        let vector2 = vector![1.2, 5.7];
+
+        let (_, orientation1) = calculate_arc_tangent_to(vector1, vector2, 3.0);
+        let (_, orientation2) = calculate_arc_tangent_to(vector2, vector1, 3.0);
+
+        assert_eq!(orientation1, Orientation::Counterclockwise);
+        assert_eq!(orientation2, Orientation::Clockwise);
+    }
+}
