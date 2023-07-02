@@ -110,10 +110,11 @@ impl State {
                     ..
                 } => {
                     let step = match path[0] {
-                        PathSegment::LineSegment(LineSegment(_start, end)) => end,
-                        PathSegment::Arc(arc, _orientation) => arc.end,
+                        PathSegment::LineSegment(LineSegment(_start, end)) => end.coords,
+                        PathSegment::Arc(arc, orientation) => {
+                            orientation.rotate_vector_90_degrees(arc.start - arc.circle.center)
+                        }
                     }
-                    .coords
                     .cap_magnitude(0.3 * time_step.as_secs_f32());
 
                     let orientation = match orientation_mode {
@@ -137,8 +138,8 @@ impl State {
                     );
 
                     robot.persistent_state.current_step = Step {
-                        forward: step[0],
-                        left: step[1],
+                        forward: 30.0 * step[0],
+                        left: 30.0 * step[1],
                         turn: 0.0,
                     };
 
