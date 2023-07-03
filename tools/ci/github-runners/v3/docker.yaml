@@ -1021,10 +1021,6 @@ files:
   variants:
   - default
 
-- path: /home/hulk/actions-runner.tar.gz
-  generator: copy
-  source: actions-runner.tar.gz
-
 packages:
   manager: apt
   update: true
@@ -1202,16 +1198,6 @@ actions:
     getent group sudo >/dev/null 2>&1 || groupadd --system sudo
     useradd --create-home --shell /bin/bash --groups docker,sudo --user-group hulk
     cp --recursive /etc/skel/. /home/hulk
-    chown --recursive hulk:hulk /home/hulk
-
-- trigger: post-files
-  action: |-
-    #!/bin/sh
-    set -eux
-
-    cd /home/hulk
-    tar xzf ./actions-runner.tar.gz
-    rm actions-runner.tar.gz
     chown --recursive hulk:hulk /home/hulk
 
 mappings:
