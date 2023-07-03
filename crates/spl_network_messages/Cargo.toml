@@ -18,3 +18,6 @@ num-traits = {workspace = true}
 rand = {workspace = true}
 serde = { workspace = true }
 serialize_hierarchy = { workspace = true }
+
+[dev-dependencies]
+bincode = { workspace = true }
