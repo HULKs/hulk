@@ -9,8 +9,10 @@ pub struct CycleContext {
     pub dribble_path: Input<Option<Vec<PathSegment>>, "dribble_path?">,
     pub time_to_reach_kick_position: PersistentState<Duration, "time_to_reach_kick_position">,
     pub configuration: Parameter<Behavior, "behavior">,
-    pub stand_up_back_remaining_duration: Input<Duration, "stand_up_back_remaining_duration">,
-    pub stand_up_front_remaining_duration: Input<Duration, "stand_up_front_remaining_duration">,
+    pub stand_up_back_estimated_remaining_duration:
+        Input<Option<Duration>, "stand_up_back_estimated_remaining_duration?">,
+    pub stand_up_front_estimated_remaining_duration:
+        Input<Option<Duration>, "stand_up_front_estimated_remaining_duration?">,
 }
 
 #[context]
@@ -45,8 +47,12 @@ impl TimeToReachKickPosition {
             .map(Duration::from_secs_f32);
         let time_to_reach_kick_position = (walk_time).map(|walk_time| {
             walk_time
-                + *context.stand_up_back_remaining_duration
-                + *context.stand_up_front_remaining_duration
+                + *context
+                    .stand_up_back_estimated_remaining_duration
+                    .unwrap_or(&Duration::ZERO)
+                + *context
+                    .stand_up_front_estimated_remaining_duration
+                    .unwrap_or(&Duration::ZERO)
         });
 
         *context.time_to_reach_kick_position =
