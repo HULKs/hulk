@@ -46,8 +46,7 @@ impl EncodeJpeg for YCbCr422Image {
     type Error = ImageError;
 
     fn encode_as_jpeg(&self, quality: u8) -> Result<Vec<u8>, Self::Error> {
-        let rgb_image: RgbImage =
-            rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer);
+        let rgb_image = rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer);
         let mut jpeg_buffer = vec![];
         let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, quality);
         encoder.encode_image(&rgb_image)?;
