@@ -8,6 +8,8 @@ jobs:
       - self-hosted
       - v3
       - knoellchen
+    permissions:
+      packages: write
     steps:
       - name: Retrieve latest SDK version
         run: |
