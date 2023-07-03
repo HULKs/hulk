@@ -18,6 +18,7 @@ fn main() -> Result<()> {
                 nodes: vec![
                     "vision::ball_detection",
                     "vision::camera_matrix_extractor",
+                    "vision::calibration_line_detection",
                     "vision::feet_detection",
                     "vision::field_border_detection",
                     "vision::field_color_detection",

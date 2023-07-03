@@ -1103,5 +1103,20 @@
     }
   },
   "angular_velocity_smoothing_factor": 0.1,
-  "center_circle_obstacle_increase": 1.2
+  "center_circle_obstacle_increase": 1.2,
+  "calibration_line_detection": {
+    "vision_top": {
+      "enable": true
+    },
+    "vision_bottom": {
+      "enable": true
+    },
+    "gaussian_sigma": 5.0,
+    "canny_low_threshold": 15.0,
+    "canny_high_threshold": 50.0,
+    "maximum_number_of_lines": 10,
+    "ransac_iterations": 1000,
+    "ransac_maximum_distance": 3.0,
+    "ransac_maximum_gap": 5.0
+  }
 }

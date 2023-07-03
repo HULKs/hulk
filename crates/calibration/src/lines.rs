@@ -1,20 +1,25 @@
 use nalgebra::Point2;
 use projection::Projection;
+use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 use types::{
     camera_matrix::CameraMatrix,
     line::{Line, Line2},
 };
 
-#[derive(Clone)]
-pub struct Lines {
+#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
+pub struct GoalBoxCalibrationLines {
+    #[serialize_hierarchy(leaf)]
     pub border_line: Line2,
+    #[serialize_hierarchy(leaf)]
     pub goal_box_line: Line2,
+    #[serialize_hierarchy(leaf)]
     pub connecting_line: Line2,
 }
 
-impl Lines {
+impl GoalBoxCalibrationLines {
     pub fn to_projected(&self, matrix: &CameraMatrix) -> Result<Self, LinesError> {
-        Ok(Lines {
+        Ok(GoalBoxCalibrationLines {
             border_line: project_line_and_map_error(matrix, self.border_line, "border line")?,
             goal_box_line: project_line_and_map_error(matrix, self.goal_box_line, "goal box line")?,
             connecting_line: project_line_and_map_error(
