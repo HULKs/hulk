@@ -25,6 +25,25 @@ pub struct YCbCr422Image {
     buffer: Arc<Vec<YCbCr422>>,
 }
 
+impl From<RgbImage> for YCbCr422Image {
+    fn from(rgb_image: RgbImage) -> Self {
+        let buffer = Arc::new(buffer_422_from_rgb_image(rgb_image));
+        let width_422 = rgb_image.width() / 2;
+        let height = rgb_image.height() / 2;
+        Self {
+            width_422,
+            height,
+            buffer,
+        }
+    }
+}
+
+impl Into<RgbImage> for YCbCr422Image {
+    fn into(self) -> RgbImage {
+        rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer)
+    }
+}
+
 impl EncodeJpeg for YCbCr422Image {
     const DEFAULT_QUALITY: u8 = 40;
     type Error = ImageError;
