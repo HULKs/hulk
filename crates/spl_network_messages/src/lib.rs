@@ -65,3 +65,27 @@ impl Display for PlayerNumber {
         write!(formatter, "{number}")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use nalgebra::Isometry2;
+
+    use crate::{BallPosition, HulkMessage, PlayerNumber};
+
+    #[test]
+    fn maximum_hulk_message_size() {
+        let test_message = HulkMessage {
+            player_number: PlayerNumber::Seven,
+            fallen: false,
+            robot_to_field: Isometry2::identity(),
+            ball_position: Some(BallPosition {
+                relative_position: nalgebra::OPoint::origin(),
+                age: Duration::MAX,
+            }),
+            time_to_reach_kick_position: Some(Duration::MAX),
+        };
+        assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
+    }
+}

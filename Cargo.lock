@@ -4175,6 +4175,7 @@ name = "spl_network_messages"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "bincode",
  "bindgen 0.65.1",
  "byteorder",
  "color-eyre",
