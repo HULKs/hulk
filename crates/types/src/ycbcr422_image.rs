@@ -35,9 +35,9 @@ impl From<RgbImage> for YCbCr422Image {
     }
 }
 
-impl Into<RgbImage> for YCbCr422Image {
-    fn into(self) -> RgbImage {
-        rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer)
+impl From<YCbCr422Image> for RgbImage {
+    fn from(val: YCbCr422Image) -> Self {
+        rgb_image_from_buffer_422(val.width_422, val.height, &val.buffer)
     }
 }
 
