@@ -104,42 +104,27 @@ impl RoleAssignment {
             };
 
             if let Some(game_controller_state) = context.game_controller_state {
-                let penalties = game_controller_state.penalties.iter().collect::<Vec<_>>();
-
-                for penalty in penalties.iter().rev() {
-                    if !penalty.1.is_some() {
-                        match penalty.0 {
-                            PlayerNumber::Four => {
-                                player_roles.four = Role::Striker;
-                            }
-                            PlayerNumber::Five => {
-                                player_roles.five = Role::Striker;
-                            }
-                            PlayerNumber::Six => {
-                                player_roles.six = Role::Striker;
-                            }
-                            _ => {
-                                continue;
-                            }
-                        }
-                        break;
-                    }
+                if let Some(striker) = [PlayerNumber::Six, PlayerNumber::Five, PlayerNumber::Four]
+                    .into_iter()
+                    .find(|player| game_controller_state.penalties[*player].is_none())
+                {
+                    player_roles[striker] = Role::Striker;
                 }
+
+                role = match context.player_number {
+                    PlayerNumber::One => player_roles.one,
+                    PlayerNumber::Two => player_roles.two,
+                    PlayerNumber::Three => player_roles.three,
+                    PlayerNumber::Four => player_roles.four,
+                    PlayerNumber::Five => player_roles.five,
+                    PlayerNumber::Six => player_roles.six,
+                    PlayerNumber::Seven => player_roles.seven,
+                };
+
+                self.role_initialized = true;
+                self.last_received_spl_striker_message = Some(cycle_start_time);
+                self.team_ball = None;
             }
-
-            role = match context.player_number {
-                PlayerNumber::One => player_roles.one,
-                PlayerNumber::Two => player_roles.two,
-                PlayerNumber::Three => player_roles.three,
-                PlayerNumber::Four => player_roles.four,
-                PlayerNumber::Five => player_roles.five,
-                PlayerNumber::Six => player_roles.six,
-                PlayerNumber::Seven => player_roles.seven,
-            };
-
-            self.role_initialized = true;
-            self.last_received_spl_striker_message = Some(cycle_start_time);
-            self.team_ball = None;
         }
 
         let send_game_controller_return_message = self
