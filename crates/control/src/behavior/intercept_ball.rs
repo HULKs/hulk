@@ -105,29 +105,38 @@ fn get_interception_path(
     walking_direction: Vector2<f32>,
     parameters: &InterceptBall,
 ) -> Vec<PathSegment> {
-    if walking_direction.norm() < parameters.minimum_arc_radius {
-        vec![PathSegment::LineSegment(LineSegment(
+    let arc_radius = walking_direction.norm();
+
+    let total_angle_change =
+        UnitComplex::rotation_between(&walking_direction, &optimal_interception_point.coords)
+            .angle();
+    let angle_change = total_angle_change.signum() * parameters.angle_change_factor / arc_radius;
+
+    let arc_too_small = arc_radius < parameters.minimum_velocity_for_arc;
+    let total_angle_change_too_lange =
+        total_angle_change.abs() >= parameters.maximum_angle_change_for_arc;
+    let angle_change_too_small = total_angle_change.abs() <= angle_change.abs();
+
+    if arc_too_small || total_angle_change_too_lange || angle_change_too_small {
+        return vec![PathSegment::LineSegment(LineSegment(
             Point2::origin(),
             optimal_interception_point,
-        ))]
-    } else {
-        // If we are moving, we can not change the direction instantaneously without
-        // slowing down. Instead, traverse an Arc with radius dependent on the current
-        // speed until the direction is changed.
-        let arc_radius = walking_direction.norm();
-        let (arc, arc_orientation) = calculate_arc_tangent_to(
-            walking_direction,
-            optimal_interception_point.coords,
-            arc_radius,
-        );
-
-        let interception_point = optimal_interception_point + (arc.end - arc.circle.center);
-
-        vec![
-            PathSegment::Arc(arc, arc_orientation),
-            PathSegment::LineSegment(LineSegment(arc.end, interception_point)),
-        ]
+        ))];
     }
+
+    // If the arc and angle changes are within range, rotate current direction by angle and bridge
+    // the path between current position and line segment to interception point by a tangent arc
+    let direction = UnitComplex::new(angle_change) * walking_direction;
+
+    let (arc, arc_orientation) =
+        calculate_arc_tangent_to(direction, optimal_interception_point.coords, arc_radius);
+
+    let interception_point = optimal_interception_point + (arc.end - arc.start);
+
+    vec![
+        PathSegment::Arc(arc, arc_orientation),
+        PathSegment::LineSegment(LineSegment(arc.end, interception_point)),
+    ]
 }
 
 fn calculate_arc_tangent_to(
