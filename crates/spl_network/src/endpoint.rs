@@ -89,19 +89,23 @@ impl Endpoint {
                 self.send_game_controller_visual_referee_message(message)
                     .await;
             }
-            OutgoingMessage::Spl(message) => {
-                let message: Vec<u8> = bincode::serialize(&message).unwrap();
-                if let Err(error) = self
-                    .spl_socket
-                    .send_to(
-                        message.as_slice(),
-                        SocketAddr::new(Ipv4Addr::BROADCAST.into(), self.ports.spl),
-                    )
-                    .await
-                {
-                    warn!("Failed to send UDP datagram via SPL socket: {error:?}")
+            OutgoingMessage::Spl(message) => match bincode::serialize(&message) {
+                Ok(message) => {
+                    if let Err(error) = self
+                        .spl_socket
+                        .send_to(
+                            message.as_slice(),
+                            SocketAddr::new(Ipv4Addr::BROADCAST.into(), self.ports.spl),
+                        )
+                        .await
+                    {
+                        warn!("Failed to send UDP datagram via SPL socket: {error:?}")
+                    }
                 }
-            }
+                Err(error) => {
+                    warn!("Failed to serialize Hulk Message: {error:?}")
+                }
+            },
             OutgoingMessage::VisualReferee(message) => {
                 let message: Vec<u8> = message.into();
                 self.send_game_controller_visual_referee_message(message)
