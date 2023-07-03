@@ -19,13 +19,10 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/checkout@v3
-        with:
-          lfs: true
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
           build-args: SDK_VERSION=${{ steps.retrieve_latest_version.outputs.SDK_VERSION }}
-          context: tools/ci/github-runners/v3
+          context: "{{ defaultContext }}:tools/ci/github-runners/v3
           push: true
           tags: ghcr.io/hulks/hulk:latest
