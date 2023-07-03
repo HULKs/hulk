@@ -146,14 +146,18 @@ impl FallStateEstimation {
         let estimated_pitch = self.roll_pitch_filter.state().y;
 
         let falling_direction = {
-            if estimated_roll.abs() > context.fall_state_estimation.falling_angle_threshold.x {
+            if !(context.fall_state_estimation.falling_angle_threshold_left[0]
+                ..context.fall_state_estimation.falling_angle_threshold_left[1])
+                .contains(&estimated_roll)
+            {
                 if estimated_roll > 0.0 {
                     Some(FallDirection::Right)
                 } else {
                     Some(FallDirection::Left)
                 }
-            } else if estimated_pitch.abs()
-                > context.fall_state_estimation.falling_angle_threshold.y
+            } else if !(context.fall_state_estimation.falling_angle_threshold_forward[0]
+                ..context.fall_state_estimation.falling_angle_threshold_forward[1])
+                .contains(&estimated_pitch)
             {
                 if estimated_pitch > 0.0 {
                     Some(FallDirection::Forward)
