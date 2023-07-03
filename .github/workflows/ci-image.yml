@@ -25,6 +25,6 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           build-args: SDK_VERSION=${{ steps.retrieve_latest_version.outputs.SDK_VERSION }}
-          context: "{{ defaultContext }}:tools/ci/github-runners/v3
+          context: "{{ defaultContext }}:tools/ci/github-runners/v3"
           push: true
           tags: ghcr.io/hulks/hulk:latest
