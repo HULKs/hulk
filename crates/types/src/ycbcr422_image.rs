@@ -27,13 +27,10 @@ pub struct YCbCr422Image {
 
 impl From<RgbImage> for YCbCr422Image {
     fn from(rgb_image: RgbImage) -> Self {
-        let buffer = Arc::new(buffer_422_from_rgb_image(rgb_image));
-        let width_422 = rgb_image.width() / 2;
-        let height = rgb_image.height() / 2;
         Self {
-            width_422,
-            height,
-            buffer,
+            width_422: rgb_image.width() / 2,
+            height: rgb_image.height(),
+            buffer: Arc::new(buffer_422_from_rgb_image(rgb_image)),
         }
     }
 }
@@ -49,7 +46,8 @@ impl EncodeJpeg for YCbCr422Image {
     type Error = ImageError;
 
     fn encode_as_jpeg(&self, quality: u8) -> Result<Vec<u8>, Self::Error> {
-        let rgb_image = rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer);
+        let rgb_image: RgbImage =
+            rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer);
         let mut jpeg_buffer = vec![];
         let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, quality);
         encoder.encode_image(&rgb_image)?;
@@ -62,14 +60,7 @@ impl DecodeJpeg for YCbCr422Image {
 
     fn decode_from_jpeg(jpeg: Vec<u8>) -> Result<Self, Self::Error> {
         let rgb_image = load_from_memory_with_format(&jpeg, ImageFormat::Jpeg)?.into_rgb8();
-        let width_422 = rgb_image.width() / 2;
-        let height = rgb_image.height() / 2;
-        let buffer = Arc::new(buffer_422_from_rgb_image(rgb_image));
-        Ok(Self {
-            width_422,
-            height,
-            buffer,
-        })
+        Ok(rgb_image.into())
     }
 }
 
