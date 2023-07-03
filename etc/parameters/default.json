@@ -846,7 +846,9 @@
       "minimum_ball_velocity_towards_robot": 0.2,
       "minimum_ball_velocity_towards_own_half": 0.05,
       "maximum_intercept_distance": 0.5,
-      "minimum_arc_radius": 0.005
+      "minimum_velocity_for_arc": 0.005,
+      "maximum_angle_change_for_arc": 1.5,
+      "angle_change_factor": 0.01
     },
     "initial_lookaround_duration": {
       "nanos": 0,
