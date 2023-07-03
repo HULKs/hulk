@@ -27,4 +27,4 @@ jobs:
           build-args: SDK_VERSION=${{ steps.retrieve_latest_version.outputs.SDK_VERSION }}
           context: "{{ defaultContext }}:tools/ci/github-runners/v3"
           push: true
-          tags: ghcr.io/hulks/hulk:latest
+          tags: ghcr.io/h3ndrk/hulk:latest
