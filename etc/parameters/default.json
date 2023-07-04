@@ -329,7 +329,7 @@
   },
   "role_assignment": {
     "forced_role": null,
-    "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs":  8}
+    "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs":  12}
   },
   "stand_up": {
     "gyro_low_pass_filter_coefficient": 0.1,
