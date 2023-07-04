@@ -13,7 +13,7 @@ use color_eyre::{
 };
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    SensorInterface, TimeInterface,
+    PathsInterface, SensorInterface, TimeInterface,
 };
 use serde::Deserialize;
 use spl_network::endpoint::{Endpoint, Ports};
@@ -23,7 +23,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 use types::{
-    hardware::Ids,
+    hardware::{Ids, Paths},
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
     ycbcr422_image::YCbCr422Image,
@@ -42,6 +42,7 @@ pub const SIMULATION_TIME_STEP: i32 = 10;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Parameters {
+    pub paths: Paths,
     pub spl_network_ports: Ports,
 }
 
@@ -57,6 +58,7 @@ pub struct HardwareInterface {
     bottom_camera: Camera,
     top_camera_requested: AtomicBool,
     bottom_camera_requested: AtomicBool,
+    paths: Paths,
     spl_network_endpoint: Endpoint,
     async_runtime: Runtime,
     keep_running: CancellationToken,
@@ -82,6 +84,7 @@ impl HardwareInterface {
             bottom_camera: Camera::new(CameraPosition::Bottom),
             top_camera_requested: AtomicBool::new(false),
             bottom_camera_requested: AtomicBool::new(false),
+            paths: parameters.paths,
             spl_network_endpoint: runtime
                 .block_on(Endpoint::new(parameters.spl_network_ports))
                 .wrap_err("failed to initialize SPL network")?,
@@ -122,75 +125,6 @@ impl HardwareInterface {
         }
 
         Ok(())
-    }
-}
-
-impl MicrophoneInterface for HardwareInterface {
-    fn read_from_microphones(&self) -> Result<Samples> {
-        self.simulator_audio_synchronization.wait();
-        if self.keep_running.is_cancelled() {
-            bail!("termination requested");
-        }
-        Ok(Samples {
-            rate: 0,
-            channels_of_samples: Arc::new(vec![]),
-        })
-    }
-}
-
-impl TimeInterface for HardwareInterface {
-    fn get_now(&self) -> SystemTime {
-        UNIX_EPOCH + Duration::from_secs_f64(Robot::get_time())
-    }
-}
-
-impl IdInterface for HardwareInterface {
-    fn get_ids(&self) -> Ids {
-        let name = from_utf8(Robot::get_name()).expect("robot name must be valid UTF-8");
-        Ids {
-            body_id: name.to_string(),
-            head_id: name.to_string(),
-        }
-    }
-}
-
-impl SensorInterface for HardwareInterface {
-    fn read_from_sensors(&self) -> Result<SensorData> {
-        match self.step_simulation().wrap_err("failed to step simulation") {
-            Ok(_) => {
-                self.simulator_audio_synchronization.wait();
-            }
-            Err(error) => {
-                self.simulator_audio_synchronization.wait();
-                self.top_camera.unblock_read();
-                self.bottom_camera.unblock_read();
-                return Err(error);
-            }
-        };
-        if self.keep_running.is_cancelled() {
-            bail!("termination requested");
-        }
-        let positions = self.joints.get_positions();
-        let inertial_measurement_unit = self
-            .inertial_measurement_unit
-            .get_values()
-            .wrap_err("failed to get inertial measurement unit values")?;
-        let sonar_sensors = self.sonar_sensors.get_values();
-        let force_sensitive_resistors = self
-            .force_sensitive_resistors
-            .get_values()
-            .wrap_err("failed to get force sensitive resistor values")?;
-        let touch_sensors = self.keyboard.get_touch_sensors();
-
-        self.update_cameras().wrap_err("failed to update cameras")?;
-
-        Ok(SensorData {
-            positions,
-            inertial_measurement_unit,
-            sonar_sensors,
-            force_sensitive_resistors,
-            touch_sensors,
-        })
     }
 }
 
@@ -337,6 +271,52 @@ impl ActuatorInterface for HardwareInterface {
     }
 }
 
+impl CameraInterface for HardwareInterface {
+    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image> {
+        let result = match camera_position {
+            CameraPosition::Top => {
+                self.top_camera_requested.store(true, Ordering::SeqCst);
+                self.top_camera
+                    .read()
+                    .wrap_err("failed to read from top camera")
+            }
+            CameraPosition::Bottom => {
+                self.bottom_camera_requested.store(true, Ordering::SeqCst);
+                self.bottom_camera
+                    .read()
+                    .wrap_err("failed to read from bottom camera")
+            }
+        };
+        if self.keep_running.is_cancelled() {
+            bail!("termination requested");
+        }
+        result
+    }
+}
+
+impl IdInterface for HardwareInterface {
+    fn get_ids(&self) -> Ids {
+        let name = from_utf8(Robot::get_name()).expect("robot name must be valid UTF-8");
+        Ids {
+            body_id: name.to_string(),
+            head_id: name.to_string(),
+        }
+    }
+}
+
+impl MicrophoneInterface for HardwareInterface {
+    fn read_from_microphones(&self) -> Result<Samples> {
+        self.simulator_audio_synchronization.wait();
+        if self.keep_running.is_cancelled() {
+            bail!("termination requested");
+        }
+        Ok(Samples {
+            rate: 0,
+            channels_of_samples: Arc::new(vec![]),
+        })
+    }
+}
+
 impl NetworkInterface for HardwareInterface {
     fn read_from_network(&self) -> Result<IncomingMessage> {
         self.async_runtime.block_on(async {
@@ -358,26 +338,55 @@ impl NetworkInterface for HardwareInterface {
     }
 }
 
-impl CameraInterface for HardwareInterface {
-    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image> {
-        let result = match camera_position {
-            CameraPosition::Top => {
-                self.top_camera_requested.store(true, Ordering::SeqCst);
-                self.top_camera
-                    .read()
-                    .wrap_err("failed to read from top camera")
+impl PathsInterface for HardwareInterface {
+    fn get_paths(&self) -> Paths {
+        self.paths.clone()
+    }
+}
+
+impl SensorInterface for HardwareInterface {
+    fn read_from_sensors(&self) -> Result<SensorData> {
+        match self.step_simulation().wrap_err("failed to step simulation") {
+            Ok(_) => {
+                self.simulator_audio_synchronization.wait();
             }
-            CameraPosition::Bottom => {
-                self.bottom_camera_requested.store(true, Ordering::SeqCst);
-                self.bottom_camera
-                    .read()
-                    .wrap_err("failed to read from bottom camera")
+            Err(error) => {
+                self.simulator_audio_synchronization.wait();
+                self.top_camera.unblock_read();
+                self.bottom_camera.unblock_read();
+                return Err(error);
             }
         };
         if self.keep_running.is_cancelled() {
             bail!("termination requested");
         }
-        result
+        let positions = self.joints.get_positions();
+        let inertial_measurement_unit = self
+            .inertial_measurement_unit
+            .get_values()
+            .wrap_err("failed to get inertial measurement unit values")?;
+        let sonar_sensors = self.sonar_sensors.get_values();
+        let force_sensitive_resistors = self
+            .force_sensitive_resistors
+            .get_values()
+            .wrap_err("failed to get force sensitive resistor values")?;
+        let touch_sensors = self.keyboard.get_touch_sensors();
+
+        self.update_cameras().wrap_err("failed to update cameras")?;
+
+        Ok(SensorData {
+            positions,
+            inertial_measurement_unit,
+            sonar_sensors,
+            force_sensitive_resistors,
+            touch_sensors,
+        })
+    }
+}
+
+impl TimeInterface for HardwareInterface {
+    fn get_now(&self) -> SystemTime {
+        UNIX_EPOCH + Duration::from_secs_f64(Robot::get_time())
     }
 }
 
