@@ -1,9 +1,13 @@
-use std::time::{Duration, Instant};
+use std::{
+    num::NonZeroU32,
+    time::{Duration, Instant},
+};
 
 use crate::ransac::ClusteringRansac;
 use calibration::lines::GoalBoxCalibrationLines;
 use color_eyre::Result;
 use context_attribute::context;
+use fast_image_resize::{DynamicImageView, FilterType, ImageView, ResizeAlg, Resizer};
 use framework::{AdditionalOutput, MainOutput};
 use image::{GrayImage, Luma, RgbImage};
 use imageproc::{edges::canny, filter::gaussian_blur_f32, map::map_colors};
@@ -20,6 +24,8 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    pub camera_position:
+        Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     pub enable: Parameter<bool, "calibration_line_detection.$cycler_instance.enable">,
     pub canny_low_threshold: Parameter<f32, "calibration_line_detection.canny_low_threshold">,
     pub canny_high_threshold: Parameter<f32, "calibration_line_detection.canny_high_threshold">,
@@ -30,8 +36,9 @@ pub struct CycleContext {
     pub ransac_maximum_distance:
         Parameter<f32, "calibration_line_detection.ransac_maximum_distance">,
     pub ransac_maximum_gap: Parameter<f32, "calibration_line_detection.ransac_maximum_gap">,
-    pub camera_position:
-        Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
+    pub resized_width: Parameter<u32, "calibration_line_detection.resized_width">,
+    pub debug_image_resized_width:
+        Parameter<u32, "calibration_line_detection.debug_image_resized_width">,
 
     // TODO activate this once calibration controller can emit this value
     // pub camera_position_of_calibration_lines_request:
@@ -71,7 +78,41 @@ impl CalibrationLineDetection {
         let rgb = RgbImage::from(context.image);
         let elapsed_time_after_rgb = processing_start.elapsed();
 
-        let difference = rgb_image_to_difference(&rgb);
+        let resized_image_size = {
+            let aspect_ratio = rgb.height() as f32 / rgb.width() as f32;
+            let expected_width = *context.resized_width;
+            (
+                expected_width,
+                (expected_width as f32 * aspect_ratio) as u32,
+            )
+        };
+
+        let debug_image_size = {
+            let expected_width = *context.debug_image_resized_width;
+            if expected_width >= resized_image_size.0 {
+                None
+            } else {
+                let aspect_ratio = resized_image_size.1 as f32 / resized_image_size.0 as f32;
+
+                Some((
+                    expected_width,
+                    (expected_width as f32 * aspect_ratio) as u32,
+                ))
+            }
+        };
+
+        let difference = {
+            let difference = rgb_image_to_difference(&rgb);
+
+            let resized = gray_image_resize(&difference, resized_image_size, None);
+            GrayImage::from_vec(
+                resized.width().get(),
+                resized.height().get(),
+                resized.into_vec(),
+            )
+            .expect("GrayImage construction after resize failed")
+        };
+
         let elapsed_time_after_difference = processing_start.elapsed();
 
         let blurred = gaussian_blur_f32(&difference, *context.gaussian_sigma); // 2.0..10.0
@@ -101,15 +142,21 @@ impl CalibrationLineDetection {
         context
             .cycle_time
             .fill_if_subscribed(|| elapsed_time_after_all_processing);
-        context
-            .difference_image
-            .fill_if_subscribed(|| gray_image_to_hulks_grayscale_image(&difference));
-        context
-            .blurred_image
-            .fill_if_subscribed(|| gray_image_to_hulks_grayscale_image(&blurred));
-        context
-            .edges_image
-            .fill_if_subscribed(|| gray_image_to_hulks_grayscale_image(&edges));
+
+        context.difference_image.fill_if_subscribed(|| {
+            gray_image_to_hulks_grayscale_image(
+                &difference,
+                debug_image_size,
+                Some(FilterType::Box),
+            )
+        });
+        context.blurred_image.fill_if_subscribed(|| {
+            gray_image_to_hulks_grayscale_image(&blurred, debug_image_size, Some(FilterType::Box))
+        });
+        context.edges_image.fill_if_subscribed(|| {
+            gray_image_to_hulks_grayscale_image(&edges, debug_image_size, Some(FilterType::Box))
+        });
+
         context.unfiltered_lines.fill_if_subscribed(|| lines);
         context.timings_for_steps.fill_if_subscribed(|| {
             vec![
@@ -143,8 +190,49 @@ impl CalibrationLineDetection {
     }
 }
 
-fn gray_image_to_hulks_grayscale_image(image: &GrayImage) -> GrayscaleImage {
-    GrayscaleImage::from_vec(image.width(), image.height(), image.as_raw().clone())
+#[inline]
+fn gray_image_resize(
+    image: &GrayImage,
+    // new_image_view: &mut DynamicImageViewMut,
+    new_size: (u32, u32),
+    filter: Option<FilterType>,
+) -> fast_image_resize::Image<'_> {
+    let image_view = ImageView::from_buffer(
+        NonZeroU32::new(image.width()).unwrap(),
+        NonZeroU32::new(image.height()).unwrap(),
+        &image.as_raw(),
+    )
+    .expect("ImageView creation failed!");
+    let new_width = NonZeroU32::new(new_size.0).unwrap();
+    let new_height = NonZeroU32::new(new_size.1).unwrap();
+    let mut new_image =
+        fast_image_resize::Image::new(new_width, new_height, image_view.pixel_type());
+    let mut resizer = Resizer::new(ResizeAlg::Convolution(
+        filter.unwrap_or_else(|| FilterType::Hamming),
+    ));
+    let mut new_image_view = new_image.view_mut();
+
+    resizer
+        .resize(&DynamicImageView::U8(image_view), &mut new_image_view)
+        .unwrap();
+    new_image
+}
+
+fn gray_image_to_hulks_grayscale_image(
+    image: &GrayImage,
+    new_size: Option<(u32, u32)>,
+    filter: Option<FilterType>,
+) -> GrayscaleImage {
+    if let Some(new_size) = new_size {
+        let resized = gray_image_resize(image, new_size, filter);
+        GrayscaleImage::from_vec(
+            resized.width().get(),
+            resized.height().get(),
+            resized.into_vec(),
+        )
+    } else {
+        GrayscaleImage::from_vec(image.width(), image.height(), image.as_raw().clone())
+    }
 }
 
 pub fn rgb_image_to_difference(rgb: &RgbImage) -> GrayImage {

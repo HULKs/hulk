@@ -1106,7 +1106,7 @@
   "center_circle_obstacle_increase": 1.2,
   "calibration_line_detection": {
     "vision_top": {
-      "enable": true
+      "enable": false
     },
     "vision_bottom": {
       "enable": true
@@ -1117,6 +1117,8 @@
     "maximum_number_of_lines": 10,
     "ransac_iterations": 1000,
     "ransac_maximum_distance": 3.0,
-    "ransac_maximum_gap": 5.0
+    "ransac_maximum_gap": 5.0,
+    "resized_width": 400,
+    "debug_image_resized_width": 200
   }
 }
