@@ -105,9 +105,14 @@ impl RoleAssignment {
             };
 
             if let Some(game_controller_state) = context.game_controller_state {
-                if let Some(striker) = [PlayerNumber::Six, PlayerNumber::Five, PlayerNumber::Four]
-                    .into_iter()
-                    .find(|player| game_controller_state.penalties[*player].is_none())
+                if let Some(striker) = [
+                    PlayerNumber::Seven,
+                    PlayerNumber::Six,
+                    PlayerNumber::Five,
+                    PlayerNumber::Four,
+                ]
+                .into_iter()
+                .find(|player| game_controller_state.penalties[*player].is_none())
                 {
                     player_roles[striker] = Role::Striker;
                 }
