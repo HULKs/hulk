@@ -63,7 +63,6 @@ impl<T> State<T> {
         }
     }
 
-    #[must_use]
     fn is_aborted(&self) -> bool {
         matches!(self, Self::Aborted { .. })
     }
