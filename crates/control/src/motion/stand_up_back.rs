@@ -68,14 +68,14 @@ impl StandUpBack {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let mut stand_up_back_estimated_remaining_duration = None;
-        if let MotionType::StandUpBack = context.motion_selection.current_motion {
-            self.advance_interpolator(context);
-            stand_up_back_estimated_remaining_duration =
-                Some(self.interpolator.remaining_estimated_duration());
-        } else {
-            self.interpolator.reset();
-        };
+        let stand_up_back_estimated_remaining_duration =
+            if let MotionType::StandUpBack = context.motion_selection.current_motion {
+                self.advance_interpolator(context);
+                Some(self.interpolator.remaining_estimated_duration())
+            } else {
+                self.interpolator.reset();
+                None
+            };
         Ok(MainOutputs {
             stand_up_back_positions: self.interpolator.value().into(),
             stand_up_back_estimated_remaining_duration: stand_up_back_estimated_remaining_duration
