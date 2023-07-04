@@ -3,8 +3,8 @@ use std::{
     env::current_dir,
     ffi::OsStr,
     fmt::Display,
-    fs::Permissions,
-    io::{self, ErrorKind},
+    fs::{OpenOptions, Permissions},
+    io::{self, ErrorKind, Seek},
     os::unix::prelude::PermissionsExt,
     path::{Path, PathBuf},
     time::Duration,
@@ -23,7 +23,7 @@ use parameters::{
     json::nest_value_at_path,
 };
 use serde::Deserialize;
-use serde_json::{from_slice, to_value};
+use serde_json::{from_reader, from_slice, to_value, to_writer_pretty, Value};
 use tempfile::{tempdir, TempDir};
 use tokio::{
     fs::{create_dir_all, read_dir, read_link, remove_file, set_permissions, symlink, File},
@@ -202,8 +202,27 @@ impl Repository {
         .wrap_err("failed to serialize parameters directory")
     }
 
-    pub async fn set_communication(&self, _head_id: &str, _enable: bool) -> Result<()> {
-        // TODO, tracked by https://github.com/HULKs/hulk/issues/343
+    pub fn set_communication(&self, enable: bool) -> Result<()> {
+        let mut hardware_json_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(self.root.join("etc/parameters/hardware.json"))
+            .wrap_err("failed to open hardware.json")?;
+        let mut hardware_json: Value =
+            from_reader(&hardware_json_file).wrap_err("failed to deserialize hardware.json")?;
+        hardware_json["communication_addresses"] = if enable {
+            Value::String("[::]:1337".to_string())
+        } else {
+            Value::Null
+        };
+        hardware_json_file
+            .rewind()
+            .wrap_err("failed to rewind hardware.json file")?;
+        hardware_json_file
+            .set_len(0)
+            .wrap_err("failed to truncate hardware.json")?;
+        to_writer_pretty(hardware_json_file, &hardware_json)
+            .wrap_err("failed to serialize hardware.json")?;
         Ok(())
     }
 

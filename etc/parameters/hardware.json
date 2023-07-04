@@ -1,83 +1,106 @@
 {
-  "camera_top": {
-    "width": 640,
-    "height": 480,
-    "format": "YUVU",
-    "time_per_frame": {
-      "numerator": 1,
-      "denominator": 30
-    },
-
-    "brightness": 0,
-    "contrast": 32,
-    "saturation": 64,
-    "hue": 0,
-    "white_balance_temperature_auto": true,
-    "gain": 16,
-    "hue_auto": true,
-    "white_balance_temperature": 2500,
-    "sharpness": 4,
-    "exposure_auto": "Auto",
-    "exposure_absolute": 512,
-    "focus_absolute": 0,
-    "focus_auto": false,
-
-    "automatic_exposure_control_weights": [
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-    ],
-    "disable_digital_effects": true,
-    "flip_sensor": true,
-
-    "amount_of_buffers": 3
-  },
   "camera_bottom": {
-    "width": 640,
-    "height": 480,
-    "format": "YUVU",
-    "time_per_frame": {
-      "numerator": 1,
-      "denominator": 30
-    },
-
+    "amount_of_buffers": 3,
+    "automatic_exposure_control_weights": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
     "brightness": 0,
     "contrast": 32,
-    "saturation": 64,
-    "hue": 0,
-    "white_balance_temperature_auto": true,
-    "gain": 16,
-    "hue_auto": true,
-    "white_balance_temperature": 2500,
-    "sharpness": 4,
-    "exposure_auto": "Auto",
+    "disable_digital_effects": true,
     "exposure_absolute": 512,
+    "exposure_auto": "Auto",
+    "flip_sensor": false,
     "focus_absolute": 0,
     "focus_auto": false,
-
+    "format": "YUVU",
+    "gain": 16,
+    "height": 480,
+    "hue": 0,
+    "hue_auto": true,
+    "saturation": 64,
+    "sharpness": 4,
+    "time_per_frame": {
+      "denominator": 30,
+      "numerator": 1
+    },
+    "white_balance_temperature": 2500,
+    "white_balance_temperature_auto": true,
+    "width": 640
+  },
+  "camera_top": {
+    "amount_of_buffers": 3,
     "automatic_exposure_control_weights": [
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
     ],
+    "brightness": 0,
+    "contrast": 32,
     "disable_digital_effects": true,
-    "flip_sensor": false,
-
-    "amount_of_buffers": 3
+    "exposure_absolute": 512,
+    "exposure_auto": "Auto",
+    "flip_sensor": true,
+    "focus_absolute": 0,
+    "focus_auto": false,
+    "format": "YUVU",
+    "gain": 16,
+    "height": 480,
+    "hue": 0,
+    "hue_auto": true,
+    "saturation": 64,
+    "sharpness": 4,
+    "time_per_frame": {
+      "denominator": 30,
+      "numerator": 1
+    },
+    "white_balance_temperature": 2500,
+    "white_balance_temperature_auto": true,
+    "width": 640
   },
   "communication_addresses": "[::]:1337",
   "microphones": {
-    "sample_rate": 44100,
+    "access": "RWInterleaved",
+    "format": "FloatLE",
     "number_of_channels": 4,
     "number_of_samples": 2048,
-
-    "access": "RWInterleaved",
-    "format": "FloatLE"
+    "sample_rate": 44100
   },
   "paths": {
-    "parameters": "etc/parameters",
     "motions": "etc/motions",
-    "neural_networks": "etc/neural_networks"
+    "neural_networks": "etc/neural_networks",
+    "parameters": "etc/parameters"
   },
   "spl_network_ports": {
-    "game_controller_state": 3838,
     "game_controller_return": 3939,
+    "game_controller_state": 3838,
     "spl": 10024
   }
 }
