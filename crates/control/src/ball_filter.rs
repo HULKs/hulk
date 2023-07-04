@@ -184,13 +184,21 @@ impl BallFilter {
     ) {
         for hypothesis in self.hypotheses.iter_mut() {
             let ball_in_view = match (camera_matrices.as_ref(), projected_limbs.as_ref()) {
-                (Some(camera_matrices), Some(projected_limbs)) => is_visible_to_camera(
-                    hypothesis,
-                    &camera_matrices.bottom,
-                    ball_radius,
-                    &projected_limbs.limbs,
-                    configuration,
-                ),
+                (Some(camera_matrices), Some(projected_limbs)) => {
+                    is_visible_to_camera(
+                        hypothesis,
+                        &camera_matrices.bottom,
+                        ball_radius,
+                        &projected_limbs.limbs,
+                        configuration,
+                    ) || is_visible_to_camera(
+                        hypothesis,
+                        &camera_matrices.top,
+                        ball_radius,
+                        &[],
+                        configuration,
+                    )
+                }
                 _ => false,
             };
 
