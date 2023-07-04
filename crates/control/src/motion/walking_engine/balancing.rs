@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use filtering::hysteresis::{greater_than_with_hysteresis, less_than_with_hysteresis};
 use framework::AdditionalOutput;
 use nalgebra::Vector2;
 use types::{
@@ -77,6 +78,8 @@ pub fn step_adjustment(
     stabilization_foot_lift_multiplier: f32,
     stabilization_foot_lift_offset: f32,
     remaining_stabilizing_steps: usize,
+    forward_adjustment_was_active: &mut bool,
+    backward_adjustment_was_active: &mut bool,
 ) -> (FootOffsets, FootOffsets, f32, f32, usize) {
     let linear_time = (t.as_secs_f32() / planned_step_duration.as_secs_f32()).clamp(0.0, 1.0);
 
@@ -99,8 +102,12 @@ pub fn step_adjustment(
         Side::Right => current_right_foot.forward,
     };
 
-    let (adjusted_swing_foot, adjusted_support_foot) = if torso_tilt_shift < backward_balance_limit
-    {
+    let (adjusted_swing_foot, adjusted_support_foot) = if less_than_with_hysteresis(
+        *backward_adjustment_was_active,
+        torso_tilt_shift,
+        backward_balance_limit,
+        0.001,
+    ) {
         let target = -torso_tilt_shift.abs() - backward_foot_support.abs();
         (
             target.clamp(
@@ -109,7 +116,12 @@ pub fn step_adjustment(
             ),
             0.0,
         )
-    } else if torso_tilt_shift > forward_balance_limit {
+    } else if greater_than_with_hysteresis(
+        *forward_adjustment_was_active,
+        torso_tilt_shift,
+        forward_balance_limit,
+        0.001,
+    ) {
         let target = torso_tilt_shift.abs() + forward_foot_support.abs();
         (
             target.clamp(
@@ -122,8 +134,10 @@ pub fn step_adjustment(
         (next_swing_foot, next_support_foot)
     };
 
+    let adjustment = adjusted_swing_foot - next_swing_foot;
+
     let ((adjusted_left_foot_lift, adjusted_right_foot_lift), adjusted_remaining_stabilizing_steps) =
-        if adjusted_swing_foot - next_swing_foot != 0.0 {
+        if adjustment != 0.0 {
             (
                 (match swing_side {
                     Side::Left => (
@@ -154,13 +168,28 @@ pub fn step_adjustment(
     };
 
     step_adjustment_output.fill_if_subscribed(|| StepAdjustment {
+        adjustment,
         adjusted_swing_foot,
         torso_tilt_shift,
         forward_balance_limit,
         backward_balance_limit,
         adjusted_left_foot_lift,
         adjusted_right_foot_lift,
+        forward_adjustment_was_active: *forward_adjustment_was_active,
+        backward_adjustment_was_active: *backward_adjustment_was_active,
     });
+
+    (
+        *forward_adjustment_was_active,
+        *backward_adjustment_was_active,
+    ) = if adjustment > 0.0 {
+        (true, false)
+    } else if adjustment < 0.0 {
+        (false, true)
+    } else {
+        (false, false)
+    };
+
     (
         FootOffsets {
             forward: adjusted_left_forward,
