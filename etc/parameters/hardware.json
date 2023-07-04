@@ -1,17 +1,4 @@
 {
-  "microphones": {
-    "sample_rate": 44100,
-    "number_of_channels": 4,
-    "number_of_samples": 2048,
-
-    "access": "RWInterleaved",
-    "format": "FloatLE"
-  },
-  "spl_network_ports": {
-    "game_controller_state": 3838,
-    "game_controller_return": 3939,
-    "spl": 10024
-  },
   "camera_top": {
     "width": 640,
     "height": 480,
@@ -73,5 +60,24 @@
     "flip_sensor": false,
 
     "amount_of_buffers": 3
+  },
+  "communication_addresses": "[::]:1337",
+  "microphones": {
+    "sample_rate": 44100,
+    "number_of_channels": 4,
+    "number_of_samples": 2048,
+
+    "access": "RWInterleaved",
+    "format": "FloatLE"
+  },
+  "paths": {
+    "parameters": "etc/parameters",
+    "motions": "etc/motions",
+    "neural_networks": "etc/neural_networks"
+  },
+  "spl_network_ports": {
+    "game_controller_state": 3838,
+    "game_controller_return": 3939,
+    "spl": 10024
   }
 }
