@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use crate::ransac::ClusteringRansac;
 use calibration::lines::GoalBoxCalibrationLines;
 use color_eyre::Result;
@@ -41,6 +43,9 @@ pub struct CycleContext {
     pub edges_image: AdditionalOutput<GrayscaleImage, "calibration_line_detection.edges_image">,
     pub unfiltered_lines:
         AdditionalOutput<Option<Vec<Line2>>, "calibration_line_detection.unfiltered_lines">,
+    pub timings_for_steps:
+        AdditionalOutput<Vec<(String, Duration)>, "calibration_line_detection.timings_for_steps">,
+    pub cycle_time: AdditionalOutput<Duration, "calibration_line_detection.cycle_time">,
 }
 
 #[context]
@@ -62,15 +67,23 @@ impl CalibrationLineDetection {
                 detected_calibration_lines: None.into(),
             });
         }
+        let processing_start = Instant::now();
+        let rgb = RgbImage::from(context.image);
+        let elapsed_time_after_rgb = processing_start.elapsed();
 
-        let rgb = RgbImage::from(context.image.clone());
         let difference = rgb_image_to_difference(&rgb);
+        let elapsed_time_after_difference = processing_start.elapsed();
+
         let blurred = gaussian_blur_f32(&difference, *context.gaussian_sigma); // 2.0..10.0
+        let elapsed_time_after_blurred = processing_start.elapsed();
+
         let edges = canny(
             &blurred,
             *context.canny_low_threshold,
             *context.canny_high_threshold,
         );
+        let elapsed_time_after_edges = processing_start.elapsed();
+
         let lines = detect_lines(
             &edges,
             *context.maximum_number_of_lines,
@@ -78,11 +91,16 @@ impl CalibrationLineDetection {
             *context.ransac_maximum_distance,
             *context.ransac_maximum_gap,
         );
+        let elapsed_time_after_lines = processing_start.elapsed();
 
         let calibration_lines = lines
             .as_ref()
             .and_then(|lines| filter_and_extract_calibration_lines(lines, &blurred));
+        let elapsed_time_after_all_processing = processing_start.elapsed();
 
+        context
+            .cycle_time
+            .fill_if_subscribed(|| elapsed_time_after_all_processing);
         context
             .difference_image
             .fill_if_subscribed(|| gray_image_to_hulks_grayscale_image(&difference));
@@ -93,6 +111,31 @@ impl CalibrationLineDetection {
             .edges_image
             .fill_if_subscribed(|| gray_image_to_hulks_grayscale_image(&edges));
         context.unfiltered_lines.fill_if_subscribed(|| lines);
+        context.timings_for_steps.fill_if_subscribed(|| {
+            vec![
+                ("rgb".to_string(), elapsed_time_after_rgb),
+                (
+                    "difference".to_string(),
+                    elapsed_time_after_difference - elapsed_time_after_rgb,
+                ),
+                (
+                    "blurred".to_string(),
+                    elapsed_time_after_blurred - elapsed_time_after_difference,
+                ),
+                (
+                    "edges".to_string(),
+                    elapsed_time_after_edges - elapsed_time_after_blurred,
+                ),
+                (
+                    "lines".to_string(),
+                    elapsed_time_after_lines - elapsed_time_after_edges,
+                ),
+                (
+                    "line filtering".to_string(),
+                    elapsed_time_after_all_processing - elapsed_time_after_lines,
+                ),
+            ]
+        });
 
         Ok(MainOutputs {
             detected_calibration_lines: calibration_lines.into(),
