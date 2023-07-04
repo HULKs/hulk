@@ -368,7 +368,7 @@ impl BehaviorCycler {
                         .main_outputs
                         .stand_up_front_estimated_remaining_duration
                         .as_ref(),
-                    configuration: &configuration.behavior,
+                    configuration: &parameters.behavior,
                 })
                 .wrap_err("failed to execute cycle of `TimeToReachKickPosition`");
         }

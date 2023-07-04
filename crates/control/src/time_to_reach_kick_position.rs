@@ -1,5 +1,5 @@
 use color_eyre::Result;
-use types::{configuration::Behavior, PathSegment};
+use types::{parameters::Behavior, PathSegment};
 
 use std::time::Duration;
 
