@@ -243,7 +243,10 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     State::CheckEntry { .. } => self.frames[index].spline.total_duration(),
                     State::InterpolateSpline {
                         time_since_start, ..
-                    } => self.frames[index].spline.total_duration() - time_since_start,
+                    } => Duration::saturating_sub(
+                        self.frames[index].spline.total_duration(),
+                        time_since_start,
+                    ),
                     State::CheckExit { .. } => Duration::ZERO,
                     State::Finished => Duration::ZERO,
                     State::Aborted { .. } => Duration::MAX,
