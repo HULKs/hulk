@@ -8,9 +8,9 @@ use framework::MainOutput;
 use motionfile::{MotionFile, MotionInterpolator};
 use nalgebra::Vector2;
 use types::{
-    configuration::FallProtection, configuration::FallStateEstimation, BodyJoints, ConditionInput,
-    CycleTime, FallDirection, FallState, HeadJoints, Joints, JointsCommand, MotionCommand,
-    MotionSafeExits, MotionSelection, MotionType, SensorData,
+    parameters::{FallProtection, FallStateEstimation},
+    BodyJoints, ConditionInput, CycleTime, FallDirection, FallState, HeadJoints, Joints,
+    JointsCommand, MotionCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
 };
 
 pub struct FallProtector {

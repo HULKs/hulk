@@ -89,7 +89,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             own_writer: framework::Writer<Database>,
             own_changed: std::sync::Arc<tokio::sync::Notify>,
             own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
-            configuration_reader: framework::Reader<crate::structs::Configuration>,
+            parameters_reader: framework::Reader<crate::structs::Parameters>,
             persistent_state: crate::structs::#module_name::PersistentState,
             #realtime_inputs
             #input_output_fields
@@ -194,10 +194,10 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             own_writer: framework::Writer<Database>,
             own_changed: std::sync::Arc<tokio::sync::Notify>,
             own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
-            configuration_reader: framework::Reader<crate::structs::Configuration>,
+            parameters_reader: framework::Reader<crate::structs::Parameters>,
             #input_output_fields
         ) -> color_eyre::Result<Self> {
-            let configuration = configuration_reader.next().clone();
+            let parameters = parameters_reader.next().clone();
             let mut persistent_state = crate::structs::#cycler_module_name::PersistentState::default();
             #node_initializers
             Ok(Self {
@@ -206,7 +206,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                 own_writer,
                 own_changed,
                 own_subscribed_outputs_reader,
-                configuration_reader,
+                parameters_reader,
                 persistent_state,
                 #input_output_identifiers
                 #(#node_identifiers,)*
@@ -258,7 +258,7 @@ fn generate_node_field_initializers(node: &Node, cycler: &Cycler) -> TokenStream
             }
             Field::Parameter { name, path, .. } => {
                 let accessor = path_to_accessor_token_stream(
-                    quote! { configuration },
+                    quote! { parameters },
                     path,
                     ReferenceKind::Immutable,
                     cycler,
@@ -417,7 +417,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
 
                 {
                     let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
-                    let configuration = self.configuration_reader.next();
+                    let parameters = self.parameters_reader.next();
                     #(#setup_node_executions)*
                 }
 
@@ -425,7 +425,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
 
                 {
                     let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
-                    let configuration = self.configuration_reader.next();
+                    let parameters = self.parameters_reader.next();
                     #lock_readers
                     #(#cycle_node_executions)*
                 }
@@ -609,7 +609,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                 }
                 Field::Parameter { name, path, .. } => {
                     let accessor = path_to_accessor_token_stream(
-                        quote! { configuration },
+                        quote! { parameters },
                         path,
                         ReferenceKind::Immutable,
                         cycler,

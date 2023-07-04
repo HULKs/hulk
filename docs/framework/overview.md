@@ -13,7 +13,7 @@ Here is a short outline of the next chapters:
 - [Cyclers](./cyclers.md): How do cyclers run the robotics nodes?
 - [Nodes](./nodes.md): What are nodes and how are they implemented?
 - [Databases & Types](./databases_and_types.md): How can data be shared between cyclers and the framework?
-- [Configuration](./configuration.md): How does the framework provide configuration parameters to nodes?
+- [Parameters](./parameters.md): How does the framework provide configuration parameters to nodes?
 - [Communication](./communication.md): What is communication and how is it able to communicate between framework and nodes?
 - [Hardware Interface](./hardware_interface.md): How is the hardware abstracted away for the different target platforms?
 - [Thread Communication](./thread_communication.md): Which concepts and features exist to enable thread-safe communication between subcomponents?

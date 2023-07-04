@@ -23,7 +23,7 @@ pub struct CycleContext {
     pub sole_pressure: Input<SolePressure, "sole_pressure">,
     pub support_foot: Input<SupportFoot, "support_foot">,
 
-    pub orientation_filter_configuration: Parameter<Parameters, "orientation_filter">,
+    pub orientation_filter_parameters: Parameter<Parameters, "orientation_filter">,
 }
 
 #[context]
@@ -53,7 +53,7 @@ impl OrientationFilter {
             context.sole_pressure.left,
             context.sole_pressure.right,
             cycle_duration.as_secs_f32(),
-            context.orientation_filter_configuration,
+            context.orientation_filter_parameters,
         );
 
         Ok(MainOutputs {

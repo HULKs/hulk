@@ -1,7 +1,7 @@
 use nalgebra::{Isometry2, Point2};
 
 use types::{
-    configuration::{Dribbling, InWalkKickInfo, InWalkKicks},
+    parameters::{Dribbling, InWalkKickInfo, InWalkKicks},
     rotate_towards, HeadMotion, MotionCommand,
     OrientationMode::{self, AlignWithPath},
     PathSegment, WorldState,

@@ -8,7 +8,7 @@ use log::warn;
 use nalgebra::{Isometry3, Point3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
-    configuration::{KickSteps, WalkingEngine as WalkingEngineConfiguration},
+    parameters::{KickSteps, WalkingEngine as WalkingEngineParameters},
     ArmJoints, BodyJoints, BodyJointsCommand, CycleTime, InertialMeasurementUnitData, Joints,
     KickVariant, LegJoints, MotionCommand, MotionSafeExits, MotionType, RobotKinematics,
     SensorData, Side, Step, StepAdjustment, WalkCommand,
@@ -104,7 +104,7 @@ pub struct WalkingEngine {
 
 #[context]
 pub struct CreationContext {
-    pub config: Parameter<WalkingEngineConfiguration, "walking_engine">,
+    pub config: Parameter<WalkingEngineParameters, "walking_engine">,
     pub kick_steps: Parameter<KickSteps, "kick_steps">,
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
@@ -121,7 +121,7 @@ pub struct CycleContext {
     pub t_on_last_phase_end: AdditionalOutput<Duration, "walking_engine.t_on_last_phase_end">,
     // TODO: ask hendrik how to do that
     // pub walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
-    pub config: Parameter<WalkingEngineConfiguration, "walking_engine">,
+    pub config: Parameter<WalkingEngineParameters, "walking_engine">,
     pub kick_steps: Parameter<KickSteps, "kick_steps">,
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
@@ -381,7 +381,7 @@ impl WalkingEngine {
         &mut self,
         walk_command: WalkCommand,
         swing_side: Side,
-        config: &WalkingEngineConfiguration,
+        config: &WalkingEngineParameters,
         kick_steps: &KickSteps,
     ) {
         self.left_foot_t0 = self.left_foot;
@@ -597,7 +597,7 @@ impl WalkingEngine {
     fn walk_cycle(
         &mut self,
         cycle_duration: Duration,
-        config: &WalkingEngineConfiguration,
+        config: &WalkingEngineParameters,
         step_adjustment_output: &mut AdditionalOutput<StepAdjustment>,
     ) {
         self.t += cycle_duration;

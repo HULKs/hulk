@@ -4,7 +4,7 @@ use framework::MainOutput;
 use nalgebra::Isometry2;
 use spl_network_messages::HulkMessage;
 use types::{
-    configuration::CameraMatrixParameters, BallPosition, CycleTime, FallState, FilteredGameState,
+    parameters::CameraMatrixParameters, BallPosition, CycleTime, FallState, FilteredGameState,
     GameControllerState, HeadJoints, Obstacle, PenaltyShotDirection, PrimaryState, SensorData,
 };
 

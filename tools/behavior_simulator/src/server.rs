@@ -22,7 +22,7 @@ use tokio_util::sync::CancellationToken;
 use types::{FieldDimensions, Players};
 
 #[derive(Clone, Serialize, Deserialize, SerializeHierarchy)]
-struct Configuration {
+struct Parameters {
     selected_frame: usize,
     selected_robot: usize,
     field_dimensions: FieldDimensions,
@@ -43,7 +43,7 @@ struct BehaviorSimulatorDatabase {
 #[allow(clippy::too_many_arguments)]
 async fn timeline_server(
     keep_running: CancellationToken,
-    parameters_reader: Reader<Configuration>,
+    parameters_reader: Reader<Parameters>,
     parameters_changed: Arc<Notify>,
     outputs_writer: Writer<BehaviorSimulatorDatabase>,
     outputs_changed: Arc<Notify>,
@@ -95,7 +95,7 @@ pub fn run(
     scenario_file: impl AsRef<Path>,
 ) -> Result<()> {
     let parameter_slots = 3; // 2 for communication writer + 1 reader for timeline_server
-    let communication_server = communication::server::Runtime::<Configuration>::start(
+    let communication_server = communication::server::Runtime::<Parameters>::start(
         addresses,
         "tools/behavior_simulator",
         "behavior_simulator".to_string(),

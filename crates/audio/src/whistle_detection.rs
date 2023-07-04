@@ -10,8 +10,8 @@ use rustfft::{
     Fft, FftPlanner,
 };
 use types::{
-    configuration::WhistleDetection as WhistleDetectionConfiguration, samples::Samples,
-    DetectionInfo, Whistle,
+    parameters::WhistleDetection as WhistleDetectionParameters, samples::Samples, DetectionInfo,
+    Whistle,
 };
 
 pub const AUDIO_SAMPLE_RATE: u32 = 44100;
@@ -29,7 +29,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub configuration: Parameter<WhistleDetectionConfiguration, "whistle_detection">,
+    pub parameters: Parameter<WhistleDetectionParameters, "whistle_detection">,
 
     pub samples: Input<Samples, "samples">,
     pub audio_spectrums: AdditionalOutput<Vec<Vec<(f32, f32)>>, "audio_spectrums">,
@@ -60,7 +60,7 @@ impl WhistleDetection {
             .map(|buffer| {
                 self.is_whistle_detected_in_buffer(
                     buffer,
-                    context.configuration,
+                    context.parameters,
                     &mut context.audio_spectrums,
                     &mut context.detection_infos,
                 )
@@ -74,7 +74,7 @@ impl WhistleDetection {
     fn is_whistle_detected_in_buffer(
         &mut self,
         buffer: &[f32],
-        detection_parameters: &WhistleDetectionConfiguration,
+        detection_parameters: &WhistleDetectionParameters,
         audio_spectrums: &mut AdditionalOutput<Vec<Vec<(f32, f32)>>>,
         detection_infos: &mut AdditionalOutput<Vec<DetectionInfo>>,
     ) -> bool {
@@ -122,10 +122,10 @@ impl WhistleDetection {
 
 fn spectrum_contains_whistle(
     absolute_values: &[f32],
-    detection_parameters: &WhistleDetectionConfiguration,
+    detection_parameters: &WhistleDetectionParameters,
     frequency_resolution: f32,
 ) -> (bool, DetectionInfo) {
-    let WhistleDetectionConfiguration {
+    let WhistleDetectionParameters {
         detection_band,
         background_noise_scaling,
         whistle_scaling,

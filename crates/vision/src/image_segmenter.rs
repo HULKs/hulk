@@ -5,9 +5,9 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::point;
 use types::{
-    configuration::{EdgeDetectionSource, MedianMode},
     horizon::Horizon,
     is_above_limbs,
+    parameters::{EdgeDetectionSource, MedianMode},
     ycbcr422_image::YCbCr422Image,
     CameraMatrix, EdgeType, FieldColor, ImageSegments, Intensity, Limb, ProjectedLimbs, Rgb,
     RgbChannel, ScanGrid, ScanLine, Segment, YCbCr444,

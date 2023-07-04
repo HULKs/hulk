@@ -15,14 +15,14 @@ use types::{messages::IncomingMessage, CameraMatrix};
 use crate::{
     cycler::{BehaviorCycler, Database},
     interfake::Interfake,
-    structs::Configuration,
+    structs::Parameters,
 };
 
 pub struct Robot {
     pub interface: Arc<Interfake>,
     pub cycler: BehaviorCycler,
     pub database: Database,
-    pub configuration: Configuration,
+    pub parameters: Parameters,
     pub is_penalized: bool,
     pub last_kick_time: Duration,
 }
@@ -34,32 +34,32 @@ impl Robot {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
-        let mut configuration: Configuration = runtime.block_on(async {
+        let mut parameter: Parameters = runtime.block_on(async {
             deserialize(
-                "etc/configuration",
+                "etc/parameters",
                 &format!("behavior_simulator.{}", from_player_number(player_number)),
                 &format!("behavior_simulator.{}", from_player_number(player_number)),
             )
             .await
             .wrap_err("could not load initial parameters")
         })?;
-        configuration.player_number = player_number;
+        parameter.player_number = player_number;
 
-        let cycler = BehaviorCycler::new(interface.clone(), Default::default(), &configuration)
+        let cycler = BehaviorCycler::new(interface.clone(), Default::default(), &parameter)
             .wrap_err("failed to create cycler")?;
 
         let mut database = Database::default();
 
         database.main_outputs.robot_to_field = Some(generate_initial_pose(
-            &configuration.localization.initial_poses[player_number],
-            &configuration.field_dimensions,
+            &parameter.localization.initial_poses[player_number],
+            &parameter.field_dimensions,
         ));
 
         Ok(Self {
             interface,
             cycler,
             database,
-            configuration,
+            parameters: parameter,
             is_penalized: false,
             last_kick_time: Duration::default(),
         })
@@ -67,13 +67,13 @@ impl Robot {
 
     pub fn cycle(&mut self, messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>) -> Result<()> {
         self.cycler
-            .cycle(&mut self.database, &self.configuration, messages)
+            .cycle(&mut self.database, &self.parameters, messages)
     }
 
     pub fn field_of_view(&self) -> f32 {
         let image_size = vector![640.0, 480.0];
         let focal_lengths = self
-            .configuration
+            .parameters
             .camera_matrix_parameters
             .vision_top
             .focal_lengths;

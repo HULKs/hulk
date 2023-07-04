@@ -51,8 +51,8 @@ impl Repository {
         self.root.join("crates")
     }
 
-    pub fn configuration_root(&self) -> PathBuf {
-        self.root.join("etc/configuration")
+    pub fn parameters_root(&self) -> PathBuf {
+        self.root.join("etc/parameters")
     }
 
     pub fn find_latest_file(&self, pattern: &str) -> Result<PathBuf> {
@@ -194,7 +194,7 @@ impl Repository {
                 id: Id::Head,
             },
             path,
-            self.configuration_root(),
+            self.parameters_root(),
             "unknown_body_id",
             head_id,
         )
@@ -274,7 +274,7 @@ impl Repository {
     }
 
     pub async fn get_hardware_ids(&self) -> Result<HashMap<u8, HardwareIds>> {
-        let hardware_ids_path = self.root.join("etc/configuration/hardware_ids.json");
+        let hardware_ids_path = self.root.join("etc/parameters/hardware_ids.json");
         let mut hardware_ids = File::open(&hardware_ids_path)
             .await
             .wrap_err_with(|| format!("Failed to open {}", hardware_ids_path.display()))?;
@@ -305,7 +305,7 @@ impl Repository {
         .map(|target_name| async move {
             (
                 target_name,
-                read_link(self.configuration_root().join(target_name))
+                read_link(self.parameters_root().join(target_name))
                     .await
                     .wrap_err_with(|| format!("failed reading location symlink for {target_name}")),
             )
@@ -338,8 +338,8 @@ impl Repository {
     }
 
     pub async fn set_location(&self, target: &str, location: &str) -> Result<()> {
-        let target_location = self.configuration_root().join(format!("{target}_location"));
-        let new_location = self.configuration_root().join(location);
+        let target_location = self.parameters_root().join(format!("{target}_location"));
+        let new_location = self.parameters_root().join(location);
         let _ = remove_file(&target_location).await;
         symlink(&new_location, &target_location)
             .await
@@ -350,10 +350,10 @@ impl Repository {
     }
 
     pub async fn list_available_locations(&self) -> Result<BTreeSet<String>> {
-        let configuration_path = self.root.join("etc/configuration");
-        let mut locations = read_dir(configuration_path)
+        let parameters_path = self.root.join("etc/parameters");
+        let mut locations = read_dir(parameters_path)
             .await
-            .wrap_err("failed configuration root")?;
+            .wrap_err("failed parameters root")?;
         let mut results = BTreeSet::new();
         while let Ok(Some(entry)) = locations.next_entry().await {
             if entry.path().is_dir() && !entry.path().is_symlink() {

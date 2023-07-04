@@ -1,7 +1,7 @@
 use framework::AdditionalOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex};
 use types::{
-    configuration::Search as SearchConfiguration, FieldDimensions, HeadMotion, MotionCommand,
+    parameters::Search as SearchParameters, FieldDimensions, HeadMotion, MotionCommand,
     OrientationMode, PathObstacle, Side, WorldState,
 };
 
@@ -52,7 +52,7 @@ pub fn execute(
     walk_path_planner: &WalkPathPlanner,
     walk_and_stand: &WalkAndStand,
     field_dimensions: &FieldDimensions,
-    parameters: &SearchConfiguration,
+    parameters: &SearchParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
 ) -> Option<MotionCommand> {
     let robot_to_field = world_state.robot.robot_to_field?;

@@ -3,7 +3,7 @@ use std::time::Duration;
 use framework::AdditionalOutput;
 use nalgebra::Vector2;
 use types::{
-    configuration::WalkingEngine as WalkingEngineConfiguration, LegJoints, Side, StepAdjustment,
+    parameters::WalkingEngine as WalkingEngineParameters, LegJoints, Side, StepAdjustment,
 };
 
 use super::foot_offsets::FootOffsets;
@@ -30,7 +30,7 @@ pub fn swing_leg_foot_leveling(
     measured_right_leg: LegJoints<f32>,
     torso_imu_pitch: f32,
     swing_side: Side,
-    config: &WalkingEngineConfiguration,
+    config: &WalkingEngineParameters,
     t: Duration,
     planned_step_duration: Duration,
 ) -> LegJoints<f32> {

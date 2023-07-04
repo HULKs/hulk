@@ -36,7 +36,7 @@ pub struct Arguments {
     /// Skip the OS version check
     #[arg(long)]
     pub skip_os_check: bool,
-    /// The location to use for configuration
+    /// The location to use for parameters
     location: String,
     /// The network to connect the wireless device to (None disconnects from anything)
     #[arg(

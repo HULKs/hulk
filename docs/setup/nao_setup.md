@@ -26,7 +26,7 @@ See [Nao Image and SDK](./nao_image_and_sdk.md) to learn how to acquire or build
     - `tools/pepsi` contains a bunch of `24`s, however most of them are in comments or CLI command help text.
         - `tools/pepsi/src/parsers.rs` has a default and a check value that use 24 literals.
     - `tools/twix/src/completion_edit.rs` generates IP address suggestions with a hardcoded team number.
-    - `etc/configuration/hardware.json` has an attribute called spl for team communication hardcoded to 10024 (10000 + team number).
+    - `etc/parameters/hardware.json` has an attribute called spl for team communication hardcoded to 10024 (10000 + team number).
 
     ### Set up Hardware IDs
 
@@ -34,7 +34,7 @@ See [Nao Image and SDK](./nao_image_and_sdk.md) to learn how to acquire or build
     This number also determines the last octet of a robot's IP addresses.
     For example robot number `21` will always have the IPv4 addresses `10.0.X.21` (wireless) and `10.1.X.21` (ethernet) where X is the team number.
 
-    For each robot you must determine it's head and body IDs and enter them in `etc/configuration/hardware_ids.json`.
+    For each robot you must determine it's head and body IDs and enter them in `etc/parameters/hardware_ids.json`.
     This file is used by [pepsi](../tooling/pepsi.md) and other tools to find the hardware ids belonging to a robot number.
 
 ## Flashing the Firmware

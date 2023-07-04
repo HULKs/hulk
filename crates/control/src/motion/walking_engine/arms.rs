@@ -3,7 +3,7 @@ use std::{f32::consts::FRAC_PI_2, time::Duration};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{configuration::SwingingArms, ArmJoints, ArmMotion, MotionCommand, Side};
+use types::{parameters::SwingingArms, ArmJoints, ArmMotion, MotionCommand, Side};
 
 use motionfile::{SplineInterpolator, TimedSpline};
 

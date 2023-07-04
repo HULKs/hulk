@@ -10,7 +10,7 @@ When flashing the robot and uploading the hulk binary, the home directory struct
 |   |-- bin
 |   |   `-- hulk
 |   |-- etc
-|   |   |-- configuration
+|   |   |-- parameters
 |   |   |   `-- *.json
 |   |   |-- motions
 |   |   |   `-- *.motion2

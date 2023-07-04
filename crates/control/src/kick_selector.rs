@@ -7,7 +7,7 @@ use itertools::iproduct;
 use nalgebra::{distance, point, vector, Isometry2, Point2, UnitComplex, Vector2};
 use ordered_float::NotNan;
 use types::{
-    configuration::{FindKickTargets, InWalkKickInfo, InWalkKicks},
+    parameters::{FindKickTargets, InWalkKickInfo, InWalkKicks},
     rotate_towards, BallState, Circle, FieldDimensions, KickDecision, KickTarget, KickVariant,
     LineSegment, Obstacle, Side, TwoLineSegments,
 };
