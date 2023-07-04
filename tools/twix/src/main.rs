@@ -298,6 +298,7 @@ impl App for TwixApp {
                             "Map".to_string(),
                             "Parameter".to_string(),
                             "Manual Calibration".to_string(),
+                            "Look At".to_string(),
                         ],
                         "Panel",
                     )
