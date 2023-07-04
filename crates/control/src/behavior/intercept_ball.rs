@@ -2,8 +2,8 @@ use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
     parameters::InterceptBall, Arc, BallState, Circle, FilteredGameState, GameControllerState,
-    HeadMotion, LineSegment, MotionCommand, Orientation, OrientationMode, PathSegment, Step,
-    WorldState,
+    HeadMotion, Line, Line2, LineSegment, MotionCommand, Orientation, OrientationMode, PathSegment,
+    Step, WorldState,
 };
 
 pub fn execute(
@@ -49,19 +49,23 @@ pub fn execute(
                 return None;
             }
 
-            let normalized_velocity = ball.ball_in_ground_velocity.normalize();
-
-            // Find the point with the least distance from the line traversed by the ball
-            let optimal_interception_point = ball.ball_in_ground
-                - ball.ball_in_ground.coords.dot(&normalized_velocity) * normalized_velocity;
+            let ball_line = Line(
+                ball.ball_in_ground,
+                ball.ball_in_ground + ball.ball_in_ground_velocity,
+            );
+            let optimal_interception_point = ball_line.project_point(Point2::origin());
 
             if optimal_interception_point.coords.norm() > parameters.maximum_intercept_distance {
                 return None;
             }
 
             let walking_direction = vector![current_step.forward, current_step.left];
-            let path =
-                get_interception_path(optimal_interception_point, walking_direction, &parameters);
+            let path = get_interception_path(
+                optimal_interception_point,
+                ball_line,
+                walking_direction,
+                &parameters,
+            );
 
             Some(MotionCommand::Walk {
                 head: HeadMotion::LookAt {
@@ -102,6 +106,7 @@ fn ball_is_interception_candidate(
 
 fn get_interception_path(
     optimal_interception_point: Point2<f32>,
+    ball_line: Line2,
     walking_direction: Vector2<f32>,
     parameters: &InterceptBall,
 ) -> Vec<PathSegment> {
@@ -131,7 +136,8 @@ fn get_interception_path(
     let (arc, arc_orientation) =
         calculate_arc_tangent_to(direction, optimal_interception_point.coords, arc_radius);
 
-    let interception_point = optimal_interception_point + (arc.end - arc.start);
+    let interception_point =
+        ball_line.project_point(optimal_interception_point + (arc.end - arc.start));
 
     vec![
         PathSegment::Arc(arc, arc_orientation),
