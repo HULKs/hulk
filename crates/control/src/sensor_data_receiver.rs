@@ -18,7 +18,7 @@ pub struct CycleContext {
     pub hardware_interface: HardwareInterface,
     pub joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
 
-    pub max_temperature: AdditionalOutput<f32, "maximal_temperature">,
+    pub maximum_temperature: AdditionalOutput<f32, "maximum_temperature">,
 }
 
 #[context]
@@ -53,14 +53,13 @@ impl SensorDataReceiver {
                 .expect("Nao time has run backwards"),
         };
 
-        context.max_temperature.fill_if_subscribed(|| {
+        context.maximum_temperature.fill_if_subscribed(|| {
             sensor_data
                 .temperature_sensors
                 .as_vec()
                 .into_iter()
                 .flatten()
-                .reduce(f32::max)
-                .expect("sensor_data.temperature_sensors was empty!")
+                .fold(0.0, f32::max)
         });
 
         self.last_cycle_start = now;
