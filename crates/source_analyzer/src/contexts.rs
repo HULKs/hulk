@@ -389,7 +389,7 @@ fn extract_three_arguments(
 
 fn member_type_allowed(context_name: &str, field_type: &str) -> bool {
     let allowed_member_types = match context_name {
-        "CreationContext" => ["Parameter", "PersistentState"].as_slice(),
+        "CreationContext" => ["HardwareInterface", "Parameter", "PersistentState"].as_slice(),
         "CycleContext" => [
             "AdditionalOutput",
             "HardwareInterface",

@@ -1,6 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use hardware::PathsInterface;
 use motionfile::{MotionFile, MotionInterpolator};
 use types::{ConditionInput, JointsVelocity};
 use types::{
@@ -12,7 +13,9 @@ pub struct StandUpFront {
 }
 
 #[context]
-pub struct CreationContext {}
+pub struct CreationContext {
+    pub hardware_interface: HardwareInterface,
+}
 
 #[context]
 pub struct CycleContext {
@@ -38,9 +41,11 @@ pub struct MainOutputs {
 }
 
 impl StandUpFront {
-    pub fn new(_context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
+        let paths = context.hardware_interface.get_paths();
         Ok(Self {
-            interpolator: MotionFile::from_path("etc/motions/stand_up_front.json")?.try_into()?,
+            interpolator: MotionFile::from_path(paths.motions.join("stand_up_front.json"))?
+                .try_into()?,
         })
     }
 
