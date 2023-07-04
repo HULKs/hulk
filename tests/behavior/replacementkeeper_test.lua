@@ -67,6 +67,25 @@ function on_cycle()
         set_robot_pose(1, { -3.2, 3 }, -1.5707963267948966);
     end
 
+    if state.cycle_count == 2150 then
+        unpenalize(1);
+        state.game_controller_state.penalties.one = nil;
+    end
+
+    if state.cycle_count == 2600 then
+        state.ball = {
+            position = { 0.0, 0.0 },
+            velocity = { 0.0, 0.0 },
+        }
+    end
+
+    if state.cycle_count == 3000 then
+        state.ball = {
+            position = { -4.0, 0.0 },
+            velocity = { 0.0, 0.0 },
+        }
+    end
+
     if state.cycle_count == game_end_time then
         state.finished = true
     end
