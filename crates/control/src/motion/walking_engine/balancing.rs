@@ -95,20 +95,27 @@ pub fn step_adjustment(
         Side::Right => current_right_foot.forward,
     };
 
-    let adjusted_swing_foot = if torso_tilt_shift < backward_balance_limit {
+    let (adjusted_swing_foot, adjusted_support_foot) = if torso_tilt_shift < backward_balance_limit
+    {
         let target = -torso_tilt_shift.abs() - backward_foot_support.abs();
-        target.clamp(
-            next_swing_foot.min(current_swing_foot) - max_adjustment,
-            next_swing_foot.max(current_swing_foot) + max_adjustment,
+        (
+            target.clamp(
+                next_swing_foot.min(current_swing_foot) - max_adjustment,
+                next_swing_foot.max(current_swing_foot) + max_adjustment,
+            ),
+            0.0,
         )
     } else if torso_tilt_shift > forward_balance_limit {
         let target = torso_tilt_shift.abs() + forward_foot_support.abs();
-        target.clamp(
-            next_swing_foot.min(current_swing_foot) - max_adjustment,
-            next_swing_foot.max(current_swing_foot) + max_adjustment,
+        (
+            target.clamp(
+                next_swing_foot.min(current_swing_foot) - max_adjustment,
+                next_swing_foot.max(current_swing_foot) + max_adjustment,
+            ),
+            0.0,
         )
     } else {
-        next_swing_foot
+        (next_swing_foot, next_support_foot)
     };
 
     let ((adjusted_left_foot_lift, adjusted_right_foot_lift), adjusted_remaining_stabilizing_steps) =
@@ -136,8 +143,8 @@ pub fn step_adjustment(
         };
 
     let (adjusted_left_forward, adjusted_right_forward) = match swing_side {
-        Side::Left => (adjusted_swing_foot, next_support_foot),
-        Side::Right => (next_support_foot, adjusted_swing_foot),
+        Side::Left => (adjusted_swing_foot, adjusted_support_foot),
+        Side::Right => (adjusted_support_foot, adjusted_swing_foot),
     };
 
     step_adjustment_output.fill_if_subscribed(|| StepAdjustment {
