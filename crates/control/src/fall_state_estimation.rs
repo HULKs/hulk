@@ -155,8 +155,12 @@ impl FallStateEstimation {
                 } else {
                     Some(FallDirection::Left)
                 }
-            } else if !(context.fall_state_estimation.falling_angle_threshold_forward[0]
-                ..context.fall_state_estimation.falling_angle_threshold_forward[1])
+            } else if !(context
+                .fall_state_estimation
+                .falling_angle_threshold_forward[0]
+                ..context
+                    .fall_state_estimation
+                    .falling_angle_threshold_forward[1])
                 .contains(&estimated_pitch)
             {
                 if estimated_pitch > 0.0 {
