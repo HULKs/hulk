@@ -15,7 +15,6 @@ use types::{
 
 pub struct BallFilter {
     hypotheses: Vec<Hypothesis>,
-    persistent_hypotheses: Vec<Hypothesis>,
 }
 
 #[context]
@@ -31,7 +30,6 @@ pub struct CycleContext {
     pub filtered_balls_in_image_bottom:
         AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_bottom">,
     pub filtered_balls_in_image_top: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_top">,
-    pub chooses_resting_model: AdditionalOutput<bool, "chooses_resting_model">,
 
     pub current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
@@ -60,7 +58,6 @@ impl BallFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             hypotheses: Vec::new(),
-            persistent_hypotheses: Vec::new(),
         })
     }
 
@@ -192,7 +189,7 @@ impl BallFilter {
                     &camera_matrices.bottom,
                     ball_radius,
                     &projected_limbs.limbs,
-                    configuration
+                    configuration,
                 ),
                 _ => false,
             };
@@ -421,7 +418,7 @@ fn is_visible_to_camera(
     hypothesis: &Hypothesis,
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
-    projected_limbs_bottom: &[Limb],
+    projected_limbs: &[Limb],
     configuration: &BallFilterConfiguration,
 ) -> bool {
     let position_on_ground = hypothesis.selected_ball_position(configuration).position;
@@ -432,5 +429,5 @@ fn is_visible_to_camera(
         };
     (0.0..640.0).contains(&position_in_image.x)
         && (0.0..480.0).contains(&position_in_image.y)
-        && is_above_limbs(position_in_image, projected_limbs_bottom)
+        && is_above_limbs(position_in_image, projected_limbs)
 }
