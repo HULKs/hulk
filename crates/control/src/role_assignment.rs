@@ -216,7 +216,6 @@ impl RoleAssignment {
                 IncomingMessage::Spl(message) => Some(message),
             })
             .peekable();
-
         if spl_messages.peek().is_none() {
             (role, send_spl_striker_message, team_ball) = process_role_state_machine(
                 role,
@@ -263,12 +262,12 @@ impl RoleAssignment {
             let deny_replacement_keeper_switch = cycle_start_time
                 .duration_since(last_time_keeper_penalized)
                 .expect("Keeper was penalized in the Future")
-                > Duration::new(5, 0);
-            if role == Role::ReplacementKeeper
+                < Duration::new(500, 0);
+            if self.role == Role::ReplacementKeeper
                 && send_spl_striker_message == false
                 && deny_replacement_keeper_switch
             {
-                self.role = Role::ReplacementKeeper;
+                role = Role::ReplacementKeeper;
             }
         }
 
