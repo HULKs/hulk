@@ -46,6 +46,8 @@ pub struct CycleContext {
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
+    pub keeper_replacementkeeper_switch_time:
+        Parameter<Duration, "role_assignment.keeper_replacementkeeper_switch_time">,
     pub initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     pub optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
@@ -262,9 +264,9 @@ impl RoleAssignment {
             let deny_replacement_keeper_switch = cycle_start_time
                 .duration_since(last_time_keeper_penalized)
                 .expect("Keeper was penalized in the Future")
-                < Duration::new(500, 0);
+                < *context.keeper_replacementkeeper_switch_time;
             if self.role == Role::ReplacementKeeper
-                && send_spl_striker_message == false
+                && !send_spl_striker_message
                 && deny_replacement_keeper_switch
             {
                 role = Role::ReplacementKeeper;

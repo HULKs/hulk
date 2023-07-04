@@ -164,6 +164,9 @@ impl BehaviorCycler {
                         .time_to_reach_kick_position,
                     field_dimensions: &parameters.field_dimensions,
                     forced_role: parameters.role_assignment.forced_role.as_ref(),
+                    keeper_replacementkeeper_switch_time: &parameters
+                        .role_assignment
+                        .keeper_replacementkeeper_switch_time,
                     initial_poses: &parameters.localization.initial_poses,
                     optional_roles: &parameters.behavior.optional_roles,
                     player_number: &parameters.player_number,

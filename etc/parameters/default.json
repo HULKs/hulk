@@ -328,7 +328,8 @@
     "goal_post_obstacle_radius": 0.2
   },
   "role_assignment": {
-    "forced_role": null
+    "forced_role": null,
+    "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs":  8}
   },
   "stand_up": {
     "gyro_low_pass_filter_coefficient": 0.1,
