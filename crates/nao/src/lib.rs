@@ -301,6 +301,7 @@ impl Nao {
             Network::SplD,
             Network::SplE,
             Network::SplF,
+            Network::SplHulks,
         ]
         .into_iter()
         .map(|possible_network| {
@@ -373,6 +374,7 @@ pub enum Network {
     SplD,
     SplE,
     SplF,
+    SplHulks,
 }
 
 impl Display for Network {
@@ -385,6 +387,7 @@ impl Display for Network {
             Network::SplD => formatter.write_str("SPL_D"),
             Network::SplE => formatter.write_str("SPL_E"),
             Network::SplF => formatter.write_str("SPL_F"),
+            Network::SplHulks => formatter.write_str("SPL_HULKs"),
         }
     }
 }
