@@ -1,4 +1,5 @@
 use color_eyre::Result;
+use framework::AdditionalOutput;
 use types::{parameters::Behavior, PathSegment};
 
 use std::time::Duration;
@@ -7,8 +8,14 @@ use context_attribute::context;
 #[context]
 pub struct CycleContext {
     pub dribble_path: Input<Option<Vec<PathSegment>>, "dribble_path?">,
+
+    pub time_to_reach_kick_position_output:
+        AdditionalOutput<Option<Duration>, "time_to_reach_kick_position_output">,
+
     pub time_to_reach_kick_position: PersistentState<Duration, "time_to_reach_kick_position">,
+
     pub configuration: Parameter<Behavior, "behavior">,
+
     pub stand_up_back_estimated_remaining_duration:
         Input<Option<Duration>, "stand_up_back_estimated_remaining_duration?">,
     pub stand_up_front_estimated_remaining_duration:
@@ -28,7 +35,7 @@ impl TimeToReachKickPosition {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let walk_time = context
             .dribble_path
             .as_ref()
@@ -58,6 +65,9 @@ impl TimeToReachKickPosition {
                     .unwrap_or(&Duration::ZERO)
         });
 
+        context
+            .time_to_reach_kick_position_output
+            .fill_if_subscribed(|| time_to_reach_kick_position);
         // 1800 seconds is 30 minutes, which is essentially max as it pertains to game time.
         // Prevents Duration::MAX from breaking the behavior sim.
         *context.time_to_reach_kick_position = time_to_reach_kick_position
