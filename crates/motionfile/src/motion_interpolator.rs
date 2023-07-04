@@ -62,19 +62,10 @@ impl<T> State<T> {
             _ => None,
         }
     }
-    pub fn current_frame_time_since_start(&self) -> Option<Duration> {
-        match self {
-            State::CheckEntry {
-                time_since_start, ..
-            }
-            | State::InterpolateSpline {
-                time_since_start, ..
-            }
-            | State::CheckExit {
-                time_since_start, ..
-            } => Some(*time_since_start),
-            _ => None,
-        }
+
+    #[must_use]
+    fn is_aborted(&self) -> bool {
+        matches!(self, Self::Aborted { .. })
     }
 }
 
@@ -156,7 +147,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                 if time_since_start >= current_frame.spline.total_duration() {
                     State::CheckExit {
                         current_frame_index,
-                        time_since_start: current_frame.spline.total_duration(),
+                        time_since_start: Duration::ZERO,
                     }
                 } else {
                     State::InterpolateSpline {
@@ -240,18 +231,32 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
     }
 
     pub fn remaining_estimated_duration(&self) -> Duration {
-        match (
-            self.current_state.current_frame_index(),
-            self.current_state.current_frame_time_since_start(),
-        ) {
-            (Some(index), Some(time)) => Duration::saturating_sub(
-                self.frames[index..]
+        match self.current_state.current_frame_index() {
+            Some(index) => {
+                let mut remaining = self
+                    .frames
                     .iter()
+                    .skip(index + 1)
                     .map(|frame| frame.spline.total_duration())
-                    .sum::<Duration>(),
-                time,
-            ),
-            _ => Duration::ZERO,
+                    .sum::<Duration>();
+                remaining += match self.current_state {
+                    State::CheckEntry { .. } => self.frames[index].spline.total_duration(),
+                    State::InterpolateSpline {
+                        time_since_start, ..
+                    } => self.frames[index].spline.total_duration() - time_since_start,
+                    State::CheckExit { .. } => Duration::ZERO,
+                    State::Finished => Duration::ZERO,
+                    State::Aborted { .. } => Duration::MAX,
+                };
+                remaining
+            }
+            None => {
+                if self.current_state.is_aborted() {
+                    Duration::MAX
+                } else {
+                    Duration::ZERO
+                }
+            }
         }
     }
 }
