@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use hardware::{SensorInterface, TimeInterface};
 use types::{CycleTime, Joints, SensorData};
 
@@ -17,6 +17,8 @@ pub struct CreationContext {}
 pub struct CycleContext {
     pub hardware_interface: HardwareInterface,
     pub joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
+
+    pub max_temperature: AdditionalOutput<f32, "maximal_temperature">,
 }
 
 #[context]
@@ -34,7 +36,7 @@ impl SensorDataReceiver {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl SensorInterface + TimeInterface>,
+        mut context: CycleContext<impl SensorInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
         let mut sensor_data = context
             .hardware_interface
@@ -50,6 +52,17 @@ impl SensorDataReceiver {
                 .duration_since(self.last_cycle_start)
                 .expect("Nao time has run backwards"),
         };
+
+        context.max_temperature.fill_if_subscribed(|| {
+            sensor_data
+                .temperature_sensors
+                .as_vec()
+                .into_iter()
+                .flatten()
+                .reduce(f32::max)
+                .expect("sensor_data.temperature_sensors was empty!")
+        });
+
         self.last_cycle_start = now;
         Ok(MainOutputs {
             sensor_data: sensor_data.into(),

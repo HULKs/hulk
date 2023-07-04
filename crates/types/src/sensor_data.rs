@@ -63,4 +63,5 @@ pub struct SensorData {
     pub sonar_sensors: SonarSensors,
     pub force_sensitive_resistors: ForceSensitiveResistors,
     pub touch_sensors: TouchSensors,
+    pub temperature_sensors: Joints<f32>,
 }
