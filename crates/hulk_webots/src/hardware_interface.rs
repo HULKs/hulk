@@ -372,6 +372,7 @@ impl SensorInterface for HardwareInterface {
             .get_values()
             .wrap_err("failed to get force sensitive resistor values")?;
         let touch_sensors = self.keyboard.get_touch_sensors();
+        let temperature_sensors = Joints::default();
 
         self.update_cameras().wrap_err("failed to update cameras")?;
 
@@ -381,6 +382,7 @@ impl SensorInterface for HardwareInterface {
             sonar_sensors,
             force_sensitive_resistors,
             touch_sensors,
+            temperature_sensors,
         })
     }
 }
