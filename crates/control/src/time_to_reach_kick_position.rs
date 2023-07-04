@@ -35,11 +35,14 @@ impl TimeToReachKickPosition {
             .map(|path| {
                 path.iter()
                     .map(|segment: &PathSegment| {
-                        if matches!(segment, PathSegment::LineSegment(..)) {
-                            segment.length()
-                                / context.configuration.path_planning.line_walking_speed
-                        } else {
-                            segment.length() / context.configuration.path_planning.arc_walking_speed
+                        let length = segment.length();
+                        match segment {
+                            PathSegment::LineSegment(_) => {
+                                length / context.configuration.path_planning.line_walking_speed
+                            }
+                            PathSegment::Arc(_, _) => {
+                                length / context.configuration.path_planning.arc_walking_speed
+                            }
                         }
                     })
                     .sum()
