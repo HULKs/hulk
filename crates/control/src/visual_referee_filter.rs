@@ -11,6 +11,7 @@ use types::{messages::OutgoingMessage, CycleTime, FilteredWhistle, PrimaryState}
 
 pub struct VisualRefereeFilter {
     last_primary_state: PrimaryState,
+    time_since_last_visual_referee_related_state_change: Duration,
 }
 
 #[context]
