@@ -7,6 +7,7 @@ use fast_image_resize::{
     DynamicImageView, FilterType, ImageBufferError, ImageView, ResizeAlg, Resizer,
 };
 use framework::{AdditionalOutput, MainOutput};
+use hardware::PathsInterface;
 use itertools::Itertools;
 use nalgebra::{vector, Isometry3, Vector2};
 use projection::Projection;
@@ -33,7 +34,8 @@ pub struct RobotDetection {
 
 #[context]
 pub struct CreationContext {
-    pub neural_network_path: Parameter<PathBuf, "robot_detection.$cycler_instance.neural_network">,
+    pub hardware_interface: HardwareInterface,
+    pub neural_network_file: Parameter<PathBuf, "robot_detection.$cycler_instance.neural_network">,
 }
 
 #[context]
@@ -61,9 +63,10 @@ pub struct MainOutputs {
 }
 
 impl RobotDetection {
-    pub fn new(context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
+        let paths = context.hardware_interface.get_paths();
         let mut neural_network = CompiledNN::default();
-        neural_network.compile(context.neural_network_path);
+        neural_network.compile(paths.neural_networks.join(context.neural_network_file));
         Ok(Self { neural_network })
     }
 
