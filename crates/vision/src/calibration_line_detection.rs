@@ -9,7 +9,6 @@ use lstsq::lstsq;
 use nalgebra::{distance, point, DMatrix, DVector};
 use types::{
     grayscale_image::GrayscaleImage, ycbcr422_image::YCbCr422Image, CameraPosition, Line, Line2,
-    Rgb, YCbCr444,
 };
 
 pub struct CalibrationLineDetection {}
@@ -64,7 +63,7 @@ impl CalibrationLineDetection {
             });
         }
 
-        let rgb = image_422_to_rgb_image(context.image);
+        let rgb = RgbImage::from(context.image.clone());
         let difference = rgb_image_to_difference(&rgb);
         let blurred = gaussian_blur_f32(&difference, *context.gaussian_sigma); // 2.0..10.0
         let edges = canny(
@@ -122,32 +121,6 @@ pub fn rgb_pixel_to_difference(rgb: &image::Rgb<u8>) -> u8 {
     let minimum = rgb.0.iter().min().unwrap();
     let maximum = rgb.0.iter().max().unwrap();
     maximum - minimum
-}
-
-fn image_422_to_rgb_image(image: &YCbCr422Image) -> RgbImage {
-    let rgb_pixels = image
-        .buffer()
-        .into_iter()
-        .flat_map(|ycbcr422| {
-            let first = Rgb::from(YCbCr444 {
-                y: ycbcr422.y1,
-                cb: ycbcr422.cb,
-                cr: ycbcr422.cr,
-            });
-            let second = Rgb::from(YCbCr444 {
-                y: ycbcr422.y2,
-                cb: ycbcr422.cb,
-                cr: ycbcr422.cr,
-            });
-            [first.r, first.g, first.b, second.r, second.g, second.b]
-        })
-        .collect();
-    RgbImage::from_vec(
-        (image.width() * 2) as u32,
-        (image.height()) as u32,
-        rgb_pixels,
-    )
-    .expect("Too few RGB pixels from Image422")
 }
 
 fn detect_lines(
@@ -244,10 +217,10 @@ fn filter_and_extract_calibration_lines(
             left_line.length().total_cmp(&right_line.length())
         },
     );
-    let corner_to_border = lowest_four_lines_with_edge_positions.split_off(2);
-    let corner_to_line_end = lowest_four_lines_with_edge_positions;
-    let second_lowest_line = lines_with_edge_positions.pop()?;
-    let lowest_point = if lowest_line.0.y <= lowest_line.1.y {
+    let _corner_to_border = lowest_four_lines_with_edge_positions.split_off(2);
+    let _corner_to_line_end = lowest_four_lines_with_edge_positions;
+    let _second_lowest_line = lines_with_edge_positions.pop()?;
+    let _lowest_point = if lowest_line.0.y <= lowest_line.1.y {
         lowest_line.0
     } else {
         lowest_line.1
