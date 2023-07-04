@@ -35,6 +35,7 @@ use super::{
 pub struct Parameters {
     pub camera_top: nao_camera::Parameters,
     pub camera_bottom: nao_camera::Parameters,
+    pub communication_addresses: Option<String>,
     pub microphones: microphones::Parameters,
     pub paths: Paths,
     pub spl_network_ports: Ports,

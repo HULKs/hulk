@@ -42,6 +42,7 @@ pub const SIMULATION_TIME_STEP: i32 = 10;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Parameters {
+    pub communication_addresses: Option<String>,
     pub paths: Paths,
     pub spl_network_ports: Ports,
 }

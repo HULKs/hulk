@@ -7,7 +7,7 @@ use color_eyre::{
 };
 use ctrlc::set_handler;
 use hardware::{IdInterface, PathsInterface};
-use hardware_interface::HardwareInterface;
+use hardware_interface::{HardwareInterface, Parameters};
 use hulk::run::run;
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
@@ -52,14 +52,16 @@ fn main() -> Result<()> {
     })?;
     let file =
         File::open(hardware_parameters_path).wrap_err("failed to open hardware parameters")?;
-    let hardware_parameters = from_reader(file).wrap_err("failed to parse hardware parameters")?;
+    let hardware_parameters: Parameters =
+        from_reader(file).wrap_err("failed to parse hardware parameters")?;
+    let communication_addresses = hardware_parameters.communication_addresses.clone();
     let hardware_interface = HardwareInterface::new(keep_running.clone(), hardware_parameters)
         .wrap_err("failed to create hardware interface")?;
     let ids = hardware_interface.get_ids();
     let paths = hardware_interface.get_paths();
     run(
         Arc::new(hardware_interface),
-        Some("[::]:1337"),
+        communication_addresses,
         paths.parameters,
         ids.body_id,
         ids.head_id,
