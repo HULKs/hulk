@@ -6,7 +6,7 @@ use types::{
     parameters::WalkingEngine as WalkingEngineParameters, LegJoints, Side, StepAdjustment,
 };
 
-use super::foot_offsets::FootOffsets;
+use super::{engine::non_continuous_quadratic_return, foot_offsets::FootOffsets};
 
 pub fn support_leg_gyro_balancing(
     gyro: Vector2<f32>,
@@ -58,6 +58,8 @@ pub fn swing_leg_foot_leveling(
 
 #[allow(clippy::too_many_arguments)]
 pub fn step_adjustment(
+    t: Duration,
+    planned_step_duration: Duration,
     swing_side: Side,
     torso_tilt_shift: f32,
     current_left_foot: FootOffsets,
@@ -76,6 +78,8 @@ pub fn step_adjustment(
     stabilization_foot_lift_offset: f32,
     remaining_stabilizing_steps: usize,
 ) -> (FootOffsets, FootOffsets, f32, f32, usize) {
+    let linear_time = (t.as_secs_f32() / planned_step_duration.as_secs_f32()).clamp(0.0, 1.0);
+
     let left_delta = next_left_walk_request.forward - last_left_walk_request.forward;
     let right_delta = next_right_walk_request.forward - last_right_walk_request.forward;
 
@@ -121,18 +125,20 @@ pub fn step_adjustment(
     let ((adjusted_left_foot_lift, adjusted_right_foot_lift), adjusted_remaining_stabilizing_steps) =
         if adjusted_swing_foot - next_swing_foot != 0.0 {
             (
-                match swing_side {
+                (match swing_side {
                     Side::Left => (
                         left_foot_lift * stabilization_foot_lift_multiplier
-                            + stabilization_foot_lift_offset,
+                            + stabilization_foot_lift_offset
+                                * non_continuous_quadratic_return(linear_time),
                         right_foot_lift,
                     ),
                     Side::Right => (
                         left_foot_lift,
                         right_foot_lift * stabilization_foot_lift_multiplier
-                            + stabilization_foot_lift_offset,
+                            + stabilization_foot_lift_offset
+                                * non_continuous_quadratic_return(linear_time),
                     ),
-                },
+                }),
                 remaining_stabilizing_steps.max(1),
             )
         } else {
@@ -152,8 +158,8 @@ pub fn step_adjustment(
         torso_tilt_shift,
         forward_balance_limit,
         backward_balance_limit,
-        left_foot_lift,
-        right_foot_lift,
+        adjusted_left_foot_lift,
+        adjusted_right_foot_lift,
     });
     (
         FootOffsets {
