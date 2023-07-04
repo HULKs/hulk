@@ -100,6 +100,9 @@ pub struct WalkingEngine {
     number_of_unstable_steps: usize,
     /// number of steps walking has to make zero steps to stabilize before starting to walk again
     remaining_stabilizing_steps: usize,
+
+    forward_adjustment_was_active: bool,
+    backward_adjustment_was_active: bool,
 }
 
 #[context]
@@ -634,6 +637,8 @@ impl WalkingEngine {
             config.stabilization_foot_lift_multiplier,
             config.stabilization_foot_lift_offset,
             self.remaining_stabilizing_steps,
+            &mut self.forward_adjustment_was_active,
+            &mut self.backward_adjustment_was_active,
         );
         self.last_left_walk_request = next_left_walk_request;
         self.last_right_walk_request = next_right_walk_request;
