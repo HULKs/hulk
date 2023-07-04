@@ -2,6 +2,7 @@ use color_eyre::Result;
 use compiled_nn::CompiledNN;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
+use hardware::PathsInterface;
 use nalgebra::{point, vector, Vector2};
 use projection::Projection;
 use types::{
@@ -32,6 +33,7 @@ pub struct BallDetection {
 
 #[context]
 pub struct CreationContext {
+    pub hardware_interface: HardwareInterface,
     pub parameters: Parameter<BallDetectionParameters, "ball_detection.$cycler_instance">,
 }
 
@@ -55,15 +57,29 @@ pub struct MainOutputs {
 }
 
 impl BallDetection {
-    pub fn new(context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
+        let paths = context.hardware_interface.get_paths();
+
         let mut preclassifier = CompiledNN::default();
-        preclassifier.compile(&context.parameters.preclassifier_neural_network);
+        preclassifier.compile(
+            paths
+                .neural_networks
+                .join(&context.parameters.preclassifier_neural_network),
+        );
 
         let mut classifier = CompiledNN::default();
-        classifier.compile(&context.parameters.classifier_neural_network);
+        classifier.compile(
+            paths
+                .neural_networks
+                .join(&context.parameters.classifier_neural_network),
+        );
 
         let mut positioner = CompiledNN::default();
-        positioner.compile(&context.parameters.positioner_neural_network);
+        positioner.compile(
+            paths
+                .neural_networks
+                .join(&context.parameters.positioner_neural_network),
+        );
 
         let neural_networks = NeuralNetworks {
             preclassifier,

@@ -5,6 +5,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
+use hardware::PathsInterface;
 use motionfile::{MotionFile, MotionInterpolator};
 use nalgebra::Vector2;
 use types::{
@@ -23,6 +24,7 @@ pub struct FallProtector {
 
 #[context]
 pub struct CreationContext {
+    pub hardware_interface: HardwareInterface,
     pub fall_protection: Parameter<FallProtection, "fall_protection">,
     pub fall_state_estimation: Parameter<FallStateEstimation, "fall_state_estimation">,
 }
@@ -48,10 +50,12 @@ pub struct MainOutputs {
 }
 
 impl FallProtector {
-    pub fn new(context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
+        let paths = context.hardware_interface.get_paths();
         Ok(Self {
             start_time: UNIX_EPOCH,
-            interpolator: MotionFile::from_path("etc/motions/fall_back.json")?.try_into()?,
+            interpolator: MotionFile::from_path(paths.motions.join("fall_back.json"))?
+                .try_into()?,
             roll_pitch_filter: LowPassFilter::with_smoothing_factor(
                 Vector2::zeros(),
                 context.fall_state_estimation.roll_pitch_low_pass_factor,

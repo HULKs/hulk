@@ -19,7 +19,7 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
 
     let struct_name = struct_item.ident.to_string();
     let allowed_member_types = match struct_name.as_str() {
-        "CreationContext" => ["Parameter", "PersistentState"].as_slice(),
+        "CreationContext" => ["HardwareInterface", "Parameter", "PersistentState"].as_slice(),
         "CycleContext" => [
             "AdditionalOutput",
             "HardwareInterface",
