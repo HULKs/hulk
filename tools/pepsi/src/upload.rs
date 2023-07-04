@@ -12,6 +12,8 @@ use repository::Repository;
 
 use crate::{
     cargo::{cargo, Arguments as CargoArguments, Command},
+    communication::communication,
+    communication::Arguments as CommunicationArguments,
     parsers::NaoAddress,
     progress_indicator::{ProgressIndicator, Task},
 };
@@ -108,15 +110,17 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         .await
         .wrap_err("failed to create upload directory")?;
 
-    let multi_progress = ProgressIndicator::new();
+    communication(
+        match arguments.no_communication {
+            true => CommunicationArguments::Disable,
+            false => CommunicationArguments::Enable,
+        },
+        repository,
+    )
+    .await
+    .wrap_err("failed to set communication")?;
 
-    multi_progress
-        .task("Setting communication...".to_string())
-        .finish_with(
-            repository
-                .set_communication(!arguments.no_communication)
-                .wrap_err("failed to set communication enablement"),
-        );
+    let multi_progress = ProgressIndicator::new();
 
     arguments
         .naos

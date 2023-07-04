@@ -3,8 +3,8 @@ use std::{
     env::current_dir,
     ffi::OsStr,
     fmt::Display,
-    fs::{OpenOptions, Permissions},
-    io::{self, ErrorKind, Seek},
+    fs::Permissions,
+    io::{self, ErrorKind},
     os::unix::prelude::PermissionsExt,
     path::{Path, PathBuf},
     time::Duration,
@@ -23,10 +23,13 @@ use parameters::{
     json::nest_value_at_path,
 };
 use serde::Deserialize;
-use serde_json::{from_reader, from_slice, to_value, to_writer_pretty, Value};
+use serde_json::{from_slice, from_str, to_string_pretty, to_value, Value};
 use tempfile::{tempdir, TempDir};
 use tokio::{
-    fs::{create_dir_all, read_dir, read_link, remove_file, set_permissions, symlink, File},
+    fs::{
+        create_dir_all, read_dir, read_link, read_to_string, remove_file, set_permissions, symlink,
+        write, File,
+    },
     io::AsyncReadExt,
     process::Command,
 };
@@ -202,27 +205,29 @@ impl Repository {
         .wrap_err("failed to serialize parameters directory")
     }
 
-    pub fn set_communication(&self, enable: bool) -> Result<()> {
-        let mut hardware_json_file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(self.root.join("etc/parameters/hardware.json"))
-            .wrap_err("failed to open hardware.json")?;
+    pub async fn set_communication(&self, enable: bool) -> Result<()> {
+        let file_contents = read_to_string(self.root.join("etc/parameters/hardware.json"))
+            .await
+            .wrap_err("failed to read hardware.json")?;
         let mut hardware_json: Value =
-            from_reader(&hardware_json_file).wrap_err("failed to deserialize hardware.json")?;
+            from_str(&file_contents).wrap_err("failed to deserialize hardware.json")?;
+
         hardware_json["communication_addresses"] = if enable {
             Value::String("[::]:1337".to_string())
         } else {
             Value::Null
         };
-        hardware_json_file
-            .rewind()
-            .wrap_err("failed to rewind hardware.json file")?;
-        hardware_json_file
-            .set_len(0)
-            .wrap_err("failed to truncate hardware.json")?;
-        to_writer_pretty(hardware_json_file, &hardware_json)
-            .wrap_err("failed to serialize hardware.json")?;
+        {
+            let file_contents = to_string_pretty(&hardware_json)
+                .wrap_err("failed to serialize hardware.json")?
+                + "\n";
+            write(
+                self.root.join("etc/parameters/hardware.json"),
+                file_contents.as_bytes(),
+            )
+            .await
+            .wrap_err("failed to write hardware.json")?;
+        }
         Ok(())
     }
 
