@@ -363,10 +363,10 @@
     "additional_kick_foot_lift": 0.01,
     "arm_stiffness": 0.8,
     "backward_foot_support_offset": -0.012,
-    "base_foot_lift": 0.011,
-    "base_step_duration": { "nanos": 250000000, "secs": 0 },
+    "base_foot_lift": 0.014,
+    "base_step_duration": { "nanos": 240000000, "secs": 0 },
     "emergency_foot_lift": 0.03,
-    "emergency_step": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
+    "emergency_step": { "forward": 0.0, "left": 0.14, "turn": 0.0 },
     "emergency_step_duration": { "nanos": 250000000, "secs": 0 },
     "foot_pressure_threshold": 0.2,
     "forward_foot_support_offset": 0.2,
@@ -434,7 +434,7 @@
     },
     "tilt_shift_low_pass_factor": 0.4,
     "torso_shift_offset": 0.0,
-    "torso_tilt_offset": 0.08,
+    "torso_tilt_offset": 0.11,
     "walk_hip_height": 0.185
   },
   "kick_steps": {
