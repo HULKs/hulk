@@ -760,7 +760,7 @@
   },
   "kick_selector": {
     "angle_distance_weight": 0.01,
-    "max_kick_around_obstacle_angle": 1.0,
+    "max_kick_around_obstacle_angle": 0.8,
     "kick_pose_obstacle_radius": 0.1,
     "ball_radius_for_kick_target_selection": 0.15,
     "closer_threshold": 1.0,
