@@ -369,6 +369,12 @@ impl BehaviorCycler {
                         .stand_up_front_estimated_remaining_duration
                         .as_ref(),
                     configuration: &parameters.behavior,
+                    time_to_reach_kick_position_output: framework::AdditionalOutput::new(
+                        true,
+                        &mut own_database
+                            .additional_outputs
+                            .time_to_reach_kick_position_output,
+                    ),
                 })
                 .wrap_err("failed to execute cycle of `TimeToReachKickPosition`");
         }
