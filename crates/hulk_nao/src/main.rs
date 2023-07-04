@@ -1,11 +1,12 @@
 #![recursion_limit = "256"]
-use std::{fs::File, io::stdout, sync::Arc};
+use std::{env::args, fs::File, io::stdout, sync::Arc};
 
 use color_eyre::{
     eyre::{Result, WrapErr},
     install,
 };
-use hardware::IdInterface;
+use ctrlc::set_handler;
+use hardware::{IdInterface, PathsInterface};
 use hardware_interface::HardwareInterface;
 use hulk::run::run;
 use serde_json::from_reader;
@@ -38,23 +39,27 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
 fn main() -> Result<()> {
     setup_logger()?;
     install()?;
+    let hardware_parameters_path = args()
+        .nth(1)
+        .unwrap_or("etc/parameters/hardware.json".to_string());
     let keep_running = CancellationToken::new();
-    ctrlc::set_handler({
+    set_handler({
         let keep_running = keep_running.clone();
         move || {
             keep_running.cancel();
         }
     })?;
-    let file = File::open("etc/parameters/hardware.json")
-        .wrap_err("failed to open hardware parameters")?;
+    let file =
+        File::open(hardware_parameters_path).wrap_err("failed to open hardware parameters")?;
     let hardware_parameters = from_reader(file).wrap_err("failed to parse hardware parameters")?;
     let hardware_interface = HardwareInterface::new(keep_running.clone(), hardware_parameters)
         .wrap_err("failed to create hardware interface")?;
     let ids = hardware_interface.get_ids();
+    let paths = hardware_interface.get_paths();
     run(
         Arc::new(hardware_interface),
         Some("[::]:1337"),
-        "etc/parameters",
+        paths.parameters,
         ids.body_id,
         ids.head_id,
         keep_running,
