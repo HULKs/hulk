@@ -2,11 +2,10 @@ use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex};
 use types::{
-    configuration::{
-        PathPlanning as PathPlanningConfiguration, WalkAndStand as WalkAndStandConfiguration,
-    },
-    direct_path, ArmMotion, FieldDimensions, HeadMotion, MotionCommand, Obstacle, OrientationMode,
-    PathObstacle, PathSegment, RuleObstacle, Side, WorldState,
+    direct_path,
+    parameters::{PathPlanning as PathPlanningParameters, WalkAndStand as WalkAndStandParameters},
+    ArmMotion, FieldDimensions, HeadMotion, MotionCommand, Obstacle, OrientationMode, PathObstacle,
+    PathSegment, RuleObstacle, Side, WorldState,
 };
 
 use crate::path_planner::PathPlanner;
@@ -14,19 +13,19 @@ use crate::path_planner::PathPlanner;
 pub struct WalkPathPlanner<'cycle> {
     field_dimensions: &'cycle FieldDimensions,
     obstacles: &'cycle [Obstacle],
-    configuration: &'cycle PathPlanningConfiguration,
+    parameters: &'cycle PathPlanningParameters,
 }
 
 impl<'cycle> WalkPathPlanner<'cycle> {
     pub fn new(
         field_dimensions: &'cycle FieldDimensions,
         obstacles: &'cycle [Obstacle],
-        configuration: &'cycle PathPlanningConfiguration,
+        parameters: &'cycle PathPlanningParameters,
     ) -> Self {
         Self {
             field_dimensions,
             obstacles,
-            configuration,
+            parameters,
         }
     }
     #[allow(clippy::too_many_arguments)]
@@ -41,29 +40,29 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     ) -> Vec<PathSegment> {
         let mut planner = PathPlanner::default();
-        planner.with_obstacles(obstacles, self.configuration.robot_radius_at_hip_height);
+        planner.with_obstacles(obstacles, self.parameters.robot_radius_at_hip_height);
         planner.with_rule_obstacles(
             robot_to_field.inverse(),
             rule_obstacles,
-            self.configuration.robot_radius_at_hip_height,
+            self.parameters.robot_radius_at_hip_height,
         );
         planner.with_field_borders(
             robot_to_field,
             self.field_dimensions.length,
             self.field_dimensions.width,
             self.field_dimensions.border_strip_width,
-            self.configuration.field_border_weight,
+            self.parameters.field_border_weight,
         );
         planner.with_goal_support_structures(robot_to_field.inverse(), self.field_dimensions);
         if let Some(ball_position) = ball_obstacle {
-            let foot_proportion = self.configuration.minimum_robot_radius_at_foot_height
-                / self.configuration.robot_radius_at_foot_height;
+            let foot_proportion = self.parameters.minimum_robot_radius_at_foot_height
+                / self.parameters.robot_radius_at_foot_height;
             let calculated_robot_radius_at_foot_height =
-                self.configuration.robot_radius_at_foot_height
+                self.parameters.robot_radius_at_foot_height
                     * ((ball_obstacle_radius_factor * (1.0 - foot_proportion)) + foot_proportion);
             planner.with_ball(
                 ball_position,
-                self.configuration.ball_obstacle_radius,
+                self.parameters.ball_obstacle_radius,
                 calculated_robot_radius_at_foot_height,
             );
         }
@@ -118,7 +117,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
 
 pub struct WalkAndStand<'cycle> {
     world_state: &'cycle WorldState,
-    configuration: &'cycle WalkAndStandConfiguration,
+    parameters: &'cycle WalkAndStandParameters,
     walk_path_planner: &'cycle WalkPathPlanner<'cycle>,
     last_motion_command: &'cycle MotionCommand,
 }
@@ -126,13 +125,13 @@ pub struct WalkAndStand<'cycle> {
 impl<'cycle> WalkAndStand<'cycle> {
     pub fn new(
         world_state: &'cycle WorldState,
-        configuration: &'cycle WalkAndStandConfiguration,
+        parameters: &'cycle WalkAndStandParameters,
         walk_path_planner: &'cycle WalkPathPlanner,
         last_motion_command: &'cycle MotionCommand,
     ) -> Self {
         Self {
             world_state,
-            configuration,
+            parameters,
             walk_path_planner,
             last_motion_command,
         }
@@ -152,18 +151,18 @@ impl<'cycle> WalkAndStand<'cycle> {
         let is_reached = less_than_with_hysteresis(
             was_standing_last_cycle,
             distance_to_walk,
-            self.configuration.target_reached_thresholds.x + self.configuration.hysteresis.x,
-            self.configuration.hysteresis.x,
+            self.parameters.target_reached_thresholds.x + self.parameters.hysteresis.x,
+            self.parameters.hysteresis.x,
         ) && less_than_with_hysteresis(
             was_standing_last_cycle,
             angle_to_walk.abs(),
-            self.configuration.target_reached_thresholds.y + self.configuration.hysteresis.y,
-            self.configuration.hysteresis.y,
+            self.parameters.target_reached_thresholds.y + self.parameters.hysteresis.y,
+            self.parameters.hysteresis.y,
         );
         let orientation_mode = hybrid_alignment(
             target_pose,
-            self.configuration.hybrid_align_distance,
-            self.configuration.distance_to_be_aligned,
+            self.parameters.hybrid_align_distance,
+            self.parameters.distance_to_be_aligned,
         );
 
         if is_reached {

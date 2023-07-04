@@ -1,7 +1,7 @@
 use nalgebra::{point, Point2, UnitComplex};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
-    configuration::InterceptBall, FilteredGameState, GameControllerState, HeadMotion, LineSegment,
+    parameters::InterceptBall, FilteredGameState, GameControllerState, HeadMotion, LineSegment,
     MotionCommand, OrientationMode, PathSegment, WorldState,
 };
 

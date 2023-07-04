@@ -6,8 +6,8 @@ use framework::MainOutput;
 use nalgebra::{distance, Isometry2, Point2, Vector2};
 use spl_network_messages::{GamePhase, GameState, PlayerNumber, Team};
 use types::{
-    configuration::GameStateFilter as GameStateFilterConfiguration, BallPosition, Buttons,
-    CycleTime, FieldDimensions, FilteredGameState, FilteredWhistle, GameControllerState,
+    parameters::GameStateFilter as GameStateFilterParameters, BallPosition, Buttons, CycleTime,
+    FieldDimensions, FilteredGameState, FilteredWhistle, GameControllerState,
 };
 
 pub struct GameStateFilter {
@@ -16,7 +16,7 @@ pub struct GameStateFilter {
 
 #[context]
 pub struct CreationContext {
-    pub config: Parameter<GameStateFilterConfiguration, "game_state_filter">,
+    pub config: Parameter<GameStateFilterParameters, "game_state_filter">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
 
@@ -31,7 +31,7 @@ pub struct CycleContext {
     pub filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
 
-    pub config: Parameter<GameStateFilterConfiguration, "game_state_filter">,
+    pub config: Parameter<GameStateFilterParameters, "game_state_filter">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub player_number: Parameter<PlayerNumber, "player_number">,
 
@@ -96,7 +96,7 @@ fn next_filtered_state(
     game_controller_state: &GameControllerState,
     is_whistle_detected: bool,
     cycle_start_time: SystemTime,
-    config: &GameStateFilterConfiguration,
+    config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
 ) -> State {
     match (current_state, game_controller_state.game_state) {
@@ -234,7 +234,7 @@ impl State {
         game_controller_state: &GameControllerState,
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
-        config: &GameStateFilterConfiguration,
+        config: &GameStateFilterParameters,
     ) -> FilteredGameState {
         let is_in_sub_state = game_controller_state.sub_state.is_some();
         let opponent_is_kicking_team = matches!(

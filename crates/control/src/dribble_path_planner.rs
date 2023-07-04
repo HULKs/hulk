@@ -5,7 +5,7 @@ use nalgebra::Point2;
 use spl_network_messages::Team;
 use std::f32::consts::PI;
 use types::{
-    configuration::Behavior, FieldDimensions, GameControllerState, PathObstacle, PathSegment,
+    parameters::Behavior, FieldDimensions, GameControllerState, PathObstacle, PathSegment,
     WorldState,
 };
 
@@ -16,7 +16,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub configuration: Parameter<Behavior, "behavior">,
+    pub parameters: Parameter<Behavior, "behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub path_obstacles: AdditionalOutput<Vec<PathObstacle>, "time_to_reach_obstacles">,
     pub world_state: Input<WorldState, "world_state">,
@@ -35,15 +35,18 @@ impl DribblePath {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let configuration = &context.configuration.path_planning;
+        let path_planning_parameters = &context.parameters.path_planning;
         let field_dimensions = context.field_dimensions;
-        let parameters = &context.configuration.dribbling;
+        let dribbling_parameters = &context.parameters.dribbling;
         let world_state = context.world_state;
 
         let path_obstacles_output = &mut context.path_obstacles;
 
-        let walk_path_planner =
-            WalkPathPlanner::new(field_dimensions, &world_state.obstacles, configuration);
+        let walk_path_planner = WalkPathPlanner::new(
+            field_dimensions,
+            &world_state.obstacles,
+            path_planning_parameters,
+        );
 
         let Some(kick_decisions) = world_state.kick_decisions.as_ref() else { return Ok(MainOutputs::default()) };
         let Some(best_kick_decision) = kick_decisions.first() else { return Ok(MainOutputs::default()) };
@@ -58,15 +61,15 @@ impl DribblePath {
         let dribble_pose_to_ball = ball_position.coords - best_pose.translation.vector;
 
         let angle = robot_to_ball.angle(&dribble_pose_to_ball);
-        let should_avoid_ball = angle > parameters.angle_to_approach_ball_from_threshold;
+        let should_avoid_ball = angle > dribbling_parameters.angle_to_approach_ball_from_threshold;
         let ball_obstacle = should_avoid_ball.then_some(ball_position);
         let ball_obstacle_radius_factor = (angle
-            - parameters.angle_to_approach_ball_from_threshold)
-            / (PI - parameters.angle_to_approach_ball_from_threshold);
+            - dribbling_parameters.angle_to_approach_ball_from_threshold)
+            / (PI - dribbling_parameters.angle_to_approach_ball_from_threshold);
 
         let is_near_ball = matches!(
             world_state.ball,
-            Some(ball) if ball.ball_in_ground.coords.norm() < parameters.ignore_robot_when_near_ball_radius,
+            Some(ball) if ball.ball_in_ground.coords.norm() < dribbling_parameters.ignore_robot_when_near_ball_radius,
         );
         let obstacles = if is_near_ball {
             &[]

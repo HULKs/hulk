@@ -6,7 +6,7 @@ use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{vector, Isometry3, Translation3, UnitQuaternion, Vector2, Vector3};
 use types::{
-    configuration::FallStateEstimation as FallStateEstimationConfiguration, Facing, FallDirection,
+    parameters::FallStateEstimation as FallStateEstimationParameters, Facing, FallDirection,
     FallState, InertialMeasurementUnitData, SensorData,
 };
 
@@ -18,7 +18,7 @@ pub struct FallStateEstimation {
 
 #[context]
 pub struct CreationContext {
-    pub fall_state_estimation: Parameter<FallStateEstimationConfiguration, "fall_state_estimation">,
+    pub fall_state_estimation: Parameter<FallStateEstimationParameters, "fall_state_estimation">,
 }
 
 #[context]
@@ -31,7 +31,7 @@ pub struct CycleContext {
     pub filtered_roll_pitch: AdditionalOutput<Vector2<f32>, "filtered_roll_pitch">,
     pub forward_gravitational_difference: AdditionalOutput<f32, "forward_gravitational_difference">,
 
-    pub fall_state_estimation: Parameter<FallStateEstimationConfiguration, "fall_state_estimation">,
+    pub fall_state_estimation: Parameter<FallStateEstimationParameters, "fall_state_estimation">,
 
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub sensor_data: Input<SensorData, "sensor_data">,

@@ -49,7 +49,7 @@ impl RepositoryParameters {
                     id: Id::Head,
                 },
                 &path,
-                repository.configuration_root(),
+                repository.parameters_root(),
                 &hardware_ids.body_id,
                 &hardware_ids.head_id,
             )

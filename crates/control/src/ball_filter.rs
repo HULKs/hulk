@@ -7,10 +7,10 @@ use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use nalgebra::{matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2};
 use projection::Projection;
 use types::{
-    ball_filter::Hypothesis, configuration::BallFilter as BallFilterConfiguration, is_above_limbs,
-    multivariate_normal_distribution::MultivariateNormalDistribution, Ball, BallPosition,
-    CameraMatrices, CameraMatrix, Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs,
-    SensorData,
+    ball_filter::Hypothesis, is_above_limbs,
+    multivariate_normal_distribution::MultivariateNormalDistribution,
+    parameters::BallFilter as BallFilterConfiguration, Ball, BallPosition, CameraMatrices,
+    CameraMatrix, Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs, SensorData,
 };
 
 pub struct BallFilter {

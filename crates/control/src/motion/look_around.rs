@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    configuration::LookAround as LookAroundConfiguration, initial_look_around::Mode, CycleTime,
+    initial_look_around::Mode, parameters::LookAround as LookAroundParameters, CycleTime,
     HeadJoints, HeadMotion, MotionCommand, SensorData, Side,
 };
 
@@ -15,12 +15,12 @@ pub struct LookAround {
 
 #[context]
 pub struct CreationContext {
-    pub config: Parameter<LookAroundConfiguration, "look_around">,
+    pub config: Parameter<LookAroundParameters, "look_around">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub config: Parameter<LookAroundConfiguration, "look_around">,
+    pub config: Parameter<LookAroundParameters, "look_around">,
 
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub sensor_data: Input<SensorData, "sensor_data">,

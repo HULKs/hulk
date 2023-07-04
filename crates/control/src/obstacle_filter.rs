@@ -7,10 +7,10 @@ use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use itertools::{chain, iproduct};
 use nalgebra::{distance, point, Isometry2, Matrix2, Point2};
 use types::{
-    configuration::ObstacleFilter as ObstacleFilterConfiguration, detected_feet::DetectedFeet,
-    detected_robots::DetectedRobots,
+    detected_feet::DetectedFeet, detected_robots::DetectedRobots,
     multivariate_normal_distribution::MultivariateNormalDistribution, obstacle_filter::Hypothesis,
-    CycleTime, FieldDimensions, Obstacle, ObstacleKind, PrimaryState, SonarObstacle,
+    parameters::ObstacleFilter as ObstacleFilterParameters, CycleTime, FieldDimensions, Obstacle,
+    ObstacleKind, PrimaryState, SonarObstacle,
 };
 
 pub struct ObstacleFilter {
@@ -21,7 +21,7 @@ pub struct ObstacleFilter {
 #[context]
 pub struct CreationContext {
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub obstacle_filter_configuration: Parameter<ObstacleFilterConfiguration, "obstacle_filter">,
+    pub obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
 }
 
 #[context]
@@ -39,7 +39,7 @@ pub struct CycleContext {
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub goal_post_obstacle_radius: Parameter<f32, "obstacle_filter.goal_post_obstacle_radius">,
-    pub obstacle_filter_configuration: Parameter<ObstacleFilterConfiguration, "obstacle_filter">,
+    pub obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
     pub robot_obstacle_radius_at_foot_height:
         Parameter<f32, "obstacle_filter.robot_obstacle_radius_at_foot_height">,
     pub robot_obstacle_radius_at_hip_height:
@@ -85,7 +85,7 @@ impl ObstacleFilter {
 
             self.predict_hypotheses_with_odometry(
                 current_odometry_to_last_odometry.inverse(),
-                Matrix2::from_diagonal(&context.obstacle_filter_configuration.process_noise),
+                Matrix2::from_diagonal(&context.obstacle_filter_parameters.process_noise),
             );
 
             let network_robot_obstacles = context.network_robot_obstacles.get(detection_time);
@@ -99,18 +99,18 @@ impl ObstacleFilter {
                     ObstacleKind::Robot,
                     *detection_time,
                     context
-                        .obstacle_filter_configuration
+                        .obstacle_filter_parameters
                         .network_robot_measurement_matching_distance,
                     Matrix2::from_diagonal(
                         &context
-                            .obstacle_filter_configuration
+                            .obstacle_filter_parameters
                             .network_robot_measurement_noise,
                     ),
                 );
             }
 
             if context
-                .obstacle_filter_configuration
+                .obstacle_filter_parameters
                 .use_feet_detection_measurements
             {
                 let measured_positions_in_control_cycle = feet_top
@@ -124,17 +124,17 @@ impl ObstacleFilter {
                         ObstacleKind::Robot,
                         *detection_time,
                         context
-                            .obstacle_filter_configuration
+                            .obstacle_filter_parameters
                             .feet_detection_measurement_matching_distance,
                         Matrix2::from_diagonal(
-                            &context.obstacle_filter_configuration.feet_measurement_noise,
+                            &context.obstacle_filter_parameters.feet_measurement_noise,
                         ),
                     );
                 }
             }
 
             if context
-                .obstacle_filter_configuration
+                .obstacle_filter_parameters
                 .use_robot_detection_measurements
             {
                 let measured_positions_in_control_cycle = robots_top
@@ -148,12 +148,10 @@ impl ObstacleFilter {
                         ObstacleKind::Robot,
                         *detection_time,
                         context
-                            .obstacle_filter_configuration
+                            .obstacle_filter_parameters
                             .robot_detection_measurement_matching_distance,
                         Matrix2::from_diagonal(
-                            &context
-                                .obstacle_filter_configuration
-                                .robot_measurement_noise,
+                            &context.obstacle_filter_parameters.robot_measurement_noise,
                         ),
                     );
                 }
@@ -162,11 +160,11 @@ impl ObstacleFilter {
             for sonar_obstacle in context.sonar_obstacles.get(detection_time) {
                 // TODO: Use a clever more intelligent metric
 
-                if context.obstacle_filter_configuration.use_sonar_measurements
+                if context.obstacle_filter_parameters.use_sonar_measurements
                     && goal_posts.clone().into_iter().all(|goal_post| {
                         distance(&goal_post, &sonar_obstacle.position_in_robot)
                             > context
-                                .obstacle_filter_configuration
+                                .obstacle_filter_parameters
                                 .goal_post_measurement_matching_distance
                     })
                 {
@@ -175,12 +173,10 @@ impl ObstacleFilter {
                         ObstacleKind::Unknown,
                         *detection_time,
                         context
-                            .obstacle_filter_configuration
+                            .obstacle_filter_parameters
                             .sonar_goal_post_matching_distance,
                         Matrix2::from_diagonal(
-                            &context
-                                .obstacle_filter_configuration
-                                .sonar_measurement_noise,
+                            &context.obstacle_filter_parameters.sonar_measurement_noise,
                         ),
                     );
                 }
@@ -189,10 +185,8 @@ impl ObstacleFilter {
 
         self.remove_hypotheses(
             cycle_start_time,
-            context.obstacle_filter_configuration.hypothesis_timeout,
-            context
-                .obstacle_filter_configuration
-                .hypothesis_merge_distance,
+            context.obstacle_filter_parameters.hypothesis_timeout,
+            context.obstacle_filter_parameters.hypothesis_merge_distance,
         );
 
         if self.last_primary_state == PrimaryState::Penalized
@@ -208,7 +202,7 @@ impl ObstacleFilter {
             .filter(|hypothesis| {
                 hypothesis.measurement_count
                     > context
-                        .obstacle_filter_configuration
+                        .obstacle_filter_parameters
                         .measurement_count_threshold
             })
             .map(|hypothesis| {

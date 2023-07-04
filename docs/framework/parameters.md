@@ -1,8 +1,8 @@
-# Configuration
+# Parameters
 
 TODO: Elaborate
 
-- Configuration
-    - Configuration contains types
+- Parameters
+    - Parameters contains types
     - Loaded from filesystem
     - Location "Overwriting" & Robot "Overwriting"

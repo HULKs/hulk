@@ -4,7 +4,7 @@ use framework::AdditionalOutput;
 use nalgebra::{distance, point, vector, Isometry2, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
-    configuration::RolePositions, rotate_towards, BallState, FieldDimensions, GameControllerState,
+    parameters::RolePositions, rotate_towards, BallState, FieldDimensions, GameControllerState,
     Line, MotionCommand, PathObstacle, Side, WorldState,
 };
 

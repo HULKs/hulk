@@ -14,11 +14,8 @@ pub fn generate_structs(structs: &Structs) -> TokenStream {
             serialize_hierarchy::SerializeHierarchy,
          )]
     };
-    let configuration = hierarchy_to_token_stream(
-        &structs.configuration,
-        format_ident!("Configuration"),
-        &derives,
-    );
+    let parameters =
+        hierarchy_to_token_stream(&structs.parameters, format_ident!("Parameters"), &derives);
     let cyclers = structs
         .cyclers
         .iter()
@@ -50,7 +47,7 @@ pub fn generate_structs(structs: &Structs) -> TokenStream {
         });
 
     quote! {
-        #configuration
+        #parameters
         #(#cyclers)*
     }
 }

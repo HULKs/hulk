@@ -37,7 +37,7 @@ nav:
       - Cyclers: framework/cyclers.md
       - Nodes: framework/nodes.md
       - Databases & Types: framework/databases_and_types.md
-      - Configuration: framework/configuration.md
+      - Parameters: framework/parameters.md
       - Communication: framework/communication.md
       - Hardware Interface: framework/hardware_interface.md
       - Thread Communication: framework/thread_communication.md

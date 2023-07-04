@@ -6,7 +6,7 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2};
 use spl_network_messages::{GamePhase, GameState, SubState, Team};
 use types::{
-    configuration::{Behavior as BehaviorConfiguration, InWalkKicks, InterceptBall, LostBall},
+    parameters::{Behavior as BehaviorParameters, InWalkKicks, InterceptBall, LostBall},
     Action, CycleTime, FieldDimensions, FilteredGameState, GameControllerState, MotionCommand,
     PathObstacle, PathSegment, PrimaryState, Role, Side, WorldState,
 };
@@ -29,7 +29,7 @@ pub struct Behavior {
 
 #[context]
 pub struct CreationContext {
-    pub behavior: Parameter<BehaviorConfiguration, "behavior">,
+    pub behavior: Parameter<BehaviorParameters, "behavior">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
 }
@@ -44,7 +44,7 @@ pub struct CycleContext {
     pub cycle_time: Input<CycleTime, "cycle_time">,
     pub dribble_path: Input<Option<Vec<PathSegment>>, "dribble_path?">,
 
-    pub configuration: Parameter<BehaviorConfiguration, "behavior">,
+    pub parameters: Parameter<BehaviorParameters, "behavior">,
     pub in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
@@ -68,7 +68,7 @@ impl Behavior {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let world_state = context.world_state;
-        if let Some(command) = &context.configuration.injected_motion_command {
+        if let Some(command) = &context.parameters.injected_motion_command {
             return Ok(MainOutputs {
                 motion_command: command.clone().into(),
             });
@@ -105,8 +105,7 @@ impl Behavior {
         ];
 
         if let Some(active_since) = self.active_since {
-            if now.duration_since(active_since)? < context.configuration.initial_lookaround_duration
-            {
+            if now.duration_since(active_since)? < context.parameters.initial_lookaround_duration {
                 actions.push(Action::LookAround);
             }
         }
@@ -158,11 +157,11 @@ impl Behavior {
         let walk_path_planner = WalkPathPlanner::new(
             context.field_dimensions,
             &world_state.obstacles,
-            &context.configuration.path_planning,
+            &context.parameters.path_planning,
         );
         let walk_and_stand = WalkAndStand::new(
             world_state,
-            &context.configuration.walk_and_stand,
+            &context.parameters.walk_and_stand,
             &walk_path_planner,
             &self.last_motion_command,
         );
@@ -170,7 +169,7 @@ impl Behavior {
         let defend = Defend::new(
             world_state,
             context.field_dimensions,
-            &context.configuration.role_positions,
+            &context.parameters.role_positions,
             &walk_and_stand,
             &look_action,
         );
@@ -202,7 +201,7 @@ impl Behavior {
                         world_state,
                         &walk_path_planner,
                         context.in_walk_kicks,
-                        &context.configuration.dribbling,
+                        &context.parameters.dribbling,
                         context.dribble_path.cloned(),
                     ),
                     Action::Jump => jump::execute(world_state),
@@ -212,7 +211,7 @@ impl Behavior {
                         &walk_path_planner,
                         &walk_and_stand,
                         context.field_dimensions,
-                        &context.configuration.search,
+                        &context.parameters.search,
                         &mut context.path_obstacles,
                     ),
                     Action::SearchForLostBall => lost_ball::execute(
@@ -227,17 +226,14 @@ impl Behavior {
                         context.field_dimensions,
                         Some(Side::Left),
                         context
-                            .configuration
+                            .parameters
                             .role_positions
                             .left_midfielder_distance_to_ball,
                         context
-                            .configuration
+                            .parameters
                             .role_positions
                             .left_midfielder_maximum_x_in_ready_and_when_ball_is_not_free,
-                        context
-                            .configuration
-                            .role_positions
-                            .left_midfielder_minimum_x,
+                        context.parameters.role_positions.left_midfielder_minimum_x,
                         &walk_and_stand,
                         &look_action,
                         &mut context.path_obstacles,
@@ -247,17 +243,14 @@ impl Behavior {
                         context.field_dimensions,
                         Some(Side::Right),
                         context
-                            .configuration
+                            .parameters
                             .role_positions
                             .right_midfielder_distance_to_ball,
                         context
-                            .configuration
+                            .parameters
                             .role_positions
                             .right_midfielder_maximum_x_in_ready_and_when_ball_is_not_free,
-                        context
-                            .configuration
-                            .role_positions
-                            .right_midfielder_minimum_x,
+                        context.parameters.role_positions.right_midfielder_minimum_x,
                         &walk_and_stand,
                         &look_action,
                         &mut context.path_obstacles,
@@ -267,15 +260,15 @@ impl Behavior {
                         context.field_dimensions,
                         None,
                         context
-                            .configuration
+                            .parameters
                             .role_positions
                             .striker_supporter_distance_to_ball,
                         context
-                            .configuration
+                            .parameters
                             .role_positions
                             .striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free,
                         context
-                            .configuration
+                            .parameters
                             .role_positions
                             .striker_supporter_minimum_x,
                         &walk_and_stand,

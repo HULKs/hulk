@@ -45,7 +45,7 @@ fn main() -> Result<()> {
             keep_running.cancel();
         }
     })?;
-    let file = File::open("etc/configuration/hardware.json")
+    let file = File::open("etc/parameters/hardware.json")
         .wrap_err("failed to open hardware parameters")?;
     let hardware_parameters = from_reader(file).wrap_err("failed to parse hardware parameters")?;
     let hardware_interface = HardwareInterface::new(keep_running.clone(), hardware_parameters)
@@ -54,7 +54,7 @@ fn main() -> Result<()> {
     run(
         Arc::new(hardware_interface),
         Some("[::]:1337"),
-        "etc/configuration",
+        "etc/parameters",
         ids.body_id,
         ids.head_id,
         keep_running,

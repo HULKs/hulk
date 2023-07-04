@@ -6,7 +6,7 @@ use framework::MainOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex, Vector2};
 use ordered_float::NotNan;
 use types::{
-    configuration::LookAction as LookActionConfiguration, BallState, CycleTime, FieldDimensions,
+    parameters::LookAction as LookActionParameters, BallState, CycleTime, FieldDimensions,
     Obstacle, ObstacleKind, PointOfInterest,
 };
 
@@ -27,7 +27,7 @@ pub struct CycleContext {
     pub rule_ball: Input<Option<BallState>, "rule_ball_state?">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
     pub obstacles: Input<Vec<Obstacle>, "obstacles">,
-    pub parameters: Parameter<LookActionConfiguration, "behavior.look_action">,
+    pub parameters: Parameter<LookActionParameters, "behavior.look_action">,
     pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
 }
 
@@ -94,7 +94,7 @@ impl ActiveVision {
     }
 }
 
-fn is_position_visible(position: Point2<f32>, parameters: &LookActionConfiguration) -> bool {
+fn is_position_visible(position: Point2<f32>, parameters: &LookActionParameters) -> bool {
     UnitComplex::rotation_between(&Vector2::x(), &position.coords)
         .angle()
         .abs()
@@ -104,7 +104,7 @@ fn is_position_visible(position: Point2<f32>, parameters: &LookActionConfigurati
 
 fn closest_field_mark_visible(
     field_mark_positions: &[Point2<f32>],
-    parameters: &LookActionConfiguration,
+    parameters: &LookActionParameters,
     robot_to_field: &Isometry2<f32>,
 ) -> Option<Point2<f32>> {
     field_mark_positions
@@ -116,7 +116,7 @@ fn closest_field_mark_visible(
 
 fn closest_interesting_obstacle_visible(
     obstacles: &[Obstacle],
-    parameters: &LookActionConfiguration,
+    parameters: &LookActionParameters,
 ) -> Option<Point2<f32>> {
     obstacles
         .iter()
@@ -163,7 +163,7 @@ fn next_point_of_interest(
     current_point_of_interest: PointOfInterest,
     field_mark_positions: &[Point2<f32>],
     obstacles: &[Obstacle],
-    parameters: &LookActionConfiguration,
+    parameters: &LookActionParameters,
     robot_to_field: &Isometry2<f32>,
     ball: Option<&BallState>,
 ) -> PointOfInterest {

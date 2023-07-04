@@ -24,7 +24,7 @@ pub enum Error {
 
 #[derive(Debug, Default)]
 pub struct Structs {
-    pub configuration: StructHierarchy,
+    pub parameters: StructHierarchy,
     pub cyclers: BTreeMap<CyclerName, CyclerStructs>,
 }
 
@@ -85,7 +85,7 @@ impl Structs {
                                     false => data_type.clone(),
                                 };
                                 let insertion_rules = path_to_insertion_rules(&path, &data_type);
-                                structs.configuration.insert(insertion_rules)?;
+                                structs.parameters.insert(insertion_rules)?;
                             }
                         }
                         Field::PersistentState {

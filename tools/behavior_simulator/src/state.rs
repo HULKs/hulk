@@ -18,7 +18,7 @@ use types::{
 use crate::{
     cycler::Database,
     robot::Robot,
-    structs::{control::AdditionalOutputs, Configuration},
+    structs::{control::AdditionalOutputs, Parameters},
 };
 
 pub enum Event {
@@ -186,7 +186,7 @@ impl State {
             };
 
             let max_head_rotation_per_cycle =
-                robot.configuration.head_motion.maximum_velocity.yaw * time_step.as_secs_f32();
+                robot.parameters.head_motion.maximum_velocity.yaw * time_step.as_secs_f32();
             let diff =
                 desired_head_yaw - robot.database.main_outputs.sensor_data.positions.head.yaw;
             let movement = diff.clamp(-max_head_rotation_per_cycle, max_head_rotation_per_cycle);
@@ -295,11 +295,11 @@ impl State {
         self.ball = lua_state.ball;
         self.cycle_count = lua_state.cycle_count;
         for lua_robot in lua_state.robots {
-            let mut robot = Robot::try_new(lua_robot.configuration.player_number)
+            let mut robot = Robot::try_new(lua_robot.parameters.player_number)
                 .expect("Creating dummy robot should never fail");
             robot.database = lua_robot.database;
-            robot.configuration = lua_robot.configuration;
-            self.robots.insert(robot.configuration.player_number, robot);
+            robot.parameters = lua_robot.parameters;
+            self.robots.insert(robot.parameters.player_number, robot);
         }
 
         self.finished = lua_state.finished;
@@ -326,14 +326,14 @@ pub struct LuaState {
 #[derive(Clone, Deserialize, Serialize)]
 pub struct LuaRobot {
     database: Database,
-    configuration: Configuration,
+    parameters: Parameters,
 }
 
 impl LuaRobot {
     pub fn new(robot: &Robot) -> Self {
         Self {
             database: robot.database.clone(),
-            configuration: robot.configuration.clone(),
+            parameters: robot.parameters.clone(),
         }
     }
 }

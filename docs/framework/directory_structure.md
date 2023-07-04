@@ -12,7 +12,7 @@ The directory structure is organized as follows:
 - `.github/`: GitHub Pull Request template and Actions workflow for the Continuous Integration the HULKs are using for development
 - `docs/`: This documentation
 - `etc/`: All additional files necessary when deploying the code to a robot
-    - `configuration/`: Configuration files that are deployed to NAOs and are read during startup
+    - `parameters/`: Parameter files that are deployed to NAOs and are read during startup
     - `motions/`: Motion files that can be played back on a robot
     - `neural_networks/`: Neural network files for e.g. the ball detection
     - `poses/` and `sounds/`: Legacy files (may be removed at some time)
@@ -26,7 +26,7 @@ The directory structure is organized as follows:
     - `behavior_simulator/`: Special runtime that is able to execute a subset of control nodes for behavior simulation
     - `bin/`: Code for executables that can be built, e.g. `nao` and `webots` (these contain `main()`)
     - `control/`: Control cycler and all nodes that belong to it
-    - `framework/`: Code regarding the framework containing e.g. filtering and thread communication primitives or the configuration hierarchy
+    - `framework/`: Code regarding the framework containing e.g. filtering and thread communication primitives or the parameters hierarchy
         - `communication/`: Communication subcomponent containing the interface to the cyclers and all file system and socket I/O
     - `hardware/`: Hardware interface definition and several implementations for the build targets e.g. NAO and Webots, see [Hardware Interface](./hardware_interface.md)
     - `spl_network/`: SPL network cycler and all nodes that belong to it

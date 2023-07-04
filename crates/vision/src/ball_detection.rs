@@ -5,8 +5,8 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, vector, Vector2};
 use projection::Projection;
 use types::{
-    configuration::BallDetection as BallDetectionConfiguration, ycbcr422_image::YCbCr422Image,
-    Ball, CameraMatrix, CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
+    parameters::BallDetection as BallDetectionParameters, ycbcr422_image::YCbCr422Image, Ball,
+    CameraMatrix, CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
 };
 
 pub const SAMPLE_SIZE: usize = 32;
@@ -32,7 +32,7 @@ pub struct BallDetection {
 
 #[context]
 pub struct CreationContext {
-    pub configuration: Parameter<BallDetectionConfiguration, "ball_detection.$cycler_instance">,
+    pub parameters: Parameter<BallDetectionParameters, "ball_detection.$cycler_instance">,
 }
 
 #[context]
@@ -44,7 +44,7 @@ pub struct CycleContext {
         RequiredInput<Option<PerspectiveGridCandidates>, "perspective_grid_candidates?">,
     pub image: Input<YCbCr422Image, "image">,
 
-    pub configuration: Parameter<BallDetectionConfiguration, "ball_detection.$cycler_instance">,
+    pub parameters: Parameter<BallDetectionParameters, "ball_detection.$cycler_instance">,
     pub ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
 }
 
@@ -57,13 +57,13 @@ pub struct MainOutputs {
 impl BallDetection {
     pub fn new(context: CreationContext) -> Result<Self> {
         let mut preclassifier = CompiledNN::default();
-        preclassifier.compile(&context.configuration.preclassifier_neural_network);
+        preclassifier.compile(&context.parameters.preclassifier_neural_network);
 
         let mut classifier = CompiledNN::default();
-        classifier.compile(&context.configuration.classifier_neural_network);
+        classifier.compile(&context.parameters.classifier_neural_network);
 
         let mut positioner = CompiledNN::default();
-        positioner.compile(&context.configuration.positioner_neural_network);
+        positioner.compile(&context.parameters.positioner_neural_network);
 
         let neural_networks = NeuralNetworks {
             preclassifier,
@@ -80,12 +80,10 @@ impl BallDetection {
             candidates,
             context.image,
             &mut self.neural_networks,
-            context
-                .configuration
-                .maximum_number_of_candidate_evaluations,
-            context.configuration.ball_radius_enlargement_factor,
-            context.configuration.preclassifier_confidence_threshold,
-            context.configuration.classifier_confidence_threshold,
+            context.parameters.maximum_number_of_candidate_evaluations,
+            context.parameters.ball_radius_enlargement_factor,
+            context.parameters.preclassifier_confidence_threshold,
+            context.parameters.classifier_confidence_threshold,
         );
         context
             .ball_candidates
@@ -101,15 +99,15 @@ impl BallDetection {
             ball.merge_weight = Some(calculate_ball_merge_factor(
                 ball,
                 vector!(context.image.width(), context.image.height()),
-                context.configuration.confidence_merge_factor,
-                context.configuration.correction_proximity_merge_factor,
-                context.configuration.image_containment_merge_factor,
+                context.parameters.confidence_merge_factor,
+                context.parameters.correction_proximity_merge_factor,
+                context.parameters.image_containment_merge_factor,
             ));
         }
 
         let clusters = cluster_balls(
             &detected_balls,
-            context.configuration.cluster_merge_radius_factor,
+            context.parameters.cluster_merge_radius_factor,
         );
 
         let balls = project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius);
@@ -439,7 +437,7 @@ mod tests {
     fn cycle_with_loaded_image() -> Result<()> {
         let filename = "../../tests/data/rome_bottom_ball.png";
         let image = YCbCr422Image::load_from_444_png(Path::new(filename))?;
-        let configuration = BallDetectionConfiguration {
+        let parameters = BallDetectionParameters {
             minimal_radius: 0.0,
             preclassifier_neural_network: PathBuf::from(PRECLASSIFIER_PATH),
             classifier_neural_network: PathBuf::from(CLASSIFIER_PATH),
@@ -481,20 +479,20 @@ mod tests {
                 false,
                 &mut additional_output_buffer,
             ),
-            configuration: &configuration,
+            parameters: &parameters,
             ball_radius: &0.5,
             camera_matrix: &camera_matrix,
             image: &image,
             perspective_grid_candidates: &perspective_grid_candidates,
         };
         let mut preclassifier = CompiledNN::default();
-        preclassifier.compile(&context.configuration.preclassifier_neural_network);
+        preclassifier.compile(&context.parameters.preclassifier_neural_network);
 
         let mut classifier = CompiledNN::default();
-        classifier.compile(&context.configuration.classifier_neural_network);
+        classifier.compile(&context.parameters.classifier_neural_network);
 
         let mut positioner = CompiledNN::default();
-        positioner.compile(&context.configuration.positioner_neural_network);
+        positioner.compile(&context.parameters.positioner_neural_network);
 
         let neural_networks = NeuralNetworks {
             preclassifier,

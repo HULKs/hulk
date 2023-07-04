@@ -8,8 +8,8 @@ use spl_network_messages::{
 };
 use std::time::{Duration, SystemTime};
 use types::{
-    configuration::SplNetwork,
     messages::{IncomingMessage, OutgoingMessage},
+    parameters::SplNetwork,
     BallPosition, CycleTime, FallState, FieldDimensions, GameControllerState, InitialPose, Players,
     PrimaryState, Role,
 };

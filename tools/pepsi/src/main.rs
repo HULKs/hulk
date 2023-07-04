@@ -167,7 +167,7 @@ enum Command {
     /// Logging on the NAO
     #[command(subcommand)]
     Logs(LogsArguments),
-    /// Change player numbers of the NAOs in local configuration
+    /// Change player numbers of the NAOs in local parameters
     Playernumber(PlayerNumberArguments),
     /// Ping NAOs
     Ping(PingArguments),

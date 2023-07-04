@@ -4,7 +4,7 @@ use crate::{
     interfake::Interfake,
     structs::{
         control::{AdditionalOutputs, MainOutputs, PersistentState},
-        Configuration,
+        Parameters,
     },
 };
 use color_eyre::{eyre::WrapErr, Result};
@@ -52,14 +52,14 @@ impl BehaviorCycler {
     pub fn new(
         hardware_interface: Arc<Interfake>,
         own_changed: Arc<Notify>,
-        configuration: &Configuration,
+        parameters: &Parameters,
     ) -> Result<Self> {
         let persistent_state = PersistentState::default();
         let time_to_reach_kick_position =
             TimeToReachKickPosition::new(time_to_reach_kick_position::CreationContext {})
                 .wrap_err("failed to create node `TimeToReachKickPosition`")?;
         let active_vision = ActiveVision::new(active_vision::CreationContext {
-            field_dimensions: &configuration.field_dimensions,
+            field_dimensions: &parameters.field_dimensions,
         })
         .wrap_err("failed to create node `ActiveVision`")?;
         let ball_state_composer = BallStateComposer::new(ball_state_composer::CreationContext {})
@@ -69,23 +69,23 @@ impl BehaviorCycler {
         )
         .wrap_err("failed to create node `DribblePath`")?;
         let behavior = Behavior::new(node::CreationContext {
-            behavior: &configuration.behavior,
-            field_dimensions: &configuration.field_dimensions,
-            lost_ball_parameters: &configuration.behavior.lost_ball,
+            behavior: &parameters.behavior,
+            field_dimensions: &parameters.field_dimensions,
+            lost_ball_parameters: &parameters.behavior.lost_ball,
         })
         .wrap_err("failed to create node `Behavior`")?;
         let kick_selector = KickSelector::new(kick_selector::CreationContext {})
             .wrap_err("failed to create node `KickSelector`")?;
         let look_around = control::motion::look_around::LookAround::new(
             control::motion::look_around::CreationContext {
-                config: &configuration.look_around,
+                config: &parameters.look_around,
             },
         )
         .wrap_err("failed to create node `LookAround`")?;
         let role_assignment = RoleAssignment::new(role_assignment::CreationContext {
-            forced_role: configuration.role_assignment.forced_role.as_ref(),
-            player_number: &configuration.player_number,
-            spl_network: &configuration.spl_network,
+            forced_role: parameters.role_assignment.forced_role.as_ref(),
+            player_number: &parameters.player_number,
+            spl_network: &parameters.spl_network,
         })
         .wrap_err("failed to create node `RoleAssignment`")?;
         let rule_obstacle_composer = control::rule_obstacle_composer::RuleObstacleComposer::new(
@@ -93,7 +93,7 @@ impl BehaviorCycler {
         )
         .wrap_err("failed to create node `RuleObstacleComposer`")?;
         let world_state_composer = WorldStateComposer::new(world_state_composer::CreationContext {
-            player_number: &configuration.player_number,
+            player_number: &parameters.player_number,
         })
         .wrap_err("failed to create node `WorldStateComposer`")?;
 
@@ -118,7 +118,7 @@ impl BehaviorCycler {
     pub fn cycle(
         &mut self,
         own_database: &mut Database,
-        configuration: &Configuration,
+        parameters: &Parameters,
         incoming_messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>,
     ) -> Result<()> {
         if own_database
@@ -141,7 +141,7 @@ impl BehaviorCycler {
                             .filtered_game_state
                             .as_ref()
                             .unwrap(),
-                        field_dimensions: &configuration.field_dimensions,
+                        field_dimensions: &parameters.field_dimensions,
                     })
                     .wrap_err("failed to execute cycle of node `RuleObstacleComposer`")?
             };
@@ -162,12 +162,12 @@ impl BehaviorCycler {
                     time_to_reach_kick_position: &mut self
                         .persistent_state
                         .time_to_reach_kick_position,
-                    field_dimensions: &configuration.field_dimensions,
-                    forced_role: configuration.role_assignment.forced_role.as_ref(),
-                    initial_poses: &configuration.localization.initial_poses,
-                    optional_roles: &configuration.behavior.optional_roles,
-                    player_number: &configuration.player_number,
-                    spl_network: &configuration.spl_network,
+                    field_dimensions: &parameters.field_dimensions,
+                    forced_role: parameters.role_assignment.forced_role.as_ref(),
+                    initial_poses: &parameters.localization.initial_poses,
+                    optional_roles: &parameters.behavior.optional_roles,
+                    player_number: &parameters.player_number,
+                    spl_network: &parameters.spl_network,
                     network_message: PerceptionInput {
                         persistent: incoming_messages,
                         temporary: Default::default(),
@@ -192,7 +192,7 @@ impl BehaviorCycler {
                     robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
                     team_ball: own_database.main_outputs.team_ball.as_ref(),
                     primary_state: &own_database.main_outputs.primary_state,
-                    field_dimensions: &configuration.field_dimensions,
+                    field_dimensions: &parameters.field_dimensions,
                     game_controller_state: own_database.main_outputs.game_controller_state.as_ref(),
                 })
                 .wrap_err("failed to execute cycle of node `BallStateComposer`")?;
@@ -208,7 +208,7 @@ impl BehaviorCycler {
                     rule_ball: own_database.main_outputs.ball_state.as_ref(),
                     cycle_time: &own_database.main_outputs.cycle_time,
                     obstacles: &own_database.main_outputs.obstacles,
-                    parameters: &configuration.behavior.look_action,
+                    parameters: &parameters.behavior.look_action,
                     robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
                 })
                 .wrap_err("failed to execute cycle of node `ActiveVision`")?;
@@ -229,22 +229,20 @@ impl BehaviorCycler {
                                 .unwrap(),
                             ball_state: own_database.main_outputs.ball_state.as_ref().unwrap(),
                             obstacles: &own_database.main_outputs.obstacles,
-                            field_dimensions: &configuration.field_dimensions,
-                            in_walk_kicks: &configuration.in_walk_kicks,
-                            angle_distance_weight: &configuration
-                                .kick_selector
-                                .angle_distance_weight,
-                            max_kick_around_obstacle_angle: &configuration
+                            field_dimensions: &parameters.field_dimensions,
+                            in_walk_kicks: &parameters.in_walk_kicks,
+                            angle_distance_weight: &parameters.kick_selector.angle_distance_weight,
+                            max_kick_around_obstacle_angle: &parameters
                                 .kick_selector
                                 .max_kick_around_obstacle_angle,
-                            kick_pose_obstacle_radius: &configuration
+                            kick_pose_obstacle_radius: &parameters
                                 .kick_selector
                                 .kick_pose_obstacle_radius,
-                            ball_radius_for_kick_target_selection: &configuration
+                            ball_radius_for_kick_target_selection: &parameters
                                 .kick_selector
                                 .ball_radius_for_kick_target_selection,
-                            closer_threshold: &configuration.kick_selector.closer_threshold,
-                            find_kick_targets: &configuration.kick_selector.find_kick_targets,
+                            closer_threshold: &parameters.kick_selector.closer_threshold,
+                            find_kick_targets: &parameters.kick_selector.find_kick_targets,
                             kick_targets: framework::AdditionalOutput::new(
                                 true,
                                 &mut own_database.additional_outputs.kick_targets,
@@ -253,10 +251,8 @@ impl BehaviorCycler {
                                 true,
                                 &mut own_database.additional_outputs.instant_kick_targets,
                             ),
-                            default_kick_strength: &configuration
-                                .kick_selector
-                                .default_kick_strength,
-                            corner_kick_strength: &configuration.kick_selector.corner_kick_strength,
+                            default_kick_strength: &parameters.kick_selector.default_kick_strength,
+                            corner_kick_strength: &parameters.kick_selector.corner_kick_strength,
                         })
                         .wrap_err("failed to execute cycle of node `KickSelector`")?
                 };
@@ -285,7 +281,7 @@ impl BehaviorCycler {
                         .main_outputs
                         .instant_kick_decisions
                         .as_ref(),
-                    player_number: &configuration.player_number,
+                    player_number: &parameters.player_number,
                     fall_state: &own_database.main_outputs.fall_state,
                     has_ground_contact: &own_database.main_outputs.has_ground_contact,
                     obstacles: &own_database.main_outputs.obstacles,
@@ -303,8 +299,8 @@ impl BehaviorCycler {
                 self.dribble_path
                     .cycle(control::dribble_path_planner::CycleContext {
                         world_state: &own_database.main_outputs.world_state,
-                        field_dimensions: &configuration.field_dimensions,
-                        configuration: &configuration.behavior,
+                        field_dimensions: &parameters.field_dimensions,
+                        parameters: &parameters.behavior,
                         path_obstacles: framework::AdditionalOutput::new(
                             true,
                             &mut own_database.additional_outputs.time_to_reach_obstacles,
@@ -329,11 +325,11 @@ impl BehaviorCycler {
                     world_state: &own_database.main_outputs.world_state,
                     cycle_time: &own_database.main_outputs.cycle_time,
                     dribble_path: own_database.main_outputs.dribble_path.as_ref(),
-                    configuration: &configuration.behavior,
-                    in_walk_kicks: &configuration.in_walk_kicks,
-                    field_dimensions: &configuration.field_dimensions,
-                    lost_ball_parameters: &configuration.behavior.lost_ball,
-                    intercept_ball_parameters: &configuration.behavior.intercept_ball,
+                    parameters: &parameters.behavior,
+                    in_walk_kicks: &parameters.in_walk_kicks,
+                    field_dimensions: &parameters.field_dimensions,
+                    lost_ball_parameters: &parameters.behavior.lost_ball,
+                    intercept_ball_parameters: &parameters.behavior.intercept_ball,
                     has_ground_contact: &true,
                 })
                 .wrap_err("failed to execute cycle of node `Behavior`")?;
@@ -343,7 +339,7 @@ impl BehaviorCycler {
             let main_outputs = {
                 self.look_around
                     .cycle(control::motion::look_around::CycleContext {
-                        config: &configuration.look_around,
+                        config: &parameters.look_around,
                         motion_command: &own_database.main_outputs.motion_command,
                         sensor_data: &own_database.main_outputs.sensor_data,
                         cycle_time: &own_database.main_outputs.cycle_time,

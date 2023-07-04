@@ -1,7 +1,7 @@
 use framework::AdditionalOutput;
 use nalgebra::Point2;
 use types::{
-    configuration::LostBall as LostBallConfiguration, rotate_towards, HeadMotion, MotionCommand,
+    parameters::LostBall as LostBallParameters, rotate_towards, HeadMotion, MotionCommand,
     OrientationMode, PathObstacle, WorldState,
 };
 
@@ -11,7 +11,7 @@ pub fn execute(
     world_state: &WorldState,
     absolute_last_known_ball_position: Point2<f32>,
     walk_path_planner: &WalkPathPlanner,
-    lost_ball_parameters: &LostBallConfiguration,
+    lost_ball_parameters: &LostBallParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
 ) -> Option<MotionCommand> {
     let robot_to_field = world_state.robot.robot_to_field?;
