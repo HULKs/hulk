@@ -1,1 +1,18 @@
-{}
+{
+  "camera_matrix_parameters": {
+    "vision_bottom": {
+      "extrinsic_rotations": [
+        0.0,
+        -1.4103188514709473,
+        2.314367294311523
+      ]
+    },
+    "vision_top": {
+      "extrinsic_rotations": [
+        0.5785918235778809,
+        -3.290743350982666,
+        2.205880880355835
+      ]
+    }
+  }
+}
