@@ -20,4 +20,5 @@ nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 projection = { workspace = true }
 rand = { workspace = true }
+spl_network_messages = { workspace = true }
 types = { workspace = true }
