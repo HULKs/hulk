@@ -27,6 +27,7 @@ pub mod horizon;
 mod image_segments;
 pub mod initial_look_around;
 mod initial_pose;
+pub mod interpolated;
 mod joints;
 mod joints_velocity;
 mod kick_decision;

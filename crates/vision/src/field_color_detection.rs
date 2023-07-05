@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::FieldColor;
+use types::{interpolated::Interpolated, FieldColor};
 
 pub struct FieldColorDetection {}
 
@@ -10,16 +10,24 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub blue_chromaticity_threshold:
-        Parameter<f32, "field_color_detection.$cycler_instance.blue_chromaticity_threshold">,
+    pub blue_chromaticity_threshold: Parameter<
+        Interpolated,
+        "field_color_detection.$cycler_instance.blue_chromaticity_threshold",
+    >,
     pub green_luminance_threshold:
-        Parameter<u8, "field_color_detection.$cycler_instance.green_luminance_threshold">,
-    pub lower_green_chromaticity_threshold:
-        Parameter<f32, "field_color_detection.$cycler_instance.lower_green_chromaticity_threshold">,
-    pub red_chromaticity_threshold:
-        Parameter<f32, "field_color_detection.$cycler_instance.red_chromaticity_threshold">,
-    pub upper_green_chromaticity_threshold:
-        Parameter<f32, "field_color_detection.$cycler_instance.upper_green_chromaticity_threshold">,
+        Parameter<Interpolated, "field_color_detection.$cycler_instance.green_luminance_threshold">,
+    pub lower_green_chromaticity_threshold: Parameter<
+        Interpolated,
+        "field_color_detection.$cycler_instance.lower_green_chromaticity_threshold",
+    >,
+    pub red_chromaticity_threshold: Parameter<
+        Interpolated,
+        "field_color_detection.$cycler_instance.red_chromaticity_threshold",
+    >,
+    pub upper_green_chromaticity_threshold: Parameter<
+        Interpolated,
+        "field_color_detection.$cycler_instance.upper_green_chromaticity_threshold",
+    >,
 }
 
 #[context]
@@ -49,6 +57,7 @@ impl FieldColorDetection {
 
 #[cfg(test)]
 mod test {
+    use nalgebra::Point2;
     use types::{Intensity, YCbCr444};
 
     use super::*;
@@ -61,20 +70,20 @@ mod test {
             cr: 0,
         };
         let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255,
+            red_chromaticity_threshold: 0.37.into(),
+            blue_chromaticity_threshold: 0.38.into(),
+            lower_green_chromaticity_threshold: 0.4.into(),
+            upper_green_chromaticity_threshold: 0.43.into(),
+            green_luminance_threshold: 255.0.into(),
         };
-        let field_color_intensity = field_color.get_intensity(ycbcr);
+        let field_color_intensity = field_color.get_intensity(ycbcr, Point2::origin());
         assert_eq!(field_color_intensity, Intensity::High);
         let ycbcr = YCbCr444 {
             y: 128,
             cb: 255,
             cr: 0,
         };
-        let field_color_intensity = field_color.get_intensity(ycbcr);
+        let field_color_intensity = field_color.get_intensity(ycbcr, Point2::origin());
         assert_eq!(field_color_intensity, Intensity::Low);
     }
 }

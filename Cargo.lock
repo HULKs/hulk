@@ -4838,6 +4838,7 @@ dependencies = [
  "ordered-float",
  "projection",
  "rand",
+ "spl_network_messages",
  "types",
 ]
 

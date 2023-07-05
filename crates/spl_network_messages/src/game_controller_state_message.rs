@@ -319,7 +319,7 @@ pub enum SubState {
     PenaltyKick,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum Half {
     First,
     Second,

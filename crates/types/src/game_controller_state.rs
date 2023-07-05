@@ -2,7 +2,7 @@ use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use spl_network_messages::{GamePhase, GameState, Penalty, SubState, Team};
+use spl_network_messages::{GamePhase, GameState, Half, Penalty, SubState, Team};
 
 use super::Players;
 
@@ -10,6 +10,7 @@ use super::Players;
 pub struct GameControllerState {
     pub game_state: GameState,
     pub game_phase: GamePhase,
+    pub half: Half,
     pub kicking_team: Team,
     pub last_game_state_change: SystemTime,
     pub penalties: Players<Option<Penalty>>,

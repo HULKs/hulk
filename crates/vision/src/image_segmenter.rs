@@ -1,19 +1,25 @@
-use std::time::{Duration, Instant};
+use std::{
+    f32::consts::PI,
+    time::{Duration, Instant},
+};
 
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
-use nalgebra::point;
+use nalgebra::{point, Isometry2, Point2, Rotation2, Translation2};
+use spl_network_messages::Half;
 use types::{
     horizon::Horizon,
     is_above_limbs,
     parameters::{EdgeDetectionSource, MedianMode},
     ycbcr422_image::YCbCr422Image,
-    CameraMatrix, EdgeType, FieldColor, ImageSegments, Intensity, Limb, ProjectedLimbs, Rgb,
-    RgbChannel, ScanGrid, ScanLine, Segment, YCbCr444,
+    CameraMatrix, EdgeType, FieldColor, GameControllerState, ImageSegments, Intensity, Limb,
+    ProjectedLimbs, Rgb, RgbChannel, ScanGrid, ScanLine, Segment, YCbCr444,
 };
 
-pub struct ImageSegmenter {}
+pub struct ImageSegmenter {
+    fallback_robot_to_field: Isometry2<f32>,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -25,6 +31,8 @@ pub struct CycleContext {
     pub image: Input<YCbCr422Image, "image">,
 
     pub camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
+    pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
+    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
     pub field_color: Input<FieldColor, "field_color">,
     pub projected_limbs: Input<Option<ProjectedLimbs>, "projected_limbs?">,
 
@@ -48,10 +56,31 @@ pub struct MainOutputs {
 
 impl ImageSegmenter {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            fallback_robot_to_field: Isometry2::default(),
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let first_half_robot_to_field = context
+            .robot_to_field
+            .and_then(|robot_to_field| Some((robot_to_field, context.game_controller_state?)))
+            .map(|(&robot_to_field, game_controller_state)| {
+                if game_controller_state.half == Half::Second {
+                    Isometry2::from_parts(Translation2::default(), Rotation2::new(PI).into())
+                        * robot_to_field
+                } else {
+                    robot_to_field
+                }
+            })
+            .unwrap_or(self.fallback_robot_to_field);
+        self.fallback_robot_to_field = first_half_robot_to_field;
+
+        let interpolation_argument = point![
+            first_half_robot_to_field.translation.x,
+            first_half_robot_to_field.rotation.angle()
+        ];
+
         let begin = Instant::now();
         let projected_limbs = context
             .projected_limbs
@@ -72,6 +101,7 @@ impl ImageSegmenter {
             *context.vertical_edge_threshold,
             *context.vertical_median_mode,
             projected_limbs,
+            interpolation_argument,
         );
         let end = Instant::now();
         context
@@ -94,6 +124,7 @@ fn new_grid(
     vertical_edge_threshold: i16,
     vertical_median_mode: MedianMode,
     projected_limbs: &[Limb],
+    interpolation_argument: Point2<f32>,
 ) -> ScanGrid {
     let horizon_y_minimum = horizon
         .horizon_y_minimum()
@@ -113,6 +144,7 @@ fn new_grid(
                     vertical_median_mode,
                     horizon_y_minimum,
                     projected_limbs,
+                    interpolation_argument,
                 )
             })
             .collect(),
@@ -183,6 +215,7 @@ fn new_vertical_scan_line(
     median_mode: MedianMode,
     horizon_y_minimum: f32,
     projected_limbs: &[Limb],
+    interpolation_argument: Point2<f32>,
 ) -> ScanLine {
     let (start_y, end_y) = match median_mode {
         MedianMode::Disabled => (horizon_y_minimum as u32, image.height()),
@@ -268,6 +301,7 @@ fn new_vertical_scan_line(
                 image,
                 position,
                 field_color,
+                interpolation_argument,
             ));
         }
     }
@@ -286,6 +320,7 @@ fn new_vertical_scan_line(
             image,
             position,
             field_color,
+            interpolation_argument,
         ));
     }
 
@@ -313,6 +348,7 @@ fn set_color_in_vertical_segment(
     image: &YCbCr422Image,
     x: u32,
     field_color: &FieldColor,
+    interpolation_argument: Point2<f32>,
 ) -> Segment {
     segment.color = match segment.length() {
         6.. => {
@@ -392,7 +428,7 @@ fn set_color_in_vertical_segment(
         let position = segment.start + segment.length() / 2;
         image.at(x, position as u32)
     };
-    segment.field_color = field_color.get_intensity(segment.color);
+    segment.field_color = field_color.get_intensity(segment.color, interpolation_argument);
     segment
 }
 
@@ -506,6 +542,7 @@ mod tests {
             vertical_median_mode,
             horizon_y_minimum,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 12);
         assert!(scan_line.segments.len() >= 3);
@@ -536,6 +573,7 @@ mod tests {
             MedianMode::Disabled,
             0.0,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
@@ -563,6 +601,7 @@ mod tests {
             MedianMode::ThreePixels,
             0.0,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
@@ -600,6 +639,7 @@ mod tests {
             MedianMode::Disabled,
             0.0,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
@@ -646,6 +686,7 @@ mod tests {
             MedianMode::Disabled,
             0.0,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
@@ -706,6 +747,7 @@ mod tests {
             MedianMode::Disabled,
             0.0,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
@@ -774,6 +816,7 @@ mod tests {
             MedianMode::ThreePixels,
             0.0,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
@@ -843,6 +886,7 @@ mod tests {
             MedianMode::Disabled,
             0.0,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
@@ -918,6 +962,7 @@ mod tests {
             MedianMode::ThreePixels,
             0.0,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
@@ -1060,6 +1105,7 @@ mod tests {
             MedianMode::Disabled,
             0.0,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
@@ -1246,6 +1292,7 @@ mod tests {
             MedianMode::ThreePixels,
             0.0,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
@@ -1319,6 +1366,7 @@ mod tests {
             MedianMode::Disabled,
             0.0,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
@@ -1392,6 +1440,7 @@ mod tests {
             MedianMode::ThreePixels,
             0.0,
             &[],
+            Point2::origin(),
         );
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
