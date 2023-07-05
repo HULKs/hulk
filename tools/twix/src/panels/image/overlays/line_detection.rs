@@ -30,8 +30,14 @@ impl Overlay for LineDetection {
         for point in lines_in_image.points {
             painter.circle_stroke(point, 3.0, Stroke::new(1.0, Color32::RED))
         }
-        for line in lines_in_image.raw_lines {
-            painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::YELLOW));
+        for (line, reason) in lines_in_image.discarded_lines {
+            let color = match reason {
+                types::LineDiscardReason::TooFewPoints => Color32::YELLOW,
+                types::LineDiscardReason::LineTooShort => Color32::GRAY,
+                types::LineDiscardReason::LineTooLong => Color32::BROWN,
+                types::LineDiscardReason::TooFarAway => Color32::BLACK,
+            };
+            painter.line_segment(line.0, line.1, Stroke::new(3.0, color));
         }
         for line in lines_in_image.lines {
             painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::BLUE));

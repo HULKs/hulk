@@ -12,9 +12,17 @@ pub struct LineData {
     pub used_vertical_filtered_segments: HashSet<Point2<u16>>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy)]
+pub enum LineDiscardReason {
+    TooFewPoints,
+    LineTooShort,
+    LineTooLong,
+    TooFarAway,
+}
+
 #[derive(Clone, Default, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct ImageLines {
-    pub raw_lines: Vec<Line2>,
+    pub discarded_lines: Vec<(Line2, LineDiscardReason)>,
     pub lines: Vec<Line2>,
     pub points: Vec<Point2<f32>>,
 }
