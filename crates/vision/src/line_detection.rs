@@ -275,6 +275,7 @@ fn filter_segments_for_lines(
     (line_points, used_vertical_filtered_segments)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn is_line_segment(
     segment: &Segment,
     scan_line_position: u16,
