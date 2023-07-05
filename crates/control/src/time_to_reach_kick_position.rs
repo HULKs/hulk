@@ -56,13 +56,17 @@ impl TimeToReachKickPosition {
             })
             .map(Duration::from_secs_f32);
         let time_to_reach_kick_position = walk_time.map(|walk_time| {
-            walk_time
-                + *context
+            [
+                walk_time,
+                *context
                     .stand_up_back_estimated_remaining_duration
-                    .unwrap_or(&Duration::ZERO)
-                + *context
+                    .unwrap_or(&Duration::ZERO),
+                *context
                     .stand_up_front_estimated_remaining_duration
-                    .unwrap_or(&Duration::ZERO)
+                    .unwrap_or(&Duration::ZERO),
+            ]
+            .into_iter()
+            .fold(Duration::ZERO, Duration::saturating_add)
         });
 
         context
