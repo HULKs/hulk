@@ -11,7 +11,7 @@ pub fn execute(
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
 ) -> Option<MotionCommand> {
     let robot_to_field = world_state.robot.robot_to_field?;
-    let kick_off_pose = Isometry2::translation(-0.2, 0.0);
+    let kick_off_pose = Isometry2::translation(-0.3, 0.0);
     walk_and_stand.execute(
         robot_to_field.inverse() * kick_off_pose,
         look_action.execute(),
