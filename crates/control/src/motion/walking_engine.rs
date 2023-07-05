@@ -636,6 +636,7 @@ impl WalkingEngine {
             next_right_foot_lift,
             config.stabilization_foot_lift_multiplier,
             config.stabilization_foot_lift_offset,
+            config.stabilization_hysteresis,
             self.remaining_stabilizing_steps,
             &mut self.forward_adjustment_was_active,
             &mut self.backward_adjustment_was_active,

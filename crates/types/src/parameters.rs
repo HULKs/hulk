@@ -236,10 +236,12 @@ pub struct WalkingEngine {
     pub number_of_stabilizing_steps: usize,
     pub stabilization_foot_lift_multiplier: f32,
     pub stabilization_foot_lift_offset: f32,
+    pub stabilization_hysteresis: f32,
     pub stable_step_deviation: Duration,
     pub starting_step_duration: Duration,
     pub starting_step_foot_lift: f32,
     pub step_duration_increase: Step,
+    pub step_foot_lift_increase: Step,
     pub swing_foot_imu_leveling_factor: f32,
     pub swing_foot_pitch_error_leveling_factor: f32,
     pub swinging_arms: SwingingArms,
@@ -247,7 +249,6 @@ pub struct WalkingEngine {
     pub torso_shift_offset: f32,
     pub torso_tilt_offset: f32,
     pub walk_hip_height: f32,
-    pub step_foot_lift_increase: Step,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

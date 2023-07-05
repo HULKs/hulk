@@ -77,6 +77,7 @@ pub fn step_adjustment(
     right_foot_lift: f32,
     stabilization_foot_lift_multiplier: f32,
     stabilization_foot_lift_offset: f32,
+    stabilization_hysteresis: f32,
     remaining_stabilizing_steps: usize,
     forward_adjustment_was_active: &mut bool,
     backward_adjustment_was_active: &mut bool,
@@ -106,7 +107,7 @@ pub fn step_adjustment(
         *backward_adjustment_was_active,
         torso_tilt_shift,
         backward_balance_limit,
-        0.001,
+        stabilization_hysteresis,
     ) {
         let target = -torso_tilt_shift.abs() - backward_foot_support.abs();
         (
@@ -120,7 +121,7 @@ pub fn step_adjustment(
         *forward_adjustment_was_active,
         torso_tilt_shift,
         forward_balance_limit,
-        0.001,
+        stabilization_hysteresis,
     ) {
         let target = torso_tilt_shift.abs() + forward_foot_support.abs();
         (

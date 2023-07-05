@@ -463,6 +463,7 @@
     "number_of_stabilizing_steps": 3,
     "stabilization_foot_lift_multiplier": 1.0,
     "stabilization_foot_lift_offset": 0.02,
+    "stabilization_hysteresis": 0.001,
     "stable_step_deviation": { "nanos": 60000000, "secs": 0 },
     "starting_step_duration": { "nanos": 200000000, "secs": 0 },
     "starting_step_foot_lift": 0.009,
