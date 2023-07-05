@@ -205,7 +205,7 @@ impl WalkingEngine {
                     &mut context.step_adjustment,
                 );
             }
-            WalkState::Kicking(..) => self.kick_cycle(last_cycle_duration, &context.config),
+            WalkState::Kicking(..) => self.kick_cycle(last_cycle_duration, context.config),
         }
 
         let left_foot_pressure = context.sensor_data.force_sensitive_resistors.left.sum();
@@ -523,7 +523,7 @@ impl WalkingEngine {
                         planned_step,
                         self.right_foot_t0,
                         self.left_foot_t0,
-                        &config,
+                        config,
                     );
                 (
                     swing_foot,
@@ -539,7 +539,7 @@ impl WalkingEngine {
                         planned_step,
                         self.left_foot_t0,
                         self.right_foot_t0,
-                        &config,
+                        config,
                     );
                 (
                     support_foot,
@@ -631,7 +631,7 @@ impl WalkingEngine {
             next_turn,
             next_left_foot_lift,
             next_right_foot_lift,
-        ) = self.next_foot_offsets(self.current_step, &config);
+        ) = self.next_foot_offsets(self.current_step, config);
         let (
             adjusted_left_foot,
             adjusted_right_foot,
@@ -680,7 +680,7 @@ impl WalkingEngine {
             next_turn,
             next_left_foot_lift,
             next_right_foot_lift,
-        ) = self.next_foot_offsets(self.current_step, &config);
+        ) = self.next_foot_offsets(self.current_step, config);
         self.left_foot = next_left_walk_request;
         self.right_foot = next_right_walk_request;
         self.turn = next_turn;
