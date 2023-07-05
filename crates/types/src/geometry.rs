@@ -20,26 +20,6 @@ impl Orientation {
             Orientation::Colinear => subject,
         }
     }
-
-    pub fn triangle_orientation(
-        point1: Point2<f32>,
-        point2: Point2<f32>,
-        point3: Point2<f32>,
-    ) -> Self {
-        let (x1, y1) = (point1.x, point1.y);
-        let (x2, y2) = (point2.x, point2.y);
-        let (x3, y3) = (point3.x, point3.y);
-
-        let orientation = x1 * y2 + x2 * y3 + x3 * y1 - x1 * y3 - x2 * y1 - x3 * y2;
-
-        if orientation == 0.0 {
-            Self::Colinear
-        } else if orientation.is_sign_negative() {
-            Self::Clockwise
-        } else {
-            Self::Counterclockwise
-        }
-    }
 }
 
 pub fn rotate_towards(origin: Point2<f32>, target: Point2<f32>) -> UnitComplex<f32> {
@@ -613,26 +593,6 @@ mod tests {
     use nalgebra::{point, Point2, UnitComplex};
 
     use super::*;
-
-    #[test]
-    fn triangle_orientation() {
-        let point1 = point![1.0, 0.0];
-        let point2 = point![3.5, -0.5];
-        let point3 = point![-2.3, -4.2];
-
-        assert_eq!(
-            Orientation::triangle_orientation(point1, point2, point3),
-            Orientation::Clockwise
-        );
-        assert_eq!(
-            Orientation::triangle_orientation(point1, point3, point2),
-            Orientation::Counterclockwise
-        );
-        assert_eq!(
-            Orientation::triangle_orientation(point1, point2, point2),
-            Orientation::Colinear
-        );
-    }
 
     #[test]
     fn arc_cost_90_degrees() {

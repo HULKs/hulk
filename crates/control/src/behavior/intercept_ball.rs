@@ -153,7 +153,7 @@ fn calculate_arc_tangent_to(
     let start = Point2::origin();
 
     let orientation =
-        Orientation::triangle_orientation(start, start + vector1, start + vector1 + vector2);
+        LineSegment::new(start, start + vector1).get_orientation(start + vector1 + vector2);
 
     let normal_vector1 = orientation.rotate_vector_90_degrees(vector1).normalize();
     let normal_vector2 = orientation.rotate_vector_90_degrees(vector2).normalize();
