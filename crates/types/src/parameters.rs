@@ -357,6 +357,8 @@ pub enum EdgeDetectionSource {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct ImageSegmenter {
+    pub horizontal_stride: usize,
+    pub vertical_stride: usize,
     pub vertical_edge_threshold: i16,
     pub vertical_edge_detection_source: EdgeDetectionSource,
     pub vertical_median_mode: MedianMode,
