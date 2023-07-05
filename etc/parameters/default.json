@@ -1111,14 +1111,14 @@
     "vision_bottom": {
       "enable": true
     },
-    "gaussian_sigma": 5.0,
+    "gaussian_sigma": 3.5,
     "canny_low_threshold": 15.0,
     "canny_high_threshold": 50.0,
     "maximum_number_of_lines": 10,
-    "ransac_iterations": 1000,
+    "ransac_iterations": 10,
     "ransac_maximum_distance": 3.0,
     "ransac_maximum_gap": 5.0,
     "resized_width": 400,
-    "debug_image_resized_width": 200
+    "debug_image_resized_width": 100
   }
 }
