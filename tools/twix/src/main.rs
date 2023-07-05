@@ -166,7 +166,7 @@ impl Display for SelectablePanel {
             SelectablePanel::Parameter(_) => ParameterPanel::NAME,
             SelectablePanel::ManualCalibration(_) => ManualCalibrationPanel::NAME,
             SelectablePanel::LookAt(_) => LookAtPanel::NAME,
-            SelectablePanel::SegmenterCalibration(_) => LookAtPanel::NAME,
+            SelectablePanel::SegmenterCalibration(_) => SegmenterCalibrationPanel::NAME,
         };
         f.write_str(panel_name)
     }
