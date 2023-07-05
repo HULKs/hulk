@@ -29,7 +29,7 @@ Use your distribution's package manager to install the following dependencies:
     1. Install dependencies
 
         ```sh
-        sudo apt install git git-lfs build-essential libssl-dev pkg-config libclang-dev rsync cmake libhdf5-dev python3 libasound2-dev libhdf5-dev
+        sudo apt install git git-lfs build-essential libssl-dev pkg-config libclang-dev rsync cmake libhdf5-dev python3 libasound2-dev libluajit-5.1-dev
         ```
 
     1. Install Webots
@@ -71,3 +71,13 @@ To not be forced to reload the scene in Webots when rebuilding the controller, y
 ```sh
 ./pepsi run
 ```
+
+## Running Behavior Simulator
+
+To be able to run the current behavior simulator files, you have to install lua ``ìnspect``` package, either by downloading and saving it to the lua path (e.g., you hulk repo) or by using a lua package manager.
+
+Afterwards you can run the simulator by executing the following command in your hulk project root folder:
+```sh
+cargo run --manifest-path=tools/behavior_simulator/Cargo.toml tests/behavior/golden_goal.lua
+```
+The results can be inspected in twix.
