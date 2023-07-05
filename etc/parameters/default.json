@@ -460,7 +460,7 @@
     "max_step_adjustment": 0.0018,
     "maximal_step_duration": { "nanos": 0, "secs": 1 },
     "forward_step_mid_point": 0.5,
-    "left_step_mid_point": 0.5,
+    "left_step_mid_point": 0.4,
     "minimal_step_duration": { "nanos": 150000000, "secs": 0 },
     "number_of_stabilizing_steps": 3,
     "stabilization_foot_lift_multiplier": 1.0,
