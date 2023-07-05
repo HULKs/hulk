@@ -709,7 +709,7 @@
       "secs": 1
     },
     "minimum_bottom_focus_pitch": 0.2,
-    "glance_center_offset": [0.0, 0.0]
+    "glance_center_offset_pixels": [0.0, 0.0]
   },
   "look_around": {
     "look_around_timeout": {
