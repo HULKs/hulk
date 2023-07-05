@@ -68,7 +68,7 @@ impl TimeToReachKickPosition {
         context
             .time_to_reach_kick_position_output
             .fill_if_subscribed(|| time_to_reach_kick_position);
-        // 1800 seconds is 30 minutes, which is essentially max as it pertains to game time.
+        // 1800 seconds is 30 minutes, which is essentially maximum as it pertains to game time.
         // Prevents Duration::MAX from breaking the behavior simulator.
         *context.time_to_reach_kick_position = time_to_reach_kick_position
             .unwrap_or(Duration::MAX)

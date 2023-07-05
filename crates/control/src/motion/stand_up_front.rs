@@ -70,7 +70,7 @@ impl StandUpFront {
         let stand_up_front_estimated_remaining_duration =
             if let MotionType::StandUpFront = context.motion_selection.current_motion {
                 self.advance_interpolator(context);
-                Some(self.interpolator.remaining_estimated_duration())
+                Some(self.interpolator.estimated_remaining_duration())
             } else {
                 self.interpolator.reset();
                 None
