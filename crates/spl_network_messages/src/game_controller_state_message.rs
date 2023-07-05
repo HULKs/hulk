@@ -42,6 +42,7 @@ pub struct GameControllerStateMessage {
     pub hulks_team: TeamState,
     pub opponent_team: TeamState,
     pub kicking_team: Team,
+    pub hulks_team_is_home_after_coin_toss: bool,
 }
 
 impl TryFrom<&[u8]> for GameControllerStateMessage {
@@ -80,6 +81,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                     message.teams[1]
                 ),
             };
+        dbg!((hulks_team_index, opponent_team_index));
         const MAXIMUM_NUMBER_OF_PENALTY_SHOOTS: u8 = 16;
         if message.teams[hulks_team_index].penaltyShot >= MAXIMUM_NUMBER_OF_PENALTY_SHOOTS {
             bail!(
@@ -191,6 +193,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 players: opponent_players,
             },
             kicking_team: Team::try_from(message.kickingTeam)?,
+            hulks_team_is_home_after_coin_toss: hulks_team_index == 0,
         })
     }
 }

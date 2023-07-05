@@ -1,4 +1,4 @@
-use nalgebra::{matrix, point, Point2};
+use nalgebra::{matrix, point, Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -11,7 +11,12 @@ pub struct Interpolated {
 }
 
 impl Interpolated {
-    pub fn evaluate_at(&self, argument: Point2<f32>) -> f32 {
+    pub fn evaluate_at(&self, robot_to_field: Isometry2<f32>) -> f32 {
+        let argument = point![
+            robot_to_field.translation.x,
+            robot_to_field.rotation.angle()
+        ];
+
         const ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL: Point2<f32> = point![0.0, 0.0];
         const ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL: Point2<f32> = point![0.0, 1.0];
         const ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL: Point2<f32> = point![1.0, 0.0];

@@ -57,7 +57,6 @@ impl GameControllerFilter {
             self.game_controller_state = Some(GameControllerState {
                 game_state: game_controller_state_message.game_state,
                 game_phase: game_controller_state_message.game_phase,
-                half: game_controller_state_message.half,
                 kicking_team: game_controller_state_message.kicking_team,
                 last_game_state_change: self.last_game_state_change.unwrap(),
                 penalties: game_controller_state_message.hulks_team.clone().into(),
@@ -65,6 +64,8 @@ impl GameControllerFilter {
                     .hulks_team
                     .remaining_amount_of_messages,
                 sub_state: game_controller_state_message.sub_state,
+                hulks_team_is_home_after_coin_toss: game_controller_state_message
+                    .hulks_team_is_home_after_coin_toss,
             });
         }
         Ok(MainOutputs {

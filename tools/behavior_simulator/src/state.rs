@@ -63,6 +63,7 @@ impl State {
             },
             remaining_amount_of_messages: 1200,
             sub_state: None,
+            hulks_team_is_home_after_coin_toss: false,
         };
 
         Self {
