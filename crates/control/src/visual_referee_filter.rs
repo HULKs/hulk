@@ -45,7 +45,6 @@ impl VisualRefereeFilter {
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
-        let mut visual_referee_related_state_change = false;
         match (self.last_primary_state, *context.primary_state) {
             (PrimaryState::Set, PrimaryState::Playing)
             | (PrimaryState::Playing, PrimaryState::Finished | PrimaryState::Ready)
@@ -54,7 +53,6 @@ impl VisualRefereeFilter {
                     Some(SubState::PenaltyKick)
                 ) =>
             {
-                visual_referee_related_state_change = true;
                 self.time_of_last_visual_referee_related_state_change =
                     Some(context.cycle_time.start_time);
             }
@@ -71,7 +69,7 @@ impl VisualRefereeFilter {
                     .duration_since(time_of_last_state_change)
                     .unwrap()
                     .as_secs_f32()
-                    > 4.0
+                    > 5.0
             })
         {
             let mut duration_since_last_whistle = context
@@ -102,6 +100,8 @@ impl VisualRefereeFilter {
                 .hardware
                 .write_to_network(message)
                 .wrap_err("failed to write VisualRefereeMessage to hardware")?;
+
+            self.time_of_last_visual_referee_related_state_change = None;
         }
         Ok(MainOutputs::default())
     }
