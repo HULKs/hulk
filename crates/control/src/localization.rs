@@ -1,4 +1,7 @@
-use std::{f32::consts::FRAC_PI_2, mem::take};
+use std::{
+    f32::consts::{FRAC_PI_2, PI},
+    mem::take,
+};
 
 use approx::assert_relative_eq;
 use color_eyre::{eyre::WrapErr, Result};
@@ -7,7 +10,7 @@ use filtering::pose_filter::PoseFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use nalgebra::{
     distance, matrix, point, vector, Isometry2, Matrix, Matrix2, Matrix3, Point2, Rotation2,
-    Vector2, Vector3,
+    Translation2, Vector2, Vector3,
 };
 use ordered_float::NotNan;
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
@@ -113,6 +116,8 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub robot_to_field: MainOutput<Option<Isometry2<f32>>>,
+    pub robot_to_field_of_home_after_coin_toss_before_second_half:
+        MainOutput<Option<Isometry2<f32>>>,
 }
 
 impl Localization {
@@ -497,8 +502,20 @@ impl Localization {
             }
             _ => None,
         };
+        let robot_to_field_of_home_after_coin_toss_before_second_half = robot_to_field
+            .and_then(|robot_to_field| Some((robot_to_field, context.game_controller_state?)))
+            .map(|(robot_to_field, game_controller_state)| {
+                if game_controller_state.hulks_team_is_home_after_coin_toss {
+                    Isometry2::from_parts(Translation2::default(), Rotation2::new(PI).into())
+                        * robot_to_field
+                } else {
+                    robot_to_field
+                }
+            });
         Ok(MainOutputs {
             robot_to_field: robot_to_field.into(),
+            robot_to_field_of_home_after_coin_toss_before_second_half:
+                robot_to_field_of_home_after_coin_toss_before_second_half.into(),
         })
     }
 
