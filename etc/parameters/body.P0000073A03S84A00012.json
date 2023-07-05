@@ -1,1 +1,5 @@
-{}
+{
+  "walking_engine": {
+    "torso_tilt_offset": 0.08
+  }
+}
