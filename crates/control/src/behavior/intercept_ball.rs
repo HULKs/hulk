@@ -130,7 +130,10 @@ fn get_interception_path(
     }
 
     // If the arc and angle changes are within range, rotate current direction by angle and bridge
-    // the path between current position and line segment to interception point by a tangent arc
+    // the path between current position and line segment to interception point by a tangent arc.
+    // This rotation is required because the step planner walks in the direction tangent to a arc
+    // and the arc is created tangent to the current direction, so we have to rotate the direction
+    // slightly for traversing the arc.
     let direction = UnitComplex::new(angle_change) * walking_direction;
 
     let (arc, arc_orientation) =
