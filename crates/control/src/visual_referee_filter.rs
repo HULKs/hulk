@@ -69,7 +69,7 @@ impl VisualRefereeFilter {
                     .duration_since(time_of_last_state_change)
                     .unwrap()
                     .as_secs_f32()
-                    > 5.0
+                    > 8.0
             })
         {
             let mut duration_since_last_whistle = context
@@ -84,7 +84,7 @@ impl VisualRefereeFilter {
                 })
                 .unwrap_or(Duration::from_secs(15));
             if duration_since_last_whistle.as_secs_f32() < 1.0 {
-                duration_since_last_whistle = Duration::from_secs(5)
+                duration_since_last_whistle = Duration::from_secs(8)
             }
 
             // Initially a random visual referee decision
