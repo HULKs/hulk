@@ -14,6 +14,7 @@ pub struct LineData {
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct ImageLines {
+    pub raw_lines: Vec<Line2>,
     pub lines: Vec<Line2>,
     pub points: Vec<Point2<f32>>,
 }
