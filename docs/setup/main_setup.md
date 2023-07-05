@@ -33,12 +33,13 @@ Use your distribution's package manager to install the following dependencies:
         ```
 
     1. Install Webots
+        Download webots from [https://cyberbotics.com/](https://cyberbotics.com/) the XXXX.deb file and install it with
 
         ```sh
-        sudo snap install webots
+        sudo dpkg -i XXXX.deb
         ```
 
-    1. Install rust toolchain
+    2. Install rust toolchain
 
         Visit [https://rustup.rs/](https://rustup.rs/) for up to date instructions.
 
