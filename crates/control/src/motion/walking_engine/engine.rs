@@ -28,16 +28,13 @@ pub fn calculate_foot_to_robot(
         * Isometry3::rotation(Vector3::z() * foot_rotation)
 }
 
-pub fn parabolic_return(x: f32) -> f32 {
-    if x < 0.25 {
-        return 8.0 * x * x;
+pub fn parabolic_return(x: f32, t: f32) -> f32 {
+    if x < t {
+        -2.0 / t.powf(3.0) * x.powf(3.0) + 3.0 / t.powf(2.0) * x.powf(2.0)
+    } else {
+        1.0 / (1.0 - t).powf(3.0)
+            * (2 * x.powf(3.0) - 3.0 * (t + 1.0) * x.powf(2.0) + 6.0 * t * x - 3.0 * t - 1.0)
     }
-    if x < 0.75 {
-        let x = x - 0.5;
-        return 1.0 - 8.0 * x * x;
-    }
-    let x = 1.0 - x;
-    8.0 * x * x
 }
 
 pub fn parabolic_step(x: f32) -> f32 {

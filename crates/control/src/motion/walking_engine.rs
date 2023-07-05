@@ -577,8 +577,9 @@ impl WalkingEngine {
                 (self.t_on_last_phase_end.as_secs_f32() / self.planned_step_duration.as_secs_f32()
                     + linear_time)
                     .clamp(0.0, 1.0),
+                0.5,
             );
-        let swing_foot_lift = self.max_swing_foot_lift * parabolic_return(linear_time);
+        let swing_foot_lift = self.max_swing_foot_lift * parabolic_return(linear_time, 0.5);
 
         (
             support_foot,
