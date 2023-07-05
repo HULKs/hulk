@@ -1119,6 +1119,7 @@
     "ransac_maximum_distance": 3.0,
     "ransac_maximum_gap": 5.0,
     "resized_width": 400,
-    "debug_image_resized_width": 100
+    "debug_image_resized_width": 100,
+    "run_next_cycle_after_ms": 100
   }
 }

@@ -17,11 +17,12 @@ use types::{
     grayscale_image::GrayscaleImage, ycbcr422_image::YCbCr422Image, CameraPosition, Line, Line2,
 };
 
-pub struct CalibrationLineDetection {}
+pub struct CalibrationLineDetection {
+    last_processed_instance: Instant,
+}
 
 #[context]
 pub struct CreationContext {}
-
 #[context]
 pub struct CycleContext {
     pub camera_position:
@@ -39,6 +40,8 @@ pub struct CycleContext {
     pub resized_width: Parameter<u32, "calibration_line_detection.resized_width">,
     pub debug_image_resized_width:
         Parameter<u32, "calibration_line_detection.debug_image_resized_width">,
+    pub run_next_cycle_after_ms:
+        Parameter<u64, "calibration_line_detection.run_next_cycle_after_ms">,
 
     // TODO activate this once calibration controller can emit this value
     // pub camera_position_of_calibration_lines_request:
@@ -63,11 +66,16 @@ pub struct MainOutputs {
 
 impl CalibrationLineDetection {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_processed_instance: Instant::now(),
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        if !context.enable {
+        if !context.enable
+            || (self.last_processed_instance.elapsed()
+                < Duration::from_millis(*context.run_next_cycle_after_ms))
+        {
             // TODO activate the below part after the calibration controller can emit the request
             // || context.camera_position_of_calibration_lines_request != context.camera_position {
             return Ok(MainOutputs {
@@ -183,6 +191,9 @@ impl CalibrationLineDetection {
                 ),
             ]
         });
+
+        // Set this as late as possible, to execute the next rount at least after the configured delay (checked at the beginning)
+        self.last_processed_instance = Instant::now();
 
         Ok(MainOutputs {
             detected_calibration_lines: calibration_lines.into(),
