@@ -32,6 +32,7 @@ pub struct CycleContext {
     pub glance_angle: Parameter<f32, "look_at.glance_angle">,
     pub glance_direction_toggle_interval:
         Parameter<Duration, "look_at.glance_direction_toggle_interval">,
+    pub offset: Parameter<Point2<f32>, "look_at.glance_center_offset">,
     pub minimum_bottom_focus_pitch: Parameter<f32, "look_at.minimum_bottom_focus_pitch">,
 }
 
@@ -112,13 +113,14 @@ impl LookAt {
                     CameraPosition::Top => camera_matrices.top.camera_to_head.inverse(),
                     CameraPosition::Bottom => camera_matrices.bottom.camera_to_head.inverse(),
                 };
-                look_at_with_camera(target, head_to_camera * ground_to_zero_head)
+                look_at_with_camera(target, head_to_camera * ground_to_zero_head, *context.offset)
             }
             None => look_at(
                 context.sensor_data.positions,
                 ground_to_zero_head,
                 camera_matrices.top.camera_to_head.inverse(),
                 camera_matrices.bottom.camera_to_head.inverse(),
+                *context.offset,
                 target,
                 *context.minimum_bottom_focus_pitch,
             ),
@@ -135,12 +137,13 @@ fn look_at(
     ground_to_zero_head: Isometry3<f32>,
     head_to_top_camera: Isometry3<f32>,
     head_to_bottom_camera: Isometry3<f32>,
+    offset: Point2<f32>,
     target: Point2<f32>,
     minimum_bottom_focus_pitch: f32,
 ) -> HeadJoints<f32> {
-    let top_focus_angles = look_at_with_camera(target, head_to_top_camera * ground_to_zero_head);
+    let top_focus_angles = look_at_with_camera(target, head_to_top_camera * ground_to_zero_head, offset);
     let bottom_focus_angles =
-        look_at_with_camera(target, head_to_bottom_camera * ground_to_zero_head);
+        look_at_with_camera(target, head_to_bottom_camera * ground_to_zero_head, offset);
 
     let pitch_movement_top = (top_focus_angles.pitch - joint_angles.head.pitch).abs();
     let pitch_movement_bottom = (bottom_focus_angles.pitch - joint_angles.head.pitch).abs();
@@ -154,8 +157,13 @@ fn look_at(
     }
 }
 
-fn look_at_with_camera(target: Point2<f32>, ground_to_camera: Isometry3<f32>) -> HeadJoints<f32> {
-    let target_in_camera = ground_to_camera * point![target.x, target.y, 0.0];
+fn look_at_with_camera(
+    target: Point2<f32>,
+    ground_to_camera: Isometry3<f32>,
+    offset: Point2<f32>,
+) -> HeadJoints<f32> {
+    let target_in_camera =
+        ground_to_camera * point![target.x, target.y, 0.0] + vector![offset.x, offset.y, 0.];
     let yaw = f32::atan2(target_in_camera.y, target_in_camera.x);
     let pitch = -f32::atan2(target_in_camera.z, target_in_camera.x);
     HeadJoints { yaw, pitch }

@@ -331,7 +331,7 @@
   },
   "role_assignment": {
     "forced_role": null,
-    "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs":  12}
+    "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs": 12 }
   },
   "stand_up": {
     "gyro_low_pass_filter_coefficient": 0.1,
@@ -708,7 +708,8 @@
       "nanos": 0,
       "secs": 1
     },
-    "minimum_bottom_focus_pitch": 0.2
+    "minimum_bottom_focus_pitch": 0.2,
+    "glance_center_offset": [0.0, 0.0]
   },
   "look_around": {
     "look_around_timeout": {
