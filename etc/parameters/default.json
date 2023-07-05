@@ -368,7 +368,7 @@
     "base_step_duration": { "nanos": 220000000, "secs": 0 },
     "emergency_foot_lift": 0.03,
     "emergency_step": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
-    "emergency_step_duration": { "nanos": 240000000, "secs": 0 },
+    "emergency_step_duration": { "nanos": 250000000, "secs": 0 },
     "foot_pressure_threshold": 0.2,
     "forward_foot_support_offset": 0.09,
     "gyro_balance_factors": {
