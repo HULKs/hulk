@@ -229,7 +229,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         }
     }
 
-    pub fn remaining_estimated_duration(&self) -> Duration {
+    pub fn estimated_remaining_duration(&self) -> Duration {
         match self.current_state.current_frame_index() {
             Some(index) => {
                 let mut remaining = self
