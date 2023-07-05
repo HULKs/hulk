@@ -459,6 +459,7 @@
     "max_number_of_unstable_steps": 3,
     "max_step_adjustment": 0.0018,
     "maximal_step_duration": { "nanos": 0, "secs": 1 },
+    "step_mid_point": 0.5,
     "minimal_step_duration": { "nanos": 150000000, "secs": 0 },
     "number_of_stabilizing_steps": 3,
     "stabilization_foot_lift_multiplier": 1.0,

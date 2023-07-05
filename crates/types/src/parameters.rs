@@ -232,6 +232,7 @@ pub struct WalkingEngine {
     pub max_number_of_unstable_steps: usize,
     pub max_step_adjustment: f32,
     pub maximal_step_duration: Duration,
+    pub step_midpoint: f32,
     pub minimal_step_duration: Duration,
     pub number_of_stabilizing_steps: usize,
     pub stabilization_foot_lift_multiplier: f32,
