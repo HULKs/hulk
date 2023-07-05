@@ -87,21 +87,21 @@ fn ball_is_interception_candidate(
     robot_to_field: Isometry2<f32>,
     parameters: &InterceptBall,
 ) -> bool {
-    let ball_in_front_of_robot = ball.ball_in_ground.coords.norm()
+    let ball_is_in_front_of_robot = ball.ball_in_ground.coords.norm()
         < parameters.maximum_ball_distance
         && ball.ball_in_ground.x > 0.0;
-    let ball_moving_towards_robot =
+    let ball_is_moving_towards_robot =
         ball.ball_in_ground_velocity.x < -parameters.minimum_ball_velocity_towards_robot;
 
     let ball_in_field_velocity = robot_to_field * ball.ball_in_ground_velocity;
-    let ball_moving = ball_in_field_velocity.norm() > parameters.minimum_ball_velocity;
-    let ball_moving_towards_own_half =
+    let ball_is_moving = ball_in_field_velocity.norm() > parameters.minimum_ball_velocity;
+    let ball_is_moving_towards_own_half =
         ball_in_field_velocity.x < -parameters.minimum_ball_velocity_towards_own_half;
 
-    ball_in_front_of_robot
-        && ball_moving
-        && ball_moving_towards_robot
-        && ball_moving_towards_own_half
+    ball_is_in_front_of_robot
+        && ball_is_moving
+        && ball_is_moving_towards_robot
+        && ball_is_moving_towards_own_half
 }
 
 fn get_interception_path(
