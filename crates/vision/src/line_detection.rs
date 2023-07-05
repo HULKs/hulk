@@ -26,6 +26,7 @@ pub struct CycleContext {
         Parameter<Range<f32>, "line_detection.$cycler_instance.allowed_line_length_in_field">,
     pub check_line_distance: Parameter<bool, "line_detection.$cycler_instance.check_line_distance">,
     pub check_line_length: Parameter<bool, "line_detection.$cycler_instance.check_line_length">,
+    pub check_edge_gradient: Parameter<bool, "line_detection.$cycler_instance.check_edge_gradient">,
     pub check_line_segments_projection:
         Parameter<bool, "line_detection.$cycler_instance.check_line_segments_projection">,
     pub gradient_alignment: Parameter<f32, "line_detection.$cycler_instance.gradient_alignment">,
@@ -58,7 +59,8 @@ impl LineDetection {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let mut lines_in_image = ImageLines {
+        let mut image_lines = ImageLines {
+            raw_lines: vec![],
             lines: vec![],
             points: vec![],
         };
@@ -69,10 +71,11 @@ impl LineDetection {
             context.image,
             *context.check_line_segments_projection,
             *context.maximum_projected_segment_length,
+            *context.check_edge_gradient,
             *context.gradient_alignment,
         );
         if context.lines_in_image.is_subscribed() {
-            lines_in_image.points = line_points.clone();
+            image_lines.points = line_points.clone();
         }
         let mut ransac = Ransac::new(line_points);
         let mut lines_in_robot = Vec::new();
@@ -86,6 +89,7 @@ impl LineDetection {
             } = ransac.next_line(20, *context.maximum_fit_distance_in_pixels);
             let ransac_line =
                 ransac_line.expect("Insufficient number of line points. Cannot fit line.");
+            image_lines.raw_lines.push(ransac_line);
             if used_points.len() < *context.minimum_number_of_points_on_line {
                 break;
             }
@@ -162,7 +166,7 @@ impl LineDetection {
 
             lines_in_robot.push(line_in_robot);
             if context.lines_in_image.is_subscribed() {
-                lines_in_image
+                image_lines
                     .lines
                     .push(Line(start_point_in_image, end_point_in_image));
             }
@@ -171,7 +175,7 @@ impl LineDetection {
             lines_in_robot,
             used_vertical_filtered_segments,
         };
-        context.lines_in_image.fill_if_subscribed(|| lines_in_image);
+        context.lines_in_image.fill_if_subscribed(|| image_lines);
         Ok(MainOutputs {
             line_data: Some(line_data).into(),
         })
@@ -220,6 +224,7 @@ fn filter_segments_for_lines(
     image: &YCbCr422Image,
     check_line_segments_projection: bool,
     maximum_projected_segment_length: f32,
+    check_edge_gradient: bool,
     gradient_alignment: f32,
 ) -> (Vec<Point2<f32>>, HashSet<Point2<u16>>) {
     let (line_points, used_vertical_filtered_segments) = filtered_segments
@@ -236,6 +241,7 @@ fn filter_segments_for_lines(
                     camera_matrix,
                     check_line_segments_projection,
                     maximum_projected_segment_length,
+                    check_edge_gradient,
                     gradient_alignment,
                 );
                 if is_line_segment {
@@ -263,6 +269,7 @@ fn is_line_segment(
     camera_matrix: &CameraMatrix,
     check_line_segments_projection: bool,
     maximum_projected_segment_length: f32,
+    check_edge_gradient: bool,
     gradient_alignment: f32,
 ) -> bool {
     if segment.start_edge_type != EdgeType::Rising || segment.end_edge_type != EdgeType::Falling {
@@ -278,6 +285,9 @@ fn is_line_segment(
         .unwrap_or(false);
     if is_too_long {
         return false;
+    }
+    if !check_edge_gradient {
+        return true;
     }
     // gradients (approximately) point in opposite directions if their dot product is (close to) -1
     let gradient_at_start = get_gradient(image, point![scan_line_position, segment.start]);
@@ -387,6 +397,7 @@ mod tests {
             create_filtered_segments(10, YCbCr444 { y: 0, cb: 0, cr: 0 }, 10, 10);
         let check_line_segments_projection = false;
         let maximum_projected_segment_length = 0.3;
+        let check_edge_gradient = true;
         let gradient_alignment = -0.95;
 
         let (line_points, _) = filter_segments_for_lines(
@@ -395,6 +406,7 @@ mod tests {
             &image,
             check_line_segments_projection,
             maximum_projected_segment_length,
+            check_edge_gradient,
             gradient_alignment,
         );
         assert_eq!(line_points.len(), 32);

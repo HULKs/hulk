@@ -30,6 +30,9 @@ impl Overlay for LineDetection {
         for point in lines_in_image.points {
             painter.circle_stroke(point, 3.0, Stroke::new(1.0, Color32::RED))
         }
+        for line in lines_in_image.raw_lines {
+            painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::YELLOW));
+        }
         for line in lines_in_image.lines {
             painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::BLUE));
         }
