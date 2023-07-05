@@ -90,7 +90,7 @@ fn add_image_segmenter_ui_components(
             }
         }
 
-        ui.label(format!("{label:#} Camera"));
+        ui.label(format!("Image Segmenter {label:#}"));
 
         add_save_button(
             ui,
@@ -104,8 +104,6 @@ fn add_image_segmenter_ui_components(
         );
     });
 
-    ui.style_mut().spacing.slider_width = ui.available_size().x - 100.0;
-
     let mut changed = false;
 
     match &mut value_option {
@@ -115,8 +113,8 @@ fn add_image_segmenter_ui_components(
                 stride_range.0, stride_range.1
             ));
             for (axis_value, axis_name) in [
-                (&mut value.horizontal_stride, "horizontal_stride"),
-                (&mut value.vertical_stride, "vertical_stride"),
+                (&mut value.horizontal_stride, "horizontal"),
+                (&mut value.vertical_stride, "vertical"),
             ] {
                 let slider = Slider::new(
                     axis_value,
@@ -130,11 +128,11 @@ fn add_image_segmenter_ui_components(
             }
             {
                 ui.label(format!(
-                    "Vertical Edge Threshold [{}°, {}°]",
+                    "Vertical Edge [{}°, {}°]",
                     vertical_edge_threshold_range.0, vertical_edge_threshold_range.1
                 ));
                 let axis_value = &mut value.vertical_edge_threshold;
-                let axis_name = "green_luminance_threshold";
+                let axis_name = "threshold";
 
                 let slider = Slider::new(
                     axis_value,
@@ -151,7 +149,7 @@ fn add_image_segmenter_ui_components(
             }
         }
         _ => {
-            ui.label("Extrinsic parameters not recieved.");
+            ui.label("Image Segmenter parameters not recieved.");
         }
     };
     if changed {
@@ -191,7 +189,7 @@ fn add_field_color_ui_components(
             }
         }
 
-        ui.label(format!("{label:#} Camera"));
+        ui.label(format!("FieldColor {label:#}"));
 
         add_save_button(
             ui,
@@ -205,24 +203,22 @@ fn add_field_color_ui_components(
         );
     });
 
-    ui.style_mut().spacing.slider_width = ui.available_size().x - 100.0;
-
     let mut changed = false;
 
     match &mut field_color_option {
         Some(field_color_value) => {
             ui.label(format!(
-                "Green Chromacity [{}°, {}°]",
+                "Green Chromacity Thresholds[{}°, {}°]",
                 green_chromacity_range.0, green_chromacity_range.1
             ));
             for (axis_value, axis_name) in [
                 (
                     &mut field_color_value.lower_green_chromaticity_threshold,
-                    "lower_green_chromaticity_threshold",
+                    "lower",
                 ),
                 (
                     &mut field_color_value.upper_green_chromaticity_threshold,
-                    "upper_green_chromaticity_threshold",
+                    "upper",
                 ),
             ] {
                 let slider = Slider::new(
@@ -241,7 +237,7 @@ fn add_field_color_ui_components(
                     green_luminance_range.0, green_luminance_range.1
                 ));
                 let axis_value = &mut field_color_value.green_luminance_threshold;
-                let axis_name = "green_luminance_threshold";
+                let axis_name = "threshold";
 
                 let slider = Slider::new(
                     axis_value,
@@ -255,7 +251,7 @@ fn add_field_color_ui_components(
             }
         }
         _ => {
-            ui.label("Extrinsic parameters not recieved.");
+            ui.label("Field Colour parameters not recieved.");
         }
     };
     if changed {
@@ -276,23 +272,27 @@ impl Widget for &mut SegmenterCalibrationPanel {
             Ok(repository_parameters) => repository_parameters,
             Err(error) => return ui.label(format!("{error:#?}")),
         };
+        ui.style_mut().spacing.slider_width = ui.available_size().x - 150.0;
         ui.vertical(|ui| {
-            for subscription in &mut self.field_color_subscriptions {
+            for (field_color_subscription, image_segmenter_subscription) in &mut self
+                .field_color_subscriptions
+                .iter_mut()
+                .zip(&mut self.image_segmenter_subscriptions)
+            {
                 add_field_color_ui_components(
                     ui,
                     self.nao.clone(),
                     repository_parameters,
-                    subscription,
+                    field_color_subscription,
                 );
 
                 ui.separator();
-            }
-            for subscription in &mut self.image_segmenter_subscriptions {
+
                 add_image_segmenter_ui_components(
                     ui,
                     self.nao.clone(),
                     repository_parameters,
-                    subscription,
+                    image_segmenter_subscription,
                 );
 
                 ui.separator();
