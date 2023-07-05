@@ -109,7 +109,7 @@ pub use kick_target::KickTarget;
 pub use led::{Ear, Eye, Leds};
 pub use limb::{is_above_limbs, Limb, ProjectedLimbs};
 pub use line::{Line, Line2};
-pub use line_data::{ImageLines, LineData};
+pub use line_data::{ImageLines, LineData, LineDiscardReason};
 pub use message_event::MessageEvent;
 pub use motion_command::{
     ArmMotion, Facing, FallDirection, GlanceDirection, HeadMotion, JumpDirection, KickDirection,

@@ -8,7 +8,7 @@ use ordered_float::NotNan;
 use projection::Projection;
 use types::{
     ycbcr422_image::YCbCr422Image, CameraMatrix, EdgeType, FilteredSegments, ImageLines, Line,
-    LineData, Segment,
+    LineData, LineDiscardReason, Segment,
 };
 
 use crate::ransac::{Ransac, RansacResult};
@@ -59,11 +59,7 @@ impl LineDetection {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let mut image_lines = ImageLines {
-            raw_lines: vec![],
-            lines: vec![],
-            points: vec![],
-        };
+        let mut image_lines = ImageLines::default();
 
         let (line_points, used_vertical_filtered_segments) = filter_segments_for_lines(
             context.camera_matrix,
@@ -89,8 +85,10 @@ impl LineDetection {
             } = ransac.next_line(20, *context.maximum_fit_distance_in_pixels);
             let ransac_line =
                 ransac_line.expect("Insufficient number of line points. Cannot fit line.");
-            image_lines.raw_lines.push(ransac_line);
             if used_points.len() < *context.minimum_number_of_points_on_line {
+                image_lines
+                    .discarded_lines
+                    .push((ransac_line, LineDiscardReason::TooFewPoints));
                 break;
             }
             let mut points_with_projection_onto_line: Vec<_> = used_points
@@ -114,6 +112,9 @@ impl LineDetection {
                 .extend(after_gap.iter().map(|(point, _projected_point)| point));
             if points_with_projection_onto_line.len() < *context.minimum_number_of_points_on_line {
                 // just drop and ignore this line
+                image_lines
+                    .discarded_lines
+                    .push((ransac_line, LineDiscardReason::TooFewPoints));
                 continue;
             }
             let (start_point_in_image, start_point_in_robot) =
@@ -154,13 +155,25 @@ impl LineDetection {
                 && line_length_in_robot < context.allowed_line_length_in_field.start;
             let is_too_long = *context.check_line_length
                 && line_length_in_robot > context.allowed_line_length_in_field.end;
-            if is_too_short || is_too_long {
+            if is_too_short {
+                image_lines
+                    .discarded_lines
+                    .push((ransac_line, LineDiscardReason::LineTooShort));
+                continue;
+            }
+            if is_too_long {
+                image_lines
+                    .discarded_lines
+                    .push((ransac_line, LineDiscardReason::LineTooLong));
                 continue;
             }
 
             let is_too_far = *context.check_line_distance
                 && line_in_robot.center().coords.norm() > *context.maximum_distance_to_robot;
             if is_too_far {
+                image_lines
+                    .discarded_lines
+                    .push((ransac_line, LineDiscardReason::TooFarAway));
                 continue;
             }
 
