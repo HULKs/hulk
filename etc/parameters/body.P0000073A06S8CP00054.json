@@ -4,5 +4,8 @@
       "low_pass_filter_coefficient": 0.03,
       "maximal_reliable_distance": 0.5
     }
+  },
+  "walking_engine": {
+    "torso_tilt_offset": 0.08
   }
 }
