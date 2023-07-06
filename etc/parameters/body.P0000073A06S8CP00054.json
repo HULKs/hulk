@@ -1,11 +1,11 @@
 {
-  "control": {
-    "sonar_filter": {
-      "low_pass_filter_coefficient": 0.03,
-      "maximal_reliable_distance": 0.5
+  "step_planner": {
+    "max_step_size": {
+      "forward": 0.05
     }
   },
   "walking_engine": {
-    "torso_tilt_offset": 0.04
+    "max_forward_acceleration": 0.007,
+    "torso_tilt_offset": 0.07
   }
 }
