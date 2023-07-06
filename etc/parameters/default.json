@@ -642,6 +642,9 @@
     "score_per_good_match": 1.0,
     "hypothesis_score_base_increase": 0.1
   },
+  "localization_recorder": {
+    "enable": true
+  },
   "odometry": {
     "odometry_scale_factor": [1.27, 0.8]
   },
