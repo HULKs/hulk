@@ -467,8 +467,8 @@
     "stable_step_deviation": { "nanos": 60000000, "secs": 0 },
     "starting_step_duration": { "nanos": 200000000, "secs": 0 },
     "starting_step_foot_lift": 0.009,
-    "step_duration_increase": { "forward": 0.2, "left": 0.7, "turn": 0.1 },
-    "step_foot_lift_increase": { "forward": 0.02, "left": 0.12, "turn": 0.0 },
+    "step_duration_increase": { "forward": 0.2, "left": 1.2, "turn": 0.1 },
+    "step_foot_lift_increase": { "forward": 0.02, "left": 0.15, "turn": 0.0 },
     "swing_foot_imu_leveling_factor": 1.0,
     "swing_foot_pitch_error_leveling_factor": 0.9,
     "swinging_arms": {
@@ -643,7 +643,7 @@
     "hypothesis_score_base_increase": 0.1
   },
   "odometry": {
-    "odometry_scale_factor": [1.1, 1.0]
+    "odometry_scale_factor": [1.27, 0.85]
   },
   "orientation_filter": {
     "acceleration_threshold": 0.2,
