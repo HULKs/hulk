@@ -1,1 +1,20 @@
-{}
+{
+  "image_segmenter": {
+    "vision_top": {
+      "vertical_edge_threshold": {
+        "first_half_own_half_towards_own_goal": 20.0,
+        "first_half_own_half_away_own_goal": 20.0,
+        "first_half_opponent_half_towards_own_goal": 20.0,
+        "first_half_opponent_half_away_own_goal": 20.0
+      }
+    },
+    "vision_bottom": {
+      "vertical_edge_threshold": {
+        "first_half_own_half_towards_own_goal": 32.0,
+        "first_half_own_half_away_own_goal": 32.0,
+        "first_half_opponent_half_towards_own_goal": 32.0,
+        "first_half_opponent_half_away_own_goal": 32.0
+      }
+    }
+  }
+}
