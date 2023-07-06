@@ -32,10 +32,10 @@ pub fn parabolic_return(x: f32, midpoint: f32) -> f32 {
     if x < midpoint {
         -2.0 / midpoint.powi(3) * x.powi(3) + 3.0 / midpoint.powi(2) * x.powi(2)
     } else {
-        1.0 / (1.0 - midpoint).powi(3)
+        -1.0 / (midpoint - 1.0).powi(3)
             * (2.0 * x.powi(3) - 3.0 * (midpoint + 1.0) * x.powi(2) + 6.0 * midpoint * x
                 - 3.0 * midpoint
-                - 1.0)
+                + 1.0)
     }
 }
 
