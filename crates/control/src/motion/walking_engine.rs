@@ -576,9 +576,10 @@ impl WalkingEngine {
             left: swing_foot_t0.left
                 + (planned_step.left / 2.0 - swing_foot_t0.left) * parabolic_time,
         };
-        let normalized_swing_foot = FootOffsets {
-            forward: swing_foot.forward / (swing_foot.forward + swing_foot.left),
-            left: swing_foot.left / (swing_foot.forward + swing_foot.left),
+        
+        let normalized_planned_step = FootOffsets {
+            forward: planned_step.forward / (planned_step.forward + planned_step.left),
+            left: planned_step.left / (planned_step.forward + planned_step.left),
         };
 
         let turn_left_right = if self.swing_side == Side::Left {
@@ -588,8 +589,8 @@ impl WalkingEngine {
         };
         let turn = self.turn_t0 + (turn_left_right / 2.0 - self.turn_t0) * linear_time;
 
-        let step_midpoint = config.forward_step_midpoint * normalized_swing_foot.forward
-            + config.left_step_midpoint * normalized_swing_foot.left;
+        let step_midpoint = config.forward_step_midpoint * normalized_planned_step.forward
+            + config.left_step_midpoint * normalized_planned_step.left;
 
         let support_foot_lift = self.max_foot_lift_last_step
             * parabolic_return(
