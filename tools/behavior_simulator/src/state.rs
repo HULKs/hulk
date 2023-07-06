@@ -12,7 +12,7 @@ use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team
 use types::{
     messages::{IncomingMessage, OutgoingMessage},
     BallPosition, FilteredGameState, GameControllerState, HeadMotion, KickVariant, LineSegment,
-    MotionCommand, OrientationMode, PathSegment, Players, PrimaryState, Side, Step,
+    MotionCommand, OrientationMode, PathSegment, Players, PrimaryState, Side,
 };
 
 use crate::{
@@ -136,12 +136,6 @@ impl State {
                                 std::f32::consts::FRAC_PI_4 * time_step.as_secs_f32(),
                             ),
                     );
-
-                    robot.persistent_state.current_step = Step {
-                        forward: 30.0 * step[0],
-                        left: 30.0 * step[1],
-                        turn: 0.0,
-                    };
 
                     head
                 }
