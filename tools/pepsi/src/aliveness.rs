@@ -66,6 +66,8 @@ fn print_summary(states: &AlivenessList) {
     const OS_ICON: &str = "󱑞";
     const ALL_OK_ICON: &str = "✔";
     const UNKNOWN_CHARGE_ICON: &str = "󰁽?";
+    const NETWORK_ICON: &str = "󰖩 ";
+    const TEMPERATURE_ICON: &str = "";
 
     for (ip, state) in states.iter() {
         let id = match ip {
@@ -118,10 +120,25 @@ fn print_summary(states: &AlivenessList) {
         }
 
         if output.is_empty() {
-            println!("[{id}] {}", ALL_OK_ICON.green());
-        } else {
-            println!("[{id}] {output}");
+            output = format!("{}{:SPACING$}", ALL_OK_ICON.green().to_string(), "");
         }
+
+        let no_network = "None".to_owned();
+        let network = state.network.as_ref().unwrap_or(&no_network);
+        let temperature = state
+            .temperature
+            .map(|temperatures| {
+                format!(
+                    "{}°C",
+                    temperatures.into_lola().into_iter().fold(0.0, f32::max)
+                )
+            })
+            .unwrap_or("?".to_owned());
+
+        println!(
+            "[{id}] {output}{NETWORK_ICON} {network}{:SPACING$}{TEMPERATURE_ICON} {temperature}",
+            ""
+        );
     }
 }
 
@@ -138,6 +155,8 @@ fn print_verbose(states: &AlivenessList) {
             body_id,
             head_id,
             battery,
+            network,
+            temperature,
         } = state;
 
         let SystemServices {
@@ -159,6 +178,37 @@ fn print_verbose(states: &AlivenessList) {
             },
         );
 
+        let temperature = match temperature {
+            Some(temperatures) => {
+                let mut temperatures: Vec<_> = temperatures.into_lola().into_iter().collect();
+                temperatures.sort_unstable_by(f32::total_cmp);
+
+                let minimum_temperature = temperatures
+                    .iter()
+                    .next()
+                    .expect("temperature array should not be empty");
+
+                let maximum_temperature = temperatures
+                    .iter()
+                    .last()
+                    .expect("temperature array should not be empty");
+
+                let median_temperature = temperatures
+                    .iter()
+                    .nth(temperatures.len() / 2)
+                    .expect("temperature array should not be empty");
+
+                format!(
+                    "{}°C / {}°C / {}°C  (minimum / maximum / median)",
+                    minimum_temperature, maximum_temperature, median_temperature
+                )
+            }
+            None => unknown.clone(),
+        };
+
+        let no_network = "None".to_owned();
+        let network = network.as_ref().unwrap_or(&no_network);
+
         println!(
             "[{ip}]\n\
             {:INDENTATION$}Hostname:          {hostname}\n\
@@ -167,9 +217,11 @@ fn print_verbose(states: &AlivenessList) {
             {:INDENTATION$}Services:          HAL: {hal}{:SPACING$}HuLA: {hula}{:SPACING$}\
                                               HULK: {hulk}{:SPACING$}LoLA: {lola}\n\
             {:INDENTATION$}Battery:           {battery}\n\
+            {:INDENTATION$}Network:           {network}\n\
+            {:INDENTATION$}Temperature:       {temperature}\n\
             {:INDENTATION$}Head ID:           {head_id}\n\
             {:INDENTATION$}Body ID:           {body_id}\n",
-            "", "", "", "", "", "", "", "", "", ""
+            "", "", "", "", "", "", "", "", "", "", "", ""
         )
     }
 }
