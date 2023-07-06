@@ -105,6 +105,10 @@ pub struct CycleContext {
     pub player_number: Parameter<PlayerNumber, "player_number">,
     pub score_per_good_match: Parameter<f32, "localization.score_per_good_match">,
     pub use_line_measurements: Parameter<bool, "localization.use_line_measurements">,
+    pub injected_robot_to_field_of_home_after_coin_toss_before_second_half: Parameter<
+        Option<Isometry2<f32>>,
+        "injected_robot_to_field_of_home_after_coin_toss_before_second_half?",
+    >,
 
     pub line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
     pub line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
@@ -502,15 +506,24 @@ impl Localization {
             }
             _ => None,
         };
-        let robot_to_field_of_home_after_coin_toss_before_second_half = robot_to_field
-            .and_then(|robot_to_field| Some((robot_to_field, context.game_controller_state?)))
-            .map(|(robot_to_field, game_controller_state)| {
-                if game_controller_state.hulks_team_is_home_after_coin_toss {
-                    Isometry2::from_parts(Translation2::default(), Rotation2::new(PI).into())
-                        * robot_to_field
-                } else {
-                    robot_to_field
-                }
+        let robot_to_field_of_home_after_coin_toss_before_second_half = context
+            .injected_robot_to_field_of_home_after_coin_toss_before_second_half
+            .copied()
+            .or_else(|| {
+                robot_to_field
+                    .and_then(|robot_to_field| {
+                        Some((robot_to_field, context.game_controller_state?))
+                    })
+                    .map(|(robot_to_field, game_controller_state)| {
+                        if !game_controller_state.hulks_team_is_home_after_coin_toss {
+                            Isometry2::from_parts(
+                                Translation2::default(),
+                                Rotation2::new(PI).into(),
+                            ) * robot_to_field
+                        } else {
+                            robot_to_field
+                        }
+                    })
             });
         Ok(MainOutputs {
             robot_to_field: robot_to_field.into(),

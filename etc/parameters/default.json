@@ -624,6 +624,7 @@
         "side": "Right"
       }
     },
+    "injected_robot_to_field_of_home_after_coin_toss_before_second_half": null,
     "line_length_acceptance_factor": 1.5,
     "line_measurement_noise": [1000.0, 320.0],
     "maximum_amount_of_gradient_descent_iterations": 20,
