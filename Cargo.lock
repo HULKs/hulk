@@ -1176,6 +1176,7 @@ name = "control"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "bincode",
  "color-eyre",
  "context_attribute",
  "filtering",
