@@ -332,7 +332,6 @@ impl BehaviorCycler {
                     lost_ball_parameters: &parameters.behavior.lost_ball,
                     intercept_ball_parameters: &parameters.behavior.intercept_ball,
                     has_ground_contact: &true,
-                    current_step: &mut persistent_state.current_step,
                     maximum_step_size: &parameters.step_planner.max_step_size,
                 })
                 .wrap_err("failed to execute cycle of node `Behavior`")?;
