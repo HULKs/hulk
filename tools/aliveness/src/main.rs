@@ -20,7 +20,7 @@ use zbus::MessageStream;
 use zbus::MessageType;
 use zbus::Proxy;
 
-use crate::robot_info::RobotInfo;
+use crate::robot_info::{get_network, RobotInfo};
 
 mod robot_info;
 
@@ -227,6 +227,8 @@ async fn handle_beacon(
         body_id: robot_info.body_id().await.to_owned(),
         head_id: robot_info.head_id().await.to_owned(),
         battery: robot_info.battery().await.to_owned(),
+        temperature: robot_info.temperature().await.to_owned(),
+        network: get_network().await.ok().flatten(),
     };
     let send_buffer = serde_json::to_vec(&response).wrap_err("failed to serialize response")?;
     socket

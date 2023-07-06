@@ -1,8 +1,9 @@
 use color_eyre::eyre::{eyre, Context, Result};
 use configparser::ini::Ini;
 use constants::OS_RELEASE_PATH;
-use hula_types::Battery;
+use hula_types::{Battery, JointsArray};
 
+use tokio::process::Command;
 use zbus::{dbus_proxy, zvariant::Optional, Connection};
 
 #[dbus_proxy(
@@ -14,6 +15,7 @@ trait RobotInfo {
     fn body_id(&self) -> zbus::Result<Optional<String>>;
     fn head_id(&self) -> zbus::Result<Optional<String>>;
     fn battery(&self) -> zbus::Result<Optional<Battery>>;
+    fn temperature(&self) -> zbus::Result<Optional<JointsArray>>;
 }
 
 pub struct RobotInfo {
@@ -51,6 +53,10 @@ impl RobotInfo {
         self.proxy.battery().await.ok().and_then(Option::from)
     }
 
+    pub async fn temperature(&self) -> Option<JointsArray> {
+        self.proxy.temperature().await.ok().and_then(Option::from)
+    }
+
     pub async fn body_id(&mut self) -> Option<String> {
         if self.head_id.is_none() {
             self.head_id = self.proxy.head_id().await.ok().and_then(Option::from)
@@ -72,4 +78,23 @@ async fn get_hulks_os_version() -> Result<String> {
     os_release
         .get("default", "VERSION_ID")
         .ok_or_else(|| eyre!("no VERSION_ID in {OS_RELEASE_PATH}"))
+}
+
+pub async fn get_network() -> Result<Option<String>> {
+    let output = Command::new("iwctl")
+        .arg("station")
+        .arg("wlan0")
+        .arg("show")
+        .output()
+        .await
+        .wrap_err("failed to execute iwctl command")?;
+
+    Ok(String::from_utf8(output.stdout)
+        .wrap_err("failed to decode UTF-8")?
+        .lines()
+        .find_map(|line| {
+            line.split("Connected network")
+                .nth(1)
+                .map(|string| string.trim().to_owned())
+        }))
 }
