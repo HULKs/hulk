@@ -363,7 +363,7 @@ impl Repository {
 
     pub async fn set_location(&self, target: &str, location: &str) -> Result<()> {
         let target_location = self.parameters_root().join(format!("{target}_location"));
-        let new_location = self.parameters_root().join(location);
+        let new_location = Path::new(location);
         let _ = remove_file(&target_location).await;
         symlink(&new_location, &target_location)
             .await
