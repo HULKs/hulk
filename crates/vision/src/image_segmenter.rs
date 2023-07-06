@@ -15,7 +15,7 @@ use types::{
 };
 
 pub struct ImageSegmenter {
-    fallback_robot_to_field_of_home_after_coin_toss_before_second_half: Isometry2<f32>,
+    robot_to_field_of_home_after_coin_toss_before_second_half: Isometry2<f32>,
 }
 
 #[context]
@@ -59,18 +59,17 @@ pub struct MainOutputs {
 impl ImageSegmenter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            fallback_robot_to_field_of_home_after_coin_toss_before_second_half: Isometry2::default(
-            ),
+            robot_to_field_of_home_after_coin_toss_before_second_half: Isometry2::default(),
         })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let robot_to_field_of_home_after_coin_toss_before_second_half = context
-            .robot_to_field_of_home_after_coin_toss_before_second_half
-            .copied()
-            .unwrap_or(self.fallback_robot_to_field_of_home_after_coin_toss_before_second_half);
-        self.fallback_robot_to_field_of_home_after_coin_toss_before_second_half =
-            robot_to_field_of_home_after_coin_toss_before_second_half;
+        if let Some(robot_to_field_of_home_after_coin_toss_before_second_half) =
+            context.robot_to_field_of_home_after_coin_toss_before_second_half
+        {
+            self.robot_to_field_of_home_after_coin_toss_before_second_half =
+                *robot_to_field_of_home_after_coin_toss_before_second_half;
+        }
 
         let begin = Instant::now();
         let projected_limbs = context
@@ -91,7 +90,7 @@ impl ImageSegmenter {
             *context.vertical_edge_detection_source,
             context
                 .vertical_edge_threshold
-                .evaluate_at(robot_to_field_of_home_after_coin_toss_before_second_half)
+                .evaluate_at(self.robot_to_field_of_home_after_coin_toss_before_second_half)
                 as i16,
             *context.vertical_median_mode,
             projected_limbs,
