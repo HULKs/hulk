@@ -590,7 +590,7 @@ impl WalkingEngine {
         let turn = self.turn_t0 + (turn_left_right / 2.0 - self.turn_t0) * linear_time;
 
         let step_midpoint = config.forward_step_midpoint * normalized_planned_step.forward
-            + config.left_step_midpoint * normalized_planned_step.left;
+           + config.left_step_midpoint * normalized_planned_step.left;
 
         let support_foot_lift = self.max_foot_lift_last_step
             * parabolic_return(
