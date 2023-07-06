@@ -576,7 +576,7 @@ impl WalkingEngine {
             left: swing_foot_t0.left
                 + (planned_step.left / 2.0 - swing_foot_t0.left) * parabolic_time,
         };
-        
+
         let normalized_planned_step = FootOffsets {
             forward: planned_step.forward / (planned_step.forward + planned_step.left),
             left: planned_step.left / (planned_step.forward + planned_step.left),
