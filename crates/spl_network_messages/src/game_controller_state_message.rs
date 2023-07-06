@@ -81,7 +81,6 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                     message.teams[1]
                 ),
             };
-        dbg!((hulks_team_index, opponent_team_index));
         const MAXIMUM_NUMBER_OF_PENALTY_SHOOTS: u8 = 16;
         if message.teams[hulks_team_index].penaltyShot >= MAXIMUM_NUMBER_OF_PENALTY_SHOOTS {
             bail!(
