@@ -127,7 +127,6 @@ pub struct CycleContext {
 
     pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
     pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
-    pub current_step: PersistentState<Step, "current_step">,
 
     pub motion_command: Input<MotionCommand, "motion_command">,
     pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
@@ -331,7 +330,6 @@ impl WalkingEngine {
 
         context.motion_safe_exits[MotionType::Walk] =
             matches!(self.walk_state, WalkState::Standing);
-        *context.current_step = self.current_step;
 
         let leg_stiffness = match self.walk_state {
             WalkState::Standing => context.config.leg_stiffness_stand,

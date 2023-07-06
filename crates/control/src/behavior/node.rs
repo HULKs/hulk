@@ -44,8 +44,6 @@ pub struct CycleContext {
     pub cycle_time: Input<CycleTime, "cycle_time">,
     pub dribble_path: Input<Option<Vec<PathSegment>>, "dribble_path?">,
 
-    pub current_step: PersistentState<Step, "current_step">,
-
     pub parameters: Parameter<BehaviorParameters, "behavior">,
     pub in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -194,7 +192,6 @@ impl Behavior {
                         world_state,
                         *context.intercept_ball_parameters,
                         *context.maximum_step_size,
-                        *context.current_step,
                     ),
                     Action::Calibrate => calibrate::execute(world_state),
                     Action::DefendGoal => defend.goal(&mut context.path_obstacles),

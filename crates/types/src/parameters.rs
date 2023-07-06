@@ -185,9 +185,6 @@ pub struct InterceptBall {
     pub minimum_ball_velocity_towards_robot: f32,
     pub minimum_ball_velocity_towards_own_half: f32,
     pub maximum_intercept_distance: f32,
-    pub minimum_velocity_for_arc: f32,
-    pub maximum_angle_change_for_arc: f32,
-    pub angle_change_factor: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
