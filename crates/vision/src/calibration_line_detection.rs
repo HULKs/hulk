@@ -56,8 +56,8 @@ pub struct CycleContext {
     pub edges_image: AdditionalOutput<GrayscaleImage, "calibration_line_detection.edges_image">,
     pub unfiltered_lines:
         AdditionalOutput<Option<Vec<Line2>>, "calibration_line_detection.unfiltered_lines">,
-    pub timings_for_steps:
-        AdditionalOutput<Vec<(String, Duration)>, "calibration_line_detection.timings_for_steps">,
+    pub timings_for_steps_ms:
+        AdditionalOutput<Vec<(String, u128)>, "calibration_line_detection.timings_for_steps">,
     pub cycle_time: AdditionalOutput<Duration, "calibration_line_detection.cycle_time">,
 }
 
@@ -157,10 +157,6 @@ impl CalibrationLineDetection {
 
         let elapsed_time_after_all_processing = processing_start.elapsed();
 
-        context
-            .cycle_time
-            .fill_if_subscribed(|| elapsed_time_after_all_processing);
-
         context.difference_image.fill_if_subscribed(|| {
             gray_image_to_hulks_grayscale_image(
                 &difference,
@@ -176,24 +172,35 @@ impl CalibrationLineDetection {
         });
 
         context.unfiltered_lines.fill_if_subscribed(|| lines);
-        context.timings_for_steps.fill_if_subscribed(|| {
+
+        context
+            .cycle_time
+            .fill_if_subscribed(|| elapsed_time_after_all_processing);
+        context.timings_for_steps_ms.fill_if_subscribed(|| {
             vec![
-                ("difference".to_string(), elapsed_time_after_difference),
+                (
+                    "difference".to_string(),
+                    elapsed_time_after_difference.as_millis(),
+                ),
                 (
                     "blurred".to_string(),
-                    elapsed_time_after_blurred - elapsed_time_after_difference,
+                    (elapsed_time_after_blurred - elapsed_time_after_difference).as_millis(),
                 ),
                 (
                     "edges".to_string(),
-                    elapsed_time_after_edges - elapsed_time_after_blurred,
+                    (elapsed_time_after_edges - elapsed_time_after_blurred).as_millis(),
                 ),
                 (
                     "lines".to_string(),
-                    elapsed_time_after_lines - elapsed_time_after_edges,
+                    (elapsed_time_after_lines - elapsed_time_after_edges).as_millis(),
                 ),
                 (
                     "line filtering".to_string(),
-                    elapsed_time_after_all_processing - elapsed_time_after_lines,
+                    (elapsed_time_after_all_processing - elapsed_time_after_lines).as_millis(),
+                ),
+                (
+                    "elapsed_time_after_all_processing".to_string(),
+                    (elapsed_time_after_all_processing).as_millis(),
                 ),
             ]
         });
