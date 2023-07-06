@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use clap::Parser;
 use color_eyre::eyre::{Result, WrapErr};
-use hula_types::{Battery, RobotConfiguration};
+use hula_types::{Battery, JointsArray, RobotConfiguration};
 use log::{debug, LevelFilter};
 use systemd::daemon::{notify, STATE_READY};
 
@@ -26,6 +26,7 @@ struct Arguments {
 #[derive(Default)]
 pub struct SharedState {
     pub battery: Option<Battery>,
+    pub temperature: Option<JointsArray>,
     pub configuration: Option<RobotConfiguration>,
 }
 
