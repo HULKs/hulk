@@ -28,10 +28,13 @@ pub struct SegmenterCalibrationPanel {
 const FIELD_COLOUR_KEY_BASE: &str = "field_color_detection.vision_";
 const IMAGE_SEGMENTER_KEY_BASE: &str = "image_segmenter.vision_";
 
-const STRIDE_RANGE: (usize, usize) = (1, 128);
-const VERTICAL_EDGE_THRESHOLD_RANGE: (i16, i16) = (-128, 128);
+const STRIDE_RANGE: (usize, usize) = (1, 20);
+const VERTICAL_EDGE_THRESHOLD_RANGE: (i16, i16) = (0, u8::MAX as i16);
 const GREEN_CHROMACITY_RANGE: (f32, f32) = (0.0, 1.0);
-const GREEN_LUMINANCE_RANGE: (u8, u8) = (0, u8::MAX / 2);
+const GREEN_LUMINANCE_RANGE: (u8, u8) = (0, u8::MAX);
+// Needed to avoid unnessesary diff creation at save-to-disk (f64->f32->f64 conversion)
+const FIELD_COLOUR_SKIPPED_FIELDS: &[&str] =
+    &["red_chromaticity_threshold", "blue_chromaticity_threshold"];
 
 impl Panel for SegmenterCalibrationPanel {
     const NAME: &'static str = "Segmenter Calibration";
@@ -191,8 +194,18 @@ fn add_field_color_ui_components(
             ui,
             subscription_path,
             || {
-                serde_json::to_value(&field_color_option)
-                    .wrap_err("Conveting FieldColor to serde_json::Value failed.")
+                let value = serde_json::to_value(&field_color_option)
+                    .wrap_err("Conveting FieldColor to serde_json::Value failed.");
+                value.and_then(|mut value| {
+                    if let Some(object) = value.as_object_mut() {
+                        for key in FIELD_COLOUR_SKIPPED_FIELDS {
+                            if object.contains_key(*key) {
+                                object.remove_entry(*key);
+                            }
+                        }
+                    }
+                    Ok(value)
+                })
             },
             nao.clone(),
             repository_parameters,
