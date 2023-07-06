@@ -6,6 +6,6 @@
     }
   },
   "walking_engine": {
-    "torso_tilt_offset": 0.06
+    "torso_tilt_offset": 0.04
   }
 }
