@@ -196,7 +196,7 @@ fn add_field_color_ui_components(
             || {
                 let value = serde_json::to_value(&field_color_option)
                     .wrap_err("Conveting FieldColor to serde_json::Value failed.");
-                value.and_then(|mut value| {
+                value.map(|mut value| {
                     if let Some(object) = value.as_object_mut() {
                         for key in FIELD_COLOUR_SKIPPED_FIELDS {
                             if object.contains_key(*key) {
@@ -204,7 +204,7 @@ fn add_field_color_ui_components(
                             }
                         }
                     }
-                    Ok(value)
+                    value
                 })
             },
             nao.clone(),
