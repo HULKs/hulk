@@ -9,6 +9,7 @@ use projection::Projection;
 use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
+    color::Intensity,
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, Segment},
     line::Line,
@@ -35,6 +36,8 @@ pub struct CycleContext {
     check_edge_gradient: Parameter<bool, "line_detection.$cycler_instance.check_edge_gradient">,
     check_line_segments_projection:
         Parameter<bool, "line_detection.$cycler_instance.check_line_segments_projection">,
+    check_neighboring_segments:
+        Parameter<bool, "line_detection.$cycler_instance.check_neighboring_segments">,
     gradient_alignment: Parameter<f32, "line_detection.$cycler_instance.gradient_alignment">,
     maximum_distance_to_robot:
         Parameter<f32, "line_detection.$cycler_instance.maximum_distance_to_robot">,
@@ -74,6 +77,7 @@ impl LineDetection {
             *context.check_line_segments_projection,
             *context.maximum_projected_segment_length,
             *context.check_edge_gradient,
+            *context.check_neighboring_segments,
             *context.gradient_alignment,
         );
         if context.lines_in_image.is_subscribed() {
@@ -238,6 +242,7 @@ fn get_gradient(image: &YCbCr422Image, point: Point2<u16>) -> Vector2<f32> {
         .unwrap_or_else(Vector2::zeros)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn filter_segments_for_lines(
     camera_matrix: &CameraMatrix,
     filtered_segments: &FilteredSegments,
@@ -245,6 +250,7 @@ fn filter_segments_for_lines(
     check_line_segments_projection: bool,
     maximum_projected_segment_length: f32,
     check_edge_gradient: bool,
+    check_neighboring_segments: bool,
     gradient_alignment: f32,
 ) -> (Vec<Point2<f32>>, HashSet<Point2<u16>>) {
     let (line_points, used_vertical_filtered_segments) = filtered_segments
@@ -253,23 +259,40 @@ fn filter_segments_for_lines(
         .iter()
         .flat_map(|scan_line| {
             let scan_line_position = scan_line.position;
-            scan_line.segments.iter().filter_map(move |segment| {
-                let is_line_segment = is_line_segment(
-                    segment,
-                    scan_line_position,
-                    image,
-                    camera_matrix,
-                    check_line_segments_projection,
-                    maximum_projected_segment_length,
-                    check_edge_gradient,
-                    gradient_alignment,
-                );
-                if is_line_segment {
-                    Some((scan_line_position, segment))
-                } else {
-                    None
-                }
-            })
+            scan_line
+                .segments
+                .iter()
+                .enumerate()
+                .filter_map(move |(segment_index, segment)| {
+                    let predecessor_segment = if segment_index > 0 {
+                        Some(&scan_line.segments[segment_index - 1])
+                    } else {
+                        None
+                    };
+                    let successor_segment = if segment_index < (scan_line.segments.len() - 1) {
+                        Some(&scan_line.segments[segment_index + 1])
+                    } else {
+                        None
+                    };
+                    let is_line_segment = is_line_segment(
+                        segment,
+                        scan_line_position,
+                        image,
+                        camera_matrix,
+                        check_line_segments_projection,
+                        maximum_projected_segment_length,
+                        check_edge_gradient,
+                        check_neighboring_segments,
+                        gradient_alignment,
+                        predecessor_segment,
+                        successor_segment,
+                    );
+                    if is_line_segment {
+                        Some((scan_line_position, segment))
+                    } else {
+                        None
+                    }
+                })
         })
         .map(|(scan_line_position, segment)| {
             let center = (segment.start + segment.end) as f32 / 2.0;
@@ -291,7 +314,10 @@ fn is_line_segment(
     check_line_segments_projection: bool,
     maximum_projected_segment_length: f32,
     check_edge_gradient: bool,
+    check_neighboring_segments: bool,
     gradient_alignment: f32,
+    predecessor_segment: Option<&Segment>,
+    successor_segment: Option<&Segment>,
 ) -> bool {
     if segment.start_edge_type != EdgeType::Rising || segment.end_edge_type != EdgeType::Falling {
         return false;
@@ -306,6 +332,18 @@ fn is_line_segment(
         .unwrap_or(false);
     if is_too_long {
         return false;
+    }
+    if check_neighboring_segments {
+        if predecessor_segment
+            .is_some_and(|predecessor_segment| predecessor_segment.field_color != Intensity::Low)
+        {
+            return false;
+        }
+        if successor_segment
+            .is_some_and(|successor_segment| successor_segment.field_color != Intensity::Low)
+        {
+            return false;
+        }
     }
     if !check_edge_gradient {
         return true;
@@ -423,6 +461,7 @@ mod tests {
         let check_line_segments_projection = false;
         let maximum_projected_segment_length = 0.3;
         let check_edge_gradient = true;
+        let check_neighboring_segments = false;
         let gradient_alignment = -0.95;
 
         let (line_points, _) = filter_segments_for_lines(
@@ -432,6 +471,7 @@ mod tests {
             check_line_segments_projection,
             maximum_projected_segment_length,
             check_edge_gradient,
+            check_neighboring_segments,
             gradient_alignment,
         );
         assert_eq!(line_points.len(), 32);
