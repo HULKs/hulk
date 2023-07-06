@@ -5,6 +5,7 @@ use std::{
 };
 
 use futures_util::{stream::FuturesUnordered, StreamExt};
+use hula_types::JointsArray;
 use tokio::{net::UdpSocket, time};
 
 pub use hula_types::Battery;
@@ -26,6 +27,8 @@ pub struct AlivenessState {
     pub body_id: Option<String>,
     pub head_id: Option<String>,
     pub battery: Option<Battery>,
+    pub network: Option<String>,
+    pub temperature: Option<JointsArray>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -38,7 +41,7 @@ pub enum AlivenessError {
     SocketNotBound(io::Error),
     #[error("failed to receive beacon response")]
     ReceiveFailed(io::Error),
-    #[error("failed to bind beacon socket")]
+    #[error("failed to deserialize JSON")]
     DeserializeFailed(serde_json::Error),
 }
 
