@@ -42,6 +42,9 @@ pub struct CycleContext {
         Parameter<u32, "calibration_line_detection.debug_image_resized_width">,
     pub run_next_cycle_after_ms:
         Parameter<u64, "calibration_line_detection.run_next_cycle_after_ms">,
+    // Heavier calculation due to rgb conversion
+    pub skip_rgb_based_difference_image:
+        Parameter<bool, "calibration_line_detection.skip_rgb_based_difference_image">,
 
     // TODO activate this once calibration controller can emit this value
     // pub camera_position_of_calibration_lines_request:
@@ -82,12 +85,9 @@ impl CalibrationLineDetection {
                 detected_calibration_lines: None.into(),
             });
         }
-        let processing_start = Instant::now();
-        let rgb = RgbImage::from(context.image);
-        let elapsed_time_after_rgb = processing_start.elapsed();
 
         let resized_image_size = {
-            let aspect_ratio = rgb.height() as f32 / rgb.width() as f32;
+            let aspect_ratio = context.image.height() as f32 / context.image.width() as f32;
             let expected_width = *context.resized_width;
             (
                 expected_width,
@@ -109,18 +109,25 @@ impl CalibrationLineDetection {
             }
         };
 
+        let processing_start = Instant::now();
         let difference = {
-            let difference = rgb_image_to_difference(&rgb);
+            if *context.skip_rgb_based_difference_image {
+                generate_luminance_image(context.image, resized_image_size)
+                    .expect("Generating luma image failed")
+            } else {
+                let rgb = RgbImage::from(context.image);
 
-            let resized = gray_image_resize(&difference, resized_image_size, None);
-            GrayImage::from_vec(
-                resized.width().get(),
-                resized.height().get(),
-                resized.into_vec(),
-            )
-            .expect("GrayImage construction after resize failed")
+                let difference = rgb_image_to_difference(&rgb);
+
+                let resized = gray_image_resize(&difference, resized_image_size, None);
+                GrayImage::from_vec(
+                    resized.width().get(),
+                    resized.height().get(),
+                    resized.into_vec(),
+                )
+                .expect("GrayImage construction after resize failed")
+            }
         };
-
         let elapsed_time_after_difference = processing_start.elapsed();
 
         let blurred = gaussian_blur_f32(&difference, *context.gaussian_sigma); // 2.0..10.0
@@ -133,18 +140,21 @@ impl CalibrationLineDetection {
         );
         let elapsed_time_after_edges = processing_start.elapsed();
 
-        let lines = detect_lines(
-            &edges,
-            *context.maximum_number_of_lines,
-            *context.ransac_iterations,
-            *context.ransac_maximum_distance,
-            *context.ransac_maximum_gap,
-        );
+        // Disabled this for now
+        // let lines = detect_lines(
+        //     &edges,
+        //     *context.maximum_number_of_lines,
+        //     *context.ransac_iterations,
+        //     *context.ransac_maximum_distance,
+        //     *context.ransac_maximum_gap,
+        // );
+        let lines: Option<Vec<Line2>> = None;
         let elapsed_time_after_lines = processing_start.elapsed();
 
         let calibration_lines = lines
             .as_ref()
             .and_then(|lines| filter_and_extract_calibration_lines(lines, &blurred));
+
         let elapsed_time_after_all_processing = processing_start.elapsed();
 
         context
@@ -168,11 +178,7 @@ impl CalibrationLineDetection {
         context.unfiltered_lines.fill_if_subscribed(|| lines);
         context.timings_for_steps.fill_if_subscribed(|| {
             vec![
-                ("rgb".to_string(), elapsed_time_after_rgb),
-                (
-                    "difference".to_string(),
-                    elapsed_time_after_difference - elapsed_time_after_rgb,
-                ),
+                ("difference".to_string(), elapsed_time_after_difference),
                 (
                     "blurred".to_string(),
                     elapsed_time_after_blurred - elapsed_time_after_difference,
@@ -263,6 +269,32 @@ pub fn rgb_pixel_to_difference(rgb: &image::Rgb<u8>) -> u8 {
     let minimum = rgb.0.iter().min().unwrap();
     let maximum = rgb.0.iter().max().unwrap();
     maximum - minimum
+}
+
+fn generate_luminance_image(image: &YCbCr422Image, new_size: (u32, u32)) -> Option<GrayImage> {
+    let grayscale_buffer: Vec<_> = image
+        .buffer()
+        .iter()
+        .flat_map(|pixel| [pixel.y1, pixel.y2])
+        .collect();
+    let y_image = ImageView::from_buffer(
+        NonZeroU32::new(image.width()).unwrap(),
+        NonZeroU32::new(image.height()).unwrap(),
+        &grayscale_buffer,
+    );
+    if let Ok(y_image) = y_image {
+        let new_width = NonZeroU32::new(new_size.0).unwrap();
+        let new_height = NonZeroU32::new(new_size.1).unwrap();
+        let mut new_image =
+            fast_image_resize::Image::new(new_width, new_height, y_image.pixel_type());
+        let mut resizer = Resizer::new(ResizeAlg::Convolution(FilterType::Hamming));
+        resizer
+            .resize(&DynamicImageView::U8(y_image), &mut new_image.view_mut())
+            .unwrap();
+        GrayImage::from_vec(new_width.get(), new_height.get(), new_image.into_vec())
+    } else {
+        None
+    }
 }
 
 fn detect_lines(
