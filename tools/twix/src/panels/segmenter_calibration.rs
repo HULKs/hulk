@@ -28,6 +28,11 @@ pub struct SegmenterCalibrationPanel {
 const FIELD_COLOUR_KEY_BASE: &str = "field_color_detection.vision_";
 const IMAGE_SEGMENTER_KEY_BASE: &str = "image_segmenter.vision_";
 
+const STRIDE_RANGE: (usize, usize) = (1, 128);
+const VERTICAL_EDGE_THRESHOLD_RANGE: (i16, i16) = (-128, 128);
+const GREEN_CHROMACITY_RANGE: (f32, f32) = (0.0, 1.0);
+const GREEN_LUMINANCE_RANGE: (u8, u8) = (0, u8::MAX / 2);
+
 impl Panel for SegmenterCalibrationPanel {
     const NAME: &'static str = "Segmenter Calibration";
 
@@ -77,9 +82,6 @@ fn add_image_segmenter_ui_components(
     let label = &image_segmenter_subscription.human_friendly_label;
     let subscription_path = &image_segmenter_subscription.path;
 
-    let stride_range = (1usize, 128usize);
-    let vertical_edge_threshold_range = (-128i16, 128i16);
-
     ui.horizontal(|ui| {
         match buffer.parse_latest::<ImageSegmenter>() {
             Ok(value) => {
@@ -108,17 +110,14 @@ fn add_image_segmenter_ui_components(
 
     match &mut value_option {
         Some(value) => {
-            ui.label(format!(
-                "Strides [{}°, {}°]",
-                stride_range.0, stride_range.1
-            ));
+            ui.label(format!("Strides [{}, {}]", STRIDE_RANGE.0, STRIDE_RANGE.1));
             for (axis_value, axis_name) in [
                 (&mut value.horizontal_stride, "horizontal"),
                 (&mut value.vertical_stride, "vertical"),
             ] {
                 let slider = Slider::new(
                     axis_value,
-                    RangeInclusive::new(stride_range.0, stride_range.1),
+                    RangeInclusive::new(STRIDE_RANGE.0, STRIDE_RANGE.1),
                 )
                 .text(axis_name)
                 .smart_aim(false);
@@ -128,8 +127,8 @@ fn add_image_segmenter_ui_components(
             }
             {
                 ui.label(format!(
-                    "Vertical Edge [{}°, {}°]",
-                    vertical_edge_threshold_range.0, vertical_edge_threshold_range.1
+                    "Vertical Edge [{}, {}]",
+                    VERTICAL_EDGE_THRESHOLD_RANGE.0, VERTICAL_EDGE_THRESHOLD_RANGE.1
                 ));
                 let axis_value = &mut value.vertical_edge_threshold;
                 let axis_name = "threshold";
@@ -137,8 +136,8 @@ fn add_image_segmenter_ui_components(
                 let slider = Slider::new(
                     axis_value,
                     RangeInclusive::new(
-                        vertical_edge_threshold_range.0,
-                        vertical_edge_threshold_range.1,
+                        VERTICAL_EDGE_THRESHOLD_RANGE.0,
+                        VERTICAL_EDGE_THRESHOLD_RANGE.1,
                     ),
                 )
                 .text(axis_name)
@@ -176,9 +175,6 @@ fn add_field_color_ui_components(
     let label = &field_color_subscription.human_friendly_label;
     let subscription_path = &field_color_subscription.path;
 
-    let green_chromacity_range = (0.0f32, 1.0f32);
-    let green_luminance_range = (0u8, u8::MAX);
-
     ui.horizontal(|ui| {
         match buffer.parse_latest::<FieldColorDetection>() {
             Ok(value) => {
@@ -208,8 +204,8 @@ fn add_field_color_ui_components(
     match &mut field_color_option {
         Some(field_color_value) => {
             ui.label(format!(
-                "Green Chromacity Thresholds[{}°, {}°]",
-                green_chromacity_range.0, green_chromacity_range.1
+                "Green Chromacity Thresholds[{}, {}]",
+                GREEN_CHROMACITY_RANGE.0, GREEN_CHROMACITY_RANGE.1
             ));
             for (axis_value, axis_name) in [
                 (
@@ -223,7 +219,7 @@ fn add_field_color_ui_components(
             ] {
                 let slider = Slider::new(
                     axis_value,
-                    RangeInclusive::new(green_chromacity_range.0, green_chromacity_range.1),
+                    RangeInclusive::new(GREEN_CHROMACITY_RANGE.0, GREEN_CHROMACITY_RANGE.1),
                 )
                 .text(axis_name)
                 .smart_aim(false);
@@ -233,15 +229,15 @@ fn add_field_color_ui_components(
             }
             {
                 ui.label(format!(
-                    "Green Luminance Threshold [{}°, {}°]",
-                    green_luminance_range.0, green_luminance_range.1
+                    "Green Luminance Threshold [{}, {}]",
+                    GREEN_LUMINANCE_RANGE.0, GREEN_LUMINANCE_RANGE.1
                 ));
                 let axis_value = &mut field_color_value.green_luminance_threshold;
                 let axis_name = "threshold";
 
                 let slider = Slider::new(
                     axis_value,
-                    RangeInclusive::new(green_luminance_range.0, green_luminance_range.1),
+                    RangeInclusive::new(GREEN_LUMINANCE_RANGE.0, GREEN_LUMINANCE_RANGE.1),
                 )
                 .text(axis_name)
                 .smart_aim(false);
