@@ -23,6 +23,16 @@ impl Interpolated {
             robot_to_field.translation.x,
             robot_to_field.rotation.angle().abs()
         ];
+        let argument = point![
+            argument.x.clamp(
+                Self::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,
+                Self::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.x
+            ),
+            argument.y.clamp(
+                Self::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y,
+                Self::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.y
+            )
+        ];
 
         assert_eq!(
             Self::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,
