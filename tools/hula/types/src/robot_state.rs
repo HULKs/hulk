@@ -147,7 +147,7 @@ pub struct SonarSensors {
     right: f32,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize, Type)]
 #[repr(C)]
 pub struct JointsArray {
     head_yaw: f32,

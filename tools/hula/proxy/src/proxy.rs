@@ -137,6 +137,7 @@ fn handle_lola_event(
     {
         let mut shared_state = shared_state.lock().unwrap();
         shared_state.battery = Some(robot_state.battery);
+        shared_state.temperature = Some(robot_state.temperature);
         if shared_state.configuration.is_none() {
             shared_state.configuration = Some(robot_state.robot_configuration);
         }

@@ -1,4 +1,4 @@
-use hula_types::Battery;
+use hula_types::{Battery, JointsArray};
 use std::sync::{Arc, Mutex};
 use zbus::{
     blocking::{Connection, ConnectionBuilder},
@@ -34,6 +34,10 @@ impl RobotInfo {
 
     fn battery(&self) -> Optional<Battery> {
         Optional::from(self.shared_state.lock().unwrap().battery)
+    }
+
+    fn temperature(&self) -> Optional<JointsArray> {
+        Optional::from(self.shared_state.lock().unwrap().temperature)
     }
 }
 
