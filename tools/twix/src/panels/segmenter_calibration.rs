@@ -32,7 +32,7 @@ const STRIDE_RANGE: (usize, usize) = (1, 20);
 const VERTICAL_EDGE_THRESHOLD_RANGE: (i16, i16) = (0, u8::MAX as i16);
 const GREEN_CHROMACITY_RANGE: (f32, f32) = (0.0, 1.0);
 const GREEN_LUMINANCE_RANGE: (u8, u8) = (0, u8::MAX);
-// Needed to avoid unnessesary diff creation at save-to-disk (f64->f32->f64 conversion)
+// Needed to avoid unnessesary diff creation at save-to-disk (caused by JSON: f64 -> struct: f32 -> JSON: f64 conversion)
 const FIELD_COLOUR_SKIPPED_FIELDS: &[&str] =
     &["red_chromaticity_threshold", "blue_chromaticity_threshold"];
 
