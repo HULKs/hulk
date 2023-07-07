@@ -141,7 +141,7 @@ impl LocalizationRecorder {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RecordedCycleContext {
     pub current_odometry_to_last_odometry: BTreeMap<SystemTime, Option<Isometry2<f32>>>,
 

@@ -32,6 +32,7 @@ members = [
   "tools/camera_matrix_extractor",
   "tools/depp",
   "tools/fanta",
+  "tools/localizer",
   "tools/pepsi",
   "tools/twix",
 ]
