@@ -12,6 +12,7 @@ use types::{
 
 pub struct GameStateFilter {
     state: State,
+    opponent_state: State,
 }
 
 #[context]
@@ -42,12 +43,14 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub filtered_game_state: MainOutput<Option<FilteredGameState>>,
+    pub filtered_opponent_game_state: MainOutput<Option<FilteredGameState>>,
 }
 
 impl GameStateFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             state: State::Initial,
+            opponent_state: State::Initial,
         })
     }
 
@@ -68,6 +71,15 @@ impl GameStateFilter {
             ball_detected_far_from_any_goal,
         );
 
+        self.opponent_state = next_filtered_state(
+            self.opponent_state,
+            context.game_controller_state,
+            context.filtered_whistle.is_detected,
+            context.cycle_time.start_time,
+            context.config,
+            ball_detected_far_from_any_goal,
+        );
+
         let ball_detected_far_from_kick_off_point = context
             .ball_position
             .map(|ball| {
@@ -77,15 +89,24 @@ impl GameStateFilter {
             })
             .unwrap_or(false);
 
-        let filtered_game_state = self.state.construct_filtered_game_state(
+        let filtered_game_state = self.state.construct_hulks_filtered_game_state(
             context.game_controller_state,
             context.cycle_time.start_time,
             ball_detected_far_from_kick_off_point,
             context.config,
         );
 
+        let filtered_opponent_game_state =
+            self.opponent_state.construct_opponent_filtered_game_state(
+                context.game_controller_state,
+                context.cycle_time.start_time,
+                ball_detected_far_from_kick_off_point,
+                context.config,
+            );
+
         Ok(MainOutputs {
             filtered_game_state: Some(filtered_game_state).into(),
+            filtered_opponent_game_state: Some(filtered_opponent_game_state).into(),
         })
     }
 }
@@ -229,18 +250,55 @@ impl State {
         }
     }
 
-    fn construct_filtered_game_state(
+    fn construct_hulks_filtered_game_state(
         &self,
         game_controller_state: &GameControllerState,
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
     ) -> FilteredGameState {
-        let is_in_sub_state = game_controller_state.sub_state.is_some();
         let opponent_is_kicking_team = matches!(
             game_controller_state.kicking_team,
             Team::Opponent | Team::Uncertain
         );
+        self.construct_filtered_game_state(
+            game_controller_state,
+            opponent_is_kicking_team,
+            cycle_start_time,
+            ball_detected_far_from_kick_off_point,
+            config,
+        )
+    }
+
+    fn construct_opponent_filtered_game_state(
+        &self,
+        game_controller_state: &GameControllerState,
+        cycle_start_time: SystemTime,
+        ball_detected_far_from_kick_off_point: bool,
+        config: &GameStateFilterParameters,
+    ) -> FilteredGameState {
+        let hulks_is_kicking_team = matches!(
+            game_controller_state.kicking_team,
+            Team::Hulks | Team::Uncertain
+        );
+        self.construct_filtered_game_state(
+            game_controller_state,
+            hulks_is_kicking_team,
+            cycle_start_time,
+            ball_detected_far_from_kick_off_point,
+            config,
+        )
+    }
+
+    fn construct_filtered_game_state(
+        &self,
+        game_controller_state: &GameControllerState,
+        opponent_is_kicking_team: bool,
+        cycle_start_time: SystemTime,
+        ball_detected_far_from_kick_off_point: bool,
+        config: &GameStateFilterParameters,
+    ) -> FilteredGameState {
+        let is_in_sub_state = game_controller_state.sub_state.is_some();
 
         match self {
             State::Initial => FilteredGameState::Initial,
