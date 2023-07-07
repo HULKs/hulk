@@ -11,11 +11,12 @@ use color_eyre::Result;
 use communication::server::Runtime;
 use control::localization_recorder::RecordedCycleContext;
 use framework::{multiple_buffer_with_slots, Writer};
+use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
-use types::{FieldDimensions, GameControllerState};
+use types::{FieldDimensions, GameControllerState, PrimaryState};
 
 #[derive(Parser)]
 struct Arguments {
@@ -26,34 +27,33 @@ struct Arguments {
 
 fn main() -> Result<()> {
     let arguments = Arguments::parse();
-    println!("{:?}", arguments.log_file);
 
-    let (server, keep_running, writer, notifier) =
-        start_communication_server(arguments.listen_address)?;
+    let (keep_running, writer, notifier) = start_communication_server(arguments.listen_address)?;
 
     let reader = BufReader::new(File::open(arguments.log_file)?);
 
-    let runtime = tokio::runtime::Runtime::new()?;
-    {
-        runtime.spawn(async { recording_player(reader, writer, notifier).await });
-    }
-    server.join().unwrap()?;
+    recording_player(reader, writer, notifier)?;
     keep_running.cancel();
 
     Ok(())
 }
 
-async fn recording_player(
+fn recording_player(
     mut reader: BufReader<File>,
     writer: Writer<Database>,
     notifier: Arc<Notify>,
 ) -> Result<()> {
-    for _ in 0..5 {
+    loop {
         {
             let mut database = writer.next();
             let data: RecordedCycleContext = deserialize_from(&mut reader)?;
             println!("{data:?}");
+
             database.main_outputs.game_controller_state = data.game_controller_state;
+            database.main_outputs.has_ground_contact = data.has_ground_contact;
+            database.main_outputs.primary_state = data.primary_state;
+            database.main_outputs.robot_to_field = data.robot_to_field;
+            database.main_outputs.robot_to_field = data.robot_to_field;
         }
         notifier.notify_waiters();
 
@@ -76,16 +76,14 @@ struct Database {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 struct MainOutputs {
     pub game_controller_state: Option<GameControllerState>,
+    pub has_ground_contact: bool,
+    pub primary_state: PrimaryState,
+    pub robot_to_field: Option<Isometry2<f32>>,
 }
 
 fn start_communication_server(
     listen_address: String,
-) -> Result<(
-    Runtime<Parameters>,
-    CancellationToken,
-    Writer<Database>,
-    Arc<Notify>,
-)> {
+) -> Result<(CancellationToken, Writer<Database>, Arc<Notify>)> {
     let parameter_slots = 3;
 
     let keep_running = CancellationToken::new();
@@ -112,10 +110,5 @@ fn start_communication_server(
         subscribed_outputs_writer,
     );
 
-    Ok((
-        communication_server,
-        keep_running,
-        outputs_writer,
-        outputs_changed,
-    ))
+    Ok((keep_running, outputs_writer, outputs_changed))
 }

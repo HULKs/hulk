@@ -2812,6 +2812,7 @@ dependencies = [
  "communication",
  "control",
  "framework",
+ "nalgebra",
  "serde",
  "serialize_hierarchy",
  "tokio",
