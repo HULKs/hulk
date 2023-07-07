@@ -5369,6 +5369,7 @@ version = "0.3.0"
 dependencies = [
  "aliveness",
  "bincode",
+ "calibration",
  "color-eyre",
  "communication",
  "convert_case",

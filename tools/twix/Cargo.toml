@@ -8,6 +8,7 @@ homepage.workspace = true
 [dependencies]
 aliveness = { workspace = true }
 bincode = { workspace = true }
+calibration = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true }
 convert_case = { workspace = true }
