@@ -43,10 +43,9 @@ fn recording_player(
     writer: Writer<Database>,
     notifier: Arc<Notify>,
 ) -> Result<()> {
-    loop {
+    while let Ok(data) = deserialize_from::<_, RecordedCycleContext>(&mut reader) {
         {
             let mut database = writer.next();
-            let data: RecordedCycleContext = deserialize_from(&mut reader)?;
             println!("{data:?}");
 
             database.main_outputs.game_controller_state = data.game_controller_state;
@@ -59,6 +58,8 @@ fn recording_player(
 
         stdin().read_line(&mut String::new()).unwrap();
     }
+
+    Ok(())
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
