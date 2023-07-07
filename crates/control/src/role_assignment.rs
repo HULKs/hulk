@@ -136,6 +136,8 @@ impl RoleAssignment {
             self.team_ball = None;
         }
 
+        // VRC => assign player VRC watcher role
+
         let send_game_controller_return_message = self
             .last_system_time_transmitted_game_controller_return_message
             .is_none()

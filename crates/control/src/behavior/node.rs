@@ -129,6 +129,7 @@ impl Behavior {
             Role::MidfielderRight => actions.push(Action::SupportRight),
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
             Role::Searcher => actions.push(Action::Search),
+            // VRC Role implement
             Role::Striker => match world_state.filtered_game_state {
                 None | Some(FilteredGameState::Playing { ball_is_free: true }) => {
                     actions.push(Action::Dribble);

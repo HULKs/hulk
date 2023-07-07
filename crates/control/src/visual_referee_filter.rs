@@ -32,7 +32,9 @@ pub struct CycleContext {
 
 #[context]
 #[derive(Default)]
-pub struct MainOutputs {}
+pub struct MainOutputs {
+    // VRC Output an Role Assignment
+}
 
 impl VisualRefereeFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
