@@ -50,22 +50,27 @@ impl DribblePath {
 
         let Some(kick_decisions) = world_state.kick_decisions.as_ref() else { return Ok(MainOutputs::default()) };
         let Some(best_kick_decision) = kick_decisions.first() else { return Ok(MainOutputs::default()) };
-        let ball_position = match world_state.ball {
-            Some(ball_position) => ball_position,
+        let (ball_position_in_ground, ball_position_in_field) = match world_state.ball {
+            Some(ball_position) => (ball_position.ball_in_ground, ball_position.ball_in_field),
             None => return Ok(MainOutputs::default()),
-        }
-        .ball_in_ground;
+        };
         let best_pose = best_kick_decision.kick_pose;
         let Some(robot_to_field) = world_state.robot.robot_to_field else { return Ok(MainOutputs::default()) };
-        let robot_to_ball = ball_position.coords;
-        let dribble_pose_to_ball = ball_position.coords - best_pose.translation.vector;
+        let robot_to_ball = ball_position_in_ground.coords;
+        let dribble_pose_to_ball = ball_position_in_ground.coords - best_pose.translation.vector;
 
         let angle = robot_to_ball.angle(&dribble_pose_to_ball);
         let should_avoid_ball = angle > dribbling_parameters.angle_to_approach_ball_from_threshold;
-        let ball_obstacle = should_avoid_ball.then_some(ball_position);
-        let ball_obstacle_radius_factor = (angle
-            - dribbling_parameters.angle_to_approach_ball_from_threshold)
-            / (PI - dribbling_parameters.angle_to_approach_ball_from_threshold);
+        let ball_obstacle = should_avoid_ball.then_some(ball_position_in_ground);
+
+        let ball_is_between_robot_and_own_goal =
+            ball_position_in_field.coords.x - robot_to_field.translation.x < 0.0f32;
+        let ball_obstacle_radius_factor = if ball_is_between_robot_and_own_goal {
+            1.0f32
+        } else {
+            (angle - dribbling_parameters.angle_to_approach_ball_from_threshold)
+                / (PI - dribbling_parameters.angle_to_approach_ball_from_threshold)
+        };
 
         let is_near_ball = matches!(
             world_state.ball,
