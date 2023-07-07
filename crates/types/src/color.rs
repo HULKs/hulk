@@ -125,6 +125,7 @@ impl Rgb {
     pub const BLUE: Rgb = Rgb::new(0, 0, 255);
     pub const YELLOW: Rgb = Rgb::new(255, 220, 0);
     pub const PURPLE: Rgb = Rgb::new(255, 0, 255);
+    pub const TURQUOISE: Rgb = Rgb::new(0, 255, 255);
     pub const WHITE: Rgb = Rgb::new(255, 255, 255);
 
     pub const fn new(r: u8, g: u8, b: u8) -> Self {
