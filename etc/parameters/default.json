@@ -1111,10 +1111,10 @@
     "vision_bottom": {
       "enable": false
     },
-    "gaussian_sigma": 3.5,
+    "gaussian_sigma": 2.0,
     "canny_low_threshold": 15.0,
     "canny_high_threshold": 50.0,
-    "maximum_number_of_lines": 25,
+    "maximum_number_of_lines": 20,
     "ransac_iterations": 50,
     "ransac_maximum_distance": 3.0,
     "ransac_maximum_gap": 5.0,
