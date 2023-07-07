@@ -308,6 +308,7 @@ pub struct BallFilterParameters {
     pub initial_covariance: Vector4<f32>,
     pub visible_validity_exponential_decay_factor: f32,
     pub hidden_validity_exponential_decay_factor: f32,
+    pub validity_output_threshold: f32,
     pub validity_discard_threshold: f32,
     pub velocity_decay_factor: f32,
     pub resting_ball_velocity_threshold: f32,
