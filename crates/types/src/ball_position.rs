@@ -21,3 +21,9 @@ impl<Frame> Default for BallPosition<Frame> {
         }
     }
 }
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+pub struct HypotheticalBallPosition {
+    pub position: Point2<f32>,
+    pub validity: f32,
+}
