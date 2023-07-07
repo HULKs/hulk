@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{point, Point2};
+use nalgebra::{point, Point2, Vector2};
 use spl_network_messages::{GamePhase, GameState, SubState, Team};
 use types::{
     parameters::{Behavior as BehaviorParameters, InWalkKicks, InterceptBall, LostBall},
@@ -50,6 +50,8 @@ pub struct CycleContext {
     pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
     pub intercept_ball_parameters: Parameter<InterceptBall, "behavior.intercept_ball">,
     pub maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
+    pub striker_set_position:
+        Parameter<Vector2<f32>, "behavior.role_positions.striker_set_position">,
 }
 
 #[context]
@@ -283,6 +285,7 @@ impl Behavior {
                         &walk_and_stand,
                         &look_action,
                         &mut context.path_obstacles,
+                        *context.striker_set_position,
                     ),
                     Action::WalkToPenaltyKick => walk_to_penalty_kick::execute(
                         world_state,

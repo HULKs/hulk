@@ -333,6 +333,7 @@ impl BehaviorCycler {
                     intercept_ball_parameters: &parameters.behavior.intercept_ball,
                     has_ground_contact: &true,
                     maximum_step_size: &parameters.step_planner.max_step_size,
+                    striker_set_position: &parameters.behavior.role_positions.striker_set_position,
                 })
                 .wrap_err("failed to execute cycle of node `Behavior`")?;
             own_database.main_outputs.motion_command = main_outputs.motion_command.value;
