@@ -71,18 +71,18 @@ impl Ear {
         }
     }
 
-    pub fn percentage_ears(intensity: f32, percentage: i32) -> Self {
+    pub fn percentage_ears(intensity: f32, ear_fraction: f32) -> Self {
         Self {
-            intensity_at_0: if percentage > 0 { intensity } else { 0.0 },
-            intensity_at_36: if percentage > 10 { intensity } else { 0.0 },
-            intensity_at_72: if percentage > 20 { intensity } else { 0.0 },
-            intensity_at_108: if percentage > 30 { intensity } else { 0.0 },
-            intensity_at_144: if percentage > 40 { intensity } else { 0.0 },
-            intensity_at_180: if percentage > 50 { intensity } else { 0.0 },
-            intensity_at_216: if percentage > 60 { intensity } else { 0.0 },
-            intensity_at_252: if percentage > 70 { intensity } else { 0.0 },
-            intensity_at_288: if percentage > 80 { intensity } else { 0.0 },
-            intensity_at_324: if percentage > 90 { intensity } else { 0.0 },
+            intensity_at_0: if ear_fraction > 0.0 { intensity } else { 0.0 },
+            intensity_at_36: if ear_fraction > 0.1 { intensity } else { 0.0 },
+            intensity_at_72: if ear_fraction > 0.2 { intensity } else { 0.0 },
+            intensity_at_108: if ear_fraction > 0.3 { intensity } else { 0.0 },
+            intensity_at_144: if ear_fraction > 0.4 { intensity } else { 0.0 },
+            intensity_at_180: if ear_fraction > 0.5 { intensity } else { 0.0 },
+            intensity_at_216: if ear_fraction > 0.6 { intensity } else { 0.0 },
+            intensity_at_252: if ear_fraction > 0.7 { intensity } else { 0.0 },
+            intensity_at_288: if ear_fraction > 0.8 { intensity } else { 0.0 },
+            intensity_at_324: if ear_fraction > 0.9 { intensity } else { 0.0 },
         }
     }
 }
