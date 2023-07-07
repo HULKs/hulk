@@ -12,6 +12,8 @@ The following information can be queried from NAOs connected via Ethernet:
 - Battery charge state and current
 - Head ID
 - Body ID
+- Wireless network name
+- Joint temperatures
 - Name of the interface the beacon is received from (currently always enp4s0)
 
 ## Aliveness service
