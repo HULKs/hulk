@@ -39,7 +39,7 @@ Use your distribution's package manager to install the following dependencies:
         sudo dpkg -i XXXX.deb
         ```
 
-    2. Install rust toolchain
+    1. Install rust toolchain
 
         Visit [https://rustup.rs/](https://rustup.rs/) for up to date instructions.
 
@@ -75,7 +75,7 @@ To not be forced to reload the scene in Webots when rebuilding the controller, y
 
 ## Running Behavior Simulator
 
-To be able to run the current behavior simulator files, you have to install lua ``ìnspect``` package, either by downloading and saving it to the lua path (e.g., you hulk repo) or by using a lua package manager.
+To be able to run the current behavior simulator files, you have to install lua ```ìnspect``` package, either by downloading and saving it to the lua path (e.g., you hulk repo) or by using a lua package manager.
 
 Afterwards you can run the simulator by executing the following command in your hulk project root folder:
 ```sh
