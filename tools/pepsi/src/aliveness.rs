@@ -120,7 +120,7 @@ fn print_summary(states: &AlivenessList) {
         }
 
         if output.is_empty() {
-            output = format!("{}{:SPACING$}", ALL_OK_ICON.green().to_string(), "");
+            output = format!("{}{:SPACING$}", ALL_OK_ICON.green(), "");
         }
 
         let no_network = "None".to_owned();
@@ -184,18 +184,15 @@ fn print_verbose(states: &AlivenessList) {
                 temperatures.sort_unstable_by(f32::total_cmp);
 
                 let minimum_temperature = temperatures
-                    .iter()
-                    .next()
+                    .first()
                     .expect("temperature array should not be empty");
 
                 let maximum_temperature = temperatures
-                    .iter()
                     .last()
                     .expect("temperature array should not be empty");
 
                 let median_temperature = temperatures
-                    .iter()
-                    .nth(temperatures.len() / 2)
+                    .get(temperatures.len() / 2)
                     .expect("temperature array should not be empty");
 
                 format!(
