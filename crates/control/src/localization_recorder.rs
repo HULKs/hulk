@@ -25,6 +25,8 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub enable: Parameter<bool, "localization_recorder.enable">,
+    pub only_record_during_active_localization:
+        Parameter<bool, "localization_recorder.only_record_during_active_localization">,
 
     pub current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
@@ -62,6 +64,18 @@ impl LocalizationRecorder {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         if !*context.enable {
+            return Ok(MainOutputs::default());
+        }
+
+        if *context.only_record_during_active_localization
+            && !matches!(
+                context.primary_state,
+                PrimaryState::Ready
+                    | PrimaryState::Set
+                    | PrimaryState::Playing
+                    | PrimaryState::Calibration
+            )
+        {
             return Ok(MainOutputs::default());
         }
 
