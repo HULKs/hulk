@@ -123,6 +123,7 @@ pub struct CycleContext {
     pub t: AdditionalOutput<Duration, "walking_engine.t">,
     pub t_on_last_phase_end: AdditionalOutput<Duration, "walking_engine.t_on_last_phase_end">,
     pub normalized_forward_speed: AdditionalOutput<f32, "walking_engine.normalized_forward_speed">,
+    pub has_support_changed: AdditionalOutput<bool, "walking_engine.has_support_changed">,
     // TODO: ask hendrik how to do that
     // pub walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
     pub config: Parameter<WalkingEngineParameters, "walking_engine">,
@@ -216,6 +217,11 @@ impl WalkingEngine {
             Side::Left => left_foot_pressure > context.config.foot_pressure_threshold,
             Side::Right => right_foot_pressure > context.config.foot_pressure_threshold,
         };
+
+        context
+            .has_support_changed
+            .fill_if_subscribed(|| has_support_changed);
+
         if has_support_changed && self.t > context.config.minimal_step_duration {
             let deviation_from_plan = self
                 .t
