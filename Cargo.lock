@@ -2753,11 +2753,17 @@ checksum = "ece97ea872ece730aed82664c424eb4c8291e1ff2480247ccf7409044bc6479f"
 name = "localizer"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "bincode",
  "clap 4.2.7",
+ "color-eyre",
+ "communication",
  "control",
+ "framework",
  "serde",
+ "serialize_hierarchy",
+ "tokio",
+ "tokio-util",
+ "types",
 ]
 
 [[package]]

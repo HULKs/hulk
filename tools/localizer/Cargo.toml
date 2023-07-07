@@ -6,8 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.71"
 bincode = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
+color-eyre = { workspace = true }
+communication = { workspace = true, features = ["server"] }
 control = { workspace = true }
+framework = { workspace = true }
 serde = { workspace = true }
+serialize_hierarchy = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+types = { workspace = true }
