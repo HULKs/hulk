@@ -2,7 +2,7 @@
   "initial_positions": {
     "head": {
       "yaw": 0,
-      "pitch": 0
+      "pitch": -0.672
     },
     "left_arm": {
       "shoulder_pitch": -0.017453292519943295,
@@ -45,7 +45,7 @@
           "positions": {
             "head": {
               "yaw": 0,
-              "pitch": 0
+              "pitch": -0.672
             },
             "left_arm": {
               "shoulder_pitch": 1.8814649336498872,
@@ -127,7 +127,7 @@
           "positions": {
             "head": {
               "yaw": 0,
-              "pitch": 0
+              "pitch": -0.672
             },
             "left_arm": {
               "shoulder_pitch": 2.069960492865275,
