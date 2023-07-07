@@ -55,8 +55,8 @@ pub struct Ear {
     pub intensity_at_324: f32,
 }
 
-impl From<f32> for Ear {
-    fn from(intensity: f32) -> Self {
+impl Ear {
+    pub fn full_ears(intensity: f32) -> Self {
         Self {
             intensity_at_0: intensity,
             intensity_at_36: intensity,
@@ -68,6 +68,21 @@ impl From<f32> for Ear {
             intensity_at_252: intensity,
             intensity_at_288: intensity,
             intensity_at_324: intensity,
+        }
+    }
+
+    pub fn percentage_ears(intensity: f32, percentage: i32) -> Self {
+        Self {
+            intensity_at_0: if percentage > 0 { intensity } else { 0.0 },
+            intensity_at_36: if percentage > 10 { intensity } else { 0.0 },
+            intensity_at_72: if percentage > 20 { intensity } else { 0.0 },
+            intensity_at_108: if percentage > 30 { intensity } else { 0.0 },
+            intensity_at_144: if percentage > 40 { intensity } else { 0.0 },
+            intensity_at_180: if percentage > 50 { intensity } else { 0.0 },
+            intensity_at_216: if percentage > 60 { intensity } else { 0.0 },
+            intensity_at_252: if percentage > 70 { intensity } else { 0.0 },
+            intensity_at_288: if percentage > 80 { intensity } else { 0.0 },
+            intensity_at_324: if percentage > 90 { intensity } else { 0.0 },
         }
     }
 }

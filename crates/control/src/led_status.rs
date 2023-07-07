@@ -3,13 +3,17 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::{Ball, CycleTime, Eye, FilteredWhistle, Leds, PrimaryState, Rgb, Role};
+use types::{
+    messages::IncomingMessage, Ball, CycleTime, Ear, Eye, FilteredWhistle, Leds, PrimaryState, Rgb,
+    Role, SensorData,
+};
 
 pub struct LedStatus {
     blink_state: bool,
     last_blink_toggle: SystemTime,
     last_ball_data_top: SystemTime,
     last_ball_data_bottom: SystemTime,
+    last_game_controller_message: Option<SystemTime>,
 }
 
 #[context]
@@ -24,6 +28,8 @@ pub struct CycleContext {
 
     pub balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     pub balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
+    pub network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]
@@ -39,6 +45,7 @@ impl LedStatus {
             last_blink_toggle: UNIX_EPOCH,
             last_ball_data_top: UNIX_EPOCH,
             last_ball_data_bottom: UNIX_EPOCH,
+            last_game_controller_message: None,
         })
     }
 
@@ -151,12 +158,34 @@ impl LedStatus {
             last_ball_data_bottom_too_old,
         );
 
-        let ears = if context.filtered_whistle.is_detected {
-            1.0
-        } else {
-            0.0
-        }
-        .into();
+        if let Some(latest_game_controller_message_time) = context
+            .network_message
+            .persistent
+            .iter()
+            .rev()
+            .find_map(|(timestamp, messages)| {
+                messages
+                    .iter()
+                    .any(|message| matches!(message, IncomingMessage::GameController(_)))
+                    .then_some(timestamp)
+            })
+        {
+            self.last_game_controller_message = Some(*latest_game_controller_message_time);
+        };
+
+        let ears = Self::get_ears(
+            context.filtered_whistle.is_detected,
+            context.cycle_time.start_time,
+            self.last_game_controller_message,
+            self.blink_state,
+            context
+                .sensor_data
+                .temperature_sensors
+                .as_vec()
+                .into_iter()
+                .flatten()
+                .fold(0.0, f32::max),
+        );
 
         let leds = Leds {
             left_ear: ears,
@@ -169,6 +198,43 @@ impl LedStatus {
         };
 
         Ok(MainOutputs { leds: leds.into() })
+    }
+
+    fn get_ears(
+        filter_whistle_detected: bool,
+        cycle_start_time: SystemTime,
+        last_game_controller_message: Option<SystemTime>,
+        blink_state: bool,
+        current_maximum_temperature: f32,
+    ) -> Ear {
+        if filter_whistle_detected {
+            return Ear::full_ears(1.0);
+        }
+
+        if last_game_controller_message.is_some_and(|timestamp| {
+            if cycle_start_time
+                .duration_since(timestamp)
+                .expect("time ran backwards")
+                > Duration::from_millis(5000)
+            {
+                true
+            } else {
+                false
+            }
+        }) {
+            if blink_state {
+                return Ear::full_ears(1.0);
+            } else {
+                return Ear::full_ears(0.0);
+            }
+        }
+
+        let minimum_temperature = 30.0;
+
+        let relative_temperature = ((current_maximum_temperature - minimum_temperature)
+            / (105.0 - minimum_temperature).floor()) as i32;
+
+        Ear::percentage_ears(1.0, relative_temperature)
     }
 
     fn get_eyes(
