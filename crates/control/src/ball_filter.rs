@@ -167,12 +167,17 @@ impl BallFilter {
                 .map(|hypothesis| hypothesis.selected_state(context.ball_filter_configuration))
         });
 
-        let ball_position = self.find_best_hypothesis().map(|hypothesis| {
-            context
-                .chooses_resting_model
-                .fill_if_subscribed(|| hypothesis.is_resting(context.ball_filter_configuration));
-            hypothesis.selected_ball_position(context.ball_filter_configuration)
-        });
+        let ball_position = self
+            .find_best_hypothesis()
+            .filter(|hypothesis| {
+                hypothesis.validity >= context.ball_filter_configuration.validity_output_threshold
+            })
+            .map(|hypothesis| {
+                context.chooses_resting_model.fill_if_subscribed(|| {
+                    hypothesis.is_resting(context.ball_filter_configuration)
+                });
+                hypothesis.selected_ball_position(context.ball_filter_configuration)
+            });
 
         Ok(MainOutputs {
             ball_position: ball_position.into(),
