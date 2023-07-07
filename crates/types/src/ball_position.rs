@@ -4,7 +4,7 @@ use nalgebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Copy, Serialize, Deserialize, SerializeHierarchy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct BallPosition {
     pub position: Point2<f32>,
     pub velocity: Vector2<f32>,
@@ -19,4 +19,10 @@ impl Default for BallPosition {
             last_seen: UNIX_EPOCH,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+pub struct HypotheticalBallPosition {
+    pub position: Point2<f32>,
+    pub validity: f32,
 }

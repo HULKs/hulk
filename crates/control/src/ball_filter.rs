@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     ball::Ball,
     ball_filter::Hypothesis,
-    ball_position::BallPosition,
+    ball_position::{BallPosition, HypotheticalBallPosition},
     camera_matrix::{CameraMatrices, CameraMatrix},
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
@@ -56,6 +56,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub ball_position: MainOutput<Option<BallPosition>>,
+    pub invalid_ball_positions: MainOutput<Vec<HypotheticalBallPosition>>,
 }
 
 impl BallFilter {
@@ -178,9 +179,23 @@ impl BallFilter {
                 });
                 hypothesis.selected_ball_position(context.ball_filter_configuration)
             });
+        let invalid_ball_positions = self
+            .hypotheses
+            .iter()
+            .filter(|hypothesis| {
+                hypothesis.validity < context.ball_filter_configuration.validity_output_threshold
+            })
+            .map(|hypothesis| HypotheticalBallPosition {
+                position: hypothesis
+                    .selected_ball_position(context.ball_filter_configuration)
+                    .position,
+                validity: hypothesis.validity,
+            })
+            .collect::<Vec<_>>();
 
         Ok(MainOutputs {
             ball_position: ball_position.into(),
+            invalid_ball_positions: invalid_ball_positions.into(),
         })
     }
 
