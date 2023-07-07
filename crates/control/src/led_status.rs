@@ -225,9 +225,10 @@ impl LedStatus {
         }
 
         let minimum_temperature = 30.0;
+        let maximum_temperature = 105.0;
 
         let relative_temperature = (current_maximum_temperature - minimum_temperature)
-            / (105.0 - minimum_temperature).floor();
+            / (maximum_temperature - minimum_temperature).floor();
 
         Ear::percentage_ears(1.0, relative_temperature)
     }
