@@ -750,7 +750,8 @@
     }
   },
   "penalty_shot_direction_estimation": {
-    "moving_distance_threshold": 0.2
+    "moving_distance_threshold": 0.2,
+    "minimum_velocity_threshold": 0.1
   },
   "head_motion_limits": {
     "maximum_yaw": 2.076941809873252,
