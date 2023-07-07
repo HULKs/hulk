@@ -59,8 +59,6 @@ fn recording_player(
 
         stdin().read_line(&mut String::new()).unwrap();
     }
-
-    Ok(())
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
