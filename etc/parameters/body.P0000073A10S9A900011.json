@@ -5,6 +5,7 @@
     }
   },
   "walking_engine": {
-    "max_forward_acceleration": 0.007
+    "max_forward_acceleration": 0.007,
+    "torso_tilt_offset": 0.04
   }
 }

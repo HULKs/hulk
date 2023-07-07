@@ -500,7 +500,7 @@
     },
     "tilt_shift_low_pass_factor": 0.4,
     "torso_shift_offset": 0.0,
-    "torso_tilt_offset": 0.08,
+    "torso_tilt_offset": 0.06,
     "walk_hip_height": 0.185
   },
   "kick_steps": {
