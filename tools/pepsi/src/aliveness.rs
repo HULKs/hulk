@@ -85,15 +85,15 @@ fn print_summary(states: &AlivenessList) {
                 } else {
                     DISCHARGING_ICON
                 };
-                output.push_str(&format!("{icon} {charge}%{:SPACING$}", ""))
+                output.push_str(&format!("{:SPACING$}{icon} {charge}%", ""))
             }
         } else {
-            output.push_str(&format!("{UNKNOWN_CHARGE_ICON}{:SPACING$}", ""))
+            output.push_str(&format!("{:SPACING$}{UNKNOWN_CHARGE_ICON}", ""))
         }
 
         let version = &state.hulks_os_version;
         if version != OS_VERSION {
-            output.push_str(&format!("{OS_ICON} {version}{:SPACING$}", ""))
+            output.push_str(&format!("{:SPACING$}{OS_ICON} {version}", ""))
         }
 
         let SystemServices {
@@ -104,26 +104,26 @@ fn print_summary(states: &AlivenessList) {
         } = state.system_services;
         match hal {
             ServiceState::Active => (),
-            _ => output.push_str(&format!("HAL: {hal}{:SPACING$}", "")),
+            _ => output.push_str(&format!("{:SPACING$}HAL: {hal}", "")),
         }
         match hula {
             ServiceState::Active => (),
-            _ => output.push_str(&format!("HuLA: {hula}{:SPACING$}", "")),
+            _ => output.push_str(&format!("{:SPACING$}HuLA: {hula}", "")),
         }
         match hulk {
             ServiceState::Active => (),
-            _ => output.push_str(&format!("HULK: {hulk}{:SPACING$}", "")),
+            _ => output.push_str(&format!("{:SPACING$}HULK: {hulk}", "")),
         }
         match lola {
             ServiceState::Active => (),
-            _ => output.push_str(&format!("LoLA: {lola}{:SPACING$}", "")),
+            _ => output.push_str(&format!("{:SPACING$}LoLA: {lola}", "")),
         }
 
         if output.is_empty() {
-            output = format!("{}{:SPACING$}", ALL_OK_ICON.green(), "");
+            output = format!("{:SPACING$}{}", "", ALL_OK_ICON.green());
         }
 
-        let no_network = "None".to_owned();
+        let no_network = "None ".to_owned();
         let network = state.network.as_ref().unwrap_or(&no_network);
         let temperature = state
             .temperature
@@ -136,7 +136,7 @@ fn print_summary(states: &AlivenessList) {
             .unwrap_or("?".to_owned());
 
         println!(
-            "[{id}] {output}{NETWORK_ICON} {network}{:SPACING$}{TEMPERATURE_ICON} {temperature}",
+            "[{id}] {NETWORK_ICON} {network}{:SPACING$}{TEMPERATURE_ICON} {temperature}{output}",
             ""
         );
     }
