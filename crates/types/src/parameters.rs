@@ -52,7 +52,6 @@ pub struct StepPlanner {
     pub max_step_size_backwards: f32,
     pub translation_exponent: f32,
     pub rotation_exponent: f32,
-    pub inside_turn_ratio: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -250,6 +249,7 @@ pub struct WalkingEngine {
     pub tilt_shift_low_pass_factor: f32,
     pub torso_shift_offset: f32,
     pub torso_tilt_offset: f32,
+    pub torso_tilt_speed_offset: f32,
     pub walk_hip_height: f32,
 }
 

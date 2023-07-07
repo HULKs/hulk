@@ -8,7 +8,7 @@ use log::warn;
 use nalgebra::{Isometry3, Point3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
-    parameters::{KickSteps, WalkingEngine as WalkingEngineParameters},
+    parameters::{KickSteps, StepPlanner, WalkingEngine as WalkingEngineParameters},
     ArmJoints, BodyJoints, BodyJointsCommand, CycleTime, InertialMeasurementUnitData, Joints,
     KickVariant, LegJoints, MotionCommand, MotionSafeExits, MotionType, RobotKinematics,
     SensorData, Side, Step, StepAdjustment, WalkCommand,
@@ -122,9 +122,11 @@ pub struct CycleContext {
     pub planned_step_duration: AdditionalOutput<Duration, "walking_engine.planned_step_duration">,
     pub t: AdditionalOutput<Duration, "walking_engine.t">,
     pub t_on_last_phase_end: AdditionalOutput<Duration, "walking_engine.t_on_last_phase_end">,
+    pub normalized_forward_speed: AdditionalOutput<f32, "walking_engine.normalized_forward_speed">,
     // TODO: ask hendrik how to do that
     // pub walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
     pub config: Parameter<WalkingEngineParameters, "walking_engine">,
+    pub step_planner_config: Parameter<StepPlanner, "step_planner">,
     pub kick_steps: Parameter<KickSteps, "kick_steps">,
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
@@ -255,8 +257,16 @@ impl WalkingEngine {
             context.config.torso_shift_offset,
             context.config.walk_hip_height,
         );
-        left_leg.hip_pitch += arm_compensation - context.config.torso_tilt_offset;
-        right_leg.hip_pitch += arm_compensation - context.config.torso_tilt_offset;
+
+        let normalized_forward_step_size =
+            self.current_step.forward / context.step_planner_config.max_step_size.forward;
+
+        left_leg.hip_pitch += arm_compensation
+            - context.config.torso_tilt_offset
+            - context.config.torso_tilt_speed_offset * normalized_forward_step_size;
+        right_leg.hip_pitch += arm_compensation
+            - context.config.torso_tilt_offset
+            - context.config.torso_tilt_speed_offset * normalized_forward_step_size;
 
         if let WalkState::Kicking(kick_variant, _, kick_step_i, strength) = self.walk_state {
             let swing_leg = match self.swing_side {
@@ -315,6 +325,10 @@ impl WalkingEngine {
         context
             .t_on_last_phase_end
             .fill_if_subscribed(|| self.t_on_last_phase_end);
+        context
+            .normalized_forward_speed
+            .fill_if_subscribed(|| normalized_forward_step_size);
+
         // TODO: refill
         // context.walking_engine.fill_on_subscription(|| self.clone());
 
