@@ -269,10 +269,10 @@ impl WalkingEngine {
 
         left_leg.hip_pitch += arm_compensation
             - context.config.torso_tilt_offset
-            - context.config.torso_tilt_speed_offset * normalized_forward_step_size;
+            - context.config.torso_tilt_speed_offset * normalized_forward_step_size.clamp(0.0, 1.0);
         right_leg.hip_pitch += arm_compensation
             - context.config.torso_tilt_offset
-            - context.config.torso_tilt_speed_offset * normalized_forward_step_size;
+            - context.config.torso_tilt_speed_offset * normalized_forward_step_size.clamp(0.0, 1.0);
 
         if let WalkState::Kicking(kick_variant, _, kick_step_i, strength) = self.walk_state {
             let swing_leg = match self.swing_side {
