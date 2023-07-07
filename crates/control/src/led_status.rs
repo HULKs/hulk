@@ -212,15 +212,10 @@ impl LedStatus {
         }
 
         if last_game_controller_message.is_some_and(|timestamp| {
-            if cycle_start_time
+            cycle_start_time
                 .duration_since(timestamp)
                 .expect("time ran backwards")
                 > Duration::from_millis(5000)
-            {
-                true
-            } else {
-                false
-            }
         }) {
             if blink_state {
                 return Ear::full_ears(1.0);
