@@ -143,15 +143,13 @@ pub fn step_adjustment(
                 (match swing_side {
                     Side::Left => (
                         left_foot_lift * stabilization_foot_lift_multiplier
-                            + stabilization_foot_lift_offset
-                                * parabolic_return(linear_time, 0.1),
+                            + stabilization_foot_lift_offset * parabolic_return(linear_time, 0.1),
                         right_foot_lift,
                     ),
                     Side::Right => (
                         left_foot_lift,
                         right_foot_lift * stabilization_foot_lift_multiplier
-                            + stabilization_foot_lift_offset
-                                * parabolic_return(linear_time, 0.1),
+                            + stabilization_foot_lift_offset * parabolic_return(linear_time, 0.1),
                     ),
                 }),
                 remaining_stabilizing_steps.max(1),
