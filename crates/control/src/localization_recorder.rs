@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, HashSet},
     fs::File,
-    io::Write,
+    io::{BufWriter, Write},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use types::{GameControllerState, LineData, PrimaryState};
 
 pub struct LocalizationRecorder {
-    recording: Option<File>,
+    recording: Option<BufWriter<File>>,
 }
 
 #[context]
@@ -52,10 +52,10 @@ impl LocalizationRecorder {
                 .unwrap()
                 .as_secs();
             Ok(Self {
-                recording: Some(
+                recording: Some(BufWriter::new(
                     File::create(format!("logs/localization.{seconds}.bincode"))
                         .wrap_err("failed")?,
-                ),
+                )),
             })
         } else {
             Ok(Self { recording: None })
@@ -133,7 +133,7 @@ impl LocalizationRecorder {
         let buffer =
             serialize(&recorded_context).wrap_err("failed to serialize recorded context")?;
         self.recording
-            .as_ref()
+            .as_mut()
             .unwrap()
             .write(&buffer)
             .wrap_err("failed to write recorded context")?;
