@@ -28,16 +28,16 @@ pub fn calculate_foot_to_robot(
         * Isometry3::rotation(Vector3::z() * foot_rotation)
 }
 
-pub fn parabolic_return(x: f32) -> f32 {
-    if x < 0.25 {
-        return 8.0 * x * x;
+// visualized in desmos: https://www.desmos.com/calculator/kcr3uxqmyw
+pub fn parabolic_return(x: f32, midpoint: f32) -> f32 {
+    if x < midpoint {
+        -2.0 / midpoint.powi(3) * x.powi(3) + 3.0 / midpoint.powi(2) * x.powi(2)
+    } else {
+        -1.0 / (midpoint - 1.0).powi(3)
+            * (2.0 * x.powi(3) - 3.0 * (midpoint + 1.0) * x.powi(2) + 6.0 * midpoint * x
+                - 3.0 * midpoint
+                + 1.0)
     }
-    if x < 0.75 {
-        let x = x - 0.5;
-        return 1.0 - 8.0 * x * x;
-    }
-    let x = 1.0 - x;
-    8.0 * x * x
 }
 
 pub fn parabolic_step(x: f32) -> f32 {
@@ -46,8 +46,4 @@ pub fn parabolic_step(x: f32) -> f32 {
     } else {
         4.0 * x - 2.0 * x * x - 1.0
     }
-}
-
-pub fn non_continuous_quadratic_return(x: f32) -> f32 {
-    -(x * x) + 1.0
 }

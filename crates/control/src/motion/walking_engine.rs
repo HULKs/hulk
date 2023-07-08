@@ -8,7 +8,7 @@ use log::warn;
 use nalgebra::{Isometry3, Point3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
-    parameters::{KickSteps, WalkingEngine as WalkingEngineParameters},
+    parameters::{KickSteps, StepPlanner, WalkingEngine as WalkingEngineParameters},
     ArmJoints, BodyJoints, BodyJointsCommand, CycleTime, InertialMeasurementUnitData, Joints,
     KickVariant, LegJoints, MotionCommand, MotionSafeExits, MotionType, RobotKinematics,
     SensorData, Side, Step, StepAdjustment, WalkCommand,
@@ -122,9 +122,12 @@ pub struct CycleContext {
     pub planned_step_duration: AdditionalOutput<Duration, "walking_engine.planned_step_duration">,
     pub t: AdditionalOutput<Duration, "walking_engine.t">,
     pub t_on_last_phase_end: AdditionalOutput<Duration, "walking_engine.t_on_last_phase_end">,
+    pub normalized_forward_speed: AdditionalOutput<f32, "walking_engine.normalized_forward_speed">,
+    pub has_support_changed: AdditionalOutput<bool, "walking_engine.has_support_changed">,
     // TODO: ask hendrik how to do that
     // pub walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
     pub config: Parameter<WalkingEngineParameters, "walking_engine">,
+    pub step_planner_config: Parameter<StepPlanner, "step_planner">,
     pub kick_steps: Parameter<KickSteps, "kick_steps">,
     pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
@@ -205,7 +208,7 @@ impl WalkingEngine {
                     &mut context.step_adjustment,
                 );
             }
-            WalkState::Kicking(..) => self.kick_cycle(last_cycle_duration),
+            WalkState::Kicking(..) => self.kick_cycle(last_cycle_duration, context.config),
         }
 
         let left_foot_pressure = context.sensor_data.force_sensitive_resistors.left.sum();
@@ -214,6 +217,11 @@ impl WalkingEngine {
             Side::Left => left_foot_pressure > context.config.foot_pressure_threshold,
             Side::Right => right_foot_pressure > context.config.foot_pressure_threshold,
         };
+
+        context
+            .has_support_changed
+            .fill_if_subscribed(|| has_support_changed);
+
         if has_support_changed && self.t > context.config.minimal_step_duration {
             let deviation_from_plan = self
                 .t
@@ -255,8 +263,22 @@ impl WalkingEngine {
             context.config.torso_shift_offset,
             context.config.walk_hip_height,
         );
-        left_leg.hip_pitch += arm_compensation - context.config.torso_tilt_offset;
-        right_leg.hip_pitch += arm_compensation - context.config.torso_tilt_offset;
+
+        let normalized_forward_step_size =
+            self.current_step.forward / context.step_planner_config.max_step_size.forward;
+        let normalized_left_step_size =
+            self.current_step.left / context.step_planner_config.max_step_size.left;
+
+        left_leg.hip_pitch += arm_compensation
+            - context.config.torso_tilt_base_offset
+            - context.config.torso_tilt_forward_offset
+                * normalized_forward_step_size.clamp(0.0, 1.0)
+            - context.config.torso_tilt_left_offset * normalized_left_step_size.clamp(0.0, 1.0);
+        right_leg.hip_pitch += arm_compensation
+            - context.config.torso_tilt_base_offset
+            - context.config.torso_tilt_forward_offset
+                * normalized_forward_step_size.clamp(0.0, 1.0)
+            - context.config.torso_tilt_left_offset * normalized_left_step_size.clamp(0.0, 1.0);
 
         if let WalkState::Kicking(kick_variant, _, kick_step_i, strength) = self.walk_state {
             let swing_leg = match self.swing_side {
@@ -315,6 +337,10 @@ impl WalkingEngine {
         context
             .t_on_last_phase_end
             .fill_if_subscribed(|| self.t_on_last_phase_end);
+        context
+            .normalized_forward_speed
+            .fill_if_subscribed(|| normalized_forward_step_size);
+
         // TODO: refill
         // context.walking_engine.fill_on_subscription(|| self.clone());
 
@@ -514,11 +540,17 @@ impl WalkingEngine {
     fn next_foot_offsets(
         &mut self,
         planned_step: Step,
+        config: &WalkingEngineParameters,
     ) -> (FootOffsets, FootOffsets, f32, f32, f32) {
         match self.swing_side {
             Side::Left => {
                 let (support_foot, swing_foot, turn, support_foot_lift, swing_foot_lift) = self
-                    .calculate_foot_offsets(planned_step, self.right_foot_t0, self.left_foot_t0);
+                    .calculate_foot_offsets(
+                        planned_step,
+                        self.right_foot_t0,
+                        self.left_foot_t0,
+                        config,
+                    );
                 (
                     swing_foot,
                     support_foot,
@@ -529,7 +561,12 @@ impl WalkingEngine {
             }
             Side::Right => {
                 let (support_foot, swing_foot, turn, support_foot_lift, swing_foot_lift) = self
-                    .calculate_foot_offsets(planned_step, self.left_foot_t0, self.right_foot_t0);
+                    .calculate_foot_offsets(
+                        planned_step,
+                        self.left_foot_t0,
+                        self.right_foot_t0,
+                        config,
+                    );
                 (
                     support_foot,
                     swing_foot,
@@ -546,6 +583,7 @@ impl WalkingEngine {
         planned_step: Step,
         support_foot_t0: FootOffsets,
         swing_foot_t0: FootOffsets,
+        config: &WalkingEngineParameters,
     ) -> (FootOffsets, FootOffsets, f32, f32, f32) {
         let linear_time =
             (self.t.as_secs_f32() / self.planned_step_duration.as_secs_f32()).clamp(0.0, 1.0);
@@ -565,6 +603,11 @@ impl WalkingEngine {
                 + (planned_step.left / 2.0 - swing_foot_t0.left) * parabolic_time,
         };
 
+        let normalized_planned_step = FootOffsets {
+            forward: planned_step.forward / (planned_step.forward + planned_step.left),
+            left: planned_step.left / (planned_step.forward + planned_step.left),
+        };
+
         let turn_left_right = if self.swing_side == Side::Left {
             planned_step.turn
         } else {
@@ -572,13 +615,22 @@ impl WalkingEngine {
         };
         let turn = self.turn_t0 + (turn_left_right / 2.0 - self.turn_t0) * linear_time;
 
+        let step_midpoint = if planned_step.forward + planned_step.left > 0.0 {
+            config.forward_step_midpoint * normalized_planned_step.forward
+                + config.left_step_midpoint * normalized_planned_step.left
+        } else {
+            0.5
+        };
+
         let support_foot_lift = self.max_foot_lift_last_step
             * parabolic_return(
                 (self.t_on_last_phase_end.as_secs_f32() / self.planned_step_duration.as_secs_f32()
                     + linear_time)
                     .clamp(0.0, 1.0),
+                step_midpoint,
             );
-        let swing_foot_lift = self.max_swing_foot_lift * parabolic_return(linear_time);
+        let swing_foot_lift =
+            self.max_swing_foot_lift * parabolic_return(linear_time, step_midpoint);
 
         (
             support_foot,
@@ -610,7 +662,7 @@ impl WalkingEngine {
             next_turn,
             next_left_foot_lift,
             next_right_foot_lift,
-        ) = self.next_foot_offsets(self.current_step);
+        ) = self.next_foot_offsets(self.current_step, config);
         let (
             adjusted_left_foot,
             adjusted_right_foot,
@@ -651,7 +703,7 @@ impl WalkingEngine {
         self.remaining_stabilizing_steps = adjusted_remaining_steps
     }
 
-    fn kick_cycle(&mut self, cycle_duration: Duration) {
+    fn kick_cycle(&mut self, cycle_duration: Duration, config: &WalkingEngineParameters) {
         self.t += cycle_duration;
         let (
             next_left_walk_request,
@@ -659,7 +711,7 @@ impl WalkingEngine {
             next_turn,
             next_left_foot_lift,
             next_right_foot_lift,
-        ) = self.next_foot_offsets(self.current_step);
+        ) = self.next_foot_offsets(self.current_step, config);
         self.left_foot = next_left_walk_request;
         self.right_foot = next_right_walk_request;
         self.turn = next_turn;

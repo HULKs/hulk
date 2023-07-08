@@ -7,7 +7,7 @@ use types::{
     parameters::WalkingEngine as WalkingEngineParameters, LegJoints, Side, StepAdjustment,
 };
 
-use super::{engine::non_continuous_quadratic_return, foot_offsets::FootOffsets};
+use super::{engine::parabolic_return, foot_offsets::FootOffsets};
 
 pub fn support_leg_gyro_balancing(
     gyro: Vector2<f32>,
@@ -143,15 +143,13 @@ pub fn step_adjustment(
                 (match swing_side {
                     Side::Left => (
                         left_foot_lift * stabilization_foot_lift_multiplier
-                            + stabilization_foot_lift_offset
-                                * non_continuous_quadratic_return(linear_time),
+                            + stabilization_foot_lift_offset * parabolic_return(linear_time, 0.1),
                         right_foot_lift,
                     ),
                     Side::Right => (
                         left_foot_lift,
                         right_foot_lift * stabilization_foot_lift_multiplier
-                            + stabilization_foot_lift_offset
-                                * non_continuous_quadratic_return(linear_time),
+                            + stabilization_foot_lift_offset * parabolic_return(linear_time, 0.1),
                     ),
                 }),
                 remaining_stabilizing_steps.max(1),
