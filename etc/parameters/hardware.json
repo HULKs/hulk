@@ -85,7 +85,7 @@
     "white_balance_temperature_auto": true,
     "width": 640
   },
-  "communication_addresses": "[::]:1337",
+  "communication_addresses": null,
   "microphones": {
     "access": "RWInterleaved",
     "format": "FloatLE",
