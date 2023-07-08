@@ -5,7 +5,6 @@ use control::{
     active_vision::{self, ActiveVision},
     ball_state_composer::{self, BallStateComposer},
     behavior::node::{self, Behavior},
-    dribble_path_planner::DribblePath,
     kick_selector::{self, KickSelector},
     motion::look_around::LookAround,
     role_assignment::{self, RoleAssignment},
@@ -40,7 +39,6 @@ pub struct BehaviorCycler {
     active_vision: ActiveVision,
     ball_state_composer: BallStateComposer,
     behavior: Behavior,
-    dribble_path: DribblePath,
     kick_selector: KickSelector,
     look_around: LookAround,
     role_assignment: RoleAssignment,
@@ -64,10 +62,6 @@ impl BehaviorCycler {
         .wrap_err("failed to create node `ActiveVision`")?;
         let ball_state_composer = BallStateComposer::new(ball_state_composer::CreationContext {})
             .wrap_err("failed to create node `BallStateComposer`")?;
-        let dribble_path = control::dribble_path_planner::DribblePath::new(
-            control::dribble_path_planner::CreationContext {},
-        )
-        .wrap_err("failed to create node `DribblePath`")?;
         let behavior = Behavior::new(node::CreationContext {
             behavior: &parameters.behavior,
             field_dimensions: &parameters.field_dimensions,
@@ -105,7 +99,6 @@ impl BehaviorCycler {
             time_to_reach_kick_position,
             ball_state_composer,
             behavior,
-            dribble_path,
             kick_selector,
             look_around,
             role_assignment,
@@ -301,22 +294,6 @@ impl BehaviorCycler {
             own_database.main_outputs.world_state = main_outputs.world_state.value;
         }
         {
-            let main_outputs = {
-                self.dribble_path
-                    .cycle(control::dribble_path_planner::CycleContext {
-                        world_state: &own_database.main_outputs.world_state,
-                        field_dimensions: &parameters.field_dimensions,
-                        parameters: &parameters.behavior,
-                        path_obstacles: framework::AdditionalOutput::new(
-                            true,
-                            &mut own_database.additional_outputs.time_to_reach_obstacles,
-                        ),
-                    })
-                    .wrap_err("failed to execute cycle of `DribblePath`")?
-            };
-            own_database.main_outputs.dribble_path = main_outputs.dribble_path.value;
-        }
-        {
             let main_outputs = self
                 .behavior
                 .cycle(node::CycleContext {
@@ -328,9 +305,12 @@ impl BehaviorCycler {
                         true,
                         &mut own_database.additional_outputs.active_action,
                     ),
+                    time_to_reach_obstacles: AdditionalOutput::new(
+                        true,
+                        &mut own_database.additional_outputs.time_to_reach_obstacles,
+                    ),
                     world_state: &own_database.main_outputs.world_state,
                     cycle_time: &own_database.main_outputs.cycle_time,
-                    dribble_path: own_database.main_outputs.dribble_path.as_ref(),
                     parameters: &parameters.behavior,
                     in_walk_kicks: &parameters.in_walk_kicks,
                     field_dimensions: &parameters.field_dimensions,
@@ -342,6 +322,7 @@ impl BehaviorCycler {
                 })
                 .wrap_err("failed to execute cycle of node `Behavior`")?;
             own_database.main_outputs.motion_command = main_outputs.motion_command.value;
+            own_database.main_outputs.dribble_path = main_outputs.dribble_path.value;
         }
         {
             let main_outputs = {
