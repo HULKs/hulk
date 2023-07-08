@@ -11,21 +11,23 @@ use types::{
 };
 
 pub struct JumpLeft {
-    interpolator: MotionInterpolator<Joints<f32>>,
+    interpolator: MotionInterpolator<JointsCommand<f32>>,
 }
 
 #[context]
 pub struct CreationContext {
-    hardware_interface: HardwareInterface,
+    pub hardware_interface: HardwareInterface,
+    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]
 pub struct CycleContext {
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
-    condition_input: Input<ConditionInput, "condition_input">,
-    cycle_time: Input<CycleTime, "cycle_time">,
-    motion_selection: Input<MotionSelection, "motion_selection">,
+    pub condition_input: Input<ConditionInput, "condition_input">,
+    pub cycle_time: Input<CycleTime, "cycle_time">,
+    pub motion_selection: Input<MotionSelection, "motion_selection">,
+    pub sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]
@@ -55,15 +57,7 @@ impl JumpLeft {
         context.motion_safe_exits[MotionType::JumpLeft] = self.interpolator.is_finished();
 
         Ok(MainOutputs {
-            jump_left_joints_command: JointsCommand {
-                positions: self.interpolator.value(),
-                stiffnesses: Joints::fill(if self.interpolator.is_finished() {
-                    0.0
-                } else {
-                    0.9
-                }),
-            }
-            .into(),
+            jump_left_joints_command: self.interpolator.value().into(),
         })
     }
 }

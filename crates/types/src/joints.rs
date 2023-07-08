@@ -720,6 +720,60 @@ pub struct JointsCommand<T> {
     pub positions: Joints<T>,
     pub stiffnesses: Joints<T>,
 }
+impl_Interpolate!(f32, JointsCommand<f32>, PI);
+
+impl JointsCommand<f32> {
+    pub fn mirrored(self) -> Self {
+        Self {
+            positions: Joints::mirrored(self.positions),
+            stiffnesses: Joints::mirrored(self.stiffnesses),
+        }
+    }
+}
+
+impl Mul<f32> for JointsCommand<f32> {
+    type Output = JointsCommand<f32>;
+
+    fn mul(self, right: f32) -> Self::Output {
+        Self::Output {
+            positions: Joints::mul(self.positions, right),
+            stiffnesses: self.stiffnesses * right,
+        }
+    }
+}
+
+impl Add<JointsCommand<f32>> for JointsCommand<f32> {
+    type Output = JointsCommand<f32>;
+
+    fn add(self, right: JointsCommand<f32>) -> Self::Output {
+        Self::Output {
+            positions: self.positions + right.positions,
+            stiffnesses: self.stiffnesses + right.stiffnesses,
+        }
+    }
+}
+
+impl Sub<JointsCommand<f32>> for JointsCommand<f32> {
+    type Output = JointsCommand<f32>;
+
+    fn sub(self, right: JointsCommand<f32>) -> Self::Output {
+        Self::Output {
+            positions: self.positions - right.positions,
+            stiffnesses: self.stiffnesses - right.stiffnesses,
+        }
+    }
+}
+
+impl Div<f32> for JointsCommand<f32> {
+    type Output = JointsCommand<f32>;
+
+    fn div(self, right: f32) -> Self::Output {
+        Self::Output {
+            positions: self.positions / right,
+            stiffnesses: self.stiffnesses / right,
+        }
+    }
+}
 
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
