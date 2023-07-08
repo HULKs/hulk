@@ -129,7 +129,7 @@ impl State {
                         OrientationMode::Override(orientation) => *orientation,
                     };
 
-                    let previous_robot_to_field = robot_to_field.clone();
+                    let previous_robot_to_field = *robot_to_field;
 
                     *robot_to_field = Isometry2::new(
                         robot_to_field.translation.vector + robot_to_field.rotation * step,
