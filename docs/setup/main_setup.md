@@ -43,6 +43,30 @@ Use your distribution's package manager to install the following dependencies:
 
         Visit [https://rustup.rs/](https://rustup.rs/) for up to date instructions.
 
+=== "Fedora"
+
+    1. Install dependencies
+
+        ```sh
+        sudo dnf install git git-lfs hdf5-devel clang-devel rsync cmake python luajit-devel libudev-devel
+        ```
+
+    1. Install Webots
+
+        At the moment there are no official Fedora packages, but the archive for Ubuntu has worked out fine in our experience.
+        Download webots from [https://cyberbotics.com/](https://cyberbotics.com/) the XXXX.tar.bz (Ubuntu Archive) file and install to a local directory.
+
+        ```sh
+        mkdir ~/tools/webots # example install location
+        tar -xf ...tar.bz
+        # symlink to be accessible from the command line
+        ln -s ~/tools/webots/webots ~/.local/bin/webots
+        ```
+
+    1. Install rust toolchain
+
+        Visit [https://rustup.rs/](https://rustup.rs/) for up to date instructions.
+
 ## Acquiring the code
 
 Clone our [HULKs/hulk](https://github.com/HULKs/hulk) repository from GitHub:
