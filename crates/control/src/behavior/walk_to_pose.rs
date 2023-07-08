@@ -14,6 +14,7 @@ pub struct WalkPathPlanner<'cycle> {
     field_dimensions: &'cycle FieldDimensions,
     obstacles: &'cycle [Obstacle],
     parameters: &'cycle PathPlanningParameters,
+    last_motion_command: &'cycle MotionCommand,
 }
 
 impl<'cycle> WalkPathPlanner<'cycle> {
@@ -21,11 +22,13 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         field_dimensions: &'cycle FieldDimensions,
         obstacles: &'cycle [Obstacle],
         parameters: &'cycle PathPlanningParameters,
+        last_motion_command: &'cycle MotionCommand,
     ) -> Self {
         Self {
             field_dimensions,
             obstacles,
             parameters,
+            last_motion_command,
         }
     }
     #[allow(clippy::too_many_arguments)]
@@ -39,7 +42,10 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         rule_obstacles: &[RuleObstacle],
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     ) -> Vec<PathSegment> {
-        let mut planner = PathPlanner::default();
+        let mut planner = PathPlanner::from_last_motion(
+            self.last_motion_command,
+            self.parameters.rotation_penalty_factor,
+        );
         planner.with_obstacles(obstacles, self.parameters.robot_radius_at_hip_height);
         planner.with_rule_obstacles(
             robot_to_field.inverse(),
