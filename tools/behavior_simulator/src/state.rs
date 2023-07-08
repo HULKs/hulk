@@ -129,6 +129,8 @@ impl State {
                         OrientationMode::Override(orientation) => *orientation,
                     };
 
+                    let previous_robot_to_field = robot_to_field.clone();
+
                     *robot_to_field = Isometry2::new(
                         robot_to_field.translation.vector + robot_to_field.rotation * step,
                         robot_to_field.rotation.angle()
@@ -137,6 +139,11 @@ impl State {
                                 std::f32::consts::FRAC_PI_4 * time_step.as_secs_f32(),
                             ),
                     );
+
+                    for obstacle in robot.database.main_outputs.obstacles.iter_mut() {
+                        obstacle.position =
+                            robot_to_field.inverse() * previous_robot_to_field * obstacle.position;
+                    }
 
                     head
                 }
