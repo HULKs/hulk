@@ -630,6 +630,7 @@ fn predict(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn get_fitted_field_mark_correspondence(
     measured_lines_in_field: &[Line2],
     field_marks: &[FieldMark],
