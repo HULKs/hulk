@@ -1,6 +1,8 @@
 {
   "walking_engine": {
-    "torso_tilt_offset": 0.04
+    "torso_tilt_base_offset": 0.02,
+    "torso_tilt_forward_offset": 0.02,
+    "torso_tilt_left_offset": 0.01
   }
 }
 
