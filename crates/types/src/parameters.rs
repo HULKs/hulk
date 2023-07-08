@@ -196,6 +196,7 @@ pub struct PathPlanning {
     pub minimum_robot_radius_at_foot_height: f32,
     pub robot_radius_at_foot_height: f32,
     pub robot_radius_at_hip_height: f32,
+    pub half_turning_time: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
