@@ -11,6 +11,8 @@ use types::{
     PathObstacle, PathSegment, PrimaryState, Role, Side, Step, WorldState,
 };
 
+use crate::dribble_path_planner;
+
 use super::{
     calibrate,
     defend::Defend,
@@ -38,11 +40,11 @@ pub struct CreationContext {
 pub struct CycleContext {
     pub path_obstacles: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
     pub active_action: AdditionalOutput<Action, "active_action">,
+    pub time_to_reach_obstacles: AdditionalOutput<Vec<PathObstacle>, "time_to_reach_obstacles">,
 
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub world_state: Input<WorldState, "world_state">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub dribble_path: Input<Option<Vec<PathSegment>>, "dribble_path?">,
 
     pub parameters: Parameter<BehaviorParameters, "behavior">,
     pub in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
@@ -58,6 +60,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub motion_command: MainOutput<MotionCommand>,
+    pub dribble_path: MainOutput<Option<Vec<PathSegment>>>,
 }
 
 impl Behavior {
@@ -74,6 +77,7 @@ impl Behavior {
         if let Some(command) = &context.parameters.injected_motion_command {
             return Ok(MainOutputs {
                 motion_command: command.clone().into(),
+                dribble_path: None.into(),
             });
         }
 
@@ -176,6 +180,12 @@ impl Behavior {
             &walk_and_stand,
             &look_action,
         );
+        let dribble_path = dribble_path_planner::plan(
+            &walk_path_planner,
+            world_state,
+            &context.parameters.dribbling,
+            &mut context.time_to_reach_obstacles,
+        );
 
         let (action, motion_command) = actions
             .iter()
@@ -207,7 +217,7 @@ impl Behavior {
                         &walk_path_planner,
                         context.in_walk_kicks,
                         &context.parameters.dribbling,
-                        context.dribble_path.cloned(),
+                        dribble_path.clone(),
                     ),
                     Action::Jump => jump::execute(world_state),
                     Action::PrepareJump => prepare_jump::execute(world_state),
@@ -308,6 +318,7 @@ impl Behavior {
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),
+            dribble_path: dribble_path.into(),
         })
     }
 }
