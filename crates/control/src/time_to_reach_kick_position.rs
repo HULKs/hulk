@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use framework::AdditionalOutput;
-use nalgebra::{Isometry2, Vector2};
+use nalgebra::Vector2;
 use types::{parameters::Behavior, PathSegment};
 
 use std::{f32::consts::PI, time::Duration};
@@ -9,7 +9,6 @@ use context_attribute::context;
 #[context]
 pub struct CycleContext {
     pub dribble_path: Input<Option<Vec<PathSegment>>, "dribble_path?">,
-    pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
 
     pub time_to_reach_kick_position_output:
         AdditionalOutput<Option<Duration>, "time_to_reach_kick_position_output">,

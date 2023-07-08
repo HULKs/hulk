@@ -360,7 +360,6 @@ impl BehaviorCycler {
                 .cycle(control::time_to_reach_kick_position::CycleContext {
                     time_to_reach_kick_position: &mut persistent_state.time_to_reach_kick_position,
                     dribble_path: own_database.main_outputs.dribble_path.as_ref(),
-                    robot_to_field: own_database.main_outputs.robot_to_field.as_ref(),
                     stand_up_back_estimated_remaining_duration: own_database
                         .main_outputs
                         .stand_up_back_estimated_remaining_duration
