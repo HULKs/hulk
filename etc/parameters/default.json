@@ -1056,7 +1056,7 @@
     "penalty_area_width": 4.0,
     "penalty_marker_distance": 1.3,
     "center_circle_diameter": 1.5,
-    "border_strip_width": 0.7,
+    "border_strip_width": 3.0,
     "goal_inner_width": 1.5,
     "goal_post_diameter": 0.1,
     "goal_depth": 0.5
