@@ -6,9 +6,9 @@ use color_eyre::{
     Result,
 };
 use mlua::{Error as LuaError, Function, Lua, LuaSerdeExt, SerializeOptions, Value};
-use nalgebra::{Isometry2, Vector2};
+use nalgebra::{Isometry2, Point2, Vector2};
 use parking_lot::Mutex;
-use types::Players;
+use types::{Obstacle, Players};
 
 use crate::{
     robot::Robot,
@@ -149,6 +149,65 @@ impl Simulator {
                     },
                 )?,
             )?;
+
+            self.lua.globals().set(
+                "create_obstacle",
+                scope.create_function(
+                    |lua, (player_number, position, radius): (usize, Value, f32)| {
+                        let player_number =
+                            to_player_number(player_number).map_err(LuaError::external)?;
+                        let position: Point2<f32> = lua.from_value(position)?;
+
+                        let robot_to_field = self
+                            .state
+                            .lock()
+                            .robots
+                            .get(&player_number)
+                            .unwrap()
+                            .database
+                            .main_outputs
+                            .robot_to_field
+                            .expect("simulated robots should always have a known pose");
+
+                        self.state
+                            .lock()
+                            .robots
+                            .get_mut(&player_number)
+                            .unwrap()
+                            .database
+                            .main_outputs
+                            .obstacles
+                            .push(Obstacle::robot(
+                                robot_to_field.inverse() * position,
+                                radius,
+                                radius,
+                            ));
+
+                        Ok(())
+                    },
+                )?,
+            )?;
+
+            self.lua.globals().set(
+                "clear_obstacles",
+                scope.create_function(|_, player_number: usize| {
+                    let player_number =
+                        to_player_number(player_number).map_err(LuaError::external)?;
+
+                    self.state
+                        .lock()
+                        .robots
+                        .get_mut(&player_number)
+                        .unwrap()
+                        .database
+                        .main_outputs
+                        .obstacles
+                        .clear();
+
+                    Ok(())
+                })?,
+            )?;
+
             for event in events {
                 match event {
                     Event::Cycle => self.execute_event_callback("on_cycle")?,
