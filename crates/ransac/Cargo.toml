@@ -8,6 +8,7 @@ homepage.workspace = true
 [dependencies]
 approx = { workspace = true }
 geometry = { workspace = true }
+itertools = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
