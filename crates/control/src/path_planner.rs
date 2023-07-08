@@ -48,7 +48,7 @@ impl PathPlanner {
                 orientation_mode,
                 path,
                 ..
-            } => match orientation_mode.clone() {
+            } => match *orientation_mode {
                 types::OrientationMode::AlignWithPath => path.first().map(|segment| {
                     let direction = match segment {
                         PathSegment::LineSegment(line_segment) => line_segment.1.coords,
