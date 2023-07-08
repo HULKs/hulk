@@ -44,20 +44,19 @@ impl Overlay for CalibrationLineDetection {
     }
 
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
-        let lines: Option<Vec<Line2<Pixel>>> = self.calibration_line_candidates.require_latest()?;
+        // let lines: Option<Vec<Line2<Pixel>>> = ?; =  self.calibration_line_candidates.require_latest();
+        // if let Ok(lines) = self.calibration_line_candidates.require_latest() {
+        //     for line in lines {
+        //         painter.circle_stroke(line.0, 3.0, Stroke::new(1.0, Color32::RED));
+        //         painter.circle_stroke(line.1, 3.0, Stroke::new(1.0, Color32::RED));
+        //         painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::BLUE));
+        //     }
+        // }
 
-        if let Some(lines) = lines {
-            for line in lines {
-                painter.circle_stroke(line.0, 3.0, Stroke::new(1.0, Color32::RED));
-                painter.circle_stroke(line.1, 3.0, Stroke::new(1.0, Color32::RED));
-                painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::BLUE));
-            }
-        }
+        // let _filtered_calibration_lines: Option<GoalBoxCalibrationLines<Pixel>> =
+        //     self.filtered_calibration_lines.require_latest()?;
 
-        let _filtered_calibration_lines: Option<GoalBoxCalibrationLines<Pixel>> =
-            self.filtered_calibration_lines.require_latest()?;
-
-        // if let Some(filtered_calibration_lines) = filtered_calibration_lines {
+        // if let Ok(filtered_calibration_lines) = self.filtered_calibration_lines.require_latest() {
         //     let connecting_line = &filtered_calibration_lines.connecting_line;
         //     let goal_box_line = &filtered_calibration_lines.goal_box_line;
         //     let border_line = &filtered_calibration_lines.border_line;
