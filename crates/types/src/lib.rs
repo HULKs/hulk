@@ -67,6 +67,7 @@ mod sonar_values;
 mod step_adjustment;
 mod step_plan;
 mod support_foot;
+pub mod visual_referee_request;
 mod walk_command;
 mod whistle;
 mod world_state;
