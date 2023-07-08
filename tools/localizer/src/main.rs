@@ -91,7 +91,7 @@ fn line_correspondences(
         .iter()
         .map(|line| Line(robot_to_field * line.0, robot_to_field * line.1))
         .collect();
-    let (correspondences, fit_error, fit_errors) =
+    let (correspondences, _fit_error, _fit_errors) =
         get_fitted_field_mark_correspondence(&lines, &field_marks, 1e-2, 0.01, 1.5, 20, 10, true);
     correspondences
         .iter()
