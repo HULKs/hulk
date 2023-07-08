@@ -165,6 +165,7 @@ impl Behavior {
             context.field_dimensions,
             &world_state.obstacles,
             &context.parameters.path_planning,
+            &self.last_motion_command,
         );
         let walk_and_stand = WalkAndStand::new(
             world_state,
