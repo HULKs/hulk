@@ -1,10 +1,10 @@
 use color_eyre::{eyre::eyre, Result};
-use nalgebra::{distance, point, vector, Isometry2, Point2};
+use nalgebra::{distance, point, vector, Isometry2, Point2, UnitComplex};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
 
 use types::{
-    Arc, Circle, FieldDimensions, LineSegment, Obstacle, Orientation, PathObstacle,
+    Arc, Circle, FieldDimensions, LineSegment, MotionCommand, Obstacle, Orientation, PathObstacle,
     PathObstacleShape, PathSegment, RuleObstacle,
 };
 
@@ -34,9 +34,50 @@ pub struct PathPlanner {
     /// The first node is always the start, the second the destination
     pub nodes: Vec<PathNode>,
     pub obstacles: Vec<PathObstacle>,
+    pub last_orientation: Option<UnitComplex<f32>>,
+    pub rotation_penalty_factor: f32,
 }
 
 impl PathPlanner {
+    pub fn from_last_motion(
+        last_motion_command: &MotionCommand,
+        rotation_penalty_factor: f32,
+    ) -> Self {
+        let last_orientation = match last_motion_command {
+            MotionCommand::Walk {
+                orientation_mode,
+                path,
+                ..
+            } => match orientation_mode.clone() {
+                types::OrientationMode::AlignWithPath => path.first().map(|segment| {
+                    let direction = match segment {
+                        PathSegment::LineSegment(line_segment) => line_segment.1.coords,
+                        PathSegment::Arc(arc, orientation) => orientation
+                            .rotate_vector_90_degrees(arc.start - arc.circle.center)
+                            .normalize(),
+                    };
+                    if direction.norm_squared() < f32::EPSILON {
+                        UnitComplex::identity()
+                    } else {
+                        let normalized_direction = direction.normalize();
+                        UnitComplex::from_cos_sin_unchecked(
+                            normalized_direction.x,
+                            normalized_direction.y,
+                        )
+                    }
+                }),
+                types::OrientationMode::Override(orientation) => Some(orientation),
+            },
+            _ => None,
+        };
+
+        Self {
+            last_orientation,
+            rotation_penalty_factor,
+            ..Default::default()
+        }
+    }
+
     pub fn with_obstacles(&mut self, obstacles: &[Obstacle], own_robot_radius: f32) {
         let new_obstacles = obstacles.iter().map(|obstacle| {
             let position = obstacle.position;
@@ -433,7 +474,22 @@ impl PathPlanner {
 
 impl DynamicMap for PathPlanner {
     fn get_pathing_distance(&self, index1: usize, index2: usize) -> f32 {
-        (self.nodes[index1].position - self.nodes[index2].position).norm()
+        let direction = self.nodes[index2].position - self.nodes[index1].position;
+        let mut distance = direction.norm();
+
+        if index1 == 0 && distance > 0.0 {
+            if let Some(current_rotation) = self.last_orientation {
+                let normalized_direction = direction.normalize();
+                let rotation = current_rotation.rotation_to(&UnitComplex::from_cos_sin_unchecked(
+                    normalized_direction.x,
+                    normalized_direction.y,
+                ));
+
+                distance += rotation.angle().abs() * self.rotation_penalty_factor;
+            }
+        }
+
+        distance
     }
 
     fn get_available_exits(&mut self, index: usize) -> SmallVec<[(usize, f32); 10]> {
