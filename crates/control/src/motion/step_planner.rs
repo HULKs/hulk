@@ -74,7 +74,11 @@ impl StepPlanner {
                 let rotation = if direction.coords.norm_squared() < f32::EPSILON {
                     UnitComplex::identity()
                 } else {
-                    UnitComplex::from_cos_sin_unchecked(direction.x, direction.y)
+                    let normalized_direction = direction.coords.normalize();
+                    UnitComplex::from_cos_sin_unchecked(
+                        normalized_direction.x,
+                        normalized_direction.y,
+                    )
                 };
                 Isometry2::from_parts(line_segment.1.into(), rotation)
             }
