@@ -7,8 +7,8 @@ mod map;
 mod parameter;
 mod plot;
 mod remote;
-mod segmenter_calibration;
 mod text;
+mod vision_tuner;
 
 pub use self::behavior_simulator::BehaviorSimulatorPanel;
 pub use self::image::ImagePanel;
@@ -19,5 +19,5 @@ pub use map::MapPanel;
 pub use parameter::ParameterPanel;
 pub use plot::PlotPanel;
 pub use remote::RemotePanel;
-pub use segmenter_calibration::SegmenterCalibrationPanel;
 pub use text::TextPanel;
+pub use vision_tuner::VisionTunerPanel;
