@@ -57,8 +57,10 @@ Use your distribution's package manager to install the following dependencies:
         Download webots from [https://cyberbotics.com/](https://cyberbotics.com/) the XXXX.tar.bz (Ubuntu Archive) file and install to a local directory.
 
         ```sh
-        mkdir ~/tools/webots # example install location
-        tar -xf ...tar.bz
+        mkdir ~/tools/     # example install location
+        cd ~/tools
+        tar -xf ...tar.bz  # creates a directory named `webots`
+
         # symlink to be accessible from the command line
         ln -s ~/tools/webots/webots ~/.local/bin/webots
         ```
