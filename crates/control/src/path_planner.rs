@@ -34,7 +34,7 @@ pub struct PathPlanner {
     /// The first node is always the start, the second the destination
     pub nodes: Vec<PathNode>,
     pub obstacles: Vec<PathObstacle>,
-    pub last_orientation: Option<UnitComplex<f32>>,
+    pub last_path_direction: Option<UnitComplex<f32>>,
     pub rotation_penalty_factor: f32,
 }
 
@@ -43,7 +43,7 @@ impl PathPlanner {
         last_motion_command: &MotionCommand,
         rotation_penalty_factor: f32,
     ) -> Self {
-        let last_orientation = match last_motion_command {
+        let last_path_direction = match last_motion_command {
             MotionCommand::Walk {
                 orientation_mode,
                 path,
@@ -72,7 +72,7 @@ impl PathPlanner {
         };
 
         Self {
-            last_orientation,
+            last_path_direction,
             rotation_penalty_factor,
             ..Default::default()
         }
@@ -478,7 +478,7 @@ impl DynamicMap for PathPlanner {
         let mut distance = direction.norm();
 
         if index1 == 0 && distance > 0.0 {
-            if let Some(current_rotation) = self.last_orientation {
+            if let Some(current_rotation) = self.last_path_direction {
                 let normalized_direction = direction.normalize();
                 let rotation = current_rotation.rotation_to(&UnitComplex::from_cos_sin_unchecked(
                     normalized_direction.x,
