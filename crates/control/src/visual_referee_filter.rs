@@ -1,3 +1,4 @@
+use framework::MainOutput;
 use num_traits::cast::FromPrimitive;
 use rand::prelude::*;
 use std::time::{Duration, SystemTime};
@@ -8,7 +9,8 @@ use hardware::NetworkInterface;
 use spl_network_messages::{PlayerNumber, VisualRefereeMessage};
 use spl_network_messages::{SubState, VisualRefereeDecision};
 use types::{
-    messages::OutgoingMessage, CycleTime, FilteredWhistle, GameControllerState, PrimaryState,
+    messages::OutgoingMessage, visual_referee_request, CycleTime, FilteredWhistle,
+    GameControllerState, PrimaryState,
 };
 
 pub struct VisualRefereeFilter {
@@ -33,7 +35,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    // VRC Output an Role Assignment
+    pub visual_referee_request: MainOutput<visual_referee_request::VisualRefereeRequest>,
 }
 
 impl VisualRefereeFilter {
@@ -69,7 +71,7 @@ impl VisualRefereeFilter {
                     .duration_since(time_of_last_state_change)
                     .unwrap()
                     .as_secs_f32()
-                    > 8.0
+                    < 5.0
             })
         {
             let mut duration_since_last_whistle = context
