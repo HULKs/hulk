@@ -299,7 +299,11 @@ impl Localization {
                         get_fitted_field_mark_correspondence(
                             &current_measured_lines_in_field,
                             &self.field_marks,
-                            context,
+                            *context.gradient_convergence_threshold,
+                            *context.gradient_descent_step_size,
+                            *context.line_length_acceptance_factor,
+                            *context.maximum_amount_of_gradient_descent_iterations,
+                            *context.maximum_amount_of_outer_iterations,
                             context.fit_errors.is_subscribed(),
                         );
                     context
@@ -512,7 +516,7 @@ impl Localization {
     }
 }
 
-fn goal_support_structure_line_marks_from_field_dimensions(
+pub fn goal_support_structure_line_marks_from_field_dimensions(
     field_dimensions: &FieldDimensions,
 ) -> Vec<FieldMark> {
     let goal_width = field_dimensions.goal_inner_width + field_dimensions.goal_post_diameter;
@@ -582,10 +586,10 @@ fn goal_support_structure_line_marks_from_field_dimensions(
 }
 
 #[derive(Clone, Copy, Debug)]
-struct FieldMarkCorrespondence {
+pub struct FieldMarkCorrespondence {
     measured_line_in_field: Line2,
     field_mark: FieldMark,
-    correspondence_points: (CorrespondencePoints, CorrespondencePoints),
+    pub correspondence_points: (CorrespondencePoints, CorrespondencePoints),
 }
 
 impl FieldMarkCorrespondence {
@@ -626,20 +630,24 @@ fn predict(
     Ok(())
 }
 
-fn get_fitted_field_mark_correspondence(
+pub fn get_fitted_field_mark_correspondence(
     measured_lines_in_field: &[Line2],
     field_marks: &[FieldMark],
-    context: &CycleContext,
+    gradient_convergence_threshold: f32,
+    gradient_descent_step_size: f32,
+    line_length_acceptance_factor: f32,
+    maximum_amount_of_gradient_descent_iterations: usize,
+    maximum_amount_of_outer_iterations: usize,
     fit_errors_is_subscribed: bool,
 ) -> (Vec<FieldMarkCorrespondence>, f32, Vec<Vec<f32>>) {
     let mut fit_errors = vec![];
     let mut correction = Isometry2::identity();
-    for _ in 0..*context.maximum_amount_of_outer_iterations {
+    for _ in 0..maximum_amount_of_outer_iterations {
         let correspondence_points = get_correspondence_points(get_field_mark_correspondence(
             measured_lines_in_field,
             correction,
             field_marks,
-            *context.line_length_acceptance_factor,
+            line_length_acceptance_factor,
         ));
 
         let weight_matrices: Vec<_> = correspondence_points
@@ -657,7 +665,7 @@ fn get_fitted_field_mark_correspondence(
             .collect();
 
         let mut fit_errors_per_iteration = vec![];
-        for _ in 0..*context.maximum_amount_of_gradient_descent_iterations {
+        for _ in 0..maximum_amount_of_gradient_descent_iterations {
             let translation_gradient: Vector2<f32> = correspondence_points
                 .iter()
                 .zip(weight_matrices.iter())
@@ -685,9 +693,8 @@ fn get_fitted_field_mark_correspondence(
                 .sum::<f32>()
                 / correspondence_points.len() as f32;
             correction = Isometry2::new(
-                correction.translation.vector
-                    - *context.gradient_descent_step_size * translation_gradient,
-                rotation - *context.gradient_descent_step_size * rotation_gradient,
+                correction.translation.vector - gradient_descent_step_size * translation_gradient,
+                rotation - gradient_descent_step_size * rotation_gradient,
             );
             if fit_errors_is_subscribed {
                 let error = get_fit_error(&correspondence_points, &weight_matrices, correction);
@@ -699,7 +706,7 @@ fn get_fitted_field_mark_correspondence(
                 rotation_gradient
             ]
             .norm();
-            if gradient_norm < *context.gradient_convergence_threshold {
+            if gradient_norm < gradient_convergence_threshold {
                 break;
             }
         }
@@ -712,7 +719,7 @@ fn get_fitted_field_mark_correspondence(
         measured_lines_in_field,
         correction,
         field_marks,
-        *context.line_length_acceptance_factor,
+        line_length_acceptance_factor,
     );
 
     let correspondence_points = get_correspondence_points(field_mark_correspondences.clone());
