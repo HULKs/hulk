@@ -13,6 +13,12 @@ use types::{
     GameControllerState, PrimaryState,
 };
 
+pub enum VisualRefereeRequest {
+    No,
+    Prepare,
+    Observe,
+}
+
 pub struct VisualRefereeFilter {
     last_primary_state: PrimaryState,
     time_of_last_visual_referee_related_state_change: Option<SystemTime>,
@@ -23,13 +29,13 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub primary_state: Input<PrimaryState, "primary_state">,
-    pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     pub cycle_time: Input<CycleTime, "cycle_time">,
     pub filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
-    pub player_number: Parameter<PlayerNumber, "player_number">,
-
+    pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     pub hardware: HardwareInterface,
+    pub primary_state: Input<PrimaryState, "primary_state">,
+
+    pub player_number: Parameter<PlayerNumber, "player_number">,
 }
 
 #[context]
@@ -62,49 +68,58 @@ impl VisualRefereeFilter {
         }
         self.last_primary_state = *context.primary_state;
 
-        if self
+        let duration_last_state_change = self
             .time_of_last_visual_referee_related_state_change
-            .map_or(false, |time_of_last_state_change| {
+            .map(|last_change| {
                 context
                     .cycle_time
                     .start_time
-                    .duration_since(time_of_last_state_change)
+                    .duration_since(last_change)
                     .unwrap()
-                    .as_secs_f32()
-                    < 5.0
             })
-        {
-            let mut duration_since_last_whistle = context
-                .filtered_whistle
-                .last_detection
-                .map(|last_detection| {
-                    context
-                        .cycle_time
-                        .start_time
-                        .duration_since(last_detection)
-                        .unwrap()
-                })
-                .unwrap_or(Duration::from_secs(15));
-            if duration_since_last_whistle.as_secs_f32() < 1.0 {
-                duration_since_last_whistle = Duration::from_secs(8)
+            .unwrap_or(Duration::from_millis(20000));
+
+        match duration_last_state_change.as_millis() {
+            0..=5000 => {
+                Ok(MainOutputs(VisualRefereeRequest::Prepare));
             }
+            5001..=8000 => {
+                return VisualRefereeRequest::Observe;
+            }
+            8001..=10000 => {
+                let mut duration_since_last_whistle = context
+                    .filtered_whistle
+                    .last_detection
+                    .map(|last_detection| {
+                        context
+                            .cycle_time
+                            .start_time
+                            .duration_since(last_detection)
+                            .unwrap()
+                    })
+                    .unwrap_or(Duration::from_secs(15));
+                if duration_since_last_whistle.as_secs_f32() < 1.0 {
+                    duration_since_last_whistle = Duration::from_secs(8);
+                }
 
-            // Initially a random visual referee decision
-            let mut rng = thread_rng();
-            let gesture = VisualRefereeDecision::from_u32(rng.gen_range(1..=13)).unwrap();
+                // Initially a random visual referee decision
+                let mut rng = thread_rng();
+                let gesture = VisualRefereeDecision::from_u32(rng.gen_range(1..=13)).unwrap();
 
-            let message = OutgoingMessage::VisualReferee(VisualRefereeMessage {
-                player_number: *context.player_number,
-                gesture,
-                whistle_age: duration_since_last_whistle,
-            });
-            context
-                .hardware
-                .write_to_network(message)
-                .wrap_err("failed to write VisualRefereeMessage to hardware")?;
+                let message = OutgoingMessage::VisualReferee(VisualRefereeMessage {
+                    player_number: *context.player_number,
+                    gesture,
+                    whistle_age: duration_since_last_whistle,
+                });
+                context
+                    .hardware
+                    .write_to_network(message)
+                    .wrap_err("failed to write VisualRefereeMessage to hardware")?;
 
-            self.time_of_last_visual_referee_related_state_change = None;
+                self.time_of_last_visual_referee_related_state_change = None;
+                return visual_referee_request::VisualRefereeRequest::No;
+            }
+            _ => Ok(MainOutputs::default()),
         }
-        Ok(MainOutputs::default())
     }
 }

@@ -43,6 +43,7 @@ pub struct CycleContext {
     pub cycle_time: Input<CycleTime, "cycle_time">,
     pub network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
     pub time_to_reach_kick_position: PersistentState<Duration, "time_to_reach_kick_position">,
+    pub visual_referee_request: 
 
     pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     pub forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
