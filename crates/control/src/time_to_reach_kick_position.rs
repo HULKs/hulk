@@ -1,7 +1,8 @@
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use color_eyre::Result;
 use framework::AdditionalOutput;
+use linear_algebra::Vector2;
 use serde::{Deserialize, Serialize};
 use types::{parameters::BehaviorParameters, planned_path::PathSegment};
 
@@ -57,6 +58,19 @@ impl TimeToReachKickPosition {
                     .sum()
             })
             .map(Duration::from_secs_f32);
+        let first_segment_angle = match context.dribble_path {
+            Some(path) => match path.first() {
+                Some(PathSegment::LineSegment(linesegment)) => {
+                    Some(linesegment.1.coords().angle(Vector2::x_axis()).abs())
+                }
+                _ => None,
+            },
+            _ => None,
+        };
+        let time_to_turn = Duration::from_secs_f32(match first_segment_angle {
+            Some(angle) => angle / PI * context.configuration.path_planning.half_turning_time,
+            None => 0.0f32,
+        });
         let time_to_reach_kick_position = walk_time.map(|walk_time| {
             [
                 walk_time,
@@ -66,6 +80,7 @@ impl TimeToReachKickPosition {
                 *context
                     .stand_up_front_estimated_remaining_duration
                     .unwrap_or(&Duration::ZERO),
+                time_to_turn,
             ]
             .into_iter()
             .fold(Duration::ZERO, Duration::saturating_add)
