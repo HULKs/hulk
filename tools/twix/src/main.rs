@@ -27,7 +27,7 @@ use nao::Nao;
 use panel::Panel;
 use panels::{
     BehaviorSimulatorPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel,
-    MapPanel, ParameterPanel, PlotPanel, RemotePanel, SegmenterCalibrationPanel, TextPanel,
+    MapPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel, VisionTunerPanel,
 };
 use serde_json::{from_str, to_string, Value};
 use tokio::sync::mpsc;
@@ -81,8 +81,8 @@ enum SelectablePanel {
     Parameter(ParameterPanel),
     ManualCalibration(ManualCalibrationPanel),
     LookAt(LookAtPanel),
-    SegmenterCalibration(SegmenterCalibrationPanel),
     Remote(RemotePanel),
+    VisionTuner(VisionTunerPanel),
 }
 
 impl SelectablePanel {
@@ -111,9 +111,7 @@ impl SelectablePanel {
                 SelectablePanel::ManualCalibration(ManualCalibrationPanel::new(nao, value))
             }
             "look at" => SelectablePanel::LookAt(LookAtPanel::new(nao, value)),
-            "segmenter calibration" => {
-                SelectablePanel::SegmenterCalibration(SegmenterCalibrationPanel::new(nao, value))
-            }
+            "vision tuner" => SelectablePanel::VisionTuner(VisionTunerPanel::new(nao, value)),
             "remote" => SelectablePanel::Remote(RemotePanel::new(nao, value)),
             name => bail!("unexpected panel name: {name}"),
         })
@@ -130,8 +128,8 @@ impl SelectablePanel {
             SelectablePanel::Parameter(panel) => panel.save(),
             SelectablePanel::ManualCalibration(panel) => panel.save(),
             SelectablePanel::LookAt(panel) => panel.save(),
-            SelectablePanel::SegmenterCalibration(panel) => panel.save(),
             SelectablePanel::Remote(panel) => panel.save(),
+            SelectablePanel::VisionTuner(panel) => panel.save(),
         };
         value["_panel_type"] = Value::String(self.to_string());
 
@@ -151,8 +149,8 @@ impl Widget for &mut SelectablePanel {
             SelectablePanel::Parameter(panel) => panel.ui(ui),
             SelectablePanel::ManualCalibration(panel) => panel.ui(ui),
             SelectablePanel::LookAt(panel) => panel.ui(ui),
-            SelectablePanel::SegmenterCalibration(panel) => panel.ui(ui),
             SelectablePanel::Remote(panel) => panel.ui(ui),
+            SelectablePanel::VisionTuner(panel) => panel.ui(ui),
         }
     }
 }
@@ -169,8 +167,8 @@ impl Display for SelectablePanel {
             SelectablePanel::Parameter(_) => ParameterPanel::NAME,
             SelectablePanel::ManualCalibration(_) => ManualCalibrationPanel::NAME,
             SelectablePanel::LookAt(_) => LookAtPanel::NAME,
-            SelectablePanel::SegmenterCalibration(_) => SegmenterCalibrationPanel::NAME,
             SelectablePanel::Remote(_) => RemotePanel::NAME,
+            SelectablePanel::VisionTuner(_) => RemotePanel::NAME,
         };
         f.write_str(panel_name)
     }
@@ -310,8 +308,8 @@ impl App for TwixApp {
                             "Parameter".to_string(),
                             "Manual Calibration".to_string(),
                             "Look At".to_string(),
-                            "Segmenter Calibration".to_string(),
                             "Remote".to_string(),
+                            "Vision Tuner".to_string(),
                         ],
                         "Panel",
                     )
