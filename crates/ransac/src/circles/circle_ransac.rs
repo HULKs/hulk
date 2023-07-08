@@ -21,18 +21,24 @@ where
     radius: T,
     pub unused_points: Vec<Point2<Frame, T>>,
     random_number_generator: StdRng,
+    accepted_radius_variance: T,
 }
 
 impl<Frame, T> RansacCircleWithRadius<Frame, T>
 where
     T: ComplexField + Clone + Copy,
 {
-    pub fn new(radius: T, unused_points: Vec<Point2<Frame, T>>) -> Self {
+    pub fn new(
+        radius: T,
+        accepted_radius_variance: T,
+        unused_points: Vec<Point2<Frame, T>>,
+    ) -> Self {
         Self {
             radius,
             unused_points,
             random_number_generator: StdRng::from_rng(thread_rng())
                 .expect("Failed to create random number generator"),
+            accepted_radius_variance,
         }
     }
 }
@@ -41,11 +47,7 @@ impl<Frame, T> RansacCircleWithRadius<Frame, T>
 where
     T: ComplexField<RealField = T> + Clone + Copy + std::cmp::PartialOrd,
 {
-    pub fn next_candidate(
-        &mut self,
-        iterations: usize,
-        radius_variance: T,
-    ) -> RansacResultCircle<Frame, T> {
+    pub fn next_candidate(&mut self, iterations: usize) -> RansacResultCircle<Frame, T> {
         if self.unused_points.len() < 2 {
             return RansacResultCircle::<Frame, T> {
                 output: None,
@@ -58,7 +60,7 @@ where
         // Define the minimum distance the furthest two points should take (corresponds to minimum arc length resulted by the 3 points)
         // tuning_factor should be >= 1 to have useful results
         // TODO make this configurable
-        let tuning_factor = T::from_f64(1.2).unwrap();
+        let tuning_factor = T::from_f64(1.0).unwrap();
         // TODO Take this from field dimensions or otherwise!
         let w = T::from_f64(0.05).unwrap(); // line width
 
@@ -90,14 +92,14 @@ where
                     three_points[2],
                 );
                 // If the candidate radius isn't within 30% of the expected radius, this is bad!
-                if candidate_circle.radius - radius > radius * T::from_f64(0.3).unwrap() {
+                if (candidate_circle.radius - radius).abs() > self.accepted_radius_variance {
                     return None;
                 }
 
                 let inlier_points_mask = circle_fit_radius_inlier_mask(
                     &candidate_circle,
                     &self.unused_points,
-                    radius_variance,
+                    self.accepted_radius_variance,
                 );
 
                 Some((candidate_circle, inlier_points_mask))
