@@ -900,7 +900,7 @@
       "field_border_weight": 0.15,
       "line_walking_speed": 0.25,
       "arc_walking_speed": 0.2,
-      "rotation_penalty_factor": 5.0
+      "rotation_penalty_factor": 0.4
     },
     "search": {
       "position_reached_distance": 0.4,
