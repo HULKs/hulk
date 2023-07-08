@@ -19,6 +19,7 @@ pub struct MapPanel {
     field: EnabledLayer<layers::Field>,
     image_segments: EnabledLayer<layers::ImageSegments>,
     lines: EnabledLayer<layers::Lines>,
+    line_correspondences: EnabledLayer<layers::LineCorrespondences>,
     path_obstacles: EnabledLayer<layers::PathObstacles>,
     obstacles: EnabledLayer<layers::Obstacles>,
     path: EnabledLayer<layers::Path>,
@@ -38,6 +39,7 @@ impl Panel for MapPanel {
         let field = EnabledLayer::new(nao.clone(), value, true);
         let image_segments = EnabledLayer::new(nao.clone(), value, false);
         let lines = EnabledLayer::new(nao.clone(), value, true);
+        let line_correspondences = EnabledLayer::new(nao.clone(), value, true);
         let path_obstacles = EnabledLayer::new(nao.clone(), value, false);
         let obstacles = EnabledLayer::new(nao.clone(), value, false);
         let path = EnabledLayer::new(nao.clone(), value, false);
@@ -58,6 +60,7 @@ impl Panel for MapPanel {
             field,
             image_segments,
             lines,
+            line_correspondences,
             path_obstacles,
             obstacles,
             path,
@@ -76,6 +79,7 @@ impl Panel for MapPanel {
             "field": self.field.save(),
             "image_segments": self.image_segments.save(),
             "lines": self.lines.save(),
+            "line_correspondences": self.line_correspondences.save(),
             "path_obstacles": self.path_obstacles.save(),
             "obstacles": self.obstacles.save(),
             "path": self.path.save(),
@@ -96,6 +100,7 @@ impl Widget for &mut MapPanel {
             self.field.checkbox(ui);
             self.image_segments.checkbox(ui);
             self.lines.checkbox(ui);
+            self.line_correspondences.checkbox(ui);
             self.path_obstacles.checkbox(ui);
             self.obstacles.checkbox(ui);
             self.path.checkbox(ui);
@@ -120,6 +125,7 @@ impl Widget for &mut MapPanel {
         let _ = self.field.paint(&painter, &field_dimensions);
         let _ = self.image_segments.paint(&painter, &field_dimensions);
         let _ = self.lines.paint(&painter, &field_dimensions);
+        let _ = self.line_correspondences.paint(&painter, &field_dimensions);
         let _ = self.path_obstacles.paint(&painter, &field_dimensions);
         let _ = self.obstacles.paint(&painter, &field_dimensions);
         let _ = self.path.paint(&painter, &field_dimensions);

@@ -1,10 +1,9 @@
 use std::{
     collections::{BTreeMap, HashSet},
     fs::File,
-    io::{stdin, BufReader},
+    io::BufReader,
     path::PathBuf,
     sync::Arc,
-    thread,
     time::{Duration, SystemTime},
 };
 
@@ -12,14 +11,23 @@ use bincode::deserialize_from;
 use clap::Parser;
 use color_eyre::Result;
 use communication::server::Runtime;
-use control::localization_recorder::RecordedCycleContext;
+use control::{
+    localization::{
+        get_fitted_field_mark_correspondence,
+        goal_support_structure_line_marks_from_field_dimensions,
+    },
+    localization_recorder::RecordedCycleContext,
+};
 use framework::{multiple_buffer_with_slots, Reader, Writer};
 use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::{select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
-use types::{FieldDimensions, GameControllerState, LineData, PrimaryState};
+use types::{
+    field_marks_from_field_dimensions, FieldDimensions, FieldMark, GameControllerState, Line,
+    Line2, LineData, PrimaryState,
+};
 
 #[derive(Parser)]
 struct Arguments {
@@ -73,6 +81,47 @@ fn merge_line_data(line_data: &BTreeMap<SystemTime, Vec<Option<LineData>>>) -> L
     }
 }
 
+fn line_correspondences(
+    lines: &LineData,
+    robot_to_field: Isometry2<f32>,
+    field_marks: &[FieldMark],
+) -> Vec<Line2> {
+    let lines: Vec<Line2> = lines
+        .lines_in_robot
+        .iter()
+        .map(|line| Line(robot_to_field * line.0, robot_to_field * line.1))
+        .collect();
+    let (correspondences, fit_error, fit_errors) =
+        get_fitted_field_mark_correspondence(&lines, &field_marks, 1e-2, 0.01, 1.5, 20, 10, true);
+    correspondences
+        .iter()
+        .flat_map(|field_mark_correspondence| {
+            let correspondence_points_0 = field_mark_correspondence.correspondence_points.0;
+            let correspondence_points_1 = field_mark_correspondence.correspondence_points.1;
+            [
+                Line(
+                    correspondence_points_0.measured,
+                    correspondence_points_0.reference,
+                ),
+                Line(
+                    correspondence_points_1.measured,
+                    correspondence_points_1.reference,
+                ),
+            ]
+        })
+        .collect()
+}
+
+fn generate_field_marks(field_dimensions: FieldDimensions) -> Vec<FieldMark> {
+    field_marks_from_field_dimensions(&field_dimensions)
+        .into_iter()
+        .chain(goal_support_structure_line_marks_from_field_dimensions(
+            &field_dimensions,
+        ))
+        .collect()
+}
+
+#[allow(clippy::too_many_arguments)]
 async fn recording_player(
     mut reader: BufReader<File>,
     simulator_writer: Writer<SimulatorDatabase>,
@@ -91,6 +140,7 @@ async fn recording_player(
         simulator_writer.next().main_outputs.frame_count = frames.len();
     }
     let mut interval = interval(Duration::from_secs(1));
+    let field_marks = generate_field_marks(parameters_reader.next().field_dimensions.clone());
 
     loop {
         select! {
@@ -102,6 +152,19 @@ async fn recording_player(
 
         {
             let data = &frames[parameters.selected_frame];
+            let lines_bottom = merge_line_data(&data.line_data_top_persistent);
+            let lines_top = merge_line_data(&data.line_data_bottom_persistent);
+            let correspondence_lines_top = line_correspondences(
+                &lines_top,
+                data.robot_to_field.unwrap_or_default(),
+                &field_marks,
+            );
+            let correspondence_lines_bottom = line_correspondences(
+                &lines_bottom,
+                data.robot_to_field.unwrap_or_default(),
+                &field_marks,
+            );
+
             {
                 let mut database = control_writer.next();
 
@@ -109,17 +172,22 @@ async fn recording_player(
                 database.main_outputs.has_ground_contact = data.has_ground_contact;
                 database.main_outputs.primary_state = data.primary_state;
                 database.main_outputs.robot_to_field = data.robot_to_field;
-                database.main_outputs.robot_to_field = data.robot_to_field;
             }
             {
                 let mut database = vision_top_writer.next();
-                database.main_outputs.line_data =
-                    Some(merge_line_data(&data.line_data_top_persistent));
+                database.main_outputs.line_data = Some(lines_top);
+                database
+                    .additional_outputs
+                    .localization
+                    .correspondence_lines = correspondence_lines_top
             }
             {
                 let mut database = vision_bottom_writer.next();
-                database.main_outputs.line_data =
-                    Some(merge_line_data(&data.line_data_bottom_persistent));
+                database.main_outputs.line_data = Some(lines_bottom);
+                database
+                    .additional_outputs
+                    .localization
+                    .correspondence_lines = correspondence_lines_bottom
             }
         }
         database_changed.notify_waiters();
@@ -158,6 +226,7 @@ struct ControlMainOutputs {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 struct VisionDatabase {
     main_outputs: VisionMainOutputs,
+    additional_outputs: VisionAdditionalOutputs,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -165,6 +234,17 @@ struct VisionMainOutputs {
     line_data: Option<LineData>,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+struct VisionAdditionalOutputs {
+    localization: LocalizationAdditionalOutputs,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+struct LocalizationAdditionalOutputs {
+    correspondence_lines: Vec<Line2>,
+}
+
+#[allow(clippy::type_complexity)]
 fn start_communication_server(
     listen_address: String,
 ) -> Result<(
