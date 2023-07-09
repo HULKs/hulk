@@ -20,6 +20,8 @@ pub mod filtered_game_controller_state;
 pub mod filtered_game_state;
 pub mod filtered_segments;
 pub mod filtered_whistle;
+pub mod foot_bumper_obstacle;
+pub mod foot_bumper_values;
 pub mod game_controller_state;
 pub mod grayscale_image;
 pub mod hardware;
