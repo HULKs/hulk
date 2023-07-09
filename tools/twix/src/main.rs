@@ -168,7 +168,7 @@ impl Display for SelectablePanel {
             SelectablePanel::ManualCalibration(_) => ManualCalibrationPanel::NAME,
             SelectablePanel::LookAt(_) => LookAtPanel::NAME,
             SelectablePanel::Remote(_) => RemotePanel::NAME,
-            SelectablePanel::VisionTuner(_) => RemotePanel::NAME,
+            SelectablePanel::VisionTuner(_) => VisionTunerPanel::NAME,
         };
         f.write_str(panel_name)
     }
