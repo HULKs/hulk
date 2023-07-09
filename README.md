@@ -2,6 +2,8 @@
 
 This repository contains the robot control program and associated tools of the RoboCup SPL team HULKs.
 
+See https://hulks.de/hulk/ for our documentation.
+
 See https://hulks.de/ and https://hulks.de/publications/ for more information.
 
 ## License
