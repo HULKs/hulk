@@ -237,6 +237,7 @@ impl Buffers {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[allow(clippy::enum_variant_names)]
 enum Position {
     FirstHalfOwnHalfTowardsOwnGoal,
     FirstHalfOwnHalfAwayOwnGoal,
