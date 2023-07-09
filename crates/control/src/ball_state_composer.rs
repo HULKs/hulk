@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use color_eyre::Result;
 use context_attribute::context;
 use filtering::hysteresis::greater_than_with_hysteresis;
@@ -5,7 +7,7 @@ use framework::MainOutput;
 use nalgebra::{point, Isometry2, Point2, Vector2};
 use spl_network_messages::{SubState, Team};
 use types::{
-    BallPosition, BallState, FieldDimensions, GameControllerState, PenaltyShotDirection,
+    BallPosition, BallState, CycleTime, FieldDimensions, GameControllerState, PenaltyShotDirection,
     PrimaryState, Side,
 };
 
@@ -18,6 +20,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    pub cycle_time: Input<CycleTime, "cycle_time">,
     pub ball_position: Input<Option<BallPosition>, "ball_position?">,
     pub penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
     pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
@@ -51,6 +54,7 @@ impl BallStateComposer {
                 ball_position.position,
                 robot_to_field * ball_position.position,
                 ball_position.velocity,
+                ball_position.last_seen,
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
@@ -58,6 +62,7 @@ impl BallStateComposer {
                 robot_to_field.inverse() * ball_position.position,
                 ball_position.position,
                 ball_position.velocity,
+                ball_position.last_seen,
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
@@ -91,6 +96,7 @@ impl BallStateComposer {
                     robot_to_field.inverse() * penalty_spot_location,
                     penalty_spot_location,
                     Vector2::zeros(),
+                    context.cycle_time.start_time,
                     &mut self.last_ball_field_side,
                     context.penalty_shot_direction.copied(),
                 ))
@@ -99,6 +105,7 @@ impl BallStateComposer {
                 robot_to_field.inverse() * Point2::origin(),
                 Point2::origin(),
                 Vector2::zeros(),
+                context.cycle_time.start_time,
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
@@ -116,6 +123,7 @@ fn create_ball_state(
     ball_in_ground: Point2<f32>,
     ball_in_field: Point2<f32>,
     ball_in_ground_velocity: Vector2<f32>,
+    last_seen_ball: SystemTime,
     last_ball_field_side: &mut Side,
     penalty_shot_direction: Option<PenaltyShotDirection>,
 ) -> BallState {
@@ -132,6 +140,7 @@ fn create_ball_state(
         ball_in_ground,
         ball_in_field,
         ball_in_ground_velocity,
+        last_seen_ball,
         field_side,
         penalty_shot_direction,
     }

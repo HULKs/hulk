@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, time::Duration};
 
 use color_eyre::Result;
 use context_attribute::context;
@@ -8,8 +8,8 @@ use nalgebra::{distance, point, vector, Isometry2, Point2, UnitComplex, Vector2}
 use ordered_float::NotNan;
 use types::{
     parameters::{FindKickTargets, InWalkKickInfo, InWalkKicks},
-    rotate_towards, BallState, Circle, FieldDimensions, KickDecision, KickTarget, KickVariant,
-    LineSegment, Obstacle, Side, TwoLineSegments,
+    rotate_towards, BallState, Circle, CycleTime, FieldDimensions, KickDecision, KickTarget,
+    KickVariant, LineSegment, Obstacle, Side, TwoLineSegments,
 };
 
 pub struct KickSelector {}
@@ -19,6 +19,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    pub cycle_time: Input<CycleTime, "cycle_time">,
+    pub invisible_ball_timeout: Parameter<Duration, "kick_selector.invisible_ball_timeout">,
+
     pub robot_to_field: RequiredInput<Option<Isometry2<f32>>, "robot_to_field?">,
     pub ball_state: RequiredInput<Option<BallState>, "ball_state?">,
     pub obstacles: Input<Vec<Obstacle>, "obstacles">,
@@ -56,6 +59,12 @@ impl KickSelector {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let ball_position = context.ball_state.ball_in_ground;
+        let ball_is_visible = context
+            .cycle_time
+            .start_time
+            .duration_since(context.ball_state.last_seen_ball)
+            .expect("time ran backwards")
+            <= *context.invisible_ball_timeout;
 
         let sides = [Side::Left, Side::Right];
         let mut kick_variants = Vec::new();
@@ -79,6 +88,7 @@ impl KickSelector {
             &kick_variants,
             context.in_walk_kicks,
             ball_position,
+            ball_is_visible,
             &obstacle_circles,
             context.field_dimensions,
             *context.robot_to_field,
@@ -109,6 +119,7 @@ impl KickSelector {
                     kick_variant,
                     side,
                     ball_position,
+                    ball_is_visible,
                     *context.default_kick_strength,
                 )
             })
@@ -167,6 +178,7 @@ fn generate_decisions_for_instant_kicks(
     kick_variants: &[KickVariant],
     in_walk_kicks: &InWalkKicks,
     ball_position: Point2<f32>,
+    ball_is_visible: bool,
     obstacle_circles: &[Circle],
     field_dimensions: &FieldDimensions,
     robot_to_field: Isometry2<f32>,
@@ -223,6 +235,7 @@ fn generate_decisions_for_instant_kicks(
                     kicking_side,
                     kick_pose,
                     strength: default_kick_strength,
+                    visible: ball_is_visible,
                 })
             } else {
                 None
@@ -366,6 +379,7 @@ fn kick_decisions_from_targets(
     variant: KickVariant,
     kicking_side: Side,
     ball_position: Point2<f32>,
+    ball_is_visible: bool,
     default_strength: f32,
 ) -> Option<Vec<KickDecision>> {
     Some(
@@ -379,6 +393,7 @@ fn kick_decisions_from_targets(
                     kicking_side,
                     kick_pose,
                     strength: strength.unwrap_or(default_strength),
+                    visible: ball_is_visible,
                 }
             })
             .collect(),
