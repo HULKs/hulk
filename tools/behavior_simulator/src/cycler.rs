@@ -185,6 +185,7 @@ impl BehaviorCycler {
             let main_outputs = self
                 .ball_state_composer
                 .cycle(ball_state_composer::CycleContext {
+                    cycle_time: &own_database.main_outputs.cycle_time,
                     ball_position: own_database.main_outputs.ball_position.as_ref(),
                     penalty_shot_direction: own_database
                         .main_outputs
@@ -223,6 +224,7 @@ impl BehaviorCycler {
                 let main_outputs = {
                     self.kick_selector
                         .cycle(control::kick_selector::CycleContext {
+                            cycle_time: &own_database.main_outputs.cycle_time,
                             robot_to_field: own_database
                                 .main_outputs
                                 .robot_to_field
@@ -254,6 +256,9 @@ impl BehaviorCycler {
                             ),
                             default_kick_strength: &parameters.kick_selector.default_kick_strength,
                             corner_kick_strength: &parameters.kick_selector.corner_kick_strength,
+                            invisible_ball_timeout: &parameters
+                                .kick_selector
+                                .invisible_ball_timeout,
                         })
                         .wrap_err("failed to execute cycle of node `KickSelector`")?
                 };
