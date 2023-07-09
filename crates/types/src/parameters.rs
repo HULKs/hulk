@@ -327,6 +327,7 @@ pub struct ObstacleFilterParameters {
     pub measurement_count_threshold: usize,
     pub use_feet_detection_measurements: bool,
     pub use_sonar_measurements: bool,
+    pub use_foot_bumper_measurements: bool,
     pub robot_obstacle_radius_at_hip_height: f32,
     pub robot_obstacle_radius_at_foot_height: f32,
     pub unknown_obstacle_radius: f32,

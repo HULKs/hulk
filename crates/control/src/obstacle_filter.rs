@@ -11,6 +11,7 @@ use types::{
     cycle_time::CycleTime,
     detected_feet::DetectedFeet,
     field_dimensions::FieldDimensions,
+    foot_bumper_obstacle::FootBumperObstacle,
     multivariate_normal_distribution::MultivariateNormalDistribution,
     obstacle_filter::Hypothesis,
     obstacles::{Obstacle, ObstacleKind},
@@ -38,6 +39,7 @@ pub struct CycleContext {
     robot_to_field: HistoricInput<Option<Isometry2<f32>>, "robot_to_field?">,
     sonar_obstacles: HistoricInput<Vec<SonarObstacle>, "sonar_obstacles">,
 
+    foot_bumper_obstacles: HistoricInput<Vec<FootBumperObstacle>, "foot_bumper_obstacle">,
     cycle_time: Input<CycleTime, "cycle_time">,
     primary_state: Input<PrimaryState, "primary_state">,
 
@@ -152,6 +154,26 @@ impl ObstacleFilter {
                             .sonar_goal_post_matching_distance,
                         Matrix2::from_diagonal(
                             &context.obstacle_filter_parameters.sonar_measurement_noise,
+                        ),
+                    );
+                }
+            }
+            for foot_bumper_obstacle in context.foot_bumper_obstacles.get(detection_time) {
+                // TODO: Use a clever more intelligent metric
+
+                if context
+                    .obstacle_filter_parameters
+                    .use_foot_bumper_measurements
+                {
+                    self.update_hypotheses_with_measurement(
+                        foot_bumper_obstacle.position_in_robot,
+                        ObstacleKind::Unknown,
+                        *detection_time,
+                        context
+                            .obstacle_filter_parameters
+                            .feet_detection_measurement_matching_distance,
+                        Matrix2::from_diagonal(
+                            &context.obstacle_filter_parameters.feet_measurement_noise,
                         ),
                     );
                 }

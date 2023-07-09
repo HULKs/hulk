@@ -6,7 +6,7 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::point;
 use types::{
     foot_bumper_obstacle::FootBumperObstacle, foot_bumper_values::FootBumperValues, CycleTime,
-    FallState, SensorData,
+    FallState, SensorData
 };
 
 pub struct FootBumperFilter {
@@ -54,10 +54,9 @@ impl FootBumperFilter {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let foot_bumper_sensors = &context.sensor_data.force_sensitive_resistors;
         let fall_state = context.fall_state;
 
-        if foot_bumper_sensors.left.sum() > 1.0 {
+        if context.sensor_data.touch_sensors.left_foot_left || context.sensor_data.touch_sensors.left_foot_right {
             if !self.left_foot_bumper_pressed_last_cycle {
                 self.left_foot_bumper_count += 1;
                 self.left_foot_bumper_pressed_last_cycle = true;
@@ -67,7 +66,7 @@ impl FootBumperFilter {
             self.left_foot_bumper_pressed_last_cycle = false;
         }
 
-        if foot_bumper_sensors.right.sum() > 1.0 {
+        if context.sensor_data.touch_sensors.right_foot_left || context.sensor_data.touch_sensors.right_foot_right {
             if !self.right_foot_bumper_pressed_last_cycle {
                 self.right_foot_bumper_count += 1;
                 self.right_foot_bumper_pressed_last_cycle = true;
