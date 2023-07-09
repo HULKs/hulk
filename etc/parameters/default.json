@@ -651,7 +651,7 @@
     "only_record_during_active_localization": true
   },
   "odometry": {
-    "odometry_scale_factor": [1.19, 1.18]
+    "odometry_scale_factor": [1.19, 1.2]
   },
   "orientation_filter": {
     "acceleration_threshold": 0.2,
