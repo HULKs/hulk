@@ -1,7 +1,9 @@
 use communication::client::Cycler;
 use eframe::egui::{ComboBox, Response, Slider, Ui, Widget};
+use nalgebra::{Isometry2, Rotation2, Translation2};
 use serde_json::{to_value, Value};
 use std::{
+    f32::consts::PI,
     fmt::{self, Display, Formatter},
     sync::Arc,
 };
@@ -270,7 +272,31 @@ fn add_selector_row(
 ) -> Response {
     ui.horizontal(|ui| {
         add_vision_cycler_selector(ui, nao, cycler, buffers);
-        add_position_selector(ui, position);
+        let response = add_position_selector(ui, position);
+        if response.changed() {
+            let injected_robot_to_field_translation = match position {
+                Position::FirstHalfOwnHalfTowardsOwnGoal
+                | Position::FirstHalfOwnHalfAwayOwnGoal => Translation2::new(-3.0, 0.0),
+                Position::FirstHalfOpponentHalfTowardsOwnGoal
+                | Position::FirstHalfOpponentHalfAwayOwnGoal => Translation2::new(3.0, 0.0),
+            };
+            let injected_robot_to_field_rotation = match position {
+                Position::FirstHalfOwnHalfTowardsOwnGoal
+                | Position::FirstHalfOpponentHalfTowardsOwnGoal => Rotation2::new(0.0),
+                Position::FirstHalfOwnHalfAwayOwnGoal
+                | Position::FirstHalfOpponentHalfAwayOwnGoal => Rotation2::new(PI),
+            };
+            let injected_robot_to_field = Isometry2::from_parts(
+                injected_robot_to_field_translation,
+                injected_robot_to_field_rotation.into(),
+            );
+            let value = to_value(injected_robot_to_field).unwrap();
+            println!("update");
+            nao.update_parameter_value(
+                "injected_robot_to_field_of_home_after_coin_toss_before_second_half",
+                value,
+            );
+        }
     })
     .response
 }

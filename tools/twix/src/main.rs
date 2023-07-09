@@ -111,8 +111,8 @@ impl SelectablePanel {
                 SelectablePanel::ManualCalibration(ManualCalibrationPanel::new(nao, value))
             }
             "look at" => SelectablePanel::LookAt(LookAtPanel::new(nao, value)),
-            "vision tuner" => SelectablePanel::VisionTuner(VisionTunerPanel::new(nao, value)),
             "remote" => SelectablePanel::Remote(RemotePanel::new(nao, value)),
+            "vision tuner" => SelectablePanel::VisionTuner(VisionTunerPanel::new(nao, value)),
             name => bail!("unexpected panel name: {name}"),
         })
     }
