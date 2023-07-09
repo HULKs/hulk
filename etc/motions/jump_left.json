@@ -82,20 +82,20 @@
         "pitch": 1.0
       },
       "left_arm": {
-        "shoulder_pitch": 0.8,
-        "shoulder_roll": 0.8,
-        "elbow_yaw": 0.8,
-        "elbow_roll": 0.8,
-        "wrist_yaw": 0.8,
-        "hand": 0.8
+        "shoulder_pitch": 1.0,
+        "shoulder_roll": 1.0,
+        "elbow_yaw": 1.0,
+        "elbow_roll": 1.0,
+        "wrist_yaw": 1.0,
+        "hand": 1.0
       },
       "right_arm": {
-        "shoulder_pitch": 0.8,
-        "shoulder_roll": 0.8,
-        "elbow_yaw": 0.8,
-        "elbow_roll": 0.8,
-        "wrist_yaw": 0.8,
-        "hand": 0.8
+        "shoulder_pitch": 1.0,
+        "shoulder_roll": 1.0,
+        "elbow_yaw": 1.0,
+        "elbow_roll": 1.0,
+        "wrist_yaw": 1.0,
+        "hand": 1.0
       },
       "left_leg": {
         "hip_yaw_pitch": 1.0,
@@ -119,7 +119,7 @@
     {
       "keyframes": [
         {
-          "duration": 0.6,
+          "duration": 0.1,
           "positions": {
             "positions": {
               "head": {
@@ -200,7 +200,7 @@
           }
         },
         {
-          "duration": 0.4,
+          "duration": 0.9,
           "positions": {
             "positions": {
               "head": {
@@ -246,20 +246,20 @@
                 "pitch": 1.0
               },
               "left_arm": {
-                "shoulder_pitch": 0.5,
-                "shoulder_roll": 0.5,
-                "elbow_yaw": 0.5,
-                "elbow_roll": 0.5,
-                "wrist_yaw": 0.5,
-                "hand": 0.5
+                "shoulder_pitch": 0.15,
+                "shoulder_roll": 0.15,
+                "elbow_yaw": 0.15,
+                "elbow_roll": 0.15,
+                "wrist_yaw": 0.15,
+                "hand": 0.15
               },
               "right_arm": {
-                "shoulder_pitch": 0.5,
-                "shoulder_roll": 0.5,
-                "elbow_yaw": 0.5,
-                "elbow_roll": 0.5,
-                "wrist_yaw": 0.5,
-                "hand": 0.5
+                "shoulder_pitch": 0.15,
+                "shoulder_roll": 0.15,
+                "elbow_yaw": 0.15,
+                "elbow_roll": 0.15,
+                "wrist_yaw": 0.15,
+                "hand": 0.15
               },
               "left_leg": {
                 "hip_yaw_pitch": 1.0,
