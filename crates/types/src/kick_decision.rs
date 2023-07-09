@@ -10,4 +10,5 @@ pub struct KickDecision {
     pub kicking_side: Side,
     pub kick_pose: Isometry2<f32>,
     pub strength: f32,
+    pub visible: bool,
 }
