@@ -42,6 +42,7 @@ fn main() -> Result<()> {
                     "control::camera_matrix_calculator",
                     "control::center_of_mass_provider",
                     "control::fall_state_estimation",
+                    "control::foot_bumper_filter",
                     "control::game_controller_filter",
                     "control::game_controller_state_filter",
                     "control::ground_contact_detector",
