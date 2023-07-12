@@ -10,7 +10,7 @@ use control::localization::generate_initial_pose;
 use nalgebra::vector;
 use parameters::directory::deserialize;
 use spl_network_messages::PlayerNumber;
-use types::{messages::IncomingMessage, CameraMatrix};
+use types::{messages::IncomingMessage, BallPosition, CameraMatrix};
 
 use crate::{
     cycler::{BehaviorCycler, Database},
@@ -26,6 +26,7 @@ pub struct Robot {
     pub parameters: Parameters,
     pub is_penalized: bool,
     pub last_kick_time: Duration,
+    pub last_seen_ball_in_field: Option<BallPosition>,
 }
 
 impl Robot {
@@ -66,6 +67,7 @@ impl Robot {
             parameters: parameter,
             is_penalized: false,
             last_kick_time: Duration::default(),
+            last_seen_ball_in_field: None,
         })
     }
 
