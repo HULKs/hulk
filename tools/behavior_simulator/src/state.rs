@@ -220,44 +220,38 @@ impl State {
 
             robot.database.main_outputs.cycle_time.start_time = now;
 
-            robot.last_seen_ball_in_field = self
-                .ball
-                .clone()
-                .filter(|ball| {
-                    let head_rotation = UnitComplex::from_angle(
-                        robot.database.main_outputs.sensor_data.positions.head.yaw,
-                    );
-                    let ball_in_head = head_rotation.inverse() * ball.position.coords;
-                    let field_of_view = robot.field_of_view();
-                    let angle_to_ball = ball_in_head.angle(&Vector2::x_axis());
+            let ball_visible = self.ball.as_ref().is_some_and(|ball| {
+                let head_rotation = UnitComplex::from_angle(
+                    robot.database.main_outputs.sensor_data.positions.head.yaw,
+                );
+                let ball_in_head = head_rotation.inverse() * ball.position.coords;
+                let field_of_view = robot.field_of_view();
+                let angle_to_ball = ball_in_head.angle(&Vector2::x_axis());
 
-                    angle_to_ball.abs() < field_of_view / 2.0 && ball_in_head.norm() < 3.0
-                })
-                .map(|ball| {
-                    BallPosition {
-                        position: ball.position,
-                        velocity: ball.velocity,
-                        last_seen: now,
-                    }
-                })
-                .or(robot.last_seen_ball_in_field)
-                .filter(|ball| {
-                    now.duration_since(ball.last_seen)
-                        .expect("Time ran backwards")
-                        < robot.parameters.ball_filter.hypothesis_timeout
-                });
-            let robot_to_field = robot
-                .database
-                .main_outputs
-                .robot_to_field
-                .as_mut()
-                .expect("simulated robots should always have a known pose");
+                angle_to_ball.abs() < field_of_view / 2.0 && ball_in_head.norm() < 3.0
+            });
+            if ball_visible {
+                robot.last_seen_ball_in_field = Some(now);
+            }
             robot.database.main_outputs.ball_position =
-                robot.last_seen_ball_in_field.map(|ball| BallPosition {
-                    position: robot_to_field.inverse() * ball.position,
-                    velocity: robot_to_field.inverse() * ball.velocity,
-                    last_seen: ball.last_seen,
-                });
+                if robot.last_seen_ball_in_field.is_some_and(|last_seen| {
+                    now.duration_since(last_seen).expect("Time ran backwards")
+                        < robot.parameters.ball_filter.hypothesis_timeout
+                }) {
+                    let robot_to_field = robot
+                        .database
+                        .main_outputs
+                        .robot_to_field
+                        .as_mut()
+                        .expect("simulated robots should always have a known pose");
+                    self.ball.as_ref().map(|ball| BallPosition {
+                        position: robot_to_field.inverse() * ball.position,
+                        velocity: robot_to_field.inverse() * ball.velocity,
+                        last_seen: now,
+                    })
+                } else {
+                    None
+                };
             robot.database.main_outputs.primary_state =
                 match (robot.is_penalized, self.filtered_game_state) {
                     (true, _) => PrimaryState::Penalized,
