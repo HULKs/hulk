@@ -237,10 +237,10 @@ impl State {
                 angle_to_ball.abs() < field_of_view / 2.0 && ball_in_head.coords.norm() < 3.0
             });
             if ball_visible {
-                robot.last_seen_ball_in_field = Some(now);
+                robot.ball_last_seen = Some(now);
             }
             robot.database.main_outputs.ball_position =
-                if robot.last_seen_ball_in_field.is_some_and(|last_seen| {
+                if robot.ball_last_seen.is_some_and(|last_seen| {
                     now.duration_since(last_seen).expect("Time ran backwards")
                         < robot.parameters.ball_filter.hypothesis_timeout
                 }) {
