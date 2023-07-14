@@ -14,16 +14,6 @@ jobs:
         run: |
           echo SDK_VERSION=$(curl -s -L -I -o /dev/null -w '%{url_effective}' https://github.com/HULKs/meta-hulks/releases/latest | awk -F/ '{print $NF}') >> $GITHUB_OUTPUT
         id: retrieve_latest_version
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@v4
-        with:
-          build-args: SDK_VERSION=${{ steps.retrieve_latest_version.outputs.SDK_VERSION }}
-          context: "{{ defaultContext }}:tools/ci/github-runners/v3"
-          push: true
-          tags: 134.28.57.223:5000/hulk
+      - uses: actions/checkout@v3
+      - run: docker build --build-arg SDK_VERSION=${{ steps.retrieve_latest_version.outputs.SDK_VERSION }} --tag 134.28.57.223:5000/hulk tools/ci/github-runners/v3
+      - run: docker push 134.28.57.223:5000/hulk
