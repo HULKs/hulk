@@ -190,7 +190,8 @@ impl State {
                 }
                 HeadMotion::LookAt { target, .. } => target.coords.angle(&Vector2::x_axis()),
                 HeadMotion::LookLeftAndRightOf { target } => {
-                    target.coords.angle(&Vector2::x_axis()) + f
+                    target.coords.angle(&Vector2::x_axis())
+                        + f * robot.parameters.look_at.glance_angle
                 }
                 HeadMotion::Unstiff => 0.0,
             };
