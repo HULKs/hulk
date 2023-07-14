@@ -34,8 +34,6 @@ jobs:
         with:
           lfs: true
       - name: Check
-        env:
-          HOME: /ci
         run: |
           ./pepsi clippy --workspace
   format:
@@ -51,8 +49,6 @@ jobs:
         with:
           lfs: true
       - name: Check
-        env:
-          HOME: /ci
         run: |
           cargo fmt --check
   test:
@@ -68,8 +64,6 @@ jobs:
         with:
           lfs: true
       - name: Test
-        env:
-          HOME: /ci
         run: |
           cargo test --all-features --workspace
   build:
@@ -90,8 +84,6 @@ jobs:
         with:
           lfs: true
       - name: Build
-        env:
-          HOME: /ci
         run: |
           ln -s /ci/.naosdk naosdk
           ./pepsi build --target ${{ matrix.target }} --profile ${{ matrix.profile }} --no-sdk-installation
@@ -118,8 +110,6 @@ jobs:
         with:
           lfs: true
       - name: Build
-        env:
-          HOME: /ci
         run: |
           cd ${{ matrix.path }}
           cargo build --all-features
@@ -136,8 +126,6 @@ jobs:
         with:
           lfs: true
       - name: Build Aliveness
-        env:
-          HOME: /ci
         run: |
           cd tools/aliveness
           cargo build --release
@@ -154,8 +142,6 @@ jobs:
         with:
           lfs: true
       - name: Build HuLA
-        env:
-          HOME: /ci
         run: |
           cd tools/hula
           cargo build --release
