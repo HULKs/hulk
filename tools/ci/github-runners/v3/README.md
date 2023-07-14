@@ -3,7 +3,6 @@
 ## Build root filesystem
 
 - Install [distrobuilder](https://linuxcontainers.org/distrobuilder/introduction/)
-- Visit https://github.com/actions/runner/releases/latest and download the asset `actions-runner-linux-x64-*.tar.gz` and rename it to `actions-runner.tar.gz`
 - Build via `distrobuilder build-lxc --compression zstd v3.yaml`
 - The root filesystem is named `rootfs.tar.zst`
 
@@ -33,6 +32,9 @@
 - SSH via root to the container
     - `mkdir /home/hulk/.ssh && cp .ssh/authorized_keys /home/hulk/.ssh/ && chown -R hulk:hulk /home/hulk/.ssh`
     - Set `hulk` user password via `passwd hulk` and store that in our vault
+- Visit https://github.com/actions/runner/releases/latest and find the asset `actions-runner-linux-x64-*.tar.gz` and copy the link
 - SSH via hulk to the container
+    - Download the runner archive e.g. via `wget`
+    - `mkdir actions-runner && cd actions-runner && tar xzf ../actions-runner-linux-x64-*.tar.gz`
     - Execute `./config.sh ...` from GitHub to add a new runner (add `v3` label)
     - Execute `sudo ./svc.sh install && sudo ./svc.sh start`
