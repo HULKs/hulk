@@ -26,7 +26,7 @@ pub struct Robot {
     pub parameters: Parameters,
     pub is_penalized: bool,
     pub last_kick_time: Duration,
-    pub last_seen_ball_in_field: Option<SystemTime>,
+    pub ball_last_seen: Option<SystemTime>,
 }
 
 impl Robot {
@@ -67,7 +67,7 @@ impl Robot {
             parameters: parameter,
             is_penalized: false,
             last_kick_time: Duration::default(),
-            last_seen_ball_in_field: None,
+            ball_last_seen: None,
         })
     }
 
