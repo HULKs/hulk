@@ -7,11 +7,7 @@ pub struct TapDetector {
 
 impl TapDetector {
     pub fn update(&mut self, sensor_reading: bool) {
-        if self.last_reading && !sensor_reading {
-            self.is_single_tapped = true;
-        } else {
-            self.is_single_tapped = false;
-        }
+        self.is_single_tapped = self.last_reading && !sensor_reading;
         self.last_reading = sensor_reading;
     }
 
