@@ -220,15 +220,21 @@ impl State {
 
             robot.database.main_outputs.cycle_time.start_time = now;
 
+            let robot_to_field = robot
+                .database
+                .main_outputs
+                .robot_to_field
+                .expect("simulated robots should always have a known pose");
             let ball_visible = self.ball.as_ref().is_some_and(|ball| {
+                let ball_in_ground = robot_to_field.inverse() * ball.position;
                 let head_rotation = UnitComplex::from_angle(
                     robot.database.main_outputs.sensor_data.positions.head.yaw,
                 );
-                let ball_in_head = head_rotation.inverse() * ball.position.coords;
+                let ball_in_head = head_rotation.inverse() * ball_in_ground;
                 let field_of_view = robot.field_of_view();
-                let angle_to_ball = ball_in_head.angle(&Vector2::x_axis());
+                let angle_to_ball = ball_in_head.coords.angle(&Vector2::x_axis());
 
-                angle_to_ball.abs() < field_of_view / 2.0 && ball_in_head.norm() < 3.0
+                angle_to_ball.abs() < field_of_view / 2.0 && ball_in_head.coords.norm() < 3.0
             });
             if ball_visible {
                 robot.last_seen_ball_in_field = Some(now);
@@ -238,12 +244,6 @@ impl State {
                     now.duration_since(last_seen).expect("Time ran backwards")
                         < robot.parameters.ball_filter.hypothesis_timeout
                 }) {
-                    let robot_to_field = robot
-                        .database
-                        .main_outputs
-                        .robot_to_field
-                        .as_mut()
-                        .expect("simulated robots should always have a known pose");
                     self.ball.as_ref().map(|ball| BallPosition {
                         position: robot_to_field.inverse() * ball.position,
                         velocity: robot_to_field.inverse() * ball.velocity,
