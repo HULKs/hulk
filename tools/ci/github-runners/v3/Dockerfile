@@ -25,7 +25,7 @@ WORKDIR /ci
 USER ci:ci
 
 ARG SDK_VERSION
-RUN wget https://github.com/HULKs/meta-hulks/releases/download/${SDK_VERSION}/HULKs-OS-toolchain-${SDK_VERSION}.sh && \
+RUN wget --no-verbose https://github.com/HULKs/meta-hulks/releases/download/${SDK_VERSION}/HULKs-OS-toolchain-${SDK_VERSION}.sh && \
   chmod +x HULKs-OS-toolchain-${SDK_VERSION}.sh && \
   ./HULKs-OS-toolchain-${SDK_VERSION}.sh -y -d /ci/.naosdk/${SDK_VERSION} && \
   rm HULKs-OS-toolchain-${SDK_VERSION}.sh
