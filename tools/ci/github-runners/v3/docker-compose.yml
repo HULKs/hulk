@@ -5,7 +5,12 @@ services:
     image: registry:2
     ports:
       - 5000:5000
+    environment:
+      REGISTRY_HTTP_TLS_CERTIFICATE: /certs/registry.crt
+      REGISTRY_HTTP_TLS_KEY: /certs/registry.key
     volumes:
       - registry-data:/var/lib/registry
+      - ./registry.crt:/certs/registry.crt
+      - ./registry.key:/certs/registry.key
 volumes:
   registry-data:
