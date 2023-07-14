@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
 
 RUN rustup component add clippy rustfmt
 
-RUN useradd --no-log-init --create-home --home-dir /ci --system ci
+RUN useradd --no-log-init --create-home --home-dir /ci ci
 WORKDIR /ci
 USER ci:ci
 
