@@ -16,7 +16,7 @@ pub struct LineCorrespondences {
 }
 
 impl Layer for LineCorrespondences {
-    const NAME: &'static str = "Line Associations";
+    const NAME: &'static str = "Line Correspondences";
 
     fn new(nao: Arc<Nao>) -> Self {
         let lines_in_robot_bottom = nao.subscribe_output(
