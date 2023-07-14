@@ -7,7 +7,6 @@ jobs:
     runs-on:
       - self-hosted
       - v3
-      - knoellchen
     permissions:
       packages: write
     steps:
@@ -27,4 +26,4 @@ jobs:
           build-args: SDK_VERSION=${{ steps.retrieve_latest_version.outputs.SDK_VERSION }}
           context: "{{ defaultContext }}:tools/ci/github-runners/v3"
           push: true
-          tags: ghcr.io/h3ndrk/hulk:latest
+          tags: 134.28.57.223:5000/hulk
