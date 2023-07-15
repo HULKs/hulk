@@ -15,9 +15,7 @@ jobs:
       - format
       - test
       - build
-      - build_subprojects
-      - build_aliveness
-      - build_hula
+      - build_tools
     steps:
       - name: Status message
         run: echo 'All other jobs exited successfully!'
@@ -99,15 +97,18 @@ jobs:
         run: |
           ln -s /ci/.naosdk naosdk
           ./pepsi build --target ${{ matrix.target }} --profile ${{ matrix.profile }} --no-sdk-installation
-  build_subprojects:
+  build_tools:
     name: Build
     strategy:
       matrix:
         path:
           [
+            tools/aliveness,
+            tools/behavior_simulator,
             tools/camera_matrix_extractor,
             tools/depp,
             tools/fanta,
+            tools/hula,
             tools/pepsi,
             tools/twix,
           ]
@@ -127,42 +128,4 @@ jobs:
       - name: Build
         run: |
           cd ${{ matrix.path }}
-          cargo build --all-features
-  build_aliveness:
-    name: Build Aliveness
-    runs-on:
-      - self-hosted
-      - v3
-    container:
-      image: 134.28.57.223:5000/hulk
-      env:
-        CARGO_HOME: ../cargo
-        CARGO_TARGET_DIR: ../target
-      options: --user=1000:1000
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          lfs: true
-      - name: Build Aliveness
-        run: |
-          cd tools/aliveness
-          cargo build --release
-  build_hula:
-    name: Build HuLA
-    runs-on:
-      - self-hosted
-      - v3
-    container:
-      image: 134.28.57.223:5000/hulk
-      env:
-        CARGO_HOME: ../cargo
-        CARGO_TARGET_DIR: ../target
-      options: --user=1000:1000
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          lfs: true
-      - name: Build HuLA
-        run: |
-          cd tools/hula
           cargo build --release
