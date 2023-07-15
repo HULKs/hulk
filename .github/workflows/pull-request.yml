@@ -28,6 +28,9 @@ jobs:
       - v3
     container:
       image: 134.28.57.223:5000/hulk
+      env:
+        CARGO_HOME: ${{ env.GITHUB_WORKSPACE }}/cargo
+        CARGO_TARGET_DIR: ${{ env.GITHUB_WORKSPACE }}/target
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
@@ -43,6 +46,9 @@ jobs:
       - v3
     container:
       image: 134.28.57.223:5000/hulk
+      env:
+        CARGO_HOME: ${{ env.GITHUB_WORKSPACE }}/cargo
+        CARGO_TARGET_DIR: ${{ env.GITHUB_WORKSPACE }}/target
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
@@ -58,6 +64,9 @@ jobs:
       - v3
     container:
       image: 134.28.57.223:5000/hulk
+      env:
+        CARGO_HOME: ${{ env.GITHUB_WORKSPACE }}/cargo
+        CARGO_TARGET_DIR: ${{ env.GITHUB_WORKSPACE }}/target
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
@@ -78,6 +87,9 @@ jobs:
       - v3
     container:
       image: 134.28.57.223:5000/hulk
+      env:
+        CARGO_HOME: ${{ env.GITHUB_WORKSPACE }}/cargo
+        CARGO_TARGET_DIR: ${{ env.GITHUB_WORKSPACE }}/target
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
@@ -104,6 +116,9 @@ jobs:
       - v3
     container:
       image: 134.28.57.223:5000/hulk
+      env:
+        CARGO_HOME: ${{ env.GITHUB_WORKSPACE }}/cargo
+        CARGO_TARGET_DIR: ${{ env.GITHUB_WORKSPACE }}/target
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
@@ -120,6 +135,9 @@ jobs:
       - v3
     container:
       image: 134.28.57.223:5000/hulk
+      env:
+        CARGO_HOME: ${{ env.GITHUB_WORKSPACE }}/cargo
+        CARGO_TARGET_DIR: ${{ env.GITHUB_WORKSPACE }}/target
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
@@ -136,6 +154,9 @@ jobs:
       - v3
     container:
       image: 134.28.57.223:5000/hulk
+      env:
+        CARGO_HOME: ${{ env.GITHUB_WORKSPACE }}/cargo
+        CARGO_TARGET_DIR: ${{ env.GITHUB_WORKSPACE }}/target
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
