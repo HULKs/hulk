@@ -103,14 +103,14 @@ jobs:
       matrix:
         path:
           [
-            tools/aliveness,
-            tools/behavior_simulator,
-            tools/camera_matrix_extractor,
-            tools/depp,
-            tools/fanta,
-            tools/hula,
-            tools/pepsi,
-            tools/twix,
+            aliveness,
+            behavior_simulator,
+            camera_matrix_extractor,
+            depp,
+            fanta,
+            hula,
+            pepsi,
+            twix,
           ]
     runs-on:
       - self-hosted
@@ -127,5 +127,5 @@ jobs:
           lfs: true
       - name: Build
         run: |
-          cd ${{ matrix.path }}
+          cd tools/${{ matrix.path }}
           cargo build --release
