@@ -37,4 +37,5 @@
     - Download the runner archive e.g. via `wget`
     - `mkdir actions-runner && cd actions-runner && tar xzf ../actions-runner-linux-x64-*.tar.gz`
     - Execute `./config.sh ...` from GitHub to add a new runner (add `v3` label)
+    - Add `CARGO_HOME=../cargo` and `CARGO_TARGET_DIR=../target` to `.env`
     - Execute `sudo ./svc.sh install && sudo ./svc.sh start`
