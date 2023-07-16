@@ -23,6 +23,7 @@ use eframe::{
 use egui_dock::{DockArea, NodeIndex, TabAddAlign, TabIndex, Tree};
 use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 
+use log::error;
 use nao::Nao;
 use panel::Panel;
 use panels::{
@@ -217,14 +218,17 @@ impl App for TwixApp {
                         CompletionEdit::select_all(&self.panel_selection, ui, panel_input.id);
                     }
                     if panel_input.changed() || panel_input.lost_focus() {
-                        if let Ok(panel) = SelectablePanel::try_from_name(
+                        match SelectablePanel::try_from_name(
                             &self.panel_selection,
                             self.nao.clone(),
                             None,
                         ) {
-                            if let Some(active_panel) = self.active_panel() {
-                                *active_panel = panel;
+                            Ok(panel) => {
+                                if let Some(active_panel) = self.active_panel() {
+                                    *active_panel = panel;
+                                }
                             }
+                            Err(err) => error!("{err:?}"),
                         }
                     }
                 });
