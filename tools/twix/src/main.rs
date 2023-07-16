@@ -40,11 +40,10 @@ mod panel;
 mod panels;
 mod players_value_buffer;
 mod repository_parameters;
+pub mod selectable_panel_macro;
 mod twix_painter;
 mod value_buffer;
 pub mod visuals;
-pub mod selectable_panel_macro;
-
 
 fn setup_logger() -> Result<(), InitError> {
     Dispatch::new()
@@ -72,10 +71,19 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
-
-impl_selectablepanel!(BehaviorSimulatorPanel, TextPanel, PlotPanel, ImagePanel, ImageSegmentsPanel, MapPanel, ParameterPanel, ManualCalibrationPanel, LookAtPanel, RemotePanel, VisionTunerPanel);
-
-
+impl_selectablepanel!(
+    BehaviorSimulatorPanel,
+    TextPanel,
+    PlotPanel,
+    ImagePanel,
+    ImageSegmentsPanel,
+    MapPanel,
+    ParameterPanel,
+    ManualCalibrationPanel,
+    LookAtPanel,
+    RemotePanel,
+    VisionTunerPanel
+);
 struct TwixApp {
     nao: Arc<Nao>,
     connection_intent: bool,
