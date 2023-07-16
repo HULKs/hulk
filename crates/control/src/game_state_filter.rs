@@ -279,7 +279,7 @@ impl State {
     ) -> FilteredGameState {
         let hulks_is_kicking_team = matches!(
             game_controller_state.kicking_team,
-            Team::Hulks | Team::Uncertain
+            Team::Hulks
         );
         self.construct_filtered_game_state(
             game_controller_state,
