@@ -29,7 +29,7 @@ macro_rules! impl_selectablepanel {
                         _ => bail!("{panel_name} unknown"),
                     }
                 }
-            
+
             pub fn registered() -> Vec<String> {
                 vec![
                     $(
@@ -44,7 +44,7 @@ macro_rules! impl_selectablepanel {
                         SelectablePanel::$name(panel) => panel.save(),
                     )*
                 };
-                
+
                 value["_panel_type"] = Value::String(self.to_string());
 
                 value
@@ -65,7 +65,7 @@ macro_rules! impl_selectablepanel {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             let panel_name = match self {
                 $(
-                    SelectablePanel::$name(_) => $name::NAME, 
+                    SelectablePanel::$name(_) => $name::NAME,
                 )*
             };
             f.write_str(panel_name)
