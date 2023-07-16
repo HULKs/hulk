@@ -277,10 +277,7 @@ impl State {
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
     ) -> FilteredGameState {
-        let hulks_is_kicking_team = matches!(
-            game_controller_state.kicking_team,
-            Team::Hulks
-        );
+        let hulks_is_kicking_team = matches!(game_controller_state.kicking_team, Team::Hulks);
         self.construct_filtered_game_state(
             game_controller_state,
             hulks_is_kicking_team,
