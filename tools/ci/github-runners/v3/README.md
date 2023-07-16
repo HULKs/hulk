@@ -32,6 +32,7 @@
 - SSH via root to the container
     - `mkdir /home/hulk/.ssh && cp .ssh/authorized_keys /home/hulk/.ssh/ && chown -R hulk:hulk /home/hulk/.ssh`
     - Set `hulk` user password via `passwd hulk` and store that in our vault
+    - Copy the certificate of the Docker Registry to `/etc/docker/certs.d/134.28.57.223:5000/registry.crt`
 - Visit https://github.com/actions/runner/releases/latest and find the asset `actions-runner-linux-x64-*.tar.gz` and copy the link
 - SSH via hulk to the container
     - Download the runner archive e.g. via `wget`
