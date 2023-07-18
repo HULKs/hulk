@@ -32,6 +32,7 @@ members = [
   "tools/camera_matrix_extractor",
   "tools/depp",
   "tools/fanta",
+  "tools/hula/types",
   "tools/localizer",
   "tools/pepsi",
   "tools/twix",
@@ -84,6 +85,7 @@ gilrs = "0.10.1"
 glob = "0.3.0"
 hardware = { path = "crates/hardware" }
 home = "0.5.4"
+hula-types = { path = "tools/hula/types" }
 hulk = { path = "crates/hulk" }
 i2cdev = "0.5.1"
 image = "0.24.4"
