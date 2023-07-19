@@ -39,8 +39,8 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     pub path_obstacles: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
+    pub dribble_path_obstacles: AdditionalOutput<Vec<PathObstacle>, "dribble_path_obstacles">,
     pub active_action: AdditionalOutput<Action, "active_action">,
-    pub time_to_reach_obstacles: AdditionalOutput<Vec<PathObstacle>, "time_to_reach_obstacles">,
 
     pub has_ground_contact: Input<bool, "has_ground_contact">,
     pub world_state: Input<WorldState, "world_state">,
@@ -181,12 +181,23 @@ impl Behavior {
             &walk_and_stand,
             &look_action,
         );
+
+        let mut dribble_path_obstacles = None;
+        let mut dribble_path_obstacles_output = AdditionalOutput::new(
+            context.path_obstacles.is_subscribed()
+                || context.dribble_path_obstacles.is_subscribed(),
+            &mut dribble_path_obstacles,
+        );
+
         let dribble_path = dribble_path_planner::plan(
             &walk_path_planner,
             world_state,
             &context.parameters.dribbling,
-            &mut context.time_to_reach_obstacles,
+            &mut dribble_path_obstacles_output,
         );
+        context
+            .dribble_path_obstacles
+            .fill_if_subscribed(|| dribble_path_obstacles.clone().unwrap_or_default());
 
         let (action, motion_command) = actions
             .iter()
@@ -316,6 +327,12 @@ impl Behavior {
         context.active_action.fill_if_subscribed(|| *action);
 
         self.last_motion_command = motion_command.clone();
+
+        if matches!(action, Action::Dribble) {
+            context
+                .path_obstacles
+                .fill_if_subscribed(|| dribble_path_obstacles.unwrap_or_default())
+        }
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),
