@@ -12,10 +12,10 @@ pub fn plan(
     dribbling_parameters: &Dribbling,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
 ) -> Option<Vec<PathSegment>> {
-    let Some(kick_decisions) = world_state.kick_decisions.as_ref() else { return None };
-    let Some(best_kick_decision) = kick_decisions.first() else { return None };
-    let Some(ball) = world_state.ball else { return None };
-    let Some(robot_to_field) = world_state.robot.robot_to_field else { return None };
+    let kick_decisions = world_state.kick_decisions.as_ref()?;
+    let best_kick_decision = kick_decisions.first()?;
+    let ball = world_state.ball?;
+    let robot_to_field = world_state.robot.robot_to_field?;
 
     let ball_position_in_ground = ball.ball_in_ground;
     let ball_position_in_field = ball.ball_in_field;
