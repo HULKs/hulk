@@ -305,9 +305,9 @@ impl BehaviorCycler {
                         true,
                         &mut own_database.additional_outputs.active_action,
                     ),
-                    time_to_reach_obstacles: AdditionalOutput::new(
+                    dribble_path_obstacles: AdditionalOutput::new(
                         true,
-                        &mut own_database.additional_outputs.time_to_reach_obstacles,
+                        &mut own_database.additional_outputs.dribble_path_obstacles,
                     ),
                     world_state: &own_database.main_outputs.world_state,
                     cycle_time: &own_database.main_outputs.cycle_time,
