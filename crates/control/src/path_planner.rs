@@ -39,11 +39,12 @@ pub struct PathPlanner {
 }
 
 impl PathPlanner {
-    pub fn from_last_motion(
+    pub fn with_last_motion(
+        &mut self,
         last_motion_command: &MotionCommand,
         rotation_penalty_factor: f32,
-    ) -> Self {
-        let last_path_direction = match last_motion_command {
+    ) {
+        self.last_path_direction = match last_motion_command {
             MotionCommand::Walk {
                 orientation_mode,
                 path,
@@ -71,11 +72,7 @@ impl PathPlanner {
             _ => None,
         };
 
-        Self {
-            last_path_direction,
-            rotation_penalty_factor,
-            ..Default::default()
-        }
+        self.rotation_penalty_factor = rotation_penalty_factor;
     }
 
     pub fn with_obstacles(&mut self, obstacles: &[Obstacle], own_robot_radius: f32) {

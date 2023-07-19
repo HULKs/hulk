@@ -42,7 +42,8 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         rule_obstacles: &[RuleObstacle],
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     ) -> Vec<PathSegment> {
-        let mut planner = PathPlanner::from_last_motion(
+        let mut planner = PathPlanner::default();
+        planner.with_last_motion(
             self.last_motion_command,
             self.parameters.rotation_penalty_factor,
         );
