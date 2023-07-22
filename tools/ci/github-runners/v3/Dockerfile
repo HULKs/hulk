@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
   libdbus-1-dev \
   libhdf5-dev \
   libluajit-5.1-dev \
+  libopusfile-dev \
   libsystemd-dev \
   libudev-dev \
   ninja-build \
