@@ -8,7 +8,7 @@ use color_eyre::{
     eyre::{eyre, Error, WrapErr},
     Result,
 };
-use hardware::PathsInterface;
+use hardware::{PathsInterface, SpeakerInterface};
 use parking_lot::Mutex;
 use serde::Deserialize;
 use spl_network::endpoint::{Endpoint, Ports};
@@ -18,6 +18,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 use types::{
+    audio::SpeakerRequest,
     hardware::{Ids, Paths},
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
@@ -29,6 +30,7 @@ use super::{
     camera::Camera,
     hula_wrapper::HulaWrapper,
     microphones::{self, Microphones},
+    speakers::{self, Speakers},
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -38,12 +40,14 @@ pub struct Parameters {
     pub communication_addresses: Option<String>,
     pub microphones: microphones::Parameters,
     pub paths: Paths,
+    pub speakers: speakers::Parameters,
     pub spl_network_ports: Ports,
 }
 
 pub struct HardwareInterface {
     hula_wrapper: Mutex<HulaWrapper>,
     microphones: Mutex<Microphones>,
+    speakers: Speakers,
     paths: Paths,
     spl_network_endpoint: Endpoint,
     async_runtime: Runtime,
@@ -68,6 +72,8 @@ impl HardwareInterface {
                 Microphones::new(parameters.microphones)
                     .wrap_err("failed to initialize microphones")?,
             ),
+            speakers: Speakers::new(parameters.speakers, &parameters.paths)
+                .wrap_err("failed to initialize speakers")?,
             paths: parameters.paths,
             spl_network_endpoint: runtime
                 .block_on(Endpoint::new(parameters.spl_network_ports))
@@ -160,6 +166,12 @@ impl PathsInterface for HardwareInterface {
 impl SensorInterface for HardwareInterface {
     fn read_from_sensors(&self) -> Result<SensorData> {
         self.hula_wrapper.lock().read_from_hula()
+    }
+}
+
+impl SpeakerInterface for HardwareInterface {
+    fn write_to_speakers(&self, request: SpeakerRequest) {
+        self.speakers.write_to_speakers(request);
     }
 }
 

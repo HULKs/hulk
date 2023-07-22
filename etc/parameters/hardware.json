@@ -96,7 +96,19 @@
   "paths": {
     "motions": "etc/motions",
     "neural_networks": "etc/neural_networks",
-    "parameters": "etc/parameters"
+    "parameters": "etc/parameters",
+    "sounds": "etc/sounds"
+  },
+  "speakers": {
+    "access": "RWInterleaved",
+    "buffer_time": {
+      "nanos": 0,
+      "secs": 1
+    },
+    "format": "FloatLE",
+    "number_of_channels": 1,
+    "sample_rate": 48000,
+    "volume": 0.15
   },
   "spl_network_ports": {
     "game_controller_return": 3939,

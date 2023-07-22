@@ -1,5 +1,6 @@
 #![recursion_limit = "256"]
 mod action;
+pub mod audio;
 mod ball;
 pub mod ball_filter;
 mod ball_position;

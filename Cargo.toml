@@ -103,6 +103,7 @@ nix = { git = "https://github.com/nix-rust/nix.git", version = "0.26.1", rev = "
 num-derive = "0.3"
 num-traits = "0.2"
 ordered-float = "3.1.0"
+opusfile-ng = "0.1.0"
 parameters = { path = "crates/parameters" }
 parking_lot = "0.12.1"
 petgraph = "0.6.2"

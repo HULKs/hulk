@@ -2,6 +2,7 @@ use std::time::SystemTime;
 
 use color_eyre::eyre::Result;
 use types::{
+    audio::SpeakerRequest,
     hardware::{Ids, Paths},
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
@@ -41,6 +42,10 @@ pub trait PathsInterface {
 
 pub trait SensorInterface {
     fn read_from_sensors(&self) -> Result<SensorData>;
+}
+
+pub trait SpeakerInterface {
+    fn write_to_speakers(&self, request: SpeakerRequest);
 }
 
 pub trait TimeInterface {
