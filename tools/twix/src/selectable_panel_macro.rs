@@ -1,7 +1,5 @@
-// impl_paneldispatch!(A, B);
-
 #[macro_export]
-macro_rules! impl_selectablepanel {
+macro_rules! impl_selectable_panel {
     ($($name:ident),*) => {
         #[allow(clippy::large_enum_variant)]
         pub enum SelectablePanel {
@@ -24,7 +22,7 @@ macro_rules! impl_selectablepanel {
             pub fn try_from_name(panel_name: &String, nao: Arc<Nao>, value: Option<&Value>) -> Result<SelectablePanel> {
                 match panel_name.as_str() {
                         $(
-                        $name::NAME => Ok(SelectablePanel::$name($name::new(nao, value))),
+                            $name::NAME => Ok(SelectablePanel::$name($name::new(nao, value))),
                         )*
                         _ => bail!("{panel_name} panel unknown"),
                     }
@@ -62,13 +60,13 @@ macro_rules! impl_selectablepanel {
         }
 
         impl Display for SelectablePanel {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
             let panel_name = match self {
                 $(
                     SelectablePanel::$name(_) => $name::NAME,
                 )*
             };
-            f.write_str(panel_name)
+            formatter.write_str(panel_name)
         }
         }
     };
