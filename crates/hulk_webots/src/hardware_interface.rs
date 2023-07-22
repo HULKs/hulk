@@ -13,7 +13,7 @@ use color_eyre::{
 };
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, SensorInterface, TimeInterface,
+    PathsInterface, SensorInterface, TimeInterface, SpeakerInterface,
 };
 use serde::Deserialize;
 use spl_network::endpoint::{Endpoint, Ports};
@@ -384,6 +384,12 @@ impl SensorInterface for HardwareInterface {
             touch_sensors,
             temperature_sensors,
         })
+    }
+}
+
+impl SpeakerInterface for HardwareInterface {
+    fn write_to_speakers(&self, _request: types::audio::SpeakerRequest) {
+        // Webots robot model does not have speakers
     }
 }
 

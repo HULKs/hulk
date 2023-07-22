@@ -2,7 +2,7 @@
 
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, SensorInterface, TimeInterface,
+    PathsInterface, SensorInterface, TimeInterface, SpeakerInterface,
 };
 
 pub trait HardwareInterface:
@@ -13,6 +13,7 @@ pub trait HardwareInterface:
     + PathsInterface
     + NetworkInterface
     + SensorInterface
+    + SpeakerInterface
     + TimeInterface
 {
 }

@@ -1,8 +1,12 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use hardware::SpeakerInterface;
 use spl_network_messages::PlayerNumber;
-use types::{Buttons, FilteredGameState, GameControllerState, PrimaryState};
+use types::{
+    audio::{Sound, SpeakerRequest},
+    Buttons, FilteredGameState, GameControllerState, PrimaryState,
+};
 
 pub struct PrimaryStateFilter {
     last_primary_state: PrimaryState,
@@ -20,6 +24,8 @@ pub struct CycleContext {
     pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
 
     pub player_number: Parameter<PlayerNumber, "player_number">,
+
+    pub hardware_interface: HardwareInterface,
 }
 
 #[context]
@@ -35,7 +41,7 @@ impl PrimaryStateFilter {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext<impl SpeakerInterface>) -> Result<MainOutputs> {
         let is_penalized = match context.game_controller_state {
             Some(game_controller_state) => {
                 game_controller_state.penalties[*context.player_number].is_some()
@@ -51,7 +57,14 @@ impl PrimaryStateFilter {
             context.filtered_game_state,
         ) {
             // Unstiff transitions (entering and exiting)
-            (_, true, _, _, _) => PrimaryState::Unstiff,
+            (last_primary_state, true, _, _, _) => {
+                if last_primary_state != PrimaryState::Unstiff {
+                    context
+                        .hardware_interface
+                        .write_to_speakers(SpeakerRequest::PlaySound { sound: Sound::Sigh });
+                }
+                PrimaryState::Unstiff
+            }
 
             (PrimaryState::Initial, _, _, true, _) => PrimaryState::Calibration,
 

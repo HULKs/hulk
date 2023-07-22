@@ -18,6 +18,7 @@ mod hardware_interface;
 mod hula;
 mod hula_wrapper;
 mod microphones;
+mod speakers;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
