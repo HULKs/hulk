@@ -21,12 +21,12 @@ macro_rules! impl_selectable_panel {
 
             pub fn try_from_name(panel_name: &String, nao: Arc<Nao>, value: Option<&Value>) -> Result<SelectablePanel> {
                 match panel_name.as_str() {
-                        $(
-                            $name::NAME => Ok(SelectablePanel::$name($name::new(nao, value))),
-                        )*
-                        _ => bail!("{panel_name} panel unknown"),
-                    }
+                    $(
+                        $name::NAME => Ok(SelectablePanel::$name($name::new(nao, value))),
+                    )*
+                    _ => bail!("{panel_name} panel unknown"),
                 }
+            }
 
             pub fn registered() -> Vec<String> {
                 vec![
@@ -61,13 +61,13 @@ macro_rules! impl_selectable_panel {
 
         impl Display for SelectablePanel {
             fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-            let panel_name = match self {
-                $(
-                    SelectablePanel::$name(_) => $name::NAME,
-                )*
-            };
-            formatter.write_str(panel_name)
-        }
+                let panel_name = match self {
+                    $(
+                        SelectablePanel::$name(_) => $name::NAME,
+                    )*
+                };
+                formatter.write_str(panel_name)
+            }
         }
     };
 }
