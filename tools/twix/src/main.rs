@@ -72,17 +72,17 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
-impl_selectablepanel!(
+impl_selectable_panel!(
     BehaviorSimulatorPanel,
-    TextPanel,
-    PlotPanel,
     ImagePanel,
     ImageSegmentsPanel,
+    LookAtPanel,
+    ManualCalibrationPanel,
     MapPanel,
     ParameterPanel,
-    ManualCalibrationPanel,
-    LookAtPanel,
+    PlotPanel,
     RemotePanel,
+    TextPanel,
     VisionTunerPanel
 );
 struct TwixApp {
