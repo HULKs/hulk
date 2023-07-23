@@ -10,6 +10,7 @@ use alsa::{
     Direction, ValueOr, PCM,
 };
 use color_eyre::{eyre::WrapErr, Result};
+use enum_iterator::all;
 use log::{error, warn};
 use opusfile_ng::OggOpusFile;
 use serde::Deserialize;
@@ -72,61 +73,8 @@ impl Speakers {
 
     fn load_sounds(paths: &Paths, volume: f32) -> Result<HashMap<Sound, Vec<f32>>> {
         let mut sounds = HashMap::new();
-        for sound in Sound::all() {
-            let file_name = match sound {
-                Sound::Ball => "ball.ogg",
-                Sound::Bishop => "bishop.ogg",
-                Sound::CameraReset => "cameraReset.ogg",
-                Sound::CenterCircle => "centerCircle.ogg",
-                Sound::Corner => "corner.ogg",
-                Sound::DefenderLeft => "defenderLeft.ogg",
-                Sound::Defender => "defender.ogg",
-                Sound::DefenderRight => "defenderRight.ogg",
-                Sound::Donk => "donk.ogg",
-                Sound::Drift => "drift.ogg",
-                Sound::FalsePositiveDetected => "falsePositiveDetected.ogg",
-                Sound::FalsePositive => "falsePositive.ogg",
-                Sound::FrontLeft => "frontLeft.ogg",
-                Sound::Front => "front.ogg",
-                Sound::FrontRight => "frontRight.ogg",
-                Sound::InvalidImage => "invalidImage.ogg",
-                Sound::Keeper => "keeper.ogg",
-                Sound::Left => "left.ogg",
-                Sound::LolaDesync => "lolaDesync.ogg",
-                Sound::Ouch => "ouch.ogg",
-                Sound::PenaltyArea => "penaltyArea.ogg",
-                Sound::PenaltySpot => "penaltySpot.ogg",
-                Sound::RearLeft => "rearLeft.ogg",
-                Sound::Rear => "rear.ogg",
-                Sound::RearRight => "rearRight.ogg",
-                Sound::ReplacementKeeper => "replacementKeeper.ogg",
-                Sound::Right => "right.ogg",
-                Sound::SameNumberTuhhNao21 => "sameNumbertuhhNao21.ogg",
-                Sound::SameNumberTuhhNao22 => "sameNumbertuhhNao22.ogg",
-                Sound::SameNumberTuhhNao23 => "sameNumbertuhhNao23.ogg",
-                Sound::SameNumberTuhhNao24 => "sameNumbertuhhNao24.ogg",
-                Sound::SameNumberTuhhNao25 => "sameNumbertuhhNao25.ogg",
-                Sound::SameNumberTuhhNao26 => "sameNumbertuhhNao26.ogg",
-                Sound::SameNumberTuhhNao27 => "sameNumbertuhhNao27.ogg",
-                Sound::SameNumberTuhhNao28 => "sameNumbertuhhNao28.ogg",
-                Sound::SameNumberTuhhNao29 => "sameNumbertuhhNao29.ogg",
-                Sound::SameNumberTuhhNao30 => "sameNumbertuhhNao30.ogg",
-                Sound::SameNumberTuhhNao31 => "sameNumbertuhhNao31.ogg",
-                Sound::SameNumberTuhhNao32 => "sameNumbertuhhNao32.ogg",
-                Sound::SameNumberTuhhNao33 => "sameNumbertuhhNao33.ogg",
-                Sound::SameNumberTuhhNao34 => "sameNumbertuhhNao34.ogg",
-                Sound::SameNumberTuhhNao35 => "sameNumbertuhhNao35.ogg",
-                Sound::SameNumberTuhhNao36 => "sameNumbertuhhNao36.ogg",
-                Sound::SameNumberUnknownHULKDeviceEth => "sameNumberUnknownHULKDeviceETH.ogg",
-                Sound::SameNumberUnknownHULKDeviceWifi => "sameNumberUnknownHULKDeviceWIFI.ogg",
-                Sound::Sigh => "sigh.ogg",
-                Sound::Squat => "squat.ogg",
-                Sound::Striker => "striker.ogg",
-                Sound::Supporter => "supporter.ogg",
-                Sound::TJunction => "tJunction.ogg",
-                Sound::UsbStickMissing => "usbStickMissing.ogg",
-                Sound::Weeeee => "weeeee.ogg",
-            };
+        for sound in all::<Sound>() {
+            let file_name = format!("{sound}.ogg");
             let path = paths.sounds.join(file_name);
             let file = OggOpusFile::open_file(&path)
                 .wrap_err_with(|| format!("failed to open sound file {path:?}"))?;
@@ -147,7 +95,7 @@ impl Speakers {
                 }
                 samples.extend(&buffer[..read_bytes]);
             }
-            sounds.insert(*sound, samples);
+            sounds.insert(sound, samples);
         }
         Ok(sounds)
     }
