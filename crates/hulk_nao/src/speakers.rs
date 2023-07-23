@@ -334,7 +334,7 @@ fn worker(device: PCM, sounds: HashMap<Sound, Vec<f32>>, receiver: Receiver<Spea
         if let Err(error) = device.prepare() {
             error!("device.prepare(): {error:?}");
         }
-        if let Err(error) = io.writei(&samples) {
+        if let Err(error) = io.writei(samples) {
             error!("device.writei(): {error:?}");
         }
         if let Err(error) = device.drain() {
