@@ -389,7 +389,7 @@ impl SensorInterface for HardwareInterface {
 
 impl SpeakerInterface for HardwareInterface {
     fn write_to_speakers(&self, _request: types::audio::SpeakerRequest) {
-        // Webots robot model does not have speakers
+        // not implemented
     }
 }
 
