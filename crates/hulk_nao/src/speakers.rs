@@ -29,7 +29,7 @@ impl Speakers {
             .wrap_err("failed to initialize playback device")?;
         let sounds =
             Self::load_sounds(paths, parameters.volume).wrap_err("failed to loads sounds")?;
-        let (sender, receiver) = sync_channel(42);
+        let (sender, receiver) = sync_channel(5);
         let worker = Some(spawn(move || worker(device, sounds, receiver)));
         Ok(Self {
             worker_sender: Some(sender),
