@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::mpsc::{sync_channel, Receiver, SyncSender},
+    sync::mpsc::{sync_channel, Receiver, SyncSender, TrySendError},
     thread::{spawn, JoinHandle},
     time::Duration,
 };
@@ -10,6 +10,7 @@ use alsa::{
     Direction, ValueOr, PCM,
 };
 use color_eyre::{eyre::WrapErr, Result};
+use log::{error, warn};
 use opusfile_ng::OggOpusFile;
 use serde::{de::Error, Deserialize, Deserializer};
 use types::{
@@ -150,11 +151,15 @@ impl Speakers {
     }
 
     pub fn write_to_speakers(&self, request: SpeakerRequest) {
-        self.worker_sender
-            .as_ref()
-            .unwrap()
-            .send(request)
-            .expect("receiver should always wait for all senders");
+        match self.worker_sender.as_ref().unwrap().try_send(request) {
+            Ok(_) => {}
+            Err(TrySendError::Full(request)) => {
+                warn!("speaker queue is full, dropping {request:?}");
+            }
+            Err(TrySendError::Disconnected(_)) => {
+                panic!("receiver should always wait for all senders");
+            }
+        }
     }
 }
 
@@ -327,13 +332,13 @@ fn worker(device: PCM, sounds: HashMap<Sound, Vec<f32>>, receiver: Receiver<Spea
             .io_f32()
             .expect("f32 device should always be available");
         if let Err(error) = device.prepare() {
-            eprintln!("device.prepare(): {error:?}");
+            error!("device.prepare(): {error:?}");
         }
         if let Err(error) = io.writei(&samples) {
-            eprintln!("device.writei(): {error:?}");
+            error!("device.writei(): {error:?}");
         }
         if let Err(error) = device.drain() {
-            eprintln!("device.drain(): {error:?}");
+            error!("device.drain(): {error:?}");
         }
     }
 }
