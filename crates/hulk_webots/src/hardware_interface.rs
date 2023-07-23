@@ -13,7 +13,7 @@ use color_eyre::{
 };
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, SensorInterface, TimeInterface, SpeakerInterface,
+    PathsInterface, SensorInterface, SpeakerInterface, TimeInterface,
 };
 use serde::Deserialize;
 use spl_network::endpoint::{Endpoint, Ports};
