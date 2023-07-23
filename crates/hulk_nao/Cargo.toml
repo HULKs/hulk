@@ -11,6 +11,7 @@ chrono = { workspace = true }
 color-eyre = { workspace = true }
 constants = { workspace = true }
 ctrlc = { workspace = true }
+enum-iterator = { workspace = true }
 fern = { workspace = true }
 hardware = { workspace = true }
 hulk = { workspace = true }

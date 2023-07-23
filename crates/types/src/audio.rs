@@ -1,30 +1,14 @@
+use std::fmt::{self, Display, Formatter};
+
+use enum_iterator::Sequence;
+
 #[derive(Copy, Clone, Debug)]
 pub enum SpeakerRequest {
     PlaySound { sound: Sound },
 }
 
-macro_rules! define_sound_enum {
-    ($($name:ident,)*) => {
-        #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
-        pub enum Sound {
-            $(
-                $name,
-            )*
-        }
-
-        impl Sound {
-            pub fn all() -> &'static [Self] {
-                &[
-                    $(
-                        Self::$name,
-                    )*
-                ]
-            }
-        }
-    };
-}
-
-define_sound_enum!(
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, Sequence)]
+pub enum Sound {
     Ball,
     Bishop,
     CameraReset,
@@ -77,4 +61,10 @@ define_sound_enum!(
     TJunction,
     UsbStickMissing,
     Weeeee,
-);
+}
+
+impl Display for Sound {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{self:?}")
+    }
+}

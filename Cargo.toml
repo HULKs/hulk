@@ -73,6 +73,7 @@ egui_dock = { version = "0.6.1", git = "https://github.com/knoellle/egui_dock/",
 ] }
 egui_extras = { version = "0.22.0", features = ["image"] }
 enum_dispatch = "0.3.11"
+enum-iterator = "1.4.1"
 fast_image_resize = "2.6.0"
 fern = { version = "0.6.1", features = ["colored"] }
 filtering = { path = "crates/filtering" }
