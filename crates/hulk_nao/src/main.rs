@@ -12,6 +12,7 @@ use hulk::run::run;
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
 
+mod audio_parameter_deserializers;
 mod camera;
 mod double_buffered_reader;
 mod hardware_interface;
@@ -19,7 +20,6 @@ mod hula;
 mod hula_wrapper;
 mod microphones;
 mod speakers;
-mod audio_parameter_deserializers;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
