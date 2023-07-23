@@ -23,6 +23,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 use types::{
+    audio::SpeakerRequest,
     hardware::{Ids, Paths},
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
@@ -388,7 +389,7 @@ impl SensorInterface for HardwareInterface {
 }
 
 impl SpeakerInterface for HardwareInterface {
-    fn write_to_speakers(&self, _request: types::audio::SpeakerRequest) {
+    fn write_to_speakers(&self, _request: SpeakerRequest) {
         // not implemented
     }
 }
