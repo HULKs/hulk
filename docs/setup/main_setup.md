@@ -13,7 +13,7 @@ Use your distribution's package manager to install the following dependencies:
     1. Install dependencies
 
         ```sh
-        yay -S git git-lfs base-devel rustup rsync cmake clang hdf5 python webots
+        yay -S git git-lfs base-devel rustup rsync cmake clang hdf5 opusfile python webots
         ```
         `yay` is used because `webots` is an [AUR](https://aur.archlinux.org/) package.
         Optionally substitute `yay` with your favorite AUR helper.
@@ -29,7 +29,7 @@ Use your distribution's package manager to install the following dependencies:
     1. Install dependencies
 
         ```sh
-        sudo apt install git git-lfs build-essential libssl-dev pkg-config libclang-dev rsync cmake libhdf5-dev python3 libasound2-dev libluajit-5.1-dev libudev-dev
+        sudo apt install git git-lfs build-essential libssl-dev pkg-config libclang-dev rsync cmake libhdf5-dev libopusfile-dev python3 libasound2-dev libluajit-5.1-dev libudev-dev
         ```
 
     1. Install Webots
