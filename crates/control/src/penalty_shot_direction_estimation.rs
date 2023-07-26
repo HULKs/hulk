@@ -62,7 +62,7 @@ impl PenaltyShotDirectionEstimation {
             }
             (PrimaryState::Playing, GamePhase::PenaltyShootout { .. }) => {
                 if let PenaltyShotDirection::NotMoving = self.last_shot_direction {
-                    let is_ball_position_exceeed_moving_distance_threshold =
+                    let is_ball_position_exceeding_moving_distance_threshold =
                         (context.ball_position.position.x
                             - context.field_dimensions.penalty_marker_distance)
                             .abs()
