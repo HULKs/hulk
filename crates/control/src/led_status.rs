@@ -208,7 +208,7 @@ impl LedStatus {
         current_maximum_temperature: f32,
     ) -> Ear {
         if filter_whistle_detected {
-            return Ear::full_ears(1.0);
+            return Ear::full_ears(1.0); // invertieren
         }
 
         if last_game_controller_message.is_some_and(|timestamp| {
@@ -224,13 +224,21 @@ impl LedStatus {
             }
         }
 
-        let minimum_temperature = 30.0;
-        let maximum_temperature = 105.0;
+        let temperature_level_one = 76.0;
+        let temperature_level_two = 80.0;
+        let temperature_level_three = 90.0;
 
-        let relative_temperature = (current_maximum_temperature - minimum_temperature)
-            / (maximum_temperature - minimum_temperature).floor();
+        let discrete_temperature = if current_maximum_temperature > temperature_level_one {
+            0.33
+        } else if current_maximum_temperature > temperature_level_two {
+            0.66
+        } else if current_maximum_temperature > temperature_level_three {
+            1.0
+        } else {
+            0.0
+        };
 
-        Ear::percentage_ears(1.0, relative_temperature)
+        Ear::percentage_ears(1.0, discrete_temperature)
     }
 
     fn get_eyes(
