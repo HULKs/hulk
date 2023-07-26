@@ -1,15 +1,2 @@
-{
-  "step_planner": {
-    "max_step_size": {
-      "forward": 0.05
-    }
-  },
-  "walking_engine": {
-    "max_forward_acceleration": 0.007,
-    "torso_tilt_base_offset": 0.1,
-    "torso_tilt_forward_offset": 0.015,
-    "torso_tilt_left_offset": 0.01
-  }
-}
-
+{}
 

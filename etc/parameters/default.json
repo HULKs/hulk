@@ -410,9 +410,9 @@
   "step_planner": {
     "injected_step": null,
     "max_step_size": {
-      "forward": 0.055,
-      "left": 0.14,
-      "turn": 1.2
+      "forward": 0.05,
+      "left": 0.12,
+      "turn": 1.0
     },
     "max_step_size_backwards": 0.04,
     "translation_exponent": 1.5,
@@ -426,8 +426,8 @@
     "additional_kick_foot_lift": 0.01,
     "arm_stiffness": 0.8,
     "backward_foot_support_offset": -0.012,
-    "base_foot_lift": 0.012,
-    "base_step_duration": { "nanos": 250000000, "secs": 0 },
+    "base_foot_lift": 0.01,
+    "base_step_duration": { "nanos": 260000000, "secs": 0 },
     "emergency_foot_lift": 0.03,
     "emergency_step": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
     "emergency_step_duration": { "nanos": 250000000, "secs": 0 },
@@ -446,7 +446,7 @@
     "inside_turn_ratio": 0.05,
     "leg_stiffness_stand": 0.6,
     "leg_stiffness_walk": 1.0,
-    "max_forward_acceleration": 0.009,
+    "max_forward_acceleration": 0.007,
     "max_leg_adjustment_velocity": {
       "hip_yaw_pitch": 0.0,
       "hip_roll": 0.1,
@@ -500,8 +500,8 @@
     },
     "tilt_shift_low_pass_factor": 0.4,
     "torso_shift_offset": 0.0,
-    "torso_tilt_base_offset": 0.03,
-    "torso_tilt_forward_offset": 0.045,
+    "torso_tilt_base_offset": 0.055,
+    "torso_tilt_forward_offset": 0.03,
     "torso_tilt_left_offset": 0.02,
     "walk_hip_height": 0.185
   },
