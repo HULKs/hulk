@@ -240,7 +240,7 @@ impl LedStatus {
             ear = ear.invert();
         }
 
-        return ear;
+        ear
     }
 
     fn get_eyes(
