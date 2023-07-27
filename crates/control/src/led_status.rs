@@ -207,38 +207,40 @@ impl LedStatus {
         blink_state: bool,
         current_maximum_temperature: f32,
     ) -> Ear {
-        if filter_whistle_detected {
-            return Ear::full_ears(1.0); // invertieren
-        }
+        let temperature_level_one = 76.0;
+        let temperature_level_two = 80.0;
+        let temperature_level_three = 90.0;
+        // values, at which the stiffness gets reduced
 
-        if last_game_controller_message.is_some_and(|timestamp| {
+        let mut ear = if last_game_controller_message.is_some_and(|timestamp| {
             cycle_start_time
                 .duration_since(timestamp)
                 .expect("time ran backwards")
                 > Duration::from_millis(5000)
         }) {
             if blink_state {
-                return Ear::full_ears(1.0);
+                Ear::full_ears(1.0)
             } else {
-                return Ear::full_ears(0.0);
+                Ear::full_ears(0.0)
             }
-        }
-
-        let temperature_level_one = 76.0;
-        let temperature_level_two = 80.0;
-        let temperature_level_three = 90.0;
-
-        let discrete_temperature = if current_maximum_temperature > temperature_level_one {
-            0.33
-        } else if current_maximum_temperature > temperature_level_two {
-            0.66
-        } else if current_maximum_temperature > temperature_level_three {
-            1.0
         } else {
-            0.0
+            let discrete_temperature = if current_maximum_temperature > temperature_level_one {
+                0.33
+            } else if current_maximum_temperature > temperature_level_two {
+                0.66
+            } else if current_maximum_temperature > temperature_level_three {
+                1.0
+            } else {
+                0.0
+            };
+            Ear::percentage_ears(1.0, discrete_temperature)
         };
 
-        Ear::percentage_ears(1.0, discrete_temperature)
+        if filter_whistle_detected {
+            ear = ear.invert();
+        }
+
+        return ear;
     }
 
     fn get_eyes(

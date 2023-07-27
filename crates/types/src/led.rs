@@ -1,3 +1,4 @@
+use nalgebra::abs;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -83,6 +84,21 @@ impl Ear {
             intensity_at_252: if ear_fraction > 0.7 { intensity } else { 0.0 },
             intensity_at_288: if ear_fraction > 0.8 { intensity } else { 0.0 },
             intensity_at_324: if ear_fraction > 0.9 { intensity } else { 0.0 },
+        }
+    }
+
+    pub fn invert(self) -> Self {
+        Self {
+            intensity_at_0: (1.0 - self.intensity_at_0).abs(),
+            intensity_at_36: (1.0 - self.intensity_at_36).abs(),
+            intensity_at_72: (1.0 - self.intensity_at_72).abs(),
+            intensity_at_108: (1.0 - self.intensity_at_108).abs(),
+            intensity_at_144: (1.0 - self.intensity_at_144).abs(),
+            intensity_at_180: (1.0 - self.intensity_at_180).abs(),
+            intensity_at_216: (1.0 - self.intensity_at_216).abs(),
+            intensity_at_252: (1.0 - self.intensity_at_252).abs(),
+            intensity_at_288: (1.0 - self.intensity_at_288).abs(),
+            intensity_at_324: (1.0 - self.intensity_at_324).abs(),
         }
     }
 }
