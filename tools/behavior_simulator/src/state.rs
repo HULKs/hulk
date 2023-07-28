@@ -181,7 +181,6 @@ impl State {
                 _ => &HeadMotion::Center,
             };
 
-            let f = self.time_elapsed.as_secs_f32().sin();
             let desired_head_yaw = match head_motion {
                 HeadMotion::ZeroAngles => 0.0,
                 HeadMotion::Center => 0.0,
@@ -190,8 +189,9 @@ impl State {
                 }
                 HeadMotion::LookAt { target, .. } => target.coords.angle(&Vector2::x_axis()),
                 HeadMotion::LookLeftAndRightOf { target } => {
+                    let glance_factor = self.time_elapsed.as_secs_f32().sin();
                     target.coords.angle(&Vector2::x_axis())
-                        + f * robot.parameters.look_at.glance_angle
+                        + glance_factor * robot.parameters.look_at.glance_angle
                 }
                 HeadMotion::Unstiff => 0.0,
             };
