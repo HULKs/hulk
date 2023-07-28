@@ -242,7 +242,7 @@ impl State {
             }
             robot.database.main_outputs.ball_position =
                 if robot.ball_last_seen.is_some_and(|last_seen| {
-                    now.duration_since(last_seen).expect("Time ran backwards")
+                    now.duration_since(last_seen).expect("time ran backwards")
                         < robot.parameters.ball_filter.hypothesis_timeout
                 }) {
                     self.ball.as_ref().map(|ball| BallPosition {
