@@ -30,3 +30,8 @@ RUN wget --no-verbose https://github.com/HULKs/meta-hulks/releases/download/${SD
   chmod +x HULKs-OS-toolchain-${SDK_VERSION}.sh && \
   ./HULKs-OS-toolchain-${SDK_VERSION}.sh -y -d /ci/.naosdk/${SDK_VERSION} && \
   rm HULKs-OS-toolchain-${SDK_VERSION}.sh
+
+COPY cargo.sh.patch /ci
+RUN cd /ci/.naosdk/${SDK_VERSION}/sysroots/x86_64-naosdk-linux/environment-setup.d && \
+  patch -i /ci/cargo.sh.patch && \
+  rm /ci/cargo.sh.patch
