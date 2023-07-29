@@ -1,0 +1,8 @@
+--- cargo.sh
++++ cargo.sh
+@@ -1,4 +1,4 @@
+-export CARGO_HOME="$OECORE_TARGET_SYSROOT/home/cargo"
++export CARGO_HOME="/__w/hulk/cargo.x86_64-aldebaran-linux-gnu"
+ mkdir -p "$CARGO_HOME"
+         # Init the default target once, it might be otherwise user modified.
+ if [ ! -f "$CARGO_HOME/config" ]; then
