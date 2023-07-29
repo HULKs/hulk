@@ -16,6 +16,11 @@ pub struct LedStatus {
     last_game_controller_message: Option<SystemTime>,
 }
 
+// values, at which the stiffness gets automatically reduced by the motors
+const TEMPERATURE_LEVEL_ONE: f32 = 76.0;
+const TEMPERATURE_LEVEL_TWO: f32 = 80.0;
+const TEMPERATURE_LEVEL_THREE: f32 = 90.0;
+
 #[context]
 pub struct CreationContext {}
 
@@ -207,11 +212,6 @@ impl LedStatus {
         blink_state: bool,
         current_maximum_temperature: f32,
     ) -> Ear {
-        let temperature_level_one = 76.0;
-        let temperature_level_two = 80.0;
-        let temperature_level_three = 90.0;
-        // values, at which the stiffness gets reduced
-
         let mut ear = if last_game_controller_message.is_some_and(|timestamp| {
             cycle_start_time
                 .duration_since(timestamp)
@@ -224,11 +224,11 @@ impl LedStatus {
                 Ear::full_ears(0.0)
             }
         } else {
-            let discrete_temperature = if current_maximum_temperature > temperature_level_one {
+            let discrete_temperature = if current_maximum_temperature > TEMPERATURE_LEVEL_ONE {
                 0.33
-            } else if current_maximum_temperature > temperature_level_two {
+            } else if current_maximum_temperature > TEMPERATURE_LEVEL_TWO {
                 0.66
-            } else if current_maximum_temperature > temperature_level_three {
+            } else if current_maximum_temperature > TEMPERATURE_LEVEL_THREE {
                 1.0
             } else {
                 0.0
