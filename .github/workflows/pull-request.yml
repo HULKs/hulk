@@ -4,6 +4,9 @@ on:
     branches:
       - gh-readonly-queue/main/**
   pull_request:
+env:
+  CARGO_HOME: /__w/hulk/cargo
+  CARGO_TARGET_DIR: /__w/hulk/target
 jobs:
   required_checks:
     name: Require all CI jobs
