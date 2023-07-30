@@ -27,23 +27,78 @@ pub struct YCbCr422Image {
 
 impl From<RgbImage> for YCbCr422Image {
     fn from(rgb_image: RgbImage) -> Self {
+        let width_422 = rgb_image.width() / 2;
+        let height = rgb_image.height();
+        let data = rgb_image
+            .into_vec()
+            .chunks(6)
+            .map(|pixel| {
+                let left_color: YCbCr444 = Rgb {
+                    r: pixel[0],
+                    g: pixel[1],
+                    b: pixel[2],
+                }
+                .into();
+                let right_color: YCbCr444 = Rgb {
+                    r: pixel[3],
+                    g: pixel[4],
+                    b: pixel[5],
+                }
+                .into();
+                [left_color, right_color].into()
+            })
+            .collect();
+
         Self {
-            width_422: rgb_image.width() / 2,
-            height: rgb_image.height(),
-            buffer: Arc::new(buffer_422_from_rgb_image(rgb_image)),
+            width_422,
+            height,
+            buffer: Arc::new(data),
         }
     }
 }
 
 impl From<&YCbCr422Image> for RgbImage {
-    fn from(val: &YCbCr422Image) -> Self {
-        rgb_image_from_buffer_422(val.width_422, val.height, &val.buffer)
+    fn from(ycbcr422_image: &YCbCr422Image) -> Self {
+        let width_422 = ycbcr422_image.width_422;
+        let height = ycbcr422_image.height;
+        let buffer: &[YCbCr422] = &ycbcr422_image.buffer;
+        let mut rgb_image = Self::new(2 * width_422, height);
+
+        for y in 0..height {
+            for x in 0..width_422 {
+                let pixel = buffer[(y * width_422 + x) as usize];
+                let left_color: Rgb = YCbCr444 {
+                    y: pixel.y1,
+                    cb: pixel.cb,
+                    cr: pixel.cr,
+                }
+                .into();
+                let right_color: Rgb = YCbCr444 {
+                    y: pixel.y2,
+                    cb: pixel.cb,
+                    cr: pixel.cr,
+                }
+                .into();
+                rgb_image.put_pixel(
+                    x * 2,
+                    y,
+                    image::Rgb([left_color.r, left_color.g, left_color.b]),
+                );
+                rgb_image.put_pixel(
+                    x * 2 + 1,
+                    y,
+                    image::Rgb([right_color.r, right_color.g, right_color.b]),
+                );
+            }
+        }
+
+        rgb_image
     }
 }
 
 impl From<YCbCr422Image> for RgbImage {
-    fn from(val: YCbCr422Image) -> Self {
-        Self::from(&val)
+    fn from(ycbcr422_image: YCbCr422Image) -> Self {
+        Self::from(&ycbcr422_image)
     }
 }
 
@@ -150,18 +205,12 @@ impl YCbCr422Image {
     }
 
     pub fn load_from_rgb_file(path: impl AsRef<Path>) -> eyre::Result<Self> {
-        let png = Reader::open(path)?.decode()?.into_rgb8();
-
-        let width = png.width();
-        let height = png.height();
-
-        let pixels = buffer_422_from_rgb_image(png);
-
-        Ok(Self::from_ycbcr_buffer(width / 2, height, pixels))
+        let rgb_image = Reader::open(path)?.decode()?.into_rgb8();
+        Ok(Self::from(rgb_image))
     }
 
     pub fn save_to_rgb_file(&self, file: impl AsRef<Path> + Debug) -> eyre::Result<()> {
-        rgb_image_from_buffer_422(self.width_422, self.height, &self.buffer)
+        RgbImage::from(self)
             .save(&file)
             .wrap_err_with(|| format!("failed to save image to {file:?}"))
     }
@@ -210,60 +259,4 @@ impl Index<Point2<usize>> for YCbCr422Image {
     fn index(&self, position: Point2<usize>) -> &Self::Output {
         &self.buffer[position.y * self.width_422 as usize + position.x]
     }
-}
-
-fn rgb_image_from_buffer_422(width_422: u32, height: u32, buffer: &[YCbCr422]) -> RgbImage {
-    let mut rgb_image = RgbImage::new(2 * width_422, height);
-
-    for y in 0..height {
-        for x in 0..width_422 {
-            let pixel = buffer[(y * width_422 + x) as usize];
-            let left_color: Rgb = YCbCr444 {
-                y: pixel.y1,
-                cb: pixel.cb,
-                cr: pixel.cr,
-            }
-            .into();
-            let right_color: Rgb = YCbCr444 {
-                y: pixel.y2,
-                cb: pixel.cb,
-                cr: pixel.cr,
-            }
-            .into();
-            rgb_image.put_pixel(
-                x * 2,
-                y,
-                image::Rgb([left_color.r, left_color.g, left_color.b]),
-            );
-            rgb_image.put_pixel(
-                x * 2 + 1,
-                y,
-                image::Rgb([right_color.r, right_color.g, right_color.b]),
-            );
-        }
-    }
-
-    rgb_image
-}
-
-fn buffer_422_from_rgb_image(rgb_image: RgbImage) -> Vec<YCbCr422> {
-    rgb_image
-        .into_vec()
-        .chunks(6)
-        .map(|pixel| {
-            let left_color: YCbCr444 = Rgb {
-                r: pixel[0],
-                g: pixel[1],
-                b: pixel[2],
-            }
-            .into();
-            let right_color: YCbCr444 = Rgb {
-                r: pixel[3],
-                g: pixel[4],
-                b: pixel[5],
-            }
-            .into();
-            [left_color, right_color].into()
-        })
-        .collect()
 }
