@@ -48,7 +48,7 @@ Use your distribution's package manager to install the following dependencies:
     1. Install dependencies
 
         ```sh
-        sudo dnf install git git-lfs hdf5-devel clang-devel rsync cmake python luajit-devel libudev-devel opusfile-devel
+        sudo dnf install git git-lfs hdf5-devel clang-devel rsync cmake python luajit-devel libudev-devel opusfile-devel zstd
         ```
 
     1. Install Webots
