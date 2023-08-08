@@ -49,14 +49,10 @@ dependencies = [
  "configparser",
  "constants",
  "env_logger",
- "futures-channel",
  "futures-util",
  "hostname",
  "hula-types",
  "log",
- "network-interface",
- "regex",
- "serde",
  "serde_json",
  "tokio",
  "tokio-util",
@@ -793,18 +789,6 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys",
-]
-
-[[package]]
-name = "network-interface"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "492274b7c5bb3ec77766b9adc9e21c0e58335c38cd376e517a1e8664eb839398"
-dependencies = [
- "cc",
- "libc",
- "thiserror",
- "winapi",
 ]
 
 [[package]]

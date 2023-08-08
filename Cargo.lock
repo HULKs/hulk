@@ -491,12 +491,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
-name = "awaitgroup"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc17ab023b4091c10ff099f9deebaeeb59b5189df07e554c4fef042b70745d68"
-
-[[package]]
 name = "backtrace"
 version = "0.3.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -562,7 +556,6 @@ dependencies = [
  "code_generation",
  "color-eyre",
  "communication",
- "context_attribute",
  "control",
  "ctrlc",
  "fern",
@@ -575,7 +568,6 @@ dependencies = [
  "parameters",
  "parking_lot",
  "serde",
- "serde_json",
  "serialize_hierarchy",
  "source_analyzer",
  "spl_network",
@@ -1115,9 +1107,7 @@ dependencies = [
 name = "communication"
 version = "0.1.0"
 dependencies = [
- "awaitgroup",
  "bincode",
- "byteorder",
  "color-eyre",
  "framework",
  "futures-util",
@@ -1216,17 +1206,14 @@ dependencies = [
  "log",
  "motionfile",
  "nalgebra",
- "num-derive 0.3.3",
  "num-traits",
  "ordered-float",
  "projection",
  "rand",
  "serde",
- "serde_json",
  "serialize_hierarchy",
  "smallvec",
  "spl_network_messages",
- "thiserror",
  "types",
 ]
 
@@ -1835,17 +1822,6 @@ dependencies = [
 
 [[package]]
 name = "errno"
-version = "0.2.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f639046355ee4f37944e44f60642c6f3a7efa3cf6b78c78a0d989a8ce6c396a1"
-dependencies = [
- "errno-dragonfly",
- "libc",
- "winapi",
-]
-
-[[package]]
-name = "errno"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4bcfec3a70f97c962c307b2d2c56e358cf1d00b558d74262b5f929ee8cc7e73a"
@@ -1914,14 +1890,9 @@ dependencies = [
  "clap 4.2.7",
  "color-eyre",
  "communication",
- "ctrlc",
  "fern",
- "futures-util",
  "log",
- "serde",
- "serde_json",
  "tokio",
- "tokio-tungstenite",
 ]
 
 [[package]]
@@ -2039,7 +2010,6 @@ name = "framework"
 version = "0.1.0"
 dependencies = [
  "parking_lot",
- "types",
 ]
 
 [[package]]
@@ -2480,38 +2450,28 @@ dependencies = [
  "tokio",
  "tokio-util",
  "types",
- "v4l",
 ]
 
 [[package]]
 name = "hulk_webots"
 version = "0.1.0"
 dependencies = [
- "audio",
  "chrono",
  "color-eyre",
- "communication",
- "control",
  "ctrlc",
  "fern",
- "framework",
  "hardware",
  "hulk",
- "i2cdev",
- "ittapi",
  "log",
  "nalgebra",
  "parking_lot",
  "rand",
  "serde",
  "serde_json",
- "serialize_hierarchy",
  "spl_network",
- "spl_network_messages",
  "tokio",
  "tokio-util",
  "types",
- "vision",
  "webots",
 ]
 
@@ -3029,9 +2989,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "enum_dispatch",
- "filtering",
  "itertools",
- "nalgebra",
  "serde",
  "serde_json",
  "splines",
@@ -3081,7 +3039,6 @@ name = "nao"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "constants",
  "tokio",
 ]
 
@@ -3094,7 +3051,6 @@ dependencies = [
  "libc",
  "nix 0.26.1",
  "serde",
- "serde_json",
  "thiserror",
  "types",
 ]
@@ -3477,7 +3433,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "serialize_hierarchy",
  "thiserror",
  "tokio",
 ]
@@ -3547,7 +3502,6 @@ dependencies = [
  "nao",
  "regex",
  "repository",
- "serde",
  "serde_json",
  "source_analyzer",
  "spl_network_messages",
@@ -3975,7 +3929,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acf8729d8542766f1b2cf77eb034d52f40d375bb8b615d0b147089946e16613d"
 dependencies = [
  "bitflags 1.3.2",
- "errno 0.3.1",
+ "errno",
  "io-lifetimes",
  "libc",
  "linux-raw-sys",
@@ -4059,24 +4013,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-transcode"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "590c0e25c2a5bb6e85bf5c1bce768ceb86b316e7a01bdf07d2cb4ec2271990e2"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "serde_bytes"
-version = "0.11.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "416bda436f9aab92e02c8e10d49a15ddd339cea90b6e340fe51ed97abb548294"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "serde_derive"
 version = "1.0.160"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4119,15 +4055,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_test"
-version = "1.0.160"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c95a500e3923258f7fc3a16bf29934e403aef5ca1096e184d85e3b1926675e8"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "serde_yaml"
 version = "0.8.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4144,7 +4071,6 @@ name = "serialize_hierarchy"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "image",
  "nalgebra",
  "serde",
  "serde_json",
@@ -4290,8 +4216,6 @@ name = "source_analyzer"
 version = "0.1.0"
 dependencies = [
  "convert_case",
- "glob",
- "itertools",
  "proc-macro2",
  "quote",
  "serde",
@@ -4333,12 +4257,10 @@ dependencies = [
  "approx",
  "bincode",
  "bindgen 0.65.1",
- "byteorder",
  "color-eyre",
  "nalgebra",
  "num-derive 0.3.3",
  "num-traits",
- "rand",
  "serde",
  "serialize_hierarchy",
 ]
@@ -4825,10 +4747,7 @@ dependencies = [
  "projection",
  "repository",
  "serde",
- "serde-transcode",
- "serde_bytes",
  "serde_json",
- "spl_network_messages",
  "tokio",
  "types",
 ]
@@ -4844,25 +4763,18 @@ name = "types"
 version = "0.1.0"
 dependencies = [
  "approx",
- "bincode",
  "color-eyre",
  "enum-iterator",
  "image",
  "nalgebra",
  "ordered-float",
- "parking_lot",
  "petgraph",
  "proc-macro2",
  "quote",
  "serde",
- "serde_bytes",
- "serde_json",
- "serde_test",
  "serialize_hierarchy",
  "spl_network_messages",
  "splines",
- "thiserror",
- "tokio",
 ]
 
 [[package]]
@@ -4941,26 +4853,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "v4l"
-version = "0.12.1"
-source = "git+https://github.com/HULKs/libv4l-rs?rev=be65819073514b193d082dd37dbcc2cfac3f6183#be65819073514b193d082dd37dbcc2cfac3f6183"
-dependencies = [
- "bitflags 1.3.2",
- "errno 0.2.8",
- "libc",
- "thiserror",
- "v4l2-sys-mit",
-]
-
-[[package]]
-name = "v4l2-sys-mit"
-version = "0.2.0"
-source = "git+https://github.com/HULKs/libv4l-rs?rev=be65819073514b193d082dd37dbcc2cfac3f6183#be65819073514b193d082dd37dbcc2cfac3f6183"
-dependencies = [
- "bindgen 0.65.1",
-]
-
-[[package]]
 name = "valuable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4990,13 +4882,11 @@ dependencies = [
  "filtering",
  "framework",
  "hardware",
- "image",
  "itertools",
  "nalgebra",
  "ordered-float",
  "projection",
  "rand",
- "spl_network_messages",
  "types",
 ]
 

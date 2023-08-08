@@ -11,14 +11,10 @@ color-eyre = "0.6.2"
 configparser = { version = "3.0.2", features = ["async-std"] }
 constants = { path = "../../crates/constants" }
 env_logger = "0.10.0"
-futures-channel = "0.3.25"
 futures-util = "0.3.25"
 hostname = "0.3.1"
 hula-types = { path = "../hula/types/" }
 log = "0.4.17"
-network-interface = "0.1.5"
-regex = "1.7.0"
-serde = { version = "1.0.149", features = ["derive"] }
 serde_json = "1.0.89"
 tokio = { version = "1.22.0", features = ["full"] }
 tokio-util = "0.7.4"
