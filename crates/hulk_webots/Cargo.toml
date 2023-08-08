@@ -6,29 +6,20 @@ license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
-audio = { workspace = true }
 chrono = { workspace = true }
 color-eyre = { workspace = true }
-communication = { workspace = true, features = ["server"] }
-control = { workspace = true }
 ctrlc = { workspace = true }
 fern = { workspace = true }
-framework = { workspace = true }
 hardware = { workspace = true }
 hulk = { workspace = true }
-i2cdev = { workspace = true }
-ittapi = {  workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
 parking_lot = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serialize_hierarchy = { workspace = true }
 spl_network = { workspace = true }
-spl_network_messages = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
-vision = { workspace = true }
 webots = { workspace = true }

@@ -27,4 +27,3 @@ spl_network = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
-v4l = { workspace = true }

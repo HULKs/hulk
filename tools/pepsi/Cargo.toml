@@ -17,7 +17,6 @@ indicatif = { workspace = true }
 nao = { workspace = true }
 regex = { workspace = true }
 repository = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 source_analyzer = { workspace = true }
 spl_network_messages = { workspace = true }

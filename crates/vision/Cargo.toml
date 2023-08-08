@@ -14,11 +14,9 @@ fast_image_resize = { workspace = true }
 filtering = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }
-image = { workspace = true }
 itertools = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 projection = { workspace = true }
 rand = { workspace = true }
-spl_network_messages = { workspace = true }
 types = { workspace = true }

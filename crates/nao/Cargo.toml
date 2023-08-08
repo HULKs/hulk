@@ -7,5 +7,4 @@ homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
 color-eyre = { workspace = true }
-constants = { workspace = true }
 tokio = { workspace = true }

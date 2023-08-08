@@ -8,6 +8,5 @@ homepage = "https://github.com/hulks/hulk"
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
-serialize_hierarchy = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }

@@ -22,11 +22,8 @@ ordered-float = { workspace = true }
 projection = { workspace = true }
 rand = {workspace = true}
 num-traits = {workspace = true}
-num-derive = {workspace = true}
 serde = { workspace = true }
-serde_json = { workspace = true }
 serialize_hierarchy = { workspace = true }
 smallvec = { workspace = true }
 spl_network_messages = { workspace = true }
-thiserror = { workspace = true }
 types = { workspace = true }
