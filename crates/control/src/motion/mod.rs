@@ -4,6 +4,7 @@ pub mod dispatching_interpolator;
 pub mod energy_saving_stand;
 pub mod fall_protector;
 pub mod head_motion;
+pub mod joint_command_collector;
 pub mod joint_command_sender;
 pub mod jump_left;
 pub mod jump_right;

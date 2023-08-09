@@ -58,6 +58,7 @@ fn main() -> Result<()> {
                     "control::motion::energy_saving_stand",
                     "control::motion::fall_protector",
                     "control::motion::head_motion",
+                    "control::motion::joint_command_collector",
                     "control::motion::joint_command_sender",
                     "control::motion::jump_left",
                     "control::motion::jump_right",
