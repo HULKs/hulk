@@ -353,11 +353,13 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
     let setup_node_executions = cycler
         .setup_nodes
         .iter()
-        .map(|node| generate_node_execution(node, cycler));
+        .map(|node| generate_node_execution(node, cycler, true));
     let cycle_node_executions = cycler
         .cycle_nodes
         .iter()
-        .map(|node| generate_node_execution(node, cycler));
+        .map(|node| generate_node_execution(node, cycler, false));
+    let required_inputs = get_required_inputs(cycler);
+    let required_input_recordings = generate_required_inputs_recording(cycler, required_inputs);
 
     let post_setup = match cycler.kind {
         CyclerKind::Perception => quote! {
@@ -371,6 +373,9 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                 self.perception_databases.update(now, crate::perception_databases::Updates {
                     #perception_cycler_updates
                 });
+                if enable_recording {
+                    bincode::serialize_into(&mut recording_frame, &now).wrap_err("failed to record time")?;
+                }
             }
         }
     };
@@ -415,6 +420,9 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     own_database.deref_mut()
                 };
 
+                let enable_recording = <HardwareInterface as hardware::RecordingInterface>::get_recording(&*self.hardware_interface);
+                let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
+
                 {
                     let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
                     let parameters = self.parameters_reader.next();
@@ -427,6 +435,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
                     let parameters = self.parameters_reader.next();
                     #lock_readers
+                    #required_input_recordings
                     #(#cycle_node_executions)*
                 }
 
@@ -435,6 +444,139 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             self.own_changed.notify_one();
             Ok(())
         }
+    }
+}
+
+fn get_required_inputs(cycler: &Cycler) -> Vec<Field> {
+    let mut required_inputs = Vec::new();
+    for node in cycler.setup_nodes.iter().chain(cycler.cycle_nodes.iter()) {
+        for field in node.contexts.cycle_context.iter() {
+            if matches!(
+                field,
+                Field::CyclerState { .. }
+                    | Field::Input {
+                        cycler_instance: Some(_),
+                        ..
+                    }
+                    | Field::PerceptionInput { .. }
+                    | Field::RequiredInput {
+                        cycler_instance: Some(_),
+                        ..
+                    }
+            ) && !required_inputs.contains(field)
+            {
+                required_inputs.push(field.clone());
+            }
+        }
+    }
+    required_inputs
+}
+
+fn generate_required_inputs_recording(cycler: &Cycler, required_inputs: Vec<Field>) -> TokenStream {
+    let recordings = required_inputs.into_iter().map(|field| {
+        let error_message = match &field {
+            Field::CyclerState { name, .. } => format!("failed to record cycler state {name}"),
+            Field::Input { cycler_instance: Some(_), name, .. } => format!("failed to record input {name}"),
+            Field::PerceptionInput { name, .. } => format!("failed to record perception input {name}"),
+            Field::RequiredInput { cycler_instance: Some(_), name, .. } => format!("failed to record required input {name}"),
+            _ => panic!("unexpected field {field:?}"),
+        };
+        let value_to_be_recorded = match field {
+            Field::CyclerState { path, .. } => {
+                let accessor = path_to_accessor_token_stream(
+                    quote! { self.cycler_state },
+                    &path,
+                    ReferenceKind::Immutable,
+                    cycler,
+                );
+                quote! {
+                    #accessor
+                }
+            }
+            Field::Input {
+                cycler_instance: Some(cycler_instance),
+                path,
+                ..
+            } => {
+                let identifier = format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
+                let database_prefix = quote! { #identifier.main_outputs };
+                let accessor = path_to_accessor_token_stream(
+                    database_prefix,
+                    &path,
+                    ReferenceKind::Immutable,
+                    cycler,
+                );
+                quote! {
+                    &#accessor
+                }
+            }
+            Field::PerceptionInput { cycler_instance, path, .. } => {
+                let cycler_instance_identifier =
+                    format_ident!("{}", cycler_instance.to_case(Case::Snake));
+                let accessor = path_to_accessor_token_stream(
+                    quote! { database },
+                    &path,
+                    ReferenceKind::Immutable,
+                    cycler,
+                );
+                quote! {
+                    &[
+                        self
+                            .perception_databases
+                            .persistent()
+                            .map(|(system_time, databases)| (
+                                *system_time,
+                                databases
+                                    .#cycler_instance_identifier
+                                    .iter()
+                                    .map(|database| #accessor)
+                                    .collect::<Vec<_>>()
+                                ,
+                            ))
+                            .collect::<std::collections::BTreeMap<_, _>>(),
+                        self
+                            .perception_databases
+                            .temporary()
+                            .map(|(system_time, databases)| (
+                                *system_time,
+                                databases
+                                    .#cycler_instance_identifier
+                                    .iter()
+                                    .map(|database| #accessor)
+                                    .collect::<Vec<_>>()
+                                ,
+                            ))
+                            .collect::<std::collections::BTreeMap<_, _>>(),
+                    ]
+                }
+            }
+            Field::RequiredInput {
+                cycler_instance: Some(cycler_instance),
+                path,
+                ..
+            } => {
+                let identifier = format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
+                let database_prefix = quote! { #identifier.main_outputs };
+                let accessor = path_to_accessor_token_stream(
+                    database_prefix,
+                    &path,
+                    ReferenceKind::Immutable,
+                    cycler,
+                );
+                quote! {
+                    &#accessor .unwrap()
+                }
+            }
+            _ => panic!("unexpected field {field:?}"),
+        };
+        quote! {
+            if enable_recording {
+                bincode::serialize_into(&mut recording_frame, #value_to_be_recorded).wrap_err(#error_message)?;
+            }
+        }
+    });
+    quote! {
+        #(#recordings)*
     }
 }
 
@@ -451,14 +593,14 @@ fn generate_perception_cycler_updates(cyclers: &Cyclers) -> TokenStream {
         .collect()
 }
 
-fn generate_node_execution(node: &Node, cycler: &Cycler) -> TokenStream {
+fn generate_node_execution(node: &Node, cycler: &Cycler, generate_recording: bool) -> TokenStream {
     let are_required_inputs_some = generate_required_input_condition(node, cycler);
     let node_name = &node.name;
     let node_module = &node.module;
     let node_member = format_ident!("{}", node.name.to_case(Case::Snake));
     let context_initializers = generate_context_initializers(node, cycler);
     let error_message = format!("failed to execute cycle of `{}`", node.name);
-    let database_updates = generate_database_updates(node);
+    let database_updates = generate_database_updates(node, generate_recording);
     let database_updates_from_defaults = generate_database_updates_from_defaults(node);
     quote! {
         {
@@ -698,20 +840,26 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                         #accessor .unwrap()
                     }
                 }
-            })
-    ;
+            });
     quote! {
         #(#initializers,)*
     }
 }
 
-fn generate_database_updates(node: &Node) -> TokenStream {
+fn generate_database_updates(node: &Node, generate_recording: bool) -> TokenStream {
     node.contexts
         .main_outputs
         .iter()
         .filter_map(|field| match field {
             Field::MainOutput { name, .. } => {
+                let error_message = format!("failed to record {name}");
+                let recording_serialization = generate_recording.then(|| quote! {
+                    if enable_recording {
+                        bincode::serialize_into(&mut recording_frame, &main_outputs.#name.value).wrap_err(#error_message)?;
+                    }
+                });
                 let setter = quote! {
+                    #recording_serialization
                     own_database_reference.main_outputs.#name = main_outputs.#name.value;
                 };
                 Some(setter)

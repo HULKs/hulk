@@ -2356,6 +2356,7 @@ name = "hulk"
 version = "0.1.0"
 dependencies = [
  "audio",
+ "bincode",
  "code_generation",
  "color-eyre",
  "communication",
