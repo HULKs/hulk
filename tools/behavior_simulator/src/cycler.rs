@@ -145,7 +145,7 @@ impl BehaviorCycler {
                         persistent: incoming_messages,
                         temporary: Default::default(),
                     },
-                    &mut persistent_state.time_to_reach_kick_position,
+                    &mut cycler_state.time_to_reach_kick_position,
                     &parameters.field_dimensions,
                     parameters.role_assignment.forced_role.as_ref(),
                     &parameters
@@ -317,7 +317,7 @@ impl BehaviorCycler {
                             .additional_outputs
                             .time_to_reach_kick_position_output,
                     ),
-                    &mut persistent_state.time_to_reach_kick_position,
+                    &mut cycler_state.time_to_reach_kick_position,
                     &parameters.behavior,
                     own_database
                         .main_outputs
