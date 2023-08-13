@@ -23,7 +23,7 @@ pub struct CycleContext {
     rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
     translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
 
-    walk_return_offset: PersistentState<Step, "walk_return_offset">,
+    walk_return_offset: CyclerState<Step, "walk_return_offset">,
 }
 
 #[context]

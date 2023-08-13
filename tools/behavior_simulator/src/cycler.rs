@@ -22,7 +22,7 @@ use types::messages::IncomingMessage;
 use crate::{
     interfake::Interfake,
     structs::{
-        control::{AdditionalOutputs, MainOutputs, PersistentState},
+        control::{AdditionalOutputs, CyclerState, MainOutputs},
         Parameters,
     },
 };
@@ -99,7 +99,7 @@ impl BehaviorCycler {
     pub fn cycle(
         &mut self,
         own_database: &mut Database,
-        persistent_state: &mut PersistentState,
+        cycler_state: &mut CyclerState,
         parameters: &Parameters,
         incoming_messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>,
     ) -> Result<()> {

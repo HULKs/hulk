@@ -44,7 +44,7 @@ pub struct CycleContext {
 
     fall_protection: Parameter<FallProtectionParameters, "fall_protection">,
 
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]

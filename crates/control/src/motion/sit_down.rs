@@ -25,7 +25,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     motion_selection: Input<MotionSelection, "motion_selection">,
 
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]

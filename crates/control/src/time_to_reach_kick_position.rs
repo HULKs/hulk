@@ -12,7 +12,7 @@ pub struct CycleContext {
     time_to_reach_kick_position_output:
         AdditionalOutput<Option<Duration>, "time_to_reach_kick_position_output">,
 
-    time_to_reach_kick_position: PersistentState<Duration, "time_to_reach_kick_position">,
+    time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
     configuration: Parameter<BehaviorParameters, "behavior">,
 

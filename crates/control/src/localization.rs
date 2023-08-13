@@ -89,7 +89,7 @@ pub struct CycleContext {
     line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
     line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
 
-    robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
+    robot_to_field: CyclerState<Isometry2<f32>, "robot_to_field">,
 }
 
 #[context]

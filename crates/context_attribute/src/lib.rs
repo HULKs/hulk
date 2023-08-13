@@ -19,15 +19,15 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
 
     let struct_name = struct_item.ident.to_string();
     let allowed_member_types = match struct_name.as_str() {
-        "CreationContext" => ["HardwareInterface", "Parameter", "PersistentState"].as_slice(),
+        "CreationContext" => ["CyclerState", "HardwareInterface", "Parameter"].as_slice(),
         "CycleContext" => [
             "AdditionalOutput",
+            "CyclerState",
             "HardwareInterface",
             "HistoricInput",
             "Input",
             "Parameter",
             "PerceptionInput",
-            "PersistentState",
             "RequiredInput",
         ]
         .as_slice(),
@@ -91,13 +91,13 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                             "expected exactly two or three generic parameters"
                         ),
                     },
-                    "Parameter" | "PersistentState" => match &mut first_segment.arguments {
+                    "CyclerState" | "Parameter" => match &mut first_segment.arguments {
                         PathArguments::AngleBracketed(arguments) if arguments.args.len() == 2 => {
                             pop_string_argument(arguments);
                             let data_type = get_data_type(arguments);
                             into_reference_with_lifetime(
                                 data_type,
-                                (first_segment.ident == "PersistentState").then(Mut::default),
+                                (first_segment.ident == "CyclerState").then(Mut::default),
                             );
                             requires_lifetime_parameter = true;
                             field.ty = data_type.clone();

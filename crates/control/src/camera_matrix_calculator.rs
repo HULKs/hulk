@@ -31,9 +31,9 @@ pub struct CycleContext {
     top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
 
-    correction_in_camera_top: PersistentState<Rotation3<f32>, "correction_in_camera_top">,
-    correction_in_camera_bottom: PersistentState<Rotation3<f32>, "correction_in_camera_bottom">,
-    correction_in_robot: PersistentState<Rotation3<f32>, "correction_in_robot">,
+    correction_in_camera_top: CyclerState<Rotation3<f32>, "correction_in_camera_top">,
+    correction_in_camera_bottom: CyclerState<Rotation3<f32>, "correction_in_camera_bottom">,
+    correction_in_robot: CyclerState<Rotation3<f32>, "correction_in_robot">,
 }
 
 #[context]

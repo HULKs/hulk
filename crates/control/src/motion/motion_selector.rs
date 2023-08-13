@@ -19,7 +19,7 @@ pub struct CycleContext {
     motion_command: Input<MotionCommand, "motion_command">,
     has_ground_contact: Input<bool, "has_ground_contact">,
 
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
 
     enable_energy_saving_stand: Parameter<bool, "energy_saving_stand.enabled">,
 }
