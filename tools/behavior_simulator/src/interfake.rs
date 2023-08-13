@@ -4,7 +4,7 @@ use std::{
 };
 
 use color_eyre::Result;
-use hardware::NetworkInterface;
+use hardware::{NetworkInterface, RecordingInterface};
 use types::messages::{IncomingMessage, OutgoingMessage};
 
 #[derive(Default)]
@@ -21,6 +21,14 @@ impl NetworkInterface for Interfake {
         self.messages.lock().unwrap().push(message);
         Ok(())
     }
+}
+
+impl RecordingInterface for Interfake {
+    fn get_recording(&self) -> bool {
+        false
+    }
+
+    fn set_recording(&self, _enable: bool) {}
 }
 
 impl Interfake {

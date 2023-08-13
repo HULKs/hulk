@@ -1,4 +1,10 @@
-use std::{sync::Arc, time::SystemTime};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::SystemTime,
+};
 
 use ::hardware::{
     ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
@@ -8,7 +14,7 @@ use color_eyre::{
     eyre::{eyre, Error, WrapErr},
     Result,
 };
-use hardware::{PathsInterface, SpeakerInterface};
+use hardware::{PathsInterface, RecordingInterface, SpeakerInterface};
 use parking_lot::Mutex;
 use serde::Deserialize;
 use spl_network::endpoint::{Endpoint, Ports};
@@ -56,6 +62,7 @@ pub struct HardwareInterface {
     async_runtime: Runtime,
     camera_top: Mutex<Camera>,
     camera_bottom: Mutex<Camera>,
+    enable_recording: AtomicBool,
     keep_running: CancellationToken,
 }
 
@@ -100,6 +107,7 @@ impl HardwareInterface {
                 )
                 .wrap_err("failed to initialize bottom camera")?,
             ),
+            enable_recording: AtomicBool::new(false),
             keep_running,
         })
     }
@@ -163,6 +171,16 @@ impl NetworkInterface for HardwareInterface {
 impl PathsInterface for HardwareInterface {
     fn get_paths(&self) -> Paths {
         self.paths.clone()
+    }
+}
+
+impl RecordingInterface for HardwareInterface {
+    fn get_recording(&self) -> bool {
+        self.enable_recording.load(Ordering::SeqCst)
+    }
+
+    fn set_recording(&self, enable: bool) {
+        self.enable_recording.store(enable, Ordering::SeqCst)
     }
 }
 

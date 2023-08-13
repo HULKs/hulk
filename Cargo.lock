@@ -577,6 +577,7 @@ dependencies = [
 name = "behavior_simulator"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "chrono",
  "clap 4.4.6",
  "code_generation",

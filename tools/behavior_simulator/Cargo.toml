@@ -8,6 +8,7 @@ version = "0.1.0"
 name = "behavior_simulator"
 
 [dependencies]
+bincode = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 color-eyre = { workspace = true }

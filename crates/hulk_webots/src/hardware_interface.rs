@@ -13,7 +13,7 @@ use color_eyre::{
 };
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, SensorInterface, SpeakerInterface, TimeInterface,
+    PathsInterface, RecordingInterface, SensorInterface, SpeakerInterface, TimeInterface,
 };
 use serde::Deserialize;
 use spl_network::endpoint::{Endpoint, Ports};
@@ -66,6 +66,7 @@ pub struct HardwareInterface {
     paths: Paths,
     spl_network_endpoint: Endpoint,
     async_runtime: Runtime,
+    enable_recording: AtomicBool,
     keep_running: CancellationToken,
     simulator_audio_synchronization: Barrier,
 }
@@ -94,6 +95,7 @@ impl HardwareInterface {
                 .block_on(Endpoint::new(parameters.spl_network_ports))
                 .wrap_err("failed to initialize SPL network")?,
             async_runtime: runtime,
+            enable_recording: AtomicBool::new(false),
             keep_running,
             simulator_audio_synchronization: Barrier::new(2),
         })
@@ -346,6 +348,16 @@ impl NetworkInterface for HardwareInterface {
 impl PathsInterface for HardwareInterface {
     fn get_paths(&self) -> Paths {
         self.paths.clone()
+    }
+}
+
+impl RecordingInterface for HardwareInterface {
+    fn get_recording(&self) -> bool {
+        self.enable_recording.load(Ordering::SeqCst)
+    }
+
+    fn set_recording(&self, enable: bool) {
+        self.enable_recording.store(enable, Ordering::SeqCst)
     }
 }
 

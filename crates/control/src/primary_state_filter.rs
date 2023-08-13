@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use hardware::SpeakerInterface;
+use hardware::{RecordingInterface, SpeakerInterface};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
@@ -44,7 +44,10 @@ impl PrimaryStateFilter {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl SpeakerInterface>) -> Result<MainOutputs> {
+    pub fn cycle(
+        &mut self,
+        context: CycleContext<impl RecordingInterface + SpeakerInterface>,
+    ) -> Result<MainOutputs> {
         let is_penalized = match context.game_controller_state {
             Some(game_controller_state) => {
                 game_controller_state.penalties[*context.player_number].is_some()
@@ -92,6 +95,11 @@ impl PrimaryStateFilter {
 
             (_, _, _, _, _) => self.last_primary_state,
         };
+
+        context.hardware_interface.set_recording(matches!(
+            self.last_primary_state,
+            PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing,
+        ));
 
         Ok(MainOutputs {
             primary_state: self.last_primary_state.into(),

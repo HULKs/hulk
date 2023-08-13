@@ -43,6 +43,11 @@ pub trait PathsInterface {
     fn get_paths(&self) -> Paths;
 }
 
+pub trait RecordingInterface {
+    fn get_recording(&self) -> bool;
+    fn set_recording(&self, enable: bool);
+}
+
 pub trait SensorInterface {
     fn read_from_sensors(&self) -> Result<SensorData>;
 }

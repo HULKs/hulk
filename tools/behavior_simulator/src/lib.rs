@@ -1,4 +1,4 @@
-use hardware::{NetworkInterface, TimeInterface};
+use hardware::{NetworkInterface, RecordingInterface, TimeInterface};
 
 pub mod cycler;
 pub mod interfake;
@@ -9,4 +9,4 @@ pub mod state;
 
 include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
 
-pub trait HardwareInterface: TimeInterface + NetworkInterface {}
+pub trait HardwareInterface: TimeInterface + NetworkInterface + RecordingInterface {}
