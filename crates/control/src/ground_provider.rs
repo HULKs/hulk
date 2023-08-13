@@ -2,12 +2,14 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{vector, Isometry3, Translation, Vector3};
+use serde::{Deserialize, Serialize};
 use types::{
     robot_kinematics::RobotKinematics,
     sensor_data::SensorData,
     support_foot::{Side, SupportFoot},
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct GroundProvider {}
 
 #[context]

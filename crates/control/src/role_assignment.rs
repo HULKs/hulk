@@ -3,6 +3,7 @@ use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
 use nalgebra::{Isometry2, Point2, Vector2};
+use serde::{Deserialize, Serialize};
 use spl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, Team,
 };
@@ -23,6 +24,7 @@ use types::{
 
 use crate::localization::generate_initial_pose;
 
+#[derive(Deserialize, Serialize)]
 pub struct RoleAssignment {
     last_received_spl_striker_message: Option<SystemTime>,
     last_system_time_transmitted_game_controller_return_message: Option<SystemTime>,

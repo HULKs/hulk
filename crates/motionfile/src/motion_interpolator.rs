@@ -8,10 +8,11 @@ use crate::{
 };
 use color_eyre::{Report, Result};
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use splines::Interpolate;
 use types::condition_input::ConditionInput;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct ConditionedSpline<T> {
     pub entry_condition: Option<DiscreteConditionType>,
     pub interrupt_conditions: Vec<ContinuousConditionType>,
@@ -19,13 +20,13 @@ pub struct ConditionedSpline<T> {
     pub exit_condition: Option<DiscreteConditionType>,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Deserialize, Serialize)]
 pub struct MotionInterpolator<T> {
     frames: Vec<ConditionedSpline<T>>,
     current_state: State<T>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 enum State<T> {
     CheckEntry {
         current_frame_index: usize,

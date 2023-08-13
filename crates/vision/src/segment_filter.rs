@@ -2,6 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::point;
+use serde::{Deserialize, Serialize};
 use types::{
     color::Intensity,
     field_border::FieldBorder,
@@ -9,6 +10,7 @@ use types::{
     image_segments::{ImageSegments, ScanGrid, ScanLine, Segment},
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct SegmentFilter {}
 
 #[context]

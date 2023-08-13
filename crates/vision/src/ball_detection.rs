@@ -1,10 +1,11 @@
 use color_eyre::Result;
 use compiled_nn::CompiledNN;
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput};
+use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use hardware::PathsInterface;
 use nalgebra::{point, vector, Vector2};
 use projection::Projection;
+use serde::{Deserialize, Serialize};
 use types::{
     ball::{Ball, CandidateEvaluation},
     camera_matrix::CameraMatrix,
@@ -31,7 +32,9 @@ struct BallCluster<'a> {
     members: Vec<&'a CandidateEvaluation>,
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct BallDetection {
+    #[serde(skip, default = "deserialize_not_implemented")]
     neural_networks: NeuralNetworks,
 }
 

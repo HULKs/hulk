@@ -4,8 +4,10 @@ use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use hardware::{SensorInterface, TimeInterface};
+use serde::{Deserialize, Serialize};
 use types::{cycle_time::CycleTime, joints::Joints, sensor_data::SensorData};
 
+#[derive(Deserialize, Serialize)]
 pub struct SensorDataReceiver {
     last_cycle_start: SystemTime,
 }

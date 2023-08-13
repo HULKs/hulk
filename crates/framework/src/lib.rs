@@ -4,6 +4,7 @@ mod historic_databases;
 mod historic_input;
 mod main_output;
 mod multiple_buffer;
+mod panic;
 mod perception_databases;
 mod perception_input;
 
@@ -13,5 +14,6 @@ pub use historic_databases::HistoricDatabases;
 pub use historic_input::HistoricInput;
 pub use main_output::MainOutput;
 pub use multiple_buffer::{multiple_buffer_with_slots, Reader, ReaderGuard, Writer, WriterGuard};
+pub use panic::deserialize_not_implemented;
 pub use perception_databases::PerceptionDatabases;
 pub use perception_input::PerceptionInput;

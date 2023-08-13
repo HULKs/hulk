@@ -2,12 +2,14 @@ use color_eyre::{eyre::eyre, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{Isometry2, UnitComplex};
+use serde::{Deserialize, Serialize};
 use types::{
     motion_command::{MotionCommand, OrientationMode},
     planned_path::PathSegment,
     step_plan::Step,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct StepPlanner {}
 
 #[context]

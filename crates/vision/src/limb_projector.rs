@@ -3,12 +3,14 @@ use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{Isometry3, Matrix2, Point2, Point3};
 use projection::Projection;
+use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
     limb::{Limb, ProjectedLimbs},
     robot_kinematics::RobotKinematics,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct LimbProjector {}
 
 #[context]

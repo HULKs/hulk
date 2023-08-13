@@ -1,6 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use serde::{Deserialize, Serialize};
 use types::{
     motion_command::MotionCommand,
     motion_selection::{MotionSelection, MotionType},
@@ -8,6 +9,7 @@ use types::{
     walk_command::WalkCommand,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct WalkManager {}
 
 #[context]

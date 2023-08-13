@@ -4,6 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::Isometry2;
+use serde::{Deserialize, Serialize};
 use spl_network_messages::HulkMessage;
 use types::{
     ball_position::BallPosition,
@@ -19,6 +20,7 @@ use types::{
     sensor_data::SensorData,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct FakeData {}
 
 #[context]

@@ -12,4 +12,5 @@ filtering = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }
 rustfft = { workspace = true }
+serde = { workspace = true }
 types = { workspace = true }

@@ -5,6 +5,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use hardware::PathsInterface;
 use motionfile::{MotionFile, MotionInterpolator};
+use serde::{Deserialize, Serialize};
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
@@ -12,6 +13,7 @@ use types::{
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct StandUpBack {
     interpolator: MotionInterpolator<Joints<f32>>,
 }

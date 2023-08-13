@@ -12,10 +12,12 @@ use kinematics::{
     right_upper_arm_to_right_shoulder, right_wrist_to_right_forearm,
 };
 use nalgebra::{Isometry3, Translation};
+use serde::{Deserialize, Serialize};
 use types::{
     robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics, sensor_data::SensorData,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct KinematicsProvider {}
 
 #[context]

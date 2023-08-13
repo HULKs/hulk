@@ -6,6 +6,7 @@ use framework::{AdditionalOutput, MainOutput};
 use itertools::iproduct;
 use nalgebra::{distance, point, vector, Isometry2, Point2, UnitComplex, Vector2};
 use ordered_float::NotNan;
+use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
@@ -19,6 +20,7 @@ use types::{
     world_state::BallState,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct KickSelector {}
 
 #[context]

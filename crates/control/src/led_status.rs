@@ -3,6 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
+use serde::{Deserialize, Serialize};
 use types::{
     ball::Ball,
     color::Rgb,
@@ -15,6 +16,7 @@ use types::{
     sensor_data::SensorData,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct LedStatus {
     blink_state: bool,
     last_blink_toggle: SystemTime,

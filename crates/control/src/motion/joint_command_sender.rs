@@ -2,6 +2,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::AdditionalOutput;
 use hardware::ActuatorInterface;
+use serde::{Deserialize, Serialize};
 use types::{
     joints::{BodyJointsCommand, HeadJointsCommand, Joints, JointsCommand},
     led::Leds,
@@ -9,6 +10,7 @@ use types::{
     sensor_data::SensorData,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct JointCommandSender {}
 
 #[context]

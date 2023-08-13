@@ -4,6 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2, Vector2};
+use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, GameState, SubState, Team};
 use types::{
     action::Action,
@@ -36,6 +37,7 @@ use super::{
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct Behavior {
     last_motion_command: MotionCommand,
     absolute_last_known_ball_position: Point2<f32>,

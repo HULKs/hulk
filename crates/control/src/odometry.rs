@@ -2,11 +2,13 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{Isometry2, Translation2, UnitComplex, Vector2};
+use serde::{Deserialize, Serialize};
 use types::{
     robot_kinematics::RobotKinematics,
     support_foot::{Side, SupportFoot},
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct Odometry {
     last_orientation: UnitComplex<f32>,
     last_left_sole_to_right_sole: Vector2<f32>,

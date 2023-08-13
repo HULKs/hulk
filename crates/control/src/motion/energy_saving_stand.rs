@@ -1,8 +1,10 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use serde::{Deserialize, Serialize};
 use types::joints::{ArmJoints, BodyJoints, BodyJointsCommand, Joints, LegJoints};
 
+#[derive(Deserialize, Serialize)]
 pub struct EnergySavingStand {}
 
 #[context]

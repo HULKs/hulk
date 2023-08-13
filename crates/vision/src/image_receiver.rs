@@ -2,8 +2,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::CameraInterface;
+use serde::{Deserialize, Serialize};
 use types::{camera_position::CameraPosition, ycbcr422_image::YCbCr422Image};
 
+#[derive(Deserialize, Serialize)]
 pub struct ImageReceiver {}
 
 #[context]

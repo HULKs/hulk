@@ -4,13 +4,15 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use motionfile::{SplineInterpolator, TimedSpline};
-use types::joints::{BodyJointsCommand, HeadJoints, JointsCommand};
-use types::motion_selection::{MotionSafeExits, MotionType};
+use serde::{Deserialize, Serialize};
 use types::{
-    cycle_time::CycleTime, joints::Joints, motion_selection::MotionSelection,
+    cycle_time::CycleTime,
+    joints::{BodyJointsCommand, HeadJoints, Joints, JointsCommand},
+    motion_selection::{MotionSafeExits, MotionSelection, MotionType},
     sensor_data::SensorData,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct DispatchingInterpolator {
     interpolator: SplineInterpolator<Joints<f32>>,
     stiffnesses: Joints<f32>,

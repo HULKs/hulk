@@ -512,6 +512,7 @@ dependencies = [
  "framework",
  "hardware",
  "rustfft",
+ "serde",
  "types",
 ]
 
@@ -4838,6 +4839,7 @@ dependencies = [
  "ordered-float",
  "projection",
  "rand",
+ "serde",
  "types",
 ]
 

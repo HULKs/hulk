@@ -3,6 +3,7 @@ use std::f32::consts::PI;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     joints::{HeadJoints, HeadJointsCommand},
@@ -10,7 +11,7 @@ use types::{
     sensor_data::SensorData,
 };
 
-#[derive(Default)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct HeadMotion {
     last_positions: HeadJoints<f32>,
 }

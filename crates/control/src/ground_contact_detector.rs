@@ -4,8 +4,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
+use serde::{Deserialize, Serialize};
 use types::{cycle_time::CycleTime, sole_pressure::SolePressure};
 
+#[derive(Deserialize, Serialize)]
 pub struct GroundContactDetector {
     last_has_pressure: bool,
     last_time_switched: SystemTime,

@@ -2,8 +2,10 @@ use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::MicrophoneInterface;
+use serde::{Deserialize, Serialize};
 use types::samples::Samples;
 
+#[derive(Deserialize, Serialize)]
 pub struct MicrophoneRecorder {}
 
 #[context]

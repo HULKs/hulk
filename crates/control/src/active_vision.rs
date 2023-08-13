@@ -5,6 +5,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex, Vector2};
 use ordered_float::NotNan;
+use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
@@ -14,6 +15,7 @@ use types::{
     world_state::BallState,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct ActiveVision {
     field_mark_positions: Vec<Point2<f32>>,
     last_point_of_interest_switch: Option<SystemTime>,

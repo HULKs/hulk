@@ -5,6 +5,7 @@ use context_attribute::context;
 use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
 use nalgebra::{point, Isometry2, Point2, Vector2};
+use serde::{Deserialize, Serialize};
 use spl_network_messages::{SubState, Team};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
@@ -12,6 +13,7 @@ use types::{
     primary_state::PrimaryState, support_foot::Side, world_state::BallState,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct BallStateComposer {
     last_ball_field_side: Side,
 }

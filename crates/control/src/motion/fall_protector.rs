@@ -8,6 +8,7 @@ use framework::MainOutput;
 use hardware::PathsInterface;
 use motionfile::{MotionFile, MotionInterpolator};
 use nalgebra::Vector2;
+use serde::{Deserialize, Serialize};
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
@@ -19,6 +20,7 @@ use types::{
     sensor_data::SensorData,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct FallProtector {
     start_time: SystemTime,
     interpolator: MotionInterpolator<Joints<f32>>,

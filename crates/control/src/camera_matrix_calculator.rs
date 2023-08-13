@@ -3,6 +3,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, vector, Isometry3, Rotation3, UnitQuaternion, Vector3};
 use projection::Projection;
+use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::{CameraMatrices, CameraMatrix, ProjectedFieldLines},
     camera_position::CameraPosition,
@@ -13,6 +14,7 @@ use types::{
     robot_kinematics::RobotKinematics,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct CameraMatrixCalculator {}
 
 #[context]

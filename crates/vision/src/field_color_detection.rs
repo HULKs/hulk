@@ -2,8 +2,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::Isometry2;
+use serde::{Deserialize, Serialize};
 use types::{field_color::FieldColor, interpolated::Interpolated};
 
+#[derive(Deserialize, Serialize)]
 pub struct FieldColorDetection {
     robot_to_field_of_home_after_coin_toss_before_second_half: Isometry2<f32>,
 }

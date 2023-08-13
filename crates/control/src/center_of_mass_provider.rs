@@ -2,8 +2,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{Point, Point3};
+use serde::{Deserialize, Serialize};
 use types::{robot_kinematics::RobotKinematics, robot_masses::RobotMass};
 
+#[derive(Deserialize, Serialize)]
 pub struct CenterOfMassProvider {}
 
 #[context]

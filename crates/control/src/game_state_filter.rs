@@ -4,6 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{distance, Isometry2, Point2, Vector2};
+use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, GameState, Team};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
@@ -11,6 +12,7 @@ use types::{
     game_controller_state::GameControllerState, parameters::GameStateFilterParameters,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct GameStateFilter {
     state: State,
     opponent_state: State,
@@ -217,7 +219,7 @@ fn in_kick_off_grace_period(
         < kick_off_grace_period
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
 enum State {
     Initial,
     Ready,
