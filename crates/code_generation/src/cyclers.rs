@@ -90,7 +90,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             own_changed: std::sync::Arc<tokio::sync::Notify>,
             own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
             parameters_reader: framework::Reader<crate::structs::Parameters>,
-            persistent_state: crate::structs::#module_name::PersistentState,
+            cycler_state: crate::structs::#module_name::CyclerState,
             #realtime_inputs
             #input_output_fields
             #node_fields
@@ -198,7 +198,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             #input_output_fields
         ) -> color_eyre::Result<Self> {
             let parameters = parameters_reader.next().clone();
-            let mut persistent_state = crate::structs::#cycler_module_name::PersistentState::default();
+            let mut cycler_state = crate::structs::#cycler_module_name::CyclerState::default();
             #node_initializers
             Ok(Self {
                 instance,
@@ -207,7 +207,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                 own_changed,
                 own_subscribed_outputs_reader,
                 parameters_reader,
-                persistent_state,
+                cycler_state,
                 #input_output_identifiers
                 #(#node_identifiers,)*
             })
@@ -244,6 +244,17 @@ fn generate_node_field_initializers(node: &Node, cycler: &Cycler) -> TokenStream
             Field::AdditionalOutput { name, .. } => {
                 panic!("unexpected additional output field `{name}` in CreationContext")
             }
+            Field::CyclerState { path, .. } => {
+                let accessor = path_to_accessor_token_stream(
+                    quote! { cycler_state },
+                    path,
+                    ReferenceKind::Mutable,
+                    cycler,
+                );
+                quote! {
+                    #accessor,
+                }
+            }
             Field::HardwareInterface { .. } => quote! {
                 &hardware_interface,
             },
@@ -269,17 +280,6 @@ fn generate_node_field_initializers(node: &Node, cycler: &Cycler) -> TokenStream
             }
             Field::PerceptionInput { name, .. } => {
                 panic!("unexpected perception input field `{name}` in new context")
-            }
-            Field::PersistentState { path, .. } => {
-                let accessor = path_to_accessor_token_stream(
-                    quote! { persistent_state },
-                    path,
-                    ReferenceKind::Mutable,
-                    cycler,
-                );
-                quote! {
-                    #accessor,
-                }
             }
             Field::RequiredInput { name, .. } => {
                 panic!("unexpected required input field `{name}` in new context")
@@ -546,6 +546,17 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                         )
                     }
                 }
+                Field::CyclerState { path, .. } => {
+                    let accessor = path_to_accessor_token_stream(
+                        quote! { self.cycler_state },
+                        path,
+                        ReferenceKind::Mutable,
+                        cycler,
+                    );
+                    quote! {
+                        #accessor
+                    }
+                }
                 Field::HardwareInterface { .. } => quote! {
                     &self.hardware_interface
                 },
@@ -660,17 +671,6 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                                 ))
                                 .collect(),
                         }
-                    }
-                }
-                Field::PersistentState {  path, .. } => {
-                    let accessor = path_to_accessor_token_stream(
-                        quote! { self.persistent_state },
-                        path,
-                        ReferenceKind::Mutable,
-                        cycler,
-                    );
-                    quote! {
-                        #accessor
                     }
                 }
                 Field::RequiredInput {

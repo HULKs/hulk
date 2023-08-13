@@ -134,8 +134,8 @@ pub struct CycleContext {
     step_planner_config: Parameter<StepPlannerParameters, "step_planner">,
     kick_steps: Parameter<KickStepsParameters, "kick_steps">,
 
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-    walk_return_offset: PersistentState<Step, "walk_return_offset">,
+    motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
+    walk_return_offset: CyclerState<Step, "walk_return_offset">,
 
     motion_command: Input<MotionCommand, "motion_command">,
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,

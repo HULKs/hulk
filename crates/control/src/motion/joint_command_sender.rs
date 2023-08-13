@@ -22,7 +22,7 @@ pub struct CycleContext {
     stiffnesses: AdditionalOutput<Joints<f32>, "stiffnesses">,
     motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
 
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
 
     joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,

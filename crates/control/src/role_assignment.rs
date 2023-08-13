@@ -45,7 +45,7 @@ pub struct CycleContext {
     robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
-    time_to_reach_kick_position: PersistentState<Duration, "time_to_reach_kick_position">,
+    time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,

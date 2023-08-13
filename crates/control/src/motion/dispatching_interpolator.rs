@@ -37,7 +37,7 @@ pub struct CycleContext {
 
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
 
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
 
     transition_time: AdditionalOutput<Option<Duration>, "transition_time">,
 }

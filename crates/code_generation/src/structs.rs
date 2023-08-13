@@ -31,9 +31,9 @@ pub fn generate_structs(structs: &Structs) -> TokenStream {
                 format_ident!("AdditionalOutputs"),
                 &derives,
             );
-            let persistent_state = hierarchy_to_token_stream(
-                &cycler_structs.persistent_state,
-                format_ident!("PersistentState"),
+            let cycler_state = hierarchy_to_token_stream(
+                &cycler_structs.cycler_state,
+                format_ident!("CyclerState"),
                 &derives,
             );
 
@@ -41,7 +41,7 @@ pub fn generate_structs(structs: &Structs) -> TokenStream {
                 pub mod #cycler_module_identifier {
                     #main_outputs
                     #additional_outputs
-                    #persistent_state
+                    #cycler_state
                 }
             }
         });

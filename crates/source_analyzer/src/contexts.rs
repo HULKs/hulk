@@ -101,6 +101,11 @@ pub enum Field {
         name: Ident,
         path: Path,
     },
+    CyclerState {
+        data_type: Type,
+        name: Ident,
+        path: Path,
+    },
     HardwareInterface {
         name: Ident,
     },
@@ -126,11 +131,6 @@ pub enum Field {
     },
     PerceptionInput {
         cycler_instance: String,
-        data_type: Type,
-        name: Ident,
-        path: Path,
-    },
-    PersistentState {
         data_type: Type,
         name: Ident,
         path: Path,
@@ -182,6 +182,14 @@ impl Field {
                 }
 
                 Ok(Field::AdditionalOutput {
+                    data_type: data_type.to_absolute(uses),
+                    name: field_name.clone(),
+                    path,
+                })
+            }
+            "CyclerState" => {
+                let (data_type, path) = extract_two_arguments(&first_segment.arguments, true)?;
+                Ok(Field::CyclerState {
                     data_type: data_type.to_absolute(uses),
                     name: field_name.clone(),
                     path,
@@ -244,14 +252,6 @@ impl Field {
                     extract_three_arguments(&first_segment.arguments, true)?;
                 Ok(Field::PerceptionInput {
                     cycler_instance,
-                    data_type: data_type.to_absolute(uses),
-                    name: field_name.clone(),
-                    path,
-                })
-            }
-            "PersistentState" => {
-                let (data_type, path) = extract_two_arguments(&first_segment.arguments, true)?;
-                Ok(Field::PersistentState {
                     data_type: data_type.to_absolute(uses),
                     name: field_name.clone(),
                     path,
@@ -389,15 +389,15 @@ fn extract_three_arguments(
 
 fn member_type_allowed(context_name: &str, field_type: &str) -> bool {
     let allowed_member_types = match context_name {
-        "CreationContext" => ["HardwareInterface", "Parameter", "PersistentState"].as_slice(),
+        "CreationContext" => ["CyclerState", "HardwareInterface", "Parameter"].as_slice(),
         "CycleContext" => [
             "AdditionalOutput",
+            "CyclerState",
             "HardwareInterface",
             "HistoricInput",
             "Input",
             "Parameter",
             "PerceptionInput",
-            "PersistentState",
             "RequiredInput",
         ]
         .as_slice(),
@@ -752,7 +752,7 @@ mod tests {
         }
 
         // without optionals
-        let field = "PersistentState<usize, \"a.b.c\">";
+        let field = "CyclerState<usize, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         let parsed_field = Field::try_from_field(
@@ -762,7 +762,7 @@ mod tests {
         )
         .unwrap();
         match parsed_field {
-            Field::PersistentState {
+            Field::CyclerState {
                 data_type,
                 name,
                 path: Path { segments },
@@ -782,7 +782,7 @@ mod tests {
         }
 
         // // optionals are supported
-        // let field = "PersistentState<usize, \"a.b?.c\">";
+        // let field = "CyclerState<usize, \"a.b?.c\">";
         // let fields = format!("{{ name: {field} }}");
         // let named_fields: FieldsNamed = parse_str(&fields).unwrap();
         // assert!(Field::try_from_field(

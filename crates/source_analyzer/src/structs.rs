@@ -74,6 +74,12 @@ impl Structs {
                                 cycler_structs.additional_outputs.insert(insertion_rules)?;
                             }
                         }
+                        Field::CyclerState {
+                            data_type, path, ..
+                        } => {
+                            let insertion_rules = path_to_insertion_rules(path, data_type);
+                            cycler_structs.cycler_state.insert(insertion_rules)?;
+                        }
                         Field::Parameter {
                             data_type, path, ..
                         } => {
@@ -87,12 +93,6 @@ impl Structs {
                                 let insertion_rules = path_to_insertion_rules(&path, &data_type);
                                 structs.parameters.insert(insertion_rules)?;
                             }
-                        }
-                        Field::PersistentState {
-                            data_type, path, ..
-                        } => {
-                            let insertion_rules = path_to_insertion_rules(path, data_type);
-                            cycler_structs.persistent_state.insert(insertion_rules)?;
                         }
                         Field::MainOutput { name, .. } => {
                             return Err(Error::UnexpectedField(format!(
@@ -132,7 +132,7 @@ fn add_main_outputs(field: &Field, cycler_structs: &mut CyclerStructs) {
 pub struct CyclerStructs {
     pub main_outputs: StructHierarchy,
     pub additional_outputs: StructHierarchy,
-    pub persistent_state: StructHierarchy,
+    pub cycler_state: StructHierarchy,
 }
 
 fn path_to_insertion_rules<'path>(

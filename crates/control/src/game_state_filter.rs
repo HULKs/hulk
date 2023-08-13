@@ -29,7 +29,7 @@ pub struct CycleContext {
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
-    robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
+    robot_to_field: CyclerState<Isometry2<f32>, "robot_to_field">,
 }
 
 #[context]
