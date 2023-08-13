@@ -3,6 +3,7 @@ use context_attribute::context;
 use filtering::orientation_filtering::OrientationFiltering;
 use framework::MainOutput;
 use nalgebra::UnitComplex;
+use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     orientation_filter::{Parameters, State},
@@ -10,7 +11,7 @@ use types::{
     sole_pressure::SolePressure,
 };
 
-#[derive(Default)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct OrientationFilter {
     state: State,
 }

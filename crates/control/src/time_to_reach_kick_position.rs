@@ -1,8 +1,12 @@
+use std::time::Duration;
+
 use color_eyre::Result;
 use framework::AdditionalOutput;
+use serde::{Deserialize, Serialize};
 use types::{parameters::BehaviorParameters, planned_path::PathSegment};
 
-use std::time::Duration;
+#[derive(Deserialize, Serialize)]
+pub struct TimeToReachKickPosition {}
 
 use context_attribute::context;
 #[context]
@@ -27,8 +31,6 @@ pub struct CreationContext {}
 
 #[context]
 pub struct MainOutputs {}
-
-pub struct TimeToReachKickPosition {}
 
 impl TimeToReachKickPosition {
     pub fn new(_: CreationContext) -> Result<Self> {

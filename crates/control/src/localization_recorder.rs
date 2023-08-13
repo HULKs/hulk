@@ -15,7 +15,9 @@ use types::{
     game_controller_state::GameControllerState, line_data::LineData, primary_state::PrimaryState,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct LocalizationRecorder {
+    #[serde(skip)]
     recording: Option<BufWriter<File>>,
 }
 

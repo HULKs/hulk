@@ -4,8 +4,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::tap_detector::TapDetector;
 use framework::MainOutput;
+use serde::{Deserialize, Serialize};
 use types::{buttons::Buttons, cycle_time::CycleTime, sensor_data::SensorData};
 
+#[derive(Deserialize, Serialize)]
 pub struct ButtonFilter {
     chest_button_tap_detector: TapDetector,
     head_buttons_touched: SystemTime,

@@ -2,6 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{point, vector, Point2};
+use serde::{Deserialize, Serialize};
 use spl_network_messages::{GameState, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
@@ -12,6 +13,7 @@ use types::{
     world_state::BallState,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct RuleObstacleComposer {}
 
 #[context]

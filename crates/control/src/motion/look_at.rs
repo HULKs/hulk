@@ -5,12 +5,17 @@ use context_attribute::context;
 use framework::MainOutput;
 use kinematics::{head_to_neck, neck_to_robot};
 use nalgebra::{distance, point, vector, Isometry3, Point2};
-use types::motion_command::{GlanceDirection, HeadMotion};
+use serde::{Deserialize, Serialize};
 use types::{
-    camera_matrix::CameraMatrices, camera_position::CameraPosition, cycle_time::CycleTime,
-    joints::HeadJoints, joints::Joints, motion_command::MotionCommand, sensor_data::SensorData,
+    camera_matrix::CameraMatrices,
+    camera_position::CameraPosition,
+    cycle_time::CycleTime,
+    joints::{HeadJoints, Joints},
+    motion_command::{GlanceDirection, HeadMotion, MotionCommand},
+    sensor_data::SensorData,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct LookAt {
     current_glance_direction: GlanceDirection,
     last_glance_direction_toggle: Option<SystemTime>,

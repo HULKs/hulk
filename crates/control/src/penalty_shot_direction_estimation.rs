@@ -1,6 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use serde::{Deserialize, Serialize};
 use spl_network_messages::GamePhase;
 use types::{
     ball_position::BallPosition, field_dimensions::FieldDimensions,
@@ -8,6 +9,7 @@ use types::{
     primary_state::PrimaryState,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct PenaltyShotDirectionEstimation {
     last_shot_direction: PenaltyShotDirection,
 }

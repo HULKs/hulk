@@ -5,6 +5,7 @@ use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{vector, Isometry3, Translation3, UnitQuaternion, Vector2, Vector3};
+use serde::{Deserialize, Serialize};
 use types::{
     fall_state::FallState,
     motion_command::{Facing, FallDirection},
@@ -12,6 +13,7 @@ use types::{
     sensor_data::{InertialMeasurementUnitData, SensorData},
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct FallStateEstimation {
     roll_pitch_filter: LowPassFilter<Vector2<f32>>,
     angular_velocity_filter: LowPassFilter<Vector3<f32>>,

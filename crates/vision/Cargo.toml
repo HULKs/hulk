@@ -19,4 +19,5 @@ nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 projection = { workspace = true }
 rand = { workspace = true }
+serde = { workspace = true }
 types = { workspace = true }

@@ -2,8 +2,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
+use serde::{Deserialize, Serialize};
 use types::{sensor_data::SensorData, sole_pressure::SolePressure};
 
+#[derive(Deserialize, Serialize)]
 pub struct SolePressureFilter {
     left_sole_pressure: LowPassFilter<f32>,
     right_sole_pressure: LowPassFilter<f32>,

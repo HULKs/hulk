@@ -13,6 +13,7 @@ use nalgebra::{
     Translation2, Vector2, Vector3,
 };
 use ordered_float::NotNan;
+use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
 use types::{
     field_dimensions::FieldDimensions,
@@ -28,6 +29,7 @@ use types::{
     support_foot::Side,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct Localization {
     field_marks: Vec<FieldMark>,
     last_primary_state: PrimaryState,

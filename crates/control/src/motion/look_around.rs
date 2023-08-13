@@ -3,6 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
+use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     initial_look_around::Mode,
@@ -12,6 +13,7 @@ use types::{
     support_foot::Side,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct LookAround {
     current_mode: Mode,
     last_mode_switch: SystemTime,

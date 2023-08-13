@@ -4,6 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Isometry2};
+use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
     color::{Intensity, Rgb, RgbChannel, YCbCr444},
@@ -16,6 +17,7 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct ImageSegmenter {
     robot_to_field_of_home_after_coin_toss_before_second_half: Isometry2<f32>,
 }

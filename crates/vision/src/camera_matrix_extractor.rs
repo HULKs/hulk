@@ -1,11 +1,13 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::{CameraMatrices, CameraMatrix},
     camera_position::CameraPosition,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct CameraMatrixExtractor {}
 
 #[context]

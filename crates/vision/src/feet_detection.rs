@@ -8,6 +8,7 @@ use framework::{AdditionalOutput, MainOutput};
 use itertools::Itertools;
 use nalgebra::{distance, point, Point2};
 use projection::Projection;
+use serde::{Deserialize, Serialize};
 use types::{
     ball::Ball,
     camera_matrix::CameraMatrix,
@@ -17,6 +18,7 @@ use types::{
     line_data::LineData,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct FeetDetection {}
 
 #[context]

@@ -3,6 +3,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2, Vector2};
 use projection::Projection;
+use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
     color::Intensity,
@@ -14,6 +15,7 @@ use types::{
 
 use crate::ransac::Ransac;
 
+#[derive(Deserialize, Serialize)]
 pub struct FieldBorderDetection {}
 
 #[context]

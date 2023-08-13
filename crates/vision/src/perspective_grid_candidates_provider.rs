@@ -5,6 +5,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{point, vector, Point2, Vector2};
 use projection::Projection;
+use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
     filtered_segments::FilteredSegments,
@@ -21,6 +22,7 @@ struct Row {
     center_y: f32,
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct PerspectiveGridCandidatesProvider {}
 
 #[context]

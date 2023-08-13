@@ -3,12 +3,13 @@ use std::{f32::consts::PI, sync::Arc};
 use color_eyre::Result;
 use context_attribute::context;
 use filtering::statistics::{mean, standard_deviation};
-use framework::{AdditionalOutput, MainOutput};
+use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use rustfft::{
     num_complex::{Complex32, ComplexFloat},
     num_traits::Zero,
     Fft, FftPlanner,
 };
+use serde::{Deserialize, Serialize};
 use types::{
     parameters::WhistleDetectionParameters,
     samples::Samples,
@@ -20,8 +21,11 @@ pub const NUMBER_OF_AUDIO_CHANNELS: usize = 4;
 pub const NUMBER_OF_AUDIO_SAMPLES: usize = 2048;
 const NUMBER_OF_FREQUENCY_SAMPLES: usize = NUMBER_OF_AUDIO_SAMPLES / 2;
 
+#[derive(Deserialize, Serialize)]
 pub struct WhistleDetection {
+    #[serde(skip, default = "deserialize_not_implemented")]
     fft: Arc<dyn Fft<f32>>,
+    #[serde(skip)]
     scratch: Vec<Complex32>,
 }
 

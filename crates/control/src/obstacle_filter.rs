@@ -6,6 +6,7 @@ use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use itertools::{chain, iproduct};
 use nalgebra::{distance, point, Isometry2, Matrix2, Point2};
+use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     detected_feet::DetectedFeet,
@@ -19,6 +20,7 @@ use types::{
     sonar_obstacle::SonarObstacle,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct ObstacleFilter {
     hypotheses: Vec<Hypothesis>,
     last_primary_state: PrimaryState,

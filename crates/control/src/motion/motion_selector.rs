@@ -1,11 +1,13 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use serde::{Deserialize, Serialize};
 use types::{
     motion_command::{Facing, JumpDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct MotionSelector {
     current_motion: MotionType,
     dispatching_motion: Option<MotionType>,

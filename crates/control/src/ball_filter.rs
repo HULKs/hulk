@@ -6,6 +6,7 @@ use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use nalgebra::{matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2};
 use projection::Projection;
+use serde::{Deserialize, Serialize};
 use types::{
     ball::Ball,
     ball_filter::Hypothesis,
@@ -19,6 +20,7 @@ use types::{
     parameters::BallFilterParameters,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct BallFilter {
     hypotheses: Vec<Hypothesis>,
 }

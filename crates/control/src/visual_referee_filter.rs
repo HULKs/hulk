@@ -5,12 +5,14 @@ use std::time::Duration;
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use hardware::NetworkInterface;
+use serde::{Deserialize, Serialize};
 use spl_network_messages::{PlayerNumber, VisualRefereeDecision, VisualRefereeMessage};
 use types::{
     cycle_time::CycleTime, filtered_whistle::FilteredWhistle, messages::OutgoingMessage,
     primary_state::PrimaryState,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct VisualRefereeFilter {
     last_primary_state: PrimaryState,
 }

@@ -6,6 +6,7 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{distance, point, vector, Point2, Vector2};
 use ordered_float::NotNan;
 use projection::Projection;
+use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
     filtered_segments::FilteredSegments,
@@ -17,6 +18,7 @@ use types::{
 
 use crate::ransac::{Ransac, RansacResult};
 
+#[derive(Deserialize, Serialize)]
 pub struct LineDetection {}
 
 #[context]

@@ -2,8 +2,10 @@ use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::NetworkInterface;
+use serde::{Deserialize, Serialize};
 use types::messages::IncomingMessage;
 
+#[derive(Deserialize, Serialize)]
 pub struct MessageReceiver {}
 
 #[context]

@@ -3,9 +3,10 @@ use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use nalgebra::Vector3;
+use serde::{Deserialize, Serialize};
 use types::{condition_input::ConditionInput, fall_state::FallState, sensor_data::SensorData};
 
-#[derive(Default)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct ConditionInputProvider {
     angular_velocity_filter: LowPassFilter<Vector3<f32>>,
 }

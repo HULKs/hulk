@@ -2,6 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{Isometry2, Point2};
+use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
     fall_state::FallState,
@@ -15,6 +16,7 @@ use types::{
     world_state::{BallState, RobotState, WorldState},
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct WorldStateComposer {}
 
 #[context]

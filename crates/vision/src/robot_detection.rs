@@ -6,11 +6,12 @@ use context_attribute::context;
 use fast_image_resize::{
     DynamicImageView, FilterType, ImageBufferError, ImageView, ResizeAlg, Resizer,
 };
-use framework::{AdditionalOutput, MainOutput};
+use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use hardware::PathsInterface;
 use itertools::Itertools;
 use nalgebra::{vector, Isometry3, Vector2};
 use projection::Projection;
+use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
     detected_robots::{BoundingBox, DetectedRobots},
@@ -28,7 +29,9 @@ const BOX_SCALINGS: [Vector2<f32>; NUMBER_OF_SCALINGS] = [
 ];
 const OUTPUT_SCALING: f32 = 10.0;
 
+#[derive(Deserialize, Serialize)]
 pub struct RobotDetection {
+    #[serde(skip, default = "deserialize_not_implemented")]
     neural_network: CompiledNN,
 }
 

@@ -2,6 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::SpeakerInterface;
+use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
     audio::{Sound, SpeakerRequest},
@@ -11,6 +12,7 @@ use types::{
     primary_state::PrimaryState,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct PrimaryStateFilter {
     last_primary_state: PrimaryState,
 }
