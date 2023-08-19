@@ -94,6 +94,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             #realtime_inputs
             #input_output_fields
             #node_fields
+            recording_file: std::io::BufWriter<std::fs::File>,
         }
     }
 }
@@ -200,6 +201,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             let parameters = parameters_reader.next().clone();
             let mut cycler_state = crate::structs::#cycler_module_name::CyclerState::default();
             #node_initializers
+            let seconds = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_secs();
             Ok(Self {
                 instance,
                 hardware_interface,
@@ -210,6 +212,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                 cycler_state,
                 #input_output_identifiers
                 #(#node_identifiers,)*
+                recording_file: std::io::BufWriter::new(std::fs::File::create(format!("logs/{instance:?}.{seconds}.bincode")).unwrap()),
             })
         }
     }
@@ -374,7 +377,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     #perception_cycler_updates
                 });
                 if enable_recording {
-                    bincode::serialize_into(&mut recording_frame, &now).wrap_err("failed to record time")?;
+                    bincode::serialize_into(&mut self.recording_file, &now).wrap_err("failed to record time")?;
                 }
             }
         }
@@ -421,7 +424,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                 };
 
                 let enable_recording = <HardwareInterface as hardware::RecordingInterface>::get_recording(&*self.hardware_interface);
-                let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
+                //let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
 
                 {
                     let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
@@ -570,7 +573,7 @@ fn generate_required_inputs_recording(cycler: &Cycler, required_inputs: Vec<Fiel
             _ => panic!("unexpected field {field:?}"),
         };
         quote! {
-            bincode::serialize_into(&mut recording_frame, #value_to_be_recorded).wrap_err(#error_message)?;
+            bincode::serialize_into(&mut self.recording_file, #value_to_be_recorded).wrap_err(#error_message)?;
         }
     });
     quote! {
@@ -606,7 +609,7 @@ fn generate_node_execution(node: &Node, cycler: &Cycler, generate_recording: boo
     quote! {
         {
             if enable_recording {
-                bincode::serialize_into(&mut recording_frame, &self.#node_member).wrap_err(#recording_error_message)?;
+                bincode::serialize_into(&mut self.recording_file, &self.#node_member).wrap_err(#recording_error_message)?;
             }
             #[allow(clippy::needless_else)]
             if #are_required_inputs_some {
@@ -859,7 +862,7 @@ fn generate_database_updates(node: &Node, generate_recording: bool) -> TokenStre
                 let error_message = format!("failed to record {name}");
                 let recording_serialization = generate_recording.then(|| quote! {
                     if enable_recording {
-                        bincode::serialize_into(&mut recording_frame, &main_outputs.#name.value).wrap_err(#error_message)?;
+                        bincode::serialize_into(&mut self.recording_file, &main_outputs.#name.value).wrap_err(#error_message)?;
                     }
                 });
                 let setter = quote! {
