@@ -599,11 +599,15 @@ fn generate_node_execution(node: &Node, cycler: &Cycler, generate_recording: boo
     let node_module = &node.module;
     let node_member = format_ident!("{}", node.name.to_case(Case::Snake));
     let context_initializers = generate_context_initializers(node, cycler);
-    let error_message = format!("failed to execute cycle of `{}`", node.name);
+    let recording_error_message = format!("failed to record `{}`", node.name);
+    let cycle_error_message = format!("failed to execute cycle of `{}`", node.name);
     let database_updates = generate_database_updates(node, generate_recording);
     let database_updates_from_defaults = generate_database_updates_from_defaults(node);
     quote! {
         {
+            if enable_recording {
+                bincode::serialize_into(&mut recording_frame, &self.#node_member).wrap_err(#recording_error_message)?;
+            }
             #[allow(clippy::needless_else)]
             if #are_required_inputs_some {
                 let main_outputs = {
@@ -613,7 +617,7 @@ fn generate_node_execution(node: &Node, cycler: &Cycler, generate_recording: boo
                             #context_initializers
                         ),
                     )
-                    .wrap_err(#error_message)?
+                    .wrap_err(#cycle_error_message)?
                 };
                 #database_updates
             }
