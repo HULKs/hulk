@@ -570,13 +570,13 @@ fn generate_required_inputs_recording(cycler: &Cycler, required_inputs: Vec<Fiel
             _ => panic!("unexpected field {field:?}"),
         };
         quote! {
-            if enable_recording {
-                bincode::serialize_into(&mut recording_frame, #value_to_be_recorded).wrap_err(#error_message)?;
-            }
+            bincode::serialize_into(&mut recording_frame, #value_to_be_recorded).wrap_err(#error_message)?;
         }
     });
     quote! {
-        #(#recordings)*
+        if enable_recording {
+            #(#recordings)*
+        }
     }
 }
 
