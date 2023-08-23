@@ -5,7 +5,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
     initial_look_around::Mode, parameters::LookAround as LookAroundParameters, CycleTime,
-    HeadJoints, HeadMotion, MotionCommand, SensorData, Side,
+    HeadJoints, HeadMotion, MotionCommand, Side,
 };
 
 pub struct LookAround {
@@ -14,16 +14,13 @@ pub struct LookAround {
 }
 
 #[context]
-pub struct CreationContext {
-    config: Parameter<LookAroundParameters, "look_around">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
     config: Parameter<LookAroundParameters, "look_around">,
 
     motion_command: Input<MotionCommand, "motion_command">,
-    sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
     current_mode: AdditionalOutput<Mode, "look_around_mode">,
 }

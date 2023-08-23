@@ -9,9 +9,7 @@ pub struct MotionSelector {
 }
 
 #[context]
-pub struct CreationContext {
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {

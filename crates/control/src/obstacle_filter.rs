@@ -19,10 +19,7 @@ pub struct ObstacleFilter {
 }
 
 #[context]
-pub struct CreationContext {
-    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {

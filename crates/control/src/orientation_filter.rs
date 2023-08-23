@@ -5,7 +5,7 @@ use framework::MainOutput;
 use nalgebra::UnitComplex;
 use types::{
     orientation_filter::{Parameters, State},
-    CycleTime, SensorData, SolePressure, SupportFoot,
+    CycleTime, SensorData, SolePressure,
 };
 
 #[derive(Default)]
@@ -21,7 +21,6 @@ pub struct CycleContext {
     sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
     sole_pressure: Input<SolePressure, "sole_pressure">,
-    support_foot: Input<SupportFoot, "support_foot">,
 
     orientation_filter_parameters: Parameter<Parameters, "orientation_filter">,
 }

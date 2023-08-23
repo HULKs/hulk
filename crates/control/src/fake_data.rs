@@ -14,6 +14,7 @@ use types::{
 pub struct FakeData {}
 
 #[context]
+#[allow(dead_code)]
 pub struct CreationContext {
     maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
     top_camera_matrix_parameters:
@@ -22,6 +23,7 @@ pub struct CreationContext {
 }
 
 #[context]
+#[allow(dead_code)]
 pub struct CycleContext {
     look_at: Parameter<LookAt, "look_at">,
 }

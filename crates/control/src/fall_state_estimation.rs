@@ -31,7 +31,6 @@ pub struct CycleContext {
 
     fall_state_estimation: Parameter<FallStateEstimationParameters, "fall_state_estimation">,
 
-    has_ground_contact: Input<bool, "has_ground_contact">,
     sensor_data: Input<SensorData, "sensor_data">,
 }
 

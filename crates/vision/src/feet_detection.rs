@@ -10,7 +10,7 @@ use nalgebra::{distance, point, Point2};
 use projection::Projection;
 use types::{
     detected_feet::{ClusterPoint, CountedCluster, DetectedFeet},
-    Ball, CameraMatrix, EdgeType, FieldDimensions, FilteredSegments, LineData, ScanLine, Segment,
+    Ball, CameraMatrix, EdgeType, FilteredSegments, LineData, ScanLine, Segment,
 };
 
 pub struct FeetDetection {}
@@ -24,7 +24,6 @@ pub struct CycleContext {
     clusters_in_ground: AdditionalOutput<Vec<Point2<f32>>, "feet_detection.clusters_in_ground">,
 
     enable: Parameter<bool, "feet_detection.$cycler_instance.enable">,
-    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     maximum_cluster_distance:
         Parameter<f32, "feet_detection.$cycler_instance.maximum_cluster_distance">,
     minimum_consecutive_segments:

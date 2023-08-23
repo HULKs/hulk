@@ -4,9 +4,9 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{distance, Isometry2, Point2, Vector2};
-use spl_network_messages::{GamePhase, GameState, PlayerNumber, Team};
+use spl_network_messages::{GamePhase, GameState, Team};
 use types::{
-    parameters::GameStateFilter as GameStateFilterParameters, BallPosition, Buttons, CycleTime,
+    parameters::GameStateFilter as GameStateFilterParameters, BallPosition, CycleTime,
     FieldDimensions, FilteredGameState, FilteredWhistle, GameControllerState,
 };
 
@@ -16,25 +16,17 @@ pub struct GameStateFilter {
 }
 
 #[context]
-pub struct CreationContext {
-    config: Parameter<GameStateFilterParameters, "game_state_filter">,
-    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    player_number: Parameter<PlayerNumber, "player_number">,
-
-    robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition>, "ball_position?">,
-    buttons: Input<Buttons, "buttons">,
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
 
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    player_number: Parameter<PlayerNumber, "player_number">,
 
     robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
 }

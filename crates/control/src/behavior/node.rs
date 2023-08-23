@@ -30,11 +30,7 @@ pub struct Behavior {
 }
 
 #[context]
-pub struct CreationContext {
-    behavior: Parameter<BehaviorParameters, "behavior">,
-    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {

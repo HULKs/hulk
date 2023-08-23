@@ -11,11 +11,7 @@ pub struct PenaltyShotDirectionEstimation {
 }
 
 #[context]
-pub struct CreationContext {
-    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    moving_distance_threshold:
-        Parameter<f32, "penalty_shot_direction_estimation.moving_distance_threshold">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {

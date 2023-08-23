@@ -5,10 +5,8 @@ use context_attribute::context;
 use framework::MainOutput;
 use hardware::PathsInterface;
 use motionfile::{MotionFile, MotionInterpolator};
-use types::{ConditionInput, JointsVelocity};
-use types::{
-    CycleTime, Joints, MotionCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
-};
+use types::ConditionInput;
+use types::{CycleTime, Joints, MotionSafeExits, MotionSelection, MotionType};
 
 pub struct StandUpBack {
     interpolator: MotionInterpolator<Joints<f32>>,
@@ -23,13 +21,7 @@ pub struct CreationContext {
 pub struct CycleContext {
     condition_input: Input<ConditionInput, "condition_input">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    motion_command: Input<MotionCommand, "motion_command">,
     motion_selection: Input<MotionSelection, "motion_selection">,
-    sensor_data: Input<SensorData, "sensor_data">,
-
-    gyro_low_pass_filter_coefficient: Parameter<f32, "stand_up.gyro_low_pass_filter_coefficient">,
-    gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
-    maximum_velocity: Parameter<JointsVelocity, "maximum_joint_velocities">,
 
     motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }

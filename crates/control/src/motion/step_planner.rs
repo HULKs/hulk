@@ -2,7 +2,7 @@ use color_eyre::{eyre::eyre, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{Isometry2, UnitComplex};
-use types::{MotionCommand, OrientationMode, PathSegment, SensorData, Step, SupportFoot};
+use types::{MotionCommand, OrientationMode, PathSegment, Step};
 
 pub struct StepPlanner {}
 
@@ -12,8 +12,6 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     motion_command: Input<MotionCommand, "motion_command">,
-    sensor_data: Input<SensorData, "sensor_data">,
-    support_foot: Input<SupportFoot, "support_foot">,
 
     injected_step: Parameter<Option<Step>, "step_planner.injected_step?">,
     max_step_size: Parameter<Step, "step_planner.max_step_size">,

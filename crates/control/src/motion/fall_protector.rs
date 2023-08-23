@@ -25,7 +25,6 @@ pub struct FallProtector {
 #[context]
 pub struct CreationContext {
     hardware_interface: HardwareInterface,
-    fall_protection: Parameter<FallProtection, "fall_protection">,
     fall_state_estimation: Parameter<FallStateEstimation, "fall_state_estimation">,
 }
 

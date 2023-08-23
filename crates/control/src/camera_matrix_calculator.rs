@@ -11,13 +11,7 @@ use types::{
 pub struct CameraMatrixCalculator {}
 
 #[context]
-pub struct CreationContext {
-    bottom_camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_bottom">,
-    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    top_camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {

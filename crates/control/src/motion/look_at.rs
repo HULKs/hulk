@@ -7,7 +7,7 @@ use kinematics::{head_to_neck, neck_to_robot};
 use nalgebra::{distance, point, vector, Isometry3, Point2};
 use types::{
     CameraMatrices, CameraPosition, CycleTime, GlanceDirection, HeadJoints, HeadMotion, Joints,
-    MotionCommand, RobotKinematics, SensorData,
+    MotionCommand, SensorData,
 };
 
 pub struct LookAt {
@@ -16,9 +16,7 @@ pub struct LookAt {
 }
 
 #[context]
-pub struct CreationContext {
-    minimum_bottom_focus_pitch: Parameter<f32, "look_at.minimum_bottom_focus_pitch">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -26,7 +24,6 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     ground_to_robot: Input<Option<Isometry3<f32>>, "ground_to_robot?">,
     motion_command: Input<MotionCommand, "motion_command">,
-    robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     sensor_data: Input<SensorData, "sensor_data">,
 
     glance_angle: Parameter<f32, "look_at.glance_angle">,

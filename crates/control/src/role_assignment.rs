@@ -27,11 +27,7 @@ pub struct RoleAssignment {
 }
 
 #[context]
-pub struct CreationContext {
-    forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
-    player_number: Parameter<PlayerNumber, "player_number">,
-    spl_network: Parameter<SplNetwork, "spl_network">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {

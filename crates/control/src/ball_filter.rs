@@ -10,7 +10,7 @@ use types::{
     ball_filter::Hypothesis, is_above_limbs,
     multivariate_normal_distribution::MultivariateNormalDistribution,
     parameters::BallFilter as BallFilterConfiguration, Ball, BallPosition, CameraMatrices,
-    CameraMatrix, Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs, SensorData,
+    CameraMatrix, Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs,
 };
 
 pub struct BallFilter {
@@ -34,7 +34,6 @@ pub struct CycleContext {
     historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
 
     camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
-    sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,

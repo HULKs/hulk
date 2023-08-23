@@ -14,17 +14,12 @@ pub struct SonarFilter {
 pub struct CreationContext {
     low_pass_filter_coefficient: Parameter<f32, "sonar_filter.low_pass_filter_coefficient">,
     maximal_detectable_distance: Parameter<f32, "sonar_filter.maximal_detectable_distance">,
-    maximal_reliable_distance: Parameter<f32, "sonar_filter.maximal_reliable_distance">,
-    minimal_reliable_distance: Parameter<f32, "sonar_filter.minimal_reliable_distance">,
-    sensor_angle: Parameter<f32, "sonar_obstacle.sensor_angle">,
 }
 
 #[context]
 pub struct CycleContext {
     sonar_values: AdditionalOutput<SonarValues, "sonar_values">,
 
-    low_pass_filter_coefficient: Parameter<f32, "sonar_filter.low_pass_filter_coefficient">,
-    maximal_detectable_distance: Parameter<f32, "sonar_filter.maximal_detectable_distance">,
     maximal_reliable_distance: Parameter<f32, "sonar_filter.maximal_reliable_distance">,
     minimal_reliable_distance: Parameter<f32, "sonar_filter.minimal_reliable_distance">,
     middle_merge_threshold: Parameter<f32, "sonar_filter.middle_merge_threshold">,
