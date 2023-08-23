@@ -30,8 +30,7 @@ pub struct CycleContext {
 
     in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
     angle_distance_weight: Parameter<f32, "kick_selector.angle_distance_weight">,
-    max_kick_around_obstacle_angle:
-        Parameter<f32, "kick_selector.max_kick_around_obstacle_angle">,
+    max_kick_around_obstacle_angle: Parameter<f32, "kick_selector.max_kick_around_obstacle_angle">,
     kick_pose_obstacle_radius: Parameter<f32, "kick_selector.kick_pose_obstacle_radius">,
     ball_radius_for_kick_target_selection:
         Parameter<f32, "kick_selector.ball_radius_for_kick_target_selection">,

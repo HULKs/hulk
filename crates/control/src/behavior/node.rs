@@ -52,8 +52,7 @@ pub struct CycleContext {
     lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
     intercept_ball_parameters: Parameter<InterceptBall, "behavior.intercept_ball">,
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
-    striker_set_position:
-        Parameter<Vector2<f32>, "behavior.role_positions.striker_set_position">,
+    striker_set_position: Parameter<Vector2<f32>, "behavior.role_positions.striker_set_position">,
 }
 
 #[context]

@@ -24,11 +24,9 @@ pub struct CreationContext {}
 pub struct CycleContext {
     ball_filter_hypotheses: AdditionalOutput<Vec<Hypothesis>, "ball_filter_hypotheses">,
     best_ball_hypothesis: AdditionalOutput<Option<Hypothesis>, "best_ball_hypothesis">,
-    best_ball_state:
-        AdditionalOutput<Option<MultivariateNormalDistribution<4>>, "best_ball_state">,
+    best_ball_state: AdditionalOutput<Option<MultivariateNormalDistribution<4>>, "best_ball_state">,
     chooses_resting_model: AdditionalOutput<bool, "chooses_resting_model">,
-    filtered_balls_in_image_bottom:
-        AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_bottom">,
+    filtered_balls_in_image_bottom: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_bottom">,
     filtered_balls_in_image_top: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_top">,
 
     current_odometry_to_last_odometry:
@@ -44,8 +42,7 @@ pub struct CycleContext {
 
     balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
-    projected_limbs:
-        PerceptionInput<Option<ProjectedLimbs>, "VisionBottom", "projected_limbs?">,
+    projected_limbs: PerceptionInput<Option<ProjectedLimbs>, "VisionBottom", "projected_limbs?">,
 }
 
 #[context]
