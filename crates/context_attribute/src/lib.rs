@@ -221,6 +221,7 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
         .map(|field| field.ty.clone())
         .collect();
     let new_method_stream = quote! {
+        #[allow(clippy::too_many_arguments)]
         pub fn new(
             #(#field_names: #field_types),*
         ) -> Self {
