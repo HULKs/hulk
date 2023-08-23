@@ -224,9 +224,9 @@ fn generate_node_initializers(cycler: &Cycler) -> TokenStream {
         let error_message = format!("failed to create node `{}`", node.name);
         quote! {
             let #node_name_snake_case = #node_module::#node_name::new(
-                #node_module::CreationContext {
+                #node_module::CreationContext::new(
                     #field_initializers
-                }
+                )
             )
             .wrap_err(#error_message)?;
         }
@@ -244,8 +244,8 @@ fn generate_node_field_initializers(node: &Node, cycler: &Cycler) -> TokenStream
             Field::AdditionalOutput { name, .. } => {
                 panic!("unexpected additional output field `{name}` in CreationContext")
             }
-            Field::HardwareInterface { name } => quote! {
-                #name: &hardware_interface,
+            Field::HardwareInterface { .. } => quote! {
+                &hardware_interface,
             },
             Field::HistoricInput { name, .. } => {
                 panic!("unexpected historic input field `{name}` in new context")
@@ -256,7 +256,7 @@ fn generate_node_field_initializers(node: &Node, cycler: &Cycler) -> TokenStream
             Field::MainOutput { name, .. } => {
                 panic!("unexpected main output field `{name}` in new context")
             }
-            Field::Parameter { name, path, .. } => {
+            Field::Parameter { path, .. } => {
                 let accessor = path_to_accessor_token_stream(
                     quote! { parameters },
                     path,
@@ -264,13 +264,13 @@ fn generate_node_field_initializers(node: &Node, cycler: &Cycler) -> TokenStream
                     cycler,
                 );
                 quote! {
-                    #name: #accessor,
+                    #accessor,
                 }
             }
             Field::PerceptionInput { name, .. } => {
                 panic!("unexpected perception input field `{name}` in new context")
             }
-            Field::PersistentState { name, path, .. } => {
+            Field::PersistentState { path, .. } => {
                 let accessor = path_to_accessor_token_stream(
                     quote! { persistent_state },
                     path,
@@ -278,7 +278,7 @@ fn generate_node_field_initializers(node: &Node, cycler: &Cycler) -> TokenStream
                     cycler,
                 );
                 quote! {
-                    #name: #accessor,
+                    #accessor,
                 }
             }
             Field::RequiredInput { name, .. } => {
@@ -467,9 +467,9 @@ fn generate_node_execution(node: &Node, cycler: &Cycler) -> TokenStream {
                 let main_outputs = {
                     let _task = ittapi::Task::begin(&itt_domain, #node_name);
                     self.#node_member.cycle(
-                        #node_module::CycleContext {
+                        #node_module::CycleContext::new(
                             #context_initializers
-                        },
+                        ),
                     )
                     .wrap_err(#error_message)?
                 };
@@ -527,7 +527,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
             .cycle_context
             .iter()
             .map(|field| match field {
-                Field::AdditionalOutput { name, path, .. } => {
+                Field::AdditionalOutput {  path, .. } => {
                     let accessor = path_to_accessor_token_stream(
                         quote!{ own_database_reference.additional_outputs },
                         path,
@@ -538,7 +538,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                             path.segments.iter().map(|segment| segment.name.as_str())
                         ).join(".");
                     quote! {
-                        #name: framework::AdditionalOutput::new(
+                        framework::AdditionalOutput::new(
                             own_subscribed_outputs
                                 .iter()
                                 .any(|subscribed_output| framework::should_be_filled(subscribed_output, #path_string)),
@@ -546,10 +546,10 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                         )
                     }
                 }
-                Field::HardwareInterface { name } => quote! {
-                    #name: &self.hardware_interface
+                Field::HardwareInterface { .. } => quote! {
+                    &self.hardware_interface
                 },
-                Field::HistoricInput { name, path, .. } => {
+                Field::HistoricInput { path, .. } => {
                     let now_accessor = path_to_accessor_token_stream(
                         quote!{ own_database_reference.main_outputs },
                         path,
@@ -563,7 +563,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                         cycler,
                     );
                     quote! {
-                        #name: [(now, #now_accessor)]
+                        [(now, #now_accessor)]
                             .into_iter()
                             .chain(
                                 self
@@ -581,7 +581,6 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                 }
                 Field::Input {
                     cycler_instance,
-                    name,
                     path,
                     ..
                 } => {
@@ -602,13 +601,13 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                         cycler,
                     );
                     quote! {
-                        #name: #accessor
+                        #accessor
                     }
                 }
                 Field::MainOutput { name, .. } => {
                     panic!("unexpected MainOutput `{name}` in cycle context")
                 }
-                Field::Parameter { name, path, .. } => {
+                Field::Parameter { path, .. } => {
                     let accessor = path_to_accessor_token_stream(
                         quote! { parameters },
                         path,
@@ -616,12 +615,11 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                         cycler,
                     );
                     quote! {
-                        #name: #accessor
+                        #accessor
                     }
                 }
                 Field::PerceptionInput {
                     cycler_instance,
-                    name,
                     path,
                     ..
                 } => {
@@ -634,7 +632,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                         cycler,
                     );
                     quote! {
-                        #name: framework::PerceptionInput {
+                        framework::PerceptionInput {
                             persistent: self
                                 .perception_databases
                                 .persistent()
@@ -664,7 +662,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                         }
                     }
                 }
-                Field::PersistentState { name, path, .. } => {
+                Field::PersistentState {  path, .. } => {
                     let accessor = path_to_accessor_token_stream(
                         quote! { self.persistent_state },
                         path,
@@ -672,12 +670,11 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                         cycler,
                     );
                     quote! {
-                        #name: #accessor
+                        #accessor
                     }
                 }
                 Field::RequiredInput {
                     cycler_instance,
-                    name,
                     path,
                     ..
                 } => {
@@ -698,7 +695,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                         cycler,
                     );
                     quote! {
-                        #name: #accessor .unwrap()
+                        #accessor .unwrap()
                     }
                 }
             })
