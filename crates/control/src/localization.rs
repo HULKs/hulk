@@ -40,8 +40,7 @@ pub struct CreationContext {
 pub struct CycleContext {
     correspondence_lines: AdditionalOutput<Vec<Line2>, "localization.correspondence_lines">,
     fit_errors: AdditionalOutput<Vec<Vec<Vec<Vec<f32>>>>, "localization.fit_errors">,
-    measured_lines_in_field:
-        AdditionalOutput<Vec<Line2>, "localization.measured_lines_in_field">,
+    measured_lines_in_field: AdditionalOutput<Vec<Line2>, "localization.measured_lines_in_field">,
     pose_hypotheses: AdditionalOutput<Vec<ScoredPose>, "localization.pose_hypotheses">,
     updates: AdditionalOutput<Vec<Vec<Update>>, "localization.updates">,
 
@@ -55,14 +54,12 @@ pub struct CycleContext {
     circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     good_matching_threshold: Parameter<f32, "localization.good_matching_threshold">,
-    gradient_convergence_threshold:
-        Parameter<f32, "localization.gradient_convergence_threshold">,
+    gradient_convergence_threshold: Parameter<f32, "localization.gradient_convergence_threshold">,
     gradient_descent_step_size: Parameter<f32, "localization.gradient_descent_step_size">,
     hypothesis_prediction_score_reduction_factor:
         Parameter<f32, "localization.hypothesis_prediction_score_reduction_factor">,
     hypothesis_retain_factor: Parameter<f32, "localization.hypothesis_retain_factor">,
-    hypothesis_score_base_increase:
-        Parameter<f32, "localization.hypothesis_score_base_increase">,
+    hypothesis_score_base_increase: Parameter<f32, "localization.hypothesis_score_base_increase">,
     initial_hypothesis_covariance:
         Parameter<Matrix3<f32>, "localization.initial_hypothesis_covariance">,
     initial_hypothesis_score: Parameter<f32, "localization.initial_hypothesis_score">,

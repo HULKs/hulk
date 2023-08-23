@@ -33,8 +33,7 @@ pub struct CycleContext {
         "Control",
         "robot_to_field_of_home_after_coin_toss_before_second_half?",
     >,
-    game_controller_state:
-        Input<Option<GameControllerState>, "Control", "game_controller_state?">,
+    game_controller_state: Input<Option<GameControllerState>, "Control", "game_controller_state?">,
     field_color: Input<FieldColor, "field_color">,
     projected_limbs: Input<Option<ProjectedLimbs>, "projected_limbs?">,
 

@@ -27,8 +27,7 @@ pub struct CycleContext {
     motion_selection: Input<MotionSelection, "motion_selection">,
     sensor_data: Input<SensorData, "sensor_data">,
 
-    gyro_low_pass_filter_coefficient:
-        Parameter<f32, "stand_up.gyro_low_pass_filter_coefficient">,
+    gyro_low_pass_filter_coefficient: Parameter<f32, "stand_up.gyro_low_pass_filter_coefficient">,
     gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
     maximum_velocity: Parameter<JointsVelocity, "maximum_joint_velocities">,
 

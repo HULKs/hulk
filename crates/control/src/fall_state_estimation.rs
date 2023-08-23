@@ -23,11 +23,9 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    backward_gravitational_difference:
-        AdditionalOutput<f32, "backward_gravitational_difference">,
+    backward_gravitational_difference: AdditionalOutput<f32, "backward_gravitational_difference">,
     filtered_angular_velocity: AdditionalOutput<Vector3<f32>, "filtered_angular_velocity">,
-    filtered_linear_acceleration:
-        AdditionalOutput<Vector3<f32>, "filtered_linear_acceleration">,
+    filtered_linear_acceleration: AdditionalOutput<Vector3<f32>, "filtered_linear_acceleration">,
     filtered_roll_pitch: AdditionalOutput<Vector2<f32>, "filtered_roll_pitch">,
     forward_gravitational_difference: AdditionalOutput<f32, "forward_gravitational_difference">,
 

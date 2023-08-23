@@ -12,8 +12,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     hardware_interface: HardwareInterface,
-    camera_position:
-        Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
+    camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
 }
 
 #[context]
