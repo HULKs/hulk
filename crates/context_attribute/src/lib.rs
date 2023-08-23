@@ -220,24 +220,27 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
         .iter()
         .map(|field| field.ty.clone())
         .collect();
-    let new_method_stream = quote! {
-        #[allow(clippy::too_many_arguments)]
-        pub fn new(
-            #(#field_names: #field_types),*
-        ) -> Self {
-            Self {
-                #(#field_names),*
+    let generate_new_method = struct_name != "MainOutputs";
+    let impl_stream = generate_new_method.then(|| {
+        quote! {
+            impl #struct_generics #struct_name #struct_generics {
+                #[allow(clippy::too_many_arguments)]
+                pub fn new(
+                    #(#field_names: #field_types),*
+                ) -> Self {
+                    Self {
+                        #(#field_names),*
+                    }
+                }
             }
         }
-    };
+    });
 
     let struct_stream = struct_item.into_token_stream();
     quote! {
         #struct_stream
 
-        impl #struct_generics #struct_name #struct_generics {
-            #new_method_stream
-        }
+        #impl_stream
     }
     .into()
 }
