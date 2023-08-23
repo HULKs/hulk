@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use proc_macro_error::{abort, proc_macro_error};
-use quote::{format_ident, ToTokens};
+use quote::{format_ident, ToTokens, quote};
 use syn::{
     parse_macro_input,
     punctuated::{Pair, Punctuated},
@@ -208,7 +208,28 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
             }));
     }
 
-    struct_item.into_token_stream().into()
+    let struct_name = struct_item.ident.clone();
+    let struct_generics = struct_item.generics.clone();
+    let field_names: Vec<_> = struct_item.fields.iter().map(|field| field.ident.clone()).collect();
+    let field_types: Vec<_> = struct_item.fields.iter().map(|field| field.ty.clone()).collect();
+    let new_method_stream = quote!{
+        pub fn new(
+            #(#field_names: #field_types),*
+        ) -> Self {
+            Self {
+                #(#field_names),*
+            }
+        }
+    };
+
+    let struct_stream = struct_item.into_token_stream();
+    quote!{
+        #struct_stream
+
+        impl #struct_generics #struct_name #struct_generics {
+            #new_method_stream
+        }
+    }.into()
 }
 
 fn pop_string_argument(arguments: &mut AngleBracketedGenericArguments) {
