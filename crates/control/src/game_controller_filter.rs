@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::{messages::IncomingMessage, CycleTime, GameControllerState, SensorData};
+use types::{messages::IncomingMessage, CycleTime, GameControllerState};
 
 pub struct GameControllerFilter {
     game_controller_state: Option<GameControllerState>,
@@ -15,7 +15,6 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
     network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
 }

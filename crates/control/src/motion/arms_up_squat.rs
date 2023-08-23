@@ -3,10 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use hardware::PathsInterface;
 use motionfile::{MotionFile, MotionInterpolator};
-use types::{
-    ConditionInput, CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
-    SensorData,
-};
+use types::{ConditionInput, CycleTime, Joints, JointsCommand, MotionSelection, MotionType};
 
 pub struct ArmsUpSquat {
     interpolator: MotionInterpolator<Joints<f32>>,
@@ -15,16 +12,12 @@ pub struct ArmsUpSquat {
 #[context]
 pub struct CreationContext {
     hardware_interface: HardwareInterface,
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]
 pub struct CycleContext {
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-
     condition_input: Input<ConditionInput, "condition_input">,
     motion_selection: Input<MotionSelection, "motion_selection">,
-    sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
 }
 

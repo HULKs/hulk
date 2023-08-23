@@ -9,9 +9,9 @@ use nalgebra::{Isometry3, Point3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
     parameters::{KickSteps, StepPlanner, WalkingEngine as WalkingEngineParameters},
-    ArmJoints, BodyJoints, BodyJointsCommand, CycleTime, InertialMeasurementUnitData, Joints,
-    KickVariant, LegJoints, MotionCommand, MotionSafeExits, MotionType, RobotKinematics,
-    SensorData, Side, Step, StepAdjustment, WalkCommand,
+    ArmJoints, BodyJoints, BodyJointsCommand, CycleTime, InertialMeasurementUnitData, KickVariant,
+    LegJoints, MotionCommand, MotionSafeExits, MotionType, RobotKinematics, SensorData, Side, Step,
+    StepAdjustment, WalkCommand,
 };
 
 use self::{
@@ -108,11 +108,6 @@ pub struct WalkingEngine {
 #[context]
 pub struct CreationContext {
     config: Parameter<WalkingEngineParameters, "walking_engine">,
-    kick_steps: Parameter<KickSteps, "kick_steps">,
-    ready_pose: Parameter<Joints<f32>, "ready_pose">,
-
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-    walk_return_offset: PersistentState<Step, "walk_return_offset">,
 }
 
 #[context]
@@ -129,7 +124,6 @@ pub struct CycleContext {
     config: Parameter<WalkingEngineParameters, "walking_engine">,
     step_planner_config: Parameter<StepPlanner, "step_planner">,
     kick_steps: Parameter<KickSteps, "kick_steps">,
-    ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
     motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
     walk_return_offset: PersistentState<Step, "walk_return_offset">,

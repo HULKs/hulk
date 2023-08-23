@@ -8,15 +8,7 @@ use types::{CameraMatrix, Limb, ProjectedLimbs, RobotKinematics};
 pub struct LimbProjector {}
 
 #[context]
-pub struct CreationContext {
-    foot_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.foot_bounding_polygon">,
-    knee_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.knee_bounding_polygon">,
-    lower_arm_bounding_polygon:
-        Parameter<Vec<Point3<f32>>, "projected_limbs.lower_arm_bounding_polygon">,
-    torso_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.torso_bounding_polygon">,
-    upper_arm_bounding_polygon:
-        Parameter<Vec<Point3<f32>>, "projected_limbs.upper_arm_bounding_polygon">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {

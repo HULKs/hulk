@@ -9,9 +9,7 @@ pub struct SupportFootEstimation {
 }
 
 #[context]
-pub struct CreationContext {
-    hysteresis: Parameter<f32, "support_foot_estimation.hysteresis">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {

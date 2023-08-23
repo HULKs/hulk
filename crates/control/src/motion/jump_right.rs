@@ -5,7 +5,6 @@ use hardware::PathsInterface;
 use motionfile::{MotionFile, MotionInterpolator};
 use types::{
     ConditionInput, CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
-    SensorData,
 };
 
 pub struct JumpRight {
@@ -15,7 +14,6 @@ pub struct JumpRight {
 #[context]
 pub struct CreationContext {
     hardware_interface: HardwareInterface,
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]
@@ -25,7 +23,6 @@ pub struct CycleContext {
     condition_input: Input<ConditionInput, "condition_input">,
     cycle_time: Input<CycleTime, "cycle_time">,
     motion_selection: Input<MotionSelection, "motion_selection">,
-    sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]

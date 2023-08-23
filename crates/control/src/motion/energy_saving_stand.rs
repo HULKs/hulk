@@ -1,10 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{
-    ArmJoints, BodyJoints, BodyJointsCommand, CycleTime, Joints, LegJoints, MotionSelection,
-    SensorData,
-};
+use types::{ArmJoints, BodyJoints, BodyJointsCommand, Joints, LegJoints};
 
 pub struct EnergySavingStand {}
 
@@ -13,10 +10,6 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    cycle_time: Input<CycleTime, "cycle_time">,
-    motion_selection: Input<MotionSelection, "motion_selection">,
-    sensor_data: Input<SensorData, "sensor_data">,
-
     arm_stiffness: Parameter<f32, "energy_saving_stand.arm_stiffness">,
     leg_stiffness: Parameter<f32, "energy_saving_stand.leg_stiffness">,
     energy_saving_stand_pose: Parameter<Joints<f32>, "energy_saving_stand.pose">,

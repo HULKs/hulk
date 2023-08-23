@@ -5,15 +5,13 @@ use nalgebra::{Isometry2, Point2};
 use spl_network_messages::PlayerNumber;
 use types::{
     BallState, FallState, FilteredGameState, GameControllerState, KickDecision, Obstacle,
-    PenaltyShotDirection, PrimaryState, RobotState, Role, RuleObstacle, WorldState,
+    PrimaryState, RobotState, Role, RuleObstacle, WorldState,
 };
 
 pub struct WorldStateComposer {}
 
 #[context]
-pub struct CreationContext {
-    player_number: Parameter<PlayerNumber, "player_number">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -21,7 +19,6 @@ pub struct CycleContext {
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
     filtered_game_state: Input<Option<FilteredGameState>, "filtered_game_state?">,
     game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
-    penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
     robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
     instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,

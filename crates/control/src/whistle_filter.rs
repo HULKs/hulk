@@ -3,7 +3,7 @@ use std::{collections::VecDeque, time::SystemTime};
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::{CycleTime, FilteredWhistle, SensorData, Whistle};
+use types::{CycleTime, FilteredWhistle, Whistle};
 
 pub struct WhistleFilter {
     pub detection_buffer: VecDeque<bool>,
@@ -12,14 +12,10 @@ pub struct WhistleFilter {
 }
 
 #[context]
-pub struct CreationContext {
-    buffer_length: Parameter<usize, "whistle_filter.buffer_length">,
-    minimum_detections: Parameter<usize, "whistle_filter.minimum_detections">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
     buffer_length: Parameter<usize, "whistle_filter.buffer_length">,

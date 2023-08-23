@@ -5,8 +5,8 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use motionfile::{SplineInterpolator, TimedSpline};
 use types::{
-    BodyJointsCommand, ConditionInput, CycleTime, HeadJoints, Joints, JointsCommand,
-    JointsVelocity, MotionSafeExits, MotionSelection, MotionType, SensorData,
+    BodyJointsCommand, CycleTime, HeadJoints, Joints, JointsCommand, MotionSafeExits,
+    MotionSelection, MotionType, SensorData,
 };
 
 pub struct DispatchingInterpolator {
@@ -22,7 +22,6 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     arms_up_squat_joints_command: Input<JointsCommand<f32>, "arms_up_squat_joints_command">,
-    condition_input: Input<ConditionInput, "condition_input">,
     energy_saving_stand: Input<BodyJointsCommand<f32>, "energy_saving_stand_command">,
     jump_left_joints_command: Input<JointsCommand<f32>, "jump_left_joints_command">,
     jump_right_joints_command: Input<JointsCommand<f32>, "jump_right_joints_command">,
@@ -34,9 +33,7 @@ pub struct CycleContext {
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     walk_joints_command: Input<BodyJointsCommand<f32>, "walk_joints_command">,
 
-    maximum_velocity: Parameter<JointsVelocity, "maximum_joint_velocities">,
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
-    ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
     motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 

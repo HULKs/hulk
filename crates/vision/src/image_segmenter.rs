@@ -10,8 +10,8 @@ use types::{
     is_above_limbs,
     parameters::{EdgeDetectionSource, MedianMode},
     ycbcr422_image::YCbCr422Image,
-    CameraMatrix, EdgeType, FieldColor, GameControllerState, ImageSegments, Intensity, Limb,
-    ProjectedLimbs, Rgb, RgbChannel, ScanGrid, ScanLine, Segment, YCbCr444,
+    CameraMatrix, EdgeType, FieldColor, ImageSegments, Intensity, Limb, ProjectedLimbs, Rgb,
+    RgbChannel, ScanGrid, ScanLine, Segment, YCbCr444,
 };
 
 pub struct ImageSegmenter {
@@ -33,7 +33,6 @@ pub struct CycleContext {
         "Control",
         "robot_to_field_of_home_after_coin_toss_before_second_half?",
     >,
-    game_controller_state: Input<Option<GameControllerState>, "Control", "game_controller_state?">,
     field_color: Input<FieldColor, "field_color">,
     projected_limbs: Input<Option<ProjectedLimbs>, "projected_limbs?">,
 

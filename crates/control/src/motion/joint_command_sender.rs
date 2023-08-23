@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::AdditionalOutput;
 use hardware::ActuatorInterface;
 use types::{
-    BodyJointsCommand, HeadJoints, HeadJointsCommand, Joints, JointsCommand, Leds, MotionSafeExits,
+    BodyJointsCommand, HeadJointsCommand, Joints, JointsCommand, Leds, MotionSafeExits,
     MotionSelection, MotionType, SensorData,
 };
 
@@ -22,10 +22,8 @@ pub struct CycleContext {
 
     motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
-    center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
     joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
-    ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
     arms_up_squat_joints_command: Input<JointsCommand<f32>, "arms_up_squat_joints_command">,
     dispatching_command: Input<JointsCommand<f32>, "dispatching_command">,

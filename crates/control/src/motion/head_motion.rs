@@ -14,13 +14,7 @@ pub struct HeadMotion {
 }
 
 #[context]
-pub struct CreationContext {
-    center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
-    inner_maximum_pitch: Parameter<f32, "head_motion.inner_maximum_pitch">,
-    maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
-    outer_maximum_pitch: Parameter<f32, "head_motion.outer_maximum_pitch">,
-    outer_yaw: Parameter<f32, "head_motion.outer_yaw">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {

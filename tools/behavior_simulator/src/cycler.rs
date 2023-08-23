@@ -62,32 +62,23 @@ impl BehaviorCycler {
         .wrap_err("failed to create node `ActiveVision`")?;
         let ball_state_composer = BallStateComposer::new(ball_state_composer::CreationContext {})
             .wrap_err("failed to create node `BallStateComposer`")?;
-        let behavior = Behavior::new(node::CreationContext::new(
-            &parameters.behavior,
-            &parameters.field_dimensions,
-            &parameters.behavior.lost_ball,
-        ))
-        .wrap_err("failed to create node `Behavior`")?;
+        let behavior = Behavior::new(node::CreationContext::new())
+            .wrap_err("failed to create node `Behavior`")?;
         let kick_selector = KickSelector::new(kick_selector::CreationContext {})
             .wrap_err("failed to create node `KickSelector`")?;
         let look_around = control::motion::look_around::LookAround::new(
-            control::motion::look_around::CreationContext::new(&parameters.look_around),
+            control::motion::look_around::CreationContext::new(),
         )
         .wrap_err("failed to create node `LookAround`")?;
-        let role_assignment = RoleAssignment::new(role_assignment::CreationContext::new(
-            parameters.role_assignment.forced_role.as_ref(),
-            &parameters.player_number,
-            &parameters.spl_network,
-        ))
-        .wrap_err("failed to create node `RoleAssignment`")?;
+        let role_assignment = RoleAssignment::new(role_assignment::CreationContext::new())
+            .wrap_err("failed to create node `RoleAssignment`")?;
         let rule_obstacle_composer = control::rule_obstacle_composer::RuleObstacleComposer::new(
             control::rule_obstacle_composer::CreationContext {},
         )
         .wrap_err("failed to create node `RuleObstacleComposer`")?;
-        let world_state_composer = WorldStateComposer::new(
-            world_state_composer::CreationContext::new(&parameters.player_number),
-        )
-        .wrap_err("failed to create node `WorldStateComposer`")?;
+        let world_state_composer =
+            WorldStateComposer::new(world_state_composer::CreationContext::new())
+                .wrap_err("failed to create node `WorldStateComposer`")?;
 
         Ok(Self {
             hardware_interface,
@@ -256,7 +247,6 @@ impl BehaviorCycler {
                     own_database.main_outputs.rule_ball_state.as_ref(),
                     own_database.main_outputs.filtered_game_state.as_ref(),
                     own_database.main_outputs.game_controller_state.as_ref(),
-                    own_database.main_outputs.penalty_shot_direction.as_ref(),
                     own_database.main_outputs.robot_to_field.as_ref(),
                     own_database.main_outputs.kick_decisions.as_ref(),
                     own_database.main_outputs.instant_kick_decisions.as_ref(),
@@ -306,7 +296,6 @@ impl BehaviorCycler {
                     .cycle(control::motion::look_around::CycleContext::new(
                         &parameters.look_around,
                         &own_database.main_outputs.motion_command,
-                        &own_database.main_outputs.sensor_data,
                         &own_database.main_outputs.cycle_time,
                         AdditionalOutput::new(
                             true,

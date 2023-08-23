@@ -14,7 +14,6 @@ pub struct SitDown {
 #[context]
 pub struct CreationContext {
     hardware_interface: HardwareInterface,
-    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]

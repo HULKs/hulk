@@ -15,10 +15,7 @@ pub struct ButtonFilter {
 }
 
 #[context]
-pub struct CreationContext {
-    calibration_buttons_timeout: Parameter<Duration, "button_filter.calibration_buttons_timeout">,
-    head_buttons_timeout: Parameter<Duration, "button_filter.head_buttons_timeout">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
