@@ -7,18 +7,18 @@ use std::time::Duration;
 use context_attribute::context;
 #[context]
 pub struct CycleContext {
-    pub dribble_path: Input<Option<Vec<PathSegment>>, "dribble_path?">,
+    dribble_path: Input<Option<Vec<PathSegment>>, "dribble_path?">,
 
-    pub time_to_reach_kick_position_output:
+    time_to_reach_kick_position_output:
         AdditionalOutput<Option<Duration>, "time_to_reach_kick_position_output">,
 
-    pub time_to_reach_kick_position: PersistentState<Duration, "time_to_reach_kick_position">,
+    time_to_reach_kick_position: PersistentState<Duration, "time_to_reach_kick_position">,
 
-    pub configuration: Parameter<Behavior, "behavior">,
+    configuration: Parameter<Behavior, "behavior">,
 
-    pub stand_up_back_estimated_remaining_duration:
+    stand_up_back_estimated_remaining_duration:
         Input<Option<Duration>, "stand_up_back_estimated_remaining_duration?">,
-    pub stand_up_front_estimated_remaining_duration:
+    stand_up_front_estimated_remaining_duration:
         Input<Option<Duration>, "stand_up_front_estimated_remaining_duration?">,
 }
 

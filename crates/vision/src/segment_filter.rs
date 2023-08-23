@@ -11,8 +11,8 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub field_border: Input<Option<FieldBorder>, "field_border?">,
-    pub image_segments: Input<ImageSegments, "image_segments">,
+    field_border: Input<Option<FieldBorder>, "field_border?">,
+    image_segments: Input<ImageSegments, "image_segments">,
 }
 
 #[context]

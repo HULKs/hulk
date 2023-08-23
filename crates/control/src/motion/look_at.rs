@@ -17,23 +17,23 @@ pub struct LookAt {
 
 #[context]
 pub struct CreationContext {
-    pub minimum_bottom_focus_pitch: Parameter<f32, "look_at.minimum_bottom_focus_pitch">,
+    minimum_bottom_focus_pitch: Parameter<f32, "look_at.minimum_bottom_focus_pitch">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub ground_to_robot: Input<Option<Isometry3<f32>>, "ground_to_robot?">,
-    pub motion_command: Input<MotionCommand, "motion_command">,
-    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
+    camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    ground_to_robot: Input<Option<Isometry3<f32>>, "ground_to_robot?">,
+    motion_command: Input<MotionCommand, "motion_command">,
+    robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+    sensor_data: Input<SensorData, "sensor_data">,
 
-    pub glance_angle: Parameter<f32, "look_at.glance_angle">,
-    pub glance_direction_toggle_interval:
+    glance_angle: Parameter<f32, "look_at.glance_angle">,
+    glance_direction_toggle_interval:
         Parameter<Duration, "look_at.glance_direction_toggle_interval">,
-    pub offset_in_image: Parameter<Point2<f32>, "look_at.glance_center_offset_in_image">,
-    pub minimum_bottom_focus_pitch: Parameter<f32, "look_at.minimum_bottom_focus_pitch">,
+    offset_in_image: Parameter<Point2<f32>, "look_at.glance_center_offset_in_image">,
+    minimum_bottom_focus_pitch: Parameter<f32, "look_at.minimum_bottom_focus_pitch">,
 }
 
 #[context]

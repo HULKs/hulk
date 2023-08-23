@@ -107,39 +107,39 @@ pub struct WalkingEngine {
 
 #[context]
 pub struct CreationContext {
-    pub config: Parameter<WalkingEngineParameters, "walking_engine">,
-    pub kick_steps: Parameter<KickSteps, "kick_steps">,
-    pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
+    config: Parameter<WalkingEngineParameters, "walking_engine">,
+    kick_steps: Parameter<KickSteps, "kick_steps">,
+    ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-    pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
+    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    walk_return_offset: PersistentState<Step, "walk_return_offset">,
 }
 
 #[context]
 #[derive(Debug)]
 pub struct CycleContext {
-    pub step_adjustment: AdditionalOutput<StepAdjustment, "step_adjustment">,
-    pub planned_step_duration: AdditionalOutput<Duration, "walking_engine.planned_step_duration">,
-    pub t: AdditionalOutput<Duration, "walking_engine.t">,
-    pub t_on_last_phase_end: AdditionalOutput<Duration, "walking_engine.t_on_last_phase_end">,
-    pub normalized_forward_speed: AdditionalOutput<f32, "walking_engine.normalized_forward_speed">,
-    pub has_support_changed: AdditionalOutput<bool, "walking_engine.has_support_changed">,
+    step_adjustment: AdditionalOutput<StepAdjustment, "step_adjustment">,
+    planned_step_duration: AdditionalOutput<Duration, "walking_engine.planned_step_duration">,
+    t: AdditionalOutput<Duration, "walking_engine.t">,
+    t_on_last_phase_end: AdditionalOutput<Duration, "walking_engine.t_on_last_phase_end">,
+    normalized_forward_speed: AdditionalOutput<f32, "walking_engine.normalized_forward_speed">,
+    has_support_changed: AdditionalOutput<bool, "walking_engine.has_support_changed">,
     // TODO: ask hendrik how to do that
-    // pub walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
-    pub config: Parameter<WalkingEngineParameters, "walking_engine">,
-    pub step_planner_config: Parameter<StepPlanner, "step_planner">,
-    pub kick_steps: Parameter<KickSteps, "kick_steps">,
-    pub ready_pose: Parameter<Joints<f32>, "ready_pose">,
+    // walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
+    config: Parameter<WalkingEngineParameters, "walking_engine">,
+    step_planner_config: Parameter<StepPlanner, "step_planner">,
+    kick_steps: Parameter<KickSteps, "kick_steps">,
+    ready_pose: Parameter<Joints<f32>, "ready_pose">,
 
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
-    pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
+    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    walk_return_offset: PersistentState<Step, "walk_return_offset">,
 
-    pub motion_command: Input<MotionCommand, "motion_command">,
-    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub has_ground_contact: Input<bool, "has_ground_contact">,
-    pub walk_command: Input<WalkCommand, "walk_command">,
+    motion_command: Input<MotionCommand, "motion_command">,
+    robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+    sensor_data: Input<SensorData, "sensor_data">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
+    walk_command: Input<WalkCommand, "walk_command">,
 }
 
 #[context]

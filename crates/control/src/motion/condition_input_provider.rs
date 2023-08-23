@@ -12,13 +12,13 @@ pub struct ConditionInputProvider {
 
 #[context]
 pub struct CreationContext {
-    pub angular_velocity_smoothing_factor: Parameter<f32, "angular_velocity_smoothing_factor">,
+    angular_velocity_smoothing_factor: Parameter<f32, "angular_velocity_smoothing_factor">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: Input<SensorData, "sensor_data">,
-    pub fall_state: Input<FallState, "fall_state">,
+    sensor_data: Input<SensorData, "sensor_data">,
+    fall_state: Input<FallState, "fall_state">,
 }
 
 #[context]

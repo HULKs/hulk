@@ -15,15 +15,15 @@ pub struct FakeData {}
 
 #[context]
 pub struct CreationContext {
-    pub maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
-    pub top_camera_matrix_parameters:
+    maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
+    top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
-    pub ball_filter: Parameter<BallFilter, "ball_filter">,
+    ball_filter: Parameter<BallFilter, "ball_filter">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub look_at: Parameter<LookAt, "look_at">,
+    look_at: Parameter<LookAt, "look_at">,
 }
 
 #[context]

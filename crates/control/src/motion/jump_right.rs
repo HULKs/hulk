@@ -14,18 +14,18 @@ pub struct JumpRight {
 
 #[context]
 pub struct CreationContext {
-    pub hardware_interface: HardwareInterface,
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    hardware_interface: HardwareInterface,
+    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
-    pub condition_input: Input<ConditionInput, "condition_input">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub motion_selection: Input<MotionSelection, "motion_selection">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
+    condition_input: Input<ConditionInput, "condition_input">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    motion_selection: Input<MotionSelection, "motion_selection">,
+    sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]

@@ -13,18 +13,18 @@ pub struct WhistleFilter {
 
 #[context]
 pub struct CreationContext {
-    pub buffer_length: Parameter<usize, "whistle_filter.buffer_length">,
-    pub minimum_detections: Parameter<usize, "whistle_filter.minimum_detections">,
+    buffer_length: Parameter<usize, "whistle_filter.buffer_length">,
+    minimum_detections: Parameter<usize, "whistle_filter.minimum_detections">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
+    sensor_data: Input<SensorData, "sensor_data">,
+    cycle_time: Input<CycleTime, "cycle_time">,
 
-    pub buffer_length: Parameter<usize, "whistle_filter.buffer_length">,
-    pub minimum_detections: Parameter<usize, "whistle_filter.minimum_detections">,
-    pub detected_whistle: PerceptionInput<Whistle, "Audio", "detected_whistle">,
+    buffer_length: Parameter<usize, "whistle_filter.buffer_length">,
+    minimum_detections: Parameter<usize, "whistle_filter.minimum_detections">,
+    detected_whistle: PerceptionInput<Whistle, "Audio", "detected_whistle">,
 }
 
 #[context]

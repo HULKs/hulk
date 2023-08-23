@@ -10,17 +10,17 @@ pub struct MotionSelector {
 
 #[context]
 pub struct CreationContext {
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: Input<MotionCommand, "motion_command">,
-    pub has_ground_contact: Input<bool, "has_ground_contact">,
+    motion_command: Input<MotionCommand, "motion_command">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
 
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 
-    pub enable_energy_saving_stand: Parameter<bool, "energy_saving_stand.enabled">,
+    enable_energy_saving_stand: Parameter<bool, "energy_saving_stand.enabled">,
 }
 
 #[context]

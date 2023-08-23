@@ -29,11 +29,11 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub parameters: Parameter<WhistleDetectionParameters, "whistle_detection">,
+    parameters: Parameter<WhistleDetectionParameters, "whistle_detection">,
 
-    pub samples: Input<Samples, "samples">,
-    pub audio_spectrums: AdditionalOutput<Vec<Vec<(f32, f32)>>, "audio_spectrums">,
-    pub detection_infos: AdditionalOutput<Vec<DetectionInfo>, "detection_infos">,
+    samples: Input<Samples, "samples">,
+    audio_spectrums: AdditionalOutput<Vec<Vec<(f32, f32)>>, "audio_spectrums">,
+    detection_infos: AdditionalOutput<Vec<DetectionInfo>, "detection_infos">,
 }
 
 #[context]

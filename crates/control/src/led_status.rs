@@ -21,15 +21,15 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub primary_state: Input<PrimaryState, "primary_state">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
-    pub role: Input<Role, "role">,
+    primary_state: Input<PrimaryState, "primary_state">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
+    role: Input<Role, "role">,
 
-    pub balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
-    pub balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
-    pub network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
+    balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
+    balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
+    network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
+    sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]

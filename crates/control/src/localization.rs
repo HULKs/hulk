@@ -33,60 +33,60 @@ pub struct Localization {
 
 #[context]
 pub struct CreationContext {
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub correspondence_lines: AdditionalOutput<Vec<Line2>, "localization.correspondence_lines">,
-    pub fit_errors: AdditionalOutput<Vec<Vec<Vec<Vec<f32>>>>, "localization.fit_errors">,
-    pub measured_lines_in_field:
+    correspondence_lines: AdditionalOutput<Vec<Line2>, "localization.correspondence_lines">,
+    fit_errors: AdditionalOutput<Vec<Vec<Vec<Vec<f32>>>>, "localization.fit_errors">,
+    measured_lines_in_field:
         AdditionalOutput<Vec<Line2>, "localization.measured_lines_in_field">,
-    pub pose_hypotheses: AdditionalOutput<Vec<ScoredPose>, "localization.pose_hypotheses">,
-    pub updates: AdditionalOutput<Vec<Vec<Update>>, "localization.updates">,
+    pose_hypotheses: AdditionalOutput<Vec<ScoredPose>, "localization.pose_hypotheses">,
+    updates: AdditionalOutput<Vec<Vec<Update>>, "localization.updates">,
 
-    pub current_odometry_to_last_odometry:
+    current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
 
-    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
-    pub has_ground_contact: Input<bool, "has_ground_contact">,
-    pub primary_state: Input<PrimaryState, "primary_state">,
+    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
+    primary_state: Input<PrimaryState, "primary_state">,
 
-    pub circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub good_matching_threshold: Parameter<f32, "localization.good_matching_threshold">,
-    pub gradient_convergence_threshold:
+    circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    good_matching_threshold: Parameter<f32, "localization.good_matching_threshold">,
+    gradient_convergence_threshold:
         Parameter<f32, "localization.gradient_convergence_threshold">,
-    pub gradient_descent_step_size: Parameter<f32, "localization.gradient_descent_step_size">,
-    pub hypothesis_prediction_score_reduction_factor:
+    gradient_descent_step_size: Parameter<f32, "localization.gradient_descent_step_size">,
+    hypothesis_prediction_score_reduction_factor:
         Parameter<f32, "localization.hypothesis_prediction_score_reduction_factor">,
-    pub hypothesis_retain_factor: Parameter<f32, "localization.hypothesis_retain_factor">,
-    pub hypothesis_score_base_increase:
+    hypothesis_retain_factor: Parameter<f32, "localization.hypothesis_retain_factor">,
+    hypothesis_score_base_increase:
         Parameter<f32, "localization.hypothesis_score_base_increase">,
-    pub initial_hypothesis_covariance:
+    initial_hypothesis_covariance:
         Parameter<Matrix3<f32>, "localization.initial_hypothesis_covariance">,
-    pub initial_hypothesis_score: Parameter<f32, "localization.initial_hypothesis_score">,
-    pub initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
-    pub line_length_acceptance_factor: Parameter<f32, "localization.line_length_acceptance_factor">,
-    pub line_measurement_noise: Parameter<Vector2<f32>, "localization.line_measurement_noise">,
-    pub maximum_amount_of_gradient_descent_iterations:
+    initial_hypothesis_score: Parameter<f32, "localization.initial_hypothesis_score">,
+    initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
+    line_length_acceptance_factor: Parameter<f32, "localization.line_length_acceptance_factor">,
+    line_measurement_noise: Parameter<Vector2<f32>, "localization.line_measurement_noise">,
+    maximum_amount_of_gradient_descent_iterations:
         Parameter<usize, "localization.maximum_amount_of_gradient_descent_iterations">,
-    pub maximum_amount_of_outer_iterations:
+    maximum_amount_of_outer_iterations:
         Parameter<usize, "localization.maximum_amount_of_outer_iterations">,
-    pub minimum_fit_error: Parameter<f32, "localization.minimum_fit_error">,
-    pub odometry_noise: Parameter<Vector3<f32>, "localization.odometry_noise">,
-    pub player_number: Parameter<PlayerNumber, "player_number">,
-    pub score_per_good_match: Parameter<f32, "localization.score_per_good_match">,
-    pub use_line_measurements: Parameter<bool, "localization.use_line_measurements">,
-    pub injected_robot_to_field_of_home_after_coin_toss_before_second_half: Parameter<
+    minimum_fit_error: Parameter<f32, "localization.minimum_fit_error">,
+    odometry_noise: Parameter<Vector3<f32>, "localization.odometry_noise">,
+    player_number: Parameter<PlayerNumber, "player_number">,
+    score_per_good_match: Parameter<f32, "localization.score_per_good_match">,
+    use_line_measurements: Parameter<bool, "localization.use_line_measurements">,
+    injected_robot_to_field_of_home_after_coin_toss_before_second_half: Parameter<
         Option<Isometry2<f32>>,
         "injected_robot_to_field_of_home_after_coin_toss_before_second_half?",
     >,
 
-    pub line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
-    pub line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
+    line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
+    line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
 
-    pub robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
+    robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
 }
 
 #[context]

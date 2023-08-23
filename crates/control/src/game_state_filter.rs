@@ -17,26 +17,26 @@ pub struct GameStateFilter {
 
 #[context]
 pub struct CreationContext {
-    pub config: Parameter<GameStateFilterParameters, "game_state_filter">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub player_number: Parameter<PlayerNumber, "player_number">,
+    config: Parameter<GameStateFilterParameters, "game_state_filter">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    player_number: Parameter<PlayerNumber, "player_number">,
 
-    pub robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
+    robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub ball_position: Input<Option<BallPosition>, "ball_position?">,
-    pub buttons: Input<Buttons, "buttons">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
-    pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
+    ball_position: Input<Option<BallPosition>, "ball_position?">,
+    buttons: Input<Buttons, "buttons">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
+    game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
 
-    pub config: Parameter<GameStateFilterParameters, "game_state_filter">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub player_number: Parameter<PlayerNumber, "player_number">,
+    config: Parameter<GameStateFilterParameters, "game_state_filter">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    player_number: Parameter<PlayerNumber, "player_number">,
 
-    pub robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
+    robot_to_field: PersistentState<Isometry2<f32>, "robot_to_field">,
 }
 
 #[context]

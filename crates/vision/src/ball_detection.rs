@@ -33,21 +33,21 @@ pub struct BallDetection {
 
 #[context]
 pub struct CreationContext {
-    pub hardware_interface: HardwareInterface,
-    pub parameters: Parameter<BallDetectionParameters, "ball_detection.$cycler_instance">,
+    hardware_interface: HardwareInterface,
+    parameters: Parameter<BallDetectionParameters, "ball_detection.$cycler_instance">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub ball_candidates: AdditionalOutput<Vec<CandidateEvaluation>, "ball_candidates">,
+    ball_candidates: AdditionalOutput<Vec<CandidateEvaluation>, "ball_candidates">,
 
-    pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
-    pub perspective_grid_candidates:
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    perspective_grid_candidates:
         RequiredInput<Option<PerspectiveGridCandidates>, "perspective_grid_candidates?">,
-    pub image: Input<YCbCr422Image, "image">,
+    image: Input<YCbCr422Image, "image">,
 
-    pub parameters: Parameter<BallDetectionParameters, "ball_detection.$cycler_instance">,
-    pub ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
+    parameters: Parameter<BallDetectionParameters, "ball_detection.$cycler_instance">,
+    ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
 }
 
 #[context]

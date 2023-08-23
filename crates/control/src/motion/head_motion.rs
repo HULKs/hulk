@@ -15,27 +15,27 @@ pub struct HeadMotion {
 
 #[context]
 pub struct CreationContext {
-    pub center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
-    pub inner_maximum_pitch: Parameter<f32, "head_motion.inner_maximum_pitch">,
-    pub maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
-    pub outer_maximum_pitch: Parameter<f32, "head_motion.outer_maximum_pitch">,
-    pub outer_yaw: Parameter<f32, "head_motion.outer_yaw">,
+    center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
+    inner_maximum_pitch: Parameter<f32, "head_motion.inner_maximum_pitch">,
+    maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
+    outer_maximum_pitch: Parameter<f32, "head_motion.outer_maximum_pitch">,
+    outer_yaw: Parameter<f32, "head_motion.outer_yaw">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
-    pub inner_maximum_pitch: Parameter<f32, "head_motion.inner_maximum_pitch">,
-    pub maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
-    pub outer_maximum_pitch: Parameter<f32, "head_motion.outer_maximum_pitch">,
-    pub outer_yaw: Parameter<f32, "head_motion.outer_yaw">,
+    center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
+    inner_maximum_pitch: Parameter<f32, "head_motion.inner_maximum_pitch">,
+    maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
+    outer_maximum_pitch: Parameter<f32, "head_motion.outer_maximum_pitch">,
+    outer_yaw: Parameter<f32, "head_motion.outer_yaw">,
 
-    pub look_around: Input<HeadJoints<f32>, "look_around">,
-    pub look_at: Input<HeadJoints<f32>, "look_at">,
-    pub motion_command: Input<MotionCommand, "motion_command">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub has_ground_contact: Input<bool, "has_ground_contact">,
+    look_around: Input<HeadJoints<f32>, "look_around">,
+    look_at: Input<HeadJoints<f32>, "look_at">,
+    motion_command: Input<MotionCommand, "motion_command">,
+    sensor_data: Input<SensorData, "sensor_data">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
 }
 
 #[context]

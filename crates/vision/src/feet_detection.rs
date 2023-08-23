@@ -20,24 +20,24 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub cluster_points: AdditionalOutput<Vec<ClusterPoint>, "feet_detection.cluster_points">,
-    pub clusters_in_ground: AdditionalOutput<Vec<Point2<f32>>, "feet_detection.clusters_in_ground">,
+    cluster_points: AdditionalOutput<Vec<ClusterPoint>, "feet_detection.cluster_points">,
+    clusters_in_ground: AdditionalOutput<Vec<Point2<f32>>, "feet_detection.clusters_in_ground">,
 
-    pub enable: Parameter<bool, "feet_detection.$cycler_instance.enable">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub maximum_cluster_distance:
+    enable: Parameter<bool, "feet_detection.$cycler_instance.enable">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    maximum_cluster_distance:
         Parameter<f32, "feet_detection.$cycler_instance.maximum_cluster_distance">,
-    pub minimum_consecutive_segments:
+    minimum_consecutive_segments:
         Parameter<usize, "feet_detection.$cycler_instance.minimum_consecutive_segments">,
-    pub minimum_luminance_standard_deviation:
+    minimum_luminance_standard_deviation:
         Parameter<f32, "feet_detection.$cycler_instance.minimum_luminance_standard_deviation">,
-    pub minimum_samples_per_cluster:
+    minimum_samples_per_cluster:
         Parameter<usize, "feet_detection.$cycler_instance.minimum_samples_per_cluster">,
 
-    pub balls: RequiredInput<Option<Vec<Ball>>, "balls?">,
-    pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
-    pub filtered_segments: Input<FilteredSegments, "filtered_segments">,
-    pub line_data: RequiredInput<Option<LineData>, "line_data?">,
+    balls: RequiredInput<Option<Vec<Ball>>, "balls?">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    filtered_segments: Input<FilteredSegments, "filtered_segments">,
+    line_data: RequiredInput<Option<LineData>, "line_data?">,
 }
 
 #[context]

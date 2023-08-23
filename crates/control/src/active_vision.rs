@@ -18,17 +18,17 @@ pub struct ActiveVision {
 
 #[context]
 pub struct CreationContext {
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub ball: Input<Option<BallState>, "ball_state?">,
-    pub rule_ball: Input<Option<BallState>, "rule_ball_state?">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub obstacles: Input<Vec<Obstacle>, "obstacles">,
-    pub parameters: Parameter<LookActionParameters, "behavior.look_action">,
-    pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
+    ball: Input<Option<BallState>, "ball_state?">,
+    rule_ball: Input<Option<BallState>, "rule_ball_state?">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    obstacles: Input<Vec<Obstacle>, "obstacles">,
+    parameters: Parameter<LookActionParameters, "behavior.look_action">,
+    robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
 }
 
 #[context]

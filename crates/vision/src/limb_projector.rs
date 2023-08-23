@@ -9,29 +9,29 @@ pub struct LimbProjector {}
 
 #[context]
 pub struct CreationContext {
-    pub foot_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.foot_bounding_polygon">,
-    pub knee_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.knee_bounding_polygon">,
-    pub lower_arm_bounding_polygon:
+    foot_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.foot_bounding_polygon">,
+    knee_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.knee_bounding_polygon">,
+    lower_arm_bounding_polygon:
         Parameter<Vec<Point3<f32>>, "projected_limbs.lower_arm_bounding_polygon">,
-    pub torso_bounding_polygon:
+    torso_bounding_polygon:
         Parameter<Vec<Point3<f32>>, "projected_limbs.torso_bounding_polygon">,
-    pub upper_arm_bounding_polygon:
+    upper_arm_bounding_polygon:
         Parameter<Vec<Point3<f32>>, "projected_limbs.upper_arm_bounding_polygon">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
-    pub robot_kinematics: Input<RobotKinematics, "Control", "robot_kinematics">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    robot_kinematics: Input<RobotKinematics, "Control", "robot_kinematics">,
 
-    pub enable: Parameter<bool, "projected_limbs.$cycler_instance.enable">,
-    pub foot_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.foot_bounding_polygon">,
-    pub knee_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.knee_bounding_polygon">,
-    pub lower_arm_bounding_polygon:
+    enable: Parameter<bool, "projected_limbs.$cycler_instance.enable">,
+    foot_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.foot_bounding_polygon">,
+    knee_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.knee_bounding_polygon">,
+    lower_arm_bounding_polygon:
         Parameter<Vec<Point3<f32>>, "projected_limbs.lower_arm_bounding_polygon">,
-    pub torso_bounding_polygon:
+    torso_bounding_polygon:
         Parameter<Vec<Point3<f32>>, "projected_limbs.torso_bounding_polygon">,
-    pub upper_arm_bounding_polygon:
+    upper_arm_bounding_polygon:
         Parameter<Vec<Point3<f32>>, "projected_limbs.upper_arm_bounding_polygon">,
 }
 

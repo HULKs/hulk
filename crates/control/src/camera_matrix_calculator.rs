@@ -12,29 +12,29 @@ pub struct CameraMatrixCalculator {}
 
 #[context]
 pub struct CreationContext {
-    pub bottom_camera_matrix_parameters:
+    bottom_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_bottom">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub top_camera_matrix_parameters:
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub projected_field_lines: AdditionalOutput<ProjectedFieldLines, "projected_field_lines">,
+    projected_field_lines: AdditionalOutput<ProjectedFieldLines, "projected_field_lines">,
 
-    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
-    pub robot_to_ground: RequiredInput<Option<Isometry3<f32>>, "robot_to_ground?">,
+    robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+    robot_to_ground: RequiredInput<Option<Isometry3<f32>>, "robot_to_ground?">,
 
-    pub bottom_camera_matrix_parameters:
+    bottom_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_bottom">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub top_camera_matrix_parameters:
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
 
-    pub correction_in_camera_top: PersistentState<Rotation3<f32>, "correction_in_camera_top">,
-    pub correction_in_camera_bottom: PersistentState<Rotation3<f32>, "correction_in_camera_bottom">,
-    pub correction_in_robot: PersistentState<Rotation3<f32>, "correction_in_robot">,
+    correction_in_camera_top: PersistentState<Rotation3<f32>, "correction_in_camera_top">,
+    correction_in_camera_bottom: PersistentState<Rotation3<f32>, "correction_in_camera_bottom">,
+    correction_in_robot: PersistentState<Rotation3<f32>, "correction_in_robot">,
 }
 
 #[context]

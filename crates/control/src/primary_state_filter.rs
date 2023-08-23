@@ -14,18 +14,18 @@ pub struct PrimaryStateFilter {
 
 #[context]
 pub struct CreationContext {
-    pub player_number: Parameter<PlayerNumber, "player_number">,
+    player_number: Parameter<PlayerNumber, "player_number">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub buttons: Input<Buttons, "buttons">,
-    pub filtered_game_state: Input<Option<FilteredGameState>, "filtered_game_state?">,
-    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    buttons: Input<Buttons, "buttons">,
+    filtered_game_state: Input<Option<FilteredGameState>, "filtered_game_state?">,
+    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
 
-    pub player_number: Parameter<PlayerNumber, "player_number">,
+    player_number: Parameter<PlayerNumber, "player_number">,
 
-    pub hardware_interface: HardwareInterface,
+    hardware_interface: HardwareInterface,
 }
 
 #[context]

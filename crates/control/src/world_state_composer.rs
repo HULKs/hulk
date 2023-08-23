@@ -12,29 +12,29 @@ pub struct WorldStateComposer {}
 
 #[context]
 pub struct CreationContext {
-    pub player_number: Parameter<PlayerNumber, "player_number">,
+    player_number: Parameter<PlayerNumber, "player_number">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub ball: Input<Option<BallState>, "ball_state?">,
-    pub rule_ball: Input<Option<BallState>, "rule_ball_state?">,
-    pub filtered_game_state: Input<Option<FilteredGameState>, "filtered_game_state?">,
-    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
-    pub penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
-    pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
-    pub kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
-    pub instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
+    ball: Input<Option<BallState>, "ball_state?">,
+    rule_ball: Input<Option<BallState>, "rule_ball_state?">,
+    filtered_game_state: Input<Option<FilteredGameState>, "filtered_game_state?">,
+    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
+    robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
+    kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
+    instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
 
-    pub player_number: Parameter<PlayerNumber, "player_number">,
+    player_number: Parameter<PlayerNumber, "player_number">,
 
-    pub fall_state: Input<FallState, "fall_state">,
-    pub has_ground_contact: Input<bool, "has_ground_contact">,
-    pub obstacles: Input<Vec<Obstacle>, "obstacles">,
-    pub rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
-    pub primary_state: Input<PrimaryState, "primary_state">,
-    pub role: Input<Role, "role">,
-    pub position_of_interest: Input<Point2<f32>, "position_of_interest">,
+    fall_state: Input<FallState, "fall_state">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
+    obstacles: Input<Vec<Obstacle>, "obstacles">,
+    rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
+    primary_state: Input<PrimaryState, "primary_state">,
+    role: Input<Role, "role">,
+    position_of_interest: Input<Point2<f32>, "position_of_interest">,
 }
 
 #[context]

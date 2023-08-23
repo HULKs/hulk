@@ -14,7 +14,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: Input<SensorData, "sensor_data">,
+    sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]

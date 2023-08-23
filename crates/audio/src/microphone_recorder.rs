@@ -11,7 +11,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub hardware_interface: HardwareInterface,
+    hardware_interface: HardwareInterface,
 }
 
 #[context]

@@ -13,13 +13,13 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub motion_selection: Input<MotionSelection, "motion_selection">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    motion_selection: Input<MotionSelection, "motion_selection">,
+    sensor_data: Input<SensorData, "sensor_data">,
 
-    pub arm_stiffness: Parameter<f32, "energy_saving_stand.arm_stiffness">,
-    pub leg_stiffness: Parameter<f32, "energy_saving_stand.leg_stiffness">,
-    pub energy_saving_stand_pose: Parameter<Joints<f32>, "energy_saving_stand.pose">,
+    arm_stiffness: Parameter<f32, "energy_saving_stand.arm_stiffness">,
+    leg_stiffness: Parameter<f32, "energy_saving_stand.leg_stiffness">,
+    energy_saving_stand_pose: Parameter<Joints<f32>, "energy_saving_stand.pose">,
 }
 
 #[context]
