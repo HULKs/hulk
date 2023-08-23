@@ -19,30 +19,30 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub invisible_ball_timeout: Parameter<Duration, "kick_selector.invisible_ball_timeout">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    invisible_ball_timeout: Parameter<Duration, "kick_selector.invisible_ball_timeout">,
 
-    pub robot_to_field: RequiredInput<Option<Isometry2<f32>>, "robot_to_field?">,
-    pub ball_state: RequiredInput<Option<BallState>, "ball_state?">,
-    pub obstacles: Input<Vec<Obstacle>, "obstacles">,
+    robot_to_field: RequiredInput<Option<Isometry2<f32>>, "robot_to_field?">,
+    ball_state: RequiredInput<Option<BallState>, "ball_state?">,
+    obstacles: Input<Vec<Obstacle>, "obstacles">,
 
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
-    pub in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
-    pub angle_distance_weight: Parameter<f32, "kick_selector.angle_distance_weight">,
-    pub max_kick_around_obstacle_angle:
+    in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
+    angle_distance_weight: Parameter<f32, "kick_selector.angle_distance_weight">,
+    max_kick_around_obstacle_angle:
         Parameter<f32, "kick_selector.max_kick_around_obstacle_angle">,
-    pub kick_pose_obstacle_radius: Parameter<f32, "kick_selector.kick_pose_obstacle_radius">,
-    pub ball_radius_for_kick_target_selection:
+    kick_pose_obstacle_radius: Parameter<f32, "kick_selector.kick_pose_obstacle_radius">,
+    ball_radius_for_kick_target_selection:
         Parameter<f32, "kick_selector.ball_radius_for_kick_target_selection">,
-    pub closer_threshold: Parameter<f32, "kick_selector.closer_threshold">,
-    pub find_kick_targets: Parameter<FindKickTargets, "kick_selector.find_kick_targets">,
+    closer_threshold: Parameter<f32, "kick_selector.closer_threshold">,
+    find_kick_targets: Parameter<FindKickTargets, "kick_selector.find_kick_targets">,
 
-    pub default_kick_strength: Parameter<f32, "kick_selector.default_kick_strength">,
-    pub corner_kick_strength: Parameter<f32, "kick_selector.corner_kick_strength">,
+    default_kick_strength: Parameter<f32, "kick_selector.default_kick_strength">,
+    corner_kick_strength: Parameter<f32, "kick_selector.corner_kick_strength">,
 
-    pub kick_targets: AdditionalOutput<Vec<KickTarget>, "kick_targets">,
-    pub instant_kick_targets: AdditionalOutput<Vec<Point2<f32>>, "instant_kick_targets">,
+    kick_targets: AdditionalOutput<Vec<KickTarget>, "kick_targets">,
+    instant_kick_targets: AdditionalOutput<Vec<Point2<f32>>, "instant_kick_targets">,
 }
 
 #[context]

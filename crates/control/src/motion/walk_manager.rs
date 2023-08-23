@@ -10,9 +10,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: Input<MotionCommand, "motion_command">,
-    pub motion_selection: Input<MotionSelection, "motion_selection">,
-    pub step_plan: Input<Step, "step_plan">,
+    motion_command: Input<MotionCommand, "motion_command">,
+    motion_selection: Input<MotionSelection, "motion_selection">,
+    step_plan: Input<Step, "step_plan">,
 }
 
 #[context]

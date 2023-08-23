@@ -15,17 +15,17 @@ pub struct LookAround {
 
 #[context]
 pub struct CreationContext {
-    pub config: Parameter<LookAroundParameters, "look_around">,
+    config: Parameter<LookAroundParameters, "look_around">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub config: Parameter<LookAroundParameters, "look_around">,
+    config: Parameter<LookAroundParameters, "look_around">,
 
-    pub motion_command: Input<MotionCommand, "motion_command">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub current_mode: AdditionalOutput<Mode, "look_around_mode">,
+    motion_command: Input<MotionCommand, "motion_command">,
+    sensor_data: Input<SensorData, "sensor_data">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    current_mode: AdditionalOutput<Mode, "look_around_mode">,
 }
 
 #[context]

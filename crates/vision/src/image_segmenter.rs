@@ -23,30 +23,30 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub image_segmenter_cycle_time: AdditionalOutput<Duration, "image_segmenter_cycle_time">,
+    image_segmenter_cycle_time: AdditionalOutput<Duration, "image_segmenter_cycle_time">,
 
-    pub image: Input<YCbCr422Image, "image">,
+    image: Input<YCbCr422Image, "image">,
 
-    pub camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
-    pub robot_to_field_of_home_after_coin_toss_before_second_half: Input<
+    camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
+    robot_to_field_of_home_after_coin_toss_before_second_half: Input<
         Option<Isometry2<f32>>,
         "Control",
         "robot_to_field_of_home_after_coin_toss_before_second_half?",
     >,
-    pub game_controller_state:
+    game_controller_state:
         Input<Option<GameControllerState>, "Control", "game_controller_state?">,
-    pub field_color: Input<FieldColor, "field_color">,
-    pub projected_limbs: Input<Option<ProjectedLimbs>, "projected_limbs?">,
+    field_color: Input<FieldColor, "field_color">,
+    projected_limbs: Input<Option<ProjectedLimbs>, "projected_limbs?">,
 
-    pub horizontal_stride: Parameter<usize, "image_segmenter.$cycler_instance.horizontal_stride">,
-    pub vertical_stride: Parameter<usize, "image_segmenter.$cycler_instance.vertical_stride">,
-    pub vertical_edge_detection_source: Parameter<
+    horizontal_stride: Parameter<usize, "image_segmenter.$cycler_instance.horizontal_stride">,
+    vertical_stride: Parameter<usize, "image_segmenter.$cycler_instance.vertical_stride">,
+    vertical_edge_detection_source: Parameter<
         EdgeDetectionSource,
         "image_segmenter.$cycler_instance.vertical_edge_detection_source",
     >,
-    pub vertical_edge_threshold:
+    vertical_edge_threshold:
         Parameter<Interpolated, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
-    pub vertical_median_mode:
+    vertical_median_mode:
         Parameter<MedianMode, "image_segmenter.$cycler_instance.vertical_median_mode">,
 }
 

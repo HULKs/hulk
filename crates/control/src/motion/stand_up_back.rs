@@ -16,23 +16,23 @@ pub struct StandUpBack {
 
 #[context]
 pub struct CreationContext {
-    pub hardware_interface: HardwareInterface,
+    hardware_interface: HardwareInterface,
 }
 
 #[context]
 pub struct CycleContext {
-    pub condition_input: Input<ConditionInput, "condition_input">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub motion_command: Input<MotionCommand, "motion_command">,
-    pub motion_selection: Input<MotionSelection, "motion_selection">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
+    condition_input: Input<ConditionInput, "condition_input">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    motion_command: Input<MotionCommand, "motion_command">,
+    motion_selection: Input<MotionSelection, "motion_selection">,
+    sensor_data: Input<SensorData, "sensor_data">,
 
-    pub gyro_low_pass_filter_coefficient:
+    gyro_low_pass_filter_coefficient:
         Parameter<f32, "stand_up.gyro_low_pass_filter_coefficient">,
-    pub gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
-    pub maximum_velocity: Parameter<JointsVelocity, "maximum_joint_velocities">,
+    gyro_low_pass_filter_tolerance: Parameter<f32, "stand_up.gyro_low_pass_filter_tolerance">,
+    maximum_velocity: Parameter<JointsVelocity, "maximum_joint_velocities">,
 
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]

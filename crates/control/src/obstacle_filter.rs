@@ -20,36 +20,36 @@ pub struct ObstacleFilter {
 
 #[context]
 pub struct CreationContext {
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub obstacle_filter_hypotheses: AdditionalOutput<Vec<Hypothesis>, "obstacle_filter_hypotheses">,
+    obstacle_filter_hypotheses: AdditionalOutput<Vec<Hypothesis>, "obstacle_filter_hypotheses">,
 
-    pub current_odometry_to_last_odometry:
+    current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
-    pub network_robot_obstacles: HistoricInput<Vec<Point2<f32>>, "network_robot_obstacles">,
-    pub robot_to_field: HistoricInput<Option<Isometry2<f32>>, "robot_to_field?">,
-    pub sonar_obstacles: HistoricInput<Vec<SonarObstacle>, "sonar_obstacles">,
+    network_robot_obstacles: HistoricInput<Vec<Point2<f32>>, "network_robot_obstacles">,
+    robot_to_field: HistoricInput<Option<Isometry2<f32>>, "robot_to_field?">,
+    sonar_obstacles: HistoricInput<Vec<SonarObstacle>, "sonar_obstacles">,
 
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub primary_state: Input<PrimaryState, "primary_state">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    primary_state: Input<PrimaryState, "primary_state">,
 
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub goal_post_obstacle_radius: Parameter<f32, "obstacle_filter.goal_post_obstacle_radius">,
-    pub obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
-    pub robot_obstacle_radius_at_foot_height:
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    goal_post_obstacle_radius: Parameter<f32, "obstacle_filter.goal_post_obstacle_radius">,
+    obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
+    robot_obstacle_radius_at_foot_height:
         Parameter<f32, "obstacle_filter.robot_obstacle_radius_at_foot_height">,
-    pub robot_obstacle_radius_at_hip_height:
+    robot_obstacle_radius_at_hip_height:
         Parameter<f32, "obstacle_filter.robot_obstacle_radius_at_hip_height">,
-    pub unknown_obstacle_radius: Parameter<f32, "obstacle_filter.unknown_obstacle_radius">,
+    unknown_obstacle_radius: Parameter<f32, "obstacle_filter.unknown_obstacle_radius">,
 
-    pub detected_feet_bottom: PerceptionInput<DetectedFeet, "VisionBottom", "detected_feet">,
-    pub detected_feet_top: PerceptionInput<DetectedFeet, "VisionTop", "detected_feet">,
-    pub detected_robots_bottom: PerceptionInput<DetectedRobots, "VisionBottom", "detected_robots">,
-    pub detected_robots_top: PerceptionInput<DetectedRobots, "VisionTop", "detected_robots">,
+    detected_feet_bottom: PerceptionInput<DetectedFeet, "VisionBottom", "detected_feet">,
+    detected_feet_top: PerceptionInput<DetectedFeet, "VisionTop", "detected_feet">,
+    detected_robots_bottom: PerceptionInput<DetectedRobots, "VisionBottom", "detected_robots">,
+    detected_robots_top: PerceptionInput<DetectedRobots, "VisionTop", "detected_robots">,
 }
 
 #[context]

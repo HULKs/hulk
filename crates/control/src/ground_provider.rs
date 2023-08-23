@@ -11,9 +11,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
-    pub support_foot: Input<SupportFoot, "support_foot">,
+    robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+    sensor_data: Input<SensorData, "sensor_data">,
+    support_foot: Input<SupportFoot, "support_foot">,
 }
 
 #[context]

@@ -15,13 +15,13 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub accumulated_odometry: AdditionalOutput<Isometry2<f32>, "accumulated_odometry">,
+    accumulated_odometry: AdditionalOutput<Isometry2<f32>, "accumulated_odometry">,
 
-    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
-    pub robot_orientation: Input<UnitComplex<f32>, "robot_orientation">,
-    pub support_foot: Input<SupportFoot, "support_foot">,
+    robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+    robot_orientation: Input<UnitComplex<f32>, "robot_orientation">,
+    support_foot: Input<SupportFoot, "support_foot">,
 
-    pub odometry_scale_factor: Parameter<Vector2<f32>, "odometry.odometry_scale_factor">,
+    odometry_scale_factor: Parameter<Vector2<f32>, "odometry.odometry_scale_factor">,
 }
 
 #[context]

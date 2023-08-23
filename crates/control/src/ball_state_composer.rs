@@ -20,14 +20,14 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub ball_position: Input<Option<BallPosition>, "ball_position?">,
-    pub penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
-    pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
-    pub team_ball: Input<Option<BallPosition>, "team_ball?">,
-    pub primary_state: Input<PrimaryState, "primary_state">,
-    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    ball_position: Input<Option<BallPosition>, "ball_position?">,
+    penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
+    robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
+    team_ball: Input<Option<BallPosition>, "team_ball?">,
+    primary_state: Input<PrimaryState, "primary_state">,
+    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
 #[context]

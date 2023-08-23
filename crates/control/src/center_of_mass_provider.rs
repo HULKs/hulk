@@ -11,7 +11,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+    robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
 }
 
 #[context]

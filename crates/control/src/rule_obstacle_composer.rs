@@ -15,10 +15,10 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
-    pub filtered_game_state: RequiredInput<Option<FilteredGameState>, "filtered_game_state?">,
-    pub ball_state: Input<Option<BallState>, "ball_state?">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
+    filtered_game_state: RequiredInput<Option<FilteredGameState>, "filtered_game_state?">,
+    ball_state: Input<Option<BallState>, "ball_state?">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
 #[context]

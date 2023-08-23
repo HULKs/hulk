@@ -15,9 +15,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
+    sensor_data: Input<SensorData, "sensor_data">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
 }
 
 #[context]

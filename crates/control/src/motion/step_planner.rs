@@ -11,17 +11,17 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub motion_command: Input<MotionCommand, "motion_command">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
-    pub support_foot: Input<SupportFoot, "support_foot">,
+    motion_command: Input<MotionCommand, "motion_command">,
+    sensor_data: Input<SensorData, "sensor_data">,
+    support_foot: Input<SupportFoot, "support_foot">,
 
-    pub injected_step: Parameter<Option<Step>, "step_planner.injected_step?">,
-    pub max_step_size: Parameter<Step, "step_planner.max_step_size">,
-    pub max_step_size_backwards: Parameter<f32, "step_planner.max_step_size_backwards">,
-    pub rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
-    pub translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
+    injected_step: Parameter<Option<Step>, "step_planner.injected_step?">,
+    max_step_size: Parameter<Step, "step_planner.max_step_size">,
+    max_step_size_backwards: Parameter<f32, "step_planner.max_step_size_backwards">,
+    rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
+    translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
 
-    pub walk_return_offset: PersistentState<Step, "walk_return_offset">,
+    walk_return_offset: PersistentState<Step, "walk_return_offset">,
 }
 
 #[context]

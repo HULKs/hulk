@@ -31,28 +31,28 @@ pub struct Behavior {
 
 #[context]
 pub struct CreationContext {
-    pub behavior: Parameter<BehaviorParameters, "behavior">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
+    behavior: Parameter<BehaviorParameters, "behavior">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub path_obstacles: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
-    pub dribble_path_obstacles: AdditionalOutput<Vec<PathObstacle>, "dribble_path_obstacles">,
-    pub active_action: AdditionalOutput<Action, "active_action">,
+    path_obstacles: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
+    dribble_path_obstacles: AdditionalOutput<Vec<PathObstacle>, "dribble_path_obstacles">,
+    active_action: AdditionalOutput<Action, "active_action">,
 
-    pub has_ground_contact: Input<bool, "has_ground_contact">,
-    pub world_state: Input<WorldState, "world_state">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
+    world_state: Input<WorldState, "world_state">,
+    cycle_time: Input<CycleTime, "cycle_time">,
 
-    pub parameters: Parameter<BehaviorParameters, "behavior">,
-    pub in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
-    pub intercept_ball_parameters: Parameter<InterceptBall, "behavior.intercept_ball">,
-    pub maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
-    pub striker_set_position:
+    parameters: Parameter<BehaviorParameters, "behavior">,
+    in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
+    intercept_ball_parameters: Parameter<InterceptBall, "behavior.intercept_ball">,
+    maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
+    striker_set_position:
         Parameter<Vector2<f32>, "behavior.role_positions.striker_set_position">,
 }
 

@@ -19,25 +19,25 @@ pub struct LocalizationRecorder {
 
 #[context]
 pub struct CreationContext {
-    pub enable: Parameter<bool, "localization_recorder.enable">,
+    enable: Parameter<bool, "localization_recorder.enable">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub enable: Parameter<bool, "localization_recorder.enable">,
-    pub only_record_during_active_localization:
+    enable: Parameter<bool, "localization_recorder.enable">,
+    only_record_during_active_localization:
         Parameter<bool, "localization_recorder.only_record_during_active_localization">,
 
-    pub current_odometry_to_last_odometry:
+    current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
 
-    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
-    pub has_ground_contact: Input<bool, "has_ground_contact">,
-    pub primary_state: Input<PrimaryState, "primary_state">,
-    pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
+    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
+    primary_state: Input<PrimaryState, "primary_state">,
+    robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
 
-    pub line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
-    pub line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
+    line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
+    line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
 }
 
 #[context]

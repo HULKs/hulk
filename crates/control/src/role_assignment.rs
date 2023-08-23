@@ -28,32 +28,32 @@ pub struct RoleAssignment {
 
 #[context]
 pub struct CreationContext {
-    pub forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
-    pub player_number: Parameter<PlayerNumber, "player_number">,
-    pub spl_network: Parameter<SplNetwork, "spl_network">,
+    forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
+    player_number: Parameter<PlayerNumber, "player_number">,
+    spl_network: Parameter<SplNetwork, "spl_network">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub ball_position: Input<Option<BallPosition>, "ball_position?">,
-    pub fall_state: Input<FallState, "fall_state">,
-    pub game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
-    pub primary_state: Input<PrimaryState, "primary_state">,
-    pub robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
-    pub time_to_reach_kick_position: PersistentState<Duration, "time_to_reach_kick_position">,
+    ball_position: Input<Option<BallPosition>, "ball_position?">,
+    fall_state: Input<FallState, "fall_state">,
+    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    primary_state: Input<PrimaryState, "primary_state">,
+    robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
+    time_to_reach_kick_position: PersistentState<Duration, "time_to_reach_kick_position">,
 
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
-    pub keeper_replacementkeeper_switch_time:
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
+    keeper_replacementkeeper_switch_time:
         Parameter<Duration, "role_assignment.keeper_replacementkeeper_switch_time">,
-    pub initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
-    pub optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
-    pub player_number: Parameter<PlayerNumber, "player_number">,
-    pub spl_network: Parameter<SplNetwork, "spl_network">,
+    initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
+    optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
+    player_number: Parameter<PlayerNumber, "player_number">,
+    spl_network: Parameter<SplNetwork, "spl_network">,
 
-    pub hardware: HardwareInterface,
+    hardware: HardwareInterface,
 }
 
 #[context]

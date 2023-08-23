@@ -14,20 +14,20 @@ pub struct GroundContactDetector {
 
 #[context]
 pub struct CreationContext {
-    pub hysteresis: Parameter<f32, "ground_contact_detector.hysteresis">,
-    pub pressure_threshold: Parameter<f32, "ground_contact_detector.pressure_threshold">,
-    pub timeout: Parameter<Duration, "ground_contact_detector.timeout">,
+    hysteresis: Parameter<f32, "ground_contact_detector.hysteresis">,
+    pressure_threshold: Parameter<f32, "ground_contact_detector.pressure_threshold">,
+    timeout: Parameter<Duration, "ground_contact_detector.timeout">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: Input<SensorData, "sensor_data">,
-    pub sole_pressure: Input<SolePressure, "sole_pressure">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
+    sensor_data: Input<SensorData, "sensor_data">,
+    sole_pressure: Input<SolePressure, "sole_pressure">,
+    cycle_time: Input<CycleTime, "cycle_time">,
 
-    pub hysteresis: Parameter<f32, "ground_contact_detector.hysteresis">,
-    pub pressure_threshold: Parameter<f32, "ground_contact_detector.pressure_threshold">,
-    pub timeout: Parameter<Duration, "ground_contact_detector.timeout">,
+    hysteresis: Parameter<f32, "ground_contact_detector.hysteresis">,
+    pressure_threshold: Parameter<f32, "ground_contact_detector.pressure_threshold">,
+    timeout: Parameter<Duration, "ground_contact_detector.timeout">,
 }
 
 #[context]

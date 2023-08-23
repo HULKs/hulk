@@ -24,23 +24,23 @@ pub struct FallProtector {
 
 #[context]
 pub struct CreationContext {
-    pub hardware_interface: HardwareInterface,
-    pub fall_protection: Parameter<FallProtection, "fall_protection">,
-    pub fall_state_estimation: Parameter<FallStateEstimation, "fall_state_estimation">,
+    hardware_interface: HardwareInterface,
+    fall_protection: Parameter<FallProtection, "fall_protection">,
+    fall_state_estimation: Parameter<FallStateEstimation, "fall_state_estimation">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub condition_input: Input<ConditionInput, "condition_input">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub fall_state: Input<FallState, "fall_state">,
-    pub motion_command: Input<MotionCommand, "motion_command">,
-    pub motion_selection: Input<MotionSelection, "motion_selection">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
+    condition_input: Input<ConditionInput, "condition_input">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    fall_state: Input<FallState, "fall_state">,
+    motion_command: Input<MotionCommand, "motion_command">,
+    motion_selection: Input<MotionSelection, "motion_selection">,
+    sensor_data: Input<SensorData, "sensor_data">,
 
-    pub fall_protection: Parameter<FallProtection, "fall_protection">,
+    fall_protection: Parameter<FallProtection, "fall_protection">,
 
-    pub motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
+    motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
 }
 
 #[context]

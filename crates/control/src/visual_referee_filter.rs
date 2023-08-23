@@ -18,12 +18,12 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub primary_state: Input<PrimaryState, "primary_state">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
-    pub player_number: Parameter<PlayerNumber, "player_number">,
+    primary_state: Input<PrimaryState, "primary_state">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
+    player_number: Parameter<PlayerNumber, "player_number">,
 
-    pub hardware: HardwareInterface,
+    hardware: HardwareInterface,
 }
 
 #[context]

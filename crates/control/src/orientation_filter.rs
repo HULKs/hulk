@@ -18,12 +18,12 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub sole_pressure: Input<SolePressure, "sole_pressure">,
-    pub support_foot: Input<SupportFoot, "support_foot">,
+    sensor_data: Input<SensorData, "sensor_data">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    sole_pressure: Input<SolePressure, "sole_pressure">,
+    support_foot: Input<SupportFoot, "support_foot">,
 
-    pub orientation_filter_parameters: Parameter<Parameters, "orientation_filter">,
+    orientation_filter_parameters: Parameter<Parameters, "orientation_filter">,
 }
 
 #[context]

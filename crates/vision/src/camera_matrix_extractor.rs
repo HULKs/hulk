@@ -10,8 +10,8 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
-    pub camera_position:
+    camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
+    camera_position:
         Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
 }
 

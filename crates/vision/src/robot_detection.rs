@@ -34,25 +34,25 @@ pub struct RobotDetection {
 
 #[context]
 pub struct CreationContext {
-    pub hardware_interface: HardwareInterface,
-    pub neural_network_file: Parameter<PathBuf, "robot_detection.$cycler_instance.neural_network">,
+    hardware_interface: HardwareInterface,
+    neural_network_file: Parameter<PathBuf, "robot_detection.$cycler_instance.neural_network">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub image: Input<YCbCr422Image, "image">,
-    pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
-    pub robot_to_ground: RequiredInput<Option<Isometry3<f32>>, "Control", "robot_to_ground?">,
-    pub luminance_image: AdditionalOutput<GrayscaleImage, "robot_detection.luminance_image">,
-    pub object_threshold: Parameter<f32, "robot_detection.$cycler_instance.object_threshold">,
-    pub enable: Parameter<bool, "robot_detection.$cycler_instance.enable">,
-    pub enable_filter_by_size:
+    image: Input<YCbCr422Image, "image">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    robot_to_ground: RequiredInput<Option<Isometry3<f32>>, "Control", "robot_to_ground?">,
+    luminance_image: AdditionalOutput<GrayscaleImage, "robot_detection.luminance_image">,
+    object_threshold: Parameter<f32, "robot_detection.$cycler_instance.object_threshold">,
+    enable: Parameter<bool, "robot_detection.$cycler_instance.enable">,
+    enable_filter_by_size:
         Parameter<bool, "robot_detection.$cycler_instance.enable_filter_by_size">,
-    pub enable_filter_by_pixel_position:
+    enable_filter_by_pixel_position:
         Parameter<bool, "robot_detection.$cycler_instance.enable_filter_by_pixel_position">,
-    pub lowest_bottom_pixel_position:
+    lowest_bottom_pixel_position:
         Parameter<f32, "robot_detection.$cycler_instance.lowest_bottom_pixel_position">,
-    pub allowed_projected_robot_height:
+    allowed_projected_robot_height:
         Parameter<Range<f32>, "robot_detection.$cycler_instance.allowed_projected_robot_height">,
 }
 

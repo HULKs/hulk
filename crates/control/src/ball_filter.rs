@@ -22,29 +22,29 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub ball_filter_hypotheses: AdditionalOutput<Vec<Hypothesis>, "ball_filter_hypotheses">,
-    pub best_ball_hypothesis: AdditionalOutput<Option<Hypothesis>, "best_ball_hypothesis">,
-    pub best_ball_state:
+    ball_filter_hypotheses: AdditionalOutput<Vec<Hypothesis>, "ball_filter_hypotheses">,
+    best_ball_hypothesis: AdditionalOutput<Option<Hypothesis>, "best_ball_hypothesis">,
+    best_ball_state:
         AdditionalOutput<Option<MultivariateNormalDistribution<4>>, "best_ball_state">,
-    pub chooses_resting_model: AdditionalOutput<bool, "chooses_resting_model">,
-    pub filtered_balls_in_image_bottom:
+    chooses_resting_model: AdditionalOutput<bool, "chooses_resting_model">,
+    filtered_balls_in_image_bottom:
         AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_bottom">,
-    pub filtered_balls_in_image_top: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_top">,
+    filtered_balls_in_image_top: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_top">,
 
-    pub current_odometry_to_last_odometry:
+    current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
-    pub historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
+    historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
 
-    pub camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
-    pub cycle_time: Input<CycleTime, "cycle_time">,
+    camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
+    sensor_data: Input<SensorData, "sensor_data">,
+    cycle_time: Input<CycleTime, "cycle_time">,
 
-    pub field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    pub ball_filter_configuration: Parameter<BallFilterConfiguration, "ball_filter">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    ball_filter_configuration: Parameter<BallFilterConfiguration, "ball_filter">,
 
-    pub balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
-    pub balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
-    pub projected_limbs:
+    balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
+    balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
+    projected_limbs:
         PerceptionInput<Option<ProjectedLimbs>, "VisionBottom", "projected_limbs?">,
 }
 
