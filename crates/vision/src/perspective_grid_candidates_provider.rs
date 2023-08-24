@@ -314,16 +314,13 @@ mod tests {
                 segments,
             },
         ];
-        let skip_segments = HashSet::from_iter(
-            vec![
-                point![0, 18],
-                point![42, 5],
-                point![42, 45],
-                point![110, 5],
-                point![110, 18],
-            ]
-            .into_iter(),
-        );
+        let skip_segments = HashSet::from_iter([
+            point![0, 18],
+            point![42, 5],
+            point![42, 45],
+            point![110, 5],
+            point![110, 18],
+        ]);
         let candidates = generate_candidates(&vertical_scan_lines, &skip_segments, &rows);
         assert_relative_eq!(
             candidates,

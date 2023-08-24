@@ -1455,7 +1455,7 @@ mod tests {
     fn median_of_five_calculates_median() {
         for (first, second, third, fourth, fifth) in iproduct!(0..5, 0..5, 0..5, 0..5, 0..5) {
             let calculated_median = median_of_five(first, second, third, fourth, fifth);
-            let mut numbers = vec![first, second, third, fourth, fifth];
+            let mut numbers = [first, second, third, fourth, fifth];
             numbers.sort();
             let real_median = numbers[2];
             assert_eq!(calculated_median,real_median, "test_case: {first} {second} {third} {fourth} {fifth}, median_of_five: {calculated_median}");
