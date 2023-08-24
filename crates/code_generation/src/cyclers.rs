@@ -462,6 +462,7 @@ fn generate_node_execution(node: &Node, cycler: &Cycler) -> TokenStream {
     let database_updates_from_defaults = generate_database_updates_from_defaults(node);
     quote! {
         {
+            #[allow(clippy::needless_else)]
             if #are_required_inputs_some {
                 let main_outputs = {
                     let _task = ittapi::Task::begin(&itt_domain, #node_name);
