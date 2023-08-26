@@ -29,18 +29,6 @@ impl JointCommandOptimizer {
         let currents = context.sensor_data.current;
         let collected_commands = context.collected_commands;
 
-        let mut optimized_position_angles: [f32; 26] = collected_commands
-            .positions
-            .as_vec()
-            .into_iter()
-            .flatten()
-            .collect::<Vec<f32>>()
-            .try_into()
-            .unwrap_or_else(|v: Vec<f32>| {
-                panic!("Expected 26 joints but found {} values", v.len())
-            });
-        let mut index = 0;
-
         let maximal_current = collected_commands
             .positions
             .as_vec()
@@ -50,18 +38,33 @@ impl JointCommandOptimizer {
             .into_iter()
             .fold(0.0, f32::max);
 
-        for current in currents
+        let optimized_position_angles: [f32; 26] = collected_commands
+            .positions
             .as_vec()
             .into_iter()
             .flatten()
             .collect::<Vec<f32>>()
             .iter()
-        {
-            if *current == maximal_current {
-                optimized_position_angles[index] += 0.1;
-            }
-            index += 1;
-        }
+            .zip(
+                currents
+                    .as_vec()
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<f32>>()
+                    .iter(),
+            )
+            .map(|(current, position)| {
+                if *current == maximal_current {
+                    *position + 0.1
+                } else {
+                    *position
+                }
+            })
+            .collect::<Vec<f32>>()
+            .try_into()
+            .unwrap_or_else(|v: Vec<f32>| {
+                panic!("Expected 26 joints but found {} values", v.len())
+            });
 
         let optimized_positions = Joints::from_angles(optimized_position_angles);
 
