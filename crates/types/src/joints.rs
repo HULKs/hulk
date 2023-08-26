@@ -671,6 +671,20 @@ impl Joints<f32> {
         }
     }
 
+    pub fn from_iterator<I>(angles: I) -> Self
+    where
+        I: Iterator<Item = f32>,
+    {
+        let angles_array: [f32; 26] =
+            angles
+                .collect::<Vec<f32>>()
+                .try_into()
+                .unwrap_or_else(|v: Vec<f32>| {
+                    panic!("Expected 26 joints but found {} values", v.len())
+                });
+        Joints::from_angles(angles_array)
+    }
+
     pub fn from_angles(angles: [f32; 26]) -> Self {
         Self {
             head: HeadJoints {

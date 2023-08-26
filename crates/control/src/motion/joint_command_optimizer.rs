@@ -38,7 +38,7 @@ impl JointCommandOptimizer {
             .flatten()
             .fold(0.0, f32::max);
 
-        let optimized_position_angles: [f32; 26] = collected_commands
+        let optimized_position_angles = collected_commands
             .positions
             .as_vec()
             .into_iter()
@@ -50,14 +50,9 @@ impl JointCommandOptimizer {
                 } else {
                     position
                 }
-            })
-            .collect::<Vec<f32>>()
-            .try_into()
-            .unwrap_or_else(|v: Vec<f32>| {
-                panic!("Expected 26 joints but found {} values", v.len())
             });
 
-        let optimized_positions = Joints::from_angles(optimized_position_angles);
+        let optimized_positions = Joints::from_iterator(optimized_position_angles);
 
         let optimized_commands = CollectedCommands {
             positions: optimized_positions,
