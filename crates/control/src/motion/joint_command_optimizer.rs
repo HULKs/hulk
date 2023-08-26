@@ -1,8 +1,10 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{collected_commands::CollectedCommands, Joints, SensorData};
+use serde::{Deserialize, Serialize};
+use types::{collected_commands::CollectedCommands, joints::Joints, sensor_data::SensorData};
 
+#[derive(Deserialize, Serialize)]
 pub struct JointCommandOptimizer {}
 
 #[context]
@@ -34,8 +36,6 @@ impl JointCommandOptimizer {
             .as_vec()
             .into_iter()
             .flatten()
-            .collect::<Vec<f32>>()
-            .into_iter()
             .fold(0.0, f32::max);
 
         let optimized_position_angles: [f32; 26] = collected_commands
@@ -43,21 +43,12 @@ impl JointCommandOptimizer {
             .as_vec()
             .into_iter()
             .flatten()
-            .collect::<Vec<f32>>()
-            .iter()
-            .zip(
-                currents
-                    .as_vec()
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<f32>>()
-                    .iter(),
-            )
+            .zip(currents.as_vec().into_iter().flatten())
             .map(|(current, position)| {
-                if *current == maximal_current {
-                    *position + 0.1
+                if current == maximal_current {
+                    position + 0.1
                 } else {
-                    *position
+                    position
                 }
             })
             .collect::<Vec<f32>>()
@@ -70,7 +61,6 @@ impl JointCommandOptimizer {
 
         let optimized_commands = CollectedCommands {
             positions: optimized_positions.into(),
-            compensated_positions: collected_commands.compensated_positions,
             stiffnesses: collected_commands.stiffnesses,
             leds: collected_commands.leds,
         };

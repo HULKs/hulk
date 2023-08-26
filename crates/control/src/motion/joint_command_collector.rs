@@ -1,8 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{
     collected_commands::CollectedCommands,
     joints::{BodyJointsCommand, HeadJointsCommand, Joints, JointsCommand},
@@ -11,7 +10,7 @@ use types::{
     sensor_data::SensorData,
 };
 
-#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Deserialize, Serialize)]
 pub struct JointCommandCollector {}
 
 #[context]
@@ -23,6 +22,9 @@ pub struct CycleContext {
 
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
     initial_pose: Parameter<Joints<f32>, "initial_pose">,
+
+    positions: AdditionalOutput<Joints<f32>, "positions">,
+    positions_difference: AdditionalOutput<Joints<f32>, "positions_difference">,
 
     arms_up_squat_joints_command: Input<JointsCommand<f32>, "arms_up_squat_joints_command">,
     dispatching_command: Input<JointsCommand<f32>, "dispatching_command">,
@@ -51,7 +53,7 @@ impl JointCommandCollector {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let current_positions = context.sensor_data.positions;
         let dispatching_command = context.dispatching_command;
         let fall_protection_positions = context.fall_protection_command.positions;
@@ -105,11 +107,17 @@ impl JointCommandCollector {
         // thus the compensation is required to make them reach the actual desired position.
         let compensated_positions = positions + *context.joint_calibration_offsets;
         let collected_commands = CollectedCommands {
-            positions,
-            compensated_positions,
+            positions: compensated_positions,
             stiffnesses,
             leds: *context.leds,
         };
+
+        context
+            .positions
+            .fill_if_subscribed(|| collected_commands.positions);
+        context
+            .positions_difference
+            .fill_if_subscribed(|| collected_commands.positions - current_positions);
 
         Ok(MainOutputs {
             collected_commands: collected_commands.into(),
