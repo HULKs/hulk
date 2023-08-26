@@ -60,7 +60,7 @@ impl JointCommandOptimizer {
         let optimized_positions = Joints::from_angles(optimized_position_angles);
 
         let optimized_commands = CollectedCommands {
-            positions: optimized_positions.into(),
+            positions: optimized_positions,
             stiffnesses: collected_commands.stiffnesses,
             leds: collected_commands.leds,
         };
