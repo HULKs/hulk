@@ -4,7 +4,8 @@ use framework::AdditionalOutput;
 use hardware::ActuatorInterface;
 use serde::{Deserialize, Serialize};
 use types::{
-    collected_commands::CollectedCommands, joints::Joints, motion_selection::MotionSafeExits,
+    collected_commands::CollectedCommands, joints::Joints, led::Leds,
+    motion_selection::MotionSafeExits,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -20,7 +21,8 @@ pub struct CycleContext {
     motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-    collected_commands: Input<CollectedCommands, "collected_commands">,
+    collected_commands: Input<CollectedCommands, "optimized_commands">,
+    leds: Input<Leds, "leds">,
 
     hardware_interface: HardwareInterface,
 }
@@ -47,7 +49,7 @@ impl JointCommandSender {
             .write_to_actuators(
                 collected_commands.positions,
                 collected_commands.stiffnesses,
-                collected_commands.leds,
+                *context.leds,
             )
             .wrap_err("failed to write to actuators")?;
 

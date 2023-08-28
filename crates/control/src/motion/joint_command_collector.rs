@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use types::{
     collected_commands::CollectedCommands,
     joints::{BodyJointsCommand, HeadJointsCommand, Joints, JointsCommand},
-    led::Leds,
     motion_selection::{MotionSelection, MotionType},
     sensor_data::SensorData,
 };
@@ -39,7 +38,6 @@ pub struct CycleContext {
     stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     walk_joints_command: Input<BodyJointsCommand<f32>, "walk_joints_command">,
-    leds: Input<Leds, "leds">,
 }
 
 #[context]
@@ -109,7 +107,6 @@ impl JointCommandCollector {
         let collected_commands = CollectedCommands {
             positions: compensated_positions,
             stiffnesses,
-            leds: *context.leds,
         };
 
         context
