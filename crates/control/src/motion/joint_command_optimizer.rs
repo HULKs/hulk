@@ -31,12 +31,7 @@ impl JointCommandOptimizer {
         let currents = context.sensor_data.current;
         let collected_commands = context.collected_commands;
 
-        let maximal_current = collected_commands
-            .positions
-            .as_vec()
-            .into_iter()
-            .flatten()
-            .fold(0.0, f32::max);
+        let maximal_current = currents.as_vec().into_iter().flatten().fold(0.0, f32::max);
 
         let optimized_position_angles = collected_commands
             .positions
@@ -44,7 +39,7 @@ impl JointCommandOptimizer {
             .into_iter()
             .flatten()
             .zip(currents.as_vec().into_iter().flatten())
-            .map(|(current, position)| {
+            .map(|(position, current)| {
                 if current == maximal_current {
                     position + 0.1
                 } else {
