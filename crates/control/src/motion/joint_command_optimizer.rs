@@ -57,7 +57,6 @@ impl JointCommandOptimizer {
         let optimized_commands = CollectedCommands {
             positions: optimized_positions,
             stiffnesses: collected_commands.stiffnesses,
-            leds: collected_commands.leds,
         };
 
         Ok(MainOutputs {
