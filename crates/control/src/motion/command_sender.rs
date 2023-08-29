@@ -17,7 +17,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    final_positions: AdditionalOutput<Joints<f32>, "final_positions">,
+    executed_positions: AdditionalOutput<Joints<f32>, "executed_positions">,
     stiffnesses: AdditionalOutput<Joints<f32>, "stiffnesses">,
     motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
 
@@ -55,7 +55,7 @@ impl CommandSender {
             .wrap_err("failed to write to actuators")?;
 
         context
-            .final_positions
+            .executed_positions
             .fill_if_subscribed(|| optimized_motor_commands.positions);
         context
             .stiffnesses
