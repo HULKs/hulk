@@ -671,20 +671,6 @@ impl Joints<f32> {
         }
     }
 
-    pub fn from_iterator<I>(angles: I) -> Self
-    where
-        I: Iterator<Item = f32>,
-    {
-        let angles_array: [f32; 26] =
-            angles
-                .collect::<Vec<f32>>()
-                .try_into()
-                .unwrap_or_else(|v: Vec<f32>| {
-                    panic!("Expected 26 joints but found {} values", v.len())
-                });
-        Joints::from_angles(angles_array)
-    }
-
     pub fn from_angles(angles: [f32; 26]) -> Self {
         Self {
             head: HeadJoints {
@@ -726,6 +712,44 @@ impl Joints<f32> {
         }
     }
 }
+
+// impl FromIterator<f32> for HeadJoints<f32> {
+//     fn from_iter<I: IntoIterator<Item = f32>>(angles: I) -> Self {
+//         let mut angle_iter = angles.into_iter();
+//         Self {
+//             yaw: angle_iter.next().expect("Two HeadJoints expected!"),
+//             pitch: angle_iter.next().expect("Two HeadJoints expected!"),
+//         }
+//     }
+// }
+//
+// impl FromIterator<f32> for ArmJoints<f32> {
+//     fn from_iter<I: IntoIterator<Item = f32>>(angles: I) -> Self {
+//         let mut angle_iter = angles.into_iter();
+//         Self {
+//             shoulder_pitch: angle_iter.next().expect("Six ArmJoints expected!"),
+//             shoulder_roll: angle_iter.next().expect("Six ArmJoints expected!"),
+//             elbow_yaw: angle_iter.next().expect("Six ArmJoints expected!"),
+//             elbow_roll: angle_iter.next().expect("Six ArmJoints expected!"),
+//             wrist_yaw: angle_iter.next().expect("Six ArmJoints expected!"),
+//             hand: angle_iter.next().expect("Six ArmJoints expected!"),
+//         }
+//     }
+// }
+
+impl FromIterator<f32> for Joints<f32> {
+    fn from_iter<I: IntoIterator<Item = f32>>(angles: I) -> Self {
+        let angles_array = angles
+            .into_iter()
+            .collect::<Vec<f32>>()
+            .try_into()
+            .unwrap_or_else(|v: Vec<f32>| {
+                panic!("Expected 26 joints but found {} values", v.len())
+            });
+        Joints::from_angles(angles_array)
+    }
+}
+
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
