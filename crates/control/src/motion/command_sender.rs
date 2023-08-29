@@ -3,11 +3,7 @@ use context_attribute::context;
 use framework::AdditionalOutput;
 use hardware::ActuatorInterface;
 use serde::{Deserialize, Serialize};
-use types::{
-    joints::{Joints, JointsCommand},
-    led::Leds,
-    motion_selection::MotionSafeExits,
-};
+use types::{joints::JointsCommand, led::Leds, motion_selection::MotionSafeExits};
 
 #[derive(Deserialize, Serialize)]
 pub struct CommandSender {}
@@ -17,8 +13,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    executed_positions: AdditionalOutput<Joints<f32>, "executed_positions">,
-    stiffnesses: AdditionalOutput<Joints<f32>, "stiffnesses">,
+    executed_motor_commands: AdditionalOutput<JointsCommand<f32>, "executed_motor_commands">,
     motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
@@ -55,11 +50,8 @@ impl CommandSender {
             .wrap_err("failed to write to actuators")?;
 
         context
-            .executed_positions
-            .fill_if_subscribed(|| optimized_motor_commands.positions);
-        context
-            .stiffnesses
-            .fill_if_subscribed(|| optimized_motor_commands.stiffnesses);
+            .executed_motor_commands
+            .fill_if_subscribed(|| *optimized_motor_commands);
         context
             .motion_safe_exits_output
             .fill_if_subscribed(|| context.motion_safe_exits.clone());
