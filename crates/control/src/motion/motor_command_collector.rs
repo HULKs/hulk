@@ -3,14 +3,13 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
-    collected_commands::CollectedCommands,
     joints::{BodyJointsCommand, HeadJointsCommand, Joints, JointsCommand},
     motion_selection::{MotionSelection, MotionType},
     sensor_data::SensorData,
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct JointCommandCollector {}
+pub struct MotorCommandCollector {}
 
 #[context]
 pub struct CreationContext {}
@@ -43,10 +42,10 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub collected_commands: MainOutput<CollectedCommands>,
+    pub motor_commands: MainOutput<JointsCommand<f32>>,
 }
 
-impl JointCommandCollector {
+impl MotorCommandCollector {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
@@ -104,20 +103,20 @@ impl JointCommandCollector {
         // The actuators uses the raw sensor data (not corrected like current_positions) in their feedback loops,
         // thus the compensation is required to make them reach the actual desired position.
         let compensated_positions = positions + *context.joint_calibration_offsets;
-        let collected_commands = CollectedCommands {
+        let motor_commands = JointsCommand {
             positions: compensated_positions,
             stiffnesses,
         };
 
         context
             .positions
-            .fill_if_subscribed(|| collected_commands.positions);
+            .fill_if_subscribed(|| motor_commands.positions);
         context
             .positions_difference
-            .fill_if_subscribed(|| collected_commands.positions - current_positions);
+            .fill_if_subscribed(|| motor_commands.positions - current_positions);
 
         Ok(MainOutputs {
-            collected_commands: collected_commands.into(),
+            motor_commands: motor_commands.into(),
         })
     }
 }
