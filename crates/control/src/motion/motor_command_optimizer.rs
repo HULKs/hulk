@@ -50,7 +50,7 @@ impl MotorCommandOptimizer {
                 }
             });
 
-        let optimized_positions = Joints::from_iterator(optimized_position_angles);
+        let optimized_positions = Joints::from_iter(optimized_position_angles);
 
         let optimized_motor_commands = JointsCommand {
             positions: optimized_positions,
