@@ -258,6 +258,7 @@
       "minimum_samples_per_cluster": 3
     }
   },
+  "motor_position_deviation_threshold": 0.5,
   "energy_saving_stand": {
     "enabled": false,
     "arm_stiffness": 0.1,
