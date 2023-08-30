@@ -703,12 +703,12 @@ impl FromIterator<f32> for LegJoints<f32> {
         let mut angle_iter = angles.into_iter();
         let error_message = "Six LegJoints expected!";
         Self {
+            hip_yaw_pitch: angle_iter.next().expect(error_message),
+            hip_roll: angle_iter.next().expect(error_message),
+            hip_pitch: angle_iter.next().expect(error_message),
+            knee_pitch: angle_iter.next().expect(error_message),
             ankle_pitch: angle_iter.next().expect(error_message),
             ankle_roll: angle_iter.next().expect(error_message),
-            hip_pitch: angle_iter.next().expect(error_message),
-            hip_roll: angle_iter.next().expect(error_message),
-            hip_yaw_pitch: angle_iter.next().expect(error_message),
-            knee_pitch: angle_iter.next().expect(error_message),
         }
     }
 }
@@ -731,8 +731,8 @@ impl FromIterator<f32> for Joints<f32> {
         Self {
             head: HeadJoints::from_iter(&mut angle_iter),
             left_arm: ArmJoints::from_iter(&mut angle_iter),
-            left_leg: LegJoints::from_iter(&mut angle_iter),
             right_arm: ArmJoints::from_iter(&mut angle_iter),
+            left_leg: LegJoints::from_iter(&mut angle_iter),
             right_leg: LegJoints::from_iter(&mut angle_iter),
         }
     }
