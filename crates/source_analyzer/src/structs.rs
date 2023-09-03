@@ -392,7 +392,10 @@ mod tests {
         let Some(c) = fields.get(&"c".to_string()) else {
             panic!("expected field `c`");
         };
-        let StructHierarchy::Field { data_type: matched_data_type } = c else {
+        let StructHierarchy::Field {
+            data_type: matched_data_type,
+        } = c
+        else {
             panic!("expected StructHierarchy::Field");
         };
         assert_eq!(matched_data_type, &data_type);
@@ -446,7 +449,10 @@ mod tests {
         let Some(c) = fields.get(&"c".to_string()) else {
             panic!("expected field `c`");
         };
-        let StructHierarchy::Field { data_type: matched_data_type } = c else {
+        let StructHierarchy::Field {
+            data_type: matched_data_type,
+        } = c
+        else {
             panic!("expected StructHierarchy::Field");
         };
         assert_eq!(matched_data_type, &data_type);
@@ -504,7 +510,10 @@ mod tests {
         let Some(c) = fields.get(&"c".to_string()) else {
             panic!("expected field `c`");
         };
-        let StructHierarchy::Field { data_type: matched_data_type } = c else {
+        let StructHierarchy::Field {
+            data_type: matched_data_type,
+        } = c
+        else {
             panic!("expected StructHierarchy::Field");
         };
         assert_eq!(matched_data_type, &data_type);
@@ -566,7 +575,10 @@ mod tests {
         let StructHierarchy::Optional { child } = c else {
             panic!("expected StructHierarchy::Optional");
         };
-        let StructHierarchy::Field { data_type: matched_data_type } = &**child else {
+        let StructHierarchy::Field {
+            data_type: matched_data_type,
+        } = &**child
+        else {
             panic!("expected StructHierarchy::Field");
         };
         assert_eq!(matched_data_type, &data_type);

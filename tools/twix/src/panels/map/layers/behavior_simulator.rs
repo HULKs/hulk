@@ -57,7 +57,7 @@ impl Layer for BehaviorSimulator {
     fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
         for (player_number, value_buffer) in self.robot_to_field.0.iter() {
             let Ok(robot_to_field): Result<Isometry2<f32>> = value_buffer.parse_latest() else {
-                continue
+                continue;
             };
 
             let pose_color = Color32::from_white_alpha(63);
