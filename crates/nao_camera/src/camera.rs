@@ -371,7 +371,12 @@ impl Camera {
     }
 
     pub fn queue(&mut self, buffer: Vec<u8>) -> Result<(), BufferError> {
-        let Some((buffer_index, slot)) = self.queued_buffers.iter_mut().enumerate().find(|(_index, slot)| slot.is_none()) else {
+        let Some((buffer_index, slot)) = self
+            .queued_buffers
+            .iter_mut()
+            .enumerate()
+            .find(|(_index, slot)| slot.is_none())
+        else {
             return Err(BufferError::NoSlotAvailable {
                 non_fitting_buffer: buffer,
             });

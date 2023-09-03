@@ -440,7 +440,12 @@ mod tests {
             let Some(request) = outputs_receiver.recv().await else {
                 panic!("expected request");
             };
-            let Request::RegisterCycler { cycler_instance: cycler_instance_to_register, fields, request_sender } = request else {
+            let Request::RegisterCycler {
+                cycler_instance: cycler_instance_to_register,
+                fields,
+                request_sender,
+            } = request
+            else {
                 panic!("expected Request::RegisterCycler");
             };
             assert_eq!(cycler_instance, cycler_instance_to_register);
@@ -1289,13 +1294,16 @@ mod tests {
 
         outputs_changed.notify_one();
         let subscribed_data = response_receiver.recv().await.unwrap();
-        let Response::Textual(TextualResponse::Outputs(
-            TextualOutputsResponse::SubscribedData { items }
-        )) = subscribed_data else {
+        let Response::Textual(TextualResponse::Outputs(TextualOutputsResponse::SubscribedData {
+            items,
+        })) = subscribed_data
+        else {
             panic!("unexpected subscribed data: {subscribed_data:?}");
         };
         assert_eq!(items.len(), 1);
-        let Some(TextualDataOrBinaryReference::BinaryReference { reference_id }) = items.get(&SUBSCRIPTION_ID) else {
+        let Some(TextualDataOrBinaryReference::BinaryReference { reference_id }) =
+            items.get(&SUBSCRIPTION_ID)
+        else {
             panic!("an item with subscription ID {SUBSCRIPTION_ID} should exist");
         };
         let binary_data = response_receiver.recv().await.unwrap();
@@ -1712,11 +1720,11 @@ mod tests {
 
         outputs_changed.notify_one();
         let subscribed_data = response_receiver.recv().await.unwrap();
-        let Response::Textual(TextualResponse::Outputs(
-            TextualOutputsResponse::GetNext { id: SUBSCRIPTION_ID, result: Ok(
-                TextualDataOrBinaryReference::BinaryReference { reference_id }
-            )}
-        )) = subscribed_data else {
+        let Response::Textual(TextualResponse::Outputs(TextualOutputsResponse::GetNext {
+            id: SUBSCRIPTION_ID,
+            result: Ok(TextualDataOrBinaryReference::BinaryReference { reference_id }),
+        })) = subscribed_data
+        else {
             panic!("unexpected subscribed data: {subscribed_data:?}");
         };
         let binary_data = response_receiver.recv().await.unwrap();

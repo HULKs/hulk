@@ -396,7 +396,9 @@ fn extract_version_number(input: &str) -> Option<String> {
     let lines = input.lines();
     for line in lines {
         if line.contains("VERSION_ID") {
-            let Some((_, os_version)) = line.split_once('=') else { continue; };
+            let Some((_, os_version)) = line.split_once('=') else {
+                continue;
+            };
             return Some(os_version.to_string());
         }
     }

@@ -34,11 +34,9 @@ impl RepositoryParameters {
 
     pub fn write(&self, address: &str, path: String, value: Value) {
         let repository = self.repository.clone();
-        let Ok(hardware_ids) = self
-            .hardware_ids_from_address(address)
-        else {
+        let Ok(hardware_ids) = self.hardware_ids_from_address(address) else {
             error!("failed to get head ID from address {address}");
-            return
+            return;
         };
         let parameters = nest_value_at_path(&path, value);
         self.runtime.spawn(async move {
