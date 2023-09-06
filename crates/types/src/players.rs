@@ -103,16 +103,27 @@ impl<'a, T> Iterator for PlayersIterator<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = match self.next_forward {
-            Some(PlayerNumber::One) => 7,
-            Some(PlayerNumber::Two) => 6,
-            Some(PlayerNumber::Three) => 5,
-            Some(PlayerNumber::Four) => 4,
-            Some(PlayerNumber::Five) => 3,
-            Some(PlayerNumber::Six) => 2,
-            Some(PlayerNumber::Seven) => 1,
-            None => 0,
+        let consumed_forward = match self.next_forward {
+            Some(PlayerNumber::One) => 0,
+            Some(PlayerNumber::Two) => 1,
+            Some(PlayerNumber::Three) => 2,
+            Some(PlayerNumber::Four) => 3,
+            Some(PlayerNumber::Five) => 4,
+            Some(PlayerNumber::Six) => 5,
+            Some(PlayerNumber::Seven) => 6,
+            None => 7,
         };
+        let consumed_back = match self.next_back {
+            Some(PlayerNumber::One) => 6,
+            Some(PlayerNumber::Two) => 5,
+            Some(PlayerNumber::Three) => 4,
+            Some(PlayerNumber::Four) => 3,
+            Some(PlayerNumber::Five) => 2,
+            Some(PlayerNumber::Six) => 1,
+            Some(PlayerNumber::Seven) => 0,
+            None => 7,
+        };
+        let remaining = 7usize.saturating_sub(consumed_forward + consumed_back);
         (remaining, Some(remaining))
     }
 }
@@ -374,16 +385,28 @@ mod test {
         };
         let mut iterator = players.iter();
 
+        assert_eq!(iterator.len(), 7);
         assert_eq!(iterator.next(), Some((PlayerNumber::One, &1)));
+        assert_eq!(iterator.len(), 6);
         assert_eq!(iterator.next(), Some((PlayerNumber::Two, &2)));
+        assert_eq!(iterator.len(), 5);
         assert_eq!(iterator.next_back(), Some((PlayerNumber::Seven, &7)));
+        assert_eq!(iterator.len(), 4);
         assert_eq!(iterator.next_back(), Some((PlayerNumber::Six, &6)));
+        assert_eq!(iterator.len(), 3);
         assert_eq!(iterator.next(), Some((PlayerNumber::Three, &3)));
+        assert_eq!(iterator.len(), 2);
         assert_eq!(iterator.next(), Some((PlayerNumber::Four, &4)));
+        assert_eq!(iterator.len(), 1);
         assert_eq!(iterator.next_back(), Some((PlayerNumber::Five, &5)));
+        assert_eq!(iterator.len(), 0);
         assert_eq!(iterator.next(), None);
+        assert_eq!(iterator.len(), 0);
         assert_eq!(iterator.next_back(), None);
+        assert_eq!(iterator.len(), 0);
         assert_eq!(iterator.next(), None);
+        assert_eq!(iterator.len(), 0);
         assert_eq!(iterator.next_back(), None);
+        assert_eq!(iterator.len(), 0);
     }
 }
