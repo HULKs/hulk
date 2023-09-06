@@ -117,15 +117,7 @@ impl RoleAssignment {
                     player_roles[striker] = Role::Striker;
                 }
             }
-            role = match context.player_number {
-                PlayerNumber::One => player_roles.one,
-                PlayerNumber::Two => player_roles.two,
-                PlayerNumber::Three => player_roles.three,
-                PlayerNumber::Four => player_roles.four,
-                PlayerNumber::Five => player_roles.five,
-                PlayerNumber::Six => player_roles.six,
-                PlayerNumber::Seven => player_roles.seven,
-            };
+            role = player_roles[*context.player_number];
 
             self.role_initialized = true;
             self.last_received_spl_striker_message = Some(cycle_start_time);
