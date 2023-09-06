@@ -102,6 +102,24 @@ impl<'a, T> Iterator for PlayersIterator<'a, T> {
         };
         result
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = match self.player_number {
+            Some(PlayerNumber::One) => 7,
+            Some(PlayerNumber::Two) => 6,
+            Some(PlayerNumber::Three) => 5,
+            Some(PlayerNumber::Four) => 4,
+            Some(PlayerNumber::Five) => 3,
+            Some(PlayerNumber::Six) => 2,
+            Some(PlayerNumber::Seven) => 1,
+            None => 0,
+        };
+        (remaining, Some(remaining))
+    }
+}
+
+impl<'a, T> ExactSizeIterator for PlayersIterator<'a, T> {
+    // only requires `Iterator::size_hint()` to be exact
 }
 
 impl<T> Players<T> {
@@ -291,5 +309,35 @@ where
                     .map(|name| format!("seven.{name}")),
             )
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn exact_size() {
+        let players = Players::<i32>::default();
+        let mut iterator = players.iter();
+
+        assert_eq!(iterator.len(), 7);
+        iterator.next();
+        assert_eq!(iterator.len(), 6);
+        iterator.next();
+        assert_eq!(iterator.len(), 5);
+        iterator.next();
+        assert_eq!(iterator.len(), 4);
+        iterator.next();
+        assert_eq!(iterator.len(), 3);
+        iterator.next();
+        assert_eq!(iterator.len(), 2);
+        iterator.next();
+        assert_eq!(iterator.len(), 1);
+        iterator.next();
+        assert_eq!(iterator.len(), 0);
+        iterator.next();
+        assert_eq!(iterator.len(), 0);
+        iterator.next();
     }
 }
