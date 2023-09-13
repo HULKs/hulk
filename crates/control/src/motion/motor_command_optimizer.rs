@@ -65,7 +65,7 @@ impl MotorCommandOptimizer {
             .zip(currents.as_vec().into_iter().flatten())
             .map(|(position, current)| {
                 if current == maximal_current {
-                    position // + 0.1 // todo correct in correct direction
+                    position + 0.004 // todo correct in correct direction
                 } else {
                     position
                 }

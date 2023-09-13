@@ -38,8 +38,6 @@ impl CommandSender {
     ) -> Result<MainOutputs> {
         let optimized_motor_commands = context.optimized_motor_commands;
 
-        // The actuators uses the raw sensor data (not corrected like current_positions) in their feedback loops,
-        // thus the compensation is required to make them reach the actual desired position.
         context
             .hardware_interface
             .write_to_actuators(
