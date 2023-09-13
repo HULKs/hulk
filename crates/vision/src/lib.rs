@@ -1,3 +1,5 @@
+// #![feature(test)]
+
 pub mod ball_detection;
 pub mod camera_matrix_extractor;
 pub mod feet_detection;
@@ -10,3 +12,4 @@ pub mod line_detection;
 pub mod perspective_grid_candidates_provider;
 mod ransac;
 pub mod segment_filter;
+pub mod semantic_segmentation;

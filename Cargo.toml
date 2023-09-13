@@ -119,11 +119,13 @@ motionfile = { path = "crates/motionfile" }
 nalgebra = { version = "0.32.2", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }
+ndarray = "0.15.6"
 # Pinned git version since the latest release does not contained https://github.com/nix-rust/nix/pull/2022 yet
 nix = { git = "https://github.com/nix-rust/nix.git", version = "0.26.1", rev = "89b4976" }
 num-derive = "0.3"
 num-traits = "0.2"
 ordered-float = "3.1.0"
+openvino = { version = "0.5.0", features = ["runtime-linking"] }
 opusfile-ng = "0.1.0"
 parameters = { path = "crates/parameters" }
 parking_lot = "0.12.1"
