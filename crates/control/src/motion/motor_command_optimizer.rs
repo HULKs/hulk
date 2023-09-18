@@ -9,7 +9,7 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct MotorCommandOptimizer {
-    motor_commands_residual: JointsCommand<f32>,
+    position_offset: Joints<f32>,
 }
 
 #[context]
@@ -20,13 +20,15 @@ pub struct CycleContext {
     pub motor_commands: Input<JointsCommand<f32>, "motor_commands">,
     pub sensor_data: Input<SensorData, "sensor_data">,
 
-    pub motor_position_quadratic_deviation:
-        AdditionalOutput<f32, "motor_position_quadratic_deviation">,
-    pub motor_commands_residual: AdditionalOutput<JointsCommand<f32>, "motor_commands_residual">,
+    pub offset_reset_threshold: Parameter<f32, "motor_position_offset_reset_threshold">,
+    pub optimization_speed: Parameter<f32, "motor_position_optimization_speed">,
+    pub optimization_direction: Parameter<Joints<f32>, "motor_position_optimization_direction">,
+    pub optimization_current_threshold:
+        Parameter<f32, "motor_position_optimization_current_threshold">,
 
-    pub motor_position_deviation_threshold: Parameter<f32, "motor_position_deviation_threshold">,
-    pub motor_position_optimization_step:
-        Parameter<Joints<f32>, "motor_position_optimization_step">,
+    pub squared_position_offset_sum:
+        AdditionalOutput<f32, "motor_position_optimization_offset_squared_sum">,
+    pub position_offset: AdditionalOutput<Joints<f32>, "motor_position_optimization_offset">,
 }
 
 #[context]
@@ -38,62 +40,60 @@ pub struct MainOutputs {
 impl MotorCommandOptimizer {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            motor_commands_residual: JointsCommand::default(),
+            position_offset: Joints::default(),
         })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let currents = context.sensor_data.currents;
-        let motor_commands = *context.motor_commands;
+        let commands = *context.motor_commands;
 
-        let quadratic_deviation: f32 = self
-            .motor_commands_residual
-            .positions
+        let squared_position_offset_sum: f32 = self
+            .position_offset
             .as_vec()
             .into_iter()
             .flatten()
             .map(|position| position.powf(2.0))
             .sum();
 
-        if quadratic_deviation > *context.motor_position_deviation_threshold {
-            self.motor_commands_residual = JointsCommand::default();
+        if squared_position_offset_sum > *context.offset_reset_threshold {
+            self.position_offset = Joints::default();
         }
 
         let maximal_current = currents.as_vec().into_iter().flatten().fold(0.0, f32::max);
 
-        let optimized_position_angles = context
-            .motor_position_optimization_step
+        let position_offset = context
+            .optimization_direction
             .as_vec()
             .into_iter()
             .flatten()
             .zip(currents.as_vec().into_iter().flatten())
-            .map(|(correction, current)| {
+            .map(|(correction_direction, current)| {
                 if current == maximal_current {
-                    correction
+                    context.optimization_speed * correction_direction
                 } else {
                     0.0
                 }
             });
 
-        if maximal_current >= 0.09 {
-            self.motor_commands_residual.positions = self.motor_commands_residual.positions
-                + Joints::from_iter(optimized_position_angles);
+        if maximal_current >= *context.optimization_current_threshold {
+            self.position_offset = self.position_offset + Joints::from_iter(position_offset);
         }
 
-        let optimized_motor_commands = JointsCommand {
-            positions: motor_commands.positions + self.motor_commands_residual.positions,
-            stiffnesses: motor_commands.stiffnesses,
+        let optimized_commands = JointsCommand {
+            positions: commands.positions + self.position_offset,
+            stiffnesses: commands.stiffnesses,
         };
 
         context
-            .motor_position_quadratic_deviation
-            .fill_if_subscribed(|| quadratic_deviation);
+            .squared_position_offset_sum
+            .fill_if_subscribed(|| squared_position_offset_sum);
         context
-            .motor_commands_residual
-            .fill_if_subscribed(|| self.motor_commands_residual);
+            .position_offset
+            .fill_if_subscribed(|| self.position_offset);
 
         Ok(MainOutputs {
-            optimized_motor_commands: optimized_motor_commands.into(),
+            optimized_motor_commands: optimized_commands.into(),
         })
     }
 }
