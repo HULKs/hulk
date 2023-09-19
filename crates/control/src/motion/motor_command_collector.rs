@@ -16,14 +16,6 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
-
-    penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
-    initial_pose: Parameter<Joints<f32>, "initial_pose">,
-
-    positions: AdditionalOutput<Joints<f32>, "positions">,
-    positions_difference: AdditionalOutput<Joints<f32>, "positions_difference">,
-
     arms_up_squat_joints_command: Input<JointsCommand<f32>, "arms_up_squat_joints_command">,
     dispatching_command: Input<JointsCommand<f32>, "dispatching_command">,
     energy_saving_stand_command: Input<BodyJointsCommand<f32>, "energy_saving_stand_command">,
@@ -37,6 +29,13 @@ pub struct CycleContext {
     stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     walk_joints_command: Input<BodyJointsCommand<f32>, "walk_joints_command">,
+
+    joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
+    penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
+    initial_pose: Parameter<Joints<f32>, "initial_pose">,
+
+    motor_commands: AdditionalOutput<JointsCommand<f32>, "motor_commands">,
+    motor_position_difference: AdditionalOutput<Joints<f32>, "motor_positions_difference">,
 }
 
 #[context]
@@ -100,7 +99,7 @@ impl MotorCommandCollector {
             ),
         };
 
-        // The actuators uses the raw sensor data (not corrected like current_positions) in their feedback loops,
+        // The actuators use the raw sensor data (not corrected like current_positions) in their feedback loops,
         // thus the compensation is required to make them reach the actual desired position.
         let compensated_positions = positions + *context.joint_calibration_offsets;
         let motor_commands = JointsCommand {
@@ -108,11 +107,9 @@ impl MotorCommandCollector {
             stiffnesses,
         };
 
+        context.motor_commands.fill_if_subscribed(|| motor_commands);
         context
-            .positions
-            .fill_if_subscribed(|| motor_commands.positions);
-        context
-            .positions_difference
+            .motor_position_difference
             .fill_if_subscribed(|| motor_commands.positions - current_positions);
 
         Ok(MainOutputs {

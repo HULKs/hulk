@@ -20,11 +20,7 @@ pub struct CycleContext {
     pub motor_commands: Input<JointsCommand<f32>, "motor_commands">,
     pub sensor_data: Input<SensorData, "sensor_data">,
 
-    pub offset_reset_threshold: Parameter<f32, "motor_position_offset_reset_threshold">,
-    pub optimization_speed: Parameter<f32, "motor_position_optimization_speed">,
-    pub optimization_direction: Parameter<Joints<f32>, "motor_position_optimization_direction">,
-    pub optimization_current_threshold:
-        Parameter<f32, "motor_position_optimization_current_threshold">,
+    pub params: Parameter<MotorCommandOptimizerParameters, "motor_command_optimizer_params">,
 
     pub squared_position_offset_sum:
         AdditionalOutput<f32, "motor_position_optimization_offset_squared_sum">,
@@ -56,13 +52,14 @@ impl MotorCommandOptimizer {
             .map(|position| position.powf(2.0))
             .sum();
 
-        if squared_position_offset_sum > *context.offset_reset_threshold {
+        if squared_position_offset_sum > context.params.offset_reset_threshold {
             self.position_offset = Joints::default();
         }
 
         let maximal_current = currents.as_vec().into_iter().flatten().fold(0.0, f32::max);
 
         let position_offset = context
+            .params
             .optimization_direction
             .as_vec()
             .into_iter()
@@ -70,13 +67,13 @@ impl MotorCommandOptimizer {
             .zip(currents.as_vec().into_iter().flatten())
             .map(|(correction_direction, current)| {
                 if current == maximal_current {
-                    context.optimization_speed * correction_direction
+                    context.params.optimization_speed * correction_direction
                 } else {
                     0.0
                 }
             });
 
-        if maximal_current >= *context.optimization_current_threshold {
+        if maximal_current >= context.params.optimization_current_threshold {
             self.position_offset = self.position_offset + Joints::from_iter(position_offset);
         }
 

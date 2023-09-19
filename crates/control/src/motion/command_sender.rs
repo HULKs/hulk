@@ -13,14 +13,14 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    executed_motor_commands: AdditionalOutput<JointsCommand<f32>, "executed_motor_commands">,
-    motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
-
-    motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
     optimized_motor_commands: Input<JointsCommand<f32>, "optimized_motor_commands">,
     leds: Input<Leds, "leds">,
 
+    motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
     hardware_interface: HardwareInterface,
+
+    executed_motor_commands: AdditionalOutput<JointsCommand<f32>, "executed_motor_commands">,
+    motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
 }
 
 #[context]
