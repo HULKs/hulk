@@ -262,7 +262,7 @@
     "offset_reset_threshold": 0.001,
     "optimization_speed": 0.0001,
     "optimization_current_threshold": 0.09,
-    "motor_position_optimization_direction": {
+    "optimization_direction": {
       "head": {
        "yaw": 1,
        "pitch": 1
