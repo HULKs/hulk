@@ -57,6 +57,8 @@ pub struct LookActionParameters {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct MotorCommandOptimizerParameters {
     pub offset_reset_threshold: f32,
+    pub offset_reset_speed: f32,
+    pub offset_reset_offset: f32,
     pub optimization_speed: f32,
     pub optimization_current_threshold: f32,
     pub optimization_direction: Joints<f32>,

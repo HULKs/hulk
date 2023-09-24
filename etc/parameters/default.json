@@ -259,9 +259,11 @@
     }
   },
   "motor_command_optimizer_params":{
-    "offset_reset_threshold": 0.001,
+    "offset_reset_threshold": 0.00075,
+    "offset_reset_speed": 1.012,
+    "offset_reset_offset": 3.0,
     "optimization_speed": 0.0001,
-    "optimization_current_threshold": 0.09,
+    "optimization_current_threshold": 0.12,
     "optimization_direction": {
       "head": {
        "yaw": 1,
