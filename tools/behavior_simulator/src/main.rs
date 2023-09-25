@@ -70,7 +70,6 @@ fn main() -> Result<()> {
         Arguments::Run(arguments) => run(arguments),
         Arguments::Serve(arguments) => serve(arguments),
     }
-
 }
 
 fn run(arguments: RunArguments) -> Result<()> {
@@ -78,7 +77,7 @@ fn run(arguments: RunArguments) -> Result<()> {
     simulator.execute_script(arguments.scenario_file)?;
 
     let start = Instant::now();
-    let _frames = simulator.run().wrap_err("failed to run simulation")?;
+    simulator.run().wrap_err("failed to run simulation")?;
     let duration = Instant::now() - start;
     println!("Took {:.2} seconds", duration.as_secs_f32());
 

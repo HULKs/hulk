@@ -10,10 +10,7 @@ use crate::{
     simulator::{Frame, Simulator},
     state::Ball,
 };
-use color_eyre::{
-    eyre::{bail, WrapErr},
-    Result,
-};
+use color_eyre::{eyre::bail, owo_colors::OwoColorize, Result};
 use framework::{multiple_buffer_with_slots, Reader, Writer};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
@@ -135,9 +132,13 @@ pub fn run(
     simulator.execute_script(scenario_file)?;
 
     let start = Instant::now();
-    let frames = simulator.run().wrap_err("failed to run simulation")?;
+    if let Err(error) = simulator.run() {
+        eprintln!("{}", error.bright_red())
+    }
     let duration = Instant::now() - start;
     println!("Took {:.2} seconds", duration.as_secs_f32());
+
+    let frames = simulator.frames;
 
     let runtime = tokio::runtime::Runtime::new()?;
     {
