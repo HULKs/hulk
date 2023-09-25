@@ -105,6 +105,6 @@ To be able to run the current behavior simulator files, you have to install lua 
 
 Afterwards you can run the simulator by executing the following command in your hulk project root folder:
 ```sh
-cargo run --manifest-path=tools/behavior_simulator/Cargo.toml tests/behavior/golden_goal.lua
+cargo run --manifest-path=tools/behavior_simulator/Cargo.toml serve tests/behavior/golden_goal.lua
 ```
 The results can be inspected in twix.
