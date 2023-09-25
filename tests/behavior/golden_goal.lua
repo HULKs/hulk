@@ -14,12 +14,14 @@ spawn_robot(6)
 spawn_robot(7)
 
 local game_end_time = 10000
+local goal_scored = false
 
 function on_goal()
     print("Goal scored, resetting ball!")
     print("Ball: " .. inspect(state.ball))
     print("Ball was at x: " .. state.ball.position[1] .. " y: " .. state.ball.position[2])
     state.ball = nil
+    goal_scored = true
     game_end_time = state.cycle_count + 200
 end
 
@@ -55,6 +57,9 @@ function on_cycle()
     end
 
     if state.cycle_count == game_end_time then
+        if not goal_scored then
+          error("No goal was scored!")
+        end
         state.finished = true
     end
 end

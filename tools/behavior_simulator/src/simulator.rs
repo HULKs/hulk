@@ -42,6 +42,14 @@ impl Simulator {
         lua.globals()
             .set("create_robot", create_robot)
             .wrap_err("failed to insert create_robot")?;
+        let error = lua
+            .create_function(|_lua, message: String| -> Result<(), LuaError> {
+                Err(LuaError::external(message))
+            })
+            .wrap_err("failed to create function create_robot")?;
+        lua.globals()
+            .set("error", error)
+            .wrap_err("failed to insert create_robot")?;
 
         Ok(Self { state, lua })
     }
