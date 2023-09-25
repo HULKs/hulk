@@ -24,6 +24,7 @@ pub struct Frame {
 
 pub struct Simulator {
     pub state: Arc<Mutex<State>>,
+    pub frames: Vec<Frame>,
     lua: Lua,
 }
 
@@ -51,7 +52,11 @@ impl Simulator {
             .set("error", error)
             .wrap_err("failed to insert create_robot")?;
 
-        Ok(Self { state, lua })
+        Ok(Self {
+            state,
+            lua,
+            frames: Vec::new(),
+        })
     }
 
     pub fn execute_script(&mut self, file_name: impl AsRef<Path>) -> Result<()> {
@@ -73,8 +78,7 @@ impl Simulator {
         self.deserialize_state()
     }
 
-    pub fn run(&mut self) -> Result<Vec<Frame>> {
-        let mut frames = Vec::new();
+    pub fn run(&mut self) -> Result<()> {
         loop {
             self.cycle()?;
 
@@ -83,7 +87,7 @@ impl Simulator {
             for (player_number, robot) in &state.robots {
                 robots[*player_number] = Some(robot.database.clone())
             }
-            frames.push(Frame {
+            self.frames.push(Frame {
                 robots,
                 ball: state.ball.clone(),
             });
@@ -93,7 +97,7 @@ impl Simulator {
             }
         }
 
-        Ok(frames)
+        Ok(())
     }
 
     pub fn cycle(&mut self) -> Result<()> {
