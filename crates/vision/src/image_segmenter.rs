@@ -8,7 +8,7 @@ use types::{
     horizon::Horizon,
     interpolated::Interpolated,
     is_above_limbs,
-    parameters::{EdgeDetectionSource, MedianMode},
+    parameters::{EdgeDetectionSourceParameters, MedianModeParameters},
     ycbcr422_image::YCbCr422Image,
     CameraMatrix, EdgeType, FieldColor, ImageSegments, Intensity, Limb, ProjectedLimbs, Rgb,
     RgbChannel, ScanGrid, ScanLine, Segment, YCbCr444,
@@ -39,13 +39,13 @@ pub struct CycleContext {
     horizontal_stride: Parameter<usize, "image_segmenter.$cycler_instance.horizontal_stride">,
     vertical_stride: Parameter<usize, "image_segmenter.$cycler_instance.vertical_stride">,
     vertical_edge_detection_source: Parameter<
-        EdgeDetectionSource,
+        EdgeDetectionSourceParameters,
         "image_segmenter.$cycler_instance.vertical_edge_detection_source",
     >,
     vertical_edge_threshold:
         Parameter<Interpolated, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
     vertical_median_mode:
-        Parameter<MedianMode, "image_segmenter.$cycler_instance.vertical_median_mode">,
+        Parameter<MedianModeParameters, "image_segmenter.$cycler_instance.vertical_median_mode">,
 }
 
 #[context]
@@ -110,9 +110,9 @@ fn new_grid(
     field_color: &FieldColor,
     horizontal_stride: usize,
     vertical_stride: usize,
-    vertical_edge_detection_source: EdgeDetectionSource,
+    vertical_edge_detection_source: EdgeDetectionSourceParameters,
     vertical_edge_threshold: i16,
-    vertical_median_mode: MedianMode,
+    vertical_median_mode: MedianModeParameters,
     projected_limbs: &[Limb],
 ) -> ScanGrid {
     let horizon_y_minimum = horizon
@@ -198,16 +198,16 @@ fn new_vertical_scan_line(
     field_color: &FieldColor,
     position: u32,
     stride: usize,
-    edge_detection_source: EdgeDetectionSource,
+    edge_detection_source: EdgeDetectionSourceParameters,
     edge_threshold: i16,
-    median_mode: MedianMode,
+    median_mode: MedianModeParameters,
     horizon_y_minimum: f32,
     projected_limbs: &[Limb],
 ) -> ScanLine {
     let (start_y, end_y) = match median_mode {
-        MedianMode::Disabled => (horizon_y_minimum as u32, image.height()),
-        MedianMode::ThreePixels => ((horizon_y_minimum as u32) + 1, image.height() - 1),
-        MedianMode::FivePixels => ((horizon_y_minimum as u32) + 2, image.height() - 2),
+        MedianModeParameters::Disabled => (horizon_y_minimum as u32, image.height()),
+        MedianModeParameters::ThreePixels => ((horizon_y_minimum as u32) + 1, image.height() - 1),
+        MedianModeParameters::FivePixels => ((horizon_y_minimum as u32) + 2, image.height() - 2),
     };
     if start_y >= end_y {
         return ScanLine {
@@ -219,8 +219,8 @@ fn new_vertical_scan_line(
     let first_pixel =
         pixel_to_edge_detection_value(image.at(position, start_y), edge_detection_source);
     let luminance_value_of_first_pixel = match median_mode {
-        MedianMode::Disabled => first_pixel,
-        MedianMode::ThreePixels => {
+        MedianModeParameters::Disabled => first_pixel,
+        MedianModeParameters::ThreePixels => {
             let previous_pixel = image.at(position, start_y - 1);
             let next_pixel = image.at(position, start_y + 1);
             median_of_three(
@@ -229,7 +229,7 @@ fn new_vertical_scan_line(
                 pixel_to_edge_detection_value(next_pixel, edge_detection_source),
             )
         }
-        MedianMode::FivePixels => {
+        MedianModeParameters::FivePixels => {
             let second_previous_pixel = image.at(position, start_y - 2);
             let previous_pixel = image.at(position, start_y - 1);
             let next_pixel = image.at(position, start_y + 1);
@@ -253,8 +253,8 @@ fn new_vertical_scan_line(
     for y in (start_y..end_y).step_by(stride) {
         let pixel = pixel_to_edge_detection_value(image.at(position, y), edge_detection_source);
         let luminance_value = match median_mode {
-            MedianMode::Disabled => pixel,
-            MedianMode::ThreePixels => {
+            MedianModeParameters::Disabled => pixel,
+            MedianModeParameters::ThreePixels => {
                 let previous_pixel = image.at(position, y - 1);
                 let next_pixel = image.at(position, y + 1);
                 median_of_three(
@@ -263,7 +263,7 @@ fn new_vertical_scan_line(
                     pixel_to_edge_detection_value(next_pixel, edge_detection_source),
                 )
             }
-            MedianMode::FivePixels => {
+            MedianModeParameters::FivePixels => {
                 let second_previous_pixel = image.at(position, y - 2);
                 let previous_pixel = image.at(position, y - 1);
                 let next_pixel = image.at(position, y + 1);
@@ -317,11 +317,11 @@ fn new_vertical_scan_line(
 
 fn pixel_to_edge_detection_value(
     pixel: YCbCr444,
-    edge_detection_source: EdgeDetectionSource,
+    edge_detection_source: EdgeDetectionSourceParameters,
 ) -> u8 {
     match edge_detection_source {
-        EdgeDetectionSource::Luminance => pixel.y,
-        EdgeDetectionSource::GreenChromaticity => {
+        EdgeDetectionSourceParameters::Luminance => pixel.y,
+        EdgeDetectionSourceParameters::GreenChromaticity => {
             let rgb = Rgb::from(pixel);
             (rgb.get_chromaticity(RgbChannel::Green) * 255.0) as u8
         }
@@ -513,8 +513,8 @@ mod tests {
         };
         let vertical_stride = 2;
         let vertical_edge_threshold = 16;
-        let vertical_median_mode = MedianMode::Disabled;
-        let vertical_edge_detection_source = EdgeDetectionSource::Luminance;
+        let vertical_median_mode = MedianModeParameters::Disabled;
+        let vertical_edge_detection_source = EdgeDetectionSourceParameters::Luminance;
         let horizon_y_minimum = 0.0;
         let scan_line = new_vertical_scan_line(
             &image,
@@ -551,9 +551,9 @@ mod tests {
             &field_color,
             0,
             2,
-            EdgeDetectionSource::Luminance,
+            EdgeDetectionSourceParameters::Luminance,
             1,
-            MedianMode::Disabled,
+            MedianModeParameters::Disabled,
             0.0,
             &[],
         );
@@ -578,9 +578,9 @@ mod tests {
             &field_color,
             0,
             2,
-            EdgeDetectionSource::Luminance,
+            EdgeDetectionSourceParameters::Luminance,
             1,
-            MedianMode::ThreePixels,
+            MedianModeParameters::ThreePixels,
             0.0,
             &[],
         );
@@ -615,9 +615,9 @@ mod tests {
             &field_color,
             0,
             2,
-            EdgeDetectionSource::Luminance,
+            EdgeDetectionSourceParameters::Luminance,
             1,
-            MedianMode::Disabled,
+            MedianModeParameters::Disabled,
             0.0,
             &[],
         );
@@ -661,9 +661,9 @@ mod tests {
             &field_color,
             0,
             2,
-            EdgeDetectionSource::Luminance,
+            EdgeDetectionSourceParameters::Luminance,
             1,
-            MedianMode::Disabled,
+            MedianModeParameters::Disabled,
             0.0,
             &[],
         );
@@ -721,9 +721,9 @@ mod tests {
             &field_color,
             0,
             2,
-            EdgeDetectionSource::Luminance,
+            EdgeDetectionSourceParameters::Luminance,
             1,
-            MedianMode::Disabled,
+            MedianModeParameters::Disabled,
             0.0,
             &[],
         );
@@ -789,9 +789,9 @@ mod tests {
             &field_color,
             0,
             2,
-            EdgeDetectionSource::Luminance,
+            EdgeDetectionSourceParameters::Luminance,
             1,
-            MedianMode::ThreePixels,
+            MedianModeParameters::ThreePixels,
             0.0,
             &[],
         );
@@ -858,9 +858,9 @@ mod tests {
             &field_color,
             0,
             2,
-            EdgeDetectionSource::Luminance,
+            EdgeDetectionSourceParameters::Luminance,
             1,
-            MedianMode::Disabled,
+            MedianModeParameters::Disabled,
             0.0,
             &[],
         );
@@ -933,9 +933,9 @@ mod tests {
             &field_color,
             0,
             2,
-            EdgeDetectionSource::Luminance,
+            EdgeDetectionSourceParameters::Luminance,
             1,
-            MedianMode::ThreePixels,
+            MedianModeParameters::ThreePixels,
             0.0,
             &[],
         );
@@ -1075,9 +1075,9 @@ mod tests {
             &field_color,
             0,
             2,
-            EdgeDetectionSource::Luminance,
+            EdgeDetectionSourceParameters::Luminance,
             1,
-            MedianMode::Disabled,
+            MedianModeParameters::Disabled,
             0.0,
             &[],
         );
@@ -1261,9 +1261,9 @@ mod tests {
             &field_color,
             0,
             2,
-            EdgeDetectionSource::Luminance,
+            EdgeDetectionSourceParameters::Luminance,
             1,
-            MedianMode::ThreePixels,
+            MedianModeParameters::ThreePixels,
             0.0,
             &[],
         );
@@ -1334,9 +1334,9 @@ mod tests {
             &field_color,
             0,
             2,
-            EdgeDetectionSource::Luminance,
+            EdgeDetectionSourceParameters::Luminance,
             1,
-            MedianMode::Disabled,
+            MedianModeParameters::Disabled,
             0.0,
             &[],
         );
@@ -1407,9 +1407,9 @@ mod tests {
             &field_color,
             0,
             2,
-            EdgeDetectionSource::Luminance,
+            EdgeDetectionSourceParameters::Luminance,
             1,
-            MedianMode::ThreePixels,
+            MedianModeParameters::ThreePixels,
             0.0,
             &[],
         );

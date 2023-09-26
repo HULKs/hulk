@@ -1,8 +1,8 @@
 use framework::AdditionalOutput;
 use nalgebra::Point2;
 use types::{
-    parameters::LostBall as LostBallParameters, rotate_towards, HeadMotion, MotionCommand,
-    OrientationMode, PathObstacle, WorldState,
+    parameters::LostBallParameters, rotate_towards, HeadMotion, MotionCommand, OrientationMode,
+    PathObstacle, WorldState,
 };
 
 use super::walk_to_pose::WalkPathPlanner;

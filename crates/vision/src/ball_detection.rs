@@ -6,8 +6,8 @@ use hardware::PathsInterface;
 use nalgebra::{point, vector, Vector2};
 use projection::Projection;
 use types::{
-    parameters::BallDetection as BallDetectionParameters, ycbcr422_image::YCbCr422Image, Ball,
-    CameraMatrix, CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
+    parameters::BallDetectionParameters, ycbcr422_image::YCbCr422Image, Ball, CameraMatrix,
+    CandidateEvaluation, Circle, PerspectiveGridCandidates, Rectangle,
 };
 
 pub const SAMPLE_SIZE: usize = 32;

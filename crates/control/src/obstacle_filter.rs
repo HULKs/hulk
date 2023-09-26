@@ -9,8 +9,8 @@ use nalgebra::{distance, point, Isometry2, Matrix2, Point2};
 use types::{
     detected_feet::DetectedFeet, detected_robots::DetectedRobots,
     multivariate_normal_distribution::MultivariateNormalDistribution, obstacle_filter::Hypothesis,
-    parameters::ObstacleFilter as ObstacleFilterParameters, CycleTime, FieldDimensions, Obstacle,
-    ObstacleKind, PrimaryState, SonarObstacle,
+    parameters::ObstacleFilterParameters, CycleTime, FieldDimensions, Obstacle, ObstacleKind,
+    PrimaryState, SonarObstacle,
 };
 
 pub struct ObstacleFilter {

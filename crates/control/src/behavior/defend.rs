@@ -4,8 +4,8 @@ use framework::AdditionalOutput;
 use nalgebra::{distance, point, vector, Isometry2, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
-    parameters::RolePositions, rotate_towards, BallState, FieldDimensions, GameControllerState,
-    Line, MotionCommand, PathObstacle, Side, WorldState,
+    parameters::RolePositionsParameters, rotate_towards, BallState, FieldDimensions,
+    GameControllerState, Line, MotionCommand, PathObstacle, Side, WorldState,
 };
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};
@@ -13,7 +13,7 @@ use super::{head::LookAction, walk_to_pose::WalkAndStand};
 pub struct Defend<'cycle> {
     world_state: &'cycle WorldState,
     field_dimensions: &'cycle FieldDimensions,
-    role_positions: &'cycle RolePositions,
+    role_positions: &'cycle RolePositionsParameters,
     walk_and_stand: &'cycle WalkAndStand<'cycle>,
     look_action: &'cycle LookAction<'cycle>,
 }
@@ -22,7 +22,7 @@ impl<'cycle> Defend<'cycle> {
     pub fn new(
         world_state: &'cycle WorldState,
         field_dimensions: &'cycle FieldDimensions,
-        role_positions: &'cycle RolePositions,
+        role_positions: &'cycle RolePositionsParameters,
         walk_and_stand: &'cycle WalkAndStand,
         look_action: &'cycle LookAction,
     ) -> Self {
@@ -90,7 +90,7 @@ impl<'cycle> Defend<'cycle> {
 fn defend_left_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
-    role_positions: &RolePositions,
+    role_positions: &RolePositionsParameters,
 ) -> Option<Isometry2<f32>> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let ball = world_state
@@ -119,7 +119,7 @@ fn defend_left_pose(
 fn defend_right_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
-    role_positions: &RolePositions,
+    role_positions: &RolePositionsParameters,
 ) -> Option<Isometry2<f32>> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let ball = world_state
@@ -148,7 +148,7 @@ fn defend_right_pose(
 fn defend_penalty_kick(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
-    role_positions: &RolePositions,
+    role_positions: &RolePositionsParameters,
 ) -> Option<Isometry2<f32>> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let ball = world_state
@@ -178,7 +178,7 @@ fn defend_penalty_kick(
 fn defend_goal_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
-    role_positions: &RolePositions,
+    role_positions: &RolePositionsParameters,
 ) -> Option<Isometry2<f32>> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let ball = world_state
@@ -217,7 +217,7 @@ fn defend_goal_pose(
 fn defend_kick_off_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
-    role_positions: &RolePositions,
+    role_positions: &RolePositionsParameters,
 ) -> Option<Isometry2<f32>> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let absolute_ball_position = match world_state.ball {
