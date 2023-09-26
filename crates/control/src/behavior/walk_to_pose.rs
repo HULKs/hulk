@@ -3,7 +3,7 @@ use framework::AdditionalOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex};
 use types::{
     direct_path,
-    parameters::{PathPlanning as PathPlanningParameters, WalkAndStand as WalkAndStandParameters},
+    parameters::{PathPlanningParameters, WalkAndStandParameters},
     ArmMotion, FieldDimensions, HeadMotion, MotionCommand, Obstacle, OrientationMode, PathObstacle,
     PathSegment, RuleObstacle, Side, WorldState,
 };

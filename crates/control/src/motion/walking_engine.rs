@@ -8,7 +8,7 @@ use log::warn;
 use nalgebra::{Isometry3, Point3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
-    parameters::{KickSteps, StepPlanner, WalkingEngine as WalkingEngineParameters},
+    parameters::{KickStepsParameters, StepPlannerParameters, WalkingEngineParameters},
     ArmJoints, BodyJoints, BodyJointsCommand, CycleTime, InertialMeasurementUnitData, KickVariant,
     LegJoints, MotionCommand, MotionSafeExits, MotionType, RobotKinematics, SensorData, Side, Step,
     StepAdjustment, WalkCommand,
@@ -122,8 +122,8 @@ pub struct CycleContext {
     // TODO: ask hendrik how to do that
     // walking_engine: AdditionalOutput<WalkingEngine, "walking_engine">,
     config: Parameter<WalkingEngineParameters, "walking_engine">,
-    step_planner_config: Parameter<StepPlanner, "step_planner">,
-    kick_steps: Parameter<KickSteps, "kick_steps">,
+    step_planner_config: Parameter<StepPlannerParameters, "step_planner">,
+    kick_steps: Parameter<KickStepsParameters, "kick_steps">,
 
     motion_safe_exits: PersistentState<MotionSafeExits, "motion_safe_exits">,
     walk_return_offset: PersistentState<Step, "walk_return_offset">,
@@ -405,7 +405,7 @@ impl WalkingEngine {
         walk_command: WalkCommand,
         swing_side: Side,
         config: &WalkingEngineParameters,
-        kick_steps: &KickSteps,
+        kick_steps: &KickStepsParameters,
     ) {
         self.left_foot_t0 = self.left_foot;
         self.right_foot_t0 = self.right_foot;

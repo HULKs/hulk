@@ -2,14 +2,16 @@ use framework::AdditionalOutput;
 use nalgebra::Point2;
 use spl_network_messages::Team;
 use std::f32::consts::PI;
-use types::{parameters::Dribbling, GameControllerState, PathObstacle, PathSegment, WorldState};
+use types::{
+    parameters::DribblingParameters, GameControllerState, PathObstacle, PathSegment, WorldState,
+};
 
 use crate::behavior::walk_to_pose::WalkPathPlanner;
 
 pub fn plan(
     walk_path_planner: &WalkPathPlanner,
     world_state: &WorldState,
-    dribbling_parameters: &Dribbling,
+    dribbling_parameters: &DribblingParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
 ) -> Option<Vec<PathSegment>> {
     let kick_decisions = world_state.kick_decisions.as_ref()?;

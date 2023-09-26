@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use framework::AdditionalOutput;
-use types::{parameters::Behavior, PathSegment};
+use types::{parameters::BehaviorParameters, PathSegment};
 
 use std::time::Duration;
 
@@ -14,7 +14,7 @@ pub struct CycleContext {
 
     time_to_reach_kick_position: PersistentState<Duration, "time_to_reach_kick_position">,
 
-    configuration: Parameter<Behavior, "behavior">,
+    configuration: Parameter<BehaviorParameters, "behavior">,
 
     stand_up_back_estimated_remaining_duration:
         Input<Option<Duration>, "stand_up_back_estimated_remaining_duration?">,

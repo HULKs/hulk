@@ -1,7 +1,7 @@
 use nalgebra::{Isometry2, Point2};
 
 use types::{
-    parameters::{Dribbling, InWalkKickInfo, InWalkKicks},
+    parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
     rotate_towards, HeadMotion, MotionCommand,
     OrientationMode::{self, AlignWithPath},
     PathSegment, WorldState,
@@ -13,8 +13,8 @@ use super::walk_to_pose::{hybrid_alignment, WalkPathPlanner};
 pub fn execute(
     world_state: &WorldState,
     walk_path_planner: &WalkPathPlanner,
-    in_walk_kicks: &InWalkKicks,
-    parameters: &Dribbling,
+    in_walk_kicks: &InWalkKicksParameters,
+    parameters: &DribblingParameters,
     dribble_path: Option<Vec<PathSegment>>,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
@@ -75,7 +75,10 @@ pub fn execute(
     }
 }
 
-fn is_kick_pose_reached(kick_pose_to_robot: Isometry2<f32>, kick_info: &InWalkKickInfo) -> bool {
+fn is_kick_pose_reached(
+    kick_pose_to_robot: Isometry2<f32>,
+    kick_info: &InWalkKickInfoParameters,
+) -> bool {
     let is_x_reached = kick_pose_to_robot.translation.x.abs() < kick_info.reached_thresholds.x;
     let is_y_reached = kick_pose_to_robot.translation.y.abs() < kick_info.reached_thresholds.y;
     let is_orientation_reached =

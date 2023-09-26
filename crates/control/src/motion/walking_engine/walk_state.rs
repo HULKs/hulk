@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{parameters::KickSteps, KickVariant, Side, Step, WalkCommand};
+use types::{parameters::KickStepsParameters, KickVariant, Side, Step, WalkCommand};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub enum WalkState {
@@ -22,7 +22,7 @@ impl WalkState {
         self,
         requested_walk_action: WalkCommand,
         swing_side: Side,
-        kick_steps: &KickSteps,
+        kick_steps: &KickStepsParameters,
     ) -> Self {
         match (self, requested_walk_action) {
             (WalkState::Standing, WalkCommand::Stand) => WalkState::Standing,

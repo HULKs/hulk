@@ -9,10 +9,7 @@ use rustfft::{
     num_traits::Zero,
     Fft, FftPlanner,
 };
-use types::{
-    parameters::WhistleDetection as WhistleDetectionParameters, samples::Samples, DetectionInfo,
-    Whistle,
-};
+use types::{parameters::WhistleDetectionParameters, samples::Samples, DetectionInfo, Whistle};
 
 pub const AUDIO_SAMPLE_RATE: u32 = 44100;
 pub const NUMBER_OF_AUDIO_CHANNELS: usize = 4;

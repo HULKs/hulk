@@ -9,7 +9,7 @@ use spl_network_messages::{
 use std::time::{Duration, SystemTime};
 use types::{
     messages::{IncomingMessage, OutgoingMessage},
-    parameters::SplNetwork,
+    parameters::SplNetworkParameters,
     BallPosition, CycleTime, FallState, FieldDimensions, GameControllerState, InitialPose, Players,
     PrimaryState, Role,
 };
@@ -47,7 +47,7 @@ pub struct CycleContext {
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
     player_number: Parameter<PlayerNumber, "player_number">,
-    spl_network: Parameter<SplNetwork, "spl_network">,
+    spl_network: Parameter<SplNetworkParameters, "spl_network">,
 
     hardware: HardwareInterface,
 }

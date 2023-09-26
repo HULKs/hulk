@@ -9,8 +9,8 @@ use projection::Projection;
 use types::{
     ball_filter::Hypothesis, is_above_limbs,
     multivariate_normal_distribution::MultivariateNormalDistribution,
-    parameters::BallFilter as BallFilterConfiguration, Ball, BallPosition, CameraMatrices,
-    CameraMatrix, Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs,
+    parameters::BallFilterParameters as BallFilterConfiguration, Ball, BallPosition,
+    CameraMatrices, CameraMatrix, Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs,
 };
 
 pub struct BallFilter {
