@@ -130,7 +130,7 @@ impl_Interpolate!(f32, ArmJoints<f32>, PI);
 
 impl<T> ArmJoints<T>
 where
-    T: Clone,
+    T: Clone + Default,
 {
     pub fn fill(value: T) -> Self {
         Self {
@@ -138,8 +138,8 @@ where
             shoulder_roll: value.clone(),
             elbow_yaw: value.clone(),
             elbow_roll: value.clone(),
-            wrist_yaw: value.clone(),
-            hand: value,
+            wrist_yaw: value,
+            hand: Default::default(),
         }
     }
 
@@ -415,7 +415,7 @@ pub struct BodyJoints<T> {
 
 impl<T> BodyJoints<T>
 where
-    T: Clone,
+    T: Clone + Default,
 {
     pub fn fill(value: T) -> Self {
         Self {
@@ -429,7 +429,7 @@ where
 
 impl<T> BodyJoints<T>
 where
-    T: Clone,
+    T: Clone + Default,
 {
     pub fn fill_mirrored(arm: T, leg: T) -> Self {
         Self {
@@ -526,7 +526,7 @@ pub struct Joints<T> {
 
 impl<T> Joints<T>
 where
-    T: Clone,
+    T: Clone + Default,
 {
     pub fn fill(value: T) -> Self {
         Self {
