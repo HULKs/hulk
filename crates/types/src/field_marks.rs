@@ -2,7 +2,10 @@ use nalgebra::{distance, point, vector, Point2, Vector2};
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
-use super::{FieldDimensions, Line, Line2};
+use crate::{
+    field_dimensions::FieldDimensions,
+    line::{Line, Line2},
+};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum FieldMark {

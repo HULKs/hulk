@@ -1,5 +1,5 @@
 use nalgebra::{Const, Dyn, Matrix, Owned, SVector};
-use types::FieldDimensions;
+use types::field_dimensions::FieldDimensions;
 
 use crate::{
     corrections::{Corrections, AMOUNT_OF_PARAMETERS},

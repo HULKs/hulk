@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use super::{KickVariant, Side, Step};
+use crate::{motion_command::KickVariant, step_plan::Step, support_foot::Side};
 
 pub type Strength = f32;
 

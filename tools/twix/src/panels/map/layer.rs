@@ -5,7 +5,7 @@ use convert_case::{Case, Casing};
 use eframe::egui::Ui;
 
 use serde_json::{json, Value};
-use types::FieldDimensions;
+use types::field_dimensions::FieldDimensions;
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 

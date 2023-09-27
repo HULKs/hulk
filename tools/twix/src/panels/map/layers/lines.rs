@@ -5,7 +5,7 @@ use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::Isometry2;
 
-use types::{FieldDimensions, Line2};
+use types::{field_dimensions::FieldDimensions, line::Line2};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,

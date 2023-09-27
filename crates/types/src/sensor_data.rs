@@ -2,7 +2,7 @@ use nalgebra::{Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use super::Joints;
+use crate::joints::Joints;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct InertialMeasurementUnitData {

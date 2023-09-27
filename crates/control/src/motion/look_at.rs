@@ -5,9 +5,10 @@ use context_attribute::context;
 use framework::MainOutput;
 use kinematics::{head_to_neck, neck_to_robot};
 use nalgebra::{distance, point, vector, Isometry3, Point2};
+use types::motion_command::{GlanceDirection, HeadMotion};
 use types::{
-    CameraMatrices, CameraPosition, CycleTime, GlanceDirection, HeadJoints, HeadMotion, Joints,
-    MotionCommand, SensorData,
+    camera_matrix::CameraMatrices, camera_position::CameraPosition, cycle_time::CycleTime,
+    joints::HeadJoints, joints::Joints, motion_command::MotionCommand, sensor_data::SensorData,
 };
 
 pub struct LookAt {

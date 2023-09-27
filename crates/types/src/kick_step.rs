@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use super::Step;
+use crate::step_plan::Step;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct JointOverride {

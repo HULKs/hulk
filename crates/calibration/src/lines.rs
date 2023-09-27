@@ -1,6 +1,9 @@
 use nalgebra::Point2;
 use projection::Projection;
-use types::{CameraMatrix, Line, Line2};
+use types::{
+    camera_matrix::CameraMatrix,
+    line::{Line, Line2},
+};
 
 #[derive(Clone)]
 pub struct Lines {

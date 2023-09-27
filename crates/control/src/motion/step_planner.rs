@@ -2,7 +2,11 @@ use color_eyre::{eyre::eyre, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{Isometry2, UnitComplex};
-use types::{MotionCommand, OrientationMode, PathSegment, Step};
+use types::{
+    motion_command::{MotionCommand, OrientationMode},
+    planned_path::PathSegment,
+    step_plan::Step,
+};
 
 pub struct StepPlanner {}
 

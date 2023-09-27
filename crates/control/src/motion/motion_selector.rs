@@ -1,7 +1,10 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{Facing, JumpDirection, MotionCommand, MotionSafeExits, MotionSelection, MotionType};
+use types::{
+    motion_command::{Facing, JumpDirection, MotionCommand},
+    motion_selection::{MotionSafeExits, MotionSelection, MotionType},
+};
 
 pub struct MotionSelector {
     current_motion: MotionType,

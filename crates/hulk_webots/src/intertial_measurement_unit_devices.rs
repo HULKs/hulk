@@ -1,6 +1,6 @@
 use color_eyre::{eyre::WrapErr, Result};
 use nalgebra::vector;
-use types::InertialMeasurementUnitData;
+use types::sensor_data::InertialMeasurementUnitData;
 use webots::{Accelerometer, Gyro, InertialUnit, Robot};
 
 use super::hardware_interface::SIMULATION_TIME_STEP;

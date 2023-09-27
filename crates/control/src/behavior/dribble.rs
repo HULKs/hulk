@@ -1,10 +1,11 @@
 use nalgebra::{Isometry2, Point2};
 
 use types::{
+    geometry::rotate_towards,
+    motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
-    rotate_towards, HeadMotion, MotionCommand,
-    OrientationMode::{self, AlignWithPath},
-    PathSegment, WorldState,
+    planned_path::PathSegment,
+    world_state::WorldState,
 };
 
 use super::walk_to_pose::{hybrid_alignment, WalkPathPlanner};
@@ -59,7 +60,9 @@ pub fn execute(
         parameters.distance_to_be_aligned,
     );
     let orientation_mode = match hybrid_orientation_mode {
-        AlignWithPath if ball_position.coords.norm() > 0.0 => {
+        types::motion_command::OrientationMode::AlignWithPath
+            if ball_position.coords.norm() > 0.0 =>
+        {
             OrientationMode::Override(rotate_towards(Point2::origin(), ball_position))
         }
         orientation_mode => orientation_mode,

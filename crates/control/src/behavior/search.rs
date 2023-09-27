@@ -1,8 +1,12 @@
 use framework::AdditionalOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex};
 use types::{
-    parameters::SearchParameters, FieldDimensions, HeadMotion, MotionCommand, OrientationMode,
-    PathObstacle, Side, WorldState,
+    field_dimensions::FieldDimensions,
+    motion_command::{HeadMotion, MotionCommand, OrientationMode},
+    parameters::SearchParameters,
+    path_obstacles::PathObstacle,
+    support_foot::Side,
+    world_state::WorldState,
 };
 
 use super::walk_to_pose::{WalkAndStand, WalkPathPlanner};

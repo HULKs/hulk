@@ -8,10 +8,17 @@ use log::warn;
 use nalgebra::{Isometry3, Point3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
+    cycle_time::CycleTime,
+    joints::{ArmJoints, BodyJoints, BodyJointsCommand, LegJoints},
+    motion_command::{KickVariant, MotionCommand},
+    motion_selection::{MotionSafeExits, MotionType},
     parameters::{KickStepsParameters, StepPlannerParameters, WalkingEngineParameters},
-    ArmJoints, BodyJoints, BodyJointsCommand, CycleTime, InertialMeasurementUnitData, KickVariant,
-    LegJoints, MotionCommand, MotionSafeExits, MotionType, RobotKinematics, SensorData, Side, Step,
-    StepAdjustment, WalkCommand,
+    robot_kinematics::RobotKinematics,
+    sensor_data::{InertialMeasurementUnitData, SensorData},
+    step_adjustment::StepAdjustment,
+    step_plan::Step,
+    support_foot::Side,
+    walk_command::WalkCommand,
 };
 
 use self::{

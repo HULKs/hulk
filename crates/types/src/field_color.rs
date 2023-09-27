@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use super::{Intensity, Rgb, RgbChannel, YCbCr444};
+use crate::color::{Intensity, Rgb, RgbChannel, YCbCr444};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct FieldColor {

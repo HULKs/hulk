@@ -4,7 +4,10 @@ use framework::MainOutput;
 use hardware::PathsInterface;
 use motionfile::{MotionFile, MotionInterpolator};
 use types::{
-    ConditionInput, CycleTime, Joints, JointsCommand, MotionSafeExits, MotionSelection, MotionType,
+    condition_input::ConditionInput,
+    cycle_time::CycleTime,
+    joints::{Joints, JointsCommand},
+    motion_selection::{MotionSafeExits, MotionSelection, MotionType},
 };
 
 pub struct SitDown {

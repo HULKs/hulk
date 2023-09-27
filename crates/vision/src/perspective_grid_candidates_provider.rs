@@ -6,8 +6,13 @@ use framework::MainOutput;
 use nalgebra::{point, vector, Point2, Vector2};
 use projection::Projection;
 use types::{
-    ycbcr422_image::YCbCr422Image, CameraMatrix, Circle, FilteredSegments, LineData,
-    PerspectiveGridCandidates, ScanLine, Segment,
+    camera_matrix::CameraMatrix,
+    filtered_segments::FilteredSegments,
+    geometry::Circle,
+    image_segments::{ScanLine, Segment},
+    line_data::LineData,
+    perspective_grid_candidates::PerspectiveGridCandidates,
+    ycbcr422_image::YCbCr422Image,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -168,7 +173,11 @@ mod tests {
 
     use approx::assert_relative_eq;
     use nalgebra::{vector, Isometry3, Translation, UnitQuaternion};
-    use types::{CameraMatrix, EdgeType, Intensity, ScanLine, Segment, YCbCr444};
+    use types::{
+        camera_matrix::CameraMatrix,
+        color::{Intensity, YCbCr444},
+        image_segments::EdgeType,
+    };
 
     use super::*;
 

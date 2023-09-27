@@ -2,7 +2,7 @@ use corrections::Corrections;
 use levenberg_marquardt::LevenbergMarquardt;
 use measurement::Measurement;
 use problem::CalibrationProblem;
-use types::FieldDimensions;
+use types::field_dimensions::FieldDimensions;
 
 pub mod corrections;
 pub mod jacobian;

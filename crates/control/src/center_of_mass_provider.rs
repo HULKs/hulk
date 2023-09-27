@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{Point, Point3};
-use types::{RobotKinematics, RobotMass};
+use types::{robot_kinematics::RobotKinematics, robot_masses::RobotMass};
 
 pub struct CenterOfMassProvider {}
 

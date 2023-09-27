@@ -6,9 +6,17 @@ use framework::MainOutput;
 use nalgebra::Isometry2;
 use spl_network_messages::HulkMessage;
 use types::{
+    ball_position::BallPosition,
+    cycle_time::CycleTime,
+    fall_state::FallState,
+    filtered_game_state::FilteredGameState,
+    game_controller_state::GameControllerState,
+    joints::HeadJoints,
+    obstacles::Obstacle,
     parameters::{BallFilterParameters, CameraMatrixParameters, LookAtParameters},
-    BallPosition, CycleTime, FallState, FilteredGameState, GameControllerState, HeadJoints,
-    Obstacle, PenaltyShotDirection, PrimaryState, SensorData,
+    penalty_shot_direction::PenaltyShotDirection,
+    primary_state::PrimaryState,
+    sensor_data::SensorData,
 };
 
 pub struct FakeData {}

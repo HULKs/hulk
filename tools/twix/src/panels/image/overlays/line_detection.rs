@@ -3,7 +3,8 @@ use std::str::FromStr;
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput};
 use eframe::epaint::{Color32, Stroke};
-use types::ImageLines;
+use types::line_data::ImageLines;
+use types::line_data::LineDiscardReason;
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -32,10 +33,10 @@ impl Overlay for LineDetection {
         }
         for (line, reason) in lines_in_image.discarded_lines {
             let color = match reason {
-                types::LineDiscardReason::TooFewPoints => Color32::YELLOW,
-                types::LineDiscardReason::LineTooShort => Color32::GRAY,
-                types::LineDiscardReason::LineTooLong => Color32::BROWN,
-                types::LineDiscardReason::TooFarAway => Color32::BLACK,
+                LineDiscardReason::TooFewPoints => Color32::YELLOW,
+                LineDiscardReason::LineTooShort => Color32::GRAY,
+                LineDiscardReason::LineTooLong => Color32::BROWN,
+                LineDiscardReason::TooFarAway => Color32::BLACK,
             };
             painter.line_segment(line.0, line.1, Stroke::new(3.0, color));
         }

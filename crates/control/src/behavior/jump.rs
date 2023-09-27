@@ -1,4 +1,8 @@
-use types::{JumpDirection, MotionCommand, PenaltyShotDirection, WorldState};
+use types::{
+    motion_command::{JumpDirection, MotionCommand},
+    penalty_shot_direction::PenaltyShotDirection,
+    world_state::WorldState,
+};
 
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     world_state

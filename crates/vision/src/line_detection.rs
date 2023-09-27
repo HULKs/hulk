@@ -7,8 +7,12 @@ use nalgebra::{distance, point, vector, Point2, Vector2};
 use ordered_float::NotNan;
 use projection::Projection;
 use types::{
-    ycbcr422_image::YCbCr422Image, CameraMatrix, EdgeType, FilteredSegments, ImageLines, Line,
-    LineData, LineDiscardReason, Segment,
+    camera_matrix::CameraMatrix,
+    filtered_segments::FilteredSegments,
+    image_segments::{EdgeType, Segment},
+    line::Line,
+    line_data::{ImageLines, LineData, LineDiscardReason},
+    ycbcr422_image::YCbCr422Image,
 };
 
 use crate::ransac::{Ransac, RansacResult};
@@ -169,7 +173,8 @@ impl LineDetection {
             }
 
             let is_too_far = *context.check_line_distance
-                && line_in_robot.center().coords.norm() > *context.maximum_distance_to_robot;
+                && nalgebra::Normed::norm(&line_in_robot.center().coords)
+                    > *context.maximum_distance_to_robot;
             if is_too_far {
                 image_lines
                     .discarded_lines
@@ -326,7 +331,11 @@ fn is_segment_shorter_than(
 #[cfg(test)]
 mod tests {
     use nalgebra::{vector, Isometry3, Translation, UnitQuaternion};
-    use types::{Intensity, ScanGrid, ScanLine, Segment, YCbCr422, YCbCr444};
+    use types::{
+        color::YCbCr444,
+        color::{Intensity, YCbCr422},
+        image_segments::{ScanGrid, ScanLine},
+    };
 
     use super::*;
 

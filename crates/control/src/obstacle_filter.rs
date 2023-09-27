@@ -7,10 +7,16 @@ use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use itertools::{chain, iproduct};
 use nalgebra::{distance, point, Isometry2, Matrix2, Point2};
 use types::{
-    detected_feet::DetectedFeet, detected_robots::DetectedRobots,
-    multivariate_normal_distribution::MultivariateNormalDistribution, obstacle_filter::Hypothesis,
-    parameters::ObstacleFilterParameters, CycleTime, FieldDimensions, Obstacle, ObstacleKind,
-    PrimaryState, SonarObstacle,
+    cycle_time::CycleTime,
+    detected_feet::DetectedFeet,
+    detected_robots::DetectedRobots,
+    field_dimensions::FieldDimensions,
+    multivariate_normal_distribution::MultivariateNormalDistribution,
+    obstacle_filter::Hypothesis,
+    obstacles::{Obstacle, ObstacleKind},
+    parameters::ObstacleFilterParameters,
+    primary_state::PrimaryState,
+    sonar_obstacle::SonarObstacle,
 };
 
 pub struct ObstacleFilter {

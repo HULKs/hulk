@@ -24,11 +24,14 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use types::{
     audio::SpeakerRequest,
+    camera_position::CameraPosition,
     hardware::{Ids, Paths},
+    joints::Joints,
+    led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
+    sensor_data::SensorData,
     ycbcr422_image::YCbCr422Image,
-    CameraPosition, Joints, Leds, SensorData,
 };
 use webots::Robot;
 

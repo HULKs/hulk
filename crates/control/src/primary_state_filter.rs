@@ -5,7 +5,10 @@ use hardware::SpeakerInterface;
 use spl_network_messages::PlayerNumber;
 use types::{
     audio::{Sound, SpeakerRequest},
-    Buttons, FilteredGameState, GameControllerState, PrimaryState,
+    buttons::Buttons,
+    filtered_game_state::FilteredGameState,
+    game_controller_state::GameControllerState,
+    primary_state::PrimaryState,
 };
 
 pub struct PrimaryStateFilter {

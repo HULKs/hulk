@@ -1,14 +1,15 @@
 use std::fmt::Debug;
 use std::time::Duration;
 
-use crate::condition::{ContinuousConditionType, DiscreteConditionType, Response, TimeOut};
-use crate::timed_spline::{InterpolatorError, TimedSpline};
-use crate::Condition;
-use crate::MotionFile;
+use crate::{
+    condition::{ContinuousConditionType, DiscreteConditionType, Response, TimeOut},
+    timed_spline::{InterpolatorError, TimedSpline},
+    Condition, MotionFile,
+};
 use color_eyre::{Report, Result};
 use itertools::Itertools;
 use splines::Interpolate;
-use types::ConditionInput;
+use types::condition_input::ConditionInput;
 
 #[derive(Debug, Default)]
 pub struct ConditionedSpline<T> {

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use types::FieldDimensions;
+use types::field_dimensions::FieldDimensions;
 
 use crate::{nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter};
 

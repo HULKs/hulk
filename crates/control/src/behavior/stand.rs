@@ -1,7 +1,12 @@
 use nalgebra::{point, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
-    FieldDimensions, GameControllerState, HeadMotion, MotionCommand, PrimaryState, Role, WorldState,
+    field_dimensions::FieldDimensions,
+    game_controller_state::GameControllerState,
+    motion_command::{HeadMotion, MotionCommand},
+    primary_state::PrimaryState,
+    roles::Role,
+    world_state::WorldState,
 };
 
 pub fn execute(

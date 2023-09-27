@@ -3,7 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use color_eyre::Result;
 
 use communication::client::CyclerOutput;
-use types::Players;
+use types::players::Players;
 
 use crate::{nao::Nao, value_buffer::ValueBuffer};
 

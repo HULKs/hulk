@@ -2,7 +2,7 @@ use nalgebra::Vector3;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::FallState;
+use crate::fall_state::FallState;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize, SerializeHierarchy)]
 pub struct ConditionInput {

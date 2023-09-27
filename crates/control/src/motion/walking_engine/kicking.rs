@@ -1,5 +1,8 @@
 use std::time::Duration;
-use types::{JointOverride, KickStep, LegJoints};
+use types::{
+    joints::LegJoints,
+    kick_step::{JointOverride, KickStep},
+};
 
 pub fn apply_joint_overrides(
     kick_step: &KickStep,

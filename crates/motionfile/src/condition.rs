@@ -4,7 +4,7 @@ use crate::{FallenAbort, StabilizedCondition};
 
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
-use types::ConditionInput;
+use types::condition_input::ConditionInput;
 
 pub enum Response {
     Abort,

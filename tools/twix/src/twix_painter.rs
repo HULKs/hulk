@@ -6,7 +6,11 @@ use eframe::{
     epaint::{Color32, PathShape, Rounding, Shape, Stroke},
 };
 use nalgebra::{point, vector, Isometry2, Point2, Rotation2, SMatrix, Similarity2, Vector2};
-use types::{Arc, Circle, FieldDimensions, Orientation, PathSegment};
+use types::{
+    field_dimensions::FieldDimensions,
+    geometry::{Arc, Circle, Orientation},
+    planned_path::PathSegment,
+};
 
 pub enum CoordinateSystem {
     RightHand,

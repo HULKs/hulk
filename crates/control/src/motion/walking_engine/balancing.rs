@@ -3,7 +3,10 @@ use std::time::Duration;
 use filtering::hysteresis::{greater_than_with_hysteresis, less_than_with_hysteresis};
 use framework::AdditionalOutput;
 use nalgebra::Vector2;
-use types::{parameters::WalkingEngineParameters, LegJoints, Side, StepAdjustment};
+use types::{
+    joints::LegJoints, parameters::WalkingEngineParameters, step_adjustment::StepAdjustment,
+    support_foot::Side,
+};
 
 use super::{engine::parabolic_return, foot_offsets::FootOffsets};
 

@@ -1,4 +1,4 @@
-use crate::Joints;
+use crate::joints::Joints;
 use std::time::Duration;
 
 pub type JointsVelocity = Joints<f32>;

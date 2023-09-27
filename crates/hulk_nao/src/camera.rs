@@ -10,7 +10,7 @@ use color_eyre::{
 };
 use nao_camera::{reset_camera_device, Camera as NaoCamera, Parameters, PollingError};
 use parking_lot::Mutex;
-use types::{ycbcr422_image::YCbCr422Image, CameraPosition};
+use types::{camera_position::CameraPosition, ycbcr422_image::YCbCr422Image};
 
 pub struct Camera {
     camera: Option<NaoCamera>,

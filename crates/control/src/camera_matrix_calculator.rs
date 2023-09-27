@@ -4,8 +4,13 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, vector, Isometry3, Rotation3, UnitQuaternion, Vector3};
 use projection::Projection;
 use types::{
-    parameters::CameraMatrixParameters, CameraMatrices, CameraMatrix, CameraPosition,
-    FieldDimensions, Line, Line2, ProjectedFieldLines, RobotDimensions, RobotKinematics,
+    camera_matrix::{CameraMatrices, CameraMatrix, ProjectedFieldLines},
+    camera_position::CameraPosition,
+    field_dimensions::FieldDimensions,
+    line::{Line, Line2},
+    parameters::CameraMatrixParameters,
+    robot_dimensions::RobotDimensions,
+    robot_kinematics::RobotKinematics,
 };
 
 pub struct CameraMatrixCalculator {}

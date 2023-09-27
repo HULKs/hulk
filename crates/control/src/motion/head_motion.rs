@@ -4,8 +4,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use types::{
-    CycleTime, HeadJoints, HeadJointsCommand, HeadMotion as HeadMotionCommand, MotionCommand,
-    SensorData,
+    cycle_time::CycleTime,
+    joints::{HeadJoints, HeadJointsCommand},
+    motion_command::{HeadMotion as HeadMotionCommand, MotionCommand},
+    sensor_data::SensorData,
 };
 
 #[derive(Default)]

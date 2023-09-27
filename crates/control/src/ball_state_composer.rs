@@ -7,8 +7,9 @@ use framework::MainOutput;
 use nalgebra::{point, Isometry2, Point2, Vector2};
 use spl_network_messages::{SubState, Team};
 use types::{
-    BallPosition, BallState, CycleTime, FieldDimensions, GameControllerState, PenaltyShotDirection,
-    PrimaryState, Side,
+    ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
+    game_controller_state::GameControllerState, penalty_shot_direction::PenaltyShotDirection,
+    primary_state::PrimaryState, support_foot::Side, world_state::BallState,
 };
 
 pub struct BallStateComposer {

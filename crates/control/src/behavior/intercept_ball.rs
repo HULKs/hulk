@@ -1,8 +1,15 @@
 use nalgebra::{Isometry2, Point2, UnitComplex};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
-    parameters::InterceptBallParameters, BallState, FilteredGameState, GameControllerState,
-    HeadMotion, Line, LineSegment, MotionCommand, OrientationMode, PathSegment, Step, WorldState,
+    filtered_game_state::FilteredGameState,
+    game_controller_state::GameControllerState,
+    geometry::LineSegment,
+    line::Line,
+    motion_command::{HeadMotion, MotionCommand, OrientationMode},
+    parameters::InterceptBallParameters,
+    planned_path::PathSegment,
+    step_plan::Step,
+    world_state::{BallState, WorldState},
 };
 
 pub fn execute(
@@ -68,8 +75,8 @@ pub fn execute(
                     camera: None,
                 },
                 path,
-                left_arm: types::ArmMotion::Swing,
-                right_arm: types::ArmMotion::Swing,
+                left_arm: types::motion_command::ArmMotion::Swing,
+                right_arm: types::motion_command::ArmMotion::Swing,
                 orientation_mode: OrientationMode::Override(UnitComplex::default()),
             })
         }

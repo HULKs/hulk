@@ -5,13 +5,15 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Isometry2};
 use types::{
+    camera_matrix::CameraMatrix,
+    color::{Intensity, Rgb, RgbChannel, YCbCr444},
+    field_color::FieldColor,
     horizon::Horizon,
+    image_segments::{EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
     interpolated::Interpolated,
-    is_above_limbs,
+    limb::{is_above_limbs, Limb, ProjectedLimbs},
     parameters::{EdgeDetectionSourceParameters, MedianModeParameters},
     ycbcr422_image::YCbCr422Image,
-    CameraMatrix, EdgeType, FieldColor, ImageSegments, Intensity, Limb, ProjectedLimbs, Rgb,
-    RgbChannel, ScanGrid, ScanLine, Segment, YCbCr444,
 };
 
 pub struct ImageSegmenter {
@@ -494,7 +496,7 @@ fn detect_edge(
 #[cfg(test)]
 mod tests {
     use itertools::iproduct;
-    use types::YCbCr422;
+    use types::color::YCbCr422;
 
     use super::*;
 

@@ -7,7 +7,11 @@ use eframe::{
 use nalgebra::{point, Point2};
 use serde_json::Value;
 use std::{ops::RangeInclusive, str::FromStr, sync::Arc};
-use types::{CameraPosition, FieldDimensions, HeadMotion, MotionCommand};
+use types::{
+    camera_position::CameraPosition,
+    field_dimensions::FieldDimensions,
+    motion_command::{HeadMotion, MotionCommand},
+};
 
 #[derive(PartialEq)]
 enum LookAtType {

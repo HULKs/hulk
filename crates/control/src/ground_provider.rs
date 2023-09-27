@@ -2,7 +2,11 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{vector, Isometry3, Translation, Vector3};
-use types::{RobotKinematics, SensorData, Side, SupportFoot};
+use types::{
+    robot_kinematics::RobotKinematics,
+    sensor_data::SensorData,
+    support_foot::{Side, SupportFoot},
+};
 
 pub struct GroundProvider {}
 

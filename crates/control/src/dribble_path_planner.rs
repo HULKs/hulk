@@ -3,7 +3,8 @@ use nalgebra::Point2;
 use spl_network_messages::Team;
 use std::f32::consts::PI;
 use types::{
-    parameters::DribblingParameters, GameControllerState, PathObstacle, PathSegment, WorldState,
+    game_controller_state::GameControllerState, parameters::DribblingParameters,
+    path_obstacles::PathObstacle, planned_path::PathSegment, world_state::WorldState,
 };
 
 use crate::behavior::walk_to_pose::WalkPathPlanner;
