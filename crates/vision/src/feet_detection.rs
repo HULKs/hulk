@@ -9,8 +9,12 @@ use itertools::Itertools;
 use nalgebra::{distance, point, Point2};
 use projection::Projection;
 use types::{
+    ball::Ball,
+    camera_matrix::CameraMatrix,
     detected_feet::{ClusterPoint, CountedCluster, DetectedFeet},
-    Ball, CameraMatrix, EdgeType, FilteredSegments, LineData, ScanLine, Segment,
+    filtered_segments::FilteredSegments,
+    image_segments::{EdgeType, ScanLine, Segment},
+    line_data::LineData,
 };
 
 pub struct FeetDetection {}

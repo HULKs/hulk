@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use super::{Intensity, YCbCr444};
+use crate::color::{Intensity, YCbCr444};
 
 #[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct ImageSegments {

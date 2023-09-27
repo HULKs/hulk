@@ -4,7 +4,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use hardware::{SensorInterface, TimeInterface};
-use types::{CycleTime, Joints, SensorData};
+use types::{cycle_time::CycleTime, joints::Joints, sensor_data::SensorData};
 
 pub struct SensorDataReceiver {
     last_cycle_start: SystemTime,

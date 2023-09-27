@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
-use types::{CycleTime, SolePressure};
+use types::{cycle_time::CycleTime, sole_pressure::SolePressure};
 
 pub struct GroundContactDetector {
     last_has_pressure: bool,

@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::tap_detector::TapDetector;
 use framework::MainOutput;
-use types::{Buttons, CycleTime, SensorData};
+use types::{buttons::Buttons, cycle_time::CycleTime, sensor_data::SensorData};
 
 pub struct ButtonFilter {
     chest_button_tap_detector: TapDetector,

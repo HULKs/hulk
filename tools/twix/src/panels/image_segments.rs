@@ -7,7 +7,11 @@ use eframe::{
 };
 use nalgebra::{point, vector, Similarity2};
 use serde_json::Value;
-use types::{CameraPosition, ImageSegments, Rgb, RgbChannel};
+use types::{
+    camera_position::CameraPosition,
+    color::{Rgb, RgbChannel},
+    image_segments::ImageSegments,
+};
 
 use crate::{nao::Nao, panel::Panel, twix_painter::CoordinateSystem, value_buffer::ValueBuffer};
 
@@ -177,9 +181,9 @@ impl Widget for &mut ImageSegmentsPanel {
                 let visualized_color = match self.color_mode {
                     ColorMode::Original => original_color,
                     ColorMode::FieldColor => match segment.field_color {
-                        types::Intensity::Low => original_color,
-                        types::Intensity::Medium => medium_color,
-                        types::Intensity::High => high_color,
+                        types::color::Intensity::Low => original_color,
+                        types::color::Intensity::Medium => medium_color,
+                        types::color::Intensity::High => high_color,
                     },
                     ColorMode::Y => Color32::from_gray(ycbcr_color.y),
                     ColorMode::Cb => Color32::from_gray(ycbcr_color.cb),

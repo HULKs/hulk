@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, GameState, Penalty, SubState, Team};
 
-use super::Players;
+use crate::players::Players;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct GameControllerState {

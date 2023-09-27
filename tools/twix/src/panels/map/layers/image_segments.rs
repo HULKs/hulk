@@ -5,7 +5,7 @@ use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{point, vector, Isometry2, Point2};
 use projection::Projection;
-use types::{CameraMatrix, FieldDimensions, Rgb};
+use types::{camera_matrix::CameraMatrix, color::Rgb, field_dimensions::FieldDimensions};
 
 use crate::{panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer};
 
@@ -62,7 +62,7 @@ fn paint_segments(
     painter: &TwixPainter,
     robot_to_field: Isometry2<f32>,
     camera_matrix: &CameraMatrix,
-    segments: &types::ImageSegments,
+    segments: &types::image_segments::ImageSegments,
 ) -> Result<()> {
     for scanline in &segments.scan_grid.vertical_scan_lines {
         let x = scanline.position as f32;
@@ -89,7 +89,7 @@ fn paint_segments(
 
 fn project_segment_to_field(
     x: f32,
-    segment: &types::Segment,
+    segment: &types::image_segments::Segment,
     camera_matrix: &CameraMatrix,
     robot_to_field: Isometry2<f32>,
 ) -> Result<(Point2<f32>, Point2<f32>, f32)> {

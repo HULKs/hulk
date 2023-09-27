@@ -4,8 +4,15 @@ use framework::MainOutput;
 use nalgebra::{Isometry2, Point2};
 use spl_network_messages::PlayerNumber;
 use types::{
-    BallState, FallState, FilteredGameState, GameControllerState, KickDecision, Obstacle,
-    PrimaryState, RobotState, Role, RuleObstacle, WorldState,
+    fall_state::FallState,
+    filtered_game_state::FilteredGameState,
+    game_controller_state::GameControllerState,
+    kick_decision::KickDecision,
+    obstacles::Obstacle,
+    primary_state::PrimaryState,
+    roles::Role,
+    rule_obstacles::RuleObstacle,
+    world_state::{BallState, RobotState, WorldState},
 };
 
 pub struct WorldStateComposer {}

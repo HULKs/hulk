@@ -1,5 +1,5 @@
 use color_eyre::{eyre::WrapErr, Result};
-use types::{Foot, ForceSensitiveResistors};
+use types::sensor_data::{Foot, ForceSensitiveResistors};
 use webots::{Robot, TouchSensor};
 
 use super::hardware_interface::SIMULATION_TIME_STEP;

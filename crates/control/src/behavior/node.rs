@@ -6,11 +6,22 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2, Vector2};
 use spl_network_messages::{GamePhase, GameState, SubState, Team};
 use types::{
+    action::Action,
+    cycle_time::CycleTime,
+    field_dimensions::FieldDimensions,
+    filtered_game_state::FilteredGameState,
+    game_controller_state::GameControllerState,
+    motion_command::MotionCommand,
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, LostBallParameters,
     },
-    Action, CycleTime, FieldDimensions, FilteredGameState, GameControllerState, MotionCommand,
-    PathObstacle, PathSegment, PrimaryState, Role, Side, Step, WorldState,
+    path_obstacles::PathObstacle,
+    planned_path::PathSegment,
+    primary_state::PrimaryState,
+    roles::Role,
+    step_plan::Step,
+    support_foot::Side,
+    world_state::WorldState,
 };
 
 use crate::dribble_path_planner;

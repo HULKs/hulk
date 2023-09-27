@@ -1,5 +1,8 @@
 use spl_network_messages::GamePhase;
-use types::{GameControllerState, MotionCommand, PrimaryState, WorldState};
+use types::{
+    game_controller_state::GameControllerState, motion_command::MotionCommand,
+    primary_state::PrimaryState, world_state::WorldState,
+};
 
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     match (
@@ -14,7 +17,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
             _,
         ) => None,
         (_, PrimaryState::Ready | PrimaryState::Playing) => Some(MotionCommand::Stand {
-            head: types::HeadMotion::LookAround,
+            head: types::motion_command::HeadMotion::LookAround,
             is_energy_saving: false,
         }),
         _ => None,

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
 use serde_json::{json, Value};
-use types::Step;
+use types::step_plan::Step;
 
 use crate::{nao::Nao, panel::Panel};
 

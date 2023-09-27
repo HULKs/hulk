@@ -4,8 +4,15 @@ use framework::AdditionalOutput;
 use nalgebra::{distance, point, vector, Isometry2, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
-    parameters::RolePositionsParameters, rotate_towards, BallState, FieldDimensions,
-    GameControllerState, Line, MotionCommand, PathObstacle, Side, WorldState,
+    field_dimensions::FieldDimensions,
+    game_controller_state::GameControllerState,
+    geometry::rotate_towards,
+    line::Line,
+    motion_command::MotionCommand,
+    parameters::RolePositionsParameters,
+    path_obstacles::PathObstacle,
+    support_foot::Side,
+    world_state::{BallState, WorldState},
 };
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};

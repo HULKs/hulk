@@ -15,7 +15,7 @@ use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::{DecodeJpeg, EncodeJpeg, SerializeHierarchy};
 
-use crate::{Rgb, YCbCr422, YCbCr444};
+use crate::color::{Rgb, YCbCr422, YCbCr444};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(as_jpeg)]

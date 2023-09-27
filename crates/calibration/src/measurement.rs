@@ -1,4 +1,4 @@
-use types::{CameraMatrix, CameraPosition};
+use types::{camera_matrix::CameraMatrix, camera_position::CameraPosition};
 
 use crate::lines::Lines;
 

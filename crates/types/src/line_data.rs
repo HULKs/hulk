@@ -4,7 +4,7 @@ use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use super::Line2;
+use crate::line::Line2;
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct LineData {

@@ -3,7 +3,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use splines::{Interpolate, Interpolation, Key, Spline};
 use thiserror::Error;
-use types::{Joints, JointsVelocity};
+use types::{joints::Joints, joints_velocity::JointsVelocity};
 
 use std::{fmt::Debug, time::Duration};
 

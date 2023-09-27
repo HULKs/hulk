@@ -8,10 +8,17 @@ use spl_network_messages::{
 };
 use std::time::{Duration, SystemTime};
 use types::{
+    ball_position::BallPosition,
+    cycle_time::CycleTime,
+    fall_state::FallState,
+    field_dimensions::FieldDimensions,
+    game_controller_state::GameControllerState,
+    initial_pose::InitialPose,
     messages::{IncomingMessage, OutgoingMessage},
     parameters::SplNetworkParameters,
-    BallPosition, CycleTime, FallState, FieldDimensions, GameControllerState, InitialPose, Players,
-    PrimaryState, Role,
+    players::Players,
+    primary_state::PrimaryState,
+    roles::Role,
 };
 
 use crate::localization::generate_initial_pose;

@@ -1,4 +1,4 @@
-use types::{ArmJoints, HeadJoints, Joints, LegJoints};
+use types::joints::{ArmJoints, HeadJoints, Joints, LegJoints};
 use webots::{Motor, PositionSensor, Robot};
 
 use super::hardware_interface::SIMULATION_TIME_STEP;

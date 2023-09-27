@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use framework::AdditionalOutput;
-use types::{parameters::BehaviorParameters, PathSegment};
+use types::{parameters::BehaviorParameters, planned_path::PathSegment};
 
 use std::time::Duration;
 

@@ -1,4 +1,4 @@
-use types::{HeadMotion, WorldState};
+use types::{motion_command::HeadMotion, world_state::WorldState};
 
 #[derive(Debug)]
 pub struct LookAction<'cycle> {

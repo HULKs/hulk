@@ -2,9 +2,7 @@ use nalgebra::{Point2, UnitComplex};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::CameraPosition;
-
-use super::{PathSegment, Side};
+use crate::{camera_position::CameraPosition, planned_path::PathSegment, support_foot::Side};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum OrientationMode {

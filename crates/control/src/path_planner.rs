@@ -4,8 +4,13 @@ use ordered_float::NotNan;
 use smallvec::SmallVec;
 
 use types::{
-    Arc, Circle, FieldDimensions, LineSegment, MotionCommand, Obstacle, Orientation, PathObstacle,
-    PathObstacleShape, PathSegment, RuleObstacle,
+    field_dimensions::FieldDimensions,
+    geometry::{Arc, Circle, LineSegment, Orientation},
+    motion_command::{MotionCommand, OrientationMode},
+    obstacles::Obstacle,
+    path_obstacles::{PathObstacle, PathObstacleShape},
+    planned_path::PathSegment,
+    rule_obstacles::RuleObstacle,
 };
 
 use crate::a_star::{a_star_search, DynamicMap};
@@ -50,7 +55,7 @@ impl PathPlanner {
                 path,
                 ..
             } => match *orientation_mode {
-                types::OrientationMode::AlignWithPath => path.first().map(|segment| {
+                OrientationMode::AlignWithPath => path.first().map(|segment| {
                     let direction = match segment {
                         PathSegment::LineSegment(line_segment) => line_segment.1.coords,
                         PathSegment::Arc(arc, orientation) => orientation
@@ -67,7 +72,7 @@ impl PathPlanner {
                         )
                     }
                 }),
-                types::OrientationMode::Override(orientation) => Some(orientation),
+                OrientationMode::Override(orientation) => Some(orientation),
             },
             _ => None,
         };
@@ -548,7 +553,7 @@ mod tests {
     use nalgebra::point;
 
     use super::*;
-    use types::Circle;
+    use types::geometry::Circle;
 
     fn run_test_scenario(
         start: Point2<f32>,

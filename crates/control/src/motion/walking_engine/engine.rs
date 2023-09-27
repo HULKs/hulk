@@ -1,5 +1,5 @@
 use nalgebra::{Isometry3, Vector3};
-use types::{RobotDimensions, Side};
+use types::{robot_dimensions::RobotDimensions, support_foot::Side};
 
 use super::foot_offsets::FootOffsets;
 

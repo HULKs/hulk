@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use super::Rgb;
+use crate::color::Rgb;
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Leds {

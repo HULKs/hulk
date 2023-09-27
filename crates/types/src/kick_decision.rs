@@ -2,7 +2,7 @@ use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{KickVariant, Side};
+use crate::{motion_command::KickVariant, support_foot::Side};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
 pub struct KickDecision {

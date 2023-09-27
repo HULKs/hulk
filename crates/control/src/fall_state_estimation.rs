@@ -6,8 +6,10 @@ use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{vector, Isometry3, Translation3, UnitQuaternion, Vector2, Vector3};
 use types::{
-    parameters::FallStateEstimationParameters, Facing, FallDirection, FallState,
-    InertialMeasurementUnitData, SensorData,
+    fall_state::FallState,
+    motion_command::{Facing, FallDirection},
+    parameters::FallStateEstimationParameters,
+    sensor_data::{InertialMeasurementUnitData, SensorData},
 };
 
 pub struct FallStateEstimation {

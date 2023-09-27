@@ -2,7 +2,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{Isometry2, Translation2, UnitComplex, Vector2};
-use types::{RobotKinematics, Side, SupportFoot};
+use types::{
+    robot_kinematics::RobotKinematics,
+    support_foot::{Side, SupportFoot},
+};
 
 pub struct Odometry {
     last_orientation: UnitComplex<f32>,

@@ -3,7 +3,7 @@ use nalgebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use super::{Arc, LineSegment, Orientation};
+use super::geometry::{Arc, LineSegment, Orientation};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, SerializeHierarchy)]
 pub enum PathSegment {

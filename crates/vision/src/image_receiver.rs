@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::CameraInterface;
-use types::{ycbcr422_image::YCbCr422Image, CameraPosition};
+use types::{camera_position::CameraPosition, ycbcr422_image::YCbCr422Image};
 
 pub struct ImageReceiver {}
 

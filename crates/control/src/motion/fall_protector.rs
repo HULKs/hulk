@@ -9,9 +9,14 @@ use hardware::PathsInterface;
 use motionfile::{MotionFile, MotionInterpolator};
 use nalgebra::Vector2;
 use types::{
+    condition_input::ConditionInput,
+    cycle_time::CycleTime,
+    fall_state::FallState,
+    joints::{BodyJoints, HeadJoints, Joints, JointsCommand},
+    motion_command::{FallDirection, MotionCommand},
+    motion_selection::{MotionSafeExits, MotionSelection, MotionType},
     parameters::{FallProtectionParameters, FallStateEstimationParameters},
-    BodyJoints, ConditionInput, CycleTime, FallDirection, FallState, HeadJoints, Joints,
-    JointsCommand, MotionCommand, MotionSafeExits, MotionSelection, MotionType, SensorData,
+    sensor_data::SensorData,
 };
 
 pub struct FallProtector {

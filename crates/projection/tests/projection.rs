@@ -1,7 +1,7 @@
 use approx::assert_relative_eq;
 use nalgebra::{point, vector, Isometry3, Point2, Translation, UnitQuaternion, Vector2};
 use projection::Projection;
-use types::CameraMatrix;
+use types::camera_matrix::CameraMatrix;
 
 fn from_normalized_focal_and_center_short(
     focal_length: Vector2<f32>,

@@ -7,9 +7,16 @@ use itertools::iproduct;
 use nalgebra::{distance, point, vector, Isometry2, Point2, UnitComplex, Vector2};
 use ordered_float::NotNan;
 use types::{
+    cycle_time::CycleTime,
+    field_dimensions::FieldDimensions,
+    geometry::{rotate_towards, Circle, LineSegment, TwoLineSegments},
+    kick_decision::KickDecision,
+    kick_target::KickTarget,
+    motion_command::KickVariant,
+    obstacles::Obstacle,
     parameters::{FindKickTargetsParameters, InWalkKickInfoParameters, InWalkKicksParameters},
-    rotate_towards, BallState, Circle, CycleTime, FieldDimensions, KickDecision, KickTarget,
-    KickVariant, LineSegment, Obstacle, Side, TwoLineSegments,
+    support_foot::Side,
+    world_state::BallState,
 };
 
 pub struct KickSelector {}

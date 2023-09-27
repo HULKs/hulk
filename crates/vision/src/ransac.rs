@@ -1,6 +1,6 @@
 use nalgebra::Point2;
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, SeedableRng};
-use types::{Line, Line2};
+use types::line::{Line, Line2};
 
 #[derive(Default, Debug, PartialEq)]
 pub struct RansacResult {

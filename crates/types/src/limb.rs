@@ -4,7 +4,7 @@ use nalgebra::{point, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use super::Line;
+use crate::line::Line;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Limb {

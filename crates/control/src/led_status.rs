@@ -4,8 +4,15 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use types::{
-    messages::IncomingMessage, Ball, CycleTime, Ear, Eye, FilteredWhistle, Leds, PrimaryState, Rgb,
-    Role, SensorData,
+    ball::Ball,
+    color::Rgb,
+    cycle_time::CycleTime,
+    filtered_whistle::FilteredWhistle,
+    led::{Ear, Eye, Leds},
+    messages::IncomingMessage,
+    primary_state::PrimaryState,
+    roles::Role,
+    sensor_data::SensorData,
 };
 
 pub struct LedStatus {

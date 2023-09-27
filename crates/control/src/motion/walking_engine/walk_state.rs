@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{parameters::KickStepsParameters, KickVariant, Side, Step, WalkCommand};
+use types::{
+    motion_command::KickVariant, parameters::KickStepsParameters, step_plan::Step,
+    support_foot::Side, walk_command::WalkCommand,
+};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub enum WalkState {

@@ -3,7 +3,9 @@ use context_attribute::context;
 use framework::MainOutput;
 use spl_network_messages::GamePhase;
 use types::{
-    BallPosition, FieldDimensions, GameControllerState, PenaltyShotDirection, PrimaryState,
+    ball_position::BallPosition, field_dimensions::FieldDimensions,
+    game_controller_state::GameControllerState, penalty_shot_direction::PenaltyShotDirection,
+    primary_state::PrimaryState,
 };
 
 pub struct PenaltyShotDirectionEstimation {

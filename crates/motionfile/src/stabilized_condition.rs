@@ -3,7 +3,7 @@ use std::{fmt::Debug, time::Duration};
 use crate::condition::{Condition, Response, TimeOut};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use types::ConditionInput;
+use types::condition_input::ConditionInput;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StabilizedCondition {

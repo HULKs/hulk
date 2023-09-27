@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::Side;
+use crate::support_foot::Side;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
 pub enum Mode {

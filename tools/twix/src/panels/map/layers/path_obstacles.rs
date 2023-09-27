@@ -4,7 +4,7 @@ use color_eyre::Result;
 use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::Isometry2;
-use types::{FieldDimensions, PathObstacle};
+use types::{field_dimensions::FieldDimensions, path_obstacles::PathObstacle};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -39,16 +39,17 @@ impl Layer for PathObstacles {
         };
         for path_obstacle in path_obstacles {
             match path_obstacle.shape {
-                types::PathObstacleShape::Circle(circle) => painter.circle_stroke(
+                types::path_obstacles::PathObstacleShape::Circle(circle) => painter.circle_stroke(
                     robot_to_field * circle.center,
                     circle.radius,
                     path_obstacle_stroke,
                 ),
-                types::PathObstacleShape::LineSegment(line_segment) => painter.line_segment(
-                    robot_to_field * line_segment.0,
-                    robot_to_field * line_segment.1,
-                    path_obstacle_stroke,
-                ),
+                types::path_obstacles::PathObstacleShape::LineSegment(line_segment) => painter
+                    .line_segment(
+                        robot_to_field * line_segment.0,
+                        robot_to_field * line_segment.1,
+                        path_obstacle_stroke,
+                    ),
             }
         }
         Ok(())

@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::Isometry2;
-use types::{interpolated::Interpolated, FieldColor};
+use types::{field_color::FieldColor, interpolated::Interpolated};
 
 pub struct FieldColorDetection {
     robot_to_field_of_home_after_coin_toss_before_second_half: Isometry2<f32>,
@@ -85,7 +85,7 @@ impl FieldColorDetection {
 
 #[cfg(test)]
 mod test {
-    use types::{Intensity, YCbCr444};
+    use types::color::{Intensity, YCbCr444};
 
     use super::*;
 

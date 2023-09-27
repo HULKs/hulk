@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use super::{Facing, FallDirection};
+use crate::motion_command::{Facing, FallDirection};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub enum FallState {

@@ -2,7 +2,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
-use types::{SensorData, Side, SupportFoot};
+use types::{
+    sensor_data::SensorData,
+    support_foot::{Side, SupportFoot},
+};
 
 pub struct SupportFootEstimation {
     last_support_side: Side,

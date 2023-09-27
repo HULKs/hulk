@@ -6,8 +6,13 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
-    ArmJoints, HeadJoints, InitialPose, KickStep, KickVariant, LegJoints, MotionCommand, Players,
-    Role, Step,
+    initial_pose::InitialPose,
+    joints::{ArmJoints, HeadJoints, LegJoints},
+    kick_step::KickStep,
+    motion_command::{KickVariant, MotionCommand},
+    players::Players,
+    roles::Role,
+    step_plan::Step,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

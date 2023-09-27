@@ -4,8 +4,12 @@ use framework::MainOutput;
 use nalgebra::{point, vector, Point2};
 use spl_network_messages::{GameState, SubState, Team};
 use types::{
-    BallState, Circle, FieldDimensions, FilteredGameState, GameControllerState, Rectangle,
-    RuleObstacle,
+    field_dimensions::FieldDimensions,
+    filtered_game_state::FilteredGameState,
+    game_controller_state::GameControllerState,
+    geometry::{Circle, Rectangle},
+    rule_obstacles::RuleObstacle,
+    world_state::BallState,
 };
 
 pub struct RuleObstacleComposer {}

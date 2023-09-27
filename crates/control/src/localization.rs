@@ -15,11 +15,17 @@ use nalgebra::{
 use ordered_float::NotNan;
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
 use types::{
-    field_marks_from_field_dimensions,
+    field_dimensions::FieldDimensions,
+    field_marks::{field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldMark},
+    game_controller_state::GameControllerState,
+    initial_pose::InitialPose,
+    line::{Line, Line2},
+    line_data::LineData,
     localization::{ScoredPose, Update},
     multivariate_normal_distribution::MultivariateNormalDistribution,
-    CorrespondencePoints, Direction, FieldDimensions, FieldMark, GameControllerState, InitialPose,
-    Line, Line2, LineData, Players, PrimaryState, Side,
+    players::Players,
+    primary_state::PrimaryState,
+    support_foot::Side,
 };
 
 pub struct Localization {

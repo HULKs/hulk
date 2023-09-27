@@ -1,6 +1,9 @@
 use framework::AdditionalOutput;
 use nalgebra::Isometry2;
-use types::{FieldDimensions, MotionCommand, PathObstacle, WorldState};
+use types::{
+    field_dimensions::FieldDimensions, motion_command::MotionCommand, path_obstacles::PathObstacle,
+    world_state::WorldState,
+};
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};
 

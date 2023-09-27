@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
-    multivariate_normal_distribution::MultivariateNormalDistribution,
-    parameters::BallFilterParameters, BallPosition,
+    ball_position::BallPosition, multivariate_normal_distribution::MultivariateNormalDistribution,
+    parameters::BallFilterParameters,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy)]

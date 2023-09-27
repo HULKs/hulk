@@ -3,8 +3,13 @@ use std::f32::consts::FRAC_PI_4;
 use framework::AdditionalOutput;
 use nalgebra::{point, Isometry2, UnitComplex, Vector2};
 use types::{
-    rotate_towards, BallState, FieldDimensions, FilteredGameState, MotionCommand, PathObstacle,
-    Side, WorldState,
+    field_dimensions::FieldDimensions,
+    filtered_game_state::FilteredGameState,
+    geometry::rotate_towards,
+    motion_command::MotionCommand,
+    path_obstacles::PathObstacle,
+    support_foot::Side,
+    world_state::{BallState, WorldState},
 };
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};

@@ -4,7 +4,7 @@ use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{Isometry2, Point2};
-use types::{obstacle_filter::Hypothesis, FieldDimensions};
+use types::{field_dimensions::FieldDimensions, obstacle_filter::Hypothesis};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,

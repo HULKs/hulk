@@ -1,4 +1,4 @@
-use types::TouchSensors;
+use types::sensor_data::TouchSensors;
 use webots::{Keyboard, Receiver, Robot};
 
 use super::hardware_interface::SIMULATION_TIME_STEP;

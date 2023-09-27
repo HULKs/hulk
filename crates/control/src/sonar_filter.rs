@@ -3,7 +3,10 @@ use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::point;
-use types::{FallState, SensorData, SonarObstacle, SonarValues};
+use types::{
+    fall_state::FallState, sensor_data::SensorData, sonar_obstacle::SonarObstacle,
+    sonar_values::SonarValues,
+};
 
 pub struct SonarFilter {
     filtered_sonar_left: LowPassFilter<f32>,

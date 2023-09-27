@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
-use types::{SensorData, SolePressure};
+use types::{sensor_data::SensorData, sole_pressure::SolePressure};
 
 pub struct SolePressureFilter {
     left_sole_pressure: LowPassFilter<f32>,

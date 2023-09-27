@@ -12,10 +12,10 @@ use itertools::Itertools;
 use nalgebra::{vector, Isometry3, Vector2};
 use projection::Projection;
 use types::{
+    camera_matrix::CameraMatrix,
     detected_robots::{BoundingBox, DetectedRobots},
     grayscale_image::GrayscaleImage,
     ycbcr422_image::YCbCr422Image,
-    CameraMatrix,
 };
 
 const NUMBER_OF_SCALINGS: usize = 4;
