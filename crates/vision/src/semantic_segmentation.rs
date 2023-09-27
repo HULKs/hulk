@@ -3,15 +3,30 @@ use color_eyre::{
     Result,
 };
 use context_attribute::context;
-use framework::MainOutput;
+use framework::AdditionalOutput;
 use hardware::PathsInterface;
+use itertools::Itertools;
+use ndarray::{Array2, Array3, ArrayView};
 use openvino::{Blob, Core, ExecutableNetwork, Layout, Precision, TensorDesc};
-use types::{ycbcr422_image::YCbCr422Image, Rgb};
-use ndarray::{ArrayView, Axis};
+use types::{ycbcr422_image::YCbCr422Image, Rgb, YCbCr422, YCbCr444};
+
+const SEMANTIC_SEGMENTATION_IMAGE_WIDTH: usize = 160;
+const SEMANTIC_SEGMENTATION_IMAGE_HEIGHT: usize = 120;
+const SEMANTIC_SEGMENTATION_NUMBER_CHANNELS: usize = 3;
+
+const SEMANTIC_SEGMENTATION_SCRATCHPAD_SIZE: usize = SEMANTIC_SEGMENTATION_IMAGE_HEIGHT
+    * SEMANTIC_SEGMENTATION_IMAGE_WIDTH
+    * SEMANTIC_SEGMENTATION_NUMBER_CHANNELS;
+type Scratchpad = [f32; SEMANTIC_SEGMENTATION_SCRATCHPAD_SIZE];
+
 pub struct SemanticSegmentation {
-    scratchpad: Vec<f32>,
+    scratchpad: Scratchpad,
     network: ExecutableNetwork,
+
+    input_name: String,
     output_name: String,
+
+    class_frequency: Vec<f32>,
 }
 
 #[context]
@@ -22,13 +37,14 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     image: Input<YCbCr422Image, "image">,
+
+    segmented_image: AdditionalOutput<YCbCr422Image, "segmented_output">,
+    class_frequency: AdditionalOutput<Vec<f32>, "class_frequency">,
 }
 
 #[context]
 #[derive(Default)]
-pub struct MainOutputs {
-    pub segmented_image: MainOutput<Vec<f32>>,
-}
+pub struct MainOutputs {}
 
 impl SemanticSegmentation {
     pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
@@ -50,17 +66,19 @@ impl SemanticSegmentation {
             )
             .wrap_err("failed to create semantic segmentation network")?;
 
-        dbg!(network.get_input_name(0));
         network
             .set_input_layout("data", Layout::NCHW)
             .wrap_err("failed to set input data format")?;
 
+        let input_name = network.get_input_name(0)?;
         let output_name = network.get_output_name(0)?;
 
         Ok(Self {
-            scratchpad: Vec::new(),
+            scratchpad: [0.; SEMANTIC_SEGMENTATION_SCRATCHPAD_SIZE],
             network: core.load_network(&network, "CPU")?,
+            input_name,
             output_name,
+            class_frequency: vec![0.; 4],
         })
     }
 
@@ -73,7 +91,7 @@ impl SemanticSegmentation {
         }
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let image = context.image;
         SemanticSegmentation::downsample_image_into_rgb2::<4>(&mut self.scratchpad, image);
 
@@ -85,31 +103,53 @@ impl SemanticSegmentation {
             SemanticSegmentation::as_bytes(&self.scratchpad[..]),
         )?;
 
-        infer_request.set_blob("data", &blob)?;
+        infer_request.set_blob(&self.input_name, &blob)?;
         infer_request.infer()?;
 
         let mut results = infer_request.get_blob(&self.output_name)?;
         let buffer = unsafe { results.buffer_mut_as_type::<f32>().unwrap().to_vec() };
-        
-        let result = ArrayView::from_shape((4,120,160), &buffer[..])?;
-        let result = result.fold_axis(Axis(0), 0., |acc, e| {
-            if e > acc {
-                *e
-            } else {
-                *acc
-            }
+
+        // let result = Array3::<f32>::from_shape_vec((3, 120, 160), self.scratchpad.to_vec())?;
+        let result = ArrayView::from_shape((4, 120, 160), &buffer[..])?;
+        self.class_frequency = vec![0.; 4];
+        let class_map = Array2::<u8>::from_shape_vec(
+            (120, 160),
+            result
+                .columns()
+                .into_iter()
+                .map(|lane| {
+                    lane.into_iter()
+                        .enumerate()
+                        .max_by(|(_, &value0), (_, &value1)| value0.total_cmp(&value1))
+                        .map(|(idx, _)| {
+                            self.class_frequency[idx] += 1.
+                                / (SEMANTIC_SEGMENTATION_IMAGE_HEIGHT
+                                    * SEMANTIC_SEGMENTATION_IMAGE_WIDTH)
+                                    as f32;
+                            idx as u8
+                        })
+                        .unwrap()
+                })
+                .collect(),
+        )?;
+
+        context.segmented_image.fill_if_subscribed(|| {
+            SemanticSegmentation::map_array_to_image(class_map, |class_index| {
+                match class_index {
+                    0 => Rgb::GREEN,
+                    1 => Rgb::BLACK,
+                    2 => Rgb::WHITE,
+                    3 => Rgb::BLUE,
+                    other => panic!("{other} is not a valid class"),
+                }
+                .into()
+            })
         });
-
-        let buffer = result.iter().chu.map(|a| ).collect()
-
-        dbg!(result.shape());
-
-        Ok(MainOutputs {
-            // TODO: no clone
-            segmented_image: self.scratchpad.clone().into(),
-        })
+        context
+            .class_frequency
+            .fill_if_subscribed(|| self.class_frequency.clone());
+        Ok(MainOutputs {})
     }
-
 
     // pub fn downsample_image_into_rgb<const DOWNSAMPLE_RATIO: usize>(
     //     scratchpad: &mut Vec<Rgb>,
@@ -149,46 +189,54 @@ impl SemanticSegmentation {
     // }
 
     pub fn downsample_image_into_rgb2<const DOWNSAMPLE_RATIO: usize>(
-        scratchpad: &mut Vec<f32>,
+        scratchpad: &mut Scratchpad,
         image: &YCbCr422Image,
     ) {
         let width = image.width() as usize;
         let height = image.height() as usize;
-        scratchpad.clear();
 
         let downsampled_width = width / DOWNSAMPLE_RATIO;
         let downsampled_height = height / DOWNSAMPLE_RATIO;
 
+        assert_eq!(downsampled_height, SEMANTIC_SEGMENTATION_IMAGE_HEIGHT);
+        assert_eq!(downsampled_width, SEMANTIC_SEGMENTATION_IMAGE_WIDTH);
+
+        let mut scratchpad_index = 0;
+        const STRIDE: usize =
+            SEMANTIC_SEGMENTATION_IMAGE_HEIGHT * SEMANTIC_SEGMENTATION_IMAGE_WIDTH;
 
         for row in image.buffer().chunks(width / 2).step_by(DOWNSAMPLE_RATIO) {
             for pixel in row.iter().step_by(DOWNSAMPLE_RATIO / 2) {
-                // dbg!((ridx, cidx));
-                let y = pixel.averaged_y();
-                let centered_cr = pixel.cr as f32 - 128.0;
-                let r = (y as f32 + 1.40200 * centered_cr).clamp(0.0, 255.0);
-                scratchpad.push(r / 255.0);
+                let rgb = Rgb::from(*pixel);
+                scratchpad[scratchpad_index + 0] = rgb.b as f32 / 255.0;
+                scratchpad[scratchpad_index + STRIDE] = rgb.g as f32 / 255.0;
+                scratchpad[scratchpad_index + 2 * STRIDE] = rgb.r as f32 / 255.0;
+                scratchpad_index += 1;
             }
+        }
+        assert_eq!(scratchpad_index, STRIDE);
+    }
+
+    pub fn map_array_to_image<Type: Copy, Mapper: Fn(Type) -> YCbCr444>(
+        array: Array2<Type>,
+        mapper: Mapper,
+    ) -> YCbCr422Image {
+        let [height, width]: [usize; 2] = array
+            .shape()
+            .try_into()
+            .expect("the array shape is incorrect, expected two dimensions");
+
+        let mut buffer = vec![YCbCr422::default(); width as usize / 2 * height as usize];
+
+        for (index, mut chunk) in array.into_iter().chunks(2).into_iter().enumerate() {
+            let color1 = mapper(chunk.next().unwrap());
+            let color2 = mapper(chunk.next().unwrap());
+
+            let color = YCbCr422::from([color1, color2]);
+            buffer[index] = color;
         }
 
-        for row in image.buffer().chunks(width / 2).step_by(DOWNSAMPLE_RATIO) {
-            for pixel in row.iter().step_by(DOWNSAMPLE_RATIO / 2) {
-                let y = pixel.averaged_y();
-                let centered_cr = pixel.cr as f32 - 128.0;
-                let centered_cb = pixel.cb as f32 - 128.0;
-                let g =
-                    (y as f32 - 0.34414 * centered_cb - 0.71414 * centered_cr).clamp(0.0, 255.0);
-                scratchpad.push(g / 255.0);
-            }
-        }
-
-        for row in image.buffer().chunks(width / 2).step_by(DOWNSAMPLE_RATIO) {
-            for pixel in row.iter().step_by(DOWNSAMPLE_RATIO / 2) {
-                let y = pixel.averaged_y();
-                let centered_cb = pixel.cb as f32 - 128.0;
-                let b = (y as f32 + 1.77200 * centered_cb).clamp(0.0, 255.0);
-                scratchpad.push(b / 255.0);
-            }
-        }
+        YCbCr422Image::from_ycbcr_buffer(width as u32 / 2, height as u32, buffer)
     }
 }
 

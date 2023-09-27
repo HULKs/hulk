@@ -29,6 +29,7 @@ mod overlays;
 enum ImageKind {
     YCbCr422,
     Luminance,
+    SemanticSegmentation,
 }
 
 impl ImageKind {
@@ -39,6 +40,9 @@ impl ImageKind {
             },
             ImageKind::Luminance => Output::Additional {
                 path: "robot_detection.luminance_image.jpeg".to_string(),
+            },
+            ImageKind::SemanticSegmentation => Output::Additional {
+                path: "segmented_output.jpeg".to_string(),
             },
         }
     }
@@ -137,6 +141,12 @@ impl Widget for &mut ImagePanel {
                     {
                         image_selection_changed = true;
                     }
+                    if ui
+                        .selectable_value(&mut self.image_kind, ImageKind::SemanticSegmentation, "SemanticSegmentation")
+                        .changed()
+                    {
+                        image_selection_changed = true;
+                    }
                 });
             if image_selection_changed {
                 let output = CyclerOutput {
@@ -165,6 +175,7 @@ impl ImagePanel {
             .get_latest()
             .map_err(|error| eyre!("{error}"))?;
         let image_raw = bincode::deserialize::<Vec<u8>>(&image_data)?;
+
         let image_identifier = format!("bytes://image-{:?}", self.cycler_selector);
         ui.ctx().forget_image(&image_identifier);
         let image = Image::from_bytes(image_identifier, image_raw)
