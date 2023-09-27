@@ -25,8 +25,12 @@ use serialize_hierarchy::SerializeHierarchy;
 use tokio::{select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
 use types::{
-    field_marks_from_field_dimensions, FieldDimensions, FieldMark, GameControllerState, Line,
-    Line2, LineData, PrimaryState,
+    field_dimensions::FieldDimensions,
+    field_marks::{field_marks_from_field_dimensions, FieldMark},
+    game_controller_state::GameControllerState,
+    line::{Line, Line2},
+    line_data::LineData,
+    primary_state::PrimaryState,
 };
 
 #[derive(Parser)]

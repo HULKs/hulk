@@ -9,11 +9,19 @@ use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
+use types::motion_command::{HeadMotion, OrientationMode};
+use types::planned_path::PathSegment;
 use types::{
+    ball_position::BallPosition,
+    filtered_game_state::FilteredGameState,
+    game_controller_state::GameControllerState,
     messages::{IncomingMessage, OutgoingMessage},
-    BallPosition, FilteredGameState, GameControllerState, HeadMotion, KickVariant, LineSegment,
-    MotionCommand, OrientationMode, PathSegment, Players, PrimaryState, Side,
+    motion_command::MotionCommand,
+    players::Players,
+    primary_state::PrimaryState,
+    support_foot::Side,
 };
+use types::{geometry::LineSegment, motion_command::KickVariant};
 
 use crate::{
     cycler::Database,
