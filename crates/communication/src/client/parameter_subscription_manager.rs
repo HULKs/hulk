@@ -47,6 +47,9 @@ pub enum Message {
         path: String,
         value: Value,
     },
+    ListenToUpdates {
+        notification_sender: mpsc::Sender<()>,
+    },
 }
 
 #[derive(Default)]
@@ -64,6 +67,8 @@ pub async fn parameter_subscription_manager(
     let mut manager = SubscriptionManager::default();
     let mut requester = None;
     let mut fields = None;
+    let mut notification_senders: Vec<mpsc::Sender<()>> = Vec::new();
+
     while let Some(message) = receiver.recv().await {
         match message {
             Message::Connect {
@@ -159,6 +164,11 @@ pub async fn parameter_subscription_manager(
                         error!("{error}");
                     }
                 }
+                for sender in &notification_senders {
+                    if let Err(error) = sender.send(()).await {
+                        error!("{error:?}");
+                    };
+                }
             }
             Message::UpdateFields { fields: new_fields } => {
                 fields = Some(new_fields);
@@ -186,6 +196,11 @@ pub async fn parameter_subscription_manager(
                         }
                     }
                 }
+            }
+            Message::ListenToUpdates {
+                notification_sender,
+            } => {
+                notification_senders.push(notification_sender);
             }
         }
     }

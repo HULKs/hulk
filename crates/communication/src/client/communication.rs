@@ -97,6 +97,24 @@ impl Communication {
         subscriber_receiver
     }
 
+    pub async fn on_update(&self) -> mpsc::Receiver<()> {
+        let (notification_sender, notification_receiver) = mpsc::channel(10);
+        self.output_subscription_manager
+            .send(output_subscription_manager::Message::ListenToUpdates {
+                notification_sender: notification_sender.clone(),
+            })
+            .await
+            .unwrap();
+        self.parameter_subscription_manager
+            .send(parameter_subscription_manager::Message::ListenToUpdates {
+                notification_sender,
+            })
+            .await
+            .unwrap();
+
+        notification_receiver
+    }
+
     pub async fn subscribe_output(
         &self,
         output: CyclerOutput,
