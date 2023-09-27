@@ -138,6 +138,10 @@ impl TwixApp {
             connect: false,
         };
         let connection_receiver = nao.subscribe_status_updates();
+        {
+            let context = creation_context.egui_ctx.clone();
+            nao.on_update(move || context.request_repaint());
+        }
 
         let visual = creation_context
             .storage
@@ -167,7 +171,6 @@ impl App for TwixApp {
             self.connection_status = status;
         }
 
-        context.request_repaint();
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {

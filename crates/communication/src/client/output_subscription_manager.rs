@@ -48,6 +48,9 @@ pub enum Message {
     GetOutputFields {
         response_sender: oneshot::Sender<Option<Fields>>,
     },
+    ListenToUpdates {
+        notification_sender: mpsc::Sender<()>,
+    },
 }
 
 #[derive(Default)]
@@ -68,6 +71,7 @@ pub async fn output_subscription_manager(
     let mut fields = None;
     let mut binary_data_waiting_for_references: HashMap<usize, Vec<u8>> = HashMap::new();
     let mut binary_references_waiting_for_data: HashMap<usize, CyclerOutput> = HashMap::new();
+    let mut notification_senders: Vec<mpsc::Sender<()>> = Vec::new();
 
     while let Some(message) = receiver.recv().await {
         match message {
@@ -201,6 +205,11 @@ pub async fn output_subscription_manager(
                         }
                     }
                 }
+                for sender in &notification_senders {
+                    if let Err(error) = sender.send(()).await {
+                        error!("{error:?}");
+                    };
+                }
             }
             Message::UpdateFields { fields: new_fields } => {
                 fields = Some(new_fields);
@@ -230,6 +239,11 @@ pub async fn output_subscription_manager(
                         binary_data_waiting_for_references.insert(reference_id, data);
                     }
                 }
+            }
+            Message::ListenToUpdates {
+                notification_sender: notify_sender,
+            } => {
+                notification_senders.push(notify_sender);
             }
         }
     }

@@ -6,7 +6,11 @@ use communication::{
 };
 
 use serde_json::Value;
-use tokio::runtime::{Builder, Runtime};
+use tokio::{
+    runtime::{Builder, Runtime},
+    spawn,
+    sync::mpsc,
+};
 
 use crate::{image_buffer::ImageBuffer, value_buffer::ValueBuffer};
 
@@ -87,6 +91,21 @@ impl Nao {
     pub fn update_parameter_value(&self, path: &str, value: Value) {
         self.runtime
             .block_on(self.communication.update_parameter_value(path, value));
+    }
+
+    pub fn on_update<F>(&self, f: F)
+    where
+        F: Fn() + Sync + Send + 'static,
+    {
+        let _guard = self.runtime.enter();
+
+        let communication = self.communication.clone();
+        spawn(async move {
+            let mut receiver = communication.on_update().await;
+            while receiver.recv().await.is_some() {
+                f();
+            }
+        });
     }
 }
 
