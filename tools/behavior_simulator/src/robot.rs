@@ -10,7 +10,7 @@ use control::localization::generate_initial_pose;
 use nalgebra::vector;
 use parameters::directory::deserialize;
 use spl_network_messages::PlayerNumber;
-use types::{messages::IncomingMessage, CameraMatrix};
+use types::{camera_matrix::CameraMatrix, messages::IncomingMessage};
 
 use crate::{
     cycler::{BehaviorCycler, Database},
