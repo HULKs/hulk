@@ -89,9 +89,13 @@ impl MotorCommandOptimizer {
             self.position_offset = self.position_offset + Joints::from_iter(position_offset);
         }
 
+        let mut optimized_stiffnesses = commands.stiffnesses;
+        optimized_stiffnesses.left_arm.hand = 0.0;
+        optimized_stiffnesses.right_arm.hand = 0.0;
+
         let optimized_commands = JointsCommand {
             positions: commands.positions + self.position_offset,
-            stiffnesses: commands.stiffnesses,
+            stiffnesses: optimized_stiffnesses,
         };
 
         context
