@@ -21,6 +21,7 @@ pub struct CycleContext {
     joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
 
     maximum_temperature: AdditionalOutput<f32, "maximum_temperature">,
+    total_current: AdditionalOutput<f32, "total_current">,
 }
 
 #[context]
@@ -63,6 +64,10 @@ impl SensorDataReceiver {
                 .flatten()
                 .fold(0.0, f32::max)
         });
+
+        context
+            .total_current
+            .fill_if_subscribed(|| sensor_data.currents.as_vec().into_iter().flatten().sum());
 
         self.last_cycle_start = now;
         Ok(MainOutputs {
