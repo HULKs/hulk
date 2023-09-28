@@ -3,10 +3,12 @@ use context_attribute::context;
 use framework::MainOutput;
 use hardware::CameraInterface;
 use serde::{Deserialize, Serialize};
-use types::{camera_position::CameraPosition, ycbcr422_image::YCbCr422Image};
+use types::{camera_position::CameraPosition, ycbcr422_image::YCbCr422Image, camera_result::SequenceNumber};
 
 #[derive(Deserialize, Serialize)]
-pub struct ImageReceiver {}
+pub struct ImageReceiver {
+    last_sequence_number: SequenceNumber,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -24,15 +26,19 @@ pub struct MainOutputs {
 
 impl ImageReceiver {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_sequence_number: Default::default(),
+        })
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl CameraInterface>) -> Result<MainOutputs> {
-        let image = context
+        let camera_result = context
             .hardware_interface
-            .read_from_camera(*context.camera_position)?;
+            .read_from_camera(*context.camera_position, &self.last_sequence_number)?;
+        self.last_sequence_number = camera_result.sequence_number.clone();
+
         Ok(MainOutputs {
-            image: image.into(),
+            image: camera_result.image.clone().into(),
         })
     }
 }
