@@ -44,40 +44,6 @@ pub struct State {
 }
 
 impl State {
-    pub fn new() -> Self {
-        let robots = HashMap::new();
-
-        let game_controller_state = GameControllerState {
-            game_state: GameState::Initial,
-            game_phase: GamePhase::Normal,
-            kicking_team: Team::Hulks,
-            last_game_state_change: UNIX_EPOCH,
-            penalties: Players {
-                one: None,
-                two: None,
-                three: None,
-                four: None,
-                five: None,
-                six: None,
-                seven: None,
-            },
-            remaining_amount_of_messages: 1200,
-            sub_state: None,
-            hulks_team_is_home_after_coin_toss: false,
-        };
-
-        Self {
-            time_elapsed: Duration::ZERO,
-            cycle_count: 0,
-            robots,
-            ball: None,
-            messages: Vec::new(),
-            finished: false,
-            game_controller_state,
-            filtered_game_state: FilteredGameState::Initial,
-        }
-    }
-
     pub fn cycle(&mut self, time_step: Duration) -> Result<Vec<Event>> {
         let now = UNIX_EPOCH + self.time_elapsed;
 
@@ -325,6 +291,42 @@ impl State {
         self.filtered_game_state = lua_state.filtered_game_state;
 
         Ok(())
+    }
+}
+
+impl Default for State {
+    fn default() -> Self {
+        let robots = HashMap::new();
+
+        let game_controller_state = GameControllerState {
+            game_state: GameState::Initial,
+            game_phase: GamePhase::Normal,
+            kicking_team: Team::Hulks,
+            last_game_state_change: UNIX_EPOCH,
+            penalties: Players {
+                one: None,
+                two: None,
+                three: None,
+                four: None,
+                five: None,
+                six: None,
+                seven: None,
+            },
+            remaining_amount_of_messages: 1200,
+            sub_state: None,
+            hulks_team_is_home_after_coin_toss: false,
+        };
+
+        Self {
+            time_elapsed: Duration::ZERO,
+            cycle_count: 0,
+            robots,
+            ball: None,
+            messages: Vec::new(),
+            finished: false,
+            game_controller_state,
+            filtered_game_state: FilteredGameState::Initial,
+        }
     }
 }
 

@@ -30,7 +30,7 @@ pub struct Simulator {
 
 impl Simulator {
     pub fn try_new() -> Result<Self> {
-        let state = Arc::new(Mutex::new(State::new()));
+        let state = Arc::new(Mutex::new(State::default()));
 
         let lua = Lua::new();
         let create_robot = lua
