@@ -59,8 +59,8 @@ pub struct HardwareInterface {
     paths: Paths,
     spl_network_endpoint: Endpoint,
     async_runtime: Runtime,
-    camera_top: Mutex<Camera>,
-    camera_bottom: Mutex<Camera>,
+    camera_top: Camera,
+    camera_bottom: Camera,
     enable_recording: AtomicBool,
     keep_running: CancellationToken,
 }
@@ -88,24 +88,22 @@ impl HardwareInterface {
                 .block_on(Endpoint::new(parameters.spl_network_ports))
                 .wrap_err("failed to initialize SPL network")?,
             async_runtime: runtime,
-            camera_top: Mutex::new(
-                Camera::new(
-                    "/dev/video-top",
-                    CameraPosition::Top,
-                    parameters.camera_top,
-                    i2c_head_mutex.clone(),
-                )
-                .wrap_err("failed to initialize top camera")?,
-            ),
-            camera_bottom: Mutex::new(
-                Camera::new(
-                    "/dev/video-bottom",
-                    CameraPosition::Bottom,
-                    parameters.camera_bottom,
-                    i2c_head_mutex,
-                )
-                .wrap_err("failed to initialize bottom camera")?,
-            ),
+            camera_top: Camera::new(
+                "/dev/video-top",
+                CameraPosition::Top,
+                parameters.camera_top,
+                i2c_head_mutex.clone(),
+            )
+            .wrap_err("failed to initialize top camera")?,
+
+            camera_bottom: Camera::new(
+                "/dev/video-bottom",
+                CameraPosition::Bottom,
+                parameters.camera_bottom,
+                i2c_head_mutex,
+            )
+            .wrap_err("failed to initialize bottom camera")?,
+
             enable_recording: AtomicBool::new(false),
             keep_running,
         })
@@ -126,10 +124,14 @@ impl ActuatorInterface for HardwareInterface {
 }
 
 impl CameraInterface for HardwareInterface {
-    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image> {
+    fn read_from_camera(
+        &self,
+        camera_position: CameraPosition,
+        client_sequence_number: &SequenceNumber,
+    ) -> Result<CameraResult> {
         match camera_position {
-            CameraPosition::Top => self.camera_top.lock().read(),
-            CameraPosition::Bottom => self.camera_bottom.lock().read(),
+            CameraPosition::Top => self.camera_top.read(client_sequence_number),
+            CameraPosition::Bottom => self.camera_bottom.read(client_sequence_number),
         }
     }
 }

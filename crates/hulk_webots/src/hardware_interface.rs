@@ -24,14 +24,13 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use types::{
     audio::SpeakerRequest,
-    camera_position::CameraPosition,
+    camera_result::{CameraResult, SequenceNumber},
     hardware::{Ids, Paths},
     joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
-    sensor_data::SensorData,
-    ycbcr422_image::YCbCr422Image,
+    sensor_data::SensorData, camera_position::CameraPosition,
 };
 use webots::Robot;
 
@@ -278,7 +277,11 @@ impl ActuatorInterface for HardwareInterface {
 }
 
 impl CameraInterface for HardwareInterface {
-    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image> {
+    fn read_from_camera(
+        &self,
+        camera_position: CameraPosition,
+        _: &SequenceNumber,
+    ) -> Result<CameraResult> {
         let result = match camera_position {
             CameraPosition::Top => {
                 self.top_camera_requested.store(true, Ordering::SeqCst);
@@ -296,7 +299,10 @@ impl CameraInterface for HardwareInterface {
         if self.keep_running.is_cancelled() {
             bail!("termination requested");
         }
-        result
+        Ok(CameraResult {
+            image: result?,
+            sequence_number: Default::default(),
+        })
     }
 }
 

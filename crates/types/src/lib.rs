@@ -7,6 +7,7 @@ pub mod ball_position;
 pub mod buttons;
 pub mod camera_matrix;
 pub mod camera_position;
+pub mod camera_result;
 pub mod color;
 pub mod condition_input;
 pub mod cycle_time;
