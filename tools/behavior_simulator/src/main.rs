@@ -7,20 +7,7 @@ use fern::{Dispatch, InitError};
 use log::LevelFilter;
 use tokio_util::sync::CancellationToken;
 
-mod cycler;
-mod interfake;
-mod robot;
-mod server;
-mod simulator;
-mod state;
-
-use hardware::{NetworkInterface, TimeInterface};
-
-use crate::simulator::Simulator;
-
-pub trait HardwareInterface: TimeInterface + NetworkInterface {}
-
-include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
+use behavior_simulator::{server, simulator::Simulator};
 
 #[derive(Parser)]
 enum Arguments {

@@ -117,25 +117,3 @@ jobs:
         run: |
           cd tools/${{ matrix.path }}
           cargo build --release
-  behavior_simulator:
-    name: Behavior Simulator
-    strategy:
-      matrix:
-        scenario:
-          [
-            tests/behavior/golden_goal.lua
-          ]
-    runs-on:
-      - self-hosted
-      - v3
-    container:
-      image: 134.28.57.223:5000/hulk
-      options: --user=1000:1000
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          lfs: true
-      - name: Build simulator
-        run: cargo build --manifest-path tools/behavior_simulator/Cargo.toml --release
-      - name: Run scenario
-        run: cargo run --manifest-path tools/behavior_simulator/Cargo.toml --release run ${{ matrix.scenario }}
