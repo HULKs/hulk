@@ -48,7 +48,7 @@ impl Camera {
                 0;
                 match self.parameters.format {
                     nao_camera::Format::YUVU =>
-                        (4 * self.parameters.width * self.parameters.height) as usize,
+                        ((4 * self.parameters.width * self.parameters.height) / 2) as usize,
                 }
             ])
             .wrap_err("failed to queue buffer")?;
@@ -96,7 +96,7 @@ impl Camera {
                     0;
                     match self.parameters.format {
                         nao_camera::Format::YUVU =>
-                            (4 * self.parameters.width * self.parameters.height) as usize,
+                            ((4 * self.parameters.width * self.parameters.height) / 2) as usize,
                     }
                 ])
                 .wrap_err("failed to queue buffer")?;
