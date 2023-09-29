@@ -547,6 +547,14 @@ where
             self.right_leg.as_vec(),
         ]
     }
+
+    pub fn as_iter(&self) -> std::vec::IntoIter<Vec<T>> {
+        self.as_vec().into_iter()
+    }
+
+    pub fn as_flat_iter(&self) -> std::iter::Flatten<std::vec::IntoIter<Vec<T>>> {
+        self.as_vec().into_iter().flatten()
+    }
 }
 
 impl<T> Joints<T> {
