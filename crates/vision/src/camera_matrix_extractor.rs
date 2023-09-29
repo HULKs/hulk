@@ -1,7 +1,10 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{CameraMatrices, CameraMatrix, CameraPosition};
+use types::{
+    camera_matrix::{CameraMatrices, CameraMatrix},
+    camera_position::CameraPosition,
+};
 
 pub struct CameraMatrixExtractor {}
 

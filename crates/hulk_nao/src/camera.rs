@@ -10,7 +10,7 @@ use color_eyre::{
 };
 use nao_camera::{reset_camera_device, Camera as NaoCamera, Parameters, PollingError};
 use parking_lot::Mutex;
-use types::{ycbcr422_image::YCbCr422Image, CameraPosition};
+use types::{camera_position::CameraPosition, ycbcr422_image::YCbCr422Image};
 
 pub struct Camera {
     camera: Option<NaoCamera>,
@@ -48,7 +48,7 @@ impl Camera {
                 0;
                 match self.parameters.format {
                     nao_camera::Format::YUVU =>
-                        (4 * self.parameters.width * self.parameters.height) as usize,
+                        ((4 * self.parameters.width * self.parameters.height) / 2) as usize,
                 }
             ])
             .wrap_err("failed to queue buffer")?;
@@ -96,7 +96,7 @@ impl Camera {
                     0;
                     match self.parameters.format {
                         nao_camera::Format::YUVU =>
-                            (4 * self.parameters.width * self.parameters.height) as usize,
+                            ((4 * self.parameters.width * self.parameters.height) / 2) as usize,
                     }
                 ])
                 .wrap_err("failed to queue buffer")?;

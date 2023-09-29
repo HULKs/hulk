@@ -4,8 +4,10 @@ use filtering::orientation_filtering::OrientationFiltering;
 use framework::MainOutput;
 use nalgebra::UnitComplex;
 use types::{
+    cycle_time::CycleTime,
     orientation_filter::{Parameters, State},
-    CycleTime, SensorData, SolePressure,
+    sensor_data::SensorData,
+    sole_pressure::SolePressure,
 };
 
 #[derive(Default)]

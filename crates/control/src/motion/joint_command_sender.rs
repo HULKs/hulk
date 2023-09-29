@@ -3,8 +3,10 @@ use context_attribute::context;
 use framework::AdditionalOutput;
 use hardware::ActuatorInterface;
 use types::{
-    BodyJointsCommand, HeadJointsCommand, Joints, JointsCommand, Leds, MotionSafeExits,
-    MotionSelection, MotionType, SensorData,
+    joints::{BodyJointsCommand, HeadJointsCommand, Joints, JointsCommand},
+    led::Leds,
+    motion_selection::{MotionSafeExits, MotionSelection, MotionType},
+    sensor_data::SensorData,
 };
 
 pub struct JointCommandSender {}

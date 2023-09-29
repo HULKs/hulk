@@ -4,7 +4,10 @@ use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{Isometry2, Point2};
-use types::{multivariate_normal_distribution::MultivariateNormalDistribution, FieldDimensions};
+use types::{
+    field_dimensions::FieldDimensions,
+    multivariate_normal_distribution::MultivariateNormalDistribution,
+};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,

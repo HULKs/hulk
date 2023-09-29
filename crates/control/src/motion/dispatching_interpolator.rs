@@ -4,9 +4,11 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use motionfile::{SplineInterpolator, TimedSpline};
+use types::joints::{BodyJointsCommand, HeadJoints, JointsCommand};
+use types::motion_selection::{MotionSafeExits, MotionType};
 use types::{
-    BodyJointsCommand, CycleTime, HeadJoints, Joints, JointsCommand, MotionSafeExits,
-    MotionSelection, MotionType, SensorData,
+    cycle_time::CycleTime, joints::Joints, motion_selection::MotionSelection,
+    sensor_data::SensorData,
 };
 
 pub struct DispatchingInterpolator {

@@ -6,8 +6,9 @@ use framework::MainOutput;
 use nalgebra::{distance, Isometry2, Point2, Vector2};
 use spl_network_messages::{GamePhase, GameState, Team};
 use types::{
-    parameters::GameStateFilter as GameStateFilterParameters, BallPosition, CycleTime,
-    FieldDimensions, FilteredGameState, FilteredWhistle, GameControllerState,
+    ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
+    filtered_game_state::FilteredGameState, filtered_whistle::FilteredWhistle,
+    game_controller_state::GameControllerState, parameters::GameStateFilterParameters,
 };
 
 pub struct GameStateFilter {

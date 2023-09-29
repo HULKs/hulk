@@ -3,7 +3,7 @@ use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use nalgebra::Vector3;
-use types::{ConditionInput, FallState, SensorData};
+use types::{condition_input::ConditionInput, fall_state::FallState, sensor_data::SensorData};
 
 #[derive(Default)]
 pub struct ConditionInputProvider {

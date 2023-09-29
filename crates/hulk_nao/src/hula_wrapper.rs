@@ -5,7 +5,7 @@ use std::{
 };
 
 use color_eyre::{eyre::WrapErr, Result};
-use types::{hardware::Ids, Joints, Leds, SensorData};
+use types::{hardware::Ids, joints::Joints, led::Leds, sensor_data::SensorData};
 
 use super::{
     double_buffered_reader::{DoubleBufferedReader, SelectPoller},

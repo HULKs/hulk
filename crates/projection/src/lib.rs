@@ -1,6 +1,6 @@
 use nalgebra::{point, vector, Point2, Point3, Vector2, Vector3};
 use thiserror::Error;
-use types::CameraMatrix;
+use types::camera_matrix::CameraMatrix;
 
 #[derive(Debug, Error)]
 pub enum Error {

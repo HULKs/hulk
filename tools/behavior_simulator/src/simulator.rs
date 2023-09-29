@@ -8,7 +8,7 @@ use color_eyre::{
 use mlua::{Error as LuaError, Function, Lua, LuaSerdeExt, SerializeOptions, Value};
 use nalgebra::{Isometry2, Point2, Vector2};
 use parking_lot::Mutex;
-use types::{Obstacle, Players};
+use types::{obstacles::Obstacle, players::Players};
 
 use crate::{
     robot::Robot,

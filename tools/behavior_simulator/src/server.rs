@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use tokio::{net::ToSocketAddrs, select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
-use types::{FieldDimensions, Players};
+use types::{field_dimensions::FieldDimensions, players::Players};
 
 #[derive(Clone, Serialize, Deserialize, SerializeHierarchy)]
 struct Parameters {

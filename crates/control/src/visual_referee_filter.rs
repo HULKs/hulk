@@ -5,9 +5,11 @@ use std::time::Duration;
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use hardware::NetworkInterface;
-use spl_network_messages::VisualRefereeDecision;
-use spl_network_messages::{PlayerNumber, VisualRefereeMessage};
-use types::{messages::OutgoingMessage, CycleTime, FilteredWhistle, PrimaryState};
+use spl_network_messages::{PlayerNumber, VisualRefereeDecision, VisualRefereeMessage};
+use types::{
+    cycle_time::CycleTime, filtered_whistle::FilteredWhistle, messages::OutgoingMessage,
+    primary_state::PrimaryState,
+};
 
 pub struct VisualRefereeFilter {
     last_primary_state: PrimaryState,

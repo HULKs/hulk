@@ -11,7 +11,9 @@ use context_attribute::context;
 use framework::{HistoricInput, PerceptionInput};
 use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
-use types::{GameControllerState, LineData, PrimaryState};
+use types::{
+    game_controller_state::GameControllerState, line_data::LineData, primary_state::PrimaryState,
+};
 
 pub struct LocalizationRecorder {
     recording: Option<BufWriter<File>>,

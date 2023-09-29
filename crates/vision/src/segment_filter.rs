@@ -2,7 +2,12 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::point;
-use types::{FieldBorder, FilteredSegments, ImageSegments, Intensity, ScanGrid, ScanLine, Segment};
+use types::{
+    color::Intensity,
+    field_border::FieldBorder,
+    filtered_segments::FilteredSegments,
+    image_segments::{ImageSegments, ScanGrid, ScanLine, Segment},
+};
 
 pub struct SegmentFilter {}
 

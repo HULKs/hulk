@@ -1,4 +1,4 @@
-use types::SonarSensors;
+use types::sensor_data::SonarSensors;
 use webots::{DistanceSensor, Robot};
 
 use super::hardware_interface::SIMULATION_TIME_STEP;

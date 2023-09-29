@@ -6,9 +6,22 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2, Vector2};
 use spl_network_messages::{GamePhase, GameState, SubState, Team};
 use types::{
-    parameters::{Behavior as BehaviorParameters, InWalkKicks, InterceptBall, LostBall},
-    Action, CycleTime, FieldDimensions, FilteredGameState, GameControllerState, MotionCommand,
-    PathObstacle, PathSegment, PrimaryState, Role, Side, Step, WorldState,
+    action::Action,
+    cycle_time::CycleTime,
+    field_dimensions::FieldDimensions,
+    filtered_game_state::FilteredGameState,
+    game_controller_state::GameControllerState,
+    motion_command::MotionCommand,
+    parameters::{
+        BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, LostBallParameters,
+    },
+    path_obstacles::PathObstacle,
+    planned_path::PathSegment,
+    primary_state::PrimaryState,
+    roles::Role,
+    step_plan::Step,
+    support_foot::Side,
+    world_state::WorldState,
 };
 
 use crate::dribble_path_planner;
@@ -43,10 +56,10 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
 
     parameters: Parameter<BehaviorParameters, "behavior">,
-    in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
+    in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    lost_ball_parameters: Parameter<LostBall, "behavior.lost_ball">,
-    intercept_ball_parameters: Parameter<InterceptBall, "behavior.intercept_ball">,
+    lost_ball_parameters: Parameter<LostBallParameters, "behavior.lost_ball">,
+    intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
     striker_set_position: Parameter<Vector2<f32>, "behavior.role_positions.striker_set_position">,
 }

@@ -10,8 +10,9 @@ use rustfft::{
     Fft, FftPlanner,
 };
 use types::{
-    parameters::WhistleDetection as WhistleDetectionParameters, samples::Samples, DetectionInfo,
-    Whistle,
+    parameters::WhistleDetectionParameters,
+    samples::Samples,
+    whistle::{DetectionInfo, Whistle},
 };
 
 pub const AUDIO_SAMPLE_RATE: u32 = 44100;

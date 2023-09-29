@@ -1,10 +1,11 @@
 use nalgebra::{Isometry2, Point2};
 
 use types::{
-    parameters::{Dribbling, InWalkKickInfo, InWalkKicks},
-    rotate_towards, HeadMotion, MotionCommand,
-    OrientationMode::{self, AlignWithPath},
-    PathSegment, WorldState,
+    geometry::rotate_towards,
+    motion_command::{HeadMotion, MotionCommand, OrientationMode},
+    parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
+    planned_path::PathSegment,
+    world_state::WorldState,
 };
 
 use super::walk_to_pose::{hybrid_alignment, WalkPathPlanner};
@@ -13,8 +14,8 @@ use super::walk_to_pose::{hybrid_alignment, WalkPathPlanner};
 pub fn execute(
     world_state: &WorldState,
     walk_path_planner: &WalkPathPlanner,
-    in_walk_kicks: &InWalkKicks,
-    parameters: &Dribbling,
+    in_walk_kicks: &InWalkKicksParameters,
+    parameters: &DribblingParameters,
     dribble_path: Option<Vec<PathSegment>>,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
@@ -59,7 +60,9 @@ pub fn execute(
         parameters.distance_to_be_aligned,
     );
     let orientation_mode = match hybrid_orientation_mode {
-        AlignWithPath if ball_position.coords.norm() > 0.0 => {
+        types::motion_command::OrientationMode::AlignWithPath
+            if ball_position.coords.norm() > 0.0 =>
+        {
             OrientationMode::Override(rotate_towards(Point2::origin(), ball_position))
         }
         orientation_mode => orientation_mode,
@@ -75,7 +78,10 @@ pub fn execute(
     }
 }
 
-fn is_kick_pose_reached(kick_pose_to_robot: Isometry2<f32>, kick_info: &InWalkKickInfo) -> bool {
+fn is_kick_pose_reached(
+    kick_pose_to_robot: Isometry2<f32>,
+    kick_info: &InWalkKickInfoParameters,
+) -> bool {
     let is_x_reached = kick_pose_to_robot.translation.x.abs() < kick_info.reached_thresholds.x;
     let is_y_reached = kick_pose_to_robot.translation.y.abs() < kick_info.reached_thresholds.y;
     let is_orientation_reached =

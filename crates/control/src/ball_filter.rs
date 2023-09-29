@@ -7,10 +7,16 @@ use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use nalgebra::{matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2};
 use projection::Projection;
 use types::{
-    ball_filter::Hypothesis, is_above_limbs,
+    ball::Ball,
+    ball_filter::Hypothesis,
+    ball_position::BallPosition,
+    camera_matrix::{CameraMatrices, CameraMatrix},
+    cycle_time::CycleTime,
+    field_dimensions::FieldDimensions,
+    geometry::Circle,
+    limb::{is_above_limbs, Limb, ProjectedLimbs},
     multivariate_normal_distribution::MultivariateNormalDistribution,
-    parameters::BallFilter as BallFilterConfiguration, Ball, BallPosition, CameraMatrices,
-    CameraMatrix, Circle, CycleTime, FieldDimensions, Limb, ProjectedLimbs,
+    parameters::BallFilterParameters,
 };
 
 pub struct BallFilter {
@@ -37,7 +43,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    ball_filter_configuration: Parameter<BallFilterConfiguration, "ball_filter">,
+    ball_filter_configuration: Parameter<BallFilterParameters, "ball_filter">,
 
     balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
@@ -176,7 +182,7 @@ impl BallFilter {
         camera_matrices: Option<&CameraMatrices>,
         projected_limbs: Option<&ProjectedLimbs>,
         ball_radius: f32,
-        configuration: &BallFilterConfiguration,
+        configuration: &BallFilterParameters,
     ) {
         for hypothesis in self.hypotheses.iter_mut() {
             let ball_in_view = match (camera_matrices.as_ref(), projected_limbs.as_ref()) {
@@ -252,7 +258,7 @@ impl BallFilter {
         hypothesis: &mut Hypothesis,
         detected_position: Point2<f32>,
         detection_time: SystemTime,
-        configuration: &BallFilterConfiguration,
+        configuration: &BallFilterParameters,
     ) {
         hypothesis.moving_state.update(
             Matrix2x4::identity(),
@@ -278,7 +284,7 @@ impl BallFilter {
         &mut self,
         detected_position: Point2<f32>,
         detection_time: SystemTime,
-        configuration: &BallFilterConfiguration,
+        configuration: &BallFilterParameters,
     ) {
         let mut matching_hypotheses = self
             .hypotheses
@@ -315,7 +321,7 @@ impl BallFilter {
         &mut self,
         detected_position: Point2<f32>,
         detection_time: SystemTime,
-        configuration: &BallFilterConfiguration,
+        configuration: &BallFilterParameters,
     ) {
         let initial_state = vector![
             detected_position.coords.x,
@@ -341,7 +347,7 @@ impl BallFilter {
     fn remove_hypotheses(
         &mut self,
         now: SystemTime,
-        configuration: &BallFilterConfiguration,
+        configuration: &BallFilterParameters,
         field_dimensions: &FieldDimensions,
     ) {
         self.hypotheses.retain(|hypothesis| {
@@ -423,7 +429,7 @@ fn is_visible_to_camera(
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
     projected_limbs: &[Limb],
-    configuration: &BallFilterConfiguration,
+    configuration: &BallFilterParameters,
 ) -> bool {
     let position_on_ground = hypothesis.selected_ball_position(configuration).position;
     let position_in_image =

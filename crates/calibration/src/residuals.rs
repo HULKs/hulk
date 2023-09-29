@@ -1,5 +1,5 @@
 use nalgebra::{DVector, Dyn, Owned, Vector};
-use types::{CameraPosition, FieldDimensions};
+use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
 
 use crate::{corrections::Corrections, lines::LinesError, measurement::Measurement};
 

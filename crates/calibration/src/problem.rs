@@ -1,6 +1,6 @@
 use levenberg_marquardt::LeastSquaresProblem;
 use nalgebra::{Const, Dyn, Owned, SVector};
-use types::FieldDimensions;
+use types::field_dimensions::FieldDimensions;
 
 use crate::{
     corrections::{Corrections, AMOUNT_OF_PARAMETERS},

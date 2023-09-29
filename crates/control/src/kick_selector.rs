@@ -7,9 +7,16 @@ use itertools::iproduct;
 use nalgebra::{distance, point, vector, Isometry2, Point2, UnitComplex, Vector2};
 use ordered_float::NotNan;
 use types::{
-    parameters::{FindKickTargets, InWalkKickInfo, InWalkKicks},
-    rotate_towards, BallState, Circle, CycleTime, FieldDimensions, KickDecision, KickTarget,
-    KickVariant, LineSegment, Obstacle, Side, TwoLineSegments,
+    cycle_time::CycleTime,
+    field_dimensions::FieldDimensions,
+    geometry::{rotate_towards, Circle, LineSegment, TwoLineSegments},
+    kick_decision::KickDecision,
+    kick_target::KickTarget,
+    motion_command::KickVariant,
+    obstacles::Obstacle,
+    parameters::{FindKickTargetsParameters, InWalkKickInfoParameters, InWalkKicksParameters},
+    support_foot::Side,
+    world_state::BallState,
 };
 
 pub struct KickSelector {}
@@ -28,14 +35,14 @@ pub struct CycleContext {
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
-    in_walk_kicks: Parameter<InWalkKicks, "in_walk_kicks">,
+    in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
     angle_distance_weight: Parameter<f32, "kick_selector.angle_distance_weight">,
     max_kick_around_obstacle_angle: Parameter<f32, "kick_selector.max_kick_around_obstacle_angle">,
     kick_pose_obstacle_radius: Parameter<f32, "kick_selector.kick_pose_obstacle_radius">,
     ball_radius_for_kick_target_selection:
         Parameter<f32, "kick_selector.ball_radius_for_kick_target_selection">,
     closer_threshold: Parameter<f32, "kick_selector.closer_threshold">,
-    find_kick_targets: Parameter<FindKickTargets, "kick_selector.find_kick_targets">,
+    find_kick_targets: Parameter<FindKickTargetsParameters, "kick_selector.find_kick_targets">,
 
     default_kick_strength: Parameter<f32, "kick_selector.default_kick_strength">,
     corner_kick_strength: Parameter<f32, "kick_selector.corner_kick_strength">,
@@ -175,7 +182,7 @@ fn generate_obstacle_circles(
 fn generate_decisions_for_instant_kicks(
     sides: &[Side; 2],
     kick_variants: &[KickVariant],
-    in_walk_kicks: &InWalkKicks,
+    in_walk_kicks: &InWalkKicksParameters,
     ball_position: Point2<f32>,
     ball_is_visible: bool,
     obstacle_circles: &[Circle],
@@ -269,7 +276,7 @@ fn collect_kick_targets(
     obstacle_circles: &[Circle],
     ball_position: Point2<f32>,
     max_kick_around_obstacle_angle: f32,
-    parameters: &FindKickTargets,
+    parameters: &FindKickTargetsParameters,
     corner_kick_strength: f32,
 ) -> Vec<KickTarget> {
     let field_to_robot = robot_to_field.inverse();
@@ -338,7 +345,7 @@ fn collect_kick_targets(
 }
 
 fn generate_corner_kick_targets(
-    parameters: &FindKickTargets,
+    parameters: &FindKickTargetsParameters,
     field_dimensions: &FieldDimensions,
     field_to_robot: Isometry2<f32>,
     corner_kick_strength: f32,
@@ -374,7 +381,7 @@ fn generate_goal_line_kick_targets(
 
 fn kick_decisions_from_targets(
     targets_to_kick_to: &[KickTarget],
-    in_walk_kicks: &InWalkKicks,
+    in_walk_kicks: &InWalkKicksParameters,
     variant: KickVariant,
     kicking_side: Side,
     ball_position: Point2<f32>,
@@ -425,7 +432,7 @@ fn mirror_kick_offset(kick_offset: Vector2<f32>) -> Vector2<f32> {
 fn compute_kick_pose(
     ball_position: Point2<f32>,
     target_to_kick_to: Point2<f32>,
-    kick_info: &InWalkKickInfo,
+    kick_info: &InWalkKickInfoParameters,
     side: Side,
 ) -> Isometry2<f32> {
     let kick_rotation = rotate_towards(ball_position, target_to_kick_to);
@@ -445,7 +452,7 @@ fn compute_kick_pose(
 
 fn is_ball_in_opponents_corners(
     ball_position: &Point2<f32>,
-    parameters: &FindKickTargets,
+    parameters: &FindKickTargetsParameters,
     field_dimensions: &FieldDimensions,
     robot_to_field: Isometry2<f32>,
 ) -> bool {

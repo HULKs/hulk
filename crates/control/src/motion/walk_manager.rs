@@ -1,7 +1,12 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{MotionCommand, MotionSelection, MotionType, Step, WalkCommand};
+use types::{
+    motion_command::MotionCommand,
+    motion_selection::{MotionSelection, MotionType},
+    step_plan::Step,
+    walk_command::WalkCommand,
+};
 
 pub struct WalkManager {}
 

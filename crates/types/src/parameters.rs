@@ -6,17 +6,22 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
-    ArmJoints, HeadJoints, InitialPose, KickStep, KickVariant, LegJoints, MotionCommand, Players,
-    Role, Step,
+    initial_pose::InitialPose,
+    joints::{ArmJoints, HeadJoints, LegJoints},
+    kick_step::KickStep,
+    motion_command::{KickVariant, MotionCommand},
+    players::Players,
+    roles::Role,
+    step_plan::Step,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct Audio {
-    pub whistle_detection: WhistleDetection,
+pub struct AudioParameters {
+    pub whistle_detection: WhistleDetectionParameters,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct WhistleDetection {
+pub struct WhistleDetectionParameters {
     pub detection_band: Range<f32>,
     pub background_noise_scaling: f32,
     pub whistle_scaling: f32,
@@ -24,7 +29,7 @@ pub struct WhistleDetection {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct Localization {
+pub struct LocalizationParameters {
     pub circle_measurement_noise: Vector2<f32>,
     pub gradient_convergence_threshold: f32,
     pub gradient_descent_step_size: f32,
@@ -46,7 +51,7 @@ pub struct Localization {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct StepPlanner {
+pub struct StepPlannerParameters {
     pub injected_step: Option<Step>,
     pub max_step_size: Step,
     pub max_step_size_backwards: f32,
@@ -55,39 +60,39 @@ pub struct StepPlanner {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct SupportFootEstimation {
+pub struct SupportFootEstimationParameters {
     pub hysteresis: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct HighDetector {
+pub struct HighDetectorParameters {
     pub pressure_threshold: f32,
     pub hysteresis: f32,
     pub timeout: Duration,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct RoleAssignment {
+pub struct RoleAssignmentParameters {
     pub forced_role: Option<Role>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct Behavior {
+pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
-    pub lost_ball: LostBall,
+    pub lost_ball: LostBallParameters,
     pub optional_roles: Vec<Role>,
-    pub path_planning: PathPlanning,
-    pub role_positions: RolePositions,
-    pub walk_and_stand: WalkAndStand,
-    pub dribbling: Dribbling,
-    pub search: Search,
-    pub look_action: LookAction,
-    pub intercept_ball: InterceptBall,
+    pub path_planning: PathPlanningParameters,
+    pub role_positions: RolePositionsParameters,
+    pub walk_and_stand: WalkAndStandParameters,
+    pub dribbling: DribblingParameters,
+    pub search: SearchParameters,
+    pub look_action: LookActionParameters,
+    pub intercept_ball: InterceptBallParameters,
     pub initial_lookaround_duration: Duration,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct LookAction {
+pub struct LookActionParameters {
     pub angle_threshold: f32,
     pub distance_threshold: f32,
     pub look_forward_position: Point2<f32>,
@@ -95,7 +100,7 @@ pub struct LookAction {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct RolePositions {
+pub struct RolePositionsParameters {
     pub defender_aggressive_ring_radius: f32,
     pub defender_passive_ring_radius: f32,
     pub defender_y_offset: f32,
@@ -114,20 +119,20 @@ pub struct RolePositions {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct Search {
+pub struct SearchParameters {
     pub position_reached_distance: f32,
     pub rotation_per_step: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct InWalkKicks {
-    pub forward: InWalkKickInfo,
-    pub turn: InWalkKickInfo,
-    pub side: InWalkKickInfo,
+pub struct InWalkKicksParameters {
+    pub forward: InWalkKickInfoParameters,
+    pub turn: InWalkKickInfoParameters,
+    pub side: InWalkKickInfoParameters,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct FindKickTargets {
+pub struct FindKickTargetsParameters {
     pub distance_from_corner: f32,
     pub corner_kick_target_distance_to_goal: f32,
     pub emergency_kick_target_angles: Vec<f32>,
@@ -135,8 +140,8 @@ pub struct FindKickTargets {
     pub ball_radius_for_kick_target_selection: f32,
 }
 
-impl Index<KickVariant> for InWalkKicks {
-    type Output = InWalkKickInfo;
+impl Index<KickVariant> for InWalkKicksParameters {
+    type Output = InWalkKickInfoParameters;
 
     fn index(&self, variant: KickVariant) -> &Self::Output {
         match variant {
@@ -148,7 +153,7 @@ impl Index<KickVariant> for InWalkKicks {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct InWalkKickInfo {
+pub struct InWalkKickInfoParameters {
     pub offset: Vector2<f32>,
     pub shot_angle: f32,
     pub reached_thresholds: Vector3<f32>,
@@ -157,7 +162,7 @@ pub struct InWalkKickInfo {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct Dribbling {
+pub struct DribblingParameters {
     pub hybrid_align_distance: f32,
     pub distance_to_be_aligned: f32,
     pub angle_to_approach_ball_from_threshold: f32,
@@ -165,7 +170,7 @@ pub struct Dribbling {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct WalkAndStand {
+pub struct WalkAndStandParameters {
     pub hysteresis: Vector2<f32>,
     pub target_reached_thresholds: Vector2<f32>,
     pub hybrid_align_distance: f32,
@@ -173,12 +178,12 @@ pub struct WalkAndStand {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct LostBall {
+pub struct LostBallParameters {
     pub offset_to_last_ball_location: Vector2<f32>,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct InterceptBall {
+pub struct InterceptBallParameters {
     pub maximum_ball_distance: f32,
     pub minimum_ball_velocity: f32,
     pub minimum_ball_velocity_towards_robot: f32,
@@ -187,7 +192,7 @@ pub struct InterceptBall {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct PathPlanning {
+pub struct PathPlanningParameters {
     pub arc_walking_speed: f32,
     pub ball_obstacle_radius: f32,
     pub field_border_weight: f32,
@@ -199,7 +204,7 @@ pub struct PathPlanning {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct GameStateFilter {
+pub struct GameStateFilterParameters {
     pub game_controller_controller_delay: Duration,
     pub playing_message_delay: Duration,
     pub ready_message_delay: Duration,
@@ -209,7 +214,7 @@ pub struct GameStateFilter {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct WalkingEngine {
+pub struct WalkingEngineParameters {
     pub additional_kick_foot_lift: f32,
     pub arm_stiffness: f32,
     pub backward_foot_support_offset: f32,
@@ -246,7 +251,7 @@ pub struct WalkingEngine {
     pub step_foot_lift_increase: Step,
     pub swing_foot_imu_leveling_factor: f32,
     pub swing_foot_pitch_error_leveling_factor: f32,
-    pub swinging_arms: SwingingArms,
+    pub swinging_arms: SwingingArmsParameters,
     pub tilt_shift_low_pass_factor: f32,
     pub torso_shift_offset: f32,
     pub torso_tilt_base_offset: f32,
@@ -256,7 +261,7 @@ pub struct WalkingEngine {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct SwingingArms {
+pub struct SwingingArmsParameters {
     pub debug_pull_back: bool,
     pub default_roll: f32,
     pub roll_factor: f32,
@@ -269,14 +274,14 @@ pub struct SwingingArms {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct KickSteps {
+pub struct KickStepsParameters {
     pub forward: Vec<KickStep>,
     pub turn: Vec<KickStep>,
     pub side: Vec<KickStep>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct HeadMotionLimits {
+pub struct HeadMotionLimitsParameters {
     pub maximum_yaw: f32,
     pub maximum_pitch_at_center: f32,
     pub maximum_pitch_at_shoulder: f32,
@@ -286,20 +291,20 @@ pub struct HeadMotionLimits {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct DispatchingHeadInterpolator {
+pub struct DispatchingHeadInterpolatorParameters {
     pub maximum_yaw_velocity: f32,
     pub maximum_pitch_velocity: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct LookAt {
+pub struct LookAtParameters {
     pub glance_angle: f32,
     pub glance_direction_toggle_interval: Duration,
     pub minimum_bottom_focus_pitch: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct HeadMotion {
+pub struct HeadMotionParameters {
     pub outer_maximum_pitch: f32,
     pub inner_maximum_pitch: f32,
     pub outer_yaw: f32,
@@ -307,7 +312,7 @@ pub struct HeadMotion {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct LookAround {
+pub struct LookAroundParameters {
     pub look_around_timeout: Duration,
     pub quick_search_timeout: Duration,
     pub middle_positions: HeadJoints<f32>,
@@ -318,13 +323,13 @@ pub struct LookAround {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct WhistleFilter {
+pub struct WhistleFilterParameters {
     pub buffer_length: usize,
     pub minimum_detections: usize,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct SonarFilter {
+pub struct SonarFilterParameters {
     pub low_pass_filter_coefficient: f32,
     pub maximal_reliable_distance: f32,
     pub minimal_reliable_distance: f32,
@@ -332,12 +337,12 @@ pub struct SonarFilter {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct SonarObstacle {
+pub struct SonarObstacleParameters {
     pub sensor_angle: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct SplNetwork {
+pub struct SplNetworkParameters {
     pub game_controller_return_message_interval: Duration,
     pub remaining_amount_of_messages_to_stop_sending: u16,
     pub silence_interval_between_messages: Duration,
@@ -347,7 +352,7 @@ pub struct SplNetwork {
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub enum MedianMode {
+pub enum MedianModeParameters {
     #[default]
     Disabled,
     ThreePixels,
@@ -355,23 +360,23 @@ pub enum MedianMode {
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub enum EdgeDetectionSource {
+pub enum EdgeDetectionSourceParameters {
     #[default]
     Luminance,
     GreenChromaticity,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct ImageSegmenter {
+pub struct ImageSegmenterParameters {
     pub horizontal_stride: usize,
     pub vertical_stride: usize,
     pub vertical_edge_threshold: i16,
-    pub vertical_edge_detection_source: EdgeDetectionSource,
-    pub vertical_median_mode: MedianMode,
+    pub vertical_edge_detection_source: EdgeDetectionSourceParameters,
+    pub vertical_median_mode: MedianModeParameters,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct FieldBorderDetection {
+pub struct FieldBorderDetectionParameters {
     pub min_points_per_line: usize,
     pub angle_threshold: f32,
     pub first_line_association_distance: f32,
@@ -380,7 +385,7 @@ pub struct FieldBorderDetection {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct FieldColorDetection {
+pub struct FieldColorDetectionParameters {
     pub red_chromaticity_threshold: f32,
     pub blue_chromaticity_threshold: f32,
     pub lower_green_chromaticity_threshold: f32,
@@ -389,7 +394,7 @@ pub struct FieldColorDetection {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct BallDetection {
+pub struct BallDetectionParameters {
     pub minimal_radius: f32,
     pub preclassifier_neural_network: PathBuf,
     pub classifier_neural_network: PathBuf,
@@ -405,12 +410,12 @@ pub struct BallDetection {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct ImageReceiver {
+pub struct ImageReceiverParameters {
     pub resolution: i32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct LineDetection {
+pub struct LineDetectionParameters {
     pub allowed_line_length_in_field: Range<f32>,
     pub check_line_distance: bool,
     pub check_line_length: bool,
@@ -425,7 +430,7 @@ pub struct LineDetection {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct BallFilter {
+pub struct BallFilterParameters {
     pub hypothesis_timeout: Duration,
     pub measurement_matching_distance: f32,
     pub hypothesis_merge_distance: f32,
@@ -441,19 +446,19 @@ pub struct BallFilter {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct StandUp {
+pub struct StandUpParameters {
     pub gyro_low_pass_filter_coefficient: f32,
     pub gyro_low_pass_filter_tolerance: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct ButtonFilter {
+pub struct ButtonFilterParameters {
     pub head_buttons_timeout: Duration,
     pub calibration_buttons_timeout: Duration,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct ObstacleFilter {
+pub struct ObstacleFilterParameters {
     pub hypothesis_timeout: Duration,
     pub network_robot_measurement_matching_distance: f32,
     pub sonar_goal_post_matching_distance: f32,
@@ -478,7 +483,7 @@ pub struct ObstacleFilter {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct FallStateEstimation {
+pub struct FallStateEstimationParameters {
     pub linear_acceleration_low_pass_factor: f32,
     pub angular_velocity_low_pass_factor: f32,
     pub roll_pitch_low_pass_factor: f32,
@@ -489,7 +494,7 @@ pub struct FallStateEstimation {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct PerspectiveGridCandidatesProvider {
+pub struct PerspectiveGridCandidatesProviderParameters {
     pub minimum_radius: f32,
     pub fallback_radius: f32,
 }
@@ -502,7 +507,7 @@ pub struct CameraMatrixParameters {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct FallProtection {
+pub struct FallProtectionParameters {
     pub ground_impact_angular_threshold: f32,
     pub ground_impact_head_stiffness: f32,
     pub ground_impact_body_stiffness: f32,
@@ -515,7 +520,7 @@ pub struct FallProtection {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct ProjectedLimbs {
+pub struct ProjectedLimbsParameters {
     pub torso_bounding_polygon: Vec<Point3<f32>>,
     pub lower_arm_bounding_polygon: Vec<Point3<f32>>,
     pub upper_arm_bounding_polygon: Vec<Point3<f32>>,
@@ -524,7 +529,7 @@ pub struct ProjectedLimbs {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct RobotDetection {
+pub struct RobotDetectionParameters {
     pub enable: bool,
     pub amount_of_segments_factor: f32,
     pub amount_score_exponent: f32,
@@ -540,6 +545,6 @@ pub struct RobotDetection {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct PenaltyShotDirectionEstimation {
+pub struct PenaltyShotDirectionEstimationParameters {
     pub moving_distance_threshold: f32,
 }

@@ -3,7 +3,9 @@ use std::time::SystemTime;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::{messages::IncomingMessage, CycleTime, GameControllerState};
+use types::{
+    cycle_time::CycleTime, game_controller_state::GameControllerState, messages::IncomingMessage,
+};
 
 pub struct GameControllerFilter {
     game_controller_state: Option<GameControllerState>,

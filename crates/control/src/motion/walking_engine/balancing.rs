@@ -4,7 +4,8 @@ use filtering::hysteresis::{greater_than_with_hysteresis, less_than_with_hystere
 use framework::AdditionalOutput;
 use nalgebra::Vector2;
 use types::{
-    parameters::WalkingEngine as WalkingEngineParameters, LegJoints, Side, StepAdjustment,
+    joints::LegJoints, parameters::WalkingEngineParameters, step_adjustment::StepAdjustment,
+    support_foot::Side,
 };
 
 use super::{engine::parabolic_return, foot_offsets::FootOffsets};

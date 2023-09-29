@@ -3,7 +3,11 @@ use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{Isometry3, Matrix2, Point2, Point3};
 use projection::Projection;
-use types::{CameraMatrix, Limb, ProjectedLimbs, RobotKinematics};
+use types::{
+    camera_matrix::CameraMatrix,
+    limb::{Limb, ProjectedLimbs},
+    robot_kinematics::RobotKinematics,
+};
 
 pub struct LimbProjector {}
 

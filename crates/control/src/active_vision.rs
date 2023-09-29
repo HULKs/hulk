@@ -6,8 +6,12 @@ use framework::MainOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex, Vector2};
 use ordered_float::NotNan;
 use types::{
-    parameters::LookAction as LookActionParameters, BallState, CycleTime, FieldDimensions,
-    Obstacle, ObstacleKind, PointOfInterest,
+    cycle_time::CycleTime,
+    field_dimensions::FieldDimensions,
+    obstacles::{Obstacle, ObstacleKind},
+    parameters::LookActionParameters,
+    point_of_interest::PointOfInterest,
+    world_state::BallState,
 };
 
 pub struct ActiveVision {

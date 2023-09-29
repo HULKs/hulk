@@ -5,8 +5,12 @@ use context_attribute::context;
 use framework::MainOutput;
 use hardware::PathsInterface;
 use motionfile::{MotionFile, MotionInterpolator};
-use types::ConditionInput;
-use types::{CycleTime, Joints, MotionSafeExits, MotionSelection, MotionType};
+use types::{
+    condition_input::ConditionInput,
+    cycle_time::CycleTime,
+    joints::Joints,
+    motion_selection::{MotionSafeExits, MotionSelection, MotionType},
+};
 
 pub struct StandUpBack {
     interpolator: MotionInterpolator<Joints<f32>>,

@@ -5,7 +5,7 @@ use i2cdev::{
     linux::{LinuxI2CDevice, LinuxI2CError},
 };
 use thiserror::Error;
-use types::CameraPosition;
+use types::camera_position::CameraPosition;
 
 #[derive(Debug, Error)]
 pub enum ResetError {

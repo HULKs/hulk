@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use types::{ArmJoints, BodyJoints, BodyJointsCommand, Joints, LegJoints};
+use types::joints::{ArmJoints, BodyJoints, BodyJointsCommand, Joints, LegJoints};
 
 pub struct EnergySavingStand {}
 

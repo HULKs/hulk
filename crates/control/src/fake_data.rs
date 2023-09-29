@@ -6,9 +6,17 @@ use framework::MainOutput;
 use nalgebra::Isometry2;
 use spl_network_messages::HulkMessage;
 use types::{
-    parameters::{BallFilter, CameraMatrixParameters, LookAt},
-    BallPosition, CycleTime, FallState, FilteredGameState, GameControllerState, HeadJoints,
-    Obstacle, PenaltyShotDirection, PrimaryState, SensorData,
+    ball_position::BallPosition,
+    cycle_time::CycleTime,
+    fall_state::FallState,
+    filtered_game_state::FilteredGameState,
+    game_controller_state::GameControllerState,
+    joints::HeadJoints,
+    obstacles::Obstacle,
+    parameters::{BallFilterParameters, CameraMatrixParameters, LookAtParameters},
+    penalty_shot_direction::PenaltyShotDirection,
+    primary_state::PrimaryState,
+    sensor_data::SensorData,
 };
 
 pub struct FakeData {}
@@ -19,13 +27,13 @@ pub struct CreationContext {
     maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
     top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
-    ball_filter: Parameter<BallFilter, "ball_filter">,
+    ball_filter: Parameter<BallFilterParameters, "ball_filter">,
 }
 
 #[context]
 #[allow(dead_code)]
 pub struct CycleContext {
-    look_at: Parameter<LookAt, "look_at">,
+    look_at: Parameter<LookAtParameters, "look_at">,
 }
 
 #[context]

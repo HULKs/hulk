@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
-    multivariate_normal_distribution::MultivariateNormalDistribution,
-    parameters::BallFilter as BallFilterConfiguration, BallPosition,
+    ball_position::BallPosition, multivariate_normal_distribution::MultivariateNormalDistribution,
+    parameters::BallFilterParameters,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy)]
@@ -19,13 +19,13 @@ pub struct Hypothesis {
 }
 
 impl Hypothesis {
-    pub fn is_resting(&self, configuration: &BallFilterConfiguration) -> bool {
+    pub fn is_resting(&self, configuration: &BallFilterParameters) -> bool {
         self.moving_state.mean.rows(2, 2).norm() < configuration.resting_ball_velocity_threshold
     }
 
     pub fn selected_state(
         &self,
-        configuration: &BallFilterConfiguration,
+        configuration: &BallFilterParameters,
     ) -> MultivariateNormalDistribution<4> {
         if self.is_resting(configuration) {
             self.resting_state
@@ -34,7 +34,7 @@ impl Hypothesis {
         }
     }
 
-    pub fn selected_ball_position(&self, configuration: &BallFilterConfiguration) -> BallPosition {
+    pub fn selected_ball_position(&self, configuration: &BallFilterParameters) -> BallPosition {
         let selected_state = self.selected_state(configuration);
 
         BallPosition {

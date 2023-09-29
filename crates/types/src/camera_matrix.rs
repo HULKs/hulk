@@ -3,9 +3,7 @@ use nalgebra::{Isometry3, Matrix, Point2, Rotation3, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::horizon::Horizon;
-
-use super::Line2;
+use crate::{horizon::Horizon, line::Line2};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CameraMatrices {

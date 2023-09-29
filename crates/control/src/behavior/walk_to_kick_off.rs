@@ -1,6 +1,6 @@
 use framework::AdditionalOutput;
 use nalgebra::{Translation2, Vector2};
-use types::{MotionCommand, PathObstacle, WorldState};
+use types::{motion_command::MotionCommand, path_obstacles::PathObstacle, world_state::WorldState};
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};
 

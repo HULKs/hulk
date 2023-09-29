@@ -2,10 +2,17 @@ use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex};
 use types::{
-    direct_path,
-    parameters::{PathPlanning as PathPlanningParameters, WalkAndStand as WalkAndStandParameters},
-    ArmMotion, FieldDimensions, HeadMotion, MotionCommand, Obstacle, OrientationMode, PathObstacle,
-    PathSegment, RuleObstacle, Side, WorldState,
+    field_dimensions::FieldDimensions,
+    motion_command::ArmMotion,
+    motion_command::MotionCommand,
+    motion_command::{HeadMotion, OrientationMode},
+    obstacles::Obstacle,
+    parameters::{PathPlanningParameters, WalkAndStandParameters},
+    path_obstacles::PathObstacle,
+    planned_path::{direct_path, PathSegment},
+    rule_obstacles::RuleObstacle,
+    support_foot::Side,
+    world_state::WorldState,
 };
 
 use crate::path_planner::PathPlanner;

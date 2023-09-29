@@ -4,7 +4,12 @@ use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2, Vector2};
 use projection::Projection;
 use types::{
-    horizon::Horizon, CameraMatrix, FieldBorder, ImageSegments, Intensity, Line, Line2, Segment,
+    camera_matrix::CameraMatrix,
+    color::Intensity,
+    field_border::FieldBorder,
+    horizon::Horizon,
+    image_segments::{ImageSegments, Segment},
+    line::{Line, Line2},
 };
 
 use crate::ransac::Ransac;
@@ -161,7 +166,10 @@ fn is_orthogonal(
 mod test {
     use approx::assert_relative_eq;
     use rand::{rngs::StdRng, Rng, SeedableRng};
-    use types::{EdgeType, ScanLine, YCbCr444};
+    use types::{
+        color::YCbCr444,
+        image_segments::{EdgeType, ScanLine},
+    };
 
     use super::*;
 

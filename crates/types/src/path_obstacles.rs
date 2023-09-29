@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{Arc, Circle, LineSegment, Orientation};
+use crate::geometry::{Arc, Circle, LineSegment, Orientation};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub enum PathObstacleShape {

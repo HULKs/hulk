@@ -3,7 +3,7 @@ use std::{collections::VecDeque, time::SystemTime};
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::{CycleTime, FilteredWhistle, Whistle};
+use types::{cycle_time::CycleTime, filtered_whistle::FilteredWhistle, whistle::Whistle};
 
 pub struct WhistleFilter {
     pub detection_buffer: VecDeque<bool>,

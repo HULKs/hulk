@@ -3,7 +3,12 @@ use context_attribute::context;
 use framework::MainOutput;
 use hardware::PathsInterface;
 use motionfile::{MotionFile, MotionInterpolator};
-use types::{ConditionInput, CycleTime, Joints, JointsCommand, MotionSelection, MotionType};
+use types::{
+    condition_input::ConditionInput,
+    cycle_time::CycleTime,
+    joints::{Joints, JointsCommand},
+    motion_selection::{MotionSelection, MotionType},
+};
 
 pub struct ArmsUpSquat {
     interpolator: MotionInterpolator<Joints<f32>>,

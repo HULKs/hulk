@@ -3,7 +3,12 @@ use std::{f32::consts::FRAC_PI_2, time::Duration};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{parameters::SwingingArms, ArmJoints, ArmMotion, MotionCommand, Side};
+use types::{
+    joints::ArmJoints,
+    motion_command::{ArmMotion, MotionCommand},
+    parameters::SwingingArmsParameters,
+    support_foot::Side,
+};
 
 use motionfile::{SplineInterpolator, TimedSpline};
 
@@ -47,7 +52,7 @@ impl SwingingArm {
         foot: FootOffsets,
         motion_command: &MotionCommand,
         cycle_duration: Duration,
-        config: &SwingingArms,
+        config: &SwingingArmsParameters,
     ) -> Result<ArmJoints<f32>> {
         let requested_arm_motion =
             self.arm_motion_from_motion_command(motion_command, config.debug_pull_back);
@@ -209,7 +214,7 @@ impl SwingingArm {
         })
     }
 
-    pub fn torso_tilt_compensation(&self, config: &SwingingArms) -> Result<f32> {
+    pub fn torso_tilt_compensation(&self, config: &SwingingArmsParameters) -> Result<f32> {
         let shoulder_pitch = match &self.state {
             State::Swing => FRAC_PI_2,
             State::PullingBack { interpolator }
@@ -242,7 +247,11 @@ impl SwingingArm {
         }
     }
 
-    fn swinging_arm_joints(&self, foot: FootOffsets, config: &SwingingArms) -> ArmJoints<f32> {
+    fn swinging_arm_joints(
+        &self,
+        foot: FootOffsets,
+        config: &SwingingArmsParameters,
+    ) -> ArmJoints<f32> {
         let shoulder_roll = config.default_roll + config.roll_factor * foot.left.abs();
         let shoulder_pitch = FRAC_PI_2 + foot.forward * config.pitch_factor;
         let joints = ArmJoints {

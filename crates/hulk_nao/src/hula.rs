@@ -2,7 +2,10 @@ use std::{io::Write, mem::size_of, os::unix::net::UnixStream, slice::from_raw_pa
 
 use color_eyre::{eyre::Context, Result};
 use nalgebra::{vector, Vector2, Vector3};
-use types::{self, ArmJoints, HeadJoints, Joints, LegJoints};
+use types::{
+    self,
+    joints::{ArmJoints, HeadJoints, Joints, LegJoints},
+};
 
 use super::double_buffered_reader::{DoubleBufferedReader, SelectPoller};
 
@@ -59,9 +62,9 @@ pub struct InertialMeasurementUnit {
     pub gyroscope: Vertex3,
 }
 
-impl From<InertialMeasurementUnit> for types::InertialMeasurementUnitData {
+impl From<InertialMeasurementUnit> for types::sensor_data::InertialMeasurementUnitData {
     fn from(from: InertialMeasurementUnit) -> Self {
-        types::InertialMeasurementUnitData {
+        types::sensor_data::InertialMeasurementUnitData {
             linear_acceleration: -Vector3::from(from.accelerometer),
             angular_velocity: from.gyroscope.into(),
             roll_pitch: from.angles.into(),
@@ -82,16 +85,16 @@ pub struct ForceSensitiveResistors {
     right_foot_rear_right: f32,
 }
 
-impl From<ForceSensitiveResistors> for types::ForceSensitiveResistors {
+impl From<ForceSensitiveResistors> for types::sensor_data::ForceSensitiveResistors {
     fn from(from: ForceSensitiveResistors) -> Self {
-        types::ForceSensitiveResistors {
-            left: types::Foot {
+        types::sensor_data::ForceSensitiveResistors {
+            left: types::sensor_data::Foot {
                 front_left: from.left_foot_front_left,
                 front_right: from.left_foot_front_right,
                 rear_left: from.left_foot_rear_left,
                 rear_right: from.left_foot_rear_right,
             },
-            right: types::Foot {
+            right: types::sensor_data::Foot {
                 front_left: from.right_foot_front_left,
                 front_right: from.right_foot_front_right,
                 rear_left: from.right_foot_rear_left,
@@ -120,9 +123,9 @@ pub struct TouchSensors {
     right_hand_right: bool,
 }
 
-impl From<TouchSensors> for types::TouchSensors {
+impl From<TouchSensors> for types::sensor_data::TouchSensors {
     fn from(from: TouchSensors) -> Self {
-        types::TouchSensors {
+        types::sensor_data::TouchSensors {
             chest_button: from.chest_button,
             head_front: from.head_front,
             head_middle: from.head_middle,
@@ -148,9 +151,9 @@ pub struct SonarSensors {
     pub right: f32,
 }
 
-impl From<SonarSensors> for types::SonarSensors {
+impl From<SonarSensors> for types::sensor_data::SonarSensors {
     fn from(from: SonarSensors) -> Self {
-        types::SonarSensors {
+        types::sensor_data::SonarSensors {
             left: from.left,
             right: from.right,
         }
@@ -289,8 +292,8 @@ pub struct Color {
     pub blue: f32,
 }
 
-impl From<types::Rgb> for Color {
-    fn from(color: types::Rgb) -> Self {
+impl From<types::color::Rgb> for Color {
+    fn from(color: types::color::Rgb) -> Self {
         Self {
             red: color.r as f32 / 255.0,
             green: color.g as f32 / 255.0,
@@ -312,8 +315,8 @@ pub struct Eye {
     pub color_at_315: Color,
 }
 
-impl From<types::Eye> for Eye {
-    fn from(eye: types::Eye) -> Self {
+impl From<types::led::Eye> for Eye {
+    fn from(eye: types::led::Eye) -> Self {
         Self {
             color_at_0: eye.color_at_0.into(),
             color_at_45: eye.color_at_45.into(),
@@ -342,8 +345,8 @@ pub struct Ear {
     pub intensity_at_324: f32,
 }
 
-impl From<types::Ear> for Ear {
-    fn from(ear: types::Ear) -> Self {
+impl From<types::led::Ear> for Ear {
+    fn from(ear: types::led::Ear) -> Self {
         Self {
             intensity_at_0: ear.intensity_at_0,
             intensity_at_36: ear.intensity_at_36,
