@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
-    joints::{Joints, JointsCommand},
+    joints::{ArmJoints, Joints, JointsCommand},
     parameters::MotorCommandOptimizerParameters,
     sensor_data::SensorData,
 };
@@ -88,9 +88,17 @@ impl MotorCommandOptimizer {
             self.position_offset = self.position_offset + Joints::from_iter(position_offset);
         }
 
-        let mut optimized_stiffnesses = commands.stiffnesses;
-        optimized_stiffnesses.left_arm.hand = 0.0;
-        optimized_stiffnesses.right_arm.hand = 0.0;
+        let optimized_stiffnesses = Joints {
+            left_arm: ArmJoints {
+                hand: 0.0,
+                ..commands.stiffnesses.left_arm
+            },
+            right_arm: ArmJoints {
+                hand: 0.0,
+                ..commands.stiffnesses.right_arm
+            },
+            ..commands.stiffnesses
+        };
 
         let optimized_commands = JointsCommand {
             positions: commands.positions + self.position_offset,
