@@ -80,10 +80,10 @@ impl MotorCommandOptimizer {
             .flatten()
             .zip(currents.as_vec().into_iter().flatten())
             .map(|(correction_direction, current)| {
-                if current == maximal_current {
-                    params.optimization_speed * correction_direction
-                } else {
+                if current < maximal_current {
                     0.0
+                } else {
+                    params.optimization_speed * correction_direction
                 }
             });
 
