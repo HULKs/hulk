@@ -47,7 +47,7 @@ impl MotorCommandOptimizer {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let currents = context.sensor_data.currents;
         let commands = *context.motor_commands;
-        let params = context.parameters;
+        let parameters = context.parameters;
 
         let squared_position_offset_sum: f32 = self
             .position_offset
@@ -55,36 +55,35 @@ impl MotorCommandOptimizer {
             .map(|position| position.powf(2.0))
             .sum();
 
-        if squared_position_offset_sum > params.offset_reset_threshold {
+        if squared_position_offset_sum > parameters.offset_reset_threshold {
             self.is_resetting = true;
         }
 
         if self.is_resetting {
-            self.position_offset = self.position_offset / params.offset_reset_speed;
-
             if squared_position_offset_sum
-                < params.offset_reset_threshold / params.offset_reset_offset
+                < parameters.offset_reset_threshold / parameters.offset_reset_offset
             {
                 self.is_resetting = false;
+            } else {
+                self.position_offset = self.position_offset / parameters.offset_reset_speed;
             }
         }
 
         let maximal_current = currents.as_flat_iter().fold(0.0, f32::max);
+        let reset_threshold_reached = maximal_current >= parameters.optimization_current_threshold;
 
-        let position_offset = params
-            .optimization_sign
-            .as_flat_iter()
-            .zip(currents.as_flat_iter())
-            .map(|(correction_direction, current)| {
-                if current < maximal_current {
-                    0.0
-                } else {
-                    params.optimization_speed * correction_direction as f32
-                }
-            });
-
-        let reset_threshold_reached = maximal_current >= params.optimization_current_threshold;
         if reset_threshold_reached && !self.is_resetting {
+            let position_offset = parameters
+                .optimization_sign
+                .as_flat_iter()
+                .zip(currents.as_flat_iter())
+                .map(|(correction_direction, current)| {
+                    if current < maximal_current {
+                        0.0
+                    } else {
+                        parameters.optimization_speed * correction_direction as f32
+                    }
+                });
             self.position_offset = self.position_offset + Joints::from_iter(position_offset);
         }
 
