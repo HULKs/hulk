@@ -61,7 +61,7 @@ pub struct MotorCommandOptimizerParameters {
     pub offset_reset_offset: f32,
     pub optimization_speed: f32,
     pub optimization_current_threshold: f32,
-    pub optimization_direction: Joints<f32>,
+    pub optimization_sign: Joints<i32>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
