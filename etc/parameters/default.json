@@ -647,7 +647,7 @@
     "hypothesis_score_base_increase": 0.1
   },
   "localization_recorder": {
-    "enable": false,
+    "enable": true,
     "only_record_during_active_localization": true
   },
   "odometry": {
