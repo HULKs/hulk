@@ -51,9 +51,7 @@ impl MotorCommandOptimizer {
 
         let squared_position_offset_sum: f32 = self
             .position_offset
-            .as_vec()
-            .into_iter()
-            .flatten()
+            .as_flat_iter()
             .map(|position| position.powf(2.0))
             .sum();
 
@@ -71,14 +69,12 @@ impl MotorCommandOptimizer {
             }
         }
 
-        let maximal_current = currents.as_vec().into_iter().flatten().fold(0.0, f32::max);
+        let maximal_current = currents.as_flat_iter().fold(0.0, f32::max);
 
         let position_offset = params
             .optimization_sign
-            .as_vec()
-            .into_iter()
-            .flatten()
-            .zip(currents.as_vec().into_iter().flatten())
+            .as_flat_iter()
+            .zip(currents.as_flat_iter())
             .map(|(correction_direction, current)| {
                 if current < maximal_current {
                     0.0
