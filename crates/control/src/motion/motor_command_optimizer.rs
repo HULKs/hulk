@@ -74,7 +74,7 @@ impl MotorCommandOptimizer {
         let maximal_current = currents.as_vec().into_iter().flatten().fold(0.0, f32::max);
 
         let position_offset = params
-            .optimization_direction
+            .optimization_sign
             .as_vec()
             .into_iter()
             .flatten()
@@ -83,7 +83,7 @@ impl MotorCommandOptimizer {
                 if current < maximal_current {
                     0.0
                 } else {
-                    params.optimization_speed * correction_direction
+                    params.optimization_speed * correction_direction as f32
                 }
             });
 
