@@ -675,7 +675,7 @@ impl Joints<f32> {
 impl FromIterator<f32> for HeadJoints<f32> {
     fn from_iter<I: IntoIterator<Item = f32>>(angles: I) -> Self {
         let mut angle_iter = angles.into_iter();
-        let error_message = "Two HeadJoints expected!";
+        let error_message = "two HeadJoints expected";
         Self {
             yaw: angle_iter.next().expect(error_message),
             pitch: angle_iter.next().expect(error_message),
@@ -686,7 +686,7 @@ impl FromIterator<f32> for HeadJoints<f32> {
 impl FromIterator<f32> for ArmJoints<f32> {
     fn from_iter<I: IntoIterator<Item = f32>>(angles: I) -> Self {
         let mut angle_iter = angles.into_iter();
-        let error_message = "Six ArmJoints expected!";
+        let error_message = "six ArmJoints expected";
         Self {
             shoulder_pitch: angle_iter.next().expect(error_message),
             shoulder_roll: angle_iter.next().expect(error_message),
@@ -701,7 +701,7 @@ impl FromIterator<f32> for ArmJoints<f32> {
 impl FromIterator<f32> for LegJoints<f32> {
     fn from_iter<I: IntoIterator<Item = f32>>(angles: I) -> Self {
         let mut angle_iter = angles.into_iter();
-        let error_message = "Six LegJoints expected!";
+        let error_message = "six LegJoints expected";
         Self {
             hip_yaw_pitch: angle_iter.next().expect(error_message),
             hip_roll: angle_iter.next().expect(error_message),
