@@ -2,7 +2,7 @@ use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     env::current_dir,
     ffi::OsStr,
-    fmt::Display,
+    fmt::{Display, Write},
     fs::Permissions,
     io::{self, ErrorKind},
     os::unix::prelude::PermissionsExt,
@@ -364,6 +364,15 @@ impl Repository {
     pub async fn set_location(&self, target: &str, location: &str) -> Result<()> {
         let target_location = self.parameters_root().join(format!("{target}_location"));
         let new_location = Path::new(location);
+        let new_location_path = self.parameters_root().join(location);
+        if !new_location_path.exists(){
+            let mut available_locations = String::new();
+            let location_set = self.list_available_locations().await?;
+            for location in location_set{
+                writeln!(&mut available_locations, "  -{location}")?;
+            }
+            bail!("available locations are:\n{available_locations}but you wrote: {location}");
+        }
         let _ = remove_file(&target_location).await;
         symlink(&new_location, &target_location)
             .await
