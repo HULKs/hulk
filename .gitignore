@@ -24,7 +24,7 @@ settings.json
 default.nix
 .direnv/
 
-target/
+target
 
 .nao_cargo_home
 .REMOTE_WORKSPACE

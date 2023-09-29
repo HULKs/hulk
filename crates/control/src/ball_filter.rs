@@ -56,6 +56,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub ball_position: MainOutput<Option<BallPosition>>,
+    pub ball_rest_position: MainOutput<Option<Point2<f32>>>,
 }
 
 impl BallFilter {
@@ -174,8 +175,14 @@ impl BallFilter {
             hypothesis.selected_ball_position(context.ball_filter_configuration)
         });
 
+        let decay: f32 = context.ball_filter_configuration.velocity_decay_factor;
+        let ball_rest_position = ball_position.map(|ball| {
+            ball.position + ball.velocity * 0.012 * (1.0 - decay.powi(200)) / (1.0 - decay)
+        });
+
         Ok(MainOutputs {
             ball_position: ball_position.into(),
+            ball_rest_position: ball_rest_position.into(),
         })
     }
 
