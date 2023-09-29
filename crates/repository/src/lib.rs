@@ -365,10 +365,10 @@ impl Repository {
         let target_location = self.parameters_root().join(format!("{target}_location"));
         let new_location = Path::new(location);
         let new_location_path = self.parameters_root().join(location);
-        if !new_location_path.exists(){
+        if !new_location_path.exists() {
             let mut available_locations = String::new();
             let location_set = self.list_available_locations().await?;
-            for location in location_set{
+            for location in location_set {
                 writeln!(&mut available_locations, "  -{location}")?;
             }
             bail!("available locations are:\n{available_locations}but you wrote: {location}");
