@@ -258,7 +258,11 @@
       "minimum_samples_per_cluster": 3
     }
   },
+<<<<<<< HEAD
   "motor_command_optimizer_params": {
+=======
+  "motor_command_optimizer_parameters":{
+>>>>>>> 9f51ebeee (rename params to parameters, remove unnecessary additional output, extract comparison into named variable)
     "offset_reset_threshold": 0.00075,
     "offset_reset_speed": 1.012,
     "offset_reset_offset": 3.0,

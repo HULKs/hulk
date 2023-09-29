@@ -4,6 +4,7 @@ use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     joints::{Joints, JointsCommand},
+    parameters::MotorCommandOptimizerParameters,
     sensor_data::SensorData,
 };
 
@@ -21,7 +22,8 @@ pub struct CycleContext {
     pub motor_commands: Input<JointsCommand<f32>, "motor_commands">,
     pub sensor_data: Input<SensorData, "sensor_data">,
 
-    pub params: Parameter<MotorCommandOptimizerParameters, "motor_command_optimizer_params">,
+    pub parameters:
+        Parameter<MotorCommandOptimizerParameters, "motor_command_optimizer_parameters">,
 
     pub squared_position_offset_sum:
         AdditionalOutput<f32, "motor_position_optimization_offset_squared_sum">,
@@ -45,7 +47,7 @@ impl MotorCommandOptimizer {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let currents = context.sensor_data.currents;
         let commands = *context.motor_commands;
-        let params = context.params;
+        let params = context.parameters;
 
         let squared_position_offset_sum: f32 = self
             .position_offset
@@ -85,7 +87,8 @@ impl MotorCommandOptimizer {
                 }
             });
 
-        if maximal_current >= params.optimization_current_threshold && !self.is_resetting {
+        let reset_threshold_reached = maximal_current >= params.optimization_current_threshold;
+        if reset_threshold_reached && !self.is_resetting {
             self.position_offset = self.position_offset + Joints::from_iter(position_offset);
         }
 
