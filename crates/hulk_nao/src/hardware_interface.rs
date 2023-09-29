@@ -31,8 +31,7 @@ use types::{
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
-    sensor_data::SensorData,
-    ycbcr422_image::YCbCr422Image,
+    sensor_data::SensorData, camera_result::{SequenceNumber, CameraResult},
 };
 
 use super::{
