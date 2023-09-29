@@ -84,3 +84,18 @@ cargo install --path tools/pepsi
 ```
 
 and adding `~/.cargo/bin` to the `PATH`.
+
+## Remote Compile
+
+To use the remote compilation you need to create yourself an account on the rechenknecht. Therefore open an ssh connection to ```root@134.28.57.226```. There create a new account by ```adduser {name}``` and set a password with ```passwd {name}```, you will then be asked to type your password. 
+
+In the next step change to your user ssh connection ```{name}@134.28.57.226```. There clone the HULKs repository using https: ```https://github.com/HULKs/hulk.git```.
+
+Back on your local machine do ```ssh-copy-id {name}@134.28.57.226```.
+And add the compiler to your git remote: ```git remote add compiler {name}@134.28.57.226:{hulk}``` where ```{hulk}``` refers to the path where you cloned the repository.
+
+To use the remote compile with pepsi:
+
+```bash
+./pepsi build --remote
+```
