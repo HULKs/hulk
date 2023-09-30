@@ -81,6 +81,8 @@ pub struct WalkingEngine {
     t_on_last_phase_end: Duration,
     /// The duration the currently executed step is planned to take
     planned_step_duration: Duration,
+    /// The duration the last step was planned to take
+    last_planned_step_duration: Duration,
     /// Fix the side of the swing foot for an entire walk phase
     swing_side: Side,
     /// Low pass filter the gyro for balance adjustment
@@ -209,7 +211,7 @@ impl WalkingEngine {
                     &mut context.step_adjustment,
                 );
             }
-            WalkState::Kicking(..) => self.kick_cycle(last_cycle_duration, context.config),
+            WalkState::Kicking(..) => self.kick_cycle(last_cycle_duration),
         }
 
         let left_foot_pressure = context.sensor_data.force_sensitive_resistors.left.sum();
@@ -471,11 +473,36 @@ impl WalkingEngine {
                         + forward_acceleration.min(config.max_forward_acceleration),
                     ..requested_step
                 };
-                let absolute_next_step = Step {
-                    forward: requested_step.forward.abs(),
-                    left: requested_step.left.abs(),
-                    turn: requested_step.turn.abs(),
+                let (swing_foot_t0, support_foot_t0) = if next_swing_side == Side::Left {
+                    (
+                        Step {
+                            forward: self.left_foot_t0.forward,
+                            left: self.left_foot_t0.left,
+                            turn: self.turn_t0 / 2.0,
+                        },
+                        Step {
+                            forward: self.right_foot_t0.forward,
+                            left: self.right_foot_t0.left,
+                            turn: -self.turn_t0 / 2.0,
+                        },
+                    )
+                } else {
+                    (
+                        Step {
+                            forward: self.right_foot_t0.forward,
+                            left: self.right_foot_t0.left,
+                            turn: -self.turn_t0 / 2.0,
+                        },
+                        Step {
+                            forward: self.left_foot_t0.forward,
+                            left: self.left_foot_t0.left,
+                            turn: self.turn_t0 / 2.0,
+                        },
+                    )
                 };
+                let travel_to_zero = support_foot_t0 - swing_foot_t0;
+                let next_step = travel_to_zero + self.current_step;
+                let absolute_next_step = next_step.abs();
 
                 let step_duration_increase = absolute_next_step * config.step_duration_increase;
                 let duration_increase = Duration::from_secs_f32(step_duration_increase.sum());
@@ -525,6 +552,7 @@ impl WalkingEngine {
         self.t = Duration::ZERO;
         self.t_on_last_phase_end = Duration::ZERO;
         self.planned_step_duration = Duration::ZERO;
+        self.last_planned_step_duration = Duration::ZERO;
         self.swing_side = Side::Left;
         self.filtered_gyro.reset(Vector2::default());
         self.filtered_imu_pitch.reset(0.0);
@@ -541,17 +569,11 @@ impl WalkingEngine {
     fn next_foot_offsets(
         &mut self,
         planned_step: Step,
-        config: &WalkingEngineParameters,
     ) -> (FootOffsets, FootOffsets, f32, f32, f32) {
         match self.swing_side {
             Side::Left => {
                 let (support_foot, swing_foot, turn, support_foot_lift, swing_foot_lift) = self
-                    .calculate_foot_offsets(
-                        planned_step,
-                        self.right_foot_t0,
-                        self.left_foot_t0,
-                        config,
-                    );
+                    .calculate_foot_offsets(planned_step, self.right_foot_t0, self.left_foot_t0);
                 (
                     swing_foot,
                     support_foot,
@@ -562,12 +584,7 @@ impl WalkingEngine {
             }
             Side::Right => {
                 let (support_foot, swing_foot, turn, support_foot_lift, swing_foot_lift) = self
-                    .calculate_foot_offsets(
-                        planned_step,
-                        self.left_foot_t0,
-                        self.right_foot_t0,
-                        config,
-                    );
+                    .calculate_foot_offsets(planned_step, self.left_foot_t0, self.right_foot_t0);
                 (
                     support_foot,
                     swing_foot,
@@ -584,7 +601,6 @@ impl WalkingEngine {
         planned_step: Step,
         support_foot_t0: FootOffsets,
         swing_foot_t0: FootOffsets,
-        config: &WalkingEngineParameters,
     ) -> (FootOffsets, FootOffsets, f32, f32, f32) {
         let linear_time =
             (self.t.as_secs_f32() / self.planned_step_duration.as_secs_f32()).clamp(0.0, 1.0);
@@ -604,11 +620,6 @@ impl WalkingEngine {
                 + (planned_step.left / 2.0 - swing_foot_t0.left) * parabolic_time,
         };
 
-        let normalized_planned_step = FootOffsets {
-            forward: planned_step.forward / (planned_step.forward + planned_step.left),
-            left: planned_step.left / (planned_step.forward + planned_step.left),
-        };
-
         let turn_left_right = if self.swing_side == Side::Left {
             planned_step.turn
         } else {
@@ -616,18 +627,13 @@ impl WalkingEngine {
         };
         let turn = self.turn_t0 + (turn_left_right / 2.0 - self.turn_t0) * linear_time;
 
-        let step_midpoint = if planned_step.forward + planned_step.left > 0.0 {
-            config.forward_step_midpoint * normalized_planned_step.forward
-                + config.left_step_midpoint * normalized_planned_step.left
-        } else {
-            0.5
-        };
+        let step_midpoint = 0.5;
 
         let support_foot_lift = self.max_foot_lift_last_step
             * parabolic_return(
-                (self.t_on_last_phase_end.as_secs_f32() / self.planned_step_duration.as_secs_f32()
-                    + linear_time)
-                    .clamp(0.0, 1.0),
+                ((self.t_on_last_phase_end.as_secs_f32() + self.t.as_secs_f32())
+                    / self.last_planned_step_duration.as_secs_f32())
+                .clamp(0.0, 1.0),
                 step_midpoint,
             );
         let swing_foot_lift =
@@ -644,6 +650,7 @@ impl WalkingEngine {
 
     fn end_step_phase(&mut self) {
         self.t_on_last_phase_end = self.t;
+        self.last_planned_step_duration = self.planned_step_duration;
         self.t = Duration::ZERO;
         self.max_foot_lift_last_step = self.max_swing_foot_lift;
         self.last_left_walk_request = self.left_foot;
@@ -663,7 +670,7 @@ impl WalkingEngine {
             next_turn,
             next_left_foot_lift,
             next_right_foot_lift,
-        ) = self.next_foot_offsets(self.current_step, config);
+        ) = self.next_foot_offsets(self.current_step);
         let (
             adjusted_left_foot,
             adjusted_right_foot,
@@ -704,7 +711,7 @@ impl WalkingEngine {
         self.remaining_stabilizing_steps = adjusted_remaining_steps
     }
 
-    fn kick_cycle(&mut self, cycle_duration: Duration, config: &WalkingEngineParameters) {
+    fn kick_cycle(&mut self, cycle_duration: Duration) {
         self.t += cycle_duration;
         let (
             next_left_walk_request,
@@ -712,7 +719,7 @@ impl WalkingEngine {
             next_turn,
             next_left_foot_lift,
             next_right_foot_lift,
-        ) = self.next_foot_offsets(self.current_step, config);
+        ) = self.next_foot_offsets(self.current_step);
         self.left_foot = next_left_walk_request;
         self.right_foot = next_right_walk_request;
         self.turn = next_turn;

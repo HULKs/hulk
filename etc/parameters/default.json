@@ -469,8 +469,8 @@
     "stable_step_deviation": { "nanos": 60000000, "secs": 0 },
     "starting_step_duration": { "nanos": 200000000, "secs": 0 },
     "starting_step_foot_lift": 0.009,
-    "step_duration_increase": { "forward": 0.0, "left": 1.2, "turn": 0.1 },
-    "step_foot_lift_increase": { "forward": 0.0, "left": 0.15, "turn": 0.0 },
+    "step_duration_increase": { "forward": 0.0, "left": 0.1, "turn": 0.1 },
+    "step_foot_lift_increase": { "forward": 0.1, "left": 0.1, "turn": 0.0 },
     "swing_foot_imu_leveling_factor": 1.0,
     "swing_foot_pitch_error_leveling_factor": 0.9,
     "swinging_arms": {

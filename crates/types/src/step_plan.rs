@@ -1,4 +1,4 @@
-use std::ops::{Mul, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
@@ -30,6 +30,26 @@ impl Step {
     pub fn sum(&self) -> f32 {
         self.forward + self.left + self.turn
     }
+
+    pub fn abs(self) -> Self {
+        Self {
+            forward: self.forward.abs(),
+            left: self.left.abs(),
+            turn: self.turn.abs(),
+        }
+    }
+}
+
+impl Add for Step {
+    type Output = Step;
+
+    fn add(self, right: Step) -> Self::Output {
+        Self {
+            forward: self.forward + right.forward,
+            left: self.left + right.left,
+            turn: self.turn + right.turn,
+        }
+    }
 }
 
 impl Sub<Step> for Step {
@@ -52,6 +72,18 @@ impl Mul<Step> for Step {
             forward: self.forward * rhs.forward,
             left: self.left * rhs.left,
             turn: self.turn * rhs.turn,
+        }
+    }
+}
+
+impl Div<f32> for Step {
+    type Output = Step;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Step {
+            forward: self.forward / rhs,
+            left: self.left / rhs,
+            turn: self.turn / rhs,
         }
     }
 }
