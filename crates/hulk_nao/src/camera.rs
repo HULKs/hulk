@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tokio::sync::watch::{self, Receiver, Sender};
 
 use color_eyre::{
     eyre::{bail, Context},
@@ -10,11 +11,7 @@ use color_eyre::{
 };
 use nao_camera::{reset_camera_device, Camera as NaoCamera, Parameters, PollingError};
 use parking_lot::{Mutex, RwLock};
-use types::{
-    camera_position::CameraPosition,
-    camera_result::{CameraResult, SequenceNumber},
-    ycbcr422_image::YCbCr422Image,
-};
+use types::{camera_position::CameraPosition, ycbcr422_image::YCbCr422Image};
 
 pub struct Camera {
     camera: RwLock<Option<NaoCamera>>,
@@ -23,7 +20,8 @@ pub struct Camera {
     read_mutex: Mutex<()>,
     parameters: Parameters,
     i2c_head_mutex: Arc<Mutex<()>>,
-    last_image: Arc<RwLock<Option<CameraResult>>>,
+    image_sender: Sender<Option<YCbCr422Image>>,
+    image_receiver: Receiver<Option<YCbCr422Image>>,
 }
 
 impl Camera {
@@ -33,6 +31,7 @@ impl Camera {
         parameters: Parameters,
         i2c_head_mutex: Arc<Mutex<()>>,
     ) -> Result<Self> {
+        let (sender, receiver) = watch::channel(None);
         let camera = Self {
             camera: RwLock::new(None),
             path: path.as_ref().to_path_buf(),
@@ -40,65 +39,44 @@ impl Camera {
             read_mutex: Mutex::new(()),
             parameters,
             i2c_head_mutex,
-            last_image: Arc::new(RwLock::new(None)),
+            image_sender: sender,
+            image_receiver: receiver,
         };
         camera.reset().wrap_err("failed to reset")?;
         Ok(camera)
     }
 
-    fn has_new_image_for_client(&self, client_sequence_number: &SequenceNumber) -> Result<bool> {
-        Ok(self
-            .last_image
-            .read()
-            .as_ref()
-            .is_some_and(|last_image| last_image.sequence_number > *client_sequence_number))
-    }
+    pub fn read(&self) -> Result<YCbCr422Image> {
+        let mut this_receiver = self.image_receiver.clone();
+        println!("New receiver");
+        this_receiver.borrow_and_update();
+        println!("Receiver empty");
+        if let Some(_lock) = self.read_mutex.try_lock() {
+            self.wait_for_device()
+                .wrap_err("failed to wait for device")?;
 
-    pub fn read(&self, client_sequence_number: &SequenceNumber) -> Result<CameraResult> {
-        if self.has_new_image_for_client(client_sequence_number)? {
-            return Ok(self.last_image.read().clone().unwrap());
+            let mut camera_lock = self.camera.write();
+            let camera = camera_lock.as_mut().unwrap();
+            let buffer = camera.dequeue().wrap_err("failed to dequeue buffer")?;
+            camera
+                .queue(vec![
+                    0;
+                    match self.parameters.format {
+                        nao_camera::Format::YUVU =>
+                            (4 * self.parameters.width / 2 * self.parameters.height) as usize,
+                    }
+                ])
+                .wrap_err("failed to queue buffer")?;
+            let new_image = YCbCr422Image::from_raw_buffer(
+                self.parameters.width / 2,
+                self.parameters.height,
+                buffer,
+            );
+            self.image_sender.send(Some(new_image.clone()))?;
+            return Ok(new_image);
         }
-
-        let _lock = self.read_mutex.lock();
-        // only one client is allowed to read the camera
-        if self.has_new_image_for_client(client_sequence_number)? {
-            return Ok(self.last_image.read().clone().unwrap());
-        }
-
-        self.wait_for_device()
-            .wrap_err("failed to wait for device")?;
-
-        let mut camera_lock = self.camera.write();
-        let camera = camera_lock.as_mut().unwrap();
-        let buffer = camera.dequeue().wrap_err("failed to dequeue buffer")?;
-        camera
-            .queue(vec![
-                0;
-                match self.parameters.format {
-                    nao_camera::Format::YUVU =>
-                        (4 * self.parameters.width / 2 * self.parameters.height) as usize,
-                }
-            ])
-            .wrap_err("failed to queue buffer")?;
-        let new_image = YCbCr422Image::from_raw_buffer(
-            self.parameters.width / 2,
-            self.parameters.height,
-            buffer,
-        );
-
-        {
-            let mut last_image = self.last_image.write();
-            *last_image = Some(CameraResult {
-                sequence_number: last_image
-                    .as_ref()
-                    .map(|last_image| last_image.sequence_number.next())
-                    .unwrap_or(SequenceNumber::new(1)),
-                image: new_image,
-            });
-        }
-
-        return Ok(self.last_image.read().clone().unwrap());
-
+        let image = this_receiver.borrow_and_update().clone();
+        Ok(image.unwrap())
         // TODO: readd consecutive sequence number checking
     }
 
