@@ -5,12 +5,10 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use motionfile::{SplineInterpolator, TimedSpline};
 use serde::{Deserialize, Serialize};
-use types::{
-    cycle_time::CycleTime,
-    joints::{BodyJointsCommand, HeadJoints, Joints, JointsCommand},
-    motion_selection::{MotionSafeExits, MotionSelection, MotionType},
-    sensor_data::SensorData,
-};
+use types::joints::{HeadJoints, Joints};
+use types::motion_selection::{MotionSafeExits, MotionSelection, MotionType};
+use types::motor_commands::{BodyMotorCommand, MotorCommand};
+use types::{cycle_time::CycleTime, sensor_data::SensorData};
 
 #[derive(Deserialize, Serialize)]
 pub struct DispatchingInterpolator {
@@ -25,17 +23,17 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    arms_up_squat_joints_command: Input<JointsCommand<f32>, "arms_up_squat_joints_command">,
-    energy_saving_stand: Input<BodyJointsCommand<f32>, "energy_saving_stand_command">,
-    jump_left_joints_command: Input<JointsCommand<f32>, "jump_left_joints_command">,
-    jump_right_joints_command: Input<JointsCommand<f32>, "jump_right_joints_command">,
+    arms_up_squat_joints_command: Input<MotorCommand<f32>, "arms_up_squat_joints_command">,
+    energy_saving_stand: Input<BodyMotorCommand<f32>, "energy_saving_stand_command">,
+    jump_left_joints_command: Input<MotorCommand<f32>, "jump_left_joints_command">,
+    jump_right_joints_command: Input<MotorCommand<f32>, "jump_right_joints_command">,
     motion_selection: Input<MotionSelection, "motion_selection">,
     sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    sit_down_joints_command: Input<JointsCommand<f32>, "sit_down_joints_command">,
+    sit_down_joints_command: Input<MotorCommand<f32>, "sit_down_joints_command">,
     stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
-    walk_joints_command: Input<BodyJointsCommand<f32>, "walk_joints_command">,
+    walk_joints_command: Input<BodyMotorCommand<f32>, "walk_joints_command">,
 
     initial_pose: Parameter<Joints<f32>, "initial_pose">,
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
@@ -48,7 +46,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub dispatching_command: MainOutput<JointsCommand<f32>>,
+    pub dispatching_command: MainOutput<MotorCommand<f32>>,
 }
 
 impl DispatchingInterpolator {
@@ -129,7 +127,7 @@ impl DispatchingInterpolator {
         });
 
         Ok(MainOutputs {
-            dispatching_command: JointsCommand {
+            dispatching_command: MotorCommand {
                 positions: self.interpolator.value(),
                 stiffnesses: self.stiffnesses,
             }

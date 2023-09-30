@@ -3,8 +3,9 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
-    joints::{BodyJointsCommand, HeadJointsCommand, Joints, JointsCommand},
+    joints::Joints,
     motion_selection::{MotionSelection, MotionType},
+    motor_commands::{BodyMotorCommand, HeadMotorCommand, MotorCommand},
     sensor_data::SensorData,
 };
 
@@ -16,19 +17,19 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    arms_up_squat_joints_command: Input<JointsCommand<f32>, "arms_up_squat_joints_command">,
-    dispatching_command: Input<JointsCommand<f32>, "dispatching_command">,
-    energy_saving_stand_command: Input<BodyJointsCommand<f32>, "energy_saving_stand_command">,
-    fall_protection_command: Input<JointsCommand<f32>, "fall_protection_command">,
-    head_joints_command: Input<HeadJointsCommand<f32>, "head_joints_command">,
-    jump_left_joints_command: Input<JointsCommand<f32>, "jump_left_joints_command">,
-    jump_right_joints_command: Input<JointsCommand<f32>, "jump_right_joints_command">,
+    arms_up_squat_joints_command: Input<MotorCommand<f32>, "arms_up_squat_joints_command">,
+    dispatching_command: Input<MotorCommand<f32>, "dispatching_command">,
+    energy_saving_stand_command: Input<BodyMotorCommand<f32>, "energy_saving_stand_command">,
+    fall_protection_command: Input<MotorCommand<f32>, "fall_protection_command">,
+    head_joints_command: Input<HeadMotorCommand<f32>, "head_joints_command">,
+    jump_left_joints_command: Input<MotorCommand<f32>, "jump_left_joints_command">,
+    jump_right_joints_command: Input<MotorCommand<f32>, "jump_right_joints_command">,
     motion_selection: Input<MotionSelection, "motion_selection">,
     sensor_data: Input<SensorData, "sensor_data">,
-    sit_down_joints_command: Input<JointsCommand<f32>, "sit_down_joints_command">,
+    sit_down_joints_command: Input<MotorCommand<f32>, "sit_down_joints_command">,
     stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
-    walk_joints_command: Input<BodyJointsCommand<f32>, "walk_joints_command">,
+    walk_joints_command: Input<BodyMotorCommand<f32>, "walk_joints_command">,
 
     joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
@@ -40,7 +41,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub motor_commands: MainOutput<JointsCommand<f32>>,
+    pub motor_commands: MainOutput<MotorCommand<f32>>,
 }
 
 impl MotorCommandCollector {
@@ -101,7 +102,7 @@ impl MotorCommandCollector {
         // The actuators use the raw sensor data (not corrected like current_positions) in their feedback loops,
         // thus the compensation is required to make them reach the actual desired position.
         let compensated_positions = positions + *context.joint_calibration_offsets;
-        let motor_commands = JointsCommand {
+        let motor_commands = MotorCommand {
             positions: compensated_positions,
             stiffnesses,
         };

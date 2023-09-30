@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::AdditionalOutput;
 use hardware::ActuatorInterface;
 use serde::{Deserialize, Serialize};
-use types::{joints::JointsCommand, led::Leds, motion_selection::MotionSafeExits};
+use types::{led::Leds, motion_selection::MotionSafeExits, motor_commands::MotorCommand};
 
 #[derive(Deserialize, Serialize)]
 pub struct CommandSender {}
@@ -13,13 +13,13 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    optimized_motor_commands: Input<JointsCommand<f32>, "optimized_motor_commands">,
+    optimized_motor_commands: Input<MotorCommand<f32>, "optimized_motor_commands">,
     leds: Input<Leds, "leds">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
     hardware_interface: HardwareInterface,
 
-    executed_motor_commands: AdditionalOutput<JointsCommand<f32>, "executed_motor_commands">,
+    executed_motor_commands: AdditionalOutput<MotorCommand<f32>, "executed_motor_commands">,
     motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
 }
 

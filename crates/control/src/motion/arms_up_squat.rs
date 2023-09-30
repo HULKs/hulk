@@ -7,8 +7,9 @@ use serde::{Deserialize, Serialize};
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
-    joints::{Joints, JointsCommand},
+    joints::Joints,
     motion_selection::{MotionSelection, MotionType},
+    motor_commands::MotorCommand,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -31,7 +32,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub arms_up_squat_joints_command: MainOutput<JointsCommand<f32>>,
+    pub arms_up_squat_joints_command: MainOutput<MotorCommand<f32>>,
 }
 
 impl ArmsUpSquat {
@@ -55,7 +56,7 @@ impl ArmsUpSquat {
         }
 
         Ok(MainOutputs {
-            arms_up_squat_joints_command: JointsCommand {
+            arms_up_squat_joints_command: MotorCommand {
                 positions: self.interpolator.value(),
                 stiffnesses: Joints::fill(0.9),
             }

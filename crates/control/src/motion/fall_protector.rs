@@ -13,9 +13,10 @@ use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
     fall_state::FallState,
-    joints::{BodyJoints, HeadJoints, Joints, JointsCommand},
+    joints::{BodyJoints, HeadJoints, Joints},
     motion_command::{FallDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
+    motor_commands::MotorCommand,
     parameters::{FallProtectionParameters, FallStateEstimationParameters},
     sensor_data::SensorData,
 };
@@ -52,7 +53,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub fall_protection_command: MainOutput<JointsCommand<f32>>,
+    pub fall_protection_command: MainOutput<MotorCommand<f32>>,
 }
 
 impl FallProtector {
@@ -84,7 +85,7 @@ impl FallProtector {
             self.start_time = context.cycle_time.start_time;
 
             return Ok(MainOutputs {
-                fall_protection_command: JointsCommand {
+                fall_protection_command: MotorCommand {
                     positions: current_positions,
                     stiffnesses: Joints::fill(0.8),
                 }
@@ -159,7 +160,7 @@ impl FallProtector {
                 direction: FallDirection::Forward,
             } => {
                 self.interpolator.reset();
-                JointsCommand {
+                MotorCommand {
                     positions: Joints::from_head_and_body(
                         HeadJoints {
                             yaw: 0.0,
@@ -185,14 +186,14 @@ impl FallProtector {
                     context.condition_input,
                 );
 
-                JointsCommand {
+                MotorCommand {
                     positions: self.interpolator.value(),
                     stiffnesses,
                 }
             }
             _ => {
                 self.interpolator.reset();
-                JointsCommand {
+                MotorCommand {
                     positions: Joints::from_head_and_body(
                         HeadJoints {
                             yaw: 0.0,
