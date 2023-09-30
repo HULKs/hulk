@@ -267,7 +267,7 @@
     "offset_reset_speed": 1.012,
     "offset_reset_offset": 3.0,
     "optimization_speed": 0.0001,
-    "optimization_current_threshold": 0.12,
+    "optimization_current_threshold": 0.13,
     "optimization_sign": {
       "head": {
         "yaw": 1,
