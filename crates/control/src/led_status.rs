@@ -190,9 +190,7 @@ impl LedStatus {
             context
                 .sensor_data
                 .temperature_sensors
-                .as_vec()
                 .into_iter()
-                .flatten()
                 .fold(0.0, f32::max),
         );
 
