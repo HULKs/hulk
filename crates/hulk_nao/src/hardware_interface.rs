@@ -31,7 +31,8 @@ use types::{
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
-    sensor_data::SensorData, camera_result::{SequenceNumber, CameraResult},
+    sensor_data::SensorData,
+    ycbcr422_image::YCbCr422Image,
 };
 
 use super::{
@@ -123,14 +124,10 @@ impl ActuatorInterface for HardwareInterface {
 }
 
 impl CameraInterface for HardwareInterface {
-    fn read_from_camera(
-        &self,
-        camera_position: CameraPosition,
-        client_sequence_number: &SequenceNumber,
-    ) -> Result<CameraResult> {
+    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image> {
         match camera_position {
-            CameraPosition::Top => self.camera_top.read(client_sequence_number),
-            CameraPosition::Bottom => self.camera_bottom.read(client_sequence_number),
+            CameraPosition::Top => self.camera_top.read(),
+            CameraPosition::Bottom => self.camera_bottom.read(),
         }
     }
 }

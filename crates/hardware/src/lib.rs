@@ -1,17 +1,16 @@
 use std::time::SystemTime;
 
 use color_eyre::eyre::Result;
-use types::camera_position::CameraPosition;
-use types::hardware::Ids;
-use types::camera_result::{SequenceNumber, CameraResult};
 use types::{
     audio::SpeakerRequest,
-    hardware::Paths,
+    camera_position::CameraPosition,
+    hardware::{Ids, Paths},
     joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
     sensor_data::SensorData,
+    ycbcr422_image::YCbCr422Image,
 };
 
 pub trait ActuatorInterface {
@@ -24,7 +23,7 @@ pub trait ActuatorInterface {
 }
 
 pub trait CameraInterface {
-    fn read_from_camera(&self, camera_position: CameraPosition, sequence_number: &SequenceNumber) -> Result<CameraResult>;
+    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image>;
 }
 
 pub trait IdInterface {
