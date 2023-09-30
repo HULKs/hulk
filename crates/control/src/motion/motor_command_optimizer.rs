@@ -4,6 +4,7 @@ use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     joints::{ArmJoints, Joints, JointsCommand},
+    motion_selection::MotionSelection,
     parameters::MotorCommandOptimizerParameters,
     sensor_data::SensorData,
 };
@@ -21,6 +22,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     pub motor_commands: Input<JointsCommand<f32>, "motor_commands">,
     pub sensor_data: Input<SensorData, "sensor_data">,
+    pub motion_selection: Input<MotionSelection, "motion_selection">,
 
     pub parameters:
         Parameter<MotorCommandOptimizerParameters, "motor_command_optimizer_parameters">,
@@ -45,6 +47,12 @@ impl MotorCommandOptimizer {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let current_motion = context.motion_selection.current_motion;
+
+        let optimization_forbidden = current_motion
+            != types::motion_selection::MotionType::Penalized
+            && current_motion != types::motion_selection::MotionType::Stand;
+
         let currents = context.sensor_data.currents;
         let commands = *context.motor_commands;
         let parameters = context.parameters;
@@ -55,13 +63,15 @@ impl MotorCommandOptimizer {
             .map(|position| position.powf(2.0))
             .sum();
 
-        if squared_position_offset_sum > parameters.offset_reset_threshold {
+        if squared_position_offset_sum > parameters.offset_reset_threshold || optimization_forbidden
+        {
             self.is_resetting = true;
         }
 
         if self.is_resetting {
             if squared_position_offset_sum
                 < parameters.offset_reset_threshold / parameters.offset_reset_offset
+                && !optimization_forbidden
             {
                 self.is_resetting = false;
             } else {
