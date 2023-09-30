@@ -6,9 +6,12 @@ use context_attribute::context;
 use framework::AdditionalOutput;
 use hardware::PathsInterface;
 use itertools::Itertools;
-use ndarray::{Array2, Array3, ArrayView};
+use ndarray::{Array2, ArrayView};
 use openvino::{Blob, Core, ExecutableNetwork, Layout, Precision, TensorDesc};
-use types::{ycbcr422_image::YCbCr422Image, Rgb, YCbCr422, YCbCr444};
+use types::{
+    color::{Rgb, YCbCr422, YCbCr444},
+    ycbcr422_image::YCbCr422Image,
+};
 
 const SEMANTIC_SEGMENTATION_IMAGE_WIDTH: usize = 160;
 const SEMANTIC_SEGMENTATION_IMAGE_HEIGHT: usize = 120;
