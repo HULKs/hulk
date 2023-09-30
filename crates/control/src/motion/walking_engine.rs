@@ -9,9 +9,10 @@ use nalgebra::{Isometry3, Point3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
-    joints::{ArmJoints, BodyJoints, BodyJointsCommand, LegJoints},
+    joints::{ArmJoints, BodyJoints, LegJoints},
     motion_command::{KickVariant, MotionCommand},
     motion_selection::{MotionSafeExits, MotionType},
+    motor_commands::BodyMotorCommand,
     parameters::{KickStepsParameters, StepPlannerParameters, WalkingEngineParameters},
     robot_kinematics::RobotKinematics,
     sensor_data::{InertialMeasurementUnitData, SensorData},
@@ -148,7 +149,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub walk_joints_command: MainOutput<BodyJointsCommand<f32>>,
+    pub walk_joints_command: MainOutput<BodyMotorCommand<f32>>,
 }
 
 impl WalkingEngine {
@@ -378,7 +379,7 @@ impl WalkingEngine {
         };
 
         Ok(MainOutputs {
-            walk_joints_command: BodyJointsCommand {
+            walk_joints_command: BodyMotorCommand {
                 positions: BodyJoints {
                     left_arm,
                     right_arm,

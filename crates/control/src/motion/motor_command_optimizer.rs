@@ -3,8 +3,9 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
-    joints::{ArmJoints, Joints, JointsCommand},
+    joints::{ArmJoints, Joints},
     motion_selection::MotionSelection,
+    motor_commands::MotorCommand,
     parameters::MotorCommandOptimizerParameters,
     sensor_data::SensorData,
 };
@@ -20,7 +21,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub motor_commands: Input<JointsCommand<f32>, "motor_commands">,
+    pub motor_commands: Input<MotorCommand<f32>, "motor_commands">,
     pub sensor_data: Input<SensorData, "sensor_data">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
 
@@ -35,7 +36,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub optimized_motor_commands: MainOutput<JointsCommand<f32>>,
+    pub optimized_motor_commands: MainOutput<MotorCommand<f32>>,
 }
 
 impl MotorCommandOptimizer {
@@ -109,7 +110,7 @@ impl MotorCommandOptimizer {
             ..commands.stiffnesses
         };
 
-        let optimized_commands = JointsCommand {
+        let optimized_commands = MotorCommand {
             positions: commands.positions + self.position_offset,
             stiffnesses: optimized_stiffnesses,
         };

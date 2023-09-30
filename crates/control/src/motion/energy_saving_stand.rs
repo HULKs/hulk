@@ -2,7 +2,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
-use types::joints::{ArmJoints, BodyJoints, BodyJointsCommand, Joints, LegJoints};
+use types::{
+    joints::{ArmJoints, BodyJoints, Joints, LegJoints},
+    motor_commands::BodyMotorCommand,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct EnergySavingStand {}
@@ -20,7 +23,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub energy_saving_stand_command: MainOutput<BodyJointsCommand<f32>>,
+    pub energy_saving_stand_command: MainOutput<BodyMotorCommand<f32>>,
 }
 
 impl EnergySavingStand {
@@ -30,7 +33,7 @@ impl EnergySavingStand {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         Ok(MainOutputs {
-            energy_saving_stand_command: BodyJointsCommand {
+            energy_saving_stand_command: BodyMotorCommand {
                 positions: BodyJoints::from(*context.energy_saving_stand_pose),
                 stiffnesses: BodyJoints {
                     left_arm: ArmJoints::fill(*context.arm_stiffness),
