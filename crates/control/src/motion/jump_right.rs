@@ -6,12 +6,12 @@ use motionfile::{MotionFile, MotionInterpolator};
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
-    joints::{Joints, JointsCommand},
+    joints::{JointsCommand, JointsWithStiffnesses},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
 };
 
 pub struct JumpRight {
-    interpolator: MotionInterpolator<JointsCommand<f32>>,
+    interpolator: MotionInterpolator<JointsWithStiffnesses>,
 }
 
 #[context]
@@ -54,8 +54,10 @@ impl JumpRight {
 
         context.motion_safe_exits[MotionType::JumpRight] = self.interpolator.is_finished();
 
+        let joints_command: JointsCommand<f32> = self.interpolator.value().into();
+
         Ok(MainOutputs {
-            jump_right_joints_command: self.interpolator.value().mirrored().into(),
+            jump_right_joints_command: joints_command.mirrored().into(),
         })
     }
 }
