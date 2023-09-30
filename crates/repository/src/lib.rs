@@ -2,7 +2,7 @@ use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     env::current_dir,
     ffi::OsStr,
-    fmt::{Display, Write},
+    fmt::Display,
     fs::Permissions,
     io::{self, ErrorKind},
     os::unix::prelude::PermissionsExt,
@@ -18,6 +18,7 @@ use constants::SDK_VERSION;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use glob::glob;
 use home::home_dir;
+use itertools::intersperse;
 use parameters::{
     directory::{serialize, Id, Location, Scope},
     json::nest_value_at_path,
@@ -28,7 +29,7 @@ use tempfile::{tempdir, TempDir};
 use tokio::{
     fs::{
         create_dir_all, read_dir, read_link, read_to_string, remove_file, set_permissions, symlink,
-        write, File,
+        try_exists, write, File,
     },
     io::AsyncReadExt,
     process::Command,
@@ -365,13 +366,16 @@ impl Repository {
         let target_location = self.parameters_root().join(format!("{target}_location"));
         let new_location = Path::new(location);
         let new_location_path = self.parameters_root().join(location);
-        if !new_location_path.exists() {
-            let mut available_locations = String::new();
+        if !try_exists(new_location_path).await? {
             let location_set = self.list_available_locations().await?;
-            for location in location_set {
-                writeln!(&mut available_locations, "  -{location}")?;
-            }
-            bail!("available locations are:\n{available_locations}but you wrote: {location}");
+            let available_locations: String = intersperse(
+                location_set
+                    .into_iter()
+                    .map(|location| format!("  - {location}")),
+                "\n".to_string(),
+            )
+            .collect();
+            bail!("location {location} does not exist. \navailable locations are:\n{available_locations}");
         }
         let _ = remove_file(&target_location).await;
         symlink(&new_location, &target_location)
