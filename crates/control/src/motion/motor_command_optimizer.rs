@@ -10,7 +10,7 @@ use types::{
     sensor_data::SensorData,
 };
 
-#[derive(Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct MotorCommandOptimizer {
     position_offset: Joints<f32>,
     is_resetting: bool,
@@ -41,10 +41,7 @@ pub struct MainOutputs {
 
 impl MotorCommandOptimizer {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            position_offset: Joints::default(),
-            is_resetting: false,
-        })
+        Ok(Self::default())
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
