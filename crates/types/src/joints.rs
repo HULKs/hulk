@@ -575,10 +575,10 @@ impl<T> IntoIterator for Joints<T> {
     fn into_iter(self) -> Self::IntoIter {
         self.head
             .into_iter()
-            .chain(self.left_arm.into_iter())
-            .chain(self.right_arm.into_iter())
-            .chain(self.left_leg.into_iter())
-            .chain(self.right_leg.into_iter())
+            .chain(self.left_arm)
+            .chain(self.right_arm)
+            .chain(self.left_leg)
+            .chain(self.right_leg)
     }
 }
 

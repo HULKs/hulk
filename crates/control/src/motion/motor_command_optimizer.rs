@@ -78,20 +78,18 @@ impl MotorCommandOptimizer {
         }
 
         let maximal_current = currents.into_iter().fold(0.0, f32::max);
-        let reset_threshold_reached = maximal_current >= parameters.optimization_current_threshold;
+        let minimum_not_reached = maximal_current >= parameters.optimization_current_threshold;
 
-        if reset_threshold_reached && !self.is_resetting {
-            let position_offset = parameters
-                .optimization_sign
-                .into_iter()
-                .zip(currents.into_iter())
-                .map(|(correction_direction, current)| {
+        if minimum_not_reached && !self.is_resetting {
+            let position_offset = parameters.optimization_sign.into_iter().zip(currents).map(
+                |(correction_direction, current)| {
                     if current < maximal_current {
                         0.0
                     } else {
                         parameters.optimization_speed * correction_direction as f32
                     }
-                });
+                },
+            );
             self.position_offset = self.position_offset + Joints::from_iter(position_offset);
         }
 
