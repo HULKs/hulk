@@ -36,10 +36,13 @@ enum Message {
     ListenToUpdates {
         response_sender: mpsc::Sender<()>,
     },
+    UpdateParameterValue {
+        value: Value,
+    },
 }
 
 pub struct ValueBuffer {
-    sender: mpsc::Sender<Message>,
+    command_sender: mpsc::Sender<Message>,
 }
 
 impl ValueBuffer {
@@ -49,35 +52,37 @@ impl ValueBuffer {
             let (uuid, receiver) = communication
                 .subscribe_output(output.clone(), Format::Textual)
                 .await;
-            value_buffer(receiver, command_receiver).await;
+            value_buffer(receiver, command_receiver, communication.clone(), None).await;
             communication.unsubscribe_output(uuid).await;
         });
-        Self {
-            sender: command_sender,
-        }
+        Self { command_sender }
     }
 
     pub fn parameter(communication: Communication, path: String) -> Self {
         let (command_sender, command_receiver) = mpsc::channel(10);
         spawn(async move {
             let (uuid, receiver) = communication.subscribe_parameter(path.clone()).await;
-            value_buffer(receiver, command_receiver).await;
+            value_buffer(
+                receiver,
+                command_receiver,
+                communication.clone(),
+                Some(path),
+            )
+            .await;
             communication.unsubscribe_parameter(uuid).await;
         });
-        Self {
-            sender: command_sender,
-        }
+        Self { command_sender }
     }
 
     pub fn listen_to_updates(&self, response_sender: mpsc::Sender<()>) {
-        self.sender
+        self.command_sender
             .blocking_send(Message::ListenToUpdates { response_sender })
             .unwrap()
     }
 
     pub fn get_latest(&self) -> Result<Value, String> {
         let (sender, receiver) = oneshot::channel();
-        self.sender
+        self.command_sender
             .blocking_send(Message::GetLatest {
                 response_sender: sender,
             })
@@ -87,7 +92,7 @@ impl ValueBuffer {
 
     pub fn get_buffered(&self) -> Result<Vec<Value>, String> {
         let (sender, receiver) = oneshot::channel();
-        self.sender
+        self.command_sender
             .blocking_send(Message::GetBuffered {
                 response_sender: sender,
             })
@@ -96,7 +101,7 @@ impl ValueBuffer {
     }
 
     pub fn reserve(&self, buffer_size: usize) {
-        self.sender
+        self.command_sender
             .blocking_send(Message::SetCapacity {
                 buffer_capacity: buffer_size,
             })
@@ -105,12 +110,18 @@ impl ValueBuffer {
 
     pub fn size(&self) -> Result<usize, String> {
         let (sender, receiver) = oneshot::channel();
-        self.sender
+        self.command_sender
             .blocking_send(Message::GetSize {
                 response_sender: sender,
             })
             .unwrap();
         receiver.blocking_recv().unwrap()
+    }
+
+    pub fn update_parameter_value(&self, value: Value) {
+        self.command_sender
+            .blocking_send(Message::UpdateParameterValue { value })
+            .unwrap();
     }
 
     pub fn parse_latest<Output>(&self) -> Result<Output>
@@ -141,28 +152,30 @@ impl ValueBuffer {
 async fn value_buffer(
     mut subscriber_receiver: mpsc::Receiver<SubscriberMessage>,
     mut command_receiver: mpsc::Receiver<Message>,
+    communication: Communication,
+    parameter_path: Option<String>,
 ) {
     let mut values: Option<Result<VecDeque<Value>, String>> = None;
     let mut update_listeners: Vec<mpsc::Sender<()>> = Vec::new();
     let mut buffer_capacity = 1;
+    let mut skip_updates = 0;
+
     loop {
         select! {
             maybe_message = subscriber_receiver.recv() => {
                 match maybe_message {
                     Some(message) => {
                         match message {
-                            SubscriberMessage::Update{value:new_value} => {
-                                match &mut values {
-                                    Some(Ok(values)) => {
-                                        values.push_front(new_value);
-                                        values.truncate(buffer_capacity);
-                                    },
-                                    _ => {
-                                        let mut new_buffer = VecDeque::with_capacity(buffer_capacity);
-                                        new_buffer.push_back(new_value);
-                                        values = Some(Ok(new_buffer));
-                                    },
+                            SubscriberMessage::Update{value} => {
+                                if skip_updates > 0 {
+                                    skip_updates -= 1;
+                                    println!("Skipping update");
+                                    continue;
                                 }
+                                if parameter_path.is_some() {
+                                    println!("Updating");
+                                }
+                                add_element(&mut values, buffer_capacity, value);
                                 update_listeners.retain(|listener| {
                                     if let Err(TrySendError::Closed(_)) = listener.try_send(()) {
                                             return false;
@@ -217,10 +230,39 @@ async fn value_buffer(
                         Message::ListenToUpdates{response_sender} => {
                             update_listeners.push(response_sender)
                         },
+                        Message::UpdateParameterValue{value} => {
+                            skip_updates += 1;
+                            println!("Sending update");
+                            add_element(&mut values, buffer_capacity, value.clone());
+                            communication.update_parameter_value(
+                                parameter_path.as_ref().expect(
+                                    "Tried updating parameter on output value buffer"
+                                ),
+                                value,
+                            ).await;
+                        },
                     },
                     None => break,
                 }
             }
+        }
+    }
+}
+
+fn add_element(
+    values: &mut Option<Result<VecDeque<Value>, String>>,
+    capacity: usize,
+    value: Value,
+) {
+    match values {
+        Some(Ok(values)) => {
+            values.push_front(value);
+            values.truncate(capacity);
+        }
+        _ => {
+            let mut new_buffer = VecDeque::with_capacity(capacity);
+            new_buffer.push_back(value);
+            *values = Some(Ok(new_buffer));
         }
     }
 }

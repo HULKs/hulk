@@ -116,10 +116,9 @@ impl Widget for &mut VisionTunerPanel {
                 )
                 .changed()
             {
-                self.nao.update_parameter_value(
-                    get_vertical_edge_threshold_path(self.cycler),
-                    to_value(vertical_edge_threshold).unwrap(),
-                );
+                self.buffers
+                    .vertical_edge_threshold_buffer
+                    .update_parameter_value(to_value(vertical_edge_threshold).unwrap());
             }
 
             let value = get_value_from_interpolated(self.position, &mut red_chromaticity_threshold);
@@ -131,10 +130,9 @@ impl Widget for &mut VisionTunerPanel {
                 )
                 .changed()
             {
-                self.nao.update_parameter_value(
-                    get_red_chromaticity_threshold_path(self.cycler),
-                    to_value(red_chromaticity_threshold).unwrap(),
-                );
+                self.buffers
+                    .red_chromaticity_threshold_buffer
+                    .update_parameter_value(to_value(red_chromaticity_threshold).unwrap());
             }
 
             let value =
@@ -147,10 +145,9 @@ impl Widget for &mut VisionTunerPanel {
                 )
                 .changed()
             {
-                self.nao.update_parameter_value(
-                    get_blue_chromaticity_threshold_path(self.cycler),
-                    to_value(blue_chromaticity_threshold).unwrap(),
-                );
+                self.buffers
+                    .blue_chromaticity_threshold_buffer
+                    .update_parameter_value(to_value(blue_chromaticity_threshold).unwrap());
             }
             let value =
                 get_value_from_interpolated(self.position, &mut lower_green_chromaticity_threshold);
@@ -162,10 +159,9 @@ impl Widget for &mut VisionTunerPanel {
                 )
                 .changed()
             {
-                self.nao.update_parameter_value(
-                    get_lower_green_chromaticity_threshold_path(self.cycler),
-                    to_value(lower_green_chromaticity_threshold).unwrap(),
-                );
+                self.buffers
+                    .lower_green_chromaticity_threshold_buffer
+                    .update_parameter_value(to_value(lower_green_chromaticity_threshold).unwrap());
             }
             let value =
                 get_value_from_interpolated(self.position, &mut upper_green_chromaticity_threshold);
@@ -177,10 +173,9 @@ impl Widget for &mut VisionTunerPanel {
                 )
                 .changed()
             {
-                self.nao.update_parameter_value(
-                    get_upper_green_chromaticity_threshold_path(self.cycler),
-                    to_value(upper_green_chromaticity_threshold).unwrap(),
-                );
+                self.buffers
+                    .upper_green_chromaticity_threshold_buffer
+                    .update_parameter_value(to_value(upper_green_chromaticity_threshold).unwrap());
             }
             let value = get_value_from_interpolated(self.position, &mut green_luminance_threshold);
             if ui
@@ -191,10 +186,9 @@ impl Widget for &mut VisionTunerPanel {
                 )
                 .changed()
             {
-                self.nao.update_parameter_value(
-                    get_green_luminance_threshold_path(self.cycler),
-                    to_value(green_luminance_threshold).unwrap(),
-                );
+                self.buffers
+                    .green_luminance_threshold_buffer
+                    .update_parameter_value(to_value(green_luminance_threshold).unwrap());
             }
         })
         .response
