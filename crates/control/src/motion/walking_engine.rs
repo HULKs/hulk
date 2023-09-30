@@ -604,7 +604,7 @@ impl WalkingEngine {
                 + (planned_step.left / 2.0 - swing_foot_t0.left) * parabolic_time,
         };
 
-        let step_midpoint = if planned_step.forward.abs() + planned_step.left.abs() > 0.1 {
+        let step_midpoint = if planned_step.forward.abs() + planned_step.left.abs() > 0.01 {
             let normalized_planned_step = FootOffsets {
                 forward: planned_step.forward
                     / (planned_step.forward.abs() + planned_step.left.abs()),
