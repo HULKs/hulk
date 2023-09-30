@@ -59,15 +59,13 @@ impl SensorDataReceiver {
         context.maximum_temperature.fill_if_subscribed(|| {
             sensor_data
                 .temperature_sensors
-                .as_vec()
                 .into_iter()
-                .flatten()
                 .fold(0.0, f32::max)
         });
 
         context
             .total_current
-            .fill_if_subscribed(|| sensor_data.currents.as_vec().into_iter().flatten().sum());
+            .fill_if_subscribed(|| sensor_data.currents.into_iter().sum());
 
         self.last_cycle_start = now;
         Ok(MainOutputs {

@@ -1,6 +1,7 @@
 use std::{
+    array::IntoIter,
     f32::consts::PI,
-    iter::Sum,
+    iter::{Chain, Sum},
     ops::{Add, Div, Mul, Sub},
     time::Duration,
 };
@@ -40,6 +41,16 @@ impl<T> From<Joints<T>> for HeadJoints<T> {
             yaw: joints.head.yaw,
             pitch: joints.head.pitch,
         }
+    }
+}
+
+impl<T> IntoIterator for HeadJoints<T> {
+    type Item = T;
+
+    type IntoIter = std::array::IntoIter<T, 2>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [self.yaw, self.pitch].into_iter()
     }
 }
 
@@ -142,16 +153,23 @@ where
             hand: value,
         }
     }
+}
 
-    pub fn as_vec(&self) -> Vec<T> {
-        vec![
-            self.shoulder_pitch.clone(),
-            self.shoulder_roll.clone(),
-            self.elbow_yaw.clone(),
-            self.elbow_roll.clone(),
-            self.wrist_yaw.clone(),
-            self.hand.clone(),
+impl<T> IntoIterator for ArmJoints<T> {
+    type Item = T;
+
+    type IntoIter = std::array::IntoIter<T, 6>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [
+            self.shoulder_pitch,
+            self.shoulder_roll,
+            self.elbow_yaw,
+            self.elbow_roll,
+            self.wrist_yaw,
+            self.hand,
         ]
+        .into_iter()
     }
 }
 
@@ -280,16 +298,23 @@ where
             ankle_roll: value,
         }
     }
+}
 
-    pub fn as_vec(&self) -> Vec<T> {
-        vec![
-            self.hip_yaw_pitch.clone(),
-            self.hip_roll.clone(),
-            self.hip_pitch.clone(),
-            self.knee_pitch.clone(),
-            self.ankle_pitch.clone(),
-            self.ankle_roll.clone(),
+impl<T> IntoIterator for LegJoints<T> {
+    type Item = T;
+
+    type IntoIter = std::array::IntoIter<T, 6>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [
+            self.hip_yaw_pitch,
+            self.hip_roll,
+            self.hip_pitch,
+            self.knee_pitch,
+            self.ankle_pitch,
+            self.ankle_roll,
         ]
+        .into_iter()
     }
 }
 
@@ -537,23 +562,23 @@ where
             right_leg: LegJoints::fill(value),
         }
     }
+}
 
-    pub fn as_vec(&self) -> Vec<Vec<T>> {
-        vec![
-            self.head.as_vec(),
-            self.left_arm.as_vec(),
-            self.right_arm.as_vec(),
-            self.left_leg.as_vec(),
-            self.right_leg.as_vec(),
-        ]
-    }
+impl<T> IntoIterator for Joints<T> {
+    type Item = T;
 
-    pub fn as_iter(&self) -> std::vec::IntoIter<Vec<T>> {
-        self.as_vec().into_iter()
-    }
+    type IntoIter = Chain<
+        Chain<Chain<Chain<IntoIter<T, 2>, IntoIter<T, 6>>, IntoIter<T, 6>>, IntoIter<T, 6>>,
+        IntoIter<T, 6>,
+    >;
 
-    pub fn as_flat_iter(&self) -> std::iter::Flatten<std::vec::IntoIter<Vec<T>>> {
-        self.as_vec().into_iter().flatten()
+    fn into_iter(self) -> Self::IntoIter {
+        self.head
+            .into_iter()
+            .chain(self.left_arm.into_iter())
+            .chain(self.right_arm.into_iter())
+            .chain(self.left_leg.into_iter())
+            .chain(self.right_leg.into_iter())
     }
 }
 
