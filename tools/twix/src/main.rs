@@ -41,10 +41,10 @@ mod panel;
 mod panels;
 mod players_value_buffer;
 mod repository_parameters;
-pub mod selectable_panel_macro;
+mod selectable_panel_macro;
 mod twix_painter;
 mod value_buffer;
-pub mod visuals;
+mod visuals;
 
 fn setup_logger() -> Result<(), InitError> {
     Dispatch::new()

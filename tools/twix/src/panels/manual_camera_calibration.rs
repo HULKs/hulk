@@ -17,7 +17,7 @@ type SubscribedType = Vector3<f64>;
 struct CameraParameterSubscriptions<DeserializedValueType> {
     human_friendly_label: String,
     path: String,
-    value_buffer: Option<ValueBuffer>,
+    value_buffer: ValueBuffer,
     value: DeserializedValueType,
     update_notify_receiver: mpsc::Receiver<()>,
 }
@@ -39,7 +39,7 @@ impl Panel for ManualCalibrationPanel {
             let path = CAMERA_KEY_BASE.to_owned() + name.to_lowercase().as_str() + ROTATIONS;
 
             let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
-            let value_buffer = subscribe(nao.clone(), &path, update_notify_sender);
+            let value_buffer = subscribe(nao.clone(), &path, update_notify_sender).unwrap();
 
             info!("Subscribing to path {}", path);
 
@@ -66,7 +66,7 @@ fn add_extrinsic_calibration_ui_components(
     repository_parameters: &RepositoryParameters,
     extrinsic_rotations_subscription: &mut CameraParameterSubscriptions<Option<SubscribedType>>,
 ) {
-    let extrinsic_rotations_buffer_option = &extrinsic_rotations_subscription.value_buffer;
+    let extrinsic_rotations_buffer = &extrinsic_rotations_subscription.value_buffer;
     let mut extrinsic_rotations_option = &mut extrinsic_rotations_subscription.value;
     let label = &extrinsic_rotations_subscription.human_friendly_label;
     let extrinsic_rotations_subscription_path = &extrinsic_rotations_subscription.path;
@@ -76,20 +76,18 @@ fn add_extrinsic_calibration_ui_components(
     let extrinsic_maximum_degrees = 15.0;
 
     ui.horizontal(|ui| {
-        if let Some(buffer) = &extrinsic_rotations_buffer_option {
-            match buffer.get_latest() {
-                Ok(value) => {
-                    if extrinsic_rotations_update_notify_receiver
-                        .try_recv()
-                        .is_ok()
-                    {
-                        *extrinsic_rotations_option =
-                            serde_json::from_value::<SubscribedType>(value).ok();
-                    }
+        match extrinsic_rotations_buffer.get_latest() {
+            Ok(value) => {
+                if extrinsic_rotations_update_notify_receiver
+                    .try_recv()
+                    .is_ok()
+                {
+                    *extrinsic_rotations_option =
+                        serde_json::from_value::<SubscribedType>(value).ok();
                 }
-                Err(error) => {
-                    ui.label(format!("{error:#?}"));
-                }
+            }
+            Err(error) => {
+                ui.label(format!("{error:#?}"));
             }
         }
 
@@ -100,7 +98,7 @@ fn add_extrinsic_calibration_ui_components(
             extrinsic_rotations_subscription_path,
             || {
                 serde_json::to_value(&extrinsic_rotations_option)
-                    .wrap_err("Conveting CameraMatrixParameters to serde_json::Value failed.")
+                    .wrap_err("Converting CameraMatrixParameters to serde_json::Value failed.")
             },
             nao.clone(),
             repository_parameters,
@@ -138,7 +136,7 @@ fn add_extrinsic_calibration_ui_components(
         if let Some(camera_parameter_value) = extrinsic_rotations_option {
             match serde_json::value::to_value(camera_parameter_value) {
                 Ok(value) => {
-                    nao.update_parameter_value(extrinsic_rotations_subscription_path, value);
+                    extrinsic_rotations_buffer.update_parameter_value(value);
                 }
                 Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
             }
