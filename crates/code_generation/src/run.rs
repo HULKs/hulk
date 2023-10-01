@@ -29,6 +29,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
 
             #construct_multiple_buffers
             #construct_future_queues
+            let (recording_sender, recording_receiver) = std::sync::mpsc::sync_channel(420);
 
             let communication_server = communication::server::Runtime::start(
                 addresses, parameters_directory, body_id, head_id, #number_of_parameter_slots, keep_running.clone())
@@ -147,6 +148,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers) -> TokenStream {
                 communication_server.get_parameters_reader(),
                 #own_producer_identifier
                 #(#other_cycler_inputs,)*
+                recording_sender.clone(),
             )
             .wrap_err(#error_message)?;
             communication_server.register_cycler_instance(

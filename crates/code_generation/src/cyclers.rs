@@ -13,6 +13,14 @@ use source_analyzer::{
 use crate::accessor::{path_to_accessor_token_stream, ReferenceKind};
 
 pub fn generate_cyclers(cyclers: &Cyclers) -> TokenStream {
+    let recording_frame_variants = cyclers.instances().map(|(_cycler, instance)| {
+        let instance_name = format_ident!("{}", instance);
+        quote! {
+            #instance_name {
+                data: std::vec::Vec<u8>,
+            },
+        }
+    });
     let cyclers: Vec<_> = cyclers
         .cyclers
         .iter()
@@ -20,6 +28,10 @@ pub fn generate_cyclers(cyclers: &Cyclers) -> TokenStream {
         .collect();
 
     quote! {
+        pub enum RecordingFrame {
+            #(#recording_frame_variants)*
+        }
+
         #(#cyclers)*
     }
 }
@@ -94,7 +106,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             #realtime_inputs
             #input_output_fields
             #node_fields
-            recording_file: std::io::BufWriter<std::fs::File>,
+            recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
         }
     }
 }
@@ -197,11 +209,11 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
             parameters_reader: framework::Reader<crate::structs::Parameters>,
             #input_output_fields
+            recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
         ) -> color_eyre::Result<Self> {
             let parameters = parameters_reader.next().clone();
             let mut cycler_state = crate::structs::#cycler_module_name::CyclerState::default();
             #node_initializers
-            let seconds = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_secs();
             Ok(Self {
                 instance,
                 hardware_interface,
@@ -212,7 +224,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                 cycler_state,
                 #input_output_identifiers
                 #(#node_identifiers,)*
-                recording_file: std::io::BufWriter::new(std::fs::File::create(format!("logs/{instance:?}.{seconds}.bincode")).unwrap()),
+                recording_sender,
             })
         }
     }
@@ -377,7 +389,9 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     #perception_cycler_updates
                 });
                 if enable_recording {
-                    bincode::serialize_into(&mut self.recording_file, &now).wrap_err("failed to record time")?;
+                    let begin = std::time::Instant::now();
+                    bincode::serialize_into(&mut recording_frame, &now).wrap_err("failed to record time")?;
+                    recording_duration += begin.elapsed();
                 }
             }
         }
@@ -408,6 +422,12 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             );
         },
     };
+    let recording_variants = cycler.instances.iter().map(|instance| {
+        let instance_name = format_ident!("{}", instance);
+        quote! {
+            CyclerInstance::#instance_name => crate::cyclers::RecordingFrame::#instance_name { data: recording_frame },
+        }
+    });
 
     quote! {
         #[allow(clippy::nonminimal_bool)]
@@ -424,7 +444,8 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                 };
 
                 let enable_recording = <HardwareInterface as hardware::RecordingInterface>::get_recording(&*self.hardware_interface);
-                //let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
+                let mut recording_duration = std::time::Duration::ZERO;
+                let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
 
                 {
                     let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
@@ -432,6 +453,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     #(#setup_node_executions)*
                 }
 
+                let cycle_begin = std::time::Instant::now();
                 #post_setup
 
                 {
@@ -443,6 +465,14 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                 }
 
                 #after_remaining_nodes
+
+                let cycle_end = cycle_begin.elapsed();
+                if enable_recording {
+                    println!("{instance:?}\t{cycle_end:?}\t{recording_duration:?}");
+                    self.recording_sender.try_send(match instance {
+                        #(#recording_variants)*
+                    }).wrap_err("failed to send recording frame")?;
+                }
             }
             self.own_changed.notify_one();
             Ok(())
@@ -573,12 +603,14 @@ fn generate_required_inputs_recording(cycler: &Cycler, required_inputs: Vec<Fiel
             _ => panic!("unexpected field {field:?}"),
         };
         quote! {
-            bincode::serialize_into(&mut self.recording_file, #value_to_be_recorded).wrap_err(#error_message)?;
+            bincode::serialize_into(&mut recording_frame, #value_to_be_recorded).wrap_err(#error_message)?;
         }
     });
     quote! {
         if enable_recording {
+            let begin = std::time::Instant::now();
             #(#recordings)*
+            recording_duration += begin.elapsed();
         }
     }
 }
@@ -609,7 +641,9 @@ fn generate_node_execution(node: &Node, cycler: &Cycler, generate_recording: boo
     quote! {
         {
             if enable_recording {
-                bincode::serialize_into(&mut self.recording_file, &self.#node_member).wrap_err(#recording_error_message)?;
+                let begin = std::time::Instant::now();
+                bincode::serialize_into(&mut recording_frame, &self.#node_member).wrap_err(#recording_error_message)?;
+                recording_duration += begin.elapsed();
             }
             #[allow(clippy::needless_else)]
             if #are_required_inputs_some {
@@ -862,7 +896,9 @@ fn generate_database_updates(node: &Node, generate_recording: bool) -> TokenStre
                 let error_message = format!("failed to record {name}");
                 let recording_serialization = generate_recording.then(|| quote! {
                     if enable_recording {
-                        bincode::serialize_into(&mut self.recording_file, &main_outputs.#name.value).wrap_err(#error_message)?;
+                        let begin = std::time::Instant::now();
+                        bincode::serialize_into(&mut recording_frame, &main_outputs.#name.value).wrap_err(#error_message)?;
+                        recording_duration += begin.elapsed();
                     }
                 });
                 let setter = quote! {
