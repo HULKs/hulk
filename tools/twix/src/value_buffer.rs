@@ -171,8 +171,6 @@ async fn value_buffer(
                                     skip_updates -= 1;
                                     continue;
                                 }
-                                if parameter_path.is_some() {
-                                }
                                 add_element(&mut values, buffer_capacity, value);
                                 update_listeners.retain(|listener| {
                                     if let Err(TrySendError::Closed(_)) = listener.try_send(()) {
