@@ -10,10 +10,16 @@ use types::{
     sensor_data::SensorData,
 };
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct MotorCommandOptimizer {
     position_offset: Joints<f32>,
-    is_resetting: bool,
+    state: State,
+}
+
+#[derive(Deserialize, Serialize)]
+pub enum State {
+    Optimizing,
+    Resetting,
 }
 
 #[context]
@@ -41,7 +47,10 @@ pub struct MainOutputs {
 
 impl MotorCommandOptimizer {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self::default())
+        Ok(Self {
+            position_offset: Joints::default(),
+            state: State::Resetting,
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -63,36 +72,33 @@ impl MotorCommandOptimizer {
 
         if squared_position_offset_sum > parameters.offset_reset_threshold || optimization_forbidden
         {
-            self.is_resetting = true;
+            self.state = State::Resetting;
         }
 
-        if self.is_resetting {
-            if squared_position_offset_sum
-                < parameters.offset_reset_threshold / parameters.offset_reset_offset
-                && !optimization_forbidden
-            {
-                self.is_resetting = false;
-            } else {
-                self.position_offset = self.position_offset / parameters.offset_reset_speed;
+        match self.state {
+            State::Optimizing => {
+                let (joint, maximal_current) = currents
+                    .enumerate()
+                    .max_by(|(_, left), (_, right)| f32::total_cmp(left, right))
+                    .unwrap();
+
+                let minimum_not_reached =
+                    maximal_current >= parameters.optimization_current_threshold;
+                if minimum_not_reached {
+                    self.position_offset[joint] =
+                        parameters.optimization_sign[joint] * parameters.optimization_speed;
+                }
             }
-        }
+            State::Resetting => {
+                let resetting_finished = squared_position_offset_sum
+                    < parameters.offset_reset_threshold / parameters.offset_reset_offset;
 
-        let maximal_current = currents.into_iter().fold(0.0, f32::max);
-        let minimum_not_reached = maximal_current >= parameters.optimization_current_threshold;
-
-        let x = parameters.optimization_sign * parameters.optimization_speed;
-
-        if minimum_not_reached && !self.is_resetting {
-            let position_offset = parameters.optimization_sign.into_iter().zip(currents).map(
-                |(correction_direction, current)| {
-                    if current < maximal_current {
-                        0.0
-                    } else {
-                        parameters.optimization_speed * correction_direction as f32
-                    }
-                },
-            );
-            self.position_offset = self.position_offset; // + Joints::from_iter(position_offset);
+                if resetting_finished && !optimization_forbidden {
+                    self.state = State::Optimizing;
+                } else {
+                    self.position_offset = self.position_offset / parameters.offset_reset_speed;
+                }
+            }
         }
 
         let optimized_stiffnesses = Joints {

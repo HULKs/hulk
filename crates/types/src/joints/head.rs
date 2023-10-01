@@ -1,11 +1,12 @@
 use std::{
-    ops::{Add, Div, Mul, Sub},
+    ops::{Add, Div, Index, IndexMut, Mul, Sub},
     time::Duration,
 };
 
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
+#[derive(Clone, Copy)]
 pub enum HeadJointsName {
     Yaw,
     Pitch,
@@ -108,6 +109,26 @@ impl HeadJoints<f32> {
         Self {
             yaw: -self.yaw,
             pitch: self.pitch,
+        }
+    }
+}
+
+impl<T> Index<HeadJointsName> for HeadJoints<T> {
+    type Output = T;
+
+    fn index(&self, index: HeadJointsName) -> &Self::Output {
+        match index {
+            HeadJointsName::Yaw => &self.yaw,
+            HeadJointsName::Pitch => &self.pitch,
+        }
+    }
+}
+
+impl<T> IndexMut<HeadJointsName> for HeadJoints<T> {
+    fn index_mut(&mut self, index: HeadJointsName) -> &mut Self::Output {
+        match index {
+            HeadJointsName::Yaw => &mut self.yaw,
+            HeadJointsName::Pitch => &mut self.pitch,
         }
     }
 }

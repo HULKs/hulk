@@ -1,11 +1,12 @@
 use std::{
-    ops::{Add, Div, Mul, Sub},
+    ops::{Add, Div, Index, IndexMut, Mul, Sub},
     time::Duration,
 };
 
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
+#[derive(Clone, Copy)]
 pub enum LegJointsName {
     AnklePitch,
     AnkleRoll,
@@ -167,6 +168,34 @@ impl LegJoints<f32> {
             knee_pitch: self.knee_pitch.clamp(min.knee_pitch, max.knee_pitch),
             ankle_pitch: self.ankle_pitch.clamp(min.ankle_pitch, max.ankle_pitch),
             ankle_roll: self.ankle_roll.clamp(min.ankle_roll, max.ankle_roll),
+        }
+    }
+}
+
+impl<T> Index<LegJointsName> for LegJoints<T> {
+    type Output = T;
+
+    fn index(&self, index: LegJointsName) -> &Self::Output {
+        match index {
+            LegJointsName::AnklePitch => &self.ankle_pitch,
+            LegJointsName::AnkleRoll => &self.ankle_roll,
+            LegJointsName::HipPitch => &self.hip_pitch,
+            LegJointsName::HipRoll => &self.hip_roll,
+            LegJointsName::HipYawPitch => &self.hip_yaw_pitch,
+            LegJointsName::KneePitch => &self.knee_pitch,
+        }
+    }
+}
+
+impl<T> IndexMut<LegJointsName> for LegJoints<T> {
+    fn index_mut(&mut self, index: LegJointsName) -> &mut Self::Output {
+        match index {
+            LegJointsName::AnklePitch => &mut self.ankle_pitch,
+            LegJointsName::AnkleRoll => &mut self.ankle_roll,
+            LegJointsName::HipPitch => &mut self.hip_pitch,
+            LegJointsName::HipRoll => &mut self.hip_roll,
+            LegJointsName::HipYawPitch => &mut self.hip_yaw_pitch,
+            LegJointsName::KneePitch => &mut self.knee_pitch,
         }
     }
 }
