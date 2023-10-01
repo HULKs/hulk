@@ -10,6 +10,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
     let construct_future_queues = generate_future_queues(cyclers);
     // 2 communication writer slots + n reader slots for other cyclers
     let number_of_parameter_slots = 2 + cyclers.number_of_instances();
+    let recording_thread = generate_recording_thread(cyclers);
     let construct_cyclers = generate_cycler_constructors(cyclers);
     let start_cyclers = generate_cycler_starts(cyclers);
     let join_cyclers = generate_cycler_joins(cyclers);
@@ -35,12 +36,25 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
                 addresses, parameters_directory, body_id, head_id, #number_of_parameter_slots, keep_running.clone())
                 .wrap_err("failed to start communication server")?;
 
+            let recording_thread = #recording_thread;
+
             #construct_cyclers
 
             #start_cyclers
 
             let mut encountered_error = false;
             #join_cyclers
+            match recording_thread.join() {
+                Ok(Err(error)) => {
+                    encountered_error = true;
+                    println!("{error:?}");
+                },
+                Err(error) => {
+                    encountered_error = true;
+                    println!("{error:?}");
+                },
+                _ => {},
+            }
             match communication_server.join() {
                 Ok(Err(error)) => {
                     encountered_error = true;
@@ -96,6 +110,42 @@ fn generate_future_queues(cyclers: &Cyclers) -> TokenStream {
             }
         })
         .collect()
+}
+
+fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
+    let file_creations = cyclers.instances().map(|(_cycler, instance)| {
+        let instance_name_snake_case = format_ident!("{}", instance.to_case(Case::Snake));
+        let instance_name = format!("logs/{instance}.{{seconds}}.bincode");
+        let error_message = format!("failed to create recording file for {instance}");
+        quote! {
+            let mut #instance_name_snake_case = std::io::BufWriter::new(std::fs::File::create(format!(#instance_name)).wrap_err(#error_message)?);
+        }
+    });
+    let frame_writes = cyclers.instances().map(|(_cycler, instance)| {
+        let instance_name = format_ident!("{}", instance);
+        let instance_name_snake_case = format_ident!("{}", instance.to_case(Case::Snake));
+        let error_message = format!("failed to write into recording file for {instance}");
+        quote! {
+            crate::cyclers::RecordingFrame::#instance_name { data } => #instance_name_snake_case.write_all(data.as_slice()).wrap_err(#error_message)?,
+        }
+    });
+
+    quote! {
+        std::thread::Builder::new()
+            .name("Recording".to_string())
+            .spawn(move || -> color_eyre::Result<()> {
+                use std::io::Write;
+                let seconds = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_secs();
+                #(#file_creations)*
+                for recording_frame in recording_receiver {
+                    match recording_frame {
+                        #(#frame_writes)*
+                    }
+                }
+                Ok(())
+            })
+            .wrap_err("failed to spawn recording thread")?
+    }
 }
 
 fn generate_cycler_constructors(cyclers: &Cyclers) -> TokenStream {
