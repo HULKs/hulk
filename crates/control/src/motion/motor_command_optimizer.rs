@@ -49,16 +49,15 @@ impl MotorCommandOptimizer {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             position_offset: Joints::default(),
-            state: State::Resetting,
+            state: State::Optimizing,
         })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let current_motion = context.motion_selection.current_motion;
 
-        let optimization_forbidden = current_motion
-            != types::motion_selection::MotionType::Penalized
-            && current_motion != types::motion_selection::MotionType::Stand;
+        let optimization_enabled = current_motion == types::motion_selection::MotionType::Penalized
+            || current_motion == types::motion_selection::MotionType::Stand;
 
         let currents = context.sensor_data.currents;
         let commands = *context.motor_commands;
@@ -70,7 +69,7 @@ impl MotorCommandOptimizer {
             .map(|position| position.powf(2.0))
             .sum();
 
-        if squared_position_offset_sum > parameters.offset_reset_threshold || optimization_forbidden
+        if squared_position_offset_sum > parameters.offset_reset_threshold || !optimization_enabled
         {
             self.state = State::Resetting;
         }
@@ -85,7 +84,7 @@ impl MotorCommandOptimizer {
                 let minimum_not_reached =
                     maximal_current >= parameters.optimization_current_threshold;
                 if minimum_not_reached {
-                    self.position_offset[joint] =
+                    self.position_offset[joint] +=
                         parameters.optimization_sign[joint] * parameters.optimization_speed;
                 }
             }
@@ -93,7 +92,7 @@ impl MotorCommandOptimizer {
                 let resetting_finished = squared_position_offset_sum
                     < parameters.offset_reset_threshold / parameters.offset_reset_offset;
 
-                if resetting_finished && !optimization_forbidden {
+                if resetting_finished && optimization_enabled {
                     self.state = State::Optimizing;
                 } else {
                     self.position_offset = self.position_offset / parameters.offset_reset_speed;
