@@ -371,11 +371,11 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
     let setup_node_executions = cycler
         .setup_nodes
         .iter()
-        .map(|node| generate_node_execution(node, cycler, true));
+        .map(|node| generate_node_execution(node, cycler, RecordingGeneration::Generate));
     let cycle_node_executions = cycler
         .cycle_nodes
         .iter()
-        .map(|node| generate_node_execution(node, cycler, false));
+        .map(|node| generate_node_execution(node, cycler, RecordingGeneration::Skip));
     let required_inputs = get_required_inputs(cycler);
     let required_input_recordings = generate_required_inputs_recording(cycler, required_inputs);
 
@@ -392,9 +392,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     #perception_cycler_updates
                 });
                 if enable_recording {
-                    let begin = std::time::Instant::now();
                     bincode::serialize_into(&mut recording_frame, &now).wrap_err("failed to record time")?;
-                    recording_duration += begin.elapsed();
                 }
             }
         }
@@ -447,7 +445,6 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                 };
 
                 let enable_recording = self.enable_recording && <HardwareInterface as hardware::RecordingInterface>::get_recording(&*self.hardware_interface);
-                let mut recording_duration = std::time::Duration::ZERO;
                 let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
 
                 {
@@ -456,7 +453,6 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     #(#setup_node_executions)*
                 }
 
-                let cycle_begin = std::time::Instant::now();
                 #post_setup
 
                 {
@@ -469,9 +465,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
 
                 #after_remaining_nodes
 
-                let cycle_end = cycle_begin.elapsed();
                 if enable_recording {
-                    println!("{instance:?}\t{cycle_end:?}\t{recording_duration:?}");
                     self.recording_sender.try_send(match instance {
                         #(#recording_variants)*
                     }).wrap_err("failed to send recording frame")?;
@@ -611,9 +605,7 @@ fn generate_required_inputs_recording(cycler: &Cycler, required_inputs: Vec<Fiel
     });
     quote! {
         if enable_recording {
-            let begin = std::time::Instant::now();
             #(#recordings)*
-            recording_duration += begin.elapsed();
         }
     }
 }
@@ -631,7 +623,11 @@ fn generate_perception_cycler_updates(cyclers: &Cyclers) -> TokenStream {
         .collect()
 }
 
-fn generate_node_execution(node: &Node, cycler: &Cycler, generate_recording: bool) -> TokenStream {
+fn generate_node_execution(
+    node: &Node,
+    cycler: &Cycler,
+    recording_generation: RecordingGeneration,
+) -> TokenStream {
     let are_required_inputs_some = generate_required_input_condition(node, cycler);
     let node_name = &node.name;
     let node_module = &node.module;
@@ -639,14 +635,12 @@ fn generate_node_execution(node: &Node, cycler: &Cycler, generate_recording: boo
     let context_initializers = generate_context_initializers(node, cycler);
     let recording_error_message = format!("failed to record `{}`", node.name);
     let cycle_error_message = format!("failed to execute cycle of `{}`", node.name);
-    let database_updates = generate_database_updates(node, generate_recording);
+    let database_updates = generate_database_updates(node, recording_generation);
     let database_updates_from_defaults = generate_database_updates_from_defaults(node);
     quote! {
         {
             if enable_recording {
-                let begin = std::time::Instant::now();
                 bincode::serialize_into(&mut recording_frame, &self.#node_member).wrap_err(#recording_error_message)?;
-                recording_duration += begin.elapsed();
             }
             #[allow(clippy::needless_else)]
             if #are_required_inputs_some {
@@ -666,6 +660,11 @@ fn generate_node_execution(node: &Node, cycler: &Cycler, generate_recording: boo
             }
         }
     }
+}
+
+enum RecordingGeneration {
+    Generate,
+    Skip,
 }
 
 fn generate_required_input_condition(node: &Node, cycler: &Cycler) -> TokenStream {
@@ -890,20 +889,24 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
     }
 }
 
-fn generate_database_updates(node: &Node, generate_recording: bool) -> TokenStream {
+fn generate_database_updates(
+    node: &Node,
+    recording_generation: RecordingGeneration,
+) -> TokenStream {
     node.contexts
         .main_outputs
         .iter()
         .filter_map(|field| match field {
             Field::MainOutput { name, .. } => {
                 let error_message = format!("failed to record {name}");
-                let recording_serialization = generate_recording.then(|| quote! {
-                    if enable_recording {
-                        let begin = std::time::Instant::now();
-                        bincode::serialize_into(&mut recording_frame, &main_outputs.#name.value).wrap_err(#error_message)?;
-                        recording_duration += begin.elapsed();
-                    }
-                });
+                let recording_serialization = match recording_generation {
+                    RecordingGeneration::Generate => quote! {
+                        if enable_recording {
+                            bincode::serialize_into(&mut recording_frame, &main_outputs.#name.value).wrap_err(#error_message)?;
+                        }
+                    },
+                    RecordingGeneration::Skip => Default::default(),
+                };
                 let setter = quote! {
                     #recording_serialization
                     own_database_reference.main_outputs.#name = main_outputs.#name.value;
