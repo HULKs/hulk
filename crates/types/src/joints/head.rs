@@ -11,10 +11,6 @@ pub enum HeadJointsName {
     Pitch,
 }
 
-pub enum JointsName {
-    Head(HeadJointsName),
-}
-
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]

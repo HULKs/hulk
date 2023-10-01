@@ -8,6 +8,15 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
 
+pub enum ArmJointsName {
+    ShoulderPitch,
+    ShoulderRoll,
+    ElbowYaw,
+    ElbowRoll,
+    WristYaw,
+    Hand,
+}
+
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
