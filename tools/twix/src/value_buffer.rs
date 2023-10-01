@@ -169,11 +169,9 @@ async fn value_buffer(
                             SubscriberMessage::Update{value} => {
                                 if skip_updates > 0 {
                                     skip_updates -= 1;
-                                    println!("Skipping update");
                                     continue;
                                 }
                                 if parameter_path.is_some() {
-                                    println!("Updating");
                                 }
                                 add_element(&mut values, buffer_capacity, value);
                                 update_listeners.retain(|listener| {
@@ -232,7 +230,6 @@ async fn value_buffer(
                         },
                         Message::UpdateParameterValue{value} => {
                             skip_updates += 1;
-                            println!("Sending update");
                             add_element(&mut values, buffer_capacity, value.clone());
                             communication.update_parameter_value(
                                 parameter_path.as_ref().expect(
