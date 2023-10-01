@@ -6,6 +6,15 @@ use std::{
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
+pub enum LegJointsName {
+    AnklePitch,
+    AnkleRoll,
+    HipPitch,
+    HipRoll,
+    HipYawPitch,
+    KneePitch,
+}
+
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]

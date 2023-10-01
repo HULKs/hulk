@@ -14,7 +14,20 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
 
-use self::{arm::ArmJoints, body::BodyJoints, head::HeadJoints, leg::LegJoints};
+use self::{
+    arm::{ArmJoints, ArmJointsName},
+    body::BodyJoints,
+    head::{HeadJoints, HeadJointsName},
+    leg::{LegJoints, LegJointsName},
+};
+
+pub enum JointsName {
+    Head(HeadJointsName),
+    LeftArm(ArmJointsName),
+    RightArm(ArmJointsName),
+    LeftLeg(LegJointsName),
+    RightLeg(LegJointsName),
+}
 
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,

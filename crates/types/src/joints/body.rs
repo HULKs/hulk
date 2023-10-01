@@ -3,7 +3,18 @@ use std::ops::{Add, Div, Mul, Sub};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use super::{arm::ArmJoints, leg::LegJoints, Joints};
+use super::{
+    arm::{ArmJoints, ArmJointsName},
+    leg::{LegJoints, LegJointsName},
+    Joints,
+};
+
+pub enum BodyJointsName {
+    LeftArm(ArmJointsName),
+    RightArm(ArmJointsName),
+    LeftLeg(LegJointsName),
+    RightLeg(LegJointsName),
+}
 
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
