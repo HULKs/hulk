@@ -1,5 +1,5 @@
 {
-  "whistle_detection": {
+    "whistle_detection": {
     "detection_band": {
       "start": 2000,
       "end": 4000
@@ -1125,5 +1125,9 @@
       "knee_pitch": 0.0
     }
   },
-  "angular_velocity_smoothing_factor": 0.1
+  "angular_velocity_smoothing_factor": 0.1,
+  "search_suggestor":{
+    "cells_per_meter": 10,
+    "heatmap_decay_factor": 0.99
+  }
 }
