@@ -5,8 +5,8 @@ use std::{
     time::Duration,
 };
 
-use serde::{Deserialize, Deserializer, Serialize};
-use serialize_hierarchy::{serde_json, SerializeHierarchy};
+use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
 
 #[derive(
@@ -720,12 +720,57 @@ pub struct JointsCommand<T> {
     pub positions: Joints<T>,
     pub stiffnesses: Joints<T>,
 }
+impl_Interpolate!(f32, JointsCommand<f32>, PI);
 
 impl JointsCommand<f32> {
     pub fn mirrored(self) -> Self {
         Self {
             positions: Joints::mirrored(self.positions),
             stiffnesses: Joints::mirrored(self.stiffnesses),
+        }
+    }
+}
+
+impl Mul<f32> for JointsCommand<f32> {
+    type Output = JointsCommand<f32>;
+
+    fn mul(self, right: f32) -> Self::Output {
+        Self::Output {
+            positions: Joints::mul(self.positions, right),
+            stiffnesses: self.stiffnesses * right,
+        }
+    }
+}
+
+impl Add<JointsCommand<f32>> for JointsCommand<f32> {
+    type Output = JointsCommand<f32>;
+
+    fn add(self, right: JointsCommand<f32>) -> Self::Output {
+        Self::Output {
+            positions: self.positions + right.positions,
+            stiffnesses: self.stiffnesses + right.stiffnesses,
+        }
+    }
+}
+
+impl Sub<JointsCommand<f32>> for JointsCommand<f32> {
+    type Output = JointsCommand<f32>;
+
+    fn sub(self, right: JointsCommand<f32>) -> Self::Output {
+        Self::Output {
+            positions: self.positions - right.positions,
+            stiffnesses: self.stiffnesses - right.stiffnesses,
+        }
+    }
+}
+
+impl Div<f32> for JointsCommand<f32> {
+    type Output = JointsCommand<f32>;
+
+    fn div(self, right: f32) -> Self::Output {
+        Self::Output {
+            positions: self.positions / right,
+            stiffnesses: self.stiffnesses / right,
         }
     }
 }
@@ -746,83 +791,4 @@ pub struct HeadJointsCommand<T> {
 pub struct BodyJointsCommand<T> {
     pub positions: BodyJoints<T>,
     pub stiffnesses: BodyJoints<T>,
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct JointsWithStiffnesses {
-    pub positions: Joints<f32>,
-    #[serde(deserialize_with = "deserialize_stiffnesses")]
-    pub stiffnesses: Joints<f32>,
-}
-
-fn deserialize_stiffnesses<'de, D>(deserializer: D) -> Result<Joints<f32>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let value = serde_json::Value::deserialize(deserializer)?;
-    match value {
-        serde_json::Value::Number(stiffness) => {
-            Ok(Joints::fill(stiffness.as_f64().unwrap() as f32))
-        }
-        value @ serde_json::Value::Object(_) => serde_json::from_value(value)
-            .map_err(|_| serde::de::Error::custom("stiffnesses could not be deserialized")),
-        _ => Err(serde::de::Error::custom(
-            "stiffnesses could not be deserialized",
-        )),
-    }
-}
-
-impl From<JointsWithStiffnesses> for JointsCommand<f32> {
-    fn from(value: JointsWithStiffnesses) -> Self {
-        JointsCommand {
-            positions: value.positions,
-            stiffnesses: value.stiffnesses,
-        }
-    }
-}
-
-impl_Interpolate!(f32, JointsWithStiffnesses, PI);
-
-impl Mul<f32> for JointsWithStiffnesses {
-    type Output = JointsWithStiffnesses;
-
-    fn mul(self, right: f32) -> Self::Output {
-        Self::Output {
-            positions: Joints::mul(self.positions, right),
-            stiffnesses: self.stiffnesses * right,
-        }
-    }
-}
-
-impl Add<JointsWithStiffnesses> for JointsWithStiffnesses {
-    type Output = JointsWithStiffnesses;
-
-    fn add(self, right: JointsWithStiffnesses) -> Self::Output {
-        Self::Output {
-            positions: self.positions + right.positions,
-            stiffnesses: self.stiffnesses + right.stiffnesses,
-        }
-    }
-}
-
-impl Sub<JointsWithStiffnesses> for JointsWithStiffnesses {
-    type Output = JointsWithStiffnesses;
-
-    fn sub(self, right: JointsWithStiffnesses) -> Self::Output {
-        Self::Output {
-            positions: self.positions - right.positions,
-            stiffnesses: self.stiffnesses - right.stiffnesses,
-        }
-    }
-}
-
-impl Div<f32> for JointsWithStiffnesses {
-    type Output = JointsWithStiffnesses;
-
-    fn div(self, right: f32) -> Self::Output {
-        Self::Output {
-            positions: self.positions / right,
-            stiffnesses: self.stiffnesses / right,
-        }
-    }
 }
