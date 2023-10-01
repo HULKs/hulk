@@ -96,7 +96,6 @@
   "paths": {
     "motions": "etc/motions",
     "neural_networks": "etc/neural_networks",
-    "parameters": "etc/parameters",
     "sounds": "etc/sounds"
   },
   "speakers": {

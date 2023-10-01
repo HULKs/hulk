@@ -10,7 +10,6 @@ pub struct Ids {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Paths {
-    pub parameters: PathBuf,
     pub motions: PathBuf,
     pub neural_networks: PathBuf,
     pub sounds: PathBuf,
