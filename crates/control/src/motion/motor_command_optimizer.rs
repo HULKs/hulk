@@ -6,7 +6,6 @@ use types::{
     joints::{arm::ArmJoints, Joints},
     motion_selection::MotionSelection,
     motor_commands::MotorCommand,
-    parameters::MotorCommandOptimizerParameters,
     sensor_data::SensorData,
 };
 
@@ -32,8 +31,13 @@ pub struct CycleContext {
     pub sensor_data: Input<SensorData, "sensor_data">,
     pub motion_selection: Input<MotionSelection, "motion_selection">,
 
-    pub parameters:
-        Parameter<MotorCommandOptimizerParameters, "motor_command_optimizer_parameters">,
+    pub offset_reset_threshold: Parameter<f32, "motor_command_optimizer.offset_reset_threshold">,
+    pub offset_reset_speed: Parameter<f32, "motor_command_optimizer.offset_reset_speed">,
+    pub offset_reset_offset: Parameter<f32, "motor_command_optimizer.offset_reset_offset">,
+    pub optimization_speed: Parameter<f32, "motor_command_optimizer.optimization_speed">,
+    pub optimization_current_threshold:
+        Parameter<f32, "motor_command_optimizer.optimization_current_threshold">,
+    pub optimization_sign: Parameter<Joints<f32>, "motor_command_optimizer.optimization_sign">,
 
     pub squared_position_offset_sum:
         AdditionalOutput<f32, "motor_position_optimization_offset_squared_sum">,
@@ -59,7 +63,6 @@ impl MotorCommandOptimizer {
 
         let currents = context.sensor_data.currents;
         let commands = *context.motor_commands;
-        let parameters = context.parameters;
 
         let squared_position_offset_sum: f32 = self
             .position_offset
@@ -67,8 +70,7 @@ impl MotorCommandOptimizer {
             .map(|position| position.powf(2.0))
             .sum();
 
-        if squared_position_offset_sum > parameters.offset_reset_threshold || !optimization_enabled
-        {
+        if squared_position_offset_sum > *context.offset_reset_threshold || !optimization_enabled {
             self.state = State::Resetting;
         }
 
@@ -80,20 +82,20 @@ impl MotorCommandOptimizer {
                     .unwrap();
 
                 let minimum_not_reached =
-                    maximal_current >= parameters.optimization_current_threshold;
+                    maximal_current >= *context.optimization_current_threshold;
                 if minimum_not_reached {
                     self.position_offset[joint] +=
-                        parameters.optimization_sign[joint] * parameters.optimization_speed;
+                        context.optimization_sign[joint] * context.optimization_speed;
                 }
             }
             State::Resetting => {
                 let resetting_finished = squared_position_offset_sum
-                    < parameters.offset_reset_threshold / parameters.offset_reset_offset;
+                    < context.offset_reset_threshold / context.offset_reset_offset;
 
                 if resetting_finished && optimization_enabled {
                     self.state = State::Optimizing;
                 } else {
-                    self.position_offset = self.position_offset / parameters.offset_reset_speed;
+                    self.position_offset = self.position_offset / *context.offset_reset_speed;
                 }
             }
         }
