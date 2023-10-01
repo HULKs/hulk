@@ -1,5 +1,5 @@
 {
-  "whistle_detection": {
+    "whistle_detection": {
     "detection_band": {
       "start": 2000,
       "end": 4000
@@ -1169,5 +1169,9 @@
     "center_circle_obstacle_increase": 1.2,
     "free_kick_obstacle_radius": 0.75,
     "penaltykick_box_extension": 0.2
+  },
+  "search_suggestor":{
+    "cells_per_meter": 10,
+    "heatmap_decay_factor": 0.99
   }
 }
