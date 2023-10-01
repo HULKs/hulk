@@ -6,8 +6,9 @@ use motionfile::{MotionFile, MotionInterpolator};
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
-    joints::{Joints, JointsCommand},
+    joints::JointsCommand,
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
+    sensor_data::SensorData,
 };
 
 pub struct JumpLeft {
