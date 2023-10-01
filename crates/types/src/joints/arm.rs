@@ -1,6 +1,6 @@
 use std::{
     f32::consts::PI,
-    ops::{Add, Div, Mul, Sub},
+    ops::{Add, Div, Index, IndexMut, Mul, Sub},
     time::Duration,
 };
 
@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
 
+#[derive(Clone, Copy)]
 pub enum ArmJointsName {
     ShoulderPitch,
     ShoulderRoll,
@@ -160,6 +161,34 @@ impl ArmJoints<f32> {
             elbow_roll: -self.elbow_roll,
             wrist_yaw: -self.wrist_yaw,
             hand: self.hand,
+        }
+    }
+}
+
+impl<T> Index<ArmJointsName> for ArmJoints<T> {
+    type Output = T;
+
+    fn index(&self, index: ArmJointsName) -> &Self::Output {
+        match index {
+            ArmJointsName::ShoulderPitch => &self.shoulder_pitch,
+            ArmJointsName::ShoulderRoll => &self.shoulder_roll,
+            ArmJointsName::ElbowYaw => &self.elbow_yaw,
+            ArmJointsName::ElbowRoll => &self.elbow_roll,
+            ArmJointsName::WristYaw => &self.wrist_yaw,
+            ArmJointsName::Hand => &self.hand,
+        }
+    }
+}
+
+impl<T> IndexMut<ArmJointsName> for ArmJoints<T> {
+    fn index_mut(&mut self, index: ArmJointsName) -> &mut Self::Output {
+        match index {
+            ArmJointsName::ShoulderPitch => &mut self.shoulder_pitch,
+            ArmJointsName::ShoulderRoll => &mut self.shoulder_roll,
+            ArmJointsName::ElbowYaw => &mut self.elbow_yaw,
+            ArmJointsName::ElbowRoll => &mut self.elbow_roll,
+            ArmJointsName::WristYaw => &mut self.wrist_yaw,
+            ArmJointsName::Hand => &mut self.hand,
         }
     }
 }
