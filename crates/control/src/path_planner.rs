@@ -6,7 +6,7 @@ use smallvec::SmallVec;
 use types::{
     field_dimensions::FieldDimensions,
     geometry::{Arc, Circle, LineSegment, Orientation},
-    motion_command::{MotionCommand, OrientationMode},
+    motion_command::MotionCommand,
     obstacles::Obstacle,
     path_obstacles::{PathObstacle, PathObstacleShape},
     planned_path::PathSegment,
@@ -50,30 +50,23 @@ impl PathPlanner {
         rotation_penalty_factor: f32,
     ) {
         self.last_path_direction = match last_motion_command {
-            MotionCommand::Walk {
-                orientation_mode,
-                path,
-                ..
-            } => match *orientation_mode {
-                OrientationMode::AlignWithPath => path.first().map(|segment| {
-                    let direction = match segment {
-                        PathSegment::LineSegment(line_segment) => line_segment.1.coords,
-                        PathSegment::Arc(arc, orientation) => orientation
-                            .rotate_vector_90_degrees(arc.start - arc.circle.center)
-                            .normalize(),
-                    };
-                    if direction.norm_squared() < f32::EPSILON {
-                        UnitComplex::identity()
-                    } else {
-                        let normalized_direction = direction.normalize();
-                        UnitComplex::from_cos_sin_unchecked(
-                            normalized_direction.x,
-                            normalized_direction.y,
-                        )
-                    }
-                }),
-                OrientationMode::Override(orientation) => Some(orientation),
-            },
+            MotionCommand::Walk { path, .. } => path.first().map(|segment| {
+                let direction = match segment {
+                    PathSegment::LineSegment(line_segment) => line_segment.1.coords,
+                    PathSegment::Arc(arc, orientation) => orientation
+                        .rotate_vector_90_degrees(arc.start - arc.circle.center)
+                        .normalize(),
+                };
+                if direction.norm_squared() < f32::EPSILON {
+                    UnitComplex::identity()
+                } else {
+                    let normalized_direction = direction.normalize();
+                    UnitComplex::from_cos_sin_unchecked(
+                        normalized_direction.x,
+                        normalized_direction.y,
+                    )
+                }
+            }),
             _ => None,
         };
 
