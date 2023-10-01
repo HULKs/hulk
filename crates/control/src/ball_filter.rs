@@ -349,7 +349,7 @@ impl BallFilter {
         });
     }
 
-    fn find_best_hypothesis(&self, configuration: &BallFilterConfiguration) -> Option<&Hypothesis> {
+    fn find_best_hypothesis(&self, configuration: &BallFilterParameters) -> Option<&Hypothesis> {
         self.hypotheses
             .iter()
             .filter(|hypothesis| hypothesis.validity > configuration.validity_output_threshold)
