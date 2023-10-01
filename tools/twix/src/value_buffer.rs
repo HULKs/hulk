@@ -233,7 +233,7 @@ async fn value_buffer(
                             add_element(&mut values, buffer_capacity, value.clone());
                             communication.update_parameter_value(
                                 parameter_path.as_ref().expect(
-                                    "Tried updating parameter on output value buffer"
+                                    "tried updating parameter on output value buffer"
                                 ),
                                 value,
                             ).await;
