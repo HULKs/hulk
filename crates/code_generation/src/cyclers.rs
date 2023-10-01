@@ -444,7 +444,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     own_database.deref_mut()
                 };
 
-                let enable_recording = self.enable_recording && <HardwareInterface as hardware::RecordingInterface>::get_recording(&*self.hardware_interface);
+                let enable_recording = self.enable_recording && self.hardware_interface.get_recording();
                 let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
 
                 {
