@@ -5,9 +5,11 @@ use nalgebra::{Point2, Vector2, Vector3, Vector4};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
+use crate::joints::arm::ArmJoints;
+use crate::joints::head::HeadJoints;
+use crate::joints::leg::LegJoints;
 use crate::joints::Joints;
 use crate::{
-    joints::{ArmJoints, HeadJoints, LegJoints},
     kick_step::KickStep,
     motion_command::{KickVariant, MotionCommand},
     roles::Role,
@@ -61,7 +63,7 @@ pub struct MotorCommandOptimizerParameters {
     pub offset_reset_offset: f32,
     pub optimization_speed: f32,
     pub optimization_current_threshold: f32,
-    pub optimization_sign: Joints<i32>,
+    pub optimization_sign: Joints<f32>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

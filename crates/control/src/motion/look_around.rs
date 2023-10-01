@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     initial_look_around::Mode,
-    joints::HeadJoints,
+    joints::head::HeadJoints,
     motion_command::{HeadMotion, MotionCommand},
     parameters::LookAroundParameters,
     support_foot::Side,

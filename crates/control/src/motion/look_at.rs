@@ -10,7 +10,7 @@ use types::{
     camera_matrix::CameraMatrices,
     camera_position::CameraPosition,
     cycle_time::CycleTime,
-    joints::{HeadJoints, Joints},
+    joints::{head::HeadJoints, Joints},
     motion_command::{GlanceDirection, HeadMotion, MotionCommand},
     sensor_data::SensorData,
 };

@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use nalgebra::{Isometry3, Translation, Vector3};
 use types::{
-    joints::{ArmJoints, HeadJoints, LegJoints},
+    joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints},
     robot_dimensions::RobotDimensions,
 };
 

@@ -12,7 +12,7 @@ use types::{
     fall_state::FallState,
     filtered_game_state::FilteredGameState,
     game_controller_state::GameControllerState,
-    joints::HeadJoints,
+    joints::head::HeadJoints,
     obstacles::Obstacle,
     parameters::{BallFilterParameters, CameraMatrixParameters, LookAtParameters},
     penalty_shot_direction::PenaltyShotDirection,
