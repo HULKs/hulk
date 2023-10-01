@@ -107,6 +107,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             #input_output_fields
             #node_fields
             recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
+            enable_recording: bool,
         }
     }
 }
@@ -210,6 +211,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             parameters_reader: framework::Reader<crate::structs::Parameters>,
             #input_output_fields
             recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
+            enable_recording: bool,
         ) -> color_eyre::Result<Self> {
             let parameters = parameters_reader.next().clone();
             let mut cycler_state = crate::structs::#cycler_module_name::CyclerState::default();
@@ -225,6 +227,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                 #input_output_identifiers
                 #(#node_identifiers,)*
                 recording_sender,
+                enable_recording,
             })
         }
     }
@@ -443,7 +446,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     own_database.deref_mut()
                 };
 
-                let enable_recording = <HardwareInterface as hardware::RecordingInterface>::get_recording(&*self.hardware_interface);
+                let enable_recording = self.enable_recording && <HardwareInterface as hardware::RecordingInterface>::get_recording(&*self.hardware_interface);
                 let mut recording_duration = std::time::Duration::ZERO;
                 let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
 

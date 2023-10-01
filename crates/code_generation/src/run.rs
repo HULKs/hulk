@@ -24,6 +24,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
             body_id: String,
             head_id: String,
             keep_running: tokio_util::sync::CancellationToken,
+            cycler_instances_to_be_recorded: std::collections::HashSet<String>,
         ) -> color_eyre::Result<()>
         {
             use color_eyre::eyre::WrapErr;
@@ -199,6 +200,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers) -> TokenStream {
                 #own_producer_identifier
                 #(#other_cycler_inputs,)*
                 recording_sender.clone(),
+                cycler_instances_to_be_recorded.contains(#cycler_instance_name),
             )
             .wrap_err(#error_message)?;
             communication_server.register_cycler_instance(
