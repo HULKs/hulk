@@ -1972,6 +1972,7 @@ name = "framework"
 version = "0.1.0"
 dependencies = [
  "parking_lot",
+ "serde",
 ]
 
 [[package]]
@@ -2387,6 +2388,7 @@ dependencies = [
  "ctrlc",
  "enum-iterator",
  "fern",
+ "framework",
  "hardware",
  "hulk",
  "libc",
@@ -2411,6 +2413,7 @@ dependencies = [
  "color-eyre",
  "ctrlc",
  "fern",
+ "framework",
  "hardware",
  "hulk",
  "log",

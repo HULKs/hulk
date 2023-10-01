@@ -7,3 +7,4 @@ homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
 parking_lot = { workspace = true }
+serde = { workspace = true }

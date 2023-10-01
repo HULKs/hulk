@@ -2,9 +2,10 @@ use std::time::SystemTime;
 
 use color_eyre::eyre::Result;
 use types::camera_position::CameraPosition;
+use types::hardware::Ids;
 use types::{
     audio::SpeakerRequest,
-    hardware::{Ids, Paths},
+    hardware::Paths,
     joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},

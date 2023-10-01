@@ -13,6 +13,7 @@ constants = { workspace = true }
 ctrlc = { workspace = true }
 enum-iterator = { workspace = true }
 fern = { workspace = true }
+framework = { workspace = true }
 hardware = { workspace = true }
 hulk = { workspace = true }
 libc = { workspace = true }

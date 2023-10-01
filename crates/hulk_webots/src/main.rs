@@ -6,8 +6,9 @@ use color_eyre::{
     install,
 };
 use ctrlc::set_handler;
-use hardware::{IdInterface, PathsInterface};
-use hardware_interface::{HardwareInterface, Parameters};
+use framework::Parameters as FrameworkParameters;
+use hardware::IdInterface;
+use hardware_interface::{HardwareInterface, Parameters as HardwareParameters};
 use hulk::run::run;
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
@@ -40,9 +41,9 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
 fn main() -> Result<()> {
     setup_logger()?;
     install()?;
-    let hardware_parameters_path = args()
+    let framework_parameters_path = args()
         .nth(1)
-        .unwrap_or("etc/parameters/hardware.json".to_string());
+        .unwrap_or("etc/parameters/framework.json".to_string());
     let keep_running = CancellationToken::new();
     set_handler({
         let keep_running = keep_running.clone();
@@ -50,19 +51,26 @@ fn main() -> Result<()> {
             keep_running.cancel();
         }
     })?;
+
     let file =
-        File::open(hardware_parameters_path).wrap_err("failed to open hardware parameters")?;
-    let hardware_parameters: Parameters =
+        File::open(framework_parameters_path).wrap_err("failed to open framework parameters")?;
+    let framework_parameters: FrameworkParameters =
+        from_reader(file).wrap_err("failed to parse framework parameters")?;
+
+    let file = File::open(framework_parameters.hardware_parameters)
+        .wrap_err("failed to open hardware parameters")?;
+    let hardware_parameters: HardwareParameters =
         from_reader(file).wrap_err("failed to parse hardware parameters")?;
-    let communication_addresses = hardware_parameters.communication_addresses.clone();
+
     let hardware_interface = HardwareInterface::new(keep_running.clone(), hardware_parameters)
         .wrap_err("failed to create hardware interface")?;
+
     let ids = hardware_interface.get_ids();
-    let paths = hardware_interface.get_paths();
+
     run(
         Arc::new(hardware_interface),
-        communication_addresses,
-        paths.parameters,
+        framework_parameters.communication_addresses,
+        framework_parameters.parameters_directory,
         ids.body_id,
         ids.head_id,
         keep_running,

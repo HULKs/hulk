@@ -1,0 +1,5 @@
+{
+  "communication_addresses": "[::]:1337",
+  "hardware_parameters": "etc/parameters/hardware.json",
+  "parameters_directory": "etc/parameters"
+}
