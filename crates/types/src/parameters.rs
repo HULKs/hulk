@@ -3,7 +3,7 @@ use std::{path::PathBuf, time::Duration};
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Point2, Vector2};
-use nalgebra::{Vector3, Vector4};
+use nalgebra::{Point3, Vector3, Vector4};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -368,4 +368,40 @@ pub struct FallProtectionParameters {
     pub right_arm_positions: ArmJoints<f32>,
     pub arm_stiffness: f32,
     pub leg_stiffness: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct ProjectedLimbsParameters {
+    pub torso_bounding_polygon: Vec<Point3<f32>>,
+    pub lower_arm_bounding_polygon: Vec<Point3<f32>>,
+    pub upper_arm_bounding_polygon: Vec<Point3<f32>>,
+    pub knee_bounding_polygon: Vec<Point3<f32>>,
+    pub foot_bounding_polygon: Vec<Point3<f32>>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct RobotDetectionParameters {
+    pub enable: bool,
+    pub amount_of_segments_factor: f32,
+    pub amount_score_exponent: f32,
+    pub cluster_cone_radius: f32,
+    pub cluster_distance_score_range: Range<f32>,
+    pub detection_box_width: f32,
+    pub ignore_ball_segments: bool,
+    pub ignore_line_segments: bool,
+    pub luminance_score_exponent: f32,
+    pub maximum_cluster_distance: f32,
+    pub minimum_cluster_score: f32,
+    pub minimum_consecutive_segments: usize,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct PenaltyShotDirectionEstimationParameters {
+    pub moving_distance_threshold: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct SearchSuggestorParameters {
+    pub cells_per_meter: usize,
+    pub heatmap_decay_factor: f32,
 }
