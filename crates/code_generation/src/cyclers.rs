@@ -602,7 +602,12 @@ fn generate_required_inputs_recording(cycler: &Cycler, required_inputs: Vec<Fiel
         quote! {
             bincode::serialize_into(&mut recording_frame, #value_to_be_recorded).wrap_err(#error_message)?;
         }
-    });
+    }).collect::<Vec<_>>();
+
+    if recordings.is_empty() {
+        return Default::default();
+    }
+
     quote! {
         if enable_recording {
             #(#recordings)*
