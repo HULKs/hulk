@@ -10,14 +10,15 @@ use types::{
     sensor_data::SensorData,
 };
 
-#[derive(Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct MotorCommandOptimizer {
     position_offset: Joints<f32>,
     state: State,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 pub enum State {
+    #[default]
     Optimizing,
     Resetting,
 }
@@ -47,10 +48,7 @@ pub struct MainOutputs {
 
 impl MotorCommandOptimizer {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            position_offset: Joints::default(),
-            state: State::Optimizing,
-        })
+        Ok(Self::default())
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
