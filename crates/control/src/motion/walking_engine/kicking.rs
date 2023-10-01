@@ -1,6 +1,6 @@
 use std::time::Duration;
 use types::{
-    joints::LegJoints,
+    joints::leg::LegJoints,
     kick_step::{JointOverride, KickStep},
 };
 

@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Div, Mul, Sub},
 };
 
-use crate::joints::{BodyJoints, HeadJoints, Joints};
+use crate::joints::{body::BodyJoints, head::HeadJoints, Joints};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;

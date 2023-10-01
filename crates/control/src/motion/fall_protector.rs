@@ -13,7 +13,7 @@ use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
     fall_state::FallState,
-    joints::{BodyJoints, HeadJoints, Joints},
+    joints::{body::BodyJoints, head::HeadJoints, Joints},
     motion_command::{FallDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
     motor_commands::MotorCommand,

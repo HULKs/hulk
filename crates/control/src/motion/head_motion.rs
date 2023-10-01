@@ -6,7 +6,7 @@ use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
-    joints::HeadJoints,
+    joints::head::HeadJoints,
     motion_command::{HeadMotion as HeadMotionCommand, MotionCommand},
     motor_commands::HeadMotorCommand,
     sensor_data::SensorData,

@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
-    joints::{ArmJoints, BodyJoints, Joints, LegJoints},
+    joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints, Joints},
     motor_commands::BodyMotorCommand,
 };
 

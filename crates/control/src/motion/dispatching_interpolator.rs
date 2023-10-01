@@ -5,10 +5,13 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use motionfile::{SplineInterpolator, TimedSpline};
 use serde::{Deserialize, Serialize};
-use types::joints::{HeadJoints, Joints};
-use types::motion_selection::{MotionSafeExits, MotionSelection, MotionType};
-use types::motor_commands::{BodyMotorCommand, MotorCommand};
-use types::{cycle_time::CycleTime, sensor_data::SensorData};
+use types::{
+    cycle_time::CycleTime,
+    joints::{head::HeadJoints, Joints},
+    motion_selection::{MotionSafeExits, MotionSelection, MotionType},
+    motor_commands::{BodyMotorCommand, MotorCommand},
+    sensor_data::SensorData,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct DispatchingInterpolator {

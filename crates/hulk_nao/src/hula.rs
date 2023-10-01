@@ -4,7 +4,7 @@ use color_eyre::{eyre::Context, Result};
 use nalgebra::{vector, Vector2, Vector3};
 use types::{
     self,
-    joints::{ArmJoints, HeadJoints, Joints, LegJoints},
+    joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints, Joints},
 };
 
 use super::double_buffered_reader::{DoubleBufferedReader, SelectPoller};

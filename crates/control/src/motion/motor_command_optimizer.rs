@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
-    joints::{ArmJoints, Joints},
+    joints::{arm::ArmJoints, Joints},
     motion_selection::MotionSelection,
     motor_commands::MotorCommand,
     parameters::MotorCommandOptimizerParameters,
@@ -80,6 +80,8 @@ impl MotorCommandOptimizer {
         let maximal_current = currents.into_iter().fold(0.0, f32::max);
         let minimum_not_reached = maximal_current >= parameters.optimization_current_threshold;
 
+        let x = parameters.optimization_sign * parameters.optimization_speed;
+
         if minimum_not_reached && !self.is_resetting {
             let position_offset = parameters.optimization_sign.into_iter().zip(currents).map(
                 |(correction_direction, current)| {
@@ -90,7 +92,7 @@ impl MotorCommandOptimizer {
                     }
                 },
             );
-            self.position_offset = self.position_offset + Joints::from_iter(position_offset);
+            self.position_offset = self.position_offset; // + Joints::from_iter(position_offset);
         }
 
         let optimized_stiffnesses = Joints {

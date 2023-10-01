@@ -9,7 +9,7 @@ use nalgebra::{Isometry3, Point3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
-    joints::{ArmJoints, BodyJoints, LegJoints},
+    joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints},
     motion_command::{KickVariant, MotionCommand},
     motion_selection::{MotionSafeExits, MotionType},
     motor_commands::BodyMotorCommand,
