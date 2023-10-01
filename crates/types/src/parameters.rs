@@ -57,16 +57,6 @@ pub struct LookActionParameters {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct MotorCommandOptimizerParameters {
-    pub offset_reset_threshold: f32,
-    pub offset_reset_speed: f32,
-    pub offset_reset_offset: f32,
-    pub optimization_speed: f32,
-    pub optimization_current_threshold: f32,
-    pub optimization_sign: Joints<f32>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct RolePositionsParameters {
     pub defender_aggressive_ring_radius: f32,
     pub defender_passive_ring_radius: f32,
