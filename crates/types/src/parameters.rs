@@ -5,11 +5,8 @@ use nalgebra::{Point2, Vector2, Vector3, Vector4};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::joints::arm::ArmJoints;
-use crate::joints::head::HeadJoints;
-use crate::joints::leg::LegJoints;
-use crate::joints::Joints;
 use crate::{
+    joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints},
     kick_step::KickStep,
     motion_command::{KickVariant, MotionCommand},
     roles::Role,
