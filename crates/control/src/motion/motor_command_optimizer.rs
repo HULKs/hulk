@@ -58,13 +58,16 @@ impl MotorCommandOptimizer {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let current_motion = context.motion_selection.current_motion;
 
-        let optimization_enabled = current_motion == types::motion_selection::MotionType::Penalized
-            || current_motion == types::motion_selection::MotionType::Stand;
+        let optimization_enabled = matches!(
+            current_motion,
+            types::motion_selection::MotionType::Penalized
+                | types::motion_selection::MotionType::Stand
+        );
 
         let currents = context.sensor_data.currents;
-        let commands = *context.motor_commands;
+        let commands = context.motor_commands;
 
-        let squared_position_offset_sum: f32 = self
+        let squared_position_offset_sum = self
             .position_offset
             .into_iter()
             .map(|position| position.powf(2.0))
