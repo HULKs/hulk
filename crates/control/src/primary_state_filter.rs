@@ -96,7 +96,7 @@ impl PrimaryStateFilter {
             (_, _, _, _, _) => self.last_primary_state,
         };
 
-        context.hardware_interface.set_recording(matches!(
+        context.hardware_interface.set_whether_to_record(matches!(
             self.last_primary_state,
             PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing,
         ));

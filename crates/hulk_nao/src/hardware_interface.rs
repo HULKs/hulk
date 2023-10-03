@@ -174,11 +174,11 @@ impl PathsInterface for HardwareInterface {
 }
 
 impl RecordingInterface for HardwareInterface {
-    fn get_recording(&self) -> bool {
+    fn should_record(&self) -> bool {
         self.enable_recording.load(Ordering::SeqCst)
     }
 
-    fn set_recording(&self, enable: bool) {
+    fn set_whether_to_record(&self, enable: bool) {
         self.enable_recording.store(enable, Ordering::SeqCst)
     }
 }

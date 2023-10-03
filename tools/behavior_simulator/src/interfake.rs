@@ -24,11 +24,11 @@ impl NetworkInterface for Interfake {
 }
 
 impl RecordingInterface for Interfake {
-    fn get_recording(&self) -> bool {
+    fn should_record(&self) -> bool {
         false
     }
 
-    fn set_recording(&self, _enable: bool) {}
+    fn set_whether_to_record(&self, _enable: bool) {}
 }
 
 impl Interfake {
