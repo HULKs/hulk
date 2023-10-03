@@ -18,6 +18,7 @@ use post_game::{post_game, Arguments as PostGameArguments};
 use power_off::{power_off, Arguments as PoweroffArguments};
 use pre_game::{pre_game, Arguments as PreGameArguments};
 use reboot::{reboot, Arguments as RebootArguments};
+use recording::{recording, Arguments as RecordingArguments};
 use repository::{get_repository_root, Repository};
 use sdk::{sdk, Arguments as SdkArguments};
 use shell::{shell, Arguments as ShellArguments};
@@ -41,6 +42,7 @@ mod power_off;
 mod pre_game;
 mod progress_indicator;
 mod reboot;
+mod recording;
 mod sdk;
 mod shell;
 mod upload;
@@ -109,6 +111,9 @@ async fn main() -> Result<()> {
         Command::Reboot(arguments) => reboot(arguments)
             .await
             .wrap_err("failed to execute reboot command")?,
+        Command::Recording(arguments) => recording(arguments, &repository?)
+            .await
+            .wrap_err("failed to execute recording command")?,
         Command::Run(arguments) => cargo(arguments, &repository?, CargoCommand::Run)
             .await
             .wrap_err("failed to execute run command")?,
@@ -179,6 +184,8 @@ enum Command {
     Pregame(PreGameArguments),
     /// Reboot NAOs
     Reboot(RebootArguments),
+    /// Set cycler instances to be recorded
+    Recording(RecordingArguments),
     /// Runs the code for a target
     Run(CargoArguments),
     /// Manage the NAO SDK
