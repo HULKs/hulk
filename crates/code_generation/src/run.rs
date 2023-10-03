@@ -119,7 +119,7 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
         let recording_file_path = format!("logs/{instance}.{{seconds}}.bincode");
         let error_message = format!("failed to create recording file for {instance}");
         quote! {
-            let mut #instance_name_snake_case = std::io::BufWriter::new(std::fs::File::create(format!(#recording_file_path)).wrap_err(#error_message)?);
+            let mut #instance_name_snake_case = std::io::BufWriter::new(std::fs::File::create(format!(#recording_file_path)).wrap_err(#error_message)?); // TODO: possible optimization: buffer size
         }
     });
     let frame_writes = cyclers.instances().map(|(_cycler, instance)| {
