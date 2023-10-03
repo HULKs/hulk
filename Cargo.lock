@@ -2667,6 +2667,7 @@ dependencies = [
  "framework",
  "geometry",
  "hardware",
+ "hulk_manifest",
  "ittapi",
  "linear_algebra",
  "nalgebra",
@@ -2680,6 +2681,13 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
+]
+
+[[package]]
+name = "hulk_manifest"
+version = "0.1.0"
+dependencies = [
+ "source_analyzer",
 ]
 
 [[package]]
