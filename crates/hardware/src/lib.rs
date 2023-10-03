@@ -45,8 +45,8 @@ pub trait PathsInterface {
 }
 
 pub trait RecordingInterface {
-    fn get_recording(&self) -> bool;
-    fn set_recording(&self, enable: bool);
+    fn should_record(&self) -> bool;
+    fn set_whether_to_record(&self, enable: bool);
 }
 
 pub trait SensorInterface {
