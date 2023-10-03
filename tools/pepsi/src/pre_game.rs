@@ -10,6 +10,7 @@ use repository::Repository;
 use crate::{
     parsers::{parse_network, NaoAddressPlayerAssignment, NETWORK_POSSIBLE_VALUES},
     player_number::{player_number, Arguments as PlayerNumberArguments},
+    recording::{recording, Arguments as RecordingArguments},
     upload::{upload, Arguments as UploadArguments},
     wireless::{wireless, Arguments as WirelessArguments},
 };
@@ -36,14 +37,17 @@ pub struct Arguments {
     /// Skip the OS version check
     #[arg(long)]
     pub skip_os_check: bool,
+    /// Cycler instances to record e.g. Control or VisionBottom (don't specify to disable recording)
+    #[arg(long, default_value = "Control")]
+    pub cycler_instances_to_be_recorded: Vec<String>,
     /// The location to use for parameters
-    location: String,
+    pub location: String,
     /// The network to connect the wireless device to (None disconnects from anything)
     #[arg(
         value_parser = PossibleValuesParser::new(NETWORK_POSSIBLE_VALUES)
             .map(|s| parse_network(&s).unwrap()))
     ]
-    network: Network,
+    pub network: Network,
     /// The NAOs to upload to with player number assignments e.g. 20w:2 or 10.1.24.22:5 (player numbers start from 1)
     #[arg(required = true)]
     pub assignments: Vec<NaoAddressPlayerAssignment>,
@@ -58,6 +62,15 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         .iter()
         .map(|assignment| assignment.nao_address)
         .collect();
+
+    recording(
+        RecordingArguments {
+            cycler_instances_to_be_recorded: arguments.cycler_instances_to_be_recorded,
+        },
+        repository,
+    )
+    .await
+    .wrap_err("failed to set cyclers to be recorded")?;
 
     repository
         .set_location("nao", &arguments.location)
