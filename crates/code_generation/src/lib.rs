@@ -23,7 +23,7 @@ pub fn generate(cyclers: &Cyclers, structs: &Structs) -> TokenStream {
         mod cyclers {
             #generated_cyclers
         }
-        pub mod run {
+        pub mod execution {
             #generated_run
         }
         mod structs {
