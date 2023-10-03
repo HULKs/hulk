@@ -190,6 +190,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers) -> TokenStream {
                 Default::default(),
                 Default::default(),
             ]);
+            let enable_recording = cycler_instances_to_be_recorded.contains(#cycler_instance_name);
             let #cycler_variable_identifier = crate::cyclers::#cycler_module_name::Cycler::new(
                 crate::cyclers::#cycler_module_name::CyclerInstance::#cycler_instance_name_identifier,
                 hardware_interface.clone(),
@@ -200,7 +201,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers) -> TokenStream {
                 #own_producer_identifier
                 #(#other_cycler_inputs,)*
                 recording_sender.clone(),
-                cycler_instances_to_be_recorded.contains(#cycler_instance_name),
+                enable_recording,
             )
             .wrap_err(#error_message)?;
             communication_server.register_cycler_instance(
