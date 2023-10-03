@@ -1,4 +1,4 @@
-use std::iter::once;
+use std::{collections::HashSet, iter::once};
 
 use convert_case::{Case, Casing};
 use itertools::Itertools;
@@ -478,34 +478,38 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
     }
 }
 
-fn get_required_cross_inputs(cycler: &Cycler) -> Vec<Field> {
-    let mut required_inputs = Vec::new();
-    for node in cycler.setup_nodes.iter().chain(cycler.cycle_nodes.iter()) {
-        for field in node.contexts.cycle_context.iter() {
-            if matches!(
-                field,
-                Field::CyclerState { .. }
-                    | Field::Input {
-                        cycler_instance: Some(_),
-                        ..
-                    }
-                    | Field::PerceptionInput { .. }
-                    | Field::RequiredInput {
-                        cycler_instance: Some(_),
-                        ..
-                    }
-            ) && !required_inputs.contains(field)
-            {
-                required_inputs.push(field.clone());
-            }
-        }
-    }
-    required_inputs
+fn get_required_cross_inputs(cycler: &Cycler) -> HashSet<Field> {
+    cycler
+        .setup_nodes
+        .iter()
+        .chain(cycler.cycle_nodes.iter())
+        .flat_map(|node| {
+            node.contexts
+                .cycle_context
+                .iter()
+                .filter(|field| {
+                    matches!(
+                        field,
+                        Field::CyclerState { .. }
+                            | Field::Input {
+                                cycler_instance: Some(_),
+                                ..
+                            }
+                            | Field::PerceptionInput { .. }
+                            | Field::RequiredInput {
+                                cycler_instance: Some(_),
+                                ..
+                            }
+                    )
+                })
+                .cloned()
+        })
+        .collect()
 }
 
 fn generate_required_cross_inputs_recording(
     cycler: &Cycler,
-    required_inputs: Vec<Field>,
+    required_inputs: impl IntoIterator<Item = Field>,
 ) -> TokenStream {
     let recordings = required_inputs.into_iter().map(|field| {
         let error_message = match &field {
