@@ -105,11 +105,10 @@ fn main() -> Result<()> {
     };
     let root = "..";
 
-    let mut cyclers = Cyclers::try_from_manifest(manifest, root)?;
+    let cyclers = Cyclers::try_from_manifest(manifest, root)?;
     for path in cyclers.watch_paths() {
         println!("cargo:rerun-if-changed={}", path.display());
     }
-    cyclers.sort_nodes()?;
 
     println!();
     println!("{}", to_string_pretty(&cyclers)?);

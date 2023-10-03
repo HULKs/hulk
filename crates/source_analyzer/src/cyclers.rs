@@ -35,13 +35,6 @@ impl Cyclers {
         Ok(Self { cyclers })
     }
 
-    pub fn sort_nodes(&mut self) -> Result<(), Error> {
-        for cycler in &mut self.cyclers {
-            cycler.sort_nodes()?;
-        }
-        Ok(())
-    }
-
     pub fn number_of_instances(&self) -> usize {
         self.cyclers
             .iter()
@@ -117,16 +110,19 @@ impl Cycler {
             .map(|specification| Node::try_from_node_name(specification, root))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(Cycler {
+        let mut cycler = Self {
             name: cycler_manifest.name.to_string(),
             kind: cycler_manifest.kind,
             instances,
             setup_nodes,
             cycle_nodes,
-        })
+        };
+        cycler.sort_nodes()?;
+
+        Ok(cycler)
     }
 
-    pub fn sort_nodes(&mut self) -> Result<(), Error> {
+    fn sort_nodes(&mut self) -> Result<(), Error> {
         let output_name_to_setup_node: HashMap<_, _> = self
             .setup_nodes
             .iter()
