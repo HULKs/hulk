@@ -116,10 +116,10 @@ fn generate_future_queues(cyclers: &Cyclers) -> TokenStream {
 fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
     let file_creations = cyclers.instances().map(|(_cycler, instance)| {
         let instance_name_snake_case = format_ident!("{}", instance.to_case(Case::Snake));
-        let instance_name = format!("logs/{instance}.{{seconds}}.bincode");
+        let recording_file_path = format!("logs/{instance}.{{seconds}}.bincode");
         let error_message = format!("failed to create recording file for {instance}");
         quote! {
-            let mut #instance_name_snake_case = std::io::BufWriter::new(std::fs::File::create(format!(#instance_name)).wrap_err(#error_message)?);
+            let mut #instance_name_snake_case = std::io::BufWriter::new(std::fs::File::create(format!(#recording_file_path)).wrap_err(#error_message)?);
         }
     });
     let frame_writes = cyclers.instances().map(|(_cycler, instance)| {
