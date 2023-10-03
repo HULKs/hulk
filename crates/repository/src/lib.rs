@@ -181,6 +181,32 @@ impl Repository {
         .await
     }
 
+    pub async fn set_communication(&self, enable: bool) -> Result<()> {
+        let file_contents = read_to_string(self.root.join("etc/parameters/framework.json"))
+            .await
+            .wrap_err("failed to read framework.json")?;
+        let mut hardware_json: Value =
+            from_str(&file_contents).wrap_err("failed to deserialize framework.json")?;
+
+        hardware_json["communication_addresses"] = if enable {
+            Value::String("[::]:1337".to_string())
+        } else {
+            Value::Null
+        };
+        {
+            let file_contents = to_string_pretty(&hardware_json)
+                .wrap_err("failed to serialize framework.json")?
+                + "\n";
+            write(
+                self.root.join("etc/parameters/framework.json"),
+                file_contents.as_bytes(),
+            )
+            .await
+            .wrap_err("failed to write framework.json")?;
+        }
+        Ok(())
+    }
+
     pub async fn set_player_number(
         &self,
         head_id: &str,
@@ -204,32 +230,6 @@ impl Repository {
         )
         .await
         .wrap_err("failed to serialize parameters directory")
-    }
-
-    pub async fn set_communication(&self, enable: bool) -> Result<()> {
-        let file_contents = read_to_string(self.root.join("etc/parameters/hardware.json"))
-            .await
-            .wrap_err("failed to read hardware.json")?;
-        let mut hardware_json: Value =
-            from_str(&file_contents).wrap_err("failed to deserialize hardware.json")?;
-
-        hardware_json["communication_addresses"] = if enable {
-            Value::String("[::]:1337".to_string())
-        } else {
-            Value::Null
-        };
-        {
-            let file_contents = to_string_pretty(&hardware_json)
-                .wrap_err("failed to serialize hardware.json")?
-                + "\n";
-            write(
-                self.root.join("etc/parameters/hardware.json"),
-                file_contents.as_bytes(),
-            )
-            .await
-            .wrap_err("failed to write hardware.json")?;
-        }
-        Ok(())
     }
 
     pub async fn install_sdk(
