@@ -30,14 +30,16 @@ pub async fn gammaray(arguments: Arguments) -> Result<()> {
     };
     let image_path = image_path.as_path();
 
-    ProgressIndicator::map_tasks(
+    ProgressIndicator::map_tasks_with_progress(
         arguments.naos,
-        "Uploading image...",
-        |nao_address| async move {
+        "Uploading image ...",
+        |nao_address, progress_bar| async move {
             let nao = Nao::try_new_with_ping(nao_address.ip).await?;
-            nao.flash_image(image_path)
-                .await
-                .wrap_err_with(|| format!("failed to flash image to {nao_address}"))
+            nao.flash_image(image_path, |msg| {
+                progress_bar.set_message(format!("Uploading image: {}", msg.trim()))
+            })
+            .await
+            .wrap_err_with(|| format!("failed to flash image to {nao_address}"))
         },
     )
     .await;

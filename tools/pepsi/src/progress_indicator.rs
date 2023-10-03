@@ -58,6 +58,29 @@ impl ProgressIndicator {
             .collect::<Vec<_>>()
             .await;
     }
+
+    pub async fn map_tasks_with_progress<T, F, M>(
+        items: impl IntoIterator<Item = T>,
+        message: &'static str,
+        task: impl Fn(T, ProgressBar) -> F + Copy,
+    ) where
+        T: ToString,
+        F: Future<Output = Result<M>>,
+        M: Into<TaskMessage>,
+    {
+        let multi_progress = Self::new();
+        items
+            .into_iter()
+            .map(|item| (multi_progress.task(item.to_string()), item))
+            .map(|(progress, item)| {
+                progress.enable_steady_tick();
+                progress.set_message(message);
+                async move { progress.finish_with(task(item, progress.progress.clone()).await) }
+            })
+            .collect::<FuturesUnordered<_>>()
+            .collect::<Vec<_>>()
+            .await;
+    }
 }
 
 pub struct Task {
