@@ -1,4 +1,4 @@
-use code_generation::{generate, write_to_file::WriteToFile};
+use code_generation::{generate, write_to_file::WriteToFile, Execution};
 use color_eyre::eyre::{Result, WrapErr};
 use source_analyzer::{
     cyclers::{CyclerKind, Cyclers},
@@ -48,7 +48,7 @@ fn main() -> Result<()> {
     println!("{}", to_string_pretty(&cyclers)?);
 
     let structs = Structs::try_from_cyclers(&cyclers)?;
-    generate(&cyclers, &structs)
+    generate(&cyclers, &structs, Execution::None)
         .write_to_file("generated_code.rs")
         .wrap_err("failed to write generated code to file")
 }

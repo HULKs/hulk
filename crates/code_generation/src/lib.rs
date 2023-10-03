@@ -13,24 +13,40 @@ pub mod run;
 pub mod structs;
 pub mod write_to_file;
 
-pub fn generate(cyclers: &Cyclers, structs: &Structs) -> TokenStream {
+pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenStream {
     let generated_cyclers = generate_cyclers(cyclers);
-    let generated_run = generate_run_function(cyclers);
-    let generated_structs = generate_structs(structs);
+    let generated_execution = match mode {
+        Execution::None => Default::default(),
+        Execution::Run => {
+            let run = generate_run_function(cyclers);
+            quote! {
+                pub mod execution {
+                    #run
+                }
+            }
+        }
+        Execution::Replay => Default::default(),
+    };
     let generated_perception_databases = generate_perception_databases(cyclers);
+    let generated_structs = generate_structs(structs);
 
     quote! {
         mod cyclers {
             #generated_cyclers
         }
-        pub mod execution {
-            #generated_run
+        #generated_execution
+        mod perception_databases {
+            #generated_perception_databases
         }
         mod structs {
             #generated_structs
         }
-        mod perception_databases {
-            #generated_perception_databases
-        }
     }
+}
+
+#[derive(Clone, Copy)]
+pub enum Execution {
+    None,
+    Run,
+    Replay,
 }
