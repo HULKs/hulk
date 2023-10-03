@@ -2,13 +2,18 @@ use std::{
     fmt::{self, Display, Formatter},
     net::Ipv4Addr,
     path::Path,
+    process::Stdio,
 };
 
 use color_eyre::{
     eyre::{bail, eyre, WrapErr},
     Result,
 };
-use tokio::process::Command;
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    process::Command,
+    select,
+};
 
 pub const PING_TIMEOUT_SECONDS: u32 = 2;
 
@@ -80,6 +85,7 @@ impl Nao {
             .arg("--compress")
             .arg("--recursive")
             .arg("--times")
+            .arg("--no-inc-recursive")
             .arg(format!("--rsh=ssh {ssh_flags}"));
         if mkpath {
             command.arg("--mkpath");
@@ -337,22 +343,58 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn flash_image(&self, image_path: impl AsRef<Path>) -> Result<()> {
-        let status = self
+    pub async fn flash_image(
+        &self,
+        image_path: impl AsRef<Path>,
+        progress: impl Fn(&str),
+    ) -> Result<()> {
+        let mut rsync = self
             .rsync_with_nao(false)
+            .stdout(Stdio::piped())
             .arg("--copy-links")
             .arg(image_path.as_ref().to_str().unwrap())
             .arg(format!("{}:/data/.image/", self.host))
-            .status()
-            .await
+            .arg("--info=progress2")
+            .spawn()
             .wrap_err("failed to execute rsync command")?;
 
-        if !status.success() {
-            bail!("failed to upload image")
+        let stdout = rsync
+            .stdout
+            .take()
+            .expect("rsync did not have a handle to stdout");
+        let mut stdout_reader = BufReader::new(stdout).split(b'\r');
+
+        loop {
+            select! {
+                result = stdout_reader.next_segment() => {
+                    match result {
+                        Ok(Some(line)) => {
+                            match parse_rsync_progress(&line) {
+                                Ok(line) => progress(line),
+                                Err(_error) => {},
+                                }
+                        },
+                        _ => break,
+                    }
+                }
+                result = rsync.wait() => {
+                    if let Ok(status) = result {
+                        if !status.success() {
+                            bail!("failed to upload image")
+                        }
+                    }
+                }
+            }
         }
 
-        self.reboot().await
+        // self.reboot().await
+        Ok(())
     }
+}
+
+fn parse_rsync_progress(line: &[u8]) -> Result<&str> {
+    let line = std::str::from_utf8(line)?;
+    Ok(line)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
