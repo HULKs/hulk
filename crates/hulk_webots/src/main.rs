@@ -9,7 +9,7 @@ use ctrlc::set_handler;
 use framework::Parameters as FrameworkParameters;
 use hardware::IdInterface;
 use hardware_interface::{HardwareInterface, Parameters as HardwareParameters};
-use hulk::run::run;
+use hulk::execution::run;
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
 
