@@ -17,6 +17,7 @@ members = [
   "crates/geometry",
   "crates/hardware",
   "crates/hulk",
+  "crates/hulk_manifest",
   "crates/hulk_nao",
   "crates/hulk_webots",
   "crates/kinematics",
@@ -104,6 +105,7 @@ hardware = { path = "crates/hardware" }
 home = "0.5.4"
 hula-types = { path = "tools/hula/types" }
 hulk = { path = "crates/hulk" }
+hulk_manifest = { path = "crates/hulk_manifest" }
 i2cdev = "0.5.1"
 image = "0.24.4"
 indicatif = "0.17.2"
