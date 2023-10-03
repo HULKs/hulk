@@ -376,8 +376,9 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
         .cycle_nodes
         .iter()
         .map(|node| generate_node_execution(node, cycler, RecordingGeneration::Skip));
-    let required_inputs = get_required_inputs(cycler);
-    let required_input_recordings = generate_required_inputs_recording(cycler, required_inputs);
+    let required_cross_inputs = get_required_cross_inputs(cycler);
+    let required_cross_input_recordings =
+        generate_required_cross_inputs_recording(cycler, required_cross_inputs);
 
     let post_setup = match cycler.kind {
         CyclerKind::Perception => quote! {
@@ -459,7 +460,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
                     let parameters = self.parameters_reader.next();
                     #lock_readers
-                    #required_input_recordings
+                    #required_cross_input_recordings
                     #(#cycle_node_executions)*
                 }
 
@@ -477,7 +478,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
     }
 }
 
-fn get_required_inputs(cycler: &Cycler) -> Vec<Field> {
+fn get_required_cross_inputs(cycler: &Cycler) -> Vec<Field> {
     let mut required_inputs = Vec::new();
     for node in cycler.setup_nodes.iter().chain(cycler.cycle_nodes.iter()) {
         for field in node.contexts.cycle_context.iter() {
@@ -502,7 +503,10 @@ fn get_required_inputs(cycler: &Cycler) -> Vec<Field> {
     required_inputs
 }
 
-fn generate_required_inputs_recording(cycler: &Cycler, required_inputs: Vec<Field>) -> TokenStream {
+fn generate_required_cross_inputs_recording(
+    cycler: &Cycler,
+    required_inputs: Vec<Field>,
+) -> TokenStream {
     let recordings = required_inputs.into_iter().map(|field| {
         let error_message = match &field {
             Field::CyclerState { name, .. } => format!("failed to record cycler state {name}"),
