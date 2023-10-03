@@ -2719,6 +2719,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "hulk_replayer"
+version = "0.1.0"
+dependencies = [
+ "audio",
+ "bincode",
+ "code_generation",
+ "color-eyre",
+ "communication",
+ "control",
+ "coordinate_systems",
+ "energy_optimization",
+ "framework",
+ "hardware",
+ "hulk_manifest",
+ "ittapi",
+ "linear_algebra",
+ "nalgebra",
+ "serde",
+ "serialize_hierarchy",
+ "source_analyzer",
+ "spl_network",
+ "spl_network_messages",
+ "tokio",
+ "tokio-util",
+ "types",
+ "vision",
+]
+
+[[package]]
 name = "hulk_webots"
 version = "0.1.0"
 dependencies = [

@@ -19,6 +19,7 @@ members = [
   "crates/hulk",
   "crates/hulk_manifest",
   "crates/hulk_nao",
+  "crates/hulk_replayer",
   "crates/hulk_webots",
   "crates/kinematics",
   "crates/linear_algebra",
