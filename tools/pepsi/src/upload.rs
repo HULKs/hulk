@@ -73,10 +73,12 @@ async fn upload_with_progress(
         .await
         .wrap_err_with(|| format!("failed to stop HULK service on {nao_address}"))?;
 
-    progress.set_message("Uploading...");
-    nao.upload(hulk_directory, !arguments.no_clean)
-        .await
-        .wrap_err_with(|| format!("failed to upload binary to {nao_address}"))?;
+    progress.set_message("Uploading: ...");
+    nao.upload(hulk_directory, !arguments.no_clean, |status| {
+        progress.set_message(format!("Uploading: {}", status.trim()))
+    })
+    .await
+    .wrap_err_with(|| format!("failed to upload binary to {nao_address}"))?;
 
     if !arguments.no_restart {
         progress.set_message("Restarting HULK...");
