@@ -36,7 +36,7 @@ pub async fn gammaray(arguments: Arguments) -> Result<()> {
         |nao_address, progress_bar| async move {
             let nao = Nao::try_new_with_ping(nao_address.ip).await?;
             nao.flash_image(image_path, |msg| {
-                progress_bar.set_message(format!("Uploading image: {}", msg.trim()))
+                progress_bar.set_message(format!("Uploading image: {}", msg))
             })
             .await
             .wrap_err_with(|| format!("failed to flash image to {nao_address}"))
