@@ -357,8 +357,7 @@ impl Nao {
 
         monitor_rsync_progress_with(rsync, progress_callback).await?;
 
-        // self.reboot().await
-        Ok(())
+        self.reboot().await
     }
 }
 
