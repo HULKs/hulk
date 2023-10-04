@@ -41,6 +41,7 @@ pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     role: Input<Role, "role">,
     position_of_interest: Input<Point2<f32>, "position_of_interest">,
+    suggested_search_position: Input<Point2<f32>, "suggested_search_position">,
 }
 
 #[context]
@@ -71,6 +72,7 @@ impl WorldStateComposer {
             obstacles: context.obstacles.clone(),
             rule_obstacles: context.rule_obstacles.clone(),
             position_of_interest: *context.position_of_interest,
+            suggested_search_position: *context.suggested_search_position,
             robot,
             kick_decisions: context.kick_decisions.cloned(),
             instant_kick_decisions: context.instant_kick_decisions.cloned(),

@@ -28,7 +28,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub suggestest_search_position: MainOutput<Point2<f32>>,
+    pub suggested_search_position: MainOutput<Point2<f32>>,
 }
 
 impl SearchSuggestor {
@@ -52,7 +52,7 @@ impl SearchSuggestor {
             context.search_suggestor_configuration.heatmap_decay_factor,
         );
         let maximum_heat_heatmap_position = self.heatmap.iamax_full();
-        let suggestest_search_position = Point2::new(
+        let suggested_search_position = Point2::new(
             maximum_heat_heatmap_position.0 as f32
                 / context.search_suggestor_configuration.cells_per_meter as f32,
             maximum_heat_heatmap_position.1 as f32
@@ -60,7 +60,7 @@ impl SearchSuggestor {
         );
 
         Ok(MainOutputs {
-            suggestest_search_position: suggestest_search_position.into(),
+            suggested_search_position: suggested_search_position.into(),
         })
     }
 
