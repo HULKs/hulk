@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fmt::format, path::PathBuf};
 
 use clap::Subcommand;
 use color_eyre::{eyre::WrapErr, Result};
@@ -46,15 +46,21 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
             log_directory,
             naos,
         } => {
-            ProgressIndicator::map_tasks(naos, "Downloading logs...", |nao_address| {
-                let log_directory = log_directory.join(nao_address.to_string());
-                async move {
-                    let nao = Nao::try_new_with_ping(nao_address.ip).await?;
-                    nao.download_logs(log_directory)
+            ProgressIndicator::map_tasks_with_progress(
+                naos,
+                "Downloading logs: ...",
+                |nao_address, progress| {
+                    let log_directory = log_directory.join(nao_address.to_string());
+                    async move {
+                        let nao = Nao::try_new_with_ping(nao_address.ip).await?;
+                        nao.download_logs(log_directory, |status| {
+                            progress.set_message(format!("Downloading logs: {status}"))
+                        })
                         .await
                         .wrap_err_with(|| format!("failed to download logs from {nao_address}"))
-                }
-            })
+                    }
+                },
+            )
             .await
         }
         Arguments::Show { naos } => {

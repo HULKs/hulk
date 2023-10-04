@@ -159,7 +159,11 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn download_logs(&self, local_directory: impl AsRef<Path>) -> Result<()> {
+    pub async fn download_logs(
+        &self,
+        local_directory: impl AsRef<Path>,
+        progress_callback: impl Fn(&str),
+    ) -> Result<()> {
         let status = self
             .ssh_to_nao()
             .arg("dmesg > /home/nao/hulk/logs/kernel.log")
@@ -171,20 +175,15 @@ impl Nao {
             bail!("dmesg pipe ssh command exited with {status}");
         }
 
-        let status = self
+        let rsync = self
             .rsync_with_nao(true)
-            .arg("--quiet")
+            .arg("--info=progress2")
             .arg(format!("{}:hulk/logs/", self.host))
             .arg(local_directory.as_ref().to_str().unwrap())
-            .status()
-            .await
+            .spawn()
             .wrap_err("failed to execute rsync command")?;
 
-        if !status.success() {
-            bail!("rsync command exited with {status}");
-        }
-
-        Ok(())
+        monitor_rsync_progress_with(rsync, progress_callback).await
     }
 
     pub async fn retrieve_logs(&self) -> Result<String> {
