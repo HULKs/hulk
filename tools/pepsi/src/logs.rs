@@ -1,4 +1,4 @@
-use std::{fmt::format, path::PathBuf};
+use std::path::PathBuf;
 
 use clap::Subcommand;
 use color_eyre::{eyre::WrapErr, Result};
