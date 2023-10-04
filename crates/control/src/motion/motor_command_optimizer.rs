@@ -4,7 +4,7 @@ use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     joints::{arm::ArmJoints, Joints},
-    motion_selection::MotionSelection,
+    motion_selection::{MotionSelection, MotionType},
     motor_commands::MotorCommand,
     sensor_data::SensorData,
 };
@@ -58,11 +58,8 @@ impl MotorCommandOptimizer {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let current_motion = context.motion_selection.current_motion;
 
-        let optimization_enabled = matches!(
-            current_motion,
-            types::motion_selection::MotionType::Penalized
-                | types::motion_selection::MotionType::Stand
-        );
+        let optimization_enabled =
+            matches!(current_motion, MotionType::Penalized | MotionType::Stand);
 
         let currents = context.sensor_data.currents;
         let commands = context.motor_commands;
