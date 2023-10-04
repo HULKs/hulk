@@ -756,7 +756,7 @@
       "ankle_roll": 0.0
     }
   },
-"penalized_pose": {
+  "penalized_pose": {
     "head": {
       "yaw": 0.0,
       "pitch": 0.0
