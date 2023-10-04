@@ -82,6 +82,7 @@ impl Nao {
         let mut command = Command::new("rsync");
         let ssh_flags = self.get_ssh_flags().join(" ");
         command
+            .stdout(Stdio::piped())
             .arg("--compress")
             .arg("--recursive")
             .arg("--times")
@@ -239,11 +240,13 @@ impl Nao {
         &self,
         local_directory: impl AsRef<Path>,
         delete_remaining: bool,
+        progress_callback: impl Fn(&str),
     ) -> Result<()> {
         let mut command = self.rsync_with_nao(true);
         command
             .arg("--keep-dirlinks")
             .arg("--copy-links")
+            .arg("--info=progress2")
             .arg(format!("{}/", local_directory.as_ref().display()))
             .arg(format!("{}:hulk/", self.host));
 
@@ -251,16 +254,11 @@ impl Nao {
             command.arg("--delete").arg("--delete-excluded");
         }
 
-        let status = command
-            .status()
-            .await
+        let rsync = command
+            .spawn()
             .wrap_err("failed to execute rsync command")?;
 
-        if !status.success() {
-            bail!("rsync command exited with {status}");
-        }
-
-        Ok(())
+        monitor_rsync_progress_with(rsync, progress_callback).await
     }
 
     pub async fn get_network_status(&self) -> Result<String> {
@@ -350,11 +348,10 @@ impl Nao {
     ) -> Result<()> {
         let rsync = self
             .rsync_with_nao(false)
-            .stdout(Stdio::piped())
             .arg("--copy-links")
+            .arg("--info=progress2")
             .arg(image_path.as_ref().to_str().unwrap())
             .arg(format!("{}:/data/.image/", self.host))
-            .arg("--info=progress2")
             .spawn()
             .wrap_err("failed to execute rsync command")?;
 
