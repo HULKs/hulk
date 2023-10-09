@@ -89,6 +89,9 @@ impl MotorCommandOptimizer {
                 }
             }
             State::Resetting => {
+                if current_motion == MotionType::Dispatching {
+                    self.position_offset = Joints::default();
+                }
                 let resetting_finished = squared_position_offset_sum
                     < context.offset_reset_threshold / context.offset_reset_offset;
 
