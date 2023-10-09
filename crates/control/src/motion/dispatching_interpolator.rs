@@ -14,7 +14,7 @@ use types::{
 pub struct DispatchingInterpolator {
     interpolator: SplineInterpolator<Joints<f32>>,
     stiffnesses: Joints<f32>,
-    last_currently_active: bool,
+    was_dispatching: bool,
     last_dispatching_motion: MotionType,
 }
 
@@ -53,7 +53,7 @@ impl DispatchingInterpolator {
         Ok(Self {
             interpolator: Default::default(),
             stiffnesses: Default::default(),
-            last_currently_active: false,
+            was_dispatching: false,
             last_dispatching_motion: MotionType::Unstiff,
         })
     }
@@ -61,11 +61,11 @@ impl DispatchingInterpolator {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         context.motion_safe_exits[MotionType::Dispatching] = false;
 
-        let currently_active = context.motion_selection.current_motion == MotionType::Dispatching;
-        if !currently_active {
+        let dispatching = context.motion_selection.current_motion == MotionType::Dispatching;
+        if !dispatching {
             context.transition_time.fill_if_subscribed(|| None);
 
-            self.last_currently_active = currently_active;
+            self.was_dispatching = false;
             return Ok(Default::default());
         }
         let dispatching_motion = match context.motion_selection.dispatching_motion {
@@ -73,9 +73,9 @@ impl DispatchingInterpolator {
             None => return Ok(Default::default()),
         };
         let interpolator_reset_required =
-            self.last_dispatching_motion != dispatching_motion || !self.last_currently_active;
+            self.last_dispatching_motion != dispatching_motion || !self.was_dispatching;
         self.last_dispatching_motion = dispatching_motion;
-        self.last_currently_active = currently_active;
+        self.was_dispatching = dispatching;
 
         if interpolator_reset_required {
             let target_position = match dispatching_motion {
