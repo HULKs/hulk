@@ -10,7 +10,6 @@ use types::{
     joints::{head::HeadJoints, Joints},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
     motor_commands::{BodyMotorCommand, MotorCommand},
-    sensor_data::SensorData,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -31,7 +30,6 @@ pub struct CycleContext {
     jump_left_joints_command: Input<MotorCommand<f32>, "jump_left_joints_command">,
     jump_right_joints_command: Input<MotorCommand<f32>, "jump_right_joints_command">,
     motion_selection: Input<MotionSelection, "motion_selection">,
-    sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
     sit_down_joints_command: Input<MotorCommand<f32>, "sit_down_joints_command">,
     stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
@@ -42,6 +40,7 @@ pub struct CycleContext {
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
+    executed_motor_commands: CyclerState<MotorCommand<f32>, "executed_motor_commands">,
 
     transition_time: AdditionalOutput<Option<Duration>, "transition_time">,
 }
@@ -109,7 +108,7 @@ impl DispatchingInterpolator {
             };
 
             self.interpolator = TimedSpline::try_new_transition_timed(
-                context.sensor_data.positions,
+                context.executed_motor_commands.positions,
                 target_position,
                 Duration::from_secs_f32(1.0),
             )?
