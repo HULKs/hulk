@@ -1,6 +1,6 @@
 {
   "communication_addresses": "[::]:1337",
-  "cycler_instances_to_be_recorded": [],
+  "cycler_instances_to_be_recorded": ["Control"],
   "hardware_parameters": "etc/parameters/hardware.json",
   "parameters_directory": "etc/parameters"
 }
