@@ -92,7 +92,7 @@ impl Nao {
             .block_on(self.communication.update_parameter_value(path, value));
     }
 
-    pub fn on_update<F>(&self, f: F)
+    pub fn on_update<F>(&self, callback: F)
     where
         F: Fn() + Sync + Send + 'static,
     {
@@ -102,7 +102,7 @@ impl Nao {
         spawn(async move {
             let mut receiver = communication.on_update().await;
             while receiver.recv().await.is_some() {
-                f();
+                callback();
             }
         });
     }
