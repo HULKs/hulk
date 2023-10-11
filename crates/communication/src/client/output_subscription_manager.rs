@@ -213,6 +213,11 @@ pub async fn output_subscription_manager(
             }
             Message::UpdateFields { fields: new_fields } => {
                 fields = Some(new_fields);
+                for sender in &notification_senders {
+                    if let Err(error) = sender.send(()).await {
+                        error!("{error:?}");
+                    };
+                }
             }
             Message::GetOutputFields { response_sender } => {
                 if let Err(error) = response_sender.send(fields.clone()) {
@@ -238,6 +243,11 @@ pub async fn output_subscription_manager(
                     } else {
                         binary_data_waiting_for_references.insert(reference_id, data);
                     }
+                }
+                for sender in &notification_senders {
+                    if let Err(error) = sender.send(()).await {
+                        error!("{error:?}");
+                    };
                 }
             }
             Message::ListenToUpdates {
