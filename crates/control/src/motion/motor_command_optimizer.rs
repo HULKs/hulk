@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
-    joints::{arm::ArmJoints, Joints},
+    joints::{arm::ArmJoints, leg::LegJoints, Joints},
     motion_selection::{MotionSelection, MotionType},
     motor_commands::MotorCommand,
     sensor_data::SensorData,
@@ -111,6 +111,22 @@ impl MotorCommandOptimizer {
             right_arm: ArmJoints {
                 hand: 0.0,
                 ..commands.stiffnesses.right_arm
+            },
+            left_leg: LegJoints {
+                knee_pitch: if current_motion == MotionType::Penalized {
+                    0.0
+                } else {
+                    commands.stiffnesses.left_leg.knee_pitch
+                },
+                ..commands.stiffnesses.left_leg
+            },
+            right_leg: LegJoints {
+                knee_pitch: if current_motion == MotionType::Penalized {
+                    0.0
+                } else {
+                    commands.stiffnesses.right_leg.knee_pitch
+                },
+                ..commands.stiffnesses.right_leg
             },
             ..commands.stiffnesses
         };
