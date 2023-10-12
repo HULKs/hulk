@@ -13,12 +13,16 @@ pub struct Arguments {
 }
 
 pub async fn reboot(arguments: Arguments) -> Result<()> {
-    ProgressIndicator::map_tasks(arguments.naos, "Rebooting...", |nao_address| async move {
-        let nao = Nao::try_new_with_ping(nao_address.ip).await?;
-        nao.reboot()
-            .await
-            .wrap_err_with(|| format!("failed to reboot {nao_address}"))
-    })
+    ProgressIndicator::map_tasks(
+        arguments.naos,
+        "Rebooting...",
+        |nao_address, _progress_bar| async move {
+            let nao = Nao::try_new_with_ping(nao_address.ip).await?;
+            nao.reboot()
+                .await
+                .wrap_err_with(|| format!("failed to reboot {nao_address}"))
+        },
+    )
     .await;
 
     Ok(())

@@ -14,10 +14,14 @@ pub struct Arguments {
 }
 
 pub async fn ping(arguments: Arguments) {
-    ProgressIndicator::map_tasks(arguments.naos, "Pinging NAO...", |nao_address| async move {
-        Nao::try_new_with_ping_and_arguments(nao_address.ip, arguments.timeout_seconds)
-            .await
-            .map(|_| ())
-    })
+    ProgressIndicator::map_tasks(
+        arguments.naos,
+        "Pinging NAO...",
+        |nao_address, _progress_bar| async move {
+            Nao::try_new_with_ping_and_arguments(nao_address.ip, arguments.timeout_seconds)
+                .await
+                .map(|_| ())
+        },
+    )
     .await;
 }

@@ -30,7 +30,7 @@ pub async fn gammaray(arguments: Arguments) -> Result<()> {
     };
     let image_path = image_path.as_path();
 
-    ProgressIndicator::map_tasks_with_progress(
+    ProgressIndicator::map_tasks(
         arguments.naos,
         "Uploading image ...",
         |nao_address, progress_bar| async move {

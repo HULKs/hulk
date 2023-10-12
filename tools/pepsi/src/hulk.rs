@@ -28,7 +28,7 @@ pub async fn hulk(arguments: Arguments) -> Result<()> {
     ProgressIndicator::map_tasks(
         arguments.naos,
         "Executing systemctl hulk...",
-        |nao_address| async move {
+        |nao_address, _progress_bar| async move {
             let nao = Nao::try_new_with_ping(nao_address.ip).await?;
             nao.execute_systemctl(arguments.action, "hulk")
                 .await
