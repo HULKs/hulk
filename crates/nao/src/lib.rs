@@ -87,6 +87,7 @@ impl Nao {
             .arg("--recursive")
             .arg("--times")
             .arg("--no-inc-recursive")
+            .arg("--human-readable")
             .arg(format!("--rsh=ssh {ssh_flags}"));
         if mkpath {
             command.arg("--mkpath");
