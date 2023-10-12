@@ -16,7 +16,7 @@ pub async fn power_off(arguments: Arguments) -> Result<()> {
     ProgressIndicator::map_tasks(
         arguments.naos,
         "Powering off...",
-        |nao_address| async move {
+        |nao_address, _progress_bar| async move {
             let nao = Nao::try_new_with_ping(nao_address.ip).await?;
             nao.power_off()
                 .await

@@ -43,7 +43,7 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
     ProgressIndicator::map_tasks(
         arguments.assignments,
         "Setting player number...",
-        |assignment| {
+        |assignment, _progress_bar| {
             let head_id = &hardware_ids[&assignment.nao_number.number].head_id;
             async move {
                 repository

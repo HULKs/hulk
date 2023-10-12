@@ -53,7 +53,7 @@ async fn status(naos: Vec<NaoAddress>) {
     ProgressIndicator::map_tasks(
         naos,
         "Retrieving network status...",
-        |nao_address| async move {
+        |nao_address, _progress_bar| async move {
             let nao = Nao::try_new_with_ping(nao_address.ip).await?;
             nao.get_network_status()
                 .await
@@ -67,7 +67,7 @@ async fn available_networks(naos: Vec<NaoAddress>) {
     ProgressIndicator::map_tasks(
         naos,
         "Retrieving available networks...",
-        |nao_address| async move {
+        |nao_address, _progress_bar| async move {
             let nao = Nao::try_new_with_ping(nao_address.ip).await?;
             nao.get_available_networks()
                 .await
@@ -78,11 +78,15 @@ async fn available_networks(naos: Vec<NaoAddress>) {
 }
 
 async fn set(naos: Vec<NaoAddress>, network: Network) {
-    ProgressIndicator::map_tasks(naos, "Setting network...", |nao_address| async move {
-        let nao = Nao::try_new_with_ping(nao_address.ip).await?;
-        nao.set_network(network)
-            .await
-            .wrap_err_with(|| format!("failed to set network on {nao_address}"))
-    })
+    ProgressIndicator::map_tasks(
+        naos,
+        "Setting network...",
+        |nao_address, _progress_bar| async move {
+            let nao = Nao::try_new_with_ping(nao_address.ip).await?;
+            nao.set_network(network)
+                .await
+                .wrap_err_with(|| format!("failed to set network on {nao_address}"))
+        },
+    )
     .await;
 }
