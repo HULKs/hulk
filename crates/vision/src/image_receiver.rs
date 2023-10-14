@@ -1,4 +1,4 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
 use context_attribute::context;
@@ -13,7 +13,9 @@ pub struct ImageReceiver {
 }
 
 #[context]
-pub struct CreationContext {}
+pub struct CreationContext {
+    hardware_interface: HardwareInterface,
+}
 
 #[context]
 pub struct CycleContext {
@@ -28,9 +30,9 @@ pub struct MainOutputs {
 }
 
 impl ImageReceiver {
-    pub fn new(_context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext<impl TimeInterface>) -> Result<Self> {
         Ok(Self {
-            last_cycle_start: UNIX_EPOCH,
+            last_cycle_start: context.hardware_interface.get_now(),
         })
     }
 
@@ -46,6 +48,7 @@ impl ImageReceiver {
             .hardware_interface
             .read_from_camera(*context.camera_position)?;
         self.last_cycle_start = context.hardware_interface.get_now();
+
         Ok(MainOutputs {
             image: image.into(),
         })
