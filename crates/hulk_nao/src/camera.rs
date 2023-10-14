@@ -48,9 +48,7 @@ impl Camera {
 
     pub fn read(&self) -> Result<YCbCr422Image> {
         let mut this_receiver = self.image_receiver.clone();
-        println!("New receiver");
         this_receiver.borrow_and_update();
-        println!("Receiver empty");
         if let Some(_lock) = self.read_mutex.try_lock() {
             self.wait_for_device()
                 .wrap_err("failed to wait for device")?;
@@ -77,7 +75,7 @@ impl Camera {
         }
         let image = this_receiver.borrow_and_update().clone();
         Ok(image.unwrap())
-        // TODO: readd consecutive sequence number checking
+        // TODO: read consecutive sequence number checking
     }
 
     fn wait_for_device(&self) -> Result<()> {
