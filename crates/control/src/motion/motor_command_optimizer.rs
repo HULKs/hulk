@@ -103,6 +103,12 @@ impl MotorCommandOptimizer {
             }
         }
 
+        let optimized_knee_pitch_stiffness = if current_motion == MotionType::Penalized {
+            0.0
+        } else {
+            commands.stiffnesses.left_leg.knee_pitch
+        };
+
         let optimized_stiffnesses = Joints {
             left_arm: ArmJoints {
                 hand: 0.0,
@@ -113,20 +119,12 @@ impl MotorCommandOptimizer {
                 ..commands.stiffnesses.right_arm
             },
             left_leg: LegJoints {
-                knee_pitch: if current_motion == MotionType::Penalized {
-                    0.0
-                } else {
-                    commands.stiffnesses.left_leg.knee_pitch
-                },
+                knee_pitch: optimized_knee_pitch_stiffness,
                 ..commands.stiffnesses.left_leg
             },
             right_leg: LegJoints {
-                knee_pitch: if current_motion == MotionType::Penalized {
-                    0.0
-                } else {
-                    commands.stiffnesses.right_leg.knee_pitch
-                },
-                ..commands.stiffnesses.right_leg
+                knee_pitch: optimized_knee_pitch_stiffness,
+                ..commands.stiffnesses.left_leg
             },
             ..commands.stiffnesses
         };
