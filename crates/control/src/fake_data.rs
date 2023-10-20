@@ -9,7 +9,7 @@ use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
 use spl_network_messages::HulkMessage;
 use types::{
-    ball_position::BallPosition,
+    ball_position::{BallPosition, HypotheticalBallPosition},
     cycle_time::CycleTime,
     fall_state::FallState,
     filtered_whistle::FilteredWhistle,
@@ -50,6 +50,7 @@ pub struct MainOutputs {
     pub game_controller_state: MainOutput<Option<GameControllerState>>,
     pub has_ground_contact: MainOutput<bool>,
     pub hulk_messages: MainOutput<Vec<HulkMessage>>,
+    pub invalid_ball_positions: MainOutput<Vec<HypotheticalBallPosition>>,
     pub obstacles: MainOutput<Vec<Obstacle>>,
     pub penalty_shot_direction: MainOutput<Option<PenaltyShotDirection>>,
     pub primary_state: MainOutput<PrimaryState>,
