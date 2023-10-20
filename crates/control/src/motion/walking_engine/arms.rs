@@ -257,9 +257,9 @@ impl SwingingArm {
         let joints = ArmJoints {
             shoulder_pitch,
             shoulder_roll,
-            elbow_yaw: -FRAC_PI_2,
+            elbow_yaw: 0.0,
             elbow_roll: 0.0,
-            wrist_yaw: 0.0,
+            wrist_yaw: -FRAC_PI_2,
             hand: 0.0,
         };
         match self.side {
