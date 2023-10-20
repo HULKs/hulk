@@ -14,7 +14,7 @@ pub mod structs;
 pub mod write_to_file;
 
 pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenStream {
-    let generated_cyclers = generate_cyclers(cyclers);
+    let generated_cyclers = generate_cyclers(cyclers, mode);
     let generated_execution = match mode {
         Execution::None => Default::default(),
         Execution::Run => {

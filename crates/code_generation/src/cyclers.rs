@@ -8,11 +8,15 @@ use source_analyzer::{
     contexts::Field,
     cyclers::{Cycler, CyclerKind, Cyclers},
     node::Node,
+    path::Path,
 };
 
-use crate::accessor::{path_to_accessor_token_stream, ReferenceKind};
+use crate::{
+    accessor::{path_to_accessor_token_stream, ReferenceKind},
+    Execution,
+};
 
-pub fn generate_cyclers(cyclers: &Cyclers) -> TokenStream {
+pub fn generate_cyclers(cyclers: &Cyclers, mode: Execution) -> TokenStream {
     let recording_frame_variants = cyclers.instances().map(|(_cycler, instance)| {
         let instance_name = format_ident!("{}", instance);
         quote! {
@@ -25,7 +29,7 @@ pub fn generate_cyclers(cyclers: &Cyclers) -> TokenStream {
     let cyclers: Vec<_> = cyclers
         .cyclers
         .iter()
-        .map(|cycler| generate_module(cycler, cyclers))
+        .map(|cycler| generate_module(cycler, cyclers, mode))
         .collect();
 
     quote! {
@@ -37,12 +41,12 @@ pub fn generate_cyclers(cyclers: &Cyclers) -> TokenStream {
     }
 }
 
-fn generate_module(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
+fn generate_module(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
     let module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
     let cycler_instance = generate_cycler_instance(cycler);
     let database_struct = generate_database_struct();
     let cycler_struct = generate_struct(cycler, cyclers);
-    let cycler_implementation = generate_implementation(cycler, cyclers);
+    let cycler_implementation = generate_implementation(cycler, cyclers, mode);
 
     quote! {
         #[allow(dead_code, unused_mut, unused_variables, clippy::too_many_arguments, clippy::needless_question_mark, clippy::borrow_deref_ref)]
@@ -176,10 +180,10 @@ fn generate_node_fields(cycler: &Cycler) -> TokenStream {
     }
 }
 
-fn generate_implementation(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
+fn generate_implementation(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
     let new_method = generate_new_method(cycler, cyclers);
     let start_method = generate_start_method();
-    let cycle_method = generate_cycle_method(cycler, cyclers);
+    let cycle_method = generate_cycle_method(cycler, cyclers, mode);
 
     quote! {
         impl<HardwareInterface> Cycler<HardwareInterface>
@@ -368,7 +372,7 @@ fn generate_start_method() -> TokenStream {
     }
 }
 
-fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
+fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
     let setup_node_executions = cycler
         .setup_nodes
         .iter()
@@ -378,16 +382,37 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
         .iter()
         .map(|node| generate_node_execution(node, cycler, NodeType::Normal));
     let cross_inputs = get_cross_inputs(cycler);
-    let cross_input_recordings = generate_cross_inputs_recording(cycler, cross_inputs);
+    let cross_inputs = match mode {
+        Execution::None => Default::default(),
+        Execution::Run => generate_cross_inputs_recording(cycler, cross_inputs),
+        Execution::Replay => generate_cross_inputs_extraction(cross_inputs),
+    };
 
+    let pre_setup = match mode {
+        Execution::None => Default::default(),
+        Execution::Run => quote! {
+            let enable_recording = self.enable_recording && self.hardware_interface.should_record();
+            let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
+        },
+        Execution::Replay => Default::default(),
+    };
+    let post_setup = match mode {
+        Execution::None => Default::default(),
+        Execution::Run => quote! {
+            let now = <HardwareInterface as hardware::TimeInterface>::get_now(&*self.hardware_interface);
+        },
+        Execution::Replay => Default::default(),
+    };
     let post_setup = match cycler.kind {
         CyclerKind::Perception => quote! {
+            #post_setup
             self.own_producer.announce();
         },
         CyclerKind::RealTime => {
             let perception_cycler_updates = generate_perception_cycler_updates(cyclers);
 
             quote! {
+                #post_setup
                 self.perception_databases.update(now, crate::perception_databases::Updates {
                     #perception_cycler_updates
                 });
@@ -444,8 +469,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     own_database.deref_mut()
                 };
 
-                let enable_recording = self.enable_recording && self.hardware_interface.should_record();
-                let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
+                #pre_setup
 
                 {
                     let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
@@ -453,14 +477,13 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     #(#setup_node_executions)*
                 }
 
-                let now = <HardwareInterface as hardware::TimeInterface>::get_now(&*self.hardware_interface);
                 #post_setup
 
                 {
                     let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
                     let parameters = self.parameters_reader.next();
                     #lock_readers
-                    #cross_input_recordings
+                    #cross_inputs
                     #(#cycle_node_executions)*
                 }
 
@@ -621,6 +644,69 @@ fn generate_cross_inputs_recording(
             #(#recordings)*
         }
     }
+}
+
+fn generate_cross_inputs_extraction(cross_inputs: impl IntoIterator<Item = Field>) -> TokenStream {
+    let extractions = cross_inputs.into_iter().map(|field| {
+        let error_message = match &field {
+            Field::CyclerState { name, .. } => format!("failed to record cycler state {name}"),
+            Field::Input { cycler_instance: Some(_), name, .. } => format!("failed to record input {name}"),
+            Field::PerceptionInput { name, .. } => format!("failed to record perception input {name}"),
+            Field::RequiredInput { cycler_instance: Some(_), name, .. } => format!("failed to record required input {name}"),
+            _ => panic!("unexpected field {field:?}"),
+        };
+        match field {
+            Field::CyclerState { path, .. } => {
+                let name = path_to_extraction_variable_name("own", &path);
+                quote! {
+                    let #name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                }
+            }
+            Field::Input {
+                cycler_instance: Some(cycler_instance),
+                path,
+                ..
+            } => {
+                let name = path_to_extraction_variable_name(&cycler_instance, &path);
+                quote! {
+                    let #name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                }
+            }
+            Field::PerceptionInput { cycler_instance, path, .. } => {
+                let name = path_to_extraction_variable_name(&cycler_instance, &path);
+                quote! {
+                    let #name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                }
+            }
+            Field::RequiredInput {
+                cycler_instance: Some(cycler_instance),
+                path,
+                ..
+            } => {
+                let name = path_to_extraction_variable_name(&cycler_instance, &path);
+                quote! {
+                    let #name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                }
+            }
+            _ => panic!("unexpected field {field:?}"),
+        }
+    }).collect::<Vec<_>>();
+
+    if extractions.is_empty() {
+        return Default::default();
+    }
+
+    quote! {
+        #(#extractions)*
+    }
+}
+
+fn path_to_extraction_variable_name(cycler_instance: &str, path: &Path) -> Ident {
+    format_ident!(
+        "replay_extraction_{}_{}",
+        cycler_instance,
+        path.to_segments().join("_")
+    )
 }
 
 fn generate_perception_cycler_updates(cyclers: &Cyclers) -> TokenStream {
