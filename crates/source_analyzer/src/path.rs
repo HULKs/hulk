@@ -32,9 +32,7 @@ impl Path {
         }
         Ok(Self { segments })
     }
-}
 
-impl Path {
     pub fn contains_variable(&self) -> bool {
         self.segments.iter().any(|segment| segment.is_variable)
     }
@@ -68,6 +66,13 @@ impl Path {
                     .collect();
                 Path { segments }
             })
+            .collect()
+    }
+
+    pub fn to_segments(&self) -> Vec<String> {
+        self.segments
+            .iter()
+            .map(|segment| segment.name.clone())
             .collect()
     }
 }
