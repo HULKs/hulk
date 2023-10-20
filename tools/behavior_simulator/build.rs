@@ -23,6 +23,7 @@ fn main() -> Result<()> {
                     "control::motion::look_around",
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
+                    "control::search_suggestor",
                     "control::time_to_reach_kick_position",
                     "control::world_state_composer",
                 ],

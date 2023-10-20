@@ -257,6 +257,7 @@ impl BehaviorCycler {
                     &own_database.main_outputs.primary_state,
                     &own_database.main_outputs.role,
                     &own_database.main_outputs.position_of_interest,
+                    &own_database.main_outputs.suggested_search_position,
                 ))
                 .wrap_err("failed to execute cycle of node `WorldStateComposer`")?;
             own_database.main_outputs.world_state = main_outputs.world_state.value;
