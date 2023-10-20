@@ -11,6 +11,7 @@ use uuid::Uuid;
 use crate::{
     client::{
         id_tracker::{self, get_message_id},
+        notify::notify_all,
         responder, Output, SubscriberMessage,
     },
     messages::{
@@ -205,19 +206,11 @@ pub async fn output_subscription_manager(
                         }
                     }
                 }
-                for sender in &notification_senders {
-                    if let Err(error) = sender.send(()).await {
-                        error!("{error:?}");
-                    };
-                }
+                notify_all(&notification_senders).await;
             }
             Message::UpdateFields { fields: new_fields } => {
                 fields = Some(new_fields);
-                for sender in &notification_senders {
-                    if let Err(error) = sender.send(()).await {
-                        error!("{error:?}");
-                    };
-                }
+                notify_all(&notification_senders).await;
             }
             Message::GetOutputFields { response_sender } => {
                 if let Err(error) = response_sender.send(fields.clone()) {
@@ -244,11 +237,7 @@ pub async fn output_subscription_manager(
                         binary_data_waiting_for_references.insert(reference_id, data);
                     }
                 }
-                for sender in &notification_senders {
-                    if let Err(error) = sender.send(()).await {
-                        error!("{error:?}");
-                    };
-                }
+                notify_all(&notification_senders).await;
             }
             Message::ListenToUpdates {
                 notification_sender: notify_sender,
