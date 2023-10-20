@@ -45,6 +45,7 @@ pub struct CycleContext {
         Parameter<f32, "kick_selector.ball_radius_for_kick_target_selection">,
     closer_threshold: Parameter<f32, "kick_selector.closer_threshold">,
     find_kick_targets: Parameter<FindKickTargetsParameters, "kick_selector.find_kick_targets">,
+    goal_accuracy_margin: Parameter<f32, "kick_selector.goal_accuracy_margin">,
 
     default_kick_strength: Parameter<f32, "kick_selector.default_kick_strength">,
     corner_kick_strength: Parameter<f32, "kick_selector.corner_kick_strength">,
@@ -103,6 +104,7 @@ impl KickSelector {
             *context.closer_threshold,
             &mut context.instant_kick_targets,
             *context.default_kick_strength,
+            *context.goal_accuracy_margin,
         );
 
         let kick_targets = collect_kick_targets(
@@ -193,6 +195,7 @@ fn generate_decisions_for_instant_kicks(
     closer_threshold: f32,
     instant_kick_targets: &mut AdditionalOutput<Vec<Point2<f32>>>,
     default_kick_strength: f32,
+    goal_accuracy_margin: f32,
 ) -> Vec<KickDecision> {
     instant_kick_targets.fill_if_subscribed(Default::default);
     iproduct!(sides, kick_variants)
@@ -226,8 +229,13 @@ fn generate_decisions_for_instant_kicks(
                 distance(&ball_position, &own_goal_center) < goal_box_radius;
             let is_target_farer_away_from_our_goal = distance(&target, &own_goal_center)
                 > (distance(&ball_position, &own_goal_center) + closer_threshold);
-            let scores_goal =
-                is_scoring_goal(target, ball_position, field_dimensions, robot_to_field);
+            let scores_goal = is_scoring_goal(
+                target,
+                ball_position,
+                field_dimensions,
+                robot_to_field,
+                goal_accuracy_margin,
+            );
             let is_good_emergency_target =
                 is_ball_close_to_own_goal && is_target_farer_away_from_our_goal;
             let is_strategic_target = is_target_closer_to_opponent_goal || is_good_emergency_target;
@@ -257,16 +265,17 @@ fn is_scoring_goal(
     ball_position: Point2<f32>,
     field_dimensions: &FieldDimensions,
     robot_to_field: Isometry2<f32>,
+    goal_accuracy_margin: f32,
 ) -> bool {
     let ball_to_target = LineSegment::new(robot_to_field * ball_position, robot_to_field * target);
     let opponent_goal_line = LineSegment::new(
         point![
             field_dimensions.length / 2.0,
-            field_dimensions.goal_inner_width / 2.0
+            field_dimensions.goal_inner_width / 2.0 - goal_accuracy_margin
         ],
         point![
             field_dimensions.length / 2.0,
-            -field_dimensions.goal_inner_width / 2.0
+            -field_dimensions.goal_inner_width / 2.0 + goal_accuracy_margin
         ],
     );
     ball_to_target.intersects_line_segment(opponent_goal_line)
