@@ -12,6 +12,7 @@ use uuid::Uuid;
 use crate::{
     client::{
         id_tracker::{self, get_message_id},
+        notify::notify_all,
         responder, SubscriberMessage,
     },
     messages::{ParametersRequest, Path, Request},
@@ -164,11 +165,7 @@ pub async fn parameter_subscription_manager(
                         error!("{error}");
                     }
                 }
-                for sender in &notification_senders {
-                    if let Err(error) = sender.send(()).await {
-                        error!("{error:?}");
-                    };
-                }
+                notify_all(&notification_senders).await;
             }
             Message::UpdateFields { fields: new_fields } => {
                 fields = Some(new_fields);
