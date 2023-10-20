@@ -524,19 +524,19 @@
       "pitch_factor": 10.0,
       "pull_back_joints": {
         "elbow_roll": 0.0,
-        "elbow_yaw": 0.0,
+        "elbow_yaw": -1.57,
         "hand": 0.0,
         "shoulder_pitch": 1.9,
         "shoulder_roll": 0.2,
-        "wrist_yaw": -1.823
+        "wrist_yaw": 0.0
       },
       "pull_tight_joints": {
         "elbow_roll": 0.0,
-        "elbow_yaw": 0.0,
+        "elbow_yaw": -1.57,
         "hand": 0.0,
         "shoulder_pitch": 2.4,
         "shoulder_roll": -0.3,
-        "wrist_yaw": -1.823
+        "wrist_yaw": 0.0
       },
       "pulling_back_duration": { "nanos": 0, "secs": 1 },
       "pulling_tight_duration": { "nanos": 0, "secs": 1 },
