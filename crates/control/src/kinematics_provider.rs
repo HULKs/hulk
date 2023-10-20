@@ -45,7 +45,7 @@ impl KinematicsProvider {
         let neck_to_robot = neck_to_robot(&joints.head);
         let head_to_robot = neck_to_robot * head_to_neck(&joints.head);
         // torso
-        let torso_to_robot = Isometry3::from(RobotDimensions::TORSO_TO_ROBOT);
+        let torso_to_robot = Isometry3::from(RobotDimensions::ROBOT_TO_TORSO);
         // left arm
         let left_shoulder_to_robot = left_shoulder_to_robot(&joints.left_arm);
         let left_upper_arm_to_robot =
