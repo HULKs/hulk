@@ -76,6 +76,7 @@ impl MotorCommandOptimizer {
 
         match self.state {
             State::Optimizing => {
+                // this optimization is inspired by the approach of Berlin United in their team research report 2019.
                 let (joint, maximal_current) = currents
                     .enumerate()
                     .max_by(|(_, left), (_, right)| f32::total_cmp(left, right))
