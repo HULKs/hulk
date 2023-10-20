@@ -1,1 +1,10 @@
-{}
+{
+  "image_segmenter": {
+    "vision_bottom": {
+      "vertical_stride": 4
+    }
+  },
+  "ball_filter": {
+    "resting_ball_velocity_threshold": 0.16
+  }
+}
