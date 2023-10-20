@@ -141,7 +141,13 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
         let instance_name_snake_case = format_ident!("{}", instance.to_case(Case::Snake));
         let error_message = format!("failed to write into recording file for {instance}");
         quote! {
-            crate::cyclers::RecordingFrame::#instance_name { data } => #instance_name_snake_case.write_all(data.as_slice()).wrap_err(#error_message)?,
+            crate::cyclers::RecordingFrame::#instance_name { timestamp, data } => {
+                let mut recording_header = Vec::new();
+                bincode::serialize_into(&mut recording_header, &timestamp).wrap_err("failed to serialize timestamp")?;
+                bincode::serialize_into(&mut recording_header, &data.len()).wrap_err("failed to serialize data length")?;
+                #instance_name_snake_case.write_all(recording_header.as_slice()).wrap_err(#error_message)?;
+                #instance_name_snake_case.write_all(data.as_slice()).wrap_err(#error_message)?;
+            },
         }
     });
 

@@ -17,6 +17,7 @@ pub fn generate_cyclers(cyclers: &Cyclers) -> TokenStream {
         let instance_name = format_ident!("{}", instance);
         quote! {
             #instance_name {
+                timestamp: std::time::SystemTime,
                 data: std::vec::Vec<u8>,
             },
         }
@@ -387,13 +388,9 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             let perception_cycler_updates = generate_perception_cycler_updates(cyclers);
 
             quote! {
-                let now = <HardwareInterface as hardware::TimeInterface>::get_now(&*self.hardware_interface);
                 self.perception_databases.update(now, crate::perception_databases::Updates {
                     #perception_cycler_updates
                 });
-                if enable_recording {
-                    bincode::serialize_into(&mut recording_frame, &now).wrap_err("failed to record time")?;
-                }
             }
         }
     };
@@ -426,7 +423,10 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
     let recording_variants = cycler.instances.iter().map(|instance| {
         let instance_name = format_ident!("{}", instance);
         quote! {
-            CyclerInstance::#instance_name => crate::cyclers::RecordingFrame::#instance_name { data: recording_frame },
+            CyclerInstance::#instance_name => crate::cyclers::RecordingFrame::#instance_name {
+                timestamp: now,
+                data: recording_frame,
+            },
         }
     });
 
@@ -453,6 +453,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                     #(#setup_node_executions)*
                 }
 
+                let now = <HardwareInterface as hardware::TimeInterface>::get_now(&*self.hardware_interface);
                 #post_setup
 
                 {
