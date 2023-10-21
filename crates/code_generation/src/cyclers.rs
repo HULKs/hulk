@@ -380,7 +380,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
     let cycle_node_executions = cycler
         .cycle_nodes
         .iter()
-        .map(|node| generate_node_execution(node, cycler, NodeType::Normal, mode));
+        .map(|node| generate_node_execution(node, cycler, NodeType::Cycle, mode));
     let cross_inputs = get_cross_inputs(cycler);
     let cross_inputs = match mode {
         Execution::None => Default::default(),
@@ -722,47 +722,59 @@ fn generate_perception_cycler_updates(cyclers: &Cyclers) -> TokenStream {
         .collect()
 }
 
-fn generate_node_execution(node: &Node, cycler: &Cycler, node_type: NodeType, mode: Execution) -> TokenStream {
-    let node_member = format_ident!("{}", node.name.to_case(Case::Snake));
-    let node_state_recording = match node_type {
-        NodeType::Setup => Default::default(),
-        NodeType::Normal => match mode {
-            Execution::None => Default::default(),
-            Execution::Run => {
-                let recording_error_message = format!("failed to record `{}`", node.name);
-                quote! {
-                    if enable_recording {
-                        bincode::serialize_into(&mut recording_frame, &self.#node_member).wrap_err(#recording_error_message)?;
-                    }
-                }
-            },
-            Execution::Replay => {
-                let extraction_error_message = format!("failed to extract `{}`", node.name);
-                quote! {
-                    let deserializer = bincode::Deserializer::with_reader(
-                        &mut recording_frame,
-                        bincode::options()
-                            .with_fixint_encoding()
-                            .allow_trailing_bytes(),
-                    );
-                    serde::Deserialize::deserialize_in_place(
-                        deserializer,
-                        &mut self.#node_member,
-                    ).wrap_err(#extraction_error_message)?;
-                }
-            },
-        },
-    };
+fn generate_node_execution(
+    node: &Node,
+    cycler: &Cycler,
+    node_type: NodeType,
+    mode: Execution,
+) -> TokenStream {
+    match (node_type, mode) {
+        (NodeType::Setup, Execution::Run) => {
+            let write_main_outputs_from_node = generate_write_main_outputs_from_node(node, cycler);
+            let record_main_outputs = generate_record_main_outputs(node);
+            quote! {
+                #write_main_outputs_from_node
+                #record_main_outputs
+            }
+        }
+        (NodeType::Cycle, Execution::Run) => {
+            let record_node_state = generate_record_node_state(node);
+            let write_main_outputs_from_node = generate_write_main_outputs_from_node(node, cycler);
+            quote! {
+                #record_node_state
+                #write_main_outputs_from_node
+            }
+        }
+        (NodeType::Setup, Execution::Replay) => {
+            let write_main_outputs_from_frame = generate_write_main_outputs_from_frame(node);
+            quote! {
+                #write_main_outputs_from_frame
+            }
+        }
+        (NodeType::Cycle, Execution::Replay) => {
+            let restore_node_state = generate_restore_node_state(node);
+            let write_main_outputs_from_node = generate_write_main_outputs_from_node(node, cycler);
+            quote! {
+                #restore_node_state
+                #write_main_outputs_from_node
+            }
+        }
+        (_, Execution::None) => panic!("unexpected Execution::Mode"),
+    }
+}
+
+fn generate_write_main_outputs_from_node(node: &Node, cycler: &Cycler) -> TokenStream {
     let are_required_inputs_some = generate_required_input_condition(node, cycler);
     let node_name = &node.name;
+    let node_member = format_ident!("{}", node.name.to_case(Case::Snake));
     let node_module = &node.module;
     let context_initializers = generate_context_initializers(node, cycler);
     let cycle_error_message = format!("failed to execute cycle of `{}`", node.name);
-    let database_updates = generate_database_updates(node, node_type, mode);
+    let database_updates = generate_database_updates(node);
     let database_updates_from_defaults = generate_database_updates_from_defaults(node);
+
     quote! {
         {
-            #node_state_recording
             #[allow(clippy::needless_else)]
             if #are_required_inputs_some {
                 let main_outputs = {
@@ -783,9 +795,70 @@ fn generate_node_execution(node: &Node, cycler: &Cycler, node_type: NodeType, mo
     }
 }
 
+fn generate_record_main_outputs(node: &Node) -> TokenStream {
+    node.contexts
+        .main_outputs
+        .iter()
+        .filter_map(|field| match field {
+            Field::MainOutput { name, .. } => {
+                let error_message = format!("failed to record {name}");
+                Some(quote! {
+                    if enable_recording {
+                        bincode::serialize_into(&mut recording_frame, &main_outputs.#name.value).wrap_err(#error_message)?;
+                    }
+                })
+            },
+            _ => None,
+        })
+        .collect()
+}
+
+fn generate_record_node_state(node: &Node) -> TokenStream {
+    let node_member = format_ident!("{}", node.name.to_case(Case::Snake));
+    let error_message = format!("failed to record `{}`", node.name);
+    quote! {
+        if enable_recording {
+            bincode::serialize_into(&mut recording_frame, &self.#node_member).wrap_err(#error_message)?;
+        }
+    }
+}
+
+fn generate_write_main_outputs_from_frame(node: &Node) -> TokenStream {
+    node.contexts
+        .main_outputs
+        .iter()
+        .filter_map(|field| match field {
+            Field::MainOutput { name, .. } => {
+                let error_message = format!("failed to extract {name}");
+                Some(quote! {
+                    own_database_reference.main_outputs.#name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                })
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn generate_restore_node_state(node: &Node) -> TokenStream {
+    let node_member = format_ident!("{}", node.name.to_case(Case::Snake));
+    let error_message = format!("failed to extract `{}`", node.name);
+    quote! {
+        let deserializer = bincode::Deserializer::with_reader(
+            &mut recording_frame,
+            bincode::options()
+                .with_fixint_encoding()
+                .allow_trailing_bytes(),
+        );
+        serde::Deserialize::deserialize_in_place(
+            deserializer,
+            &mut self.#node_member,
+        ).wrap_err(#error_message)?;
+    }
+}
+
 enum NodeType {
     Setup,
-    Normal,
+    Cycle,
 }
 
 fn generate_required_input_condition(node: &Node, cycler: &Cycler) -> TokenStream {
@@ -1010,44 +1083,14 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
     }
 }
 
-fn generate_database_updates(node: &Node, node_type: NodeType, mode: Execution) -> TokenStream {
+fn generate_database_updates(node: &Node) -> TokenStream {
     node.contexts
         .main_outputs
         .iter()
         .filter_map(|field| match field {
-            Field::MainOutput { name, .. } => {
-                match mode {
-                    Execution::None => None,
-                    Execution::Run => {
-                        let recording = match node_type {
-                            NodeType::Setup => {
-                                let error_message = format!("failed to record {name}");
-                                quote! {
-                                    if enable_recording {
-                                        bincode::serialize_into(&mut recording_frame, &main_outputs.#name.value).wrap_err(#error_message)?;
-                                    }
-                                }
-                            },
-                            NodeType::Normal => Default::default(),
-                        };
-                        Some(quote! {
-                            #recording
-                            own_database_reference.main_outputs.#name = main_outputs.#name.value;
-                        })
-                    },
-                    Execution::Replay => {
-                        match node_type {
-                            NodeType::Setup => {
-                                let error_message = format!("failed to extract {name}");
-                                Some(quote! {
-                                    own_database_reference.main_outputs.#name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
-                                })
-                            },
-                            NodeType::Normal => None,
-                        }
-                    },
-                }
-            }
+            Field::MainOutput { name, .. } => Some(quote! {
+                own_database_reference.main_outputs.#name = main_outputs.#name.value;
+            }),
             _ => None,
         })
         .collect()
