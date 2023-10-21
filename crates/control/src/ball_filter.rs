@@ -33,7 +33,6 @@ pub struct CycleContext {
     ball_filter_hypotheses: AdditionalOutput<Vec<Hypothesis>, "ball_filter_hypotheses">,
     best_ball_hypothesis: AdditionalOutput<Option<Hypothesis>, "best_ball_hypothesis">,
     best_ball_state: AdditionalOutput<Option<MultivariateNormalDistribution<4>>, "best_ball_state">,
-    chooses_resting_model: AdditionalOutput<Option<bool>, "chooses_resting_model">,
     filtered_balls_in_image_bottom: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_bottom">,
     filtered_balls_in_image_top: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_top">,
 

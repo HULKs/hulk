@@ -41,6 +41,7 @@ impl Hypothesis {
             position: Point2::from(selected_state.mean.xy()),
             velocity: vector![selected_state.mean.z, selected_state.mean.w],
             last_seen: self.last_update,
+            is_resting: self.is_resting(configuration),
         }
     }
 }

@@ -641,6 +641,7 @@ fn team_ball_from_spl_message(
             position: spl_message.robot_to_field * ball_position.relative_position,
             velocity: Vector2::zeros(),
             last_seen: cycle_start_time - ball_position.age,
+            is_resting: true,
         })
 }
 
@@ -653,6 +654,7 @@ fn team_ball_from_seen_ball(
         position: (current_pose * ball.position),
         velocity: Vector2::zeros(),
         last_seen: cycle_start_time,
+        is_resting: ball.is_resting,
     })
 }
 
