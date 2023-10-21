@@ -175,8 +175,8 @@ impl BallFilter {
             hypothesis.selected_ball_position(context.ball_filter_configuration)
         });
 
-        let decay: f32 = context.ball_filter_configuration.linear_velocity_decay;
-        let square_decay: f32 = context.ball_filter_configuration.square_velocity_decay;
+        let decay = context.ball_filter_configuration.linear_velocity_decay;
+        let square_decay = context.ball_filter_configuration.square_velocity_decay;
         let ball_rest_position = ball_position.map(|ball| {
             let mut ball = ball;
             while ball.velocity.norm_squared() > 0.01 {
