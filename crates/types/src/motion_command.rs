@@ -16,6 +16,7 @@ pub enum MotionCommand {
     FallProtection {
         direction: FallDirection,
     },
+    Initial,
     Jump {
         direction: JumpDirection,
     },
@@ -54,7 +55,7 @@ impl MotionCommand {
             | MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }
             | MotionCommand::InWalkKick { head, .. } => Some(*head),
-            MotionCommand::Penalized => Some(HeadMotion::ZeroAngles),
+            MotionCommand::Penalized | MotionCommand::Initial => Some(HeadMotion::ZeroAngles),
             MotionCommand::Unstiff => Some(HeadMotion::Unstiff),
             MotionCommand::ArmsUpSquat
             | MotionCommand::FallProtection { .. }

@@ -37,6 +37,7 @@ pub struct CycleContext {
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     walk_joints_command: Input<BodyJointsCommand<f32>, "walk_joints_command">,
 
+    initial_pose: Parameter<Joints<f32>, "initial_pose">,
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
@@ -84,6 +85,7 @@ impl DispatchingInterpolator {
                 MotionType::ArmsUpSquat => context.arms_up_squat_joints_command.positions,
                 MotionType::Dispatching => panic!("Dispatching cannot dispatch itself"),
                 MotionType::FallProtection => panic!("Is executed immediately"),
+                MotionType::Initial => *context.initial_pose,
                 MotionType::JumpLeft => context.jump_left_joints_command.positions,
                 MotionType::JumpRight => context.jump_right_joints_command.positions,
                 MotionType::Penalized => *context.penalized_pose,

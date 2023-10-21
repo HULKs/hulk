@@ -79,6 +79,7 @@ fn motion_type_from_command(
     match command {
         MotionCommand::ArmsUpSquat => MotionType::ArmsUpSquat,
         MotionCommand::FallProtection { .. } => MotionType::FallProtection,
+        MotionCommand::Initial => MotionType::Initial,
         MotionCommand::Jump { direction } => match direction {
             JumpDirection::Left => MotionType::JumpLeft,
             JumpDirection::Right => MotionType::JumpRight,
