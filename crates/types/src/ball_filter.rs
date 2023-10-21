@@ -37,11 +37,32 @@ impl Hypothesis {
     pub fn selected_ball_position(&self, configuration: &BallFilterParameters) -> BallPosition {
         let selected_state = self.selected_state(configuration);
 
+        let rest_position = rest_position(selected_state, configuration);
+
         BallPosition {
             position: Point2::from(selected_state.mean.xy()),
+            rest_position,
             velocity: vector![selected_state.mean.z, selected_state.mean.w],
             last_seen: self.last_update,
             is_resting: self.is_resting(configuration),
         }
     }
+}
+
+pub fn rest_position(
+    state: MultivariateNormalDistribution<4>,
+    configuration: &BallFilterParameters,
+) -> Point2<f32> {
+    let decay = configuration.linear_velocity_decay;
+    let square_decay = configuration.square_velocity_decay;
+
+    let mut position = Point2::from(state.mean.xy());
+    let mut velocity = vector![state.mean.z, state.mean.w];
+
+    while velocity.norm_squared() > 0.01 {
+        position += velocity * 0.012;
+        velocity -= velocity * (1.0 - decay) + velocity * velocity.norm() * square_decay;
+    }
+
+    position
 }
