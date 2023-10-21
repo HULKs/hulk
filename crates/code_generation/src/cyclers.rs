@@ -445,15 +445,31 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
             );
         },
     };
-    let recording_variants = cycler.instances.iter().map(|instance| {
-        let instance_name = format_ident!("{}", instance);
-        quote! {
-            CyclerInstance::#instance_name => crate::cyclers::RecordingFrame::#instance_name {
-                timestamp: now,
-                data: recording_frame,
-            },
+    let after_remaining_nodes = match mode {
+        Execution::None => after_remaining_nodes,
+        Execution::Run => {
+            let recording_variants = cycler.instances.iter().map(|instance| {
+                let instance_name = format_ident!("{}", instance);
+                quote! {
+                    CyclerInstance::#instance_name => crate::cyclers::RecordingFrame::#instance_name {
+                        timestamp: now,
+                        data: recording_frame,
+                    },
+                }
+            });
+
+            quote! {
+                #after_remaining_nodes
+
+                if enable_recording {
+                    self.recording_sender.try_send(match instance {
+                        #(#recording_variants)*
+                    }).wrap_err("failed to send recording frame")?;
+                }
+            }
         }
-    });
+        Execution::Replay => after_remaining_nodes,
+    };
 
     quote! {
         #[allow(clippy::nonminimal_bool)]
@@ -488,12 +504,6 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
                 }
 
                 #after_remaining_nodes
-
-                if enable_recording {
-                    self.recording_sender.try_send(match instance {
-                        #(#recording_variants)*
-                    }).wrap_err("failed to send recording frame")?;
-                }
             }
             self.own_changed.notify_one();
             Ok(())
