@@ -203,8 +203,6 @@ impl BehaviorCycler {
                 let main_outputs = {
                     self.kick_selector
                         .cycle(control::kick_selector::CycleContext::new(
-                            &own_database.main_outputs.cycle_time,
-                            &parameters.kick_selector.invisible_ball_timeout,
                             own_database.main_outputs.robot_to_field.as_ref().unwrap(),
                             own_database.main_outputs.ball_state.as_ref().unwrap(),
                             &own_database.main_outputs.obstacles,
