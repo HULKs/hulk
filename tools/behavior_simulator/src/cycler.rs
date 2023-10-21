@@ -218,6 +218,7 @@ impl BehaviorCycler {
                                 .ball_radius_for_kick_target_selection,
                             &parameters.kick_selector.closer_threshold,
                             &parameters.kick_selector.find_kick_targets,
+                            &parameters.kick_selector.goal_accuracy_margin,
                             &parameters.kick_selector.default_kick_strength,
                             &parameters.kick_selector.corner_kick_strength,
                             framework::AdditionalOutput::new(
