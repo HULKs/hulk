@@ -6439,3 +6439,13 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
+
+[[patch.unused]]
+name = "serde"
+version = "1.0.166"
+source = "git+https://github.com/h3ndrk/serde.git?rev=2469fb0f8331bfefb13d24185a3bc23a7b4629b9#2469fb0f8331bfefb13d24185a3bc23a7b4629b9"
+
+[[patch.unused]]
+name = "serde_derive"
+version = "1.0.166"
+source = "git+https://github.com/h3ndrk/serde.git?rev=2469fb0f8331bfefb13d24185a3bc23a7b4629b9#2469fb0f8331bfefb13d24185a3bc23a7b4629b9"

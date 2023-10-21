@@ -376,11 +376,11 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
     let setup_node_executions = cycler
         .setup_nodes
         .iter()
-        .map(|node| generate_node_execution(node, cycler, NodeType::Setup));
+        .map(|node| generate_node_execution(node, cycler, NodeType::Setup, mode));
     let cycle_node_executions = cycler
         .cycle_nodes
         .iter()
-        .map(|node| generate_node_execution(node, cycler, NodeType::Normal));
+        .map(|node| generate_node_execution(node, cycler, NodeType::Normal, mode));
     let cross_inputs = get_cross_inputs(cycler);
     let cross_inputs = match mode {
         Execution::None => Default::default(),
@@ -722,15 +722,35 @@ fn generate_perception_cycler_updates(cyclers: &Cyclers) -> TokenStream {
         .collect()
 }
 
-fn generate_node_execution(node: &Node, cycler: &Cycler, node_type: NodeType) -> TokenStream {
+fn generate_node_execution(node: &Node, cycler: &Cycler, node_type: NodeType, mode: Execution) -> TokenStream {
     let node_member = format_ident!("{}", node.name.to_case(Case::Snake));
-    let recording_error_message = format!("failed to record `{}`", node.name);
     let node_state_recording = match node_type {
         NodeType::Setup => Default::default(),
-        NodeType::Normal => quote! {
-            if enable_recording {
-                bincode::serialize_into(&mut recording_frame, &self.#node_member).wrap_err(#recording_error_message)?;
-            }
+        NodeType::Normal => match mode {
+            Execution::None => Default::default(),
+            Execution::Run => {
+                let recording_error_message = format!("failed to record `{}`", node.name);
+                quote! {
+                    if enable_recording {
+                        bincode::serialize_into(&mut recording_frame, &self.#node_member).wrap_err(#recording_error_message)?;
+                    }
+                }
+            },
+            Execution::Replay => {
+                let extraction_error_message = format!("failed to extract `{}`", node.name);
+                quote! {
+                    let deserializer = bincode::Deserializer::with_reader(
+                        &mut recording_frame,
+                        bincode::options()
+                            .with_fixint_encoding()
+                            .allow_trailing_bytes(),
+                    );
+                    serde::Deserialize::deserialize_in_place(
+                        deserializer,
+                        &mut self.#node_member,
+                    ).wrap_err(#extraction_error_message)?;
+                }
+            },
         },
     };
     let are_required_inputs_some = generate_required_input_condition(node, cycler);
@@ -738,7 +758,7 @@ fn generate_node_execution(node: &Node, cycler: &Cycler, node_type: NodeType) ->
     let node_module = &node.module;
     let context_initializers = generate_context_initializers(node, cycler);
     let cycle_error_message = format!("failed to execute cycle of `{}`", node.name);
-    let database_updates = generate_database_updates(node, node_type);
+    let database_updates = generate_database_updates(node, node_type, mode);
     let database_updates_from_defaults = generate_database_updates_from_defaults(node);
     quote! {
         {
@@ -990,26 +1010,43 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
     }
 }
 
-fn generate_database_updates(node: &Node, recording_generation: NodeType) -> TokenStream {
+fn generate_database_updates(node: &Node, node_type: NodeType, mode: Execution) -> TokenStream {
     node.contexts
         .main_outputs
         .iter()
         .filter_map(|field| match field {
             Field::MainOutput { name, .. } => {
-                let error_message = format!("failed to record {name}");
-                let recording_serialization = match recording_generation {
-                    NodeType::Setup => quote! {
-                        if enable_recording {
-                            bincode::serialize_into(&mut recording_frame, &main_outputs.#name.value).wrap_err(#error_message)?;
+                match mode {
+                    Execution::None => None,
+                    Execution::Run => {
+                        let recording = match node_type {
+                            NodeType::Setup => {
+                                let error_message = format!("failed to record {name}");
+                                quote! {
+                                    if enable_recording {
+                                        bincode::serialize_into(&mut recording_frame, &main_outputs.#name.value).wrap_err(#error_message)?;
+                                    }
+                                }
+                            },
+                            NodeType::Normal => Default::default(),
+                        };
+                        Some(quote! {
+                            #recording
+                            own_database_reference.main_outputs.#name = main_outputs.#name.value;
+                        })
+                    },
+                    Execution::Replay => {
+                        match node_type {
+                            NodeType::Setup => {
+                                let error_message = format!("failed to extract {name}");
+                                Some(quote! {
+                                    own_database_reference.main_outputs.#name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                                })
+                            },
+                            NodeType::Normal => None,
                         }
                     },
-                    NodeType::Normal => Default::default(),
-                };
-                let setter = quote! {
-                    #recording_serialization
-                    own_database_reference.main_outputs.#name = main_outputs.#name.value;
-                };
-                Some(setter)
+                }
             }
             _ => None,
         })
