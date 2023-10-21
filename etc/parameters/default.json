@@ -343,7 +343,7 @@
     "measurement_noise_moving": [0.5, 2.0],
     "measurement_noise_resting": [300.0, 500.0],
     "initial_covariance": [0.5, 0.5, 0.5, 0.5],
-    "resting_ball_velocity_threshold": 0.12,
+    "resting_ball_velocity_threshold": 0.25,
     "visible_validity_exponential_decay_factor": 0.96,
     "hidden_validity_exponential_decay_factor": 0.999,
     "validity_discard_threshold": 0.5,
