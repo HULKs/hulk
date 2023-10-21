@@ -673,7 +673,7 @@
       "secs": 1
     }
   },
-  "ready_pose": {
+  "initial_pose": {
     "head": {
       "yaw": 0.0,
       "pitch": 0.0

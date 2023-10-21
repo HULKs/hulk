@@ -26,6 +26,7 @@ pub struct CycleContext {
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
 
+    initial_pose: Parameter<Joints<f32>, "initial_pose">,
     joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
 
@@ -80,6 +81,7 @@ impl JointCommandSender {
                 dispatching_command.stiffnesses,
             ),
             MotionType::FallProtection => (fall_protection_positions, fall_protection_stiffnesses),
+            MotionType::Initial => (*context.initial_pose, Joints::fill(0.8)),
             MotionType::JumpLeft => (jump_left.positions, jump_left.stiffnesses),
             MotionType::JumpRight => (jump_right.positions, jump_right.stiffnesses),
             MotionType::Penalized => (*context.penalized_pose, Joints::fill(0.8)),
