@@ -1,17 +1,35 @@
+use std::time::SystemTime;
+
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::motion_command::{Facing, FallDirection};
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy, PartialEq)]
-pub enum FallState {
-    Upright,
-    Falling { direction: FallDirection },
-    Fallen { facing: Facing },
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+pub enum Side {
+    Left,
+    Right,
 }
 
-impl Default for FallState {
-    fn default() -> Self {
-        Self::Upright
-    }
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+pub enum FallDirection {
+    Forward { side: Side },
+    Backward { side: Side },
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+pub enum Facing {
+    Down,
+    Up,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy, Default)]
+pub enum FallState {
+    #[default]
+    Upright,
+    Falling {
+        start_time: SystemTime,
+        direction: FallDirection,
+    },
+    Fallen {
+        facing: Facing,
+    },
 }
