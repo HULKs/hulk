@@ -3,14 +3,14 @@ use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
-    motion_command::{Facing, JumpDirection, MotionCommand},
+    fall_state::Facing,
+    motion_command::{JumpDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct MotionSelector {
     current_motion: MotionType,
-    dispatching_motion: Option<MotionType>,
 }
 
 #[context]
@@ -34,7 +34,6 @@ impl MotionSelector {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             current_motion: MotionType::Unstiff,
-            dispatching_motion: None,
         })
     }
 
@@ -49,7 +48,7 @@ impl MotionSelector {
             *context.has_ground_contact,
         );
 
-        self.dispatching_motion = if self.current_motion == MotionType::Dispatching {
+        let dispatching_motion = if self.current_motion == MotionType::Dispatching {
             if requested_motion == MotionType::Unstiff {
                 Some(MotionType::SitDown)
             } else {
@@ -62,7 +61,7 @@ impl MotionSelector {
         Ok(MainOutputs {
             motion_selection: MotionSelection {
                 current_motion: self.current_motion,
-                dispatching_motion: self.dispatching_motion,
+                dispatching_motion,
             }
             .into(),
         })
