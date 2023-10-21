@@ -306,7 +306,8 @@
     "visible_validity_exponential_decay_factor": 0.96,
     "hidden_validity_exponential_decay_factor": 0.999,
     "validity_discard_threshold": 0.5,
-    "velocity_decay_factor": 0.99
+    "linear_velocity_decay": 0.995,
+    "square_velocity_decay": 0.02
   },
   "button_filter": {
     "head_buttons_timeout": {

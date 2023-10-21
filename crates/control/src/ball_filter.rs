@@ -97,7 +97,7 @@ impl BallFilter {
                 .get(detection_time)
                 .expect("current_odometry_to_last_odometry should not be None");
             self.predict_hypotheses_with_odometry(
-                context.ball_filter_configuration.velocity_decay_factor,
+                context.ball_filter_configuration.linear_velocity_decay,
                 current_odometry_to_last_odometry.inverse(),
                 Matrix4::from_diagonal(&context.ball_filter_configuration.process_noise),
             );
@@ -175,9 +175,16 @@ impl BallFilter {
             hypothesis.selected_ball_position(context.ball_filter_configuration)
         });
 
-        let decay: f32 = context.ball_filter_configuration.velocity_decay_factor;
+        let decay: f32 = context.ball_filter_configuration.linear_velocity_decay;
+        let square_decay: f32 = context.ball_filter_configuration.square_velocity_decay;
         let ball_rest_position = ball_position.map(|ball| {
-            ball.position + ball.velocity * 0.012 * (1.0 - decay.powi(200)) / (1.0 - decay)
+            let mut ball = ball;
+            while ball.velocity.norm_squared() > 0.01 {
+                ball.position += ball.velocity * 0.012;
+                ball.velocity -= ball.velocity * (1.0 - decay)
+                    + ball.velocity * ball.velocity.norm() * square_decay;
+            }
+            ball.position
         });
 
         Ok(MainOutputs {
