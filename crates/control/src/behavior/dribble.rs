@@ -29,8 +29,7 @@ pub fn execute(
         .iter()
         .chain(instant_kick_decisions.iter())
         .find(|decision| {
-            decision.visible
-                && is_kick_pose_reached(decision.kick_pose, &in_walk_kicks[decision.variant])
+            is_kick_pose_reached(decision.kick_pose, &in_walk_kicks[decision.variant])
         });
     if let Some(kick) = available_kick {
         let command = MotionCommand::InWalkKick {

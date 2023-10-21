@@ -850,11 +850,7 @@
     },
     "goal_accuracy_margin": 0.25,
     "default_kick_strength": 1.0,
-    "corner_kick_strength": 0.25,
-    "invisible_ball_timeout": {
-      "nanos": 0,
-      "secs": 2
-    }
+    "corner_kick_strength": 0.25
   },
   "behavior": {
     "optional_roles": [
