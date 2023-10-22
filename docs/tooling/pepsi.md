@@ -87,18 +87,24 @@ and adding `~/.cargo/bin` to the `PATH`.
 
 ## Remote Compile
 
-To use the remote compilation you need to create yourself an account on the remote-compiler. Therefore open an ssh connection to ```root@134.28.57.226```. There create a new account by ```adduser {name}``` and set a password with ```passwd {name}```, you will then be asked to type your password. 
+To use the remote compilation you need to create an account on the remote-compiler.
+Open an ssh connection to ```root@134.28.57.226```.
+There create a new account by ```adduser {name}``` and set a password with ```passwd {name}```.
 
-Terminate the root ssh session and change to your user ssh connection ```{name}@134.28.57.226```. There clone the HULKs repository using https: ```https://github.com/HULKs/hulk.git```.
+Terminate the root ssh session and log in with your new user ```{name}@134.28.57.226```.
+There create the folder you want to use for remote compilation, e.g. `mkdir ~/hulk`.
 
-Back on your local machine do ```ssh-copy-id {name}@134.28.57.226``` to copy your public ssh key to the remote-compiler.
-And add the compiler to your git remote: ```git remote add compiler {name}@134.28.57.226:{hulk}``` where ```{hulk}``` refers to the path where you cloned the repository.
+Back on your local machine do ```ssh-copy-id {name}@134.28.57.226``` to allow passwordless login.
+In the hulk repo, create a `.remote-url` file containing the username, IP, and path, e.g. `{name}@134.28.57.226:hulk`.
 
-To use the remote compile with pepsi:
+Now you can use the pepsi remote features:
 
 ```bash
 ./pepsi build --remote
 ```
+
+This will sync your local files to the remote, run the build command there, and then return the final binary to you.
+Other pepsi commands such as `run`, `upload`, or `pregame` also have a `--remote` option.
 
 To use the remote compile functionality from outside the lab, you need a VPN connection.
 Ask one of the older team members to provide you a `.ovpn` file. Create a new VPN client with this configuration file.
