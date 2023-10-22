@@ -8,12 +8,11 @@ BASEDIR=`cd $(dirname $0); pwd -P`
 BASEDIR=${BASEDIR%/*}
 cd "$BASEDIR"
 
-# print help
 print_help() {
     cat <<-__helpText__
 Usage: $0 [OPTIONS] <Command>
 
-Send local changes to a remote repository and execute a command there.
+Send local changes to an ssh remote and execute a command there.
 Optionally, files can be rsync'ed back after.
 
 command: Command to execute on the remote machine
@@ -21,14 +20,15 @@ command: Command to execute on the remote machine
 
 Options:
 
-  --remote <remote>     The git remote to use. Defaults to \`compiler\`
+  --remote <remoteURL>  Override remote url
   --return-file <file>  Path of file to be returned.
                         The file path must be relative to the repository.
                         Can be repeated to return multiple files.
 
-This script expects a git remote with an url similar to this:
+If no --remote is given, the url loaded from `.remote-url`
+The remote url should follow this format:
 
-    \`user@host:path/to/hulks/repo\`
+    \`user@host:path/to/remote/repo\`
 
 It is recommended to use a dedicated remote worktree for this since
 it will be cleaned and synchronized with the local changes without
@@ -36,7 +36,7 @@ regard for possible unsaved changes on the remote.
 __helpText__
 }
 
-remote="${COMPILER_REMOTE:-compiler}"
+remoteURL="${COMPILER_REMOTE:-$(cat .remote-url)}"
 files=()
 while true; do
     case "$1" in
@@ -46,7 +46,7 @@ while true; do
             ;;
         --remote)
             shift
-            remote=$1
+            remoteURL=$1
             ;;
         --return-file)
             shift
@@ -59,27 +59,17 @@ while true; do
     esac
     shift
 done
-echo Using remote $(tput setaf 6)$remote$(tput sgr 0)
+echo Using remote $(tput setaf 6)$remoteURL$(tput sgr 0)
 
-# extract login information and remote path from git remote
+# extract login information and remote path from url
 # assumes remote url of this format: `user@domain:path/to/hulk/repo`
-remoteURL="$(git remote get-url $remote)"
 address="$(echo $remoteURL | cut -d':' -f 1)"
 remotePath="$(echo $remoteURL | cut -d':' -f 2-)"
 
-# push HEAD to compiler remote
-branch=remoteCompile
-git push $remote HEAD:$branch --force --no-verify
-# check out pushed branch on the remote
-ssh $address "sh -c \" \
-    cd "$remotePath" \
-    && git checkout --force \\\$(git rev-parse $branch) \
-    && git clean -d --force \
-\""
-# send all changes that aren't uncommitted yet
-git status -s | cut -c 4- | rsync -a --info=progress --delete-missing-args --files-from=- . "$remoteURL"
+# send local state to remote
+rsync -ah --info progress2 --exclude='.git' --filter="dir-merge,- .gitignore" --delete . "$remoteURL"
 
-# invoke compile script remotely
+# invoke command remotely
 ssh $address "sh -c \" \
     cd \"$remotePath\" \
     && $@
@@ -88,5 +78,5 @@ ssh $address "sh -c \" \
 # fetch results
 echo Returning files
 printf '  %s\n' "${files[@]}"
-printf '%s\n' "${files[@]}" | rsync -a --info=progress --files-from=- "$remoteURL" .
+printf '%s\n' "${files[@]}" | rsync -ah --info=progress --files-from=- "$remoteURL" .
 
