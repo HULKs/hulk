@@ -13,7 +13,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    optimized_motor_commands: Input<MotorCommand<f32>, "optimized_motor_commands">,
+    motor_commands: Input<MotorCommand<f32>, "motor_commands">,
     leds: Input<Leds, "leds">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
@@ -38,23 +38,23 @@ impl CommandSender {
         &mut self,
         mut context: CycleContext<impl ActuatorInterface>,
     ) -> Result<MainOutputs> {
-        let optimized_motor_commands = context.optimized_motor_commands;
+        let motor_commands = context.motor_commands;
 
         context
             .hardware_interface
             .write_to_actuators(
-                optimized_motor_commands.positions,
-                optimized_motor_commands.stiffnesses,
+                motor_commands.positions,
+                motor_commands.stiffnesses,
                 *context.leds,
             )
             .wrap_err("failed to write to actuators")?;
 
-        context.executed_motor_commands_state.positions = optimized_motor_commands.positions;
-        context.executed_motor_commands_state.stiffnesses = optimized_motor_commands.stiffnesses;
+        context.executed_motor_commands_state.positions = motor_commands.positions;
+        context.executed_motor_commands_state.stiffnesses = motor_commands.stiffnesses;
 
         context
             .executed_motor_commands
-            .fill_if_subscribed(|| *optimized_motor_commands);
+            .fill_if_subscribed(|| *motor_commands);
         context
             .motion_safe_exits_output
             .fill_if_subscribed(|| context.motion_safe_exits.clone());
