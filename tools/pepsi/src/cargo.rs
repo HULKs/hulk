@@ -82,7 +82,7 @@ pub async fn cargo(arguments: Arguments, repository: &Repository, command: Comma
 pub async fn remote(arguments: Arguments, command: Command) -> Result<()> {
     match command {
         Command::Build => {
-            let mut command = TokioCommand::new("./scripts/remote");
+            let mut command = TokioCommand::new("./scripts/remoteWorkspace");
 
             let profile_name = match arguments.profile.as_str() {
                 "dev" => "debug",

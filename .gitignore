@@ -26,7 +26,7 @@ default.nix
 target/
 
 .nao_cargo_home
-.remote-url
+.REMOTE_WORKSPACE
 
 rust-toolchain.toml
 
