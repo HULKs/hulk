@@ -109,4 +109,4 @@ ip route delete 10.1.24.0/24 via 10.2.24.1 dev tun0
 ```
 or manually configure the routes of the VPN.
 In gnome-settings, this looks like the following
-<center><img src="./gnome-settings-vpn-manual.png" alt="drawing" width="50%"/></center>
+![](./gnome-settings-vpn-manual.png)
