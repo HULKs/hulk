@@ -21,7 +21,7 @@ pub struct CreationContext {
 pub struct CycleContext {
     hardware_interface: HardwareInterface,
     camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
-    cycle_time: AdditionalOutput<Duration, "cycle_time">,
+    last_cycle_time: AdditionalOutput<Duration, "cycle_time">,
 }
 
 #[context]
@@ -41,7 +41,7 @@ impl ImageReceiver {
         mut context: CycleContext<impl CameraInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
         context
-            .cycle_time
+            .last_cycle_time
             .fill_if_subscribed(|| self.last_cycle_start.elapsed().expect("time ran backwards"));
 
         let image = context
