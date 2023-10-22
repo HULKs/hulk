@@ -92,7 +92,7 @@ Open an ssh connection to ```root@134.28.57.226```.
 There create a new account by ```adduser {name}``` and set a password with ```passwd {name}```.
 
 Terminate the root ssh session and log in with your new user ```{name}@134.28.57.226```.
-There create the folder you want to use for remote compilation, e.g. `mkdir ~/hulk`.
+There clone the HULKs repository using https: ```https://github.com/HULKs/hulk.git```
 
 Back on your local machine do ```ssh-copy-id {name}@134.28.57.226``` to allow passwordless login.
 In the hulk repo, create a `.REMOTE_WORKSPACE` file containing the username, IP, and path, e.g. `{name}@134.28.57.226:hulk`.
