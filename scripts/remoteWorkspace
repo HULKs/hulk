@@ -20,13 +20,13 @@ command: Command to execute on the remote machine
 
 Options:
 
-  --remote <remoteURL>  Override remote url
+  --remote <path>  Override remote workspace path
   --return-file <file>  Path of file to be returned.
                         The file path must be relative to the repository.
                         Can be repeated to return multiple files.
 
-If no --remote is given, the url loaded from `.remote-url`
-The remote url should follow this format:
+If no --remote is given, the path loaded from `.REMOTE_WORKSPACE`
+The remote workspace path should follow this format:
 
     \`user@host:path/to/remote/repo\`
 
@@ -36,7 +36,7 @@ regard for possible unsaved changes on the remote.
 __helpText__
 }
 
-remoteURL="${COMPILER_REMOTE:-$(cat .remote-url)}"
+remoteWorkspace="${REMOTE_WORKSPACE:-$(cat .REMOTE_WORKSPACE)}"
 files=()
 while true; do
     case "$1" in
@@ -46,7 +46,7 @@ while true; do
             ;;
         --remote)
             shift
-            remoteURL=$1
+            remoteWorkspace=$1
             ;;
         --return-file)
             shift
@@ -59,15 +59,15 @@ while true; do
     esac
     shift
 done
-echo Using remote $(tput setaf 6)$remoteURL$(tput sgr 0)
+echo Using remote $(tput setaf 6)$remoteWorkspace$(tput sgr 0)
 
-# extract login information and remote path from url
-# assumes remote url of this format: `user@domain:path/to/hulk/repo`
-address="$(echo $remoteURL | cut -d':' -f 1)"
-remotePath="$(echo $remoteURL | cut -d':' -f 2-)"
+# extract login information and remote path from workspace
+# assumes workspace path of this format: `user@domain:path/to/hulk/repo`
+address="$(echo $remoteWorkspace | cut -d':' -f 1)"
+remotePath="$(echo $remoteWorkspace | cut -d':' -f 2-)"
 
 # send local state to remote
-rsync -ah --info progress2 --exclude='.git' --filter="dir-merge,- .gitignore" --delete . "$remoteURL"
+rsync -ah --info progress2 --exclude='.git' --filter="dir-merge,- .gitignore" --delete . "$remoteWorkspace"
 
 # invoke command remotely
 ssh $address "sh -c \" \
@@ -78,5 +78,5 @@ ssh $address "sh -c \" \
 # fetch results
 echo Returning files
 printf '  %s\n' "${files[@]}"
-printf '%s\n' "${files[@]}" | rsync -ah --info=progress --files-from=- "$remoteURL" .
+printf '%s\n' "${files[@]}" | rsync -ah --info=progress --files-from=- "$remoteWorkspace" .
 

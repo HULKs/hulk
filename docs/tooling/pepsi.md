@@ -95,7 +95,7 @@ Terminate the root ssh session and log in with your new user ```{name}@134.28.57
 There create the folder you want to use for remote compilation, e.g. `mkdir ~/hulk`.
 
 Back on your local machine do ```ssh-copy-id {name}@134.28.57.226``` to allow passwordless login.
-In the hulk repo, create a `.remote-url` file containing the username, IP, and path, e.g. `{name}@134.28.57.226:hulk`.
+In the hulk repo, create a `.REMOTE_WORKSPACE` file containing the username, IP, and path, e.g. `{name}@134.28.57.226:hulk`.
 
 Now you can use the pepsi remote features:
 
