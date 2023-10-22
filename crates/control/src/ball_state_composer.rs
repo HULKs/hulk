@@ -132,6 +132,7 @@ impl BallStateComposer {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_ball_state(
     ball_in_ground: Point2<f32>,
     ball_in_field: Point2<f32>,
