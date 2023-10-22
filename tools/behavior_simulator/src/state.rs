@@ -223,6 +223,9 @@ impl State {
                         position: robot_to_field.inverse() * ball.position,
                         velocity: robot_to_field.inverse() * ball.velocity,
                         last_seen: now,
+                        // TODO: Simulate this properly
+                        rest_position: robot_to_field.inverse() * ball.position,
+                        is_resting: true,
                     })
                 } else {
                     None
