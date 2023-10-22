@@ -1,16 +1,16 @@
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::FRAC_PI_2;
 
 use color_eyre::Result;
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{vector, Isometry3, Translation3, UnitQuaternion, Vector2, Vector3};
+use nalgebra::{vector, Rotation3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
     fall_state::FallState,
     motion_command::{Facing, FallDirection},
     parameters::FallStateEstimationParameters,
-    sensor_data::{InertialMeasurementUnitData, SensorData},
+    sensor_data::SensorData,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -27,11 +27,17 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    backward_gravitational_difference: AdditionalOutput<f32, "backward_gravitational_difference">,
-    filtered_angular_velocity: AdditionalOutput<Vector3<f32>, "filtered_angular_velocity">,
-    filtered_linear_acceleration: AdditionalOutput<Vector3<f32>, "filtered_linear_acceleration">,
-    filtered_roll_pitch: AdditionalOutput<Vector2<f32>, "filtered_roll_pitch">,
-    forward_gravitational_difference: AdditionalOutput<f32, "forward_gravitational_difference">,
+    filtered_angular_velocity:
+        AdditionalOutput<Vector3<f32>, "fall_state_estimation.filtered_angular_velocity">,
+    filtered_linear_acceleration:
+        AdditionalOutput<Vector3<f32>, "fall_state_estimation.filtered_linear_acceleration">,
+    filtered_roll_pitch:
+        AdditionalOutput<Vector2<f32>, "fall_state_estimation.filtered_roll_pitch">,
+
+    forward_gravitational_difference:
+        AdditionalOutput<f32, "fall_state_estimation.forward_gravitational_difference">,
+    backward_gravitational_difference:
+        AdditionalOutput<f32, "fall_state_estimation.backward_gravitational_difference">,
 
     fall_state_estimation: Parameter<FallStateEstimationParameters, "fall_state_estimation">,
 
@@ -67,26 +73,16 @@ impl FallStateEstimation {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let inertial_measurement_unit = convert_to_right_handed_coordinate_system(
-            context.sensor_data.inertial_measurement_unit,
-        );
-
-        let robot_to_inertial_measurement_unit = Isometry3::from_parts(
-            Translation3::identity(),
-            UnitQuaternion::from_axis_angle(&Vector3::y_axis(), PI),
-        );
-        let inertial_measurement_unit_to_robot = robot_to_inertial_measurement_unit.inverse();
+        let inertial_measurement_unit = context.sensor_data.inertial_measurement_unit;
 
         self.roll_pitch_filter
             .update(inertial_measurement_unit.roll_pitch);
 
-        self.angular_velocity_filter.update(
-            inertial_measurement_unit_to_robot * inertial_measurement_unit.angular_velocity,
-        );
+        self.angular_velocity_filter
+            .update(inertial_measurement_unit.angular_velocity);
 
-        self.linear_acceleration_filter.update(
-            inertial_measurement_unit_to_robot * inertial_measurement_unit.linear_acceleration,
-        );
+        self.linear_acceleration_filter
+            .update(inertial_measurement_unit.linear_acceleration);
 
         context
             .filtered_roll_pitch
@@ -100,26 +96,22 @@ impl FallStateEstimation {
 
         const GRAVITATIONAL_CONSTANT: f32 = -9.81;
         let gravitational_force = vector![0.0, 0.0, GRAVITATIONAL_CONSTANT];
-        let robot_to_fallen_down = Isometry3::from_parts(
-            Translation3::identity(),
-            UnitQuaternion::from_axis_angle(&Vector3::y_axis(), -FRAC_PI_2),
-        );
-        let robot_to_fallen_up = Isometry3::from_parts(
-            Translation3::identity(),
-            UnitQuaternion::from_axis_angle(&Vector3::y_axis(), FRAC_PI_2),
-        );
+        let robot_to_fallen_front = Rotation3::from_axis_angle(&Vector3::y_axis(), -FRAC_PI_2);
+        let robot_to_fallen_back = Rotation3::from_axis_angle(&Vector3::y_axis(), FRAC_PI_2);
 
-        let fallen_direction = if (self.linear_acceleration_filter.state()
-            - robot_to_fallen_down * gravitational_force)
-            .norm()
+        let forward_acceleration_norm = (self.linear_acceleration_filter.state()
+            - robot_to_fallen_front * gravitational_force)
+            .norm();
+        let backward_acceleration_norm = (self.linear_acceleration_filter.state()
+            - robot_to_fallen_back * gravitational_force)
+            .norm();
+        let fallen_direction = if forward_acceleration_norm
             < context
                 .fall_state_estimation
                 .gravitational_acceleration_threshold
         {
             Some(Facing::Down)
-        } else if (self.linear_acceleration_filter.state()
-            - robot_to_fallen_up * gravitational_force)
-            .norm()
+        } else if backward_acceleration_norm
             < context
                 .fall_state_estimation
                 .gravitational_acceleration_threshold
@@ -130,17 +122,10 @@ impl FallStateEstimation {
         };
         context
             .forward_gravitational_difference
-            .fill_if_subscribed(|| {
-                (self.linear_acceleration_filter.state()
-                    - robot_to_fallen_down * gravitational_force)
-                    .norm()
-            });
+            .fill_if_subscribed(|| forward_acceleration_norm);
         context
             .backward_gravitational_difference
-            .fill_if_subscribed(|| {
-                (self.linear_acceleration_filter.state() - robot_to_fallen_up * gravitational_force)
-                    .norm()
-            });
+            .fill_if_subscribed(|| backward_acceleration_norm);
 
         let estimated_roll = self.roll_pitch_filter.state().x;
 
@@ -182,23 +167,5 @@ impl FallStateEstimation {
         Ok(MainOutputs {
             fall_state: fall_state.into(),
         })
-    }
-}
-
-fn convert_to_right_handed_coordinate_system(
-    inertial_measurement_unit: InertialMeasurementUnitData,
-) -> InertialMeasurementUnitData {
-    InertialMeasurementUnitData {
-        linear_acceleration: vector![
-            inertial_measurement_unit.linear_acceleration.x,
-            -inertial_measurement_unit.linear_acceleration.y,
-            inertial_measurement_unit.linear_acceleration.z
-        ],
-        angular_velocity: vector![
-            -inertial_measurement_unit.angular_velocity.x,
-            inertial_measurement_unit.angular_velocity.y,
-            -inertial_measurement_unit.angular_velocity.z
-        ],
-        roll_pitch: inertial_measurement_unit.roll_pitch,
     }
 }

@@ -65,7 +65,7 @@ pub struct InertialMeasurementUnit {
 impl From<InertialMeasurementUnit> for types::sensor_data::InertialMeasurementUnitData {
     fn from(from: InertialMeasurementUnit) -> Self {
         types::sensor_data::InertialMeasurementUnitData {
-            linear_acceleration: -Vector3::from(from.accelerometer),
+            linear_acceleration: Vector3::from(from.accelerometer),
             angular_velocity: from.gyroscope.into(),
             roll_pitch: from.angles.into(),
         }

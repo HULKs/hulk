@@ -1,4 +1,4 @@
-use nalgebra::{Quaternion, UnitQuaternion, Vector3};
+use nalgebra::{vector, Quaternion, UnitQuaternion, Vector3};
 use types::orientation_filter::{Parameters, State};
 
 const GRAVITATIONAL_CONSTANT: f32 = 9.81;
@@ -30,6 +30,11 @@ impl OrientationFiltering for State {
         cycle_time: f32,
         parameters: &Parameters,
     ) {
+        let measured_acceleration = vector![
+            measured_acceleration.x,
+            measured_acceleration.y,
+            -measured_acceleration.z
+        ];
         if !self.is_initialized {
             if measured_acceleration.norm() < parameters.falling_threshold {
                 return;
@@ -231,7 +236,7 @@ mod test {
         let mut measured_angular_velocity = Vec::new();
         let frequency = PI;
         for _ in 0..=NUMBER_OF_MEASUREMENTS {
-            measured_acceleration.push(vector![0.0, 0.0, GRAVITATIONAL_CONSTANT]);
+            measured_acceleration.push(vector![0.0, 0.0, -GRAVITATIONAL_CONSTANT]);
             measured_angular_velocity.push(frequency * Vector3::z());
         }
         let mut state = State::default();
@@ -259,7 +264,7 @@ mod test {
         let frequency = PI;
         for _ in 0..=NUMBER_OF_MEASUREMENTS {
             measured_acceleration.push(
-                vector![0.0, 0.0, GRAVITATIONAL_CONSTANT]
+                vector![0.0, 0.0, -GRAVITATIONAL_CONSTANT]
                     + get_noise(&mut random_number_generator, NOISE_STANDARD_DEVIATION),
             );
             measured_angular_velocity.push(
@@ -288,7 +293,7 @@ mod test {
         let mut measured_angular_velocity = Vec::new();
         let frequency = 2.0 * PI;
         for _ in 0..=NUMBER_OF_MEASUREMENTS {
-            measured_acceleration.push(vector![0.0, 0.0, GRAVITATIONAL_CONSTANT]);
+            measured_acceleration.push(vector![0.0, 0.0, -GRAVITATIONAL_CONSTANT]);
             measured_angular_velocity.push(frequency * Vector3::z());
         }
         let mut state = State::default();
@@ -316,7 +321,7 @@ mod test {
         let frequency = 2.0 * PI;
         for _ in 0..NUMBER_OF_MEASUREMENTS {
             measured_acceleration.push(
-                vector![0.0, 0.0, GRAVITATIONAL_CONSTANT]
+                vector![0.0, 0.0, -GRAVITATIONAL_CONSTANT]
                     + get_noise(&mut random_number_generator, NOISE_STANDARD_DEVIATION),
             );
             measured_angular_velocity.push(
@@ -354,7 +359,7 @@ mod test {
 
         for _ in 0..NUMBER_OF_MEASUREMENTS {
             measured_acceleration.push(
-                vector![0.0, 0.0, GRAVITATIONAL_CONSTANT]
+                vector![0.0, 0.0, -GRAVITATIONAL_CONSTANT]
                     + get_noise(&mut random_number_generator, NOISE_STANDARD_DEVIATION),
             );
             measured_angular_velocity.push(
@@ -367,7 +372,7 @@ mod test {
 
         for _ in 0..NUMBER_OF_MEASUREMENTS {
             measured_acceleration.push(
-                vector![0.0, 0.0, GRAVITATIONAL_CONSTANT]
+                vector![0.0, 0.0, -GRAVITATIONAL_CONSTANT]
                     + get_noise(&mut random_number_generator, NOISE_STANDARD_DEVIATION),
             );
             measured_angular_velocity.push(
