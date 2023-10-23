@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{ops::Range, time::Duration};
 
 use color_eyre::Result;
 use context_attribute::context;
@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     fall_state::{FallDirection, FallState, Side},
-    joints::{body::BodyJoints, head::HeadJoints, mirror::Mirror, Joints},
+    joints::{
+        arm::ArmJoints, body::BodyJoints, head::HeadJoints, leg::LegJoints, mirror::Mirror, Joints,
+    },
     motion_selection::{MotionSafeExits, MotionType},
     motor_commands::MotorCommands,
     sensor_data::SensorData,
@@ -38,8 +40,9 @@ pub struct CycleContext {
 
     early_protection_timeout: Parameter<Duration, "fall_protection.early_protection_timeout">,
     reached_threshold: Parameter<f32, "fall_protection.reached_threshold">,
-    min_stiffness: Parameter<f32, "fall_protection.min_stiffness">,
-    max_stiffness: Parameter<f32, "fall_protection.max_stiffness">,
+    head_stiffness: Parameter<Range<f32>, "fall_protection.head_stiffness">,
+    arm_stiffness: Parameter<Range<f32>, "fall_protection.arm_stiffness">,
+    leg_stiffness: Parameter<Range<f32>, "fall_protection.leg_stiffness">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
 }
@@ -105,14 +108,24 @@ impl FallProtector {
             && measured_positions.head.yaw.abs() < *context.reached_threshold;
 
         let head_stiffnesses = if is_head_protected {
-            HeadJoints::fill(*context.min_stiffness)
+            HeadJoints::fill(context.head_stiffness.end)
         } else {
-            HeadJoints::fill(*context.max_stiffness)
+            HeadJoints::fill(context.head_stiffness.start)
         };
 
         let body_stiffnesses = match phase {
-            Phase::Early => BodyJoints::fill(*context.max_stiffness),
-            Phase::Late => BodyJoints::fill(*context.min_stiffness),
+            Phase::Early => BodyJoints {
+                left_arm: ArmJoints::fill(context.arm_stiffness.start),
+                right_arm: ArmJoints::fill(context.arm_stiffness.start),
+                left_leg: LegJoints::fill(context.leg_stiffness.start),
+                right_leg: LegJoints::fill(context.leg_stiffness.start),
+            },
+            Phase::Late => BodyJoints {
+                left_arm: ArmJoints::fill(context.arm_stiffness.end),
+                right_arm: ArmJoints::fill(context.arm_stiffness.end),
+                left_leg: LegJoints::fill(context.leg_stiffness.end),
+                right_leg: LegJoints::fill(context.leg_stiffness.end),
+            },
         };
 
         let joints_command = MotorCommands {
