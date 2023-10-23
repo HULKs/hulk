@@ -29,6 +29,7 @@ members = [
   "crates/spl_network",
   "crates/spl_network_messages",
   "crates/types",
+  "crates/versions",
   "crates/vision",
   "tools/behavior_simulator",
   "tools/camera_matrix_extractor",
@@ -149,6 +150,7 @@ topological-sort = "0.2.2"
 types = { path = "crates/types" }
 uuid = { version = "1.1.2", features = ["v4"] }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", rev = "be65819073514b193d082dd37dbcc2cfac3f6183" }
+versions = { path = "crates/versions" }
 vision = { path = "crates/vision" }
 walkdir = "2.3.2"
 webots = { version = "0.8.0" }
