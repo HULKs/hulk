@@ -3463,7 +3463,7 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "pepsi"
-version = "2.4.1"
+version = "2.4.7"
 dependencies = [
  "aliveness",
  "bat",
@@ -3476,11 +3476,14 @@ dependencies = [
  "nao",
  "regex",
  "repository",
+ "semver",
+ "serde",
  "serde_json",
  "source_analyzer",
  "spl_network_messages",
  "thiserror",
  "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -3971,9 +3974,9 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.19"
+version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad977052201c6de01a8ef2aa3378c4bd23217a056337d1d6da40468d267a4fb0"
+checksum = "836fa6a3e1e547f9a2c4040802ec865b5d85f4014efe00555d7090a3dcaa1090"
 
 [[package]]
 name = "serde"
