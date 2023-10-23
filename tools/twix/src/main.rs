@@ -30,7 +30,9 @@ use panels::{
     BehaviorSimulatorPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel,
     MapPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel, VisionTunerPanel,
 };
+use repository::{get_repository_root, Repository};
 use serde_json::{from_str, to_string, Value};
+use tokio::runtime::Runtime;
 use visuals::Visuals;
 
 mod completion_edit;
@@ -63,6 +65,14 @@ fn setup_logger() -> Result<(), InitError> {
 
 fn main() -> Result<(), eframe::Error> {
     setup_logger().unwrap();
+
+    let runtime = Runtime::new().unwrap();
+    if let Ok(repository_root) = runtime.block_on(get_repository_root()) {
+        Repository::new(repository_root)
+            .check_new_version_available(env!("CARGO_PKG_VERSION"), "tools/twix")
+            .unwrap();
+    }
+
     let options = NativeOptions::default();
     run_native(
         "Twix",
