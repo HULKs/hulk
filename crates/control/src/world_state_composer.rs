@@ -29,6 +29,9 @@ pub struct CycleContext {
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
+    suggested_search_position: Input<Option<Point2<f32>>, "suggested_search_position?">,
+    filtered_game_state: Input<Option<FilteredGameState>, "filtered_game_state?">,
+    robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
     instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
 
@@ -68,10 +71,10 @@ impl WorldStateComposer {
         let world_state = WorldState {
             ball: context.ball.copied(),
             rule_ball: context.rule_ball.copied(),
+            suggested_search_position: context.suggested_search_position.copied(),
             obstacles: context.obstacles.clone(),
             rule_obstacles: context.rule_obstacles.clone(),
             position_of_interest: *context.position_of_interest,
-            suggested_search_position: *context.suggested_search_position,
             robot,
             kick_decisions: context.kick_decisions.cloned(),
             instant_kick_decisions: context.instant_kick_decisions.cloned(),
