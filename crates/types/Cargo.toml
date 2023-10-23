@@ -9,6 +9,7 @@ homepage = "https://github.com/hulks/hulk"
 approx = { workspace = true }
 approx_derive = { workspace = true }
 color-eyre = { workspace = true }
+coordinate_systems = { workspace = true }
 enum-iterator = { workspace = true }
 geometry = { workspace = true }
 image = { workspace = true }

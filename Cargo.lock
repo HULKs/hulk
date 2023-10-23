@@ -1227,6 +1227,7 @@ dependencies = [
  "bincode",
  "color-eyre",
  "context_attribute",
+ "coordinate_systems",
  "filtering",
  "framework",
  "geometry",
@@ -1260,6 +1261,7 @@ dependencies = [
 name = "coordinate_systems"
 version = "0.1.0"
 dependencies = [
+ "geometry",
  "nalgebra",
 ]
 
@@ -4755,6 +4757,7 @@ dependencies = [
  "approx",
  "approx_derive",
  "color-eyre",
+ "coordinate_systems",
  "enum-iterator",
  "geometry",
  "image",
