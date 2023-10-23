@@ -279,7 +279,7 @@ pub struct StateStorage {
     pub sonar_sensors: SonarSensors,
     pub position: JointsArray,
     pub stiffness: JointsArray,
-    pub current: JointsArray,
+    pub currents: JointsArray,
     pub temperature: JointsArray,
     pub status: JointsArray,
 }
