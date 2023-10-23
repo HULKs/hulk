@@ -742,8 +742,18 @@
       "secs": 0
     },
     "reached_threshold": 0.1,
-    "min_stiffness": 0.2,
-    "max_stiffness": 0.8,
+    "head_stiffness": {
+      "start": 0.5,
+      "end": 0.2
+    },
+    "arm_stiffness": {
+      "start": 0.3,
+      "end": 0.05
+    },
+    "leg_stiffness": {
+      "start": 0.3,
+      "end": 0.2
+    },
     "front_early": {
       "head": {
         "yaw": 0.0,
