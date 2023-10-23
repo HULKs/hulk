@@ -87,13 +87,17 @@ impl FallProtector {
 
         let protection_angles = match (falling_direction, phase) {
             (FallDirection::Forward { side: Side::Left }, Phase::Early) => {
-                context.front_early.mirrored()
+                prevent_stuck_arms(context.front_early.mirrored(), measured_positions)
             }
             (FallDirection::Forward { side: Side::Left }, Phase::Late) => {
-                context.front_late.mirrored()
+                prevent_stuck_arms(context.front_late.mirrored(), measured_positions)
             }
-            (FallDirection::Forward { side: Side::Right }, Phase::Early) => *context.front_early,
-            (FallDirection::Forward { side: Side::Right }, Phase::Late) => *context.front_late,
+            (FallDirection::Forward { side: Side::Right }, Phase::Early) => {
+                prevent_stuck_arms(*context.front_early, measured_positions)
+            }
+            (FallDirection::Forward { side: Side::Right }, Phase::Late) => {
+                prevent_stuck_arms(*context.front_late, measured_positions)
+            }
             (FallDirection::Backward { side: Side::Left }, Phase::Early) => {
                 context.back_early.mirrored()
             }
@@ -136,5 +140,37 @@ impl FallProtector {
         Ok(MainOutputs {
             fall_protection_command: joints_command.into(),
         })
+    }
+}
+
+fn prevent_stuck_arms(request: Joints<f32>, measured_positions: Joints<f32>) -> Joints<f32> {
+    let left_arm = if measured_positions.left_arm.shoulder_roll < 0.0 {
+        ArmJoints {
+            shoulder_pitch: 0.0,
+            shoulder_roll: 0.35,
+            elbow_yaw: 0.0,
+            elbow_roll: 0.0,
+            wrist_yaw: 0.0,
+            hand: 0.0,
+        }
+    } else {
+        request.left_arm
+    };
+    let right_arm = if measured_positions.right_arm.shoulder_roll > 0.0 {
+        ArmJoints {
+            shoulder_pitch: 0.0,
+            shoulder_roll: -0.35,
+            elbow_yaw: 0.0,
+            elbow_roll: 0.0,
+            wrist_yaw: 0.0,
+            hand: 0.0,
+        }
+    } else {
+        request.right_arm
+    };
+    Joints {
+        left_arm,
+        right_arm,
+        ..request
     }
 }
