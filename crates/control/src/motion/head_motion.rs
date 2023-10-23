@@ -8,7 +8,7 @@ use types::{
     cycle_time::CycleTime,
     joints::head::HeadJoints,
     motion_command::{HeadMotion as HeadMotionCommand, MotionCommand},
-    motor_commands::HeadMotorCommand,
+    motor_command::HeadMotorCommand,
     sensor_data::SensorData,
 };
 

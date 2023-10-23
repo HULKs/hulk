@@ -12,7 +12,7 @@ use types::{
     joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints},
     motion_command::{KickVariant, MotionCommand},
     motion_selection::{MotionSafeExits, MotionType},
-    motor_commands::BodyMotorCommand,
+    motor_command::BodyMotorCommand,
     parameters::{KickStepsParameters, StepPlannerParameters, WalkingEngineParameters},
     robot_kinematics::RobotKinematics,
     sensor_data::{InertialMeasurementUnitData, SensorData},

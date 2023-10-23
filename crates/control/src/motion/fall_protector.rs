@@ -16,7 +16,7 @@ use types::{
     joints::{body::BodyJoints, head::HeadJoints, Joints},
     motion_command::{FallDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
-    motor_commands::MotorCommand,
+    motor_command::MotorCommand,
     parameters::{FallProtectionParameters, FallStateEstimationParameters},
     sensor_data::SensorData,
 };
