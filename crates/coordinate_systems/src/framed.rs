@@ -3,6 +3,8 @@ use std::{
     ops::{Add, Sub},
 };
 
+use geometry::look_at::LookAt;
+
 //#[derive(Clone, Copy, Debug)]
 pub struct Framed<Frame, Inner> {
     frame: PhantomData<Frame>,
@@ -48,5 +50,16 @@ where
 
     fn sub(self, rhs: Framed<Frame, RhsInner>) -> Self::Output {
         Self::Output::new(self.inner - rhs.inner)
+    }
+}
+
+impl<Frame, Inner> LookAt<Framed<Frame, Inner>> for Framed<Frame, Inner>
+where
+    Inner: LookAt<Inner>,
+{
+    type Rotation = Framed<Frame, Inner::Rotation>;
+
+    fn look_at(&self, target: &Self) -> Self::Rotation {
+        Self::Rotation::new(self.inner.look_at(&target.inner))
     }
 }

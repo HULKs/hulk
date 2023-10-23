@@ -7,3 +7,4 @@ homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
 nalgebra = { workspace = true }
+geometry = { workspace = true }
