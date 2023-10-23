@@ -10,6 +10,7 @@ members = [
   "crates/constants",
   "crates/context_attribute",
   "crates/control",
+  "crates/coordinate_systems",
   "crates/filtering",
   "crates/framework",
   "crates/geometry",
@@ -71,6 +72,7 @@ constants = { path = "crates/constants" }
 context_attribute = { path = "crates/context_attribute" }
 control = { path = "crates/control" }
 convert_case = "0.6.0"
+coordinate_systems = { path = "crates/coordinate_systems" }
 ctrlc = { version = "3.2.3", features = ["termination"] }
 eframe = { version = "0.22.0", features = ["persistence"] }
 egui_dock = { version = "0.6.1", git = "https://github.com/knoellle/egui_dock/", tag = "0.6.1", features = [

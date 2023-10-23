@@ -1257,6 +1257,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "coordinate_systems"
+version = "0.1.0"
+dependencies = [
+ "nalgebra",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
