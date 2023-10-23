@@ -100,8 +100,9 @@ impl Repository {
             version: String,
         }
 
+        let absolute_path = self.root.join(&path);
         let own_version = Version::parse(own_version).wrap_err("failed to parse own version")?;
-        let cargo_toml_path = path.as_ref().join("Cargo.toml");
+        let cargo_toml_path = absolute_path.join("Cargo.toml");
         let cargo_toml_text = std::fs::read_to_string(&cargo_toml_path).wrap_err_with(|| {
             format!(
                 "failed to load cargo toml at {}",
