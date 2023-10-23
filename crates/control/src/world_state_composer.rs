@@ -26,6 +26,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     ball: Input<Option<BallState>, "ball_state?">,
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
+    suggested_search_position: Input<Option<Point2<f32>>, "suggested_search_position?">,
     filtered_game_state: Input<Option<FilteredGameState>, "filtered_game_state?">,
     game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
     robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
@@ -41,7 +42,6 @@ pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     role: Input<Role, "role">,
     position_of_interest: Input<Point2<f32>, "position_of_interest">,
-    suggested_search_position: Input<Point2<f32>, "suggested_search_position">,
 }
 
 #[context]
@@ -68,11 +68,11 @@ impl WorldStateComposer {
         let world_state = WorldState {
             ball: context.ball.copied(),
             rule_ball: context.rule_ball.copied(),
+            suggested_search_position: context.suggested_search_position.copied(),
             filtered_game_state: context.filtered_game_state.copied(),
             obstacles: context.obstacles.clone(),
             rule_obstacles: context.rule_obstacles.clone(),
             position_of_interest: *context.position_of_interest,
-            suggested_search_position: *context.suggested_search_position,
             robot,
             kick_decisions: context.kick_decisions.cloned(),
             instant_kick_decisions: context.instant_kick_decisions.cloned(),

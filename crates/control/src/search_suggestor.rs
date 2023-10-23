@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use nalgebra::{DMatrix, Point2};
 use types::{
-    ball_position::HypotheticalBallPosition, field_dimensions::FieldDimensions,
+    ball_position::{HypotheticalBallPosition, BallPosition}, field_dimensions::FieldDimensions,
     parameters::SearchSuggestorParameters,
 };
 
@@ -21,6 +21,7 @@ pub struct CreationContext {
 pub struct CycleContext {
     //removed_ball_positions: Input<Vec<Point2<f32>>, "removed_ball_positions">,
     search_suggestor_configuration: Parameter<SearchSuggestorParameters, "search_suggestor">,
+    ball_position: Input<Option<BallPosition>, "ball_position?">,
     invalid_ball_positions: Input<Vec<HypotheticalBallPosition>, "invalid_ball_positions">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
@@ -28,7 +29,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub suggested_search_position: MainOutput<Point2<f32>>,
+    pub suggested_search_position: MainOutput<Option<Point2<f32>>>,
 }
 
 impl SearchSuggestor {
@@ -46,18 +47,22 @@ impl SearchSuggestor {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         self.update_heatmap(
+            context.ball_position,
             context.invalid_ball_positions,
             context.search_suggestor_configuration.cells_per_meter,
             context.field_dimensions,
             context.search_suggestor_configuration.heatmap_decay_factor,
         );
         let maximum_heat_heatmap_position = self.heatmap.iamax_full();
-        let suggested_search_position = Point2::new(
-            maximum_heat_heatmap_position.0 as f32
-                / context.search_suggestor_configuration.cells_per_meter as f32,
-            maximum_heat_heatmap_position.1 as f32
-                / context.search_suggestor_configuration.cells_per_meter as f32,
-        );
+        let mut suggested_search_position:Option<Point2<f32>> = None;
+        if self.heatmap[maximum_heat_heatmap_position] > 0.1 {
+            suggested_search_position = Some(Point2::new(
+                maximum_heat_heatmap_position.0 as f32
+                    / context.search_suggestor_configuration.cells_per_meter as f32,
+                maximum_heat_heatmap_position.1 as f32
+                    / context.search_suggestor_configuration.cells_per_meter as f32,
+            ));
+        }
 
         Ok(MainOutputs {
             suggested_search_position: suggested_search_position.into(),
@@ -66,18 +71,28 @@ impl SearchSuggestor {
 
     fn update_heatmap(
         &mut self,
+        ball_position: Option<&BallPosition>,
         invalid_ball_positions: &Vec<HypotheticalBallPosition>,
         cells_per_meter: usize,
         field_dimensions: &FieldDimensions,
         heatmap_decay_factor: f32,
     ) {
+        if ball_position.is_some() {
+            let ball_heatmap_position = self.calculate_heatmap_position(
+                ball_position.unwrap().position,
+                cells_per_meter,
+                field_dimensions,
+            );
+            self.heatmap[ball_heatmap_position] = 1.0;
+        }
         for ball_hypothesis in invalid_ball_positions {
             let heatmap_position = self.calculate_heatmap_position(
                 ball_hypothesis.position,
                 cells_per_meter,
                 field_dimensions,
             );
-            self.heatmap[heatmap_position] += ball_hypothesis.validity;
+            self.heatmap[heatmap_position] =
+                (self.heatmap[heatmap_position] + ball_hypothesis.validity) / 2.0;
         }
         self.heatmap = self.heatmap.clone() * heatmap_decay_factor;
     }
