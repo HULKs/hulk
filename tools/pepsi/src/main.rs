@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::{CommandFactory, Parser, Subcommand};
 use color_eyre::{config::HookBuilder, eyre::WrapErr, Result};
-use versions::check_version;
 
 use crate::aliveness::{aliveness, Arguments as AlivenessArguments};
 use analyze::{analyze, Arguments as AnalyzeArguments};
@@ -61,7 +60,15 @@ async fn main() -> Result<()> {
             .wrap_err("failed to get repository root"),
     };
     let repository = repository_root.map(Repository::new);
-    check_version("tools/pepsi")?;
+    if let Ok(repository) = &repository {
+        if let Some((own_version, cargo_toml_version)) =
+            repository.check_new_version_available(env!("CARGO_PKG_VERSION"), "tools/twix")?
+        {
+            println!("New version available!");
+            println!("You are using {own_version}");
+            println!("New version:  {cargo_toml_version}");
+        }
+    }
 
     match arguments.command {
         Command::Analyze(arguments) => analyze(arguments, &repository?)
