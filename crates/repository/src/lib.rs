@@ -118,6 +118,13 @@ impl Repository {
         let cargo_toml_version = Version::parse(&cargo_toml.package.version).unwrap();
 
         if own_version < cargo_toml_version {
+            println!("New version available!");
+            println!("Own version: {own_version}");
+            println!("New version: {cargo_toml_version}");
+            println!("To install new version use:");
+            println!();
+            println!("  cargo install --path {}", absolute_path.to_str().unwrap());
+            println!();
             Ok(Some((own_version, cargo_toml_version)))
         } else {
             Ok(None)
