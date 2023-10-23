@@ -40,7 +40,7 @@ pub struct CycleContext {
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-    executed_motor_command: CyclerState<MotorCommand<f32>, "executed_motor_command">,
+    last_executed_motor_command: CyclerState<MotorCommand<f32>, "last_executed_motor_command">,
 
     transition_time: AdditionalOutput<Option<Duration>, "transition_time">,
 }
@@ -108,7 +108,7 @@ impl DispatchingInterpolator {
             };
 
             self.interpolator = TimedSpline::try_new_transition_timed(
-                context.executed_motor_command.positions,
+                context.last_executed_motor_command.positions,
                 target_position,
                 Duration::from_secs_f32(1.0),
             )?
