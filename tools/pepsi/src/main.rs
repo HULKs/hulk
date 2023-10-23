@@ -1,7 +1,13 @@
-use std::path::PathBuf;
+use std::{
+    fs::read_to_string,
+    path::{Path, PathBuf},
+};
 
 use clap::{CommandFactory, Parser, Subcommand};
 use color_eyre::{config::HookBuilder, eyre::WrapErr, Result};
+use semver::Version;
+use serde::Deserialize;
+use toml::from_str;
 
 use crate::aliveness::{aliveness, Arguments as AlivenessArguments};
 use analyze::{analyze, Arguments as AnalyzeArguments};
@@ -60,6 +66,7 @@ async fn main() -> Result<()> {
             .wrap_err("failed to get repository root"),
     };
     let repository = repository_root.map(Repository::new);
+    check_version("tools/pepsi")?;
 
     match arguments.command {
         Command::Analyze(arguments) => analyze(arguments, &repository?)
@@ -198,4 +205,28 @@ enum Command {
     /// Control wireless network on the NAO
     #[command(subcommand)]
     Wireless(WirelessArguments),
+}
+
+fn check_version(path: impl AsRef<Path>) -> Result<bool> {
+    #[derive(Deserialize, Debug)]
+    struct Cargo {
+        package: Package,
+    }
+    #[derive(Deserialize, Debug)]
+    struct Package {
+        version: String,
+    }
+
+    let own_version =
+        Version::parse(env!("CARGO_PKG_VERSION")).wrap_err("failed to parse own version")?;
+    let cargo_toml_text = read_to_string(path.as_ref().join("Cargo.toml")).unwrap();
+    let cargo_toml: Cargo = from_str(&cargo_toml_text).unwrap();
+    let cargo_toml_version = Version::parse(&cargo_toml.package.version).unwrap();
+    if own_version < cargo_toml_version {
+        println!("outdated version!");
+        println!("You are using     {own_version}");
+        println!("But repo contains {cargo_toml_version}");
+    }
+
+    Ok(own_version >= cargo_toml_version)
 }
