@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     joints::Joints,
     motion_selection::{MotionSelection, MotionType},
-    motor_commands::{BodyMotorCommand, HeadMotorCommand, MotorCommand},
+    motor_command::{BodyMotorCommand, HeadMotorCommand, MotorCommand},
     sensor_data::SensorData,
 };
 
@@ -41,7 +41,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub motor_commands: MainOutput<MotorCommand<f32>>,
+    pub motor_command: MainOutput<MotorCommand<f32>>,
 }
 
 impl MotorCommandCollector {
@@ -102,17 +102,17 @@ impl MotorCommandCollector {
         // The actuators use the raw sensor data (not corrected like current_positions) in their feedback loops,
         // thus the compensation is required to make them reach the actual desired position.
         let compensated_positions = positions + *context.joint_calibration_offsets;
-        let motor_commands = MotorCommand {
+        let motor_command = MotorCommand {
             positions: compensated_positions,
             stiffnesses,
         };
 
         context
             .motor_position_difference
-            .fill_if_subscribed(|| motor_commands.positions - current_positions);
+            .fill_if_subscribed(|| motor_command.positions - current_positions);
 
         Ok(MainOutputs {
-            motor_commands: motor_commands.into(),
+            motor_command: motor_command.into(),
         })
     }
 }

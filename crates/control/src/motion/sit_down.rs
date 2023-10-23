@@ -9,7 +9,7 @@ use types::{
     cycle_time::CycleTime,
     joints::Joints,
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
-    motor_commands::MotorCommand,
+    motor_command::MotorCommand,
 };
 
 #[derive(Deserialize, Serialize)]

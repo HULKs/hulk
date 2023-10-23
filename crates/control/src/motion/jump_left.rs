@@ -8,7 +8,7 @@ use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
-    motor_commands::MotorCommand,
+    motor_command::MotorCommand,
 };
 
 #[derive(Deserialize, Serialize)]

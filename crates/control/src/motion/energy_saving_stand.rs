@@ -4,7 +4,7 @@ use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
     joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints, Joints},
-    motor_commands::BodyMotorCommand,
+    motor_command::BodyMotorCommand,
 };
 
 #[derive(Deserialize, Serialize)]
