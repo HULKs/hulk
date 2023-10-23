@@ -20,9 +20,10 @@ pub struct CycleContext {
     hardware_interface: HardwareInterface,
 
     motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
-    executed_motor_command: AdditionalOutput<MotorCommand<f32>, "executed_motor_command">,
+    last_executed_motor_command: AdditionalOutput<MotorCommand<f32>, "last_executed_motor_command">,
 
-    executed_motor_command_state: CyclerState<MotorCommand<f32>, "executed_motor_command">,
+    last_executed_motor_command_state:
+        CyclerState<MotorCommand<f32>, "last_executed_motor_command">,
 }
 
 #[context]
@@ -49,11 +50,11 @@ impl CommandSender {
             )
             .wrap_err("failed to write to actuators")?;
 
-        context.executed_motor_command_state.positions = motor_command.positions;
-        context.executed_motor_command_state.stiffnesses = motor_command.stiffnesses;
+        context.last_executed_motor_command_state.positions = motor_command.positions;
+        context.last_executed_motor_command_state.stiffnesses = motor_command.stiffnesses;
 
         context
-            .executed_motor_command
+            .last_executed_motor_command
             .fill_if_subscribed(|| *motor_command);
         context
             .motion_safe_exits_output
