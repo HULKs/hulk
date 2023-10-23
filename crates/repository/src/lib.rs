@@ -23,6 +23,7 @@ use parameters::{
     directory::{serialize, Id, Location, Scope},
     json::nest_value_at_path,
 };
+use semver::Version;
 use serde::Deserialize;
 use serde_json::{from_slice, from_str, to_string_pretty, to_value, Value};
 use tempfile::{tempdir, TempDir};
@@ -83,6 +84,43 @@ impl Repository {
             .max_by_key(|(_path, modified_time)| modified_time)
             .ok_or_else(|| eyre!("failed to find any matching path"))?;
         Ok(path_with_maximal_modified_time.to_path_buf())
+    }
+
+    pub fn check_new_version_available(
+        &self,
+        own_version: &str,
+        path: impl AsRef<Path>,
+    ) -> Result<Option<(Version, Version)>> {
+        #[derive(Deserialize, Debug)]
+        struct Cargo {
+            package: Package,
+        }
+        #[derive(Deserialize, Debug)]
+        struct Package {
+            version: String,
+        }
+
+        let own_version = Version::parse(own_version).wrap_err("failed to parse own version")?;
+        let cargo_toml_path = path.as_ref().join("Cargo.toml");
+        let cargo_toml_text = std::fs::read_to_string(&cargo_toml_path).wrap_err_with(|| {
+            format!(
+                "failed to load cargo toml at {}",
+                cargo_toml_path.to_str().unwrap()
+            )
+        })?;
+        let cargo_toml: Cargo = toml::from_str(&cargo_toml_text).wrap_err_with(|| {
+            format!(
+                "failed to parse package version from {}",
+                cargo_toml_path.to_str().unwrap()
+            )
+        })?;
+        let cargo_toml_version = Version::parse(&cargo_toml.package.version).unwrap();
+
+        if own_version < cargo_toml_version {
+            Ok(Some((own_version, cargo_toml_version)))
+        } else {
+            Ok(None)
+        }
     }
 
     async fn cargo(

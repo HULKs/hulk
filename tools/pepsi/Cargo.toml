@@ -1,6 +1,6 @@
 [package]
 name = "pepsi"
-version = "2.4.7"
+version = "2.4.1"
 edition = "2021"
 license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
@@ -22,4 +22,3 @@ source_analyzer = { workspace = true }
 spl_network_messages = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-versions = { workspace = true }
