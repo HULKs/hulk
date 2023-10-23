@@ -30,8 +30,6 @@ pub enum JointsName {
     RightLeg(LegJointsName),
 }
 
-//index
-
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
