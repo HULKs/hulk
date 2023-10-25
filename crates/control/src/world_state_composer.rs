@@ -30,7 +30,6 @@ pub struct CycleContext {
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     suggested_search_position: Input<Option<Point2<f32>>, "suggested_search_position?">,
-    filtered_game_state: Input<Option<FilteredGameState>, "filtered_game_state?">,
     robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
     instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
@@ -44,7 +43,6 @@ pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     role: Input<Role, "role">,
     position_of_interest: Input<Point2<Ground>, "position_of_interest">,
-    suggested_search_position: Input<Point2<f32>, "suggested_search_position">,
 }
 
 #[context]
