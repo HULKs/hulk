@@ -33,6 +33,7 @@ function on_cycle()
         print(inspect(state))
     end
 
+    print(state.cycle_count)
     if state.cycle_count == 100 then
         state.game_controller_state.game_state = "Ready"
         state.filtered_game_state = {
@@ -56,15 +57,23 @@ function on_cycle()
     end
 
     if state.cycle_count == 1900 then
+        set_robot_pose(7, { -3, 0 }, 0)
+        state.ball = {
+            position = { -2.0, 0.0 },
+            velocity = { 9.0, 0.0 },
+        }
+    end
+
+    if state.cycle_count == 2000 then
         state.ball = None
     end
 
-    if state.cycle_count == 2500 then
-        state.ball = {
-            position = { -3.0, -2.0 },
-            velocity = { 0.0, 0.0 },
-        }
-    end
+    -- if state.cycle_count == 2100 then
+    --     state.ball = {
+    --         position = { 3.0, 0.0 },
+    --         velocity = { 0.0, 0.0 },
+    --     }
+    -- end
 
     if state.cycle_count == 6000 then
         state.finished = true

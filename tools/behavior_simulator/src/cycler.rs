@@ -9,6 +9,7 @@ use control::{
     motion::look_around::LookAround,
     role_assignment::{self, RoleAssignment},
     rule_obstacle_composer::RuleObstacleComposer,
+    search_suggestor::SearchSuggestor,
     time_to_reach_kick_position::{self, TimeToReachKickPosition},
     world_state_composer::{self, WorldStateComposer},
 };
@@ -36,6 +37,7 @@ pub struct Database {
 pub struct BehaviorCycler {
     hardware_interface: Arc<Interfake>,
     own_changed: Arc<Notify>,
+    search_suggestor: SearchSuggestor,
     active_vision: ActiveVision,
     ball_state_composer: BallStateComposer,
     behavior: Behavior,
@@ -53,6 +55,13 @@ impl BehaviorCycler {
         own_changed: Arc<Notify>,
         parameters: &Parameters,
     ) -> Result<Self> {
+        let search_suggestor = control::search_suggestor::SearchSuggestor::new(
+            control::search_suggestor::CreationContext::new(
+                &parameters.field_dimensions,
+                &parameters.search_suggestor,
+            ),
+        )
+        .wrap_err("failed to create node `SearchSuggestor`")?;
         let time_to_reach_kick_position =
             TimeToReachKickPosition::new(time_to_reach_kick_position::CreationContext {})
                 .wrap_err("failed to create node `TimeToReachKickPosition`")?;
@@ -84,6 +93,7 @@ impl BehaviorCycler {
             hardware_interface,
             own_changed,
 
+            search_suggestor,
             active_vision,
             time_to_reach_kick_position,
             ball_state_composer,
@@ -103,6 +113,19 @@ impl BehaviorCycler {
         parameters: &Parameters,
         incoming_messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>,
     ) -> Result<()> {
+        let main_outputs = {
+            self.search_suggestor
+                .cycle(control::search_suggestor::CycleContext::new(
+                    &parameters.search_suggestor,
+                    (|| Some(own_database.main_outputs.ball_position.as_ref()?))(),
+                    &own_database.main_outputs.invalid_ball_positions,
+                    &parameters.field_dimensions,
+                ))
+                .wrap_err("failed to execute cycle of `SearchSuggestor`")?
+        };
+        own_database.main_outputs.suggested_search_position =
+            main_outputs.suggested_search_position.value;
+
         if own_database
             .main_outputs
             .game_controller_state
@@ -244,6 +267,7 @@ impl BehaviorCycler {
                 .cycle(world_state_composer::CycleContext::new(
                     own_database.main_outputs.ball_state.as_ref(),
                     own_database.main_outputs.rule_ball_state.as_ref(),
+                    own_database.main_outputs.suggested_search_position.as_ref(),
                     own_database.main_outputs.filtered_game_state.as_ref(),
                     own_database.main_outputs.game_controller_state.as_ref(),
                     own_database.main_outputs.robot_to_field.as_ref(),
@@ -257,7 +281,6 @@ impl BehaviorCycler {
                     &own_database.main_outputs.primary_state,
                     &own_database.main_outputs.role,
                     &own_database.main_outputs.position_of_interest,
-                    &own_database.main_outputs.suggested_search_position,
                 ))
                 .wrap_err("failed to execute cycle of node `WorldStateComposer`")?;
             own_database.main_outputs.world_state = main_outputs.world_state.value;

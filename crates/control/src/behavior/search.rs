@@ -67,7 +67,6 @@ pub fn execute(
             .map(|role| role.to_position(robot_to_field, field_dimensions))
             .unwrap_or(point![0.0, 0.0]),
     };
-    // ;
     let head = HeadMotion::SearchForLostBall;
     if let Some(SearchRole::Goal) = search_role {
         let goal_pose = robot_to_field.inverse() * Isometry2::from(search_position.coords);

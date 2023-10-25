@@ -1,9 +1,10 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use nalgebra::{DMatrix, Point2};
+use nalgebra::{DMatrix, DimNameSub, Point2};
 use types::{
-    ball_position::{HypotheticalBallPosition, BallPosition}, field_dimensions::FieldDimensions,
+    ball_position::{BallPosition, HypotheticalBallPosition},
+    field_dimensions::{self, FieldDimensions},
     parameters::SearchSuggestorParameters,
 };
 
@@ -54,14 +55,28 @@ impl SearchSuggestor {
             context.search_suggestor_configuration.heatmap_decay_factor,
         );
         let maximum_heat_heatmap_position = self.heatmap.iamax_full();
-        let mut suggested_search_position:Option<Point2<f32>> = None;
+        let mut suggested_search_position: Option<Point2<f32>> = None;
         if self.heatmap[maximum_heat_heatmap_position] > 0.1 {
-            suggested_search_position = Some(Point2::new(
+            let mut search_suggestion = Point2::new(
                 maximum_heat_heatmap_position.0 as f32
                     / context.search_suggestor_configuration.cells_per_meter as f32,
                 maximum_heat_heatmap_position.1 as f32
                     / context.search_suggestor_configuration.cells_per_meter as f32,
-            ));
+            );
+            let length_half = context.field_dimensions.length / 2.0;
+            let width_half = context.field_dimensions.width / 2.0;
+
+            if search_suggestion.x >= length_half {
+                search_suggestion.x -= length_half;
+            } else {
+                search_suggestion.x = length_half - search_suggestion.x
+            }
+            if search_suggestion.y >= width_half {
+                search_suggestion.y -= width_half;
+            } else {
+                search_suggestion.y = width_half - search_suggestion.x
+            }
+            suggested_search_position = Some(search_suggestion);
         }
 
         Ok(MainOutputs {
