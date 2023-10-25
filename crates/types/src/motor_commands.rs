@@ -12,18 +12,18 @@ use splines::impl_Interpolate;
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct MotorCommand<T> {
+pub struct MotorCommands<T> {
     pub positions: Joints<T>,
     pub stiffnesses: Joints<T>,
 }
 
-impl_Interpolate!(f32, MotorCommand<f32>, PI);
+impl_Interpolate!(f32, MotorCommands<f32>, PI);
 
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct HeadMotorCommand<T> {
+pub struct HeadMotorCommands<T> {
     pub positions: HeadJoints<T>,
     pub stiffnesses: HeadJoints<T>,
 }
@@ -32,12 +32,12 @@ pub struct HeadMotorCommand<T> {
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct BodyMotorCommand<T> {
+pub struct BodyMotorCommands<T> {
     pub positions: BodyJoints<T>,
     pub stiffnesses: BodyJoints<T>,
 }
 
-impl MotorCommand<f32> {
+impl MotorCommands<f32> {
     pub fn mirrored(self) -> Self {
         Self {
             positions: Joints::mirrored(self.positions),
@@ -46,8 +46,8 @@ impl MotorCommand<f32> {
     }
 }
 
-impl Mul<f32> for MotorCommand<f32> {
-    type Output = MotorCommand<f32>;
+impl Mul<f32> for MotorCommands<f32> {
+    type Output = MotorCommands<f32>;
 
     fn mul(self, right: f32) -> Self::Output {
         Self::Output {
@@ -57,10 +57,10 @@ impl Mul<f32> for MotorCommand<f32> {
     }
 }
 
-impl Add<MotorCommand<f32>> for MotorCommand<f32> {
-    type Output = MotorCommand<f32>;
+impl Add<MotorCommands<f32>> for MotorCommands<f32> {
+    type Output = MotorCommands<f32>;
 
-    fn add(self, right: MotorCommand<f32>) -> Self::Output {
+    fn add(self, right: MotorCommands<f32>) -> Self::Output {
         Self::Output {
             positions: self.positions + right.positions,
             stiffnesses: self.stiffnesses + right.stiffnesses,
@@ -68,10 +68,10 @@ impl Add<MotorCommand<f32>> for MotorCommand<f32> {
     }
 }
 
-impl Sub<MotorCommand<f32>> for MotorCommand<f32> {
-    type Output = MotorCommand<f32>;
+impl Sub<MotorCommands<f32>> for MotorCommands<f32> {
+    type Output = MotorCommands<f32>;
 
-    fn sub(self, right: MotorCommand<f32>) -> Self::Output {
+    fn sub(self, right: MotorCommands<f32>) -> Self::Output {
         Self::Output {
             positions: self.positions - right.positions,
             stiffnesses: self.stiffnesses - right.stiffnesses,
@@ -79,8 +79,8 @@ impl Sub<MotorCommand<f32>> for MotorCommand<f32> {
     }
 }
 
-impl Div<f32> for MotorCommand<f32> {
-    type Output = MotorCommand<f32>;
+impl Div<f32> for MotorCommands<f32> {
+    type Output = MotorCommands<f32>;
 
     fn div(self, right: f32) -> Self::Output {
         Self::Output {

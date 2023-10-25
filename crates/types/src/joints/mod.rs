@@ -15,19 +15,19 @@ use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
 
 use self::{
-    arm::{ArmJoints, ArmJointsName},
+    arm::{ArmJoint, ArmJoints},
     body::BodyJoints,
-    head::{HeadJoints, HeadJointsName},
-    leg::{LegJoints, LegJointsName},
+    head::{HeadJoint, HeadJoints},
+    leg::{LegJoint, LegJoints},
 };
 
 #[derive(Clone, Copy)]
 pub enum JointsName {
-    Head(HeadJointsName),
-    LeftArm(ArmJointsName),
-    RightArm(ArmJointsName),
-    LeftLeg(LegJointsName),
-    RightLeg(LegJointsName),
+    Head(HeadJoint),
+    LeftArm(ArmJoint),
+    RightArm(ArmJoint),
+    LeftLeg(LegJoint),
+    RightLeg(LegJoint),
 }
 
 #[derive(
@@ -56,107 +56,104 @@ impl<T> Joints<T> {
     pub fn enumerate(self) -> <Joints<(JointsName, T)> as IntoIterator>::IntoIter {
         Joints {
             head: HeadJoints {
-                yaw: (JointsName::Head(HeadJointsName::Yaw), self.head.yaw),
-                pitch: (JointsName::Head(HeadJointsName::Pitch), self.head.pitch),
+                yaw: (JointsName::Head(HeadJoint::Yaw), self.head.yaw),
+                pitch: (JointsName::Head(HeadJoint::Pitch), self.head.pitch),
             },
             left_arm: ArmJoints {
                 shoulder_pitch: (
-                    JointsName::LeftArm(ArmJointsName::ShoulderPitch),
+                    JointsName::LeftArm(ArmJoint::ShoulderPitch),
                     self.left_arm.shoulder_pitch,
                 ),
                 shoulder_roll: (
-                    JointsName::LeftArm(ArmJointsName::ShoulderRoll),
+                    JointsName::LeftArm(ArmJoint::ShoulderRoll),
                     self.left_arm.shoulder_roll,
                 ),
                 elbow_yaw: (
-                    JointsName::LeftArm(ArmJointsName::ElbowYaw),
+                    JointsName::LeftArm(ArmJoint::ElbowYaw),
                     self.left_arm.elbow_yaw,
                 ),
                 elbow_roll: (
-                    JointsName::LeftArm(ArmJointsName::ElbowRoll),
+                    JointsName::LeftArm(ArmJoint::ElbowRoll),
                     self.left_arm.elbow_roll,
                 ),
                 wrist_yaw: (
-                    JointsName::LeftArm(ArmJointsName::WristYaw),
+                    JointsName::LeftArm(ArmJoint::WristYaw),
                     self.left_arm.wrist_yaw,
                 ),
-                hand: (JointsName::LeftArm(ArmJointsName::Hand), self.left_arm.hand),
+                hand: (JointsName::LeftArm(ArmJoint::Hand), self.left_arm.hand),
             },
             right_arm: ArmJoints {
                 shoulder_pitch: (
-                    JointsName::RightArm(ArmJointsName::ShoulderPitch),
+                    JointsName::RightArm(ArmJoint::ShoulderPitch),
                     self.right_arm.shoulder_pitch,
                 ),
                 shoulder_roll: (
-                    JointsName::RightArm(ArmJointsName::ShoulderRoll),
+                    JointsName::RightArm(ArmJoint::ShoulderRoll),
                     self.right_arm.shoulder_roll,
                 ),
                 elbow_yaw: (
-                    JointsName::RightArm(ArmJointsName::ElbowYaw),
+                    JointsName::RightArm(ArmJoint::ElbowYaw),
                     self.right_arm.elbow_yaw,
                 ),
                 elbow_roll: (
-                    JointsName::RightArm(ArmJointsName::ElbowRoll),
+                    JointsName::RightArm(ArmJoint::ElbowRoll),
                     self.right_arm.elbow_roll,
                 ),
                 wrist_yaw: (
-                    JointsName::RightArm(ArmJointsName::WristYaw),
+                    JointsName::RightArm(ArmJoint::WristYaw),
                     self.right_arm.wrist_yaw,
                 ),
-                hand: (
-                    JointsName::RightArm(ArmJointsName::Hand),
-                    self.right_arm.hand,
-                ),
+                hand: (JointsName::RightArm(ArmJoint::Hand), self.right_arm.hand),
             },
             left_leg: LegJoints {
                 ankle_pitch: (
-                    JointsName::LeftLeg(LegJointsName::AnklePitch),
+                    JointsName::LeftLeg(LegJoint::AnklePitch),
                     self.left_leg.ankle_pitch,
                 ),
                 ankle_roll: (
-                    JointsName::LeftLeg(LegJointsName::AnkleRoll),
+                    JointsName::LeftLeg(LegJoint::AnkleRoll),
                     self.left_leg.ankle_roll,
                 ),
                 hip_pitch: (
-                    JointsName::LeftLeg(LegJointsName::HipPitch),
+                    JointsName::LeftLeg(LegJoint::HipPitch),
                     self.left_leg.hip_pitch,
                 ),
                 hip_roll: (
-                    JointsName::LeftLeg(LegJointsName::HipRoll),
+                    JointsName::LeftLeg(LegJoint::HipRoll),
                     self.left_leg.hip_roll,
                 ),
                 hip_yaw_pitch: (
-                    JointsName::LeftLeg(LegJointsName::HipYawPitch),
+                    JointsName::LeftLeg(LegJoint::HipYawPitch),
                     self.left_leg.hip_yaw_pitch,
                 ),
                 knee_pitch: (
-                    JointsName::LeftLeg(LegJointsName::KneePitch),
+                    JointsName::LeftLeg(LegJoint::KneePitch),
                     self.left_leg.knee_pitch,
                 ),
             },
             right_leg: LegJoints {
                 ankle_pitch: (
-                    JointsName::RightLeg(LegJointsName::AnklePitch),
+                    JointsName::RightLeg(LegJoint::AnklePitch),
                     self.right_leg.ankle_pitch,
                 ),
                 ankle_roll: (
-                    JointsName::RightLeg(LegJointsName::AnkleRoll),
+                    JointsName::RightLeg(LegJoint::AnkleRoll),
                     self.right_leg.ankle_roll,
                 ),
                 hip_pitch: (
-                    JointsName::RightLeg(LegJointsName::HipPitch),
+                    JointsName::RightLeg(LegJoint::HipPitch),
                     self.right_leg.hip_pitch,
                 ),
                 hip_roll: (
-                    JointsName::RightLeg(LegJointsName::HipRoll),
+                    JointsName::RightLeg(LegJoint::HipRoll),
                     self.right_leg.hip_roll,
                 ),
                 hip_yaw_pitch: (
-                    JointsName::RightLeg(LegJointsName::HipYawPitch),
+                    JointsName::RightLeg(LegJoint::HipYawPitch),
                     self.right_leg.hip_yaw_pitch,
                 ),
                 knee_pitch: (
-                    JointsName::RightLeg(LegJointsName::KneePitch),
+                    JointsName::RightLeg(LegJoint::KneePitch),
                     self.right_leg.knee_pitch,
                 ),
             },

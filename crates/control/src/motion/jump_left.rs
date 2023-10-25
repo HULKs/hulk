@@ -8,12 +8,12 @@ use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
-    motor_command::MotorCommand,
+    motor_commands::MotorCommands,
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct JumpLeft {
-    interpolator: MotionInterpolator<MotorCommand<f32>>,
+    interpolator: MotionInterpolator<MotorCommands<f32>>,
 }
 
 #[context]
@@ -33,7 +33,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub jump_left_joints_command: MainOutput<MotorCommand<f32>>,
+    pub jump_left_joints_command: MainOutput<MotorCommands<f32>>,
 }
 
 impl JumpLeft {

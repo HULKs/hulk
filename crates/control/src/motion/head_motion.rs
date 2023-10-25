@@ -8,7 +8,7 @@ use types::{
     cycle_time::CycleTime,
     joints::head::HeadJoints,
     motion_command::{HeadMotion as HeadMotionCommand, MotionCommand},
-    motor_command::HeadMotorCommand,
+    motor_commands::HeadMotorCommands,
     sensor_data::SensorData,
 };
 
@@ -39,7 +39,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub head_joints_command: MainOutput<HeadMotorCommand<f32>>,
+    pub head_joints_command: MainOutput<HeadMotorCommands<f32>>,
 }
 
 impl HeadMotion {
@@ -50,13 +50,13 @@ impl HeadMotion {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let HeadMotorCommand {
+        let HeadMotorCommands {
             positions: raw_positions,
             stiffnesses,
         } = context
             .has_ground_contact
             .then(|| Self::joints_from_motion(&context))
-            .unwrap_or_else(|| HeadMotorCommand {
+            .unwrap_or_else(|| HeadMotorCommands {
                 positions: Default::default(),
                 stiffnesses: HeadJoints::fill(0.8),
             });
@@ -91,7 +91,7 @@ impl HeadMotion {
 
         self.last_positions = clamped_positions;
         Ok(MainOutputs {
-            head_joints_command: HeadMotorCommand {
+            head_joints_command: HeadMotorCommands {
                 positions: clamped_positions,
                 stiffnesses,
             }
@@ -99,29 +99,29 @@ impl HeadMotion {
         })
     }
 
-    pub fn joints_from_motion(context: &CycleContext) -> HeadMotorCommand<f32> {
+    pub fn joints_from_motion(context: &CycleContext) -> HeadMotorCommands<f32> {
         let stiffnesses = HeadJoints::fill(0.8);
         match context.motion_command.head_motion() {
-            Some(HeadMotionCommand::Center) => HeadMotorCommand {
+            Some(HeadMotionCommand::Center) => HeadMotorCommands {
                 positions: *context.center_head_position,
                 stiffnesses,
             },
             Some(HeadMotionCommand::LookAround | HeadMotionCommand::SearchForLostBall) => {
-                HeadMotorCommand {
+                HeadMotorCommands {
                     positions: *context.look_around,
                     stiffnesses,
                 }
             }
             Some(HeadMotionCommand::LookAt { .. })
-            | Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => HeadMotorCommand {
+            | Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => HeadMotorCommands {
                 positions: *context.look_at,
                 stiffnesses,
             },
-            Some(HeadMotionCommand::Unstiff) => HeadMotorCommand {
+            Some(HeadMotionCommand::Unstiff) => HeadMotorCommands {
                 positions: context.sensor_data.positions.head,
                 stiffnesses: HeadJoints::fill(0.0),
             },
-            Some(HeadMotionCommand::ZeroAngles) | None => HeadMotorCommand {
+            Some(HeadMotionCommand::ZeroAngles) | None => HeadMotorCommands {
                 positions: Default::default(),
                 stiffnesses,
             },

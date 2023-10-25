@@ -4,7 +4,7 @@ use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
     joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints, Joints},
-    motor_command::BodyMotorCommand,
+    motor_commands::BodyMotorCommands,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -23,7 +23,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub energy_saving_stand_command: MainOutput<BodyMotorCommand<f32>>,
+    pub energy_saving_stand_command: MainOutput<BodyMotorCommands<f32>>,
 }
 
 impl EnergySavingStand {
@@ -33,7 +33,7 @@ impl EnergySavingStand {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         Ok(MainOutputs {
-            energy_saving_stand_command: BodyMotorCommand {
+            energy_saving_stand_command: BodyMotorCommands {
                 positions: BodyJoints::from(*context.energy_saving_stand_pose),
                 stiffnesses: BodyJoints {
                     left_arm: ArmJoints::fill(*context.arm_stiffness),

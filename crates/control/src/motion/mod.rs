@@ -10,7 +10,7 @@ pub mod jump_right;
 pub mod look_around;
 pub mod look_at;
 pub mod motion_selector;
-pub mod motor_command_collector;
+pub mod motor_commands_collector;
 pub mod sit_down;
 pub mod stand_up_back;
 pub mod stand_up_front;

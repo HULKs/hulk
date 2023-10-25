@@ -9,7 +9,7 @@ use types::{
     cycle_time::CycleTime,
     joints::Joints,
     motion_selection::{MotionSelection, MotionType},
-    motor_command::MotorCommand,
+    motor_commands::MotorCommands,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -32,7 +32,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub arms_up_squat_joints_command: MainOutput<MotorCommand<f32>>,
+    pub arms_up_squat_joints_command: MainOutput<MotorCommands<f32>>,
 }
 
 impl ArmsUpSquat {
@@ -56,7 +56,7 @@ impl ArmsUpSquat {
         }
 
         Ok(MainOutputs {
-            arms_up_squat_joints_command: MotorCommand {
+            arms_up_squat_joints_command: MotorCommands {
                 positions: self.interpolator.value(),
                 stiffnesses: Joints::fill(0.9),
             }
