@@ -43,7 +43,7 @@ pub mod message_event;
 pub mod messages;
 pub mod motion_command;
 pub mod motion_selection;
-pub mod motor_command;
+pub mod motor_commands;
 pub mod multivariate_normal_distribution;
 pub mod obstacle_filter;
 pub mod obstacles;

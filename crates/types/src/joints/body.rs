@@ -4,16 +4,16 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use super::{
-    arm::{ArmJoints, ArmJointsName},
-    leg::{LegJoints, LegJointsName},
+    arm::{ArmJoint, ArmJoints},
+    leg::{LegJoint, LegJoints},
     Joints,
 };
 
 pub enum BodyJointsName {
-    LeftArm(ArmJointsName),
-    RightArm(ArmJointsName),
-    LeftLeg(LegJointsName),
-    RightLeg(LegJointsName),
+    LeftArm(ArmJoint),
+    RightArm(ArmJoint),
+    LeftLeg(LegJoint),
+    RightLeg(LegJoint),
 }
 
 #[derive(

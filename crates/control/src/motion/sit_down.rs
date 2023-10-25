@@ -9,7 +9,7 @@ use types::{
     cycle_time::CycleTime,
     joints::Joints,
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
-    motor_command::MotorCommand,
+    motor_commands::MotorCommands,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -34,7 +34,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub sit_down_joints_command: MainOutput<MotorCommand<f32>>,
+    pub sit_down_joints_command: MainOutput<MotorCommands<f32>>,
 }
 
 impl SitDown {
@@ -58,7 +58,7 @@ impl SitDown {
         context.motion_safe_exits[MotionType::SitDown] = self.interpolator.is_finished();
 
         Ok(MainOutputs {
-            sit_down_joints_command: MotorCommand {
+            sit_down_joints_command: MotorCommands {
                 positions: self.interpolator.value(),
                 stiffnesses: Joints::fill(0.8),
             }

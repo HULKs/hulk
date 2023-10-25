@@ -9,7 +9,7 @@ use types::{
     cycle_time::CycleTime,
     joints::{head::HeadJoints, Joints},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
-    motor_command::{BodyMotorCommand, MotorCommand},
+    motor_commands::{BodyMotorCommands, MotorCommands},
 };
 
 #[derive(Deserialize, Serialize)]
@@ -25,22 +25,22 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    arms_up_squat_joints_command: Input<MotorCommand<f32>, "arms_up_squat_joints_command">,
-    energy_saving_stand: Input<BodyMotorCommand<f32>, "energy_saving_stand_command">,
-    jump_left_joints_command: Input<MotorCommand<f32>, "jump_left_joints_command">,
-    jump_right_joints_command: Input<MotorCommand<f32>, "jump_right_joints_command">,
+    arms_up_squat_joints_command: Input<MotorCommands<f32>, "arms_up_squat_joints_command">,
+    energy_saving_stand: Input<BodyMotorCommands<f32>, "energy_saving_stand_command">,
+    jump_left_joints_command: Input<MotorCommands<f32>, "jump_left_joints_command">,
+    jump_right_joints_command: Input<MotorCommands<f32>, "jump_right_joints_command">,
     motion_selection: Input<MotionSelection, "motion_selection">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    sit_down_joints_command: Input<MotorCommand<f32>, "sit_down_joints_command">,
+    sit_down_joints_command: Input<MotorCommands<f32>, "sit_down_joints_command">,
     stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
-    walk_joints_command: Input<BodyMotorCommand<f32>, "walk_joints_command">,
+    walk_joints_command: Input<BodyMotorCommands<f32>, "walk_joints_command">,
 
     initial_pose: Parameter<Joints<f32>, "initial_pose">,
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-    last_executed_motor_command: CyclerState<MotorCommand<f32>, "last_executed_motor_command">,
+    last_executed_motor_commands: CyclerState<MotorCommands<f32>, "last_executed_motor_commands">,
 
     transition_time: AdditionalOutput<Option<Duration>, "transition_time">,
 }
@@ -48,7 +48,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub dispatching_command: MainOutput<MotorCommand<f32>>,
+    pub dispatching_command: MainOutput<MotorCommands<f32>>,
 }
 
 impl DispatchingInterpolator {
@@ -108,7 +108,7 @@ impl DispatchingInterpolator {
             };
 
             self.interpolator = TimedSpline::try_new_transition_timed(
-                context.last_executed_motor_command.positions,
+                context.last_executed_motor_commands.positions,
                 target_position,
                 Duration::from_secs_f32(1.0),
             )?
@@ -129,7 +129,7 @@ impl DispatchingInterpolator {
         });
 
         Ok(MainOutputs {
-            dispatching_command: MotorCommand {
+            dispatching_command: MotorCommands {
                 positions: self.interpolator.value(),
                 stiffnesses: self.stiffnesses,
             }

@@ -9,7 +9,7 @@ use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
 
 #[derive(Clone, Copy)]
-pub enum ArmJointsName {
+pub enum ArmJoint {
     ShoulderPitch,
     ShoulderRoll,
     ElbowYaw,
@@ -165,30 +165,30 @@ impl ArmJoints<f32> {
     }
 }
 
-impl<T> Index<ArmJointsName> for ArmJoints<T> {
+impl<T> Index<ArmJoint> for ArmJoints<T> {
     type Output = T;
 
-    fn index(&self, index: ArmJointsName) -> &Self::Output {
+    fn index(&self, index: ArmJoint) -> &Self::Output {
         match index {
-            ArmJointsName::ShoulderPitch => &self.shoulder_pitch,
-            ArmJointsName::ShoulderRoll => &self.shoulder_roll,
-            ArmJointsName::ElbowYaw => &self.elbow_yaw,
-            ArmJointsName::ElbowRoll => &self.elbow_roll,
-            ArmJointsName::WristYaw => &self.wrist_yaw,
-            ArmJointsName::Hand => &self.hand,
+            ArmJoint::ShoulderPitch => &self.shoulder_pitch,
+            ArmJoint::ShoulderRoll => &self.shoulder_roll,
+            ArmJoint::ElbowYaw => &self.elbow_yaw,
+            ArmJoint::ElbowRoll => &self.elbow_roll,
+            ArmJoint::WristYaw => &self.wrist_yaw,
+            ArmJoint::Hand => &self.hand,
         }
     }
 }
 
-impl<T> IndexMut<ArmJointsName> for ArmJoints<T> {
-    fn index_mut(&mut self, index: ArmJointsName) -> &mut Self::Output {
+impl<T> IndexMut<ArmJoint> for ArmJoints<T> {
+    fn index_mut(&mut self, index: ArmJoint) -> &mut Self::Output {
         match index {
-            ArmJointsName::ShoulderPitch => &mut self.shoulder_pitch,
-            ArmJointsName::ShoulderRoll => &mut self.shoulder_roll,
-            ArmJointsName::ElbowYaw => &mut self.elbow_yaw,
-            ArmJointsName::ElbowRoll => &mut self.elbow_roll,
-            ArmJointsName::WristYaw => &mut self.wrist_yaw,
-            ArmJointsName::Hand => &mut self.hand,
+            ArmJoint::ShoulderPitch => &mut self.shoulder_pitch,
+            ArmJoint::ShoulderRoll => &mut self.shoulder_roll,
+            ArmJoint::ElbowYaw => &mut self.elbow_yaw,
+            ArmJoint::ElbowRoll => &mut self.elbow_roll,
+            ArmJoint::WristYaw => &mut self.wrist_yaw,
+            ArmJoint::Hand => &mut self.hand,
         }
     }
 }

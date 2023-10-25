@@ -16,7 +16,7 @@ use types::{
     joints::{body::BodyJoints, head::HeadJoints, Joints},
     motion_command::{FallDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
-    motor_command::MotorCommand,
+    motor_commands::MotorCommands,
     parameters::{FallProtectionParameters, FallStateEstimationParameters},
     sensor_data::SensorData,
 };
@@ -53,7 +53,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub fall_protection_command: MainOutput<MotorCommand<f32>>,
+    pub fall_protection_command: MainOutput<MotorCommands<f32>>,
 }
 
 impl FallProtector {
@@ -85,7 +85,7 @@ impl FallProtector {
             self.start_time = context.cycle_time.start_time;
 
             return Ok(MainOutputs {
-                fall_protection_command: MotorCommand {
+                fall_protection_command: MotorCommands {
                     positions: current_positions,
                     stiffnesses: Joints::fill(0.8),
                 }
@@ -160,7 +160,7 @@ impl FallProtector {
                 direction: FallDirection::Forward,
             } => {
                 self.interpolator.reset();
-                MotorCommand {
+                MotorCommands {
                     positions: Joints::from_head_and_body(
                         HeadJoints {
                             yaw: 0.0,
@@ -186,14 +186,14 @@ impl FallProtector {
                     context.condition_input,
                 );
 
-                MotorCommand {
+                MotorCommands {
                     positions: self.interpolator.value(),
                     stiffnesses,
                 }
             }
             _ => {
                 self.interpolator.reset();
-                MotorCommand {
+                MotorCommands {
                     positions: Joints::from_head_and_body(
                         HeadJoints {
                             yaw: 0.0,

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Clone, Copy)]
-pub enum LegJointsName {
+pub enum LegJoint {
     AnklePitch,
     AnkleRoll,
     HipPitch,
@@ -172,30 +172,30 @@ impl LegJoints<f32> {
     }
 }
 
-impl<T> Index<LegJointsName> for LegJoints<T> {
+impl<T> Index<LegJoint> for LegJoints<T> {
     type Output = T;
 
-    fn index(&self, index: LegJointsName) -> &Self::Output {
+    fn index(&self, index: LegJoint) -> &Self::Output {
         match index {
-            LegJointsName::AnklePitch => &self.ankle_pitch,
-            LegJointsName::AnkleRoll => &self.ankle_roll,
-            LegJointsName::HipPitch => &self.hip_pitch,
-            LegJointsName::HipRoll => &self.hip_roll,
-            LegJointsName::HipYawPitch => &self.hip_yaw_pitch,
-            LegJointsName::KneePitch => &self.knee_pitch,
+            LegJoint::AnklePitch => &self.ankle_pitch,
+            LegJoint::AnkleRoll => &self.ankle_roll,
+            LegJoint::HipPitch => &self.hip_pitch,
+            LegJoint::HipRoll => &self.hip_roll,
+            LegJoint::HipYawPitch => &self.hip_yaw_pitch,
+            LegJoint::KneePitch => &self.knee_pitch,
         }
     }
 }
 
-impl<T> IndexMut<LegJointsName> for LegJoints<T> {
-    fn index_mut(&mut self, index: LegJointsName) -> &mut Self::Output {
+impl<T> IndexMut<LegJoint> for LegJoints<T> {
+    fn index_mut(&mut self, index: LegJoint) -> &mut Self::Output {
         match index {
-            LegJointsName::AnklePitch => &mut self.ankle_pitch,
-            LegJointsName::AnkleRoll => &mut self.ankle_roll,
-            LegJointsName::HipPitch => &mut self.hip_pitch,
-            LegJointsName::HipRoll => &mut self.hip_roll,
-            LegJointsName::HipYawPitch => &mut self.hip_yaw_pitch,
-            LegJointsName::KneePitch => &mut self.knee_pitch,
+            LegJoint::AnklePitch => &mut self.ankle_pitch,
+            LegJoint::AnkleRoll => &mut self.ankle_roll,
+            LegJoint::HipPitch => &mut self.hip_pitch,
+            LegJoint::HipRoll => &mut self.hip_roll,
+            LegJoint::HipYawPitch => &mut self.hip_yaw_pitch,
+            LegJoint::KneePitch => &mut self.knee_pitch,
         }
     }
 }
