@@ -13,14 +13,14 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    motor_commands: Input<MotorCommands<f32>, "motor_command">,
+    motor_commands: Input<MotorCommands<f32>, "motor_commands">,
     leds: Input<Leds, "leds">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-    last_executed_motor_commands: CyclerState<MotorCommands<f32>, "last_executed_motor_command">,
+    last_actuated_motor_commands: CyclerState<MotorCommands<f32>, "last_actuated_motor_commands">,
 
     motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
-    actuated_motor_commands: AdditionalOutput<MotorCommands<f32>, "last_executed_motor_command">,
+    actuated_motor_commands: AdditionalOutput<MotorCommands<f32>, "last_actuated_motor_commands">,
 
     hardware_interface: HardwareInterface,
 }
@@ -49,15 +49,15 @@ impl CommandSender {
             )
             .wrap_err("failed to write to actuators")?;
 
-        context.last_executed_motor_commands.positions = motor_commands.positions;
-        context.last_executed_motor_commands.stiffnesses = motor_commands.stiffnesses;
-
         context
             .actuated_motor_commands
             .fill_if_subscribed(|| *motor_commands);
         context
             .motion_safe_exits_output
             .fill_if_subscribed(|| context.motion_safe_exits.clone());
+
+        context.last_actuated_motor_commands.positions = motor_commands.positions;
+        context.last_actuated_motor_commands.stiffnesses = motor_commands.stiffnesses;
 
         Ok(MainOutputs {})
     }
