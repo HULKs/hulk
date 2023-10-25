@@ -1,10 +1,12 @@
 use std::{
     fmt::{self, Display, Formatter},
+    net::{IpAddr, Ipv4Addr},
     str::FromStr,
     sync::Arc,
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
+use aliveness::query_aliveness_sync;
 use color_eyre::{
     eyre::{bail, eyre},
     Result,
@@ -96,6 +98,7 @@ impl_selectable_panel!(
 );
 struct TwixApp {
     nao: Arc<Nao>,
+    reachable_ips: Vec<IpAddr>,
     connection_intent: bool,
     ip_address: String,
     panel_selection: String,
@@ -155,6 +158,7 @@ impl TwixApp {
         let panel_selection = "".to_string();
         Self {
             nao,
+            reachable_ips: Vec::new(),
             connection_intent,
             ip_address: ip_address.unwrap_or_default(),
             panel_selection,
@@ -170,8 +174,20 @@ impl App for TwixApp {
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                    let address_input =
-                        CompletionEdit::addresses(&mut self.ip_address, 21..=37).ui(ui);
+                    let address_input = CompletionEdit::addresses(
+                        &mut self.ip_address,
+                        21..=37,
+                        Some(&self.reachable_ips),
+                    )
+                    .ui(ui);
+                    if address_input.gained_focus() {
+                        self.reachable_ips =
+                            query_aliveness_sync(Duration::from_secs_f32(0.8), None)
+                                .unwrap()
+                                .into_iter()
+                                .map(|(ip_address, _)| ip_address)
+                                .collect();
+                    }
                     if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::O)) {
                         address_input.request_focus();
                         CompletionEdit::select_all(&self.ip_address, ui, address_input.id);

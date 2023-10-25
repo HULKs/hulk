@@ -1,4 +1,4 @@
-use std::{iter::once, ops::RangeInclusive};
+use std::{iter::once, net::IpAddr, ops::RangeInclusive};
 
 use communication::messages::Fields;
 use eframe::egui::{
@@ -44,13 +44,28 @@ impl<'key> CompletionEdit<'key> {
         }
     }
 
-    pub fn addresses(key: &'key mut String, numbers: RangeInclusive<u8>) -> Self {
-        let completion_items = chain!(
+    pub fn addresses(
+        key: &'key mut String,
+        numbers: RangeInclusive<u8>,
+        highlight: Option<&Vec<IpAddr>>,
+    ) -> Self {
+        use color_eyre::owo_colors::OwoColorize;
+
+        let mut completion_items: Vec<_> = chain!(
             once("localhost".to_string()),
             numbers.clone().map(|number| format!("10.1.24.{number}")),
             numbers.map(|number| format!("10.0.24.{number}"))
         )
         .collect();
+
+        if let Some(highlighted_ips) = highlight {
+            let highlighted_ips: Vec<_> = highlighted_ips.into_iter().map(|ip| ip.to_string()).collect();
+            for ip in completion_items.iter_mut() {
+                if highlighted_ips.contains(ip) {
+                    *ip = format!("{ip} {}", "✅");
+                }
+            }
+        }
 
         Self {
             hint_text: "Address",
