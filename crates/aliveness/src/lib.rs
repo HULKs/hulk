@@ -113,3 +113,16 @@ pub async fn query_aliveness(
         }
     }
 }
+
+pub fn query_aliveness_sync(
+    timeout: Duration,
+    ips: Option<Vec<Ipv4Addr>>,
+) -> Result<Vec<(IpAddr, AlivenessState)>, AlivenessError> {
+    let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+    let inner = rt.block_on(query_aliveness(timeout, ips));
+
+    return inner;
+}
