@@ -718,7 +718,7 @@
     },
     "left_arm": {
       "shoulder_pitch": 1.57,
-      "shoulder_roll": 0.02,
+      "shoulder_roll": 0.2,
       "elbow_yaw": 0.0,
       "elbow_roll": -0.008,
       "wrist_yaw": -1.57,
@@ -726,7 +726,7 @@
     },
     "right_arm": {
       "shoulder_pitch": 1.57,
-      "shoulder_roll": -0.02,
+      "shoulder_roll": -0.2,
       "elbow_yaw": 0.0,
       "elbow_roll": 0.008,
       "wrist_yaw": 1.57,
