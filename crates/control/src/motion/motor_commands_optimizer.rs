@@ -29,6 +29,7 @@ impl MotorCommandsOptimizer {
         let mut motor_commands = *context.motor_commands;
         motor_commands.stiffnesses.left_arm.hand = 0.0;
         motor_commands.stiffnesses.right_arm.hand = 0.0;
+
         Ok(MainOutputs {
             optimized_motor_commands: motor_commands.into(),
         })
