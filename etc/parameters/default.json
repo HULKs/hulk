@@ -262,10 +262,10 @@
   },
   "motor_command_optimizer": {
     "offset_reset_threshold": 0.00075,
-    "offset_reset_speed": 1.012,
-    "offset_reset_offset": 3.0,
+    "offset_reset_speed": 1.03,
+    "offset_reset_offset": 5.0,
     "optimization_speed": 0.0001,
-    "optimization_current_threshold": 0.13,
+    "optimization_current_threshold": 0.1,
     "position_difference_threshold": 0.0,
     "optimization_sign": {
       "head": {
@@ -282,7 +282,7 @@
       },
       "right_arm": {
         "shoulder_pitch": 1,
-        "shoulder_roll": 1,
+        "shoulder_roll": -1,
         "elbow_yaw": 1,
         "elbow_roll": 1,
         "wrist_yaw": 1,
@@ -290,11 +290,11 @@
       },
       "left_leg": {
         "hip_yaw_pitch": 1,
-        "hip_roll": 1,
+        "hip_roll": -1,
         "hip_pitch": 1,
         "knee_pitch": 1,
         "ankle_pitch": -1,
-        "ankle_roll": 1
+        "ankle_roll": -1
       },
       "right_leg": {
         "hip_yaw_pitch": 1,
@@ -773,8 +773,8 @@
       "wrist_yaw": 0.0
     },
     "left_leg": {
-      "ankle_pitch": 0.02,
-      "ankle_roll": 0.0,
+      "ankle_pitch": 0.01,
+      "ankle_roll": -0.002,
       "hip_pitch": 0.09,
       "hip_roll": 0.0,
       "hip_yaw_pitch": 0.0,
@@ -789,8 +789,8 @@
       "wrist_yaw": 0.0
     },
     "right_leg": {
-      "ankle_pitch": 0.02,
-      "ankle_roll": 0.0,
+      "ankle_pitch": 0.01,
+      "ankle_roll": 0.002,
       "hip_pitch": 0.09,
       "hip_roll": 0.0,
       "hip_yaw_pitch": 0.0,
