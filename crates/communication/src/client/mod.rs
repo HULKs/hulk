@@ -1,7 +1,6 @@
 mod communication;
 mod connector;
 mod id_tracker;
-mod notify;
 mod output_subscription_manager;
 mod parameter_subscription_manager;
 mod receiver;
