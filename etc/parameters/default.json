@@ -738,7 +738,7 @@
   },
   "fall_protection": {
     "early_protection_timeout": {
-      "nanos": 300000000,
+      "nanos": 400000000,
       "secs": 0
     },
     "reached_threshold": 0.1,
