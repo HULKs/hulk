@@ -1,3 +1,5 @@
+use std::f32::EPSILON;
+
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
