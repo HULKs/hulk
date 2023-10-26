@@ -1,15 +1,13 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use geometry::{circle::Circle, rectangle::Rectangle};
 use nalgebra::{point, vector, Point2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GameState, SubState, Team};
 use types::{
-    field_dimensions::FieldDimensions,
-    filtered_game_state::FilteredGameState,
-    game_controller_state::GameControllerState,
-    geometry::{Circle, Rectangle},
-    rule_obstacles::RuleObstacle,
+    field_dimensions::FieldDimensions, filtered_game_state::FilteredGameState,
+    game_controller_state::GameControllerState, rule_obstacles::RuleObstacle,
     world_state::BallState,
 };
 

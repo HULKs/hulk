@@ -1,8 +1,7 @@
 use approx::{AbsDiffEq, RelativeEq};
+use geometry::circle::Circle;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-
-use crate::geometry::Circle;
 
 #[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct PerspectiveGridCandidates {

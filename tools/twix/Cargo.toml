@@ -15,6 +15,7 @@ egui_dock = { workspace = true }
 egui_extras = { workspace = true }
 fern = { workspace = true }
 fuzzy-matcher = { workspace = true }
+geometry = { workspace = true }
 gilrs = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }

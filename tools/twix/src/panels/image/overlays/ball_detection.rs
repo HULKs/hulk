@@ -3,10 +3,8 @@ use std::str::FromStr;
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput};
 use eframe::epaint::{Color32, Stroke};
-use types::{
-    ball::{Ball, CandidateEvaluation},
-    geometry::Circle,
-};
+use geometry::circle::Circle;
+use types::ball::{Ball, CandidateEvaluation};
 
 use crate::{panels::image::overlay::Overlay, value_buffer::ValueBuffer};
 

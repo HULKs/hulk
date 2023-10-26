@@ -587,6 +587,7 @@ dependencies = [
  "ctrlc",
  "fern",
  "framework",
+ "geometry",
  "hardware",
  "ittapi",
  "log",
@@ -1218,6 +1219,7 @@ dependencies = [
  "context_attribute",
  "filtering",
  "framework",
+ "geometry",
  "hardware",
  "itertools",
  "kinematics",
@@ -2062,6 +2064,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "geometry"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "nalgebra",
+ "serde",
+ "serialize_hierarchy",
+]
+
+[[package]]
 name = "gethostname"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2363,6 +2375,7 @@ dependencies = [
  "communication",
  "control",
  "framework",
+ "geometry",
  "hardware",
  "ittapi",
  "nalgebra",
@@ -4694,6 +4707,7 @@ dependencies = [
  "egui_extras",
  "fern",
  "fuzzy-matcher",
+ "geometry",
  "gilrs",
  "image",
  "itertools",
@@ -4722,6 +4736,7 @@ dependencies = [
  "approx",
  "color-eyre",
  "enum-iterator",
+ "geometry",
  "image",
  "nalgebra",
  "ordered-float",
@@ -4838,6 +4853,7 @@ dependencies = [
  "fast_image_resize",
  "filtering",
  "framework",
+ "geometry",
  "hardware",
  "itertools",
  "nalgebra",

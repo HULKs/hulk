@@ -1,9 +1,9 @@
+use geometry::line_segment::LineSegment;
 use nalgebra::{Isometry2, Point2, UnitComplex};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
     filtered_game_state::FilteredGameState,
     game_controller_state::GameControllerState,
-    geometry::LineSegment,
     line::Line,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::InterceptBallParameters,

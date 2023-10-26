@@ -5,10 +5,12 @@ use std::{
 };
 
 use color_eyre::Result;
+use geometry::line_segment::LineSegment;
 use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
+use types::motion_command::KickVariant;
 use types::motion_command::{HeadMotion, OrientationMode};
 use types::planned_path::PathSegment;
 use types::{
@@ -21,7 +23,6 @@ use types::{
     primary_state::PrimaryState,
     support_foot::Side,
 };
-use types::{geometry::LineSegment, motion_command::KickVariant};
 
 use crate::{
     cycler::Database,
