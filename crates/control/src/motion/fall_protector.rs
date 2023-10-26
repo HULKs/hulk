@@ -144,7 +144,9 @@ impl FallProtector {
 }
 
 fn prevent_stuck_arms(request: Joints<f32>, measured_positions: Joints<f32>) -> Joints<f32> {
-    let left_arm = if measured_positions.left_arm.shoulder_roll < 0.0 {
+    let left_arm = if measured_positions.left_arm.shoulder_roll < 0.0
+        && measured_positions.left_arm.shoulder_pitch > 1.6
+    {
         ArmJoints {
             shoulder_pitch: 0.0,
             shoulder_roll: 0.35,
@@ -156,7 +158,9 @@ fn prevent_stuck_arms(request: Joints<f32>, measured_positions: Joints<f32>) -> 
     } else {
         request.left_arm
     };
-    let right_arm = if measured_positions.right_arm.shoulder_roll > 0.0 {
+    let right_arm = if measured_positions.right_arm.shoulder_roll > 0.0
+        && measured_positions.right_arm.shoulder_pitch > 1.6
+    {
         ArmJoints {
             shoulder_pitch: 0.0,
             shoulder_roll: -0.35,
