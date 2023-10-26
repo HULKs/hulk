@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "crates/aliveness",
+  "crates/approx_derive",
   "crates/audio",
   "crates/calibration",
   "crates/code_generation",
@@ -46,6 +47,7 @@ exclude = ["tools/aliveness", "tools/hula"]
 aliveness = { path = "crates/aliveness" }
 alsa = "0.7.0"
 approx = "0.5.1"
+approx_derive = { path = "crates/approx_derive" }
 audio = { path = "crates/audio" }
 awaitgroup = "0.6.0"
 base64 = "0.21.0"

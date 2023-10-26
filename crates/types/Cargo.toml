@@ -7,6 +7,7 @@ homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
 approx = { workspace = true }
+approx_derive = { workspace = true }
 color-eyre = { workspace = true }
 enum-iterator = { workspace = true }
 geometry = { workspace = true }

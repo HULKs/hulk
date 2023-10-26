@@ -284,6 +284,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "approx_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "arboard"
 version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4736,6 +4746,7 @@ name = "types"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "approx_derive",
  "color-eyre",
  "enum-iterator",
  "geometry",
