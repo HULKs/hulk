@@ -31,7 +31,6 @@ use panels::{
     MapPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel, VisionTunerPanel,
 };
 use serde_json::{from_str, to_string, Value};
-use tokio::sync::mpsc;
 use visuals::Visuals;
 
 mod completion_edit;
@@ -92,8 +91,6 @@ struct TwixApp {
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
     tree: Tree<Tab>,
-    connection_status: ConnectionStatus,
-    connection_receiver: mpsc::Receiver<ConnectionStatus>,
     visual: Visuals,
 }
 
@@ -133,11 +130,6 @@ impl TwixApp {
             .into()]),
         };
 
-        let connection_status = ConnectionStatus::Disconnected {
-            address: None,
-            connect: false,
-        };
-        let connection_receiver = nao.subscribe_status_updates();
         {
             let context = creation_context.egui_ctx.clone();
             nao.on_update(move || context.request_repaint());
@@ -158,8 +150,6 @@ impl TwixApp {
             panel_selection,
             tree,
             last_focused_tab: (0.into(), 0.into()),
-            connection_status,
-            connection_receiver,
             visual,
         }
     }
@@ -167,10 +157,6 @@ impl TwixApp {
 
 impl App for TwixApp {
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
-        while let Ok(status) = self.connection_receiver.try_recv() {
-            self.connection_status = status;
-        }
-
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
@@ -183,10 +169,10 @@ impl App for TwixApp {
                     if address_input.changed() || address_input.lost_focus() {
                         self.nao.set_address(&self.ip_address);
                     }
-                    let (connect_text, color) = match &self.connection_status {
+                    let (connect_text, color) = match self.nao.connection_status() {
                         ConnectionStatus::Disconnected { connect, .. } => (
                             "Connect",
-                            if *connect {
+                            if connect {
                                 Color32::RED
                             } else {
                                 Color32::WHITE

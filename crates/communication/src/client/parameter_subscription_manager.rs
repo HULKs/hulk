@@ -5,14 +5,13 @@ use log::{error, info, warn};
 use serde_json::Value;
 use tokio::{
     spawn,
-    sync::{mpsc, oneshot},
+    sync::{broadcast, mpsc, oneshot},
 };
 use uuid::Uuid;
 
 use crate::{
     client::{
         id_tracker::{self, get_message_id},
-        notify::notify_all,
         responder, SubscriberMessage,
     },
     messages::{ParametersRequest, Path, Request},
@@ -48,9 +47,6 @@ pub enum Message {
         path: String,
         value: Value,
     },
-    ListenToUpdates {
-        notification_sender: mpsc::Sender<()>,
-    },
 }
 
 #[derive(Default)]
@@ -64,11 +60,11 @@ pub async fn parameter_subscription_manager(
     sender: mpsc::Sender<Message>,
     id_tracker: mpsc::Sender<id_tracker::Message>,
     responder: mpsc::Sender<responder::Message>,
+    update_sender: broadcast::Sender<()>,
 ) {
     let mut manager = SubscriptionManager::default();
     let mut requester = None;
     let mut fields = None;
-    let mut notification_senders: Vec<mpsc::Sender<()>> = Vec::new();
 
     while let Some(message) = receiver.recv().await {
         match message {
@@ -165,7 +161,7 @@ pub async fn parameter_subscription_manager(
                         error!("{error}");
                     }
                 }
-                notify_all(&notification_senders).await;
+                let _ = update_sender.send(());
             }
             Message::UpdateFields { fields: new_fields } => {
                 fields = Some(new_fields);
@@ -193,11 +189,6 @@ pub async fn parameter_subscription_manager(
                         }
                     }
                 }
-            }
-            Message::ListenToUpdates {
-                notification_sender,
-            } => {
-                notification_senders.push(notification_sender);
             }
         }
     }

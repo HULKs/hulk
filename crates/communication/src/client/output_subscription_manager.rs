@@ -4,14 +4,13 @@ use color_eyre::Result;
 use log::{error, info, warn};
 use tokio::{
     spawn,
-    sync::{mpsc, oneshot},
+    sync::{broadcast, mpsc, oneshot},
 };
 use uuid::Uuid;
 
 use crate::{
     client::{
         id_tracker::{self, get_message_id},
-        notify::notify_all,
         responder, Output, SubscriberMessage,
     },
     messages::{
@@ -49,9 +48,6 @@ pub enum Message {
     GetOutputFields {
         response_sender: oneshot::Sender<Option<Fields>>,
     },
-    ListenToUpdates {
-        notification_sender: mpsc::Sender<()>,
-    },
 }
 
 #[derive(Default)]
@@ -66,13 +62,13 @@ pub async fn output_subscription_manager(
     sender: mpsc::Sender<Message>,
     id_tracker: mpsc::Sender<id_tracker::Message>,
     responder: mpsc::Sender<responder::Message>,
+    update_sender: broadcast::Sender<()>,
 ) {
     let mut manager = SubscriptionManager::default();
     let mut requester = None;
     let mut fields = None;
     let mut binary_data_waiting_for_references: HashMap<usize, Vec<u8>> = HashMap::new();
     let mut binary_references_waiting_for_data: HashMap<usize, CyclerOutput> = HashMap::new();
-    let mut notification_senders: Vec<mpsc::Sender<()>> = Vec::new();
 
     while let Some(message) = receiver.recv().await {
         match message {
@@ -206,11 +202,11 @@ pub async fn output_subscription_manager(
                         }
                     }
                 }
-                notify_all(&notification_senders).await;
+                let _ = update_sender.send(());
             }
             Message::UpdateFields { fields: new_fields } => {
                 fields = Some(new_fields);
-                notify_all(&notification_senders).await;
+                let _ = update_sender.send(());
             }
             Message::GetOutputFields { response_sender } => {
                 if let Err(error) = response_sender.send(fields.clone()) {
@@ -237,12 +233,7 @@ pub async fn output_subscription_manager(
                         binary_data_waiting_for_references.insert(reference_id, data);
                     }
                 }
-                notify_all(&notification_senders).await;
-            }
-            Message::ListenToUpdates {
-                notification_sender: notify_sender,
-            } => {
-                notification_senders.push(notify_sender);
+                let _ = update_sender.send(());
             }
         }
     }

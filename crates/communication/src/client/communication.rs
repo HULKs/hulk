@@ -4,8 +4,9 @@ use serde_json::Value;
 use tokio::{
     spawn,
     sync::{
+        broadcast,
         mpsc::{self, Receiver},
-        oneshot,
+        oneshot, watch,
     },
 };
 use uuid::Uuid;
@@ -31,6 +32,8 @@ pub struct Communication {
     connector: mpsc::Sender<connector::Message>,
     output_subscription_manager: mpsc::Sender<output_subscription_manager::Message>,
     parameter_subscription_manager: mpsc::Sender<parameter_subscription_manager::Message>,
+    update_sender: broadcast::Sender<()>,
+    connection_status_update_receiver: watch::Receiver<ConnectionStatus>,
 }
 
 impl Communication {
@@ -42,6 +45,12 @@ impl Communication {
             mpsc::channel(10);
         let (id_tracker_sender, id_tracker_receiver) = mpsc::channel(10);
         let (responder_sender, responder_receiver) = mpsc::channel(10);
+        let (update_sender, _) = broadcast::channel(10);
+        let (connection_status_update_sender, connection_status_update_receiver) =
+            watch::channel(ConnectionStatus::Disconnected {
+                address: address.clone(),
+                connect,
+            });
 
         spawn(connector(
             connector_receiver,
@@ -49,6 +58,8 @@ impl Communication {
             output_subscription_manager_sender.clone(),
             parameter_subscription_manager_sender.clone(),
             responder_sender.clone(),
+            update_sender.clone(),
+            connection_status_update_sender,
             address,
             connect,
         ));
@@ -57,12 +68,14 @@ impl Communication {
             output_subscription_manager_sender.clone(),
             id_tracker_sender.clone(),
             responder_sender.clone(),
+            update_sender.clone(),
         ));
         spawn(parameter_subscription_manager(
             parameter_subscription_manager_receiver,
             parameter_subscription_manager_sender.clone(),
             id_tracker_sender,
             responder_sender,
+            update_sender.clone(),
         ));
         spawn(id_tracker(id_tracker_receiver));
         spawn(responder(responder_receiver));
@@ -71,6 +84,8 @@ impl Communication {
             connector: connector_sender,
             output_subscription_manager: output_subscription_manager_sender,
             parameter_subscription_manager: parameter_subscription_manager_sender,
+            update_sender,
+            connection_status_update_receiver,
         }
     }
 
@@ -88,31 +103,12 @@ impl Communication {
             .unwrap();
     }
 
-    pub async fn subscribe_connection_updates(&self) -> Receiver<ConnectionStatus> {
-        let (subscriber_sender, subscriber_receiver) = mpsc::channel(10);
-        self.connector
-            .send(connector::Message::SubscribeToUpdates(subscriber_sender))
-            .await
-            .unwrap();
-        subscriber_receiver
+    pub fn subscribe_connection_status_updates(&self) -> watch::Receiver<ConnectionStatus> {
+        self.connection_status_update_receiver.clone()
     }
 
-    pub async fn on_update(&self) -> mpsc::Receiver<()> {
-        let (notification_sender, notification_receiver) = mpsc::channel(10);
-        self.output_subscription_manager
-            .send(output_subscription_manager::Message::ListenToUpdates {
-                notification_sender: notification_sender.clone(),
-            })
-            .await
-            .unwrap();
-        self.parameter_subscription_manager
-            .send(parameter_subscription_manager::Message::ListenToUpdates {
-                notification_sender,
-            })
-            .await
-            .unwrap();
-
-        notification_receiver
+    pub fn subscribe_updates(&self) -> broadcast::Receiver<()> {
+        self.update_sender.subscribe()
     }
 
     pub async fn subscribe_output(

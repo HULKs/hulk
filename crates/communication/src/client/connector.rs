@@ -6,7 +6,11 @@ use log::{error, info, warn};
 use tokio::{
     net::TcpStream,
     spawn,
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::{
+        broadcast,
+        mpsc::{channel, Receiver, Sender},
+        watch,
+    },
     task::JoinHandle,
     time::sleep,
 };
@@ -19,7 +23,6 @@ use crate::client::{
 
 #[derive(Debug)]
 pub enum Message {
-    SubscribeToUpdates(Sender<ConnectionStatus>),
     SetConnect(bool),
     SetAddress(String),
     ReconnectTimerElapsed,
@@ -56,12 +59,15 @@ pub enum ConnectionStatus {
     },
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn connector(
     mut receiver: Receiver<Message>,
     sender: Sender<Message>,
     output_subscription_manager: Sender<output_subscription_manager::Message>,
     parameter_subscription_manager: Sender<parameter_subscription_manager::Message>,
     responder: Sender<responder::Message>,
+    update_sender: broadcast::Sender<()>,
+    connection_status_update_sender: watch::Sender<ConnectionStatus>,
     initial_address: Option<String>,
     initial_connect: bool,
 ) {
@@ -76,18 +82,12 @@ pub async fn connector(
         (address, connect) => ConnectionState::Disconnected { address, connect },
     };
 
-    let mut subscribers = Vec::new();
-
     while let Some(message) = receiver.recv().await {
         status = match status {
             ConnectionState::Disconnected {
                 connect: false,
                 address: None,
             } => match message {
-                Message::SubscribeToUpdates(sender) => {
-                    subscribers.push(sender);
-                    status
-                }
                 Message::SetConnect(new_connect) => ConnectionState::Disconnected {
                     connect: new_connect,
                     address: None,
@@ -104,13 +104,6 @@ pub async fn connector(
                 connect: false,
                 address: Some(address),
             } => match message {
-                Message::SubscribeToUpdates(sender) => {
-                    subscribers.push(sender);
-                    ConnectionState::Disconnected {
-                        address: Some(address),
-                        connect: false,
-                    }
-                }
                 Message::SetConnect(true) => {
                     let ongoing_connection = spawn_connect(address.clone(), sender.clone());
                     ConnectionState::Connecting {
@@ -143,10 +136,6 @@ pub async fn connector(
                 connect: true,
                 address: None,
             } => match message {
-                Message::SubscribeToUpdates(sender) => {
-                    subscribers.push(sender);
-                    status
-                }
                 Message::SetConnect(false) => ConnectionState::Disconnected {
                     connect: false,
                     address: None,
@@ -170,13 +159,6 @@ pub async fn connector(
                 connect: true,
                 address: Some(address),
             } => match message {
-                Message::SubscribeToUpdates(sender) => {
-                    subscribers.push(sender);
-                    ConnectionState::Disconnected {
-                        address: Some(address),
-                        connect: true,
-                    }
-                }
                 Message::SetConnect(false) => ConnectionState::Disconnected {
                     connect: false,
                     address: Some(address),
@@ -203,13 +185,6 @@ pub async fn connector(
                 address,
                 ongoing_connection,
             } => match message {
-                Message::SubscribeToUpdates(sender) => {
-                    subscribers.push(sender);
-                    ConnectionState::Connecting {
-                        address,
-                        ongoing_connection,
-                    }
-                }
                 Message::SetConnect(false) => {
                     ongoing_connection.abort();
                     ConnectionState::Disconnected {
@@ -272,10 +247,6 @@ pub async fn connector(
                 },
             },
             ConnectionState::Connected { address } => match message {
-                Message::SubscribeToUpdates(sender) => {
-                    subscribers.push(sender);
-                    ConnectionState::Connected { address }
-                }
                 Message::SetConnect(false) => {
                     output_subscription_manager
                         .send(output_subscription_manager::Message::Disconnect)
@@ -345,7 +316,9 @@ pub async fn connector(
                 address: address.to_string(),
             },
         };
-        subscribers.retain(|sender| sender.try_send(status.clone()).is_ok())
+
+        connection_status_update_sender.send_replace(status.clone());
+        let _ = update_sender.send(());
     }
 }
 

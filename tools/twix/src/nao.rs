@@ -9,6 +9,7 @@ use serde_json::Value;
 use tokio::{
     runtime::{Builder, Runtime},
     spawn,
+    sync::{broadcast::error::RecvError, watch},
 };
 
 use crate::{image_buffer::ImageBuffer, value_buffer::ValueBuffer};
@@ -17,6 +18,7 @@ pub struct Nao {
     communication: Communication,
     runtime: Runtime,
     address: Mutex<Option<String>>,
+    connection_status_receiver: watch::Receiver<ConnectionStatus>,
 }
 
 impl Nao {
@@ -29,10 +31,13 @@ impl Nao {
                 .map(|ip_address| ip_address_to_communication_url(ip_address)),
             connect,
         );
+        let connection_status_receiver = communication.subscribe_connection_status_updates();
+
         Self {
             communication,
             runtime,
             address: Mutex::new(address),
+            connection_status_receiver,
         }
     }
 
@@ -67,12 +72,6 @@ impl Nao {
         ValueBuffer::parameter(self.communication.clone(), path.to_string())
     }
 
-    pub fn subscribe_status_updates(&self) -> tokio::sync::mpsc::Receiver<ConnectionStatus> {
-        let _guard = self.runtime.enter();
-        self.runtime
-            .block_on(self.communication.subscribe_connection_updates())
-    }
-
     pub fn get_address(&self) -> Option<String> {
         self.address.lock().unwrap().clone()
     }
@@ -92,6 +91,10 @@ impl Nao {
             .block_on(self.communication.update_parameter_value(path, value));
     }
 
+    pub fn connection_status(&self) -> ConnectionStatus {
+        self.connection_status_receiver.borrow().clone()
+    }
+
     pub fn on_update<F>(&self, callback: F)
     where
         F: Fn() + Sync + Send + 'static,
@@ -100,8 +103,8 @@ impl Nao {
 
         let communication = self.communication.clone();
         spawn(async move {
-            let mut receiver = communication.on_update().await;
-            while receiver.recv().await.is_some() {
+            let mut receiver = communication.subscribe_updates();
+            while !matches!(receiver.recv().await, Err(RecvError::Closed)) {
                 callback();
             }
         });
