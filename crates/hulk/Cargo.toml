@@ -12,6 +12,7 @@ color-eyre = { workspace = true }
 communication = { workspace = true, features = ["server"] }
 control = { workspace = true }
 framework = { workspace = true }
+geometry = { workspace = true }
 hardware = { workspace = true }
 ittapi = {  workspace = true }
 nalgebra = { workspace = true }

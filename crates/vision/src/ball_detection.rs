@@ -2,6 +2,7 @@ use color_eyre::Result;
 use compiled_nn::CompiledNN;
 use context_attribute::context;
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
+use geometry::{circle::Circle, rectangle::Rectangle};
 use hardware::PathsInterface;
 use nalgebra::{point, vector, Vector2};
 use projection::Projection;
@@ -9,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use types::{
     ball::{Ball, CandidateEvaluation},
     camera_matrix::CameraMatrix,
-    geometry::{Circle, Rectangle},
     parameters::BallDetectionParameters,
     perspective_grid_candidates::PerspectiveGridCandidates,
     ycbcr422_image::YCbCr422Image,

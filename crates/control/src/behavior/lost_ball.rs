@@ -1,7 +1,7 @@
 use framework::AdditionalOutput;
+use geometry::look_at::LookAt;
 use nalgebra::Point2;
 use types::{
-    geometry::rotate_towards,
     motion_command::HeadMotion,
     motion_command::{MotionCommand, OrientationMode},
     parameters::LostBallParameters,
@@ -23,7 +23,8 @@ pub fn execute(
         * (absolute_last_known_ball_position - lost_ball_parameters.offset_to_last_ball_location);
     let relative_last_known_ball_position =
         robot_to_field.inverse() * absolute_last_known_ball_position;
-    let orientation = rotate_towards(Point2::origin(), relative_last_known_ball_position);
+
+    let orientation = Point2::origin().look_at(&relative_last_known_ball_position);
     let path = walk_path_planner.plan(
         walk_target,
         robot_to_field,

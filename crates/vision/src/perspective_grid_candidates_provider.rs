@@ -3,13 +3,13 @@ use std::collections::HashSet;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use geometry::circle::Circle;
 use nalgebra::{point, vector, Point2, Vector2};
 use projection::Projection;
 use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
     filtered_segments::FilteredSegments,
-    geometry::Circle,
     image_segments::{ScanLine, Segment},
     line_data::LineData,
     perspective_grid_candidates::PerspectiveGridCandidates,

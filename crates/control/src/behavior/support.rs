@@ -1,11 +1,11 @@
 use std::f32::consts::FRAC_PI_4;
 
 use framework::AdditionalOutput;
+use geometry::look_at::LookAt;
 use nalgebra::{point, Isometry2, UnitComplex, Vector2};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_state::FilteredGameState,
-    geometry::rotate_towards,
     motion_command::MotionCommand,
     path_obstacles::PathObstacle,
     support_foot::Side,
@@ -74,7 +74,7 @@ fn support_pose(
     let clamped_position = point![clamped_x, clamped_y];
     let support_pose = Isometry2::new(
         clamped_position.coords,
-        rotate_towards(clamped_position, ball.ball_in_field).angle(),
+        clamped_position.look_at(&ball.ball_in_field).angle(),
     );
     Some(robot_to_field.inverse() * support_pose)
 }

@@ -1,7 +1,7 @@
+use geometry::look_at::LookAt;
 use nalgebra::{Isometry2, Point2};
 
 use types::{
-    geometry::rotate_towards,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
     planned_path::PathSegment,
@@ -62,7 +62,7 @@ pub fn execute(
         types::motion_command::OrientationMode::AlignWithPath
             if ball_position.coords.norm() > 0.0 =>
         {
-            OrientationMode::Override(rotate_towards(Point2::origin(), ball_position))
+            OrientationMode::Override(Point2::origin().look_at(&ball_position))
         }
         orientation_mode => orientation_mode,
     };

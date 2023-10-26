@@ -1,12 +1,12 @@
 use std::ops::Range;
 
 use framework::AdditionalOutput;
+use geometry::look_at::LookAt;
 use nalgebra::{distance, point, vector, Isometry2, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
     game_controller_state::GameControllerState,
-    geometry::rotate_towards,
     line::Line,
     motion_command::MotionCommand,
     parameters::RolePositionsParameters,
@@ -253,7 +253,7 @@ pub fn block_on_circle(
     let block_position = target + target_to_ball.normalize() * distance_to_target;
     Isometry2::new(
         block_position.coords,
-        rotate_towards(block_position, ball_position).angle(),
+        block_position.look_at(&ball_position).angle(),
     )
 }
 
@@ -279,7 +279,7 @@ fn block_on_line(
         ];
         Isometry2::new(
             defense_position.coords,
-            rotate_towards(defense_position, ball_position).angle(),
+            defense_position.look_at(&ball_position).angle(),
         )
     } else {
         let defense_position = point![
@@ -288,7 +288,7 @@ fn block_on_line(
         ];
         Isometry2::new(
             defense_position.coords,
-            rotate_towards(defense_position, ball_position).angle(),
+            defense_position.look_at(&ball_position).angle(),
         )
     }
 }

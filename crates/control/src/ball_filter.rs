@@ -4,6 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
+use geometry::circle::Circle;
 use nalgebra::{matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2};
 use projection::Projection;
 use serde::{Deserialize, Serialize};
@@ -14,7 +15,6 @@ use types::{
     camera_matrix::{CameraMatrices, CameraMatrix},
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
-    geometry::Circle,
     limb::{is_above_limbs, Limb, ProjectedLimbs},
     multivariate_normal_distribution::MultivariateNormalDistribution,
     parameters::BallFilterParameters,

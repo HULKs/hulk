@@ -3,13 +3,15 @@ use std::cmp::Ordering;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
+use geometry::{
+    circle::Circle, line_segment::LineSegment, look_at::LookAt, two_line_segments::TwoLineSegments,
+};
 use itertools::iproduct;
 use nalgebra::{distance, point, vector, Isometry2, Point2, UnitComplex, Vector2};
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::FieldDimensions,
-    geometry::{rotate_towards, Circle, LineSegment, TwoLineSegments},
     kick_decision::KickDecision,
     kick_target::KickTarget,
     motion_command::KickVariant,
@@ -429,7 +431,7 @@ fn compute_kick_pose(
     kick_info: &InWalkKickInfoParameters,
     side: Side,
 ) -> Isometry2<f32> {
-    let kick_rotation = rotate_towards(ball_position, target_to_kick_to);
+    let kick_rotation = ball_position.look_at(&target_to_kick_to);
     let ball_to_ground = Isometry2::from(ball_position.coords);
     let shot_angle = UnitComplex::new(kick_info.shot_angle);
     let offset_to_ball = kick_info.offset;

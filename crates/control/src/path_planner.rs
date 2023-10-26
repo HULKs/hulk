@@ -1,11 +1,11 @@
 use color_eyre::{eyre::eyre, Result};
+use geometry::{arc::Arc, circle::Circle, line_segment::LineSegment, orientation::Orientation};
 use nalgebra::{distance, point, vector, Isometry2, Point2, UnitComplex};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
 
 use types::{
     field_dimensions::FieldDimensions,
-    geometry::{Arc, Circle, LineSegment, Orientation},
     motion_command::MotionCommand,
     obstacles::Obstacle,
     path_obstacles::{PathObstacle, PathObstacleShape},
@@ -546,7 +546,6 @@ mod tests {
     use nalgebra::point;
 
     use super::*;
-    use types::geometry::Circle;
 
     fn run_test_scenario(
         start: Point2<f32>,

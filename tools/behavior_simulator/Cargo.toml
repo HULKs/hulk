@@ -17,6 +17,7 @@ control = { workspace = true }
 ctrlc = { workspace = true }
 fern = { workspace = true }
 framework = { workspace = true }
+geometry = { workspace = true }
 hardware = { workspace = true }
 ittapi = { workspace = true }
 log = { workspace = true }
