@@ -56,7 +56,7 @@ impl SearchSuggestor {
         );
         let maximum_heat_heatmap_position = self.heatmap.iamax_full();
         let mut suggested_search_position: Option<Point2<f32>> = None;
-        if self.heatmap[maximum_heat_heatmap_position] > 0.1 {
+        if self.heatmap[maximum_heat_heatmap_position] > 0.001 {
             let mut search_suggestion = Point2::new(
                 maximum_heat_heatmap_position.0 as f32
                     / context.search_suggestor_configuration.cells_per_meter as f32,
@@ -136,6 +136,14 @@ impl SearchSuggestor {
             y_position = (collum_count / 2)
                 - (hypothesis_position.y.abs() * cells_per_meter as f32).round() as usize;
         }
+        if 0 >= x_position || row_count < x_position{
+            x_position = row_count;
+        } 
+        if 0 >= y_position || collum_count < y_position{
+            y_position = collum_count;
+        } 
+        x_position -= 1;
+        y_position -= 1;
         return (x_position, y_position);
     }
 }
