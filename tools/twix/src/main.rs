@@ -170,14 +170,13 @@ impl App for TwixApp {
                         self.nao.set_address(&self.ip_address);
                     }
                     let (connect_text, color) = match self.nao.connection_status() {
-                        ConnectionStatus::Disconnected { connect, .. } => (
-                            "Connect",
+                        ConnectionStatus::Disconnected { connect, .. } => {
                             if connect {
-                                Color32::RED
+                                ("Connecting", Color32::RED)
                             } else {
-                                Color32::WHITE
-                            },
-                        ),
+                                ("Disconnected", Color32::WHITE)
+                            }
+                        }
                         ConnectionStatus::Connecting { .. } => ("Connecting", Color32::YELLOW),
                         ConnectionStatus::Connected { .. } => ("Connected", Color32::GREEN),
                     };
