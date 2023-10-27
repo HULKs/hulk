@@ -137,7 +137,7 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
             std::thread::Builder::new()
                 .name("Recording".to_string())
                 .spawn(move || -> color_eyre::Result<()> {
-                    fn recording_loop(recording_receiver: std::sync::mpsc::Receiver<crate::cyclers::RecordingFrame>) -> color_eyre::Result<()> {
+                    let result = (|| {
                         use std::io::Write;
                         let seconds = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_secs();
                         #(#file_creations)*
@@ -147,9 +147,8 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
                             }
                         }
                         Ok(())
-                    }
+                    })();
 
-                    let result = recording_loop(recording_receiver);
                     keep_running.cancel();
                     result
                 })
