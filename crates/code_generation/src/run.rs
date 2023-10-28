@@ -40,6 +40,9 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
             let recording_thread = #recording_thread;
 
             #construct_cyclers
+            // Drop sender to cause channel to close once all cyclers exit,
+            // otherwise the recording thread waits forever
+            drop(recording_sender);
 
             #start_cyclers
 
