@@ -1,6 +1,6 @@
 use std::{
     collections::BTreeSet,
-    iter::once,
+    iter::empty,
     ops::{Index, IndexMut},
 };
 
@@ -303,7 +303,7 @@ where
     }
 
     fn get_fields() -> BTreeSet<String> {
-        once(String::new())
+        empty()
             .chain(
                 T::get_fields()
                     .into_iter()
