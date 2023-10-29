@@ -1,15 +1,12 @@
-use std::{
-    collections::BTreeSet,
-    iter::empty,
-    ops::{Index, IndexMut},
-};
+use std::ops::{Index, IndexMut};
 
 use color_eyre::Result;
-use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
-use serialize_hierarchy::{Error, SerializeHierarchy};
+use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{Penalty, PlayerNumber, TeamState};
 
-#[derive(Clone, Copy, Default, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Default, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
 pub struct Players<T> {
     pub one: T,
     pub two: T,
@@ -128,7 +125,10 @@ impl<'a, T> Iterator for PlayersIterator<'a, T> {
     }
 }
 
-impl<'a, T> DoubleEndedIterator for PlayersIterator<'a, T> {
+impl<'a, T> DoubleEndedIterator for PlayersIterator<'a, T>
+where
+    T: SerializeHierarchy,
+{
     fn next_back(&mut self) -> Option<Self::Item> {
         let result = self.next_back.map(|number| (number, &self.data[number]));
         if self.next_forward == self.next_back {
@@ -149,197 +149,19 @@ impl<'a, T> DoubleEndedIterator for PlayersIterator<'a, T> {
     }
 }
 
-impl<'a, T> ExactSizeIterator for PlayersIterator<'a, T> {
+impl<'a, T> ExactSizeIterator for PlayersIterator<'a, T>
+where
+    T: SerializeHierarchy,
+{
     // The default implementation only requires `Iterator::size_hint()` to be exact
 }
 
-impl<T> Players<T> {
+impl<T> Players<T>
+where
+    T: SerializeHierarchy,
+{
     pub fn iter(&self) -> PlayersIterator<'_, T> {
         PlayersIterator::new(self)
-    }
-}
-
-impl<T> SerializeHierarchy for Players<T>
-where
-    T: Serialize + DeserializeOwned + SerializeHierarchy,
-{
-    fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
-    where
-        S: Serializer,
-    {
-        let split = path.split_once('.');
-        match split {
-            Some((name, suffix)) => match name {
-                "one" => self.one.serialize_path(suffix, serializer),
-                "two" => self.two.serialize_path(suffix, serializer),
-                "three" => self.three.serialize_path(suffix, serializer),
-                "four" => self.four.serialize_path(suffix, serializer),
-                "five" => self.five.serialize_path(suffix, serializer),
-                "six" => self.six.serialize_path(suffix, serializer),
-                "seven" => self.seven.serialize_path(suffix, serializer),
-                name => Err(Error::UnexpectedPathSegment {
-                    segment: name.to_string(),
-                }),
-            },
-            None => match path {
-                "one" => self
-                    .one
-                    .serialize(serializer)
-                    .map_err(Error::SerializationFailed),
-                "two" => self
-                    .two
-                    .serialize(serializer)
-                    .map_err(Error::SerializationFailed),
-                "three" => self
-                    .three
-                    .serialize(serializer)
-                    .map_err(Error::SerializationFailed),
-                "four" => self
-                    .four
-                    .serialize(serializer)
-                    .map_err(Error::SerializationFailed),
-                "five" => self
-                    .five
-                    .serialize(serializer)
-                    .map_err(Error::SerializationFailed),
-                "six" => self
-                    .six
-                    .serialize(serializer)
-                    .map_err(Error::SerializationFailed),
-                "seven" => self
-                    .seven
-                    .serialize(serializer)
-                    .map_err(Error::SerializationFailed),
-                name => Err(Error::UnexpectedPathSegment {
-                    segment: name.to_string(),
-                }),
-            },
-        }
-    }
-
-    fn deserialize_path<'de, D>(
-        &mut self,
-        path: &str,
-        deserializer: D,
-    ) -> Result<(), Error<D::Error>>
-    where
-        D: Deserializer<'de>,
-    {
-        let split = path.split_once('.');
-        match split {
-            Some((name, suffix)) => match name {
-                "one" => self.one.deserialize_path(suffix, deserializer),
-                "two" => self.two.deserialize_path(suffix, deserializer),
-                "three" => self.three.deserialize_path(suffix, deserializer),
-                "four" => self.four.deserialize_path(suffix, deserializer),
-                "five" => self.five.deserialize_path(suffix, deserializer),
-                "six" => self.six.deserialize_path(suffix, deserializer),
-                "seven" => self.seven.deserialize_path(suffix, deserializer),
-                name => Err(Error::UnexpectedPathSegment {
-                    segment: name.to_string(),
-                }),
-            },
-            None => match path {
-                "one" => {
-                    self.one =
-                        T::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
-                    Ok(())
-                }
-                "two" => {
-                    self.two =
-                        T::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
-                    Ok(())
-                }
-                "three" => {
-                    self.three =
-                        T::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
-                    Ok(())
-                }
-                "four" => {
-                    self.four =
-                        T::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
-                    Ok(())
-                }
-                "five" => {
-                    self.five =
-                        T::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
-                    Ok(())
-                }
-                "six" => {
-                    self.six =
-                        T::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
-                    Ok(())
-                }
-                "seven" => {
-                    self.seven =
-                        T::deserialize(deserializer).map_err(Error::DeserializationFailed)?;
-                    Ok(())
-                }
-                name => Err(Error::UnexpectedPathSegment {
-                    segment: name.to_string(),
-                }),
-            },
-        }
-    }
-
-    fn exists(path: &str) -> bool {
-        let split = path.split_once('.');
-        match split {
-            Some((name, suffix)) => match name {
-                "one" => T::exists(suffix),
-                "two" => T::exists(suffix),
-                "three" => T::exists(suffix),
-                "four" => T::exists(suffix),
-                "five" => T::exists(suffix),
-                "six" => T::exists(suffix),
-                "seven" => T::exists(suffix),
-                _ => false,
-            },
-            None => matches!(
-                path,
-                "one" | "two" | "three" | "four" | "five" | "six" | "seven"
-            ),
-        }
-    }
-
-    fn get_fields() -> BTreeSet<String> {
-        empty()
-            .chain(
-                T::get_fields()
-                    .into_iter()
-                    .map(|name| format!("one.{name}")),
-            )
-            .chain(
-                T::get_fields()
-                    .into_iter()
-                    .map(|name| format!("two.{name}")),
-            )
-            .chain(
-                T::get_fields()
-                    .into_iter()
-                    .map(|name| format!("three.{name}")),
-            )
-            .chain(
-                T::get_fields()
-                    .into_iter()
-                    .map(|name| format!("four.{name}")),
-            )
-            .chain(
-                T::get_fields()
-                    .into_iter()
-                    .map(|name| format!("five.{name}")),
-            )
-            .chain(
-                T::get_fields()
-                    .into_iter()
-                    .map(|name| format!("six.{name}")),
-            )
-            .chain(
-                T::get_fields()
-                    .into_iter()
-                    .map(|name| format!("seven.{name}")),
-            )
-            .collect()
     }
 }
 
