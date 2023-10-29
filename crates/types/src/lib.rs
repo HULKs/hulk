@@ -74,3 +74,4 @@ pub mod walk_command;
 pub mod whistle;
 pub mod world_state;
 pub mod ycbcr422_image;
+pub mod object_detection;

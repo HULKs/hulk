@@ -12,4 +12,4 @@ pub mod line_detection;
 pub mod perspective_grid_candidates_provider;
 mod ransac;
 pub mod segment_filter;
-pub mod semantic_segmentation;
+pub mod single_shot_detection;

@@ -3,11 +3,12 @@ use color_eyre::{
     Result,
 };
 use context_attribute::context;
-use framework::AdditionalOutput;
+use framework::deserialize_not_implemented;
 use hardware::PathsInterface;
 use itertools::Itertools;
-use ndarray::{Array2, ArrayView};
+use ndarray::Array2;
 use openvino::{Blob, Core, ExecutableNetwork, Layout, Precision, TensorDesc};
+use serde::{Deserialize, Serialize};
 use types::{
     color::{Rgb, YCbCr422, YCbCr444},
     ycbcr422_image::YCbCr422Image,
@@ -17,19 +18,19 @@ const DETECTION_IMAGE_WIDTH: usize = 160;
 const DETECTION_IMAGE_HEIGHT: usize = 120;
 const DETECTION_NUMBER_CHANNELS: usize = 3;
 
-const DETECTION_SCRATCHPAD_SIZE: usize = DETECTION_IMAGE_HEIGHT
-    * DETECTION_IMAGE_WIDTH
-    * DETECTION_NUMBER_CHANNELS;
+const DETECTION_SCRATCHPAD_SIZE: usize =
+    DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH * DETECTION_NUMBER_CHANNELS;
 type Scratchpad = [f32; DETECTION_SCRATCHPAD_SIZE];
 
+#[derive(Deserialize, Serialize)]
 pub struct SingleShotDetection {
+    #[serde(skip, default = "deserialize_not_implemented")]
     scratchpad: Scratchpad,
+    #[serde(skip, default = "deserialize_not_implemented")]
     network: ExecutableNetwork,
 
     input_name: String,
     output_name: String,
-
-    class_frequency: Vec<f32>,
 }
 
 #[context]
@@ -51,34 +52,35 @@ impl SingleShotDetection {
         let paths = context.hardware_interface.get_paths();
         let neural_network_folder = paths.neural_networks;
 
-        let model_path = neural_network_folder.join("segmentation_down4_rgb_nchw-ov.xml");
-        let weights_path = neural_network_folder.join("segmentation_down4_rgb_nchw-ov.bin");
+        let model_path = dbg!(neural_network_folder.join("mobilenetv3_120_160_model-ov.xml"));
+        let weights_path = dbg!(neural_network_folder.join("mobilenetv3_120_160_model-ov.bin"));
+
 
         let mut core = Core::new(None)?;
         let mut network = core
             .read_network_from_file(
                 model_path
                     .to_str()
-                    .wrap_err("failed to get semantic segmentation model path")?,
+                    .wrap_err("failed to get detection model path")?,
                 weights_path
                     .to_str()
-                    .wrap_err("failed to get semantic segmentation weights path")?,
+                    .wrap_err("failed to get detection weights path")?,
             )
-            .wrap_err("failed to create semantic segmentation network")?;
-
-        network
-            .set_input_layout("data", Layout::NCHW)
-            .wrap_err("failed to set input data format")?;
+            .wrap_err("failed to create detection network")?;
 
         let input_name = network.get_input_name(0)?;
         let output_name = network.get_output_name(0)?;
+        
+        network
+            .set_input_layout(&input_name, Layout::NCHW)
+            .wrap_err("failed to set input data format")?;
+
 
         Ok(Self {
             scratchpad: [0.; DETECTION_SCRATCHPAD_SIZE],
             network: core.load_network(&network, "CPU")?,
             input_name,
             output_name,
-            class_frequency: vec![0.; 4],
         })
     }
 
@@ -202,8 +204,7 @@ impl SingleShotDetection {
         assert_eq!(downsampled_width, DETECTION_IMAGE_WIDTH);
 
         let mut scratchpad_index = 0;
-        const STRIDE: usize =
-            DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH;
+        const STRIDE: usize = DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH;
 
         for row in image.buffer().chunks(width / 2).step_by(DOWNSAMPLE_RATIO) {
             for pixel in row.iter().step_by(DOWNSAMPLE_RATIO / 2) {
