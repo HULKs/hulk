@@ -125,10 +125,7 @@ impl<'a, T> Iterator for PlayersIterator<'a, T> {
     }
 }
 
-impl<'a, T> DoubleEndedIterator for PlayersIterator<'a, T>
-where
-    T: SerializeHierarchy,
-{
+impl<'a, T> DoubleEndedIterator for PlayersIterator<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let result = self.next_back.map(|number| (number, &self.data[number]));
         if self.next_forward == self.next_back {
@@ -149,17 +146,11 @@ where
     }
 }
 
-impl<'a, T> ExactSizeIterator for PlayersIterator<'a, T>
-where
-    T: SerializeHierarchy,
-{
+impl<'a, T> ExactSizeIterator for PlayersIterator<'a, T> {
     // The default implementation only requires `Iterator::size_hint()` to be exact
 }
 
-impl<T> Players<T>
-where
-    T: SerializeHierarchy,
-{
+impl<T> Players<T> {
     pub fn iter(&self) -> PlayersIterator<'_, T> {
         PlayersIterator::new(self)
     }
