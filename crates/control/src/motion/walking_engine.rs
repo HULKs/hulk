@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use color_eyre::Result;
 use context_attribute::context;
+use energy_optimization::current_minimizer::CurrentMinimizer;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use log::warn;
@@ -13,7 +14,10 @@ use types::{
     motion_command::{KickVariant, MotionCommand},
     motion_selection::{MotionSafeExits, MotionType},
     motor_commands::MotorCommands,
-    parameters::{KickStepsParameters, StepPlannerParameters, WalkingEngineParameters},
+    parameters::{
+        CurrentMinimizerParameters, KickStepsParameters, StepPlannerParameters,
+        WalkingEngineParameters,
+    },
     robot_kinematics::RobotKinematics,
     sensor_data::{InertialMeasurementUnitData, SensorData},
     step_adjustment::StepAdjustment,
@@ -113,11 +117,15 @@ pub struct WalkingEngine {
 
     forward_adjustment_was_active: bool,
     backward_adjustment_was_active: bool,
+
+    current_minimizer: CurrentMinimizer,
 }
 
 #[context]
 pub struct CreationContext {
-    config: Parameter<WalkingEngineParameters, "walking_engine">,
+    walking_engine_parameters: Parameter<WalkingEngineParameters, "walking_engine">,
+    current_minimizer_parameters:
+        Parameter<CurrentMinimizerParameters, "current_minimizer_parameters">,
 }
 
 #[context]
@@ -157,18 +165,22 @@ impl WalkingEngine {
         Ok(Self {
             filtered_gyro: LowPassFilter::with_smoothing_factor(
                 Vector2::default(),
-                context.config.gyro_low_pass_factor,
+                context.walking_engine_parameters.gyro_low_pass_factor,
             ),
             filtered_imu_pitch: LowPassFilter::with_smoothing_factor(
                 0.0,
-                context.config.imu_pitch_low_pass_factor,
+                context.walking_engine_parameters.imu_pitch_low_pass_factor,
             ),
             filtered_robot_tilt_shift: LowPassFilter::with_smoothing_factor(
                 0.0,
-                context.config.tilt_shift_low_pass_factor,
+                context.walking_engine_parameters.tilt_shift_low_pass_factor,
             ),
             left_arm: SwingingArm::new(Side::Left),
             right_arm: SwingingArm::new(Side::Right),
+            current_minimizer: CurrentMinimizer {
+                parameters: *context.current_minimizer_parameters,
+                ..Default::default()
+            },
             ..Default::default()
         })
     }
@@ -378,8 +390,22 @@ impl WalkingEngine {
             right_leg: LegJoints::fill(leg_stiffness),
         };
 
-        Ok(MainOutputs {
-            walk_motor_commands: MotorCommands {
+        let walk_joints_commands = if matches!(self.walk_state, WalkState::Standing) {
+            let unoptimized_walk_joints_command = MotorCommands {
+                positions: BodyJoints {
+                    left_arm,
+                    right_arm,
+                    left_leg,
+                    right_leg,
+                },
+                stiffnesses,
+            };
+            self.current_minimizer.optimize_body(
+                context.sensor_data.currents,
+                unoptimized_walk_joints_command,
+            )
+        } else {
+            MotorCommands {
                 positions: BodyJoints {
                     left_arm,
                     right_arm,
@@ -388,7 +414,10 @@ impl WalkingEngine {
                 },
                 stiffnesses,
             }
-            .into(),
+        };
+
+        Ok(MainOutputs {
+            walk_motor_commands: walk_joints_commands.into(),
         })
     }
 

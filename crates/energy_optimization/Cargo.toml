@@ -1,32 +1,29 @@
 [package]
-name = "control"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-homepage.workspace = true
+name = "energy_optimization"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
 approx = { workspace = true }
 bincode = { workspace = true }
 color-eyre = { workspace = true }
 context_attribute = { workspace = true }
-coordinate_systems = { workspace = true }
 filtering = { workspace = true }
 framework = { workspace = true }
-geometry = { workspace = true }
 hardware = { workspace = true }
 itertools = { workspace = true }
 kinematics = { workspace = true }
 log = { workspace = true }
 motionfile = { workspace = true }
 nalgebra = { workspace = true }
-num-traits = {workspace = true}
 ordered-float = { workspace = true }
 projection = { workspace = true }
 rand = {workspace = true}
+num-traits = {workspace = true}
 serde = { workspace = true }
 serialize_hierarchy = { workspace = true }
 smallvec = { workspace = true }
 spl_network_messages = { workspace = true }
 types = { workspace = true }
-energy_optimization = { workspace = true }
