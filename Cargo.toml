@@ -12,6 +12,7 @@ members = [
   "crates/control",
   "crates/coordinate_systems",
   "crates/filtering",
+  "crates/energy_optimization",
   "crates/framework",
   "crates/geometry",
   "crates/hardware",
@@ -41,6 +42,7 @@ members = [
   "tools/localizer",
   "tools/pepsi",
   "tools/twix",
+  "crates/energy_optimization"
 ]
 # HuLA and Aliveness are built independently by yocto
 exclude = ["tools/aliveness", "tools/breeze", "tools/hula"]
@@ -90,6 +92,7 @@ enum-iterator = "1.4.1"
 fast_image_resize = "2.6.0"
 fern = { version = "0.6.1", features = ["colored"] }
 filtering = { path = "crates/filtering" }
+energy_optimization = { path = "crates/energy_optimization" }
 framework = { path = "crates/framework" }
 futures-util = "0.3.24"
 fuzzy-matcher = "0.3.7"
