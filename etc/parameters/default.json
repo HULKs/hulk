@@ -1,4 +1,14 @@
 {
+  "detection": {
+    "vision_top": {
+      "iou_threshold": 0.45,
+      "confidence_threshold": 0.2
+    },
+    "vision_bottom": {
+      "iou_threshold": 0.45,
+      "confidence_threshold": 0.2
+    }
+  },
   "whistle_detection": {
     "detection_band": {
       "start": 2000,

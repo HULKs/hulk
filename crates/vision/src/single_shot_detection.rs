@@ -6,17 +6,19 @@ use context_attribute::context;
 use framework::deserialize_not_implemented;
 use hardware::PathsInterface;
 use itertools::Itertools;
-use ndarray::Array2;
+use ndarray::{Array2, ArrayView, ArrayView2};
 use openvino::{Blob, Core, ExecutableNetwork, Layout, Precision, TensorDesc};
 use serde::{Deserialize, Serialize};
 use types::{
     color::{Rgb, YCbCr422, YCbCr444},
+    object_detection::DetectedObject,
     ycbcr422_image::YCbCr422Image,
 };
 
 const DETECTION_IMAGE_WIDTH: usize = 160;
 const DETECTION_IMAGE_HEIGHT: usize = 120;
 const DETECTION_NUMBER_CHANNELS: usize = 3;
+const MAX_DETECTION: usize = 160;
 
 const DETECTION_SCRATCHPAD_SIZE: usize =
     DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH * DETECTION_NUMBER_CHANNELS;
@@ -55,7 +57,6 @@ impl SingleShotDetection {
         let model_path = dbg!(neural_network_folder.join("mobilenetv3_120_160_model-ov.xml"));
         let weights_path = dbg!(neural_network_folder.join("mobilenetv3_120_160_model-ov.bin"));
 
-
         let mut core = Core::new(None)?;
         let mut network = core
             .read_network_from_file(
@@ -70,11 +71,10 @@ impl SingleShotDetection {
 
         let input_name = network.get_input_name(0)?;
         let output_name = network.get_output_name(0)?;
-        
+
         network
             .set_input_layout(&input_name, Layout::NCHW)
             .wrap_err("failed to set input data format")?;
-
 
         Ok(Self {
             scratchpad: [0.; DETECTION_SCRATCHPAD_SIZE],
@@ -108,8 +108,15 @@ impl SingleShotDetection {
         infer_request.set_blob(&self.input_name, &blob)?;
         infer_request.infer()?;
 
-        let mut results = infer_request.get_blob(&self.output_name)?;
-        let _buffer = unsafe { results.buffer_mut_as_type::<f32>().unwrap().to_vec() };
+        let mut raw_boxes = infer_request.get_blob(&self.output_name)?;
+        let raw_boxes = unsafe { raw_boxes.buffer_mut_as_type::<f32>().unwrap() };
+        let boxes = ArrayView::from_shape((MAX_DETECTION, 4), raw_boxes)?;
+
+        let mut raw_classification = infer_request.get_blob(&self.output_name)?;
+        let raw_classification = unsafe { raw_classification.buffer_mut_as_type::<f32>().unwrap() };
+        let classification = ArrayView::from_shape((MAX_DETECTION, 5), raw_classification)?;
+
+        let bounding_boxes = classification.rows().into_iter().zip(boxes.rows());
 
         // let result = Array3::<f32>::from_shape_vec((3, 120, 160), self.scratchpad.to_vec())?;
         // let result = ArrayView::from_shape((4, 120, 160), &buffer[..])?;
@@ -153,42 +160,25 @@ impl SingleShotDetection {
         Ok(MainOutputs {})
     }
 
-    // pub fn downsample_image_into_rgb<const DOWNSAMPLE_RATIO: usize>(
-    //     scratchpad: &mut Vec<Rgb>,
-    //     image: &YCbCr422Image,
-    // ) {
-    //     let height = image.height() as usize;
-    //     let width = image.width() as usize;
-
-    //     assert!(
-    //         DOWNSAMPLE_RATIO % 2 == 0,
-    //         "the down sampling factor has to be even"
-    //     );
-
-    //     assert!(
-    //         height % DOWNSAMPLE_RATIO == 0,
-    //         "the image height {} is not divisible by the downsample ratio {}",
-    //         height,
-    //         DOWNSAMPLE_RATIO
-    //     );
-    //     assert!(
-    //         width % DOWNSAMPLE_RATIO == 0,
-    //         "the image width {} is not divisible by the downsample ratio {}",
-    //         width,
-    //         DOWNSAMPLE_RATIO
-    //     );
-
-    //     scratchpad.clear();
-    //     scratchpad.extend(
-    //         image
-    //             .buffer()
-    //             .chunks(width / 2)
-    //             .step_by(DOWNSAMPLE_RATIO)
-    //             // divide by 2 because of 422
-    //             .flat_map(|row| row.into_iter().step_by(DOWNSAMPLE_RATIO / 2))
-    //             .map(|&pixel| Rgb::from(pixel)),
-    //     );
-    // }
+    pub fn retrieve_class<'a>(
+        classification: ArrayView2<'a, f32>,
+        confidence_threshold: f32,
+    ) -> Option<(f32, DetectedObject)> {
+        let total = classification.iter().map(|score| score.exp()).sum::<f32>();
+        let highest_score_index = classification
+            .iter()
+            .enumerate()
+            .max_by(|(_, &value0), (_, &value1)| value0.total_cmp(&value1))
+            .map(|(idx, _)| idx as u8)
+            .unwrap();
+        
+        let confidence = classification[highest_score_index as usize] / total;
+        if confidence > confidence_threshold {
+            DetectedObject::from_u8(highest_score_index).map(|object| (confidence, object))
+        } else {
+            None
+        }
+    }
 
     pub fn downsample_image_into_rgb2<const DOWNSAMPLE_RATIO: usize>(
         scratchpad: &mut Scratchpad,

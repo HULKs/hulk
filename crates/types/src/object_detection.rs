@@ -11,11 +11,23 @@ pub enum DetectedObject {
     PenaltySpot,
 }
 
+impl DetectedObject {
+    pub fn from_u8(index: u8) -> Option<DetectedObject> {
+        match index {
+            1 => Some(DetectedObject::Robot),
+            2 => Some(DetectedObject::Ball),
+            3 => Some(DetectedObject::GoalPost),
+            4 => Some(DetectedObject::PenaltySpot),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, SerializeHierarchy)]
 pub struct BoundingBox {
-    bounding_box: Rectangle,
-    class: DetectedObject,
-    score: f32,
+    pub bounding_box: Rectangle,
+    pub class: DetectedObject,
+    pub score: f32,
 }
 
 impl BoundingBox {
