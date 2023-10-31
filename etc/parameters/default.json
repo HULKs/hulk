@@ -1172,6 +1172,7 @@
   },
   "search_suggestor":{
     "cells_per_meter": 10,
-    "heatmap_decay_factor": 0.99
+    "heatmap_decay_factor": 0.99,
+    "minimum_validity": 0.0001
   }
 }
