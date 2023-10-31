@@ -401,4 +401,5 @@ pub struct PenaltyShotDirectionEstimationParameters {
 pub struct SearchSuggestorParameters {
     pub cells_per_meter: usize,
     pub heatmap_decay_factor: f32,
+    pub minimum_validity: f32,
 }

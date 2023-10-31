@@ -126,12 +126,11 @@ impl BallFilter {
             }
         }
 
-        let removed_hypotheses = self.remove_hypotheses(
+        self.remove_hypotheses(
             context.cycle_time.start_time,
             context.ball_filter_configuration,
             context.field_dimensions,
-        );
-        removed_hypotheses
+        )
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -392,7 +391,6 @@ impl BallFilter {
         let (retained_hypotheses, removed_hypotheses) = self
             .hypotheses
             .drain(..)
-            .into_iter()
             .partition::<Vec<_>, _>(|hypothesis| {
                 let selected_position = hypothesis.selected_ball_position(configuration).position;
                 let is_inside_field = {
