@@ -119,6 +119,7 @@ impl BehaviorCycler {
                     &parameters.search_suggestor,
                     (|| Some(own_database.main_outputs.ball_position.as_ref()?))(),
                     &own_database.main_outputs.invalid_ball_positions,
+                    (|| Some(own_database.main_outputs.robot_to_field.as_ref()?))(),
                     &parameters.field_dimensions,
                 ))
                 .wrap_err("failed to execute cycle of `SearchSuggestor`")?
