@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
-use super::overlays::{BallDetection, FeetDetection, LineDetection, PenaltyBoxes};
+use super::overlays::{BallDetection, FeetDetection, LineDetection, PenaltyBoxes, SingleShotDetection};
 
 pub trait Overlay {
     const NAME: &'static str;
@@ -81,6 +81,7 @@ pub struct Overlays {
     pub ball_detection: EnabledOverlay<BallDetection>,
     pub penalty_boxes: EnabledOverlay<PenaltyBoxes>,
     pub feet_detection: EnabledOverlay<FeetDetection>,
+    pub single_shot_detection: EnabledOverlay<SingleShotDetection>,
 }
 
 impl Overlays {
@@ -89,11 +90,14 @@ impl Overlays {
         let ball_detection = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let penalty_boxes = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let feet_detection = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
+        let single_shot_detection = EnabledOverlay::new(nao, storage, true, selected_cycler);
+
         Self {
             line_detection,
             ball_detection,
             penalty_boxes,
             feet_detection,
+            single_shot_detection,
         }
     }
 
@@ -102,6 +106,7 @@ impl Overlays {
         self.ball_detection.update_cycler(selected_cycler);
         self.penalty_boxes.update_cycler(selected_cycler);
         self.feet_detection.update_cycler(selected_cycler);
+        self.single_shot_detection.update_cycler(selected_cycler);
     }
 
     pub fn combo_box(&mut self, ui: &mut Ui, selected_cycler: Cycler) {
@@ -110,6 +115,7 @@ impl Overlays {
             self.ball_detection.checkbox(ui, selected_cycler);
             self.penalty_boxes.checkbox(ui, selected_cycler);
             self.feet_detection.checkbox(ui, selected_cycler);
+            self.single_shot_detection.checkbox(ui, selected_cycler);
         });
     }
 
@@ -118,6 +124,7 @@ impl Overlays {
         let _ = self.ball_detection.paint(painter);
         let _ = self.penalty_boxes.paint(painter);
         let _ = self.feet_detection.paint(painter);
+        let _ = self.single_shot_detection.paint(painter);
         Ok(())
     }
 
@@ -127,6 +134,7 @@ impl Overlays {
             "ball_detection": self.ball_detection.save(),
             "penalty_boxes": self.penalty_boxes.save(),
             "feet_detection": self.feet_detection.save(),
+            "single_shot_detection": self.single_shot_detection.save(),
         })
     }
 }

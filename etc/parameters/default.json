@@ -2,11 +2,15 @@
   "detection": {
     "vision_top": {
       "iou_threshold": 0.45,
-      "confidence_threshold": 0.2
+      "confidence_threshold": 0.2,
+      "minimum_area": 9,
+      "enable": false
     },
     "vision_bottom": {
       "iou_threshold": 0.45,
-      "confidence_threshold": 0.2
+      "confidence_threshold": 0.2,
+      "minimum_area": 9,
+      "enable": true
     }
   },
   "whistle_detection": {

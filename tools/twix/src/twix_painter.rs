@@ -2,8 +2,8 @@ use std::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, TAU};
 
 use eframe::{
     egui::{Painter, Response, Sense, Ui},
-    emath::{Pos2, Rect},
-    epaint::{Color32, PathShape, Rounding, Shape, Stroke},
+    emath::{Align2, Pos2, Rect},
+    epaint::{Color32, FontId, PathShape, Rounding, Shape, Stroke},
 };
 use geometry::{arc::Arc, circle::Circle, orientation::Orientation};
 use nalgebra::{point, vector, Isometry2, Point2, Rotation2, SMatrix, Similarity2, Vector2};
@@ -407,6 +407,23 @@ impl TwixPainter {
         let stroke = self.transform_stroke(stroke);
         self.painter
             .rect_stroke(sort_rect(rect), Rounding::ZERO, stroke);
+    }
+
+    pub fn text(
+        &self,
+        position: Point2<f32>,
+        anchor: Align2,
+        text: impl ToString,
+        font_id: FontId,
+        text_color: Color32,
+    ) -> Rect {
+        self.painter.text(
+            self.transform_world_to_pixel(position),
+            anchor,
+            text,
+            font_id,
+            text_color,
+        )
     }
 
     pub fn circle(&self, center: Point2<f32>, radius: f32, fill_color: Color32, stroke: Stroke) {

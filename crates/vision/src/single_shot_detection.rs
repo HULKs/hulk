@@ -1,27 +1,29 @@
+use std::time::Duration;
+
 use color_eyre::{
     eyre::{Context, ContextCompat},
     Result,
 };
 use context_attribute::context;
-use framework::{deserialize_not_implemented, MainOutput};
-use hardware::PathsInterface;
+use framework::{deserialize_not_implemented, MainOutput, AdditionalOutput};
+use geometry::rectangle::Rectangle;
+use hardware::{PathsInterface, TimeInterface};
 use itertools::Itertools;
 use nalgebra::point;
-use ndarray::{Array2, ArrayView, ArrayView1};
+use ndarray::{ArrayView, ArrayView1};
 use openvino::{Blob, Core, ExecutableNetwork, Layout, Precision, TensorDesc};
 use serde::{Deserialize, Serialize};
 use types::{
-    color::{Rgb, YCbCr422, YCbCr444},
-    geometry::Rectangle,
+    color::Rgb,
     object_detection::{BoundingBox, DetectedObject},
     ycbcr422_image::YCbCr422Image,
 };
 
-const IMAGE_DOWNSCALE_FACTOR: usize = 4;
-const DETECTION_IMAGE_WIDTH: usize = 160;
-const DETECTION_IMAGE_HEIGHT: usize = 120;
+const DETECTION_IMAGE_WIDTH: usize = 320;
+const DETECTION_IMAGE_HEIGHT: usize = 240;
 const DETECTION_NUMBER_CHANNELS: usize = 3;
-const MAX_DETECTION: usize = 160;
+
+const MAX_DETECTION: usize = 1440;
 
 const DETECTION_SCRATCHPAD_SIZE: usize =
     DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH * DETECTION_NUMBER_CHANNELS;
@@ -45,16 +47,23 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
+    preprocess_time: AdditionalOutput<Duration, "preprocess_time">,
+    inference_time: AdditionalOutput<Duration, "inference_time">,
+    postprocess_time: AdditionalOutput<Duration, "postprocess_time">,
+
     image: Input<YCbCr422Image, "image">,
+    hardware_interface: HardwareInterface,
 
     iou_threshold: Parameter<f32, "detection.$cycler_instance.iou_threshold">,
     confidence_threshold: Parameter<f32, "detection.$cycler_instance.confidence_threshold">,
+    minimum_area: Parameter<f32, "detection.$cycler_instance.minimum_area">,
+    enable: Parameter<bool, "detection.$cycler_instance.enable">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    detections: MainOutput<Vec<BoundingBox>>,
+    pub detections: MainOutput<Vec<BoundingBox>>,
 }
 
 impl SingleShotDetection {
@@ -62,8 +71,10 @@ impl SingleShotDetection {
         let paths = context.hardware_interface.get_paths();
         let neural_network_folder = paths.neural_networks;
 
-        let model_path = dbg!(neural_network_folder.join("mobilenetv3_120_160_model-ov.xml"));
-        let weights_path = dbg!(neural_network_folder.join("mobilenetv3_120_160_model-ov.bin"));
+        let model_path =
+            dbg!(neural_network_folder.join("simplified-mobilenetv3_240_320_model-ov.xml"));
+        let weights_path =
+            dbg!(neural_network_folder.join("simplified-mobilenetv3_240_320_model-ov.bin"));
 
         let mut core = Core::new(None)?;
         let mut network = core
@@ -101,32 +112,65 @@ impl SingleShotDetection {
         }
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext<impl TimeInterface>) -> Result<MainOutputs> {
+        if !context.enable {
+            return Ok(MainOutputs::default());
+        }
+
         let image = context.image;
-        SingleShotDetection::downsample_image_into_rgb2::<IMAGE_DOWNSCALE_FACTOR>(
+        const DOWNSCALE_FACTOR_WIDTH: usize = 640 / DETECTION_IMAGE_WIDTH;
+        const DOWNSCALE_FACTOR_HEIGHT: usize = 480 / DETECTION_IMAGE_HEIGHT;
+        assert_eq!(
+            DOWNSCALE_FACTOR_HEIGHT, DOWNSCALE_FACTOR_WIDTH,
+            "the downscaling needs to be equal in both directions"
+        );
+        
+        let earlier = context.hardware_interface.get_now();
+        SingleShotDetection::downsample_image_into_rgb2::<DOWNSCALE_FACTOR_HEIGHT>(
             &mut self.scratchpad,
             image,
         );
+        context.preprocess_time.fill_if_subscribed(|| {
+            context.hardware_interface.get_now().duration_since(earlier).expect("time ran backwards")
+        });
 
         let mut infer_request = self.network.create_infer_request()?;
 
-        let tensor_description = TensorDesc::new(Layout::NCHW, &[1, 3, 120, 160], Precision::FP32);
+        let tensor_description = TensorDesc::new(
+            Layout::NCHW,
+            &[
+                1,
+                DETECTION_NUMBER_CHANNELS,
+                DETECTION_IMAGE_HEIGHT,
+                DETECTION_IMAGE_WIDTH,
+            ],
+            Precision::FP32,
+        );
         let blob = Blob::new(
             &tensor_description,
             SingleShotDetection::as_bytes(&self.scratchpad[..]),
         )?;
 
+        
+        let earlier = context.hardware_interface.get_now();
         infer_request.set_blob(&self.input_name, &blob)?;
         infer_request.infer()?;
+        context.inference_time.fill_if_subscribed(|| {
+            context.hardware_interface.get_now().duration_since(earlier).expect("time ran backwards")
+        });
 
-        let mut raw_boxes = infer_request.get_blob(&self.output_name)?;
+        let mut raw_boxes = infer_request.get_blob("boxes")?;
         let raw_boxes = unsafe { raw_boxes.buffer_mut_as_type::<f32>().unwrap() };
         let boxes = ArrayView::from_shape((MAX_DETECTION, 4), raw_boxes)?;
 
-        let mut raw_classification = infer_request.get_blob(&self.output_name)?;
+        let mut raw_classification = infer_request.get_blob("scores")?;
         let raw_classification = unsafe { raw_classification.buffer_mut_as_type::<f32>().unwrap() };
         let classification = ArrayView::from_shape((MAX_DETECTION, 5), raw_classification)?;
 
+        let width_scale = 640. / DETECTION_IMAGE_WIDTH as f32;
+        let height_scale = 480. / DETECTION_IMAGE_HEIGHT as f32;
+        
+        let earlier = context.hardware_interface.get_now();
         let bounding_boxes = classification
             .rows()
             .into_iter()
@@ -138,8 +182,14 @@ impl SingleShotDetection {
                             detection,
                             score,
                             Rectangle {
-                                min: point![bounding_box[0], bounding_box[1]],
-                                max: point![bounding_box[2], bounding_box[3]],
+                                min: point![
+                                    bounding_box[0] * width_scale,
+                                    bounding_box[1] * height_scale
+                                ],
+                                max: point![
+                                    bounding_box[2] * width_scale,
+                                    bounding_box[3] * height_scale
+                                ],
                             },
                         )
                     },
@@ -147,7 +197,16 @@ impl SingleShotDetection {
             })
             .collect_vec();
 
-        let bounding_boxes = non_maximum_suppression(bounding_boxes, *context.iou_threshold);
+        let bounding_boxes = bounding_boxes
+            .into_iter()
+            .filter(|detection| detection.bounding_box.area() > *context.minimum_area)
+            .collect_vec();
+        let bounding_boxes =
+            multiclass_non_maximum_suppression(bounding_boxes, *context.iou_threshold);
+
+        context.postprocess_time.fill_if_subscribed(|| {
+            context.hardware_interface.get_now().duration_since(earlier).expect("time ran backwards")
+        });
 
         Ok(MainOutputs {
             detections: bounding_boxes.into(),
@@ -195,7 +254,7 @@ fn retrieve_class<'a>(
         .map(|(idx, _)| idx as u8)
         .unwrap();
 
-    let confidence = classification[highest_score_index as usize] / total;
+    let confidence = classification[highest_score_index as usize].exp() / total;
     if confidence > confidence_threshold {
         DetectedObject::from_u8(highest_score_index).map(|object| (confidence, object))
     } else {
@@ -203,7 +262,7 @@ fn retrieve_class<'a>(
     }
 }
 
-fn non_maximum_suppression(
+fn multiclass_non_maximum_suppression(
     mut candidate_detections: Vec<BoundingBox>,
     iou_threshold: f32,
 ) -> Vec<BoundingBox> {
@@ -211,17 +270,11 @@ fn non_maximum_suppression(
     candidate_detections.sort_unstable_by(|bbox1, bbox2| bbox1.score.total_cmp(&bbox2.score));
 
     while let Some(detection) = candidate_detections.pop() {
-        let detection_area = detection.bounding_box.area();
         candidate_detections = candidate_detections
             .into_iter()
             .filter(|detection_candidate| {
-                let intersection = detection
-                    .bounding_box
-                    .rectangle_intersection(detection_candidate.bounding_box);
-                let candidate_area = detection_candidate.bounding_box.area();
-                let iou = intersection / (detection_area + candidate_area - intersection);
-
-                iou < iou_threshold
+                detection.class != detection_candidate.class
+                    || detection.iou(detection_candidate) < iou_threshold
             })
             .collect_vec();
 
@@ -233,13 +286,20 @@ fn non_maximum_suppression(
 
 #[cfg(test)]
 mod tests {
+    use approx::assert_relative_eq;
+    use geometry::rectangle::Rectangle;
+    use nalgebra::point;
     use ndarray::array;
-    use types::{
-        geometry::Rectangle,
-        object_detection::{BoundingBox, DetectedObject},
-    };
+    use types::object_detection::{BoundingBox, DetectedObject};
 
-    use super::{retrieve_class, non_maximum_suppression};
+    use super::{multiclass_non_maximum_suppression, retrieve_class};
+
+    fn assert_approx_bbox_equality(bbox1: BoundingBox, bbox2: BoundingBox) {
+        assert_relative_eq!(bbox1.score, bbox2.score);
+        assert_relative_eq!(bbox1.bounding_box.min, bbox2.bounding_box.min);
+        assert_relative_eq!(bbox1.bounding_box.max, bbox2.bounding_box.max);
+        assert_eq!(bbox1.class, bbox2.class);
+    }
 
     #[test]
     fn test_non_maximum_suppression() {
@@ -262,22 +322,24 @@ mod tests {
         );
 
         let box3 = BoundingBox::new(
-            DetectedObject::GoalPost,
+            DetectedObject::Robot,
             0.4,
             Rectangle {
-                min: point![80.0, 20.0],
-                max: point![121.0, 100.0],
+                min: point![10.0, 10.0],
+                max: point![190.0, 200.0],
             },
         );
 
-        let results = non_maximum_suppression(vec![box1, box2, box3], 0.8);
-        assert(results.len() == 1);
-        assert(results[0] == box1);
+        let results = multiclass_non_maximum_suppression(vec![box1, box2, box3], 0.6);
+        assert!(results.len() == 3);
+        assert_approx_bbox_equality(results[0], box1);
+        assert_approx_bbox_equality(results[1], box3);
+        assert_approx_bbox_equality(results[2], box2);
 
-        let results = non_maximum_suppression(vec![box1, box2, box3], 0.5);
-        assert(results.len() == 2);
-        assert(results[0] == box1);
-        assert(results[0] == box3);
+        let results = multiclass_non_maximum_suppression(vec![box1, box2, box3], 0.45);
+        assert!(results.len() == 2);
+        assert_approx_bbox_equality(results[0], box1);
+        assert_approx_bbox_equality(results[1], box2);
     }
 
     #[test]
@@ -298,19 +360,19 @@ mod tests {
 
         let goal_post = array![0.0, 0.0, 0.0, 1.0, 0.0];
         assert!(matches!(
-            retrieve_class(goal_post.view(), 0.5),
+            retrieve_class(goal_post.view(), 0.4),
             Some((_, GoalPost))
         ));
 
         let penalty_spot = array![0.0, 0.0, 0.0, 0.0, 1.0];
         assert!(matches!(
-            retrieve_class(penalty_spot.view(), 0.5),
-            Some((_, GoalPost))
+            retrieve_class(penalty_spot.view(), 0.4),
+            Some((_, PenaltySpot))
         ));
 
         let unsure_classification = array![1.0, 1.0, 1.0, 0.0, 0.0];
         assert!(matches!(
-            retrieve_class(unsure_classification.view(), 0.5),
+            retrieve_class(unsure_classification.view(), 0.3),
             None
         ));
     }
