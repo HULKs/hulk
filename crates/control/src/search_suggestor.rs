@@ -20,7 +20,6 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    //removed_ball_positions: Input<Vec<Point2<f32>>, "removed_ball_positions">,
     search_suggestor_configuration: Parameter<SearchSuggestorParameters, "search_suggestor">,
     ball_position: Input<Option<BallPosition>, "ball_position?">,
     invalid_ball_positions: Input<Vec<HypotheticalBallPosition>, "invalid_ball_positions">,
@@ -149,8 +148,12 @@ impl SearchSuggestor {
         if collum_count < y_position {
             y_position = collum_count;
         }
-        x_position -= 1;
-        y_position -= 1;
+        if x_position >= 1 {
+            x_position -= 1;
+        }
+        if y_position >= 1 {
+            y_position -= 1;
+        }
         (x_position, y_position)
     }
 }
