@@ -1,6 +1,6 @@
 use std::{
     fmt::{self, Display, Formatter},
-    net::{IpAddr, Ipv4Addr},
+    net::IpAddr,
     str::FromStr,
     sync::Arc,
     time::{Duration, SystemTime},
@@ -177,7 +177,7 @@ impl App for TwixApp {
                     let address_input = CompletionEdit::addresses(
                         &mut self.ip_address,
                         21..=37,
-                        Some(&self.reachable_ips),
+                        &self.reachable_ips,
                     )
                     .ui(ui);
                     if address_input.gained_focus() {
@@ -223,7 +223,10 @@ impl App for TwixApp {
                     }
                     let panel_input = CompletionEdit::new(
                         &mut self.panel_selection,
-                        SelectablePanel::registered(),
+                        SelectablePanel::registered()
+                            .into_iter()
+                            .map(|registered| registered.into())
+                            .collect(),
                         "Panel",
                     )
                     .ui(ui);
