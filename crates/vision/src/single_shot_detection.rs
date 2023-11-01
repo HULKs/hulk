@@ -3,18 +3,21 @@ use color_eyre::{
     Result,
 };
 use context_attribute::context;
-use framework::deserialize_not_implemented;
+use framework::{deserialize_not_implemented, MainOutput};
 use hardware::PathsInterface;
 use itertools::Itertools;
-use ndarray::{Array2, ArrayView, ArrayView2};
+use nalgebra::point;
+use ndarray::{Array2, ArrayView, ArrayView1};
 use openvino::{Blob, Core, ExecutableNetwork, Layout, Precision, TensorDesc};
 use serde::{Deserialize, Serialize};
 use types::{
     color::{Rgb, YCbCr422, YCbCr444},
-    object_detection::DetectedObject,
+    geometry::Rectangle,
+    object_detection::{BoundingBox, DetectedObject},
     ycbcr422_image::YCbCr422Image,
 };
 
+const IMAGE_DOWNSCALE_FACTOR: usize = 4;
 const DETECTION_IMAGE_WIDTH: usize = 160;
 const DETECTION_IMAGE_HEIGHT: usize = 120;
 const DETECTION_NUMBER_CHANNELS: usize = 3;
@@ -43,11 +46,16 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     image: Input<YCbCr422Image, "image">,
+
+    iou_threshold: Parameter<f32, "detection.$cycler_instance.iou_threshold">,
+    confidence_threshold: Parameter<f32, "detection.$cycler_instance.confidence_threshold">,
 }
 
 #[context]
 #[derive(Default)]
-pub struct MainOutputs {}
+pub struct MainOutputs {
+    detections: MainOutput<Vec<BoundingBox>>,
+}
 
 impl SingleShotDetection {
     pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
@@ -95,7 +103,10 @@ impl SingleShotDetection {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let image = context.image;
-        SingleShotDetection::downsample_image_into_rgb2::<4>(&mut self.scratchpad, image);
+        SingleShotDetection::downsample_image_into_rgb2::<IMAGE_DOWNSCALE_FACTOR>(
+            &mut self.scratchpad,
+            image,
+        );
 
         let mut infer_request = self.network.create_infer_request()?;
 
@@ -116,68 +127,31 @@ impl SingleShotDetection {
         let raw_classification = unsafe { raw_classification.buffer_mut_as_type::<f32>().unwrap() };
         let classification = ArrayView::from_shape((MAX_DETECTION, 5), raw_classification)?;
 
-        let bounding_boxes = classification.rows().into_iter().zip(boxes.rows());
+        let bounding_boxes = classification
+            .rows()
+            .into_iter()
+            .zip(boxes.rows())
+            .filter_map(|(classification, bounding_box)| {
+                retrieve_class(classification, *context.confidence_threshold).map(
+                    |(score, detection)| {
+                        BoundingBox::new(
+                            detection,
+                            score,
+                            Rectangle {
+                                min: point![bounding_box[0], bounding_box[1]],
+                                max: point![bounding_box[2], bounding_box[3]],
+                            },
+                        )
+                    },
+                )
+            })
+            .collect_vec();
 
-        // let result = Array3::<f32>::from_shape_vec((3, 120, 160), self.scratchpad.to_vec())?;
-        // let result = ArrayView::from_shape((4, 120, 160), &buffer[..])?;
-        // self.class_frequency = vec![0.; 4];
-        // let class_map = Array2::<u8>::from_shape_vec(
-        //     (120, 160),
-        //     result
-        //         .columns()
-        //         .into_iter()
-        //         .map(|lane| {
-        //             lane.into_iter()
-        //                 .enumerate()
-        //                 .max_by(|(_, &value0), (_, &value1)| value0.total_cmp(&value1))
-        //                 .map(|(idx, _)| {
-        //                     self.class_frequency[idx] += 1.
-        //                         / (DETECTION_IMAGE_HEIGHT
-        //                             * DETECTION_IMAGE_WIDTH)
-        //                             as f32;
-        //                     idx as u8
-        //                 })
-        //                 .unwrap()
-        //         })
-        //         .collect(),
-        // )?;
+        let bounding_boxes = non_maximum_suppression(bounding_boxes, *context.iou_threshold);
 
-        // context.segmented_image.fill_if_subscribed(|| {
-        //     SingleShotDetection::map_array_to_image(class_map, |class_index| {
-        //         match class_index {
-        //             0 => Rgb::GREEN,
-        //             1 => Rgb::BLACK,
-        //             2 => Rgb::WHITE,
-        //             3 => Rgb::BLUE,
-        //             other => panic!("{other} is not a valid class"),
-        //         }
-        //         .into()
-        //     })
-        // });
-        // context
-        //     .class_frequency
-        //     .fill_if_subscribed(|| self.class_frequency.clone());
-        Ok(MainOutputs {})
-    }
-
-    pub fn retrieve_class<'a>(
-        classification: ArrayView2<'a, f32>,
-        confidence_threshold: f32,
-    ) -> Option<(f32, DetectedObject)> {
-        let total = classification.iter().map(|score| score.exp()).sum::<f32>();
-        let highest_score_index = classification
-            .iter()
-            .enumerate()
-            .max_by(|(_, &value0), (_, &value1)| value0.total_cmp(&value1))
-            .map(|(idx, _)| idx as u8)
-            .unwrap();
-        
-        let confidence = classification[highest_score_index as usize] / total;
-        if confidence > confidence_threshold {
-            DetectedObject::from_u8(highest_score_index).map(|object| (confidence, object))
-        } else {
-            None
-        }
+        Ok(MainOutputs {
+            detections: bounding_boxes.into(),
+        })
     }
 
     pub fn downsample_image_into_rgb2<const DOWNSAMPLE_RATIO: usize>(
@@ -207,114 +181,137 @@ impl SingleShotDetection {
         }
         assert_eq!(scratchpad_index, STRIDE);
     }
+}
 
-    pub fn map_array_to_image<Type: Copy, Mapper: Fn(Type) -> YCbCr444>(
-        array: Array2<Type>,
-        mapper: Mapper,
-    ) -> YCbCr422Image {
-        let [height, width]: [usize; 2] = array
-            .shape()
-            .try_into()
-            .expect("the array shape is incorrect, expected two dimensions");
+fn retrieve_class<'a>(
+    classification: ArrayView1<'a, f32>,
+    confidence_threshold: f32,
+) -> Option<(f32, DetectedObject)> {
+    let total = classification.iter().map(|score| score.exp()).sum::<f32>();
+    let highest_score_index = classification
+        .iter()
+        .enumerate()
+        .max_by(|(_, &value0), (_, &value1)| value0.total_cmp(&value1))
+        .map(|(idx, _)| idx as u8)
+        .unwrap();
 
-        let mut buffer = vec![YCbCr422::default(); width as usize / 2 * height as usize];
-
-        for (index, mut chunk) in array.into_iter().chunks(2).into_iter().enumerate() {
-            let color1 = mapper(chunk.next().unwrap());
-            let color2 = mapper(chunk.next().unwrap());
-
-            let color = YCbCr422::from([color1, color2]);
-            buffer[index] = color;
-        }
-
-        YCbCr422Image::from_ycbcr_buffer(width as u32 / 2, height as u32, buffer)
+    let confidence = classification[highest_score_index as usize] / total;
+    if confidence > confidence_threshold {
+        DetectedObject::from_u8(highest_score_index).map(|object| (confidence, object))
+    } else {
+        None
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     extern crate test;
+fn non_maximum_suppression(
+    mut candidate_detections: Vec<BoundingBox>,
+    iou_threshold: f32,
+) -> Vec<BoundingBox> {
+    let mut detections = Vec::new();
+    candidate_detections.sort_unstable_by(|bbox1, bbox2| bbox1.score.total_cmp(&bbox2.score));
 
-//     use types::ycbcr422_image::YCbCr422Image;
+    while let Some(detection) = candidate_detections.pop() {
+        let detection_area = detection.bounding_box.area();
+        candidate_detections = candidate_detections
+            .into_iter()
+            .filter(|detection_candidate| {
+                let intersection = detection
+                    .bounding_box
+                    .rectangle_intersection(detection_candidate.bounding_box);
+                let candidate_area = detection_candidate.bounding_box.area();
+                let iou = intersection / (detection_area + candidate_area - intersection);
 
-//     use super::SemanticSegmentation;
-//     use std::hint::black_box;
-//     use test::Bencher;
+                iou < iou_threshold
+            })
+            .collect_vec();
 
-//     #[bench]
-//     fn sample_image(b: &mut Bencher) {
-//         let image = YCbCr422Image::load_from_444_png(
-//             "../../tests/data/white_wall_with_a_little_desk_in_front.png",
-//         )
-//         .unwrap();
-//         let mut scratchpad = Vec::new();
-//         b.iter(|| {
-//             black_box(SemanticSegmentation::downsample_image_into_rgb::<4>(
-//                 &mut scratchpad,
-//                 &image,
-//             ))
-//         })
-//     }
-//     #[bench]
-//     fn sample_image2(b: &mut Bencher) {
-//         let image = YCbCr422Image::load_from_444_png(
-//             "../../tests/data/white_wall_with_a_little_desk_in_front.png",
-//         )
-//         .unwrap();
-//         let mut scratchpad = Vec::new();
-//         b.iter(|| {
-//             black_box(SemanticSegmentation::downsample_image_into_rgb2::<4>(
-//                 &mut scratchpad,
-//                 &image,
-//             ))
-//         })
-//     }
+        detections.push(detection)
+    }
 
-//     #[test]
-//     fn downsampling_number_of_pixels() {
-//         let image = YCbCr422Image::load_from_444_png(
-//             "../../tests/data/white_wall_with_a_little_desk_in_front.png",
-//         )
-//         .unwrap();
-//         let mut scratchpad = Vec::new();
+    detections
+}
 
-//         SemanticSegmentation::downsample_image_into_rgb::<2>(&mut scratchpad, &image);
-//         assert_eq!(
-//             scratchpad.len(),
-//             (image.width() as usize / 2) * (image.height() as usize / 2)
-//         );
+#[cfg(test)]
+mod tests {
+    use ndarray::array;
+    use types::{
+        geometry::Rectangle,
+        object_detection::{BoundingBox, DetectedObject},
+    };
 
-//         SemanticSegmentation::downsample_image_into_rgb::<4>(&mut scratchpad, &image);
-//         assert_eq!(
-//             scratchpad.len(),
-//             (image.width() as usize / 4) * (image.height() as usize / 4)
-//         );
+    use super::{retrieve_class, non_maximum_suppression};
 
-//         SemanticSegmentation::downsample_image_into_rgb2::<2>(&mut scratchpad, &image);
-//         assert_eq!(
-//             scratchpad.len(),
-//             (image.width() as usize / 2) * (image.height() as usize / 2)
-//         );
+    #[test]
+    fn test_non_maximum_suppression() {
+        let box1 = BoundingBox::new(
+            DetectedObject::Robot,
+            0.8,
+            Rectangle {
+                min: point![10.0, 10.0],
+                max: point![100.0, 200.0],
+            },
+        );
 
-//         SemanticSegmentation::downsample_image_into_rgb2::<4>(&mut scratchpad, &image);
-//         assert_eq!(
-//             scratchpad.len(),
-//             (image.width() as usize / 4) * (image.height() as usize / 4)
-//         );
-//     }
+        let box2 = BoundingBox::new(
+            DetectedObject::Ball,
+            0.2,
+            Rectangle {
+                min: point![20.0, 20.0],
+                max: point![40.0, 40.0],
+            },
+        );
 
-//     #[test]
-//     fn same_result() {
-//         let image = YCbCr422Image::load_from_444_png(
-//             "../../tests/data/white_wall_with_a_little_desk_in_front.png",
-//         )
-//         .unwrap();
-//         let mut scratchpad1 = Vec::new();
-//         let mut scratchpad2 = Vec::new();
+        let box3 = BoundingBox::new(
+            DetectedObject::GoalPost,
+            0.4,
+            Rectangle {
+                min: point![80.0, 20.0],
+                max: point![121.0, 100.0],
+            },
+        );
 
-//         SemanticSegmentation::downsample_image_into_rgb::<4>(&mut scratchpad1, &image);
-//         SemanticSegmentation::downsample_image_into_rgb2::<4>(&mut scratchpad2, &image);
+        let results = non_maximum_suppression(vec![box1, box2, box3], 0.8);
+        assert(results.len() == 1);
+        assert(results[0] == box1);
 
-//         assert_eq!(scratchpad1, scratchpad2);
-//     }
-// }
+        let results = non_maximum_suppression(vec![box1, box2, box3], 0.5);
+        assert(results.len() == 2);
+        assert(results[0] == box1);
+        assert(results[0] == box3);
+    }
+
+    #[test]
+    fn test_class_retrieval() {
+        use DetectedObject::*;
+
+        let background = array![1.0, 0.0, 0.0, 0.0, 0.0];
+        assert!(matches!(retrieve_class(background.view(), 0.5), None));
+
+        let robot = array![1.0, 2.0, 0.0, 0.0, 0.0];
+        assert!(matches!(
+            retrieve_class(robot.view(), 0.5),
+            Some((_, Robot))
+        ));
+
+        let ball = array![0.1, 0.1, 10.0, 0.2, 0.0];
+        assert!(matches!(retrieve_class(ball.view(), 0.5), Some((_, Ball))));
+
+        let goal_post = array![0.0, 0.0, 0.0, 1.0, 0.0];
+        assert!(matches!(
+            retrieve_class(goal_post.view(), 0.5),
+            Some((_, GoalPost))
+        ));
+
+        let penalty_spot = array![0.0, 0.0, 0.0, 0.0, 1.0];
+        assert!(matches!(
+            retrieve_class(penalty_spot.view(), 0.5),
+            Some((_, GoalPost))
+        ));
+
+        let unsure_classification = array![1.0, 1.0, 1.0, 0.0, 0.0];
+        assert!(matches!(
+            retrieve_class(unsure_classification.view(), 0.5),
+            None
+        ));
+    }
+}
