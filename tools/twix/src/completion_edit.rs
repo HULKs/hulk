@@ -1,9 +1,16 @@
-use std::{iter::once, net::IpAddr, ops::RangeInclusive};
+use std::{
+    iter::once,
+    net::{IpAddr, Ipv4Addr},
+    ops::RangeInclusive,
+};
 
 use communication::messages::Fields;
-use eframe::egui::{
-    text::CCursor, text_edit::CCursorRange, Area, Context, Frame, Id, Key, Modifiers, Order,
-    Response, ScrollArea, TextEdit, Ui, Widget,
+use eframe::{
+    egui::{
+        text::CCursor, text_edit::CCursorRange, Area, Context, Frame, Id, Key, Modifiers, Order,
+        Response, ScrollArea, TextEdit, Ui, Widget, WidgetText,
+    },
+    epaint::Color32,
 };
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use itertools::chain;
@@ -25,16 +32,33 @@ impl CompletionState {
     }
 }
 
+pub struct CompletionEntry {
+    text: String,
+    highlight: bool,
+}
+
+impl CompletionEntry {
+    pub fn new(text: String, highlight: bool) -> Self {
+        Self { text, highlight }
+    }
+}
+
+impl From<String> for CompletionEntry {
+    fn from(value: String) -> Self {
+        Self::new(value, false)
+    }
+}
+
 pub struct CompletionEdit<'key> {
     hint_text: &'static str,
     key: &'key mut String,
-    completion_items: Vec<String>,
+    completion_items: Vec<CompletionEntry>,
 }
 
 impl<'key> CompletionEdit<'key> {
     pub fn new(
         key: &'key mut String,
-        completion_items: Vec<String>,
+        completion_items: Vec<CompletionEntry>,
         hint_text: &'static str,
     ) -> Self {
         Self {
@@ -47,25 +71,17 @@ impl<'key> CompletionEdit<'key> {
     pub fn addresses(
         key: &'key mut String,
         numbers: RangeInclusive<u8>,
-        highlight: Option<&Vec<IpAddr>>,
+        highlighted_ips: &Vec<IpAddr>,
     ) -> Self {
-        use color_eyre::owo_colors::OwoColorize;
-
-        let mut completion_items: Vec<_> = chain!(
-            once("localhost".to_string()),
-            numbers.clone().map(|number| format!("10.1.24.{number}")),
-            numbers.map(|number| format!("10.0.24.{number}"))
+        let completion_items: Vec<_> = chain!(
+            once(CompletionEntry::new("localhost".to_string(), true)),
+            numbers.clone().map(|number| {
+                let ip = IpAddr::V4(Ipv4Addr::new(10, 1, 24, number));
+                CompletionEntry::new(ip.to_string(), highlighted_ips.contains(&ip))
+            }),
+            numbers.map(|number| CompletionEntry::new(format!("10.0.24.{number}"), false))
         )
         .collect();
-
-        if let Some(highlighted_ips) = highlight {
-            let highlighted_ips: Vec<_> = highlighted_ips.into_iter().map(|ip| ip.to_string()).collect();
-            for ip in completion_items.iter_mut() {
-                if highlighted_ips.contains(ip) {
-                    *ip = format!("{ip} {}", "✅");
-                }
-            }
-        }
 
         Self {
             hint_text: "Address",
@@ -90,7 +106,7 @@ impl<'key> CompletionEdit<'key> {
     pub fn parameters(key: &'key mut String, nao: &Nao) -> Self {
         let completion_items = nao
             .get_parameter_fields()
-            .map(|fields| fields.into_iter().collect())
+            .map(|fields| fields.into_iter().map(|field| field.into()).collect())
             .unwrap_or_default();
 
         Self {
@@ -127,7 +143,7 @@ impl Widget for CompletionEdit<'_> {
             .iter()
             .filter_map(|item| {
                 matcher
-                    .fuzzy_match(item, self.key)
+                    .fuzzy_match(&item.text, self.key)
                     .map(|score| (score, item))
             })
             .collect();
@@ -180,6 +196,7 @@ impl Widget for CompletionEdit<'_> {
                         .get(state.selected_item.unwrap() as usize)
                         .unwrap()
                         .1
+                        .text
                         .to_string();
                     state.selected_item = None;
                 }
@@ -194,13 +211,21 @@ impl Widget for CompletionEdit<'_> {
                             for (i, completion_item) in
                                 completion_text_items.into_iter().enumerate()
                             {
+                                let completion_entry = completion_item.1;
                                 let is_selected = Some(i as i64) == state.selected_item;
-                                let label = ui.selectable_label(is_selected, completion_item.1);
+
+                                let mut text = WidgetText::from(completion_entry.text.clone());
+                                if completion_entry.highlight {
+                                    text = text.color(Color32::GREEN);
+                                }
+
+                                let label = ui.selectable_label(is_selected, text);
+
                                 if is_selected {
                                     label.scroll_to_me(None);
                                 }
                                 if label.is_pointer_button_down_on() {
-                                    *self.key = completion_item.1.clone();
+                                    *self.key = completion_item.1.text.clone();
                                     response.mark_changed();
                                     ui.memory_mut(|memory| memory.close_popup());
                                 }
@@ -221,13 +246,13 @@ impl Widget for CompletionEdit<'_> {
     }
 }
 
-pub fn output_fields_to_completion_items(output_fields: Fields) -> Vec<String> {
+pub fn output_fields_to_completion_items(output_fields: Fields) -> Vec<CompletionEntry> {
     output_fields
         .into_iter()
         .flat_map(|(cycler_instance, fields)| {
             fields
                 .into_iter()
-                .map(move |field| format!("{cycler_instance}.{field}"))
+                .map(move |field| format!("{cycler_instance}.{field}").into())
         })
         .collect()
 }
