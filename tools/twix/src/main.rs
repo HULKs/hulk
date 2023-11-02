@@ -6,7 +6,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use aliveness::query_aliveness_sync;
+use aliveness::query_aliveness;
 use color_eyre::{
     eyre::{bail, eyre},
     Result,
@@ -34,7 +34,11 @@ use panels::{
 };
 use repository::{get_repository_root, Repository};
 use serde_json::{from_str, to_string, Value};
-use tokio::runtime::Runtime;
+use tokio::{
+    runtime::{Builder, Runtime},
+    sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+    task::spawn,
+};
 use visuals::Visuals;
 
 mod completion_edit;
@@ -83,6 +87,45 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
+struct ReachableNaos {
+    ips: Vec<IpAddr>,
+    tx: UnboundedSender<Vec<IpAddr>>,
+    rx: UnboundedReceiver<Vec<IpAddr>>,
+    runtime: Runtime,
+}
+
+impl ReachableNaos {
+    pub fn new() -> Self {
+        let ips = Vec::new();
+        let (tx, rx) = unbounded_channel();
+        let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
+
+        Self {
+            ips,
+            tx,
+            rx,
+            runtime,
+        }
+    }
+
+    pub fn query_reachability(&self) {
+        let tx = self.tx.clone();
+        let _guard = self.runtime.enter();
+        spawn(async move {
+            if let Ok(ips) = query_aliveness(Duration::from_millis(800), None).await {
+                let ips = ips.into_iter().map(|(ip, _)| ip).collect();
+                let _ = tx.send(ips);
+            }
+        });
+    }
+
+    pub fn update(&mut self) {
+        while let Ok(ips) = self.rx.try_recv() {
+            self.ips = ips;
+        }
+    }
+}
+
 impl_selectable_panel!(
     BehaviorSimulatorPanel,
     ImagePanel,
@@ -98,7 +141,7 @@ impl_selectable_panel!(
 );
 struct TwixApp {
     nao: Arc<Nao>,
-    reachable_ips: Vec<IpAddr>,
+    reachable_naos: ReachableNaos,
     connection_intent: bool,
     ip_address: String,
     panel_selection: String,
@@ -156,9 +199,12 @@ impl TwixApp {
         visual.set_visual(&creation_context.egui_ctx);
 
         let panel_selection = "".to_string();
+
+        let reachable_naos = ReachableNaos::new();
+
         Self {
             nao,
-            reachable_ips: Vec::new(),
+            reachable_naos,
             connection_intent,
             ip_address: ip_address.unwrap_or_default(),
             panel_selection,
@@ -171,22 +217,19 @@ impl TwixApp {
 
 impl App for TwixApp {
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
+        self.reachable_naos.update();
+
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                     let address_input = CompletionEdit::addresses(
                         &mut self.ip_address,
                         21..=37,
-                        &self.reachable_ips,
+                        &self.reachable_naos.ips,
                     )
                     .ui(ui);
                     if address_input.gained_focus() {
-                        self.reachable_ips =
-                            query_aliveness_sync(Duration::from_secs_f32(0.8), None)
-                                .unwrap()
-                                .into_iter()
-                                .map(|(ip_address, _)| ip_address)
-                                .collect();
+                        self.reachable_naos.query_reachability();
                     }
                     if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::O)) {
                         address_input.request_focus();
