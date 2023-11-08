@@ -90,11 +90,12 @@ struct ReachableNaos {
     ips: Vec<IpAddr>,
     tx: UnboundedSender<Vec<IpAddr>>,
     rx: UnboundedReceiver<Vec<IpAddr>>,
+    context: Context,
     runtime: Runtime,
 }
 
 impl ReachableNaos {
-    pub fn new() -> Self {
+    pub fn new(context: Context) -> Self {
         let ips = Vec::new();
         let (tx, rx) = unbounded_channel();
         let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
@@ -103,16 +104,19 @@ impl ReachableNaos {
             ips,
             tx,
             rx,
+            context,
             runtime,
         }
     }
 
     pub fn query_reachability(&self) {
         let tx = self.tx.clone();
+        let context = self.context.clone();
         self.runtime.spawn(async move {
             if let Ok(ips) = query_aliveness(Duration::from_millis(200), None).await {
                 let ips = ips.into_iter().map(|(ip, _)| ip).collect();
                 let _ = tx.send(ips);
+                context.request_repaint();
             }
         });
     }
@@ -184,10 +188,9 @@ impl TwixApp {
             .into()]),
         };
 
-        {
-            let context = creation_context.egui_ctx.clone();
-            nao.on_update(move || context.request_repaint());
-        }
+        let context = creation_context.egui_ctx.clone();
+        let reachable_naos = ReachableNaos::new(context.clone());
+        nao.on_update(move || context.request_repaint());
 
         let visual = creation_context
             .storage
@@ -197,8 +200,6 @@ impl TwixApp {
         visual.set_visual(&creation_context.egui_ctx);
 
         let panel_selection = "".to_string();
-
-        let reachable_naos = ReachableNaos::new();
 
         Self {
             nao,
