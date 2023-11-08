@@ -43,10 +43,8 @@ impl StandUpBack {
     pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
         let paths = context.hardware_interface.get_paths();
         Ok(Self {
-            interpolator: MotionFile::from_path(
-                paths.motions.join("stand_up_back_dortmund_2022.json"),
-            )?
-            .try_into()?,
+            interpolator: MotionFile::from_path(paths.motions.join("stand_up_back.json"))?
+                .try_into()?,
         })
     }
 
