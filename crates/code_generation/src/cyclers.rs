@@ -669,7 +669,7 @@ fn generate_cross_inputs_extraction(cross_inputs: impl IntoIterator<Item = Field
             Field::CyclerState { path, .. } => {
                 let name = path_to_extraction_variable_name("own", &path);
                 quote! {
-                    let #name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                    let mut #name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
                 }
             }
             Field::Input {
@@ -740,7 +740,8 @@ fn generate_node_execution(
 ) -> TokenStream {
     match (node_type, mode) {
         (NodeType::Setup, Execution::Run) => {
-            let write_main_outputs_from_node = generate_write_main_outputs_from_node(node, cycler);
+            let write_main_outputs_from_node =
+                generate_write_main_outputs_from_node(node, cycler, mode);
             let record_main_outputs = generate_record_main_outputs(node);
             quote! {
                 #write_main_outputs_from_node
@@ -749,7 +750,8 @@ fn generate_node_execution(
         }
         (NodeType::Cycle, Execution::Run) => {
             let record_node_state = generate_record_node_state(node);
-            let write_main_outputs_from_node = generate_write_main_outputs_from_node(node, cycler);
+            let write_main_outputs_from_node =
+                generate_write_main_outputs_from_node(node, cycler, mode);
             quote! {
                 #record_node_state
                 #write_main_outputs_from_node
@@ -763,7 +765,8 @@ fn generate_node_execution(
         }
         (NodeType::Cycle, Execution::Replay) => {
             let restore_node_state = generate_restore_node_state(node);
-            let write_main_outputs_from_node = generate_write_main_outputs_from_node(node, cycler);
+            let write_main_outputs_from_node =
+                generate_write_main_outputs_from_node(node, cycler, mode);
             quote! {
                 #restore_node_state
                 #write_main_outputs_from_node
@@ -773,12 +776,16 @@ fn generate_node_execution(
     }
 }
 
-fn generate_write_main_outputs_from_node(node: &Node, cycler: &Cycler) -> TokenStream {
+fn generate_write_main_outputs_from_node(
+    node: &Node,
+    cycler: &Cycler,
+    mode: Execution,
+) -> TokenStream {
     let are_required_inputs_some = generate_required_input_condition(node, cycler);
     let node_name = &node.name;
     let node_member = format_ident!("{}", node.name.to_case(Case::Snake));
     let node_module = &node.module;
-    let context_initializers = generate_context_initializers(node, cycler);
+    let context_initializers = generate_context_initializers(node, cycler, mode);
     let cycle_error_message = format!("failed to execute cycle of `{}`", node.name);
     let database_updates = generate_database_updates(node);
     let database_updates_from_defaults = generate_database_updates_from_defaults(node);
@@ -910,7 +917,7 @@ fn generate_required_input_condition(node: &Node, cycler: &Cycler) -> TokenStrea
     }
 }
 
-fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
+fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) -> TokenStream {
     let initializers = node
             .contexts
             .cycle_context
@@ -936,14 +943,25 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                     }
                 }
                 Field::CyclerState { path, .. } => {
-                    let accessor = path_to_accessor_token_stream(
-                        quote! { self.cycler_state },
-                        path,
-                        ReferenceKind::Mutable,
-                        cycler,
-                    );
-                    quote! {
-                        #accessor
+                    match mode {
+                        Execution::None => Default::default(),
+                        Execution::Run => {
+                            let accessor = path_to_accessor_token_stream(
+                                quote! { self.cycler_state },
+                                path,
+                                ReferenceKind::Mutable,
+                                cycler,
+                            );
+                            quote! {
+                                #accessor
+                            }
+                        },
+                        Execution::Replay => {
+                            let name = path_to_extraction_variable_name("own", &path);
+                            quote! {
+                                &mut #name
+                            }
+                        },
                     }
                 }
                 Field::HardwareInterface { .. } => quote! {
@@ -984,24 +1002,44 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                     path,
                     ..
                 } => {
-                    let database_prefix = match cycler_instance {
+                    match cycler_instance {
                         Some(cycler_instance) => {
-                            let identifier =
-                                format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
-                            quote! { #identifier.main_outputs }
+                            match mode {
+                                Execution::None => Default::default(),
+                                Execution::Run => {
+                                    let identifier =
+                                        format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
+                                    let database_prefix = quote! { #identifier.main_outputs };
+                                    let accessor = path_to_accessor_token_stream(
+                                        database_prefix,
+                                        path,
+                                        ReferenceKind::Immutable,
+                                        cycler,
+                                    );
+                                    quote! {
+                                        #accessor
+                                    }
+                                },
+                                Execution::Replay => {
+                                    let name = path_to_extraction_variable_name(&cycler_instance, &path);
+                                    quote! {
+                                        &#name
+                                    }
+                                },
+                            }
                         }
                         None => {
-                            quote! { own_database_reference.main_outputs }
+                            let database_prefix = quote! { own_database_reference.main_outputs };
+                            let accessor = path_to_accessor_token_stream(
+                                database_prefix,
+                                path,
+                                ReferenceKind::Immutable,
+                                cycler,
+                            );
+                            quote! {
+                                #accessor
+                            }
                         }
-                    };
-                    let accessor = path_to_accessor_token_stream(
-                        database_prefix,
-                        path,
-                        ReferenceKind::Immutable,
-                        cycler,
-                    );
-                    quote! {
-                        #accessor
                     }
                 }
                 Field::MainOutput { name, .. } => {
@@ -1023,43 +1061,57 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                     path,
                     ..
                 } => {
-                    let cycler_instance_identifier =
-                        format_ident!("{}", cycler_instance.to_case(Case::Snake));
-                    let accessor = path_to_accessor_token_stream(
-                        quote! { database },
-                        path,
-                        ReferenceKind::Immutable,
-                        cycler,
-                    );
-                    quote! {
-                        framework::PerceptionInput {
-                            persistent: self
-                                .perception_databases
-                                .persistent()
-                                .map(|(system_time, databases)| (
-                                    *system_time,
-                                    databases
-                                        .#cycler_instance_identifier
-                                        .iter()
-                                        .map(|database| #accessor)
-                                        .collect()
-                                    ,
-                                ))
-                                .collect(),
-                            temporary: self
-                                .perception_databases
-                                .temporary()
-                                .map(|(system_time, databases)| (
-                                    *system_time,
-                                    databases
-                                        .#cycler_instance_identifier
-                                        .iter()
-                                        .map(|database| #accessor)
-                                        .collect()
-                                    ,
-                                ))
-                                .collect(),
-                        }
+                    match mode {
+                        Execution::None => Default::default(),
+                        Execution::Run => {
+                            let cycler_instance_identifier =
+                                format_ident!("{}", cycler_instance.to_case(Case::Snake));
+                            let accessor = path_to_accessor_token_stream(
+                                quote! { database },
+                                path,
+                                ReferenceKind::Immutable,
+                                cycler,
+                            );
+                            quote! {
+                                framework::PerceptionInput {
+                                    persistent: self
+                                        .perception_databases
+                                        .persistent()
+                                        .map(|(system_time, databases)| (
+                                            *system_time,
+                                            databases
+                                                .#cycler_instance_identifier
+                                                .iter()
+                                                .map(|database| #accessor)
+                                                .collect()
+                                            ,
+                                        ))
+                                        .collect(),
+                                    temporary: self
+                                        .perception_databases
+                                        .temporary()
+                                        .map(|(system_time, databases)| (
+                                            *system_time,
+                                            databases
+                                                .#cycler_instance_identifier
+                                                .iter()
+                                                .map(|database| #accessor)
+                                                .collect()
+                                            ,
+                                        ))
+                                        .collect(),
+                                }
+                            }
+                        },
+                        Execution::Replay => {
+                            let name = path_to_extraction_variable_name(&cycler_instance, &path);
+                            quote! {
+                                framework::PerceptionInput {
+                                    persistent: #name[0].clone(),  // TODO: can we eliminate this clone?
+                                    temporary: #name[1].clone(),
+                                }
+                            }
+                        },
                     }
                 }
                 Field::RequiredInput {
@@ -1067,24 +1119,44 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler) -> TokenStream {
                     path,
                     ..
                 } => {
-                    let database_prefix = match cycler_instance {
+                    match cycler_instance {
                         Some(cycler_instance) => {
-                            let identifier =
-                                format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
-                            quote! { #identifier.main_outputs }
+                            match mode {
+                                Execution::None => Default::default(),
+                                Execution::Run => {
+                                    let identifier =
+                                        format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
+                                    let database_prefix = quote! { #identifier.main_outputs };
+                                    let accessor = path_to_accessor_token_stream(
+                                        database_prefix,
+                                        path,
+                                        ReferenceKind::Immutable,
+                                        cycler,
+                                    );
+                                    quote! {
+                                        #accessor .unwrap()
+                                    }
+                                },
+                                Execution::Replay => {
+                                    let name = path_to_extraction_variable_name(&cycler_instance, &path);
+                                    quote! {
+                                        &#name
+                                    }
+                                },
+                            }
                         }
                         None => {
-                            quote! { own_database_reference.main_outputs }
+                            let database_prefix = quote! { own_database_reference.main_outputs };
+                            let accessor = path_to_accessor_token_stream(
+                                database_prefix,
+                                path,
+                                ReferenceKind::Immutable,
+                                cycler,
+                            );
+                            quote! {
+                                #accessor .unwrap()
+                            }
                         }
-                    };
-                    let accessor = path_to_accessor_token_stream(
-                        database_prefix,
-                        path,
-                        ReferenceKind::Immutable,
-                        cycler,
-                    );
-                    quote! {
-                        #accessor .unwrap()
                     }
                 }
             });
