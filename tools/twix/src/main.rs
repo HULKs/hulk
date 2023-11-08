@@ -112,7 +112,7 @@ impl ReachableNaos {
         let tx = self.tx.clone();
         let _guard = self.runtime.enter();
         spawn(async move {
-            if let Ok(ips) = query_aliveness(Duration::from_millis(800), None).await {
+            if let Ok(ips) = query_aliveness(Duration::from_millis(200), None).await {
                 let ips = ips.into_iter().map(|(ip, _)| ip).collect();
                 let _ = tx.send(ips);
             }
