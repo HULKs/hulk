@@ -37,7 +37,6 @@ use serde_json::{from_str, to_string, Value};
 use tokio::{
     runtime::{Builder, Runtime},
     sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
-    task::spawn,
 };
 use visuals::Visuals;
 
@@ -110,8 +109,7 @@ impl ReachableNaos {
 
     pub fn query_reachability(&self) {
         let tx = self.tx.clone();
-        let _guard = self.runtime.enter();
-        spawn(async move {
+        self.runtime.spawn(async move {
             if let Ok(ips) = query_aliveness(Duration::from_millis(200), None).await {
                 let ips = ips.into_iter().map(|(ip, _)| ip).collect();
                 let _ = tx.send(ips);
