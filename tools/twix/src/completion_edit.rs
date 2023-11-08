@@ -71,7 +71,7 @@ impl<'key> CompletionEdit<'key> {
     pub fn addresses(
         key: &'key mut String,
         numbers: RangeInclusive<u8>,
-        highlighted_ips: &Vec<IpAddr>,
+        highlighted_ips: &[IpAddr],
     ) -> Self {
         let completion_items: Vec<_> = chain!(
             once(CompletionEntry::new("localhost".to_string(), true)),
