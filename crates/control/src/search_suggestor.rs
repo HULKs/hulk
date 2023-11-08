@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{DMatrix, Isometry2, Point2};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -25,6 +25,7 @@ pub struct CycleContext {
     invalid_ball_positions: Input<Vec<HypotheticalBallPosition>, "invalid_ball_positions">,
     robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    heatmap: AdditionalOutput<DMatrix<f32>, "ball_search_heatmap">,
 }
 
 #[context]
@@ -46,7 +47,7 @@ impl SearchSuggestor {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         self.update_heatmap(
             context.ball_position,
             context.invalid_ball_positions,
@@ -58,17 +59,17 @@ impl SearchSuggestor {
         let maximum_heat_heatmap_position = self.heatmap.iamax_full();
         let mut suggested_search_position: Option<Point2<f32>> = None;
         if self.heatmap[maximum_heat_heatmap_position]
-            > context.search_suggestor_configuration.minimum_validity
+        > context.search_suggestor_configuration.minimum_validity
         {
             let mut search_suggestion = Point2::new(
                 maximum_heat_heatmap_position.0 as f32
-                    / context.search_suggestor_configuration.cells_per_meter as f32,
+                / context.search_suggestor_configuration.cells_per_meter as f32,
                 maximum_heat_heatmap_position.1 as f32
-                    / context.search_suggestor_configuration.cells_per_meter as f32,
+                / context.search_suggestor_configuration.cells_per_meter as f32,
             );
             let length_half = context.field_dimensions.length / 2.0;
             let width_half = context.field_dimensions.width / 2.0;
-
+            
             if search_suggestion.x >= length_half {
                 search_suggestion.x -= length_half;
             } else {
@@ -81,7 +82,8 @@ impl SearchSuggestor {
             }
             suggested_search_position = Some(search_suggestion);
         }
-
+        context.heatmap.fill_if_subscribed(|| self.heatmap.clone());
+        
         Ok(MainOutputs {
             suggested_search_position: suggested_search_position.into(),
         })
