@@ -25,7 +25,7 @@ pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenS
                 }
             }
         }
-        Execution::Replay => Default::default(),
+        Execution::Replay => Default::default(),  // TODO: implement
     };
     let generated_perception_databases = generate_perception_databases(cyclers);
     let generated_structs = generate_structs(structs);
