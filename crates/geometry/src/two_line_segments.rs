@@ -38,7 +38,7 @@ impl SerializeHierarchy for TwoLineSegments {
     }
 
     fn get_fields() -> BTreeSet<String> {
-        [String::new()].into()
+        Default::default()
     }
 
     fn fill_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
