@@ -314,12 +314,7 @@ async fn handle_notified_output(
                 (
                     client.response_sender,
                     Response::Textual(TextualResponse::Outputs(
-                        TextualOutputsResponse::SubscribedData {
-                            items: items
-                                .into_iter()
-                                .map(|(subscription_id, data)| (subscription_id, data))
-                                .collect(),
-                        },
+                        TextualOutputsResponse::SubscribedData { items },
                     )),
                 )
             }))
