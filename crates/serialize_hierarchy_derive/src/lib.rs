@@ -135,12 +135,6 @@ fn process_input(mut input: DeriveInput) -> TokenStream {
                 }
             }
 
-            fn get_fields() -> std::collections::BTreeSet<String> {
-                let mut fields = Default::default();
-                Self::fill_fields(&mut fields, "");
-                fields
-            }
-
             fn fill_fields(fields: &mut std::collections::BTreeSet<String>, prefix: &str)  {
                 #(#field_chains)*
                 #(#path_field_chains)*

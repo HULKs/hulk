@@ -28,7 +28,11 @@ pub trait SerializeHierarchy {
 
     fn exists(path: &str) -> bool;
 
-    fn get_fields() -> BTreeSet<String>;
+    fn get_fields() -> BTreeSet<String> {
+        let mut fields = BTreeSet::default();
+        Self::fill_fields(&mut fields, "");
+        fields
+    }
 
     fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str);
 }
