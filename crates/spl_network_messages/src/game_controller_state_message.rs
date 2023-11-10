@@ -401,7 +401,7 @@ impl TryFrom<RobotInfo> for Player {
     type Error = Report;
 
     fn try_from(player: RobotInfo) -> Result<Self> {
-        let remaining = Duration::from_secs(player.secsTillUnpenalised.try_into()?);
+        let remaining = Duration::from_secs(player.secsTillUnpenalised.into());
         Ok(Self {
             penalty: Penalty::try_from(remaining, player.penalty)?,
         })
