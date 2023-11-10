@@ -44,10 +44,6 @@ macro_rules! implement_as_not_supported {
                 false
             }
 
-            fn get_fields() -> BTreeSet<String> {
-                Default::default()
-            }
-
             fn fill_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
         }
     };
@@ -83,10 +79,6 @@ macro_rules! implement_as_not_supported {
 
             fn exists(_path: &str) -> bool {
                 false
-            }
-
-            fn get_fields() -> BTreeSet<String> {
-                Default::default()
             }
 
             fn fill_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}

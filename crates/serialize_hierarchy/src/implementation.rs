@@ -34,10 +34,6 @@ where
         T::exists(path)
     }
 
-    fn get_fields() -> BTreeSet<String> {
-        T::get_fields()
-    }
-
     fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
         T::fill_fields(fields, prefix)
     }
@@ -71,10 +67,6 @@ where
 
     fn exists(path: &str) -> bool {
         T::exists(path)
-    }
-
-    fn get_fields() -> BTreeSet<String> {
-        T::get_fields()
     }
 
     fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
@@ -144,12 +136,6 @@ where
         }
     }
 
-    fn get_fields() -> BTreeSet<String> {
-        ["start".to_string(), "end".to_string()]
-            .into_iter()
-            .collect()
-    }
-
     fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}start"));
         fields.insert(format!("{prefix}end"));
@@ -204,13 +190,6 @@ impl<T: Serialize + DeserializeOwned, const N: usize> SerializeHierarchy
         Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::get_fields().contains(path)
     }
 
-    fn get_fields() -> BTreeSet<String> {
-        ["x", "y", "z", "w", "v", "u"][0..N]
-            .iter()
-            .map(|path| String::from(*path))
-            .collect()
-    }
-
     fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
         for field in &["x", "y", "z", "w", "v", "u"][0..N] {
             fields.insert(format!("{prefix}{field}"));
@@ -241,10 +220,6 @@ impl<T: Serialize + DeserializeOwned + Clone + Scalar, const N: usize> Serialize
 
     fn exists(path: &str) -> bool {
         Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::exists(path)
-    }
-
-    fn get_fields() -> BTreeSet<String> {
-        Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::get_fields()
     }
 
     fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
