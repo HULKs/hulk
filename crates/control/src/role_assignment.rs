@@ -103,6 +103,7 @@ impl RoleAssignment {
             || primary_state == PrimaryState::Ready
             || primary_state == PrimaryState::Set
         {
+            #[allow(clippy::get_first)]
             let mut player_roles = Players {
                 one: Role::Keeper,
                 two: context.optional_roles.get(0).copied().unwrap_or_default(),
