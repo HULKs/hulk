@@ -37,6 +37,10 @@ where
     fn get_fields() -> BTreeSet<String> {
         T::get_fields()
     }
+
+    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        T::fill_fields(fields, prefix)
+    }
 }
 
 impl<T> SerializeHierarchy for Option<T>
@@ -71,6 +75,10 @@ where
 
     fn get_fields() -> BTreeSet<String> {
         T::get_fields()
+    }
+
+    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        T::fill_fields(fields, prefix)
     }
 }
 
@@ -141,6 +149,11 @@ where
             .into_iter()
             .collect()
     }
+
+    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}start"));
+        fields.insert(format!("{prefix}end"));
+    }
 }
 
 impl<T: Serialize + DeserializeOwned, const N: usize> SerializeHierarchy
@@ -197,6 +210,12 @@ impl<T: Serialize + DeserializeOwned, const N: usize> SerializeHierarchy
             .map(|path| String::from(*path))
             .collect()
     }
+
+    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        for field in &["x", "y", "z", "w", "v", "u"][0..N] {
+            fields.insert(format!("{prefix}{field}"));
+        }
+    }
 }
 
 impl<T: Serialize + DeserializeOwned + Clone + Scalar, const N: usize> SerializeHierarchy
@@ -226,5 +245,9 @@ impl<T: Serialize + DeserializeOwned + Clone + Scalar, const N: usize> Serialize
 
     fn get_fields() -> BTreeSet<String> {
         Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::get_fields()
+    }
+
+    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::fill_fields(fields, prefix)
     }
 }

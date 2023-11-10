@@ -58,7 +58,7 @@ fn process_input(mut input: DeriveInput) -> TokenStream {
                 "jpeg" => true,
             },
             quote! {
-                .chain(std::iter::once("jpeg".to_string()))
+                fields.insert(format!("{prefix}jpeg"));
             },
         )
     } else {
@@ -136,11 +136,15 @@ fn process_input(mut input: DeriveInput) -> TokenStream {
             }
 
             fn get_fields() -> std::collections::BTreeSet<String> {
-                std::iter::empty::<std::string::String>()
-                    #(#field_chains)*
-                    #(#path_field_chains)*
-                    #jpeg_field_chain
-                    .collect()
+                let mut fields = Default::default();
+                Self::fill_fields(&mut fields, "");
+                fields
+            }
+
+            fn fill_fields(fields: &mut std::collections::BTreeSet<String>, prefix: &str)  {
+                #(#field_chains)*
+                #(#path_field_chains)*
+                #jpeg_field_chain
             }
         }
     };
@@ -248,7 +252,7 @@ fn generate_field_chains(fields: &[&Field]) -> Vec<TokenStream> {
         .map(|field| {
             let name_string = field.identifier.to_string();
             quote! {
-                .chain(std::iter::once(#name_string.to_string()))
+                fields.insert(format!("{prefix}{}", #name_string));
             }
         })
         .collect()
@@ -259,15 +263,10 @@ fn generate_path_field_chains(fields: &[&Field]) -> Vec<TokenStream> {
         .iter()
         .filter(|field| !field.attributes.contains(&FieldAttribute::Leaf))
         .map(|field| {
-            let identifier = &field.identifier;
-            let pattern = format!("{identifier}.{{}}");
+            let field_name = &field.identifier.to_string();
             let ty = &field.ty;
             quote! {
-                .chain(
-                    <#ty as serialize_hierarchy::SerializeHierarchy>::get_fields()
-                        .into_iter()
-                        .map(|name| format!(#pattern, name))
-                )
+                <#ty as serialize_hierarchy::SerializeHierarchy>::fill_fields(fields, &format!("{prefix}{}.", #field_name));
             }
         })
         .collect()

@@ -47,6 +47,8 @@ macro_rules! implement_as_not_supported {
             fn get_fields() -> BTreeSet<String> {
                 Default::default()
             }
+
+            fn fill_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
         }
     };
     ($type:ty, $generic:tt) => {
@@ -86,6 +88,8 @@ macro_rules! implement_as_not_supported {
             fn get_fields() -> BTreeSet<String> {
                 Default::default()
             }
+
+            fn fill_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
         }
     };
 }
