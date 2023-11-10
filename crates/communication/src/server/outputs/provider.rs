@@ -408,8 +408,10 @@ mod tests {
             field_path == "a.b.c"
         }
 
-        fn get_fields() -> BTreeSet<String> {
-            ["a".to_string(), "a.b".to_string(), "a.b.c".to_string()].into()
+        fn fill_fields(fields: &mut BTreeSet<String>, _prefix: &str) {
+            fields.insert("a".to_string());
+            fields.insert("a.b".to_string());
+            fields.insert("a.b.c".to_string());
         }
     }
 
