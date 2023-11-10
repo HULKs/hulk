@@ -1,6 +1,6 @@
 // Modified version of https://github.com/amethyst/bracket-lib
 
-use std::cmp::Ordering;
+use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap};
 use std::convert::TryInto;
 
@@ -70,7 +70,7 @@ impl Eq for Node {}
 
 impl Ord for Node {
     fn cmp(&self, b: &Self) -> Ordering {
-        b.f.partial_cmp(&self.f).unwrap()
+        self.f.partial_cmp(&b.f).unwrap()
     }
 }
 
@@ -95,7 +95,7 @@ impl NavigationPath {
 struct AStar {
     start: usize,
     end: usize,
-    open_list: BinaryHeap<Node>,
+    open_list: BinaryHeap<Reverse<Node>>,
     closed_list: HashMap<usize, f32>,
     parents: HashMap<usize, (usize, f32)>, // (index, cost)
     step_counter: usize,
@@ -104,12 +104,12 @@ struct AStar {
 impl AStar {
     /// Creates a new path, with specified starting and ending indices.
     fn new(start: usize, end: usize) -> AStar {
-        let mut open_list: BinaryHeap<Node> = BinaryHeap::new();
-        open_list.push(Node {
+        let mut open_list = BinaryHeap::new();
+        open_list.push(Reverse(Node {
             idx: start,
             f: 0.0,
             g: 0.0,
-        });
+        }));
 
         AStar {
             start,
@@ -149,7 +149,7 @@ impl AStar {
         }
 
         if should_add {
-            self.open_list.push(s);
+            self.open_list.push(Reverse(s));
             self.parents.insert(idx, (q.idx, s.g));
         }
     }
@@ -178,7 +178,7 @@ impl AStar {
             self.step_counter += 1;
 
             // Pop Q off of the list
-            let q = self.open_list.pop().unwrap();
+            let q = self.open_list.pop().unwrap().0;
             if q.idx == self.end {
                 let success = self.found_it();
                 return success;
