@@ -10,6 +10,9 @@ use source_analyzer::{
     node::Node,
     path::Path,
 };
+use syn::{
+    AngleBracketedGenericArguments, GenericArgument, Path as SynPath, PathArguments, Type, TypePath,
+};
 
 use crate::{
     accessor::{path_to_accessor_token_stream, ReferenceKind},
@@ -17,15 +20,24 @@ use crate::{
 };
 
 pub fn generate_cyclers(cyclers: &Cyclers, mode: Execution) -> TokenStream {
-    let recording_frame_variants = cyclers.instances().map(|(_cycler, instance)| {
-        let instance_name = format_ident!("{}", instance);
+    let recording_frame = if mode == Execution::Run {
+        let recording_frame_variants = cyclers.instances().map(|(_cycler, instance)| {
+            let instance_name = format_ident!("{}", instance);
+            quote! {
+                #instance_name {
+                    timestamp: std::time::SystemTime,
+                    data: std::vec::Vec<u8>,
+                },
+            }
+        });
         quote! {
-            #instance_name {
-                timestamp: std::time::SystemTime,
-                data: std::vec::Vec<u8>,
-            },
+            pub enum RecordingFrame {
+                #(#recording_frame_variants)*
+            }
         }
-    });
+    } else {
+        Default::default()
+    };
     let cyclers: Vec<_> = cyclers
         .cyclers
         .iter()
@@ -33,9 +45,7 @@ pub fn generate_cyclers(cyclers: &Cyclers, mode: Execution) -> TokenStream {
         .collect();
 
     quote! {
-        pub enum RecordingFrame {
-            #(#recording_frame_variants)*
-        }
+        #recording_frame
 
         #(#cyclers)*
     }
@@ -45,7 +55,7 @@ fn generate_module(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> Token
     let module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
     let cycler_instance = generate_cycler_instance(cycler);
     let database_struct = generate_database_struct();
-    let cycler_struct = generate_struct(cycler, cyclers);
+    let cycler_struct = generate_struct(cycler, cyclers, mode);
     let cycler_implementation = generate_implementation(cycler, cyclers, mode);
 
     quote! {
@@ -85,7 +95,7 @@ fn generate_database_struct() -> TokenStream {
     }
 }
 
-fn generate_struct(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
+fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
     let module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
     let input_output_fields = generate_input_output_fields(cycler, cyclers);
     let realtime_inputs = match cycler.kind {
@@ -98,6 +108,14 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
         }
     };
     let node_fields = generate_node_fields(cycler);
+    let recording_fields = if mode == Execution::Run {
+        quote! {
+            recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
+            enable_recording: bool,
+        }
+    } else {
+        Default::default()
+    };
 
     quote! {
         pub(crate) struct Cycler<HardwareInterface>  {
@@ -111,8 +129,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             #realtime_inputs
             #input_output_fields
             #node_fields
-            recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
-            enable_recording: bool,
+            #recording_fields
         }
     }
 }
@@ -181,8 +198,11 @@ fn generate_node_fields(cycler: &Cycler) -> TokenStream {
 }
 
 fn generate_implementation(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
-    let new_method = generate_new_method(cycler, cyclers);
-    let start_method = generate_start_method();
+    let new_method = generate_new_method(cycler, cyclers, mode);
+    let start_method = match mode {
+        Execution::None | Execution::Run => generate_start_method(),
+        Execution::Replay => Default::default(),
+    };
     let cycle_method = generate_cycle_method(cycler, cyclers, mode);
 
     quote! {
@@ -197,7 +217,7 @@ fn generate_implementation(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) 
     }
 }
 
-fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
+fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
     let input_output_fields = generate_input_output_fields(cycler, cyclers);
     let cycler_module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
     let node_initializers = generate_node_initializers(cycler);
@@ -205,6 +225,22 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
         .iter_nodes()
         .map(|node| format_ident!("{}", node.name.to_case(Case::Snake)));
     let input_output_identifiers = generate_input_output_identifiers(cycler, cyclers);
+    let recording_parameter_fields = if mode == Execution::Run {
+        quote! {
+            recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
+            enable_recording: bool,
+        }
+    } else {
+        Default::default()
+    };
+    let recording_initializer_fields = if mode == Execution::Run {
+        quote! {
+            recording_sender,
+            enable_recording,
+        }
+    } else {
+        Default::default()
+    };
 
     quote! {
         pub(crate) fn new(
@@ -215,8 +251,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
             own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
             parameters_reader: framework::Reader<crate::structs::Parameters>,
             #input_output_fields
-            recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
-            enable_recording: bool,
+            #recording_parameter_fields
         ) -> color_eyre::Result<Self> {
             let parameters = parameters_reader.next().clone();
             let mut cycler_state = crate::structs::#cycler_module_name::CyclerState::default();
@@ -231,8 +266,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                 cycler_state,
                 #input_output_identifiers
                 #(#node_identifiers,)*
-                recording_sender,
-                enable_recording,
+                #recording_initializer_fields
             })
         }
     }
@@ -373,6 +407,14 @@ fn generate_start_method() -> TokenStream {
 }
 
 fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
+    let cycle_function_signature = match mode {
+        Execution::None | Execution::Run => quote! {
+            pub(crate) fn cycle(&mut self) -> color_eyre::Result<()>
+        },
+        Execution::Replay => quote! {
+            pub fn cycle(&mut self, now: std::time::SystemTime, mut recording_frame: &[u8]) -> color_eyre::Result<()>
+        },
+    };
     let setup_node_executions = cycler
         .setup_nodes
         .iter()
@@ -473,7 +515,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
 
     quote! {
         #[allow(clippy::nonminimal_bool)]
-        pub(crate) fn cycle(&mut self) -> color_eyre::Result<()> {
+        #cycle_function_signature {
             {
                 let instance = self.instance;
                 let instance_name = format!("{instance:?}");
@@ -667,35 +709,53 @@ fn generate_cross_inputs_extraction(cross_inputs: impl IntoIterator<Item = Field
         };
         match field {
             Field::CyclerState { path, .. } => {
-                let name = path_to_extraction_variable_name("own", &path);
+                let name = path_to_extraction_variable_name("own", &path, "cycler_state");
                 quote! {
+                    #[allow(non_snake_case)]
                     let mut #name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
                 }
             }
             Field::Input {
                 cycler_instance: Some(cycler_instance),
                 path,
+                data_type,
                 ..
             } => {
-                let name = path_to_extraction_variable_name(&cycler_instance, &path);
+                let name = path_to_extraction_variable_name(&cycler_instance, &path, "input");
                 quote! {
-                    let #name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                    #[allow(non_snake_case)]
+                    let #name: #data_type = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
                 }
             }
-            Field::PerceptionInput { cycler_instance, path, .. } => {
-                let name = path_to_extraction_variable_name(&cycler_instance, &path);
+            Field::PerceptionInput { cycler_instance, path, data_type, .. } => {
+                let name = path_to_extraction_variable_name(&cycler_instance, &path, "perception_input");
                 quote! {
-                    let #name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                    #[allow(non_snake_case)]
+                    let #name: Vec<std::collections::BTreeMap<std::time::SystemTime, Vec<#data_type>>> = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
                 }
             }
             Field::RequiredInput {
                 cycler_instance: Some(cycler_instance),
                 path,
+                data_type: Type::Path(TypePath {
+                    path: SynPath { segments, .. },
+                    ..
+                }),
                 ..
-            } => {
-                let name = path_to_extraction_variable_name(&cycler_instance, &path);
+            } if !segments.is_empty() && segments.last().unwrap().ident == "Option" => {
+                let name = path_to_extraction_variable_name(&cycler_instance, &path, "required_input");
+                let data_type = match &segments.last().unwrap().arguments {
+                    PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                        args, ..
+                    }) if args.len() == 1 => match args.first().unwrap() {
+                        GenericArgument::Type(nested_data_type) => nested_data_type,
+                        _ => panic!("unexpected generic argument, expected type argument in data type"),
+                    },
+                    _ => panic!("expected exactly one generic type argument in data type"),
+                };
                 quote! {
-                    let #name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                    #[allow(non_snake_case)]
+                    let #name: #data_type = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
                 }
             }
             _ => panic!("unexpected field {field:?}"),
@@ -711,11 +771,12 @@ fn generate_cross_inputs_extraction(cross_inputs: impl IntoIterator<Item = Field
     }
 }
 
-fn path_to_extraction_variable_name(cycler_instance: &str, path: &Path) -> Ident {
+fn path_to_extraction_variable_name(cycler_instance: &str, path: &Path, suffix: &str) -> Ident {
     format_ident!(
-        "replay_extraction_{}_{}",
+        "replay_extraction_{}_{}_{}",
         cycler_instance,
-        path.to_segments().join("_")
+        path.to_segments().join("_"),
+        suffix,
     )
 }
 
@@ -860,16 +921,19 @@ fn generate_restore_node_state(node: &Node) -> TokenStream {
     let node_member = format_ident!("{}", node.name.to_case(Case::Snake));
     let error_message = format!("failed to extract `{}`", node.name);
     quote! {
-        let deserializer = bincode::Deserializer::with_reader(
-            &mut recording_frame,
-            bincode::options()
-                .with_fixint_encoding()
-                .allow_trailing_bytes(),
-        );
-        serde::Deserialize::deserialize_in_place(
-            deserializer,
-            &mut self.#node_member,
-        ).wrap_err(#error_message)?;
+        {
+            use bincode::Options;
+            let mut deserializer = bincode::Deserializer::with_reader(
+                &mut recording_frame,
+                bincode::options()
+                    .with_fixint_encoding()
+                    .allow_trailing_bytes(),
+            );
+            serde::Deserialize::deserialize_in_place(
+                &mut deserializer,
+                &mut self.#node_member,
+            ).wrap_err(#error_message)?;
+        }
     }
 }
 
@@ -957,7 +1021,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                             }
                         },
                         Execution::Replay => {
-                            let name = path_to_extraction_variable_name("own", &path);
+                            let name = path_to_extraction_variable_name("own", &path, "cycler_state");
                             quote! {
                                 &mut #name
                             }
@@ -1000,6 +1064,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                 Field::Input {
                     cycler_instance,
                     path,
+                    data_type,
                     ..
                 } => {
                     match cycler_instance {
@@ -1021,9 +1086,22 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                     }
                                 },
                                 Execution::Replay => {
-                                    let name = path_to_extraction_variable_name(&cycler_instance, &path);
-                                    quote! {
-                                        &#name
+                                    let name = path_to_extraction_variable_name(&cycler_instance, &path, "input");
+                                    let is_option = match data_type {
+                                        Type::Path(TypePath {
+                                            path: SynPath { segments, .. },
+                                            ..
+                                        }) => !segments.is_empty() && segments.last().unwrap().ident == "Option",
+                                        _ => false,
+                                    };
+                                    if is_option {
+                                        quote! {
+                                            #name.as_ref()
+                                        }
+                                    } else {
+                                        quote! {
+                                            &#name
+                                        }
                                     }
                                 },
                             }
@@ -1059,6 +1137,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                 Field::PerceptionInput {
                     cycler_instance,
                     path,
+                    data_type,
                     ..
                 } => {
                     match mode {
@@ -1104,11 +1183,33 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                             }
                         },
                         Execution::Replay => {
-                            let name = path_to_extraction_variable_name(&cycler_instance, &path);
+                            let name = path_to_extraction_variable_name(&cycler_instance, &path, "perception_input");
+                            let is_option = match data_type {
+                                Type::Path(TypePath {
+                                    path: SynPath { segments, .. },
+                                    ..
+                                }) => !segments.is_empty() && segments.last().unwrap().ident == "Option",
+                                _ => false,
+                            };
+                            let map_operation = if is_option {
+                                quote! {
+                                    values.iter().map(|option_value| option_value.as_ref()).collect()
+                                }
+                            } else {
+                                quote! {
+                                    values.iter().collect()
+                                }
+                            };
                             quote! {
                                 framework::PerceptionInput {
-                                    persistent: #name[0].clone(),  // TODO: can we eliminate this clone?
-                                    temporary: #name[1].clone(),
+                                    persistent: #name[0].iter().map(|(system_time, values)| (
+                                        *system_time,
+                                        #map_operation,
+                                    )).collect(),
+                                    temporary: #name[0].iter().map(|(system_time, values)| (
+                                        *system_time,
+                                        #map_operation,
+                                    )).collect(),
                                 }
                             }
                         },
@@ -1138,7 +1239,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                     }
                                 },
                                 Execution::Replay => {
-                                    let name = path_to_extraction_variable_name(&cycler_instance, &path);
+                                    let name = path_to_extraction_variable_name(&cycler_instance, &path, "required_input");
                                     quote! {
                                         &#name
                                     }
