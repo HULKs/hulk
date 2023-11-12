@@ -1,15 +1,15 @@
 use std::{collections::VecDeque, path::PathBuf};
 
-use crate::label_widget::LabelWidget;
+use crate::{label_widget::LabelWidget, paths::Paths};
 use color_eyre::{eyre::ContextCompat, Result};
 use eframe::{
-    egui::{self, CentralPanel, Key, ScrollArea, SidePanel},
+    egui::{self, CentralPanel, Key, ProgressBar, ScrollArea, SidePanel},
     App, CreationContext,
 };
 use glob::glob;
 
 pub struct AnnotatorApp {
-    image_paths: VecDeque<PathBuf>,
+    paths: VecDeque<Paths>,
     current_index: usize,
     label_widget: LabelWidget,
 }
@@ -33,18 +33,29 @@ impl AnnotatorApp {
     pub fn try_new(_: &CreationContext) -> Result<Self> {
         let image_paths = glob("./images/*.png")?.collect::<Result<VecDeque<_>, _>>()?;
 
-        Ok(AnnotatorApp {
-            image_paths,
+        let paths = image_paths
+            .into_iter()
+            .map(|image_path| {
+                let label_path = Self::convert_image_to_label_path(&image_path)?;
+                Ok(Paths::new(image_path, label_path))
+            })
+            .collect::<Result<VecDeque<_>>>()
+            .expect("failed to build paths");
+        let mut this = AnnotatorApp {
+            paths,
             current_index: 0,
             label_widget: LabelWidget::new(),
-        })
+        };
+        this.update_image().expect("failed to load image");
+
+        Ok(this)
     }
 
     fn update_image(&mut self) -> Result<()> {
-        if let Some(image_path) = self.image_paths.get(self.current_index) {
-            let label_path = Self::convert_image_to_label_path(&image_path)?;
+        if let Some(paths) = self.paths.get_mut(self.current_index) {
             self.label_widget
-                .load_new_image_with_labels(image_path.clone(), label_path)?;
+                .load_new_image_with_labels(paths.clone())?;
+            paths.check_existence();
         }
 
         Ok(())
@@ -63,30 +74,44 @@ impl App for AnnotatorApp {
             .default_width(200.0)
             .show(ctx, |ui| {
                 ui.label("Image List");
+                let percent_done = self
+                    .paths
+                    .iter()
+                    .filter(|paths| paths.label_present)
+                    .count() as f32
+                    / self.paths.len() as f32;
+                ui.add(ProgressBar::new(percent_done).show_percentage());
                 ui.separator();
                 ScrollArea::vertical()
                     .auto_shrink([false, false])
                     .max_width(200.0)
                     .max_height(0.8 * ui.available_height())
-                    .show_rows(ui, 12.0, self.image_paths.len(), |ui, range| {
-                        for filename in self.image_paths.range(range).filter_map(|path| {
-                            path.file_name().map(|osstr| osstr.to_str()).flatten()
+                    .show_rows(ui, 12.0, self.paths.len(), |ui, range| {
+                        for filename in self.paths.range(range).filter_map(|path| {
+                            path.image_path
+                                .file_name()
+                                .map(|osstr| osstr.to_str())
+                                .flatten()
                         }) {
                             ui.label(filename);
                             ui.separator();
                         }
                     });
                 ui.separator();
-                ui.horizontal_centered(|ui| {
-                    if ui.button("<").clicked() && self.current_index > 0 {
-                        self.current_index -= 1;
-                    }
-                    if ui.button(">").clicked() || ui.input(|i| i.key_pressed(Key::ArrowRight)) {
-                        if self.current_index < self.image_paths.len() - 1 {
-                            self.current_index += 1;
+                ui.vertical_centered(|ui| {
+                    ui.horizontal(|ui| {
+                        if ui.button("<").clicked() && self.current_index > 0 {
+                            self.current_index -= 1;
+                            self.update_image().expect("failed to update image");
                         }
-                        self.update_image().expect("failed to update image");
-                    }
+                        if ui.button(">").clicked() || ui.input(|i| i.key_pressed(Key::ArrowRight))
+                        {
+                            if self.current_index < self.paths.len() - 1 {
+                                self.current_index += 1;
+                            }
+                            self.update_image().expect("failed to update image");
+                        }
+                    })
                 })
             });
 
