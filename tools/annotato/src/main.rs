@@ -4,6 +4,7 @@ pub mod boundingbox;
 pub mod label_widget;
 pub mod yolo;
 pub mod classes;
+pub mod paths;
 
 use annotator_app::AnnotatorApp;
 use eframe::{epaint::Vec2, run_native, NativeOptions, Result};

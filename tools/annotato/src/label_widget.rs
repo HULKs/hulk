@@ -4,7 +4,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{annotation::AnnotationFormat, boundingbox::BoundingBox, classes::Classes, yolo::Yolo};
+use crate::{
+    annotation::AnnotationFormat, boundingbox::BoundingBox, classes::Classes, paths::Paths,
+    yolo::Yolo,
+};
 use color_eyre::eyre::Result;
 use eframe::{
     egui::{ComboBox, Key, PointerButton, RichText, Ui},
@@ -18,11 +21,6 @@ fn load_image_from_path(path: impl AsRef<Path>) -> Result<ColorImage, image::Ima
     let image_buffer = image.to_rgba8();
     let pixels = image_buffer.as_flat_samples();
     Ok(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice()))
-}
-
-struct Paths {
-    pub image_path: PathBuf,
-    pub label_path: PathBuf,
 }
 
 pub struct LabelWidget {
@@ -164,11 +162,7 @@ impl LabelWidget {
         }
     }
 
-    pub fn load_new_image_with_labels(
-        &mut self,
-        image_path: PathBuf,
-        label_path: PathBuf,
-    ) -> Result<()> {
+    pub fn load_new_image_with_labels(&mut self, paths: Paths) -> Result<()> {
         if let Some(paths) = &self.current_paths {
             // export current bboxes
             let annotations: Vec<AnnotationFormat> = self
@@ -182,8 +176,8 @@ impl LabelWidget {
             file.write_all(annotations.as_bytes())?;
         }
 
-        if label_path.exists() {
-            let existing_annotations = fs::read_to_string(&label_path)?;
+        if paths.label_path.exists() {
+            let existing_annotations = fs::read_to_string(&paths.label_path)?;
             let mut existing_annotations: Vec<AnnotationFormat> =
                 serde_json::from_str(&existing_annotations)?;
             self.bounding_boxes = existing_annotations
@@ -193,10 +187,7 @@ impl LabelWidget {
         }
 
         self.texture_id = None;
-        self.current_paths = Some(Paths {
-            image_path,
-            label_path,
-        });
+        self.current_paths = Some(paths);
 
         Ok(())
     }
