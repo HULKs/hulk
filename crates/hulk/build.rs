@@ -59,6 +59,7 @@ fn main() -> Result<()> {
                     "control::motion::fall_protector",
                     "control::motion::head_motion",
                     "control::motion::motor_commands_collector",
+                    "control::motion::motor_commands_optimizer",
                     "control::motion::command_sender",
                     "control::motion::jump_left",
                     "control::motion::jump_right",

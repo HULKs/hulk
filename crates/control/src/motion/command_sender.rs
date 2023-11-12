@@ -13,7 +13,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    motor_commands: Input<MotorCommands<f32>, "motor_commands">,
+    optimized_motor_commands: Input<MotorCommands<f32>, "optimized_motor_commands">,
     leds: Input<Leds, "leds">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
@@ -38,7 +38,7 @@ impl CommandSender {
         &mut self,
         mut context: CycleContext<impl ActuatorInterface>,
     ) -> Result<MainOutputs> {
-        let motor_commands = context.motor_commands;
+        let motor_commands = context.optimized_motor_commands;
 
         context
             .hardware_interface
