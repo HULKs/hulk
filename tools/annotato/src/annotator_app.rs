@@ -55,8 +55,11 @@ impl AnnotatorApp {
         if let Some(paths) = self.paths.get_mut(self.current_index) {
             self.label_widget
                 .load_new_image_with_labels(paths.clone())?;
-            paths.check_existence();
         }
+
+        self.paths.iter_mut().for_each(|paths| {
+            paths.check_existence();
+        });
 
         Ok(())
     }
@@ -74,13 +77,16 @@ impl App for AnnotatorApp {
             .default_width(200.0)
             .show(ctx, |ui| {
                 ui.label("Image List");
-                let percent_done = self
+                let images_done = self
                     .paths
                     .iter()
                     .filter(|paths| paths.label_present)
-                    .count() as f32
-                    / self.paths.len() as f32;
-                ui.add(ProgressBar::new(percent_done).show_percentage());
+                    .count();
+                ui.add(
+                    ProgressBar::new(images_done as f32 / self.paths.len() as f32)
+                        .show_percentage()
+                        .text(format!("{}/{}", images_done, self.paths.len())),
+                );
                 ui.separator();
                 ScrollArea::vertical()
                     .auto_shrink([false, false])
@@ -104,12 +110,25 @@ impl App for AnnotatorApp {
                             self.current_index -= 1;
                             self.update_image().expect("failed to update image");
                         }
-                        if ui.button(">").clicked() || ui.input(|i| i.key_pressed(Key::ArrowRight))
+                        if ui.button(">").clicked()
+                            || ui.input(|i| i.key_pressed(Key::ArrowRight) || i.key_pressed(Key::N))
                         {
                             if self.current_index < self.paths.len() - 1 {
                                 self.current_index += 1;
                             }
                             self.update_image().expect("failed to update image");
+                        }
+                        if ui.button(">>").clicked() {
+                            if let Some((unlabelled_index, _)) = self
+                                .paths
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, paths)| !paths.label_present)
+                                .next()
+                            {
+                                self.current_index = unlabelled_index;
+                                self.update_image().expect("failed to update image");
+                            }
                         }
                     })
                 })

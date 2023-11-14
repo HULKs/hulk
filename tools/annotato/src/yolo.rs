@@ -57,17 +57,25 @@ impl Yolo {
 
         let mut boxes = vec![];
 
+        let x_gain = width as f32   / 640.;
+        let y_gain = height as f32 / 640.;
+
         for detection in output.columns() {
             let labels = detection.slice(s![4..]);
             let (label, score) = softmax_idx(labels);
             if score > 0.3 {
-                let cx = detection[0] as f64;
-                let cy = (detection[1] / 640.0 * height as f32) as f64;
-                let w = detection[2] as f64;
-                let h = (detection[3] / 640.0 * height as f32) as f64;
+                let min_x = (detection[0] - detection[2] / 2.) * x_gain;
+                let min_y = (detection[1] - detection[3] / 2.) * y_gain;
+                let max_x = (detection[0] + detection[2] / 2.) * x_gain;
+                let max_y = (detection[1] + detection[3] / 2.) * y_gain;
 
-                let corner = PlotPoint::new(cx - w / 2., cy - h / 2.);
-                let opposing_corner = PlotPoint::new(cx + w / 2., cy + h / 2.);
+                // let cx = detection[0] as f64;
+                // let cy = ((1.0 - detection[1] / 640.0 )* height as f32) as f64;
+                // let w = detection[2] as f64;
+                // let h = (detection[3] / 640.0 * height as f32) as f64;
+
+                let corner = PlotPoint::new(min_x as f64, 480. - max_y as f64);
+                let opposing_corner = PlotPoint::new(max_x as f64, 480. - min_y as f64);
 
                 boxes.push((
                     score,

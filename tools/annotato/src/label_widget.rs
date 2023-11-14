@@ -1,7 +1,7 @@
 use std::{
     fs::{self, File},
     io::Write,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use crate::{
@@ -30,6 +30,8 @@ pub struct LabelWidget {
     yolo_model: Yolo,
     bounding_boxes: Vec<BoundingBox>,
     box_in_drawing: Option<BoundingBox>,
+    auto_save_on_next_image: bool,
+    use_yolo_model: bool,
 }
 
 impl LabelWidget {
@@ -38,15 +40,23 @@ impl LabelWidget {
             current_paths: None,
             texture_id: None,
             selected_class: Classes::Robot,
-            yolo_model: Yolo::try_from_onnx("best.onnx".into()),
+            yolo_model: Yolo::try_from_onnx("best-2021.onnx".into()),
             bounding_boxes: Vec::new(),
             box_in_drawing: None,
+            auto_save_on_next_image: true,
+            use_yolo_model: false,
         }
     }
 
     pub fn load_image(&mut self, ui: &Ui) -> Result<()> {
         if let (None, Some(paths)) = (&self.texture_id, &self.current_paths) {
             let image = load_image_from_path(&paths.image_path)?;
+
+            if self.use_yolo_model && !paths.label_present {
+                // do only if enabled and there don't already exist labels
+                let yolo_boxes = self.yolo_model.infer(&image);
+                self.bounding_boxes.extend(yolo_boxes);
+            }
 
             let handle = ui.ctx().load_texture(
                 paths.image_path.display().to_string(),
@@ -63,21 +73,34 @@ impl LabelWidget {
 
         let b_pressed = ui.input(|i| i.key_pressed(Key::B));
         ui.vertical(|ui| {
-            self.current_paths.as_ref().map(|paths| {
-                ui.label(paths.image_path.display().to_string());
-            });
-            ComboBox::from_id_source("class-selector")
-                .selected_text(format!("{:?}", self.selected_class))
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.selected_class, Classes::Robot, "Robot");
-                    ui.selectable_value(&mut self.selected_class, Classes::Ball, "Ball");
-                    ui.selectable_value(&mut self.selected_class, Classes::GoalPost, "Goal Post");
-                    ui.selectable_value(
-                        &mut self.selected_class,
-                        Classes::PenaltySpot,
-                        "Penalty Spot",
-                    );
+            ui.horizontal(|ui| {
+                self.current_paths.as_ref().map(|paths| {
+                    ui.label(paths.image_path.display().to_string());
+                    if paths.label_present {
+                        ui.colored_label(Color32::GREEN, "✔");
+                    } else {
+                        ui.colored_label(Color32::RED, "❌");
+                    }
                 });
+                ComboBox::from_id_source("class-selector")
+                    .selected_text(format!("{:?}", self.selected_class))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.selected_class, Classes::Robot, "Robot");
+                        ui.selectable_value(&mut self.selected_class, Classes::Ball, "Ball");
+                        ui.selectable_value(
+                            &mut self.selected_class,
+                            Classes::GoalPost,
+                            "Goal Post",
+                        );
+                        ui.selectable_value(
+                            &mut self.selected_class,
+                            Classes::PenaltySpot,
+                            "Penalty Spot",
+                        );
+                    });
+                ui.checkbox(&mut self.auto_save_on_next_image, "Auto-Save");
+                ui.checkbox(&mut self.use_yolo_model, "AI-ssist (active on image reload)");
+            });
             Plot::new("image-plot")
                 .view_aspect(640. / 480.)
                 .show_axes([false, false])
@@ -163,7 +186,7 @@ impl LabelWidget {
     }
 
     pub fn load_new_image_with_labels(&mut self, paths: Paths) -> Result<()> {
-        if let Some(paths) = &self.current_paths {
+        if let (true, Some(paths)) = (self.auto_save_on_next_image, &self.current_paths) {
             // export current bboxes
             let annotations: Vec<AnnotationFormat> = self
                 .bounding_boxes
@@ -175,6 +198,8 @@ impl LabelWidget {
             let mut file = File::create(&paths.label_path)?;
             file.write_all(annotations.as_bytes())?;
         }
+
+        self.bounding_boxes.clear();
 
         if paths.label_path.exists() {
             let existing_annotations = fs::read_to_string(&paths.label_path)?;
