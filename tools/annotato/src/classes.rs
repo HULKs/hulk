@@ -34,10 +34,10 @@ impl From<&Classes> for usize {
 impl Classes {
     pub fn from_key(key: Key) -> Option<Classes> {
         match key {
-            Key::Num0 => Some(Classes::Ball),
-            Key::Num1 => Some(Classes::Robot),
-            Key::Num2 => Some(Classes::GoalPost),
-            eframe::egui::Key::Num3 => Some(Classes::PenaltySpot),
+            Key::Num1 => Some(Classes::Ball),
+            Key::Num2 => Some(Classes::Robot),
+            Key::Num3 => Some(Classes::GoalPost),
+            Key::Num4 => Some(Classes::PenaltySpot),
             _ => None,
         }
     }
