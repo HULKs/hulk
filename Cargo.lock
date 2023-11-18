@@ -2997,7 +2997,6 @@ dependencies = [
  "ittapi",
  "linear_algebra",
  "log",
- "mlua",
  "nalgebra",
  "parameters",
  "parking_lot",

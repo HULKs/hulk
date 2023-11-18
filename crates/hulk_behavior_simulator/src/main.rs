@@ -54,14 +54,13 @@ fn main() -> Result<()> {
 
     let arguments = Arguments::parse();
     match arguments {
-        Arguments::Run(arguments) => run(arguments),
+        Arguments::Run(..) => run(),
         Arguments::Serve(arguments) => serve(arguments),
     }
 }
 
-fn run(arguments: RunArguments) -> Result<()> {
-    let mut simulator = Simulator::try_new()?;
-    simulator.execute_script(arguments.scenario_file)?;
+fn run() -> Result<()> {
+    let mut simulator = Simulator::default();
 
     let start = Instant::now();
     simulator.run().wrap_err("failed to run simulation")?;
@@ -81,9 +80,15 @@ fn serve(arguments: ServeArguments) -> Result<()> {
         })?;
     }
 
+    let mut simulator = Simulator::default();
+    let start = Instant::now();
+    simulator.run().wrap_err("failed to run simulation")?;
+    let duration = Instant::now() - start;
+    println!("Took {:.2} seconds", duration.as_secs_f32());
+
     server::run(
-        arguments.listen_address,
+        simulator.frames,
+        arguments.listen_address)
         keep_running,
-        arguments.scenario_file,
     )
 }

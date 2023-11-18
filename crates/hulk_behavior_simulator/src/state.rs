@@ -22,12 +22,7 @@ use types::{
     support_foot::Side,
 };
 
-use crate::{cyclers::control::Database, robot::Robot, structs::Parameters};
-
-pub enum Event {
-    Cycle,
-    Goal,
-}
+use crate::robot::Robot;
 
 pub struct State {
     pub time_elapsed: Duration,
@@ -40,19 +35,17 @@ pub struct State {
 }
 
 impl State {
-    pub fn cycle(&mut self, time_step: Duration) -> Result<Vec<Event>> {
+    pub fn cycle(&mut self, time_step: Duration) -> Result<()> {
         let now = UNIX_EPOCH + self.time_elapsed;
-
-        let mut events = vec![Event::Cycle];
 
         self.move_robots(time_step);
         self.cycle_robots(now)?;
-        events.extend(self.move_ball(time_step));
+        self.move_ball(time_step);
 
         self.time_elapsed += time_step;
         self.cycle_count += 1;
 
-        Ok(events)
+        Ok(())
     }
 
     fn move_robots(&mut self, time_step: Duration) {
@@ -219,51 +212,21 @@ impl State {
         Ok(())
     }
 
-    fn move_ball(&mut self, time_step: Duration) -> Vec<Event> {
-        let mut events = Vec::new();
+    fn move_ball(&mut self, time_step: Duration) {
         if let Some(ball) = self.ball.as_mut() {
             ball.position += ball.velocity * time_step.as_secs_f32();
             ball.velocity *= 0.98;
-
-            if ball.position.x().abs() > 4.5 && ball.position.y() < 0.75 {
-                events.push(Event::Goal);
-            }
-        }
-        events
-    }
-
-    pub fn get_lua_state(&self) -> LuaState {
-        LuaState {
-            time_elapsed: self.time_elapsed.as_secs_f32(),
-            cycle_count: self.cycle_count,
-            // TODO: Expose robot data to lua again
-            // robots: self.robots.iter().map(LuaRobot::new).collect(),
-            robots: Default::default(),
-            ball: self.ball,
-            messages: self.messages.clone(),
-
-            finished: self.finished,
-
-            game_controller_state: self.game_controller_state,
         }
     }
 
-    pub fn load_lua_state(&mut self, lua_state: LuaState) -> Result<()> {
-        self.ball = lua_state.ball;
-        self.cycle_count = lua_state.cycle_count;
-        for lua_robot in lua_state.robots {
-            let mut robot = Robot::try_new(lua_robot.parameters.player_number)
-                .expect("Creating dummy robot should never fail");
-            robot.database = lua_robot.database;
-            robot.parameters = lua_robot.parameters;
-            self.robots.insert(robot.parameters.player_number, robot);
-        }
+    pub fn spawn_robot(&mut self, player_number: PlayerNumber) -> Result<&mut Robot> {
+        self.robots
+            .insert(player_number, Robot::try_new(player_number)?);
 
-        self.finished = lua_state.finished;
-
-        self.game_controller_state = lua_state.game_controller_state;
-
-        Ok(())
+        Ok(self
+            .robots
+            .get_mut(&player_number)
+            .expect("robot was inserted just now and vanished"))
     }
 }
 
@@ -306,32 +269,6 @@ impl Default for State {
             messages: Vec::new(),
             finished: false,
             game_controller_state,
-        }
-    }
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct LuaState {
-    pub time_elapsed: f32,
-    pub cycle_count: usize,
-    pub robots: Vec<LuaRobot>,
-    pub ball: Option<SimulatorBallState>,
-    pub messages: Vec<(PlayerNumber, HulkMessage)>,
-    pub finished: bool,
-    pub game_controller_state: GameControllerState,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-pub struct LuaRobot {
-    database: Database,
-    parameters: Parameters,
-}
-
-impl LuaRobot {
-    pub fn new(robot: &Robot) -> Self {
-        Self {
-            database: robot.database.clone(),
-            parameters: robot.parameters.clone(),
         }
     }
 }
