@@ -132,13 +132,13 @@ impl FallProtector {
             },
         };
 
-        let joints_command = MotorCommands {
+        let motor_commands = MotorCommands {
             positions: protection_angles,
             stiffnesses: Joints::from_head_and_body(head_stiffnesses, body_stiffnesses),
         };
 
         Ok(MainOutputs {
-            fall_protection_command: joints_command.into(),
+            fall_protection_command: motor_commands.into(),
         })
     }
 }
