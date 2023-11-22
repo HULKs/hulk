@@ -2,12 +2,14 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{DMatrix, Isometry2, Point2};
+use serde::{Deserialize, Serialize};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::FieldDimensions,
     parameters::SearchSuggestorParameters,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct SearchSuggestor {
     heatmap: DMatrix<f32>,
 }
@@ -58,32 +60,36 @@ impl SearchSuggestor {
         );
         let maximum_heat_heatmap_position = self.heatmap.iamax_full();
         let mut suggested_search_position: Option<Point2<f32>> = None;
-        if self.heatmap[maximum_heat_heatmap_position]
-        > context.search_suggestor_configuration.minimum_validity
-        {
-            let mut search_suggestion = Point2::new(
-                maximum_heat_heatmap_position.0 as f32
-                / context.search_suggestor_configuration.cells_per_meter as f32,
-                maximum_heat_heatmap_position.1 as f32
-                / context.search_suggestor_configuration.cells_per_meter as f32,
-            );
-            let length_half = context.field_dimensions.length / 2.0;
-            let width_half = context.field_dimensions.width / 2.0;
-            
-            if search_suggestion.x >= length_half {
-                search_suggestion.x -= length_half;
-            } else {
-                search_suggestion.x = length_half - search_suggestion.x
+        if self.heatmap.get(maximum_heat_heatmap_position).is_some() {
+            if self.heatmap[maximum_heat_heatmap_position]
+                > context.search_suggestor_configuration.minimum_validity
+            {
+                let mut search_suggestion = Point2::new(
+                    maximum_heat_heatmap_position.0 as f32
+                        / context.search_suggestor_configuration.cells_per_meter as f32,
+                    maximum_heat_heatmap_position.1 as f32
+                        / context.search_suggestor_configuration.cells_per_meter as f32,
+                );
+                let length_half = context.field_dimensions.length / 2.0;
+                let width_half = context.field_dimensions.width / 2.0;
+
+                if search_suggestion.x >= length_half {
+                    search_suggestion.x -= length_half;
+                } else {
+                    search_suggestion.x = length_half - search_suggestion.x
+                }
+                if search_suggestion.y >= width_half {
+                    search_suggestion.y -= width_half;
+                } else {
+                    search_suggestion.y = width_half - search_suggestion.y
+                }
+                suggested_search_position = Some(search_suggestion);
             }
-            if search_suggestion.y >= width_half {
-                search_suggestion.y -= width_half;
-            } else {
-                search_suggestion.y = width_half - search_suggestion.y
-            }
-            suggested_search_position = Some(search_suggestion);
+        } else {
+            println!("Invalid maximum heatmap position")
         }
         context.heatmap.fill_if_subscribed(|| self.heatmap.clone());
-        
+
         Ok(MainOutputs {
             suggested_search_position: suggested_search_position.into(),
         })
@@ -105,7 +111,11 @@ impl SearchSuggestor {
                     cells_per_meter,
                     field_dimensions,
                 );
-                self.heatmap[ball_heatmap_position] = 1.0;
+                if self.heatmap.get(ball_heatmap_position).is_some() {
+                    self.heatmap[ball_heatmap_position] = 1.0;
+                } else {
+                    println!("Invalid ball heatmap position")
+                }
             }
         }
         for ball_hypothesis in invalid_ball_positions {
@@ -114,8 +124,12 @@ impl SearchSuggestor {
                 cells_per_meter,
                 field_dimensions,
             );
-            self.heatmap[heatmap_position] =
-                (self.heatmap[heatmap_position] + ball_hypothesis.validity) / 2.0;
+            if self.heatmap.get(heatmap_position).is_some() {
+                self.heatmap[heatmap_position] =
+                    (self.heatmap[heatmap_position] + ball_hypothesis.validity) / 2.0;
+            } else {
+                println!("Invalid hypothesis heatmap position");
+            }
         }
         self.heatmap = self.heatmap.clone() * heatmap_decay_factor;
     }
