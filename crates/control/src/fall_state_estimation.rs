@@ -32,11 +32,12 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    fallen_up_gravitational_difference: AdditionalOutput<f32, "backward_gravitational_difference">,
+    fallen_up_gravitational_difference: AdditionalOutput<f32, "fallen_up_gravitational_difference">,
     filtered_angular_velocity: AdditionalOutput<Vector3<f32>, "filtered_angular_velocity">,
     filtered_linear_acceleration: AdditionalOutput<Vector3<f32>, "filtered_linear_acceleration">,
     filtered_roll_pitch: AdditionalOutput<Vector2<f32>, "filtered_roll_pitch">,
-    fallen_down_gravitational_difference: AdditionalOutput<f32, "forward_gravitational_difference">,
+    fallen_down_gravitational_difference:
+        AdditionalOutput<f32, "fallen_down_gravitational_difference">,
 
     gravitational_acceleration_threshold:
         Parameter<f32, "fall_state_estimation.gravitational_acceleration_threshold">,
