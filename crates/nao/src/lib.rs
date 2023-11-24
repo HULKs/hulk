@@ -35,14 +35,14 @@ impl Nao {
         timeout_seconds: u32,
     ) -> Result<Self> {
         #[cfg(target_os = "macos")]
-        let timeout_flag = "-t";
+        const TIMEOUT_FLAG: &str = "-t";
         #[cfg(not(target_os = "macos"))]
-        let timeout_flag = "-w";
+        const TIMEOUT_FLAG: &str = "-w";
 
         match Command::new("ping")
             .arg("-c")
             .arg("1")
-            .arg(timeout_flag)
+            .arg(TIMEOUT_FLAG)
             .arg(timeout_seconds.to_string())
             .arg(host.to_string())
             .output()
