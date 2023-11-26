@@ -1,9 +1,9 @@
 use std::{collections::VecDeque, path::PathBuf};
 
-use crate::{ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths};
+use crate::{ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths, Args};
 use color_eyre::{eyre::ContextCompat, Result};
 use eframe::{
-    egui::{CentralPanel, Key, Layout, ProgressBar, ScrollArea, SidePanel, Context},
+    egui::{CentralPanel, Context, Key, Layout, ProgressBar, ScrollArea, SidePanel},
     emath::Align,
     epaint::Color32,
     App, CreationContext,
@@ -40,11 +40,13 @@ impl AnnotatorApp {
         Ok(label_path)
     }
 
-    pub fn try_new(_: &CreationContext) -> Result<Self> {
-        let image_paths =
-            glob("./2021-images4v4HulkDevils_1/*.png")?.collect::<Result<VecDeque<_>, _>>()?;
+    pub fn try_new(_: &CreationContext, arguments: Args) -> Result<Self> {
+        let image_paths = glob(&arguments.image_folder.join("*.png").display().to_string())?
+            .collect::<Result<VecDeque<_>, _>>()?;
+
         let model_annotations =
-            ModelAnnotations::try_new(&PathBuf::from("model_annotations.json"))?;
+            ModelAnnotations::try_new(&arguments.annotation_json)?;
+        
         let paths = image_paths
             .into_iter()
             .map(|image_path| {
@@ -53,8 +55,15 @@ impl AnnotatorApp {
             })
             .collect::<Result<VecDeque<_>>>()
             .expect("failed to build paths");
+
+        let phase = if arguments.skip_introduction {
+            AnnotationPhase::Labelling
+        } else {
+            AnnotationPhase::Started
+        };
+
         let mut this = AnnotatorApp {
-            phase: AnnotationPhase::Started,
+            phase,
             paths,
             current_index: 0,
             label_widget: LabelWidget::new(),
@@ -155,7 +164,9 @@ impl AnnotatorApp {
                 ui.separator();
                 ui.vertical_centered(|ui| {
                     ui.horizontal(|ui| {
-                        if ui.button("<").on_hover_text("Previous image").clicked() && self.current_index > 0 {
+                        if ui.button("<").on_hover_text("Previous image").clicked()
+                            && self.current_index > 0
+                        {
                             self.current_index -= 1;
                             self.update_image().expect("failed to update image");
                         }
@@ -167,7 +178,11 @@ impl AnnotatorApp {
                             }
                             self.update_image().expect("failed to update image");
                         }
-                        if ui.button(">>").on_hover_text("Go to the first unlabelled image").clicked() {
+                        if ui
+                            .button(">>")
+                            .on_hover_text("Go to the first unlabelled image")
+                            .clicked()
+                        {
                             if let Some((unlabelled_index, _)) = self
                                 .paths
                                 .iter()
