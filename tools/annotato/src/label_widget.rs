@@ -6,7 +6,6 @@ use std::{
 
 use crate::{
     annotation::AnnotationFormat, boundingbox::BoundingBox, classes::Classes, paths::Paths,
-    yolo::Yolo,
 };
 use color_eyre::eyre::Result;
 use eframe::{
@@ -27,11 +26,11 @@ pub struct LabelWidget {
     current_paths: Option<Paths>,
     texture_id: Option<TextureHandle>,
     selected_class: Classes,
-    yolo_model: Yolo,
     bounding_boxes: Vec<BoundingBox>,
     box_in_drawing: Option<BoundingBox>,
     auto_save_on_next_image: bool,
-    use_yolo_model: bool,
+    model_boxes: Vec<BoundingBox>,
+    use_model_annotations: bool,
 }
 
 impl LabelWidget {
@@ -40,23 +39,17 @@ impl LabelWidget {
             current_paths: None,
             texture_id: None,
             selected_class: Classes::Robot,
-            yolo_model: Yolo::try_from_onnx("best-2021.onnx".into()),
             bounding_boxes: Vec::new(),
             box_in_drawing: None,
             auto_save_on_next_image: true,
-            use_yolo_model: false,
+            use_model_annotations: false,
+            model_boxes: Vec::new(),
         }
     }
 
     pub fn load_image(&mut self, ui: &Ui) -> Result<()> {
         if let (None, Some(paths)) = (&self.texture_id, &self.current_paths) {
             let image = load_image_from_path(&paths.image_path)?;
-
-            if self.use_yolo_model && !paths.label_present {
-                // do only if enabled and there don't already exist labels
-                let yolo_boxes = self.yolo_model.infer(&image);
-                self.bounding_boxes.extend(yolo_boxes);
-            }
 
             let handle = ui.ctx().load_texture(
                 paths.image_path.display().to_string(),
@@ -99,13 +92,13 @@ impl LabelWidget {
                         );
                     });
                 ui.checkbox(&mut self.auto_save_on_next_image, "Auto-Save");
-                ui.checkbox(&mut self.use_yolo_model, "AI-ssist (active on image reload)");
+                ui.checkbox(&mut self.use_model_annotations, "AI-ssist");
             });
             Plot::new("image-plot")
-                .view_aspect(640. / 480.)
+                .view_aspect(1.)
                 .show_axes([false, false])
                 .show_grid([false, false])
-                .set_margin_fraction(Vec2::ZERO)
+                .set_margin_fraction(Vec2::splat(0.1))
                 .allow_scroll(false)
                 .allow_boxed_zoom(false)
                 .show(ui, |ui| {
@@ -118,6 +111,11 @@ impl LabelWidget {
                         self.bounding_boxes
                             .iter()
                             .chain(self.box_in_drawing.iter())
+                            .chain(
+                                self.model_boxes
+                                    .iter()
+                                    .filter(|_| self.use_model_annotations),
+                            )
                             .for_each(|bbox| {
                                 let polygon: Polygon = bbox.into();
                                 ui.polygon(polygon.fill_color(bbox.class.color()));
@@ -169,30 +167,42 @@ impl LabelWidget {
                 self.box_in_drawing.take();
             } else if let Some(mouse_position) = ui.response().hover_pos() {
                 let mouse_position = ui.plot_from_screen(mouse_position);
-                if let Some(clicked_bbox_index) = self
-                    .bounding_boxes
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, bbox)| bbox.contains(mouse_position))
-                    .min_by(|(_, bbox1), (_, bbox2)| {
-                        bbox1.rect().area().total_cmp(&bbox2.rect().area())
-                    })
-                    .map(|(idx, _)| idx)
-                {
-                    self.bounding_boxes.remove(clicked_bbox_index);
+                if !Self::delete_box_from(mouse_position, &mut self.model_boxes) {
+                    Self::delete_box_from(mouse_position, &mut self.bounding_boxes);
                 }
             }
         }
     }
 
-    pub fn load_new_image_with_labels(&mut self, paths: Paths) -> Result<()> {
+    fn delete_box_from(mouse_position: PlotPoint, bbox_list: &mut Vec<BoundingBox>) -> bool {
+        if let Some(clicked_bbox_index) = bbox_list
+            .iter()
+            .enumerate()
+            .filter(|(_, bbox)| bbox.contains(mouse_position))
+            .min_by(|(_, bbox1), (_, bbox2)| bbox1.rect().area().total_cmp(&bbox2.rect().area()))
+            .map(|(idx, _)| idx)
+        {
+            bbox_list.remove(clicked_bbox_index);
+            return true;
+        }
+        false
+    }
+
+    pub fn load_new_image_with_labels(
+        &mut self,
+        paths: Paths,
+        annotations: Vec<BoundingBox>,
+    ) -> Result<()> {
         if let (true, Some(paths)) = (self.auto_save_on_next_image, &self.current_paths) {
             // export current bboxes
-            let annotations: Vec<AnnotationFormat> = self
+            let mut annotations: Vec<AnnotationFormat> = self
                 .bounding_boxes
                 .drain(..)
                 .map(|bbox| bbox.into())
                 .collect();
+            if self.use_model_annotations {
+                annotations.extend(self.model_boxes.drain(..).map(|bbox| bbox.into()));
+            }
             let annotations = serde_json::to_string_pretty(&annotations)?;
 
             let mut file = File::create(&paths.label_path)?;
@@ -200,6 +210,7 @@ impl LabelWidget {
         }
 
         self.bounding_boxes.clear();
+        self.model_boxes.clear();
 
         if paths.label_path.exists() {
             let existing_annotations = fs::read_to_string(&paths.label_path)?;
@@ -209,6 +220,8 @@ impl LabelWidget {
                 .drain(..)
                 .map(|annotation| annotation.into())
                 .collect();
+        } else {
+            self.model_boxes = annotations;
         }
 
         self.texture_id = None;

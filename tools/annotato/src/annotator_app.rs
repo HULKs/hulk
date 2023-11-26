@@ -1,17 +1,27 @@
 use std::{collections::VecDeque, path::PathBuf};
 
-use crate::{label_widget::LabelWidget, paths::Paths};
+use crate::{ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths};
 use color_eyre::{eyre::ContextCompat, Result};
 use eframe::{
-    egui::{self, CentralPanel, Key, ProgressBar, ScrollArea, SidePanel},
+    egui::{CentralPanel, Key, Layout, ProgressBar, ScrollArea, SidePanel, Context},
+    emath::Align,
+    epaint::Color32,
     App, CreationContext,
 };
 use glob::glob;
 
+enum AnnotationPhase {
+    Started,
+    Labelling,
+    Finished,
+}
+
 pub struct AnnotatorApp {
+    phase: AnnotationPhase,
     paths: VecDeque<Paths>,
     current_index: usize,
     label_widget: LabelWidget,
+    model_annotations: ModelAnnotations,
 }
 
 impl AnnotatorApp {
@@ -31,8 +41,10 @@ impl AnnotatorApp {
     }
 
     pub fn try_new(_: &CreationContext) -> Result<Self> {
-        let image_paths = glob("./images/*.png")?.collect::<Result<VecDeque<_>, _>>()?;
-
+        let image_paths =
+            glob("./2021-images4v4HulkDevils_1/*.png")?.collect::<Result<VecDeque<_>, _>>()?;
+        let model_annotations =
+            ModelAnnotations::try_new(&PathBuf::from("model_annotations.json"))?;
         let paths = image_paths
             .into_iter()
             .map(|image_path| {
@@ -42,9 +54,11 @@ impl AnnotatorApp {
             .collect::<Result<VecDeque<_>>>()
             .expect("failed to build paths");
         let mut this = AnnotatorApp {
+            phase: AnnotationPhase::Started,
             paths,
             current_index: 0,
             label_widget: LabelWidget::new(),
+            model_annotations,
         };
         this.update_image().expect("failed to load image");
 
@@ -53,13 +67,30 @@ impl AnnotatorApp {
 
     fn update_image(&mut self) -> Result<()> {
         if let Some(paths) = self.paths.get_mut(self.current_index) {
+            let annotations = self
+                .model_annotations
+                .for_image(
+                    &paths
+                        .image_path
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                )
+                .unwrap_or(vec![]);
+
             self.label_widget
-                .load_new_image_with_labels(paths.clone())?;
+                .load_new_image_with_labels(paths.clone(), annotations)?;
         }
 
         self.paths.iter_mut().for_each(|paths| {
             paths.check_existence();
         });
+
+        if self.paths.iter().all(|paths| paths.label_present) {
+            self.phase = AnnotationPhase::Finished;
+        }
 
         Ok(())
     }
@@ -67,12 +98,19 @@ impl AnnotatorApp {
     pub fn set_index_to_unlabelled(&mut self) {
         todo!();
     }
-}
 
-impl App for AnnotatorApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui_extras::install_image_loaders(ctx);
+    fn show_phase_started(&mut self, ctx: &Context) {
+        CentralPanel::default().show(ctx, |ui| {
+            ui.label("Welcome to annotato-rs");
+            ui.label("Labelling Instructions");
+            ui.label("...");
+            if ui.button("Start Labelling").clicked() {
+                self.phase = AnnotationPhase::Labelling;
+            }
+        });
+    }
 
+    fn show_phase_labelling(&mut self, ctx: &Context) {
         SidePanel::left("image-path-list")
             .default_width(200.0)
             .show(ctx, |ui| {
@@ -90,27 +128,38 @@ impl App for AnnotatorApp {
                 ui.separator();
                 ScrollArea::vertical()
                     .auto_shrink([false, false])
-                    .max_width(200.0)
                     .max_height(0.8 * ui.available_height())
                     .show_rows(ui, 12.0, self.paths.len(), |ui, range| {
-                        for filename in self.paths.range(range).filter_map(|path| {
+                        for (filename, is_labelled) in self.paths.range(range).filter_map(|path| {
                             path.image_path
                                 .file_name()
                                 .map(|osstr| osstr.to_str())
                                 .flatten()
+                                .map(|filename| (filename, path.label_present))
                         }) {
-                            ui.label(filename);
+                            ui.horizontal(|ui| {
+                                ui.label(filename);
+                                ui.add_space(40.0);
+                                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                    ui.add_space(20.0);
+                                    if is_labelled {
+                                        ui.colored_label(Color32::GREEN, "✔");
+                                    } else {
+                                        ui.colored_label(Color32::RED, "❌");
+                                    }
+                                });
+                            });
                             ui.separator();
                         }
                     });
                 ui.separator();
                 ui.vertical_centered(|ui| {
                     ui.horizontal(|ui| {
-                        if ui.button("<").clicked() && self.current_index > 0 {
+                        if ui.button("<").on_hover_text("Previous image").clicked() && self.current_index > 0 {
                             self.current_index -= 1;
                             self.update_image().expect("failed to update image");
                         }
-                        if ui.button(">").clicked()
+                        if ui.button(">").on_hover_text("Next image (n, →)").clicked()
                             || ui.input(|i| i.key_pressed(Key::ArrowRight) || i.key_pressed(Key::N))
                         {
                             if self.current_index < self.paths.len() - 1 {
@@ -118,7 +167,7 @@ impl App for AnnotatorApp {
                             }
                             self.update_image().expect("failed to update image");
                         }
-                        if ui.button(">>").clicked() {
+                        if ui.button(">>").on_hover_text("Go to the first unlabelled image").clicked() {
                             if let Some((unlabelled_index, _)) = self
                                 .paths
                                 .iter()
@@ -128,6 +177,9 @@ impl App for AnnotatorApp {
                             {
                                 self.current_index = unlabelled_index;
                                 self.update_image().expect("failed to update image");
+                            } else {
+                                // no more unlabelled images
+                                self.phase = AnnotationPhase::Finished;
                             }
                         }
                     })
@@ -137,5 +189,23 @@ impl App for AnnotatorApp {
         CentralPanel::default().show(ctx, |ui| {
             self.label_widget.ui(ui);
         });
+    }
+
+    fn show_phase_finished(&mut self, ctx: &Context) {
+        CentralPanel::default().show(ctx, |ui| {
+            ui.label("You finished the data chunk, take the next and go on :)");
+        });
+    }
+}
+
+impl App for AnnotatorApp {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        egui_extras::install_image_loaders(ctx);
+
+        match self.phase {
+            AnnotationPhase::Started => self.show_phase_started(ctx),
+            AnnotationPhase::Labelling => self.show_phase_labelling(ctx),
+            AnnotationPhase::Finished => self.show_phase_finished(ctx),
+        }
     }
 }

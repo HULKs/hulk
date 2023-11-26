@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{boundingbox::BoundingBox, classes::Classes};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AnnotationFormat {
     pub points: [[f32; 2]; 2],
     pub class: Classes,
