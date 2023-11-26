@@ -3,7 +3,9 @@ use std::{collections::VecDeque, path::PathBuf};
 use crate::{ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths, Args};
 use color_eyre::{eyre::ContextCompat, Result};
 use eframe::{
-    egui::{CentralPanel, Context, Key, Layout, ProgressBar, ScrollArea, SidePanel},
+    egui::{
+        CentralPanel, Context, Key, Layout, ProgressBar, RichText, ScrollArea, SidePanel, TextStyle,
+    },
     emath::Align,
     epaint::Color32,
     App, CreationContext,
@@ -44,9 +46,8 @@ impl AnnotatorApp {
         let image_paths = glob(&arguments.image_folder.join("*.png").display().to_string())?
             .collect::<Result<VecDeque<_>, _>>()?;
 
-        let model_annotations =
-            ModelAnnotations::try_new(&arguments.annotation_json)?;
-        
+        let model_annotations = ModelAnnotations::try_new(&arguments.annotation_json)?;
+
         let paths = image_paths
             .into_iter()
             .map(|image_path| {
@@ -110,12 +111,36 @@ impl AnnotatorApp {
 
     fn show_phase_started(&mut self, ctx: &Context) {
         CentralPanel::default().show(ctx, |ui| {
-            ui.label("Welcome to annotato-rs");
-            ui.label("Labelling Instructions");
-            ui.label("...");
-            if ui.button("Start Labelling").clicked() {
-                self.phase = AnnotationPhase::Labelling;
-            }
+            ui.vertical_centered(|ui| {
+                ui.add_space(200.0);
+                ui.label(RichText::new("Annotato-rs").size(32.0).strong());
+                let number_unlabelled_images = self
+                    .paths
+                    .iter()
+                    .filter(|paths| paths.label_present)
+                    .count();
+                ui.label(format!(
+                    "You are about to label {number_unlabelled_images} images."
+                ));
+                ui.add_space(100.0);
+
+                ui.label(RichText::new("Labelling Instructions").text_style(TextStyle::Heading));
+                ui.add_space(50.0);
+                ui.vertical_centered(|ui| {
+                    ui.label("• select a class with a number key");
+                    ui.label("• start drawing a box with 'b' key");
+                    ui.label("• end drawing a box with 'b' key");
+                    ui.label("• delete a box by hovering and rightclicking");
+                    ui.label("• move in the image with left click dragging");
+                    ui.label("• zoom in the image ctrl + mousewheel");
+                    ui.label("• proceed to the next image with 'n' key");
+                });
+
+                ui.add_space(50.0);
+                if ui.button("Start Labelling").clicked() {
+                    self.phase = AnnotationPhase::Labelling;
+                }
+            });
         });
     }
 
