@@ -95,10 +95,14 @@ impl LabelWidget {
                 ui.checkbox(&mut self.use_model_annotations, "AI-ssist");
             });
             Plot::new("image-plot")
-                .view_aspect(1.)
+                .data_aspect(1.)
+                .view_aspect(640. / 480.)
                 .show_axes([false, false])
                 .show_grid([false, false])
                 .set_margin_fraction(Vec2::splat(0.1))
+                .auto_bounds_x()
+                .auto_bounds_y()
+                .show_background(false)
                 .allow_scroll(false)
                 .allow_boxed_zoom(false)
                 .show(ui, |ui| {

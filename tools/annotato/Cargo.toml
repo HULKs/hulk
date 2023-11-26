@@ -6,10 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+clap = { version = "4.4.8", features = ["derive"] }
 color-eyre = "0.6.2"
-eframe = "0.23.0"
-egui_extras = { version = "0.23.0", features = ["image"] }
-egui_plot = "0.23.0"
+eframe = "0.24.0"
+egui_extras = { version = "0.24.0", features = ["image"] }
+egui_plot = "0.24.0"
 glob = "0.3.1"
 image = { version = "0.24.7", features = ["png"] }
 ndarray = "0.15.6"
