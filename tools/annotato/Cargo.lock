@@ -155,6 +155,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc7eb209b1518d6bb87b283c20095f5228ecda460da70b44f0802523dea6da04"
 
 [[package]]
+name = "annotato-rs"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "color-eyre",
+ "eframe",
+ "egui_extras",
+ "egui_plot",
+ "glob",
+ "image",
+ "ndarray",
+ "ort",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "anstream"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1610,23 +1627,6 @@ name = "khronos_api"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
-
-[[package]]
-name = "label-rs"
-version = "0.1.0"
-dependencies = [
- "clap",
- "color-eyre",
- "eframe",
- "egui_extras",
- "egui_plot",
- "glob",
- "image",
- "ndarray",
- "ort",
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "lazy_static"

@@ -78,6 +78,53 @@ impl BoundingBox {
         intersection / union
     }
 
+    fn closest_and_furthest_corner(&self, position: PlotPoint) -> (PlotPoint, PlotPoint) {
+        let rect = self.rect();
+        let position = Pos2::new(position.x as f32, position.y as f32);
+
+        let corners = [
+            rect.left_bottom(),
+            rect.left_top(),
+            rect.right_top(),
+            rect.right_bottom(),
+        ];
+        let closest = corners
+            .iter()
+            .min_by(|corner1, corner2| {
+                corner1
+                    .distance_sq(position)
+                    .total_cmp(&corner2.distance_sq(position))
+            })
+            .unwrap();
+        let furthest = corners
+            .iter()
+            .max_by(|corner1, corner2| {
+                corner1
+                    .distance_sq(position)
+                    .total_cmp(&corner2.distance_sq(position))
+            })
+            .unwrap();
+
+        (
+            PlotPoint::new(closest.x as f64, closest.y as f64),
+            PlotPoint::new(furthest.x as f64, furthest.y as f64),
+        )
+    }
+
+    pub fn has_corner_at(&self, position: PlotPoint) -> bool {
+        let (closest, _) = self.closest_and_furthest_corner(position);
+        let closest = Pos2::new(closest.x as f32, closest.y as f32);
+        let position = Pos2::new(position.x as f32, position.y as f32);
+
+        closest.distance(position) < 5.0
+    }
+
+    pub fn prepare_for_corner_move(&mut self, position: PlotPoint) {
+        let (closest, furthest) = self.closest_and_furthest_corner(position);
+        self.corner = furthest;
+        self.opposing_corner = closest;
+    }
+
     pub fn to_annotation(&self) -> (Classes, [f32; 4]) {
         let rect = self.rect();
         let Pos2 { x: min_x, y: min_y } = rect.left_top();

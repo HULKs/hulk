@@ -27,9 +27,8 @@ pub struct LabelWidget {
     texture_id: Option<TextureHandle>,
     selected_class: Classes,
     bounding_boxes: Vec<BoundingBox>,
-    box_in_drawing: Option<BoundingBox>,
+    editing_bounding_box: Option<BoundingBox>,
     auto_save_on_next_image: bool,
-    model_boxes: Vec<BoundingBox>,
     use_model_annotations: bool,
 }
 
@@ -40,10 +39,9 @@ impl LabelWidget {
             texture_id: None,
             selected_class: Classes::Robot,
             bounding_boxes: Vec::new(),
-            box_in_drawing: None,
+            editing_bounding_box: None,
             auto_save_on_next_image: true,
             use_model_annotations: false,
-            model_boxes: Vec::new(),
         }
     }
 
@@ -65,6 +63,8 @@ impl LabelWidget {
         self.load_image(ui).expect("failed to load image");
 
         let b_pressed = ui.input(|i| i.key_pressed(Key::B));
+        let g_pressed = ui.input(|i| i.key_pressed(Key::G));
+
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 self.current_paths.as_ref().map(|paths| {
@@ -114,12 +114,7 @@ impl LabelWidget {
                         ));
                         self.bounding_boxes
                             .iter()
-                            .chain(self.box_in_drawing.iter())
-                            .chain(
-                                self.model_boxes
-                                    .iter()
-                                    .filter(|_| self.use_model_annotations),
-                            )
+                            .chain(self.editing_bounding_box.iter())
                             .for_each(|bbox| {
                                 let polygon: Polygon = bbox.into();
                                 ui.polygon(polygon.fill_color(bbox.class.color()));
@@ -131,7 +126,7 @@ impl LabelWidget {
                                 ))
                             });
                     });
-                    self.handle_bounding_box_input(ui, b_pressed);
+                    self.handle_bounding_box_input(ui, b_pressed, g_pressed);
                 });
         });
 
@@ -142,15 +137,15 @@ impl LabelWidget {
         }
     }
 
-    fn handle_bounding_box_input(&mut self, ui: &PlotUi, b_pressed: bool) {
+    fn handle_bounding_box_input(&mut self, ui: &PlotUi, b_pressed: bool, g_pressed: bool) {
         if let (true, Some(mouse_position)) = (b_pressed, ui.response().hover_pos()) {
             // insert current drawing bbox into list or create new one
-            if let Some(mut bbox) = self.box_in_drawing.take() {
+            if let Some(mut bbox) = self.editing_bounding_box.take() {
                 bbox.clip_to_image();
                 self.bounding_boxes.push(bbox);
             } else {
                 let mouse_position = ui.plot_from_screen(mouse_position);
-                self.box_in_drawing = Some(BoundingBox::new(
+                self.editing_bounding_box = Some(BoundingBox::new(
                     mouse_position,
                     mouse_position,
                     self.selected_class,
@@ -158,21 +153,37 @@ impl LabelWidget {
             }
         }
 
-        if let (Some(bbox), Some(mouse_position)) =
-            (self.box_in_drawing.as_mut(), ui.response().hover_pos())
-        {
+        if let (Some(bbox), Some(mouse_position)) = (
+            self.editing_bounding_box.as_mut(),
+            ui.response().hover_pos(),
+        ) {
             let mouse_position = ui.plot_from_screen(mouse_position);
             bbox.set_opposing_corner(mouse_position);
         }
 
         if ui.response().clicked_by(PointerButton::Secondary) {
             // delete bbox when right-clicking
-            if self.box_in_drawing.is_some() {
-                self.box_in_drawing.take();
+            if self.editing_bounding_box.is_some() {
+                self.editing_bounding_box.take();
             } else if let Some(mouse_position) = ui.response().hover_pos() {
                 let mouse_position = ui.plot_from_screen(mouse_position);
-                if !Self::delete_box_from(mouse_position, &mut self.model_boxes) {
-                    Self::delete_box_from(mouse_position, &mut self.bounding_boxes);
+                Self::delete_box_from(mouse_position, &mut self.bounding_boxes);
+            }
+        }
+
+        if let Some(position) = ui.response().hover_pos() {
+            let position = ui.plot_from_screen(position);
+            if let Some((index, _)) = self
+                .bounding_boxes
+                .iter()
+                .enumerate()
+                .find(|(_, bounding_box)| bounding_box.has_corner_at(position))
+            {
+                if g_pressed {
+                    let bbox = self
+                        .editing_bounding_box
+                        .insert(self.bounding_boxes.remove(index));
+                    bbox.prepare_for_corner_move(position);
                 }
             }
         }
@@ -195,18 +206,15 @@ impl LabelWidget {
     pub fn load_new_image_with_labels(
         &mut self,
         paths: Paths,
-        annotations: Vec<BoundingBox>,
+        model_annotations: Vec<BoundingBox>,
     ) -> Result<()> {
         if let (true, Some(paths)) = (self.auto_save_on_next_image, &self.current_paths) {
             // export current bboxes
-            let mut annotations: Vec<AnnotationFormat> = self
+            let annotations: Vec<AnnotationFormat> = self
                 .bounding_boxes
                 .drain(..)
                 .map(|bbox| bbox.into())
                 .collect();
-            if self.use_model_annotations {
-                annotations.extend(self.model_boxes.drain(..).map(|bbox| bbox.into()));
-            }
             let annotations = serde_json::to_string_pretty(&annotations)?;
 
             let mut file = File::create(&paths.label_path)?;
@@ -214,7 +222,6 @@ impl LabelWidget {
         }
 
         self.bounding_boxes.clear();
-        self.model_boxes.clear();
 
         if paths.label_path.exists() {
             let existing_annotations = fs::read_to_string(&paths.label_path)?;
@@ -224,8 +231,8 @@ impl LabelWidget {
                 .drain(..)
                 .map(|annotation| annotation.into())
                 .collect();
-        } else {
-            self.model_boxes = annotations;
+        } else if self.use_model_annotations {
+            self.bounding_boxes.extend(model_annotations);
         }
 
         self.texture_id = None;
