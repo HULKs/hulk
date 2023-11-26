@@ -1,3 +1,5 @@
 /target
 *.png
 images/
+.venv/
+2021-images*
