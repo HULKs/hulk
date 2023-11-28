@@ -1,5 +1,7 @@
+.venv/
 /target
+
+2021-images*
 *.png
 images/
-.venv/
-2021-images*
+labelled/
