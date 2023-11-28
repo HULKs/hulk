@@ -5,14 +5,17 @@ use std::{
 };
 
 use crate::{
-    annotation::AnnotationFormat, boundingbox::BoundingBox, classes::Classes, paths::Paths,
+    annotation::AnnotationFormat,
+    boundingbox::BoundingBox,
+    classes::Classes,
+    paths::Paths,
+    widgets::{bounding_box_annotator::BoundingBoxAnnotator, class_selector::ClassSelector},
 };
 use color_eyre::eyre::Result;
 use eframe::{
-    egui::{ComboBox, Key, PointerButton, RichText, Ui},
-    epaint::{Color32, ColorImage, TextureHandle, Vec2},
+    egui::Ui,
+    epaint::{Color32, ColorImage, TextureHandle},
 };
-use egui_plot::{Plot, PlotImage, PlotPoint, PlotUi, Polygon, Text};
 
 fn load_image_from_path(path: impl AsRef<Path>) -> Result<ColorImage, image::ImageError> {
     let image = image::io::Reader::open(path)?.decode()?;
@@ -32,8 +35,8 @@ pub struct LabelWidget {
     use_model_annotations: bool,
 }
 
-impl LabelWidget {
-    pub fn new() -> Self {
+impl Default for LabelWidget {
+    fn default() -> Self {
         Self {
             current_paths: None,
             texture_id: None,
@@ -44,7 +47,9 @@ impl LabelWidget {
             use_model_annotations: false,
         }
     }
+}
 
+impl LabelWidget {
     pub fn load_image(&mut self, ui: &Ui) -> Result<()> {
         if let (None, Some(paths)) = (&self.texture_id, &self.current_paths) {
             let image = load_image_from_path(&paths.image_path)?;
@@ -62,145 +67,33 @@ impl LabelWidget {
     pub fn ui(&mut self, ui: &mut eframe::egui::Ui) {
         self.load_image(ui).expect("failed to load image");
 
-        let b_pressed = ui.input(|i| i.key_pressed(Key::B));
-        let g_pressed = ui.input(|i| i.key_pressed(Key::G));
-
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                self.current_paths.as_ref().map(|paths| {
+                if let Some(paths) = &self.current_paths {
                     ui.label(paths.image_path.display().to_string());
                     if paths.label_present {
                         ui.colored_label(Color32::GREEN, "✔");
                     } else {
                         ui.colored_label(Color32::RED, "❌");
                     }
-                });
-                ComboBox::from_id_source("class-selector")
-                    .selected_text(format!("{:?}", self.selected_class))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.selected_class, Classes::Robot, "Robot");
-                        ui.selectable_value(&mut self.selected_class, Classes::Ball, "Ball");
-                        ui.selectable_value(
-                            &mut self.selected_class,
-                            Classes::GoalPost,
-                            "Goal Post",
-                        );
-                        ui.selectable_value(
-                            &mut self.selected_class,
-                            Classes::PenaltySpot,
-                            "Penalty Spot",
-                        );
-                    });
+                }
+                ui.add(ClassSelector::new(
+                    "class-selector",
+                    &mut self.selected_class,
+                ));
                 ui.checkbox(&mut self.auto_save_on_next_image, "Auto-Save");
                 ui.checkbox(&mut self.use_model_annotations, "AI-ssist");
             });
-            Plot::new("image-plot")
-                .data_aspect(1.)
-                .view_aspect(640. / 480.)
-                .show_axes([false, false])
-                .show_grid([false, false])
-                .set_margin_fraction(Vec2::splat(0.1))
-                .auto_bounds_x()
-                .auto_bounds_y()
-                .show_background(false)
-                .allow_scroll(false)
-                .allow_boxed_zoom(false)
-                .show(ui, |ui| {
-                    self.texture_id.as_ref().map(|texture_handle| {
-                        ui.image(PlotImage::new(
-                            texture_handle,
-                            PlotPoint::new(320., 240.),
-                            Vec2::new(640., 480.),
-                        ));
-                        self.bounding_boxes
-                            .iter()
-                            .chain(self.editing_bounding_box.iter())
-                            .for_each(|bbox| {
-                                let polygon: Polygon = bbox.into();
-                                ui.polygon(polygon.fill_color(bbox.class.color()));
-                                ui.text(Text::new(
-                                    bbox.top_left(),
-                                    RichText::new(format!("{:?}", bbox.class))
-                                        .color(Color32::BLACK)
-                                        .size(10.),
-                                ))
-                            });
-                    });
-                    self.handle_bounding_box_input(ui, b_pressed, g_pressed);
-                });
-        });
-
-        if let Some(class) =
-            ui.input(|i| i.keys_down.iter().find_map(|key| Classes::from_key(*key)))
-        {
-            self.selected_class = class;
-        }
-    }
-
-    fn handle_bounding_box_input(&mut self, ui: &PlotUi, b_pressed: bool, g_pressed: bool) {
-        if let (true, Some(mouse_position)) = (b_pressed, ui.response().hover_pos()) {
-            // insert current drawing bbox into list or create new one
-            if let Some(mut bbox) = self.editing_bounding_box.take() {
-                bbox.clip_to_image();
-                self.bounding_boxes.push(bbox);
-            } else {
-                let mouse_position = ui.plot_from_screen(mouse_position);
-                self.editing_bounding_box = Some(BoundingBox::new(
-                    mouse_position,
-                    mouse_position,
+            if let Some(texture_id) = self.texture_id.clone() {
+                ui.add(BoundingBoxAnnotator::new(
+                    "image-plot",
+                    texture_id.clone(),
+                    &mut self.bounding_boxes,
+                    &mut self.editing_bounding_box,
                     self.selected_class,
                 ));
             }
-        }
-
-        if let (Some(bbox), Some(mouse_position)) = (
-            self.editing_bounding_box.as_mut(),
-            ui.response().hover_pos(),
-        ) {
-            let mouse_position = ui.plot_from_screen(mouse_position);
-            bbox.set_opposing_corner(mouse_position);
-        }
-
-        if ui.response().clicked_by(PointerButton::Secondary) {
-            // delete bbox when right-clicking
-            if self.editing_bounding_box.is_some() {
-                self.editing_bounding_box.take();
-            } else if let Some(mouse_position) = ui.response().hover_pos() {
-                let mouse_position = ui.plot_from_screen(mouse_position);
-                Self::delete_box_from(mouse_position, &mut self.bounding_boxes);
-            }
-        }
-
-        if let Some(position) = ui.response().hover_pos() {
-            let position = ui.plot_from_screen(position);
-            if let Some((index, _)) = self
-                .bounding_boxes
-                .iter()
-                .enumerate()
-                .find(|(_, bounding_box)| bounding_box.has_corner_at(position))
-            {
-                if g_pressed {
-                    let bbox = self
-                        .editing_bounding_box
-                        .insert(self.bounding_boxes.remove(index));
-                    bbox.prepare_for_corner_move(position);
-                }
-            }
-        }
-    }
-
-    fn delete_box_from(mouse_position: PlotPoint, bbox_list: &mut Vec<BoundingBox>) -> bool {
-        if let Some(clicked_bbox_index) = bbox_list
-            .iter()
-            .enumerate()
-            .filter(|(_, bbox)| bbox.contains(mouse_position))
-            .min_by(|(_, bbox1), (_, bbox2)| bbox1.rect().area().total_cmp(&bbox2.rect().area()))
-            .map(|(idx, _)| idx)
-        {
-            bbox_list.remove(clicked_bbox_index);
-            return true;
-        }
-        false
+        });
     }
 
     pub fn load_new_image_with_labels(

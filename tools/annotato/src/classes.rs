@@ -1,12 +1,21 @@
 use eframe::{epaint::{Rgba, Color32}, egui::Key};
 use serde::{Serialize, Deserialize};
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+use crate::widgets::class_selector::EnumIter;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Classes {
     Ball,
     Robot,
     GoalPost,
     PenaltySpot,
+}
+
+impl EnumIter for Classes {
+    fn iter() -> Vec<Self> {
+        use Classes::*;
+        vec![Ball, Robot, GoalPost, PenaltySpot]
+    }
 }
 
 impl From<usize> for Classes {

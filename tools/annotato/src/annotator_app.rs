@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, path::PathBuf};
+use std::{collections::VecDeque, path::{PathBuf, Path}};
 
 use crate::{ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths, Args};
 use color_eyre::{eyre::ContextCompat, Result};
@@ -27,17 +27,17 @@ pub struct AnnotatorApp {
 }
 
 impl AnnotatorApp {
-    fn convert_image_to_label_path(image_path: &PathBuf) -> Result<PathBuf> {
+    fn convert_image_to_label_path(image_path: &Path) -> Result<PathBuf> {
         let filename = image_path
             .file_name()
             .wrap_err("no filename")?
             .to_str()
             .unwrap();
         let filename_without_ext = filename
-            .rsplit_once(".")
+            .rsplit_once('.')
             .map(|(prefix, _suffix)| prefix)
             .unwrap();
-        let mut label_path = image_path.clone();
+        let mut label_path = image_path.to_path_buf();
         label_path.set_file_name(format!("{filename_without_ext}.json"));
         Ok(label_path)
     }
@@ -67,7 +67,7 @@ impl AnnotatorApp {
             phase,
             paths,
             current_index: 0,
-            label_widget: LabelWidget::new(),
+            label_widget: LabelWidget::default(),
             model_annotations,
         };
         this.update_image().expect("failed to load image");
@@ -167,8 +167,7 @@ impl AnnotatorApp {
                         for (filename, is_labelled) in self.paths.range(range).filter_map(|path| {
                             path.image_path
                                 .file_name()
-                                .map(|osstr| osstr.to_str())
-                                .flatten()
+                                .and_then(|osstr| osstr.to_str())
                                 .map(|filename| (filename, path.label_present))
                         }) {
                             ui.horizontal(|ui| {
@@ -212,8 +211,7 @@ impl AnnotatorApp {
                                 .paths
                                 .iter()
                                 .enumerate()
-                                .filter(|(_, paths)| !paths.label_present)
-                                .next()
+                                .find(|(_, paths)| !paths.label_present)
                             {
                                 self.current_index = unlabelled_index;
                                 self.update_image().expect("failed to update image");

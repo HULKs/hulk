@@ -130,7 +130,7 @@ impl BoundingBox {
         let Pos2 { x: min_x, y: min_y } = rect.left_top();
         let Pos2 { x: max_x, y: max_y } = rect.right_bottom();
 
-        return (
+        (
             self.class,
             [
                 min_x / 640.,
@@ -138,7 +138,7 @@ impl BoundingBox {
                 max_x / 640.,
                 (480. - min_y) / 480.,
             ],
-        );
+        )
     }
 
     pub fn from_annotation((class, [min_x, min_y, max_x, max_y]): (Classes, [f32; 4])) -> Self {

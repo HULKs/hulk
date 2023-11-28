@@ -6,6 +6,7 @@ pub mod classes;
 pub mod label_widget;
 pub mod paths;
 pub mod theme;
+pub mod widgets;
 
 use std::path::PathBuf;
 
