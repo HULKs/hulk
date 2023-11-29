@@ -86,7 +86,7 @@ impl SearchSuggestor {
                 suggested_search_position = Some(search_suggestion);
             }
         } else {
-            println!("Invalid maximum heatmap position")
+            println!("Invalid maximum heatmap position");
         }
         context.heatmap.fill_if_subscribed(|| self.heatmap.clone());
 
@@ -114,7 +114,8 @@ impl SearchSuggestor {
                 if self.heatmap.get(ball_heatmap_position).is_some() {
                     self.heatmap[ball_heatmap_position] = 1.0;
                 } else {
-                    println!("Invalid ball heatmap position")
+                    println!("Invalid ball heatmap position");
+                    println!("{}, {}", ball_heatmap_position.0, ball_heatmap_position.1);
                 }
             }
         }
@@ -129,6 +130,7 @@ impl SearchSuggestor {
                     (self.heatmap[heatmap_position] + ball_hypothesis.validity) / 2.0;
             } else {
                 println!("Invalid hypothesis heatmap position");
+                println!("{}, {}", heatmap_position.0, heatmap_position.1);
             }
         }
         self.heatmap = self.heatmap.clone() * heatmap_decay_factor;
