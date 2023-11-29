@@ -1,6 +1,4 @@
-#!/bin/bash
-
-set -e
+#!/usr/bin/env -S bash -e
 
 THIS_DIRECTORY="$(dirname $(readlink -f $0))"
 PEPSI_TARGET_DIRECTORY=${CARGO_TARGET_DIR:-${THIS_DIRECTORY}/target}
