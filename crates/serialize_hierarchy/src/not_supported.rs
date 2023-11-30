@@ -4,7 +4,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use nalgebra::{Isometry2, Isometry3, Rotation3, SMatrix, UnitComplex, UnitQuaternion, DMatrix};
+use nalgebra::{DMatrix, Isometry2, Isometry3, Rotation3, SMatrix, UnitComplex, UnitQuaternion};
 use serde::{Deserializer, Serializer};
 
 use crate::{error::Error, SerializeHierarchy};

@@ -11,6 +11,7 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct SearchSuggestor {
+    heatmap_dimensions: (usize, usize),
     heatmap: DMatrix<f32>,
 }
 
@@ -38,14 +39,15 @@ pub struct MainOutputs {
 
 impl SearchSuggestor {
     pub fn new(_context: CreationContext) -> Result<Self> {
+        let heatmap_dimensions = (
+            _context.field_dimensions.length.round() as usize
+                * _context.search_suggestor_configuration.cells_per_meter,
+            _context.field_dimensions.width.round() as usize
+                * _context.search_suggestor_configuration.cells_per_meter,
+        );
         Ok(Self {
-            heatmap: DMatrix::from_element(
-                _context.field_dimensions.length as usize
-                    * _context.search_suggestor_configuration.cells_per_meter,
-                _context.field_dimensions.width as usize
-                    * _context.search_suggestor_configuration.cells_per_meter,
-                0.0,
-            ),
+            heatmap_dimensions,
+            heatmap: DMatrix::from_element(heatmap_dimensions.0, heatmap_dimensions.1, 0.0),
         })
     }
 
@@ -55,7 +57,6 @@ impl SearchSuggestor {
             context.invalid_ball_positions,
             context.robot_to_field.copied(),
             context.search_suggestor_configuration.cells_per_meter,
-            context.field_dimensions,
             context.search_suggestor_configuration.heatmap_decay_factor,
         );
         let maximum_heat_heatmap_position = self.heatmap.iamax_full();
@@ -101,15 +102,13 @@ impl SearchSuggestor {
         invalid_ball_positions: &Vec<HypotheticalBallPosition>,
         robot_to_field: Option<Isometry2<f32>>,
         cells_per_meter: usize,
-        field_dimensions: &FieldDimensions,
         heatmap_decay_factor: f32,
     ) {
         if let Some(ball_position) = ball_position {
             if let Some(robot_to_field) = robot_to_field {
                 let ball_heatmap_position = self.calculate_heatmap_position(
-                    robot_to_field * ball_position.position,
                     cells_per_meter,
-                    field_dimensions,
+                    robot_to_field * ball_position.position,
                 );
                 if self.heatmap.get(ball_heatmap_position).is_some() {
                     self.heatmap[ball_heatmap_position] = 1.0;
@@ -120,17 +119,18 @@ impl SearchSuggestor {
             }
         }
         for ball_hypothesis in invalid_ball_positions {
-            let heatmap_position = self.calculate_heatmap_position(
-                ball_hypothesis.position,
-                cells_per_meter,
-                field_dimensions,
-            );
-            if self.heatmap.get(heatmap_position).is_some() {
-                self.heatmap[heatmap_position] =
-                    (self.heatmap[heatmap_position] + ball_hypothesis.validity) / 2.0;
-            } else {
-                println!("Invalid hypothesis heatmap position");
-                println!("{}, {}", heatmap_position.0, heatmap_position.1);
+            if let Some(robot_to_field) = robot_to_field {
+                let heatmap_position = self.calculate_heatmap_position(
+                    cells_per_meter,
+                    robot_to_field * ball_hypothesis.position,
+                );
+                if self.heatmap.get(heatmap_position).is_some() {
+                    self.heatmap[heatmap_position] =
+                        (self.heatmap[heatmap_position] + ball_hypothesis.validity) / 2.0;
+                } else {
+                    println!("Invalid hypothesis heatmap position");
+                    println!("{}, {}", heatmap_position.0, heatmap_position.1);
+                }
             }
         }
         self.heatmap = self.heatmap.clone() * heatmap_decay_factor;
@@ -138,33 +138,30 @@ impl SearchSuggestor {
 
     fn calculate_heatmap_position(
         &mut self,
-        hypothesis_position: Point2<f32>,
         cells_per_meter: usize,
-        field_dimensions: &FieldDimensions,
+        hypothesis_position: Point2<f32>,
     ) -> (usize, usize) {
-        let row_count = field_dimensions.length.round() as usize * cells_per_meter;
-        let collum_count = field_dimensions.width.round() as usize * cells_per_meter;
         let mut x_position: usize = 0;
         let mut y_position: usize = 0;
         if hypothesis_position.x > 0.0 {
-            x_position =
-                (row_count / 2) + (hypothesis_position.x * cells_per_meter as f32).round() as usize;
+            x_position = (self.heatmap_dimensions.0 / 2)
+                + (hypothesis_position.x * cells_per_meter as f32).round() as usize;
         } else if hypothesis_position.x < 0.0 {
-            x_position = (row_count / 2)
+            x_position = (self.heatmap_dimensions.0 / 2)
                 - (hypothesis_position.x.abs() * cells_per_meter as f32).round() as usize;
         }
         if hypothesis_position.y > 0.0 {
-            y_position = (collum_count / 2)
+            y_position = (self.heatmap_dimensions.1 / 2)
                 + (hypothesis_position.y * cells_per_meter as f32).round() as usize;
         } else if hypothesis_position.y < 0.0 {
-            y_position = (collum_count / 2)
+            y_position = (self.heatmap_dimensions.1 / 2)
                 - (hypothesis_position.y.abs() * cells_per_meter as f32).round() as usize;
         }
-        if row_count < x_position {
-            x_position = row_count;
+        if self.heatmap_dimensions.0 < x_position {
+            x_position = self.heatmap_dimensions.0;
         }
-        if collum_count < y_position {
-            y_position = collum_count;
+        if self.heatmap_dimensions.1 < y_position {
+            y_position = self.heatmap_dimensions.1;
         }
         if x_position >= 1 {
             x_position -= 1;
