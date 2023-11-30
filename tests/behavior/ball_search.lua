@@ -33,7 +33,6 @@ function on_cycle()
         print(inspect(state))
     end
 
-    print(state.cycle_count)
     if state.cycle_count == 100 then
         state.game_controller_state.game_state = "Ready"
         state.filtered_game_state = {
@@ -67,13 +66,6 @@ function on_cycle()
     if state.cycle_count == 2000 then
         state.ball = None
     end
-
-    -- if state.cycle_count == 2100 then
-    --     state.ball = {
-    --         position = { 3.0, 0.0 },
-    --         velocity = { 0.0, 0.0 },
-    --     }
-    -- end
 
     if state.cycle_count == 6000 then
         state.finished = true
