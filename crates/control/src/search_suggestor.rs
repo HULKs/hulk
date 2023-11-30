@@ -114,7 +114,6 @@ impl SearchSuggestor {
                     self.heatmap[ball_heatmap_position] = 1.0;
                 } else {
                     println!("Invalid ball heatmap position");
-                    println!("{}, {}", ball_heatmap_position.0, ball_heatmap_position.1);
                 }
             }
         }
@@ -129,7 +128,6 @@ impl SearchSuggestor {
                         (self.heatmap[heatmap_position] + ball_hypothesis.validity) / 2.0;
                 } else {
                     println!("Invalid hypothesis heatmap position");
-                    println!("{}, {}", heatmap_position.0, heatmap_position.1);
                 }
             }
         }
@@ -157,18 +155,11 @@ impl SearchSuggestor {
             y_position = (self.heatmap_dimensions.1 / 2)
                 - (hypothesis_position.y.abs() * cells_per_meter as f32).round() as usize;
         }
-        if self.heatmap_dimensions.0 < x_position {
-            x_position = self.heatmap_dimensions.0;
-        }
-        if self.heatmap_dimensions.1 < y_position {
-            y_position = self.heatmap_dimensions.1;
-        }
-        if x_position >= 1 {
-            x_position -= 1;
-        }
-        if y_position >= 1 {
-            y_position -= 1;
-        }
+        x_position = x_position.clamp(0, self.heatmap_dimensions.0);
+        y_position = y_position.clamp(0, self.heatmap_dimensions.1);
+        x_position -= 1;
+        x_position -= 1;
+
         (x_position, y_position)
     }
 }
