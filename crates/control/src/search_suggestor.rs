@@ -155,10 +155,14 @@ impl SearchSuggestor {
             y_position = (self.heatmap_dimensions.1 / 2)
                 - (hypothesis_position.y.abs() * cells_per_meter as f32).round() as usize;
         }
-        x_position = x_position.clamp(0, self.heatmap_dimensions.0);
-        y_position = y_position.clamp(0, self.heatmap_dimensions.1);
-        x_position -= 1;
-        x_position -= 1;
+        if x_position >= 1 {
+            x_position -= 1;
+        }
+        if y_position >= 1 {
+            y_position -= 1;
+        }
+        x_position = x_position.clamp(0, self.heatmap_dimensions.0 - 1);
+        y_position = y_position.clamp(0, self.heatmap_dimensions.1 - 1);
 
         (x_position, y_position)
     }
