@@ -1,5 +1,6 @@
 mod ball_filter;
 mod ball_position;
+mod ball_search_heatmap;
 mod behavior_simulator;
 mod feet_detection;
 mod field;
@@ -16,6 +17,7 @@ mod robot_pose;
 pub use self::behavior_simulator::BehaviorSimulator;
 pub use ball_filter::BallFilter;
 pub use ball_position::BallPosition;
+pub use ball_search_heatmap::BallSearchHeatmap;
 pub use feet_detection::FeetDetection;
 pub use field::Field;
 pub use image_segments::ImageSegments;
