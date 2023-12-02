@@ -61,11 +61,11 @@ impl RuleObstacleComposer {
                 _,
                 Some(ball),
             ) => {
-                let obstacle = RuleObstacle::Circle(Circle::new(
+                let free_kick_obstacle = RuleObstacle::Circle(Circle::new(
                     ball.ball_in_field,
                     free_kick_obstacle_radius,
                 ));
-                rule_obstacles.push(obstacle);
+                rule_obstacles.push(free_kick_obstacle);
             }
             (
                 GameControllerState {
@@ -78,11 +78,11 @@ impl RuleObstacleComposer {
                 },
                 _,
             ) => {
-                let obstacle = RuleObstacle::Circle(Circle::new(
+                let center_circle_obstacle = RuleObstacle::Circle(Circle::new(
                     Point2::origin(),
                     context.field_dimensions.center_circle_diameter / 2.0,
                 ));
-                rule_obstacles.push(obstacle);
+                rule_obstacles.push(center_circle_obstacle);
             }
             (
                 GameControllerState {
