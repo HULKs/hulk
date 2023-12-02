@@ -1124,5 +1124,6 @@
       "knee_pitch": 0.0
     }
   },
-  "angular_velocity_smoothing_factor": 0.1
+  "angular_velocity_smoothing_factor": 0.1,
+  "center_circle_obstacle_increasement": 1.2
 }

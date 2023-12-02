@@ -22,6 +22,8 @@ pub struct CycleContext {
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     filtered_game_state: RequiredInput<Option<FilteredGameState>, "filtered_game_state?">,
     ball_state: Input<Option<BallState>, "ball_state?">,
+
+    center_circle_obstacle_increasement: Parameter<f32, "center_circle_obstacle_increasement">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
@@ -68,6 +70,7 @@ impl RuleObstacleComposer {
                 rule_obstacles.push(free_kick_obstacle);
             }
             (
+                // remove game controller state from match statement -> think about state for kickoff
                 GameControllerState {
                     game_state: GameState::Playing,
                     sub_state: None,
@@ -80,8 +83,10 @@ impl RuleObstacleComposer {
             ) => {
                 let center_circle_obstacle = RuleObstacle::Circle(Circle::new(
                     Point2::origin(),
-                    context.field_dimensions.center_circle_diameter / 2.0,
+                    context.field_dimensions.center_circle_diameter / 2.0
+                        * context.center_circle_obstacle_increasement,
                 ));
+                dbg!("center circle obstacle created");
                 rule_obstacles.push(center_circle_obstacle);
             }
             (
