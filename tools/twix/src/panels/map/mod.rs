@@ -30,6 +30,7 @@ pub struct MapPanel {
     feet_detection: EnabledLayer<layers::FeetDetection>,
     ball_filter: EnabledLayer<layers::BallFilter>,
     obstacle_filter: EnabledLayer<layers::ObstacleFilter>,
+    ball_search_heatmap: EnabledLayer<layers::BallSearchHeatmap>,
 }
 
 impl Panel for MapPanel {
@@ -50,6 +51,7 @@ impl Panel for MapPanel {
         let feet_detection = EnabledLayer::new(nao.clone(), value, false);
         let ball_filter = EnabledLayer::new(nao.clone(), value, false);
         let obstacle_filter = EnabledLayer::new(nao.clone(), value, false);
+        let ball_search_heatmap = EnabledLayer::new(nao.clone(), value, false);
 
         let field_dimensions = nao.subscribe_parameter("field_dimensions");
         let transformation = Similarity2::identity();
@@ -71,6 +73,7 @@ impl Panel for MapPanel {
             feet_detection,
             ball_filter,
             obstacle_filter,
+            ball_search_heatmap,
         }
     }
 
@@ -90,6 +93,7 @@ impl Panel for MapPanel {
             "feet_detection": self.feet_detection.save(),
             "ball_filter": self.ball_filter.save(),
             "obstacle_filter": self.obstacle_filter.save(),
+            "ball_search_heatmap": self.obstacle_filter.save(),
         })
     }
 }
@@ -111,6 +115,7 @@ impl Widget for &mut MapPanel {
             self.feet_detection.checkbox(ui);
             self.ball_filter.checkbox(ui);
             self.obstacle_filter.checkbox(ui);
+            self.ball_search_heatmap.checkbox(ui);
         });
 
         let field_dimensions: FieldDimensions = match self.field_dimensions.get_latest() {
@@ -136,6 +141,7 @@ impl Widget for &mut MapPanel {
         let _ = self.feet_detection.paint(&painter, &field_dimensions);
         let _ = self.ball_filter.paint(&painter, &field_dimensions);
         let _ = self.obstacle_filter.paint(&painter, &field_dimensions);
+        let _ = self.ball_search_heatmap.paint(&painter, &field_dimensions);
 
         self.apply_zoom_and_pan(ui, &mut painter, &response);
         if response.double_clicked() {
