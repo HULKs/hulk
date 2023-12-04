@@ -102,5 +102,7 @@ fn main() -> Result<()> {
             skip_introduction,
         } => start_labelling_ui(image_folder, annotation_json, skip_introduction)
             .map_err(|err| Report::msg(err.to_string())),
-    }
+    }?;
+
+    Ok(())
 }

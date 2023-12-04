@@ -8,7 +8,8 @@ use crate::{
     boundingbox::BoundingBox,
     classes::Classes,
     paths::Paths,
-    widgets::{bounding_box_annotator::BoundingBoxAnnotator, class_selector::ClassSelector}, utils,
+    utils,
+    widgets::{bounding_box_annotator::BoundingBoxAnnotator, class_selector::ClassSelector},
 };
 use color_eyre::eyre::Result;
 use eframe::epaint::{Color32, TextureHandle};
