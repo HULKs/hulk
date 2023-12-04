@@ -111,8 +111,13 @@ impl BoundingBox {
         )
     }
 
-    pub fn has_corner_at(&self, position: PlotPoint) -> bool {
+    pub fn get_closest_corner(&self, position: PlotPoint) -> PlotPoint {
         let (closest, _) = self.closest_and_furthest_corner(position);
+        closest
+    }
+
+    pub fn has_corner_at(&self, position: PlotPoint) -> bool {
+        let closest = self.get_closest_corner(position);
         let closest = Pos2::new(closest.x as f32, closest.y as f32);
         let position = Pos2::new(position.x as f32, position.y as f32);
 

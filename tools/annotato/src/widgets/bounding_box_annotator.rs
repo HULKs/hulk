@@ -1,6 +1,6 @@
 use eframe::{
     egui::{Id, Key, PointerButton, Response, RichText, Ui, Widget},
-    epaint::{Color32, TextureHandle, Vec2},
+    epaint::{Color32, TextureHandle, Vec2, Stroke},
 };
 use egui_plot::{Plot, PlotImage, PlotPoint, PlotResponse, Polygon, Text};
 use std::hash::Hash;
@@ -69,7 +69,6 @@ impl<'a> BoundingBoxAnnotator<'a> {
             }
             (Some(mut bounding_box), b_pressed, g_pressed, false) if b_pressed || g_pressed => {
                 // finish the box
-                dbg!("finish box");
                 bounding_box.clip_to_image();
                 self.bounding_boxes.push(bounding_box);
                 None
@@ -83,7 +82,6 @@ impl<'a> BoundingBoxAnnotator<'a> {
             }
             (None, true, false, false) => {
                 // create a new box
-                dbg!("new box");
                 mouse_position
                     .map(|position| BoundingBox::new(position, position, self.selected_class))
             }
@@ -146,7 +144,18 @@ impl<'a> Widget for BoundingBoxAnnotator<'a> {
                     });
             });
         self.handle_bounding_box_input(&response, ui);
-        // response.hover
+
+        if let (Some(position), None) = (response.response.hover_pos(), self.box_in_editing) {
+            let position = response.transform.value_from_position(position);
+            if let Some(bbox) =  self.bounding_boxes.iter().find(|bbox| bbox.has_corner_at(position)) {
+                let corner = bbox.get_closest_corner(position);
+                let corner_screen = response.transform.position_from_point(&corner);
+                let radius = 5.0 * response.transform.dpos_dvalue_x();
+                let painter = ui.painter();
+                painter.circle_stroke(corner_screen, radius as f32, Stroke::new(2.0, Color32::GRAY));
+            }
+        }
+
         response.response
     }
 }
