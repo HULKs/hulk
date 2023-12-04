@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf, collections::HashMap};
+use std::{collections::HashMap, fs, path::Path};
 
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ pub struct ModelAnnotations {
 }
 
 impl ModelAnnotations {
-    pub fn try_new(path: &PathBuf) -> Result<Self> {
+    pub fn try_new(path: impl AsRef<Path>) -> Result<Self> {
         let file_content = fs::read_to_string(path)?;
 
         Ok(Self {

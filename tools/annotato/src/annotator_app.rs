@@ -1,6 +1,9 @@
-use std::{collections::VecDeque, path::{PathBuf, Path}};
+use std::{
+    collections::VecDeque,
+    path::{Path, PathBuf},
+};
 
-use crate::{ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths, Args};
+use crate::{ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths};
 use color_eyre::{eyre::ContextCompat, Result};
 use eframe::{
     egui::{
@@ -42,11 +45,23 @@ impl AnnotatorApp {
         Ok(label_path)
     }
 
-    pub fn try_new(_: &CreationContext, arguments: Args) -> Result<Self> {
-        let image_paths = glob(&arguments.image_folder.join("*.png").display().to_string())?
-            .collect::<Result<VecDeque<_>, _>>()?;
+    pub fn try_new(
+        _: &CreationContext,
+        image_folder: impl AsRef<Path>,
+        annotation_json_path: impl AsRef<Path>,
+        skip_introduction: bool,
+    ) -> Result<Self> {
+        let image_paths = glob(
+            &image_folder
+                .as_ref()
+                .to_path_buf()
+                .join("*.png")
+                .display()
+                .to_string(),
+        )?
+        .collect::<Result<VecDeque<_>, _>>()?;
 
-        let model_annotations = ModelAnnotations::try_new(&arguments.annotation_json)?;
+        let model_annotations = ModelAnnotations::try_new(annotation_json_path)?;
 
         let paths = image_paths
             .into_iter()
@@ -57,7 +72,7 @@ impl AnnotatorApp {
             .collect::<Result<VecDeque<_>>>()
             .expect("failed to build paths");
 
-        let phase = if arguments.skip_introduction {
+        let phase = if skip_introduction {
             AnnotationPhase::Labelling
         } else {
             AnnotationPhase::Started
@@ -105,10 +120,6 @@ impl AnnotatorApp {
         Ok(())
     }
 
-    pub fn set_index_to_unlabelled(&mut self) {
-        todo!();
-    }
-
     fn show_phase_started(&mut self, ctx: &Context) {
         CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
@@ -117,7 +128,7 @@ impl AnnotatorApp {
                 let number_unlabelled_images = self
                     .paths
                     .iter()
-                    .filter(|paths| paths.label_present)
+                    .filter(|paths| !paths.label_present)
                     .count();
                 ui.label(format!(
                     "You are about to label {number_unlabelled_images} images."

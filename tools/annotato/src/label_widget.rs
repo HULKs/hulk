@@ -1,7 +1,6 @@
 use std::{
     fs::{self, File},
     io::Write,
-    path::Path,
 };
 
 use crate::{
@@ -9,21 +8,10 @@ use crate::{
     boundingbox::BoundingBox,
     classes::Classes,
     paths::Paths,
-    widgets::{bounding_box_annotator::BoundingBoxAnnotator, class_selector::ClassSelector},
+    widgets::{bounding_box_annotator::BoundingBoxAnnotator, class_selector::ClassSelector}, utils,
 };
 use color_eyre::eyre::Result;
-use eframe::{
-    egui::Ui,
-    epaint::{Color32, ColorImage, TextureHandle},
-};
-
-fn load_image_from_path(path: impl AsRef<Path>) -> Result<ColorImage, image::ImageError> {
-    let image = image::io::Reader::open(path)?.decode()?;
-    let size = [image.width() as _, image.height() as _];
-    let image_buffer = image.to_rgba8();
-    let pixels = image_buffer.as_flat_samples();
-    Ok(ColorImage::from_rgba_unmultiplied(size, pixels.as_slice()))
-}
+use eframe::epaint::{Color32, TextureHandle};
 
 pub struct LabelWidget {
     current_paths: Option<Paths>,
@@ -50,22 +38,16 @@ impl Default for LabelWidget {
 }
 
 impl LabelWidget {
-    pub fn load_image(&mut self, ui: &Ui) -> Result<()> {
-        if let (None, Some(paths)) = (&self.texture_id, &self.current_paths) {
-            let image = load_image_from_path(&paths.image_path)?;
-
-            let handle = ui.ctx().load_texture(
-                paths.image_path.display().to_string(),
-                image,
-                Default::default(),
-            );
-            self.texture_id = Some(handle);
-        }
-        Ok(())
-    }
-
     pub fn ui(&mut self, ui: &mut eframe::egui::Ui) {
-        self.load_image(ui).expect("failed to load image");
+        if self.texture_id.is_none() {
+            self.texture_id.get_or_insert_with(|| {
+                if let Some(paths) = self.current_paths.as_ref() {
+                    utils::load_image(ui, &paths.image_path).expect("failed to load image")
+                } else {
+                    panic!("No image loaded");
+                }
+            });
+        }
 
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
