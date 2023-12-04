@@ -1,5 +1,8 @@
-use eframe::{epaint::{Rgba, Color32}, egui::Key};
-use serde::{Serialize, Deserialize};
+use eframe::{
+    egui::Key,
+    epaint::{Color32, Rgba},
+};
+use serde::{Deserialize, Serialize};
 
 use crate::widgets::class_selector::EnumIter;
 

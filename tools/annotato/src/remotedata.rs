@@ -22,7 +22,7 @@ pub fn handle(command: &DataCommand) -> Result<()> {
             for dataset_name in rsync::rsync_dataset_list()? {
                 println!("- {dataset_name}")
             }
-        },
+        }
         DataCommand::ToLocal { dataset_name } => {
             rsync::rsync_to_local("current", &dataset_name)?;
         }

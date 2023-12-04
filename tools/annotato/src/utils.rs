@@ -1,7 +1,10 @@
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
-use eframe::{egui::Ui, epaint::{TextureHandle, ColorImage}};
 use color_eyre::Result;
+use eframe::{
+    egui::Ui,
+    epaint::{ColorImage, TextureHandle},
+};
 use image::{io::Reader, ImageError};
 
 pub fn load_image_from_path(path: impl AsRef<Path>) -> Result<ColorImage, ImageError> {
@@ -14,11 +17,9 @@ pub fn load_image_from_path(path: impl AsRef<Path>) -> Result<ColorImage, ImageE
 
 pub fn load_image(ui: &Ui, image_path: &PathBuf) -> Result<TextureHandle> {
     let image = load_image_from_path(image_path)?;
-    let handle = ui.ctx().load_texture(
-        image_path.display().to_string(),
-        image,
-        Default::default(),
-    );
-    
+    let handle = ui
+        .ctx()
+        .load_texture(image_path.display().to_string(), image, Default::default());
+
     Ok(handle)
 }
