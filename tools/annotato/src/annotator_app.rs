@@ -208,7 +208,7 @@ impl AnnotatorApp {
                             .button("<")
                             .on_hover_text("Previous image (p, <)")
                             .clicked()
-                            || ui.input(|i| i.key_pressed(Key::ArrowLeft) || i.key_pressed(Key::P))
+                            || ui.input(|i| i.key_pressed(Key::ArrowLeft) || i.key_pressed(Key::P) || (i.key_pressed(Key::Space) && i.modifiers.shift))
                                 && self.current_index > 0
                         {
                             self.current_index -= 1;
