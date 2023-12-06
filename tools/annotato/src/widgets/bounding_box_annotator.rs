@@ -57,7 +57,7 @@ impl<'a> BoundingBoxAnnotator<'a> {
             self.box_in_editing.take(),
             ui.input(|i| i.key_pressed(Key::B))
                 || response.response.clicked_by(PointerButton::Primary),
-            ui.input(|i| i.key_pressed(Key::G)),
+            ui.input(|i| i.key_pressed(Key::Q)),
             response.response.clicked_by(PointerButton::Secondary) || ui.input(|i| i.key_pressed(Key::Escape)),
         ) {
             (Some(_), _, _, true) => {
