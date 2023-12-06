@@ -76,7 +76,7 @@ impl LabelWidget {
                     texture_id.clone(),
                     &mut self.bounding_boxes,
                     &mut self.editing_bounding_box,
-                    self.selected_class,
+                    &mut self.selected_class,
                 ));
             }
         });
