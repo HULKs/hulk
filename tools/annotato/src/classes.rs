@@ -15,7 +15,7 @@ pub enum Classes {
 }
 
 impl EnumIter for Classes {
-    fn iter() -> Vec<Self> {
+    fn list() -> Vec<Self> {
         use Classes::*;
         vec![Ball, Robot, GoalPost, PenaltySpot]
     }
@@ -62,6 +62,20 @@ impl Classes {
             Classes::PenaltySpot => Color32::GOLD,
         };
         let [r, g, b, _] = color.to_normalized_gamma_f32();
-        Rgba::from_rgba_unmultiplied(r, g, b, 0.1).into()
+        Rgba::from_rgba_unmultiplied(r, g, b, 0.05).into()
+    }
+
+    pub fn previous(class: &Classes) -> Classes {
+        let classes = Self::list();
+        let index = classes.iter().position(|&candidate| candidate == *class).expect(&format!("{:?} not found in Classes list", class));
+
+        classes[(index + classes.len() - 1) % classes.len()]
+    }
+
+    pub fn next(class: &Classes) -> Classes {
+        let classes = Self::list();
+        let index = classes.iter().position(|&candidate| candidate == *class).expect(&format!("{:?} not found in Classes list", class));
+
+        classes[(index + 1) % classes.len()]
     }
 }

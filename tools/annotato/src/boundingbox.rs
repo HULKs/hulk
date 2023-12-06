@@ -68,6 +68,11 @@ impl BoundingBox {
         self.opposing_corner = PlotPoint::new(x2.clamp(0., 640.), y2.clamp(0., 480.));
     }
 
+    pub fn is_valid(&self) -> bool {
+        let rect = self.rect();
+        rect.area() >= 4.0
+    }
+
     pub fn iou(&self, other: &BoundingBox) -> f32 {
         let this_rect = self.rect();
         let other_rect = other.rect();
