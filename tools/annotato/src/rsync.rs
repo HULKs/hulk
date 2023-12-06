@@ -54,7 +54,7 @@ pub fn rsync_to_host(local_folder: impl AsRef<Path>, dataset_name: &str) -> Resu
         .arg("2")
         .arg("-r")
         .arg(local_folder.as_ref().join(dataset_name))
-        .arg(full_dataset_path(dataset_name))
+        .arg(full_dataset_path(""))
         .output()?;
 
     if !output.status.success() {
