@@ -36,7 +36,7 @@ impl Default for LabelWidget {
             bounding_boxes: Vec::new(),
             editing_bounding_box: None,
             auto_save_on_next_image: true,
-            use_model_annotations: false,
+            use_model_annotations: true,
         }
     }
 }
