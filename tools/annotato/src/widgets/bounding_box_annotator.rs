@@ -58,7 +58,7 @@ impl<'a> BoundingBoxAnnotator<'a> {
             ui.input(|i| i.key_pressed(Key::B))
                 || response.response.clicked_by(PointerButton::Primary),
             ui.input(|i| i.key_pressed(Key::G)),
-            response.response.clicked_by(PointerButton::Secondary),
+            response.response.clicked_by(PointerButton::Secondary) || ui.input(|i| i.key_pressed(Key::Escape)),
         ) {
             (Some(_), _, _, true) => {
                 // delete the currently edited bounding box
