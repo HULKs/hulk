@@ -34,7 +34,7 @@ pub enum Command {
         subcommand: DataCommand,
     },
     Label {
-        #[arg(short, long, required = true)]
+        #[arg(required = true)]
         dataset_name: String,
 
         #[arg(short, long, default_value = "false")]
