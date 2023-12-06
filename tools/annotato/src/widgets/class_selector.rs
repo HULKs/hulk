@@ -3,7 +3,7 @@ use std::hash::Hash;
 
 use crate::classes::Classes;
 pub trait EnumIter {
-    fn iter() -> Vec<Self>
+    fn list() -> Vec<Self>
     where
         Self: Sized;
 }
@@ -29,10 +29,17 @@ impl<'a> Widget for ClassSelector<'a> {
         {
             *self.currently_selected = class;
         }
+
+        let scroll_y = ui.input(|i| i.scroll_delta.y);
+        if scroll_y > 0.0 {
+            *self.currently_selected = Classes::next(self.currently_selected)
+        } else if scroll_y < 0.0 {
+            *self.currently_selected = Classes::previous(self.currently_selected)
+        }
         ComboBox::from_id_source(self.id)
             .selected_text(format!("{:?}", self.currently_selected))
             .show_ui(ui, |ui| {
-                Classes::iter().into_iter().for_each(|class| {
+                Classes::list().into_iter().for_each(|class| {
                     ui.selectable_value(self.currently_selected, class, format!("{:?}", class));
                 });
             })

@@ -1,6 +1,6 @@
 use eframe::{
     egui::{Id, Key, PointerButton, Response, RichText, Ui, Widget},
-    epaint::{Color32, TextureHandle, Vec2, Stroke},
+    epaint::{Color32, Stroke, TextureHandle, Vec2},
 };
 use egui_plot::{Plot, PlotImage, PlotPoint, PlotResponse, Polygon, Text};
 use std::hash::Hash;
@@ -54,7 +54,8 @@ impl<'a> BoundingBoxAnnotator<'a> {
 
         let editing_bounding_box = match (
             self.box_in_editing.take(),
-            ui.input(|i| i.key_pressed(Key::B)),
+            ui.input(|i| i.key_pressed(Key::B))
+                || response.response.clicked_by(PointerButton::Primary),
             ui.input(|i| i.key_pressed(Key::G)),
             response.response.clicked_by(PointerButton::Secondary),
         ) {
@@ -70,7 +71,9 @@ impl<'a> BoundingBoxAnnotator<'a> {
             (Some(mut bounding_box), b_pressed, g_pressed, false) if b_pressed || g_pressed => {
                 // finish the box
                 bounding_box.clip_to_image();
-                self.bounding_boxes.push(bounding_box);
+                if bounding_box.is_valid() {
+                    self.bounding_boxes.push(bounding_box);
+                }
                 None
             }
             (Some(mut bounding_box), false, false, false) => {
@@ -132,9 +135,14 @@ impl<'a> Widget for BoundingBoxAnnotator<'a> {
                 self.bounding_boxes
                     .iter()
                     .chain(self.box_in_editing.iter())
+                    .filter(|bbox| bbox.is_valid())
                     .for_each(|bbox| {
                         let polygon: Polygon = bbox.into();
-                        plot_ui.polygon(polygon.fill_color(bbox.class.color()));
+                        plot_ui.polygon(
+                            polygon
+                                .fill_color(bbox.class.color())
+                                .stroke(Stroke::new(1.0, bbox.class.color().to_opaque()))
+                        );
                         plot_ui.text(Text::new(
                             bbox.top_left(),
                             RichText::new(format!("{:?}", bbox.class))
@@ -147,12 +155,20 @@ impl<'a> Widget for BoundingBoxAnnotator<'a> {
 
         if let (Some(position), None) = (response.response.hover_pos(), self.box_in_editing) {
             let position = response.transform.value_from_position(position);
-            if let Some(bbox) =  self.bounding_boxes.iter().find(|bbox| bbox.has_corner_at(position)) {
+            if let Some(bbox) = self
+                .bounding_boxes
+                .iter()
+                .find(|bbox| bbox.has_corner_at(position))
+            {
                 let corner = bbox.get_closest_corner(position);
                 let corner_screen = response.transform.position_from_point(&corner);
                 let radius = 5.0 * response.transform.dpos_dvalue_x();
                 let painter = ui.painter();
-                painter.circle_stroke(corner_screen, radius as f32, Stroke::new(2.0, Color32::GRAY));
+                painter.circle_stroke(
+                    corner_screen,
+                    radius as f32,
+                    Stroke::new(2.0, Color32::GRAY),
+                );
             }
         }
 

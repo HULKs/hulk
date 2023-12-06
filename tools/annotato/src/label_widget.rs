@@ -12,7 +12,10 @@ use crate::{
     widgets::{bounding_box_annotator::BoundingBoxAnnotator, class_selector::ClassSelector},
 };
 use color_eyre::eyre::Result;
-use eframe::epaint::{Color32, TextureHandle};
+use eframe::{
+    egui::Id,
+    epaint::{Color32, TextureHandle},
+};
 
 pub struct LabelWidget {
     current_paths: Option<Paths>,
@@ -69,7 +72,7 @@ impl LabelWidget {
             });
             if let Some(texture_id) = self.texture_id.clone() {
                 ui.add(BoundingBoxAnnotator::new(
-                    "image-plot",
+                    Id::new(&texture_id).with("image-plot"), // using the texture_id as hash to reset plot on new image
                     texture_id.clone(),
                     &mut self.bounding_boxes,
                     &mut self.editing_bounding_box,
