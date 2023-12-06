@@ -11,7 +11,7 @@ use crate::{boundingbox::BoundingBox, classes::Classes};
 pub struct BoundingBoxAnnotator<'a> {
     id: Id,
     texture_handle: TextureHandle,
-    selected_class: Classes,
+    selected_class: &'a mut Classes,
     bounding_boxes: &'a mut Vec<BoundingBox>,
     box_in_editing: &'a mut Option<BoundingBox>,
 }
@@ -22,7 +22,7 @@ impl<'a> BoundingBoxAnnotator<'a> {
         image: TextureHandle,
         bounding_boxes: &'a mut Vec<BoundingBox>,
         box_in_editing: &'a mut Option<BoundingBox>,
-        selected_class: Classes,
+        selected_class: &'a mut Classes,
     ) -> Self {
         Self {
             id: Id::new(id_source),
@@ -82,13 +82,13 @@ impl<'a> BoundingBoxAnnotator<'a> {
                 if let Some(position) = mouse_position {
                     bounding_box.set_opposing_corner(position);
                 }
-                bounding_box.class = self.selected_class;
+                bounding_box.class = *self.selected_class;
                 Some(bounding_box)
             }
             (None, true, false, false) => {
                 // create a new box
                 mouse_position
-                    .map(|position| BoundingBox::new(position, position, self.selected_class))
+                    .map(|position| BoundingBox::new(position, position, *self.selected_class))
             }
             (None, false, true, false) => {
                 // select a box for editing
@@ -101,6 +101,7 @@ impl<'a> BoundingBoxAnnotator<'a> {
                     {
                         let mut bbox = self.bounding_boxes.remove(index);
                         bbox.prepare_for_corner_move(position);
+                        *self.selected_class = bbox.class;
                         return Some(bbox);
                     }
                     None
