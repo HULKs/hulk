@@ -138,13 +138,17 @@ impl AnnotatorApp {
                 ui.label(RichText::new("Labelling Instructions").text_style(TextStyle::Heading));
                 ui.add_space(50.0);
                 ui.vertical_centered(|ui| {
-                    ui.label("• select a class with a number key");
-                    ui.label("• start drawing a box with 'b' key");
-                    ui.label("• end drawing a box with 'b' key");
-                    ui.label("• delete a box by hovering and rightclicking");
-                    ui.label("• move in the image with left click dragging");
-                    ui.label("• zoom in the image ctrl + mousewheel");
-                    ui.label("• proceed to the next image with 'n' key");
+                    ui.label(RichText::new(
+                        r#"
+                    • select a class with a number key
+                    • start drawing a box with 'b' key
+                    • end drawing a box with 'b' key
+                    • delete a box by hovering and rightclicking
+                    • move in the image with left click dragging
+                    • zoom in the image ctrl + mousewheel
+                    • proceed to the next image with 'n' key
+                    "#,
+                    ));
                 });
 
                 ui.add_space(50.0);
@@ -211,7 +215,7 @@ impl AnnotatorApp {
                             self.update_image().expect("failed to update image");
                         }
                         if ui.button(">").on_hover_text("Next image (n, >)").clicked()
-                            || ui.input(|i| i.key_pressed(Key::ArrowRight) || i.key_pressed(Key::N))
+                            || ui.input(|i| i.key_pressed(Key::ArrowRight) || i.key_pressed(Key::N) || i.key_pressed(Key::Space))
                         {
                             if self.current_index < self.paths.len() - 1 {
                                 self.current_index += 1;
