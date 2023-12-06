@@ -12,10 +12,7 @@ const DATASETS_FOLDER: &str = "/home/hulk/labelling/output";
 fn full_dataset_path(dataset_name: &str) -> String {
     format!(
         "{USER_NAME}@{HOST}:{}",
-        PathBuf::from(DATASETS_FOLDER)
-            .join(dataset_name)
-            .display()
-            .to_string()
+        PathBuf::from(DATASETS_FOLDER).join(dataset_name).display()
     )
 }
 

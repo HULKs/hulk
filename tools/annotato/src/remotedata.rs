@@ -24,10 +24,10 @@ pub fn handle(command: &DataCommand) -> Result<()> {
             }
         }
         DataCommand::ToLocal { dataset_name } => {
-            rsync::rsync_to_local("current", &dataset_name)?;
+            rsync::rsync_to_local("current", dataset_name)?;
         }
         DataCommand::ToRemote { dataset_name } => {
-            rsync::rsync_to_host("current", &dataset_name)?;
+            rsync::rsync_to_host("current", dataset_name)?;
         }
     }
 

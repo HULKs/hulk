@@ -15,7 +15,7 @@ use std::path::PathBuf;
 
 use annotator_app::AnnotatorApp;
 use clap::{Parser, Subcommand};
-use color_eyre::eyre::{Report, Result, bail};
+use color_eyre::eyre::{bail, Report, Result};
 use eframe::{egui::ViewportBuilder, run_native, NativeOptions, Result as EFrameResult};
 use remotedata::DataCommand;
 use theme::{apply_theme, MOCHA};

@@ -200,7 +200,10 @@ impl AnnotatorApp {
                 ui.separator();
                 ui.vertical_centered(|ui| {
                     ui.horizontal(|ui| {
-                        if ui.button("<").on_hover_text("Previous image (p, <)").clicked()
+                        if ui
+                            .button("<")
+                            .on_hover_text("Previous image (p, <)")
+                            .clicked()
                             || ui.input(|i| i.key_pressed(Key::ArrowLeft) || i.key_pressed(Key::P))
                                 && self.current_index > 0
                         {

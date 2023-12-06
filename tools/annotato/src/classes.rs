@@ -67,14 +67,20 @@ impl Classes {
 
     pub fn previous(class: &Classes) -> Classes {
         let classes = Self::list();
-        let index = classes.iter().position(|&candidate| candidate == *class).expect(&format!("{:?} not found in Classes list", class));
+        let index = classes
+            .iter()
+            .position(|&candidate| candidate == *class)
+            .unwrap_or_else(|| panic!("{:?} not found in Classes list", class));
 
         classes[(index + classes.len() - 1) % classes.len()]
     }
 
     pub fn next(class: &Classes) -> Classes {
         let classes = Self::list();
-        let index = classes.iter().position(|&candidate| candidate == *class).expect(&format!("{:?} not found in Classes list", class));
+        let index = classes
+            .iter()
+            .position(|&candidate| candidate == *class)
+            .unwrap_or_else(|| panic!("{:?} not found in Classes list", class));
 
         classes[(index + 1) % classes.len()]
     }
