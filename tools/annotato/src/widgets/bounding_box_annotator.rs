@@ -82,6 +82,7 @@ impl<'a> BoundingBoxAnnotator<'a> {
                 if let Some(position) = mouse_position {
                     bounding_box.set_opposing_corner(position);
                 }
+                bounding_box.class = self.selected_class;
                 Some(bounding_box)
             }
             (None, true, false, false) => {
