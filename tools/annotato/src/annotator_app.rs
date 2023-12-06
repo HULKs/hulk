@@ -156,8 +156,9 @@ impl AnnotatorApp {
     }
 
     fn show_phase_labelling(&mut self, ctx: &Context) {
+        let width = ctx.screen_rect().x_range().span();
         SidePanel::left("image-path-list")
-            .default_width(200.0)
+            .default_width(0.3 * width)
             .show(ctx, |ui| {
                 ui.label("Image List");
                 let images_done = self
@@ -199,13 +200,14 @@ impl AnnotatorApp {
                 ui.separator();
                 ui.vertical_centered(|ui| {
                     ui.horizontal(|ui| {
-                        if ui.button("<").on_hover_text("Previous image").clicked()
-                            && self.current_index > 0
+                        if ui.button("<").on_hover_text("Previous image (p, <)").clicked()
+                            || ui.input(|i| i.key_pressed(Key::ArrowLeft) || i.key_pressed(Key::P))
+                                && self.current_index > 0
                         {
                             self.current_index -= 1;
                             self.update_image().expect("failed to update image");
                         }
-                        if ui.button(">").on_hover_text("Next image (n, →)").clicked()
+                        if ui.button(">").on_hover_text("Next image (n, >)").clicked()
                             || ui.input(|i| i.key_pressed(Key::ArrowRight) || i.key_pressed(Key::N))
                         {
                             if self.current_index < self.paths.len() - 1 {
