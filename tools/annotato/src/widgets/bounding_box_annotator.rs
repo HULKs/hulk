@@ -1,5 +1,6 @@
 use eframe::{
     egui::{Id, Key, PointerButton, Response, RichText, Ui, Widget},
+    emath::Align2,
     epaint::{Color32, Stroke, TextureHandle, Vec2},
 };
 use egui_plot::{Plot, PlotImage, PlotPoint, PlotResponse, Polygon, Text};
@@ -141,14 +142,19 @@ impl<'a> Widget for BoundingBoxAnnotator<'a> {
                         plot_ui.polygon(
                             polygon
                                 .fill_color(bbox.class.color())
-                                .stroke(Stroke::new(1.0, bbox.class.color().to_opaque()))
+                                .stroke(Stroke::new(1.0, bbox.class.color().to_opaque())),
                         );
-                        plot_ui.text(Text::new(
-                            bbox.top_left(),
-                            RichText::new(format!("{:?}", bbox.class))
-                                .color(Color32::BLACK)
-                                .size(10.),
-                        ))
+                        plot_ui.text(
+                            Text::new(
+                                bbox.top_left(),
+                                RichText::new(format!("{:?}", bbox.class))
+                                    .color(Color32::GRAY)
+                                    .strong()
+                                    .size(18.)
+                                    .background_color(bbox.class.color().to_opaque()),
+                            )
+                            .anchor(Align2::LEFT_BOTTOM),
+                        )
                     });
             });
         self.handle_bounding_box_input(&response, ui);
