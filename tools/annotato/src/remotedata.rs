@@ -7,11 +7,11 @@ use crate::rsync;
 pub enum DataCommand {
     List,
     ToLocal {
-        #[arg(short, long, required = true)]
+        #[arg(required = true)]
         dataset_name: String,
     },
     ToRemote {
-        #[arg(short, long, required = true)]
+        #[arg(required = true)]
         dataset_name: String,
     },
 }
