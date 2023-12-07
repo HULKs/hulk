@@ -37,6 +37,21 @@ jobs:
       - name: Check
         run: |
           ./pepsi clippy --workspace
+  check-cargo-lock:
+    name: Check Cargo.lock
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: 134.28.57.223:5000/hulk
+      options: --user=1000:1000
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          lfs: true
+      - name: Check
+        run: |
+          cargo update --frozen --workspace
   format:
     name: Format
     runs-on:
