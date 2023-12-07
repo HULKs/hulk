@@ -39,6 +39,14 @@ jobs:
           ./pepsi clippy --workspace
   check-cargo-lock:
     name: Check Cargo.lock
+    strategy:
+      matrix:
+        path:
+          [
+            .,
+            tools/aliveness,
+            tools/hula,
+          ]
     runs-on:
       - self-hosted
       - v3
@@ -51,6 +59,7 @@ jobs:
           lfs: true
       - name: Check
         run: |
+          cd ${{ matrix.path }}
           cargo update --frozen --workspace
   format:
     name: Format
