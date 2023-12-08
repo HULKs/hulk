@@ -98,7 +98,9 @@ fn main() -> Result<()> {
                 rsync::rsync_to_local("current", &dataset_name)?;
             }
             start_labelling_ui(image_folder, annotation_json, skip_introduction)
-                .map_err(|err| Report::msg(err.to_string()))
+                .map_err(|err| Report::msg(err.to_string()))?;
+            println!("Uploading {dataset_name}...");
+            rsync::rsync_to_host("current", &dataset_name)
         }
         Command::Ui {
             image_folder,
