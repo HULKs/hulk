@@ -58,7 +58,8 @@ impl<'a> BoundingBoxAnnotator<'a> {
             ui.input(|i| i.key_pressed(Key::B))
                 || response.response.clicked_by(PointerButton::Primary),
             ui.input(|i| i.key_pressed(Key::Q)),
-            response.response.clicked_by(PointerButton::Secondary) || ui.input(|i| i.key_pressed(Key::Escape)),
+            response.response.clicked_by(PointerButton::Secondary)
+                || ui.input(|i| i.key_pressed(Key::Escape)),
         ) {
             (Some(_), _, _, true) => {
                 // delete the currently edited bounding box
@@ -93,12 +94,13 @@ impl<'a> BoundingBoxAnnotator<'a> {
             (None, false, true, false) => {
                 // select a box for editing
                 mouse_position.and_then(|position| {
-                    if let Some((index, _)) = self
-                        .bounding_boxes
-                        .iter()
-                        .enumerate()
-                        .find(|(_, bounding_box)| bounding_box.has_corner_at(position))
-                    {
+                    if let Some((index, _)) = self.bounding_boxes.iter().enumerate().min_by(
+                        |(_, bounding_box2), (_, bounding_box1)| {
+                            bounding_box1
+                                .closest_corner_distance_sq(position)
+                                .total_cmp(&bounding_box2.closest_corner_distance_sq(position))
+                        },
+                    ) {
                         let mut bbox = self.bounding_boxes.remove(index);
                         bbox.prepare_for_corner_move(position);
                         *self.selected_class = bbox.class;
