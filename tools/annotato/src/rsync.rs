@@ -2,7 +2,7 @@ use color_eyre::{eyre::bail, Result};
 use std::{
     net::Ipv4Addr,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
 };
 
 const USER_NAME: &str = "hulk";
@@ -37,8 +37,11 @@ pub fn rsync_to_local(local_folder: impl AsRef<Path>, dataset_name: &str) -> Res
         .arg("--timeout")
         .arg("2")
         .arg("-r")
+        .arg("--info=progress2")
         .arg(full_dataset_path(dataset_name))
         .arg(local_folder.as_ref())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
         .output()?;
 
     if !output.status.success() {
@@ -53,8 +56,11 @@ pub fn rsync_to_host(local_folder: impl AsRef<Path>, dataset_name: &str) -> Resu
         .arg("--timeout")
         .arg("2")
         .arg("-r")
+        .arg("--info=progress2")
         .arg(local_folder.as_ref().join(dataset_name))
         .arg(full_dataset_path(""))
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
         .output()?;
 
     if !output.status.success() {
