@@ -121,6 +121,11 @@ impl BoundingBox {
         closest
     }
 
+    pub fn closest_corner_distance_sq(&self, position: PlotPoint) -> f32 {
+        let closest = self.get_closest_corner(position);
+        closest.to_pos2().distance_sq(position.to_pos2())
+    }
+
     pub fn has_corner_at(&self, position: PlotPoint) -> bool {
         let closest = self.get_closest_corner(position);
         let closest = Pos2::new(closest.x as f32, closest.y as f32);
@@ -128,6 +133,7 @@ impl BoundingBox {
 
         closest.distance(position) < 5.0
     }
+
 
     pub fn prepare_for_corner_move(&mut self, position: PlotPoint) {
         let (closest, furthest) = self.closest_and_furthest_corner(position);
