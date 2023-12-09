@@ -15,16 +15,16 @@ use eframe::{
 };
 use glob::glob;
 
+#[derive(Copy, Clone, Debug)]
 enum AnnotationPhase {
     Started,
-    Labelling,
+    Labelling { current_index: usize },
     Finished,
 }
 
 pub struct AnnotatorApp {
     phase: AnnotationPhase,
     paths: VecDeque<Paths>,
-    current_index: usize,
     label_widget: LabelWidget,
     model_annotations: ModelAnnotations,
 }
@@ -73,7 +73,7 @@ impl AnnotatorApp {
             .expect("failed to build paths");
 
         let phase = if skip_introduction {
-            AnnotationPhase::Labelling
+            AnnotationPhase::Labelling { current_index: 0 }
         } else {
             AnnotationPhase::Started
         };
@@ -81,17 +81,61 @@ impl AnnotatorApp {
         let mut this = AnnotatorApp {
             phase,
             paths,
-            current_index: 0,
             label_widget: LabelWidget::default(),
             model_annotations,
         };
-        this.update_image().expect("failed to load image");
+        this.load_image(0).expect("failed to load image");
 
         Ok(this)
     }
 
-    fn update_image(&mut self) -> Result<()> {
-        if let Some(paths) = self.paths.get_mut(self.current_index) {
+    fn next(&mut self) {
+        self.phase = match self.phase {
+            AnnotationPhase::Started => {
+                self.load_image(0).expect("failed to load image");
+                AnnotationPhase::Labelling { current_index: 0 }
+            }
+            AnnotationPhase::Labelling { current_index } => {
+                let new_index = current_index + 1;
+                if new_index < self.paths.len() - 1 {
+                    self.load_image(new_index).expect("failed to load image");
+                    AnnotationPhase::Labelling {
+                        current_index: new_index,
+                    }
+                } else {
+                    AnnotationPhase::Finished
+                }
+            }
+            AnnotationPhase::Finished => AnnotationPhase::Finished,
+        };
+    }
+
+    fn previous(&mut self) {
+        self.phase = match self.phase {
+            AnnotationPhase::Started => AnnotationPhase::Started,
+            AnnotationPhase::Labelling { current_index } => {
+                if current_index > 1 {
+                    let new_index = current_index - 1;
+                    self.load_image(new_index).expect("failed to load image");
+                    AnnotationPhase::Labelling {
+                        current_index: new_index,
+                    }
+                } else {
+                    AnnotationPhase::Started
+                }
+            }
+            AnnotationPhase::Finished => {
+                let new_index = self.paths.len() - 1;
+                self.load_image(new_index).expect("failed to load image");
+                AnnotationPhase::Labelling {
+                    current_index: new_index,
+                }
+            }
+        };
+    }
+
+    fn load_image(&mut self, index: usize) -> Result<()> {
+        if let Some(paths) = self.paths.get_mut(index) {
             let annotations = self
                 .model_annotations
                 .for_image(
@@ -103,7 +147,7 @@ impl AnnotatorApp {
                         .unwrap()
                         .to_string(),
                 )
-                .unwrap_or(vec![]);
+                .unwrap_or_default();
 
             self.label_widget
                 .load_new_image_with_labels(paths.clone(), annotations)?;
@@ -112,10 +156,6 @@ impl AnnotatorApp {
         self.paths.iter_mut().for_each(|paths| {
             paths.check_existence();
         });
-
-        if self.paths.iter().all(|paths| paths.label_present) {
-            self.phase = AnnotationPhase::Finished;
-        }
 
         Ok(())
     }
@@ -153,13 +193,29 @@ impl AnnotatorApp {
 
                 ui.add_space(50.0);
                 if ui.button("Start Labelling").clicked() {
-                    self.phase = AnnotationPhase::Labelling;
+                    self.next()
                 }
             });
         });
     }
 
     fn show_phase_labelling(&mut self, ctx: &Context) {
+        CentralPanel::default().show(ctx, |ui| {
+            self.label_widget.ui(ui);
+        });
+    }
+
+    fn show_phase_finished(&mut self, ctx: &Context) {
+        CentralPanel::default().show(ctx, |ui| {
+            ui.label("You finished the data chunk, take the next and go on :)");
+        });
+    }
+}
+
+impl App for AnnotatorApp {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        egui_extras::install_image_loaders(ctx);
+
         let width = ctx.screen_rect().x_range().span();
         SidePanel::left("image-path-list")
             .default_width(0.3 * width)
@@ -212,10 +268,9 @@ impl AnnotatorApp {
                                 i.key_pressed(Key::ArrowLeft)
                                     || i.key_pressed(Key::P)
                                     || (i.key_pressed(Key::Space) && i.modifiers.shift)
-                            }) && self.current_index > 0
+                            })
                         {
-                            self.current_index -= 1;
-                            self.update_image().expect("failed to update image");
+                            self.previous();
                         }
                         if ui.button(">").on_hover_text("Next image (n, >)").clicked()
                             || ui.input(|i| {
@@ -224,10 +279,7 @@ impl AnnotatorApp {
                                     || (i.key_pressed(Key::Space) && !i.modifiers.shift)
                             })
                         {
-                            if self.current_index < self.paths.len() - 1 {
-                                self.current_index += 1;
-                            }
-                            self.update_image().expect("failed to update image");
+                            self.next()
                         }
                         if ui
                             .button(">>")
@@ -240,8 +292,11 @@ impl AnnotatorApp {
                                 .enumerate()
                                 .find(|(_, paths)| !paths.label_present)
                             {
-                                self.current_index = unlabelled_index;
-                                self.update_image().expect("failed to update image");
+                                self.phase = AnnotationPhase::Labelling {
+                                    current_index: unlabelled_index,
+                                };
+                                self.load_image(unlabelled_index)
+                                    .expect("failed to update image");
                             } else {
                                 // no more unlabelled images
                                 self.phase = AnnotationPhase::Finished;
@@ -251,25 +306,9 @@ impl AnnotatorApp {
                 })
             });
 
-        CentralPanel::default().show(ctx, |ui| {
-            self.label_widget.ui(ui);
-        });
-    }
-
-    fn show_phase_finished(&mut self, ctx: &Context) {
-        CentralPanel::default().show(ctx, |ui| {
-            ui.label("You finished the data chunk, take the next and go on :)");
-        });
-    }
-}
-
-impl App for AnnotatorApp {
-    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        egui_extras::install_image_loaders(ctx);
-
         match self.phase {
             AnnotationPhase::Started => self.show_phase_started(ctx),
-            AnnotationPhase::Labelling => self.show_phase_labelling(ctx),
+            AnnotationPhase::Labelling { .. } => self.show_phase_labelling(ctx),
             AnnotationPhase::Finished => self.show_phase_finished(ctx),
         }
     }
