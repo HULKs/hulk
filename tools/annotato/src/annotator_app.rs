@@ -207,7 +207,9 @@ impl AnnotatorApp {
 
     fn show_phase_finished(&mut self, ctx: &Context) {
         CentralPanel::default().show(ctx, |ui| {
-            ui.label("You finished the data chunk, take the next and go on :)");
+            ui.centered_and_justified(|ui| {
+                ui.label("You finished the data chunk, take the next and go on :)")
+            })
         });
     }
 }
