@@ -70,7 +70,7 @@ impl<'a> BoundingBoxAnnotator<'a> {
                 mouse_position.map(|position| Self::delete_box_from(position, self.bounding_boxes));
                 None
             }
-            (Some(mut bounding_box), b_pressed, g_pressed, false) if b_pressed || g_pressed => {
+            (Some(mut bounding_box), b_pressed, q_pressed, false) if b_pressed || q_pressed => {
                 // finish the box
                 bounding_box.clip_to_image();
                 if bounding_box.is_valid() {
