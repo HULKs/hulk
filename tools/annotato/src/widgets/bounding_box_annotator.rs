@@ -95,7 +95,7 @@ impl<'a> BoundingBoxAnnotator<'a> {
                 // select a box for editing
                 mouse_position.and_then(|position| {
                     if let Some((index, _)) = self.bounding_boxes.iter().enumerate().min_by(
-                        |(_, bounding_box2), (_, bounding_box1)| {
+                        |(_, bounding_box1), (_, bounding_box2)| {
                             bounding_box1
                                 .closest_corner_distance_sq(position)
                                 .total_cmp(&bounding_box2.closest_corner_distance_sq(position))
