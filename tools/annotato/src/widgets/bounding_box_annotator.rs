@@ -134,6 +134,7 @@ impl<'a> Widget for BoundingBoxAnnotator<'a> {
             .allow_boxed_zoom(false)
             .show(ui, |plot_ui| {
                 zoom_on_scroll_wheel(plot_ui);
+                focus_when_e_held_down(plot_ui);
 
                 plot_ui.image(PlotImage::new(
                     &self.texture_handle,
@@ -213,6 +214,33 @@ fn zoom_on_scroll_wheel(plot_ui: &mut PlotUi) {
 
             plot_ui.set_plot_bounds(plot_bounds);
         }
+    }
+}
+
+fn focus_when_e_held_down(plot_ui: &mut PlotUi) {
+    if let Some(pressed) = plot_ui.ctx().input(|i| {
+        i.events.iter().find_map(|e| match e {
+            Event::Key {
+                key: Key::E,
+                repeat: false,
+                pressed,
+                ..
+            } => Some(*pressed),
+            _ => None,
+        })
+    }) {
+        let zoom_factor = match pressed {
+            true => 5.0,
+            false => 1.0 / 5.0,
+        };
+        let plot_bounds = plot_ui.plot_bounds();
+        let plot_bounds = zoom_bounds(
+            plot_bounds,
+            Vec2::splat(zoom_factor),
+            plot_ui.pointer_coordinate().unwrap(),
+        );
+
+        plot_ui.set_plot_bounds(plot_bounds);
     }
 }
 
