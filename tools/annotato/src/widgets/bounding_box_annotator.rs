@@ -191,28 +191,16 @@ impl<'a> Widget for BoundingBoxAnnotator<'a> {
 }
 
 fn zoom_on_scroll_wheel(plot_ui: &mut PlotUi) {
-    let scroll = plot_ui.ctx().input(|i| {
-        let scroll = i.events.iter().find_map(|e| match e {
-            Event::MouseWheel {
-                unit: _,
-                delta,
-                modifiers: _,
-            } => Some(*delta),
+    let scroll_delta = plot_ui.ctx().input(|i| {
+        i.events.iter().find_map(|e| match e {
+            Event::MouseWheel { delta, .. } => Some(*delta),
             _ => None,
-        });
-        scroll
+        })
     });
 
-    if let Some(mut scroll) = scroll {
-        scroll = Vec2::splat(scroll.x + scroll.y);
-        let zoom_factor = Vec2::from([(scroll.x / 10.0).exp(), (scroll.y / 10.0).exp()]);
-
-        if let Some(zoom_center) = plot_ui.pointer_coordinate() {
-            let plot_bounds = plot_ui.plot_bounds();
-            let plot_bounds = zoom_bounds(plot_bounds, zoom_factor, zoom_center);
-
-            plot_ui.set_plot_bounds(plot_bounds);
-        }
+    if let Some(scroll_delta) = scroll_delta {
+        let zoom_factor = ((scroll_delta.x + scroll_delta.y) / 10.0).exp();
+        zoom_plot(plot_ui, zoom_factor);
     }
 }
 
@@ -232,19 +220,22 @@ fn focus_when_e_held_down(plot_ui: &mut PlotUi) {
             plot_ui.set_auto_bounds(Vec2b::TRUE);
             return;
         }
-        let zoom_factor = 5.0;
-
-        let plot_bounds = plot_ui.plot_bounds();
-        let plot_bounds = zoom_bounds(
-            plot_bounds,
-            Vec2::splat(zoom_factor),
-            plot_ui.pointer_coordinate().unwrap(),
-        );
-
-        plot_ui.set_plot_bounds(plot_bounds);
+        zoom_plot(plot_ui, 5.0);
     }
 }
 
+fn zoom_plot(plot_ui: &mut PlotUi, zoom_factor: f32) {
+    let Some(zoom_center) = plot_ui.pointer_coordinate() else {
+        return;
+    };
+
+    let old_bounds = plot_ui.plot_bounds();
+    let new_bounds = zoom_bounds(old_bounds, Vec2::splat(zoom_factor), zoom_center);
+
+    plot_ui.set_plot_bounds(new_bounds);
+}
+
+/// Same as PlotTransform::zoom() which is inaccessible from here.
 fn zoom_bounds(bounds: PlotBounds, zoom_factor: Vec2, zoom_center: PlotPoint) -> PlotBounds {
     let mut min = bounds.min();
     let mut max = bounds.max();
