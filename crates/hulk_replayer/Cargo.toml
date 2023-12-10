@@ -12,6 +12,7 @@ color-eyre = { workspace = true }
 communication = { workspace = true, features = ["server"] }
 control = { workspace = true }
 coordinate_systems = { workspace = true }
+ctrlc = { workspace = true }
 energy_optimization = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }
@@ -19,6 +20,7 @@ ittapi = {  workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 serialize_hierarchy = { workspace = true }
 spl_network = { workspace = true }
 spl_network_messages = { workspace = true }
