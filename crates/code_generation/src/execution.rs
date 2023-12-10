@@ -138,8 +138,10 @@ fn generate_cycler_fields(cyclers: &Cyclers) -> TokenStream {
             let cycler_variable_identifier =
                 format_ident!("{}_cycler", instance.to_case(Case::Snake));
             let cycler_module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
+            let cycler_index_identifier = format_ident!("{}_index", instance.to_case(Case::Snake));
             quote! {
                 #cycler_variable_identifier: crate::cyclers::#cycler_module_name::Cycler<Hardware>,
+                #cycler_index_identifier: framework::RecordingIndex,
             }
         })
         .collect()
@@ -244,6 +246,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         let instance_name_snake_case = instance.to_case(Case::Snake);
         let cycler_database_changed_identifier = format_ident!("{instance_name_snake_case}_changed");
         let cycler_variable_identifier = format_ident!("{instance_name_snake_case}_cycler");
+        let cycler_index_identifier = format_ident!("{instance_name_snake_case}_index");
         let cycler_module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
         let cycler_instance_name = &instance;
         let cycler_instance_name_identifier = format_ident!("{cycler_instance_name}");
@@ -254,6 +257,13 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         let enable_recording = if mode == Execution::Run {
             quote! {
                 let enable_recording = cycler_instances_to_be_recorded.contains(#cycler_instance_name);
+            }
+        } else {
+            Default::default()
+        };
+        let recording_index = if mode == Execution::Replay {
+            quote! {
+                let #cycler_index_identifier = framework::RecordingIndex::read_from("TODO").wrap_err("failed to read recording index")?;
             }
         } else {
             Default::default()
@@ -296,6 +306,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
                 Default::default(),
             ]);
             #enable_recording
+            #recording_index
             let #cycler_variable_identifier = crate::cyclers::#cycler_module_name::Cycler::new(
                 crate::cyclers::#cycler_module_name::CyclerInstance::#cycler_instance_name_identifier,
                 hardware_interface.clone(),
@@ -366,8 +377,11 @@ fn generate_cycler_parameters(cyclers: &Cyclers) -> TokenStream {
         .map(|(_cycler, instance)| {
             let cycler_variable_identifier =
                 format_ident!("{}_cycler", instance.to_case(Case::Snake));
+            let cycler_index_identifier =
+                format_ident!("{}_index", instance.to_case(Case::Snake));
             quote! {
                 #cycler_variable_identifier,
+                #cycler_index_identifier,
             }
         })
         .collect()
