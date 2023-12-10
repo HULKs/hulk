@@ -1,9 +1,9 @@
 use eframe::{
-    egui::{Id, Key, PointerButton, Response, RichText, Ui, Widget},
+    egui::{Event, Id, Key, PointerButton, Response, RichText, Ui, Widget},
     emath::Align2,
     epaint::{Color32, Stroke, TextureHandle, Vec2},
 };
-use egui_plot::{Plot, PlotImage, PlotPoint, PlotResponse, Polygon, Text};
+use egui_plot::{Plot, PlotBounds, PlotImage, PlotPoint, PlotResponse, PlotUi, Polygon, Text};
 use std::hash::Hash;
 
 use crate::{boundingbox::BoundingBox, classes::Classes};
@@ -130,8 +130,11 @@ impl<'a> Widget for BoundingBoxAnnotator<'a> {
             .auto_bounds_y()
             .show_background(false)
             .allow_scroll(false)
+            .allow_zoom(false)
             .allow_boxed_zoom(false)
             .show(ui, |plot_ui| {
+                zoom_on_scroll_wheel(plot_ui);
+
                 plot_ui.image(PlotImage::new(
                     &self.texture_handle,
                     PlotPoint::new(320., 240.),
@@ -184,4 +187,43 @@ impl<'a> Widget for BoundingBoxAnnotator<'a> {
 
         response.response
     }
+}
+
+fn zoom_on_scroll_wheel(plot_ui: &mut PlotUi) {
+    let scroll = plot_ui.ctx().input(|i| {
+        let scroll = i.events.iter().find_map(|e| match e {
+            Event::MouseWheel {
+                unit: _,
+                delta,
+                modifiers: _,
+            } => Some(*delta),
+            _ => None,
+        });
+        scroll
+    });
+
+    if let Some(mut scroll) = scroll {
+        scroll = Vec2::splat(scroll.x + scroll.y);
+        let zoom_factor = Vec2::from([(scroll.x / 10.0).exp(), (scroll.y / 10.0).exp()]);
+        println!("zooming by {:?}", zoom_factor);
+
+        if let Some(zoom_center) = plot_ui.pointer_coordinate() {
+            let plot_bounds = plot_ui.plot_bounds();
+            let plot_bounds = zoom_bounds(plot_bounds, zoom_factor, zoom_center);
+
+            plot_ui.set_plot_bounds(plot_bounds);
+        }
+    }
+}
+
+fn zoom_bounds(bounds: PlotBounds, zoom_factor: Vec2, zoom_center: PlotPoint) -> PlotBounds {
+    let mut min = bounds.min();
+    let mut max = bounds.max();
+
+    min[0] = zoom_center.x + (min[0] - zoom_center.x) / (zoom_factor.x as f64);
+    max[0] = zoom_center.x + (max[0] - zoom_center.x) / (zoom_factor.x as f64);
+    min[1] = zoom_center.y + (min[1] - zoom_center.y) / (zoom_factor.y as f64);
+    max[1] = zoom_center.y + (max[1] - zoom_center.y) / (zoom_factor.y as f64);
+
+    PlotBounds::from_min_max(min, max)
 }
