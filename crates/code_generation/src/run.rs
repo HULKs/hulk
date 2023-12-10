@@ -5,13 +5,15 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use source_analyzer::cyclers::{CyclerKind, Cyclers};
 
+use super::Execution;
+
 pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
     let construct_multiple_buffers = generate_multiple_buffers(cyclers);
     let construct_future_queues = generate_future_queues(cyclers);
     // 2 communication writer slots + n reader slots for other cyclers
     let number_of_parameter_slots = 2 + cyclers.number_of_instances();
     let recording_thread = generate_recording_thread(cyclers);
-    let construct_cyclers = generate_cycler_constructors(cyclers);
+    let construct_cyclers = generate_cycler_constructors(cyclers, Execution::Run);
     let start_cyclers = generate_cycler_starts(cyclers);
     let join_cyclers = generate_cycler_joins(cyclers);
 
@@ -81,6 +83,66 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
             Ok(())
         }
     }
+}
+
+pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
+    let cycler_fields = generate_cycler_fields(cyclers);
+    let construct_multiple_buffers = generate_multiple_buffers(cyclers);
+    let construct_future_queues = generate_future_queues(cyclers);
+    // 2 communication writer slots + n reader slots for other cyclers
+    let number_of_parameter_slots = 2 + cyclers.number_of_instances();
+    let construct_cyclers = generate_cycler_constructors(cyclers, Execution::Replay);
+    let cycler_parameters = generate_cycler_parameters(cyclers);
+
+    quote! {
+        pub struct Replayer<Hardware> {
+            communication_server: communication::server::Runtime<crate::structs::Parameters>,
+            #cycler_fields
+        }
+
+        impl<Hardware: crate::HardwareInterface + Send + Sync + 'static> Replayer<Hardware> {
+            #[allow(clippy::redundant_clone)]
+            pub fn new(
+                hardware_interface: std::sync::Arc<Hardware>,
+                addresses: Option<impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static>,
+                parameters_directory: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
+                body_id: String,
+                head_id: String,
+                keep_running: tokio_util::sync::CancellationToken,
+            ) -> color_eyre::Result<Self>
+            {
+                use color_eyre::eyre::WrapErr;
+
+                #construct_multiple_buffers
+                #construct_future_queues
+
+                let communication_server = communication::server::Runtime::start(
+                    addresses, parameters_directory, body_id, head_id, #number_of_parameter_slots, keep_running.clone())
+                    .wrap_err("failed to start communication server")?;
+
+                #construct_cyclers
+
+                Ok(Self {
+                    communication_server,
+                    #cycler_parameters
+                })
+            }
+        }
+    }
+}
+
+fn generate_cycler_fields(cyclers: &Cyclers) -> TokenStream {
+    cyclers
+        .instances()
+        .map(|(cycler, instance)| {
+            let cycler_variable_identifier =
+                format_ident!("{}_cycler", instance.to_case(Case::Snake));
+            let cycler_module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
+            quote! {
+                #cycler_variable_identifier: crate::cyclers::#cycler_module_name::Cycler<Hardware>,
+            }
+        })
+        .collect()
 }
 
 fn generate_multiple_buffers(cyclers: &Cyclers) -> TokenStream {
@@ -177,7 +239,7 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
     }
 }
 
-fn generate_cycler_constructors(cyclers: &Cyclers) -> TokenStream {
+fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStream {
     cyclers.instances().map(|(cycler, instance)| {
         let instance_name_snake_case = instance.to_case(Case::Snake);
         let cycler_database_changed_identifier = format_ident!("{instance_name_snake_case}_changed");
@@ -189,6 +251,13 @@ fn generate_cycler_constructors(cyclers: &Cyclers) -> TokenStream {
         let own_reader_identifier = format_ident!("{instance_name_snake_case}_reader");
         let own_subscribed_outputs_writer_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_writer");
         let own_subscribed_outputs_reader_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_reader");
+        let enable_recording = if mode == Execution::Run {
+            quote! {
+                let enable_recording = cycler_instances_to_be_recorded.contains(#cycler_instance_name);
+            }
+        } else {
+            Default::default()
+        };
         let own_producer_identifier = match cycler.kind {
             CyclerKind::Perception  => {
                 let own_producer_identifier = format_ident!("{instance_name_snake_case}_producer");
@@ -210,6 +279,14 @@ fn generate_cycler_constructors(cyclers: &Cyclers) -> TokenStream {
                     quote! { #identifier.clone() }
                 },
             });
+        let recording_parameters = if mode == Execution::Run {
+            quote! {
+                recording_sender.clone(),
+                enable_recording,
+            }
+        } else {
+            Default::default()
+        };
         let error_message = format!("failed to create cycler `{}`", instance);
         quote! {
             let #cycler_database_changed_identifier = std::sync::Arc::new(tokio::sync::Notify::new());
@@ -218,7 +295,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers) -> TokenStream {
                 Default::default(),
                 Default::default(),
             ]);
-            let enable_recording = cycler_instances_to_be_recorded.contains(#cycler_instance_name);
+            #enable_recording
             let #cycler_variable_identifier = crate::cyclers::#cycler_module_name::Cycler::new(
                 crate::cyclers::#cycler_module_name::CyclerInstance::#cycler_instance_name_identifier,
                 hardware_interface.clone(),
@@ -228,8 +305,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers) -> TokenStream {
                 communication_server.get_parameters_reader(),
                 #own_producer_identifier
                 #(#other_cycler_inputs,)*
-                recording_sender.clone(),
-                enable_recording,
+                #recording_parameters
             )
             .wrap_err(#error_message)?;
             communication_server.register_cycler_instance(
@@ -279,6 +355,19 @@ fn generate_cycler_joins(cyclers: &Cyclers) -> TokenStream {
                     },
                     _ => {},
                 }
+            }
+        })
+        .collect()
+}
+
+fn generate_cycler_parameters(cyclers: &Cyclers) -> TokenStream {
+    cyclers
+        .instances()
+        .map(|(_cycler, instance)| {
+            let cycler_variable_identifier =
+                format_ident!("{}_cycler", instance.to_case(Case::Snake));
+            quote! {
+                #cycler_variable_identifier,
             }
         })
         .collect()
