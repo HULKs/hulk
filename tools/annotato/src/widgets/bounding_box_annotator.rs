@@ -206,7 +206,6 @@ fn zoom_on_scroll_wheel(plot_ui: &mut PlotUi) {
     if let Some(mut scroll) = scroll {
         scroll = Vec2::splat(scroll.x + scroll.y);
         let zoom_factor = Vec2::from([(scroll.x / 10.0).exp(), (scroll.y / 10.0).exp()]);
-        println!("zooming by {:?}", zoom_factor);
 
         if let Some(zoom_center) = plot_ui.pointer_coordinate() {
             let plot_bounds = plot_ui.plot_bounds();
