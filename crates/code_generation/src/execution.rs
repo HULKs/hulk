@@ -94,6 +94,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
     let construct_cyclers = generate_cycler_constructors(cyclers, Execution::Replay);
     let cycler_parameters = generate_cycler_parameters(cyclers);
     let cycler_seeks = generate_cycler_seeks(cyclers);
+    let cycler_recording_paths = generate_cycler_recording_paths(cyclers);
 
     quote! {
         pub struct Replayer<Hardware> {
@@ -110,6 +111,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
                 body_id: String,
                 head_id: String,
                 keep_running: tokio_util::sync::CancellationToken,
+                recording_file_paths: RecordingFilePaths,
             ) -> color_eyre::Result<Self>
             {
                 use color_eyre::eyre::WrapErr;
@@ -136,6 +138,10 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
 
                 Ok(())
             }
+        }
+
+        pub struct RecordingFilePaths {
+            #cycler_recording_paths
         }
     }
 }
@@ -253,6 +259,7 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
 fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStream {
     cyclers.instances().map(|(cycler, instance)| {
         let instance_name_snake_case = instance.to_case(Case::Snake);
+        let instance_name_snake_case_identifier = format_ident!("{instance_name_snake_case}");
         let cycler_database_changed_identifier = format_ident!("{instance_name_snake_case}_changed");
         let cycler_variable_identifier = format_ident!("{instance_name_snake_case}_cycler");
         let cycler_index_identifier = format_ident!("{instance_name_snake_case}_index");
@@ -272,7 +279,9 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         };
         let recording_index = if mode == Execution::Replay {
             quote! {
-                let #cycler_index_identifier = framework::RecordingIndex::read_from("TODO").wrap_err("failed to read recording index")?;
+                let #cycler_index_identifier = framework::RecordingIndex::read_from(
+                    recording_file_paths.#instance_name_snake_case_identifier
+                ).wrap_err("failed to read recording index")?;
             }
         } else {
             Default::default()
@@ -405,6 +414,18 @@ fn generate_cycler_seeks(cyclers: &Cyclers) -> TokenStream {
             quote! {
                 let frame = self.#cycler_index_identifier.before_or_equal_of(timestamp).wrap_err("failed to seek")?;
                 self.#cycler_variable_identifier.cycle(frame.timestamp, &frame.data).wrap_err("failed to replay cycle")?;
+            }
+        })
+        .collect()
+}
+
+fn generate_cycler_recording_paths(cyclers: &Cyclers) -> TokenStream {
+    cyclers
+        .instances()
+        .map(|(_cycler, instance)| {
+            let cycler_identifier = format_ident!("{}", instance.to_case(Case::Snake));
+            quote! {
+                pub #cycler_identifier: std::path::PathBuf,
             }
         })
         .collect()
