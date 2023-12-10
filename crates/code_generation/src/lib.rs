@@ -2,7 +2,7 @@ use cyclers::generate_cyclers;
 use perception_databases::generate_perception_databases;
 use proc_macro2::TokenStream;
 use quote::quote;
-use run::generate_run_function;
+use run::{generate_replayer_struct, generate_run_function};
 use source_analyzer::{cyclers::Cyclers, structs::Structs};
 use structs::generate_structs;
 
@@ -25,7 +25,14 @@ pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenS
                 }
             }
         }
-        Execution::Replay => Default::default(), // TODO: implement
+        Execution::Replay => {
+            let replayer = generate_replayer_struct(cyclers);
+            quote! {
+                pub mod execution {
+                    #replayer
+                }
+            }
+        }
     };
     let generated_perception_databases = generate_perception_databases(cyclers);
     let generated_structs = generate_structs(structs);
