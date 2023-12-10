@@ -1,6 +1,6 @@
 use eframe::{
     egui::{Event, Id, Key, PointerButton, Response, RichText, Ui, Widget},
-    emath::Align2,
+    emath::{Align2, Vec2b},
     epaint::{Color32, Stroke, TextureHandle, Vec2},
 };
 use egui_plot::{Plot, PlotBounds, PlotImage, PlotPoint, PlotResponse, PlotUi, Polygon, Text};
@@ -228,10 +228,12 @@ fn focus_when_e_held_down(plot_ui: &mut PlotUi) {
             _ => None,
         })
     }) {
-        let zoom_factor = match pressed {
-            true => 5.0,
-            false => 1.0 / 5.0,
-        };
+        if !pressed {
+            plot_ui.set_auto_bounds(Vec2b::TRUE);
+            return;
+        }
+        let zoom_factor = 5.0;
+
         let plot_bounds = plot_ui.plot_bounds();
         let plot_bounds = zoom_bounds(
             plot_bounds,
