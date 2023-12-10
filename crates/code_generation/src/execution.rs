@@ -93,10 +93,11 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
     let number_of_parameter_slots = 2 + cyclers.number_of_instances();
     let construct_cyclers = generate_cycler_constructors(cyclers, Execution::Replay);
     let cycler_parameters = generate_cycler_parameters(cyclers);
+    let cycler_seeks = generate_cycler_seeks(cyclers);
 
     quote! {
         pub struct Replayer<Hardware> {
-            communication_server: communication::server::Runtime<crate::structs::Parameters>,
+            _communication_server: communication::server::Runtime<crate::structs::Parameters>,
             #cycler_fields
         }
 
@@ -123,9 +124,17 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
                 #construct_cyclers
 
                 Ok(Self {
-                    communication_server,
+                    _communication_server: communication_server,
                     #cycler_parameters
                 })
+            }
+
+            pub fn seek_before_or_equal_of(&mut self, timestamp: std::time::SystemTime) -> color_eyre::Result<()> {
+                use color_eyre::eyre::WrapErr;
+
+                #cycler_seeks
+
+                Ok(())
             }
         }
     }
@@ -377,11 +386,25 @@ fn generate_cycler_parameters(cyclers: &Cyclers) -> TokenStream {
         .map(|(_cycler, instance)| {
             let cycler_variable_identifier =
                 format_ident!("{}_cycler", instance.to_case(Case::Snake));
-            let cycler_index_identifier =
-                format_ident!("{}_index", instance.to_case(Case::Snake));
+            let cycler_index_identifier = format_ident!("{}_index", instance.to_case(Case::Snake));
             quote! {
                 #cycler_variable_identifier,
                 #cycler_index_identifier,
+            }
+        })
+        .collect()
+}
+
+fn generate_cycler_seeks(cyclers: &Cyclers) -> TokenStream {
+    cyclers
+        .instances()
+        .map(|(_cycler, instance)| {
+            let cycler_variable_identifier =
+                format_ident!("{}_cycler", instance.to_case(Case::Snake));
+            let cycler_index_identifier = format_ident!("{}_index", instance.to_case(Case::Snake));
+            quote! {
+                let frame = self.#cycler_index_identifier.before_or_equal_of(timestamp).wrap_err("failed to seek")?;
+                self.#cycler_variable_identifier.cycle(frame.timestamp, &frame.data).wrap_err("failed to replay cycle")?;
             }
         })
         .collect()

@@ -1,17 +1,20 @@
 use std::{
     fs::File,
-    io::{Seek, SeekFrom},
+    io::{Read, Seek, SeekFrom},
     path::Path,
     time::SystemTime,
 };
 
 use bincode::deserialize_from;
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{
+    eyre::{eyre, WrapErr},
+    Result,
+};
 
 #[derive(Debug)]
 pub struct RecordingIndex {
     file: File,
-    frames: Vec<RecordingFrame>,
+    frames: Vec<RecordingFrameMetadata>,
 }
 
 impl RecordingIndex {
@@ -39,13 +42,18 @@ impl RecordingIndex {
                 .wrap_err("failed to deserialize timestamp")?;
             let length = deserialize_from(&mut recording_file)
                 .wrap_err("failed to deserialize data length")?;
-            dbg!(offset, timestamp, length);
+            let header_offset = recording_file
+                .stream_position()
+                .wrap_err("failed to get stream position")?
+                - offset;
+            dbg!(offset, timestamp, length, header_offset);
             recording_file
                 .seek(SeekFrom::Current(length as i64))
                 .wrap_err("failed to seek to end of data")?;
-            frames.push(RecordingFrame {
+            frames.push(RecordingFrameMetadata {
                 timestamp,
                 offset: offset.try_into().unwrap(),
+                header_offset: header_offset.try_into().unwrap(),
                 length,
             });
             offset = recording_file
@@ -61,17 +69,40 @@ impl RecordingIndex {
         })
     }
 
-    pub fn before_or_equal_of(&self, timestamp: SystemTime) -> Option<&RecordingFrame> {
-        self.frames
+    pub fn before_or_equal_of(&mut self, timestamp: SystemTime) -> Result<RecordingFrame> {
+        let frame = self
+            .frames
             .iter()
             .rev()
             .find(|frame| frame.timestamp <= timestamp)
+            .ok_or(eyre!("no frame before timestamp"))?;
+        self.file
+            .seek(SeekFrom::Start(
+                (frame.offset + frame.header_offset).try_into().unwrap(),
+            ))
+            .wrap_err("failed to seek to frame")?;
+        let mut data = Vec::new();
+        data.resize_with(frame.length, Default::default);
+        self.file
+            .read_exact(&mut data)
+            .wrap_err("failed to read from recording file")?;
+        Ok(RecordingFrame {
+            timestamp: frame.timestamp,
+            data,
+        })
     }
 }
 
 #[derive(Debug)]
-pub struct RecordingFrame {
+struct RecordingFrameMetadata {
     timestamp: SystemTime,
     offset: usize,
+    header_offset: usize,
     length: usize,
+}
+
+#[derive(Debug)]
+pub struct RecordingFrame {
+    pub timestamp: SystemTime,
+    pub data: Vec<u8>,
 }
