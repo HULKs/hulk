@@ -443,13 +443,13 @@ impl TwixPainter {
             .dot(&end_relative)
             < 0.0;
         let counterclockwise_angle_difference = if end_right_of_start {
-            2.0 * PI - angle_difference
+            TAU - angle_difference
         } else {
             angle_difference
         };
 
         let signed_angle_difference = match orientation {
-            Orientation::Clockwise => -2.0 * PI + counterclockwise_angle_difference,
+            Orientation::Clockwise => -TAU + counterclockwise_angle_difference,
             Orientation::Counterclockwise => counterclockwise_angle_difference,
             Orientation::Colinear => 0.0,
         };

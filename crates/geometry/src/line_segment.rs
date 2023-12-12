@@ -159,11 +159,11 @@ impl LineSegment {
                 vector_obstacle.y.atan2(vector_obstacle.x) - angle_x_axis_to_start;
 
             if angle_start_to_obstacle < 0.0 {
-                angle_start_to_obstacle += 2.0 * PI;
+                angle_start_to_obstacle += TAU;
             }
 
             if angle_start_to_end < 0.0 {
-                angle_start_to_end += 2.0 * PI;
+                angle_start_to_end += TAU;
             }
 
             if (angle_start_to_obstacle < angle_start_to_end)

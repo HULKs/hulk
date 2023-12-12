@@ -59,11 +59,11 @@ impl Arc {
         let mut angle = vector_end.y.atan2(vector_end.x) - angle_x_axis_to_start;
 
         if (orientation == Orientation::Clockwise) && (angle > 0.0) {
-            angle -= 2.0 * PI;
+            angle -= TAU;
             angle *= -1.0;
         }
         if (orientation == Orientation::Counterclockwise) && (angle < 0.0) {
-            angle += 2.0 * PI;
+            angle += TAU;
         }
         (angle * self.circle.radius).abs()
     }
@@ -106,9 +106,9 @@ mod tests {
     #[test]
     fn arc_cost_generic() {
         for angle_index in 0..100 {
-            let angle = angle_index as f32 / 100.0 * 2.0 * PI;
+            let angle = angle_index as f32 / 100.0 * TAU;
             for angle_distance_index in 1..100 {
-                let angle_distance = angle_distance_index as f32 / 100.0 * 2.0 * PI;
+                let angle_distance = angle_distance_index as f32 / 100.0 * TAU;
                 let start = UnitComplex::from_angle(angle) * vector![1.0, 0.0];
                 let end = UnitComplex::from_angle(angle + angle_distance) * vector![1.0, 0.0];
                 let center = point![PI, 4.20];
@@ -127,7 +127,7 @@ mod tests {
                 );
                 assert_relative_eq!(
                     arc.length(Orientation::Clockwise),
-                    radius * (2.0 * PI - angle_distance),
+                    radius * (TAU - angle_distance),
                     epsilon = 0.001
                 );
             }

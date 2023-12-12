@@ -12,7 +12,7 @@ use rmp_serde::encode::write_named;
 pub fn knight_rider_eyes() -> ([f32; 24], [f32; 24]) {
     let since_epoch = UNIX_EPOCH.elapsed().expect("time ran backwards");
     let interval_from_0_to_1 = since_epoch.subsec_millis() as f32 / 1000.0;
-    let position = ((2.0 * PI * interval_from_0_to_1).sin() + 1.0) / 2.0;
+    let position = ((TAU * interval_from_0_to_1).sin() + 1.0) / 2.0;
     let maximal_distance_from_center = 1.0 / 4.0;
 
     //     1
