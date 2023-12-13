@@ -1,5 +1,5 @@
 use std::{
-    f32::consts::PI,
+    f32::consts::{PI, TAU},
     ops::{Add, Mul, Sub},
 };
 
