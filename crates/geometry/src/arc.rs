@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::f32::consts::TAU;
 
 use approx::{AbsDiffEq, RelativeEq};
 use nalgebra::Point2;
