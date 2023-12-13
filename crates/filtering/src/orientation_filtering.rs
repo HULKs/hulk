@@ -187,7 +187,7 @@ fn calculate_initial_orientation(linear_acceleration: Vector3<f32>) -> UnitQuate
 
 #[cfg(test)]
 mod test {
-    use std::f32::consts::{TAU, PI};
+    use std::f32::consts::{PI, TAU};
 
     use approx::assert_relative_eq;
     use nalgebra::vector;
