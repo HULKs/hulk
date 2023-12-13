@@ -37,7 +37,7 @@ impl<'a> Widget for ImageList<'a> {
                 .max_height(0.8 * ui.available_height())
                 .show_rows(ui, 12.0, self.paths.len(), |ui, range| {
                     for (paths, index) in self.paths.range(range.clone()).zip(range) {
-                        let row = ui.add(Row::new(paths).highligh(match self.phase {
+                        let row = ui.add(Row::new(paths).highlight(match self.phase {
                             AnnotationPhase::Labelling { current_index } => *current_index == index,
                             _ => false,
                         }));
