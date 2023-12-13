@@ -18,7 +18,7 @@ impl<'a> Row<'a> {
         }
     }
 
-    pub fn highligh(mut self, highlight: bool) -> Self {
+    pub fn highlight(mut self, highlight: bool) -> Self {
         self.highlight = highlight;
         self
     }
