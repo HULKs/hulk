@@ -1,5 +1,5 @@
 use std::{
-    f32::consts::PI,
+    f32::consts::TAU,
     io::{BufWriter, Write},
     os::unix::net::UnixStream,
     time::UNIX_EPOCH,
