@@ -128,7 +128,7 @@ impl<'a> Widget for BoundingBoxAnnotator<'a> {
             .set_margin_fraction(Vec2::splat(0.1))
             .auto_bounds_x()
             .auto_bounds_y()
-            .show_background(false)
+            .show_background(true)
             .allow_scroll(false)
             .allow_zoom(false)
             .allow_boxed_zoom(false)
