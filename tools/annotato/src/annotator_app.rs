@@ -3,20 +3,19 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths};
+use crate::{
+    ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths,
+    widgets::image_list::ImageList,
+};
 use color_eyre::{eyre::ContextCompat, Result};
 use eframe::{
-    egui::{
-        CentralPanel, Context, Key, Layout, ProgressBar, RichText, ScrollArea, SidePanel, TextStyle,
-    },
-    emath::Align,
-    epaint::Color32,
+    egui::{CentralPanel, Context, Key, RichText, SidePanel, TextStyle},
     App, CreationContext,
 };
 use glob::glob;
 
 #[derive(Copy, Clone, Debug)]
-enum AnnotationPhase {
+pub enum AnnotationPhase {
     Started,
     Labelling { current_index: usize },
     Finished,
@@ -78,27 +77,20 @@ impl AnnotatorApp {
             AnnotationPhase::Started
         };
 
-        let mut this = AnnotatorApp {
+        Ok(AnnotatorApp {
             phase,
             paths,
             label_widget: LabelWidget::default(),
             model_annotations,
-        };
-        this.load_image(0).expect("failed to load image");
-
-        Ok(this)
+        })
     }
 
     fn next(&mut self) {
         self.phase = match self.phase {
-            AnnotationPhase::Started => {
-                self.load_image(0).expect("failed to load image");
-                AnnotationPhase::Labelling { current_index: 0 }
-            }
+            AnnotationPhase::Started => AnnotationPhase::Labelling { current_index: 0 },
             AnnotationPhase::Labelling { current_index } => {
                 let new_index = current_index + 1;
                 if new_index < self.paths.len() - 1 {
-                    self.load_image(new_index).expect("failed to load image");
                     AnnotationPhase::Labelling {
                         current_index: new_index,
                     }
@@ -116,7 +108,6 @@ impl AnnotatorApp {
             AnnotationPhase::Labelling { current_index } => {
                 if current_index > 1 {
                     let new_index = current_index - 1;
-                    self.load_image(new_index).expect("failed to load image");
                     AnnotationPhase::Labelling {
                         current_index: new_index,
                     }
@@ -126,7 +117,6 @@ impl AnnotatorApp {
             }
             AnnotationPhase::Finished => {
                 let new_index = self.paths.len() - 1;
-                self.load_image(new_index).expect("failed to load image");
                 AnnotationPhase::Labelling {
                     current_index: new_index,
                 }
@@ -134,8 +124,17 @@ impl AnnotatorApp {
         };
     }
 
-    fn load_image(&mut self, index: usize) -> Result<()> {
+    fn load_image(&mut self) -> Result<()> {
+        let index = match self.phase {
+            AnnotationPhase::Started => 0,
+            AnnotationPhase::Labelling { current_index } => current_index,
+            AnnotationPhase::Finished => self.paths.len() - 1,
+        };
+
         if let Some(paths) = self.paths.get_mut(index) {
+            if self.label_widget.has_paths(paths) {
+                return Ok(());
+            }
             let annotations = self
                 .model_annotations
                 .for_image(
@@ -201,6 +200,7 @@ impl AnnotatorApp {
 
     fn show_phase_labelling(&mut self, ctx: &Context) {
         CentralPanel::default().show(ctx, |ui| {
+            self.load_image().expect("failed to update image");
             self.label_widget.ui(ui);
         });
     }
@@ -222,44 +222,7 @@ impl App for AnnotatorApp {
         SidePanel::left("image-path-list")
             .default_width(0.3 * width)
             .show(ctx, |ui| {
-                ui.label("Image List");
-                let images_done = self
-                    .paths
-                    .iter()
-                    .filter(|paths| paths.label_present)
-                    .count();
-                ui.add(
-                    ProgressBar::new(images_done as f32 / self.paths.len() as f32)
-                        .show_percentage()
-                        .text(format!("{}/{}", images_done, self.paths.len())),
-                );
-                ui.separator();
-                ScrollArea::vertical()
-                    .auto_shrink([false, false])
-                    .max_height(0.8 * ui.available_height())
-                    .show_rows(ui, 12.0, self.paths.len(), |ui, range| {
-                        for (filename, is_labelled) in self.paths.range(range).filter_map(|path| {
-                            path.image_path
-                                .file_name()
-                                .and_then(|osstr| osstr.to_str())
-                                .map(|filename| (filename, path.label_present))
-                        }) {
-                            ui.horizontal(|ui| {
-                                ui.label(filename);
-                                ui.add_space(40.0);
-                                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                    ui.add_space(20.0);
-                                    if is_labelled {
-                                        ui.colored_label(Color32::GREEN, "✔");
-                                    } else {
-                                        ui.colored_label(Color32::RED, "❌");
-                                    }
-                                });
-                            });
-                            ui.separator();
-                        }
-                    });
-                ui.separator();
+                ui.add(ImageList::new(&self.paths, &mut self.phase));
                 ui.vertical_centered(|ui| {
                     ui.horizontal(|ui| {
                         if ui
@@ -297,8 +260,6 @@ impl App for AnnotatorApp {
                                 self.phase = AnnotationPhase::Labelling {
                                     current_index: unlabelled_index,
                                 };
-                                self.load_image(unlabelled_index)
-                                    .expect("failed to update image");
                             } else {
                                 // no more unlabelled images
                                 self.phase = AnnotationPhase::Finished;

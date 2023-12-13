@@ -134,7 +134,6 @@ impl BoundingBox {
         closest.distance(position) < 5.0
     }
 
-
     pub fn prepare_for_corner_move(&mut self, position: PlotPoint) {
         let (closest, furthest) = self.closest_and_furthest_corner(position);
         self.corner = furthest;

@@ -42,6 +42,13 @@ impl Default for LabelWidget {
 }
 
 impl LabelWidget {
+    pub fn has_paths(&self, paths: &Paths) -> bool {
+        self.current_paths
+            .as_ref()
+            .map(|current_paths| paths.image_path == current_paths.image_path)
+            .unwrap_or(false)
+    }
+
     pub fn ui(&mut self, ui: &mut eframe::egui::Ui) {
         if self.texture_id.is_none() {
             self.texture_id.get_or_insert_with(|| {
