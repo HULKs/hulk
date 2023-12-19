@@ -2,7 +2,7 @@ use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::epaint::Color32;
 use nalgebra::{DMatrix, Point2};
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
