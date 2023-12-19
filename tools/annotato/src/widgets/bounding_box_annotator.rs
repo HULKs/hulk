@@ -192,7 +192,7 @@ impl<'a> Widget for BoundingBoxAnnotator<'a> {
 
 fn zoom_on_scroll_wheel(plot_ui: &mut PlotUi) {
     if !plot_ui.response().hovered() {
-        return
+        return;
     }
     let scroll_delta = plot_ui.ctx().input(|i| {
         i.events.iter().find_map(|e| match e {
