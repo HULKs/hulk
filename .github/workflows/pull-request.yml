@@ -119,6 +119,7 @@ jobs:
         path:
           [
             aliveness,
+            annotato,
             behavior_simulator,
             camera_matrix_extractor,
             depp,
