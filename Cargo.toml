@@ -32,6 +32,7 @@ members = [
   "crates/spl_network_messages",
   "crates/types",
   "crates/vision",
+  "tools/annotato",
   "tools/behavior_simulator",
   "tools/camera_matrix_extractor",
   "tools/depp",

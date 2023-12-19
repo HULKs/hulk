@@ -206,6 +206,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "annotato"
+version = "0.1.0"
+dependencies = [
+ "clap 4.4.11",
+ "color-eyre",
+ "eframe",
+ "egui_extras",
+ "egui_plot",
+ "glob",
+ "image",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ansi_colours"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
