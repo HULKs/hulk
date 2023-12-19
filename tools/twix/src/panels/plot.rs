@@ -1,17 +1,15 @@
 use std::{str::FromStr, sync::Arc};
 
+use color_eyre::eyre::{eyre, Result, WrapErr};
+use communication::client::CyclerOutput;
 use eframe::{
     egui::{
-        plot::{Line, PlotPoints},
-        widgets::plot::Plot as EguiPlot,
         Button, CollapsingHeader, DragValue, Response, RichText, TextEdit, TextStyle, Ui, Widget,
     },
     epaint::Color32,
 };
+use egui_plot::{Line, PlotPoints, Plot as EguiPlot};
 use log::{error, info};
-
-use color_eyre::eyre::{eyre, Result, WrapErr};
-use communication::client::CyclerOutput;
 use mlua::{Function, Lua, LuaSerdeExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, to_string_pretty, Value};

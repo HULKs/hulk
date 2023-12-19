@@ -1,6 +1,7 @@
 use communication::client::Cycler;
 use eframe::egui::{ComboBox, Response, Ui, Widget};
 
+#[derive(Debug)]
 pub struct VisionCyclerSelector {
     cycler: Cycler,
 }

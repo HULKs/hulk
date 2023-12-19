@@ -3,10 +3,10 @@ use std::{str::FromStr, sync::Arc};
 use color_eyre::{eyre::eyre, Result};
 use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::{
-    egui::{ComboBox, Response, TextureOptions, Ui, Widget},
-    emath::Rect,
+    egui::{ComboBox, Image, Response, TextureOptions, Ui, Widget},
+    epaint::Vec2,
 };
-use egui_extras::RetainedImage;
+
 use log::error;
 use nalgebra::{vector, Similarity2};
 use serde::{Deserialize, Serialize};
@@ -165,17 +165,15 @@ impl ImagePanel {
             .get_latest()
             .map_err(|error| eyre!("{error}"))?;
         let image_raw = bincode::deserialize::<Vec<u8>>(&image_data)?;
-        let image = RetainedImage::from_image_bytes("image", &image_raw)
-            .map_err(|error| eyre!("{error}"))?
-            .with_options(TextureOptions::NEAREST);
-        let image_size = image.size_vec2();
-        let width_scale = ui.available_width() / image_size.x;
-        let height_scale = ui.available_height() / image_size.y;
-        let scale = width_scale.min(height_scale);
-        let image_response = image.show_scaled(ui, scale);
-        let displayed_image_size = image_size * scale;
-        let image_rect = Rect::from_min_size(image_response.rect.left_top(), displayed_image_size);
-        let painter = TwixPainter::paint_at(ui, image_rect).with_camera(
+        let image_identifier = format!("bytes://image-{:?}", self.cycler_selector);
+        ui.ctx().forget_image(&image_identifier);
+        let image = Image::from_bytes(image_identifier, image_raw)
+            .texture_options(TextureOptions::NEAREST)
+            .fit_to_fraction(Vec2::splat(1.0));
+        let image_response = ui.add(image);
+        // let displayed_image_size = image_size * scale;
+        // let image_rect = Rect::from_min_size(image_response.rect.left_top(), displayed_image_size);
+        let painter = TwixPainter::paint_at(ui, image_response.rect).with_camera(
             vector![640.0, 480.0],
             Similarity2::identity(),
             CoordinateSystem::LeftHand,
