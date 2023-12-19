@@ -70,11 +70,10 @@ context_attribute = { path = "crates/context_attribute" }
 control = { path = "crates/control" }
 convert_case = "0.6.0"
 ctrlc = { version = "3.2.3", features = ["termination"] }
-eframe = { version = "0.22.0", features = ["persistence"] }
-egui_dock = { version = "0.6.1", git = "https://github.com/knoellle/egui_dock/", tag = "0.6.1", features = [
-  "serde",
-] }
-egui_extras = { version = "0.22.0", features = ["image"] }
+eframe = { version = "0.24.1", features = ["persistence"] }
+egui_dock = { version = "0.9.1", features = ["serde"] }
+egui_extras = { version = "0.24.2", features = ["image"] }
+egui_plot = "0.24.1"
 enum_dispatch = "0.3.11"
 enum-iterator = "1.4.1"
 fast_image_resize = "2.6.0"

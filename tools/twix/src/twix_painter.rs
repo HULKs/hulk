@@ -396,7 +396,7 @@ impl TwixPainter {
             max: self.transform_world_to_pixel(max),
         };
         self.painter
-            .rect_filled(sort_rect(rect), Rounding::none(), fill_color);
+            .rect_filled(sort_rect(rect), Rounding::ZERO, fill_color);
     }
 
     pub fn rect_stroke(&self, min: Point2<f32>, max: Point2<f32>, stroke: Stroke) {
@@ -406,7 +406,7 @@ impl TwixPainter {
         };
         let stroke = self.transform_stroke(stroke);
         self.painter
-            .rect_stroke(sort_rect(rect), Rounding::none(), stroke);
+            .rect_stroke(sort_rect(rect), Rounding::ZERO, stroke);
     }
 
     pub fn circle(&self, center: Point2<f32>, radius: f32, fill_color: Color32, stroke: Stroke) {

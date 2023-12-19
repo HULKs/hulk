@@ -14,6 +14,7 @@ convert_case = { workspace = true }
 eframe = { workspace = true }
 egui_dock = { workspace = true }
 egui_extras = { workspace = true }
+egui_plot = { workspace = true }
 fern = { workspace = true }
 fuzzy-matcher = { workspace = true }
 geometry = { workspace = true }

@@ -22,7 +22,7 @@ use eframe::{
     epaint::Color32,
     run_native, App, CreationContext, Frame, NativeOptions, Storage,
 };
-use egui_dock::{DockArea, NodeIndex, TabAddAlign, TabIndex, Tree};
+use egui_dock::{DockArea, DockState, NodeIndex, SurfaceIndex, TabAddAlign, TabIndex};
 use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 
 use log::error;
@@ -82,7 +82,10 @@ fn main() -> Result<(), eframe::Error> {
     run_native(
         "Twix",
         options,
-        Box::new(|creation_context| Box::new(TwixApp::create(creation_context))),
+        Box::new(|creation_context| {
+            egui_extras::install_image_loaders(&creation_context.egui_ctx);
+            Box::new(TwixApp::create(creation_context))
+        }),
     )
 }
 
@@ -148,7 +151,7 @@ struct TwixApp {
     ip_address: String,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
-    tree: Tree<Tab>,
+    tree: DockState<Tab>,
     visual: Visuals,
 }
 
@@ -170,7 +173,7 @@ impl TwixApp {
 
         let nao = Arc::new(Nao::new(ip_address.clone(), connection_intent));
 
-        let tree: Option<Tree<Value>> = creation_context
+        let tree: Option<DockState<Value>> = creation_context
             .storage
             .and_then(|storage| storage.get_string("tree"))
             .and_then(|string| from_str(&string).ok());
@@ -181,7 +184,7 @@ impl TwixApp {
                     .unwrap()
                     .into()
             }),
-            None => Tree::new(vec![SelectablePanel::TextPanel(TextPanel::new(
+            None => DockState::new(vec![SelectablePanel::TextPanel(TextPanel::new(
                 nao.clone(),
                 None,
             ))
@@ -320,10 +323,11 @@ impl App for TwixApp {
                 .style(style)
                 .show_add_buttons(true)
                 .show_inside(ui, &mut tab_viewer);
-            for node_id in tab_viewer.nodes_to_add_tabs_to {
+            
+            for (surface_index, node_id) in tab_viewer.nodes_to_add_tabs_to {
                 let tab = SelectablePanel::TextPanel(TextPanel::new(self.nao.clone(), None));
-                let index = self.tree[node_id].tabs_count();
-                self.tree[node_id].insert_tab(index.into(), tab.into());
+                let index = self.tree[surface_index][node_id].tabs_count();
+                self.tree[surface_index][node_id].insert_tab(index.into(), tab.into());
             }
         });
     }
@@ -353,8 +357,8 @@ impl TwixApp {
     }
 
     fn active_tab_index(&self) -> Option<(NodeIndex, TabIndex)> {
-        let node = self.tree.focused_leaf()?;
-        if let egui_dock::Node::Leaf { active, .. } = &self.tree[node] {
+        let (surface, node) = self.tree.focused_leaf()?;
+        if let egui_dock::Node::Leaf { active, .. } = &self.tree[surface][node] {
             Some((node, *active))
         } else {
             None
@@ -378,7 +382,7 @@ impl From<SelectablePanel> for Tab {
 
 #[derive(Default)]
 struct TabViewer {
-    nodes_to_add_tabs_to: Vec<NodeIndex>,
+    nodes_to_add_tabs_to: Vec<(SurfaceIndex, NodeIndex)>,
 }
 
 impl egui_dock::TabViewer for TabViewer {
@@ -396,7 +400,7 @@ impl egui_dock::TabViewer for TabViewer {
         tab.id
     }
 
-    fn on_add(&mut self, node: NodeIndex) {
-        self.nodes_to_add_tabs_to.push(node);
+    fn on_add(&mut self, surface_index: SurfaceIndex, node: NodeIndex) {
+        self.nodes_to_add_tabs_to.push((surface_index, node));
     }
 }
