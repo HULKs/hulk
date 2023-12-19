@@ -8,7 +8,7 @@ use eframe::{
     },
     epaint::Color32,
 };
-use egui_plot::{Line, PlotPoints, Plot as EguiPlot};
+use egui_plot::{Line, Plot as EguiPlot, PlotPoints};
 use log::{error, info};
 use mlua::{Function, Lua, LuaSerdeExt};
 use serde::{Deserialize, Serialize};
