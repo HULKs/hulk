@@ -62,9 +62,11 @@ pub fn execute(
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let search_role = assign_search_role(world_state);
-    let search_position = match world_state.suggested_search_position {
-        Some(_) => robot_to_field.inverse() * world_state.suggested_search_position.unwrap(),
-        None => search_role
+    let search_position = match (world_state.suggested_search_position, search_role) {
+        (Some(_), Some(SearchRole::Aggressive) | Some(SearchRole::Center)) => {
+            robot_to_field.inverse() * world_state.suggested_search_position.unwrap()
+        }
+        _ => search_role
             .map(|role| role.to_position(robot_to_field, field_dimensions))
             .unwrap_or(point![0.0, 0.0]),
     };
