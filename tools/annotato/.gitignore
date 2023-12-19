@@ -1,8 +1,0 @@
-.venv/
-/target
-
-2021-images*
-*.png
-images/
-labelled/
-current/
