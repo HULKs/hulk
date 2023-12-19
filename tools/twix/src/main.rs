@@ -323,7 +323,7 @@ impl App for TwixApp {
                 .style(style)
                 .show_add_buttons(true)
                 .show_inside(ui, &mut tab_viewer);
-            
+
             for (surface_index, node_id) in tab_viewer.nodes_to_add_tabs_to {
                 let tab = SelectablePanel::TextPanel(TextPanel::new(self.nao.clone(), None));
                 let index = self.tree[surface_index][node_id].tabs_count();
