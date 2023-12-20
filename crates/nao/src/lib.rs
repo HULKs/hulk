@@ -18,7 +18,7 @@ use tokio::{
 pub const PING_TIMEOUT_SECONDS: u32 = 2;
 
 pub struct Nao {
-    host: Ipv4Addr,
+    pub host: Ipv4Addr,
 }
 
 impl Nao {
