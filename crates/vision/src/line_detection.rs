@@ -264,16 +264,11 @@ fn filter_segments_for_lines(
                 .iter()
                 .enumerate()
                 .filter_map(move |(segment_index, segment)| {
-                    let predecessor_segment = if segment_index > 0 {
-                        Some(&scan_line.segments[segment_index - 1])
-                    } else {
-                        None
-                    };
-                    let successor_segment = if segment_index < (scan_line.segments.len() - 1) {
-                        Some(&scan_line.segments[segment_index + 1])
-                    } else {
-                        None
-                    };
+                    let predecessor_segment = segment_index
+                        .checked_sub(1)
+                        .and_then(|idx| scan_line.segments.get(idx));
+                    let successor_segment = scan_line.segments.get(segment_index + 1);
+
                     let is_line_segment = is_line_segment(
                         segment,
                         scan_line_position,
