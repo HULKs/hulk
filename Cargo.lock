@@ -3679,6 +3679,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "object_detection"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "context_attribute",
+ "framework",
+ "geometry",
+ "hardware",
+ "itertools",
+ "ndarray",
+ "openvino",
+ "serde",
+ "types",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
