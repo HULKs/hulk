@@ -2606,6 +2606,7 @@ dependencies = [
  "hardware",
  "ittapi",
  "nalgebra",
+ "object_detection",
  "serde",
  "serialize_hierarchy",
  "source_analyzer",

@@ -6,3 +6,12 @@ webots/protos/**/*.jpg filter=lfs diff=lfs merge=lfs -text
 docs/**/*.jpg filter=lfs diff=lfs merge=lfs -text
 docs/**/*.png filter=lfs diff=lfs merge=lfs -text
 docs/**/*.webp filter=lfs diff=lfs merge=lfs -text
+etc/neural_networks/simplified-mobilenetv3_240_320_model-ov.bin filter=lfs diff=lfs merge=lfs -text
+etc/neural_networks/yolov8-256.bin filter=lfs diff=lfs merge=lfs -text
+etc/neural_networks/yolov8n-ghost-256.bin filter=lfs diff=lfs merge=lfs -text
+etc/neural_networks/simplified-mobilenetv3_120_160_model-ov.bin filter=lfs diff=lfs merge=lfs -text
+etc/neural_networks/yolov8-256.xml filter=lfs diff=lfs merge=lfs -text
+etc/neural_networks/yolov8n-ghost-256.xml filter=lfs diff=lfs merge=lfs -text
+etc/neural_networks/simplified-mobilenetv3_120_160_model-ov.xml filter=lfs diff=lfs merge=lfs -text
+etc/neural_networks/simplified-mobilenetv3_240_320_model-ov.xml filter=lfs diff=lfs merge=lfs -text
+etc/neural_networks/yolov8-256.onnx filter=lfs diff=lfs merge=lfs -text

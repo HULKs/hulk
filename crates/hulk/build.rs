@@ -11,6 +11,15 @@ fn main() -> Result<()> {
     let manifest = FrameworkManifest {
         cyclers: vec![
             CyclerManifest {
+                name: "Detection",
+                kind: CyclerKind::Perception,
+                instances: vec!["Top"],
+                setup_nodes: vec!["object_detection::image_receiver"],
+                nodes: vec![
+                    "object_detection::single_shot_detection",
+                ],
+            },
+            CyclerManifest {
                 name: "Vision",
                 kind: CyclerKind::Perception,
                 instances: vec!["Top", "Bottom"],
@@ -26,7 +35,6 @@ fn main() -> Result<()> {
                     "vision::line_detection",
                     "vision::perspective_grid_candidates_provider",
                     "vision::segment_filter",
-                    "vision::single_shot_detection",
                 ],
             },
             CyclerManifest {

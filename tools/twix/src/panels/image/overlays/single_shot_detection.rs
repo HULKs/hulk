@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::{sync::Arc, str::FromStr};
 
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput, Output};
+use communication::client::{Cycler, CyclerOutput};
 use eframe::{
     emath::Align2,
     epaint::{Color32, FontId, Stroke},
@@ -20,13 +20,14 @@ impl Overlay for SingleShotDetection {
     const NAME: &'static str = "Single Shot Detection";
 
     fn new(nao: Arc<Nao>, selected_cycler: Cycler) -> Self {
+        let cycler = match selected_cycler {
+            Cycler::VisionTop => Cycler::DetectionTop,
+            Cycler::VisionBottom => Cycler::DetectionBottom,
+            _ => panic!("SingleShotDetection only works with vision cyclers"),
+        };
+
         Self {
-            detections: nao.subscribe_output(CyclerOutput {
-                cycler: selected_cycler,
-                output: Output::Main {
-                    path: "detections".to_string(),
-                },
-            }),
+            detections: nao.subscribe_output(CyclerOutput::from_str(format!("{cycler}.main_outputs.detections").as_str()).expect("failed to subscripe cycler"))
         }
     }
 

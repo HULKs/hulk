@@ -9,6 +9,13 @@ pub struct Rectangle {
 }
 
 impl Rectangle {
+    pub fn from_cxcywh(center_x: f32, center_y: f32, width: f32, height: f32) -> Self {
+        Self {
+            min: Point2::new(center_x - width / 2.0, center_y - height / 2.0),
+            max: Point2::new(center_x + width / 2.0, center_y + height / 2.0),
+        }
+    }
+    
     pub fn new_with_center_and_size(center: Point2<f32>, size: Vector2<f32>) -> Self {
         Self {
             min: center - size / 2.0,

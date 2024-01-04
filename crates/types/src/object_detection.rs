@@ -2,6 +2,21 @@ use geometry::rectangle::Rectangle;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
+pub enum Side {
+    Left,
+    Right,
+}
+
+impl Side {
+    pub fn opposite(&self) -> Self {
+        match self {
+            Side::Left => Side::Right,
+            Side::Right => Side::Left,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, SerializeHierarchy)]
 pub enum DetectedObject {
     Ball,

@@ -46,6 +46,8 @@ pub enum Cycler {
     Control,
     VisionTop,
     VisionBottom,
+    DetectionTop,
+    DetectionBottom,
     BehaviorSimulator,
 }
 
@@ -53,6 +55,8 @@ impl Display for Cycler {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Cycler::Control => f.write_str("Control"),
+            Cycler::DetectionTop => f.write_str("DetectionTop"),
+            Cycler::DetectionBottom => f.write_str("DetectionBottom"),
             Cycler::VisionTop => f.write_str("VisionTop"),
             Cycler::VisionBottom => f.write_str("VisionBottom"),
             Cycler::BehaviorSimulator => f.write_str("BehaviorSimulator"),
@@ -66,6 +70,8 @@ impl FromStr for Cycler {
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         Ok(match string {
             "Control" => Cycler::Control,
+            "DetectionTop" => Cycler::DetectionTop,
+            "DetectionBottom" => Cycler::DetectionBottom,
             "VisionTop" => Cycler::VisionTop,
             "VisionBottom" => Cycler::VisionBottom,
             "BehaviorSimulator" => Cycler::BehaviorSimulator,
