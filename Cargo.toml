@@ -41,7 +41,7 @@ members = [
   "tools/twix",
 ]
 # HuLA and Aliveness are built independently by yocto
-exclude = ["tools/aliveness", "tools/hula"]
+exclude = ["tools/aliveness", "tools/hula", "tools/freezer"]
 
 [workspace.dependencies]
 aliveness = { path = "crates/aliveness" }
