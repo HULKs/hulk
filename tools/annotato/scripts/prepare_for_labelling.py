@@ -1,15 +1,16 @@
-from ultralytics import YOLO
-from PIL import Image
-import json
-from os import path
-import os
-from tqdm import tqdm
-from glob import glob
-import cv2
-from uuid import uuid4
-import numpy as np
-from wonderwords import RandomWord
 import argparse
+import json
+from glob import glob
+import os
+from os import path
+
+import cv2
+from PIL import Image
+from tqdm import tqdm
+import numpy as np
+from ultralytics import YOLO
+from uuid import uuid4
+from wonderwords import RandomWord
 
 CLASS_CONVERSION = [
     "Ball",
@@ -63,14 +64,9 @@ def main(args):
             ]
 
             cv2.imwrite(path.join(chunk_images_path, image_name), img)
-        
+
         with open(path.join(chunk_dir, "data.json"), 'w') as f:
             json.dump(chunk_annotations, f)
-
-            
-
-
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -78,5 +74,5 @@ if __name__ == "__main__":
     parser.add_argument("--yolo", help="the yolo checkpoint used for inference", default=None)
     parser.add_argument("--chunksize", help="the chunksize of one labelling task", default=200)
     parser.add_argument("--convert-colors", help="whether to convert ycbcr to rgb", default=True)
-    
+
     main(parser.parse_args())

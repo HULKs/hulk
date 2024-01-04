@@ -23,11 +23,12 @@ impl ModelAnnotations {
     }
 
     pub fn for_image(&self, image_name: &String) -> Option<Vec<BoundingBox>> {
-        self.images.get(image_name).map(|annotations| {
-            annotations
+        Some(
+            self.images
+                .get(image_name)?
                 .iter()
                 .map(|annotation| annotation.clone().into())
-                .collect()
-        })
+                .collect(),
+        )
     }
 }

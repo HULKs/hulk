@@ -117,8 +117,7 @@ impl BoundingBox {
     }
 
     pub fn get_closest_corner(&self, position: PlotPoint) -> PlotPoint {
-        let (closest, _) = self.closest_and_furthest_corner(position);
-        closest
+        self.closest_and_furthest_corner(position).0
     }
 
     pub fn closest_corner_distance_sq(&self, position: PlotPoint) -> f32 {
