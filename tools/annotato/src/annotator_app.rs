@@ -7,7 +7,7 @@ use crate::{
     ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths,
     widgets::image_list::ImageList,
 };
-use color_eyre::{eyre::ContextCompat, Result};
+use color_eyre::Result;
 use eframe::{
     egui::{CentralPanel, Context, Key, RichText, SidePanel, TextStyle},
     App, CreationContext,
@@ -29,19 +29,8 @@ pub struct AnnotatorApp {
 }
 
 impl AnnotatorApp {
-    fn convert_image_to_label_path(image_path: &Path) -> Result<PathBuf> {
-        let filename = image_path
-            .file_name()
-            .wrap_err("no filename")?
-            .to_str()
-            .unwrap();
-        let filename_without_ext = filename
-            .rsplit_once('.')
-            .map(|(prefix, _suffix)| prefix)
-            .unwrap();
-        let mut label_path = image_path.to_path_buf();
-        label_path.set_file_name(format!("{filename_without_ext}.json"));
-        Ok(label_path)
+    fn convert_image_to_label_path(image_path: &Path) -> PathBuf {
+        image_path.with_extension("json")
     }
 
     pub fn try_new(
@@ -65,7 +54,7 @@ impl AnnotatorApp {
         let paths = image_paths
             .into_iter()
             .map(|image_path| {
-                let label_path = Self::convert_image_to_label_path(&image_path)?;
+                let label_path = Self::convert_image_to_label_path(&image_path);
                 Ok(Paths::new(image_path, label_path))
             })
             .collect::<Result<VecDeque<_>>>()
@@ -135,6 +124,7 @@ impl AnnotatorApp {
             if self.label_widget.has_paths(paths) {
                 return Ok(());
             }
+            // get file name of the path as a string
             let annotations = self
                 .model_annotations
                 .for_image(

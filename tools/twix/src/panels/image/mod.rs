@@ -170,6 +170,7 @@ impl ImagePanel {
         let image = Image::from_bytes(image_identifier, image_raw)
             .texture_options(TextureOptions::NEAREST)
             .fit_to_fraction(Vec2::splat(1.0));
+
         let image_response = ui.add(image);
 
         let painter = TwixPainter::paint_at(ui, image_response.rect).with_camera(

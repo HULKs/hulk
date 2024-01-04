@@ -67,14 +67,6 @@ impl<'a> Widget for Row<'a> {
             );
         }
 
-        // ui.horizontal(|ui| {
-        //     ui.label(filename);
-        //     ui.add_space(40.0);
-        //     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-        //         ui.add_space(20.0);
-
-        //     });
-        // }).response
         response
     }
 }
