@@ -69,7 +69,7 @@ impl SingleShotDetection {
         let paths = context.hardware_interface.get_paths();
         let neural_network_folder = paths.neural_networks;
 
-        let model_xml_name = PathBuf::from("yolov8n-ghost-256.xml");
+        let model_xml_name = PathBuf::from("yolov8n-mobilenetv3-160-224.xml");
 
         let model_path = neural_network_folder.join(&model_xml_name);
         let weights_path = neural_network_folder.join(model_xml_name.with_extension("bin"));
