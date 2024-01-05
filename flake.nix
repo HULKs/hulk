@@ -4,13 +4,17 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    nixgl.url = "github:guibou/nixGL";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, nixgl }:
     flake-utils.lib.eachDefaultSystem
       (system:
         let
-          pkgs = import nixpkgs { inherit system; };
+          pkgs = import nixpkgs { 
+            inherit system; 
+            overlays = [ nixgl.overlay ];
+          };
         in
         {
           devShells.default = pkgs.mkShell
@@ -40,6 +44,7 @@
                 xorg.libXcursor
                 xorg.libXi
                 xorg.libXrandr
+                pkgs.nixgl.auto.nixGLDefault
               ];
               env = {
                 LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}";
