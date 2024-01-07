@@ -4,12 +4,23 @@ use nalgebra::{AbstractRotation, Isometry, SimdRealField};
 
 use crate::framed::Framed;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct Transform<From, To, Inner> {
     from: PhantomData<From>,
     to: PhantomData<To>,
     pub inner: Inner,
 }
+
+impl<From, To, Inner> Clone for Transform<From, To, Inner>
+where
+    Inner: Clone,
+{
+    fn clone(&self) -> Self {
+        Self::new(self.inner.clone())
+    }
+}
+
+impl<From, To, Inner> Copy for Transform<From, To, Inner> where Inner: Copy {}
 
 impl<From, To, Transformer> Transform<From, To, Transformer> {
     pub fn new(inner: Transformer) -> Self {

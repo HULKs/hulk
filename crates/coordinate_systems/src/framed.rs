@@ -5,7 +5,7 @@ use std::{
 
 use geometry::look_at::LookAt;
 
-//#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct Framed<Frame, Inner> {
     frame: PhantomData<Frame>,
     pub inner: Inner,
