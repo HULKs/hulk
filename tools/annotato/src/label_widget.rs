@@ -6,7 +6,7 @@ use std::{
 use crate::{
     annotation::AnnotationFormat,
     boundingbox::BoundingBox,
-    classes::Classes,
+    classes::Class,
     paths::Paths,
     utils,
     widgets::{bounding_box_annotator::BoundingBoxAnnotator, class_selector::ClassSelector},
@@ -20,7 +20,7 @@ use eframe::{
 pub struct LabelWidget {
     current_paths: Option<Paths>,
     texture_id: Option<TextureHandle>,
-    selected_class: Classes,
+    selected_class: Class,
     bounding_boxes: Vec<BoundingBox>,
     editing_bounding_box: Option<BoundingBox>,
     disable_saving: bool,
@@ -32,7 +32,7 @@ impl Default for LabelWidget {
         Self {
             current_paths: None,
             texture_id: None,
-            selected_class: Classes::Robot,
+            selected_class: Class::Robot,
             bounding_boxes: Vec::new(),
             editing_bounding_box: None,
             disable_saving: false,
