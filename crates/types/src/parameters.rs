@@ -169,7 +169,7 @@ pub struct GameStateFilterParameters {
     pub whistle_acceptance_goal_distance: Vector2<f32>,
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CurrentMinimizerParameters {
     pub reset_threshold: f32,
     pub reset_speed_factor: f32,
