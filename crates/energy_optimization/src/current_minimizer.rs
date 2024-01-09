@@ -47,7 +47,7 @@ impl CurrentMinimizer {
             .sum();
 
         let optimization_enabled = squared_positions_difference_sum
-            < self.parameters.motor_command_position_difference_threshold + EPSILON;
+            < self.parameters.position_difference_threshold + EPSILON;
 
         let squared_position_offset_sum: f32 = self
             .position_offset
