@@ -1,8 +1,9 @@
 [package]
-edition = "2021"
-license = "GPL-3.0-only"
 name = "behavior_simulator"
 version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
 
 [[bin]]
 name = "behavior_simulator"
