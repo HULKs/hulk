@@ -177,7 +177,7 @@ pub struct CurrentMinimizerParameters {
     pub optimization_speed_factor: f32,
     pub allowed_current_threshold: f32,
     pub optimization_sign: Joints<f32>,
-    pub motor_command_position_difference_threshold: f32,
+    pub position_difference_threshold: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
