@@ -151,7 +151,7 @@ struct TwixApp {
     ip_address: String,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
-    tree: DockState<Tab>,
+    dock_state: DockState<Tab>,
     visual: Visuals,
 }
 
@@ -173,13 +173,13 @@ impl TwixApp {
 
         let nao = Arc::new(Nao::new(ip_address.clone(), connection_intent));
 
-        let tree: Option<DockState<Value>> = creation_context
+        let dock_state: Option<DockState<Value>> = creation_context
             .storage
-            .and_then(|storage| storage.get_string("tree"))
+            .and_then(|storage| storage.get_string("dock_state"))
             .and_then(|string| from_str(&string).ok());
 
-        let tree = match tree {
-            Some(tree) => tree.map_tabs(|value| {
+        let dock_state = match dock_state {
+            Some(dock_state) => dock_state.map_tabs(|value| {
                 SelectablePanel::new(nao.clone(), Some(value))
                     .unwrap()
                     .into()
@@ -210,7 +210,7 @@ impl TwixApp {
             connection_intent,
             ip_address: ip_address.unwrap_or_default(),
             panel_selection,
-            tree,
+            dock_state,
             last_focused_tab: (0.into(), 0.into()),
             visual,
         }
@@ -313,29 +313,29 @@ impl App for TwixApp {
         CentralPanel::default().show(context, |ui| {
             if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::T)) {
                 let tab = SelectablePanel::TextPanel(TextPanel::new(self.nao.clone(), None));
-                self.tree.push_to_focused_leaf(tab.into());
+                self.dock_state.push_to_focused_leaf(tab.into());
             }
 
             let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
             style.buttons.add_tab_align = TabAddAlign::Left;
             let mut tab_viewer = TabViewer::default();
-            DockArea::new(&mut self.tree)
+            DockArea::new(&mut self.dock_state)
                 .style(style)
                 .show_add_buttons(true)
                 .show_inside(ui, &mut tab_viewer);
 
             for (surface_index, node_id) in tab_viewer.nodes_to_add_tabs_to {
                 let tab = SelectablePanel::TextPanel(TextPanel::new(self.nao.clone(), None));
-                let index = self.tree[surface_index][node_id].tabs_count();
-                self.tree[surface_index][node_id].insert_tab(index.into(), tab.into());
+                let index = self.dock_state[surface_index][node_id].tabs_count();
+                self.dock_state[surface_index][node_id].insert_tab(index.into(), tab.into());
             }
         });
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {
-        let tree = self.tree.map_tabs(|tab| tab.panel.save());
+        let dock_state = self.dock_state.map_tabs(|tab| tab.panel.save());
 
-        storage.set_string("tree", to_string(&tree).unwrap());
+        storage.set_string("dock_state", to_string(&dock_state).unwrap());
         storage.set_string("ip_address", self.ip_address.clone());
         storage.set_string(
             "connection_intent",
@@ -352,13 +352,13 @@ impl App for TwixApp {
 
 impl TwixApp {
     fn active_panel(&mut self) -> Option<&mut SelectablePanel> {
-        let (_viewport, tab) = self.tree.find_active_focused()?;
+        let (_viewport, tab) = self.dock_state.find_active_focused()?;
         Some(&mut tab.panel)
     }
 
     fn active_tab_index(&self) -> Option<(NodeIndex, TabIndex)> {
-        let (surface, node) = self.tree.focused_leaf()?;
-        if let egui_dock::Node::Leaf { active, .. } = &self.tree[surface][node] {
+        let (surface, node) = self.dock_state.focused_leaf()?;
+        if let egui_dock::Node::Leaf { active, .. } = &self.dock_state[surface][node] {
             Some((node, *active))
         } else {
             None
