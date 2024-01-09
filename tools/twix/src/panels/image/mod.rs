@@ -171,8 +171,7 @@ impl ImagePanel {
             .texture_options(TextureOptions::NEAREST)
             .fit_to_fraction(Vec2::splat(1.0));
         let image_response = ui.add(image);
-        // let displayed_image_size = image_size * scale;
-        // let image_rect = Rect::from_min_size(image_response.rect.left_top(), displayed_image_size);
+
         let painter = TwixPainter::paint_at(ui, image_response.rect).with_camera(
             vector![640.0, 480.0],
             Similarity2::identity(),
