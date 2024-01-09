@@ -7,14 +7,14 @@ use crate::{
     ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths,
     widgets::image_list::ImageList,
 };
-use color_eyre::Result;
+use color_eyre::{eyre::Context as C, Result};
 use eframe::{
     egui::{CentralPanel, Context, Key, RichText, SidePanel, TextStyle},
     App, CreationContext,
 };
 use glob::glob;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AnnotationPhase {
     Started,
     Labelling { current_index: usize },
@@ -74,12 +74,16 @@ impl AnnotatorApp {
         })
     }
 
-    fn next(&mut self) {
+    fn next(&mut self) -> Result<()> {
         self.phase = match self.phase {
             AnnotationPhase::Started => AnnotationPhase::Labelling { current_index: 0 },
             AnnotationPhase::Labelling { current_index } => {
+                self.label_widget
+                    .save_annotation()
+                    .wrap_err("failed to go to next image")?;
+
                 let new_index = current_index + 1;
-                if new_index < self.paths.len() - 1 {
+                if new_index < self.paths.len() {
                     AnnotationPhase::Labelling {
                         current_index: new_index,
                     }
@@ -89,13 +93,19 @@ impl AnnotatorApp {
             }
             AnnotationPhase::Finished => AnnotationPhase::Finished,
         };
+
+        Ok(())
     }
 
-    fn previous(&mut self) {
+    fn previous(&mut self) -> Result<()> {
         self.phase = match self.phase {
             AnnotationPhase::Started => AnnotationPhase::Started,
             AnnotationPhase::Labelling { current_index } => {
-                if current_index > 1 {
+                self.label_widget
+                    .save_annotation()
+                    .wrap_err("failed to go to previous image")?;
+
+                if current_index > 0 {
                     let new_index = current_index - 1;
                     AnnotationPhase::Labelling {
                         current_index: new_index,
@@ -111,6 +121,8 @@ impl AnnotatorApp {
                 }
             }
         };
+
+        Ok(())
     }
 
     fn load_image(&mut self) -> Result<()> {
@@ -182,7 +194,7 @@ impl AnnotatorApp {
 
                 ui.add_space(50.0);
                 if ui.button("Start Labelling").clicked() {
-                    self.next()
+                    self.next().expect("failed to start labelling")
                 }
             });
         });
@@ -212,7 +224,18 @@ impl App for AnnotatorApp {
         SidePanel::left("image-path-list")
             .default_width(0.3 * width)
             .show(ctx, |ui| {
-                ui.add(ImageList::new(&self.paths, &mut self.phase));
+                let mut current_phase = self.phase.clone();
+                ui.add(ImageList::new(&self.paths, &mut current_phase));
+
+                if current_phase != self.phase {
+                    if let AnnotationPhase::Labelling { .. } = self.phase {
+                        self.label_widget
+                            .save_annotation()
+                            .expect("failed to save annotation");
+                    }
+                    self.phase = current_phase;
+                }
+
                 ui.vertical_centered(|ui| {
                     ui.horizontal(|ui| {
                         if ui
@@ -225,7 +248,7 @@ impl App for AnnotatorApp {
                                     || (i.key_pressed(Key::Space) && i.modifiers.shift)
                             })
                         {
-                            self.previous();
+                            self.previous().expect("failed to load previous image");
                         }
                         if ui.button(">").on_hover_text("Next image (n, >)").clicked()
                             || ui.input(|i| {
@@ -234,7 +257,7 @@ impl App for AnnotatorApp {
                                     || (i.key_pressed(Key::Space) && !i.modifiers.shift)
                             })
                         {
-                            self.next()
+                            self.next().expect("failed to load next image");
                         }
                         if ui
                             .button(">>")

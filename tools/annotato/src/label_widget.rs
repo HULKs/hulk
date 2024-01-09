@@ -11,7 +11,7 @@ use crate::{
     utils,
     widgets::{bounding_box_annotator::BoundingBoxAnnotator, class_selector::ClassSelector},
 };
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{ContextCompat, Result};
 use eframe::{
     egui::Id,
     epaint::{Color32, TextureHandle},
@@ -23,7 +23,7 @@ pub struct LabelWidget {
     selected_class: Classes,
     bounding_boxes: Vec<BoundingBox>,
     editing_bounding_box: Option<BoundingBox>,
-    auto_save_on_next_image: bool,
+    disable_saving: bool,
     use_model_annotations: bool,
 }
 
@@ -35,7 +35,7 @@ impl Default for LabelWidget {
             selected_class: Classes::Robot,
             bounding_boxes: Vec::new(),
             editing_bounding_box: None,
-            auto_save_on_next_image: true,
+            disable_saving: false,
             use_model_annotations: true,
         }
     }
@@ -74,7 +74,7 @@ impl LabelWidget {
                     "class-selector",
                     &mut self.selected_class,
                 ));
-                ui.checkbox(&mut self.auto_save_on_next_image, "Auto-Save");
+                ui.checkbox(&mut self.disable_saving, "Disable Annotation Saving");
                 ui.checkbox(&mut self.use_model_annotations, "AI-ssist");
             });
             if let Some(texture_id) = self.texture_id.clone() {
@@ -94,19 +94,6 @@ impl LabelWidget {
         paths: Paths,
         model_annotations: Vec<BoundingBox>,
     ) -> Result<()> {
-        if let (true, Some(paths)) = (self.auto_save_on_next_image, &self.current_paths) {
-            // export current bboxes
-            let annotations: Vec<AnnotationFormat> = self
-                .bounding_boxes
-                .drain(..)
-                .map(|bbox| bbox.into())
-                .collect();
-            let annotations = serde_json::to_string_pretty(&annotations)?;
-
-            let mut file = File::create(&paths.label_path)?;
-            file.write_all(annotations.as_bytes())?;
-        }
-
         self.bounding_boxes.clear();
 
         if paths.label_path.exists() {
@@ -123,6 +110,29 @@ impl LabelWidget {
 
         self.texture_id = None;
         self.current_paths = Some(paths);
+
+        Ok(())
+    }
+
+    pub fn save_annotation(&mut self) -> Result<()> {
+        let paths = self
+            .current_paths
+            .as_ref()
+            .wrap_err("no image loaded currently")?;
+
+        if self.disable_saving {
+            return Ok(());
+        }
+
+        let annotations: Vec<AnnotationFormat> = self
+            .bounding_boxes
+            .drain(..)
+            .map(|bbox| bbox.into())
+            .collect();
+        let annotations = serde_json::to_string_pretty(&annotations)?;
+
+        let mut file = File::create(&paths.label_path)?;
+        file.write_all(annotations.as_bytes())?;
 
         Ok(())
     }
