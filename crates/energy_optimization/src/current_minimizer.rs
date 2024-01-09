@@ -2,7 +2,9 @@ use std::f32::EPSILON;
 
 use serde::{Deserialize, Serialize};
 use types::{
-    joints::Joints, motor_commands::MotorCommands, parameters::CurrentMinimizerParameters,
+    joints::{body::BodyJoints, head::HeadJoints, Joints},
+    motor_commands::MotorCommands,
+    parameters::CurrentMinimizerParameters,
 };
 
 #[derive(Default, Clone, Copy, Debug, Deserialize, Serialize)]
@@ -17,24 +19,34 @@ pub struct CurrentMinimizer {
     pub position_offset: Joints<f32>,
     pub state: State,
     pub last_motor_commands: MotorCommands<Joints<f32>>,
+    pub last_positions: Joints<f32>,
     pub parameters: CurrentMinimizerParameters,
 }
 
 impl CurrentMinimizer {
-    fn optimize(
-        mut self,
+    pub fn optimize_body(
+        self,
         currents: Joints<f32>,
-        motor_commands: MotorCommands<Joints<f32>>,
-    ) -> MotorCommands<Joints<f32>> {
-        let motor_commands_position_difference =
-            motor_commands.positions - self.last_motor_commands.positions;
-        let squared_motor_commands_position_difference_sum: f32 =
-            motor_commands_position_difference
-                .into_iter()
-                .map(|position| position.powf(2.0))
-                .sum();
+        body_positions: BodyJoints<f32>,
+    ) -> BodyJoints<f32> {
+        let positions = Joints::from_head_and_body(HeadJoints::default(), body_positions);
+        let optimized_positions = self.optimize(currents, positions);
+        BodyJoints {
+            left_arm: optimized_positions.left_arm,
+            right_arm: optimized_positions.right_arm,
+            left_leg: optimized_positions.left_leg,
+            right_leg: optimized_positions.right_leg,
+        }
+    }
 
-        let optimization_enabled = squared_motor_commands_position_difference_sum
+    pub fn optimize(mut self, currents: Joints<f32>, positions: Joints<f32>) -> Joints<f32> {
+        let positions_difference = positions - self.last_positions;
+        let squared_positions_difference_sum: f32 = positions_difference
+            .into_iter()
+            .map(|position| position.powf(2.0))
+            .sum();
+
+        let optimization_enabled = squared_positions_difference_sum
             < self.parameters.motor_command_position_difference_threshold + EPSILON;
 
         let squared_position_offset_sum: f32 = self
@@ -75,13 +87,9 @@ impl CurrentMinimizer {
             }
         }
 
-        let optimized_motor_commands = MotorCommands {
-            positions: motor_commands.positions + self.position_offset,
-            stiffnesses: motor_commands.stiffnesses,
-        };
+        let optimized_positions = positions + self.position_offset;
+        self.last_positions = positions;
 
-        self.last_motor_commands = motor_commands;
-
-        optimized_motor_commands
+        optimized_positions
     }
 }

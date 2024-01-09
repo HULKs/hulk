@@ -400,10 +400,13 @@ impl WalkingEngine {
                 },
                 stiffnesses,
             };
-            self.current_minimizer.optimize_body(
-                context.sensor_data.currents,
-                unoptimized_walk_joints_command,
-            )
+            MotorCommands {
+                positions: self.current_minimizer.optimize_body(
+                    context.sensor_data.currents,
+                    unoptimized_walk_joints_command.positions,
+                ),
+                stiffnesses,
+            }
         } else {
             MotorCommands {
                 positions: BodyJoints {
