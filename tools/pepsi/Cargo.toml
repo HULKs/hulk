@@ -1,9 +1,9 @@
 [package]
 name = "pepsi"
 version = "2.5.0"
-edition = "2021"
-license = "GPL-3.0-only"
-homepage = "https://github.com/hulks/hulk"
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
 
 [dependencies]
 aliveness = { workspace = true }
