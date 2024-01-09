@@ -17,7 +17,7 @@ use types::{
     field_dimensions::FieldDimensions,
     limb::{is_above_limbs, Limb, ProjectedLimbs},
     multivariate_normal_distribution::MultivariateNormalDistribution,
-    parameters::BallFilterParameters,
+    parameters::BallFilterParameters, object_detection::BoundingBox,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -49,6 +49,7 @@ pub struct CycleContext {
 
     balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
+    yolo_detections: PerceptionInput<Option<Vec<BoundingBox>>, "DetectionTop", "detections?">,
     projected_limbs: PerceptionInput<Option<ProjectedLimbs>, "VisionBottom", "projected_limbs?">,
 }
 

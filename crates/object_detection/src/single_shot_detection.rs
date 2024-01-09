@@ -13,17 +13,33 @@ use ndarray::{s, ArrayView};
 use openvino::{Blob, Core, ExecutableNetwork, Layout, Precision, TensorDesc};
 use serde::{Deserialize, Serialize};
 use types::{
-    color::Rgb,
-    object_detection::{BoundingBox, DetectedObject, Side},
-    ycbcr422_image::YCbCr422Image,
+    object_detection::{BoundingBox, DetectedObject},
+    ycbcr422_image::YCbCr422Image, color::Rgb,
 };
+use lazy_static::lazy_static;
 
-const DETECTION_IMAGE_SIZE: usize = 256;
+const DETECTION_IMAGE_HEIGHT: usize = 160;
+const DETECTION_IMAGE_WIDTH: usize = 224;
 const DETECTION_NUMBER_CHANNELS: usize = 3;
 
-const MAX_DETECTION: usize = 1344;
+const MAX_DETECTION: usize = 700;
 
-const DETECTION_SCRATCHPAD_SIZE: usize = DETECTION_IMAGE_SIZE.pow(2) * DETECTION_NUMBER_CHANNELS;
+const DETECTION_SCRATCHPAD_SIZE: usize = DETECTION_IMAGE_WIDTH * DETECTION_IMAGE_HEIGHT * DETECTION_NUMBER_CHANNELS;
+
+lazy_static! {
+    pub static ref X_INDICES: Vec<u32> = compute_indices(DETECTION_IMAGE_WIDTH, 640);
+    pub static ref Y_INDICES: Vec<u32> = compute_indices(DETECTION_IMAGE_HEIGHT, 480);
+}
+
+fn compute_indices(detection_size: usize, image_size: usize) -> Vec<u32> {
+    let mut indices = Vec::with_capacity(detection_size);
+    let stride = image_size as f32 / detection_size as f32;
+    for i in 0..detection_size {
+        indices.push((i as f32 * stride).round() as u32);
+    }
+    indices
+}
+
 type Scratchpad = [f32; DETECTION_SCRATCHPAD_SIZE];
 
 #[derive(Deserialize, Serialize)]
@@ -35,8 +51,6 @@ pub struct SingleShotDetection {
 
     input_name: String,
     output_name: String,
-
-    last_side: Side,
 }
 
 #[context]
@@ -61,7 +75,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub detections: MainOutput<Vec<BoundingBox>>,
+    pub detections: MainOutput<Option<Vec<BoundingBox>>>,
 }
 
 impl SingleShotDetection {
@@ -69,7 +83,7 @@ impl SingleShotDetection {
         let paths = context.hardware_interface.get_paths();
         let neural_network_folder = paths.neural_networks;
 
-        let model_xml_name = PathBuf::from("yolov8n-mobilenetv3-160-224.xml");
+        let model_xml_name = PathBuf::from("yolov8n-mobilenetv3-160-224-ov.xml");
 
         let model_path = neural_network_folder.join(&model_xml_name);
         let weights_path = neural_network_folder.join(model_xml_name.with_extension("bin"));
@@ -98,7 +112,6 @@ impl SingleShotDetection {
             network: core.load_network(&network, "CPU")?,
             input_name,
             output_name,
-            last_side: Side::Left,
         })
     }
 
@@ -116,12 +129,10 @@ impl SingleShotDetection {
             return Ok(MainOutputs::default());
         }
 
-        self.last_side = self.last_side.opposite();
-
         let image = context.image;
         let earlier = context.hardware_interface.get_now();
 
-        SingleShotDetection::load_into_scratchpad(&mut self.scratchpad, image, self.last_side);
+        SingleShotDetection::load_into_scratchpad(&mut self.scratchpad, image);
 
         context.preprocess_time.fill_if_subscribed(|| {
             context
@@ -138,8 +149,8 @@ impl SingleShotDetection {
             &[
                 1,
                 DETECTION_NUMBER_CHANNELS,
-                DETECTION_IMAGE_SIZE,
-                DETECTION_IMAGE_SIZE,
+                DETECTION_IMAGE_HEIGHT,
+                DETECTION_IMAGE_WIDTH,
             ],
             Precision::FP32,
         );
@@ -181,26 +192,25 @@ impl SingleShotDetection {
                 let object = DetectedObject::from_u8(class_id as u8 + 1).unwrap();
                 let bbox = row.slice(s![0..4]);
 
-                let right_shift = if let Side::Left = self.last_side {
-                    0.
-                } else {
-                    320. - 256.
-                };
+                const X_SCALE: f32 = 640.0 / DETECTION_IMAGE_WIDTH as f32;
+                const Y_SCALE: f32 = 480.0 / DETECTION_IMAGE_HEIGHT as f32;
 
                 Some(BoundingBox::new(
                     object,
                     prob,
                     Rectangle::from_cxcywh(
-                        (bbox[0] + right_shift) * 2.0,
-                        bbox[1] * 2.0,
-                        bbox[2] * 2.0,
-                        bbox[3] * 2.0,
+                        bbox[0] * X_SCALE,
+                        bbox[1] * Y_SCALE,
+                        bbox[2] * X_SCALE,
+                        bbox[3] * Y_SCALE,
                     ),
                 ))
             })
             .collect_vec();
 
         let bounding_boxes = multiclass_non_maximum_suppression(detections, *context.iou_threshold);
+
+        println!("{:?}", bounding_boxes.iter().map(|bbox| bbox.class).collect_vec());
 
         context.postprocess_time.fill_if_subscribed(|| {
             context
@@ -211,67 +221,27 @@ impl SingleShotDetection {
         });
 
         Ok(MainOutputs {
-            detections: bounding_boxes.into(),
+            detections: Some(bounding_boxes).into(),
         })
     }
 
-    pub fn load_into_scratchpad(scratchpad: &mut Scratchpad, image: &YCbCr422Image, side: Side) {
-        let height = image.height();
-        let width = image.width();
+    pub fn load_into_scratchpad(scratchpad: &mut Scratchpad, image: &YCbCr422Image) {
+        const STRIDE: usize = DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH;
 
-        const DOWNSAMPLE_RATIO: usize = 2;
-        const STRIDE: usize = DETECTION_IMAGE_SIZE.pow(2);
         let mut scratchpad_index = 0;
+        for &y in Y_INDICES.iter() {
+            for &x in X_INDICES.iter() {
+                let pixel: Rgb = image.at(x, y).into();
 
-        if let Side::Left = side {
-            for y in (0..height).step_by(DOWNSAMPLE_RATIO) {
-                for x in (0..(DOWNSAMPLE_RATIO * DETECTION_IMAGE_SIZE)).step_by(DOWNSAMPLE_RATIO) {
-                    let pixel: Rgb = image.at(x as u32, y as u32).into();
+                scratchpad[scratchpad_index + 0 * STRIDE] = pixel.r as f32 / 255.;
+                scratchpad[scratchpad_index + 1 * STRIDE] = pixel.g as f32 / 255.;
+                scratchpad[scratchpad_index + 2 * STRIDE] = pixel.b as f32 / 255.;
 
-                    scratchpad[scratchpad_index + 0 * STRIDE] = pixel.r as f32 / 255.;
-                    scratchpad[scratchpad_index + 1 * STRIDE] = pixel.g as f32 / 255.;
-                    scratchpad[scratchpad_index + 2 * STRIDE] = pixel.b as f32 / 255.;
-
-                    scratchpad_index += 1;
-                }
-            }
-        } else {
-            for y in (0..height).step_by(DOWNSAMPLE_RATIO) {
-                for x in
-                    ((width - 2 * DETECTION_IMAGE_SIZE as u32)..width).step_by(DOWNSAMPLE_RATIO)
-                {
-                    let pixel: Rgb = image.at(x, y).into();
-
-                    scratchpad[scratchpad_index + 0 * STRIDE] = pixel.r as f32 / 255.;
-                    scratchpad[scratchpad_index + 1 * STRIDE] = pixel.g as f32 / 255.;
-                    scratchpad[scratchpad_index + 2 * STRIDE] = pixel.b as f32 / 255.;
-
-                    scratchpad_index += 1;
-                }
+                scratchpad_index += 1;
             }
         }
     }
 }
-
-// fn retrieve_class<'a>(
-//     classification: ArrayView1<'a, f32>,
-//     confidence_threshold: f32,
-// ) -> Option<(f32, DetectedObject)> {
-//     let total = classification.iter().map(|score| score.exp()).sum::<f32>();
-//     let highest_score_index = classification
-//         .iter()
-//         .enumerate()
-//         .max_by(|(_, &value0), (_, &value1)| value0.total_cmp(&value1))
-//         .map(|(idx, _)| idx as u8)
-//         .unwrap();
-
-//     let confidence = classification[highest_score_index as usize].exp() / total;
-//     if confidence > confidence_threshold {
-//         DetectedObject::from_u8(highest_score_index).map(|object| (confidence, object))
-//     } else {
-//         None
-//     }
-// }
 
 fn multiclass_non_maximum_suppression(
     mut candidate_detections: Vec<BoundingBox>,

@@ -3689,6 +3689,7 @@ dependencies = [
  "geometry",
  "hardware",
  "itertools",
+ "lazy_static",
  "ndarray",
  "openvino",
  "serde",
