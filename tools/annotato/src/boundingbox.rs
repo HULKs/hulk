@@ -1,13 +1,13 @@
 use eframe::epaint::{Pos2, Rect};
 use egui_plot::{PlotPoint, PlotPoints, Polygon};
 
-use crate::classes::Classes;
+use crate::classes::Class;
 
 #[derive(Debug, Clone)]
 pub struct BoundingBox {
     pub corner: PlotPoint,
     pub opposing_corner: PlotPoint,
-    pub class: Classes,
+    pub class: Class,
 }
 
 impl From<&BoundingBox> for Polygon {
@@ -22,7 +22,7 @@ impl From<&BoundingBox> for Polygon {
 }
 
 impl BoundingBox {
-    pub fn new(corner: PlotPoint, opposing_corner: PlotPoint, class: Classes) -> Self {
+    pub fn new(corner: PlotPoint, opposing_corner: PlotPoint, class: Class) -> Self {
         BoundingBox {
             corner,
             opposing_corner,
@@ -139,7 +139,7 @@ impl BoundingBox {
         self.opposing_corner = closest;
     }
 
-    pub fn to_annotation(&self) -> (Classes, [f32; 4]) {
+    pub fn to_annotation(&self) -> (Class, [f32; 4]) {
         let rect = self.rect();
         let Pos2 { x: min_x, y: min_y } = rect.left_top();
         let Pos2 { x: max_x, y: max_y } = rect.right_bottom();
@@ -155,7 +155,7 @@ impl BoundingBox {
         )
     }
 
-    pub fn from_annotation((class, [min_x, min_y, max_x, max_y]): (Classes, [f32; 4])) -> Self {
+    pub fn from_annotation((class, [min_x, min_y, max_x, max_y]): (Class, [f32; 4])) -> Self {
         let corner = PlotPoint::new(min_x * 640., (1.0 - max_y) * 480.);
         let opposing_corner = PlotPoint::new(max_x * 640., (1. - min_y) * 480.);
 

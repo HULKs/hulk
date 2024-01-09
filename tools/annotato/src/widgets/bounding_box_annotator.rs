@@ -6,12 +6,12 @@ use eframe::{
 use egui_plot::{Plot, PlotBounds, PlotImage, PlotPoint, PlotResponse, PlotUi, Polygon, Text};
 use std::hash::Hash;
 
-use crate::{boundingbox::BoundingBox, classes::Classes};
+use crate::{boundingbox::BoundingBox, classes::Class};
 
 pub struct BoundingBoxAnnotator<'a> {
     id: Id,
     texture_handle: TextureHandle,
-    selected_class: &'a mut Classes,
+    selected_class: &'a mut Class,
     bounding_boxes: &'a mut Vec<BoundingBox>,
     box_in_editing: &'a mut Option<BoundingBox>,
 }
@@ -22,7 +22,7 @@ impl<'a> BoundingBoxAnnotator<'a> {
         image: TextureHandle,
         bounding_boxes: &'a mut Vec<BoundingBox>,
         box_in_editing: &'a mut Option<BoundingBox>,
-        selected_class: &'a mut Classes,
+        selected_class: &'a mut Class,
     ) -> Self {
         Self {
             id: Id::new(id_source),

@@ -2,12 +2,12 @@ use eframe::epaint::Pos2;
 use egui_plot::PlotPoint;
 use serde::{Deserialize, Serialize};
 
-use crate::{boundingbox::BoundingBox, classes::Classes};
+use crate::{boundingbox::BoundingBox, classes::Class};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AnnotationFormat {
     pub points: [[f32; 2]; 2],
-    pub class: Classes,
+    pub class: Class,
 }
 
 impl From<AnnotationFormat> for BoundingBox {

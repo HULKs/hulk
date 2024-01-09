@@ -1,7 +1,7 @@
 use eframe::egui::{ComboBox, Id, Response, Ui, Widget};
 use std::hash::Hash;
 
-use crate::classes::Classes;
+use crate::classes::Class;
 pub trait EnumIter {
     fn list() -> Vec<Self>
     where
@@ -10,11 +10,11 @@ pub trait EnumIter {
 
 pub struct ClassSelector<'a> {
     id: Id,
-    currently_selected: &'a mut Classes,
+    currently_selected: &'a mut Class,
 }
 
 impl<'a> ClassSelector<'a> {
-    pub fn new(id_source: impl Hash, currently_selected: &'a mut Classes) -> Self {
+    pub fn new(id_source: impl Hash, currently_selected: &'a mut Class) -> Self {
         Self {
             id: Id::new(id_source),
             currently_selected,
@@ -25,7 +25,7 @@ impl<'a> ClassSelector<'a> {
 impl<'a> Widget for ClassSelector<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         if let Some(class) =
-            ui.input(|i| i.keys_down.iter().find_map(|key| Classes::from_key(*key)))
+            ui.input(|i| i.keys_down.iter().find_map(|key| Class::from_key(*key)))
         {
             *self.currently_selected = class;
         }
@@ -33,7 +33,7 @@ impl<'a> Widget for ClassSelector<'a> {
         ComboBox::from_id_source(self.id)
             .selected_text(format!("{:?}", self.currently_selected))
             .show_ui(ui, |ui| {
-                Classes::list().into_iter().for_each(|class| {
+                Class::list().into_iter().for_each(|class| {
                     ui.selectable_value(self.currently_selected, class, format!("{:?}", class));
                 });
             })
