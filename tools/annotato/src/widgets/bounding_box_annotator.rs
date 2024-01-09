@@ -149,7 +149,7 @@ impl<'a> Widget for BoundingBoxAnnotator<'a> {
                         let polygon: Polygon = bbox.into();
                         plot_ui.polygon(
                             polygon
-                                .fill_color(bbox.class.color())
+                                .fill_color(bbox.class.color().gamma_multiply(0.1))
                                 .stroke(Stroke::new(1.0, bbox.class.color().to_opaque())),
                         );
                         plot_ui.text(
