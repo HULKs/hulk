@@ -24,8 +24,7 @@ impl<'a> ClassSelector<'a> {
 
 impl<'a> Widget for ClassSelector<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
-        if let Some(class) =
-            ui.input(|i| i.keys_down.iter().find_map(|key| Class::from_key(*key)))
+        if let Some(class) = ui.input(|i| i.keys_down.iter().find_map(|key| Class::from_key(*key)))
         {
             *self.currently_selected = class;
         }

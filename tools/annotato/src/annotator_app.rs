@@ -14,7 +14,7 @@ use eframe::{
 };
 use glob::glob;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AnnotationPhase {
     Started,
     Labelling { current_index: usize },
