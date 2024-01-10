@@ -31,25 +31,25 @@ impl<Frame, Inner> Framed<Frame, Inner> {
     }
 }
 
-impl<Frame, SelfInner, RhsInner> Add<Framed<Frame, RhsInner>> for Framed<Frame, SelfInner>
+impl<Frame, SelfInner, RightInner> Add<Framed<Frame, RightInner>> for Framed<Frame, SelfInner>
 where
-    SelfInner: Add<RhsInner>,
+    SelfInner: Add<RightInner>,
 {
     type Output = Framed<Frame, SelfInner::Output>;
 
-    fn add(self, rhs: Framed<Frame, RhsInner>) -> Self::Output {
-        Self::Output::new(self.inner + rhs.inner)
+    fn add(self, right: Framed<Frame, RightInner>) -> Self::Output {
+        Self::Output::new(self.inner + right.inner)
     }
 }
 
-impl<Frame, SelfInner, RhsInner> Sub<Framed<Frame, RhsInner>> for Framed<Frame, SelfInner>
+impl<Frame, SelfInner, RightInner> Sub<Framed<Frame, RightInner>> for Framed<Frame, SelfInner>
 where
-    SelfInner: Sub<RhsInner>,
+    SelfInner: Sub<RightInner>,
 {
     type Output = Framed<Frame, SelfInner::Output>;
 
-    fn sub(self, rhs: Framed<Frame, RhsInner>) -> Self::Output {
-        Self::Output::new(self.inner - rhs.inner)
+    fn sub(self, right: Framed<Frame, RightInner>) -> Self::Output {
+        Self::Output::new(self.inner - right.inner)
     }
 }
 
