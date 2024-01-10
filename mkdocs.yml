@@ -29,6 +29,7 @@ nav:
       - Main Setup & Webots: setup/main_setup.md
       - NAO Image & SDK: setup/nao_image_and_sdk.md
       - NAO Setup: setup/nao_setup.md
+      - Git Setup: setup/git_setup.md
   - Framework:
       - Overview: framework/overview.md
       - Directory Structure: framework/directory_structure.md
