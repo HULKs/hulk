@@ -1,5 +1,21 @@
 # Overview
 
+Currently there are 5 different [threads](https://en.wikipedia.org/wiki/Thread_(computing)), termed [cyclers](../framework/cyclers.md) in hulks terminology
+
+- `Control`
+- `VisionTop`
+- `VisionBottom`
+- `Audio`
+- `SPLNetwork`
+
+#### `Control`
+
+#### `VisionTop/Bottom`
+
+#### `Audio`
+
+#### `SPLNetwork`
+
 TODO: Elaborate
 
 ## Perception

@@ -79,6 +79,7 @@ nav:
       - Miscellaneous:
           - Create URDF and PROTO for NAOv6: robotics/miscellaneous/create_urdf.md
   - Workflow:
+      - Getting Started: workflow/getting_started.md
       - Overview: workflow/overview.md
       - Competition: workflow/competition.md
       - Development: workflow/development.md
