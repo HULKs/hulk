@@ -43,13 +43,14 @@ where
     }
 }
 
-impl<From, To, T, R, const D: usize> Transform<From, To, Isometry<T, R, D>>
+impl<From, To, Type, Rotation, const DIMENSION: usize>
+    Transform<From, To, Isometry<Type, Rotation, DIMENSION>>
 where
-    T::Element: SimdRealField,
-    T: SimdRealField,
-    R: AbstractRotation<T, D>,
+    Type::Element: SimdRealField,
+    Type: SimdRealField,
+    Rotation: AbstractRotation<Type, DIMENSION>,
 {
-    pub fn inverse(&self) -> Transform<To, From, Isometry<T, R, D>> {
+    pub fn inverse(&self) -> Transform<To, From, Isometry<Type, Rotation, DIMENSION>> {
         Transform::<To, From, _>::new(self.inner.inverse())
     }
 }
