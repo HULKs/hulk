@@ -4,11 +4,13 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::point;
+use serde::{Deserialize, Serialize};
 use types::{
-    foot_bumper_obstacle::FootBumperObstacle, foot_bumper_values::FootBumperValues, CycleTime,
-    FallState, SensorData
+    cycle_time::CycleTime, fall_state::FallState, foot_bumper_obstacle::FootBumperObstacle,
+    foot_bumper_values::FootBumperValues, sensor_data::SensorData,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct FootBumperFilter {
     left_foot_bumper_count: i32,
     right_foot_bumper_count: i32,
@@ -56,7 +58,9 @@ impl FootBumperFilter {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let fall_state = context.fall_state;
 
-        if context.sensor_data.touch_sensors.left_foot_left || context.sensor_data.touch_sensors.left_foot_right {
+        if context.sensor_data.touch_sensors.left_foot_left
+            || context.sensor_data.touch_sensors.left_foot_right
+        {
             if !self.left_foot_bumper_pressed_last_cycle {
                 self.left_foot_bumper_count += 1;
                 self.left_foot_bumper_pressed_last_cycle = true;
@@ -66,7 +70,9 @@ impl FootBumperFilter {
             self.left_foot_bumper_pressed_last_cycle = false;
         }
 
-        if context.sensor_data.touch_sensors.right_foot_left || context.sensor_data.touch_sensors.right_foot_right {
+        if context.sensor_data.touch_sensors.right_foot_left
+            || context.sensor_data.touch_sensors.right_foot_right
+        {
             if !self.right_foot_bumper_pressed_last_cycle {
                 self.right_foot_bumper_count += 1;
                 self.right_foot_bumper_pressed_last_cycle = true;
