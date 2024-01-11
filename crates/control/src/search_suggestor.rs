@@ -84,6 +84,12 @@ impl SearchSuggestor {
                 } else {
                     search_suggestion.y = width_half - search_suggestion.y
                 }
+
+                search_suggestion.x +=
+                    context.search_suggestor_configuration.cells_per_meter as f32 / 2.0;
+                search_suggestion.y -=
+                    context.search_suggestor_configuration.cells_per_meter as f32 / 2.0;
+
                 suggested_search_position = Some(search_suggestion);
             }
         } else {
@@ -131,7 +137,7 @@ impl SearchSuggestor {
                 }
             }
         }
-        self.heatmap = self.heatmap.clone() * heatmap_decay_factor;
+        self.heatmap = self.heatmap.clone() * (1.0 - heatmap_decay_factor);
     }
 
     fn calculate_heatmap_position(
