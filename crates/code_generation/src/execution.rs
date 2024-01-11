@@ -94,6 +94,8 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
     let construct_cyclers = generate_cycler_constructors(cyclers, Execution::Replay);
     let cycler_parameters = generate_cycler_parameters(cyclers);
     let cycler_seeks = generate_cycler_seeks(cyclers);
+    let cycler_first_timestamps = generate_cycler_timestamps(cyclers, "first");
+    let cycler_last_timestamps = generate_cycler_timestamps(cyclers, "last");
     let cycler_recording_paths = generate_cycler_recording_paths(cyclers);
 
     quote! {
@@ -137,6 +139,18 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
                 #cycler_seeks
 
                 Ok(())
+            }
+
+            pub fn first_timestamp(&self) -> Option<std::time::SystemTime> {
+                [
+                    #cycler_first_timestamps
+                ].into_iter().filter_map(std::convert::identity).min()
+            }
+
+            pub fn last_timestamp(&self) -> Option<std::time::SystemTime> {
+                [
+                    #cycler_last_timestamps
+                ].into_iter().filter_map(std::convert::identity).max()
             }
         }
 
@@ -414,6 +428,19 @@ fn generate_cycler_seeks(cyclers: &Cyclers) -> TokenStream {
             quote! {
                 let frame = self.#cycler_index_identifier.before_or_equal_of(timestamp).wrap_err("failed to seek")?;
                 self.#cycler_variable_identifier.cycle(frame.timestamp, &frame.data).wrap_err("failed to replay cycle")?;
+            }
+        })
+        .collect()
+}
+
+fn generate_cycler_timestamps(cyclers: &Cyclers, variant: &str) -> TokenStream {
+    cyclers
+        .instances()
+        .map(|(_cycler, instance)| {
+            let cycler_index_identifier = format_ident!("{}_index", instance.to_case(Case::Snake));
+            let method = format_ident!("{variant}_timestamp");
+            quote! {
+                self.#cycler_index_identifier.#method(),
             }
         })
         .collect()
