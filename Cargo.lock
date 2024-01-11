@@ -2605,6 +2605,7 @@ dependencies = [
  "color-eyre",
  "communication",
  "control",
+ "energy_optimization",
  "framework",
  "geometry",
  "hardware",
