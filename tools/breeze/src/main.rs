@@ -1,8 +1,17 @@
+use std::cmp;
+
 use cgos::board::BoardClass;
 use cgos::congatec::Congatec;
 use cgos::status::Status;
 
-#[derive(Debug)]
+static FAN_MAX_SPEED: u8 = 100;
+static FAN_MIN_SPEED: u8 = 10;
+static INTERPOLATION_X0: u8 = 0;
+static INTERPOLATION_Y0: u8 = 0;
+static INTERPOLATION_X1: u8 = 100;
+static INTERPOLATION_Y1: u8 = 100;
+
+#[derive(Debug, Clone)]
 enum SensorState {
     Uninitialized,
     Broken,
@@ -30,25 +39,36 @@ fn main() {
             }
         });
 
+    let fan_speed = get_interpolated_fan_speed(sensor_state.clone());
     dbg!(sensor_state);
+    dbg!(fan_speed);
 
     let number_of_fans = board.get_number_of_fans();
-    dbg!(number_of_fans);
     for index in 0..number_of_fans {
         let fan = board.get_fan(index);
-        dbg!(fan.current());
         let mut info = fan.info();
-        dbg!(info);
-        info.out_maximum = 40; // <-- use this for setting the fan speed (unit: percent)
+        info.out_maximum = fan_speed as i32;
         fan.set_limits(info);
     }
+}
 
-    let board = congatec.get_board_from_name("QA32");
-    dbg!(board.name());
+fn get_interpolated_fan_speed(sensor_state: SensorState) -> u8 {
+    if let SensorState::Valid(temperature) = sensor_state {
+        let fan_value = interpolate(
+            temperature as u8,
+            INTERPOLATION_X0,
+            INTERPOLATION_Y0,
+            INTERPOLATION_X1,
+            INTERPOLATION_Y1,
+        );
+        cmp::max(FAN_MIN_SPEED, fan_value)
+    } else {
+        // Something is wrong with the temperature sensor.
+        // Lets crank the fans up.
+        FAN_MAX_SPEED
+    }
+}
 
-    let board = congatec.get_board(BoardClass::CPU, 0);
-    dbg!(board.name());
-
-    let board = congatec.get_board(BoardClass::VGA, 0);
-    dbg!(board.name());
+fn interpolate(x: u8, x0: u8, y0: u8, x1: u8, y1: u8) -> u8 {
+    (y0 * (x1 - x) + y1 * (x - x0)) / (x1 - x0)
 }
