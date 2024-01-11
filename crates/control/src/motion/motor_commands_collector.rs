@@ -1,19 +1,26 @@
 use color_eyre::Result;
 use context_attribute::context;
+use energy_optimization::current_minimizer::CurrentMinimizer;
 use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     joints::{body::BodyJoints, head::HeadJoints, Joints},
     motion_selection::{MotionSelection, MotionType},
     motor_commands::MotorCommands,
+    parameters::CurrentMinimizerParameters,
     sensor_data::SensorData,
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct MotorCommandCollector {}
+pub struct MotorCommandCollector {
+    penalized_current_minimizer: CurrentMinimizer,
+}
 
 #[context]
-pub struct CreationContext {}
+pub struct CreationContext {
+    current_minimizer_parameters:
+        Parameter<CurrentMinimizerParameters, "current_minimizer_parameters">,
+}
 
 #[context]
 pub struct CycleContext {
@@ -35,6 +42,7 @@ pub struct CycleContext {
     initial_pose: Parameter<Joints<f32>, "initial_pose">,
 
     motor_position_difference: AdditionalOutput<Joints<f32>, "motor_positions_difference">,
+    // penalized_current_minimizer: AdditionalOutput<CurrentMinimizer, "penalized_current_minimizer">,
 }
 
 #[context]
@@ -44,8 +52,13 @@ pub struct MainOutputs {
 }
 
 impl MotorCommandCollector {
-    pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+    pub fn new(context: CreationContext) -> Result<Self> {
+        Ok(Self {
+            penalized_current_minimizer: CurrentMinimizer {
+                parameters: *context.current_minimizer_parameters,
+                ..Default::default()
+            },
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -73,7 +86,11 @@ impl MotorCommandCollector {
             MotionType::Initial => (*context.initial_pose, Joints::fill(0.8)),
             MotionType::JumpLeft => (jump_left.positions, jump_left.stiffnesses),
             MotionType::JumpRight => (jump_right.positions, jump_right.stiffnesses),
-            MotionType::Penalized => (*context.penalized_pose, Joints::fill(0.8)),
+            MotionType::Penalized => (
+                self.penalized_current_minimizer
+                    .optimize(context.sensor_data.currents, *context.penalized_pose),
+                Joints::fill(0.8),
+            ),
             MotionType::SitDown => (sit_down.positions, sit_down.stiffnesses),
             MotionType::Stand => (
                 Joints::from_head_and_body(head_joints_command.positions, walk.positions),
@@ -99,6 +116,10 @@ impl MotorCommandCollector {
         context
             .motor_position_difference
             .fill_if_subscribed(|| motor_commands.positions - current_positions);
+
+        // context
+        //     .penalized_current_minimizer
+        //     .fill_if_subscribed(|| self.penalized_current_minimizer);
 
         Ok(MainOutputs {
             motor_commands: motor_commands.into(),
