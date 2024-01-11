@@ -1,7 +1,7 @@
 use eframe::{egui::Key, epaint::Color32};
 use serde::{Deserialize, Serialize};
 
-use crate::widgets::class_selector::EnumIter;
+use crate::{user_toml::CONFIG, widgets::class_selector::EnumIter};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Class {
@@ -9,39 +9,32 @@ pub enum Class {
     Robot,
     GoalPost,
     PenaltySpot,
-    XSpot,
     LSpot,
     TSpot,
+    XSpot,
 }
 
 impl EnumIter for Class {
     fn list() -> Vec<Self> {
         use Class::*;
-        vec![Ball, Robot, GoalPost, PenaltySpot, XSpot, LSpot, TSpot]
-    }
-}
-
-impl From<usize> for Class {
-    fn from(value: usize) -> Self {
-        *Class::list().get(value).unwrap()
-    }
-}
-impl From<&Class> for usize {
-    fn from(value: &Class) -> Self {
-        Class::list().iter().position(|&r| r == *value).unwrap()
+        vec![Ball, Robot, GoalPost, PenaltySpot, LSpot, TSpot, XSpot]
     }
 }
 
 impl Class {
     pub fn from_key(key: Key) -> Option<Class> {
+        let keybindings = &CONFIG.get().unwrap().keybindings;
+        if key == keybindings.select_ball {
+            return Some(Class::Ball);
+        }
         match key {
-            Key::Num1 => Some(Class::Ball),
-            Key::Num2 => Some(Class::Robot),
-            Key::Num3 => Some(Class::GoalPost),
-            Key::Num4 => Some(Class::PenaltySpot),
-            Key::Num5 => Some(Class::XSpot),
-            Key::Num6 => Some(Class::LSpot),
-            Key::Num7 => Some(Class::TSpot),
+            x if x == keybindings.select_ball => Some(Class::Ball),
+            x if x == keybindings.select_robot => Some(Class::Robot),
+            x if x == keybindings.select_goalpost => Some(Class::GoalPost),
+            x if x == keybindings.select_penaltyspot => Some(Class::PenaltySpot),
+            x if x == keybindings.select_lspot => Some(Class::LSpot),
+            x if x == keybindings.select_tspot => Some(Class::TSpot),
+            x if x == keybindings.select_xspot => Some(Class::XSpot),
             _ => None,
         }
     }
@@ -52,9 +45,9 @@ impl Class {
             Class::Ball => Color32::LIGHT_RED,
             Class::GoalPost => Color32::DARK_RED,
             Class::PenaltySpot => Color32::GOLD,
-            Class::XSpot => Color32::LIGHT_BLUE,
             Class::LSpot => Color32::BLACK,
             Class::TSpot => Color32::LIGHT_GREEN,
+            Class::XSpot => Color32::LIGHT_BLUE,
         }
     }
 }

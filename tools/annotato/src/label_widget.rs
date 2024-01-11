@@ -9,7 +9,7 @@ use crate::{
     classes::Class,
     paths::Paths,
     utils,
-    widgets::{bounding_box_annotator::BoundingBoxAnnotator, class_selector::ClassSelector},
+    widgets::{bounding_box_annotator::BoundingBoxAnnotator, class_selector::ClassSelector}, leaderboard,
 };
 use color_eyre::eyre::{ContextCompat, Result};
 use eframe::{
@@ -122,6 +122,10 @@ impl LabelWidget {
 
         if self.disable_saving {
             return Ok(());
+        }
+
+        if !paths.label_path.exists() {
+            leaderboard::send_score_up()?;
         }
 
         let annotations: Vec<AnnotationFormat> = self
