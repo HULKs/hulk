@@ -1,6 +1,5 @@
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
-
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::Nao;
 
