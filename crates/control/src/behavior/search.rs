@@ -17,6 +17,7 @@ enum SearchRole {
     Goal,
     Defend { side: Side },
     Center,
+    Support { side: Side },
     Aggressive,
 }
 
@@ -40,6 +41,8 @@ impl SearchRole {
             field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
             0.0
         ];
+        let supporting_left = point![0.0, 0.0];
+        let supporting_right = point![0.0, 0.0];
 
         ground_to_field.inverse()
             * match self {
@@ -47,6 +50,8 @@ impl SearchRole {
                 SearchRole::Defend { side: Side::Left } => defending_left,
                 SearchRole::Defend { side: Side::Right } => defending_right,
                 SearchRole::Center => center,
+                SearchRole::Support { side: Side::Left } => supporting_left,
+                SearchRole::Support { side: Side::Right } => supporting_right,
                 SearchRole::Aggressive => aggressive,
             }
     }
@@ -63,7 +68,7 @@ pub fn execute(
     let ground_to_field = world_state.robot.ground_to_field?;
     let search_role = assign_search_role(world_state);
     let search_position = match (world_state.suggested_search_position, search_role) {
-        (Some(_), Some(SearchRole::Aggressive) | Some(SearchRole::Center)) => {
+        (Some(_), Some(SearchRole::Aggressive) | Some(SearchRole::Support { side: _ })) => {
             robot_to_field.inverse() * world_state.suggested_search_position.unwrap()
         }
         _ => search_role
@@ -101,6 +106,8 @@ fn assign_search_role(world_state: &WorldState) -> Option<SearchRole> {
         SearchRole::Defend { side: Side::Left },
         SearchRole::Defend { side: Side::Right },
         SearchRole::Center,
+        SearchRole::Support { side: Side::Left },
+        SearchRole::Support { side: Side::Right },
         SearchRole::Aggressive,
     ]
     .into_iter();
