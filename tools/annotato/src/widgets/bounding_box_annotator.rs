@@ -1,12 +1,12 @@
 use eframe::{
-    egui::{Event, Id, Key, PointerButton, Response, RichText, Ui, Widget},
+    egui::{Event, Id, PointerButton, Response, RichText, Ui, Widget},
     emath::{Align2, Vec2b},
     epaint::{Color32, Stroke, TextureHandle, Vec2},
 };
 use egui_plot::{Plot, PlotBounds, PlotImage, PlotPoint, PlotResponse, PlotUi, Polygon, Text};
 use std::hash::Hash;
 
-use crate::{boundingbox::BoundingBox, classes::Class};
+use crate::{boundingbox::BoundingBox, classes::Class, user_toml::CONFIG};
 
 pub struct BoundingBoxAnnotator<'a> {
     id: Id,
@@ -53,13 +53,15 @@ impl<'a> BoundingBoxAnnotator<'a> {
             .hover_pos()
             .map(|position| response.transform.value_from_position(position));
 
+        let config = CONFIG.get().unwrap();
+
         let editing_bounding_box = match (
             self.box_in_editing.take(),
-            ui.input(|i| i.key_pressed(Key::B))
+            ui.input(|i| config.keybindings.draw.is_pressed(i))
                 || response.response.clicked_by(PointerButton::Primary),
-            ui.input(|i| i.key_pressed(Key::Q)),
+            ui.input(|i| config.keybindings.edit.is_pressed(i)),
             response.response.clicked_by(PointerButton::Secondary)
-                || ui.input(|i| i.key_pressed(Key::Escape)),
+                || ui.input(|i| config.keybindings.abort.is_pressed(i)),
         ) {
             (Some(_), _, _, true) => {
                 // delete the currently edited bounding box
@@ -208,23 +210,16 @@ fn zoom_on_scroll_wheel(plot_ui: &mut PlotUi) {
 }
 
 fn focus_when_e_held_down(plot_ui: &mut PlotUi) {
-    if let Some(pressed) = plot_ui.ctx().input(|i| {
-        i.events.iter().find_map(|e| match e {
-            Event::Key {
-                key: Key::E,
-                repeat: false,
-                pressed,
-                ..
-            } => Some(*pressed),
-            _ => None,
-        })
-    }) {
-        if !pressed {
-            plot_ui.set_auto_bounds(Vec2b::TRUE);
-            return;
-        }
-        zoom_plot(plot_ui, 5.0);
+    let config = CONFIG.get().unwrap();
+
+    if !plot_ui
+        .ctx()
+        .input(|i| config.keybindings.zoom.is_pressed(i))
+    {
+        plot_ui.set_auto_bounds(Vec2b::TRUE);
+        return;
     }
+    zoom_plot(plot_ui, 5.0);
 }
 
 fn zoom_plot(plot_ui: &mut PlotUi, zoom_factor: f32) {

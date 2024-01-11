@@ -4,12 +4,12 @@ use std::{
 };
 
 use crate::{
-    ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths,
+    ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths, user_toml::CONFIG,
     widgets::image_list::ImageList,
 };
 use color_eyre::{eyre::Context as C, Result};
 use eframe::{
-    egui::{CentralPanel, Context, Key, RichText, SidePanel, TextStyle},
+    egui::{CentralPanel, Context, RichText, SidePanel, TextStyle},
     App, CreationContext,
 };
 use glob::glob;
@@ -238,23 +238,18 @@ impl App for AnnotatorApp {
 
                 ui.vertical_centered(|ui| {
                     ui.horizontal(|ui| {
+                        let config = CONFIG.get().unwrap();
                         if ui
                             .button("<")
                             .on_hover_text("Previous image (p, <)")
                             .clicked()
-                            || ui.input(|i| {
-                                i.key_pressed(Key::ArrowLeft)
-                                    || i.key_pressed(Key::P)
-                                    || (i.key_pressed(Key::Space) && i.modifiers.shift)
-                            })
+                            || ui.input(|i| config.keybindings.previous.is_pressed(i))
                         {
                             self.previous().expect("failed to load previous image");
                         }
                         if ui.button(">").on_hover_text("Next image (n, >)").clicked()
                             || ui.input(|i| {
-                                i.key_pressed(Key::ArrowRight)
-                                    || i.key_pressed(Key::N)
-                                    || (i.key_pressed(Key::Space) && !i.modifiers.shift)
+                                config.keybindings.next.is_pressed(i)
                             })
                         {
                             self.next().expect("failed to load next image");

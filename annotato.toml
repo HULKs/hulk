@@ -1,0 +1,26 @@
+[remote]
+user = "hulk"
+host = "134.28.57.225"
+folder = "/home/hulk/labelling/output"
+
+[leaderboard]
+enable = false
+host = "127.0.0.1"
+port = 8080
+githubname = ""
+
+[keybindings]
+next = { primary = "Space" }
+previous = { primary = "Space", modifiers = ["shift"] }
+edit = { primary = "Q" }
+zoom = { primary = "E" }
+draw = { primary = "B" }
+abort = { primary = "Escape" }
+
+select_ball = "Num1"
+select_robot = "Num2"
+select_goalpost = "Num3"
+select_penaltyspot = "Num4"
+select_xspot = "Num5"
+select_lspot = "Num6"
+select_tspot = "Num7"

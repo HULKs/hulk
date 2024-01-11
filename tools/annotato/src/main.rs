@@ -4,21 +4,25 @@ pub mod annotator_app;
 pub mod boundingbox;
 pub mod classes;
 pub mod label_widget;
+pub mod leaderboard;
 pub mod paths;
 pub mod remotedata;
 pub mod rsync;
 pub mod theme;
+pub mod user_toml;
 pub mod utils;
 pub mod widgets;
 
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 use annotator_app::AnnotatorApp;
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::{bail, Report, Result};
-use eframe::{egui::ViewportBuilder, run_native, NativeOptions, Result as EFrameResult};
+use eframe::{egui::ViewportBuilder, run_native, NativeOptions};
 use remotedata::DataCommand;
 use theme::{apply_theme, MOCHA};
+
+use crate::user_toml::CONFIG;
 
 #[derive(Parser, Debug)]
 #[clap(name = "annotato")]
@@ -52,7 +56,7 @@ fn start_labelling_ui(
     image_folder: PathBuf,
     annotation_json: PathBuf,
     skip_introduction: bool,
-) -> EFrameResult<()> {
+) -> eframe::Result<()> {
     let native_options = NativeOptions {
         viewport: ViewportBuilder {
             title: Some("annotato-rs".to_string()),
@@ -80,6 +84,10 @@ fn start_labelling_ui(
 
 fn main() -> Result<()> {
     let arguments = Args::parse();
+
+    CONFIG
+        .set(toml::from_str(&fs::read_to_string("annotato.toml")?)?)
+        .expect("once_cell::set failed");
 
     match arguments.command {
         Command::Data { subcommand } => remotedata::handle(&subcommand),
