@@ -1171,8 +1171,8 @@
     "penaltykick_box_extension": 0.2
   },
   "search_suggestor":{
-    "cells_per_meter": 10,
-    "heatmap_decay_factor": 0.99,
+    "cells_per_meter": 1,
+    "heatmap_decay_factor": 0.01,
     "minimum_validity": 0.0001
   }
 }
