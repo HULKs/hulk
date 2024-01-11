@@ -91,6 +91,14 @@ impl RecordingIndex {
             data,
         })
     }
+
+    pub fn first_timestamp(&self) -> Option<SystemTime> {
+        self.frames.first().map(|frame| frame.timestamp)
+    }
+
+    pub fn last_timestamp(&self) -> Option<SystemTime> {
+        self.frames.last().map(|frame| frame.timestamp)
+    }
 }
 
 #[derive(Debug)]

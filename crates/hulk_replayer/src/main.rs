@@ -166,5 +166,10 @@ fn main() -> Result<()> {
     )
     .wrap_err("failed to create replayer")?;
 
+    dbg!(replayer.first_timestamp());
+    dbg!(replayer.last_timestamp());
+
+    // replayer.seek_before_or_equal_of(timestamp)
+
     Ok(())
 }
