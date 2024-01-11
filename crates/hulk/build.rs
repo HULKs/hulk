@@ -44,6 +44,7 @@ fn main() -> Result<()> {
                     "control::center_of_mass_provider",
                     "control::fall_state_estimation",
                     "control::game_controller_filter",
+                    "control::game_controller_state_filter",
                     "control::game_state_filter",
                     "control::ground_contact_detector",
                     "control::ground_provider",

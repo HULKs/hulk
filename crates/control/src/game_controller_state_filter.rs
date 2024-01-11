@@ -7,13 +7,17 @@ use nalgebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, GameState, Team};
 use types::{
-    ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
-    filtered_game_states::FilteredGameState, filtered_whistle::FilteredWhistle,
-    game_controller_state::GameControllerState, parameters::GameStateFilterParameters,
+    ball_position::BallPosition,
+    cycle_time::CycleTime,
+    field_dimensions::FieldDimensions,
+    filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_states::FilteredGameState,
+    filtered_whistle::FilteredWhistle,
+    game_controller_state::GameControllerState,
+    parameters::GameStateFilterParameters,
 };
-
 #[derive(Deserialize, Serialize)]
-pub struct GameStateFilter {
+pub struct GameControllerStateFilter {
     state: State,
     opponent_state: State,
 }
@@ -35,13 +39,11 @@ pub struct CycleContext {
 }
 
 #[context]
-#[derive(Default)]
 pub struct MainOutputs {
-    pub filtered_game_state: MainOutput<Option<FilteredGameState>>,
-    pub filtered_opponent_game_state: MainOutput<Option<FilteredGameState>>,
+    pub filtered_game_controller_state: MainOutput<Option<FilteredGameControllerState>>,
 }
 
-impl GameStateFilter {
+impl GameControllerStateFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             state: State::Initial,
@@ -50,59 +52,100 @@ impl GameStateFilter {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
-            *context.robot_to_field,
+        let game_states = filter_game_state(
+            context.robot_to_field,
             context.ball_position,
             context.field_dimensions,
-            context.config.whistle_acceptance_goal_distance,
-        );
-
-        self.state = next_filtered_state(
+            context.config,
+            context.game_controller_state,
+            context.filtered_whistle,
+            context.cycle_time,
             self.state,
-            context.game_controller_state,
-            context.filtered_whistle.is_detected,
-            context.cycle_time.start_time,
-            context.config,
-            ball_detected_far_from_any_goal,
-        );
-
-        self.opponent_state = next_filtered_state(
             self.opponent_state,
-            context.game_controller_state,
-            context.filtered_whistle.is_detected,
-            context.cycle_time.start_time,
-            context.config,
-            ball_detected_far_from_any_goal,
         );
-
-        let ball_detected_far_from_kick_off_point = context
-            .ball_position
-            .map(|ball| {
-                let absolute_ball_position = *context.robot_to_field * ball.position;
-                distance(&absolute_ball_position, &Point2::origin())
-                    > context.config.distance_to_consider_ball_moved_in_kick_off
-            })
-            .unwrap_or(false);
-
-        let filtered_game_state = self.state.construct_hulks_filtered_game_state(
-            context.game_controller_state,
-            context.cycle_time.start_time,
-            ball_detected_far_from_kick_off_point,
-            context.config,
-        );
-
-        let filtered_opponent_game_state =
-            self.opponent_state.construct_opponent_filtered_game_state(
-                context.game_controller_state,
-                context.cycle_time.start_time,
-                ball_detected_far_from_kick_off_point,
-                context.config,
-            );
-
+        let filtered_game_controller_state = FilteredGameControllerState {
+            game_state: game_states.filtered_game_state,
+            opponent_game_state: game_states.filtered_opponent_game_state,
+            game_phase: context.game_controller_state.game_phase,
+            kicking_team: context.game_controller_state.kicking_team,
+            penalties: context.game_controller_state.penalties,
+            remaining_amount_of_messages: context
+                .game_controller_state
+                .remaining_amount_of_messages,
+            sub_state: context.game_controller_state.sub_state,
+            hulks_team_is_home_after_coin_toss: context
+                .game_controller_state
+                .hulks_team_is_home_after_coin_toss,
+        };
         Ok(MainOutputs {
-            filtered_game_state: Some(filtered_game_state).into(),
-            filtered_opponent_game_state: Some(filtered_opponent_game_state).into(),
+            filtered_game_controller_state: Some(filtered_game_controller_state).into(),
         })
+    }
+}
+
+pub struct FilteredGameStates {
+    pub filtered_game_state: FilteredGameState,
+    pub filtered_opponent_game_state: FilteredGameState,
+}
+
+pub fn filter_game_state(
+    robot_to_field: &mut Isometry2<f32>,
+    ball_position: Option<&BallPosition>,
+    field_dimensions: &FieldDimensions,
+    config: &GameStateFilterParameters,
+    game_controller_state: &GameControllerState,
+    filtered_whistle: &FilteredWhistle,
+    cycle_time: &CycleTime,
+    state: State,
+    opponent_state: State,
+) -> FilteredGameStates {
+    let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
+        *robot_to_field,
+        ball_position,
+        field_dimensions,
+        config.whistle_acceptance_goal_distance,
+    );
+    let state = next_filtered_state(
+        state,
+        game_controller_state,
+        filtered_whistle.is_detected,
+        cycle_time.start_time,
+        config,
+        ball_detected_far_from_any_goal,
+    );
+    let opponent_state = next_filtered_state(
+        opponent_state,
+        game_controller_state,
+        filtered_whistle.is_detected,
+        cycle_time.start_time,
+        config,
+        ball_detected_far_from_any_goal,
+    );
+    let ball_detected_far_from_kick_off_point = ball_position
+        .map(|ball| {
+            let absolute_ball_position = *robot_to_field * ball.position;
+            distance(&absolute_ball_position, &Point2::origin())
+                > config.distance_to_consider_ball_moved_in_kick_off
+        })
+        .unwrap_or(false);
+
+    let filtered_game_state = state.construct_hulks_filtered_game_state(
+        game_controller_state,
+        cycle_time.start_time,
+        ball_detected_far_from_kick_off_point,
+        config,
+    );
+
+    let filtered_opponent_game_state = opponent_state.construct_opponent_filtered_game_state(
+        game_controller_state,
+        cycle_time.start_time,
+        ball_detected_far_from_kick_off_point,
+        config,
+    );
+
+    FilteredGameStates {
+        filtered_game_state,
+        filtered_opponent_game_state,
     }
 }
 
@@ -116,43 +159,23 @@ fn next_filtered_state(
     ball_detected_far_from_any_goal: bool,
 ) -> State {
     match (current_state, game_controller_state.game_state) {
-        (State::Finished, _) => State::Finished,
-
-        (
-            State::TentativeFinished {
-                time_when_finished_clicked,
-            },
-            GameState::Finished,
-        ) if cycle_start_time
-            .duration_since(time_when_finished_clicked)
-            .unwrap()
-            >= config.tentative_finish_duration =>
-        {
-            State::Finished
-        }
-        (
-            State::TentativeFinished {
-                time_when_finished_clicked,
-            },
-            GameState::Finished,
-        ) => State::TentativeFinished {
-            time_when_finished_clicked,
-        },
-        (State::TentativeFinished { .. }, game_state) => State::from_game_state(game_state),
-        (_, GameState::Finished) => State::TentativeFinished {
-            time_when_finished_clicked: cycle_start_time,
-        },
-        (State::Initial | State::Ready, _)
-        | (State::Set, GameState::Initial | GameState::Ready | GameState::Playing)
+        (State::Initial | State::Ready | State::Finished, _)
+        | (
+            State::Set,
+            GameState::Initial | GameState::Ready | GameState::Playing | GameState::Finished,
+        )
         | (
             State::WhistleInSet { .. },
-            GameState::Initial | GameState::Ready | GameState::Playing,
+            GameState::Initial | GameState::Ready | GameState::Playing | GameState::Finished,
         )
-        | (State::Playing, GameState::Initial | GameState::Ready | GameState::Set)
+        | (
+            State::Playing,
+            GameState::Initial | GameState::Ready | GameState::Set | GameState::Finished,
+        )
         | (
             State::WhistleInPlaying { .. },
-            GameState::Initial | GameState::Ready | GameState::Set,
-        ) => State::from_game_state(game_controller_state.game_state),
+            GameState::Initial | GameState::Ready | GameState::Set | GameState::Finished,
+        ) => State::from_game_controller(game_controller_state),
         (State::Set, GameState::Set) => {
             if is_whistle_detected {
                 State::WhistleInSet {
@@ -240,7 +263,7 @@ fn in_kick_off_grace_period(
 }
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
-enum State {
+pub enum State {
     Initial,
     Ready,
     Set,
@@ -251,15 +274,12 @@ enum State {
     WhistleInPlaying {
         time_when_whistle_was_detected: SystemTime,
     },
-    TentativeFinished {
-        time_when_finished_clicked: SystemTime,
-    },
     Finished,
 }
 
 impl State {
-    fn from_game_state(game_state: GameState) -> Self {
-        match game_state {
+    fn from_game_controller(game_controller_state: &GameControllerState) -> Self {
+        match game_controller_state.game_state {
             GameState::Initial => State::Initial,
             GameState::Ready => State::Ready,
             GameState::Set => State::Set,
@@ -349,8 +369,6 @@ impl State {
                 GamePhase::PenaltyShootout { .. } => FilteredGameState::Set,
                 _ => FilteredGameState::Finished,
             },
-            // is hack @schluis
-            State::TentativeFinished { .. } => FilteredGameState::Set,
         }
     }
 }

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
     fall_state::FallState,
-    filtered_game_state::FilteredGameState,
+    filtered_game_states::FilteredGameState,
     game_controller_state::GameControllerState,
     kick_decision::KickDecision,
     obstacles::Obstacle,

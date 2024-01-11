@@ -6,7 +6,7 @@ use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::PlayerNumber;
 
 use crate::{
-    fall_state::FallState, filtered_game_state::FilteredGameState,
+    fall_state::FallState, filtered_game_states::FilteredGameState,
     game_controller_state::GameControllerState, kick_decision::KickDecision, obstacles::Obstacle,
     penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState, roles::Role,
     rule_obstacles::RuleObstacle, support_foot::Side,
