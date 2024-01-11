@@ -15,7 +15,7 @@ use types::motion_command::{HeadMotion, OrientationMode};
 use types::planned_path::PathSegment;
 use types::{
     ball_position::BallPosition,
-    filtered_game_state::FilteredGameState,
+    filtered_game_states::FilteredGameState,
     game_controller_state::GameControllerState,
     messages::{IncomingMessage, OutgoingMessage},
     motion_command::MotionCommand,

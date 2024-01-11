@@ -10,7 +10,7 @@ use types::{
     action::Action,
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
-    filtered_game_state::FilteredGameState,
+    filtered_game_states::FilteredGameState,
     game_controller_state::GameControllerState,
     motion_command::MotionCommand,
     parameters::{
@@ -146,7 +146,11 @@ impl Behavior {
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
             Role::Searcher => actions.push(Action::Search),
             Role::Striker => match world_state.filtered_game_state {
-                None | Some(FilteredGameState::Playing { ball_is_free: true }) => {
+                None
+                | Some(FilteredGameState::Playing {
+                    ball_is_free: true,
+                    kick_off: _,
+                }) => {
                     actions.push(Action::Dribble);
                 }
                 Some(FilteredGameState::Ready {

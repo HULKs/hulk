@@ -2,7 +2,7 @@ use geometry::line_segment::LineSegment;
 use nalgebra::{Isometry2, Point2, UnitComplex};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
-    filtered_game_state::FilteredGameState,
+    filtered_game_states::FilteredGameState,
     game_controller_state::GameControllerState,
     line::Line,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
@@ -36,7 +36,7 @@ pub fn execute(
         world_state.robot.robot_to_field,
     ) {
         (
-            Some(FilteredGameState::Playing { ball_is_free: true }) | None,
+            Some(FilteredGameState::Playing { ball_is_free: true, kick_off: _ }) | None,
             Some(ball),
             Some(robot_to_field),
         ) => {

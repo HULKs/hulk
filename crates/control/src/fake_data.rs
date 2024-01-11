@@ -10,7 +10,7 @@ use types::{
     ball_position::BallPosition,
     cycle_time::CycleTime,
     fall_state::FallState,
-    filtered_game_state::FilteredGameState,
+    filtered_game_states::FilteredGameState,
     game_controller_state::GameControllerState,
     joints::head::HeadJoints,
     obstacles::Obstacle,

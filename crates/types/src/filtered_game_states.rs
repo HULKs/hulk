@@ -7,6 +7,6 @@ pub enum FilteredGameState {
     Initial,
     Ready { kicking_team: Team },
     Set,
-    Playing { ball_is_free: bool },
+    Playing { ball_is_free: bool, kick_off: bool },
     Finished,
 }

@@ -5,11 +5,10 @@ use geometry::look_at::LookAt;
 use nalgebra::{point, Isometry2, UnitComplex, Vector2};
 use types::{
     field_dimensions::FieldDimensions,
-    filtered_game_state::FilteredGameState,
     motion_command::MotionCommand,
     path_obstacles::PathObstacle,
     support_foot::Side,
-    world_state::{BallState, WorldState},
+    world_state::{BallState, WorldState}, filtered_game_states::FilteredGameState,
 };
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};
@@ -60,6 +59,7 @@ fn support_pose(
         Some(FilteredGameState::Ready { .. })
         | Some(FilteredGameState::Playing {
             ball_is_free: false,
+            kick_off: _,
         }) => supporting_position.x.clamp(
             minimum_x.min(maximum_x_in_ready_and_when_ball_is_not_free),
             minimum_x.max(maximum_x_in_ready_and_when_ball_is_not_free),

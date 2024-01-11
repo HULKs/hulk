@@ -7,9 +7,9 @@ use spl_network_messages::PlayerNumber;
 use types::{
     audio::{Sound, SpeakerRequest},
     buttons::Buttons,
-    filtered_game_state::FilteredGameState,
+    filtered_game_states::FilteredGameState,
     game_controller_state::GameControllerState,
-    primary_state::PrimaryState,
+    primary_state::PrimaryState, filtered_game_controller_state::FilteredGameControllerState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -23,7 +23,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     buttons: Input<Buttons, "buttons">,
-    filtered_game_state: Input<Option<FilteredGameState>, "filtered_game_state?">,
+    filtered_game_controller_state: Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
@@ -60,7 +60,7 @@ impl PrimaryStateFilter {
             context.buttons.head_buttons_touched,
             context.buttons.is_chest_button_pressed,
             context.buttons.calibration_buttons_touched,
-            context.filtered_game_state,
+            context.filtered_game_controller_state,
         ) {
             // Unstiff transitions (entering and exiting)
             (last_primary_state, true, _, _, _) => {
@@ -75,15 +75,15 @@ impl PrimaryStateFilter {
             (PrimaryState::Initial, _, _, true, _) => PrimaryState::Calibration,
 
             // GameController transitions (entering listening mode and staying within)
-            (PrimaryState::Unstiff, _, true, _, Some(game_state))
-            | (PrimaryState::Finished, _, true, _, Some(game_state)) => {
-                Self::game_state_to_primary_state(*game_state, is_penalized)
+            (PrimaryState::Unstiff, _, true, _, Some(filtered_game_controller_state))
+            | (PrimaryState::Finished, _, true, _, Some(filtered_game_controller_state)) => {
+                Self::game_state_to_primary_state(filtered_game_controller_state.game_state, is_penalized)
             }
-            (_, _, _, _, Some(game_state))
+            (_, _, _, _, Some(filtered_game_controller_state))
                 if self.last_primary_state != PrimaryState::Unstiff
                     && self.last_primary_state != PrimaryState::Finished =>
             {
-                Self::game_state_to_primary_state(*game_state, is_penalized)
+                Self::game_state_to_primary_state(filtered_game_controller_state.game_state, is_penalized)
             }
 
             // non-GameController transitions
