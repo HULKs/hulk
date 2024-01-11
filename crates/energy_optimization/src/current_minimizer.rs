@@ -1,20 +1,21 @@
 use std::f32::EPSILON;
 
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 use types::{
     joints::{body::BodyJoints, head::HeadJoints, Joints},
     motor_commands::MotorCommands,
     parameters::CurrentMinimizerParameters,
 };
 
-#[derive(Default, Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub enum State {
     #[default]
     Optimizing,
     Resetting,
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CurrentMinimizer {
     pub position_offset: Joints<f32>,
     pub state: State,
