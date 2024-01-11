@@ -882,7 +882,7 @@ fn generate_record_main_outputs(node: &Node) -> TokenStream {
                 let error_message = format!("failed to record {name}");
                 Some(quote! {
                     if enable_recording {
-                        bincode::serialize_into(&mut recording_frame, &main_outputs.#name.value).wrap_err(#error_message)?;
+                        bincode::serialize_into(&mut recording_frame, &own_database_reference.main_outputs.#name).wrap_err(#error_message)?;
                     }
                 })
             },
