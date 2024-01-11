@@ -14,7 +14,17 @@ pub mod structs;
 pub mod write_to_file;
 
 pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenStream {
-    let generated_cyclers = generate_cyclers(cyclers, mode);
+    let generated_cyclers = match mode {
+        Execution::None => Default::default(),
+        Execution::Run | Execution::Replay => {
+            let cyclers = generate_cyclers(cyclers, mode);
+            quote! {
+                mod cyclers {
+                    #cyclers
+                }
+            }
+        }
+    };
     let generated_execution = match mode {
         Execution::None => Default::default(),
         Execution::Run => {
@@ -38,9 +48,7 @@ pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenS
     let generated_structs = generate_structs(structs);
 
     quote! {
-        mod cyclers {
-            #generated_cyclers
-        }
+        #generated_cyclers
         #generated_execution
         mod perception_databases {
             #generated_perception_databases
