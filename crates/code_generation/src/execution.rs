@@ -426,8 +426,9 @@ fn generate_cycler_seeks(cyclers: &Cyclers) -> TokenStream {
                 format_ident!("{}_cycler", instance.to_case(Case::Snake));
             let cycler_index_identifier = format_ident!("{}_index", instance.to_case(Case::Snake));
             quote! {
-                let frame = self.#cycler_index_identifier.before_or_equal_of(timestamp).wrap_err("failed to seek")?;
-                self.#cycler_variable_identifier.cycle(frame.timestamp, &frame.data).wrap_err("failed to replay cycle")?;
+                if let Some(frame) = self.#cycler_index_identifier.before_or_equal_of(timestamp).wrap_err("failed to seek")? {
+                    self.#cycler_variable_identifier.cycle(frame.timestamp, &frame.data).wrap_err("failed to replay cycle")?;
+                }
             }
         })
         .collect()
