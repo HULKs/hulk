@@ -50,7 +50,7 @@ def main(args):
         images_path.mkdir(parents=True, exist_ok=False)
 
         for image_path in chunk:
-            image = cv2.imread(image_path)
+            image = cv2.imread(str(image_path))
             if args.convert_colors:
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = cv2.cvtColor(image, cv2.COLOR_YCrCb2RGB)
@@ -67,7 +67,7 @@ def main(args):
                 ]
 
             image_name = str(uuid4()) + ".png"
-            cv2.imwrite(images_path.joinpath(image_name), image)
+            cv2.imwrite(str(images_path.joinpath(image_name)), image)
 
         with open(images_path.parent.joinpath("data.json"), 'w') as f:
             json.dump(chunk_annotations, f)
