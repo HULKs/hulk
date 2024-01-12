@@ -1168,5 +1168,5 @@
     }
   },
   "angular_velocity_smoothing_factor": 0.1,
-  "center_circle_obstacle_increasement": 1.2
+  "center_circle_obstacle_increase": 1.2
 }

@@ -3,7 +3,7 @@ use nalgebra::{Isometry2, Point2, UnitComplex};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_states::FilteredGameState,
+    filtered_game_state::FilteredGameState,
     line::Line,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::InterceptBallParameters,
@@ -39,8 +39,7 @@ pub fn execute(
     ) {
         (
             Some(FilteredGameState::Playing {
-                ball_is_free: true,
-                kick_off: _,
+                ball_is_free: true, ..
             })
             | None,
             Some(ball),

@@ -498,7 +498,7 @@ impl Localization {
                         Some((robot_to_field, context.filtered_game_controller_state?))
                     })
                     .map(|(robot_to_field, game_controller_state)| {
-                        if !game_controller_state.hulks_team_is_home_after_coin_toss {
+                        if !game_controller_state.own_team_is_home_after_coin_toss {
                             Isometry2::from_parts(
                                 Translation2::default(),
                                 Rotation2::new(PI).into(),

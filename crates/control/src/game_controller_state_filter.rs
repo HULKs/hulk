@@ -9,7 +9,7 @@ use spl_network_messages::{GamePhase, GameState, Team};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_states::FilteredGameState, filtered_whistle::FilteredWhistle,
+    filtered_game_state::FilteredGameState, filtered_whistle::FilteredWhistle,
     game_controller_state::GameControllerState, parameters::GameStateFilterParameters,
 };
 #[derive(Deserialize, Serialize)]
@@ -49,7 +49,7 @@ impl GameControllerStateFilter {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let game_states = filter_game_states(
-            context.robot_to_field,
+            *context.robot_to_field,
             context.ball_position,
             context.field_dimensions,
             context.config,
@@ -65,11 +65,11 @@ impl GameControllerStateFilter {
             game_phase: context.game_controller_state.game_phase,
             kicking_team: context.game_controller_state.kicking_team,
             penalties: context.game_controller_state.penalties,
-            remaining_amount_of_messages: context
+            remaining_number_of_messages: context
                 .game_controller_state
                 .remaining_amount_of_messages,
             sub_state: context.game_controller_state.sub_state,
-            hulks_team_is_home_after_coin_toss: context
+            own_team_is_home_after_coin_toss: context
                 .game_controller_state
                 .hulks_team_is_home_after_coin_toss,
         };
@@ -79,14 +79,14 @@ impl GameControllerStateFilter {
     }
 }
 
-pub struct FilteredGameStates {
+struct FilteredGameStates {
     pub filtered_game_state: FilteredGameState,
     pub filtered_opponent_game_state: FilteredGameState,
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn filter_game_states(
-    robot_to_field: &mut Isometry2<f32>,
+fn filter_game_states(
+    robot_to_field: Isometry2<f32>,
     ball_position: Option<&BallPosition>,
     field_dimensions: &FieldDimensions,
     config: &GameStateFilterParameters,
@@ -97,7 +97,7 @@ pub fn filter_game_states(
     opponent_state: State,
 ) -> FilteredGameStates {
     let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
-        *robot_to_field,
+        robot_to_field,
         ball_position,
         field_dimensions,
         config.whistle_acceptance_goal_distance,
@@ -120,7 +120,7 @@ pub fn filter_game_states(
     );
     let ball_detected_far_from_kick_off_point = ball_position
         .map(|ball| {
-            let absolute_ball_position = *robot_to_field * ball.position;
+            let absolute_ball_position = robot_to_field * ball.position;
             distance(&absolute_ball_position, &Point2::origin())
                 > config.distance_to_consider_ball_moved_in_kick_off
         })

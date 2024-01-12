@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use spl_network_messages::{SubState, Team};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_states::FilteredGameState, rule_obstacles::RuleObstacle, world_state::BallState,
+    filtered_game_state::FilteredGameState, rule_obstacles::RuleObstacle, world_state::BallState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -22,7 +22,7 @@ pub struct CycleContext {
         RequiredInput<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     ball_state: Input<Option<BallState>, "ball_state?">,
 
-    center_circle_obstacle_increasement: Parameter<f32, "center_circle_obstacle_increasement">,
+    center_circle_obstacle_increase: Parameter<f32, "center_circle_obstacle_increase">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
@@ -77,7 +77,7 @@ impl RuleObstacleComposer {
                 let center_circle_obstacle = RuleObstacle::Circle(Circle::new(
                     Point2::origin(),
                     context.field_dimensions.center_circle_diameter / 2.0
-                        * context.center_circle_obstacle_increasement,
+                        * context.center_circle_obstacle_increase,
                 ));
                 dbg!("center circle obstacle created");
                 rule_obstacles.push(center_circle_obstacle);

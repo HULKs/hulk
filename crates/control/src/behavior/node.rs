@@ -11,7 +11,7 @@ use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_states::FilteredGameState,
+    filtered_game_state::FilteredGameState,
     motion_command::MotionCommand,
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, LostBallParameters,
@@ -151,8 +151,7 @@ impl Behavior {
             {
                 None
                 | Some(FilteredGameState::Playing {
-                    ball_is_free: true,
-                    kick_off: _,
+                    ball_is_free: true, ..
                 }) => {
                     actions.push(Action::Dribble);
                 }

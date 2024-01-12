@@ -13,7 +13,7 @@ use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team
 use types::motion_command::{HeadMotion, OrientationMode};
 use types::{
     ball_position::BallPosition,
-    filtered_game_states::FilteredGameState,
+    filtered_game_state::FilteredGameState,
     game_controller_state::GameControllerState,
     messages::{IncomingMessage, OutgoingMessage},
     motion_command::MotionCommand,
