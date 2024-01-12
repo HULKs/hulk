@@ -945,6 +945,10 @@
       "nanos": 0,
       "secs": 15
     },
+    "tentative_finish_duration": {
+      "nanos": 0,
+      "secs": 4
+    },
     "distance_to_consider_ball_moved_in_kick_off": 0.2,
     "whistle_acceptance_goal_distance": [0.5, 0.5]
   },
