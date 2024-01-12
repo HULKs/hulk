@@ -1,8 +1,0 @@
-stages:
-  sample-full-positives:
-    cmd: annotation-sampler corrected-corrected.json full-positives.tfrecord
-    deps:
-    - corrected-corrected.json
-    - raw
-    outs:
-    - full-positives.tfrecord
