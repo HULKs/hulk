@@ -8,12 +8,14 @@ pub fn send_score_up() -> Result<()> {
         return Ok(());
     }
 
-    if let Err(_error) = reqwest::blocking::get(format!(
-        "http://{}/score/{}",
-        config.leaderboard.host, config.leaderboard.githubname
-    )) {
-        eprintln!("Failed to send score up");
-    }
+    std::thread::spawn(move || {
+        if let Err(_error) = reqwest::blocking::get(format!(
+            "http://{}/score/{}",
+            config.leaderboard.host, config.leaderboard.githubname
+        )) {
+            eprintln!("Failed to send score up");
+        }
+    });
 
     Ok(())
 }

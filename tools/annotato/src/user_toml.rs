@@ -1,4 +1,4 @@
-use std::{net::{Ipv4Addr, SocketAddr}, path::PathBuf};
+use std::net::SocketAddr;
 
 use eframe::egui::{Key, Modifiers, InputState};
 use once_cell::sync::OnceCell;
@@ -73,9 +73,7 @@ where
 
 #[derive(Debug, Deserialize)]
 pub struct Remote {
-    pub user: String,
-    pub host: Ipv4Addr,
-    pub folder: PathBuf,
+    pub rsync_path: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

@@ -212,14 +212,23 @@ fn zoom_on_scroll_wheel(plot_ui: &mut PlotUi) {
 fn focus_when_e_held_down(plot_ui: &mut PlotUi) {
     let config = CONFIG.get().unwrap();
 
-    if !plot_ui
-        .ctx()
-        .input(|i| config.keybindings.zoom.is_pressed(i))
-    {
-        plot_ui.set_auto_bounds(Vec2b::TRUE);
-        return;
+    if let Some(pressed) = plot_ui.ctx().input(|i| {
+        i.events.iter().find_map(|e| match e {
+            Event::Key {
+                key,
+                repeat: false,
+                pressed,
+                ..
+            } if *key == config.keybindings.zoom.primary => Some(*pressed),
+            _ => None,
+        })
+    }) {
+        if !pressed {
+            plot_ui.set_auto_bounds(Vec2b::TRUE);
+            return;
+        }
+        zoom_plot(plot_ui, 5.0);
     }
-    zoom_plot(plot_ui, 5.0);
 }
 
 fn zoom_plot(plot_ui: &mut PlotUi, zoom_factor: f32) {
