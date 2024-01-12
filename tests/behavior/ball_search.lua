@@ -59,7 +59,7 @@ function on_cycle()
         set_robot_pose(7, { -3, 0 }, 0)
         state.ball = {
             position = { -2.0, 0.0 },
-            velocity = { 9.0, 0.0 },
+            velocity = { 9.0, 2.0 },
         }
     end
 
