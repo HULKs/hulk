@@ -55,7 +55,6 @@ fn main() -> Result<()> {
                     "control::motion::arms_up_squat",
                     "control::motion::condition_input_provider",
                     "control::motion::dispatching_interpolator",
-                    "control::motion::energy_saving_stand",
                     "control::motion::fall_protector",
                     "control::motion::head_motion",
                     "control::motion::motor_commands_collector",

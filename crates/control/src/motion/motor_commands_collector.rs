@@ -19,7 +19,6 @@ pub struct CreationContext {}
 pub struct CycleContext {
     arms_up_squat_joints_command: Input<MotorCommands<f32>, "arms_up_squat_joints_command">,
     dispatching_command: Input<MotorCommands<f32>, "dispatching_command">,
-    energy_saving_stand_command: Input<BodyMotorCommands<f32>, "energy_saving_stand_command">,
     fall_protection_command: Input<MotorCommands<f32>, "fall_protection_command">,
     head_joints_command: Input<HeadMotorCommands<f32>, "head_joints_command">,
     jump_left_joints_command: Input<MotorCommands<f32>, "jump_left_joints_command">,
@@ -86,16 +85,6 @@ impl MotorCommandCollector {
             MotionType::Walk => (
                 Joints::from_head_and_body(head_joints_command.positions, walk.positions),
                 Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),
-            ),
-            MotionType::EnergySavingStand => (
-                Joints::from_head_and_body(
-                    head_joints_command.positions,
-                    context.energy_saving_stand_command.positions,
-                ),
-                Joints::from_head_and_body(
-                    head_joints_command.stiffnesses,
-                    context.energy_saving_stand_command.stiffnesses,
-                ),
             ),
         };
 

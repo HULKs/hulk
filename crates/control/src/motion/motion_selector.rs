@@ -22,8 +22,6 @@ pub struct CycleContext {
     has_ground_contact: Input<bool, "has_ground_contact">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-
-    enable_energy_saving_stand: Parameter<bool, "energy_saving_stand.enabled">,
 }
 
 #[context]
@@ -42,8 +40,7 @@ impl MotionSelector {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let motion_safe_to_exit = context.motion_safe_exits[self.current_motion];
-        let requested_motion =
-            motion_type_from_command(context.motion_command, *context.enable_energy_saving_stand);
+        let requested_motion = motion_type_from_command(context.motion_command);
 
         self.current_motion = transition_motion(
             self.current_motion,
@@ -72,10 +69,7 @@ impl MotionSelector {
     }
 }
 
-fn motion_type_from_command(
-    command: &MotionCommand,
-    enable_energy_saving_stand: bool,
-) -> MotionType {
+fn motion_type_from_command(command: &MotionCommand) -> MotionType {
     match command {
         MotionCommand::ArmsUpSquat => MotionType::ArmsUpSquat,
         MotionCommand::FallProtection { .. } => MotionType::FallProtection,
@@ -86,15 +80,7 @@ fn motion_type_from_command(
         },
         MotionCommand::Penalized => MotionType::Penalized,
         MotionCommand::SitDown { .. } => MotionType::SitDown,
-        MotionCommand::Stand {
-            is_energy_saving, ..
-        } => {
-            if enable_energy_saving_stand && *is_energy_saving {
-                MotionType::EnergySavingStand
-            } else {
-                MotionType::Stand
-            }
-        }
+        MotionCommand::Stand { .. } => MotionType::Stand,
         MotionCommand::StandUp { facing } => match facing {
             Facing::Down => MotionType::StandUpFront,
             Facing::Up => MotionType::StandUpBack,

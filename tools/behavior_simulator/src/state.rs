@@ -149,10 +149,7 @@ impl State {
                     head
                 }
                 MotionCommand::SitDown { head } => head,
-                MotionCommand::Stand {
-                    head,
-                    is_energy_saving: _,
-                } => head,
+                MotionCommand::Stand { head } => head,
                 _ => &HeadMotion::Center,
             };
 

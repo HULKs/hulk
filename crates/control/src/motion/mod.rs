@@ -2,7 +2,6 @@ pub mod arms_up_squat;
 pub mod command_sender;
 pub mod condition_input_provider;
 pub mod dispatching_interpolator;
-pub mod energy_saving_stand;
 pub mod fall_protector;
 pub mod head_motion;
 pub mod jump_left;

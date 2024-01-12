@@ -18,7 +18,6 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
         ) => None,
         (_, PrimaryState::Ready | PrimaryState::Playing) => Some(MotionCommand::Stand {
             head: types::motion_command::HeadMotion::LookAround,
-            is_energy_saving: false,
         }),
         _ => None,
     }

@@ -16,7 +16,6 @@ pub fn execute(
     match world_state.robot.primary_state {
         PrimaryState::Initial => Some(MotionCommand::Stand {
             head: HeadMotion::ZeroAngles,
-            is_energy_saving: true,
         }),
         PrimaryState::Set => {
             let robot_to_field = world_state.robot.robot_to_field?;
@@ -46,7 +45,6 @@ pub fn execute(
                     target,
                     camera: None,
                 },
-                is_energy_saving: true,
             })
         }
         PrimaryState::Playing => {
@@ -64,7 +62,6 @@ pub fn execute(
                     None,
                 ) => Some(MotionCommand::Stand {
                     head: HeadMotion::Center,
-                    is_energy_saving: true,
                 }),
                 _ => None,
             }
