@@ -131,17 +131,15 @@ fn next_filtered_state(
         {
             State::Finished
         }
-        (State::TentativeFinished { .. }, game_state) if game_state != GameState::Finished => {
-            State::from_game_state(game_state)
-        }
         (
             State::TentativeFinished {
                 time_when_finished_clicked,
             },
-            _,
+            GameState::Finished,
         ) => State::TentativeFinished {
             time_when_finished_clicked,
         },
+        (State::TentativeFinished { .. }, game_state) => State::from_game_state(game_state),
         (_, GameState::Finished) => State::TentativeFinished {
             time_when_finished_clicked: cycle_start_time,
         },
@@ -350,6 +348,7 @@ impl State {
                 GamePhase::PenaltyShootout { .. } => FilteredGameState::Set,
                 _ => FilteredGameState::Finished,
             },
+            // is hack @schluis
             State::TentativeFinished { .. } => FilteredGameState::Set,
         }
     }
