@@ -83,7 +83,6 @@ impl BehaviorCycler {
         Ok(Self {
             hardware_interface,
             own_changed,
-
             active_vision,
             time_to_reach_kick_position,
             ball_state_composer,
@@ -114,15 +113,11 @@ impl BehaviorCycler {
                     .cycle(control::rule_obstacle_composer::CycleContext::new(
                         own_database
                             .main_outputs
-                            .game_controller_state
-                            .as_ref()
-                            .unwrap(),
-                        own_database
-                            .main_outputs
-                            .filtered_game_state
+                            .filtered_game_controller_state
                             .as_ref()
                             .unwrap(),
                         own_database.main_outputs.ball_state.as_ref(),
+                        &parameters.center_circle_obstacle_increasement,
                         &parameters.field_dimensions,
                     ))
                     .wrap_err("failed to execute cycle of node `RuleObstacleComposer`")?
@@ -244,7 +239,7 @@ impl BehaviorCycler {
                 .cycle(world_state_composer::CycleContext::new(
                     own_database.main_outputs.ball_state.as_ref(),
                     own_database.main_outputs.rule_ball_state.as_ref(),
-                    own_database.main_outputs.filtered_game_state.as_ref(),
+                    own_database.main_outputs.filtered_game_controller_state.as_ref(),
                     own_database.main_outputs.game_controller_state.as_ref(),
                     own_database.main_outputs.robot_to_field.as_ref(),
                     own_database.main_outputs.kick_decisions.as_ref(),

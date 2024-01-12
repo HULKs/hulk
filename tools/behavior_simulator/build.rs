@@ -19,6 +19,7 @@ fn main() -> Result<()> {
                     "control::active_vision",
                     "control::ball_state_composer",
                     "control::behavior::node",
+                    "control::game_controller_state_filter",
                     "control::kick_selector",
                     "control::motion::look_around",
                     "control::role_assignment",

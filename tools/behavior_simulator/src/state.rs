@@ -10,9 +10,8 @@ use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
-use types::motion_command::KickVariant;
+use types::{motion_command::KickVariant, planned_path::PathSegment, filtered_game_controller_state::FilteredGameControllerState};
 use types::motion_command::{HeadMotion, OrientationMode};
-use types::planned_path::PathSegment;
 use types::{
     ball_position::BallPosition,
     filtered_game_states::FilteredGameState,
@@ -237,7 +236,11 @@ impl State {
                     (false, FilteredGameState::Playing { .. }) => PrimaryState::Playing,
                     (false, FilteredGameState::Finished) => PrimaryState::Finished,
                 };
-            robot.database.main_outputs.filtered_game_state = Some(self.filtered_game_state);
+            robot.database.main_outputs.filtered_game_controller_state =
+                Some(FilteredGameControllerState {
+                    game_state: self.filtered_game_state,
+                    ..Default::default()
+                });
             robot.database.main_outputs.game_controller_state = Some(self.game_controller_state);
 
             robot.cycle(messages_with_time)?;

@@ -52,7 +52,7 @@ impl GameControllerStateFilter {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let game_states = filter_game_state(
+        let game_states = filter_game_states(
             context.robot_to_field,
             context.ball_position,
             context.field_dimensions,
@@ -88,7 +88,7 @@ pub struct FilteredGameStates {
     pub filtered_opponent_game_state: FilteredGameState,
 }
 
-pub fn filter_game_state(
+pub fn filter_game_states(
     robot_to_field: &mut Isometry2<f32>,
     ball_position: Option<&BallPosition>,
     field_dimensions: &FieldDimensions,
