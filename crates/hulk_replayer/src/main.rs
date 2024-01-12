@@ -1,11 +1,14 @@
 #![recursion_limit = "256"]
+mod user_interface;
+
 use std::{env::args, fs::File, sync::Arc, time::SystemTime};
 
 use color_eyre::{
     eyre::{Result, WrapErr},
-    install,
+    install, Report,
 };
 use ctrlc::set_handler;
+use eframe::run_native;
 use execution::{RecordingFilePaths, Replayer};
 use framework::Parameters as FrameworkParameters;
 use hardware::{
@@ -25,6 +28,8 @@ use types::{
     sensor_data::SensorData,
     ycbcr422_image::YCbCr422Image,
 };
+
+use crate::user_interface::ReplayerApplication;
 
 pub trait HardwareInterface:
     ActuatorInterface
@@ -149,7 +154,7 @@ fn main() -> Result<()> {
 
     let ids = hardware_interface.get_ids();
 
-    let replayer = Replayer::new(
+    let mut replayer = Replayer::new(
         Arc::new(hardware_interface),
         framework_parameters.communication_addresses,
         framework_parameters.parameters_directory,
@@ -166,10 +171,24 @@ fn main() -> Result<()> {
     )
     .wrap_err("failed to create replayer")?;
 
-    dbg!(replayer.first_timestamp());
-    dbg!(replayer.last_timestamp());
+    let start = replayer
+        .first_timestamp()
+        .expect("first timestamp is required");
+    let end = replayer
+        .last_timestamp()
+        .expect("last timestamp is required");
 
-    // replayer.seek_before_or_equal_of(timestamp)
-
-    Ok(())
+    run_native(
+        "Replayer",
+        Default::default(),
+        Box::new(move |_creation_context| {
+            Box::new(ReplayerApplication::new(start, end, start, move |timestamp| {
+                replayer
+                    .seek_before_or_equal_of(timestamp)
+                    .expect("failed to seek");
+            }))
+        }),
+    )
+    .map_err(|error| Report::msg(error.to_string()))
+    .wrap_err("failed to run user interface")
 }

@@ -13,6 +13,7 @@ communication = { workspace = true, features = ["server"] }
 control = { workspace = true }
 coordinate_systems = { workspace = true }
 ctrlc = { workspace = true }
+eframe = { workspace = true }
 energy_optimization = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }

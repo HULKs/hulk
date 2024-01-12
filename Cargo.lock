@@ -2733,6 +2733,7 @@ dependencies = [
  "control",
  "coordinate_systems",
  "ctrlc",
+ "eframe",
  "energy_optimization",
  "framework",
  "hardware",
