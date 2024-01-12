@@ -316,6 +316,12 @@ impl App for TwixApp {
                 self.dock_state.push_to_focused_leaf(tab.into());
             }
 
+            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::D)) {
+                let (_, tab) = self.dock_state.find_active_focused().unwrap();
+                let newtab = &tab.panel.save();
+                self.dock_state.push_to_focused_leaf(Tab::from(SelectablePanel::new(self.nao.clone(), Some(&newtab)).unwrap()));
+            }
+
             let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
             style.buttons.add_tab_align = TabAddAlign::Left;
             let mut tab_viewer = TabViewer::default();
