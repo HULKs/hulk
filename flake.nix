@@ -50,6 +50,7 @@
                   xorg.libXrandr
                   pkgs.nixgl.auto.nixGLDefault
                   rustPlatform.bindgenHook
+                  openssl
                 ];
                 env = {
                   LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}";
