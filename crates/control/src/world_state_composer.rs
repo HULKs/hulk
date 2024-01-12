@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
     fall_state::FallState,
-    filtered_game_states::FilteredGameState,
+    filtered_game_controller_state::FilteredGameControllerState,
     game_controller_state::GameControllerState,
     kick_decision::KickDecision,
     obstacles::Obstacle,
@@ -26,7 +26,8 @@ pub struct CreationContext {}
 pub struct CycleContext {
     ball: Input<Option<BallState>, "ball_state?">,
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
-    filtered_game_state: Input<Option<FilteredGameState>, "filtered_game_state?">,
+    filtered_game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
     robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
@@ -67,7 +68,9 @@ impl WorldStateComposer {
         let world_state = WorldState {
             ball: context.ball.copied(),
             rule_ball: context.rule_ball.copied(),
-            filtered_game_state: context.filtered_game_state.copied(),
+            filtered_game_state: context
+                .filtered_game_controller_state
+                .map(|filtered_game_controller_state| filtered_game_controller_state.game_state),
             obstacles: context.obstacles.clone(),
             rule_obstacles: context.rule_obstacles.clone(),
             position_of_interest: *context.position_of_interest,
