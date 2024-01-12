@@ -13,7 +13,7 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct MotorCommandCollector {
-    penalized_current_minimizer: CurrentMinimizer,
+    current_minimizer: CurrentMinimizer,
 }
 
 #[context]
@@ -54,7 +54,7 @@ pub struct MainOutputs {
 impl MotorCommandCollector {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
-            penalized_current_minimizer: CurrentMinimizer {
+            current_minimizer: CurrentMinimizer {
                 parameters: *context.current_minimizer_parameters,
                 ..Default::default()
             },
@@ -84,20 +84,23 @@ impl MotorCommandCollector {
             ),
             MotionType::FallProtection => (fall_protection_positions, fall_protection_stiffnesses),
             MotionType::Initial => (
-                self.penalized_current_minimizer
+                self.current_minimizer
                     .optimize(context.sensor_data.currents, *context.initial_pose),
                 Joints::fill(0.6),
             ),
             MotionType::JumpLeft => (jump_left.positions, jump_left.stiffnesses),
             MotionType::JumpRight => (jump_right.positions, jump_right.stiffnesses),
             MotionType::Penalized => (
-                self.penalized_current_minimizer
+                self.current_minimizer
                     .optimize(context.sensor_data.currents, *context.penalized_pose),
                 Joints::fill(0.6),
             ),
             MotionType::SitDown => (sit_down.positions, sit_down.stiffnesses),
             MotionType::Stand => (
-                Joints::from_head_and_body(head_joints_command.positions, walk.positions),
+                self.current_minimizer.optimize(
+                    context.sensor_data.currents,
+                    Joints::from_head_and_body(head_joints_command.positions, walk.positions),
+                ),
                 Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),
             ),
             MotionType::StandUpBack => (*stand_up_back_positions, Joints::fill(1.0)),
@@ -123,7 +126,7 @@ impl MotorCommandCollector {
 
         context
             .penalized_current_minimizer
-            .fill_if_subscribed(|| self.penalized_current_minimizer);
+            .fill_if_subscribed(|| self.current_minimizer);
 
         Ok(MainOutputs {
             motor_commands: motor_commands.into(),

@@ -124,8 +124,7 @@ pub struct WalkingEngine {
 #[context]
 pub struct CreationContext {
     walking_engine_parameters: Parameter<WalkingEngineParameters, "walking_engine">,
-    current_minimizer_parameters:
-        Parameter<CurrentMinimizerParameters, "current_minimizer_parameters">,
+    current_minimizer_parameters: Parameter<CurrentMinimizerParameters, "current_minimizer">,
 }
 
 #[context]
