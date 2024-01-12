@@ -12,7 +12,8 @@ use framework::{HistoricInput, PerceptionInput};
 use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
 use types::{
-    game_controller_state::GameControllerState, line_data::LineData, primary_state::PrimaryState,
+    filtered_game_controller_state::FilteredGameControllerState, line_data::LineData,
+    primary_state::PrimaryState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -35,7 +36,8 @@ pub struct CycleContext {
     current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
 
-    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    filtered_game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     primary_state: Input<PrimaryState, "primary_state">,
     robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
@@ -105,7 +107,7 @@ impl LocalizationRecorder {
             .collect();
         let recorded_context = RecordedCycleContext {
             current_odometry_to_last_odometry,
-            game_controller_state: context.game_controller_state.cloned(),
+            filtered_game_controller_state: context.filtered_game_controller_state.cloned(),
             has_ground_contact: *context.has_ground_contact,
             primary_state: *context.primary_state,
             robot_to_field: context.robot_to_field.cloned(),
@@ -149,7 +151,7 @@ impl LocalizationRecorder {
 pub struct RecordedCycleContext {
     pub current_odometry_to_last_odometry: BTreeMap<SystemTime, Option<Isometry2<f32>>>,
 
-    pub game_controller_state: Option<GameControllerState>,
+    pub filtered_game_controller_state: Option<FilteredGameControllerState>,
     pub has_ground_contact: bool,
     pub primary_state: PrimaryState,
     pub robot_to_field: Option<Isometry2<f32>>,

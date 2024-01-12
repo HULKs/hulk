@@ -18,7 +18,6 @@ use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
 use types::{
     field_dimensions::FieldDimensions,
     field_marks::{field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldMark},
-    game_controller_state::GameControllerState,
     initial_pose::InitialPose,
     line::{Line, Line2},
     line_data::LineData,
@@ -26,7 +25,7 @@ use types::{
     multivariate_normal_distribution::MultivariateNormalDistribution,
     players::Players,
     primary_state::PrimaryState,
-    support_foot::Side,
+    support_foot::Side, filtered_game_controller_state::FilteredGameControllerState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -55,7 +54,7 @@ pub struct CycleContext {
     current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
 
-    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    filtered_game_controller_state: Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     primary_state: Input<PrimaryState, "primary_state">,
 
@@ -466,12 +465,12 @@ impl Localization {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let primary_state = *context.primary_state;
         let penalty = context
-            .game_controller_state
+            .filtered_game_controller_state
             .and_then(|game_controller_state| {
                 game_controller_state.penalties[*context.player_number]
             });
         let game_phase = context
-            .game_controller_state
+            .filtered_game_controller_state
             .map(|game_controller_state| game_controller_state.game_phase);
 
         self.reset_state(primary_state, game_phase, &context, &penalty);
@@ -494,7 +493,7 @@ impl Localization {
             .or_else(|| {
                 robot_to_field
                     .and_then(|robot_to_field| {
-                        Some((robot_to_field, context.game_controller_state?))
+                        Some((robot_to_field, context.filtered_game_controller_state?))
                     })
                     .map(|(robot_to_field, game_controller_state)| {
                         if !game_controller_state.hulks_team_is_home_after_coin_toss {

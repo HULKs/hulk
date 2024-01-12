@@ -3,7 +3,7 @@ use nalgebra::Point2;
 use spl_network_messages::Team;
 use std::f32::consts::PI;
 use types::{
-    game_controller_state::GameControllerState, parameters::DribblingParameters,
+    filtered_game_controller_state::FilteredGameControllerState, parameters::DribblingParameters,
     path_obstacles::PathObstacle, planned_path::PathSegment, world_state::WorldState,
 };
 
@@ -50,8 +50,8 @@ pub fn plan(
     };
 
     let rule_obstacles = if matches!(
-        world_state.game_controller_state,
-        Some(GameControllerState {
+        world_state.filtered_game_controller_state,
+        Some(FilteredGameControllerState {
             kicking_team: Team::Hulks,
             ..
         })

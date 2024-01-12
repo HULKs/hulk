@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 use spl_network_messages::{SubState, Team};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
-    game_controller_state::GameControllerState, penalty_shot_direction::PenaltyShotDirection,
-    primary_state::PrimaryState, support_foot::Side, world_state::BallState,
+    filtered_game_controller_state::FilteredGameControllerState,
+    penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState, support_foot::Side,
+    world_state::BallState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -29,7 +30,8 @@ pub struct CycleContext {
     robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     team_ball: Input<Option<BallPosition>, "team_ball?">,
     primary_state: Input<PrimaryState, "primary_state">,
-    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    filtered_game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
@@ -75,12 +77,12 @@ impl BallStateComposer {
         let rule_ball = match (
             context.primary_state,
             context.robot_to_field,
-            context.game_controller_state,
+            context.filtered_game_controller_state,
         ) {
             (
                 PrimaryState::Ready,
                 Some(robot_to_field),
-                Some(GameControllerState {
+                Some(FilteredGameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
                     kicking_team,
                     ..

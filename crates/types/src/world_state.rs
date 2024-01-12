@@ -6,18 +6,16 @@ use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::PlayerNumber;
 
 use crate::{
-    fall_state::FallState, filtered_game_states::FilteredGameState,
-    game_controller_state::GameControllerState, kick_decision::KickDecision, obstacles::Obstacle,
-    penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState, roles::Role,
-    rule_obstacles::RuleObstacle, support_foot::Side,
+    fall_state::FallState, filtered_game_controller_state::FilteredGameControllerState,
+    kick_decision::KickDecision, obstacles::Obstacle, penalty_shot_direction::PenaltyShotDirection,
+    primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle, support_foot::Side,
 };
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct WorldState {
     pub ball: Option<BallState>,
     pub rule_ball: Option<BallState>,
-    pub filtered_game_state: Option<FilteredGameState>,
-    pub game_controller_state: Option<GameControllerState>,
+    pub filtered_game_controller_state: Option<FilteredGameControllerState>,
     pub obstacles: Vec<Obstacle>,
     pub rule_obstacles: Vec<RuleObstacle>,
     pub position_of_interest: Point2<f32>,

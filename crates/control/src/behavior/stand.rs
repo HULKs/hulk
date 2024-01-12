@@ -2,7 +2,7 @@ use nalgebra::{point, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
-    game_controller_state::GameControllerState,
+    filtered_game_controller_state::FilteredGameControllerState,
     motion_command::{HeadMotion, MotionCommand},
     primary_state::PrimaryState,
     roles::Role,
@@ -20,8 +20,8 @@ pub fn execute(
         }),
         PrimaryState::Set => {
             let robot_to_field = world_state.robot.robot_to_field?;
-            let fallback_target = match world_state.game_controller_state {
-                Some(GameControllerState {
+            let fallback_target = match world_state.filtered_game_controller_state {
+                Some(FilteredGameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
                     kicking_team,
                     ..
@@ -51,12 +51,12 @@ pub fn execute(
         }
         PrimaryState::Playing => {
             match (
-                world_state.game_controller_state,
+                world_state.filtered_game_controller_state,
                 world_state.robot.role,
                 world_state.ball,
             ) {
                 (
-                    Some(GameControllerState {
+                    Some(FilteredGameControllerState {
                         game_phase: GamePhase::PenaltyShootout { .. },
                         ..
                     }),

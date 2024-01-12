@@ -99,7 +99,7 @@ fn assign_search_role(world_state: &WorldState) -> Option<SearchRole> {
     ]
     .into_iter();
     let penalties = world_state
-        .game_controller_state
+        .filtered_game_controller_state
         .map(|state| state.penalties)?;
     let available_players = penalties
         .iter()
