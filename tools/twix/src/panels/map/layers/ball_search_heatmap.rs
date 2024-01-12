@@ -45,7 +45,7 @@ impl Layer for BallSearchHeatmap {
                         (x + 1) as f32 * cell_length - offset.0,
                         (y + 1) as f32 * cell_width - offset.1,
                     ),
-                    Color32::from_rgba_unmultiplied(0, 0, 255, (value * 255.0) as u8),
+                    Color32::from_rgba_unmultiplied(0, 0, 255, ((value * 255.0) / 2.0) as u8),
                 );
             }
         }

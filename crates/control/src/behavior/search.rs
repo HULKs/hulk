@@ -37,12 +37,18 @@ impl SearchRole {
             -field_dimensions.goal_inner_width / 4.0
         ];
         let center = point![0.0, 0.0];
+        let supporting_left = point![
+            field_dimensions.length / 2.0 + field_dimensions.goal_box_area_length + 0.2,
+            field_dimensions.goal_inner_width / 4.0
+        ];
+        let supporting_right = point![
+            field_dimensions.length / 2.0 + field_dimensions.penalty_area_length + 0.2,
+            -field_dimensions.goal_inner_width / 4.0
+        ];
         let aggressive = point![
             field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
             0.0
         ];
-        let supporting_left = point![0.0, 0.0];
-        let supporting_right = point![0.0, 0.0];
 
         ground_to_field.inverse()
             * match self {
