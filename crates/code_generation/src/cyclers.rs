@@ -1206,7 +1206,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                         *system_time,
                                         #map_operation,
                                     )).collect(),
-                                    temporary: #name[0].iter().map(|(system_time, values)| (
+                                    temporary: #name[1].iter().map(|(system_time, values)| (
                                         *system_time,
                                         #map_operation,
                                     )).collect(),
