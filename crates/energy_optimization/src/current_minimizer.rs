@@ -26,7 +26,7 @@ pub struct CurrentMinimizer {
 
 impl CurrentMinimizer {
     pub fn optimize_body(
-        self,
+        &mut self,
         currents: Joints<f32>,
         body_positions: BodyJoints<f32>,
     ) -> BodyJoints<f32> {
@@ -40,7 +40,7 @@ impl CurrentMinimizer {
         }
     }
 
-    pub fn optimize(mut self, currents: Joints<f32>, positions: Joints<f32>) -> Joints<f32> {
+    pub fn optimize(&mut self, currents: Joints<f32>, positions: Joints<f32>) -> Joints<f32> {
         let positions_difference = positions - self.last_positions;
         let squared_positions_difference_sum: f32 = positions_difference
             .into_iter()
