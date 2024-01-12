@@ -6446,10 +6446,10 @@ dependencies = [
 
 [[patch.unused]]
 name = "serde"
-version = "1.0.166"
-source = "git+https://github.com/h3ndrk/serde.git?rev=2469fb0f8331bfefb13d24185a3bc23a7b4629b9#2469fb0f8331bfefb13d24185a3bc23a7b4629b9"
+version = "1.0.171"
+source = "git+https://github.com/h3ndrk/serde.git?rev=8f02d0c62734d0da202af4efd55ac6d3c942154a#8f02d0c62734d0da202af4efd55ac6d3c942154a"
 
 [[patch.unused]]
 name = "serde_derive"
-version = "1.0.166"
-source = "git+https://github.com/h3ndrk/serde.git?rev=2469fb0f8331bfefb13d24185a3bc23a7b4629b9#2469fb0f8331bfefb13d24185a3bc23a7b4629b9"
+version = "1.0.171"
+source = "git+https://github.com/h3ndrk/serde.git?rev=8f02d0c62734d0da202af4efd55ac6d3c942154a#8f02d0c62734d0da202af4efd55ac6d3c942154a"
