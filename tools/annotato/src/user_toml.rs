@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use eframe::egui::{Key, Modifiers, InputState};
+use eframe::egui::{InputState, Key, Modifiers};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
@@ -44,7 +44,10 @@ pub struct KeyBind {
 impl KeyBind {
     pub fn is_pressed(&self, input: &InputState) -> bool {
         let modifiers_pressed = input.modifiers == self.modifiers;
-        let keys_pressed = [self.primary].iter().chain(self.extra.iter()).all(|&key| input.key_pressed(key));
+        let keys_pressed = [self.primary]
+            .iter()
+            .chain(self.extra.iter())
+            .all(|&key| input.key_pressed(key));
 
         modifiers_pressed && keys_pressed
     }

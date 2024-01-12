@@ -248,9 +248,7 @@ impl App for AnnotatorApp {
                             self.previous().expect("failed to load previous image");
                         }
                         if ui.button(">").on_hover_text("Next image (n, >)").clicked()
-                            || ui.input(|i| {
-                                config.keybindings.next.is_pressed(i)
-                            })
+                            || ui.input(|i| config.keybindings.next.is_pressed(i))
                         {
                             self.next().expect("failed to load next image");
                         }
