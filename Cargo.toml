@@ -145,10 +145,10 @@ repository = { path = "crates/repository" }
 reqwest = { version = "0.11.23", features = ["blocking"] }
 rustfft = "6.0.1"
 semver = "1.0.20"
-serde = { version = "1.0.166", features = ["derive", "rc"] }
+serde = { version = "1.0.171", features = ["derive", "rc"] }
 serde-transcode = "1.1.1"
 serde_bytes = "0.11.8"
-serde_derive = { version = "1.0.166", features = ["deserialize_in_place"] }
+serde_derive = "1.0.171"
 serde_json = "1.0.107"
 serde_test = "1.0.152"
 serialize_hierarchy = { path = "crates/serialize_hierarchy" }
@@ -180,9 +180,9 @@ zbus = { version = "3.7.0" }
 
 [patch.crates-io]
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
-serde = { git = "https://github.com/h3ndrk/serde.git", rev = "2469fb0f8331bfefb13d24185a3bc23a7b4629b9" }
+serde = { git = "https://github.com/h3ndrk/serde.git", rev = "8f02d0c62734d0da202af4efd55ac6d3c942154a" }
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
-serde_derive = { git = "https://github.com/h3ndrk/serde.git", rev = "2469fb0f8331bfefb13d24185a3bc23a7b4629b9" }
+serde_derive = { git = "https://github.com/h3ndrk/serde.git", rev = "8f02d0c62734d0da202af4efd55ac6d3c942154a" }
 
 [profile.incremental]
 inherits = "release"
