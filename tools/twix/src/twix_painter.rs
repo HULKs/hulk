@@ -289,7 +289,7 @@ impl TwixPainter {
         );
 
         (0..5).for_each(|index| {
-            let angle = index as f32 * PI * 2.0 / 5.0;
+            let angle = index as f32 * TAU / 5.0;
             let position = position + vector![angle.cos(), angle.sin()] * radius * 0.7;
             self.n_gon(5, position, radius / 3.0, Color32::BLACK);
         });
@@ -300,7 +300,7 @@ impl TwixPainter {
         let points: Vec<_> = (0..corners)
             .map(|index| {
                 self.transform_world_to_pixel({
-                    let angle = index as f32 * PI * 2.0 / corners as f32;
+                    let angle = index as f32 * TAU / corners as f32;
                     position + vector![angle.cos(), angle.sin()] * radius
                 })
             })
