@@ -731,7 +731,7 @@ fn generate_cross_inputs_extraction(cross_inputs: impl IntoIterator<Item = Field
                 let name = path_to_extraction_variable_name(&cycler_instance, &path, "perception_input");
                 quote! {
                     #[allow(non_snake_case)]
-                    let #name: Vec<std::collections::BTreeMap<std::time::SystemTime, Vec<#data_type>>> = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                    let #name: [std::collections::BTreeMap<std::time::SystemTime, Vec<#data_type>>; 2] = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
                 }
             }
             Field::RequiredInput {
