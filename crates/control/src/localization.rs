@@ -18,6 +18,7 @@ use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
 use types::{
     field_dimensions::FieldDimensions,
     field_marks::{field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldMark},
+    filtered_game_controller_state::FilteredGameControllerState,
     initial_pose::InitialPose,
     line::{Line, Line2},
     line_data::LineData,
@@ -25,7 +26,7 @@ use types::{
     multivariate_normal_distribution::MultivariateNormalDistribution,
     players::Players,
     primary_state::PrimaryState,
-    support_foot::Side, filtered_game_controller_state::FilteredGameControllerState,
+    support_foot::Side,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -54,7 +55,8 @@ pub struct CycleContext {
     current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
 
-    filtered_game_controller_state: Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
+    filtered_game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     primary_state: Input<PrimaryState, "primary_state">,
 
