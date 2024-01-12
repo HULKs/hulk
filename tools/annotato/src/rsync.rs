@@ -3,7 +3,7 @@ use color_eyre::{
     Result,
 };
 use std::{
-    path::{Path, PathBuf},
+    path::Path,
     process::{Command, Stdio},
 };
 
@@ -12,26 +12,15 @@ use crate::user_toml::CONFIG;
 fn full_dataset_path(dataset_name: &str) -> Result<String> {
     let config = CONFIG.get().wrap_err("could not find config file")?;
 
-    Ok(format!(
-        "{}@{}:{}",
-        config.remote.user,
-        config.remote.host,
-        PathBuf::from(&config.remote.folder)
-            .join(dataset_name)
-            .display()
-    ))
+    Ok(format!("{}/{}", config.remote.rsync_path, dataset_name))
 }
 
 pub fn rsync_dataset_list() -> Result<Vec<String>> {
-    let config = CONFIG.get().wrap_err("could not find config file")?;
-
-    let output = Command::new("ssh")
-        .arg(format!("{}@{}", config.remote.user, config.remote.host))
+    let output = Command::new("rsync")
+        .arg(full_dataset_path("")?)
         .arg("-o")
         .arg("ConnectTimeout=2")
-        .arg("--")
-        .arg("ls")
-        .arg(&config.remote.folder)
+        .arg("--list-only")
         .output()?;
     if !output.status.success() {
         bail!(String::from_utf8(output.stderr)?)

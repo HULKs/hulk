@@ -1,11 +1,9 @@
 [remote]
-user = "hulk"
-host = "134.28.57.225"
-folder = "/home/hulk/labelling/output"
+rsync_path = "rsync://10.1.24.185/labelparty/output"
 
 [leaderboard]
-enable = false
-host = "127.0.0.1:3000"
+enable = true
+host = "10.1.24.185:3000"
 githubname = ""
 
 [keybindings]
