@@ -229,10 +229,13 @@ impl CompetitionType {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub enum GamePhase {
+    #[default]
     Normal,
-    PenaltyShootout { kicking_team: Team },
+    PenaltyShootout {
+        kicking_team: Team,
+    },
     Overtime,
     Timeout,
 }

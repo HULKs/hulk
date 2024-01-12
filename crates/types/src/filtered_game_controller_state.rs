@@ -5,7 +5,7 @@ use spl_network_messages::{GamePhase, Penalty, SubState, Team};
 
 use crate::{players::Players, filtered_game_states::FilteredGameState};
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct FilteredGameControllerState {
     pub game_state: FilteredGameState,
     pub opponent_game_state: FilteredGameState,
