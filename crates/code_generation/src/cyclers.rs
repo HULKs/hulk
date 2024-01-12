@@ -1,4 +1,4 @@
-use std::{collections::HashSet, iter::once};
+use std::{collections::BTreeSet, iter::once};
 
 use convert_case::{Case, Casing};
 use itertools::Itertools;
@@ -553,7 +553,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
     }
 }
 
-fn get_cross_inputs(cycler: &Cycler) -> HashSet<Field> {
+fn get_cross_inputs(cycler: &Cycler) -> BTreeSet<Field> {
     cycler
         .setup_nodes
         .iter()
