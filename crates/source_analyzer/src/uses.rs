@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use syn::{Ident, Item, UseTree};
 
-pub type Uses = HashMap<Ident, Vec<Ident>>;
+pub type Uses = BTreeMap<Ident, Vec<Ident>>;
 
 pub fn uses_from_items(items: &[Item]) -> Uses {
     items
@@ -23,13 +23,13 @@ fn extract_uses(tree: &UseTree, mut prefix: Vec<Ident>) -> Uses {
         }
         UseTree::Name(name) => {
             prefix.push(name.ident.clone());
-            HashMap::from([(name.ident.clone(), prefix)])
+            BTreeMap::from([(name.ident.clone(), prefix)])
         }
         UseTree::Rename(rename) => {
             prefix.push(rename.ident.clone());
-            HashMap::from([(rename.rename.clone(), prefix)])
+            BTreeMap::from([(rename.rename.clone(), prefix)])
         }
-        UseTree::Glob(_) => HashMap::new(),
+        UseTree::Glob(_) => BTreeMap::new(),
         UseTree::Group(group) => group
             .items
             .iter()
