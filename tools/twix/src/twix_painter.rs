@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, PI, TAU};
+use std::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, TAU};
 
 use eframe::{
     egui::{Painter, Response, Sense, Ui},
