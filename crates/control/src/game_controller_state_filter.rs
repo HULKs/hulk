@@ -84,6 +84,7 @@ pub struct FilteredGameStates {
     pub filtered_opponent_game_state: FilteredGameState,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn filter_game_states(
     robot_to_field: &mut Isometry2<f32>,
     ball_position: Option<&BallPosition>,
