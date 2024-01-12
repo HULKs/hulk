@@ -8,7 +8,7 @@ use types::{
     audio::{Sound, SpeakerRequest},
     buttons::Buttons,
     filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_states::FilteredGameState,
+    filtered_game_state::FilteredGameState,
     primary_state::PrimaryState,
 };
 

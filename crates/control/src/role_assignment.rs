@@ -279,7 +279,7 @@ impl RoleAssignment {
             self.last_transmitted_spl_striker_message = Some(cycle_start_time);
             self.last_received_spl_striker_message = Some(cycle_start_time);
             if let Some(game_controller_state) = context.filtered_game_controller_state {
-                if game_controller_state.remaining_amount_of_messages
+                if game_controller_state.remaining_number_of_messages
                     > context
                         .spl_network
                         .remaining_amount_of_messages_to_stop_sending
