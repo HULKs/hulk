@@ -231,7 +231,6 @@ fn send_standing_look_at(
             target: look_at_target,
             camera: camera_option,
         },
-        is_energy_saving: false,
     });
     nao.update_parameter_value(
         INJECTED_MOTION_COMMAND,

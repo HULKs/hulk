@@ -43,12 +43,7 @@ pub fn execute(
 
     let best_kick_decision = match kick_decisions.first() {
         Some(decision) => decision,
-        None => {
-            return Some(MotionCommand::Stand {
-                head,
-                is_energy_saving: false,
-            })
-        }
+        None => return Some(MotionCommand::Stand { head }),
     };
 
     let best_pose = best_kick_decision.kick_pose;
@@ -70,10 +65,7 @@ pub fn execute(
         Some(path) => {
             Some(walk_path_planner.walk_with_obstacle_avoiding_arms(head, orientation_mode, path))
         }
-        None => Some(MotionCommand::Stand {
-            head,
-            is_energy_saving: false,
-        }),
+        None => Some(MotionCommand::Stand { head }),
     }
 }
 

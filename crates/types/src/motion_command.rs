@@ -26,7 +26,6 @@ pub enum MotionCommand {
     },
     Stand {
         head: HeadMotion,
-        is_energy_saving: bool,
     },
     StandUp {
         facing: Facing,
