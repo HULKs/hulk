@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use syn::{Expr, ExprLit, File, GenericArgument, Ident, Item, Lit, PathArguments, Type};
 
 use crate::{
@@ -141,6 +143,40 @@ pub enum Field {
         name: Ident,
         path: Path,
     },
+}
+
+impl Ord for Field {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let self_name = match self {
+            Field::AdditionalOutput { name, .. } => name,
+            Field::CyclerState { name, .. } => name,
+            Field::HardwareInterface { name } => name,
+            Field::HistoricInput { name, .. } => name,
+            Field::Input { name, .. } => name,
+            Field::MainOutput { name, .. } => name,
+            Field::Parameter { name, .. } => name,
+            Field::PerceptionInput { name, .. } => name,
+            Field::RequiredInput { name, .. } => name,
+        };
+        let other_name = match other {
+            Field::AdditionalOutput { name, .. } => name,
+            Field::CyclerState { name, .. } => name,
+            Field::HardwareInterface { name } => name,
+            Field::HistoricInput { name, .. } => name,
+            Field::Input { name, .. } => name,
+            Field::MainOutput { name, .. } => name,
+            Field::Parameter { name, .. } => name,
+            Field::PerceptionInput { name, .. } => name,
+            Field::RequiredInput { name, .. } => name,
+        };
+        self_name.cmp(other_name)
+    }
+}
+
+impl PartialOrd for Field {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Field {
