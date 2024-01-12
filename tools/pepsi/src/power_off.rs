@@ -1,5 +1,6 @@
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
+use constants::HARDWARE_IDS;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::Nao;
 
@@ -20,12 +21,12 @@ pub struct Arguments {
 
 pub async fn power_off(arguments: Arguments) -> Result<()> {
     if arguments.all {
-        let nao_number = 21..=37;
+        let nao_numbers = HARDWARE_IDS.keys();
 
-        nao_number
+        nao_numbers
             .into_iter()
             .map(|nao_number| async move {
-                if let Ok(nao) = try_from_number(nao_number).await {
+                if let Ok(nao) = try_from_number(*nao_number).await {
                     nao.power_off().await.err();
                 }
             })
