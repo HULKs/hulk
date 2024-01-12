@@ -86,9 +86,9 @@ impl SearchSuggestor {
                 }
 
                 search_suggestion.x +=
-                    context.search_suggestor_configuration.cells_per_meter as f32 / 2.0;
-                search_suggestion.y -=
-                    context.search_suggestor_configuration.cells_per_meter as f32 / 2.0;
+                    1.0 / context.search_suggestor_configuration.cells_per_meter as f32 / 2.0;
+                search_suggestion.y +=
+                    1.0 / context.search_suggestor_configuration.cells_per_meter as f32 / 2.0;
 
                 suggested_search_position = Some(search_suggestion);
             }

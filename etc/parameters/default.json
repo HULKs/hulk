@@ -1128,7 +1128,7 @@
   "angular_velocity_smoothing_factor": 0.1,
   "search_suggestor":{
     "cells_per_meter": 2,
-    "heatmap_decay_factor": 0.001,
-    "minimum_validity": 0.0001
+    "heatmap_decay_factor": 0.002,
+    "minimum_validity": 0.01
   }
 }
