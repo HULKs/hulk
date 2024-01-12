@@ -1,4 +1,4 @@
-use std::{net::Ipv4Addr, path::PathBuf};
+use std::{net::{Ipv4Addr, SocketAddr}, path::PathBuf};
 
 use eframe::egui::{Key, Modifiers, InputState};
 use once_cell::sync::OnceCell;
@@ -82,6 +82,5 @@ pub struct Remote {
 pub struct LeaderBoard {
     pub enable: bool,
     pub githubname: String,
-    pub host: Ipv4Addr,
-    pub port: u16,
+    pub host: SocketAddr,
 }
