@@ -6,11 +6,8 @@ use nalgebra::{point, vector, Point2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{SubState, Team};
 use types::{
-    field_dimensions::FieldDimensions,
-    filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_states::FilteredGameState,
-    rule_obstacles::RuleObstacle,
-    world_state::BallState,
+    field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_states::FilteredGameState, rule_obstacles::RuleObstacle, world_state::BallState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -68,7 +65,11 @@ impl RuleObstacleComposer {
             }
             (
                 FilteredGameControllerState {
-                    game_state: FilteredGameState::Playing { ball_is_free:false, kick_off:true },
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: false,
+                            kick_off: true,
+                        },
                     ..
                 },
                 _,

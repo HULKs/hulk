@@ -32,7 +32,8 @@ function on_cycle()
   if state.cycle_count == 1000 then
     state.filtered_game_state = {
       Playing = {
-        ball_is_free = true
+        ball_is_free = true,
+        kick_off = false
       }
     }
   end

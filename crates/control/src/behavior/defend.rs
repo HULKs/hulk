@@ -6,12 +6,13 @@ use nalgebra::{distance, point, vector, Isometry2, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
+    filtered_game_controller_state::FilteredGameControllerState,
     line::Line,
     motion_command::MotionCommand,
     parameters::RolePositionsParameters,
     path_obstacles::PathObstacle,
     support_foot::Side,
-    world_state::{BallState, WorldState}, filtered_game_controller_state::FilteredGameControllerState,
+    world_state::{BallState, WorldState},
 };
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};

@@ -5,10 +5,11 @@ use geometry::look_at::LookAt;
 use nalgebra::{point, Isometry2, UnitComplex, Vector2};
 use types::{
     field_dimensions::FieldDimensions,
+    filtered_game_states::FilteredGameState,
     motion_command::MotionCommand,
     path_obstacles::PathObstacle,
     support_foot::Side,
-    world_state::{BallState, WorldState}, filtered_game_states::FilteredGameState,
+    world_state::{BallState, WorldState},
 };
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};

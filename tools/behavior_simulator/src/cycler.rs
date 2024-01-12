@@ -132,7 +132,10 @@ impl BehaviorCycler {
                 .cycle(role_assignment::CycleContext::new(
                     own_database.main_outputs.ball_position.as_ref(),
                     &own_database.main_outputs.fall_state,
-                    own_database.main_outputs.filtered_game_controller_state.as_ref(),
+                    own_database
+                        .main_outputs
+                        .filtered_game_controller_state
+                        .as_ref(),
                     &own_database.main_outputs.primary_state,
                     own_database.main_outputs.robot_to_field.as_ref(),
                     &own_database.main_outputs.cycle_time,
@@ -168,7 +171,10 @@ impl BehaviorCycler {
                     own_database.main_outputs.robot_to_field.as_ref(),
                     own_database.main_outputs.team_ball.as_ref(),
                     &own_database.main_outputs.primary_state,
-                    own_database.main_outputs.filtered_game_controller_state.as_ref(),
+                    own_database
+                        .main_outputs
+                        .filtered_game_controller_state
+                        .as_ref(),
                     &parameters.field_dimensions,
                 ))
                 .wrap_err("failed to execute cycle of node `BallStateComposer`")?;
@@ -239,7 +245,10 @@ impl BehaviorCycler {
                 .cycle(world_state_composer::CycleContext::new(
                     own_database.main_outputs.ball_state.as_ref(),
                     own_database.main_outputs.rule_ball_state.as_ref(),
-                    own_database.main_outputs.filtered_game_controller_state.as_ref(),
+                    own_database
+                        .main_outputs
+                        .filtered_game_controller_state
+                        .as_ref(),
                     own_database.main_outputs.robot_to_field.as_ref(),
                     own_database.main_outputs.kick_decisions.as_ref(),
                     own_database.main_outputs.instant_kick_decisions.as_ref(),

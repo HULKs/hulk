@@ -1,9 +1,8 @@
-
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, Penalty, SubState, Team};
 
-use crate::{players::Players, filtered_game_states::FilteredGameState};
+use crate::{filtered_game_states::FilteredGameState, players::Players};
 
 #[derive(Default, Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct FilteredGameControllerState {

@@ -42,7 +42,8 @@ pub struct CreationContext {}
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition>, "ball_position?">,
     fall_state: Input<FallState, "fall_state">,
-    filtered_game_controller_state: Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
+    filtered_game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     primary_state: Input<PrimaryState, "primary_state">,
     robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     cycle_time: Input<CycleTime, "cycle_time">,

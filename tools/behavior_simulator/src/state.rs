@@ -10,7 +10,6 @@ use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
-use types::{motion_command::KickVariant, planned_path::PathSegment, filtered_game_controller_state::FilteredGameControllerState};
 use types::motion_command::{HeadMotion, OrientationMode};
 use types::{
     ball_position::BallPosition,
@@ -21,6 +20,10 @@ use types::{
     players::Players,
     primary_state::PrimaryState,
     support_foot::Side,
+};
+use types::{
+    filtered_game_controller_state::FilteredGameControllerState, motion_command::KickVariant,
+    planned_path::PathSegment,
 };
 
 use crate::{
