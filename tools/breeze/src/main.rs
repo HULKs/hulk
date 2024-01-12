@@ -1,18 +1,18 @@
-use std::{thread, time};
+use std::{thread::sleep, time::Duration};
 
 use cgos::board::BoardClass;
 use cgos::congatec::Congatec;
 use cgos::status::Status;
 
-static FAN_MAX_SPEED: f32 = 100.0;
-static FAN_MIN_SPEED: f32 = 50.0;
-static INTERPOLATION_X0: f32 = 65.0;
-static INTERPOLATION_Y0: f32 = 50.0;
-static INTERPOLATION_X1: f32 = 70.0;
-static INTERPOLATION_Y1: f32 = 100.0;
-static SLEEP_DURATION_SEC: u64 = 30;
+const FAN_MAX_SPEED: f32 = 100.0;
+const FAN_MIN_SPEED: f32 = 30.0;
+const INTERPOLATION_X0: f32 = 50.0;
+const INTERPOLATION_Y0: f32 = 50.0;
+const INTERPOLATION_X1: f32 = 70.0;
+const INTERPOLATION_Y1: f32 = 100.0;
+const SLEEP_DURATION: Duration = Duration::from_secs(30);
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 enum SensorState {
     Uninitialized,
     Broken,
@@ -20,7 +20,6 @@ enum SensorState {
 }
 
 fn main() {
-    let sleep_duration = time::Duration::from_secs(SLEEP_DURATION_SEC);
     let congatec = Congatec::new();
     let board = congatec.get_board(BoardClass::ALL, 0);
     let number_of_temperatures = board.get_number_of_temperatures();
@@ -42,10 +41,7 @@ fn main() {
                 }
             });
 
-        dbg!(&sensor_state);
         let fan_speed = get_interpolated_fan_speed(sensor_state);
-        dbg!(fan_speed);
-
         let number_of_fans = board.get_number_of_fans();
         for index in 0..number_of_fans {
             let fan = board.get_fan(index);
@@ -53,8 +49,8 @@ fn main() {
             info.out_maximum = fan_speed as i32;
             fan.set_limits(info);
         }
-        
-        thread::sleep(sleep_duration);
+
+        sleep(SLEEP_DURATION);
     }
 }
 
@@ -67,7 +63,7 @@ fn get_interpolated_fan_speed(sensor_state: SensorState) -> f32 {
             INTERPOLATION_X1,
             INTERPOLATION_Y1,
         );
-        f32::max(FAN_MIN_SPEED, fan_value)
+        fan_value.clamp(FAN_MIN_SPEED, FAN_MAX_SPEED)
     } else {
         // Something is wrong with the temperature sensor.
         // Lets crank the fans up.
