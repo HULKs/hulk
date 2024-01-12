@@ -83,13 +83,17 @@ impl MotorCommandCollector {
                 dispatching_command.stiffnesses,
             ),
             MotionType::FallProtection => (fall_protection_positions, fall_protection_stiffnesses),
-            MotionType::Initial => (*context.initial_pose, Joints::fill(0.8)),
+            MotionType::Initial => (
+                self.penalized_current_minimizer
+                    .optimize(context.sensor_data.currents, *context.initial_pose),
+                Joints::fill(0.6),
+            ),
             MotionType::JumpLeft => (jump_left.positions, jump_left.stiffnesses),
             MotionType::JumpRight => (jump_right.positions, jump_right.stiffnesses),
             MotionType::Penalized => (
                 self.penalized_current_minimizer
                     .optimize(context.sensor_data.currents, *context.penalized_pose),
-                Joints::fill(0.8),
+                Joints::fill(0.6),
             ),
             MotionType::SitDown => (sit_down.positions, sit_down.stiffnesses),
             MotionType::Stand => (
