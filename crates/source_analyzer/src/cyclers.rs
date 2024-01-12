@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     path::Path,
 };
 
@@ -123,7 +123,7 @@ impl Cycler {
     }
 
     fn sort_nodes(&mut self) -> Result<(), Error> {
-        let output_name_to_setup_node: HashMap<_, _> = self
+        let output_name_to_setup_node: BTreeMap<_, _> = self
             .setup_nodes
             .iter()
             .flat_map(|node| {
@@ -139,11 +139,11 @@ impl Cycler {
         let sorted_setup_nodes = sort_nodes(
             &self.setup_nodes,
             &output_name_to_setup_node,
-            &HashSet::new(),
+            &BTreeSet::new(),
         )?;
 
         let setup_output_names = output_name_to_setup_node.keys().cloned().collect();
-        let output_to_node: HashMap<_, _> = self
+        let output_to_node: BTreeMap<_, _> = self
             .cycle_nodes
             .iter()
             .flat_map(|node| {
@@ -171,8 +171,8 @@ impl Cycler {
 
 fn sort_nodes(
     nodes: &[Node],
-    output_to_node: &HashMap<String, &Node>,
-    existing_output_names: &HashSet<OutputName>,
+    output_to_node: &BTreeMap<String, &Node>,
+    existing_output_names: &BTreeSet<OutputName>,
 ) -> Result<Vec<Node>, Error> {
     let mut topological_sort = TopologicalSort::<&Node>::new();
     for node in nodes {
