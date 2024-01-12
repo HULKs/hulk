@@ -9,7 +9,6 @@ use types::{
     buttons::Buttons,
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_states::FilteredGameState,
-    game_controller_state::GameControllerState,
     primary_state::PrimaryState,
 };
 
@@ -26,7 +25,6 @@ pub struct CycleContext {
     buttons: Input<Buttons, "buttons">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
 
@@ -50,7 +48,7 @@ impl PrimaryStateFilter {
         &mut self,
         context: CycleContext<impl RecordingInterface + SpeakerInterface>,
     ) -> Result<MainOutputs> {
-        let is_penalized = match context.game_controller_state {
+        let is_penalized = match context.filtered_game_controller_state {
             Some(game_controller_state) => {
                 game_controller_state.penalties[*context.player_number].is_some()
             }

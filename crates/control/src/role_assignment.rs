@@ -13,7 +13,7 @@ use types::{
     cycle_time::CycleTime,
     fall_state::FallState,
     field_dimensions::FieldDimensions,
-    game_controller_state::GameControllerState,
+    filtered_game_controller_state::FilteredGameControllerState,
     initial_pose::InitialPose,
     messages::{IncomingMessage, OutgoingMessage},
     parameters::SplNetworkParameters,
@@ -42,7 +42,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition>, "ball_position?">,
     fall_state: Input<FallState, "fall_state">,
-    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+    filtered_game_controller_state: Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     primary_state: Input<PrimaryState, "primary_state">,
     robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
     cycle_time: Input<CycleTime, "cycle_time">,
@@ -114,7 +114,7 @@ impl RoleAssignment {
                 seven: Role::Striker,
             };
 
-            if let Some(game_controller_state) = context.game_controller_state {
+            if let Some(game_controller_state) = context.filtered_game_controller_state {
                 if let Some(striker) = [
                     PlayerNumber::Seven,
                     PlayerNumber::Six,
@@ -227,7 +227,7 @@ impl RoleAssignment {
                 send_spl_striker_message,
                 team_ball,
                 cycle_start_time,
-                context.game_controller_state,
+                context.filtered_game_controller_state,
                 *context.player_number,
                 context.spl_network.striker_trusts_team_ball,
                 context.optional_roles,
@@ -250,7 +250,7 @@ impl RoleAssignment {
                     send_spl_striker_message,
                     team_ball,
                     cycle_start_time,
-                    context.game_controller_state,
+                    context.filtered_game_controller_state,
                     *context.player_number,
                     context.spl_network.striker_trusts_team_ball,
                     context.optional_roles,
@@ -277,7 +277,7 @@ impl RoleAssignment {
         {
             self.last_transmitted_spl_striker_message = Some(cycle_start_time);
             self.last_received_spl_striker_message = Some(cycle_start_time);
-            if let Some(game_controller_state) = context.game_controller_state {
+            if let Some(game_controller_state) = context.filtered_game_controller_state {
                 if game_controller_state.remaining_amount_of_messages
                     > context
                         .spl_network
@@ -312,7 +312,7 @@ impl RoleAssignment {
         }
         self.team_ball = team_ball;
 
-        if let Some(game_controller_state) = context.game_controller_state {
+        if let Some(game_controller_state) = context.filtered_game_controller_state {
             if game_controller_state.penalties.one.is_some() {
                 self.last_time_keeper_penalized = Some(cycle_start_time);
             }
@@ -337,12 +337,12 @@ fn process_role_state_machine(
     send_spl_striker_message: bool,
     team_ball: Option<BallPosition>,
     cycle_start_time: SystemTime,
-    game_controller_state: Option<&GameControllerState>,
+    filtered_game_controller_state: Option<&FilteredGameControllerState>,
     player_number: PlayerNumber,
     striker_trusts_team_ball: Duration,
     optional_roles: &[Role],
 ) -> (Role, bool, Option<BallPosition>) {
-    if let Some(game_controller_state) = game_controller_state {
+    if let Some(game_controller_state) = filtered_game_controller_state {
         match game_controller_state.game_phase {
             GamePhase::PenaltyShootout {
                 kicking_team: Team::Hulks,
@@ -414,7 +414,7 @@ fn process_role_state_machine(
                 time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
-                game_controller_state,
+                filtered_game_controller_state,
                 optional_roles,
             ),
         },
@@ -437,7 +437,7 @@ fn process_role_state_machine(
                 time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
-                game_controller_state,
+                filtered_game_controller_state,
                 optional_roles,
             ),
         },
@@ -452,7 +452,7 @@ fn process_role_state_machine(
                 time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
-                game_controller_state,
+                filtered_game_controller_state,
                 optional_roles,
             ),
         },
@@ -479,7 +479,7 @@ fn process_role_state_machine(
                 time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
-                game_controller_state,
+                filtered_game_controller_state,
                 optional_roles,
             ),
         },
@@ -494,7 +494,7 @@ fn process_role_state_machine(
                 time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
-                game_controller_state,
+                filtered_game_controller_state,
                 optional_roles,
             ),
         },
@@ -518,7 +518,7 @@ fn process_role_state_machine(
                 time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
-                game_controller_state,
+                filtered_game_controller_state,
                 optional_roles,
             ),
         },
@@ -540,7 +540,7 @@ fn process_role_state_machine(
                 time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
-                game_controller_state,
+                filtered_game_controller_state,
                 optional_roles,
             ),
         },
@@ -571,7 +571,7 @@ fn process_role_state_machine(
                 time_to_reach_kick_position,
                 player_number,
                 cycle_start_time,
-                game_controller_state,
+                filtered_game_controller_state,
                 optional_roles,
             ),
         },
@@ -583,7 +583,7 @@ fn decide_if_claiming_striker_or_other_role(
     time_to_reach_kick_position: Option<Duration>,
     player_number: PlayerNumber,
     cycle_start_time: SystemTime,
-    game_controller_state: Option<&GameControllerState>,
+    filtered_game_controller_state: Option<&FilteredGameControllerState>,
     optional_roles: &[Role],
 ) -> (Role, bool, Option<BallPosition>) {
     if time_to_reach_kick_position < spl_message.time_to_reach_kick_position {
@@ -596,7 +596,7 @@ fn decide_if_claiming_striker_or_other_role(
         (
             generate_role(
                 player_number,
-                game_controller_state,
+                filtered_game_controller_state,
                 spl_message.player_number,
                 optional_roles,
             ),
@@ -657,7 +657,7 @@ fn team_ball_from_seen_ball(
 
 fn generate_role(
     own_player_number: PlayerNumber,
-    game_controller_state: Option<&GameControllerState>,
+    game_controller_state: Option<&FilteredGameControllerState>,
     striker_player_number: PlayerNumber,
     optional_roles: &[Role],
 ) -> Role {

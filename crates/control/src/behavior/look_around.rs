@@ -1,16 +1,16 @@
 use spl_network_messages::GamePhase;
 use types::{
-    game_controller_state::GameControllerState, motion_command::MotionCommand,
+    filtered_game_controller_state::FilteredGameControllerState, motion_command::MotionCommand,
     primary_state::PrimaryState, world_state::WorldState,
 };
 
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     match (
-        world_state.game_controller_state,
+        world_state.filtered_game_controller_state,
         world_state.robot.primary_state,
     ) {
         (
-            Some(GameControllerState {
+            Some(FilteredGameControllerState {
                 game_phase: GamePhase::PenaltyShootout { .. },
                 ..
             }),

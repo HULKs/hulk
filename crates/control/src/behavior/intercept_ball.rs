@@ -2,8 +2,8 @@ use geometry::line_segment::LineSegment;
 use nalgebra::{Isometry2, Point2, UnitComplex};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
+    filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_states::FilteredGameState,
-    game_controller_state::GameControllerState,
     line::Line,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::InterceptBallParameters,
@@ -18,25 +18,31 @@ pub fn execute(
     maximum_step_size: Step,
 ) -> Option<MotionCommand> {
     if let Some(
-        GameControllerState {
+        FilteredGameControllerState {
             game_phase: GamePhase::PenaltyShootout { .. },
             ..
         }
-        | GameControllerState {
+        | FilteredGameControllerState {
             sub_state: Some(SubState::PenaltyKick),
             ..
         },
-    ) = world_state.game_controller_state
+    ) = world_state.filtered_game_controller_state
     {
         return None;
     }
     match (
-        world_state.filtered_game_state,
+        world_state
+            .filtered_game_controller_state
+            .map(|filtered_game_controller_state| filtered_game_controller_state.game_state),
         world_state.ball,
         world_state.robot.robot_to_field,
     ) {
         (
-            Some(FilteredGameState::Playing { ball_is_free: true, kick_off: _ }) | None,
+            Some(FilteredGameState::Playing {
+                ball_is_free: true,
+                kick_off: _,
+            })
+            | None,
             Some(ball),
             Some(robot_to_field),
         ) => {

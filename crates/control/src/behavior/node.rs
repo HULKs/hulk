@@ -5,13 +5,13 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Point2, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, GameState, SubState, Team};
+use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     action::Action,
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
+    filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_states::FilteredGameState,
-    game_controller_state::GameControllerState,
     motion_command::MotionCommand,
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, LostBallParameters,
@@ -130,8 +130,8 @@ impl Behavior {
         match world_state.robot.role {
             Role::DefenderLeft => actions.push(Action::DefendLeft),
             Role::DefenderRight => actions.push(Action::DefendRight),
-            Role::Keeper => match world_state.game_controller_state {
-                Some(GameControllerState {
+            Role::Keeper => match world_state.filtered_game_controller_state {
+                Some(FilteredGameControllerState {
                     game_phase: GamePhase::PenaltyShootout { .. },
                     ..
                 }) => {
@@ -145,7 +145,10 @@ impl Behavior {
             Role::MidfielderRight => actions.push(Action::SupportRight),
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
             Role::Searcher => actions.push(Action::Search),
-            Role::Striker => match world_state.filtered_game_state {
+            Role::Striker => match world_state
+                .filtered_game_controller_state
+                .map(|filtered_game_controller_state| filtered_game_controller_state.game_state)
+            {
                 None
                 | Some(FilteredGameState::Playing {
                     ball_is_free: true,
@@ -155,16 +158,16 @@ impl Behavior {
                 }
                 Some(FilteredGameState::Ready {
                     kicking_team: Team::Hulks,
-                }) => match world_state.game_controller_state {
-                    Some(GameControllerState {
+                }) => match world_state.filtered_game_controller_state {
+                    Some(FilteredGameControllerState {
                         sub_state: Some(SubState::PenaltyKick),
                         ..
                     }) => actions.push(Action::WalkToPenaltyKick),
                     _ => actions.push(Action::WalkToKickOff),
                 },
-                _ => match world_state.game_controller_state {
-                    Some(GameControllerState {
-                        game_state: GameState::Ready,
+                _ => match world_state.filtered_game_controller_state {
+                    Some(FilteredGameControllerState {
+                        game_state: FilteredGameState::Ready { .. },
                         sub_state: Some(SubState::PenaltyKick),
                         kicking_team: Team::Opponent,
                         ..

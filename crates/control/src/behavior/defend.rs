@@ -6,13 +6,12 @@ use nalgebra::{distance, point, vector, Isometry2, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
-    game_controller_state::GameControllerState,
     line::Line,
     motion_command::MotionCommand,
     parameters::RolePositionsParameters,
     path_obstacles::PathObstacle,
     support_foot::Side,
-    world_state::{BallState, WorldState},
+    world_state::{BallState, WorldState}, filtered_game_controller_state::FilteredGameControllerState,
 };
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};
@@ -116,7 +115,7 @@ fn defend_left_pose(
     };
     distance_to_target = penalty_kick_defender_radius(
         distance_to_target,
-        world_state.game_controller_state,
+        world_state.filtered_game_controller_state,
         field_dimensions,
     );
     let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
@@ -145,7 +144,7 @@ fn defend_right_pose(
     };
     distance_to_target = penalty_kick_defender_radius(
         distance_to_target,
-        world_state.game_controller_state,
+        world_state.filtered_game_controller_state,
         field_dimensions,
     );
     let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
@@ -174,7 +173,7 @@ fn defend_penalty_kick(
     };
     distance_to_target = penalty_kick_defender_radius(
         distance_to_target,
-        world_state.game_controller_state,
+        world_state.filtered_game_controller_state,
         field_dimensions,
     );
 
@@ -193,16 +192,16 @@ fn defend_goal_pose(
         .or(world_state.ball)
         .unwrap_or_else(|| BallState::new_at_center(robot_to_field));
 
-    let keeper_x_offset = match world_state.game_controller_state {
+    let keeper_x_offset = match world_state.filtered_game_controller_state {
         Some(
-            GameControllerState {
+            FilteredGameControllerState {
                 game_phase:
                     GamePhase::PenaltyShootout {
                         kicking_team: Team::Opponent,
                     },
                 ..
             }
-            | GameControllerState {
+            | FilteredGameControllerState {
                 sub_state: Some(SubState::PenaltyKick),
                 kicking_team: Team::Opponent,
                 ..
@@ -295,14 +294,14 @@ fn block_on_line(
 
 fn penalty_kick_defender_radius(
     distance_to_target: f32,
-    game_controller_state: Option<GameControllerState>,
+    filtered_game_controller_state: Option<FilteredGameControllerState>,
     field_dimensions: &FieldDimensions,
 ) -> f32 {
-    if let Some(GameControllerState {
+    if let Some(FilteredGameControllerState {
         kicking_team: Team::Opponent,
         sub_state: Some(SubState::PenaltyKick),
         ..
-    }) = game_controller_state
+    }) = filtered_game_controller_state
     {
         let half_penalty_width = field_dimensions.penalty_area_width / 2.0;
         let minimum_penalty_defender_radius =
