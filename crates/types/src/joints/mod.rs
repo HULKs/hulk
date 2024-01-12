@@ -23,7 +23,7 @@ use self::{
     mirror::Mirror,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy)]
 pub enum JointsName {
     Head(HeadJoint),
     LeftArm(ArmJoint),

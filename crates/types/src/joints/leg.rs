@@ -3,12 +3,11 @@ use std::{
     time::Duration,
 };
 
+use super::mirror::Mirror;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use super::mirror::Mirror;
-
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy)]
 pub enum LegJoint {
     AnklePitch,
     AnkleRoll,
