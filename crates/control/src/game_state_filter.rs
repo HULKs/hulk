@@ -126,8 +126,7 @@ fn next_filtered_state(
         ) if cycle_start_time
             .duration_since(time_when_finished_clicked)
             .unwrap()
-            .as_secs_f32()
-            >= 4.0 =>
+            >= config.tentative_finish_duration =>
         {
             State::Finished
         }

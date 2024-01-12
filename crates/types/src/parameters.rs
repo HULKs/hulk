@@ -163,6 +163,7 @@ pub struct GameStateFilterParameters {
     pub playing_message_delay: Duration,
     pub ready_message_delay: Duration,
     pub kick_off_grace_period: Duration,
+    pub tentative_finish_duration: Duration,
     pub distance_to_consider_ball_moved_in_kick_off: f32,
     pub whistle_acceptance_goal_distance: Vector2<f32>,
 }
