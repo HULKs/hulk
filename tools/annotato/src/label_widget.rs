@@ -7,9 +7,10 @@ use crate::{
     annotation::AnnotationFormat,
     boundingbox::BoundingBox,
     classes::Class,
+    leaderboard,
     paths::Paths,
     utils,
-    widgets::{bounding_box_annotator::BoundingBoxAnnotator, class_selector::ClassSelector}, leaderboard,
+    widgets::{bounding_box_annotator::BoundingBoxAnnotator, class_selector::ClassSelector},
 };
 use color_eyre::eyre::{ContextCompat, Result};
 use eframe::{
