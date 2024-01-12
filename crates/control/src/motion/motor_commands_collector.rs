@@ -42,7 +42,7 @@ pub struct CycleContext {
     initial_pose: Parameter<Joints<f32>, "initial_pose">,
 
     motor_position_difference: AdditionalOutput<Joints<f32>, "motor_positions_difference">,
-    penalized_current_minimizer: AdditionalOutput<CurrentMinimizer, "penalized_current_minimizer">,
+    current_minimizer: AdditionalOutput<CurrentMinimizer, "current_minimizer">,
 }
 
 #[context]
@@ -125,7 +125,7 @@ impl MotorCommandCollector {
             .fill_if_subscribed(|| motor_commands.positions - current_positions);
 
         context
-            .penalized_current_minimizer
+            .current_minimizer
             .fill_if_subscribed(|| self.current_minimizer);
 
         Ok(MainOutputs {
