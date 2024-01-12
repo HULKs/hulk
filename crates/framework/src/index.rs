@@ -6,10 +6,7 @@ use std::{
 };
 
 use bincode::deserialize_from;
-use color_eyre::{
-    eyre::{eyre, WrapErr},
-    Result,
-};
+use color_eyre::{eyre::WrapErr, Result};
 
 #[derive(Debug)]
 pub struct RecordingIndex {
@@ -69,13 +66,16 @@ impl RecordingIndex {
         })
     }
 
-    pub fn before_or_equal_of(&mut self, timestamp: SystemTime) -> Result<RecordingFrame> {
-        let frame = self
+    pub fn before_or_equal_of(&mut self, timestamp: SystemTime) -> Result<Option<RecordingFrame>> {
+        let frame = match self
             .frames
             .iter()
             .rev()
             .find(|frame| frame.timestamp <= timestamp)
-            .ok_or(eyre!("no frame before timestamp"))?;
+        {
+            Some(frame) => frame,
+            None => return Ok(None),
+        };
         self.file
             .seek(SeekFrom::Start(
                 (frame.offset + frame.header_offset).try_into().unwrap(),
@@ -86,10 +86,10 @@ impl RecordingIndex {
         self.file
             .read_exact(&mut data)
             .wrap_err("failed to read from recording file")?;
-        Ok(RecordingFrame {
+        Ok(Some(RecordingFrame {
             timestamp: frame.timestamp,
             data,
-        })
+        }))
     }
 
     pub fn first_timestamp(&self) -> Option<SystemTime> {
