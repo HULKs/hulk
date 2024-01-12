@@ -6,8 +6,8 @@ use crate::{boundingbox::BoundingBox, classes::Class};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AnnotationFormat {
-    pub points: [[f32; 2]; 2],
-    pub class: Class,
+    points: [[f32; 2]; 2],
+    class: Class,
 }
 
 impl From<AnnotationFormat> for BoundingBox {
