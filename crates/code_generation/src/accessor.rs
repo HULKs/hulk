@@ -1,4 +1,5 @@
 use convert_case::{Case, Casing};
+use itertools::{EitherOrBoth, Itertools};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use source_analyzer::{
@@ -76,23 +77,30 @@ fn path_to_accessor_token_stream_with_cycler_instance(
     };
 
     if path.contains_optional() {
-        let first_segment = segments.next().unwrap();
-        let x = segments.zip(path.segments.iter()).fold(
-            quote! {#prefix. #first_segment},
-            |acc, (token_stream, previous_segment)| match previous_segment.is_optional {
-                true => quote! {#reference (*#acc).#token_stream},
-                false => quote! {#acc.#token_stream},
-            },
-        );
+        let first_segment = segments
+            .next()
+            .expect("Path should always contain at least one segment");
 
-        match path.segments.last().unwrap().is_optional {
-            true => quote! {
-                (|| Some(#reference (*#x)))()
+        segments.zip_longest(path.segments.iter()).fold(
+            quote! {#prefix. #first_segment},
+            |recursive_token_stream, token_stream_segment_pair| match token_stream_segment_pair {
+                EitherOrBoth::Both(token_stream, previous_segment) => {
+                    match previous_segment.is_optional {
+                        true => quote! {#reference (*#recursive_token_stream).#token_stream},
+                        false => quote! {#recursive_token_stream.#token_stream},
+                    }
+                }
+                EitherOrBoth::Right(previous_segment) => match previous_segment.is_optional {
+                    true => quote! {
+                        (|| Some(#reference (*#recursive_token_stream)))()
+                    },
+                    false => quote! {
+                        (|| Some(#recursive_token_stream))()
+                    },
+                },
+                EitherOrBoth::Left(_) => unimplemented!(),
             },
-            false => quote! {
-                (|| Some(#x))()
-            },
-        }
+        )
     } else {
         quote! {
             #reference #prefix . #(#segments).*
