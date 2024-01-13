@@ -17,7 +17,7 @@ pub struct ReplayerApplication<OnChange> {
 
 impl<OnChange> ReplayerApplication<OnChange>
 where
-    OnChange: FnMut(SystemTime) -> (),
+    OnChange: FnMut(SystemTime),
 {
     pub fn new(
         start: SystemTime,
@@ -36,7 +36,7 @@ where
 
 impl<OnChange> eframe::App for ReplayerApplication<OnChange>
 where
-    OnChange: FnMut(SystemTime) -> (),
+    OnChange: FnMut(SystemTime),
 {
     fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
         CentralPanel::default().show(ctx, |ui| {
