@@ -97,7 +97,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        target: [nao, webots]
+        target: [nao, replayer, webots]
         profile: [release, dev]
     runs-on:
       - self-hosted
