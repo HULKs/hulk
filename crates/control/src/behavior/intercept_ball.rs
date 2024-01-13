@@ -30,10 +30,12 @@ pub fn execute(
     {
         return None;
     }
+
+    let filtered_game_state = world_state
+        .filtered_game_controller_state
+        .map(|filtered_game_controller_state| filtered_game_controller_state.game_state);
     match (
-        world_state
-            .filtered_game_controller_state
-            .map(|filtered_game_controller_state| filtered_game_controller_state.game_state),
+        filtered_game_state,
         world_state.ball,
         world_state.robot.robot_to_field,
     ) {
