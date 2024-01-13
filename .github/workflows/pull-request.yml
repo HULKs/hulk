@@ -61,7 +61,7 @@ jobs:
       - name: Check
         run: |
           cd ${{ matrix.path }}
-          cargo update --frozen --workspace
+          cargo update --locked --workspace
   format:
     name: Format
     runs-on:
