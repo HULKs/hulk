@@ -146,9 +146,19 @@ mod tests {
                 quote! { (|| Some(&mut(*&mut(*prefix.a.as_mut()?).b.as_mut()?))) () },
             ),
             (
+                "a?.b?",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*&(*prefix.a.as_ref()?).b.as_ref()?))) () },
+            ),
+            (
                 "a?.b?.c",
                 ReferenceKind::Mutable,
                 quote! { (|| Some(&mut(*&mut(*prefix.a.as_mut()?).b.as_mut()?).c)) () },
+            ),
+            (
+                "a?.b?.c",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*&(*prefix.a.as_ref()?).b.as_ref()?).c)) () },
             ),
             (
                 "a?.b.c?",
@@ -156,199 +166,199 @@ mod tests {
                 quote! { (|| Some(&mut(*&mut(*prefix.a.as_mut()?).b.c.as_mut()?))) () },
             ),
             (
+                "a?.b.c?",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*&(*prefix.a.as_ref()?).b.c.as_ref()?))) () },
+            ),
+            (
                 "a?.b.c?.d",
                 ReferenceKind::Mutable,
                 quote! { (|| Some(&mut(*&mut(*prefix.a.as_mut()?).b.c.as_mut()?).d)) () },
             ),
-            // ("a", ReferenceKind::Immutable, quote! { &prefix.a }),
-            // (
-            //     "$cycler_instance",
-            //     ReferenceKind::Immutable,
-            //     quote! { match instance { CyclerInstance::InstanceA => &prefix.instance_a, CyclerInstance::InstanceB => &prefix.instance_b, } },
-            // ),
-            // ("a", ReferenceKind::Mutable, quote! { &mut prefix.a }),
-            // (
-            //     "$cycler_instance",
-            //     ReferenceKind::Mutable,
-            //     quote! { match instance { CyclerInstance::InstanceA => &mut prefix.instance_a, CyclerInstance::InstanceB => &mut prefix.instance_b, } },
-            // ),
-            // ("a.b", ReferenceKind::Immutable, quote! { &prefix.a.b }),
-            // (
-            //     "a.$cycler_instance",
-            //     ReferenceKind::Immutable,
-            //     quote! { match instance { CyclerInstance::InstanceA => &prefix.a.instance_a, CyclerInstance::InstanceB => &prefix.a.instance_b, } },
-            // ),
-            // ("a.b", ReferenceKind::Mutable, quote! { &mut prefix.a.b }),
-            // (
-            //     "a.$cycler_instance",
-            //     ReferenceKind::Mutable,
-            //     quote! { match instance { CyclerInstance::InstanceA => &mut prefix.a.instance_a, CyclerInstance::InstanceB => &mut prefix.a.instance_b, } },
-            // ),
-            // ("a.b.c", ReferenceKind::Immutable, quote! { &prefix.a.b.c }),
-            // (
-            //     "a.b.c",
-            //     ReferenceKind::Mutable,
-            //     quote! { &mut prefix.a.b.c },
-            // ),
-            // (
-            //     "a?.b.c",
-            //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.as_ref()?.b.c)) () },
-            // ),
-            // (
-            //     "a?.b.c",
-            //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.as_mut()?.b.c)) () },
-            // ),
-            // (
-            //     "a?",
-            //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.as_ref()?)) () },
-            // ),
+            (
+                "a?.b.c?.d",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*&(*prefix.a.as_ref()?).b.c.as_ref()?).d)) () },
+            ),
+            ("a.b.c", ReferenceKind::Immutable, quote! { &prefix.a.b.c }),
+            (
+                "a.b.c",
+                ReferenceKind::Mutable,
+                quote! { &mut prefix.a.b.c },
+            ),
+            (
+                "a?.b.c",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*prefix.a.as_ref()?).b.c)) () },
+            ),
+            (
+                "a?.b.c",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*prefix.a.as_mut()?).b.c)) () },
+            ),
+            (
+                "a?",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*prefix.a.as_ref()?))) () },
+            ),
             // (
             //     "$cycler_instance?",
             //     ReferenceKind::Immutable,
             //     quote! { match instance { CyclerInstance::InstanceA => (|| Some(prefix.instance_a.as_ref()?)) (), CyclerInstance::InstanceB => (|| Some(prefix.instance_b.as_ref()?)) (), } },
             // ),
-            // (
-            //     "a?",
-            //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.as_mut()?)) () },
-            // ),
+            (
+                "a?",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*prefix.a.as_mut()?))) () },
+            ),
             // (
             //     "$cycler_instance?",
             //     ReferenceKind::Mutable,
             //     quote! { match instance { CyclerInstance::InstanceA => (|| Some(prefix.instance_a.as_mut()?)) (), CyclerInstance::InstanceB => (|| Some(prefix.instance_b.as_mut()?)) (), } },
             // ),
+            (
+                "a?.b?.c",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*&(*prefix.a.as_ref()?).b.as_ref()?).c)) () },
+            ),
+            (
+                "a?.b?.c",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*&mut(*prefix.a.as_mut()?).b.as_mut()?).c)) () },
+            ),
+            (
+                "a?.b?.c?",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*&(*&(*prefix.a.as_ref()?).b.as_ref()?).c.as_ref()?))) () },
+            ),
+            (
+                "a?.b?.c?",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*&mut(*&mut(*prefix.a.as_mut()?).b.as_mut()?).c.as_mut()?))) () },
+            ),
+            (
+                "a?.b?.c?.d",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*&(*&(*prefix.a.as_ref()?).b.as_ref()?).c.as_ref()?).d)) () },
+            ),
+            (
+                "a?.b?.c?.d",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*&mut(*&mut(*prefix.a.as_mut()?).b.as_mut()?).c.as_mut()?).d)) () },
+            ),
+            (
+                "a?.b?.c?.d?",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*&(*&(*&(*prefix.a.as_ref()?).b.as_ref()?).c.as_ref()?).d.as_ref()?))) () },
+            ),
+            (
+                "a?.b?.c?.d?",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*&mut(*&mut(*&mut(*prefix.a.as_mut()?).b.as_mut()?).c.as_mut()?).d.as_mut()?))) () },
+            ),
+            (
+                "a?.b.c.d?",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*&(*prefix.a.as_ref()?).b.c.d.as_ref()?))) () },
+            ),
+            (
+                "a?.b.c.d?",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*&mut(*prefix.a.as_mut()?).b.c.d.as_mut()?))) () },
+            ),
+            (
+                "a?.b.c.d",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*prefix.a.as_ref()?).b.c.d)) () },
+            ),
+            (
+                "a?.b.c.d",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*prefix.a.as_mut()?).b.c.d)) () },
+            ),
+            (
+                "a.b.c?.d",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*prefix.a.b.c.as_ref()?).d)) () },
+            ),
+            (
+                "a.b.c?.d",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*prefix.a.b.c.as_mut()?).d)) () },
+            ),
+            (
+                "a.b.c.d",
+                ReferenceKind::Immutable,
+                quote! { &prefix.a.b.c.d },
+            ),
+            (
+                "a.b.c.d",
+                ReferenceKind::Mutable,
+                quote! { &mut prefix.a.b.c.d },
+            ),
+            (
+                "a.b?.c?.d",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*&(*prefix.a.b.as_ref()?).c.as_ref()?).d)) () },
+            ),
+            (
+                "a.b?.c?.d",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*&mut(*prefix.a.b.as_mut()?).c.as_mut()?).d)) () },
+            ),
+            (
+                "a.b?.c?.d?",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*&(*&(*prefix.a.b.as_ref()?).c.as_ref()?).d.as_ref()?))) () },
+            ),
+            (
+                "a.b?.c?.d?",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*&mut(*&mut(*prefix.a.b.as_mut()?).c.as_mut()?).d.as_mut()?))) () },
+            ),
+            (
+                "a.b.c.d.e.f?.g.i.j.k.l.m.n",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*prefix.a.b.c.d.e.f.as_ref()?).g.i.j.k.l.m.n)) () },
+            ),
+            (
+                "a.b.c.d.e.f?.g.i.j.k.l.m.n",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*prefix.a.b.c.d.e.f.as_mut()?).g.i.j.k.l.m.n)) () },
+            ),
+            (
+                "a.b.c.d.e.f?.g.i.j.k.l.m.n?",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(&(*&(*prefix.a.b.c.d.e.f.as_ref()?).g.i.j.k.l.m.n.as_ref()?))) () },
+            ),
+            (
+                "a.b.c.d.e.f?.g.i.j.k.l.m.n?",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(&mut(*&mut(*prefix.a.b.c.d.e.f.as_mut()?).g.i.j.k.l.m.n.as_mut()?))) () },
+            ),
+            ("a", ReferenceKind::Immutable, quote! { &prefix.a }),
             // (
-            //     "a?.b?.c",
+            //     "$cycler_instance",
             //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.as_ref()?.b.as_ref()?.c)) () },
+            //     quote! { match instance { CyclerInstance::InstanceA => &prefix.instance_a, CyclerInstance::InstanceB => &prefix.instance_b, } },
             // ),
+            ("a", ReferenceKind::Mutable, quote! { &mut prefix.a }),
             // (
-            //     "a?.b?.c",
+            //     "$cycler_instance",
             //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.as_mut()?.b.as_mut()?.c)) () },
+            //     quote! { match instance { CyclerInstance::InstanceA => &mut prefix.instance_a, CyclerInstance::InstanceB => &mut prefix.instance_b, } },
             // ),
+            ("a.b", ReferenceKind::Immutable, quote! { &prefix.a.b }),
             // (
-            //     "a?.b?.c?",
+            //     "a.$cycler_instance",
             //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.as_ref()?.b.as_ref()?.c.as_ref()?)) () },
+            //     quote! { match instance { CyclerInstance::InstanceA => &prefix.a.instance_a, CyclerInstance::InstanceB => &prefix.a.instance_b, } },
             // ),
+            ("a.b", ReferenceKind::Mutable, quote! { &mut prefix.a.b }),
             // (
-            //     "a?.b?.c?",
+            //     "a.$cycler_instance",
             //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.as_mut()?.b.as_mut()?.c.as_mut()?)) () },
-            // ),
-            // (
-            //     "a?.b?.c?.d",
-            //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.as_ref()?.b.as_ref()?.c.as_ref()?.d)) () },
-            // ),
-            // (
-            //     "a?.b?.c?.d",
-            //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.as_mut()?.b.as_mut()?.c.as_mut()?.d)) () },
-            // ),
-            // (
-            //     "a?.b?.c?.d?",
-            //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.as_ref()?.b.as_ref()?.c.as_ref()?.d.as_ref()?)) () },
-            // ),
-            // (
-            //     "a?.b?.c?.d?",
-            //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.as_mut()?.b.as_mut()?.c.as_mut()?.d.as_mut()?)) () },
-            // ),
-            // (
-            //     "a?.b.c.d?",
-            //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.as_ref()?.b.c.d.as_ref()?)) () },
-            // ),
-            // (
-            //     "a?.b.c.d?",
-            //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.as_mut()?.b.c.d.as_mut()?)) () },
-            // ),
-            // (
-            //     "a?.b.c.d",
-            //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.as_ref()?.b.c.d)) () },
-            // ),
-            // (
-            //     "a?.b.c.d",
-            //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.as_mut()?.b.c.d)) () },
-            // ),
-            // (
-            //     "a?.b.c?.d",
-            //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.as_ref()?.b.c.as_ref()?.d)) () },
-            // ),
-            // (
-            //     "a?.b.c?.d",
-            //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.as_mut()?.b.c.as_mut()?.d)) () },
-            // ),
-            // (
-            //     "a.b.c?.d",
-            //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.b.c.as_ref()?.d)) () },
-            // ),
-            // (
-            //     "a.b.c?.d",
-            //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.b.c.as_mut()?.d)) () },
-            // ),
-            // (
-            //     "a.b.c.d",
-            //     ReferenceKind::Immutable,
-            //     quote! { &prefix.a.b.c.d },
-            // ),
-            // (
-            //     "a.b.c.d",
-            //     ReferenceKind::Mutable,
-            //     quote! { &mut prefix.a.b.c.d },
-            // ),
-            // (
-            //     "a.b?.c?.d",
-            //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.b.as_ref()?.c.as_ref()?.d)) () },
-            // ),
-            // (
-            //     "a.b?.c?.d",
-            //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.b.as_mut()?.c.as_mut()?.d)) () },
-            // ),
-            // (
-            //     "a.b?.c?.d?",
-            //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.b.as_ref()?.c.as_ref()?.d.as_ref()?)) () },
-            // ),
-            // (
-            //     "a.b?.c?.d?",
-            //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.b.as_mut()?.c.as_mut()?.d.as_mut()?)) () },
-            // ),
-            // (
-            //     "a.b.c.d.e.f?.g.i.j.k.l.m.n",
-            //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.b.c.d.e.f.as_ref()?.g.i.j.k.l.m.n)) () },
-            // ),
-            // (
-            //     "a.b.c.d.e.f?.g.i.j.k.l.m.n",
-            //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.b.c.d.e.f.as_mut()?.g.i.j.k.l.m.n)) () },
-            // ),
-            // (
-            //     "a.b.c.d.e.f?.g.i.j.k.l.m.n?",
-            //     ReferenceKind::Immutable,
-            //     quote! { (|| Some(prefix.a.b.c.d.e.f.as_ref()?.g.i.j.k.l.m.n.as_ref()?)) () },
-            // ),
-            // (
-            //     "a.b.c.d.e.f?.g.i.j.k.l.m.n?",
-            //     ReferenceKind::Mutable,
-            //     quote! { (|| Some(prefix.a.b.c.d.e.f.as_mut()?.g.i.j.k.l.m.n.as_mut()?)) () },
+            //     quote! { match instance { CyclerInstance::InstanceA => &mut prefix.a.instance_a, CyclerInstance::InstanceB => &mut prefix.a.instance_b, } },
             // ),
         ];
         let cycler = Cycler {
