@@ -1060,7 +1060,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                             }
                         },
                         Execution::Replay => {
-                            let name = path_to_extraction_variable_name("own", &path, "cycler_state");
+                            let name = path_to_extraction_variable_name("own", path, "cycler_state");
                             quote! {
                                 &mut #name
                             }
@@ -1104,7 +1104,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                             }
                         },
                         Execution::Replay => {
-                            let name = path_to_extraction_variable_name("own", &path, "historic_input");
+                            let name = path_to_extraction_variable_name("own", path, "historic_input");
                             let is_option = match data_type {
                                 Type::Path(TypePath {
                                     path: SynPath { segments, .. },
@@ -1149,7 +1149,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                     }
                                 },
                                 Execution::Replay => {
-                                    let name = path_to_extraction_variable_name(&cycler_instance, &path, "input");
+                                    let name = path_to_extraction_variable_name(cycler_instance, path, "input");
                                     let is_option = match data_type {
                                         Type::Path(TypePath {
                                             path: SynPath { segments, .. },
@@ -1246,7 +1246,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                             }
                         },
                         Execution::Replay => {
-                            let name = path_to_extraction_variable_name(&cycler_instance, &path, "perception_input");
+                            let name = path_to_extraction_variable_name(cycler_instance, path, "perception_input");
                             let is_option = match data_type {
                                 Type::Path(TypePath {
                                     path: SynPath { segments, .. },
@@ -1302,7 +1302,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                     }
                                 },
                                 Execution::Replay => {
-                                    let name = path_to_extraction_variable_name(&cycler_instance, &path, "required_input");
+                                    let name = path_to_extraction_variable_name(cycler_instance, path, "required_input");
                                     quote! {
                                         &#name
                                     }
