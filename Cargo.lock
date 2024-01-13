@@ -2736,6 +2736,7 @@ dependencies = [
  "eframe",
  "energy_optimization",
  "framework",
+ "geometry",
  "hardware",
  "hulk_manifest",
  "ittapi",
