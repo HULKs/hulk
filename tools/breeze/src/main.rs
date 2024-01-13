@@ -5,7 +5,7 @@ use cgos::congatec::Congatec;
 use cgos::status::Status;
 
 const FAN_MAX_SPEED: f32 = 100.0;
-const FAN_MIN_SPEED: f32 = 30.0;
+const FAN_MIN_SPEED: f32 = 40.0; // should be at least ~38 to allow spin up from zero
 const INTERPOLATION_X0: f32 = 50.0;
 const INTERPOLATION_Y0: f32 = 50.0;
 const INTERPOLATION_X1: f32 = 70.0;
