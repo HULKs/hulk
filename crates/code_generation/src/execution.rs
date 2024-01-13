@@ -144,13 +144,13 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
             pub fn first_timestamp(&self) -> Option<std::time::SystemTime> {
                 [
                     #cycler_first_timestamps
-                ].into_iter().filter_map(std::convert::identity).min()
+                ].into_iter().flatten().min()
             }
 
             pub fn last_timestamp(&self) -> Option<std::time::SystemTime> {
                 [
                     #cycler_last_timestamps
-                ].into_iter().filter_map(std::convert::identity).max()
+                ].into_iter().flatten().max()
             }
         }
 
