@@ -182,11 +182,16 @@ fn main() -> Result<()> {
         "Replayer",
         Default::default(),
         Box::new(move |_creation_context| {
-            Box::new(ReplayerApplication::new(start, end, start, move |timestamp| {
-                replayer
-                    .seek_before_or_equal_of(timestamp)
-                    .expect("failed to seek");
-            }))
+            Box::new(ReplayerApplication::new(
+                start,
+                end,
+                start,
+                move |timestamp| {
+                    replayer
+                        .seek_before_or_equal_of(timestamp)
+                        .expect("failed to seek");
+                },
+            ))
         }),
     )
     .map_err(|error| Report::msg(error.to_string()))
