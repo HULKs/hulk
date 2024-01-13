@@ -72,6 +72,35 @@ pub enum PlayerNumber {
     Seven,
 }
 
+impl PlayerNumber {
+    pub fn to_number(&self) -> usize {
+        match self {
+            PlayerNumber::One => 1,
+            PlayerNumber::Two => 2,
+            PlayerNumber::Three => 3,
+            PlayerNumber::Four => 4,
+            PlayerNumber::Five => 5,
+            PlayerNumber::Six => 6,
+            PlayerNumber::Seven => 7,
+        }
+    }
+    pub fn to_player_number(number: usize) -> Self {
+        match number {
+            1 => PlayerNumber::One,
+            2 => PlayerNumber::Two,
+            3 => PlayerNumber::Three,
+            4 => PlayerNumber::Four,
+            5 => PlayerNumber::Five,
+            6 => PlayerNumber::Six,
+            7 => PlayerNumber::Seven,
+            _ => {
+                println!("No valid Playernumber, corrected to 7");
+                PlayerNumber::Seven
+            }
+        }
+    }
+}
+
 impl Display for PlayerNumber {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         let number = match self {

@@ -38,7 +38,7 @@ pub struct RoleAssignment {
     role: Role,
     role_initialized: bool,
     team_ball: Option<BallPosition<Field>>,
-    last_time_keeper_penalized: Option<SystemTime>,
+    last_time_player_was_penalized: Vec<Option<SystemTime>>,
 }
 
 #[context]
@@ -86,7 +86,7 @@ impl RoleAssignment {
             role: Role::Striker,
             role_initialized: false,
             team_ball: None,
-            last_time_keeper_penalized: None,
+            last_time_player_was_penalized: vec![None; 7],
         })
     }
 
@@ -268,17 +268,35 @@ impl RoleAssignment {
                 );
             }
         }
-
-        if let Some(last_time_keeper_penalized) = self.last_time_keeper_penalized {
-            let deny_replacement_keeper_switch = cycle_start_time
-                .duration_since(last_time_keeper_penalized)
-                .expect("Keeper was penalized in the Future")
-                < *context.keeper_replacementkeeper_switch_time;
-            if self.role == Role::ReplacementKeeper
-                && !send_spl_striker_message
-                && deny_replacement_keeper_switch
-            {
-                role = Role::ReplacementKeeper;
+        if self.role == Role::ReplacementKeeper {
+            if let Some(last_time_keeper_penalized) = self.last_time_player_was_penalized[0] {
+                match context.player_number {
+                    PlayerNumber::Two => {
+                        let deny_replacement_keeper_switch = cycle_start_time
+                            .duration_since(last_time_keeper_penalized)
+                            .expect("Keeper/Replacmentkeeper was penalized in the Future")
+                            < *context.keeper_replacementkeeper_switch_time;
+                        if !send_spl_striker_message && deny_replacement_keeper_switch {
+                            role = Role::ReplacementKeeper;
+                        }
+                    }
+                    PlayerNumber::One => {
+                        println!("Keeper is Replacmentkeeper")
+                    }
+                    _ => {
+                        if let Some(last_time_player_penalized) = self
+                            .last_time_player_was_penalized[context.player_number.to_number() - 2]
+                        {
+                            let deny_replacement_keeper_switch = cycle_start_time
+                                .duration_since(last_time_player_penalized)
+                                .expect("Keeper/Replacmentkeeper was penalized in the Future")
+                                < *context.keeper_replacementkeeper_switch_time;
+                            if !send_spl_striker_message && deny_replacement_keeper_switch {
+                                role = Role::ReplacementKeeper;
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -324,8 +342,12 @@ impl RoleAssignment {
         self.team_ball = team_ball;
 
         if let Some(game_controller_state) = context.filtered_game_controller_state {
-            if game_controller_state.penalties.one.is_some() {
-                self.last_time_keeper_penalized = Some(cycle_start_time);
+            for player in 0..7 {
+                if game_controller_state.penalties[PlayerNumber::to_player_number(player + 1)]
+                    .is_some()
+                {
+                    self.last_time_player_was_penalized[player] = Some(cycle_start_time);
+                }
             }
         }
 
