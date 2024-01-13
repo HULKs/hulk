@@ -566,6 +566,7 @@ fn get_cross_inputs(cycler: &Cycler) -> BTreeSet<Field> {
                     matches!(
                         field,
                         Field::CyclerState { .. }
+                            | Field::HistoricInput { .. }
                             | Field::Input {
                                 cycler_instance: Some(_),
                                 ..
@@ -589,6 +590,7 @@ fn generate_cross_inputs_recording(
     let recordings = cross_inputs.into_iter().map(|field| {
         let error_message = match &field {
             Field::CyclerState { name, .. } => format!("failed to record cycler state {name}"),
+            Field::HistoricInput { name, .. } => format!("failed to record historic input {name}"),
             Field::Input { cycler_instance: Some(_), name, .. } => format!("failed to record input {name}"),
             Field::PerceptionInput { name, .. } => format!("failed to record perception input {name}"),
             Field::RequiredInput { cycler_instance: Some(_), name, .. } => format!("failed to record required input {name}"),
@@ -604,6 +606,35 @@ fn generate_cross_inputs_recording(
                 );
                 quote! {
                     #accessor
+                }
+            }
+            Field::HistoricInput { path, .. } => {
+                let now_accessor = path_to_accessor_token_stream(
+                    quote!{ own_database_reference.main_outputs },
+                    &path,
+                    ReferenceKind::Immutable,
+                    cycler,
+                );
+                let historic_accessor = path_to_accessor_token_stream(
+                    quote!{ database },
+                    &path,
+                    ReferenceKind::Immutable,
+                    cycler,
+                );
+                quote! {
+                    &[(now, #now_accessor)]
+                        .into_iter()
+                        .chain(
+                            self
+                                .historic_databases
+                                .databases
+                                .iter()
+                                .map(|(system_time, database)| (
+                                    *system_time,
+                                    #historic_accessor,
+                                ))
+                        )
+                        .collect::<std::collections::BTreeMap<_, _>>()
                 }
             }
             Field::Input {
@@ -702,6 +733,7 @@ fn generate_cross_inputs_extraction(cross_inputs: impl IntoIterator<Item = Field
     let extractions = cross_inputs.into_iter().map(|field| {
         let error_message = match &field {
             Field::CyclerState { name, .. } => format!("failed to record cycler state {name}"),
+            Field::HistoricInput { name, .. } => format!("failed to record historic input {name}"),
             Field::Input { cycler_instance: Some(_), name, .. } => format!("failed to record input {name}"),
             Field::PerceptionInput { name, .. } => format!("failed to record perception input {name}"),
             Field::RequiredInput { cycler_instance: Some(_), name, .. } => format!("failed to record required input {name}"),
@@ -713,6 +745,13 @@ fn generate_cross_inputs_extraction(cross_inputs: impl IntoIterator<Item = Field
                 quote! {
                     #[allow(non_snake_case)]
                     let mut #name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                }
+            }
+            Field::HistoricInput { path, data_type, .. } => {
+                let name = path_to_extraction_variable_name("own", &path, "historic_input");
+                quote! {
+                    #[allow(non_snake_case)]
+                    let #name: std::collections::BTreeMap<std::time::SystemTime, #data_type> = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
                 }
             }
             Field::Input {
@@ -1031,34 +1070,58 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                 Field::HardwareInterface { .. } => quote! {
                     &self.hardware_interface
                 },
-                Field::HistoricInput { path, .. } => {
-                    let now_accessor = path_to_accessor_token_stream(
-                        quote!{ own_database_reference.main_outputs },
-                        path,
-                        ReferenceKind::Immutable,
-                        cycler,
-                    );
-                    let historic_accessor = path_to_accessor_token_stream(
-                        quote!{ database },
-                        path,
-                        ReferenceKind::Immutable,
-                        cycler,
-                    );
-                    quote! {
-                        [(now, #now_accessor)]
-                            .into_iter()
-                            .chain(
-                                self
-                                    .historic_databases
-                                    .databases
-                                    .iter()
-                                    .map(|(system_time, database)| (
-                                        *system_time,
-                                        #historic_accessor,
-                                    ))
-                            )
-                            .collect::<std::collections::BTreeMap<_, _>>()
-                            .into()
+                Field::HistoricInput { path, data_type, .. } => {
+                    match mode {
+                        Execution::None => Default::default(),
+                        Execution::Run => {
+                            let now_accessor = path_to_accessor_token_stream(
+                                quote!{ own_database_reference.main_outputs },
+                                path,
+                                ReferenceKind::Immutable,
+                                cycler,
+                            );
+                            let historic_accessor = path_to_accessor_token_stream(
+                                quote!{ database },
+                                path,
+                                ReferenceKind::Immutable,
+                                cycler,
+                            );
+                            quote! {
+                                [(now, #now_accessor)]
+                                    .into_iter()
+                                    .chain(
+                                        self
+                                            .historic_databases
+                                            .databases
+                                            .iter()
+                                            .map(|(system_time, database)| (
+                                                *system_time,
+                                                #historic_accessor,
+                                            ))
+                                    )
+                                    .collect::<std::collections::BTreeMap<_, _>>()
+                                    .into()
+                            }
+                        },
+                        Execution::Replay => {
+                            let name = path_to_extraction_variable_name("own", &path, "historic_input");
+                            let is_option = match data_type {
+                                Type::Path(TypePath {
+                                    path: SynPath { segments, .. },
+                                    ..
+                                }) => !segments.is_empty() && segments.last().unwrap().ident == "Option",
+                                _ => false,
+                            };
+                            if is_option {
+                                quote! {
+                                    #name.iter().map(|(key, option_value)| (*key, option_value.as_ref())).collect::<std::collections::BTreeMap<_, _>>().into()
+                                }
+                            } else {
+                                quote! {
+                                    #name.iter().map(|(key, option_value)| (*key, option_value)).collect::<std::collections::BTreeMap<_, _>>().into()
+                                }
+                            }
+                        },
                     }
                 }
                 Field::Input {
