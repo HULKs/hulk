@@ -127,6 +127,10 @@ impl Behavior {
             }
         }
 
+        let filtered_game_state = world_state
+            .filtered_game_controller_state
+            .map(|filtered_game_controller_state| filtered_game_controller_state.game_state);
+
         match world_state.robot.role {
             Role::DefenderLeft => actions.push(Action::DefendLeft),
             Role::DefenderRight => actions.push(Action::DefendRight),
@@ -145,10 +149,7 @@ impl Behavior {
             Role::MidfielderRight => actions.push(Action::SupportRight),
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
             Role::Searcher => actions.push(Action::Search),
-            Role::Striker => match world_state
-                .filtered_game_controller_state
-                .map(|filtered_game_controller_state| filtered_game_controller_state.game_state)
-            {
+            Role::Striker => match filtered_game_state {
                 None
                 | Some(FilteredGameState::Playing {
                     ball_is_free: true, ..
