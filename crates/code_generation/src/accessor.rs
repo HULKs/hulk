@@ -149,6 +149,16 @@ mod tests {
                 quote! { (|| Some(prefix.a.as_mut()?)) () },
             ),
             (
+                "a?.b",
+                ReferenceKind::Mutable,
+                quote! { (|| Some(prefix.a.as_mut()?.b)) () },
+            ),
+            (
+                "a?.b",
+                ReferenceKind::Immutable,
+                quote! { (|| Some(prefix.a.as_ref()?.b)) () },
+            ),
+            (
                 "$cycler_instance?",
                 ReferenceKind::Mutable,
                 quote! { match instance { CyclerInstance::InstanceA => (|| Some(prefix.instance_a.as_mut()?)) (), CyclerInstance::InstanceB => (|| Some(prefix.instance_b.as_mut()?)) (), } },
