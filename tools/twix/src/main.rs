@@ -29,8 +29,9 @@ use log::error;
 use nao::Nao;
 use panel::Panel;
 use panels::{
-    BehaviorSimulatorPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel,
-    MapPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel, VisionTunerPanel,
+    BehaviorSimulatorPanel, EnumPlotPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel,
+    ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel,
+    VisionTunerPanel,
 };
 use repository::{get_repository_root, Repository};
 use serde_json::{from_str, to_string, Value};
@@ -40,6 +41,7 @@ use tokio::{
 };
 use visuals::Visuals;
 
+mod change_buffer;
 mod completion_edit;
 mod image_buffer;
 mod nao;
@@ -140,6 +142,7 @@ impl_selectable_panel!(
     MapPanel,
     ParameterPanel,
     PlotPanel,
+    EnumPlotPanel,
     RemotePanel,
     TextPanel,
     VisionTunerPanel
