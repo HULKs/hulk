@@ -124,7 +124,7 @@ fn new_grid(
         .clamp(0.0, image.height() as f32);
 
     ScanGrid {
-        vertical_scan_lines: (0..image.width())
+        vertical_scan_lines: (2..image.width() - 2)
             .step_by(horizontal_stride)
             .map(|x| {
                 new_vertical_scan_line(
@@ -225,8 +225,8 @@ fn new_vertical_scan_line(
     let luminance_value_of_first_pixel = match median_mode {
         MedianModeParameters::Disabled => first_pixel,
         MedianModeParameters::ThreePixels => {
-            let previous_pixel = image.at(position, start_y - 1);
-            let next_pixel = image.at(position, start_y + 1);
+            let previous_pixel = image.at(position - 1, start_y);
+            let next_pixel = image.at(position + 1, start_y);
             median_of_three(
                 pixel_to_edge_detection_value(previous_pixel, edge_detection_source),
                 first_pixel,
@@ -234,10 +234,10 @@ fn new_vertical_scan_line(
             )
         }
         MedianModeParameters::FivePixels => {
-            let second_previous_pixel = image.at(position, start_y - 2);
-            let previous_pixel = image.at(position, start_y - 1);
-            let next_pixel = image.at(position, start_y + 1);
-            let second_next_pixel = image.at(position, start_y + 2);
+            let second_previous_pixel = image.at(position - 2, start_y);
+            let previous_pixel = image.at(position - 1, start_y);
+            let next_pixel = image.at(position + 1, start_y);
+            let second_next_pixel = image.at(position + 2, start_y);
             median_of_five(
                 pixel_to_edge_detection_value(second_previous_pixel, edge_detection_source),
                 pixel_to_edge_detection_value(previous_pixel, edge_detection_source),
@@ -259,8 +259,8 @@ fn new_vertical_scan_line(
         let luminance_value = match median_mode {
             MedianModeParameters::Disabled => pixel,
             MedianModeParameters::ThreePixels => {
-                let previous_pixel = image.at(position, y - 1);
-                let next_pixel = image.at(position, y + 1);
+                let previous_pixel = image.at(position - 1, y);
+                let next_pixel = image.at(position + 1, y);
                 median_of_three(
                     pixel_to_edge_detection_value(previous_pixel, edge_detection_source),
                     pixel,
@@ -268,10 +268,10 @@ fn new_vertical_scan_line(
                 )
             }
             MedianModeParameters::FivePixels => {
-                let second_previous_pixel = image.at(position, y - 2);
-                let previous_pixel = image.at(position, y - 1);
-                let next_pixel = image.at(position, y + 1);
-                let second_next_pixel = image.at(position, y + 2);
+                let second_previous_pixel = image.at(position - 2, y);
+                let previous_pixel = image.at(position - 1, y);
+                let next_pixel = image.at(position + 1, y);
+                let second_next_pixel = image.at(position + 2, y);
                 median_of_five(
                     pixel_to_edge_detection_value(second_previous_pixel, edge_detection_source),
                     pixel_to_edge_detection_value(previous_pixel, edge_detection_source),
