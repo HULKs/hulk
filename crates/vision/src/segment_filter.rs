@@ -70,7 +70,7 @@ fn filter_vertical_segments(
     segments: &[Segment],
     field_border: Option<&FieldBorder>,
 ) -> Vec<Segment> {
-    segments
+    let segments = segments
         .iter()
         .filter(|segment| segment.field_color == Intensity::Low)
         .skip_while(|segment| match field_border {
@@ -78,6 +78,21 @@ fn filter_vertical_segments(
                 .is_inside_field(point![scan_line_position as f32, segment.start as f32]),
             None => false,
         })
-        .copied()
-        .collect()
+        .copied();
+    let mut merged_segments = Vec::new();
+    for segment in segments {
+        let Some(last) = merged_segments.last_mut() else {
+            merged_segments.push(segment);
+            continue;
+        };
+
+        if segment.start - last.end < 5 {
+            last.end = segment.end;
+            // TODO: colors, etc.
+        } else {
+            merged_segments.push(segment);
+        }
+    }
+
+    merged_segments
 }
