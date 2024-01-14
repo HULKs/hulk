@@ -89,19 +89,19 @@ function on_cycle()
 
     if state.cycle_count == 3500 then
         unpenalize(2);
-        state.game_controller_state.penalties.one = nil;
+        state.game_controller_state.penalties.two = nil;
     end
 
 
 
-    if state.cycle_count == 4550 then
+    if state.cycle_count == 2550 then
         state.ball = {
             position = { 0.0, 0.0 },
             velocity = { 0.0, 0.0 },
         }
     end
 
-    if state.cycle_count == game_end_time then
+    if state.cycle_count == 6000 then
         state.finished = true
     end
 end
