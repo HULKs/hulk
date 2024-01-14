@@ -437,6 +437,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
                 let instance = self.instance;
                 let instance_name = format!("{instance:?}");
                 let itt_domain = ittapi::Domain::new(&instance_name);
+            
 
                 let mut own_database = self.own_writer.next();
                 let own_database_reference = {

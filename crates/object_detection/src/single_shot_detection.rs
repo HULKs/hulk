@@ -1,4 +1,4 @@
-use std::{time::Duration, path::PathBuf};
+use std::{path::PathBuf, time::Duration};
 
 use color_eyre::{
     eyre::{Context, ContextCompat},
@@ -9,22 +9,25 @@ use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use geometry::rectangle::Rectangle;
 use hardware::{PathsInterface, TimeInterface};
 use itertools::Itertools;
+use ittapi;
+use lazy_static::lazy_static;
 use ndarray::{s, ArrayView};
 use openvino::{Blob, Core, ExecutableNetwork, Layout, Precision, TensorDesc};
 use serde::{Deserialize, Serialize};
 use types::{
+    color::Rgb,
     object_detection::{BoundingBox, DetectedObject},
-    ycbcr422_image::YCbCr422Image, color::Rgb,
+    ycbcr422_image::YCbCr422Image,
 };
-use lazy_static::lazy_static;
 
 const DETECTION_IMAGE_HEIGHT: usize = 160;
 const DETECTION_IMAGE_WIDTH: usize = 224;
 const DETECTION_NUMBER_CHANNELS: usize = 3;
 
-const MAX_DETECTION: usize = 700;
+const MAX_DETECTION: usize = 2940;
 
-const DETECTION_SCRATCHPAD_SIZE: usize = DETECTION_IMAGE_WIDTH * DETECTION_IMAGE_HEIGHT * DETECTION_NUMBER_CHANNELS;
+const DETECTION_SCRATCHPAD_SIZE: usize =
+    DETECTION_IMAGE_WIDTH * DETECTION_IMAGE_HEIGHT * DETECTION_NUMBER_CHANNELS;
 
 lazy_static! {
     pub static ref X_INDICES: Vec<u32> = compute_indices(DETECTION_IMAGE_WIDTH, 640);
@@ -83,7 +86,7 @@ impl SingleShotDetection {
         let paths = context.hardware_interface.get_paths();
         let neural_network_folder = paths.neural_networks;
 
-        let model_xml_name = PathBuf::from("yolov8n-mobilenetv3-160-224-ov.xml");
+        let model_xml_name = PathBuf::from("yolov8n-mobilenetv3-160-224-3-neck-ov.xml");
 
         let model_path = neural_network_folder.join(&model_xml_name);
         let weights_path = neural_network_folder.join(model_xml_name.with_extension("bin"));
@@ -128,12 +131,14 @@ impl SingleShotDetection {
         if !context.enable {
             return Ok(MainOutputs::default());
         }
-
+        let itt_domain = ittapi::Domain::new("DetectionTop");
         let image = context.image;
         let earlier = context.hardware_interface.get_now();
 
-        SingleShotDetection::load_into_scratchpad(&mut self.scratchpad, image);
-
+        {
+            let _task = ittapi::Task::begin(&itt_domain, "preprocess");
+            SingleShotDetection::load_into_scratchpad(&mut self.scratchpad, image);
+        }
         context.preprocess_time.fill_if_subscribed(|| {
             context
                 .hardware_interface
@@ -142,6 +147,7 @@ impl SingleShotDetection {
                 .expect("time ran backwards")
         });
 
+        let _task = ittapi::Task::begin(&itt_domain, "inference");
         let mut infer_request = self.network.create_infer_request()?;
 
         let tensor_description = TensorDesc::new(
@@ -162,6 +168,7 @@ impl SingleShotDetection {
         let earlier = context.hardware_interface.get_now();
         infer_request.set_blob(&self.input_name, &blob)?;
         infer_request.infer()?;
+        _task.end();
         context.inference_time.fill_if_subscribed(|| {
             context
                 .hardware_interface
@@ -169,11 +176,14 @@ impl SingleShotDetection {
                 .duration_since(earlier)
                 .expect("time ran backwards")
         });
+
         let mut prediction = infer_request.get_blob("output0")?;
         let prediction = unsafe { prediction.buffer_mut_as_type::<f32>().unwrap() };
         let prediction = ArrayView::from_shape((8, MAX_DETECTION), prediction)?;
 
         let earlier = context.hardware_interface.get_now();
+
+        let _task = ittapi::Task::begin(&itt_domain, "postprocess");
         let detections = prediction
             .columns()
             .into_iter()
@@ -209,9 +219,7 @@ impl SingleShotDetection {
             .collect_vec();
 
         let bounding_boxes = multiclass_non_maximum_suppression(detections, *context.iou_threshold);
-
-        println!("{:?}", bounding_boxes.iter().map(|bbox| bbox.class).collect_vec());
-
+        _task.end();
         context.postprocess_time.fill_if_subscribed(|| {
             context
                 .hardware_interface

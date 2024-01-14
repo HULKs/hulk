@@ -18,3 +18,4 @@ lazy_static = { workspace = true }
 openvino = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }
+ittapi = { workspace = true }

@@ -1,0 +1,16 @@
+description: Ultralytics YOLOv8n-mobilenet model trained on robot-detection.yaml
+author: Ultralytics
+license: AGPL-3.0 https://ultralytics.com/license
+date: '2024-01-18T12:35:15.980340'
+version: 8.0.231
+stride: 16
+task: detect
+batch: 1
+imgsz:
+- 160
+- 224
+names:
+  0: ball
+  1: robot
+  2: goal_post
+  3: pen_spot
