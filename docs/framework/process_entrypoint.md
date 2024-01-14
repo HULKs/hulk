@@ -1,6 +1,16 @@
 # Process Entrypoint
 
-The HULKs robotic control software can be compiled for multiple build targets e.g. NAO and Webots. Each build target results in a executable which is either executed directly on the NAO or on the development machine. All executables define a `main()` function as entrypoint for the robotic control software, see `src/bin/` in the code. The following sections explain the first setup steps done in the `main()` function for the major build targets NAO and Webots. The final sections cover the behavior simulator entrypoint briefly.
+The HULKs robotic control software can be compiled for multiple build targets e.g. NAO and Webots.
+Each build target results in a executable which is either executed directly on the NAO or on the development machine.
+All executables define a `main()` function as entrypoint for the robotic control software, see `crates/hulks_nao` or `crates/hulks_webots` in the code.
+The following sections explain the first setup steps done in the `main()` function for the major build targets NAO and Webots.
+
+## Hardware Parameters
+
+Later in the `main()`, the hardware interfaces are created.
+Beside the robotics domain, the hardware interface also needs some configuration parameters to initialize the hardware.
+Thes parameters are read from a JSON file that can be passed as first command line argument to the executable.
+If omitted, the file at `etc/parameters/hardware.json` is loaded.
 
 ## Shutdown and CancellationToken
 
@@ -15,14 +25,5 @@ This concept allows to shutdown gracefully in any case of error or termination r
 
 On NAO and in Webots the robotic control software needs access to the hardware or simulator interface.
 The hardware interface provides an abstract way to interact with the underlying backend.
-The `main()` function first initializes the hardware interface and then constructs the runtime with it.
+The `main()` function first initializes the hardware interface and then starts the runtime (`run()`) with it.
 See [Hardware Interface](./hardware_interface.md) for more information about what the hardware interface initializes.
-At the end, the runtime is started.
-The `main()` function then waits for termination of the runtime which then concludes the process execution.
-
-## Behavior Simulator
-
-The behavior simulator is a special build target which only initializes and starts a subset of the robotic control software.
-It is intended to be executed on the development machine.
-Cancellation and hardware interfaces are not needed and are therefore omitted from initialization in `main()`.
-Instead, the behavior simulator parses command line arguments and dispatches the behavior simulation.
