@@ -117,18 +117,6 @@ mod tests {
 
     #[test]
     fn paths_with_optionals_result_in_correct_accessor_token_streams() {
-        // "a?.b"
-        // "a?.b?"
-        // "a?.b?.c"
-        // "a?.b.c?"
-        // "a?.b.c?.d"
-        //
-        // "xxx.a?.b"
-        // "xxx.a?.b?"
-        // "xxx.a?.b?.c"
-        // "xxx.a?.b.c?"
-        // "xxx.a?.b.c?.d"
-
         let cases = [
             (
                 "a?.b",
@@ -201,21 +189,21 @@ mod tests {
                 ReferenceKind::Immutable,
                 quote! { (|| Some(&(*prefix.a.as_ref()?))) () },
             ),
-            // (
-            //     "$cycler_instance?",
-            //     ReferenceKind::Immutable,
-            //     quote! { match instance { CyclerInstance::InstanceA => (|| Some(prefix.instance_a.as_ref()?)) (), CyclerInstance::InstanceB => (|| Some(prefix.instance_b.as_ref()?)) (), } },
-            // ),
+            (
+                "$cycler_instance?",
+                ReferenceKind::Immutable,
+                quote! { match instance { CyclerInstance::InstanceA => (|| Some(&(*prefix.instance_a.as_ref()?))) (), CyclerInstance::InstanceB => (|| Some(&(*prefix.instance_b.as_ref()?))) (), } },
+            ),
             (
                 "a?",
                 ReferenceKind::Mutable,
                 quote! { (|| Some(&mut(*prefix.a.as_mut()?))) () },
             ),
-            // (
-            //     "$cycler_instance?",
-            //     ReferenceKind::Mutable,
-            //     quote! { match instance { CyclerInstance::InstanceA => (|| Some(prefix.instance_a.as_mut()?)) (), CyclerInstance::InstanceB => (|| Some(prefix.instance_b.as_mut()?)) (), } },
-            // ),
+            (
+                "$cycler_instance?",
+                ReferenceKind::Mutable,
+                quote! { match instance { CyclerInstance::InstanceA => (|| Some(&mut(*prefix.instance_a.as_mut()?))) (), CyclerInstance::InstanceB => (|| Some(&mut(*prefix.instance_b.as_mut()?))) (), } },
+            ),
             (
                 "a?.b?.c",
                 ReferenceKind::Immutable,
@@ -337,29 +325,19 @@ mod tests {
                 quote! { (|| Some(&mut(*&mut(*prefix.a.b.c.d.e.f.as_mut()?).g.i.j.k.l.m.n.as_mut()?))) () },
             ),
             ("a", ReferenceKind::Immutable, quote! { &prefix.a }),
-            // (
-            //     "$cycler_instance",
-            //     ReferenceKind::Immutable,
-            //     quote! { match instance { CyclerInstance::InstanceA => &prefix.instance_a, CyclerInstance::InstanceB => &prefix.instance_b, } },
-            // ),
             ("a", ReferenceKind::Mutable, quote! { &mut prefix.a }),
-            // (
-            //     "$cycler_instance",
-            //     ReferenceKind::Mutable,
-            //     quote! { match instance { CyclerInstance::InstanceA => &mut prefix.instance_a, CyclerInstance::InstanceB => &mut prefix.instance_b, } },
-            // ),
             ("a.b", ReferenceKind::Immutable, quote! { &prefix.a.b }),
-            // (
-            //     "a.$cycler_instance",
-            //     ReferenceKind::Immutable,
-            //     quote! { match instance { CyclerInstance::InstanceA => &prefix.a.instance_a, CyclerInstance::InstanceB => &prefix.a.instance_b, } },
-            // ),
+            (
+                "a.$cycler_instance",
+                ReferenceKind::Immutable,
+                quote! { match instance { CyclerInstance::InstanceA => &prefix.a.instance_a, CyclerInstance::InstanceB => &prefix.a.instance_b, } },
+            ),
             ("a.b", ReferenceKind::Mutable, quote! { &mut prefix.a.b }),
-            // (
-            //     "a.$cycler_instance",
-            //     ReferenceKind::Mutable,
-            //     quote! { match instance { CyclerInstance::InstanceA => &mut prefix.a.instance_a, CyclerInstance::InstanceB => &mut prefix.a.instance_b, } },
-            // ),
+            (
+                "a.$cycler_instance",
+                ReferenceKind::Mutable,
+                quote! { match instance { CyclerInstance::InstanceA => &mut prefix.a.instance_a, CyclerInstance::InstanceB => &mut prefix.a.instance_b, } },
+            ),
         ];
         let cycler = Cycler {
             name: "TestCycler".to_string(),
