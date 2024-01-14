@@ -12,7 +12,7 @@ use tokio::{
     sync::{broadcast::error::RecvError, watch},
 };
 
-use crate::{image_buffer::ImageBuffer, value_buffer::ValueBuffer};
+use crate::{change_buffer::ChangeBuffer, image_buffer::ImageBuffer, value_buffer::ValueBuffer};
 
 pub struct Nao {
     communication: Communication,
@@ -70,6 +70,11 @@ impl Nao {
     pub fn subscribe_parameter(&self, path: &str) -> ValueBuffer {
         let _guard = self.runtime.enter();
         ValueBuffer::parameter(self.communication.clone(), path.to_string())
+    }
+
+    pub fn subscribe_changes(&self, output: CyclerOutput) -> ChangeBuffer {
+        let _guard = self.runtime.enter();
+        ChangeBuffer::output(self.communication.clone(), output)
     }
 
     pub fn get_address(&self) -> Option<String> {
