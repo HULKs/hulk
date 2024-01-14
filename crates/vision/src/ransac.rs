@@ -45,16 +45,17 @@ impl Ransac {
                     .unused_points
                     .choose_multiple(&mut self.random_number_generator, 2);
                 let line = Line(*points.next().unwrap(), *points.next().unwrap());
-                let score = self
+                let score: f32 = self
                     .unused_points
                     .iter()
-                    .filter(|point| {
-                        line.squared_distance_to_point(**point) <= maximum_distance_squared
+                    .filter(|&point| {
+                        line.squared_distance_to_point(*point) <= maximum_score_distance_squared
                     })
-                    .count();
+                    .map(|point| 1.0 - line.distance_to_point(*point) / maximum_score_distance)
+                    .sum();
                 (line, score)
             })
-            .max_by_key(|scored_line| scored_line.1)
+            .max_by(|line_1, line_2| line_1.1.total_cmp(&line_2.1))
             .expect("max_by_key erroneously returned no result")
             .0;
         let (used_points, unused_points) = self.unused_points.iter().partition(|point| {
