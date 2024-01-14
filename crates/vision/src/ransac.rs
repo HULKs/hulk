@@ -24,14 +24,21 @@ impl Ransac {
 }
 
 impl Ransac {
-    pub fn next_line(&mut self, iterations: usize, maximum_distance: f32) -> RansacResult {
+    pub fn next_line(
+        &mut self,
+        iterations: usize,
+        maximum_score_distance: f32,
+        maximum_inclusion_distance: f32,
+    ) -> RansacResult {
         if self.unused_points.len() < 2 {
             return RansacResult {
                 line: None,
                 used_points: vec![],
             };
         }
-        let maximum_distance_squared = maximum_distance * maximum_distance;
+        let maximum_score_distance_squared = maximum_score_distance * maximum_score_distance;
+        let maximum_inclusion_distance_squared =
+            maximum_inclusion_distance * maximum_inclusion_distance;
         let best_line = (0..iterations)
             .map(|_| {
                 let mut points = self
@@ -51,7 +58,7 @@ impl Ransac {
             .expect("max_by_key erroneously returned no result")
             .0;
         let (used_points, unused_points) = self.unused_points.iter().partition(|point| {
-            best_line.squared_distance_to_point(**point) <= maximum_distance_squared
+            best_line.squared_distance_to_point(**point) <= maximum_inclusion_distance_squared
         });
         self.unused_points = unused_points;
         RansacResult {
@@ -78,19 +85,19 @@ mod test {
     #[test]
     fn ransac_empty_input() {
         let mut ransac = ransac_with_seed(vec![], 0);
-        assert_eq!(ransac.next_line(10, 5.0), RansacResult::default());
+        assert_eq!(ransac.next_line(10, 5.0, 5.0), RansacResult::default());
     }
 
     #[test]
     fn ransac_single_point() {
         let mut ransac = ransac_with_seed(vec![point![15.0, 15.0]], 0);
-        assert_eq!(ransac.next_line(10, 5.0), RansacResult::default());
+        assert_eq!(ransac.next_line(10, 5.0, 5.0), RansacResult::default());
     }
 
     #[test]
     fn ransac_two_points() {
         let mut ransac = ransac_with_seed(vec![point![15.0, 15.0], point![30.0, 30.0]], 0);
-        let result = ransac.next_line(10, 5.0);
+        let result = ransac.next_line(10, 5.0, 5.0);
         assert_relative_eq!(
             result.line.expect("No line found"),
             Line(point![15.0, 15.0], point![30.0, 30.0])
@@ -108,7 +115,7 @@ mod test {
             .collect();
 
         let mut ransac = ransac_with_seed(points.clone(), 0);
-        let result = ransac.next_line(15, 1.0);
+        let result = ransac.next_line(15, 1.0, 1.0);
         let line = result.line.expect("No line was found");
         assert_relative_eq!(line.slope(), slope, epsilon = 0.0001);
         assert_relative_eq!(line.y_axis_intercept(), y_intercept, epsilon = 0.0001);

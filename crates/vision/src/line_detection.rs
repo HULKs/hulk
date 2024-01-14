@@ -30,12 +30,14 @@ pub struct CycleContext {
 
     allowed_line_length_in_field:
         Parameter<Range<f32>, "line_detection.$cycler_instance.allowed_line_length_in_field">,
+    check_edge_gradient: Parameter<bool, "line_detection.$cycler_instance.check_edge_gradient">,
     check_line_distance: Parameter<bool, "line_detection.$cycler_instance.check_line_distance">,
     check_line_length: Parameter<bool, "line_detection.$cycler_instance.check_line_length">,
-    check_edge_gradient: Parameter<bool, "line_detection.$cycler_instance.check_edge_gradient">,
     check_line_segments_projection:
         Parameter<bool, "line_detection.$cycler_instance.check_line_segments_projection">,
     gradient_alignment: Parameter<f32, "line_detection.$cycler_instance.gradient_alignment">,
+    margin_for_point_inclusion:
+        Parameter<f32, "line_detection.$cycler_instance.margin_for_point_inclusion">,
     maximum_distance_to_robot:
         Parameter<f32, "line_detection.$cycler_instance.maximum_distance_to_robot">,
     maximum_fit_distance_in_ground:
@@ -94,7 +96,11 @@ impl LineDetection {
             let RansacResult {
                 line: ransac_line,
                 used_points,
-            } = ransac.next_line(20, *context.maximum_fit_distance_in_ground);
+            } = ransac.next_line(
+                20,
+                *context.maximum_fit_distance_in_ground,
+                *context.maximum_fit_distance_in_ground + *context.margin_for_point_inclusion,
+            );
             let ransac_line =
                 ransac_line.expect("Insufficient number of line points. Cannot fit line.");
             if used_points.len() < *context.minimum_number_of_points_on_line {
