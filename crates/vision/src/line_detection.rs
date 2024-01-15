@@ -77,7 +77,11 @@ impl LineDetection {
             *context.gradient_alignment,
         );
         if context.lines_in_image.is_subscribed() {
-            image_lines.points = line_points.clone();
+            image_lines.points = line_points
+                .iter()
+                .cloned()
+                .map(|point| context.camera_matrix.ground_to_pixel(point).unwrap())
+                .collect();
         }
         let mut ransac = Ransac::new(line_points);
         let mut lines_in_robot = Vec::new();
@@ -123,36 +127,16 @@ impl LineDetection {
                     .push((ransac_line, LineDiscardReason::TooFewPoints));
                 continue;
             }
-            let (start_point_in_image, start_point_in_robot) =
-                match points_with_projection_onto_line.iter().copied().find_map(
-                    |(point, projected_point)| {
-                        Some((
-                            point,
-                            context
-                                .camera_matrix
-                                .pixel_to_ground(projected_point)
-                                .ok()?,
-                        ))
-                    },
-                ) {
-                    Some(start) => start,
-                    None => break,
-                };
-            let (end_point_in_image, end_point_in_robot) = match points_with_projection_onto_line
-                .iter()
-                .copied()
-                .rev()
-                .find_map(|(point, projected_point)| {
-                    Some((
-                        point,
-                        context
-                            .camera_matrix
-                            .pixel_to_ground(projected_point)
-                            .ok()?,
-                    ))
-                }) {
-                Some(end) => end,
-                None => break,
+
+            let Some((start_point_in_image, start_point_in_robot)) =
+                points_with_projection_onto_line.first().copied()
+            else {
+                break;
+            };
+            let Some((end_point_in_image, end_point_in_robot)) =
+                points_with_projection_onto_line.last().copied()
+            else {
+                break;
             };
 
             let line_in_robot = Line(start_point_in_robot, end_point_in_robot);
@@ -195,7 +179,20 @@ impl LineDetection {
             lines_in_robot,
             used_vertical_filtered_segments,
         };
-        context.lines_in_image.fill_if_subscribed(|| image_lines);
+
+        context.lines_in_image.fill_if_subscribed(|| {
+            for line in image_lines.lines.iter_mut().chain(
+                image_lines
+                    .discarded_lines
+                    .iter_mut()
+                    .map(|line| &mut line.0),
+            ) {
+                line.0 = context.camera_matrix.ground_to_pixel(line.0).unwrap();
+                line.1 = context.camera_matrix.ground_to_pixel(line.1).unwrap();
+            }
+            image_lines
+        });
+
         Ok(MainOutputs {
             line_data: Some(line_data).into(),
         })
@@ -271,12 +268,14 @@ fn filter_segments_for_lines(
                 }
             })
         })
-        .map(|(scan_line_position, segment)| {
+        .filter_map(|(scan_line_position, segment)| {
             let center = (segment.start + segment.end) as f32 / 2.0;
-            (
-                point![scan_line_position as f32, center],
+            Some((
+                camera_matrix
+                    .pixel_to_ground(point![scan_line_position as f32, center])
+                    .ok()?,
                 point![scan_line_position, segment.start],
-            )
+            ))
         })
         .unzip();
     (line_points, used_vertical_filtered_segments)
