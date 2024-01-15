@@ -98,8 +98,8 @@
       "check_edge_gradient": false,
       "gradient_alignment": -0.95,
       "maximum_distance_to_robot": 6.0,
-      "maximum_fit_distance_in_pixels": 3.0,
-      "maximum_gap_on_line": 30.0,
+      "maximum_fit_distance_in_pixels": 0.05,
+      "maximum_gap_on_line": 0.5,
       "maximum_number_of_lines": 10,
       "maximum_projected_segment_length": 0.3,
       "minimum_number_of_points_on_line": 5
@@ -115,8 +115,8 @@
       "check_edge_gradient": false,
       "gradient_alignment": -0.95,
       "maximum_distance_to_robot": 6.0,
-      "maximum_fit_distance_in_pixels": 3.0,
-      "maximum_gap_on_line": 30.0,
+      "maximum_fit_distance_in_pixels": 0.05,
+      "maximum_gap_on_line": 0.5,
       "maximum_number_of_lines": 10,
       "maximum_projected_segment_length": 0.3,
       "minimum_number_of_points_on_line": 4
