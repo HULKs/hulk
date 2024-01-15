@@ -38,8 +38,8 @@ pub struct CycleContext {
     gradient_alignment: Parameter<f32, "line_detection.$cycler_instance.gradient_alignment">,
     maximum_distance_to_robot:
         Parameter<f32, "line_detection.$cycler_instance.maximum_distance_to_robot">,
-    maximum_fit_distance_in_robot:
-        Parameter<f32, "line_detection.$cycler_instance.maximum_fit_distance_in_pixels">,
+    maximum_fit_distance_in_ground:
+        Parameter<f32, "line_detection.$cycler_instance.maximum_fit_distance_in_ground">,
     maximum_gap_on_line: Parameter<f32, "line_detection.$cycler_instance.maximum_gap_on_line">,
     maximum_number_of_lines:
         Parameter<usize, "line_detection.$cycler_instance.maximum_number_of_lines">,
@@ -92,7 +92,7 @@ impl LineDetection {
             let RansacResult {
                 line: ransac_line,
                 used_points,
-            } = ransac.next_line(20, *context.maximum_fit_distance_in_robot);
+            } = ransac.next_line(20, *context.maximum_fit_distance_in_ground);
             let ransac_line =
                 ransac_line.expect("Insufficient number of line points. Cannot fit line.");
             if used_points.len() < *context.minimum_number_of_points_on_line {
