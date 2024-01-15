@@ -1,4 +1,4 @@
-use std::{collections::HashSet, ops::Range};
+use std::{collections::HashSet, iter::Peekable, ops::Range};
 
 use color_eyre::Result;
 use context_attribute::context;
@@ -47,6 +47,7 @@ pub struct CycleContext {
         Parameter<f32, "line_detection.$cycler_instance.maximum_projected_segment_length">,
     minimum_number_of_points_on_line:
         Parameter<usize, "line_detection.$cycler_instance.minimum_number_of_points_on_line">,
+    maximum_merge_gap: Parameter<u16, "line_detection.$cycler_instance.maximum_merge_gap">,
 
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     filtered_segments: Input<FilteredSegments, "filtered_segments">,
@@ -75,6 +76,7 @@ impl LineDetection {
             *context.maximum_projected_segment_length,
             *context.check_edge_gradient,
             *context.gradient_alignment,
+            *context.maximum_merge_gap,
         );
         if context.lines_in_image.is_subscribed() {
             image_lines.points = line_points
@@ -234,6 +236,46 @@ fn get_gradient(image: &YCbCr422Image, point: Point2<u16>) -> Vector2<f32> {
         .unwrap_or_else(Vector2::zeros)
 }
 
+struct SegmentMerger<T: Iterator<Item = Segment>> {
+    iterator: Peekable<T>,
+    maximum_merge_gap: u16,
+}
+
+impl<T> SegmentMerger<T>
+where
+    T: Iterator<Item = Segment>,
+{
+    fn new(iterator: T, maximum_merge_gap: u16) -> Self {
+        Self {
+            iterator: iterator.peekable(),
+            maximum_merge_gap,
+        }
+    }
+}
+
+impl<T> Iterator for SegmentMerger<T>
+where
+    T: Iterator<Item = Segment>,
+{
+    type Item = Segment;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut current = self.iterator.next()?;
+
+        while let Some(next) = self.iterator.peek().copied() {
+            if next.start - current.end >= self.maximum_merge_gap {
+                break;
+            }
+
+            let _ = self.iterator.next();
+            current.end = next.end;
+            current.end_edge_type = next.end_edge_type;
+        }
+
+        Some(current)
+    }
+}
+
 fn filter_segments_for_lines(
     camera_matrix: &CameraMatrix,
     filtered_segments: &FilteredSegments,
@@ -242,14 +284,18 @@ fn filter_segments_for_lines(
     maximum_projected_segment_length: f32,
     check_edge_gradient: bool,
     gradient_alignment: f32,
+    maximum_merge_gap: u16,
 ) -> (Vec<Point2<f32>>, HashSet<Point2<u16>>) {
     let (line_points, used_vertical_filtered_segments) = filtered_segments
         .scan_grid
         .vertical_scan_lines
         .iter()
         .flat_map(|scan_line| {
+            let merged_segments =
+                SegmentMerger::new(scan_line.segments.iter().copied(), maximum_merge_gap);
+
             let scan_line_position = scan_line.position;
-            scan_line.segments.iter().filter_map(move |segment| {
+            merged_segments.filter_map(move |segment| {
                 let is_line_segment = is_line_segment(
                     segment,
                     scan_line_position,
@@ -282,7 +328,7 @@ fn filter_segments_for_lines(
 
 #[allow(clippy::too_many_arguments)]
 fn is_line_segment(
-    segment: &Segment,
+    segment: Segment,
     scan_line_position: u16,
     image: &YCbCr422Image,
     camera_matrix: &CameraMatrix,
