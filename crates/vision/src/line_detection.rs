@@ -79,8 +79,7 @@ impl LineDetection {
         if context.lines_in_image.is_subscribed() {
             image_lines.points = line_points
                 .iter()
-                .cloned()
-                .map(|point| context.camera_matrix.ground_to_pixel(point).unwrap())
+                .map(|point| context.camera_matrix.ground_to_pixel(*point).unwrap())
                 .collect();
         }
         let mut ransac = Ransac::new(line_points);
