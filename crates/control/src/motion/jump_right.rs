@@ -7,13 +7,14 @@ use serde::{Deserialize, Serialize};
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
+    joints::Joints,
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
     motor_commands::MotorCommands,
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct JumpRight {
-    interpolator: MotionInterpolator<MotorCommands<f32>>,
+    interpolator: MotionInterpolator<MotorCommands<Joints<f32>>>,
 }
 
 #[context]
@@ -33,7 +34,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub jump_right_joints_command: MainOutput<MotorCommands<f32>>,
+    pub jump_right_joints_command: MainOutput<MotorCommands<Joints<f32>>>,
 }
 
 impl JumpRight {

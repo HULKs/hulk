@@ -32,7 +32,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub arms_up_squat_joints_command: MainOutput<MotorCommands<f32>>,
+    pub arms_up_squat_joints_command: MainOutput<MotorCommands<Joints<f32>>>,
 }
 
 impl ArmsUpSquat {

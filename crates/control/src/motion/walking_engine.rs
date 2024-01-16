@@ -12,7 +12,7 @@ use types::{
     joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints},
     motion_command::{KickVariant, MotionCommand},
     motion_selection::{MotionSafeExits, MotionType},
-    motor_commands::BodyMotorCommands,
+    motor_commands::MotorCommands,
     parameters::{KickStepsParameters, StepPlannerParameters, WalkingEngineParameters},
     robot_kinematics::RobotKinematics,
     sensor_data::{InertialMeasurementUnitData, SensorData},
@@ -149,7 +149,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub walk_joints_command: MainOutput<BodyMotorCommands<f32>>,
+    pub walk_motor_commands: MainOutput<MotorCommands<BodyJoints<f32>>>,
 }
 
 impl WalkingEngine {
@@ -379,7 +379,7 @@ impl WalkingEngine {
         };
 
         Ok(MainOutputs {
-            walk_joints_command: BodyMotorCommands {
+            walk_motor_commands: MotorCommands {
                 positions: BodyJoints {
                     left_arm,
                     right_arm,
