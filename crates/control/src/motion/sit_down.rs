@@ -34,7 +34,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub sit_down_joints_command: MainOutput<MotorCommands<f32>>,
+    pub sit_down_joints_command: MainOutput<MotorCommands<Joints<f32>>>,
 }
 
 impl SitDown {

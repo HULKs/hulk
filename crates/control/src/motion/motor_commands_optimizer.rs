@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
-use types::motor_commands::MotorCommands;
+use types::{joints::Joints, motor_commands::MotorCommands};
 
 #[derive(Deserialize, Serialize)]
 pub struct MotorCommandsOptimizer {}
@@ -12,13 +12,13 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    motor_commands: Input<MotorCommands<f32>, "motor_commands">,
+    motor_commands: Input<MotorCommands<Joints<f32>>, "motor_commands">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub optimized_motor_commands: MainOutput<MotorCommands<f32>>,
+    pub optimized_motor_commands: MainOutput<MotorCommands<Joints<f32>>>,
 }
 
 impl MotorCommandsOptimizer {
