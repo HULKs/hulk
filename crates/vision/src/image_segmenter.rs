@@ -144,21 +144,21 @@ fn new_grid(
 }
 
 struct ScanLineState {
-    previous_luminance_value: i16,
-    previous_luminance_difference: i16,
-    maximum_luminance_difference: i16,
-    maximum_luminance_difference_position: u16,
+    previous_value: i16,
+    previous_difference: i16,
+    maximum_difference: i16,
+    maximum_difference_position: u16,
     start_position: u16,
     start_edge_type: EdgeType,
 }
 
 impl ScanLineState {
-    fn new(previous_luminance_value: i16, start_position: u16, start_edge_type: EdgeType) -> Self {
+    fn new(previous_value: i16, start_position: u16, start_edge_type: EdgeType) -> Self {
         Self {
-            previous_luminance_value,
-            previous_luminance_difference: Default::default(),
-            maximum_luminance_difference: Default::default(),
-            maximum_luminance_difference_position: Default::default(),
+            previous_value,
+            previous_difference: Default::default(),
+            maximum_difference: Default::default(),
+            maximum_difference_position: Default::default(),
             start_position,
             start_edge_type,
         }
@@ -221,65 +221,22 @@ fn new_vertical_scan_line(
         };
     }
 
-    let first_pixel =
-        pixel_to_edge_detection_value(image.at(position, start_y), edge_detection_source);
-    let luminance_value_of_first_pixel = match median_mode {
-        MedianModeParameters::Disabled => first_pixel,
-        MedianModeParameters::ThreePixels => {
-            let pixels = [
-                image.at(position - 1, start_y),
-                image.at(position, start_y),
-                image.at(position + 1, start_y),
-            ]
-            .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
-            median_of_three(pixels)
-        }
-        MedianModeParameters::FivePixels => {
-            let pixels = [
-                image.at(position - 2, start_y),
-                image.at(position - 1, start_y),
-                image.at(position, start_y),
-                image.at(position + 1, start_y),
-                image.at(position + 2, start_y),
-            ]
-            .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
-            median_of_five(pixels)
-        }
-    } as i16;
+    let edge_detection_value =
+        edge_detection_value_at(position, start_y, image, edge_detection_source, median_mode);
     let mut state = ScanLineState::new(
-        luminance_value_of_first_pixel,
+        edge_detection_value,
         horizon_y_minimum as u16,
         EdgeType::ImageBorder,
     );
 
     let mut segments = Vec::with_capacity((end_y - start_y) as usize / stride);
     for y in (start_y..end_y).step_by(stride) {
-        let pixel = pixel_to_edge_detection_value(image.at(position, y), edge_detection_source);
-        let luminance_value = match median_mode {
-            MedianModeParameters::Disabled => pixel,
-            MedianModeParameters::ThreePixels => {
-                let pixels = [
-                    image.at(position - 1, start_y),
-                    image.at(position, start_y),
-                    image.at(position + 1, start_y),
-                ]
-                .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
-                median_of_three(pixels)
-            }
-            MedianModeParameters::FivePixels => {
-                let pixels = [
-                    image.at(position - 2, start_y),
-                    image.at(position - 1, start_y),
-                    image.at(position, start_y),
-                    image.at(position + 1, start_y),
-                    image.at(position + 2, start_y),
-                ]
-                .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
-                median_of_five(pixels)
-            }
-        } as i16;
+        let edge_detection_value =
+            edge_detection_value_at(position, y, image, edge_detection_source, median_mode);
 
-        if let Some(segment) = detect_edge(&mut state, y as u16, luminance_value, edge_threshold) {
+        if let Some(segment) =
+            detect_edge(&mut state, y as u16, edge_detection_value, edge_threshold)
+        {
             if segment_is_below_limbs(position as u16, &segment, projected_limbs) {
                 fix_previous_edge_type(&mut segments);
                 break;
@@ -314,6 +271,36 @@ fn new_vertical_scan_line(
         position: position as u16,
         segments,
     }
+}
+
+fn edge_detection_value_at(
+    x: u32,
+    y: u32,
+    image: &YCbCr422Image,
+    edge_detection_source: EdgeDetectionSourceParameters,
+    median_mode: MedianModeParameters,
+) -> i16 {
+    let pixel = pixel_to_edge_detection_value(image.at(x, y), edge_detection_source);
+
+    (match median_mode {
+        MedianModeParameters::Disabled => pixel,
+        MedianModeParameters::ThreePixels => {
+            let pixels = [image.at(x - 1, y), image.at(x, y), image.at(x + 1, y)]
+                .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
+            median_of_three(pixels)
+        }
+        MedianModeParameters::FivePixels => {
+            let pixels = [
+                image.at(x - 2, y),
+                image.at(x - 1, y),
+                image.at(x, y),
+                image.at(x + 1, y),
+                image.at(x + 2, y),
+            ]
+            .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
+            median_of_five(pixels)
+        }
+    } as i16)
 }
 
 fn pixel_to_edge_detection_value(
@@ -437,31 +424,30 @@ fn fix_previous_edge_type(segments: &mut [Segment]) {
 fn detect_edge(
     state: &mut ScanLineState,
     position: u16,
-    luminance_value: i16,
+    value: i16,
     edge_threshold: i16,
 ) -> Option<Segment> {
-    let luminance_difference = luminance_value - state.previous_luminance_value;
+    let value_difference = value - state.previous_value;
 
-    let differences_have_initial_values =
-        state.maximum_luminance_difference == 0 && luminance_difference == 0;
-    let new_difference_is_more_positive = state.maximum_luminance_difference >= 0
-        && luminance_difference >= state.maximum_luminance_difference;
-    let new_difference_is_more_negative = state.maximum_luminance_difference <= 0
-        && luminance_difference <= state.maximum_luminance_difference;
+    let differences_have_initial_values = state.maximum_difference == 0 && value_difference == 0;
+    let new_difference_is_more_positive =
+        state.maximum_difference >= 0 && value_difference >= state.maximum_difference;
+    let new_difference_is_more_negative =
+        state.maximum_difference <= 0 && value_difference <= state.maximum_difference;
 
-    if luminance_difference.abs() >= edge_threshold
+    if value_difference.abs() >= edge_threshold
         && (differences_have_initial_values
             || new_difference_is_more_positive
             || new_difference_is_more_negative)
     {
-        state.maximum_luminance_difference = luminance_difference;
-        state.maximum_luminance_difference_position = position;
+        state.maximum_difference = value_difference;
+        state.maximum_difference_position = position;
     }
 
-    let found_rising_edge = state.previous_luminance_difference >= edge_threshold
-        && luminance_difference < edge_threshold;
-    let found_falling_edge = state.previous_luminance_difference <= -edge_threshold
-        && luminance_difference > -edge_threshold;
+    let found_rising_edge =
+        state.previous_difference >= edge_threshold && value_difference < edge_threshold;
+    let found_falling_edge =
+        state.previous_difference <= -edge_threshold && value_difference > -edge_threshold;
 
     let segment = if found_rising_edge || found_falling_edge {
         let end_edge_type = if found_rising_edge {
@@ -471,14 +457,14 @@ fn detect_edge(
         };
         let segment = Segment {
             start: state.start_position,
-            end: state.maximum_luminance_difference_position,
+            end: state.maximum_difference_position,
             start_edge_type: state.start_edge_type,
             end_edge_type,
             color: Default::default(),
             field_color: Intensity::Low,
         };
-        state.maximum_luminance_difference = 0;
-        state.start_position = state.maximum_luminance_difference_position;
+        state.maximum_difference = 0;
+        state.start_position = state.maximum_difference_position;
         state.start_edge_type = end_edge_type;
 
         Some(segment)
@@ -486,8 +472,8 @@ fn detect_edge(
         None
     };
 
-    state.previous_luminance_value = luminance_value;
-    state.previous_luminance_difference = luminance_difference;
+    state.previous_value = value;
+    state.previous_difference = value_difference;
 
     segment
 }
