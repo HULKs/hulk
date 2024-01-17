@@ -43,14 +43,14 @@ pub struct CycleContext {
     maximum_fit_distance_in_ground:
         Parameter<f32, "line_detection.$cycler_instance.maximum_fit_distance_in_ground">,
     maximum_gap_on_line: Parameter<f32, "line_detection.$cycler_instance.maximum_gap_on_line">,
+    maximum_merge_gap_in_pixels:
+        Parameter<u16, "line_detection.$cycler_instance.maximum_merge_gap_in_pixels">,
     maximum_number_of_lines:
         Parameter<usize, "line_detection.$cycler_instance.maximum_number_of_lines">,
     maximum_projected_segment_length:
         Parameter<f32, "line_detection.$cycler_instance.maximum_projected_segment_length">,
     minimum_number_of_points_on_line:
         Parameter<usize, "line_detection.$cycler_instance.minimum_number_of_points_on_line">,
-    maximum_merge_gap_in_pixels:
-        Parameter<u16, "line_detection.$cycler_instance.maximum_merge_gap_in_pixels">,
     ransac_iterations: Parameter<usize, "line_detection.$cycler_instance.ransac_iterations">,
 
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
