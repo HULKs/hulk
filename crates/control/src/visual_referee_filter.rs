@@ -6,9 +6,10 @@ use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use hardware::NetworkInterface;
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{PlayerNumber, VisualRefereeDecision, VisualRefereeMessage};
+use spl_network_messages::{PlayerNumber, SubState, VisualRefereeDecision, VisualRefereeMessage};
 use types::{
-    cycle_time::CycleTime, filtered_whistle::FilteredWhistle, game_controller_state::GameControllerState, messages::OutgoingMessage,
+    cycle_time::CycleTime, filtered_whistle::FilteredWhistle,
+    game_controller_state::GameControllerState, messages::OutgoingMessage,
     primary_state::PrimaryState,
 };
 
@@ -62,11 +63,11 @@ impl VisualRefereeFilter {
 
         if self
             .time_of_last_visual_referee_related_state_change
-            .map_or(false, |time_of_last_state_change| {
+            .is_some_and(|time| {
                 context
                     .cycle_time
                     .start_time
-                    .duration_since(time_of_last_state_change)
+                    .duration_since(time)
                     .unwrap()
                     .as_secs_f32()
                     > 8.0
