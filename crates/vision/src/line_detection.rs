@@ -51,6 +51,7 @@ pub struct CycleContext {
         Parameter<usize, "line_detection.$cycler_instance.minimum_number_of_points_on_line">,
     maximum_merge_gap_in_pixels:
         Parameter<u16, "line_detection.$cycler_instance.maximum_merge_gap_in_pixels">,
+    ransac_iterations: Parameter<usize, "line_detection.$cycler_instance.ransac_iterations">,
 
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     filtered_segments: Input<FilteredSegments, "filtered_segments">,
@@ -97,7 +98,7 @@ impl LineDetection {
                 line: ransac_line,
                 used_points,
             } = ransac.next_line(
-                20,
+                *context.ransac_iterations,
                 *context.maximum_fit_distance_in_ground,
                 *context.maximum_fit_distance_in_ground + *context.margin_for_point_inclusion,
             );
