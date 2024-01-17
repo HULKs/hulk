@@ -749,12 +749,11 @@ impl WalkingEngine {
             torso_shift_offset,
             walk_hip_height,
         );
-        let (is_reachable, left_leg, right_leg) =
-            kinematics::leg_angles(left_foot_to_robot, right_foot_to_robot);
+        let (is_reachable, legs) = kinematics::leg_angles(left_foot_to_robot, right_foot_to_robot);
         if !is_reachable {
             warn!("Not reachable!");
         }
-        (left_leg, right_leg)
+        (legs.left_leg, legs.right_leg)
     }
 }
 

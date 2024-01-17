@@ -3,7 +3,11 @@ use std::{
     ops::{Add, Div, Mul, Sub},
 };
 
-use crate::joints::{mirror::Mirror, Joints};
+use crate::joints::{
+    body::{BodyJoints, LowerBodyJoints, UpperBodyJoints},
+    mirror::Mirror,
+    Joints,
+};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
@@ -85,6 +89,18 @@ where
         Self::Output {
             positions: self.positions / right,
             stiffnesses: self.stiffnesses / right,
+        }
+    }
+}
+
+impl MotorCommands<BodyJoints<f32>> {
+    pub fn from_lower_and_upper(
+        lower: MotorCommands<LowerBodyJoints<f32>>,
+        upper: MotorCommands<UpperBodyJoints<f32>>,
+    ) -> Self {
+        Self {
+            positions: BodyJoints::from_lower_and_upper(lower.positions, upper.positions),
+            stiffnesses: BodyJoints::from_lower_and_upper(lower.stiffnesses, upper.stiffnesses),
         }
     }
 }
