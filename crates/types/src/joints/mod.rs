@@ -2,6 +2,7 @@ pub mod arm;
 pub mod body;
 pub mod head;
 pub mod leg;
+pub mod mirror;
 
 use std::{
     array::IntoIter,
@@ -19,6 +20,7 @@ use self::{
     body::BodyJoints,
     head::{HeadJoint, HeadJoints},
     leg::{LegJoint, LegJoints},
+    mirror::Mirror,
 };
 
 #[derive(Clone, Copy)]
@@ -320,8 +322,8 @@ impl Div<f32> for Joints<f32> {
 
 impl_Interpolate!(f32, Joints<f32>, PI);
 
-impl Joints<f32> {
-    pub fn mirrored(self) -> Self {
+impl Mirror for Joints<f32> {
+    fn mirrored(self) -> Self {
         Self {
             head: self.head.mirrored(),
             left_arm: self.right_arm.mirrored(),

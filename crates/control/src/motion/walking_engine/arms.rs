@@ -4,7 +4,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
-    joints::arm::ArmJoints,
+    joints::{arm::ArmJoints, mirror::Mirror},
     motion_command::{ArmMotion, MotionCommand},
     parameters::SwingingArmsParameters,
     support_foot::Side,

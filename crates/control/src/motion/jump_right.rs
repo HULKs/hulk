@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
-    joints::Joints,
+    joints::{mirror::Mirror, Joints},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
     motor_commands::MotorCommands,
 };

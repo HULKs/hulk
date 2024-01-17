@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
 
+use super::mirror::Mirror;
+
 #[derive(Clone, Copy)]
 pub enum ArmJoint {
     ShoulderPitch,
@@ -152,8 +154,8 @@ impl Div<ArmJoints<f32>> for ArmJoints<f32> {
     }
 }
 
-impl ArmJoints<f32> {
-    pub fn mirrored(self) -> Self {
+impl Mirror for ArmJoints<f32> {
+    fn mirrored(self) -> Self {
         Self {
             shoulder_pitch: self.shoulder_pitch,
             shoulder_roll: -self.shoulder_roll,

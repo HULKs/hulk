@@ -6,6 +6,8 @@ use std::{
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
+use super::mirror::Mirror;
+
 #[derive(Clone, Copy)]
 pub enum HeadJoint {
     Yaw,
@@ -104,8 +106,8 @@ impl Div<HeadJoints<f32>> for HeadJoints<f32> {
     }
 }
 
-impl HeadJoints<f32> {
-    pub fn mirrored(self) -> Self {
+impl Mirror for HeadJoints<f32> {
+    fn mirrored(self) -> Self {
         Self {
             yaw: -self.yaw,
             pitch: self.pitch,
