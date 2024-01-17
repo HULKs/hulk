@@ -1,5 +1,5 @@
 {
-    "whistle_detection": {
+  "whistle_detection": {
     "detection_band": {
       "start": 2000,
       "end": 4000
