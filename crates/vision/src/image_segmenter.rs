@@ -563,7 +563,7 @@ mod tests {
         let scan_line = new_vertical_scan_line(
             &image,
             &field_color,
-            0,
+            1,
             2,
             EdgeDetectionSourceParameters::Luminance,
             1,
@@ -571,7 +571,7 @@ mod tests {
             0.0,
             &[],
         );
-        assert_eq!(scan_line.position, 0);
+        assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
         assert_eq!(scan_line.segments[0].end, 3);
@@ -726,27 +726,37 @@ mod tests {
 
     #[test]
     fn image_with_three_vertical_increasing_segments_with_median() {
+        let row = |y| {
+            [
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+            ]
+        };
         let image = YCbCr422Image::from_ycbcr_buffer(
-            1,
+            3,
             12,
-            vec![
+            [
                 // only evaluating every second pixel
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(1, 0, 0, 0),
+                row(0),
+                row(0), // skipped
+                row(1),
                 // segment boundary will be here
-                YCbCr422::new(1, 0, 0, 0), // skipped
-                YCbCr422::new(1, 0, 0, 0),
-                YCbCr422::new(1, 0, 0, 0), // skipped
-                YCbCr422::new(2, 0, 0, 0),
+                row(1), // skipped
+                row(1),
+                row(1), // skipped
+                row(2),
                 // segment boundary will be here
-                YCbCr422::new(2, 0, 0, 0), // skipped
-                YCbCr422::new(2, 0, 0, 0),
-                YCbCr422::new(2, 0, 0, 0), // skipped
-                YCbCr422::new(3, 0, 0, 0),
-                YCbCr422::new(3, 0, 0, 0), // skipped
-                                           // segment boundary will be here
-            ],
+                row(2), // skipped
+                row(2),
+                row(2), // skipped
+                row(3),
+                row(3), // skipped
+                         // segment boundary will be here
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -774,7 +784,7 @@ mod tests {
         let scan_line = new_vertical_scan_line(
             &image,
             &field_color,
-            0,
+            1,
             2,
             EdgeDetectionSourceParameters::Luminance,
             1,
@@ -782,7 +792,7 @@ mod tests {
             0.0,
             &[],
         );
-        assert_eq!(scan_line.position, 0);
+        assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
         assert_eq!(scan_line.segments[0].end, 3);
@@ -869,28 +879,38 @@ mod tests {
 
     #[test]
     fn image_with_three_vertical_decreasing_segments_with_median() {
+        let row = |y| {
+            [
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+            ]
+        };
         let image = YCbCr422Image::from_ycbcr_buffer(
-            1,
+            3,
             12,
-            vec![
+            [
                 // only evaluating every secondth 422 pixel
-                YCbCr422::new(3, 0, 0, 0),
-                YCbCr422::new(3, 0, 0, 0), // skipped
-                YCbCr422::new(2, 0, 0, 0),
+                row(3),
+                row(3), // skipped
+                row(2),
                 // segment boundary will be here
-                YCbCr422::new(2, 0, 0, 0), // skipped
-                YCbCr422::new(2, 0, 0, 0),
-                YCbCr422::new(2, 0, 0, 0), // skipped
-                YCbCr422::new(1, 0, 0, 0),
+                row(2), // skipped
+                row(2),
+                row(2), // skipped
+                row(1),
                 // segment boundary will be here
-                YCbCr422::new(1, 0, 0, 0), // skipped
-                YCbCr422::new(1, 0, 0, 0),
-                YCbCr422::new(1, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
+                row(1), // skipped
+                row(1),
+                row(1), // skipped
+                row(0),
+                row(0), // skipped
 
-                                           // segment boundary will be here
-            ],
+                         // segment boundary will be here
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -918,7 +938,7 @@ mod tests {
         let scan_line = new_vertical_scan_line(
             &image,
             &field_color,
-            0,
+            1,
             2,
             EdgeDetectionSourceParameters::Luminance,
             1,
@@ -926,7 +946,7 @@ mod tests {
             0.0,
             &[],
         );
-        assert_eq!(scan_line.position, 0);
+        assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
         assert_eq!(scan_line.segments[0].end, 3);
@@ -1086,60 +1106,70 @@ mod tests {
 
     #[test]
     fn image_with_three_vertical_segments_with_higher_differences_with_median() {
+        let row = |y| {
+            [
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+            ]
+        };
         let image = YCbCr422Image::from_ycbcr_buffer(
-            1,
+            3,
             44,
-            vec![
+            [
                 // only evaluating every secondth 422 pixel
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(1, 0, 0, 0),
-                YCbCr422::new(1, 0, 0, 0), // skipped
-                YCbCr422::new(2, 0, 0, 0),
-                YCbCr422::new(2, 0, 0, 0), // skipped
-                YCbCr422::new(3, 0, 0, 0),
-                YCbCr422::new(3, 0, 0, 0), // skipped
-                YCbCr422::new(4, 0, 0, 0),
-                YCbCr422::new(4, 0, 0, 0), // skipped
-                YCbCr422::new(5, 0, 0, 0),
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(1),
+                row(1), // skipped
+                row(2),
+                row(2), // skipped
+                row(3),
+                row(3), // skipped
+                row(4),
+                row(4), // skipped
+                row(5),
                 // segment boundary will be here
-                YCbCr422::new(5, 0, 0, 0), // skipped
-                YCbCr422::new(4, 0, 0, 0),
-                YCbCr422::new(4, 0, 0, 0), // skipped
-                YCbCr422::new(3, 0, 0, 0),
-                YCbCr422::new(3, 0, 0, 0), // skipped
-                YCbCr422::new(2, 0, 0, 0),
-                YCbCr422::new(2, 0, 0, 0), // skipped
-                YCbCr422::new(1, 0, 0, 0),
-                YCbCr422::new(1, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
+                row(5), // skipped
+                row(4),
+                row(4), // skipped
+                row(3),
+                row(3), // skipped
+                row(2),
+                row(2), // skipped
+                row(1),
+                row(1), // skipped
+                row(0),
                 // segment boundary will be here
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
 
-                                           // segment boundary will be here
-            ],
+                         // segment boundary will be here
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -1246,7 +1276,7 @@ mod tests {
         let scan_line = new_vertical_scan_line(
             &image,
             &field_color,
-            0,
+            1,
             2,
             EdgeDetectionSourceParameters::Luminance,
             1,
@@ -1254,7 +1284,7 @@ mod tests {
             0.0,
             &[],
         );
-        assert_eq!(scan_line.position, 0);
+        assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
         assert_eq!(scan_line.segments[0].end, 17);
@@ -1337,30 +1367,39 @@ mod tests {
 
     #[test]
     fn image_with_one_vertical_segment_with_increasing_differences_with_median() {
+        let row = |y| {
+            [
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+            ]
+        };
         let image = YCbCr422Image::from_ycbcr_buffer(
-            1,
+            3,
             16,
-            vec![
+            [
                 // only evaluating every secondth 422 pixel
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(0, 0, 0, 0),
-                YCbCr422::new(0, 0, 0, 0), // skipped
-                YCbCr422::new(1, 0, 0, 0),
-                YCbCr422::new(1, 0, 0, 0), // skipped
-                YCbCr422::new(3, 0, 0, 0),
-                YCbCr422::new(3, 0, 0, 0), // skipped
-                YCbCr422::new(6, 0, 0, 0),
-                YCbCr422::new(6, 0, 0, 0), // skipped
-                YCbCr422::new(10, 0, 0, 0),
-                YCbCr422::new(10, 0, 0, 0), // skipped
-                YCbCr422::new(15, 0, 0, 0),
-                YCbCr422::new(15, 0, 0, 0), // skipped
-                YCbCr422::new(21, 0, 0, 0),
-                YCbCr422::new(21, 0, 0, 0), // skipped
-
-                                            // segment boundary will be here
-            ],
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(1),
+                row(1), // skipped
+                row(3),
+                row(3), // skipped
+                row(6),
+                row(6), // skipped
+                row(10),
+                row(10), // skipped
+                row(15),
+                row(15), // skipped
+                row(21),
+                row(21), // skipped
+                          // segment boundary will be here
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
         );
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
@@ -1392,7 +1431,7 @@ mod tests {
         let scan_line = new_vertical_scan_line(
             &image,
             &field_color,
-            0,
+            1,
             2,
             EdgeDetectionSourceParameters::Luminance,
             1,
@@ -1400,7 +1439,7 @@ mod tests {
             0.0,
             &[],
         );
-        assert_eq!(scan_line.position, 0);
+        assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
         assert_eq!(scan_line.segments[0].end, 16);
