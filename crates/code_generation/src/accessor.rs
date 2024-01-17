@@ -79,7 +79,7 @@ fn path_to_accessor_token_stream_with_cycler_instance(
     if path.contains_optional() {
         let first_segment = segments
             .next()
-            .expect("Path should always contain at least one segment");
+            .expect("Path must always contain at least one segment");
 
         segments.zip_longest(path.segments.iter()).fold(
             quote! {#prefix. #first_segment},
@@ -98,7 +98,9 @@ fn path_to_accessor_token_stream_with_cycler_instance(
                         (|| Some(#recursive_token_stream))()
                     },
                 },
-                EitherOrBoth::Left(_) => unimplemented!(),
+                EitherOrBoth::Left(_) => {
+                    panic!("More segments than previous segments given. This should be impossible.")
+                }
             },
         )
     } else {
