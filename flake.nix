@@ -110,7 +110,7 @@
               runScript = "bash";
               profile = ''
                 if [[ ! -f "${nao_sdk_environment_path}" ]]; then
-                  echo "WARNING: nao sdk v${nao_sdk_version} not found! Please install it."
+                  echo "ERROR: nao sdk v${nao_sdk_version} not found! Please install it."
                   exit 1
                 fi
                 echo "Unsetting LD_LIBRARY_PATH..."
