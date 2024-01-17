@@ -60,8 +60,8 @@ impl GameControllerStateFilter {
             self.opponent_state,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
-            game_state: game_states.filtered_game_state,
-            opponent_game_state: game_states.filtered_opponent_game_state,
+            game_state: game_states.own,
+            opponent_game_state: game_states.opponent,
             game_phase: context.game_controller_state.game_phase,
             kicking_team: context.game_controller_state.kicking_team,
             penalties: context.game_controller_state.penalties,
@@ -80,8 +80,8 @@ impl GameControllerStateFilter {
 }
 
 struct FilteredGameStates {
-    pub filtered_game_state: FilteredGameState,
-    pub filtered_opponent_game_state: FilteredGameState,
+    own: FilteredGameState,
+    opponent: FilteredGameState,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -141,8 +141,8 @@ fn filter_game_states(
     );
 
     FilteredGameStates {
-        filtered_game_state,
-        filtered_opponent_game_state,
+        own: filtered_game_state,
+        opponent: filtered_opponent_game_state,
     }
 }
 
@@ -280,7 +280,7 @@ fn in_kick_off_grace_period(
 }
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
-pub enum State {
+enum State {
     Initial,
     Ready,
     Set,
