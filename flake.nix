@@ -22,31 +22,31 @@
           buildInputs = with pkgs;[
             # Tools
             cargo
-            rustc
-            rustfmt
             cmake
-            pkg-config
             llvmPackages.clang
+            pkg-config
             python312
             rsync
+            rustc
+            rustfmt
 
             # Libs
-            luajit
-            systemdLibs
-            hdf5
             alsa-lib
-            opusfile
-            libogg
+            hdf5
             libGL
+            libogg
             libxkbcommon
+            luajit
+            openssl
+            opusfile
+            pkgs.nixgl.auto.nixGLDefault
+            rustPlatform.bindgenHook
+            systemdLibs
             wayland
             xorg.libX11
             xorg.libXcursor
             xorg.libXi
             xorg.libXrandr
-            pkgs.nixgl.auto.nixGLDefault
-            rustPlatform.bindgenHook
-            openssl
           ];
 
           mktool = manifest_path:
