@@ -163,13 +163,17 @@ impl FootBumperFilter {
         if right_count >= *context.number_of_true_elements_in_buffer_for_defective_declaration {
             self.right_in_use = false;
         }
-        if self.left_in_use == false && left_count <= *context.number_of_true_elements_in_buffer_to_reset_in_use {
+        if !self.left_in_use
+            && left_count <= *context.number_of_true_elements_in_buffer_to_reset_in_use
+        {
             self.left_in_use = true;
         }
-        if self.right_in_use == false && right_count <= *context.number_of_true_elements_in_buffer_to_reset_in_use {
+        if !self.right_in_use
+            && right_count <= *context.number_of_true_elements_in_buffer_to_reset_in_use
+        {
             self.right_in_use = true;
         }
-        
+
         let left_point = point![
             context.sensor_angle.cos() * *context.obstacle_distance,
             context.sensor_angle.sin() * *context.obstacle_distance
