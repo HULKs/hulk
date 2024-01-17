@@ -1,4 +1,5 @@
 use nalgebra::Point2;
+use ordered_float::NotNan;
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, SeedableRng};
 use types::line::{Line, Line2};
 
@@ -55,7 +56,7 @@ impl Ransac {
                     .sum();
                 (line, score)
             })
-            .max_by(|line_1, line_2| line_1.1.total_cmp(&line_2.1))
+            .max_by_key(|(_line, score)| NotNan::new(*score).expect("score should never be NaN"))
             .expect("max_by_key erroneously returned no result")
             .0;
         let (used_points, unused_points) = self.unused_points.iter().partition(|point| {
