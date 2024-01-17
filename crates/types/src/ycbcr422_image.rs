@@ -132,7 +132,7 @@ impl YCbCr422Image {
     pub fn zero(width: u32, height: u32) -> Self {
         assert!(
             width % 2 == 0,
-            "the Image type does not support odd widths. Dimensions were {width}x{height}",
+            "YCbCr422Image does not support odd widths because pixels are stored in pairs. Dimensions were {width}x{height}",
         );
         Self::from_ycbcr_buffer(
             width / 2,
@@ -142,6 +142,7 @@ impl YCbCr422Image {
     }
 
     pub fn from_ycbcr_buffer(width_422: u32, height: u32, buffer: Vec<YCbCr422>) -> Self {
+        assert_eq!(buffer.len() as u32, width_422 * height);
         Self {
             width_422,
             height,
