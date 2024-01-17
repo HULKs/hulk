@@ -27,6 +27,17 @@ pub struct BodyJoints<T> {
     pub right_leg: LegJoints<T>,
 }
 
+impl<T> BodyJoints<T> {
+    pub fn from_lower_and_upper(lower: LowerBodyJoints<T>, upper: UpperBodyJoints<T>) -> Self {
+        Self {
+            left_arm: upper.left_arm,
+            right_arm: upper.right_arm,
+            left_leg: lower.left_leg,
+            right_leg: lower.right_leg,
+        }
+    }
+}
+
 impl<T> BodyJoints<T>
 where
     T: Clone,
@@ -122,6 +133,48 @@ impl Div<f32> for BodyJoints<f32> {
             right_arm: self.right_arm / right,
             left_leg: self.left_leg / right,
             right_leg: self.right_leg / right,
+        }
+    }
+}
+
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+)]
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct LowerBodyJoints<T> {
+    pub left_leg: LegJoints<T>,
+    pub right_leg: LegJoints<T>,
+}
+
+impl<T> LowerBodyJoints<T>
+where
+    T: Clone,
+{
+    pub fn fill(value: T) -> Self {
+        Self {
+            left_leg: LegJoints::fill(value.clone()),
+            right_leg: LegJoints::fill(value),
+        }
+    }
+}
+
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+)]
+#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+pub struct UpperBodyJoints<T> {
+    pub left_arm: ArmJoints<T>,
+    pub right_arm: ArmJoints<T>,
+}
+
+impl<T> UpperBodyJoints<T>
+where
+    T: Clone,
+{
+    pub fn fill(value: T) -> Self {
+        Self {
+            left_arm: ArmJoints::fill(value.clone()),
+            right_arm: ArmJoints::fill(value),
         }
     }
 }

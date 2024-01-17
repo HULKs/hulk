@@ -1,20 +1,23 @@
 use std::f32::consts::PI;
 
 use nalgebra::{geometry::Isometry3, Rotation3, Translation3, Vector3};
-use types::{joints::leg::LegJoints, robot_dimensions::RobotDimensions};
+use types::{
+    joints::{body::LowerBodyJoints, leg::LegJoints},
+    robot_dimensions::RobotDimensions,
+};
 
 pub fn leg_angles(
-    left_foot_to_torso: Isometry3<f32>,
-    right_foot_to_torso: Isometry3<f32>,
-) -> (bool, LegJoints<f32>, LegJoints<f32>) {
+    left_foot_to_robot: Isometry3<f32>,
+    right_foot_to_robot: Isometry3<f32>,
+) -> (bool, LowerBodyJoints<f32>) {
     let ratio = 0.5;
-    let torso_to_left_pelvis = Isometry3::rotation(Vector3::x() * -1.0 * PI / 4.0)
+    let robot_to_left_pelvis = Isometry3::rotation(Vector3::x() * -1.0 * PI / 4.0)
         * Translation3::from(-RobotDimensions::ROBOT_TO_LEFT_PELVIS);
-    let torso_to_right_pelvis = Isometry3::rotation(Vector3::x() * PI / 4.0)
+    let robot_to_right_pelvis = Isometry3::rotation(Vector3::x() * PI / 4.0)
         * Translation3::from(-RobotDimensions::ROBOT_TO_RIGHT_PELVIS);
 
-    let left_foot_to_left_pelvis = torso_to_left_pelvis * left_foot_to_torso;
-    let right_foot_to_right_pelvis = torso_to_right_pelvis * right_foot_to_torso;
+    let left_foot_to_left_pelvis = robot_to_left_pelvis * left_foot_to_robot;
+    let right_foot_to_right_pelvis = robot_to_right_pelvis * right_foot_to_robot;
     let vector_left_foot_to_left_pelvis = left_foot_to_left_pelvis.inverse().translation;
     let vector_right_foot_to_right_pelvis = right_foot_to_right_pelvis.inverse().translation;
 
@@ -121,5 +124,11 @@ pub fn leg_angles(
     let is_reachable =
         left_height <= maximum_leg_extension && right_height <= maximum_leg_extension;
 
-    (is_reachable, left_leg, right_leg)
+    (
+        is_reachable,
+        LowerBodyJoints {
+            left_leg,
+            right_leg,
+        },
+    )
 }
