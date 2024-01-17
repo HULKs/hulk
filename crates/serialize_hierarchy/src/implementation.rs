@@ -1,6 +1,6 @@
 use std::{
     collections::BTreeSet,
-    ops::{Deref, Range},
+    ops::{Deref, DerefMut, Range},
     sync::Arc,
 };
 
@@ -8,6 +8,37 @@ use nalgebra::{ArrayStorage, Const, Matrix, Point, Scalar, U1};
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{error::Error, SerializeHierarchy};
+
+impl<T> SerializeHierarchy for Box<T>
+where
+    T: SerializeHierarchy,
+{
+    fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        self.deref().serialize_path(path, serializer)
+    }
+
+    fn deserialize_path<'de, D>(&mut self, path: &str, data: D) -> Result<(), Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        self.deref_mut().deserialize_path(path, data)
+    }
+
+    fn exists(path: &str) -> bool {
+        T::exists(path)
+    }
+
+    fn get_fields() -> BTreeSet<String> {
+        T::get_fields()
+    }
+
+    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        T::fill_fields(fields, prefix)
+    }
+}
 
 impl<T> SerializeHierarchy for Arc<T>
 where
