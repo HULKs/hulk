@@ -277,6 +277,7 @@ where
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn filter_segments_for_lines(
     camera_matrix: &CameraMatrix,
     filtered_segments: &FilteredSegments,
