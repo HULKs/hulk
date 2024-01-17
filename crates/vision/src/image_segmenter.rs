@@ -165,7 +165,8 @@ impl ScanLineState {
     }
 }
 
-fn median_of_three(first: u8, second: u8, third: u8) -> u8 {
+fn median_of_three(values: [u8; 3]) -> u8 {
+    let [first, second, third] = values;
     // TODO: replace with same approach as median_of_five()
     if first <= second {
         if second <= third {
@@ -190,8 +191,8 @@ fn median_of_three(first: u8, second: u8, third: u8) -> u8 {
     }
 }
 
-fn median_of_five(first: u8, second: u8, third: u8, fourth: u8, fifth: u8) -> u8 {
-    let mut values = [first, second, third, fourth, fifth];
+fn median_of_five(mut values: [u8; 5]) -> u8 {
+    // let mut values = [first, second, third, fourth, fifth];
     let (_, median, _) = values.select_nth_unstable(2);
     *median
 }
@@ -225,26 +226,24 @@ fn new_vertical_scan_line(
     let luminance_value_of_first_pixel = match median_mode {
         MedianModeParameters::Disabled => first_pixel,
         MedianModeParameters::ThreePixels => {
-            let previous_pixel = image.at(position - 1, start_y);
-            let next_pixel = image.at(position + 1, start_y);
-            median_of_three(
-                pixel_to_edge_detection_value(previous_pixel, edge_detection_source),
-                first_pixel,
-                pixel_to_edge_detection_value(next_pixel, edge_detection_source),
-            )
+            let pixels = [
+                image.at(position - 1, start_y),
+                image.at(position, start_y),
+                image.at(position + 1, start_y),
+            ]
+            .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
+            median_of_three(pixels)
         }
         MedianModeParameters::FivePixels => {
-            let second_previous_pixel = image.at(position - 2, start_y);
-            let previous_pixel = image.at(position - 1, start_y);
-            let next_pixel = image.at(position + 1, start_y);
-            let second_next_pixel = image.at(position + 2, start_y);
-            median_of_five(
-                pixel_to_edge_detection_value(second_previous_pixel, edge_detection_source),
-                pixel_to_edge_detection_value(previous_pixel, edge_detection_source),
-                first_pixel,
-                pixel_to_edge_detection_value(next_pixel, edge_detection_source),
-                pixel_to_edge_detection_value(second_next_pixel, edge_detection_source),
-            )
+            let pixels = [
+                image.at(position - 2, start_y),
+                image.at(position - 1, start_y),
+                image.at(position, start_y),
+                image.at(position + 1, start_y),
+                image.at(position + 2, start_y),
+            ]
+            .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
+            median_of_five(pixels)
         }
     } as i16;
     let mut state = ScanLineState::new(
@@ -259,26 +258,24 @@ fn new_vertical_scan_line(
         let luminance_value = match median_mode {
             MedianModeParameters::Disabled => pixel,
             MedianModeParameters::ThreePixels => {
-                let previous_pixel = image.at(position - 1, y);
-                let next_pixel = image.at(position + 1, y);
-                median_of_three(
-                    pixel_to_edge_detection_value(previous_pixel, edge_detection_source),
-                    pixel,
-                    pixel_to_edge_detection_value(next_pixel, edge_detection_source),
-                )
+                let pixels = [
+                    image.at(position - 1, start_y),
+                    image.at(position, start_y),
+                    image.at(position + 1, start_y),
+                ]
+                .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
+                median_of_three(pixels)
             }
             MedianModeParameters::FivePixels => {
-                let second_previous_pixel = image.at(position - 2, y);
-                let previous_pixel = image.at(position - 1, y);
-                let next_pixel = image.at(position + 1, y);
-                let second_next_pixel = image.at(position + 2, y);
-                median_of_five(
-                    pixel_to_edge_detection_value(second_previous_pixel, edge_detection_source),
-                    pixel_to_edge_detection_value(previous_pixel, edge_detection_source),
-                    pixel,
-                    pixel_to_edge_detection_value(next_pixel, edge_detection_source),
-                    pixel_to_edge_detection_value(second_next_pixel, edge_detection_source),
-                )
+                let pixels = [
+                    image.at(position - 2, start_y),
+                    image.at(position - 1, start_y),
+                    image.at(position, start_y),
+                    image.at(position + 1, start_y),
+                    image.at(position + 2, start_y),
+                ]
+                .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
+                median_of_five(pixels)
             }
         } as i16;
 
@@ -353,27 +350,27 @@ fn set_color_in_vertical_segment(
             let fourth_pixel = image.at(x, fourth_position as u32);
             let fifth_pixel = image.at(x, fifth_position as u32);
 
-            let y = median_of_five(
+            let y = median_of_five([
                 first_pixel.y,
                 second_pixel.y,
                 third_pixel.y,
                 fourth_pixel.y,
                 fifth_pixel.y,
-            );
-            let cb = median_of_five(
+            ]);
+            let cb = median_of_five([
                 first_pixel.cb,
                 second_pixel.cb,
                 third_pixel.cb,
                 fourth_pixel.cb,
                 fifth_pixel.cb,
-            );
-            let cr = median_of_five(
+            ]);
+            let cr = median_of_five([
                 first_pixel.cr,
                 second_pixel.cr,
                 third_pixel.cr,
                 fourth_pixel.cr,
                 fifth_pixel.cr,
-            );
+            ]);
 
             YCbCr444::new(y, cb, cr)
         }
@@ -387,9 +384,9 @@ fn set_color_in_vertical_segment(
             let second_pixel = image.at(x, second_position as u32);
             let third_pixel = image.at(x, third_position as u32);
 
-            let y = median_of_three(first_pixel.y, second_pixel.y, third_pixel.y);
-            let cb = median_of_three(first_pixel.cb, second_pixel.cb, third_pixel.cb);
-            let cr = median_of_three(first_pixel.cr, second_pixel.cr, third_pixel.cr);
+            let y = median_of_three([first_pixel.y, second_pixel.y, third_pixel.y]);
+            let cb = median_of_three([first_pixel.cb, second_pixel.cb, third_pixel.cb]);
+            let cr = median_of_three([first_pixel.cr, second_pixel.cr, third_pixel.cr]);
 
             YCbCr444::new(y, cb, cr)
         }
@@ -408,9 +405,9 @@ fn set_color_in_vertical_segment(
         let second_pixel = image.at(x, second_position as u32);
         let third_pixel = image.at(x, third_position as u32);
 
-        let y = median_of_three(first_pixel.y, second_pixel.y, third_pixel.y);
-        let cb = median_of_three(first_pixel.cb, second_pixel.cb, third_pixel.cb);
-        let cr = median_of_three(first_pixel.cr, second_pixel.cr, third_pixel.cr);
+        let y = median_of_three([first_pixel.y, second_pixel.y, third_pixel.y]);
+        let cb = median_of_three([first_pixel.cb, second_pixel.cb, third_pixel.cb]);
+        let cr = median_of_three([first_pixel.cr, second_pixel.cr, third_pixel.cr]);
         YCbCr444::new(y, cb, cr)
     } else {
         let position = segment.start + segment.length() / 2;
@@ -1428,35 +1425,35 @@ mod tests {
     #[test]
     fn median_of_three_with_same_values() {
         // first == second == third
-        assert_eq!(median_of_three(0, 0, 0), 0);
+        assert_eq!(median_of_three([0, 0, 0]), 0);
         // first < second == third
-        assert_eq!(median_of_three(0, 1, 1), 1);
+        assert_eq!(median_of_three([0, 1, 1]), 1);
         // first == second < third
-        assert_eq!(median_of_three(0, 0, 1), 0);
+        assert_eq!(median_of_three([0, 0, 1]), 0);
         // first == third < second
-        assert_eq!(median_of_three(0, 1, 0), 0);
+        assert_eq!(median_of_three([0, 1, 0]), 0);
     }
 
     #[test]
     fn median_of_three_with_different_values() {
         // first <= second <= third
-        assert_eq!(median_of_three(0, 1, 2), 1);
+        assert_eq!(median_of_three([0, 1, 2]), 1);
         // first <= third < second
-        assert_eq!(median_of_three(0, 2, 1), 1);
+        assert_eq!(median_of_three([0, 2, 1]), 1);
         // third < first <= second
-        assert_eq!(median_of_three(1, 2, 0), 1);
+        assert_eq!(median_of_three([1, 2, 0]), 1);
         // second < first <= third
-        assert_eq!(median_of_three(1, 0, 2), 1);
+        assert_eq!(median_of_three([1, 0, 2]), 1);
         // second <= third < first
-        assert_eq!(median_of_three(2, 0, 1), 1);
+        assert_eq!(median_of_three([2, 0, 1]), 1);
         // third < second <= first
-        assert_eq!(median_of_three(2, 1, 0), 1);
+        assert_eq!(median_of_three([2, 1, 0]), 1);
     }
 
     #[test]
     fn median_of_five_calculates_median() {
         for (first, second, third, fourth, fifth) in iproduct!(0..5, 0..5, 0..5, 0..5, 0..5) {
-            let calculated_median = median_of_five(first, second, third, fourth, fifth);
+            let calculated_median = median_of_five([first, second, third, fourth, fifth]);
             let mut numbers = [first, second, third, fourth, fifth];
             numbers.sort();
             let real_median = numbers[2];
