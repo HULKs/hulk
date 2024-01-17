@@ -14,7 +14,7 @@ pub struct Arguments {
     /// The NAOs to power off e.g. 20w or 10.1.24.22
     #[arg(long)]
     pub naos: Option<Vec<NaoAddress>>,
-
+    /// Power off all NAOs
     #[arg(long)]
     pub all: bool,
 }
