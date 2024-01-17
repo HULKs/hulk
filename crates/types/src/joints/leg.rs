@@ -6,6 +6,8 @@ use std::{
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
+use super::mirror::Mirror;
+
 #[derive(Clone, Copy)]
 pub enum LegJoint {
     AnklePitch,
@@ -146,8 +148,8 @@ impl Div<LegJoints<f32>> for LegJoints<f32> {
     }
 }
 
-impl LegJoints<f32> {
-    pub fn mirrored(self) -> Self {
+impl Mirror for LegJoints<f32> {
+    fn mirrored(self) -> Self {
         Self {
             hip_yaw_pitch: self.hip_yaw_pitch,
             hip_roll: -self.hip_roll,
@@ -157,7 +159,8 @@ impl LegJoints<f32> {
             ankle_roll: -self.ankle_roll,
         }
     }
-
+}
+impl LegJoints<f32> {
     pub fn clamp(self, min: Self, max: Self) -> Self {
         Self {
             hip_yaw_pitch: self

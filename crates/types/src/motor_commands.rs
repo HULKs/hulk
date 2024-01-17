@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Div, Mul, Sub},
 };
 
-use crate::joints::Joints;
+use crate::joints::{mirror::Mirror, Joints};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
@@ -19,16 +19,19 @@ pub struct MotorCommands<Joints> {
     pub stiffnesses: Joints,
 }
 
-impl MotorCommands<Joints<f32>> {
-    pub fn mirrored(self) -> Self {
+impl_Interpolate!(f32, MotorCommands<Joints<f32>>, PI);
+
+impl<Joints> Mirror for MotorCommands<Joints>
+where
+    Joints: Mirror,
+{
+    fn mirrored(self) -> Self {
         Self {
             positions: Joints::mirrored(self.positions),
             stiffnesses: Joints::mirrored(self.stiffnesses),
         }
     }
 }
-
-impl_Interpolate!(f32, MotorCommands<Joints<f32>>, PI);
 
 impl<Joints> Mul<f32> for MotorCommands<Joints>
 where
