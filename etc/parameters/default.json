@@ -103,7 +103,7 @@
       "maximum_number_of_lines": 10,
       "maximum_projected_segment_length": 0.3,
       "minimum_number_of_points_on_line": 5,
-      "maximum_merge_gap": 30
+      "maximum_merge_gap_in_pixels": 30
     },
     "vision_bottom": {
       "allowed_line_length_in_field": {
@@ -121,7 +121,7 @@
       "maximum_number_of_lines": 10,
       "maximum_projected_segment_length": 0.3,
       "minimum_number_of_points_on_line": 4,
-      "maximum_merge_gap": 30
+      "maximum_merge_gap_in_pixels": 30
     }
   },
   "field_border_detection": {

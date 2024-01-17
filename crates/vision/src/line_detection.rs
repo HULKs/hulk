@@ -47,7 +47,8 @@ pub struct CycleContext {
         Parameter<f32, "line_detection.$cycler_instance.maximum_projected_segment_length">,
     minimum_number_of_points_on_line:
         Parameter<usize, "line_detection.$cycler_instance.minimum_number_of_points_on_line">,
-    maximum_merge_gap: Parameter<u16, "line_detection.$cycler_instance.maximum_merge_gap">,
+    maximum_merge_gap_in_pixels:
+        Parameter<u16, "line_detection.$cycler_instance.maximum_merge_gap_in_pixels">,
 
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     filtered_segments: Input<FilteredSegments, "filtered_segments">,
@@ -76,7 +77,7 @@ impl LineDetection {
             *context.maximum_projected_segment_length,
             *context.check_edge_gradient,
             *context.gradient_alignment,
-            *context.maximum_merge_gap,
+            *context.maximum_merge_gap_in_pixels,
         );
         if context.lines_in_image.is_subscribed() {
             image_lines.points = line_points
