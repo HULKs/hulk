@@ -16,6 +16,7 @@ use crate::{
 pub struct WorldState {
     pub ball: Option<BallState>,
     pub rule_ball: Option<BallState>,
+    pub suggested_search_position: Option<Point2<f32>>,
     pub filtered_game_state: Option<FilteredGameState>,
     pub game_controller_state: Option<GameControllerState>,
     pub obstacles: Vec<Obstacle>,

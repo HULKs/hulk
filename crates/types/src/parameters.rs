@@ -305,6 +305,7 @@ pub struct BallFilterParameters {
     pub initial_covariance: Vector4<f32>,
     pub visible_validity_exponential_decay_factor: f32,
     pub hidden_validity_exponential_decay_factor: f32,
+    pub validity_output_threshold: f32,
     pub validity_discard_threshold: f32,
     pub velocity_decay_factor: f32,
     pub resting_ball_velocity_threshold: f32,
@@ -364,4 +365,11 @@ pub struct FallProtectionParameters {
     pub right_arm_positions: ArmJoints<f32>,
     pub arm_stiffness: f32,
     pub leg_stiffness: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct SearchSuggestorParameters {
+    pub cells_per_meter: usize,
+    pub heatmap_decay_factor: f32,
+    pub minimum_validity: f32,
 }

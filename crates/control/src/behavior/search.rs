@@ -16,6 +16,7 @@ enum SearchRole {
     Goal,
     Defend { side: Side },
     Center,
+    Support { side: Side },
     Aggressive,
 }
 
@@ -35,6 +36,14 @@ impl SearchRole {
             -field_dimensions.goal_inner_width / 4.0
         ];
         let center = point![0.0, 0.0];
+        let supporting_left = point![
+            field_dimensions.goal_box_area_length + 0.2,
+            field_dimensions.goal_inner_width / 4.0
+        ];
+        let supporting_right = point![
+            field_dimensions.penalty_area_length + 0.2,
+            -field_dimensions.goal_inner_width / 4.0
+        ];
         let aggressive = point![
             field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
             0.0
@@ -46,6 +55,8 @@ impl SearchRole {
                 SearchRole::Defend { side: Side::Left } => defending_left,
                 SearchRole::Defend { side: Side::Right } => defending_right,
                 SearchRole::Center => center,
+                SearchRole::Support { side: Side::Left } => supporting_left,
+                SearchRole::Support { side: Side::Right } => supporting_right,
                 SearchRole::Aggressive => aggressive,
             }
     }
@@ -61,9 +72,14 @@ pub fn execute(
 ) -> Option<MotionCommand> {
     let robot_to_field = world_state.robot.robot_to_field?;
     let search_role = assign_search_role(world_state);
-    let search_position = search_role
-        .map(|role| role.to_position(robot_to_field, field_dimensions))
-        .unwrap_or(point![0.0, 0.0]);
+    let search_position = match (world_state.suggested_search_position, search_role) {
+        (Some(_), Some(SearchRole::Aggressive) | Some(SearchRole::Support { side: _ })) => {
+            robot_to_field.inverse() * world_state.suggested_search_position.unwrap()
+        }
+        _ => search_role
+            .map(|role| role.to_position(robot_to_field, field_dimensions))
+            .unwrap_or(point![0.0, 0.0]),
+    };
     let head = HeadMotion::SearchForLostBall;
     if let Some(SearchRole::Goal) = search_role {
         let goal_pose = robot_to_field.inverse() * Isometry2::from(search_position.coords);
@@ -95,6 +111,8 @@ fn assign_search_role(world_state: &WorldState) -> Option<SearchRole> {
         SearchRole::Defend { side: Side::Left },
         SearchRole::Defend { side: Side::Right },
         SearchRole::Center,
+        SearchRole::Support { side: Side::Left },
+        SearchRole::Support { side: Side::Right },
         SearchRole::Aggressive,
     ]
     .into_iter();

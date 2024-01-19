@@ -292,7 +292,7 @@
   "ball_filter": {
     "hypothesis_timeout": {
       "nanos": 0,
-      "secs": 5
+      "secs": 20
     },
     "measurement_matching_distance": 1.0,
     "hypothesis_merge_distance": 1.0,
@@ -303,6 +303,7 @@
     "resting_ball_velocity_threshold": 0.25,
     "visible_validity_exponential_decay_factor": 0.96,
     "hidden_validity_exponential_decay_factor": 0.999,
+    "validity_output_threshold": 10.0,
     "validity_discard_threshold": 0.5,
     "velocity_decay_factor": 0.99
   },
@@ -1124,5 +1125,10 @@
       "knee_pitch": 0.0
     }
   },
-  "angular_velocity_smoothing_factor": 0.1
+  "angular_velocity_smoothing_factor": 0.1,
+  "search_suggestor":{
+    "cells_per_meter": 2,
+    "heatmap_decay_factor": 0.002,
+    "minimum_validity": 0.01
+  }
 }

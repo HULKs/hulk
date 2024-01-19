@@ -78,6 +78,7 @@ fn main() -> Result<()> {
                     "control::primary_state_filter",
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
+                    "control::search_suggestor",
                     "control::sole_pressure_filter",
                     "control::sonar_filter",
                     "control::support_foot_estimation",

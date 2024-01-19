@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     ball::Ball,
     ball_filter::Hypothesis,
-    ball_position::BallPosition,
+    ball_position::{BallPosition, HypotheticalBallPosition},
     camera_matrix::{CameraMatrices, CameraMatrix},
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
@@ -56,6 +56,8 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub ball_position: MainOutput<Option<BallPosition>>,
+    pub removed_ball_positions: MainOutput<Vec<Point2<f32>>>,
+    pub invalid_ball_positions: MainOutput<Vec<HypotheticalBallPosition>>,
 }
 
 impl BallFilter {
@@ -89,7 +91,7 @@ impl BallFilter {
         &mut self,
         measurements: Vec<(&SystemTime, Vec<&Ball>)>,
         context: &CycleContext,
-    ) {
+    ) -> Vec<Hypothesis> {
         for (detection_time, balls) in measurements {
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
@@ -128,12 +130,12 @@ impl BallFilter {
             context.cycle_time.start_time,
             context.ball_filter_configuration,
             context.field_dimensions,
-        );
+        )
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let persistent_updates = Self::persistent_balls_in_control_cycle(&context);
-        self.advance_all_hypotheses(persistent_updates, &context);
+        let removed_hypotheses = self.advance_all_hypotheses(persistent_updates, &context);
 
         context
             .ball_filter_hypotheses
@@ -158,24 +160,57 @@ impl BallFilter {
                 )
             });
 
-        context
-            .best_ball_hypothesis
-            .fill_if_subscribed(|| self.find_best_hypothesis().cloned());
+        context.best_ball_hypothesis.fill_if_subscribed(|| {
+            self.find_best_hypothesis(context.ball_filter_configuration)
+                .cloned()
+        });
 
         context.best_ball_state.fill_if_subscribed(|| {
-            self.find_best_hypothesis()
+            self.find_best_hypothesis(context.ball_filter_configuration)
                 .map(|hypothesis| hypothesis.selected_state(context.ball_filter_configuration))
         });
 
-        let ball_position = self.find_best_hypothesis().map(|hypothesis| {
-            context
-                .chooses_resting_model
-                .fill_if_subscribed(|| hypothesis.is_resting(context.ball_filter_configuration));
-            hypothesis.selected_ball_position(context.ball_filter_configuration)
-        });
+        let ball_position = self
+            .find_best_hypothesis(context.ball_filter_configuration)
+            .map(|hypothesis| {
+                context.chooses_resting_model.fill_if_subscribed(|| {
+                    hypothesis.is_resting(context.ball_filter_configuration)
+                });
+                hypothesis.selected_ball_position(context.ball_filter_configuration)
+            });
+        let removed_ball_positions = removed_hypotheses
+            .into_iter()
+            .filter(|hypothesis| {
+                hypothesis.validity >= context.ball_filter_configuration.validity_output_threshold
+            })
+            .map(|hypothesis| {
+                hypothesis
+                    .selected_ball_position(context.ball_filter_configuration)
+                    .position
+            })
+            .collect::<Vec<_>>();
+        let invalid_ball_positions = self
+            .hypotheses
+            .iter()
+            .filter_map(|hypothesis| {
+                if hypothesis.validity < context.ball_filter_configuration.validity_output_threshold
+                {
+                    Some(HypotheticalBallPosition {
+                        position: hypothesis
+                            .selected_ball_position(context.ball_filter_configuration)
+                            .position,
+                        validity: hypothesis.validity,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
 
         Ok(MainOutputs {
             ball_position: ball_position.into(),
+            removed_ball_positions: removed_ball_positions.into(),
+            invalid_ball_positions: invalid_ball_positions.into(),
         })
     }
 
@@ -313,10 +348,11 @@ impl BallFilter {
         });
     }
 
-    fn find_best_hypothesis(&self) -> Option<&Hypothesis> {
+    fn find_best_hypothesis(&self, configuration: &BallFilterParameters) -> Option<&Hypothesis> {
         self.hypotheses
             .iter()
-            .max_by(|a, b| a.validity.total_cmp(&b.validity))
+            .filter(|hypothesis| hypothesis.validity > configuration.validity_output_threshold)
+            .max_by(|left, right| left.validity.total_cmp(&right.validity))
     }
 
     fn spawn_hypothesis(
@@ -351,23 +387,26 @@ impl BallFilter {
         now: SystemTime,
         configuration: &BallFilterParameters,
         field_dimensions: &FieldDimensions,
-    ) {
-        self.hypotheses.retain(|hypothesis| {
-            let selected_position = hypothesis.selected_ball_position(configuration).position;
-            let is_inside_field = {
-                selected_position.coords.x.abs()
-                    < field_dimensions.length / 2.0 + field_dimensions.border_strip_width
-                    && selected_position.y.abs()
-                        < field_dimensions.width / 2.0 + field_dimensions.border_strip_width
-            };
-            now.duration_since(hypothesis.last_update)
-                .expect("Time has run backwards")
-                < configuration.hypothesis_timeout
-                && hypothesis.validity > configuration.validity_discard_threshold
-                && is_inside_field
-        });
+    ) -> Vec<Hypothesis> {
+        let (retained_hypotheses, removed_hypotheses) = self
+            .hypotheses
+            .drain(..)
+            .partition::<Vec<_>, _>(|hypothesis| {
+                let selected_position = hypothesis.selected_ball_position(configuration).position;
+                let is_inside_field = {
+                    selected_position.coords.x.abs()
+                        < field_dimensions.length / 2.0 + field_dimensions.border_strip_width
+                        && selected_position.y.abs()
+                            < field_dimensions.width / 2.0 + field_dimensions.border_strip_width
+                };
+                now.duration_since(hypothesis.last_update)
+                    .expect("Time has run backwards")
+                    < configuration.hypothesis_timeout
+                    && hypothesis.validity > configuration.validity_discard_threshold
+                    && is_inside_field
+            });
         let mut deduplicated_hypotheses = Vec::<Hypothesis>::new();
-        for hypothesis in self.hypotheses.drain(..) {
+        for hypothesis in retained_hypotheses {
             let hypothesis_in_merge_distance =
                 deduplicated_hypotheses
                     .iter_mut()
@@ -401,6 +440,7 @@ impl BallFilter {
             }
         }
         self.hypotheses = deduplicated_hypotheses;
+        removed_hypotheses
     }
 }
 
