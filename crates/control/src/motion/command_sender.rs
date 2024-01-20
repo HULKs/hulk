@@ -25,7 +25,8 @@ pub struct CycleContext {
     motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
     actuated_motor_commands:
         AdditionalOutput<MotorCommands<Joints<f32>>, "actuated_motor_commands">,
-    actuated_motor_commands_difference: AdditionalOutput<f32, "actuated_motor_commands_difference">,
+    actuated_motor_commands_difference:
+        AdditionalOutput<Joints<f32>, "actuated_motor_commands_difference">,
 
     hardware_interface: HardwareInterface,
 }
@@ -61,16 +62,11 @@ impl CommandSender {
             .motion_safe_exits_output
             .fill_if_subscribed(|| context.motion_safe_exits.clone());
 
-        let actuated_motor_commands_positions_difference =
-            motor_commands.positions - context.last_actuated_motor_commands.positions;
-        let squared_actuated_motor_position_difference_sum: f32 =
-            actuated_motor_commands_positions_difference
-                .into_iter()
-                .map(|position| position.powf(2.0))
-                .sum();
         context
             .actuated_motor_commands_difference
-            .fill_if_subscribed(|| squared_actuated_motor_position_difference_sum);
+            .fill_if_subscribed(|| {
+                motor_commands.positions - context.last_actuated_motor_commands.positions
+            });
 
         context.last_actuated_motor_commands.positions = motor_commands.positions;
         context.last_actuated_motor_commands.stiffnesses = motor_commands.stiffnesses;
