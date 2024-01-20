@@ -75,7 +75,8 @@ if args.output == "text":
       dd_task_type.name as "Modulename",
       dd_domain.name as "Threadname"
     from task_data
-    left join dd_task_type on task_data.attr=dd_task_type.rowid
+    left join dd_task on task_data.attr=dd_task.rowid
+    left join dd_task_type on dd_task.type=dd_task_type.rowid
     left join dd_domain on dd_task_type.domain=dd_domain.rowid
     group by task_data.attr;
     """
@@ -101,7 +102,8 @@ if args.output == "plot":
       dd_task_type.name as "Modulename",
       dd_domain.name as "Threadname"
     from task_data
-    left join dd_task_type on task_data.attr=dd_task_type.rowid
+    left join dd_task on task_data.attr=dd_task.rowid
+    left join dd_task_type on dd_task.type=dd_task_type.rowid
     left join dd_domain on dd_task_type.domain=dd_domain.rowid;
     """
     )
