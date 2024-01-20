@@ -41,7 +41,7 @@ args = parser.parse_args()
 absolute_project_path = os.path.join(base_project_path, args.project_path)
 sql_database_file = os.path.join(absolute_project_path, "sqlite-db", "dicer.db")
 project_name = os.path.splitext(
-    [f for f in os.listdir(absolute_project_path) if "amplxe" in f][0]
+    [f for f in os.listdir(absolute_project_path) if ".vtune" in f][0]
 )[0]
 
 # Load the libraries later to get faster help messages
