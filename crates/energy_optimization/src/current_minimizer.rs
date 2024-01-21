@@ -9,7 +9,7 @@ use types::{
 };
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub enum State {
+enum State {
     #[default]
     Optimizing,
     Resetting,
@@ -17,21 +17,26 @@ pub enum State {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CurrentMinimizer {
-    pub position_offset: Joints<f32>,
-    pub state: State,
-    pub last_motor_commands: MotorCommands<Joints<f32>>,
-    pub last_positions: Joints<f32>,
-    pub parameters: CurrentMinimizerParameters,
+    position_offset: Joints<f32>,
+    state: State,
+    last_motor_commands: MotorCommands<Joints<f32>>,
+    last_positions: Joints<f32>,
+    parameters: CurrentMinimizerParameters,
 }
 
 impl CurrentMinimizer {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn optimize_body(
         &mut self,
         currents: Joints<f32>,
         body_positions: BodyJoints<f32>,
+        parameters: CurrentMinimizerParameters,
     ) -> BodyJoints<f32> {
         let positions = Joints::from_head_and_body(HeadJoints::default(), body_positions);
-        let optimized_positions = self.optimize(currents, positions);
+        let optimized_positions = self.optimize(currents, positions, parameters);
         BodyJoints {
             left_arm: optimized_positions.left_arm,
             right_arm: optimized_positions.right_arm,
@@ -40,7 +45,14 @@ impl CurrentMinimizer {
         }
     }
 
-    pub fn optimize(&mut self, currents: Joints<f32>, positions: Joints<f32>) -> Joints<f32> {
+    pub fn optimize(
+        &mut self,
+        currents: Joints<f32>,
+        positions: Joints<f32>,
+        parameters: CurrentMinimizerParameters,
+    ) -> Joints<f32> {
+        self.parameters = parameters;
+
         let positions_difference = positions - self.last_positions;
         let squared_positions_difference_sum: f32 = positions_difference
             .into_iter()
