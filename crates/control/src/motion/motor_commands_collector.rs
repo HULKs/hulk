@@ -17,10 +17,7 @@ pub struct MotorCommandCollector {
 }
 
 #[context]
-pub struct CreationContext {
-    current_minimizer_parameters:
-        Parameter<CurrentMinimizerParameters, "current_minimizer_parameters">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -40,6 +37,8 @@ pub struct CycleContext {
     joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
     initial_pose: Parameter<Joints<f32>, "initial_pose">,
+    current_minimizer_parameters:
+        Parameter<CurrentMinimizerParameters, "current_minimizer_parameters">,
 
     motor_position_difference: AdditionalOutput<Joints<f32>, "motor_positions_difference">,
     current_minimizer: AdditionalOutput<CurrentMinimizer, "current_minimizer">,
@@ -52,12 +51,9 @@ pub struct MainOutputs {
 }
 
 impl MotorCommandCollector {
-    pub fn new(context: CreationContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            current_minimizer: CurrentMinimizer {
-                parameters: *context.current_minimizer_parameters,
-                ..Default::default()
-            },
+            current_minimizer: CurrentMinimizer::new(),
         })
     }
 
@@ -84,15 +80,21 @@ impl MotorCommandCollector {
             ),
             MotionType::FallProtection => (fall_protection_positions, fall_protection_stiffnesses),
             MotionType::Initial => (
-                self.current_minimizer
-                    .optimize(context.sensor_data.currents, *context.initial_pose),
+                self.current_minimizer.optimize(
+                    context.sensor_data.currents,
+                    *context.initial_pose,
+                    *context.current_minimizer_parameters,
+                ),
                 Joints::fill(0.6),
             ),
             MotionType::JumpLeft => (jump_left.positions, jump_left.stiffnesses),
             MotionType::JumpRight => (jump_right.positions, jump_right.stiffnesses),
             MotionType::Penalized => (
-                self.current_minimizer
-                    .optimize(context.sensor_data.currents, *context.penalized_pose),
+                self.current_minimizer.optimize(
+                    context.sensor_data.currents,
+                    *context.penalized_pose,
+                    *context.current_minimizer_parameters,
+                ),
                 Joints::fill(0.6),
             ),
             MotionType::SitDown => (sit_down.positions, sit_down.stiffnesses),
@@ -100,6 +102,7 @@ impl MotorCommandCollector {
                 self.current_minimizer.optimize(
                     context.sensor_data.currents,
                     Joints::from_head_and_body(head_joints_command.positions, walk.positions),
+                    *context.current_minimizer_parameters,
                 ),
                 Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),
             ),

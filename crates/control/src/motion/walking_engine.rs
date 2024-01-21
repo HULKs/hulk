@@ -124,7 +124,6 @@ pub struct WalkingEngine {
 #[context]
 pub struct CreationContext {
     walking_engine_parameters: Parameter<WalkingEngineParameters, "walking_engine">,
-    current_minimizer_parameters: Parameter<CurrentMinimizerParameters, "current_minimizer">,
 }
 
 #[context]
@@ -141,6 +140,7 @@ pub struct CycleContext {
     config: Parameter<WalkingEngineParameters, "walking_engine">,
     step_planner_config: Parameter<StepPlannerParameters, "step_planner">,
     kick_steps: Parameter<KickStepsParameters, "kick_steps">,
+    current_minimizer_parameters: Parameter<CurrentMinimizerParameters, "current_minimizer">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
     walk_return_offset: CyclerState<Step, "walk_return_offset">,
@@ -176,10 +176,7 @@ impl WalkingEngine {
             ),
             left_arm: SwingingArm::new(Side::Left),
             right_arm: SwingingArm::new(Side::Right),
-            current_minimizer: CurrentMinimizer {
-                parameters: *context.current_minimizer_parameters,
-                ..Default::default()
-            },
+            current_minimizer: CurrentMinimizer::new(),
             ..Default::default()
         })
     }
@@ -403,6 +400,7 @@ impl WalkingEngine {
                 positions: self.current_minimizer.optimize_body(
                     context.sensor_data.currents,
                     unoptimized_walk_joints_command.positions,
+                    *context.current_minimizer_parameters,
                 ),
                 stiffnesses,
             }
