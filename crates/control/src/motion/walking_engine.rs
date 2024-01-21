@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use color_eyre::Result;
 use context_attribute::context;
-use energy_optimization::current_minimizer::CurrentMinimizer;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use log::warn;
@@ -14,10 +13,7 @@ use types::{
     motion_command::{KickVariant, MotionCommand},
     motion_selection::{MotionSafeExits, MotionType},
     motor_commands::MotorCommands,
-    parameters::{
-        CurrentMinimizerParameters, KickStepsParameters, StepPlannerParameters,
-        WalkingEngineParameters,
-    },
+    parameters::{KickStepsParameters, StepPlannerParameters, WalkingEngineParameters},
     robot_kinematics::RobotKinematics,
     sensor_data::{InertialMeasurementUnitData, SensorData},
     step_adjustment::StepAdjustment,
@@ -117,8 +113,6 @@ pub struct WalkingEngine {
 
     forward_adjustment_was_active: bool,
     backward_adjustment_was_active: bool,
-
-    current_minimizer: CurrentMinimizer,
 }
 
 #[context]
@@ -140,7 +134,6 @@ pub struct CycleContext {
     config: Parameter<WalkingEngineParameters, "walking_engine">,
     step_planner_config: Parameter<StepPlannerParameters, "step_planner">,
     kick_steps: Parameter<KickStepsParameters, "kick_steps">,
-    current_minimizer_parameters: Parameter<CurrentMinimizerParameters, "current_minimizer">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
     walk_return_offset: CyclerState<Step, "walk_return_offset">,
@@ -176,7 +169,6 @@ impl WalkingEngine {
             ),
             left_arm: SwingingArm::new(Side::Left),
             right_arm: SwingingArm::new(Side::Right),
-            current_minimizer: CurrentMinimizer::new(),
             ..Default::default()
         })
     }
@@ -386,25 +378,7 @@ impl WalkingEngine {
             right_leg: LegJoints::fill(leg_stiffness),
         };
 
-        let walk_joints_commands = if matches!(self.walk_state, WalkState::Standing) {
-            let unoptimized_walk_joints_command = MotorCommands {
-                positions: BodyJoints {
-                    left_arm,
-                    right_arm,
-                    left_leg,
-                    right_leg,
-                },
-                stiffnesses,
-            };
-            MotorCommands {
-                positions: self.current_minimizer.optimize_body(
-                    context.sensor_data.currents,
-                    unoptimized_walk_joints_command.positions,
-                    *context.current_minimizer_parameters,
-                ),
-                stiffnesses,
-            }
-        } else {
+        let walk_joints_commands = {
             MotorCommands {
                 positions: BodyJoints {
                     left_arm,
