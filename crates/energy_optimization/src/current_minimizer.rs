@@ -3,9 +3,7 @@ use std::f32::EPSILON;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
-    joints::{body::BodyJoints, head::HeadJoints, Joints},
-    motor_commands::MotorCommands,
-    parameters::CurrentMinimizerParameters,
+    joints::Joints, motor_commands::MotorCommands, parameters::CurrentMinimizerParameters,
 };
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -27,22 +25,6 @@ pub struct CurrentMinimizer {
 impl CurrentMinimizer {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn optimize_body(
-        &mut self,
-        currents: Joints<f32>,
-        body_positions: BodyJoints<f32>,
-        parameters: CurrentMinimizerParameters,
-    ) -> BodyJoints<f32> {
-        let positions = Joints::from_head_and_body(HeadJoints::default(), body_positions);
-        let optimized_positions = self.optimize(currents, positions, parameters);
-        BodyJoints {
-            left_arm: optimized_positions.left_arm,
-            right_arm: optimized_positions.right_arm,
-            left_leg: optimized_positions.left_leg,
-            right_leg: optimized_positions.right_leg,
-        }
     }
 
     pub fn optimize(
