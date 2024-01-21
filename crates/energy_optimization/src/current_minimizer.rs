@@ -68,9 +68,8 @@ impl CurrentMinimizer {
                     .max_by(|(_, left), (_, right)| f32::total_cmp(left, right))
                     .expect("currents should be comparable");
 
-                let minimum_not_reached =
-                    maximal_current > self.parameters.allowed_current_threshold;
-                if minimum_not_reached {
+                let minimum_reached = maximal_current <= self.parameters.allowed_current_threshold;
+                if !minimum_reached {
                     self.position_offset[joint] += self.parameters.optimization_sign[joint]
                         * self.parameters.optimization_speed_factor;
                 }
