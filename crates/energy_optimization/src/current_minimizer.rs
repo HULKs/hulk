@@ -87,9 +87,7 @@ impl CurrentMinimizer {
             }
         }
 
-        let optimized_positions = positions + self.position_offset;
         self.last_positions = positions;
-
-        optimized_positions
+        positions + self.position_offset
     }
 }
