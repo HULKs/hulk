@@ -162,6 +162,15 @@ impl<T> Joints<T> {
         }
         .into_iter()
     }
+
+    pub fn body(self) -> BodyJoints<T> {
+        BodyJoints {
+            left_arm: self.left_arm,
+            right_arm: self.right_arm,
+            left_leg: self.left_leg,
+            right_leg: self.right_leg,
+        }
+    }
 }
 
 impl<T> Index<JointsName> for Joints<T> {
