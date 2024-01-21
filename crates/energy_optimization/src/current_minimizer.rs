@@ -66,7 +66,7 @@ impl CurrentMinimizer {
                 let (joint, maximal_current) = currents
                     .enumerate()
                     .max_by(|(_, left), (_, right)| f32::total_cmp(left, right))
-                    .unwrap();
+                    .expect("currents should be comparable");
 
                 let minimum_not_reached =
                     maximal_current > self.parameters.allowed_current_threshold;
