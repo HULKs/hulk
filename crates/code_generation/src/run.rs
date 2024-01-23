@@ -121,14 +121,13 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
         let instance_name_snake_case = format_ident!("{}", instance.to_case(Case::Snake));
         let recording_file_name = format!("{instance}.{{seconds}}.bincode");
         let error_message_file = format!("failed to create recording file for {instance}");
-        let error_message_folder = format!("failed to create logs folder");
 
         quote! {
             let recording_file_path = std::path::Path::new("logs").join(format!(#recording_file_name));
             std::fs::create_dir_all(
                 recording_file_path.parent()
-                    .ok_or(color_eyre::Report::msg(format!("{} does not have a parent directory", recording_file_path.display())))?
-            ).wrap_err(#error_message_folder)?;
+                    .expect("recording file path has no parent directory")
+            ).wrap_err("failed to create logs folder")?;
 
             let mut #instance_name_snake_case = std::io::BufWriter::new(std::fs::File::create(recording_file_path).wrap_err(#error_message_file)?); // TODO: possible optimization: buffer size
         }
