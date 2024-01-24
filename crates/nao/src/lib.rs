@@ -192,6 +192,22 @@ impl Nao {
         monitor_rsync_progress_with(rsync, progress_callback).await
     }
 
+    pub async fn list_logs(&self) -> Result<String> {
+        let output = self
+            .ssh_to_nao()
+            .arg("ls")
+            .arg("hulk/logs/*")
+            .output()
+            .await
+            .wrap_err("failed to execute list command")?;
+
+        if !output.status.success() {
+            bail!("list ssh command exited with {}", output.status);
+        }
+
+        String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")
+    }
+
     pub async fn retrieve_logs(&self) -> Result<String> {
         let output = self
             .ssh_to_nao()
