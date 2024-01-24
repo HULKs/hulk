@@ -75,9 +75,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
                 "Retrieving logs...",
                 |nao_address, _progress_bar| async move {
                     let nao = Nao::try_new_with_ping(nao_address.ip).await?;
-                    nao.list_logs()
-                        .await
-                        .wrap_err("failed to retrieve logs")
+                    nao.list_logs().await.wrap_err("failed to retrieve logs")
                 },
             )
             .await
