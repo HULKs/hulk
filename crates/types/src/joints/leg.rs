@@ -160,6 +160,7 @@ impl Mirror for LegJoints<f32> {
         }
     }
 }
+
 impl LegJoints<f32> {
     pub fn clamp(self, min: Self, max: Self) -> Self {
         Self {
