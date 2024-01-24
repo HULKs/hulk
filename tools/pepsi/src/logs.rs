@@ -23,6 +23,12 @@ pub enum Arguments {
         #[arg(required = true)]
         naos: Vec<NaoAddress>,
     },
+    /// List logs from NAOs
+    List {
+        /// The NAO to show logs from e.g. 20w or 10.1.24.22
+        #[arg(required = true)]
+        naos: Vec<NaoAddress>,
+    },
     /// Show logs from NAOs
     Show {
         /// The NAO to show logs from e.g. 20w or 10.1.24.22
@@ -61,6 +67,19 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
                     .wrap_err_with(|| format!("failed to download logs from {nao_address}"))
                 }
             })
+            .await
+        }
+        Arguments::List { naos } => {
+            ProgressIndicator::map_tasks(
+                naos,
+                "Retrieving logs...",
+                |nao_address, _progress_bar| async move {
+                    let nao = Nao::try_new_with_ping(nao_address.ip).await?;
+                    nao.list_logs()
+                        .await
+                        .wrap_err("failed to retrieve logs")
+                },
+            )
             .await
         }
         Arguments::Show { naos } => {
