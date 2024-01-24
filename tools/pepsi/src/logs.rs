@@ -72,7 +72,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
         Arguments::List { naos } => {
             ProgressIndicator::map_tasks(
                 naos,
-                "Retrieving logs...",
+                "Retrieving all logs...",
                 |nao_address, _progress_bar| async move {
                     let nao = Nao::try_new_with_ping(nao_address.ip).await?;
                     nao.list_logs().await.wrap_err("failed to retrieve logs")
@@ -83,7 +83,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
         Arguments::Show { naos } => {
             ProgressIndicator::map_tasks(
                 naos,
-                "Retrieving logs...",
+                "Retrieving latest logs...",
                 |nao_address, _progress_bar| async move {
                     let nao = Nao::try_new_with_ping(nao_address.ip).await?;
                     nao.retrieve_logs()
