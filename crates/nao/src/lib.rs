@@ -151,8 +151,8 @@ impl Nao {
         let status = self
             .ssh_to_nao()
             .arg("rm")
-            .arg("--recursive")
-            .arg("--force")
+            .arg("-r")
+            .arg("-f")
             .arg("/home/nao/hulk/logs/*")
             .status()
             .await
