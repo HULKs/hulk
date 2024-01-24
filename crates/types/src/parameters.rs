@@ -1,7 +1,7 @@
 use std::ops::{Index, Range};
 use std::{path::PathBuf, time::Duration};
 
-use nalgebra::{Point2, Vector2, Vector3, Vector4};
+use nalgebra::{Point2, Point3, Vector2, Vector3, Vector4};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 

@@ -9,7 +9,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80179d7dd5d7e8c285d67c4a1e652972a92de7475beddfb92028c76463b13225"
 dependencies = [
  "ab_glyph_rasterizer",
- "owned_ttf_parser 0.19.0",
+ "owned_ttf_parser 0.20.0",
 ]
 
 [[package]]
@@ -675,7 +675,7 @@ dependencies = [
  "ittapi",
  "log",
  "mlua",
- "nalgebra 0.32.2",
+ "nalgebra 0.32.3",
  "parameters",
  "parking_lot",
  "serde",
@@ -907,7 +907,7 @@ dependencies = [
  "image",
  "imageproc",
  "levenberg-marquardt",
- "nalgebra 0.32.2",
+ "nalgebra 0.32.3",
  "projection",
  "serde",
  "serialize_hierarchy",
@@ -934,7 +934,7 @@ name = "camera_matrix_extractor"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "nalgebra 0.32.2",
+ "nalgebra 0.32.3",
  "serde",
  "serde_json",
  "structopt",
@@ -1318,7 +1318,7 @@ dependencies = [
  "kinematics",
  "log",
  "motionfile",
- "nalgebra",
+ "nalgebra 0.32.3",
  "num-traits",
  "ordered-float",
  "projection",
@@ -1353,7 +1353,7 @@ name = "coordinate_systems"
 version = "0.1.0"
 dependencies = [
  "geometry",
- "nalgebra",
+ "nalgebra 0.32.3",
 ]
 
 [[package]]
@@ -1464,6 +1464,12 @@ dependencies = [
  "nix 0.27.1",
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "custom_derive"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef8ae57c4978a2acd8b869ce6b9ca1dfe817bff704c220209fdef2c0b75a01b9"
 
 [[package]]
 name = "data-encoding"
@@ -2065,7 +2071,7 @@ name = "filtering"
 version = "0.1.0"
 dependencies = [
  "approx",
- "nalgebra 0.32.2",
+ "nalgebra 0.32.3",
  "rand 0.8.5",
  "rand_distr 0.4.3",
  "serde",
@@ -2249,7 +2255,7 @@ name = "geometry"
 version = "0.1.0"
 dependencies = [
  "approx",
- "nalgebra",
+ "nalgebra 0.32.3",
  "serde",
  "serialize_hierarchy",
 ]
@@ -2272,7 +2278,7 @@ checksum = "190092ea657667030ac6a35e305e62fc4dd69fd98ac98631e5d3a2b1575a12b5"
 dependencies = [
  "cfg-if",
  "libc",
- "wasi",
+ "wasi 0.11.0+wasi-snapshot-preview1",
 ]
 
 [[package]]
@@ -2586,6 +2592,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "bincode",
+ "calibration",
  "code_generation",
  "color-eyre",
  "communication",
@@ -2594,7 +2601,7 @@ dependencies = [
  "geometry",
  "hardware",
  "ittapi",
- "nalgebra 0.32.2",
+ "nalgebra 0.32.3",
  "serde",
  "serialize_hierarchy",
  "source_analyzer",
@@ -2622,7 +2629,7 @@ dependencies = [
  "hulk",
  "libc",
  "log",
- "nalgebra 0.32.2",
+ "nalgebra 0.32.3",
  "nao_camera",
  "opusfile-ng",
  "parking_lot",
@@ -2646,7 +2653,7 @@ dependencies = [
  "hardware",
  "hulk",
  "log",
- "nalgebra 0.32.2",
+ "nalgebra 0.32.3",
  "parking_lot",
  "rand 0.8.5",
  "serde",
@@ -2988,7 +2995,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 name = "kinematics"
 version = "0.1.0"
 dependencies = [
- "nalgebra 0.32.2",
+ "nalgebra 0.32.3",
  "types",
 ]
 
@@ -3017,7 +3024,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1204bd21e2f239566fdebafcab83adfd0b8cb0977bb43e09abfe18041d48ad8"
 dependencies = [
  "cfg-if",
- "nalgebra 0.32.2",
+ "nalgebra 0.32.3",
  "num-traits",
  "rustc_version",
 ]
@@ -3123,7 +3130,7 @@ dependencies = [
  "communication",
  "control",
  "framework",
- "nalgebra",
+ "nalgebra 0.32.3",
  "serde",
  "serialize_hierarchy",
  "tokio",
@@ -3146,6 +3153,15 @@ name = "log"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
+
+[[package]]
+name = "lstsq"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b2591c55069b74283fbdd97167b402b69c534ba6b2c037847cbcae7e14471d8"
+dependencies = [
+ "nalgebra 0.32.3",
+]
 
 [[package]]
 name = "mach2"
@@ -3257,7 +3273,7 @@ checksum = "8f3d0b296e374a4e6f3c7b0a1f5a51d748a0d34c85e7dc48fc3fa9a87657fe09"
 dependencies = [
  "libc",
  "log",
- "wasi",
+ "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.48.0",
 ]
 
@@ -3284,12 +3300,27 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "enum_dispatch",
- "itertools",
+ "itertools 0.11.0",
  "serde",
  "serde_json",
  "splines",
  "thiserror",
  "types",
+]
+
+[[package]]
+name = "nalgebra"
+version = "0.30.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb2d0de08694bed883320212c18ee3008576bfe8c306f4c3c4a58b4876998be"
+dependencies = [
+ "approx",
+ "matrixmultiply",
+ "num-complex",
+ "num-rational",
+ "num-traits",
+ "simba 0.7.3",
+ "typenum",
 ]
 
 [[package]]
@@ -3830,11 +3861,20 @@ dependencies = [
 
 [[package]]
 name = "owned_ttf_parser"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05e6affeb1632d6ff6a23d2cd40ffed138e82f1532571a26f527c8a284bb2fbb"
+dependencies = [
+ "ttf-parser 0.15.2",
+]
+
+[[package]]
+name = "owned_ttf_parser"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4586edfe4c648c71797a74c84bacb32b52b212eff5dfe2bb9f2c599844023e7"
 dependencies = [
- "ttf-parser 0.19.0",
+ "ttf-parser 0.20.0",
 ]
 
 [[package]]
@@ -4112,7 +4152,7 @@ name = "projection"
 version = "0.1.0"
 dependencies = [
  "approx",
- "nalgebra 0.32.2",
+ "nalgebra 0.32.3",
  "thiserror",
  "types",
 ]
@@ -4203,7 +4243,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
- "getrandom 0.2.9",
+ "getrandom 0.2.11",
 ]
 
 [[package]]
@@ -4290,7 +4330,7 @@ version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a18479200779601e498ada4e8c1e1f50e3ee19deb0259c25825a98b5603b2cb4"
 dependencies = [
- "getrandom",
+ "getrandom 0.2.11",
  "libredox 0.0.1",
  "thiserror",
 ]
@@ -4339,7 +4379,7 @@ dependencies = [
  "futures-util",
  "glob",
  "home",
- "itertools",
+ "itertools 0.11.0",
  "parameters",
  "semver",
  "serde",
@@ -4470,6 +4510,16 @@ dependencies = [
  "libc",
  "linux-raw-sys 0.4.13",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rusttype"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ff8374aa04134254b7995b63ad3dc41c7f7236f69528b28553da7d72efaa967"
+dependencies = [
+ "ab_glyph_rasterizer",
+ "owned_ttf_parser 0.15.2",
 ]
 
 [[package]]
@@ -4645,7 +4695,7 @@ name = "serialize_hierarchy"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "nalgebra",
+ "nalgebra 0.32.3",
  "serde",
  "serde_json",
  "serialize_hierarchy_derive",
@@ -4855,7 +4905,7 @@ dependencies = [
  "bincode",
  "bindgen 0.65.1",
  "color-eyre",
- "nalgebra",
+ "nalgebra 0.32.3",
  "num-derive 0.3.3",
  "num-traits",
  "serde",
@@ -5340,6 +5390,12 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "ttf-parser"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b3e06c9b9d80ed6b745c7159c40b311ad2916abb34a49e9be2653b90db0d8dd"
+
+[[package]]
+name = "ttf-parser"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17f77d76d837a7830fe1d4f12b7b4ba4192c1888001c7164257e4bc6d21d96b4"
@@ -5385,7 +5441,7 @@ dependencies = [
  "itertools 0.11.0",
  "log",
  "mlua",
- "nalgebra 0.32.2",
+ "nalgebra 0.32.3",
  "parameters",
  "projection",
  "repository",
@@ -5412,7 +5468,7 @@ dependencies = [
  "enum-iterator",
  "geometry",
  "image",
- "nalgebra 0.32.2",
+ "nalgebra 0.32.3",
  "ordered-float",
  "petgraph",
  "proc-macro2",
@@ -5505,7 +5561,7 @@ version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f00cc9702ca12d3c81455259621e676d0f7251cec66a21e98fe2e9a37db93b2a"
 dependencies = [
- "getrandom 0.2.9",
+ "getrandom 0.2.11",
 ]
 
 [[package]]
@@ -5546,11 +5602,14 @@ dependencies = [
  "framework",
  "geometry",
  "hardware",
- "itertools",
- "nalgebra",
+ "image",
+ "imageproc",
+ "itertools 0.11.0",
+ "lstsq",
+ "nalgebra 0.32.3",
  "ordered-float",
  "projection",
- "rand",
+ "rand 0.8.5",
  "serde",
  "types",
 ]
@@ -5579,6 +5638,12 @@ checksum = "bfa7760aed19e106de2c7c0b581b509f2f25d3dacaf737cb82ac61bc6d760b0e"
 dependencies = [
  "try-lock",
 ]
+
+[[package]]
+name = "wasi"
+version = "0.9.0+wasi-snapshot-preview1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasi"
