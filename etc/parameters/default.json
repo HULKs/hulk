@@ -216,32 +216,6 @@
       "fallback_radius": 42.0
     }
   },
-  "robot_detection": {
-    "vision_top": {
-      "enable": true,
-      "enable_filter_by_size": false,
-      "enable_filter_by_pixel_position": false,
-      "neural_network": "robot_detector.hdf5",
-      "object_threshold": 0.9,
-      "lowest_bottom_pixel_position": 480,
-      "allowed_projected_robot_height": {
-        "start": 0.55,
-        "end": 0.65
-      }
-    },
-    "vision_bottom": {
-      "enable": false,
-      "enable_filter_by_size": false,
-      "enable_filter_by_pixel_position": false,
-      "neural_network": "robot_detector.hdf5",
-      "object_threshold": 0.9,
-      "lowest_bottom_pixel_position": 480,
-      "allowed_projected_robot_height": {
-        "start": 0.574,
-        "end": 0.574
-      }
-    }
-  },
   "feet_detection": {
     "vision_top": {
       "enable": false,
@@ -328,7 +302,6 @@
     "network_robot_measurement_matching_distance": 0.2,
     "sonar_goal_post_matching_distance": 0.2,
     "feet_detection_measurement_matching_distance": 0.2,
-    "robot_detection_measurement_matching_distance": 0.4,
     "goal_post_measurement_matching_distance": 0.35,
     "hypothesis_merge_distance": 0.3,
     "process_noise": [0.005, 0.005],
@@ -339,7 +312,6 @@
     "initial_covariance": [0.25, 0.25],
     "measurement_count_threshold": 10,
     "use_feet_detection_measurements": true,
-    "use_robot_detection_measurements": false,
     "use_sonar_measurements": true,
     "robot_obstacle_radius_at_hip_height": 0.2,
     "robot_obstacle_radius_at_foot_height": 0.2,

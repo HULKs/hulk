@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     detected_feet::DetectedFeet,
-    detected_robots::DetectedRobots,
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
     obstacle_filter::Hypothesis,
@@ -53,8 +52,6 @@ pub struct CycleContext {
 
     detected_feet_bottom: PerceptionInput<DetectedFeet, "VisionBottom", "detected_feet">,
     detected_feet_top: PerceptionInput<DetectedFeet, "VisionTop", "detected_feet">,
-    detected_robots_bottom: PerceptionInput<DetectedRobots, "VisionBottom", "detected_robots">,
-    detected_robots_top: PerceptionInput<DetectedRobots, "VisionTop", "detected_robots">,
 }
 
 #[context]
@@ -78,11 +75,8 @@ impl ObstacleFilter {
             .detected_feet_top
             .persistent
             .iter()
-            .zip(context.detected_feet_bottom.persistent.values())
-            .zip(context.detected_robots_top.persistent.values())
-            .zip(context.detected_robots_bottom.persistent.values());
-        for ((((detection_time, feet_top), feet_bottom), robots_top), robots_bottom) in measurements
-        {
+            .zip(context.detected_feet_bottom.persistent.values());
+        for ((detection_time, feet_top), feet_bottom) in measurements {
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
                 .get(detection_time)
@@ -133,30 +127,6 @@ impl ObstacleFilter {
                             .feet_detection_measurement_matching_distance,
                         Matrix2::from_diagonal(
                             &context.obstacle_filter_parameters.feet_measurement_noise,
-                        ),
-                    );
-                }
-            }
-
-            if context
-                .obstacle_filter_parameters
-                .use_robot_detection_measurements
-            {
-                let measured_positions_in_control_cycle = robots_top
-                    .iter()
-                    .chain(robots_bottom.iter())
-                    .flat_map(|obstacles| obstacles.on_ground.iter());
-
-                for position in measured_positions_in_control_cycle {
-                    self.update_hypotheses_with_measurement(
-                        *position,
-                        ObstacleKind::Robot,
-                        *detection_time,
-                        context
-                            .obstacle_filter_parameters
-                            .robot_detection_measurement_matching_distance,
-                        Matrix2::from_diagonal(
-                            &context.obstacle_filter_parameters.robot_measurement_noise,
                         ),
                     );
                 }

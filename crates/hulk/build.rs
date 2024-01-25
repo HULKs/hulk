@@ -25,7 +25,6 @@ fn main() -> Result<()> {
                     "vision::limb_projector",
                     "vision::line_detection",
                     "vision::perspective_grid_candidates_provider",
-                    "vision::robot_detection",
                     "vision::segment_filter",
                 ],
             },
