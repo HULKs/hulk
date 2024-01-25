@@ -8,7 +8,7 @@ See https://hulks.de/ and https://hulks.de/publications/ for more information.
 
 ## License
 
-Copyright (C) 2018-2023 HULKs e.V.
+Copyright (C) 2018-2024 HULKs e.V.
 
 This software is licensed under the terms of the GNU GPLv3.
 
