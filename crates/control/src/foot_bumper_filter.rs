@@ -10,18 +10,18 @@ use types::{
     foot_bumper_values::FootBumperValues, sensor_data::SensorData,
 };
 
-#[derive(Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct FootBumperFilter {
+    left_in_use: bool,
+    right_in_use: bool,
+    left_detection_buffer: VecDeque<bool>,
+    right_detection_buffer: VecDeque<bool>,
     left_count: i32,
     right_count: i32,
     last_left_time: Option<SystemTime>,
     last_right_time: Option<SystemTime>,
     left_pressed_last_cycle: bool,
     right_pressed_last_cycle: bool,
-    left_in_use: bool,
-    right_in_use: bool,
-    left_detection_buffer: VecDeque<bool>,
-    right_detection_buffer: VecDeque<bool>,
 }
 
 #[context]
@@ -29,23 +29,24 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    pub foot_bumper_values: AdditionalOutput<FootBumperValues, "foot_bumper_values">,
     pub acceptance_duration: Parameter<Duration, "foot_bumper_filter.acceptance_duration">,
     pub activations_needed: Parameter<i32, "foot_bumper_filter.activations_needed">,
     pub buffer_size: Parameter<i32, "foot_bumper_filter.buffer_size">,
     pub enabled: Parameter<bool, "foot_bumper_filter.enabled">,
     pub number_of_detections_in_buffer_for_defective_declaration: Parameter<
-        i32,
-        "foot_bumper_filter.number_of_detections_in_buffer_for_defective_declaration",
+    i32,
+    "foot_bumper_filter.number_of_detections_in_buffer_for_defective_declaration",
     >,
     pub number_of_detections_in_buffer_to_reset_in_use:
-        Parameter<i32, "foot_bumper_filter.number_of_detections_in_buffer_to_reset_in_use">,
+    Parameter<i32, "foot_bumper_filter.number_of_detections_in_buffer_to_reset_in_use">,
     pub obstacle_distance: Parameter<f32, "foot_bumper_filter.obstacle_distance">,
     pub sensor_angle: Parameter<f32, "foot_bumper_filter.sensor_angle">,
-
+    
     pub cycle_time: Input<CycleTime, "cycle_time">,
     pub fall_state: Input<FallState, "fall_state">,
     pub sensor_data: Input<SensorData, "sensor_data">,
+
+    pub foot_bumper_values: AdditionalOutput<FootBumperValues, "foot_bumper_values">,
 }
 
 #[context]
@@ -57,16 +58,11 @@ pub struct MainOutputs {
 impl FootBumperFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            left_count: 0,
-            right_count: 0,
-            last_left_time: None,
-            last_right_time: None,
-            left_pressed_last_cycle: false,
-            right_pressed_last_cycle: false,
             left_in_use: true,
             right_in_use: true,
             left_detection_buffer: VecDeque::with_capacity(15),
             right_detection_buffer: VecDeque::with_capacity(15),
+            ..Default::default()
         })
     }
 
