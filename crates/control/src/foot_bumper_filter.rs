@@ -34,12 +34,12 @@ pub struct CycleContext {
     pub activations_needed: Parameter<i32, "foot_bumper_filter.activations_needed">,
     pub buffer_size: Parameter<i32, "foot_bumper_filter.buffer_size">,
     pub enabled: Parameter<bool, "foot_bumper_filter.enabled">,
-    pub number_of_true_elements_in_buffer_for_defective_declaration: Parameter<
+    pub number_of_detections_in_buffer_for_defective_declaration: Parameter<
         i32,
-        "foot_bumper_filter.number_of_true_elements_in_buffer_for_defective_declaration",
+        "foot_bumper_filter.number_of_detections_in_buffer_for_defective_declaration",
     >,
-    pub number_of_true_elements_in_buffer_to_reset_in_use:
-        Parameter<i32, "foot_bumper_filter.number_of_true_elements_in_buffer_to_reset_in_use">,
+    pub number_of_detections_in_buffer_to_reset_in_use:
+        Parameter<i32, "foot_bumper_filter.number_of_detections_in_buffer_to_reset_in_use">,
     pub obstacle_distance: Parameter<f32, "foot_bumper_filter.obstacle_distance">,
     pub sensor_angle: Parameter<f32, "foot_bumper_filter.sensor_angle">,
 
@@ -150,7 +150,7 @@ impl FootBumperFilter {
             .count()
             .try_into()
             .unwrap();
-        if left_count >= *context.number_of_true_elements_in_buffer_for_defective_declaration {
+        if left_count >= *context.number_of_detections_in_buffer_for_defective_declaration {
             self.left_in_use = false;
         }
         let right_count: i32 = self
@@ -160,16 +160,16 @@ impl FootBumperFilter {
             .count()
             .try_into()
             .unwrap();
-        if right_count >= *context.number_of_true_elements_in_buffer_for_defective_declaration {
+        if right_count >= *context.number_of_detections_in_buffer_for_defective_declaration {
             self.right_in_use = false;
         }
         if !self.left_in_use
-            && left_count <= *context.number_of_true_elements_in_buffer_to_reset_in_use
+            && left_count <= *context.number_of_detections_in_buffer_to_reset_in_use
         {
             self.left_in_use = true;
         }
         if !self.right_in_use
-            && right_count <= *context.number_of_true_elements_in_buffer_to_reset_in_use
+            && right_count <= *context.number_of_detections_in_buffer_to_reset_in_use
         {
             self.right_in_use = true;
         }

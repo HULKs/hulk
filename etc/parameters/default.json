@@ -55,8 +55,8 @@
     "acceptance_duration": { "nanos": 0, "secs": 1 },
     "buffer_size": 15,
     "enabled": false,
-    "number_of_true_elements_in_buffer_for_defective_declaration": 13,
-    "number_of_true_elements_in_buffer_to_reset_in_use": 2,
+    "number_of_detections_in_buffer_for_defective_declaration": 13,
+    "number_of_detections_in_buffer_to_reset_in_use": 2,
     "obstacle_distance": 0.02,
     "sensor_angle": 0.1
   },
