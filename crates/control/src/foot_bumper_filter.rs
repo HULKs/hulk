@@ -97,38 +97,22 @@ impl FootBumperFilter {
             self.right_pressed_last_cycle = false;
         }
 
+
+        
+
         if let Some(last_left_foot_bumper_time) = self.last_left_time {
-            match last_left_foot_bumper_time.elapsed() {
-                Ok(last_left_foot_bumper_duration) => {
-                    if last_left_foot_bumper_duration > *context.acceptance_duration {
-                        self.last_left_time = None;
-                        self.left_count = 0;
-                        self.left_pressed_last_cycle = false;
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Duration elapsed failed: {e:?}");
+            if last_left_foot_bumper_time.elapsed().expect("Time ran backwards") > *context.acceptance_duration {
                     self.last_left_time = None;
                     self.left_count = 0;
                     self.left_pressed_last_cycle = false;
-                }
             }
         }
+
         if let Some(last_right_foot_bumper_time) = self.last_right_time {
-            match last_right_foot_bumper_time.elapsed() {
-                Ok(last_right_foot_bumper_duration) => {
-                    if last_right_foot_bumper_duration > *context.acceptance_duration {
-                        self.last_right_time = None;
-                        self.right_count = 0;
-                        self.right_pressed_last_cycle = false;
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Duration elapsed failed: {e:?}");
+            if last_right_foot_bumper_time.elapsed().expect("Time ran backwards") > *context.acceptance_duration {
                     self.last_right_time = None;
                     self.right_count = 0;
                     self.right_pressed_last_cycle = false;
-                }
             }
         }
 
