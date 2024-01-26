@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
-use nalgebra::point;
+use nalgebra::{point, Point2};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::time::{Duration, SystemTime};
@@ -12,6 +12,9 @@ use types::{
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct FootBumperFilter {
+    left_point: Point2<f32>,
+    right_point: Point2<f32>,
+    middle_point: Point2<f32>,
     left_in_use: bool,
     right_in_use: bool,
     left_detection_buffer: VecDeque<bool>,
@@ -25,7 +28,10 @@ pub struct FootBumperFilter {
 }
 
 #[context]
-pub struct CreationContext {}
+pub struct CreationContext {
+    pub obstacle_distance: Parameter<f32, "foot_bumper_filter.obstacle_distance">,
+    pub sensor_angle: Parameter<f32, "foot_bumper_filter.sensor_angle">,
+}
 
 #[context]
 pub struct CycleContext {
@@ -57,7 +63,19 @@ pub struct MainOutputs {
 
 impl FootBumperFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
+        let left_point = point![
+            _context.sensor_angle.cos() * *_context.obstacle_distance,
+            _context.sensor_angle.sin() * *_context.obstacle_distance
+        ];
+        let right_point = point![
+            _context.sensor_angle.cos() * *_context.obstacle_distance,
+            -_context.sensor_angle.sin() * *_context.obstacle_distance
+        ];
+        let middle_point = point![*_context.obstacle_distance, 0.0];
         Ok(Self {
+            left_point: left_point,
+            right_point: right_point,
+            middle_point: middle_point,
             left_in_use: true,
             right_in_use: true,
             left_detection_buffer: VecDeque::with_capacity(15),
@@ -96,9 +114,6 @@ impl FootBumperFilter {
         } else {
             self.right_pressed_last_cycle = false;
         }
-
-
-        
 
         if let Some(last_left_foot_bumper_time) = self.last_left_time {
             if last_left_foot_bumper_time.elapsed().expect("Time ran backwards") > *context.acceptance_duration {
