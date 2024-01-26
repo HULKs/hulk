@@ -83,11 +83,13 @@ fn path_to_accessor_token_stream_with_cycler_instance(
 
         segments.zip_longest(path.segments.iter()).fold(
             quote! {#prefix. #first_segment},
-            |recursive_token_stream, token_stream_segment_pair| match token_stream_segment_pair {
-                EitherOrBoth::Both(token_stream, previous_segment) => {
+            |recursive_token_stream, segment_pairs| match segment_pairs {
+                EitherOrBoth::Both(current_segment_token, previous_segment) => {
                     match previous_segment.is_optional {
-                        true => quote! {#reference (*#recursive_token_stream).#token_stream},
-                        false => quote! {#recursive_token_stream.#token_stream},
+                        true => {
+                            quote! {#reference (*#recursive_token_stream).#current_segment_token}
+                        }
+                        false => quote! {#recursive_token_stream.#current_segment_token},
                     }
                 }
                 EitherOrBoth::Right(previous_segment) => match previous_segment.is_optional {
