@@ -57,7 +57,7 @@
     "enabled": false,
     "number_of_detections_in_buffer_for_defective_declaration": 13,
     "number_of_detections_in_buffer_to_reset_in_use": 2,
-    "obstacle_distance": 0.02,
+    "obstacle_distance": 0.1,
     "sensor_angle": 0.1
   },
   "image_receiver": {
