@@ -73,9 +73,9 @@ impl FootBumperFilter {
         ];
         let middle_point = point![*_context.obstacle_distance, 0.0];
         Ok(Self {
-            left_point: left_point,
-            right_point: right_point,
-            middle_point: middle_point,
+            left_point,
+            right_point,
+            middle_point,
             left_in_use: true,
             right_in_use: true,
             left_detection_buffer: VecDeque::with_capacity(15),
