@@ -61,6 +61,18 @@
               cargoBuildOptions = x: x ++ [ "-p" manifest.name ];
               cargoTestOptions = x: x ++ [ "-p" manifest.name ];
             };
+
+          mktool_wrapper_gui = tool:
+            let
+              binary_name = pkgs.lib.strings.removeSuffix "-${tool.version}" tool.name;
+              wrapper = pkgs.writeShellScriptBin "${tool.name}-wrapper" ''
+                ${pkgs.nixgl.auto.nixGLDefault}/bin/nixGL ${tool}/bin/${binary_name} $@
+              '';
+            in
+            {
+              type = "app";
+              program = "${wrapper}/bin/${tool.name}-wrapper";
+            };
         in
         {
           packages.twix = mktool ./tools/twix/Cargo.toml;
@@ -70,28 +82,10 @@
           packages.behavior_simulator = mktool ./tools/behavior_simulator/Cargo.toml;
 
           # Needed for non-nixos systems
-          apps.twix =
-            let
-              twix_wrapper = pkgs.writeShellScriptBin "twix-wrapper" ''
-                ${pkgs.nixgl.auto.nixGLDefault}/bin/nixGL ${self.packages.${system}.twix}/bin/twix
-              '';
-            in
-            {
-              type = "app";
-              program = "${twix_wrapper}/bin/twix-wrapper";
-            };
+          apps.twix = mktool_wrapper_gui self.packages.${system}.twix;
 
           # Needed for non-nixos systems
-          apps.annotato =
-            let
-              annotato_wrapper = pkgs.writeShellScriptBin "annotato-wrapper" ''
-                ${pkgs.nixgl.auto.nixGLDefault}/bin/nixGL ${self.packages.${system}.annotato}/bin/annotato
-              '';
-            in
-            {
-              type = "app";
-              program = "${annotato_wrapper}/bin/annotato-wrapper";
-            };
+          apps.annotato  = mktool_wrapper_gui self.packages.${system}.annotato;
 
           devShells = {
             tools = pkgs.mkShell
