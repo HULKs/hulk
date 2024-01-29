@@ -53,7 +53,7 @@ pub struct MainOutputs {
 impl MotorCommandCollector {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            current_minimizer: CurrentMinimizer::new(),
+            current_minimizer: CurrentMinimizer::default(),
         })
     }
 
