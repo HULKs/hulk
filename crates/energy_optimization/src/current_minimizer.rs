@@ -23,10 +23,6 @@ pub struct CurrentMinimizer {
 }
 
 impl CurrentMinimizer {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn optimize(
         &mut self,
         currents: Joints<f32>,
