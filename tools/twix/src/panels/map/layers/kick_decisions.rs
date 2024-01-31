@@ -26,7 +26,7 @@ impl Layer for KickDecisions {
         let instant_kick_decisions = nao.subscribe_output("Control.main.instant_kick_decisions");
         let kick_targets = nao.subscribe_output("Control.additional.kick_targets");
         let instant_kick_targets = nao.subscribe_output("Control.additional.instant_kick_targets");
-        
+
         Self {
             robot_to_field,
             kick_decisions,

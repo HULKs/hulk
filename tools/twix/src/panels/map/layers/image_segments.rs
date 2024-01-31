@@ -23,7 +23,7 @@ impl Layer for ImageSegments {
         let camera_matrix_bottom = nao.subscribe_output("VisionBottom.main.camera_matrix");
         let image_segments_top = nao.subscribe_output("VisionTop.main.image_segments");
         let camera_matrix_top = nao.subscribe_output("VisionTop.main.camera_matrix");
-        
+
         Self {
             robot_to_field,
             image_segments_bottom,

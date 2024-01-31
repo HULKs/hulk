@@ -18,10 +18,8 @@ impl Layer for Obstacles {
     const NAME: &'static str = "Obstacles";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output("Control.main.robot_to_field");
-        let obstacles =
-            nao.subscribe_output("Control.main.obstacles");
+        let robot_to_field = nao.subscribe_output("Control.main.robot_to_field");
+        let obstacles = nao.subscribe_output("Control.main.obstacles");
         Self {
             robot_to_field,
             obstacles,

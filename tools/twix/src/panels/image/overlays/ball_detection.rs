@@ -23,7 +23,10 @@ impl Overlay for BallDetection {
             VisionCycler::VisionBottom => "bottom",
         };
         Self {
-            balls: nao.subscribe_output(format!("{}.main_outputs.balls", selected_cycler.to_string())),
+            balls: nao.subscribe_output(format!(
+                "{}.main_outputs.balls",
+                selected_cycler.to_string()
+            )),
             filtered_balls: nao.subscribe_output(format!(
                 "Control.additional.filtered_balls_in_image_{}",
                 camera_position,

@@ -17,8 +17,7 @@ impl Layer for RobotPose {
     const NAME: &'static str = "Robot Pose";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output("Control.main.robot_to_field");
+        let robot_to_field = nao.subscribe_output("Control.main.robot_to_field");
         Self { robot_to_field }
     }
 

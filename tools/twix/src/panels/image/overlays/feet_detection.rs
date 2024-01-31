@@ -5,7 +5,10 @@ use eframe::epaint::Color32;
 use types::detected_feet::ClusterPoint;
 
 use crate::{
-    nao::Nao, panels::image::overlay::{Overlay, VisionCycler}, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    nao::Nao,
+    panels::image::overlay::{Overlay, VisionCycler},
+    twix_painter::TwixPainter,
+    value_buffer::ValueBuffer,
 };
 
 pub struct FeetDetection {

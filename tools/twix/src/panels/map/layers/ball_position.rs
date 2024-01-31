@@ -18,11 +18,9 @@ impl Layer for BallPosition {
     const NAME: &'static str = "Ball Position";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output("Control.main.robot_to_field");
+        let robot_to_field = nao.subscribe_output("Control.main.robot_to_field");
         robot_to_field.reserve(100);
-        let ball_position =
-            nao.subscribe_output("Control.main.ball_position");
+        let ball_position = nao.subscribe_output("Control.main.ball_position");
         ball_position.reserve(100);
         Self {
             robot_to_field,

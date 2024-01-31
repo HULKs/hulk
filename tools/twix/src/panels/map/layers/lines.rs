@@ -24,7 +24,7 @@ impl Layer for Lines {
         let lines_in_robot_bottom =
             nao.subscribe_output("VisionBottom.main.line_data.lines_in_robot");
         let lines_in_robot_top = nao.subscribe_output("VisionTop.main.line_data.lines_in_robot");
-        
+
         Self {
             robot_to_field,
             lines_in_robot_bottom,

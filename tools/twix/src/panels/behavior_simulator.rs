@@ -28,7 +28,7 @@ impl Panel for BehaviorSimulatorPanel {
         value_buffer.listen_to_updates(update_notify_sender);
 
         let frame_count = nao.subscribe_output("BehaviorSimulator.main_outputs.frame_count");
-        
+
         Self {
             nao,
             update_notify_receiver,

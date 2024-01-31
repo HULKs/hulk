@@ -17,8 +17,10 @@ impl Overlay for LineDetection {
 
     fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: VisionCycler) -> Self {
         Self {
-            lines_in_image: nao
-                .subscribe_output(format!("{}.additional_outputs.lines_in_image", selected_cycler.to_string()))
+            lines_in_image: nao.subscribe_output(format!(
+                "{}.additional_outputs.lines_in_image",
+                selected_cycler.to_string()
+            )),
         }
     }
 

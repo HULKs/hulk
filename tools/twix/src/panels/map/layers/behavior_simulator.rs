@@ -43,7 +43,7 @@ impl Layer for BehaviorSimulator {
         )
         .unwrap();
         let ball = nao.subscribe_output("BehaviorSimulator.main_outputs.ball.position");
-        
+
         Self {
             robot_to_field,
             motion_command,

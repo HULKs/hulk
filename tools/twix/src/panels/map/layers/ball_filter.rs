@@ -23,7 +23,7 @@ impl Layer for BallFilter {
     fn new(nao: Arc<Nao>) -> Self {
         let robot_to_field = nao.subscribe_output("Control.robot_to_field");
         let ball_hypotheses = nao.subscribe_output("Control.best_ball_state");
-        
+
         Self {
             robot_to_field,
             ball_state: ball_hypotheses,

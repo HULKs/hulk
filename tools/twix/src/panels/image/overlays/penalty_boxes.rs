@@ -5,7 +5,9 @@ use eframe::epaint::{Color32, Stroke};
 use types::line::Line2;
 
 use crate::{
-    panels::image::overlay::{Overlay, VisionCycler}, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    panels::image::overlay::{Overlay, VisionCycler},
+    twix_painter::TwixPainter,
+    value_buffer::ValueBuffer,
 };
 
 pub struct PenaltyBoxes {
@@ -21,8 +23,9 @@ impl Overlay for PenaltyBoxes {
             VisionCycler::VisionBottom => "bottom",
         };
         Self {
-            penalty_boxes: nao
-                .subscribe_output(format!("Control.additional_outputs.projected_field_lines.{top_or_bottom}")),
+            penalty_boxes: nao.subscribe_output(format!(
+                "Control.additional_outputs.projected_field_lines.{top_or_bottom}"
+            )),
         }
     }
 

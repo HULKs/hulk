@@ -18,10 +18,8 @@ impl Layer for Path {
     const NAME: &'static str = "Path";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output("Control.main.robot_to_field");
-        let motion_command =
-            nao.subscribe_output("Control.main.motion_command");
+        let robot_to_field = nao.subscribe_output("Control.main.robot_to_field");
+        let motion_command = nao.subscribe_output("Control.main.motion_command");
         Self {
             robot_to_field,
             motion_command,

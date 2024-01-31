@@ -27,7 +27,7 @@ impl Layer for FeetDetection {
         let cluster_top = nao.subscribe_output("VisionTop.feet_detection.clusters_in_ground");
         let segments_bottom = nao.subscribe_output("VisionBottom.feet_detection.cluster_points");
         let segments_top = nao.subscribe_output("VisionTop.feet_detection.cluster_points");
-        
+
         Self {
             robot_to_field,
             cluster_bottom,
