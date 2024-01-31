@@ -39,7 +39,7 @@ pub fn generate_cyclers(cyclers: &Cyclers) -> TokenStream {
 fn generate_module(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
     let module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
     let cycler_instance = generate_cycler_instance(cycler);
-    let database_struct = generate_database_struct();
+    let database_struct = generate_database_struct(cycler);
     let cycler_struct = generate_struct(cycler, cyclers);
     let cycler_implementation = generate_implementation(cycler, cyclers);
 
@@ -70,12 +70,15 @@ fn generate_cycler_instance(cycler: &Cycler) -> TokenStream {
     }
 }
 
-fn generate_database_struct() -> TokenStream {
+fn generate_database_struct(cycler: &Cycler) -> TokenStream {
+    let cycler_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
+    
     quote! {
         #[derive(Default, serde::Deserialize, serde::Serialize, serialize_hierarchy::SerializeHierarchy)]
         pub(crate) struct Database {
             pub main_outputs: MainOutputs,
             pub additional_outputs: AdditionalOutputs,
+            pub cycle_timings: crate::structs::#cycler_name::CycleTimings,
         }
     }
 }
@@ -656,6 +659,7 @@ fn generate_node_execution(
             }
             #[allow(clippy::needless_else)]
             if #are_required_inputs_some {
+                let cycle_start = std::time::SystemTime::now();
                 let main_outputs = {
                     let _task = ittapi::Task::begin(&itt_domain, #node_name);
                     self.#node_member.cycle(
@@ -665,6 +669,9 @@ fn generate_node_execution(
                     )
                     .wrap_err(#cycle_error_message)?
                 };
+                let cycle_duration = cycle_start.elapsed().expect("time ran backwards");
+                own_database_reference.cycle_timings.#node_member = cycle_duration;
+
                 #database_updates
             }
             else {
