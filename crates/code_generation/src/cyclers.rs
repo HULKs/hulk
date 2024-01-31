@@ -72,7 +72,7 @@ fn generate_cycler_instance(cycler: &Cycler) -> TokenStream {
 
 fn generate_database_struct(cycler: &Cycler) -> TokenStream {
     let cycler_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
-    
+
     quote! {
         #[derive(Default, serde::Deserialize, serde::Serialize, serialize_hierarchy::SerializeHierarchy)]
         pub(crate) struct Database {
