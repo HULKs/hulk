@@ -1,7 +1,6 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::Isometry2;
 
@@ -21,14 +20,11 @@ impl Layer for Lines {
     const NAME: &'static str = "Lines";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
-        let lines_in_robot_bottom = nao.subscribe_output(
-            CyclerOutput::from_str("VisionBottom.main.line_data.lines_in_robot").unwrap(),
-        );
-        let lines_in_robot_top = nao.subscribe_output(
-            CyclerOutput::from_str("VisionTop.main.line_data.lines_in_robot").unwrap(),
-        );
+        let robot_to_field = nao.subscribe_output("Control.main.robot_to_field");
+        let lines_in_robot_bottom =
+            nao.subscribe_output("VisionBottom.main.line_data.lines_in_robot");
+        let lines_in_robot_top = nao.subscribe_output("VisionTop.main.line_data.lines_in_robot");
+        
         Self {
             robot_to_field,
             lines_in_robot_bottom,

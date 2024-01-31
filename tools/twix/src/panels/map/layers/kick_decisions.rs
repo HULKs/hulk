@@ -1,7 +1,6 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{Isometry2, Point2};
 use types::{field_dimensions::FieldDimensions, kick_decision::KickDecision};
@@ -22,18 +21,12 @@ impl Layer for KickDecisions {
     const NAME: &'static str = "Kick Decisions";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
-        let kick_decisions =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.kick_decisions").unwrap());
-        let instant_kick_decisions = nao.subscribe_output(
-            CyclerOutput::from_str("Control.main.instant_kick_decisions").unwrap(),
-        );
-        let kick_targets = nao
-            .subscribe_output(CyclerOutput::from_str("Control.additional.kick_targets").unwrap());
-        let instant_kick_targets = nao.subscribe_output(
-            CyclerOutput::from_str("Control.additional.instant_kick_targets").unwrap(),
-        );
+        let robot_to_field = nao.subscribe_output("Control.main.robot_to_field");
+        let kick_decisions = nao.subscribe_output("Control.main.kick_decisions");
+        let instant_kick_decisions = nao.subscribe_output("Control.main.instant_kick_decisions");
+        let kick_targets = nao.subscribe_output("Control.additional.kick_targets");
+        let instant_kick_targets = nao.subscribe_output("Control.additional.instant_kick_targets");
+        
         Self {
             robot_to_field,
             kick_decisions,

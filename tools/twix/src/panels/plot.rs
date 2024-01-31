@@ -1,7 +1,6 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::eyre::{eyre, Result, WrapErr};
-use communication::client::CyclerOutput;
 use eframe::{
     egui::{
         Button, CollapsingHeader, DragValue, Response, RichText, TextEdit, TextStyle, Ui, Widget,
@@ -9,7 +8,7 @@ use eframe::{
     epaint::Color32,
 };
 use egui_plot::{Line, Plot as EguiPlot, PlotPoints};
-use log::{error, info};
+use log::info;
 use mlua::{Function, Lua, LuaSerdeExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, to_string_pretty, Value};
@@ -171,16 +170,10 @@ impl LineData {
     }
 
     fn subscribe_key(&mut self, nao: Arc<Nao>, buffer_size: usize) {
-        self.value_buffer = match CyclerOutput::from_str(&self.output_key) {
-            Ok(output) => {
-                let buffer = nao.subscribe_output(output);
-                buffer.reserve(buffer_size);
-                Some(buffer)
-            }
-            Err(error) => {
-                error!("Failed to subscribe: {:#}", error);
-                None
-            }
+        self.value_buffer = {
+            let buffer = nao.subscribe_output(&self.output_key);
+            buffer.reserve(buffer_size);
+            Some(buffer)
         };
     }
 }

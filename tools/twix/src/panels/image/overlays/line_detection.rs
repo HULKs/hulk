@@ -1,11 +1,9 @@
-use std::str::FromStr;
-
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput};
 use eframe::epaint::{Color32, Stroke};
 use types::line_data::ImageLines;
 use types::line_data::LineDiscardReason;
 
+use crate::panels::image::overlay::VisionCycler;
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
 };
@@ -17,12 +15,10 @@ pub struct LineDetection {
 impl Overlay for LineDetection {
     const NAME: &'static str = "Line Detection";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: Cycler) -> Self {
+    fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: VisionCycler) -> Self {
         Self {
-            lines_in_image: nao.subscribe_output(
-                CyclerOutput::from_str(&format!("{selected_cycler}.additional.lines_in_image"))
-                    .unwrap(),
-            ),
+            lines_in_image: nao
+                .subscribe_output(format!("{}.additional_outputs.lines_in_image", selected_cycler.to_string()))
         }
     }
 

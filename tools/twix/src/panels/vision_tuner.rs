@@ -1,4 +1,3 @@
-use communication::client::Cycler;
 use eframe::egui::{ComboBox, Response, Slider, Ui, Widget};
 use nalgebra::{Isometry2, Rotation2, Translation2};
 use serde_json::{to_value, Value};
@@ -11,9 +10,24 @@ use types::interpolated::Interpolated;
 
 use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum VisionCycler {
+    VisionTop,
+    VisionBottom,
+}
+
+impl ToString for VisionCycler {
+    fn to_string(&self) -> String {
+        match self {
+            VisionCycler::VisionTop => "vision_top".to_string(),
+            VisionCycler::VisionBottom => "vision_bottom".to_string(),
+        }
+    }
+}
+
 pub struct VisionTunerPanel {
     nao: Arc<Nao>,
-    cycler: Cycler,
+    cycler: VisionCycler,
     position: Position,
     buffers: Buffers,
 }
@@ -22,7 +36,7 @@ impl Panel for VisionTunerPanel {
     const NAME: &'static str = "Vision Tuner";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let cycler = Cycler::VisionTop;
+        let cycler = VisionCycler::VisionTop;
         let buffers = Buffers::from(&nao, cycler);
 
         Self {
@@ -205,7 +219,7 @@ struct Buffers {
 }
 
 impl Buffers {
-    fn from(nao: &Nao, cycler: Cycler) -> Self {
+    fn from(nao: &Nao, cycler: VisionCycler) -> Self {
         let vertical_edge_threshold_buffer =
             nao.subscribe_parameter(get_vertical_edge_threshold_path(cycler));
         let red_chromaticity_threshold_buffer =
@@ -261,7 +275,7 @@ impl Display for Position {
 fn add_selector_row(
     ui: &mut Ui,
     nao: &Nao,
-    cycler: &mut Cycler,
+    cycler: &mut VisionCycler,
     position: &mut Position,
     buffers: &mut Buffers,
 ) -> Response {
@@ -299,7 +313,7 @@ fn add_selector_row(
 fn add_vision_cycler_selector(
     ui: &mut Ui,
     nao: &Nao,
-    cycler: &mut Cycler,
+    cycler: &mut VisionCycler,
     buffers: &mut Buffers,
 ) -> Response {
     let mut changed = false;
@@ -307,17 +321,17 @@ fn add_vision_cycler_selector(
         .selected_text(format!("{:?}", cycler))
         .show_ui(ui, |ui| {
             if ui
-                .selectable_value(cycler, Cycler::VisionTop, "VisionTop")
+                .selectable_value(cycler, VisionCycler::VisionTop, "VisionTop")
                 .clicked()
             {
-                *cycler = Cycler::VisionTop;
+                *cycler = VisionCycler::VisionTop;
                 changed = true;
             };
             if ui
-                .selectable_value(cycler, Cycler::VisionBottom, "VisionBottom")
+                .selectable_value(cycler, VisionCycler::VisionBottom, "VisionBottom")
                 .clicked()
             {
-                *cycler = Cycler::VisionBottom;
+                *cycler = VisionCycler::VisionBottom;
                 changed = true;
             };
         })
@@ -380,55 +394,59 @@ fn add_position_selector(ui: &mut Ui, position: &mut Position) -> Response {
     combo_box.response
 }
 
-fn get_vertical_edge_threshold_path(cycler: Cycler) -> &'static str {
+fn get_vertical_edge_threshold_path(cycler: VisionCycler) -> &'static str {
     match cycler {
-        Cycler::VisionTop => "image_segmenter.vision_top.vertical_edge_threshold",
-        Cycler::VisionBottom => "image_segmenter.vision_bottom.vertical_edge_threshold",
-        _ => panic!("not implemented"),
+        VisionCycler::VisionTop => "image_segmenter.vision_top.vertical_edge_threshold",
+        VisionCycler::VisionBottom => "image_segmenter.vision_bottom.vertical_edge_threshold",
     }
 }
 
-fn get_red_chromaticity_threshold_path(cycler: Cycler) -> &'static str {
+fn get_red_chromaticity_threshold_path(cycler: VisionCycler) -> &'static str {
     match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.red_chromaticity_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.red_chromaticity_threshold",
-        _ => panic!("not implemented"),
+        VisionCycler::VisionTop => "field_color_detection.vision_top.red_chromaticity_threshold",
+        VisionCycler::VisionBottom => {
+            "field_color_detection.vision_bottom.red_chromaticity_threshold"
+        }
     }
 }
 
-fn get_blue_chromaticity_threshold_path(cycler: Cycler) -> &'static str {
+fn get_blue_chromaticity_threshold_path(cycler: VisionCycler) -> &'static str {
     match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.blue_chromaticity_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.blue_chromaticity_threshold",
-        _ => panic!("not implemented"),
+        VisionCycler::VisionTop => "field_color_detection.vision_top.blue_chromaticity_threshold",
+        VisionCycler::VisionBottom => {
+            "field_color_detection.vision_bottom.blue_chromaticity_threshold"
+        }
     }
 }
 
-fn get_lower_green_chromaticity_threshold_path(cycler: Cycler) -> &'static str {
+fn get_lower_green_chromaticity_threshold_path(cycler: VisionCycler) -> &'static str {
     match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.lower_green_chromaticity_threshold",
-        Cycler::VisionBottom => {
+        VisionCycler::VisionTop => {
+            "field_color_detection.vision_top.lower_green_chromaticity_threshold"
+        }
+        VisionCycler::VisionBottom => {
             "field_color_detection.vision_bottom.lower_green_chromaticity_threshold"
         }
-        _ => panic!("not implemented"),
     }
 }
 
-fn get_upper_green_chromaticity_threshold_path(cycler: Cycler) -> &'static str {
+fn get_upper_green_chromaticity_threshold_path(cycler: VisionCycler) -> &'static str {
     match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.upper_green_chromaticity_threshold",
-        Cycler::VisionBottom => {
+        VisionCycler::VisionTop => {
+            "field_color_detection.vision_top.upper_green_chromaticity_threshold"
+        }
+        VisionCycler::VisionBottom => {
             "field_color_detection.vision_bottom.upper_green_chromaticity_threshold"
         }
-        _ => panic!("not implemented"),
     }
 }
 
-fn get_green_luminance_threshold_path(cycler: Cycler) -> &'static str {
+fn get_green_luminance_threshold_path(cycler: VisionCycler) -> &'static str {
     match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.green_luminance_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.green_luminance_threshold",
-        _ => panic!("not implemented"),
+        VisionCycler::VisionTop => "field_color_detection.vision_top.green_luminance_threshold",
+        VisionCycler::VisionBottom => {
+            "field_color_detection.vision_bottom.green_luminance_threshold"
+        }
     }
 }
 

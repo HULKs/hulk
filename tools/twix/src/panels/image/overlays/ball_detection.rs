@@ -1,12 +1,12 @@
-use std::str::FromStr;
-
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput};
 use eframe::epaint::{Color32, Stroke};
 use geometry::circle::Circle;
 use types::ball::{Ball, CandidateEvaluation};
 
-use crate::{panels::image::overlay::Overlay, value_buffer::ValueBuffer};
+use crate::{
+    panels::image::overlay::{Overlay, VisionCycler},
+    value_buffer::ValueBuffer,
+};
 
 pub struct BallDetection {
     balls: ValueBuffer,
@@ -17,27 +17,21 @@ pub struct BallDetection {
 impl Overlay for BallDetection {
     const NAME: &'static str = "Ball Detection";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: Cycler) -> Self {
+    fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: VisionCycler) -> Self {
         let camera_position = match selected_cycler {
-            Cycler::VisionTop => "top",
-            Cycler::VisionBottom => "bottom",
-            cycler => panic!("Invalid vision cycler: {cycler}"),
+            VisionCycler::VisionTop => "top",
+            VisionCycler::VisionBottom => "bottom",
         };
         Self {
-            balls: nao.subscribe_output(
-                CyclerOutput::from_str(&format!("{}.main.balls", selected_cycler)).unwrap(),
-            ),
-            filtered_balls: nao.subscribe_output(
-                CyclerOutput::from_str(&format!(
-                    "Control.additional.filtered_balls_in_image_{}",
-                    camera_position,
-                ))
-                .unwrap(),
-            ),
-            ball_candidates: nao.subscribe_output(
-                CyclerOutput::from_str(&format!("{}.additional.ball_candidates", selected_cycler))
-                    .unwrap(),
-            ),
+            balls: nao.subscribe_output(format!("{}.main_outputs.balls", selected_cycler.to_string())),
+            filtered_balls: nao.subscribe_output(format!(
+                "Control.additional.filtered_balls_in_image_{}",
+                camera_position,
+            )),
+            ball_candidates: nao.subscribe_output(format!(
+                "{}.additional_outputs.ball_candidates",
+                selected_cycler.to_string()
+            )),
         }
     }
 

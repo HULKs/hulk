@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::epaint::Color32;
 use nalgebra::{Isometry2, Point2};
 
@@ -23,36 +22,12 @@ impl Layer for FeetDetection {
     const NAME: &'static str = "FeetDetection";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::Control,
-            output: Output::Main {
-                path: "robot_to_field".to_string(),
-            },
-        });
-        let cluster_bottom = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::VisionBottom,
-            output: Output::Additional {
-                path: "feet_detection.clusters_in_ground".to_string(),
-            },
-        });
-        let cluster_top = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::VisionTop,
-            output: Output::Additional {
-                path: "feet_detection.clusters_in_ground".to_string(),
-            },
-        });
-        let segments_bottom = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::VisionBottom,
-            output: Output::Additional {
-                path: "feet_detection.cluster_points".to_string(),
-            },
-        });
-        let segments_top = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::VisionTop,
-            output: Output::Additional {
-                path: "feet_detection.cluster_points".to_string(),
-            },
-        });
+        let robot_to_field = nao.subscribe_output("Control.robot_to_field");
+        let cluster_bottom = nao.subscribe_output("VisionBottom.feet_detection.clusters_in_ground");
+        let cluster_top = nao.subscribe_output("VisionTop.feet_detection.clusters_in_ground");
+        let segments_bottom = nao.subscribe_output("VisionBottom.feet_detection.cluster_points");
+        let segments_top = nao.subscribe_output("VisionTop.feet_detection.cluster_points");
+        
         Self {
             robot_to_field,
             cluster_bottom,

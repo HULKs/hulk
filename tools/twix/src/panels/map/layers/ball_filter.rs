@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{Isometry2, Point2};
 use types::{
@@ -22,18 +21,9 @@ impl Layer for BallFilter {
     const NAME: &'static str = "Ball Filter";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::Control,
-            output: Output::Main {
-                path: "robot_to_field".to_string(),
-            },
-        });
-        let ball_hypotheses = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::Control,
-            output: Output::Additional {
-                path: "best_ball_state".to_string(),
-            },
-        });
+        let robot_to_field = nao.subscribe_output("Control.robot_to_field");
+        let ball_hypotheses = nao.subscribe_output("Control.best_ball_state");
+        
         Self {
             robot_to_field,
             ball_state: ball_hypotheses,

@@ -1,6 +1,5 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
-use communication::client::CyclerOutput;
 use eframe::{
     egui::{ComboBox, Response, Ui, Widget},
     epaint::{Color32, Stroke},
@@ -44,8 +43,8 @@ impl Panel for ImageSegmentsPanel {
     const NAME: &'static str = "Image Segments";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let value_buffer =
-            nao.subscribe_output(CyclerOutput::from_str("VisionTop.main.image_segments").unwrap());
+        let value_buffer = nao.subscribe_output("VisionTop.main_outputs.image_segments");
+
         Self {
             nao,
             value_buffer,
@@ -84,18 +83,10 @@ impl Widget for &mut ImageSegmentsPanel {
                 ui.checkbox(&mut self.use_filtered_segments, "Filtered Segments");
             if camera_selection_changed || filtered_segments_checkbox.changed() {
                 let output = match (self.camera_position, self.use_filtered_segments) {
-                    (CameraPosition::Top, false) => {
-                        CyclerOutput::from_str("VisionTop.main.image_segments").unwrap()
-                    }
-                    (CameraPosition::Top, true) => {
-                        CyclerOutput::from_str("VisionTop.main.filtered_segments").unwrap()
-                    }
-                    (CameraPosition::Bottom, false) => {
-                        CyclerOutput::from_str("VisionBottom.main.image_segments").unwrap()
-                    }
-                    (CameraPosition::Bottom, true) => {
-                        CyclerOutput::from_str("VisionBottom.main.filtered_segments").unwrap()
-                    }
+                    (CameraPosition::Top, false) => "VisionTop.main_outputs.image_segments",
+                    (CameraPosition::Top, true) => "VisionTop.main_outputs.filtered_segments",
+                    (CameraPosition::Bottom, false) => "VisionBottom.main_outputs.image_segments",
+                    (CameraPosition::Bottom, true) => "VisionBottom.main_outputs.filtered_segments",
                 };
                 self.value_buffer = self.nao.subscribe_output(output);
             }

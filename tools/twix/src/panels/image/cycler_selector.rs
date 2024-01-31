@@ -1,13 +1,14 @@
-use communication::client::Cycler;
 use eframe::egui::{ComboBox, Response, Ui, Widget};
+
+use super::overlay::VisionCycler;
 
 #[derive(Debug)]
 pub struct VisionCyclerSelector {
-    cycler: Cycler,
+    cycler: VisionCycler,
 }
 
 impl VisionCyclerSelector {
-    pub fn selected_cycler(&self) -> Cycler {
+    pub fn selected_cycler(&self) -> VisionCycler {
         self.cycler
     }
 }
@@ -15,13 +16,13 @@ impl VisionCyclerSelector {
 impl Default for VisionCyclerSelector {
     fn default() -> Self {
         Self {
-            cycler: Cycler::VisionTop,
+            cycler: VisionCycler::VisionTop,
         }
     }
 }
 
 impl VisionCyclerSelector {
-    pub fn new(cycler: Cycler) -> Self {
+    pub fn new(cycler: VisionCycler) -> Self {
         Self { cycler }
     }
 }
@@ -33,13 +34,13 @@ impl Widget for &mut VisionCyclerSelector {
             .selected_text(format!("{:?}", self.cycler))
             .show_ui(ui, |ui| {
                 if ui
-                    .selectable_value(&mut self.cycler, Cycler::VisionTop, "VisionTop")
+                    .selectable_value(&mut self.cycler, VisionCycler::VisionTop, "VisionTop")
                     .clicked()
                 {
                     camera_selection_changed = true;
                 };
                 if ui
-                    .selectable_value(&mut self.cycler, Cycler::VisionBottom, "VisionBottom")
+                    .selectable_value(&mut self.cycler, VisionCycler::VisionBottom, "VisionBottom")
                     .clicked()
                 {
                     camera_selection_changed = true;

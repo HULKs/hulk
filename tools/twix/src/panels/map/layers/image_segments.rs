@@ -1,7 +1,4 @@
-use std::str::FromStr;
-
 use color_eyre::Result;
-use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{point, vector, Isometry2, Point2};
 use projection::Projection;
@@ -21,16 +18,12 @@ impl Layer for ImageSegments {
     const NAME: &'static str = "Image Segments";
 
     fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
-        let image_segments_bottom = nao
-            .subscribe_output(CyclerOutput::from_str("VisionBottom.main.image_segments").unwrap());
-        let camera_matrix_bottom = nao
-            .subscribe_output(CyclerOutput::from_str("VisionBottom.main.camera_matrix").unwrap());
-        let image_segments_top =
-            nao.subscribe_output(CyclerOutput::from_str("VisionTop.main.image_segments").unwrap());
-        let camera_matrix_top =
-            nao.subscribe_output(CyclerOutput::from_str("VisionTop.main.camera_matrix").unwrap());
+        let robot_to_field = nao.subscribe_output("Control.main.robot_to_field");
+        let image_segments_bottom = nao.subscribe_output("VisionBottom.main.image_segments");
+        let camera_matrix_bottom = nao.subscribe_output("VisionBottom.main.camera_matrix");
+        let image_segments_top = nao.subscribe_output("VisionTop.main.image_segments");
+        let camera_matrix_top = nao.subscribe_output("VisionTop.main.camera_matrix");
+        
         Self {
             robot_to_field,
             image_segments_bottom,

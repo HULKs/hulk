@@ -1,7 +1,6 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{point, Isometry2, Point2, UnitComplex};
 use types::{field_dimensions::FieldDimensions, motion_command::MotionCommand};
@@ -43,9 +42,8 @@ impl Layer for BehaviorSimulator {
             "main_outputs.sensor_data.positions.head.yaw",
         )
         .unwrap();
-        let ball = nao.subscribe_output(
-            CyclerOutput::from_str("BehaviorSimulator.main_outputs.ball.position").unwrap(),
-        );
+        let ball = nao.subscribe_output("BehaviorSimulator.main_outputs.ball.position");
+        
         Self {
             robot_to_field,
             motion_command,

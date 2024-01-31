@@ -1,12 +1,11 @@
 use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
-use communication::client::CyclerOutput;
 use eframe::{
     egui::{Response, Slider, TextFormat, Ui, Widget},
     epaint::{text::LayoutJob, Color32, FontId},
 };
 use nalgebra::{point, Point2};
 use serde_json::Value;
-use std::{ops::RangeInclusive, str::FromStr, sync::Arc};
+use std::{ops::RangeInclusive, sync::Arc};
 use types::{
     camera_position::CameraPosition,
     field_dimensions::FieldDimensions,
@@ -38,10 +37,7 @@ impl Panel for LookAtPanel {
 
     fn new(nao: Arc<Nao>, _: Option<&Value>) -> Self {
         let field_dimensions_buffer = nao.subscribe_parameter("field_dimensions");
-        let motion_command_buffer = nao.subscribe_output(
-            CyclerOutput::from_str("Control.main_outputs.motion_command")
-                .expect("Failed to subscribe to main_outputs.motion_command"),
-        );
+        let motion_command_buffer = nao.subscribe_output("Control.main_outputs.motion_command");
 
         Self {
             nao,

@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::epaint::{Color32, Stroke};
 use types::line::Line2;
 
 use crate::{
-    panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    panels::image::overlay::{Overlay, VisionCycler}, twix_painter::TwixPainter, value_buffer::ValueBuffer,
 };
 
 pub struct PenaltyBoxes {
@@ -16,19 +15,14 @@ pub struct PenaltyBoxes {
 impl Overlay for PenaltyBoxes {
     const NAME: &'static str = "Penalty Boxes";
 
-    fn new(nao: Arc<crate::nao::Nao>, selected_cycler: Cycler) -> Self {
+    fn new(nao: Arc<crate::nao::Nao>, selected_cycler: VisionCycler) -> Self {
         let top_or_bottom = match selected_cycler {
-            Cycler::VisionTop => "top",
-            Cycler::VisionBottom => "bottom",
-            cycler => panic!("Invalid vision cycler: {cycler}"),
+            VisionCycler::VisionTop => "top",
+            VisionCycler::VisionBottom => "bottom",
         };
         Self {
-            penalty_boxes: nao.subscribe_output(CyclerOutput {
-                cycler: Cycler::Control,
-                output: Output::Additional {
-                    path: format!("projected_field_lines.{top_or_bottom}"),
-                },
-            }),
+            penalty_boxes: nao
+                .subscribe_output(format!("Control.additional_outputs.projected_field_lines.{top_or_bottom}")),
         }
     }
 

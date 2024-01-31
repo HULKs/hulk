@@ -1,6 +1,5 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
-use communication::client::CyclerOutput;
 use eframe::egui::{Response, Slider, Ui, Widget};
 use serde_json::Value;
 use tokio::sync::mpsc;
@@ -28,9 +27,8 @@ impl Panel for BehaviorSimulatorPanel {
         let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
         value_buffer.listen_to_updates(update_notify_sender);
 
-        let frame_count = nao.subscribe_output(
-            CyclerOutput::from_str("BehaviorSimulator.main_outputs.frame_count").unwrap(),
-        );
+        let frame_count = nao.subscribe_output("BehaviorSimulator.main_outputs.frame_count");
+        
         Self {
             nao,
             update_notify_receiver,
