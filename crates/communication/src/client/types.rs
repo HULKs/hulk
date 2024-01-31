@@ -1,85 +1,9 @@
-use std::{
-    collections::BTreeMap,
-    fmt::{self, Display, Formatter},
-    str::FromStr,
-};
+use std::collections::BTreeMap;
 
-use color_eyre::{
-    eyre::{bail, eyre},
-    Report, Result,
-};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
 
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub struct CyclerOutput {
-    pub cycler: Cycler,
-    pub output: Output,
-}
-
-impl FromStr for CyclerOutput {
-    type Err = Report;
-
-    fn from_str(string: &str) -> Result<Self, Self::Err> {
-        let (cycler_str, output_str) = string.split_once('.').ok_or_else(|| {
-            eyre!("expected '.' in subscription path (e.g. 'control.main.foo_bar')")
-        })?;
-        let cycler = Cycler::from_str(cycler_str)?;
-        let (output_str, path) = output_str.split_once('.').ok_or_else(|| {
-            eyre!("expected '.' after output source (e.g. 'control.main.foo_bar')")
-        })?;
-        let output = match output_str {
-            "main" | "main_outputs" => Output::Main {
-                path: path.to_string(),
-            },
-            "additional" | "additional_outputs" => Output::Additional {
-                path: path.to_string(),
-            },
-            _ => bail!("unknown output '{output_str}'"),
-        };
-        Ok(CyclerOutput { cycler, output })
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub enum Cycler {
-    Control,
-    VisionTop,
-    VisionBottom,
-    BehaviorSimulator,
-}
-
-impl Display for Cycler {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Cycler::Control => f.write_str("Control"),
-            Cycler::VisionTop => f.write_str("VisionTop"),
-            Cycler::VisionBottom => f.write_str("VisionBottom"),
-            Cycler::BehaviorSimulator => f.write_str("BehaviorSimulator"),
-        }
-    }
-}
-
-impl FromStr for Cycler {
-    type Err = Report;
-
-    fn from_str(string: &str) -> Result<Self, Self::Err> {
-        Ok(match string {
-            "Control" => Cycler::Control,
-            "VisionTop" => Cycler::VisionTop,
-            "VisionBottom" => Cycler::VisionBottom,
-            "BehaviorSimulator" => Cycler::BehaviorSimulator,
-            _ => bail!("unknown cycler '{string}'"),
-        })
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(tag = "type")]
-pub enum Output {
-    Main { path: String },
-    Additional { path: String },
-}
+use crate::messages::Path;
 
 #[derive(Debug, Clone)]
 pub enum SubscriberMessage {
@@ -123,6 +47,6 @@ pub struct OutputHierarchy {
 
 #[derive(Debug, Deserialize)]
 pub struct SubscribedOutput {
-    pub output: Output,
+    pub output: Path,
     pub data: Value,
 }

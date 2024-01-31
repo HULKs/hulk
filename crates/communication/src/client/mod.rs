@@ -10,4 +10,4 @@ mod types;
 
 pub use crate::client::communication::Communication;
 pub use connector::ConnectionStatus;
-pub use types::{Cycler, CyclerOutput, HierarchyType, Output, OutputHierarchy, SubscriberMessage};
+pub use types::{HierarchyType, OutputHierarchy, SubscriberMessage};

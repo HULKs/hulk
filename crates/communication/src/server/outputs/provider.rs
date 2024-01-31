@@ -102,16 +102,16 @@ where
         }
         OutputsRequest::GetNext {
             id,
-            cycler_instance: received_cycler_instance,
-            path,
+            path: received_path,
             format,
         }
         | OutputsRequest::Subscribe {
             id,
-            cycler_instance: received_cycler_instance,
-            path,
+            path: received_path,
             format,
         } => {
+            let (received_cycler_instance, path) = received_path.split_once(".").expect("path does not contain cycler");
+
             assert_eq!(cycler_instance, received_cycler_instance);
             if Outputs::exists(&path) {
                 match subscriptions.entry((request.client.clone(), id)) {
@@ -139,7 +139,7 @@ where
                     }
                     Entry::Vacant(entry) => {
                         entry.insert(Subscription {
-                            path,
+                            path: path.to_string(),
                             format,
                             once: is_get_next,
                         });
@@ -533,8 +533,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
                     id: ID,
-                    cycler_instance: cycler_instance.clone(),
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format,
                 },
                 client: Client {
@@ -570,8 +569,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
                     id: ID,
-                    cycler_instance,
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format,
                 },
                 client: Client {
@@ -634,8 +632,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
                     id: ID,
-                    cycler_instance: cycler_instance.clone(),
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format,
                 },
                 client: Client {
@@ -671,8 +668,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
                     id: ID,
-                    cycler_instance,
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format,
                 },
                 client: Client {
@@ -735,8 +731,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
                     id: 42,
-                    cycler_instance: cycler_instance.clone(),
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format,
                 },
                 client: Client {
@@ -772,8 +767,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
                     id: 1337,
-                    cycler_instance,
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format,
                 },
                 client: Client {
@@ -889,8 +883,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
-                    cycler_instance: cycler_instance.to_string(),
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format: Format::Textual,
                 },
                 client: Client {
@@ -1013,8 +1006,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
                     id: 42,
-                    cycler_instance: cycler_instance.to_string(),
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format: Format::Textual,
                 },
                 client: Client {
@@ -1129,8 +1121,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
-                    cycler_instance: cycler_instance.to_string(),
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format: Format::Textual,
                 },
                 client: Client {
@@ -1256,8 +1247,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
-                    cycler_instance: cycler_instance.to_string(),
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format: Format::Binary,
                 },
                 client: Client {
@@ -1391,8 +1381,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
-                    cycler_instance: cycler_instance.to_string(),
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format: Format::Textual,
                 },
                 client: Client {
@@ -1429,8 +1418,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
                     id: SUBSCRIPTION_ID,
-                    cycler_instance: cycler_instance.to_string(),
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format: Format::Textual,
                 },
                 client: Client {
@@ -1613,8 +1601,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::GetNext {
                     id: SUBSCRIPTION_ID,
-                    cycler_instance: cycler_instance.to_string(),
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format: Format::Textual,
                 },
                 client: Client {
@@ -1691,8 +1678,7 @@ mod tests {
             .send(ClientRequest {
                 request: OutputsRequest::GetNext {
                     id: SUBSCRIPTION_ID,
-                    cycler_instance: cycler_instance.to_string(),
-                    path: path.clone(),
+                    path: format!("{cycler_instance}.{path}"),
                     format: Format::Binary,
                 },
                 client: Client {

@@ -7,7 +7,9 @@ use tokio::{
 };
 
 use crate::{
-    messages::{OutputsRequest, Path, Response, TextualOutputsResponse, TextualResponse},
+    messages::{
+        OutputsRequest, Path, Response, TextualOutputsResponse, TextualResponse,
+    },
     server::{client::Client, client_request::ClientRequest},
 };
 
@@ -67,19 +69,36 @@ async fn handle_request(
                 .await
                 .expect("receiver should always wait for all senders");
         }
-        OutputsRequest::GetNext {
-            id,
-            cycler_instance,
-            ..
-        }
-        | OutputsRequest::Subscribe {
-            id,
-            cycler_instance,
-            ..
-        } => {
+        OutputsRequest::GetNext { id, path, .. } | OutputsRequest::Subscribe { id, path, .. } => {
+            let cycler_instance = match path.split_once(".") {
+                Some((cycler_instance, _)) => cycler_instance,
+                None => {
+                    let error_message = format!("cannot parse path {path}");
+                    request
+                        .client
+                        .response_sender
+                        .send(Response::Textual(TextualResponse::Outputs(
+                            if matches!(request.request, OutputsRequest::GetNext { .. }) {
+                                TextualOutputsResponse::GetNext {
+                                    id: *id,
+                                    result: Err(error_message),
+                                }
+                            } else {
+                                TextualOutputsResponse::Subscribe {
+                                    id: *id,
+                                    result: Err(error_message),
+                                }
+                            },
+                        )))
+                        .await
+                        .expect("receiver should always wait for all senders");
+                    return;
+                }
+            };
+
             if matches!(request.request, OutputsRequest::Subscribe { .. }) {
                 cached_cycler_instances
-                    .insert((request.client.clone(), *id), cycler_instance.clone());
+                    .insert((request.client.clone(), *id), cycler_instance.to_owned());
             }
 
             match request_channels_of_cyclers.get(cycler_instance) {
@@ -245,8 +264,7 @@ mod tests {
             .send(Request::ClientRequest(ClientRequest {
                 request: OutputsRequest::GetNext {
                     id: 42,
-                    cycler_instance: "CyclerInstance".to_string(),
-                    path: "a.b.c".to_string(),
+                    path: "CyclerInstance.a.b.c".to_string(),
                     format: Format::Textual,
                 },
                 client: Client {
@@ -296,8 +314,7 @@ mod tests {
         let sent_client_request = ClientRequest {
             request: OutputsRequest::GetNext {
                 id: 42,
-                cycler_instance: "CyclerInstance".to_string(),
-                path: "a.b.c".to_string(),
+                path: "CyclerInstance.a.b.c".to_string(),
                 format: Format::Textual,
             },
             client: Client {
@@ -340,8 +357,7 @@ mod tests {
         let sent_client_request = ClientRequest {
             request: OutputsRequest::Subscribe {
                 id: 42,
-                cycler_instance: "CyclerInstance".to_string(),
-                path: "a.b.c".to_string(),
+                path: "CyclerInstance.a.b.c".to_string(),
                 format: Format::Textual,
             },
             client: client.clone(),
