@@ -26,6 +26,15 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                 ],
             },
             CyclerManifest {
+                name: "Detection",
+                kind: CyclerKind::Perception,
+                instances: vec!["Top"],
+                setup_nodes: vec!["object_detection::image_receiver"],
+                nodes: vec![
+                    "object_detection::pose_detection",
+                ],
+            },
+            CyclerManifest {
                 name: "Control",
                 kind: CyclerKind::RealTime,
                 instances: vec![""],
