@@ -309,6 +309,7 @@ impl BehaviorCycler {
                         &mut own_database.additional_outputs.dribble_path_obstacles,
                     ),
                     AdditionalOutput::new(true, &mut own_database.additional_outputs.active_action),
+                    own_database.main_outputs.expected_referee_position.as_ref(),
                     &true,
                     &own_database.main_outputs.world_state,
                     &own_database.main_outputs.cycle_time,

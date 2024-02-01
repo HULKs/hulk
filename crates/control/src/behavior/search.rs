@@ -92,6 +92,7 @@ pub fn execute(
     let head = match best_hypothetical_ball_position {
         Some(hypothesis) => HeadMotion::LookAt {
             target: hypothesis.position,
+            image_region_target: Default::default(),
             camera: None,
         },
         None => HeadMotion::SearchForLostBall,
