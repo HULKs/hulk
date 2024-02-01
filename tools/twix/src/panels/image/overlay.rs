@@ -11,7 +11,7 @@ use crate::{nao::Nao, twix_painter::TwixPainter};
 
 use super::overlays::{
     BallDetection, FeetDetection, FieldBorder, Horizon, LimbProjector, LineDetection, PenaltyBoxes,
-    PerspectiveGrid,
+    PerspectiveGrid, PoseDetection,
 };
 
 pub trait Overlay {
@@ -88,6 +88,7 @@ pub struct Overlays {
     pub penalty_boxes: EnabledOverlay<PenaltyBoxes>,
     pub feet_detection: EnabledOverlay<FeetDetection>,
     pub field_border: EnabledOverlay<FieldBorder>,
+    pub pose_detection: EnabledOverlay<PoseDetection>,
     pub limb_projector: EnabledOverlay<LimbProjector>,
 }
 
@@ -135,6 +136,8 @@ impl Overlays {
             self.feet_detection.checkbox(ui, selected_cycler);
             self.field_border.checkbox(ui, selected_cycler);
             self.limb_projector.checkbox(ui, selected_cycler);
+            self.perspective_grid.checkbox(ui, selected_cycler);
+            self.pose_detection.checkbox(ui, selected_cycler);
         });
     }
 
@@ -147,6 +150,7 @@ impl Overlays {
         let _ = self.feet_detection.paint(painter);
         let _ = self.field_border.paint(painter);
         let _ = self.limb_projector.paint(painter);
+        let _ = self.pose_detection.paint(painter);
         Ok(())
     }
 
@@ -160,6 +164,8 @@ impl Overlays {
             "feet_detection": self.feet_detection.save(),
             "field_border": self.field_border.save(),
             "limb_projector": self.line_detection.save(),
+            "perspective_grid": self.perspective_grid.save(),
+            "pose_detection": self.pose_detection.save(),
         })
     }
 }
