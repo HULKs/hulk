@@ -110,10 +110,12 @@ where
             path: received_path,
             format,
         } => {
-            let (received_cycler_instance, path) = received_path.split_once(".").expect("path does not contain cycler");
+            let (received_cycler_instance, path) = received_path
+                .split_once('.')
+                .expect("path does not contain cycler");
 
             assert_eq!(cycler_instance, received_cycler_instance);
-            if Outputs::exists(&path) {
+            if Outputs::exists(path) {
                 match subscriptions.entry((request.client.clone(), id)) {
                     Entry::Occupied(_) => {
                         let error_message = format!("already subscribed with id {id}");

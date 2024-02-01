@@ -70,7 +70,7 @@ async fn handle_request(
                 .expect("receiver should always wait for all senders");
         }
         OutputsRequest::GetNext { id, path, .. } | OutputsRequest::Subscribe { id, path, .. } => {
-            let cycler_instance = match path.split_once(".") {
+            let cycler_instance = match path.split_once('.') {
                 Some((cycler_instance, _)) => cycler_instance,
                 None => {
                     let error_message = format!("cannot parse path {path}");
