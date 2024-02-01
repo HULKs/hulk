@@ -1921,6 +1921,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "env_logger"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cd405aab171cb85d6735e5c8d9db038c17d3ca007a4d2c25f337935c3d90580"
+dependencies = [
+ "humantime",
+ "is-terminal",
+ "log",
+ "regex",
+ "termcolor",
+]
+
+[[package]]
 name = "epaint"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2690,6 +2703,7 @@ dependencies = [
  "libc",
  "linear_algebra",
  "nalgebra",
+ "object_detection",
  "projection",
  "serde",
  "serde_json",
@@ -2764,6 +2778,7 @@ dependencies = [
  "ittapi",
  "linear_algebra",
  "nalgebra",
+ "object_detection",
  "projection",
  "serde",
  "serde_json",
@@ -2802,6 +2817,12 @@ dependencies = [
  "types",
  "webots",
 ]
+
+[[package]]
+name = "humantime"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
@@ -3489,6 +3510,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ndarray"
+version = "0.15.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adb12d4e967ec485a5f71c6311fe28158e9d6f4bc4a447b474184d0f91a8fa32"
+dependencies = [
+ "matrixmultiply",
+ "num-complex",
+ "num-integer",
+ "num-traits",
+ "rawpointer",
+ "serde",
+]
+
+[[package]]
 name = "ndk"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3795,6 +3830,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "object_detection"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "context_attribute",
+ "control",
+ "coordinate_systems",
+ "framework",
+ "geometry",
+ "hardware",
+ "itertools 0.10.5",
+ "lazy_static",
+ "linear_algebra",
+ "nalgebra",
+ "ndarray",
+ "openvino",
+ "ordered-float",
+ "projection",
+ "serde",
+ "spl_network_messages",
+ "types",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3864,6 +3923,36 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "openvino"
+version = "0.6.0"
+source = "git+https://github.com/intel/openvino-rs.git?rev=6f1f823#6f1f8238b8eac137903124be354b6911d51d7a05"
+dependencies = [
+ "openvino-finder",
+ "openvino-sys",
+ "thiserror",
+]
+
+[[package]]
+name = "openvino-finder"
+version = "0.6.0"
+source = "git+https://github.com/intel/openvino-rs.git?rev=6f1f823#6f1f8238b8eac137903124be354b6911d51d7a05"
+dependencies = [
+ "cfg-if",
+ "log",
+]
+
+[[package]]
+name = "openvino-sys"
+version = "0.6.0"
+source = "git+https://github.com/intel/openvino-rs.git?rev=6f1f823#6f1f8238b8eac137903124be354b6911d51d7a05"
+dependencies = [
+ "env_logger",
+ "libloading 0.8.3",
+ "once_cell",
+ "openvino-finder",
 ]
 
 [[package]]

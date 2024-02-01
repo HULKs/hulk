@@ -1,7 +1,7 @@
 use std::ops::{Index, Range};
 use std::{path::PathBuf, time::Duration};
 
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, NormalizedPixel};
 use linear_algebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
@@ -174,6 +174,13 @@ pub struct LookAtParameters {
     pub glance_angle: f32,
     pub glance_direction_toggle_interval: Duration,
     pub minimum_bottom_focus_pitch: f32,
+    pub image_region_parameters: ImageRegionParameters,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct ImageRegionParameters {
+    pub bottom: Point2<NormalizedPixel>,
+    pub center: Point2<NormalizedPixel>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

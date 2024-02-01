@@ -43,6 +43,7 @@ pub fn execute(
             Some(MotionCommand::Stand {
                 head: HeadMotion::LookAt {
                     target,
+                    image_region_target: Default::default(),
                     camera: None,
                 },
             })

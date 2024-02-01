@@ -27,8 +27,8 @@ pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
+    is_referee_initial_pose_detected: Input<bool, "is_referee_initial_pose_detected">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
-
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
@@ -59,6 +59,7 @@ impl GameControllerStateFilter {
             context.cycle_time,
             &mut self.state,
             &mut self.opponent_state,
+            *context.is_referee_initial_pose_detected,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
@@ -74,6 +75,7 @@ impl GameControllerStateFilter {
                 .game_controller_state
                 .hulks_team_is_home_after_coin_toss,
         };
+
         Ok(MainOutputs {
             filtered_game_controller_state: Some(filtered_game_controller_state).into(),
         })
@@ -96,6 +98,7 @@ fn filter_game_states(
     cycle_time: &CycleTime,
     state: &mut State,
     opponent_state: &mut State,
+    is_referee_initial_pose_detected: bool,
 ) -> FilteredGameStates {
     let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
         ground_to_field,
@@ -110,6 +113,7 @@ fn filter_game_states(
         cycle_time.start_time,
         config,
         ball_detected_far_from_any_goal,
+        is_referee_initial_pose_detected,
     );
     *opponent_state = next_filtered_state(
         *opponent_state,
@@ -118,6 +122,7 @@ fn filter_game_states(
         cycle_time.start_time,
         config,
         ball_detected_far_from_any_goal,
+        is_referee_initial_pose_detected,
     );
     let ball_detected_far_from_kick_off_point = ball_position
         .map(|ball| {
@@ -132,6 +137,7 @@ fn filter_game_states(
         cycle_time.start_time,
         ball_detected_far_from_kick_off_point,
         config,
+        is_referee_initial_pose_detected,
     );
 
     let filtered_opponent_game_state = opponent_state.construct_opponent_filtered_game_state(
@@ -139,6 +145,7 @@ fn filter_game_states(
         cycle_time.start_time,
         ball_detected_far_from_kick_off_point,
         config,
+        is_referee_initial_pose_detected,
     );
 
     FilteredGameStates {
@@ -155,6 +162,7 @@ fn next_filtered_state(
     cycle_start_time: SystemTime,
     config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
+    is_referee_initial_pose_detected: bool,
 ) -> State {
     match (current_state, game_controller_state.game_state) {
         (State::Finished, GameState::Initial) => State::Initial,
@@ -186,6 +194,16 @@ fn next_filtered_state(
         (_, GameState::Finished) => State::TentativeFinished {
             time_when_finished_clicked: cycle_start_time,
         },
+        (State::Initial, GameState::Initial) => {
+            if is_referee_initial_pose_detected {
+                State::Ready
+            } else {
+                State::Initial
+            }
+        }
+
+        (State::Ready, GameState::Initial) => State::Ready,
+
         (State::Initial | State::Ready, _)
         | (State::Set, GameState::Initial | GameState::Ready | GameState::Playing)
         | (
@@ -272,15 +290,15 @@ fn ball_detected_far_from_any_goal(
     }
 }
 
-fn in_kick_off_grace_period(
+fn is_in_grace_period(
     cycle_start_time: SystemTime,
-    time_entered_playing: SystemTime,
-    kick_off_grace_period: Duration,
+    start_time: SystemTime,
+    grace_period: Duration,
 ) -> bool {
     cycle_start_time
-        .duration_since(time_entered_playing)
+        .duration_since(start_time)
         .expect("Time ran backwards")
-        < kick_off_grace_period
+        < grace_period
 }
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
@@ -318,6 +336,7 @@ impl State {
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
+        is_referee_initial_pose_detected: bool,
     ) -> FilteredGameState {
         let opponent_is_kicking_team = matches!(
             game_controller_state.kicking_team,
@@ -329,6 +348,7 @@ impl State {
             cycle_start_time,
             ball_detected_far_from_kick_off_point,
             config,
+            is_referee_initial_pose_detected,
         )
     }
 
@@ -338,6 +358,7 @@ impl State {
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
+        is_referee_initial_pose_detected: bool,
     ) -> FilteredGameState {
         let hulks_is_kicking_team = matches!(game_controller_state.kicking_team, Team::Hulks);
         self.construct_filtered_game_state(
@@ -346,6 +367,7 @@ impl State {
             cycle_start_time,
             ball_detected_far_from_kick_off_point,
             config,
+            is_referee_initial_pose_detected,
         )
     }
 
@@ -356,11 +378,20 @@ impl State {
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
+        is_referee_initial_pose_detected: bool,
     ) -> FilteredGameState {
         let is_in_sub_state = game_controller_state.sub_state.is_some();
 
         match self {
-            State::Initial => FilteredGameState::Initial,
+            State::Initial => {
+                if is_referee_initial_pose_detected {
+                    FilteredGameState::Ready {
+                        kicking_team: game_controller_state.kicking_team,
+                    }
+                } else {
+                    FilteredGameState::Initial
+                }
+            }
             State::Ready => FilteredGameState::Ready {
                 kicking_team: game_controller_state.kicking_team,
             },
@@ -368,7 +399,7 @@ impl State {
             State::WhistleInSet {
                 time_when_whistle_was_detected,
             } => {
-                let kick_off_grace_period = in_kick_off_grace_period(
+                let kick_off_grace_period = is_in_grace_period(
                     cycle_start_time,
                     *time_when_whistle_was_detected,
                     config.kick_off_grace_period + config.game_controller_controller_delay,
