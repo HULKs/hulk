@@ -19,3 +19,4 @@ openvino = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }
 nalgebra = { workspace = true }
+projection =  { workspace = true }

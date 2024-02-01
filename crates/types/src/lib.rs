@@ -56,6 +56,7 @@ pub mod planned_path;
 pub mod players;
 pub mod point_of_interest;
 pub mod pose_detection;
+pub mod pose_types;
 pub mod primary_state;
 pub mod robot_dimensions;
 pub mod robot_kinematics;

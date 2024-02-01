@@ -41,20 +41,43 @@
   "camera_matrix_parameters": {
     "vision_top": {
       "camera_pitch": -1.2,
-      "extrinsic_rotations": [0, 0, 0],
-      "focal_lengths": [0.95, 1.27],
-      "cc_optical_center": [0.5, 0.5]
+      "extrinsic_rotations": [
+        0,
+        0,
+        0
+      ],
+      "focal_lengths": [
+        0.95,
+        1.27
+      ],
+      "cc_optical_center": [
+        0.5,
+        0.5
+      ]
     },
     "vision_bottom": {
       "camera_pitch": -39.7,
-      "extrinsic_rotations": [0, 0, 0],
-      "focal_lengths": [0.95, 1.27],
-      "cc_optical_center": [0.5, 0.5]
+      "extrinsic_rotations": [
+        0,
+        0,
+        0
+      ],
+      "focal_lengths": [
+        0.95,
+        1.27
+      ],
+      "cc_optical_center": [
+        0.5,
+        0.5
+      ]
     }
   },
   "foot_bumper_filter": {
     "activations_needed": 2,
-    "acceptance_duration": { "nanos": 0, "secs": 1 },
+    "acceptance_duration": {
+      "nanos": 0,
+      "secs": 1
+    },
     "buffer_size": 25,
     "number_of_detections_in_buffer_for_defective_declaration": 22,
     "number_of_detections_in_buffer_to_reset_in_use": 2,
@@ -332,10 +355,26 @@
     },
     "measurement_matching_distance": 1.0,
     "hypothesis_merge_distance": 1.0,
-    "process_noise": [0.005, 0.005, 0.2, 0.2],
-    "measurement_noise_moving": [0.5, 2.0],
-    "measurement_noise_resting": [300.0, 500.0],
-    "initial_covariance": [0.5, 0.5, 0.5, 0.5],
+    "process_noise": [
+      0.005,
+      0.005,
+      0.2,
+      0.2
+    ],
+    "measurement_noise_moving": [
+      0.5,
+      2.0
+    ],
+    "measurement_noise_resting": [
+      300.0,
+      500.0
+    ],
+    "initial_covariance": [
+      0.5,
+      0.5,
+      0.5,
+      0.5
+    ],
     "resting_ball_velocity_threshold": 0.25,
     "visible_validity_exponential_decay_factor": 0.96,
     "hidden_validity_exponential_decay_factor": 0.999,
@@ -366,12 +405,30 @@
     "feet_detection_measurement_matching_distance": 0.2,
     "goal_post_measurement_matching_distance": 0.35,
     "hypothesis_merge_distance": 0.3,
-    "process_noise": [0.005, 0.005],
-    "feet_measurement_noise": [500.0, 500.0],
-    "robot_measurement_noise": [1000.0, 1000.0],
-    "sonar_measurement_noise": [1000.0, 1000.0],
-    "network_robot_measurement_noise": [3.0, 5.0],
-    "initial_covariance": [0.25, 0.25],
+    "process_noise": [
+      0.005,
+      0.005
+    ],
+    "feet_measurement_noise": [
+      500.0,
+      500.0
+    ],
+    "robot_measurement_noise": [
+      1000.0,
+      1000.0
+    ],
+    "sonar_measurement_noise": [
+      1000.0,
+      1000.0
+    ],
+    "network_robot_measurement_noise": [
+      3.0,
+      5.0
+    ],
+    "initial_covariance": [
+      0.25,
+      0.25
+    ],
     "measurement_count_threshold": 10,
     "use_feet_detection_measurements": true,
     "use_sonar_measurements": true,
@@ -383,7 +440,10 @@
   },
   "role_assignment": {
     "forced_role": null,
-    "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs": 12 }
+    "keeper_replacementkeeper_switch_time": {
+      "nanos": 0,
+      "secs": 12
+    }
   },
   "stand_up": {
     "gyro_low_pass_filter_coefficient": 0.1,
@@ -419,10 +479,20 @@
     "arm_stiffness": 0.8,
     "backward_foot_support_offset": -0.012,
     "base_foot_lift": 0.01,
-    "base_step_duration": { "nanos": 260000000, "secs": 0 },
+    "base_step_duration": {
+      "nanos": 260000000,
+      "secs": 0
+    },
     "emergency_foot_lift": 0.03,
-    "emergency_step": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
-    "emergency_step_duration": { "nanos": 250000000, "secs": 0 },
+    "emergency_step": {
+      "forward": 0.0,
+      "left": 0.1,
+      "turn": 0.0
+    },
+    "emergency_step_duration": {
+      "nanos": 250000000,
+      "secs": 0
+    },
     "foot_pressure_threshold": 0.2,
     "forward_foot_support_offset": 0.09,
     "gyro_balance_factors": {
@@ -450,19 +520,39 @@
     "max_number_of_timeouted_steps": 3,
     "max_number_of_unstable_steps": 3,
     "max_step_adjustment": 0.0018,
-    "maximal_step_duration": { "nanos": 0, "secs": 1 },
+    "maximal_step_duration": {
+      "nanos": 0,
+      "secs": 1
+    },
     "forward_step_midpoint": 0.5,
     "left_step_midpoint": 0.4,
-    "minimal_step_duration": { "nanos": 150000000, "secs": 0 },
+    "minimal_step_duration": {
+      "nanos": 150000000,
+      "secs": 0
+    },
     "number_of_stabilizing_steps": 3,
     "stabilization_foot_lift_multiplier": 1.0,
     "stabilization_foot_lift_offset": 0.02,
     "stabilization_hysteresis": 0.001,
-    "stable_step_deviation": { "nanos": 60000000, "secs": 0 },
-    "starting_step_duration": { "nanos": 200000000, "secs": 0 },
+    "stable_step_deviation": {
+      "nanos": 60000000,
+      "secs": 0
+    },
+    "starting_step_duration": {
+      "nanos": 200000000,
+      "secs": 0
+    },
     "starting_step_foot_lift": 0.009,
-    "step_duration_increase": { "forward": 0.0, "left": 0.1, "turn": 0.1 },
-    "step_foot_lift_increase": { "forward": 0.1, "left": 0.1, "turn": 0.0 },
+    "step_duration_increase": {
+      "forward": 0.0,
+      "left": 0.1,
+      "turn": 0.1
+    },
+    "step_foot_lift_increase": {
+      "forward": 0.1,
+      "left": 0.1,
+      "turn": 0.0
+    },
     "swing_foot_imu_leveling_factor": 1.0,
     "swing_foot_pitch_error_leveling_factor": 0.9,
     "swinging_arms": {
@@ -485,8 +575,14 @@
         "shoulder_roll": -0.3,
         "wrist_yaw": -1.57
       },
-      "pulling_back_duration": { "nanos": 0, "secs": 1 },
-      "pulling_tight_duration": { "nanos": 0, "secs": 1 },
+      "pulling_back_duration": {
+        "nanos": 0,
+        "secs": 1
+      },
+      "pulling_tight_duration": {
+        "nanos": 0,
+        "secs": 1
+      },
       "roll_factor": 4,
       "torso_tilt_compensation_factor": -0.03
     },
@@ -500,81 +596,221 @@
   "kick_steps": {
     "forward": [
       {
-        "base_step": { "forward": 0.04, "left": 0.0, "turn": 0.0 },
+        "base_step": {
+          "forward": 0.04,
+          "left": 0.0,
+          "turn": 0.0
+        },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.08, "left": 0.0, "turn": 0.0 },
+        "base_step": {
+          "forward": 0.08,
+          "left": 0.0,
+          "turn": 0.0
+        },
         "hip_pitch_overrides": [
-          { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 100000000, "secs": 0 } },
-          { "value": -0.4, "timepoint": { "nanos": 150000000, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 240000000, "secs": 0 } }
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 0,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 100000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": -0.4,
+            "timepoint": {
+              "nanos": 150000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 240000000,
+              "secs": 0
+            }
+          }
         ],
         "ankle_pitch_overrides": [
-          { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 50000000, "secs": 0 } },
-          { "value": 0.1, "timepoint": { "nanos": 150000000, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 200000000, "secs": 0 } }
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 0,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 50000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.1,
+            "timepoint": {
+              "nanos": 150000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 200000000,
+              "secs": 0
+            }
+          }
         ]
       },
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.0,
+          "turn": 0.0
+        },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.0,
+          "turn": 0.0
+        },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       }
     ],
     "turn": [
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.8 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.0,
+          "turn": 0.8
+        },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.06, "left": 0.0, "turn": 0.2 },
+        "base_step": {
+          "forward": 0.06,
+          "left": 0.0,
+          "turn": 0.2
+        },
         "hip_pitch_overrides": [
-          { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 100000000, "secs": 0 } },
-          { "value": -0.4, "timepoint": { "nanos": 150000000, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 240000000, "secs": 0 } }
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 0,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 100000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": -0.4,
+            "timepoint": {
+              "nanos": 150000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 240000000,
+              "secs": 0
+            }
+          }
         ],
         "ankle_pitch_overrides": [
-          { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 50000000, "secs": 0 } },
-          { "value": 0.2, "timepoint": { "nanos": 150000000, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 200000000, "secs": 0 } }
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 0,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 50000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.2,
+            "timepoint": {
+              "nanos": 150000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 200000000,
+              "secs": 0
+            }
+          }
         ]
       },
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.0,
+          "turn": 0.0
+        },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       }
     ],
     "side": [
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.0,
+          "turn": 0.0
+        },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.0, "left": -0.12, "turn": 0.0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": -0.12,
+          "turn": 0.0
+        },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.0,
+          "turn": 0.0
+        },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.0,
+          "turn": 0.0
+        },
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       }
@@ -582,13 +818,24 @@
   },
   "localization": {
     "angle_similarity_threshold": 0.4,
-    "circle_measurement_noise": [1000.0, 1000.0],
+    "circle_measurement_noise": [
+      1000.0,
+      1000.0
+    ],
     "gradient_convergence_threshold": 1e-2,
     "gradient_descent_step_size": 0.01,
     "hypothesis_prediction_score_reduction_factor": 0.9,
     "hypothesis_retain_factor": 0.05,
     "initial_hypothesis_covariance": [
-      0.001, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.001
+      0.001,
+      0.0,
+      0.0,
+      0.0,
+      0.001,
+      0.0,
+      0.0,
+      0.0,
+      0.001
     ],
     "initial_hypothesis_score": 10.0,
     "initial_poses": {
@@ -623,7 +870,10 @@
     },
     "injected_ground_to_field_of_home_after_coin_toss_before_second_half": null,
     "line_length_acceptance_factor": 1.5,
-    "line_measurement_noise": [1000.0, 320.0],
+    "line_measurement_noise": [
+      1000.0,
+      320.0
+    ],
     "maximum_amount_of_gradient_descent_iterations": 20,
     "maximum_amount_of_outer_iterations": 10,
     "maximum_association_distance": 0.4,
@@ -632,7 +882,11 @@
     "minimal_line_length": 0.3,
     "minimum_fit_error": 0.001,
     "minimum_line_length": 0.15,
-    "odometry_noise": [0.05, 0.01, 0.008],
+    "odometry_noise": [
+      0.05,
+      0.01,
+      0.008
+    ],
     "use_line_measurements": true,
     "penalized_distance": 0.5,
     "penalized_hypothesis_covariance": [
@@ -643,7 +897,10 @@
     "hypothesis_score_base_increase": 0.1
   },
   "odometry": {
-    "odometry_scale_factor": [1.19, 1.2]
+    "odometry_scale_factor": [
+      1.19,
+      1.2
+    ]
   },
   "orientation_filter": {
     "acceleration_threshold": 0.2,
@@ -658,8 +915,14 @@
     "angular_velocity_low_pass_factor": 0.2,
     "roll_pitch_low_pass_factor": 0.2,
     "gravitational_acceleration_threshold": 4.0,
-    "falling_angle_threshold_left": [-0.52, 0.52],
-    "falling_angle_threshold_forward": [-0.45, 0.6],
+    "falling_angle_threshold_left": [
+      -0.52,
+      0.52
+    ],
+    "falling_angle_threshold_forward": [
+      -0.45,
+      0.6
+    ],
     "fallen_timeout": {
       "nanos": 0,
       "secs": 1
@@ -772,7 +1035,10 @@
       "secs": 1
     },
     "minimum_bottom_focus_pitch": 0.2,
-    "glance_center_offset_in_image": [0.0, -100.0]
+    "glance_center_offset_in_image": [
+      0.0,
+      -100.0
+    ]
   },
   "look_around": {
     "look_around_timeout": {
@@ -806,23 +1072,44 @@
   },
   "in_walk_kicks": {
     "forward": {
-      "position": [-0.23, 0.05],
+      "position": [
+        -0.23,
+        0.05
+      ],
       "orientation": 0.0,
-      "reached_thresholds": [0.06, 0.03, 0.1],
+      "reached_thresholds": [
+        0.06,
+        0.03,
+        0.1
+      ],
       "shot_distance": 4.0,
       "enabled": true
     },
     "turn": {
-      "position": [-0.176, 0.09],
+      "position": [
+        -0.176,
+        0.09
+      ],
       "orientation": -1.0,
-      "reached_thresholds": [0.04, 0.04, 0.1],
+      "reached_thresholds": [
+        0.04,
+        0.04,
+        0.1
+      ],
       "shot_distance": 3.5,
       "enabled": true
     },
     "side": {
-      "position": [-0.2, -0.02],
+      "position": [
+        -0.2,
+        -0.02
+      ],
       "orientation": -1.57,
-      "reached_thresholds": [0.05, 0.06, 0.1],
+      "reached_thresholds": [
+        0.05,
+        0.06,
+        0.1
+      ],
       "shot_distance": 0.5,
       "enabled": true
     }
@@ -836,7 +1123,13 @@
     "find_kick_targets": {
       "distance_from_corner": 1.5,
       "corner_kick_target_distance_to_goal": 1.3,
-      "emergency_kick_target_angles": [-0.52, -0.26, 0.0, 0.26, 0.52],
+      "emergency_kick_target_angles": [
+        -0.52,
+        -0.26,
+        0.0,
+        0.26,
+        0.52
+      ],
       "max_kick_around_obstacle_angle": 1.0,
       "ball_radius_for_kick_target_selection": 0.15
     },
@@ -868,7 +1161,10 @@
       "striker_supporter_minimum_x": 2.0,
       "keeper_x_offset": 0.1,
       "striker_distance_to_non_free_center_circle": 0.4,
-      "striker_set_position": [-0.3, 0.0]
+      "striker_set_position": [
+        -0.3,
+        0.0
+      ]
     },
     "dribbling": {
       "hybrid_align_distance": 2.0,
@@ -877,13 +1173,22 @@
       "ignore_robot_when_near_ball_radius": 0.6
     },
     "walk_and_stand": {
-      "hysteresis": [0.05, 0.05],
-      "target_reached_thresholds": [0.02, 0.05],
+      "hysteresis": [
+        0.05,
+        0.05
+      ],
+      "target_reached_thresholds": [
+        0.02,
+        0.05
+      ],
       "hybrid_align_distance": 1.0,
       "distance_to_be_aligned": 0.05
     },
     "lost_ball": {
-      "offset_to_last_ball_location": [1.0, 0.0]
+      "offset_to_last_ball_location": [
+        1.0,
+        0.0
+      ]
     },
     "path_planning": {
       "robot_radius_at_hip_height": 0.15,
@@ -906,7 +1211,10 @@
     "look_action": {
       "angle_threshold": 0.95,
       "distance_threshold": 3.0,
-      "look_forward_position": [1.0, 0.0],
+      "look_forward_position": [
+        1.0,
+        0.0
+      ],
       "position_of_interest_switch_interval": {
         "nanos": 0,
         "secs": 1
@@ -946,7 +1254,10 @@
       "secs": 4
     },
     "distance_to_consider_ball_moved_in_kick_off": 0.3,
-    "whistle_acceptance_goal_distance": [0.5, 0.5]
+    "whistle_acceptance_goal_distance": [
+      0.5,
+      0.5
+    ]
   },
   "ground_contact_detector": {
     "pressure_threshold": 0.6,
@@ -967,79 +1278,339 @@
       "enable": true
     },
     "torso_bounding_polygon": [
-      [0, -0.09799999743700027, 0.23499999940395355],
-      [-0.03500000014901161, -0.09799999743700027, 0.2199999988079071],
-      [-0.05999999865889549, -0.09799999743700027, 0.17000000178813934],
-      [-0.05000000074505806, -0.07000000029802322, 0.17000000178813934],
-      [-0.05000000074505806, -0.05000000074505806, 0.17000000178813934],
-      [-0.05000000074505806, -0.029999999329447743, 0.17000000178813934],
-      [-0.05000000074505806, 0, 0.17000000178813934],
-      [-0.05000000074505806, 0.029999999329447743, 0.17000000178813934],
-      [-0.05000000074505806, 0.05000000074505806, 0.17000000178813934],
-      [-0.05000000074505806, 0.07000000029802322, 0.17000000178813934],
-      [-0.05999999865889549, 0.09799999743700027, 0.17000000178813934],
-      [-0.03500000014901161, 0.09799999743700027, 0.2199999988079071],
-      [0, 0.09799999743700027, 0.23499999940395355],
-      [0.03500000014901161, 0.09799999743700027, 0.2199999988079071],
-      [0.05999999865889549, 0.09799999743700027, 0.17000000178813934],
-      [0.03650000074505806, 0.06000000029802322, 0.1850000059604645],
-      [0.06000000029802322, 0.03500000014901161, 0.15000000596046448],
-      [0.06300000029802322, 0, 0.15000000596046448],
-      [0.06000000029802322, -0.03500000014901161, 0.15000000596046448],
-      [0.05000000074505806, -0.07000000029802322, 0.15000000596046448],
-      [0.05999999865889549, -0.09799999743700027, 0.17000000178813934],
-      [0.03500000014901161, -0.09799999743700027, 0.2199999988079071],
-      [0, -0.09799999743700027, 0.23499999940395355]
+      [
+        0,
+        -0.09799999743700027,
+        0.23499999940395355
+      ],
+      [
+        -0.03500000014901161,
+        -0.09799999743700027,
+        0.2199999988079071
+      ],
+      [
+        -0.05999999865889549,
+        -0.09799999743700027,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        -0.07000000029802322,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        -0.05000000074505806,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        -0.029999999329447743,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        0,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        0.029999999329447743,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        0.05000000074505806,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        0.07000000029802322,
+        0.17000000178813934
+      ],
+      [
+        -0.05999999865889549,
+        0.09799999743700027,
+        0.17000000178813934
+      ],
+      [
+        -0.03500000014901161,
+        0.09799999743700027,
+        0.2199999988079071
+      ],
+      [
+        0,
+        0.09799999743700027,
+        0.23499999940395355
+      ],
+      [
+        0.03500000014901161,
+        0.09799999743700027,
+        0.2199999988079071
+      ],
+      [
+        0.05999999865889549,
+        0.09799999743700027,
+        0.17000000178813934
+      ],
+      [
+        0.03650000074505806,
+        0.06000000029802322,
+        0.1850000059604645
+      ],
+      [
+        0.06000000029802322,
+        0.03500000014901161,
+        0.15000000596046448
+      ],
+      [
+        0.06300000029802322,
+        0,
+        0.15000000596046448
+      ],
+      [
+        0.06000000029802322,
+        -0.03500000014901161,
+        0.15000000596046448
+      ],
+      [
+        0.05000000074505806,
+        -0.07000000029802322,
+        0.15000000596046448
+      ],
+      [
+        0.05999999865889549,
+        -0.09799999743700027,
+        0.17000000178813934
+      ],
+      [
+        0.03500000014901161,
+        -0.09799999743700027,
+        0.2199999988079071
+      ],
+      [
+        0,
+        -0.09799999743700027,
+        0.23499999940395355
+      ]
     ],
     "lower_arm_bounding_polygon": [
-      [-0.06, 0.03, 0],
-      [-0.06, 0.0225, 0.0225],
-      [-0.06, 0, 0.03],
-      [-0.06, -0.0225, 0.0225],
-      [-0.06, -0.03, 0],
-      [-0.06, -0.0225, -0.0225],
-      [-0.06, 0, -0.03],
-      [-0.06, 0.0225, -0.0225],
-      [-0.06, 0.03, 0],
-      [0.085, 0.045, 0],
-      [0.085, 0.0325, 0.0325],
-      [0.085, 0, 0.045],
-      [0.085, -0.0325, 0.0325],
-      [0.085, -0.045, 0],
-      [0.085, -0.0325, -0.0325],
-      [0.085, 0, -0.045],
-      [0.085, 0.0325, -0.0325],
-      [0.085, 0.045, 0]
+      [
+        -0.06,
+        0.03,
+        0
+      ],
+      [
+        -0.06,
+        0.0225,
+        0.0225
+      ],
+      [
+        -0.06,
+        0,
+        0.03
+      ],
+      [
+        -0.06,
+        -0.0225,
+        0.0225
+      ],
+      [
+        -0.06,
+        -0.03,
+        0
+      ],
+      [
+        -0.06,
+        -0.0225,
+        -0.0225
+      ],
+      [
+        -0.06,
+        0,
+        -0.03
+      ],
+      [
+        -0.06,
+        0.0225,
+        -0.0225
+      ],
+      [
+        -0.06,
+        0.03,
+        0
+      ],
+      [
+        0.085,
+        0.045,
+        0
+      ],
+      [
+        0.085,
+        0.0325,
+        0.0325
+      ],
+      [
+        0.085,
+        0,
+        0.045
+      ],
+      [
+        0.085,
+        -0.0325,
+        0.0325
+      ],
+      [
+        0.085,
+        -0.045,
+        0
+      ],
+      [
+        0.085,
+        -0.0325,
+        -0.0325
+      ],
+      [
+        0.085,
+        0,
+        -0.045
+      ],
+      [
+        0.085,
+        0.0325,
+        -0.0325
+      ],
+      [
+        0.085,
+        0.045,
+        0
+      ]
     ],
     "upper_arm_bounding_polygon": [
-      [0, 0.029999999329447746, 0],
-      [0, 0.02250000089406967, 0.02250000089406967],
-      [0, 0, 0.029999999329447746],
-      [0, -0.02250000089406967, 0.02250000089406967],
-      [0, -0.029999999329447746, 0],
-      [0, -0.02250000089406967, -0.02250000089406967],
-      [0, 0, -0.029999999329447746],
-      [0, 0.02250000089406967, -0.02250000089406967],
-      [0, 0.029999999329447746, 0],
-      [-0.12, 0.029999999329447746, 0],
-      [-0.12, 0.02250000089406967, 0.02250000089406967],
-      [-0.12, 0, 0.029999999329447746],
-      [-0.12, -0.02250000089406967, 0.02250000089406967],
-      [-0.12, -0.029999999329447746, 0],
-      [-0.12, -0.02250000089406967, -0.02250000089406967],
-      [-0.12, 0, -0.029999999329447746],
-      [-0.12, 0.02250000089406967, -0.02250000089406967],
-      [-0.12, 0.029999999329447746, 0]
+      [
+        0,
+        0.029999999329447746,
+        0
+      ],
+      [
+        0,
+        0.02250000089406967,
+        0.02250000089406967
+      ],
+      [
+        0,
+        0,
+        0.029999999329447746
+      ],
+      [
+        0,
+        -0.02250000089406967,
+        0.02250000089406967
+      ],
+      [
+        0,
+        -0.029999999329447746,
+        0
+      ],
+      [
+        0,
+        -0.02250000089406967,
+        -0.02250000089406967
+      ],
+      [
+        0,
+        0,
+        -0.029999999329447746
+      ],
+      [
+        0,
+        0.02250000089406967,
+        -0.02250000089406967
+      ],
+      [
+        0,
+        0.029999999329447746,
+        0
+      ],
+      [
+        -0.12,
+        0.029999999329447746,
+        0
+      ],
+      [
+        -0.12,
+        0.02250000089406967,
+        0.02250000089406967
+      ],
+      [
+        -0.12,
+        0,
+        0.029999999329447746
+      ],
+      [
+        -0.12,
+        -0.02250000089406967,
+        0.02250000089406967
+      ],
+      [
+        -0.12,
+        -0.029999999329447746,
+        0
+      ],
+      [
+        -0.12,
+        -0.02250000089406967,
+        -0.02250000089406967
+      ],
+      [
+        -0.12,
+        0,
+        -0.029999999329447746
+      ],
+      [
+        -0.12,
+        0.02250000089406967,
+        -0.02250000089406967
+      ],
+      [
+        -0.12,
+        0.029999999329447746,
+        0
+      ]
     ],
     "knee_bounding_polygon": [
-      [0.05, 0.05, -0.1],
-      [0.08, 0, -0.1],
-      [0.05, -0.05, -0.1]
+      [
+        0.05,
+        0.05,
+        -0.1
+      ],
+      [
+        0.08,
+        0,
+        -0.1
+      ],
+      [
+        0.05,
+        -0.05,
+        -0.1
+      ]
     ],
     "foot_bounding_polygon": [
-      [0.1, 0.06, 0.02],
-      [0.12, 0, 0.02],
-      [0.1, -0.06, 0.02]
+      [
+        0.1,
+        0.06,
+        0.02
+      ],
+      [
+        0.12,
+        0,
+        0.02
+      ],
+      [
+        0.1,
+        -0.06,
+        0.02
+      ]
     ]
   },
   "message_receiver": {
