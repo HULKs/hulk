@@ -38,8 +38,8 @@ impl<OnChange> eframe::App for ReplayerApplication<OnChange>
 where
     OnChange: FnMut(SystemTime),
 {
-    fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
-        CentralPanel::default().show(ctx, |ui| {
+    fn update(&mut self, context: &Context, _frame: &mut Frame) {
+        CentralPanel::default().show(context, |ui| {
             ui.heading("Replayer");
             ui.horizontal(|ui| {
                 ui.style_mut().spacing.slider_width = ui.available_size().x - 100.0;
