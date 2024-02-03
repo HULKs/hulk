@@ -32,3 +32,5 @@ target/
 rust-toolchain.toml
 
 site/
+
+logs/
