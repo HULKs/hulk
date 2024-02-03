@@ -176,7 +176,7 @@ fn sort_nodes(
     output_to_node: &BTreeMap<String, usize>,
     existing_output_names: &BTreeSet<OutputName>,
 ) -> Result<Vec<Node>, Error> {
-    let mut graph = IndexGraph::with_vertices(nodes.len());
+    let mut dependencies = IndexGraph::with_vertices(nodes.len());
     for (node_index, node) in nodes.iter().enumerate() {
         for dependency in node
             .contexts
@@ -210,11 +210,11 @@ fn sort_nodes(
                     })
                 }
             };
-            graph.add_edge(producing_node_index, node_index);
+            dependencies.add_edge(producing_node_index, node_index);
         }
     }
 
-    graph
+    dependencies
         .toposort()
         .map(|node_indices| {
             node_indices
