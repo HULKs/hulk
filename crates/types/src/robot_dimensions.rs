@@ -4,7 +4,7 @@ use nalgebra::{vector, Vector3};
 pub struct RobotDimensions {}
 
 impl RobotDimensions {
-    pub const ROBOT_TO_TORSO: Vector3<f32> = vector![0.0413, 0.0, 0.12842];
+    pub const ROBOT_TO_TORSO: Vector3<f32> = vector![-0.00413, 0.0, 0.12842];
     pub const ROBOT_TO_NECK: Vector3<f32> = vector![0.0, 0.0, 0.2115];
     pub const ROBOT_TO_LEFT_PELVIS: Vector3<f32> = vector![0.0, 0.05, 0.0];
     pub const ROBOT_TO_RIGHT_PELVIS: Vector3<f32> = vector![0.0, -0.05, 0.0];
