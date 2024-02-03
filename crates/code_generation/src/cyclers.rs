@@ -423,11 +423,11 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
         .cycle_nodes
         .iter()
         .map(|node| generate_node_execution(node, cycler, NodeType::Cycle, mode));
-    let cross_inputs = get_cross_inputs(cycler);
+    let cross_input_fields = get_cross_input_fields(cycler);
     let cross_inputs = match mode {
         Execution::None => Default::default(),
-        Execution::Run => generate_cross_inputs_recording(cycler, cross_inputs),
-        Execution::Replay => generate_cross_inputs_extraction(cross_inputs),
+        Execution::Run => generate_cross_inputs_recording(cycler, cross_input_fields),
+        Execution::Replay => generate_cross_inputs_extraction(cross_input_fields),
     };
 
     let pre_setup = match mode {
@@ -553,7 +553,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
     }
 }
 
-fn get_cross_inputs(cycler: &Cycler) -> BTreeSet<Field> {
+fn get_cross_input_fields(cycler: &Cycler) -> BTreeSet<Field> {
     cycler
         .setup_nodes
         .iter()
