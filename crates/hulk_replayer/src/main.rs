@@ -64,7 +64,7 @@ impl ActuatorInterface for ReplayerHardwareInterface {
 
 impl CameraInterface for ReplayerHardwareInterface {
     fn read_from_camera(&self, _camera_position: CameraPosition) -> Result<YCbCr422Image> {
-        Ok(YCbCr422Image::zero(0, 0))
+        panic!("Replayer cannot produce data from hardware")
     }
 }
 
@@ -76,16 +76,13 @@ impl IdInterface for ReplayerHardwareInterface {
 
 impl MicrophoneInterface for ReplayerHardwareInterface {
     fn read_from_microphones(&self) -> Result<Samples> {
-        Ok(Samples {
-            rate: 44100,
-            channels_of_samples: Arc::new(Vec::new()),
-        })
+        panic!("Replayer cannot produce data from hardware")
     }
 }
 
 impl NetworkInterface for ReplayerHardwareInterface {
     fn read_from_network(&self) -> Result<IncomingMessage> {
-        Ok(Default::default())
+        panic!("Replayer cannot produce data from hardware")
     }
     fn write_to_network(&self, _message: OutgoingMessage) -> Result<()> {
         Ok(())
@@ -111,7 +108,7 @@ impl RecordingInterface for ReplayerHardwareInterface {
 
 impl SensorInterface for ReplayerHardwareInterface {
     fn read_from_sensors(&self) -> Result<SensorData> {
-        Ok(Default::default())
+        panic!("Replayer cannot produce data from hardware")
     }
 }
 
