@@ -30,7 +30,6 @@ impl RecordingIndex {
         let end_of_file_offset = recording_file
             .stream_position()
             .wrap_err("failed to get stream position of end of file")?;
-        dbg!(end_of_file_offset);
         recording_file.rewind().wrap_err("failed to rewind file")?;
 
         let mut offset = 0;
@@ -43,7 +42,6 @@ impl RecordingIndex {
                 .stream_position()
                 .wrap_err("failed to get stream position")?
                 - offset;
-            dbg!(offset, timestamp, length, header_offset);
             recording_file
                 .seek(SeekFrom::Current(length as i64))
                 .wrap_err("failed to seek to end of data")?;
