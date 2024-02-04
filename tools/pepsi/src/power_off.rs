@@ -27,18 +27,24 @@ pub async fn power_off(arguments: Arguments) -> Result<()> {
         .iter()
         .any(|address| matches!(address, AddressOrAll::All))
     {
-        let nao_numbers = HARDWARE_IDS.keys();
-
-        nao_numbers
-            .into_iter()
-            .map(|nao_number| async move {
-                if let Ok(nao) = try_from_number(*nao_number).await {
-                    nao.power_off().await.err();
-                }
-            })
+        let addresses = HARDWARE_IDS
+            .keys()
+            .map(|&nao_number| async move { try_from_number(nao_number).await })
             .collect::<FuturesUnordered<_>>()
             .collect::<Vec<_>>()
             .await;
+
+        ProgressIndicator::map_tasks(
+            addresses.into_iter().filter_map(|nao| nao.ok()),
+            "Powering off...",
+            |nao, _progress_bar| async move {
+                let nao = Nao::try_new_with_ping(nao.host).await?;
+                nao.power_off()
+                    .await
+                    .wrap_err_with(|| format!("failed to power {nao} off"))
+            },
+        )
+        .await;
     } else {
         let addresses = arguments.naos.iter().filter_map(|address| match address {
             AddressOrAll::Address(address) => Some(address),
