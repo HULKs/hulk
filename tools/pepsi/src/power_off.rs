@@ -29,7 +29,16 @@ pub async fn power_off(arguments: Arguments) -> Result<()> {
     {
         let addresses = HARDWARE_IDS
             .keys()
-            .map(|&nao_number| async move { try_from_number(nao_number).await })
+            .map(|&nao_number| async move {
+                let host = number_to_ip(nao_number, Connection::Wired)?;
+                match Nao::try_new_with_ping(host).await {
+                    Ok(nao) => Ok(nao),
+                    Err(_) => {
+                        let host = number_to_ip(nao_number, Connection::Wireless)?;
+                        Nao::try_new_with_ping(host).await
+                    }
+                }
+            })
             .collect::<FuturesUnordered<_>>()
             .collect::<Vec<_>>()
             .await;
@@ -64,16 +73,6 @@ pub async fn power_off(arguments: Arguments) -> Result<()> {
         .await;
     }
     Ok(())
-}
-
-pub async fn try_from_number(nao_number: u8) -> Result<Nao> {
-    let host = number_to_ip(nao_number, Connection::Wired)?;
-    if let Ok(nao) = Nao::try_new_with_ping(host).await {
-        Ok(nao)
-    } else {
-        let host = number_to_ip(nao_number, Connection::Wireless)?;
-        Nao::try_new_with_ping(host).await
-    }
 }
 
 #[derive(Clone)]
