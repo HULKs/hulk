@@ -192,7 +192,6 @@ fn median_of_three(values: [u8; 3]) -> u8 {
 }
 
 fn median_of_five(mut values: [u8; 5]) -> u8 {
-    // let mut values = [first, second, third, fourth, fifth];
     let (_, median, _) = values.select_nth_unstable(2);
     *median
 }
