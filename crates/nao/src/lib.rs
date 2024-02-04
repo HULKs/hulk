@@ -1,5 +1,5 @@
 use std::{
-    fmt::{self, Display, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     net::Ipv4Addr,
     path::Path,
     process::Stdio,
@@ -379,6 +379,12 @@ impl Nao {
         monitor_rsync_progress_with(rsync, progress_callback).await?;
 
         self.reboot().await
+    }
+}
+
+impl Display for Nao {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.host, formatter)
     }
 }
 
