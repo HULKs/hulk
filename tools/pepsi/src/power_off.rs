@@ -84,11 +84,11 @@ pub enum AddressOrAll {
 impl FromStr for AddressOrAll {
     type Err = Report;
 
-    fn from_str(s: &str) -> Result<Self> {
-        if s == "all" {
+    fn from_str(string: &str) -> Result<Self> {
+        if string == "all" {
             Ok(Self::All)
         } else {
-            Ok(Self::Address(NaoAddress::from_str(s)?))
+            Ok(Self::Address(NaoAddress::from_str(string)?))
         }
     }
 }
